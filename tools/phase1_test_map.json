@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase1",
   "note": "Phase 1 authoritative execution manifest. Support-only harness and smoke coverage stays outside this map.",
   "ledger": {
@@ -106,7 +106,13 @@
       "execution_label": "backend-unit support phase1",
       "evidence_class": "implementation_support",
       "layer": "backend_unit",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "backend_unit::internal/modules/auth/phase1_support_test.go::TestSupportPhase1_",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "low"
     },
     {
       "target": "backend_integration_support",
@@ -138,7 +144,14 @@
           "max_template_clones": 36
         }
       },
-      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database."
+      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database.",
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "backend_integration_support::internal/modules/auth/phase1_support_integration_test.go::TestSupportPhase1_",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
     }
   ],
   "unit": [
@@ -157,7 +170,13 @@
       "execution_label": "backend-unit phase1 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-1-02",
@@ -174,7 +193,13 @@
       "execution_label": "backend-unit phase1 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-1-03",
@@ -191,7 +216,13 @@
       "execution_label": "backend-unit phase1 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-1-04",
@@ -208,7 +239,13 @@
       "execution_label": "backend-unit phase1 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-04",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-1-05",
@@ -233,7 +270,13 @@
         "postgres": {
           "max_transactions": 8
         }
-      }
+      },
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-05",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed"
     },
     {
       "id": "U-1-06",
@@ -258,7 +301,13 @@
         "postgres": {
           "max_transactions": 8
         }
-      }
+      },
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-06",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed"
     },
     {
       "id": "U-1-07",
@@ -275,7 +324,13 @@
       "execution_label": "backend-unit phase1 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-07",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-1-08",
@@ -300,7 +355,13 @@
         "postgres": {
           "max_transactions": 8
         }
-      }
+      },
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-08",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed"
     },
     {
       "id": "U-1-09",
@@ -317,7 +378,13 @@
       "execution_label": "backend-unit phase1 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-09",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-1-10",
@@ -334,7 +401,13 @@
       "execution_label": "backend-unit phase1 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-10",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-1-11",
@@ -351,7 +424,13 @@
       "execution_label": "backend-unit phase1 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-11",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-1-12",
@@ -368,7 +447,13 @@
       "execution_label": "backend-unit phase1 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-12",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-1-13",
@@ -385,7 +470,13 @@
       "execution_label": "backend-unit phase1 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-13",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-1-14",
@@ -399,7 +490,13 @@
       "out_of_scope": "Real cookies, durable session rows, and route-owned invalid-credential cases remain integration or browser evidence.",
       "evidence_class": "product_conformance",
       "layer": "frontend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-14",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-1-15",
@@ -413,7 +510,13 @@
       "out_of_scope": "Real bootstrap-token issuance and later login with an enrolled factor remain browser E2E evidence.",
       "evidence_class": "product_conformance",
       "layer": "frontend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-15",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-1-16",
@@ -427,7 +530,13 @@
       "out_of_scope": "Real session revocation, credential persistence, and replacement-enrollment storage remain integration or browser evidence.",
       "evidence_class": "product_conformance",
       "layer": "frontend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-16",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-1-17",
@@ -441,7 +550,13 @@
       "out_of_scope": "Durable patch persistence, audit rows, and deployment-admin authorization re-derivation remain backend integration evidence.",
       "evidence_class": "product_conformance",
       "layer": "frontend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-1-17",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     }
   ],
   "integration": [
@@ -469,7 +584,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-1-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-1-02",
@@ -495,7 +617,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-1-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-1-03",
@@ -525,7 +654,14 @@
           "max_template_clones": 12
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-1-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-1-04",
@@ -556,7 +692,14 @@
           "max_template_clones": 16
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-1-04",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-1-05",
@@ -587,7 +730,14 @@
           "max_template_clones": 16
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-1-05",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-1-06",
@@ -613,7 +763,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-1-06",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     }
   ],
   "e2e": [
@@ -630,7 +787,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-1-01",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-1-02",
@@ -645,7 +808,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-1-02",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-1-03",
@@ -660,7 +829,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-1-03",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-1-04",
@@ -675,7 +850,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_stateful",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "full_target_equivalent",
+      "default_check_reason_code": "full_target_equivalent_stateful",
+      "primary_evidence_owner": "E-1-04",
+      "duplicate_of": null,
+      "evidence_delta": "stateful browser behavior requires isolated runtime evidence",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-1-05",
@@ -690,7 +871,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_stateful",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "full_target_equivalent",
+      "default_check_reason_code": "full_target_equivalent_stateful",
+      "primary_evidence_owner": "E-1-05",
+      "duplicate_of": null,
+      "evidence_delta": "stateful browser behavior requires isolated runtime evidence",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-1-06",
@@ -705,7 +892,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-1-06",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-1-07",
@@ -720,7 +913,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-1-07",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-1-08",
@@ -735,7 +934,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-1-08",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-1-09",
@@ -750,7 +955,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-1-09",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-1-10",
@@ -765,7 +976,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-1-10",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-1-11",
@@ -780,7 +997,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-1-11",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-1-12",
@@ -795,7 +1018,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-1-12",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-1-SUPPORT-01",
@@ -809,7 +1038,13 @@
       "out_of_scope": "This support row does not change Core product behavior, FE-P2 incident-admin selector ownership, accessibility evidence, or visual-golden evidence.",
       "evidence_class": "implementation_support",
       "layer": "browser_support",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "E-1-SUPPORT-01",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "E-1-SMOKE-01",
@@ -843,7 +1078,15 @@
         "postgres": {
           "max_template_clones": 32
         }
-      }
+      },
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "E-1-SMOKE-01",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason": "Process lifecycle coverage starts real runtime binaries and requires isolated database state.",
+      "template_clone_reason_code": "process_lifecycle"
     }
   ],
   "visual": []

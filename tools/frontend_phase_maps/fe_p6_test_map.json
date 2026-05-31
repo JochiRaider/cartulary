@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.frontend_phase_test_map.v1",
+  "schema_id": "cartulary.frontend_phase_test_map.v2",
   "phase_namespace": "frontend",
   "phase_id": "FE-P6",
   "rows": [
@@ -53,7 +53,13 @@
       "claim": "Verify evidence state view models cover requested, pending upload, available, preview blocked, failed, inconsistent, and count-display states.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-U-P6-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "FE-I-P6-01",
@@ -102,7 +108,13 @@
       "claim": "Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-I-P6-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-E-P6-01",
@@ -166,7 +178,13 @@
       "claim": "Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-E-P6-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-V-P6-01",
@@ -193,7 +211,13 @@
       "claim_status": "blocked",
       "claim": "Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-V-P6-01",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-A11Y-P6-01",
@@ -222,7 +246,13 @@
       "claim_status": "blocked",
       "claim": "Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-A11Y-P6-01",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     }
   ]
 }

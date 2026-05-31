@@ -424,7 +424,9 @@ const expectedBrowser = [
   webserverBackedStage.target,
   ...(isolatedStage.summaryChildren.length > 0 ? isolatedStage.summaryChildren : [isolatedStage.target]),
 ].sort();
-const expectedCheckBrowser = expectedBrowser.filter((target) => target !== "browser-e2e-measurement").sort();
+const expectedCheckBrowser = expectedBrowser
+  .filter((target) => !["browser-e2e-measurement", "browser-e2e-visual", "browser-e2e-a11y"].includes(target))
+  .sort();
 const expectedBackend = ["backend-integration", "backend-integration-support", "backend-process", "backend-store"];
 const expectedCheckBackend = expectedBackend.filter((target) => target !== "backend-integration-support");
 const testGroups = resolveSummaryGroups(context, manifest.sequences?.test?.summary_groups ?? []);
@@ -452,8 +454,11 @@ for (const [target, browserTargets] of [
       throw new Error(`${target} service-backed schedule must include ${child}`);
     }
   }
-  if (target === "check-service-backed" && children.includes("browser-e2e-measurement")) {
-    throw new Error("check-service-backed service-backed schedule must exclude ordinary measurement");
+  if (
+    target === "check-service-backed" &&
+    ["browser-e2e-measurement", "browser-e2e-visual", "browser-e2e-a11y"].some((excluded) => children.includes(excluded))
+  ) {
+    throw new Error("check-service-backed service-backed schedule must exclude ordinary measurement, visual, and accessibility browser work");
   }
   if (children.includes(isolatedStage.target)) {
     throw new Error(`${target} service-backed schedule must not include aggregate ${isolatedStage.target}`);
@@ -656,8 +661,6 @@ function assertBrowserWorkerSlots(units, label) {
 const expectedBrowserCompletions = [
   "browser-e2e-webserver-backed",
   "browser-e2e-stateful",
-  "browser-e2e-visual",
-  "browser-e2e-a11y",
 ];
 const browserSessions = (schedule.work_units ?? []).filter((entry) =>
   entry.kind === "browser_stage_session" &&
@@ -684,7 +687,7 @@ for (const session of [sharedSession, statefulSession]) {
     throw new Error(`${session.label} browser stage session must not retain broad Postgres or MinIO claims`);
   }
 }
-for (const resource of ["browser_stage_webserver_backed", "browser_stage_visual_smoke", "browser_stage_a11y"]) {
+for (const resource of ["browser_stage_webserver_backed"]) {
   if (sharedSession.retained_resource_claims?.[resource] !== 1) {
     throw new Error(`shared default browser session must retain ${resource}`);
   }
@@ -761,6 +764,11 @@ const measurementSession = (schedule.work_units ?? []).find((entry) =>
 if (measurementSession) {
   throw new Error("default local check must not include browser-e2e-measurement stage work");
 }
+for (const excludedTarget of ["browser-e2e-visual", "browser-e2e-a11y"]) {
+  if ((schedule.work_units ?? []).some((entry) => entry.target === excludedTarget && entry.service_session?.target === "check-service-backed")) {
+    throw new Error(`default local check must not include ${excludedTarget} stage work`);
+  }
+}
 const webserverComplete = (schedule.work_units ?? []).find((entry) =>
   entry.target === "browser-e2e-webserver-backed" && entry.kind === "browser_stage_complete"
 );
@@ -769,26 +777,14 @@ const actualWebserverCompleteNeeds = [...(webserverComplete?.needs ?? [])].sort(
 if (JSON.stringify(actualWebserverCompleteNeeds) !== JSON.stringify(expectedWebserverCompleteNeeds)) {
   throw new Error("browser-e2e-webserver-backed completion must depend only on webserver-backed browser groups");
 }
-const visualComplete = (schedule.work_units ?? []).find((entry) =>
-  entry.target === "browser-e2e-visual" && entry.kind === "browser_stage_complete"
-);
-if (JSON.stringify([...(visualComplete?.needs ?? [])].sort()) !== JSON.stringify(["browser_group:browser-e2e-visual:visual-smoke"])) {
-  throw new Error("browser-e2e-visual projection completion must depend only on visual-smoke evidence");
-}
-const a11yComplete = (schedule.work_units ?? []).find((entry) =>
-  entry.target === "browser-e2e-a11y" && entry.kind === "browser_stage_complete"
-);
-if (JSON.stringify([...(a11yComplete?.needs ?? [])].sort()) !== JSON.stringify(["browser_group:browser-e2e-a11y:a11y"])) {
-  throw new Error("browser-e2e-a11y projection completion must depend only on a11y evidence");
-}
 const sharedSessionFinalizer = (schedule.work_units ?? []).find((entry) =>
   entry.kind === "browser_session_finalizer" &&
   entry.browser_session_group === "default-check-browser-shared"
 );
-if (!sharedSessionFinalizer) {
-  throw new Error("shared default browser session must have a scheduler-level finalizer");
-}
-if (JSON.stringify([...(sharedSessionFinalizer.needs ?? [])].sort()) !== JSON.stringify([...sharedBrowserGroupKeys].sort())) {
+if (
+  sharedSessionFinalizer &&
+  JSON.stringify([...(sharedSessionFinalizer.needs ?? [])].sort()) !== JSON.stringify([...sharedBrowserGroupKeys].sort())
+) {
   throw new Error("shared default browser session finalizer must wait for every shared browser group");
 }
 if ((schedule.work_units ?? []).some((entry) =>
@@ -948,8 +944,8 @@ const visualSmoke = byName.get("visual-smoke");
 if (!visualSmoke) {
   throw new Error("missing visual-smoke stage");
 }
-if (!(visualSmoke.schedule_tags ?? []).includes("service_backed_check")) {
-  throw new Error("visual-smoke must be tagged service_backed_check");
+if ((visualSmoke.schedule_tags ?? []).includes("service_backed_check")) {
+  throw new Error("visual-smoke must not be tagged service_backed_check");
 }
 if ((visualSmoke.schedule_tags ?? []).includes("service_backed_full")) {
   throw new Error("visual-smoke must not be tagged service_backed_full");
@@ -1252,7 +1248,7 @@ const fs = require("fs");
 const path = require("path");
 
 const root = process.argv[2];
-const phaseSchemaID = "cartulary.phase_test_map.v1";
+const phaseSchemaID = "cartulary.phase_test_map.v2";
 for (const phaseEntry of manifestPhases()) {
   const manifest = JSON.parse(
     fs.readFileSync(path.join(root, phaseEntry.manifest_path), "utf8"),

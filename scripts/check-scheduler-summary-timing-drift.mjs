@@ -6,7 +6,6 @@ import { collectGoShardPlan } from "./lib/go-shard-plan.mjs";
 import { validateSchedulerSummaryTiming } from "./lib/scheduler/summary-timing-drift.mjs";
 
 const warmBalanceMaterialSkewMs = 5000;
-const warmBrowserVisualBudgetMs = 35000;
 const warmPackageResetCountBudget = 30;
 const warmPackageResetDurationBudgetMs = 60000;
 const warmReadinessThresholds = new Map([
@@ -306,15 +305,19 @@ function validateWarmCheckStream(eventsFile, options) {
     }
   }
 
-  const measurementUnit = events.find((event) =>
+  const forbiddenBrowserUnit = events.find((event) =>
     typeof event.work_unit_id === "string" &&
     event.work_unit_id.startsWith("check-service-backed:") &&
     (event.work_unit_id.includes("browser-e2e-measurement") ||
-      event.work_unit_id.includes("browser-stage-session:measurement")),
+      event.work_unit_id.includes("browser-stage-session:measurement") ||
+      event.work_unit_id.includes("browser-e2e-visual") ||
+      event.work_unit_id.includes("browser-stage-session:visual") ||
+      event.work_unit_id.includes("browser-e2e-a11y") ||
+      event.work_unit_id.includes("browser-stage-session:a11y")),
   );
-  if (measurementUnit) {
+  if (forbiddenBrowserUnit) {
     errors.push(
-      `${eventsFile}: default warm check includes ordinary browser measurement unit ${measurementUnit.work_unit_id}`,
+      `${eventsFile}: default warm check includes explicit browser evidence unit ${forbiddenBrowserUnit.work_unit_id}`,
     );
   }
 
@@ -325,7 +328,6 @@ function validateWarmCheckStream(eventsFile, options) {
   const isolatedGoShards = goShardIsolationIDs();
   const backendByFamily = new Map();
   const browserFunctional = [];
-  const browserVisual = [];
   for (const event of events) {
     if (event.event !== "finish" || typeof event.work_unit_id !== "string") {
       continue;
@@ -363,12 +365,6 @@ function validateWarmCheckStream(eventsFile, options) {
       browserFunctional.push({ id: event.work_unit_id, durationMs });
       continue;
     }
-    if (
-      type === "browser_group" &&
-      aggregateTarget === "browser-e2e-visual"
-    ) {
-      browserVisual.push({ id: event.work_unit_id, durationMs });
-    }
   }
 
   for (const [family, lanes] of backendByFamily) {
@@ -380,13 +376,6 @@ function validateWarmCheckStream(eventsFile, options) {
     browserFunctional,
     options.warmCheckBalanceRatio,
   );
-  for (const lane of browserVisual) {
-    if (lane.durationMs > warmBrowserVisualBudgetMs) {
-      errors.push(
-        `${eventsFile}: default visual browser group ${lane.id} duration ${lane.durationMs}ms exceeds budget ${warmBrowserVisualBudgetMs}ms`,
-      );
-    }
-  }
   return errors;
 }
 

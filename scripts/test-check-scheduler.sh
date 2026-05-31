@@ -1406,7 +1406,7 @@ function toolSummary(target, durationMs) {
       coldProvisioning = false,
       stampHitAccounting = false,
       fixtureOverBudget = false,
-      visualOverBudget = false,
+      forbiddenVisual = false,
     } = {},
   ) {
   const runDir = path.join(root, name);
@@ -1498,16 +1498,17 @@ function toolSummary(target, durationMs) {
       durationMs,
     );
   }
-  const visualDurationMs = visualOverBudget ? 36000 : 20000;
-  start("check-service-backed:browser-e2e-visual:visual-smoke", 0, {
-    work_unit_type: "browser_group",
-    aggregate_target: "browser-e2e-visual",
-  });
-  finish(
-    "check-service-backed:browser-e2e-visual:visual-smoke",
-    visualDurationMs,
-    visualDurationMs,
-  );
+  if (forbiddenVisual) {
+    start("check-service-backed:browser-e2e-visual:visual-smoke", 0, {
+      work_unit_type: "browser_group",
+      aggregate_target: "browser-e2e-visual",
+    });
+    finish(
+      "check-service-backed:browser-e2e-visual:visual-smoke",
+      36000,
+      36000,
+    );
+  }
 
   finish("check-service-backed", serviceMs, serviceMs);
   push({ event: "scheduler-finish", monotonic_ms: serviceMs, emitted_at: emittedAt(serviceMs) });
@@ -1562,7 +1563,7 @@ writeWarmRun("skewed", { browserSkew: true });
 writeWarmRun("cold-provisioning", { coldProvisioning: true });
 writeWarmRun("stamp-unaccounted", { stampHitAccounting: true });
 writeWarmRun("fixture-overbudget", { fixtureOverBudget: true });
-writeWarmRun("visual-overbudget", { visualOverBudget: true });
+writeWarmRun("visual-in-default", { forbiddenVisual: true });
 EOF
 assert_contains "$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/valid" 2>&1)" "warm check scheduler health verified" "valid warm check health fixture"
 set +e
@@ -1576,7 +1577,7 @@ warm_measurement_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summar
 warm_measurement_status=$?
 set -e
 assert_equals "$warm_measurement_status" "1" "warm check measurement fixture status"
-assert_contains "$warm_measurement_output" "default warm check includes ordinary browser measurement" "warm check measurement fixture output"
+assert_contains "$warm_measurement_output" "default warm check includes explicit browser evidence unit check-service-backed:browser-stage-session:measurement" "warm check measurement fixture output"
 set +e
 warm_skew_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/skewed" 2>&1)"
 warm_skew_status=$?
@@ -1603,11 +1604,11 @@ assert_equals "$warm_fixture_status" "1" "warm check fixture budget fixture stat
 assert_contains "$warm_fixture_output" "package-reset fixture count 31 exceeds warm budget 30" "warm check fixture budget count output"
 assert_contains "$warm_fixture_output" "package-reset fixture duration 61000ms exceeds warm budget 60000ms" "warm check fixture budget duration output"
 set +e
-warm_visual_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/visual-overbudget" 2>&1)"
+warm_visual_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/visual-in-default" 2>&1)"
 warm_visual_status=$?
 set -e
-assert_equals "$warm_visual_status" "1" "warm check visual budget fixture status"
-assert_contains "$warm_visual_output" "default visual browser group check-service-backed:browser-e2e-visual:visual-smoke duration 36000ms exceeds budget 35000ms" "warm check visual budget fixture output"
+assert_equals "$warm_visual_status" "1" "warm check visual-in-default fixture status"
+assert_contains "$warm_visual_output" "default warm check includes explicit browser evidence unit check-service-backed:browser-e2e-visual:visual-smoke" "warm check visual-in-default fixture output"
 mkdir -p "${summary_timing_dir}/critical/linked/check" "${summary_timing_dir}/critical/unlinked/check"
 cat >"${summary_timing_dir}/critical/linked/check/scheduler-events.jsonl" <<'JSONL'
 {"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}

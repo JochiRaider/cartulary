@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.frontend_phase_test_map.v1",
+  "schema_id": "cartulary.frontend_phase_test_map.v2",
   "phase_namespace": "frontend",
   "phase_id": "FE-P9",
   "rows": [
@@ -65,7 +65,13 @@
       "claim": "Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-U-P9-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "FE-I-P9-01",
@@ -112,7 +118,13 @@
       "claim": "Verify history and rollback preview/action use public route contracts, preserve retained history, and render public error envelopes.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-I-P9-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-E-P9-01",
@@ -192,7 +204,13 @@
       "claim": "Verify inspector Details, Relationships, Evidence, History, rollback, and destructive-action authorization through public browser routes.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-E-P9-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-V-P9-01",
@@ -221,7 +239,13 @@
       "claim_status": "blocked",
       "claim": "Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-V-P9-01",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-A11Y-P9-01",
@@ -247,7 +271,13 @@
       "claim_status": "blocked",
       "claim": "Verify inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors are keyboard reachable and announced.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-A11Y-P9-01",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     }
   ]
 }

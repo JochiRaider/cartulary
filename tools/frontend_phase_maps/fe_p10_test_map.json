@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.frontend_phase_test_map.v1",
+  "schema_id": "cartulary.frontend_phase_test_map.v2",
   "phase_namespace": "frontend",
   "phase_id": "FE-P10",
   "rows": [
@@ -55,7 +55,13 @@
       "claim": "Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-U-P10-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "FE-B-P10-01",
@@ -101,7 +107,13 @@
       "claim": "Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Status Review, and Lesson open inside the same workbook shell and retain view controls.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-B-P10-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-B-P10-02",
@@ -152,7 +164,13 @@
       "claim": "Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-B-P10-02",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-E-P10-01",
@@ -229,7 +247,13 @@
       "claim": "Verify coordination rows can be queried and edited through public view/row mutation contracts with current-role authorization.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-E-P10-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-V-P10-01",
@@ -258,7 +282,13 @@
       "claim_status": "blocked",
       "claim": "Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-V-P10-01",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-A11Y-P10-01",
@@ -289,7 +319,13 @@
       "claim_status": "blocked",
       "claim": "Verify coordination surfaces and full keyboard/clipboard controls meet keyboard reachability, focus visibility, accessible-name, ARIA, and non-color-only state expectations.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-A11Y-P10-01",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     }
   ]
 }

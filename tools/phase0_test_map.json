@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase0",
   "note": "Phase 0 authoritative execution manifest. Support-only harness and smoke coverage stays outside this map.",
   "ledger": {
@@ -71,7 +71,13 @@
       "execution_label": "backend-unit support phase0",
       "evidence_class": "implementation_support",
       "layer": "backend_unit",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "backend_unit::internal/platform/postgres/postgres_phase0_support_test.go::TestSupportPhase0_",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "low"
     },
     {
       "target": "backend_integration_support",
@@ -93,7 +99,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database."
+      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database.",
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "backend_integration_support::internal/platform/objectstore/objectstore_phase0_support_test.go::TestSupportPhase0_",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
     }
   ],
   "unit": [
@@ -112,7 +125,13 @@
       "execution_label": "backend-unit phase0 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-0-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-0-02",
@@ -129,7 +148,13 @@
       "execution_label": "backend-unit phase0 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-0-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-0-03",
@@ -146,7 +171,13 @@
       "execution_label": "backend-unit phase0 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-0-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-0-04",
@@ -163,7 +194,13 @@
       "execution_label": "backend-unit phase0 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-0-04",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-0-05",
@@ -180,7 +217,13 @@
       "execution_label": "backend-unit phase0 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-0-05",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-0-07",
@@ -197,7 +240,13 @@
       "execution_label": "backend-unit phase0 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-0-07",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-0-08",
@@ -214,7 +263,13 @@
       "execution_label": "backend-unit phase0 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-0-08",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-0-09",
@@ -231,7 +286,13 @@
       "execution_label": "backend-unit phase0 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-0-09",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     }
   ],
   "integration": [
@@ -259,7 +320,14 @@
       "execution_label": "backend-integration phase0 authoritative platform",
       "evidence_class": "product_conformance",
       "layer": "backend_integration",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-0-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "migration_scratch_reason_code": "migration_scratch"
     },
     {
       "id": "I-0-02",
@@ -285,7 +353,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-0-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-0-03",
@@ -311,7 +386,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-0-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
     },
     {
       "id": "I-0-04",
@@ -337,7 +419,14 @@
       "execution_label": "backend-integration phase0 authoritative app",
       "evidence_class": "product_conformance",
       "layer": "backend_integration",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-0-04",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
     },
     {
       "id": "I-0-05",
@@ -363,7 +452,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-0-05",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
     },
     {
       "id": "I-0-06",
@@ -389,7 +485,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-0-06",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
     }
   ],
   "e2e": [
@@ -416,7 +519,15 @@
       "execution_label": "backend-process phase0 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_process",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "E-0-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason": "Process lifecycle coverage starts real runtime binaries and requires isolated database state.",
+      "template_clone_reason_code": "process_lifecycle"
     },
     {
       "id": "E-0-02",
@@ -441,7 +552,15 @@
       "execution_label": "backend-process phase0 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_process",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "E-0-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason": "Process lifecycle coverage starts real runtime binaries and requires isolated database state.",
+      "template_clone_reason_code": "process_lifecycle"
     },
     {
       "id": "E-0-03",
@@ -466,7 +585,15 @@
       "execution_label": "backend-process phase0 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_process",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "E-0-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason": "Process lifecycle coverage starts real runtime binaries and requires isolated database state.",
+      "template_clone_reason_code": "process_lifecycle"
     },
     {
       "id": "E-0-04",
@@ -491,7 +618,15 @@
       "execution_label": "backend-process phase0 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_process",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "E-0-04",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason": "Process lifecycle coverage starts real runtime binaries and requires isolated database state.",
+      "template_clone_reason_code": "process_lifecycle"
     },
     {
       "id": "E-0-05",
@@ -516,7 +651,15 @@
       "execution_label": "backend-process phase0 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_process",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "E-0-05",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason": "Process lifecycle coverage starts real runtime binaries and requires isolated database state.",
+      "template_clone_reason_code": "process_lifecycle"
     }
   ],
   "visual": []

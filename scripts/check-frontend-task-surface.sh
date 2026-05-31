@@ -506,7 +506,7 @@ const path = require("path");
 
 const root = process.argv[2];
 const sections = ["unit", "integration", "e2e", "visual"];
-const phaseSchemaID = "cartulary.phase_test_map.v1";
+const phaseSchemaID = "cartulary.phase_test_map.v2";
 const registrySchemaID = "cartulary.phase_registry.v1";
 const phases = [];
 const registry = JSON.parse(fs.readFileSync(path.join(root, "tools", "phase_registry.json"), "utf8"));

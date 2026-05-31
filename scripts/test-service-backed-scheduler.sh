@@ -2245,13 +2245,25 @@ const expectedBackendTargets = Array.from(
     compareExecutionDependencies(minDependency(left), minDependency(right)) ||
     left.localeCompare(right),
 );
+const expectedCheckBackendTargets = expectedBackendTargets.filter(
+  (target) => target !== "backend-integration-support",
+);
 for (const target of ["test-service-backed", "test-fast-service-backed", "check-service-backed"]) {
   const actualBackendTargets = backendSourceTargets(target);
-  if (JSON.stringify(actualBackendTargets) !== JSON.stringify(expectedBackendTargets)) {
-    throw new Error(`${target} backend sources got ${actualBackendTargets} want ${expectedBackendTargets}`);
+  const expectedTargets = target === "check-service-backed" ? expectedCheckBackendTargets : expectedBackendTargets;
+  if (JSON.stringify(actualBackendTargets) !== JSON.stringify(expectedTargets)) {
+    throw new Error(`${target} backend sources got ${actualBackendTargets} want ${expectedTargets}`);
   }
 }
-const expectedCheckSources = testSources.filter((target) => target !== "browser-e2e-measurement");
+const expectedCheckSources = testSources.filter(
+  (target) =>
+    ![
+      "backend-integration-support",
+      "browser-e2e-measurement",
+      "browser-e2e-visual",
+      "browser-e2e-a11y",
+    ].includes(target),
+);
 if (JSON.stringify(expectedCheckSources) !== JSON.stringify(checkSources)) {
   throw new Error(`check-service-backed sources got ${checkSources} want ${expectedCheckSources}`);
 }
@@ -2306,8 +2318,6 @@ const checkBrowserSources = (byTarget.get("check-service-backed")?.work_unit_sou
 const sessionGroups = new Map(checkBrowserSources.map((source) => [source.browser_stage, source.browser_session_group]));
 const expectedSessionGroups = new Map([
   ["webserver-backed", "default-check-browser-shared"],
-  ["visual-smoke", "default-check-browser-shared"],
-  ["a11y", "default-check-browser-shared"],
   ["stateful", "default-check-stateful-isolated"],
 ]);
 for (const [stage, expectedGroup] of expectedSessionGroups.entries()) {

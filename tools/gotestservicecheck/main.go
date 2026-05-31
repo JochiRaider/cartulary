@@ -25,7 +25,7 @@ var (
 	startHelperPattern        = regexp.MustCompile(`^Start[A-Za-z0-9_]*$`)
 )
 
-const phaseTestMapSchemaID = "cartulary.phase_test_map.v1"
+const phaseTestMapSchemaID = "cartulary.phase_test_map.v2"
 const phaseRegistrySchemaID = "cartulary.phase_registry.v1"
 
 type manifestEntry struct {

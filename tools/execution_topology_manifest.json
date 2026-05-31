@@ -2034,9 +2034,7 @@
       },
       "check": {
         "type": "check_schedule",
-        "prerequisites": [
-          "frontend-install"
-        ],
+        "prerequisites": [],
         "target": "check",
         "schedule_manifest": "tools/scheduler_manifest.json",
         "manifest_variable": "SCHEDULER_MANIFEST"
@@ -7280,7 +7278,6 @@
         "target_class": "public",
         "default_inclusion_sets": [
           "test",
-          "check",
           "ci"
         ],
         "lifecycle_state": "public_active",
@@ -7529,6 +7526,16 @@
           "undeclared_make_command_line": "usage_error",
           "undeclared_inherited_env": "ignore",
           "inputs": []
+        },
+        "check_projection": {
+          "mode": "direct",
+          "schedule": "check-service-backed",
+          "stage": "stateful",
+          "evidence": "stateful_browser_conformance",
+          "evidence_class": "product_conformance",
+          "reason_code": "full_target_equivalent_stateful",
+          "full_target": "browser-e2e-stateful",
+          "full_target_equivalent": true
         }
       },
       {
@@ -7713,16 +7720,6 @@
           "undeclared_make_command_line": "usage_error",
           "undeclared_inherited_env": "ignore",
           "inputs": []
-        },
-        "check_projection": {
-          "mode": "projection",
-          "schedule": "check-service-backed",
-          "stage": "a11y",
-          "evidence": "bounded_accessibility_readiness",
-          "evidence_class": "accessibility_readiness",
-          "reason_code": "bounded_readiness",
-          "full_target": "browser-e2e-a11y",
-          "full_target_equivalent": false
         }
       },
       {
@@ -7892,16 +7889,6 @@
           "undeclared_make_command_line": "usage_error",
           "undeclared_inherited_env": "ignore",
           "inputs": []
-        },
-        "check_projection": {
-          "mode": "projection",
-          "schedule": "check-service-backed",
-          "stage": "visual-smoke",
-          "evidence": "bounded_visual_readiness",
-          "evidence_class": "visual_readiness",
-          "reason_code": "bounded_readiness",
-          "full_target": "browser-e2e-visual",
-          "full_target_equivalent": false
         }
       },
       {
@@ -8825,8 +8812,7 @@
         ],
         "target_class": "public",
         "default_inclusion_sets": [
-          "check",
-          "helper_only"
+          "check"
         ],
         "lifecycle_state": "public_active",
         "family_id": "builds",
@@ -8896,8 +8882,7 @@
         ],
         "target_class": "public",
         "default_inclusion_sets": [
-          "check",
-          "helper_only"
+          "check"
         ],
         "lifecycle_state": "public_active",
         "family_id": "builds",
@@ -8967,8 +8952,7 @@
         ],
         "target_class": "public",
         "default_inclusion_sets": [
-          "check",
-          "helper_only"
+          "check"
         ],
         "lifecycle_state": "public_active",
         "family_id": "builds",
@@ -9841,9 +9825,7 @@
               {
                 "name": "default-check-browser-shared",
                 "stages": [
-                  "webserver-backed",
-                  "a11y",
-                  "visual-smoke"
+                  "webserver-backed"
                 ]
               },
               {
@@ -9946,8 +9928,7 @@
         "name": "a11y",
         "target": "browser-e2e-a11y",
         "schedule_tags": [
-          "service_backed_full",
-          "service_backed_check"
+          "service_backed_full"
         ],
         "groups": [
           {
@@ -9977,9 +9958,6 @@
       {
         "name": "visual-smoke",
         "target": "browser-e2e-visual",
-        "schedule_tags": [
-          "service_backed_check"
-        ],
         "groups": [
           {
             "name": "visual-smoke",

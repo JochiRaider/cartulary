@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.frontend_phase_test_map.v1",
+  "schema_id": "cartulary.frontend_phase_test_map.v2",
   "phase_namespace": "frontend",
   "phase_id": "FE-P5",
   "rows": [
@@ -42,7 +42,13 @@
       "claim": "Verify mention chip view models preserve unresolved, resolved, auto-resolved, dismissed, and manual-resolution state by stable identifiers and field keys.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-U-P5-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "FE-I-P5-01",
@@ -108,7 +114,13 @@
       "claim": "Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-I-P5-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-E-P5-01",
@@ -163,7 +175,13 @@
       "claim": "Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-E-P5-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-V-P5-01",
@@ -190,7 +208,13 @@
       "claim_status": "blocked",
       "claim": "Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution state fixtures.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-V-P5-01",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-A11Y-P5-01",
@@ -218,7 +242,13 @@
       "claim_status": "blocked",
       "claim": "Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-A11Y-P5-01",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     }
   ]
 }

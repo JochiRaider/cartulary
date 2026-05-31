@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase11",
   "note": "Phase 11 manifest for the selected Import Extension Profile, Snapshot and Reporting Extension Profile, Reference Pack Extension Profile, Incident Portability Extension Profile, and shared common-job substrate. Enterprise Authentication remains reserved and unclaimed.",
   "profile_claims": [
@@ -307,7 +307,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-JOBS-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "U-11-JOBS-02",
@@ -334,7 +341,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-JOBS-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "U-11-JOBS-03",
@@ -361,7 +375,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-JOBS-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "U-11-REPORTING-01",
@@ -379,7 +400,13 @@
       "execution_label": "backend-unit phase11 reporting redaction semantics",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-REPORTING-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-REPORTING-02",
@@ -397,7 +424,13 @@
       "execution_label": "backend-unit phase11 reporting profile validation",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-REPORTING-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-REPORTING-03",
@@ -415,7 +448,13 @@
       "execution_label": "backend-unit phase11 reporting binary boundary",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-REPORTING-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-REPORTING-04",
@@ -433,7 +472,13 @@
       "execution_label": "backend-unit phase11 reporting disclosure partitions",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-REPORTING-04",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-REPORTING-05",
@@ -451,7 +496,13 @@
       "execution_label": "backend-unit phase11 reporting decoder normalization",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-REPORTING-05",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-REPORTING-06",
@@ -469,7 +520,13 @@
       "execution_label": "backend-unit phase11 reporting OpenAPI contract",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-REPORTING-06",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-REFERENCE-PACK-01",
@@ -487,7 +544,13 @@
       "execution_label": "backend-unit phase11 reference pack request validation",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-REFERENCE-PACK-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-REFERENCE-PACK-02",
@@ -505,7 +568,13 @@
       "execution_label": "backend-unit phase11 reference pack verifier",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-REFERENCE-PACK-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-REFERENCE-PACK-03",
@@ -523,7 +592,13 @@
       "execution_label": "backend-unit phase11 reference pack archive limits",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-REFERENCE-PACK-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-REFERENCE-PACK-04",
@@ -538,7 +613,13 @@
       "out_of_scope": "This component evidence does not replace backend route authorization checks.",
       "evidence_class": "product_conformance",
       "layer": "frontend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-REFERENCE-PACK-04",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-REFERENCE-PACK-05",
@@ -556,7 +637,13 @@
       "execution_label": "backend-unit phase11 reference pack contracts",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-REFERENCE-PACK-05",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-REFERENCE-PACK-06",
@@ -571,7 +658,13 @@
       "out_of_scope": "This component evidence uses mocked transport and does not claim backend worker execution.",
       "evidence_class": "product_conformance",
       "layer": "frontend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-REFERENCE-PACK-06",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-INCIDENT-BUNDLES-01",
@@ -589,7 +682,13 @@
       "execution_label": "backend-unit phase11 incident bundle request contract",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-INCIDENT-BUNDLES-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-INCIDENT-BUNDLES-02",
@@ -607,7 +706,13 @@
       "execution_label": "backend-unit phase11 incident bundle determinism",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-INCIDENT-BUNDLES-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-INCIDENT-BUNDLES-03",
@@ -625,7 +730,13 @@
       "execution_label": "backend-unit phase11 incident bundle verifier",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-INCIDENT-BUNDLES-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-INCIDENT-BUNDLES-04",
@@ -643,7 +754,13 @@
       "execution_label": "backend-unit phase11 incident bundle contracts",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-INCIDENT-BUNDLES-04",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-11-INCIDENT-BUNDLES-05",
@@ -661,7 +778,13 @@
       "execution_label": "backend-unit phase11 incident bundle closed registries",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-INCIDENT-BUNDLES-05",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     }
   ],
   "integration": [
@@ -690,7 +813,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-IMPORT-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-IMPORT-02",
@@ -717,7 +847,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-IMPORT-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-IMPORT-03",
@@ -744,7 +881,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-IMPORT-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-REPORTING-01",
@@ -771,7 +915,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-REPORTING-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-REPORTING-02",
@@ -798,7 +949,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-REPORTING-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-REPORTING-03",
@@ -825,7 +983,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-REPORTING-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-REPORTING-04",
@@ -852,7 +1017,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-REPORTING-04",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-REFERENCE-PACK-01",
@@ -879,7 +1051,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-REFERENCE-PACK-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-REFERENCE-PACK-02",
@@ -906,7 +1085,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-REFERENCE-PACK-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-REFERENCE-PACK-03",
@@ -933,7 +1119,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-REFERENCE-PACK-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
     },
     {
       "id": "I-11-REFERENCE-PACK-04",
@@ -960,7 +1153,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-REFERENCE-PACK-04",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-REFERENCE-PACK-05",
@@ -987,7 +1187,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-REFERENCE-PACK-05",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
     },
     {
       "id": "I-11-REFERENCE-PACK-06",
@@ -1014,7 +1221,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-REFERENCE-PACK-06",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-REFERENCE-PACK-07",
@@ -1041,7 +1255,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-REFERENCE-PACK-07",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-REFERENCE-PACK-08",
@@ -1068,7 +1289,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-REFERENCE-PACK-08",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "schema_mutation"
     },
     {
       "id": "I-11-REFERENCE-PACK-09",
@@ -1095,7 +1323,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-REFERENCE-PACK-09",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-INCIDENT-BUNDLES-01",
@@ -1122,7 +1357,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-INCIDENT-BUNDLES-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-INCIDENT-BUNDLES-02",
@@ -1149,7 +1391,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-INCIDENT-BUNDLES-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-INCIDENT-BUNDLES-03",
@@ -1176,7 +1425,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-INCIDENT-BUNDLES-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-INCIDENT-BUNDLES-04",
@@ -1203,7 +1459,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-INCIDENT-BUNDLES-04",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-INCIDENT-BUNDLES-05",
@@ -1230,7 +1493,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-INCIDENT-BUNDLES-05",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-INCIDENT-BUNDLES-06",
@@ -1257,7 +1527,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-INCIDENT-BUNDLES-06",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-11-INCIDENT-BUNDLES-07",
@@ -1284,7 +1561,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-INCIDENT-BUNDLES-07",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     }
   ],
   "e2e": [
@@ -1304,7 +1588,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-11-01",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     }
   ],
   "visual": []

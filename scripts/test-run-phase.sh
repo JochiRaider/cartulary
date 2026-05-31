@@ -1557,7 +1557,7 @@ EOF
 go_manifest_rel="./${go_manifest_dir#"$ROOT_DIR"/}"
 cat >"$go_manifest_tools/phase9_test_map.json" <<EOF
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase9",
   "note": "Synthetic run-go manifest phase fixture.",
   "ledger": {
@@ -1591,7 +1591,7 @@ cat >"$go_manifest_tools/phase9_test_map.json" <<EOF
 EOF
 cat >"$go_manifest_tools/phase10_test_map.json" <<EOF
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase10",
   "note": "Synthetic run-go manifest phase fixture.",
   "ledger": {
@@ -1885,7 +1885,7 @@ EOF
 go_manifest_pkg_setup_rel="./${go_manifest_pkg_setup_dir#"$ROOT_DIR"/}"
 cat >"$go_manifest_tools/phase11_test_map.json" <<EOF
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase11",
   "note": "Synthetic run-go manifest package setup fixture.",
   "ledger": {

@@ -18,7 +18,7 @@ export const frontendPhaseNamespace = "frontend";
 export const frontendPhaseRegistrySchemaID =
   "cartulary.frontend_phase_registry.v1";
 export const frontendPhaseTestMapSchemaID =
-  "cartulary.frontend_phase_test_map.v1";
+  "cartulary.frontend_phase_test_map.v2";
 
 const registryKeys = new Set([
   "schema_id",
@@ -40,8 +40,14 @@ const rowKeys = new Set([
   "layer",
   "evidence_class",
   "default_check_required",
+  "default_check_kind",
+  "default_check_reason_code",
   "future_default_check_candidate",
   "default_check_reason",
+  "primary_evidence_owner",
+  "duplicate_of",
+  "evidence_delta",
+  "warm_local_cost_class",
   "owner_refs",
   "core_req_ids",
   "core_ac_ids",
@@ -73,6 +79,37 @@ const validLayers = new Set([
   "visual_regression",
   "accessibility",
   "support",
+]);
+const validDefaultCheckKinds = new Set([
+  "primary_local_evidence",
+  "default_local_cross_stack_conformance",
+  "full_target_equivalent",
+  "bounded_readiness",
+  "explicit_only",
+  "duplicate_regression",
+  "future_candidate",
+]);
+const validDefaultCheckReasonCodes = new Set([
+  "cheapest_authoritative_layer",
+  "lower_layer_gap",
+  "full_target_equivalent_stateful",
+  "bounded_readiness",
+  "explicit_full_target",
+  "explicit_readiness",
+  "explicit_measurement",
+  "implementation_support_explicit_only",
+  "design_direction_explicit_only",
+  "claim_publication_boundary",
+  "duplicate_of_primary_owner",
+  "blocked_future_candidate",
+]);
+const validWarmLocalCostClasses = new Set([
+  "none",
+  "low",
+  "medium",
+  "service_backed",
+  "browser",
+  "explicit_heavy",
 ]);
 const phaseIDPattern = /^FE-P(?:0|[1-9]\d*)$/;
 const phaseMapFilenamePattern = /^fe_p(0|[1-9]\d*)_test_map\.json$/;
@@ -337,6 +374,21 @@ export function validateFrontendPhaseMap(
       validEvidenceClasses,
     );
     requireBoolean(row.default_check_required, `${rowLabel}.default_check_required`);
+    requireEnum(row.default_check_kind, `${rowLabel}.default_check_kind`, validDefaultCheckKinds);
+    requireEnum(
+      row.default_check_reason_code,
+      `${rowLabel}.default_check_reason_code`,
+      validDefaultCheckReasonCodes,
+    );
+    requireString(row.primary_evidence_owner, `${rowLabel}.primary_evidence_owner`);
+    if (
+      row.duplicate_of !== null &&
+      (typeof row.duplicate_of !== "string" || row.duplicate_of.trim() === "")
+    ) {
+      throw new Error(`${rowLabel}.duplicate_of must be null or a non-empty string`);
+    }
+    requireString(row.evidence_delta, `${rowLabel}.evidence_delta`);
+    requireEnum(row.warm_local_cost_class, `${rowLabel}.warm_local_cost_class`, validWarmLocalCostClasses);
     if (row.future_default_check_candidate !== undefined) {
       requireBoolean(
         row.future_default_check_candidate,
@@ -374,6 +426,18 @@ export function validateFrontendPhaseMap(
       throw new Error(
         `${rowLabel}.future_default_check_candidate is only valid for blocked rows`,
       );
+    }
+    if (
+      row.default_check_required === true &&
+      row.default_check_kind === "explicit_only"
+    ) {
+      throw new Error(`${rowLabel} default_check_required=true cannot use default_check_kind=explicit_only`);
+    }
+    if (
+      row.default_check_required === false &&
+      row.default_check_kind === "primary_local_evidence"
+    ) {
+      throw new Error(`${rowLabel} default_check_required=false cannot use primary_local_evidence`);
     }
     if (
       row.default_check_required === true &&

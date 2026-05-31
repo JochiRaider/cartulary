@@ -789,7 +789,7 @@ manifest_smoke_file="${manifest_smoke_rel#./}/support_manifest_smoke_test.go"
 
 cat >"$manifest_smoke_tools/phase20_test_map.json" <<EOF
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase20",
   "note": "Synthetic run-go-target support manifest fixture.",
   "ledger": {
@@ -838,7 +838,7 @@ CARTULARY_PHASE_MANIFEST_ROOT="$manifest_smoke_root" NODE_BIN="$node_bin" "$node
 
 cat >"$manifest_smoke_tools/phase21_test_map.json" <<EOF
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase21",
   "note": "Synthetic run-go-target support manifest fixture.",
   "ledger": {
@@ -897,7 +897,7 @@ assert_contains "$phase21_output" "not found in" "phase21 missing support symbol
 
 cat >"$manifest_smoke_tools/phase22_test_map.json" <<EOF
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase22",
   "note": "Synthetic run-go-target support manifest fixture.",
   "ledger": {
@@ -956,7 +956,7 @@ assert_contains "$phase22_output" "must declare target=backend_unit|backend_inte
 
 cat >"$manifest_smoke_tools/phase23_test_map.json" <<EOF
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase23",
   "note": "Synthetic run-go-target support manifest fixture.",
   "ledger": {
@@ -1015,7 +1015,7 @@ assert_contains "$phase23_output" "selection_pattern does not match symbol" "pha
 
 cat >"$manifest_smoke_tools/phase24_test_map.json" <<EOF
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase24",
   "note": "Synthetic run-go-target support manifest fixture.",
   "ledger": {

@@ -78,7 +78,7 @@ assert.deepEqual(
   ["postgres"],
   "migration-drift must declare its Postgres service requirement",
 );
-for (const targetName of ["backend-integration-support", "test-fast-service-backed"]) {
+for (const targetName of ["backend-integration-support", "test-fast-service-backed", "browser-e2e"]) {
   assert.ok(
     !(renderedTaskSurface.targets.find((target) => target.name === targetName)?.default_inclusion_sets ?? []).includes("check"),
     `${targetName} must not advertise default check membership unless check actually schedules it`,
@@ -103,40 +103,30 @@ assert.ok(
   "browser-e2e-webserver-backed must not advertise direct check membership when check uses a projection",
 );
 assert.deepEqual(
-  renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-visual")?.check_projection,
+  renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-stateful")?.check_projection,
   {
-    mode: "projection",
+    mode: "direct",
     schedule: "check-service-backed",
-    stage: "visual-smoke",
-    evidence: "bounded_visual_readiness",
-    evidence_class: "visual_readiness",
-    reason_code: "bounded_readiness",
-    full_target: "browser-e2e-visual",
-    full_target_equivalent: false,
+    stage: "stateful",
+    evidence: "stateful_browser_conformance",
+    evidence_class: "product_conformance",
+    reason_code: "full_target_equivalent_stateful",
+    full_target: "browser-e2e-stateful",
+    full_target_equivalent: true,
   },
-  "browser-e2e-visual must label its default-check visual-smoke projection",
+  "browser-e2e-stateful must label its full-target-equivalent default-check evidence",
 );
 assert.ok(
-  !(renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-visual")?.default_inclusion_sets ?? []).includes("check"),
-  "browser-e2e-visual must not advertise direct check membership when check uses a projection",
-);
-assert.deepEqual(
-  renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-a11y")?.check_projection,
-  {
-    mode: "projection",
-    schedule: "check-service-backed",
-    stage: "a11y",
-    evidence: "bounded_accessibility_readiness",
-    evidence_class: "accessibility_readiness",
-    reason_code: "bounded_readiness",
-    full_target: "browser-e2e-a11y",
-    full_target_equivalent: false,
-  },
-  "browser-e2e-a11y must label its default-check readiness projection",
+  (renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-stateful")?.default_inclusion_sets ?? []).includes("check"),
+  "browser-e2e-stateful must advertise direct check membership for full-target-equivalent scheduler evidence",
 );
 assert.ok(
-  !(renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-a11y")?.default_inclusion_sets ?? []).includes("check"),
-  "browser-e2e-a11y must not advertise direct check membership when check uses a projection",
+  renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-visual")?.check_projection === undefined,
+  "browser-e2e-visual must remain explicit-only for default local check",
+);
+assert.ok(
+  renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-a11y")?.check_projection === undefined,
+  "browser-e2e-a11y must remain explicit-only for default local check",
 );
 assert.equal(
   renderedTaskSurface.targets.find((target) => target.name === "agent-finalize")?.target_class,
@@ -559,8 +549,6 @@ assert.deepEqual(
   webserverStageSession?.retained_resource_claims,
   {
     browser_stack: 1,
-    browser_stage_a11y: 1,
-    browser_stage_visual_smoke: 1,
     browser_stage_webserver_backed: 1,
     process: 1,
   },

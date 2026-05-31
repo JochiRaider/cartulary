@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.frontend_phase_test_map.v1",
+  "schema_id": "cartulary.frontend_phase_test_map.v2",
   "phase_namespace": "frontend",
   "phase_id": "FE-P7",
   "rows": [
@@ -43,7 +43,13 @@
       "claim": "Verify WebSocket reducer handles row update, reset, invalidate, stale-row requery request, authorization close, and session revocation states.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-U-P7-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "FE-U-P7-02",
@@ -79,7 +85,13 @@
       "claim": "Verify same-field conflict anchors, conflict queue, and resolver state use record_id + field_key + base_row_version rather than visible indexes.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-U-P7-02",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "FE-I-P7-01",
@@ -126,7 +138,13 @@
       "claim": "Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-I-P7-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-E-P7-01",
@@ -179,7 +197,13 @@
       "claim": "Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": false,
-      "future_default_check_candidate": true
+      "future_default_check_candidate": true,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-E-P7-01",
+      "duplicate_of": null,
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-V-P7-01",
@@ -208,7 +232,13 @@
       "claim_status": "blocked",
       "claim": "Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-V-P7-01",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-A11Y-P7-01",
@@ -236,7 +266,13 @@
       "claim_status": "blocked",
       "claim": "Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-A11Y-P7-01",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     }
   ]
 }

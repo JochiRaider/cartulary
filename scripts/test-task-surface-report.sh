@@ -263,7 +263,7 @@ mkdir -p "$phase_root/tools"
 write_phase_registry "$phase_root" phase99
 cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase99",
   "note": "Synthetic task-surface report fixture.",
   "ledger": {

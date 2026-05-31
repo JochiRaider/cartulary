@@ -25,7 +25,7 @@ This guide does not implement FE-P1 behavior. It is not behavior authority and m
 The following facts were verified by local inspection, non-mutating command execution during FE-P1 guide creation, Sprint 1 readiness validation, Sprint 2 validation, Sprint 3 remediation, Sprint 3 audit follow-up, Sprint 4 browser E2E execution, Sprint 5 accessibility execution, Sprint 5 accessibility audit refresh, and Sprint 6 selector-contract remediation:
 
 - `tools/frontend_phase_registry.json` exists and includes `FE-P1` in the `frontend` namespace with `status="planned"`, manifest path `tools/frontend_phase_maps/fe_p1_test_map.json`, ledger path `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md`, and dependency on `FE-P0`.
-- `tools/frontend_phase_maps/fe_p1_test_map.json` exists with schema `cartulary.frontend_phase_test_map.v1`, `phase_namespace="frontend"`, and `phase_id="FE-P1"`.
+- `tools/frontend_phase_maps/fe_p1_test_map.json` exists with schema `cartulary.frontend_phase_test_map.v2`, `phase_namespace="frontend"`, and `phase_id="FE-P1"`.
 - The FE-P1 phase map contains exactly these row IDs once each: `FE-U-P1-01`, `FE-I-P1-01`, `FE-E-P1-01`, `FE-A11Y-P1-01`, and `FE-S-P1-01`.
 - After Sprint 6 selector-contract remediation, all five FE-P1 rows have `claim_status="implemented"` in the phase map and generated ledger. The FE-P1 registry `status` remains `planned`.
 - `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md` exists and states that it is generated from `tools/frontend_phase_maps/fe_p1_test_map.json`; it must not be hand-edited for FE-P1 closure.
@@ -169,7 +169,7 @@ Status: Complete for Sprint 1 readiness and traceability. This sprint does not c
 ### 3. File-By-File Inspection Checklist
 
 - `tools/frontend_phase_registry.json`: schema `cartulary.frontend_phase_registry.v1`, namespace `frontend`, exactly one `FE-P1` entry, `status="planned"`, expected map and ledger paths, owner ref to the frontend guide, and `depends_on=["FE-P0"]` were verified.
-- `tools/frontend_phase_maps/fe_p1_test_map.json`: schema `cartulary.frontend_phase_test_map.v1`, namespace `frontend`, `phase_id="FE-P1"`, and the five expected row IDs exactly once were verified.
+- `tools/frontend_phase_maps/fe_p1_test_map.json`: schema `cartulary.frontend_phase_test_map.v2`, namespace `frontend`, `phase_id="FE-P1"`, and the five expected row IDs exactly once were verified.
 - `docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md`: states it is generated from `tools/frontend_phase_maps/fe_p1_test_map.json` and mirrors FE-P1 status, dependency, evidence classes, rows, targets, claims, and out-of-scope text.
 - `FRONTEND_PHASE0_IMPLEMENTATION_PLAN.md`: FE-P0 handoff requirements and historical evidence were inspected; historical FE-P0 closure claims remain prerequisite context only.
 - `FRONTEND_PHASE1_IMPLEMENTATION_PLAN.md`: this Sprint 1 section records readiness procedure, command results, source limits, blocker language, and binary criteria.

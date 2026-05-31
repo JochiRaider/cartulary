@@ -161,8 +161,8 @@ if (project === "functional") {
     .sort((left, right) => left.order - right.order || left.phase.localeCompare(right.phase))
     .map((entry) => {
       const manifest = JSON.parse(fs.readFileSync(path.join(root, entry.manifest_path), "utf8"));
-      if (manifest.schema_id !== "cartulary.phase_test_map.v1") {
-        throw new Error(`${entry.manifest_path} must declare schema_id cartulary.phase_test_map.v1`);
+      if (manifest.schema_id !== "cartulary.phase_test_map.v2") {
+        throw new Error(`${entry.manifest_path} must declare schema_id cartulary.phase_test_map.v2`);
       }
       if (manifest.phase !== entry.phase) {
         throw new Error(`${entry.manifest_path} must declare phase ${entry.phase}`);

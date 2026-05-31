@@ -694,6 +694,21 @@ function validateCheckProjection(errors, entry) {
       );
     }
   }
+  if (projection.mode === "direct") {
+    for (const key of ["schedule", "stage", "evidence", "evidence_class", "reason_code", "full_target"]) {
+      if (typeof projection[key] !== "string" || projection[key].trim() === "") {
+        errors.push(`${entry.name}.check_projection direct mode must declare ${key}`);
+      }
+    }
+    if (projection.full_target_equivalent !== true) {
+      errors.push(`${entry.name}.check_projection direct mode must declare full_target_equivalent=true`);
+    }
+    if (!entry.default_inclusion_sets?.includes("check")) {
+      errors.push(
+        `${entry.name}.check_projection direct mode must advertise direct default_inclusion_sets check membership`,
+      );
+    }
+  }
 }
 
 function validatePublicCommandIdentity(errors, entry, commandIDs) {

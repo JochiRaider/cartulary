@@ -84,7 +84,7 @@ write_valid_phase_map() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase9",
   "note": "Synthetic shape fixture.",
   "ledger": {

@@ -27,6 +27,10 @@ import {
   supportGoEntryKeys,
   validBackendEvidenceClasses,
   validBackendLayers,
+  validDefaultCheckKinds,
+  validDefaultCheckReasonCodes,
+  validPostgresFixtureReasonCodes,
+  validWarmLocalCostClasses,
   validatePhaseManifestShape,
 } from "./phase-manifest-shape.mjs";
 
@@ -258,6 +262,45 @@ function validateEvidencePlacement(entry, label) {
   }
   if (typeof entry.default_check_required !== "boolean") {
     throw new Error(`${label} must declare default_check_required as a boolean`);
+  }
+  if (
+    typeof entry.default_check_kind !== "string" ||
+    !validDefaultCheckKinds.has(entry.default_check_kind)
+  ) {
+    throw new Error(`${label} must declare closed default_check_kind`);
+  }
+  if (
+    typeof entry.default_check_reason_code !== "string" ||
+    !validDefaultCheckReasonCodes.has(entry.default_check_reason_code)
+  ) {
+    throw new Error(`${label} must declare closed default_check_reason_code`);
+  }
+  if (
+    typeof entry.primary_evidence_owner !== "string" ||
+    entry.primary_evidence_owner.trim() === ""
+  ) {
+    throw new Error(`${label} must declare primary_evidence_owner`);
+  }
+  if (
+    entry.duplicate_of !== null &&
+    (typeof entry.duplicate_of !== "string" || entry.duplicate_of.trim() === "")
+  ) {
+    throw new Error(`${label} must declare duplicate_of as null or a non-empty string`);
+  }
+  if (typeof entry.evidence_delta !== "string" || entry.evidence_delta.trim() === "") {
+    throw new Error(`${label} must declare evidence_delta`);
+  }
+  if (
+    typeof entry.warm_local_cost_class !== "string" ||
+    !validWarmLocalCostClasses.has(entry.warm_local_cost_class)
+  ) {
+    throw new Error(`${label} must declare closed warm_local_cost_class`);
+  }
+  if (entry.default_check_required === true && entry.default_check_kind === "explicit_only") {
+    throw new Error(`${label} default_check_required=true cannot use default_check_kind=explicit_only`);
+  }
+  if (entry.default_check_required === false && entry.default_check_kind === "primary_local_evidence") {
+    throw new Error(`${label} default_check_required=false cannot use primary_local_evidence`);
   }
   const requiresReason =
     entry.default_check_required === true &&
@@ -571,6 +614,12 @@ function validateMigrationScratch(entry, symbols, policy, budget, label) {
     return;
   }
   if (
+    typeof entry.migration_scratch_reason_code !== "string" ||
+    !validPostgresFixtureReasonCodes.has(entry.migration_scratch_reason_code)
+  ) {
+    throw new Error(`${label} migration_scratch must declare closed migration_scratch_reason_code`);
+  }
+  if (
     typeof entry.migration_scratch_reason !== "string" ||
     entry.migration_scratch_reason.trim() === ""
   ) {
@@ -599,6 +648,12 @@ function validateTemplateCloneReason(entry, policy, label) {
   if (entry.fixture_policy?.postgres !== postgresFixturePolicyTemplateClone) {
     return;
   }
+  if (
+    typeof entry.template_clone_reason_code !== "string" ||
+    !validPostgresFixtureReasonCodes.has(entry.template_clone_reason_code)
+  ) {
+    throw new Error(`${label} explicit template_clone must declare closed template_clone_reason_code`);
+  }
   if (entry.execution_dependency === "backend_process") {
     return;
   }
@@ -614,8 +669,29 @@ function validateGroupCloneReason(entry, policy, label) {
   if (entry.fixture_policy?.postgres !== postgresFixturePolicyGroupClone) {
     return;
   }
+  if (
+    typeof entry.group_clone_reason_code !== "string" ||
+    !validPostgresFixtureReasonCodes.has(entry.group_clone_reason_code)
+  ) {
+    throw new Error(`${label} explicit group_clone must declare closed group_clone_reason_code`);
+  }
   if (typeof entry.group_clone_reason !== "string" || entry.group_clone_reason.trim() === "") {
     throw new Error(`${label} explicit group_clone must declare group_clone_reason`);
+  }
+}
+
+function validatePackageResetReasonCode(entry, policy, label) {
+  if (policy !== postgresFixturePolicyPackageReset) {
+    return;
+  }
+  if (entry.fixture_policy?.postgres !== postgresFixturePolicyPackageReset) {
+    return;
+  }
+  if (
+    typeof entry.package_reset_reason_code !== "string" ||
+    !validPostgresFixtureReasonCodes.has(entry.package_reset_reason_code)
+  ) {
+    throw new Error(`${label} explicit package_reset must declare closed package_reset_reason_code`);
   }
 }
 
@@ -1101,6 +1177,7 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
         );
         validateTemplateCloneReason(entry, postgresFixturePolicy, `manifest entry ${entry.id}`);
         validateGroupCloneReason(entry, postgresFixturePolicy, `manifest entry ${entry.id}`);
+        validatePackageResetReasonCode(entry, postgresFixturePolicy, `manifest entry ${entry.id}`);
         if (typeof entry.package !== "string" || !entry.package.startsWith("./")) {
           throw new Error(`manifest entry ${entry.id} must declare a repo-relative Go package owner`);
         }
@@ -1185,6 +1262,7 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
     );
     validateTemplateCloneReason(entry, postgresFixturePolicy, supportGoEntryLabel(entry));
     validateGroupCloneReason(entry, postgresFixturePolicy, supportGoEntryLabel(entry));
+    validatePackageResetReasonCode(entry, postgresFixturePolicy, supportGoEntryLabel(entry));
     for (const symbol of symbols) {
       if (!selectionPattern.test(symbol)) {
         throw new Error(

@@ -86,8 +86,7 @@
       "name": "a11y",
       "target": "browser-e2e-a11y",
       "schedule_tags": [
-        "service_backed_full",
-        "service_backed_check"
+        "service_backed_full"
       ],
       "groups": [
         {
@@ -117,9 +116,6 @@
     {
       "name": "visual-smoke",
       "target": "browser-e2e-visual",
-      "schedule_tags": [
-        "service_backed_check"
-      ],
       "groups": [
         {
           "name": "visual-smoke",

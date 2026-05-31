@@ -44,7 +44,52 @@ export const validBackendLayers = new Set([
   "frontend_unit",
 ]);
 
-export const phaseTestMapSchemaID = "cartulary.phase_test_map.v1";
+export const phaseTestMapSchemaID = "cartulary.phase_test_map.v2";
+
+export const validDefaultCheckKinds = new Set([
+  "primary_local_evidence",
+  "default_local_cross_stack_conformance",
+  "full_target_equivalent",
+  "bounded_readiness",
+  "explicit_only",
+  "duplicate_regression",
+  "future_candidate",
+]);
+
+export const validDefaultCheckReasonCodes = new Set([
+  "cheapest_authoritative_layer",
+  "lower_layer_gap",
+  "full_target_equivalent_stateful",
+  "bounded_readiness",
+  "explicit_full_target",
+  "explicit_readiness",
+  "explicit_measurement",
+  "implementation_support_explicit_only",
+  "design_direction_explicit_only",
+  "claim_publication_boundary",
+  "duplicate_of_primary_owner",
+  "blocked_future_candidate",
+]);
+
+export const validWarmLocalCostClasses = new Set([
+  "none",
+  "low",
+  "medium",
+  "service_backed",
+  "browser",
+  "explicit_heavy",
+]);
+
+export const validPostgresFixtureReasonCodes = new Set([
+  "committed_cross_connection_visibility",
+  "database_identity",
+  "process_lifecycle",
+  "schema_mutation",
+  "destructive_residue",
+  "shared_seeded_state",
+  "bounded_reset_surface",
+  "migration_scratch",
+]);
 
 export const phaseManifestTopLevelKeys = new Set([
   "schema_id",
@@ -96,7 +141,13 @@ export const phaseManifestEntryKeys = new Set([
   "evidence_class",
   "layer",
   "default_check_required",
+  "default_check_kind",
+  "default_check_reason_code",
   "default_check_reason",
+  "primary_evidence_owner",
+  "duplicate_of",
+  "evidence_delta",
+  "warm_local_cost_class",
   "evidence_layer",
   "claim_status",
   "claim",
@@ -107,9 +158,13 @@ export const phaseManifestEntryKeys = new Set([
   "fixture_budget",
   "fixture_refs",
   "template_clone_reason",
+  "template_clone_reason_code",
   "group_clone_reason",
+  "group_clone_reason_code",
   "package_reset_reason",
+  "package_reset_reason_code",
   "migration_scratch_reason",
+  "migration_scratch_reason_code",
 ]);
 
 export const supportGoEntryKeys = new Set([
@@ -125,13 +180,23 @@ export const supportGoEntryKeys = new Set([
   "evidence_class",
   "layer",
   "default_check_required",
+  "default_check_kind",
+  "default_check_reason_code",
   "default_check_reason",
+  "primary_evidence_owner",
+  "duplicate_of",
+  "evidence_delta",
+  "warm_local_cost_class",
   "fixture_policy",
   "fixture_budget",
   "template_clone_reason",
+  "template_clone_reason_code",
   "group_clone_reason",
+  "group_clone_reason_code",
   "package_reset_reason",
+  "package_reset_reason_code",
   "migration_scratch_reason",
+  "migration_scratch_reason_code",
 ]);
 
 export const profileClaimKeys = new Set([
@@ -228,6 +293,22 @@ export function validatePhaseManifestShape(manifest, label) {
       requireEnum(entry.evidence_class, `${entryLabel}.evidence_class`, validBackendEvidenceClasses);
       requireEnum(entry.layer, `${entryLabel}.layer`, validBackendLayers);
       requireBoolean(entry.default_check_required, `${entryLabel}.default_check_required`);
+      requireEnum(entry.default_check_kind, `${entryLabel}.default_check_kind`, validDefaultCheckKinds);
+      requireEnum(
+        entry.default_check_reason_code,
+        `${entryLabel}.default_check_reason_code`,
+        validDefaultCheckReasonCodes,
+      );
+      requireString(entry.primary_evidence_owner, `${entryLabel}.primary_evidence_owner`);
+      if (entry.duplicate_of !== null) {
+        requireString(entry.duplicate_of, `${entryLabel}.duplicate_of`);
+      }
+      requireString(entry.evidence_delta, `${entryLabel}.evidence_delta`);
+      requireEnum(
+        entry.warm_local_cost_class,
+        `${entryLabel}.warm_local_cost_class`,
+        validWarmLocalCostClasses,
+      );
       if (entry.default_check_reason !== undefined) {
         requireString(entry.default_check_reason, `${entryLabel}.default_check_reason`);
       }
@@ -267,6 +348,22 @@ export function validatePhaseManifestShape(manifest, label) {
     requireEnum(entry.evidence_class, `${entryLabel}.evidence_class`, validBackendEvidenceClasses);
     requireEnum(entry.layer, `${entryLabel}.layer`, validBackendLayers);
     requireBoolean(entry.default_check_required, `${entryLabel}.default_check_required`);
+    requireEnum(entry.default_check_kind, `${entryLabel}.default_check_kind`, validDefaultCheckKinds);
+    requireEnum(
+      entry.default_check_reason_code,
+      `${entryLabel}.default_check_reason_code`,
+      validDefaultCheckReasonCodes,
+    );
+    requireString(entry.primary_evidence_owner, `${entryLabel}.primary_evidence_owner`);
+    if (entry.duplicate_of !== null) {
+      requireString(entry.duplicate_of, `${entryLabel}.duplicate_of`);
+    }
+    requireString(entry.evidence_delta, `${entryLabel}.evidence_delta`);
+    requireEnum(
+      entry.warm_local_cost_class,
+      `${entryLabel}.warm_local_cost_class`,
+      validWarmLocalCostClasses,
+    );
     if (entry.default_check_reason !== undefined) {
       requireString(entry.default_check_reason, `${entryLabel}.default_check_reason`);
     }

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase4",
   "note": "Phase 4 authoritative execution manifest. Support-only matrix harness and workbook helper coverage stay outside the authoritative row inventory.",
   "ledger": {
@@ -106,7 +106,14 @@
           "max_template_clones": 24
         }
       },
-      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database."
+      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database.",
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "backend_integration_support::internal/modules/entities/phase4_support_integration_test.go::TestSupportPhase4Integration_",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
     },
     {
       "target": "backend_integration_support",
@@ -128,7 +135,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database."
+      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database.",
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "backend_integration_support::internal/modules/entities/phase4_support_integration_test.go::TestSupportPhase4Integration_",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
     },
     {
       "target": "backend_integration_support",
@@ -150,7 +164,14 @@
       "execution_label": "backend-integration support phase4 entities",
       "evidence_class": "implementation_support",
       "layer": "backend_integration_support",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "backend_integration_support::internal/modules/entities/phase4_support_integration_test.go::TestSupportPhase4Integration_",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "service_backed",
+      "migration_scratch_reason_code": "migration_scratch"
     },
     {
       "target": "backend_integration_support",
@@ -172,7 +193,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database."
+      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database.",
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "backend_integration_support::internal/modules/entities/phase4_integration_test.go::TestSupportPhase4Integration_",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
     }
   ],
   "unit": [
@@ -199,7 +227,13 @@
         "postgres": {
           "max_transactions": 8
         }
-      }
+      },
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-4-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed"
     },
     {
       "id": "U-4-02",
@@ -224,7 +258,13 @@
         "postgres": {
           "max_transactions": 8
         }
-      }
+      },
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-4-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed"
     },
     {
       "id": "U-4-03",
@@ -249,7 +289,13 @@
         "postgres": {
           "max_transactions": 8
         }
-      }
+      },
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-4-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed"
     },
     {
       "id": "U-4-04",
@@ -274,7 +320,13 @@
         "postgres": {
           "max_transactions": 8
         }
-      }
+      },
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-4-04",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed"
     },
     {
       "id": "U-4-05",
@@ -299,7 +351,13 @@
         "postgres": {
           "max_transactions": 8
         }
-      }
+      },
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-4-05",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed"
     },
     {
       "id": "U-4-06",
@@ -324,7 +382,13 @@
         "postgres": {
           "max_transactions": 8
         }
-      }
+      },
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-4-06",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed"
     },
     {
       "id": "U-4-07",
@@ -349,7 +413,13 @@
         "postgres": {
           "max_transactions": 8
         }
-      }
+      },
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-4-07",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed"
     },
     {
       "id": "U-4-08",
@@ -366,7 +436,13 @@
       "execution_label": "backend-unit phase4 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-4-08",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-4-09",
@@ -383,7 +459,13 @@
       "execution_label": "backend-unit phase4 authoritative",
       "evidence_class": "product_conformance",
       "layer": "backend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-4-09",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-4-WB-01",
@@ -397,7 +479,13 @@
       "out_of_scope": "Durable assessment history and real browser ordering remain integration and browser evidence.",
       "evidence_class": "product_conformance",
       "layer": "frontend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-4-WB-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-4-WB-02",
@@ -411,7 +499,13 @@
       "out_of_scope": "Service-backed append-only assessment history remains backend and browser evidence.",
       "evidence_class": "product_conformance",
       "layer": "frontend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-4-WB-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-4-WB-03",
@@ -425,7 +519,13 @@
       "out_of_scope": "Handle issuance validation, redeem behavior, and object-store access remain backend integration evidence.",
       "evidence_class": "product_conformance",
       "layer": "frontend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-4-WB-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-4-WB-04",
@@ -439,7 +539,13 @@
       "out_of_scope": "Route-level validation and persistence for each surface remain backend integration evidence.",
       "evidence_class": "product_conformance",
       "layer": "frontend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-4-WB-04",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-4-WB-05",
@@ -453,7 +559,13 @@
       "out_of_scope": "Typed collection conflict payloads and foreign-target rejection remain backend integration evidence.",
       "evidence_class": "product_conformance",
       "layer": "frontend_unit",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-4-WB-05",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     }
   ],
   "integration": [
@@ -481,7 +593,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-4-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-4-02",
@@ -510,7 +629,14 @@
           "max_template_clones": 8
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-4-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-4-03",
@@ -536,7 +662,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-4-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-4-07",
@@ -562,7 +695,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-4-07",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-4-08",
@@ -588,7 +728,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-4-08",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-4-09",
@@ -614,7 +761,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-4-09",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-4-COLLECTION-01",
@@ -640,7 +794,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-4-COLLECTION-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-4-BLOB-01",
@@ -666,7 +827,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-4-BLOB-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-4-COORD-01",
@@ -692,7 +860,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-4-COORD-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
     },
     {
       "id": "I-4-COORD-02",
@@ -718,7 +893,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-4-COORD-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-4-COORD-03",
@@ -744,7 +926,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-4-COORD-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-4-HANDLE-01",
@@ -773,7 +962,14 @@
           "max_template_clones": 8
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-4-HANDLE-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     },
     {
       "id": "I-4-PARTIES-01",
@@ -799,7 +995,14 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-4-PARTIES-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "schema_mutation"
     }
   ],
   "e2e": [
@@ -816,7 +1019,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-4-01",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-4-02",
@@ -831,7 +1040,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-4-02",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-4-03",
@@ -846,7 +1061,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-4-03",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-4-04",
@@ -861,7 +1082,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-4-04",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-4-05",
@@ -876,7 +1103,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-4-05",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "E-4-06",
@@ -891,7 +1124,13 @@
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
       "default_check_required": true,
-      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "E-4-06",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack browser behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     }
   ],
   "visual": [
@@ -910,7 +1149,13 @@
       "out_of_scope": "Inspector resolution choreography remains functional browser evidence.",
       "evidence_class": "visual_readiness",
       "layer": "browser_visual",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "V-4-GRID-01",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "V-4-GRID-02",
@@ -927,7 +1172,13 @@
       "out_of_scope": "Opaque handle issuance and object access are owned by backend and frontend-unit evidence.",
       "evidence_class": "visual_readiness",
       "layer": "browser_visual",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "V-4-GRID-02",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "V-4-GRID-03",
@@ -944,7 +1195,13 @@
       "out_of_scope": "Detailed generic mutation behavior remains functional browser and component evidence.",
       "evidence_class": "visual_readiness",
       "layer": "browser_visual",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "V-4-GRID-03",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     }
   ]
 }

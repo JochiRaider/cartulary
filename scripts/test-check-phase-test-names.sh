@@ -80,7 +80,7 @@ write_phase5_manifest() {
 JSON
   cat >"$root/tools/phase5_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase5",
   "note": "Synthetic phase test names fixture.",
   "ledger": {

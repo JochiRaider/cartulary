@@ -136,7 +136,7 @@ func TestPhase10_PlannedStore_U_10_03(t *testing.T) {
 }
 `)
 	writeFixtureFile(t, root, "tools/phase10_test_map.json", `{
-	"schema_id": "cartulary.phase_test_map.v1",
+	"schema_id": "cartulary.phase_test_map.v2",
 	"phase": "phase10",
 	"unit": [
 		{
@@ -234,7 +234,7 @@ func TestScanRejectsInvalidPhaseManifestIdentity(t *testing.T) {
 	"unit": []
 }
 `,
-			expected: "must declare schema_id cartulary.phase_test_map.v1",
+			expected: "must declare schema_id cartulary.phase_test_map.v2",
 		},
 		{
 			name: "wrong schema",
@@ -245,13 +245,13 @@ func TestScanRejectsInvalidPhaseManifestIdentity(t *testing.T) {
 	"unit": []
 }
 `,
-			expected: "must declare schema_id cartulary.phase_test_map.v1",
+			expected: "must declare schema_id cartulary.phase_test_map.v2",
 		},
 		{
 			name: "missing phase",
 			file: "phase10_test_map.json",
 			content: `{
-	"schema_id": "cartulary.phase_test_map.v1",
+	"schema_id": "cartulary.phase_test_map.v2",
 	"unit": []
 }
 `,
@@ -261,7 +261,7 @@ func TestScanRejectsInvalidPhaseManifestIdentity(t *testing.T) {
 			name: "mismatched phase",
 			file: "phase10_test_map.json",
 			content: `{
-	"schema_id": "cartulary.phase_test_map.v1",
+	"schema_id": "cartulary.phase_test_map.v2",
 	"phase": "phase11",
 	"unit": []
 }
@@ -272,7 +272,7 @@ func TestScanRejectsInvalidPhaseManifestIdentity(t *testing.T) {
 			name: "leading zero phase",
 			file: "phase01_test_map.json",
 			content: `{
-	"schema_id": "cartulary.phase_test_map.v1",
+	"schema_id": "cartulary.phase_test_map.v2",
 	"phase": "phase01",
 	"unit": []
 }
@@ -334,7 +334,7 @@ func writeFixtureManifest(t *testing.T, root, phase, unitEntries string) {
 	t.Helper()
 
 	writeFixtureFile(t, root, filepath.Join("tools", phase+"_test_map.json"), fmt.Sprintf(`{
-	"schema_id": "cartulary.phase_test_map.v1",
+	"schema_id": "cartulary.phase_test_map.v2",
 	"phase": %q,
 	"unit": %s
 }

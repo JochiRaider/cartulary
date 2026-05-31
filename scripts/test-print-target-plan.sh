@@ -266,7 +266,7 @@ cp "$ROOT_DIR"/tools/phase*_test_map.json "$phase_root/tools/"
 write_phase_registry "$phase_root" phase0 phase1 phase2 phase3 phase4 phase99
 cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase99",
   "note": "Synthetic target-plan support discovery fixture.",
   "ledger": {
@@ -307,7 +307,7 @@ write_phase_ledger_stub "$phase_map_discovery_root" phase99
 write_go_source_symbol "$phase_map_discovery_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$phase_map_discovery_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase99",
   "note": "Synthetic phase-map discovery fixture.",
   "ledger": {
@@ -458,7 +458,7 @@ write_phase_registry "$registry_orphan_root" phase1
 write_phase_ledger_stub "$registry_orphan_root" phase1
 cat >"$registry_orphan_root/tools/phase1_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase1",
   "note": "Synthetic registry orphan fixture.",
   "ledger": {
@@ -479,7 +479,7 @@ cat >"$registry_orphan_root/tools/phase1_test_map.json" <<'JSON'
 JSON
 cat >"$registry_orphan_root/tools/phase2_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase2",
   "note": "Synthetic registry orphan fixture.",
   "ledger": {
@@ -591,7 +591,7 @@ cat >"$missing_schema_identity_root/tools/phase99_test_map.json" <<'JSON'
   "e2e": []
 }
 JSON
-assert_phase_identity_rejected "$missing_schema_identity_root" "phase99" "must declare schema_id cartulary.phase_test_map.v1" "missing phase-map schema_id"
+assert_phase_identity_rejected "$missing_schema_identity_root" "phase99" "must declare schema_id cartulary.phase_test_map.v2" "missing phase-map schema_id"
 
 wrong_schema_identity_root="$tmp_dir/identity-wrong-schema-root"
 mkdir -p "$wrong_schema_identity_root/tools"
@@ -617,14 +617,14 @@ cat >"$wrong_schema_identity_root/tools/phase99_test_map.json" <<'JSON'
   "e2e": []
 }
 JSON
-assert_phase_identity_rejected "$wrong_schema_identity_root" "phase99" "must declare schema_id cartulary.phase_test_map.v1" "wrong phase-map schema_id"
+assert_phase_identity_rejected "$wrong_schema_identity_root" "phase99" "must declare schema_id cartulary.phase_test_map.v2" "wrong phase-map schema_id"
 
 missing_phase_identity_root="$tmp_dir/identity-missing-phase-root"
 mkdir -p "$missing_phase_identity_root/tools"
 write_phase_registry "$missing_phase_identity_root" phase99
 cat >"$missing_phase_identity_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "note": "Synthetic identity fixture.",
   "ledger": {
     "title": "Phase 99 Coverage Ledger",
@@ -649,7 +649,7 @@ mkdir -p "$unknown_key_identity_root/tools"
 write_phase_registry "$unknown_key_identity_root" phase99
 cat >"$unknown_key_identity_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase99",
   "note": "Synthetic shape validation fixture.",
   "legacy_manifest_key": true,
@@ -676,7 +676,7 @@ mkdir -p "$stale_title_identity_root/tools"
 write_phase_registry "$stale_title_identity_root" phase99
 cat >"$stale_title_identity_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase99",
   "note": "Synthetic stale authoritative title fixture.",
   "ledger": {
@@ -714,7 +714,7 @@ mkdir -p "$mismatched_phase_identity_root/tools"
 write_phase_registry "$mismatched_phase_identity_root" phase99
 cat >"$mismatched_phase_identity_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase98",
   "note": "Synthetic identity fixture.",
   "ledger": {
@@ -756,7 +756,7 @@ cat >"$leading_zero_identity_root/tools/phase_registry.json" <<'JSON'
 JSON
 cat >"$leading_zero_identity_root/tools/phase01_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase01",
   "note": "Synthetic identity fixture.",
   "ledger": {
@@ -796,7 +796,7 @@ write_phase_registry "$invalid_phase_root" phase99
 write_go_source_symbol "$invalid_phase_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase99",
   "note": "Synthetic fixture policy validation fixture.",
   "ledger": {
@@ -842,7 +842,7 @@ write_phase_registry "$missing_policy_root" phase99
 write_go_source_symbol "$missing_policy_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase99",
   "note": "Synthetic fixture policy validation fixture.",
   "ledger": {
@@ -887,7 +887,7 @@ write_phase_registry "$missing_claim_root" phase99
 write_go_source_symbol "$missing_claim_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$missing_claim_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase99",
   "note": "Synthetic fixture policy validation fixture.",
   "ledger": {
@@ -939,7 +939,7 @@ write_phase_registry "$blocked_profile_claim_root" phase99
 write_go_source_symbol "$blocked_profile_claim_root" "internal/modules/auth/phase1_store_test.go" "auth" "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_99_01"
 cat >"$blocked_profile_claim_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase99",
   "note": "Synthetic profile claim validation fixture.",
   "profile_claims": [
@@ -1003,7 +1003,7 @@ write_phase_registry "$missing_budget_root" phase99
 write_go_source_symbol "$missing_budget_root" "internal/modules/auth/phase1_integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
 cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase99",
   "note": "Synthetic fixture budget validation fixture.",
   "ledger": {
@@ -1049,7 +1049,7 @@ write_phase_registry "$invalid_budget_root" phase99
 write_go_source_symbol "$invalid_budget_root" "internal/modules/auth/phase1_integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
 cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase99",
   "note": "Synthetic fixture budget validation fixture.",
   "ledger": {
@@ -1101,7 +1101,7 @@ write_phase_registry "$missing_migration_reason_root" phase99
 write_go_source_symbol "$missing_migration_reason_root" "internal/platform/bootstrap/bootstrap_phase0_test.go" "bootstrap" "TestPhase0_BootstrapManifestValidation_U_99_01"
 cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase99",
   "note": "Synthetic migration scratch validation fixture.",
   "ledger": {
@@ -1167,7 +1167,7 @@ func TestPhase99_Ledger_U_99_01() {}
 EOF
 cat >"$ledger_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase99",
   "note": "Synthetic ledger phase.",
   "ledger": {

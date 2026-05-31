@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.frontend_phase_test_map.v1",
+  "schema_id": "cartulary.frontend_phase_test_map.v2",
   "phase_namespace": "frontend",
   "phase_id": "FE-P1",
   "rows": [
@@ -44,7 +44,13 @@
       "claim": "Verify app bootstrap state distinguishes unauthenticated, MFA-required, authenticated, forbidden, revoked, loading, and public error-envelope states.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": true,
-      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior."
+      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "FE-U-P1-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "FE-I-P1-01",
@@ -102,7 +108,13 @@
       "claim": "Verify API client requests stay under /api/v1/, preserve server-managed session behavior, and reject private server-detail dependencies in rendered errors.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": true,
-      "default_check_reason": "Default frontend integration coverage proves implemented UI composition that unit rows cannot isolate alone."
+      "default_check_reason": "Default frontend integration coverage proves implemented UI composition that unit rows cannot isolate alone.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "FE-I-P1-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "medium"
     },
     {
       "id": "FE-E-P1-01",
@@ -165,7 +177,13 @@
       "claim": "Verify login/session bootstrap and incident entry through public routes, including current-role/current-membership authorization effects as browser-observed behavior.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
       "default_check_required": true,
-      "default_check_reason": "Default e2e browser coverage proves complete user workflow behavior across frontend and backend boundaries."
+      "default_check_reason": "Default e2e browser coverage proves complete user workflow behavior across frontend and backend boundaries.",
+      "default_check_kind": "default_local_cross_stack_conformance",
+      "default_check_reason_code": "lower_layer_gap",
+      "primary_evidence_owner": "FE-E-P1-01",
+      "duplicate_of": null,
+      "evidence_delta": "cross-stack frontend behavior not owned by lower layers",
+      "warm_local_cost_class": "browser"
     },
     {
       "id": "FE-A11Y-P1-01",
@@ -200,7 +218,13 @@
       "claim_status": "implemented",
       "claim": "Verify session, MFA, incident, forbidden, loading, and error states have keyboard-reachable controls, visible focus, and screen-reader-safe labels.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-A11Y-P1-01",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-S-P1-01",
@@ -225,7 +249,13 @@
       "claim_status": "implemented",
       "claim": "Verify bootstrap route selectors and error-state selectors use stable test-id builders.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "FE-S-P1-01",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     }
   ]
 }

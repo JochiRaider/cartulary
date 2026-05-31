@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.frontend_phase_test_map.v1",
+  "schema_id": "cartulary.frontend_phase_test_map.v2",
   "phase_namespace": "frontend",
   "phase_id": "FE-P11",
   "rows": [
@@ -27,7 +27,13 @@
       "claim_status": "blocked",
       "claim": "Run the owned-stack Playwright visual suite with deterministic seed data, viewport, zoom, fixture ordering, dynamic masks, scroll anchors, focus/editor state, inspector state, and post-scroll settle behavior.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "FE-V-P11-01",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-V-P11-02",
@@ -52,7 +58,13 @@
       "claim_status": "blocked",
       "claim": "Ensure the visual fixture matrix includes default grid shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "FE-V-P11-02",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-V-P11-03",
@@ -83,7 +95,13 @@
       "claim_status": "implemented",
       "claim": "Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior, expose a theme switcher, claim light or high-contrast themes, or activate Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-V-P11-03",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-A11Y-P11-01",
@@ -110,7 +128,13 @@
       "claim_status": "blocked",
       "claim": "Verify global accessibility matrix for keyboard access, visible focus, System views, grid navigation/edit entry/exit, Esc, ARIA states, icon-only labels, contrast, and non-color-only empty/loading/error/blocked states.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-A11Y-P11-01",
+      "duplicate_of": null,
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-S-P11-01",
@@ -141,7 +165,13 @@
       "claim_status": "blocked",
       "claim": "Verify frontend type check, unit tests, import-boundary check, Biome lint, generated drift, generated-artifact policy, phase ledger drift, and phase schedule drift are composed into readiness expectations.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "FE-S-P11-01",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "medium"
     },
     {
       "id": "FE-S-P11-02",
@@ -169,7 +199,13 @@
       "claim_status": "blocked",
       "claim": "Verify frontend release readiness composes build, check, visual readiness, generated drift, frontend phase drift, and accessibility readiness without representing blocked fixtures or planned phases as complete.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "FE-S-P11-02",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     },
     {
       "id": "FE-S-P11-03",
@@ -199,7 +235,13 @@
       "claim_status": "blocked",
       "claim": "Verify visual, responsiveness, and measurement evidence remains implementation-quality evidence unless Core 05 claim-publication requirements are separately satisfied.",
       "out_of_scope": "This row does not activate Core 05 unless claim_publication_intent is claim_bearing_publication.",
-      "default_check_required": false
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "claim_publication_boundary",
+      "primary_evidence_owner": "FE-S-P11-03",
+      "duplicate_of": null,
+      "evidence_delta": "claim-publication boundary evidence is explicit-only",
+      "warm_local_cost_class": "none"
     }
   ]
 }

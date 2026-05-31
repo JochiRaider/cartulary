@@ -270,7 +270,7 @@ test("harness NLSpec registry mirrors public target output classes and side effe
   }
 });
 
-test("scheduler manifest exercises every closed command type", () => {
+test("scheduler manifest exercises every required command type", () => {
   const schedulerManifest = readJSON("tools/scheduler_manifest.json");
   const expected = new Set([
     "make_target",
@@ -278,7 +278,6 @@ test("scheduler manifest exercises every closed command type", () => {
     "browser_stage_session_start",
     "browser_group",
     "browser_stage_complete",
-    "browser_session_finalizer",
     "go_shard",
     "go_shard_finalize",
     "service_complete",
@@ -288,7 +287,7 @@ test("scheduler manifest exercises every closed command type", () => {
       expected.delete(unit.command?.type);
     }
   }
-  assert.deepEqual([...expected].sort(), [], "every scheduler command type must have a live fixture");
+  assert.deepEqual([...expected].sort(), [], "every required scheduler command type must have a live fixture");
 });
 
 test("service-backed Go shard units are executable by their declared targets", () => {
@@ -641,8 +640,6 @@ test("default check service-backed browser work uses declared session groups", (
     new Map(browserSources.map((source) => [source.browser_stage, source.browser_session_group])),
     new Map([
       ["webserver-backed", "default-check-browser-shared"],
-      ["visual-smoke", "default-check-browser-shared"],
-      ["a11y", "default-check-browser-shared"],
       ["stateful", "default-check-stateful-isolated"],
     ]),
   );
@@ -671,32 +668,21 @@ test("default check service-backed browser work uses declared session groups", (
     ).length,
     7,
   );
-  assert.equal(
-    check.work_units.some((unit) => unit.aggregate_target === "browser-e2e-measurement"),
-    false,
-  );
-  const sharedSessionFinalizer = check.work_units.find(
-    (unit) =>
-      unit.kind === "browser_session_finalizer" &&
-      unit.browser_session_group === "default-check-browser-shared",
-  );
-  assert.ok(sharedSessionFinalizer, "shared default browser session must have a scheduler-level finalizer");
-  const visualComplete = check.work_units.find(
-    (unit) => unit.target === "browser-e2e-visual" && unit.kind === "browser_stage_complete",
-  );
-  assert.deepEqual(
-    visualComplete?.needs,
-    ["browser_group:browser-e2e-visual:visual-smoke"],
-    "visual projection completion must depend only on visual-smoke group evidence",
-  );
-  const a11yComplete = check.work_units.find(
-    (unit) => unit.target === "browser-e2e-a11y" && unit.kind === "browser_stage_complete",
-  );
-  assert.deepEqual(
-    a11yComplete?.needs,
-    ["browser_group:browser-e2e-a11y:a11y"],
-    "a11y projection completion must depend only on a11y group evidence",
-  );
+  for (const excludedBrowserTarget of [
+    "browser-e2e-measurement",
+    "browser-e2e-visual",
+    "browser-e2e-a11y",
+  ]) {
+    assert.equal(
+      check.work_units.some(
+        (unit) =>
+          unit.aggregate_target === excludedBrowserTarget ||
+          unit.target === excludedBrowserTarget,
+      ),
+      false,
+      `${excludedBrowserTarget} must remain outside default local check`,
+    );
+  }
   assertBrowserWorkerSlots(
     check.work_units.filter(
       (unit) =>

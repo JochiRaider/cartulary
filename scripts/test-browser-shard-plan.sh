@@ -121,7 +121,7 @@ JSON
 
 cat >"$tmp_dir/manifests/tools/phase1_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase1",
   "note": "Synthetic browser shard plan fixture.",
   "ledger": {
@@ -180,7 +180,7 @@ JSON
 
 cat >"$tmp_dir/manifests/tools/phase2_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase2",
   "note": "Synthetic browser shard plan fixture.",
   "ledger": {
@@ -225,7 +225,7 @@ JSON
 
 cat >"$tmp_dir/manifests/tools/phase12_test_map.json" <<'JSON'
 {
-  "schema_id": "cartulary.phase_test_map.v1",
+  "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase12",
   "note": "Synthetic browser shard plan fixture.",
   "ledger": {
