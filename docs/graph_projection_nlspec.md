@@ -101,17 +101,9 @@ A projection input object is a JSON-compatible object with the members defined i
 
 ### 4.0 JSON decoding, schema-table notation, and canonical input paths
 
-A projection input received as bytes MUST be decoded as UTF-8 JSON before schema validation. Invalid UTF-8, invalid JSON syntax, or a decoded top-level value that is not a JSON object MUST produce `invalid_input_shape`.
+A projection input received as bytes MUST be decoded as UTF-8 JSON before schema validation. Invalid UTF-8, invalid JSON syntax, duplicate JSON object members, a decoded top-level value that is not a JSON object, or any other condition classified as pre-admission by §4.0.1 MUST fail through the lifecycle operation error contract in §10.0. A pre-admission failure MUST NOT allocate `projection_run_id`, MUST NOT emit a validation issue object, MUST NOT emit `issue_id`, and MUST NOT create retained run state.
 
-A conforming implementation MUST reject duplicate JSON object member names at every object depth before schema validation. Duplicate member handling MUST NOT depend on parser first-wins, last-wins, insertion-order, or map-overwrite behavior. A duplicate member MUST produce one `invalid_input_shape` issue with:
-
-| Field | Required value |
-| --- | --- |
-| `target_kind` | `projection_input` |
-| `target_id` | `projection_input` |
-| `field_path` | canonical input path to the duplicate member |
-| `details.field` | same canonical input path |
-| `details.reason_code` | `duplicate_object_member` |
+A conforming implementation MUST reject duplicate JSON object member names at every object depth before schema validation. Duplicate member handling MUST NOT depend on parser first-wins, last-wins, insertion-order, or map-overwrite behavior. A duplicate member MUST return lifecycle operation error `invalid_projection_request` with `reason_code=duplicate_object_member`; `details.field` MUST be the canonical input path to the duplicate member when the path is attributable.
 
 Schema tables use `[]` as type notation, not as a literal JSON member-name suffix. A table member written as `source_entities[]` denotes the JSON member named `source_entities` whose value is an array. The canonical input path for that member is `$.source_entities`.
 
@@ -126,7 +118,33 @@ Canonical input paths MUST use this grammar.
 
 An ASCII path identifier is a non-empty string whose first character is `A-Z`, `a-z`, or `_`, and whose remaining characters are `A-Z`, `a-z`, `0-9`, or `_`. Canonical input paths are diagnostic identifiers only. They do not change the field-path grammar in §4.2.
 
+The canonical JSON string used inside canonical input paths for non-ASCII-path object member names MUST use the canonical string serialization grammar in §5.8.
+
 Validation detail members named `field` MUST use canonical input path syntax unless the owning detail schema explicitly says the member carries a §4.2 `field_path`.
+
+### 4.0.1 Projection request admission boundary
+
+Run admission is the boundary between lifecycle operation errors and projection-run validation. A conforming implementation MUST classify every projection request condition according to this table before constructing any validation issue.
+
+| Phase family | Required outcome | Run created? | Validation issues emitted? | Public error family |
+| --- | --- | ---: | ---: | --- |
+| Operation request envelope malformed | Reject before projection input processing | No | No | Lifecycle operation error |
+| Invalid UTF-8 or invalid JSON syntax in `projection_input` bytes | Reject before run admission | No | No | `invalid_projection_request` |
+| Duplicate JSON object member at any depth | Reject before run admission | No | No | `invalid_projection_request` |
+| Top-level decoded value is not an object | Reject before run admission | No | No | `invalid_projection_request` |
+| Missing, unknown, or explicit-null top-level member required to derive config or source identity | Reject before run admission | No | No | `invalid_projection_request` |
+| Invalid `projection_schema_id` | Reject before run admission | No | No | `invalid_projection_request` |
+| `projection_config` cannot be default-materialized or normalized deterministically | Reject before run admission | No | No | `invalid_projection_request` |
+| Supplied `graph_view_id` is malformed or does not equal the derived graph-view ID | Reject before run admission | No | No | `invalid_projection_request` |
+| Whole-input resource limit prevents deterministic decoding, default materialization, or normalization | Reject before run admission | No | No | `invalid_projection_request` |
+| Mapping, filter, property, metadata, aggregation, source-item, derivation, or output validation after admission | Admit run, then complete as `available` or `failed` | Yes | Yes | Run inspection through `get_projection_run()` |
+| Computation failure after admission | Admit run, then fail it | Yes | Yes, with `projection_computation_failed` | Run inspection through `get_projection_run()` |
+
+A table in §4 that names a validation code for a pre-admission condition defines the corresponding `invalid_projection_request.details.validation_code`; it does not require a validation issue object. Validation issue objects exist only for admitted runs.
+
+A pre-admission rejection MUST NOT create graph-view state, retained run state, projected output, validation summary, or an idempotency record unless §10 explicitly requires a record for that operation family. In this revision, §10 creates idempotency records only after run admission or successful invalidation target validation.
+
+If admission succeeds, the implementation MUST fix `graph_view_id`, `projection_run_id`, `source_snapshot_id`, `projection_version`, `accepted_at`, `projection_config_digest`, and `projection_source_digest` before constructing any validation issue for that run.
 
 ### 4.1 Common scalar contracts
 
@@ -134,16 +152,19 @@ The following scalar contracts apply wherever referenced.
 
 | Contract | Definition |
 | --- | --- |
-| `identifier` | A JSON string containing 1 to 128 Unicode scalar values. It MUST NOT contain U+0000, Unicode surrogate code points, C0 controls, C1 controls, leading whitespace, trailing whitespace, `/`, `\\`, or `#`. It MUST be compared by exact Unicode code point sequence after validation. No case folding, trimming, locale comparison, or Unicode normalization is applied. |
+| `identifier` | A JSON string containing 1 to 128 Unicode scalar values. It MUST NOT contain U+0000, Unicode surrogate code points, C0 controls U+0000 through U+001F, C1 controls U+0080 through U+009F, leading `unicode_whitespace`, trailing `unicode_whitespace`, `/`, `\`, or `#`. It MUST be compared by exact Unicode code point sequence after validation. No case folding, trimming, locale comparison, or Unicode normalization is applied. |
 | `generated_id` | An `identifier` with a required prefix from §7.1 followed by exactly 64 lowercase hexadecimal characters. |
-| `timestamp` | A JSON string in UTC form `YYYY-MM-DDTHH:MM:SSZ` or `YYYY-MM-DDTHH:MM:SS.ffffffZ`, where fractional seconds, when present, contain 1 to 6 decimal digits. Leap seconds are invalid. A timestamp with fractional seconds MUST preserve the supplied fractional precision after validation. |
+| `timestamp` | A JSON string in proleptic Gregorian UTC form `YYYY-MM-DDTHH:MM:SSZ` or `YYYY-MM-DDTHH:MM:SS.ffffffZ`. Year range is `0001` through `9999`. Month is `01` through `12`. Day MUST be valid for the month and Gregorian leap-year rules. Hour is `00` through `23`. Minute is `00` through `59`. Second is `00` through `59`; leap seconds are invalid. Fractional seconds, when present, contain 1 to 6 ASCII decimal digits and preserve supplied precision after validation. Timestamps generated by §10.8 MUST use exactly 6 fractional digits. |
 | `property_key` | An `identifier` used as an object member key for projected properties or mapped metadata. It MUST NOT contain `.`. It MUST NOT equal `kind`, `properties`, `metadata`, `source_metadata`, or `projected` when used as a field-path terminal. |
 | `kind` | An `identifier` that names a source entity kind, source relationship kind, projected vertex kind, or projected edge kind. |
-| `finite_integer` | A JSON number with no fractional part in the inclusive range `-9007199254740991` through `9007199254740991`. |
+| `finite_integer` | A JSON number token matching exactly `0` or `-?[1-9][0-9]*`, with mathematical value in the inclusive range `-9007199254740991` through `9007199254740991`. Decimal-point notation, exponent notation, leading plus sign, leading zeroes, and `-0` are invalid even when the mathematical value would be integral. |
 | `property_value` | One of JSON string, JSON boolean, `finite_integer`, JSON null, or an array of those scalar values. A JSON string value MUST contain no more than `max_string_property_value_length` Unicode scalar values. Arrays MUST contain at most 1024 values. Nested arrays and objects are invalid as property values. |
 | `sha256_hex` | A JSON string containing exactly 64 lowercase hexadecimal characters. |
 | `field_path` | A JSON string matching exactly one row in §4.2. It is parsed by splitting on literal `.` into exactly the declared path segments. No escaping is supported in this NLSpec revision. |
 | `cursor_token` | A JSON string containing 1 to 4096 Unicode scalar values. The token is opaque to the caller and valid only under the query-specific cursor rules that emitted it. |
+| `idempotency_key` | A JSON string containing 1 to 128 Unicode scalar values. It MUST NOT contain U+0000, Unicode surrogate code points, C0 controls, C1 controls, leading `unicode_whitespace`, or trailing `unicode_whitespace`. It is compared by exact Unicode code point sequence after JSON decoding. No case folding, trimming, locale comparison, or Unicode normalization is applied. |
+
+For `identifier` and `idempotency_key` leading and trailing checks, `unicode_whitespace` means exactly these code points: U+0009 through U+000D, U+0020, U+0085, U+00A0, U+1680, U+2000 through U+200A, U+2028, U+2029, U+202F, U+205F, and U+3000.
 
 Object member names in projection inputs MUST be exact code point matches for the member names in this NLSpec after applying the schema-table notation rule in §4.0. Unknown members are invalid unless a schema table explicitly allows them.
 
@@ -191,7 +212,7 @@ The top-level projection input object MUST be a JSON object with exactly the fol
 | `requested_at` | `timestamp` | Yes | No | None | Records projection request time. It does not define `generated_at`. |
 | `requested_by` | `identifier` | Yes | No | None | Identifies the requesting actor or system process. |
 
-No top-level projection input member is nullable. Explicit JSON `null` for any top-level member is invalid and MUST produce `explicit_null_not_allowed`.
+No top-level projection input member is nullable. Explicit JSON `null` for any top-level member is invalid. When the member is evaluated before admission, the operation MUST fail with lifecycle `invalid_projection_request` and `reason_code=explicit_null_not_allowed`; when the member is evaluated after admission, the run MUST emit `explicit_null_not_allowed`.
 
 ### 4.4 Identity participation matrix
 
@@ -497,7 +518,7 @@ A conforming implementation MUST enforce the following closed resource limits be
 | `max_metadata_keys_per_object` | `metadata`, `source_metadata`, `mapped_metadata` objects | `1024` | `resource_limit_exceeded` fatal for top-level or output metadata; `source_item_resource_limit_exceeded` for source item metadata |
 | `max_properties_per_object` | `properties` objects | `1024` | `source_item_resource_limit_exceeded` for source item properties; `projected_output_limit_exceeded` for emitted object properties |
 | `max_custom_config_keys` | `custom_config` | `256` | `resource_limit_exceeded` fatal |
-| `max_validation_issues` | emitted validation issues | `100000` | Closed by §9.3: emit first `N-1` issues plus final `validation_issue_limit_exceeded`. |
+| `max_validation_issues` | emitted validation issues | `100000` | Closed by §9.3: select the first `N-1` non-cap issues by discovery order, sort selected non-cap issues by ordinary issue ordering, then append final `validation_issue_limit_exceeded`. |
 | `max_validation_message_length` | validation issue `message` | `1024` Unicode scalar values | Truncate deterministically by preserving the first 1024 Unicode scalar values; issue identity is unaffected. |
 | `max_failure_reason_length` | `failure_reason` | `4096` Unicode scalar values | Truncate deterministically by preserving the first 4096 Unicode scalar values; emit `projection_computation_failed` when the failure reason came from computation failure. |
 | `max_query_error_message_length` | query error message if a transport exposes one | `1024` Unicode scalar values | Truncate deterministically by preserving the first 1024 Unicode scalar values; query error identity is unaffected. |
@@ -509,7 +530,7 @@ A conforming implementation MUST enforce the following closed resource limits be
 | `max_traversal_depth` | `traverse.max_depth` | `16` | `invalid_argument` |
 | `max_list_graph_views_limit` | `list_graph_views.limit` | `1000` | `invalid_argument` |
 
-Whole-input limits MUST use `resource_limit_exceeded` and prevent a consumable graph. Item-scoped limits MUST use `source_item_resource_limit_exceeded` and exclude only the affected item. Derived-output limits MUST use `projected_output_limit_exceeded` and prevent a consumable graph.
+Whole-input limits that prevent request admission MUST use lifecycle `invalid_projection_request` according to §4.0.1 and MUST NOT emit validation issues. Whole-input limits discovered after admission MUST use `resource_limit_exceeded` and prevent a consumable graph. Item-scoped limits MUST use `source_item_resource_limit_exceeded` and exclude only the affected item. Derived-output limits MUST use `projected_output_limit_exceeded` and prevent a consumable graph.
 
 ### 4.13 Input normalization
 
@@ -557,52 +578,88 @@ A graph view output object MUST be a JSON object with exactly the following memb
 
 ### 5.2 Schema registry object
 
-The graph view output MUST include `schema_registry` so consumers can rely on declared vertex and edge schemas, labels, property keys, and metadata keys without private configuration access.
+The graph view output MUST include `schema_registry` so consumers can rely on declared vertex and edge schemas, labels, property keys, and metadata keys without private configuration access. The registry exposes concrete expanded output applicability. Consumers MUST NOT repeat wildcard expansion privately.
 
-`schema_registry` MUST be a JSON object with exactly the following members.
+`schema_registry` MUST be a JSON object with exactly the following members in this order.
+
+| Member | Type | Required | Nullable | Empty allowed | Sorting rule |
+| --- | --- | ---: | ---: | ---: | --- |
+| `vertex_kinds[]` | Array of `vertex_kind_schema_item` | Yes | No | Yes | Sorted by `vertex_kind`. |
+| `edge_kinds[]` | Array of `edge_kind_schema_item` | Yes | No | Yes | Sorted by `edge_kind`. |
+| `property_keys[]` | Array of `property_schema_item` | Yes | No | Yes | Sorted by `target_scope`, `target_kind`, `projected_key`. |
+| `metadata_keys[]` | Array of `metadata_schema_item` | Yes | No | Yes | Sorted by `target_scope`, `target_kind`, `projected_metadata_key`. |
+
+A `vertex_kind_schema_item` MUST be a JSON object with exactly these members in this order.
 
 | Member | Type | Required | Nullable | Rule |
 | --- | --- | ---: | ---: | --- |
-| `vertex_kinds[]` | Array | Yes | No | Sorted by `vertex_kind`. |
-| `edge_kinds[]` | Array | Yes | No | Sorted by `edge_kind`. |
-| `property_keys[]` | Array | Yes | No | All declared projected property keys sorted by `target_scope`, `target_kind`, `projected_key`. |
-| `metadata_keys[]` | Array | Yes | No | All declared mapped metadata keys sorted by `target_scope`, `target_kind`, `projected_metadata_key`. |
+| `vertex_kind` | `kind` | Yes | No | Projected vertex kind. |
+| `source_entity_kinds[]` | Array of `kind` | Yes | No | Source entity kinds that can emit this vertex kind, sorted by exact code point order. Empty when only aggregation emits the kind. |
+| `aggregation_rule_ids[]` | Array of `identifier` | Yes | No | Vertex aggregation rules that can emit this vertex kind, sorted by exact code point order. Empty when only direct mappings emit the kind. |
+| `labels[]` | Array of strings | Yes | No | Concrete static labels that can be emitted for this vertex kind from default labels and mapping labels, sorted by exact code point order. Dynamic source labels are not enumerated. |
+| `source_labels_preserved` | Boolean | Yes | No | `true` when any entity mapping for this kind can preserve source item `labels[]`; otherwise `false`. |
+| `properties[]` | Array of `property_schema_reference` | Yes | No | Property schema references for this kind, sorted by `projected_key`. Empty when no property applies. |
 
-Each `vertex_kinds[]` item MUST be a JSON object with exactly these members.
+An `edge_kind_schema_item` MUST be a JSON object with exactly these members in this order.
 
-| Member | Rule |
-| --- | --- |
-| `vertex_kind` | Projected vertex kind. |
-| `source_entity_kinds[]` | Source entity kinds that can emit this vertex kind, sorted. |
-| `aggregation_rule_ids[]` | Aggregation rules that can emit this vertex kind, sorted. |
-| `labels[]` | Mapping-declared labels only, sorted. |
-| `properties[]` | Property schema references for this kind, sorted by `projected_key`. |
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `edge_kind` | `kind` | Yes | No | Projected edge kind. |
+| `source_relationship_kinds[]` | Array of `kind` | Yes | No | Source relationship kinds that can emit this edge kind, sorted by exact code point order. Empty when only aggregation emits the kind. |
+| `aggregation_rule_ids[]` | Array of `identifier` | Yes | No | Edge aggregation rules that can emit this edge kind, sorted by exact code point order. Empty when only direct mappings emit the kind. |
+| `directions[]` | Array of strings | Yes | No | Projected edge directions that may be emitted for this kind, sorted in the fixed order `directed`, `undirected`, `bidirectional`. |
+| `labels[]` | Array of strings | Yes | No | Concrete static labels that can be emitted for this edge kind from default labels and mapping labels, sorted by exact code point order. Dynamic source labels are not enumerated. |
+| `source_labels_preserved` | Boolean | Yes | No | `true` when any relationship mapping for this kind can preserve source item `labels[]`; otherwise `false`. |
+| `properties[]` | Array of `property_schema_reference` | Yes | No | Property schema references for this kind, sorted by `projected_key`. Empty when no property applies. |
 
-Each `edge_kinds[]` item MUST be a JSON object with exactly these members.
+A `property_schema_reference` MUST be a JSON object with exactly these members in this order.
 
-| Member | Rule |
-| --- | --- |
-| `edge_kind` | Projected edge kind. |
-| `source_relationship_kinds[]` | Source relationship kinds that can emit this edge kind, sorted. |
-| `aggregation_rule_ids[]` | Aggregation rules that can emit this edge kind, sorted. |
-| `directions[]` | Projected edge directions that may be emitted for this kind, sorted in order `directed`, `undirected`, `bidirectional`. |
-| `labels[]` | Mapping-declared labels only, sorted. |
-| `properties[]` | Property schema references for this kind, sorted by `projected_key`. |
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `projected_key` | `property_key` | Yes | No | Property key. |
+| `projected_type` | String | Yes | No | Closed projected type from §4.10. |
+| `required` | Boolean | Yes | No | Effective requiredness for this concrete kind. |
+| `nullable_output` | Boolean | Yes | No | `true` iff `null_output_policy=emit_null`. |
 
-Each property schema item MUST be a JSON object with exactly these members.
+A `property_schema_item` MUST be a JSON object with exactly these members in this order.
 
-| Member | Rule |
-| --- | --- |
-| `target_scope` | `graph_view`, `vertex`, or `edge`. |
-| `target_kind` | Kind or `*`. |
-| `projected_key` | Property key. |
-| `projected_type` | Closed projected type. |
-| `required` | Boolean from property definition. |
-| `nullable_output` | Boolean derived from `null_output_policy=emit_null`. |
-| `missing_behavior` | Effective missing behavior after defaults. |
-| `source_null_behavior` | Effective null behavior after defaults. |
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `target_scope` | String | Yes | No | `graph_view`, `vertex`, or `edge`. |
+| `target_kind` | `kind` or `*` | Yes | No | Concrete kind after wildcard expansion for `vertex` and `edge`; exactly `*` only when `target_scope=graph_view`. |
+| `projected_key` | `property_key` | Yes | No | Property key. |
+| `projected_type` | String | Yes | No | Closed projected type from §4.10. |
+| `required` | Boolean | Yes | No | Effective requiredness after defaults. |
+| `nullable_output` | Boolean | Yes | No | `true` iff `null_output_policy=emit_null`. |
+| `missing_behavior` | String | Yes | No | Effective missing behavior after defaults. |
+| `source_null_behavior` | String | Yes | No | Effective null behavior after defaults. |
 
-Each metadata schema item MUST use the same shape as a property schema item except the key member is `projected_metadata_key`.
+A `metadata_schema_item` MUST be a JSON object with exactly these members in this order.
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `target_scope` | String | Yes | No | `graph_view`, `vertex`, or `edge`. |
+| `target_kind` | `kind` or `*` | Yes | No | Concrete kind after wildcard expansion for `vertex` and `edge`; exactly `*` only when `target_scope=graph_view`. |
+| `projected_metadata_key` | `property_key` | Yes | No | Mapped metadata key. |
+| `projected_type` | String | Yes | No | Closed projected type from §4.10. |
+| `required` | Boolean | Yes | No | Effective requiredness after defaults. |
+| `nullable_output` | Boolean | Yes | No | `true` iff `null_output_policy=emit_null`. |
+| `missing_behavior` | String | Yes | No | Effective missing behavior after defaults. |
+| `source_null_behavior` | String | Yes | No | Effective null behavior after defaults. |
+
+Registry `property_keys[]` and `metadata_keys[]` MUST emit concrete expanded applicability. `target_kind="*"` MUST NOT appear in registry items except for `target_scope=graph_view`, where `target_kind` remains exactly `*`.
+
+Static label reporting MUST follow this matrix.
+
+| Label source | Direct output object | Aggregated output object | Schema registry `labels[]` | Schema registry dynamic indicator |
+| --- | --- | --- | --- | --- |
+| `default_vertex_labels[]` | Included on every vertex | Included on aggregated vertices | Included for every vertex kind | No dynamic indicator. |
+| `default_edge_labels[]` | Included on every edge | Included on aggregated edges | Included for every edge kind | No dynamic indicator. |
+| Entity mapping `mapping_labels[]` | Included according to entity `label_policy` | Not applicable | Included for mapped vertex kind when any mapping can emit it | No dynamic indicator. |
+| Relationship mapping `mapping_labels[]` | Included according to relationship `label_policy` | Not applicable | Included for mapped edge kind when any mapping can emit it | No dynamic indicator. |
+| Source entity `labels[]` | Included only when the entity label policy preserves source labels | Not applicable | Not enumerated | `source_labels_preserved=true`. |
+| Source relationship `labels[]` | Included only when the relationship label policy preserves source labels | Not applicable | Not enumerated | `source_labels_preserved=true`. |
+| Aggregation rule labels | Not applicable | No labels in this revision | Not applicable | No dynamic indicator. |
 
 ### 5.3 Projected vertex object
 
@@ -751,12 +808,30 @@ Canonical output serialization MUST use canonical JSON with these rules.
 | Closed object member order | Members appear in the exact order declared by their schema table. |
 | Dynamic object member order | Dynamic property, metadata, and details map members sort by exact Unicode code point order. |
 | Arrays | Preserve the order defined by the relevant ordering rule. |
-| Strings | JSON escaping is used only for `"`, `\\`, and required control escapes. Other Unicode scalar values emit as UTF-8. |
+| Strings | Use the canonical string grammar below. |
 | Integers | Base-10 ASCII without leading zeroes, except zero emits `0`. |
 | Booleans | `true` or `false`. |
 | Null | `null`. |
-| Timestamps | The validated timestamp string form from §4.1. |
+| Timestamps | The validated timestamp string form from §4.1. Generated lifecycle timestamps use §10.8 precision. |
 | Floating point | Forbidden by scalar contracts. |
+
+Canonical string serialization MUST use this grammar for every JSON string emitted by canonical output serialization, canonical tuple JSON fields, canonical input paths, and digest fixture transcripts.
+
+| Character class | Required serialization |
+| --- | --- |
+| U+0022 quotation mark | `\"` |
+| U+005C reverse solidus | `\\` |
+| U+0008 backspace | `\b` |
+| U+0009 tab | `\t` |
+| U+000A line feed | `\n` |
+| U+000C form feed | `\f` |
+| U+000D carriage return | `\r` |
+| Other U+0000 through U+001F controls | `\u00xx` with lowercase hexadecimal digits. |
+| U+002F solidus | `/`, never escaped. |
+| U+2028 and U+2029 | UTF-8 bytes, never escaped. |
+| All other Unicode scalar values | UTF-8 bytes, never escaped. |
+
+Escaped UTF-16 surrogate pairs in input JSON MUST decode to one Unicode scalar value before validation. A lone escaped surrogate is invalid JSON for this NLSpec and MUST fail before admission. Canonical output strings MUST NOT contain surrogate code points.
 
 Canonical graph-output equivalence is byte identity of canonical JSON after excluding the run-specific fields listed in §12.2.
 
@@ -766,28 +841,30 @@ Projection derivation MUST follow the algorithms and mappings in this section af
 
 ### 6.1 Projection algorithm overview
 
-A conforming implementation MUST derive a projection result in this order.
+Projection derivation begins only after request admission under §4.0.1. By the time this algorithm starts, `graph_view_id`, `projection_run_id`, `source_snapshot_id`, `projection_version`, `accepted_at`, `projection_config_digest`, and `projection_source_digest` are fixed for the admitted run.
+
+A conforming implementation MUST derive an admitted projection run in this order.
 
 ```text
-1. Decode input as a JSON-compatible object.
-2. Validate top-level shape, scalar contracts, closed schemas, unknown members, duplicates, and resource limits.
-3. Normalize inputs according to §4.13.
-4. Derive and validate graph_view_id according to §7.4.
-5. Select the active relationship mapping source:
+1. Start from admitted decoded input after default materialization and normalization.
+2. Select the active relationship mapping source:
    a. if relationship_definitions[] is non-empty, use it;
    b. otherwise use projection_config.relationship_mappings[].
-6. Validate mapping completeness and mapping cross-references.
-7. Evaluate global source entity and source relationship filters.
-8. Exclude semantically invalid source items and emit nonfatal validation issues as required.
-9. Emit direct vertices from eligible source entities.
-10. Emit direct and reverse edges from eligible source relationships whose endpoint vertices exist.
-11. Emit aggregated vertices and aggregated edges in normalized aggregation rule order.
-12. Derive graph-view properties and metadata.
-13. Build schema_registry and consumer_capabilities.
-14. Run post-projection output validation.
-15. If no fatal issue exists, publish a consumable projection result atomically.
-16. If any fatal issue exists, persist a failed projection run summary and do not publish a consumable graph result.
+3. Validate mapping completeness and mapping cross-references.
+4. Evaluate global source entity and source relationship filters.
+5. Exclude semantically invalid source items and emit nonfatal validation issues as required.
+6. Emit direct vertices from eligible source entities.
+7. Emit direct and reverse edges from eligible source relationships whose endpoint vertices exist.
+8. Emit aggregated vertices and aggregated edges in normalized aggregation rule order.
+9. Derive graph-view properties and metadata.
+10. Build schema_registry and consumer_capabilities.
+11. Run post-projection output validation.
+12. Construct validation summary under §9.
+13. If no fatal issue exists, publish a consumable projection result atomically.
+14. If any fatal issue exists, persist the admitted run as failed with its validation summary and do not publish a consumable graph result.
 ```
+
+Validation errors after admission MUST NOT be returned as lifecycle operation errors. They are observable through retained run inspection and, when a consumable graph exists, the graph-view validation summary.
 
 ### 6.2 Mapping completeness
 
@@ -980,14 +1057,18 @@ Two groups are the same group if and only if their `canonical_grouping_key_diges
 
 #### 6.8.5 Aggregated vertex emission
 
-For each non-empty vertex aggregation group, emit exactly one aggregated vertex with:
+For each aggregation group from a vertex aggregation rule, emit one aggregated projected vertex with:
 
-- `vertex_family=aggregated`;
 - `vertex_kind=aggregation_rule.projected_kind`;
+- `vertex_family=aggregated`;
+- `labels[]` equal to normalized `projection_config.default_vertex_labels[]` sorted by exact code point order;
 - `source_entity_ref=null`;
+- properties and mapped metadata derived by §6.8.6.2;
 - `metadata.aggregation_rule_id=aggregation_rule_id`;
 - `metadata.aggregation_source_refs[]` from all group contributors, sorted by §5.5.4;
 - identity derived by §7.6.
+
+Aggregation rules in this revision do not declare additional labels. Source item labels are not available to aggregated vertices except as source-reference metadata.
 
 #### 6.8.6 Property merge behavior
 
@@ -995,10 +1076,10 @@ When aggregation emits properties or mapped metadata, the effective merge behavi
 
 | `merge_behavior` | Input values considered | Output | Conflict behavior |
 | --- | --- | --- | --- |
-| `single_value` | Present non-null values | Emit the one distinct value. | More than one distinct value emits `aggregation_merge_conflict` and omits the key. |
-| `first_by_sort` | Present non-null values | Value from first contributor by contributor sort key. | No conflict. |
-| `last_by_sort` | Present non-null values | Value from last contributor by contributor sort key. | No conflict. |
-| `distinct_sorted_array` | Present scalar values and array element values | Distinct scalar values sorted by canonical value order. | Non-scalar object or nested array emits `invalid_property_type`; invalid values are skipped. |
+| `single_value` | Candidate values remaining after missing/null/default/type evaluation | Emit the one distinct value. | More than one distinct value emits `aggregation_merge_conflict` and omits the key. |
+| `first_by_sort` | Candidate values remaining after missing/null/default/type evaluation | Value from first candidate by contributor sort key. | No conflict. |
+| `last_by_sort` | Candidate values remaining after missing/null/default/type evaluation | Value from last candidate by contributor sort key. | No conflict. |
+| `distinct_sorted_array` | Present scalar values and array element values from candidates | Distinct scalar values sorted by canonical value order. | Non-scalar object or nested array emits `invalid_property_type`; invalid values are skipped. |
 | `count` | All contributors in group | Integer count of contributing items. | No conflict. |
 | `omit` | None | Omit key. | No conflict. |
 
@@ -1010,56 +1091,110 @@ Merge behavior MUST be compatible with the declared `projected_type` for the pro
 
 | Merge behavior | Allowed projected types | Null handling | Array handling | Invalid combination |
 | --- | --- | --- | --- | --- |
-| `single_value` | all projected types | Ignore JSON null inputs. | Arrays compare as whole normalized values. | `invalid_property_definition` or `invalid_metadata_mapping`. |
-| `first_by_sort` | all projected types | Ignore JSON null inputs. | Emits first whole normalized value. | `invalid_property_definition` or `invalid_metadata_mapping`. |
-| `last_by_sort` | all projected types | Ignore JSON null inputs. | Emits last whole normalized value. | `invalid_property_definition` or `invalid_metadata_mapping`. |
-| `distinct_sorted_array` | `string_array`, `identifier_array` only | Ignore JSON null inputs. | Flattens scalar strings and array elements of the declared element type. | `invalid_property_definition` or `invalid_metadata_mapping`. |
+| `single_value` | all projected types | Uses candidate values produced by §6.8.6.2. JSON null candidates compare as ordinary JSON null values only when emitted by `source_null_behavior=emit_null`. | Arrays compare as whole normalized values. | `invalid_property_definition` or `invalid_metadata_mapping`. |
+| `first_by_sort` | all projected types | Uses candidate values produced by §6.8.6.2. | Emits first whole normalized value. | `invalid_property_definition` or `invalid_metadata_mapping`. |
+| `last_by_sort` | all projected types | Uses candidate values produced by §6.8.6.2. | Emits last whole normalized value. | `invalid_property_definition` or `invalid_metadata_mapping`. |
+| `distinct_sorted_array` | `string_array`, `identifier_array` only | JSON null candidates are ignored. | Flattens scalar strings and array elements of the declared element type. | `invalid_property_definition` or `invalid_metadata_mapping`. |
 | `count` | `integer` only | Counts contributors, not values. | Arrays are irrelevant. | `invalid_property_definition` or `invalid_metadata_mapping`. |
 | `omit` | all projected types | No values considered. | No values considered. | Never invalid by type. |
 
 `distinct_sorted_array` for `identifier_array` MUST validate every emitted element as `identifier`. `distinct_sorted_array` for `string_array` MUST accept only JSON strings. `single_value` conflict detection MUST compare canonical JSON bytes after projected-type normalization.
 
-If no non-null values remain after missing/null behavior, the key is omitted unless the property definition or metadata mapping is required. A required property emits `required_property_missing`; a required metadata mapping emits `invalid_metadata_mapping` with `reason_code=required_metadata_missing`.
+#### 6.8.6.2 Aggregated property and metadata candidate algorithm
+
+Aggregated property and metadata derivation MUST use this deterministic algorithm.
+
+```text
+for each aggregation group in canonical_grouping_key_digest order:
+  for each applicable property definition or metadata mapping in expanded concrete-key order:
+    if effective merge_behavior is count:
+      emit the contributor count after projected_type validation.
+      skip source_field_path candidate evaluation.
+      continue.
+
+    initialize candidate_values as an empty ordered list.
+    initialize contributor_issue_emitted_for_key as false.
+
+    for each contributor in contributor_sort_key order:
+      evaluate source_field_path in the contributor context.
+      apply missing_behavior, source_null_behavior, default_value, null_output_policy, and projected_type compatibility.
+      produce zero or one normalized candidate value.
+      emit zero or one contributor-scoped validation issue when required.
+
+    apply merge_behavior to candidate_values.
+    emit the merged key when the merge result is present.
+    omit the key when the merge result is absent and required=false.
+    emit one group-scoped required-missing issue when the merge result is absent, required=true, and no contributor-scoped required/null issue was emitted for the same group/key.
+```
+
+Contributor candidate evaluation MUST use this table.
+
+| Condition | Required behavior |
+| --- | --- |
+| Missing source field and `missing_behavior=omit` | No candidate value, no issue. |
+| Missing source field and `missing_behavior=default` | One candidate value for that contributor using `default_value`. |
+| Missing source field and `missing_behavior=error` | One contributor-scoped issue, no candidate value. |
+| Explicit JSON null and `source_null_behavior=omit` | No candidate value, no issue. |
+| Explicit JSON null and `source_null_behavior=default` | One candidate value for that contributor using `default_value`. |
+| Explicit JSON null and `source_null_behavior=emit_null` | One JSON null candidate only when `null_output_policy=emit_null`; otherwise configuration validation is fatal before derivation. |
+| Explicit JSON null and `source_null_behavior=error` | One contributor-scoped issue, no candidate value. |
+| Non-null incompatible value | One contributor-scoped `invalid_property_type` or `invalid_metadata_mapping` issue, no candidate value. |
+| `merge_behavior=count` | Emit count of contributors in the group; do not evaluate `source_field_path` for values and do not emit source-field missing issues. |
+| `merge_behavior=omit` | Omit key; do not evaluate `source_field_path` for values and do not emit source-field missing issues. |
+| No candidates and `required=false` | Omit key. |
+| No candidates and `required=true` | Emit one group-scoped missing issue unless contributor-scoped required/null issues already represent the absence for that same group/key. |
+
+For contributor-scoped aggregation issues, `details` MUST identify `aggregation_rule_id`, `canonical_grouping_key_digest`, `contributor_id`, `projected_key` or `projected_metadata_key`, and `source_field_path` when the issue code's detail schema includes those fields. For group-scoped aggregation issues, `details` MUST identify `aggregation_rule_id`, `canonical_grouping_key_digest`, and the emitted key. Any field required to distinguish two emitted issues MUST be a required detail field for that code and MUST participate in issue identity.
+
+For aggregated metadata, `required=true` with no candidates emits `invalid_metadata_mapping` with `reason_code=required_metadata_missing`. For aggregated properties, `required=true` with no candidates emits `required_property_missing`.
+
+Defaults in aggregation apply per contributor, not once per group. Requiredness is evaluated after merge, not as a requirement that every contributor provide a value, except when `missing_behavior=error` or `source_null_behavior=error` emits contributor-scoped issues.
 
 #### 6.8.7 Aggregated edge emission
 
-For each non-empty edge aggregation group, the implementation MUST derive source and destination endpoint grouping digests through the referenced vertex aggregation rule context.
+An edge aggregation rule MUST resolve source and destination aggregated vertices by evaluating `endpoint_grouping.src_grouping_keys[]` and `endpoint_grouping.dst_grouping_keys[]` in the edge aggregation contributor context.
 
-Endpoint digest derivation MUST use this algorithm for each endpoint side.
+For each edge aggregation group:
 
-```text
-1. Let R be the referenced vertex aggregation rule for the endpoint side.
-2. Evaluate the endpoint side's grouping key paths in the edge aggregation rule's contributor context.
-3. Construct canonical_endpoint_grouping_key as the canonical JSON array of those values in declared endpoint key order.
-4. Compute endpoint_digest = sha256_hex(serialize_tuple("GPGROUP1\n", [
-     R.aggregation_rule_id,
-     "vertex",
-     R.projected_kind,
-     canonical_endpoint_grouping_key
-   ])).
-5. Match only an emitted aggregated vertex whose canonical_grouping_key_digest equals endpoint_digest and whose aggregation rule ID equals R.aggregation_rule_id.
-```
+1. Evaluate source endpoint grouping keys in the contributor context for each contributor.
+2. Evaluate destination endpoint grouping keys in the contributor context for each contributor.
+3. Convert each endpoint grouping-key array to canonical grouping-key serialization using §6.8.4.
+4. Compute endpoint digests with the same digest function as vertex aggregation grouping.
+5. Match each digest to an already emitted aggregated vertex from the referenced vertex aggregation rule.
+6. If either endpoint is missing or excluded under §6.8.8, do not emit the aggregated edge.
+7. If both endpoints resolve, emit exactly one aggregated edge for the edge aggregation group.
 
-The endpoint digest MUST NOT match by projected kind alone. The edge aggregation rule is invalid with `invalid_aggregation_rule` when an endpoint grouping key count does not equal the referenced vertex aggregation rule's `grouping_keys[]` count.
+An emitted aggregated edge MUST set:
 
-For each group whose endpoints are resolved, emit exactly one aggregated edge with:
-
-- `edge_family=aggregated`;
 - `edge_kind=aggregation_rule.projected_kind`;
+- `edge_family=aggregated`;
+- `labels[]` equal to normalized `projection_config.default_edge_labels[]` sorted by exact code point order;
 - `src_vertex_id` equal to the matched source aggregated vertex;
 - `dst_vertex_id` equal to the matched destination aggregated vertex;
 - `direction=aggregation_rule.edge_direction`;
 - `source_relationship_ref=null`;
+- properties and mapped metadata derived by §6.8.6.2;
 - `metadata.aggregation_rule_id=aggregation_rule_id`;
 - `metadata.aggregation_source_refs[]` from all group contributors, sorted by §5.5.4;
 - identity derived by §7.6.
 
-#### 6.8.8 Missing aggregated endpoints
+Aggregation rules in this revision do not declare additional labels. Source item labels are not available to aggregated edges except as source-reference metadata.
 
-| `endpoint_grouping.missing_endpoint_behavior` | Required behavior |
-| --- | --- |
-| `error` | Emit `aggregation_endpoint_missing`; do not emit the aggregated edge. |
-| `exclude` | Do not emit the aggregated edge and do not emit a validation issue. |
+#### 6.8.8 Aggregated endpoint key evaluation and missing endpoints
+
+Endpoint grouping key values MUST be valid `property_value` values. JSON null is valid and participates in endpoint digest computation when it is the present value of the field path. A missing field is not the same as a present JSON null.
+
+Endpoint grouping key evaluation MUST follow this table.
+
+| Endpoint key result | `missing_endpoint_behavior=error` | `missing_endpoint_behavior=exclude` |
+| --- | --- | --- |
+| Present scalar, array, or JSON null `property_value` | Include value in canonical endpoint key array. | Include value in canonical endpoint key array. |
+| Missing field | Emit `aggregation_endpoint_missing` with `reason_code=endpoint_key_missing`; do not emit edge. | Do not emit edge; no issue. |
+| Object value | Emit `invalid_aggregation_rule` with `reason_code=endpoint_grouping_key_invalid`; do not emit edge. | Emit `invalid_aggregation_rule` with `reason_code=endpoint_grouping_key_invalid`; do not emit edge. |
+| Nested array or non-`property_value` | Emit `invalid_aggregation_rule` with `reason_code=endpoint_grouping_key_invalid`; do not emit edge. | Emit `invalid_aggregation_rule` with `reason_code=endpoint_grouping_key_invalid`; do not emit edge. |
+| Digest computed but no matching aggregated vertex exists | Emit `aggregation_endpoint_missing` with `reason_code=endpoint_vertex_not_found`; do not emit edge. | Do not emit edge; no issue. |
+
+For `aggregation_endpoint_missing`, `details.endpoint_digest` MUST be non-null when the digest was computed. It MUST be JSON null when the endpoint key was missing before digest computation. `details.field_path` MUST be the missing or invalid endpoint grouping key path when attributable and JSON null otherwise.
 
 ## 7. Identity and stability
 
@@ -1147,25 +1282,85 @@ Projection digest envelopes are byte-level contracts. A conforming implementatio
 
 The following fields MUST be excluded from both digest envelopes: `graph_view_id`, `requested_at`, `requested_by`, `projection_run_nonce`, and every lifecycle timestamp. `custom_config` MUST be excluded from `projection_config_digest` and MUST NOT appear in `projection_source_digest`.
 
-Any validation issue that prevents default materialization or prevents deterministic normalization prevents digest emission for a consumable graph result.
+Any pre-admission condition that prevents default materialization or deterministic normalization prevents digest emission and MUST fail through §4.0.1. Any admitted condition that prevents digest use for a consumable graph result MUST fail the admitted run.
 
-Golden fixture: minimal empty graph digest inputs.
+#### 7.3.1.1 Golden fixture: minimal empty graph
+
+Fixture source JSON:
+
+```json
+{"projection_schema_id":"graph_projection.v1","graph_view_id":"gv_0bfa120793d470c3cf37aa2c6ac0f69c067fa2e598da3f5116512b92f3bc3752","source_snapshot_id":"snap_empty_1","projection_config":{"graph_view_key":"empty","declared_source_entity_kinds":[],"entity_mappings":[],"allow_empty_kind_registry":true},"source_entities":[],"source_relationships":[],"requested_at":"2026-05-30T00:00:00Z","requested_by":"fixture"}
+```
+
+Normalized input after default materialization:
+
+```json
+{"projection_schema_id":"graph_projection.v1","graph_view_id":"gv_0bfa120793d470c3cf37aa2c6ac0f69c067fa2e598da3f5116512b92f3bc3752","source_snapshot_id":"snap_empty_1","projection_config":{"graph_view_key":"empty","projection_version":"1","declared_source_entity_kinds":[],"declared_source_relationship_kinds":[],"entity_mappings":[],"relationship_mappings":[],"metadata_mappings":[],"aggregation_rules":[],"default_vertex_labels":[],"default_edge_labels":[],"allow_empty_kind_registry":true,"retention_policy":{"retain_replaced_results":true,"retention_count":5,"retention_duration_seconds":2592000,"retain_failed_results":true,"failed_retention_count":20,"failed_retention_duration_seconds":2592000},"custom_config":{}},"source_entities":[],"source_relationships":[],"source_metadata":{},"filters":{"entity_filters":[],"relationship_filters":[],"logic":"and"},"relationship_definitions":[],"property_definitions":[],"requested_at":"2026-05-30T00:00:00Z","requested_by":"fixture"}
+```
+
+| Digest field | Canonical bytes |
+| --- | --- |
+| `projection_config_core` | `{"graph_view_key":"empty","projection_version":"1","declared_source_entity_kinds":[],"declared_source_relationship_kinds":[],"entity_mappings":[],"default_vertex_labels":[],"default_edge_labels":[],"allow_empty_kind_registry":true,"retention_policy":{"retain_replaced_results":true,"retention_count":5,"retention_duration_seconds":2592000,"retain_failed_results":true,"failed_retention_count":20,"failed_retention_duration_seconds":2592000}}` |
+| `active_relationship_mapping_source` | `none` |
+| `active_relationship_mappings[]` | `[]` |
+| `filters` | `{"entity_filters":[],"relationship_filters":[],"logic":"and"}` |
+| `property_definitions[]` | `[]` |
+| `metadata_mappings[]` | `[]` |
+| `aggregation_rules[]` | `[]` |
+| `source_entities[]` | `[]` |
+| `source_relationships[]` | `[]` |
+| `source_metadata` | `{}` |
+
+| Tuple | Lowercase hex bytes |
+| --- | --- |
+| `projection_config_digest` input | `4750434f4e464947310a31393a67726170685f70726f6a656374696f6e2e76310a3434313a7b2267726170685f766965775f6b6579223a22656d707479222c2270726f6a656374696f6e5f76657273696f6e223a2231222c226465636c617265645f736f757263655f656e746974795f6b696e6473223a5b5d2c226465636c617265645f736f757263655f72656c6174696f6e736869705f6b696e6473223a5b5d2c22656e746974795f6d617070696e6773223a5b5d2c2264656661756c745f7665727465785f6c6162656c73223a5b5d2c2264656661756c745f656467655f6c6162656c73223a5b5d2c22616c6c6f775f656d7074795f6b696e645f7265676973747279223a747275652c22726574656e74696f6e5f706f6c696379223a7b2272657461696e5f7265706c616365645f726573756c7473223a747275652c22726574656e74696f6e5f636f756e74223a352c22726574656e74696f6e5f6475726174696f6e5f7365636f6e6473223a323539323030302c2272657461696e5f6661696c65645f726573756c7473223a747275652c226661696c65645f726574656e74696f6e5f636f756e74223a32302c226661696c65645f726574656e74696f6e5f6475726174696f6e5f7365636f6e6473223a323539323030307d7d0a343a6e6f6e650a323a5b5d0a36313a7b22656e746974795f66696c74657273223a5b5d2c2272656c6174696f6e736869705f66696c74657273223a5b5d2c226c6f676963223a22616e64227d0a323a5b5d0a323a5b5d0a323a5b5d0a` |
+| `projection_source_digest` input | `4750534f55524345310a31393a67726170685f70726f6a656374696f6e2e76310a31323a736e61705f656d7074795f310a323a5b5d0a323a5b5d0a323a7b7d0a` |
 
 | Digest | Expected lowercase SHA-256 |
 | --- | --- |
+| `graph_view_id` | `gv_0bfa120793d470c3cf37aa2c6ac0f69c067fa2e598da3f5116512b92f3bc3752` |
 | `projection_config_digest` | `c0d919dc8a5093e2e6f81eab3a4f2b0a9e03381e5fc834144f33a3d737fb2b06` |
 | `projection_source_digest` | `e7bb613e7b8b295359e0ebba2f7ab6fe845b00f5de94f82f599327a409dcc56c` |
 
-This fixture uses `projection_schema_id="graph_projection.v1"`, `graph_view_key="empty"`, `source_snapshot_id="snap_empty_1"`, `allow_empty_kind_registry=true`, default filters, empty source arrays, empty property definitions, empty metadata mappings, empty aggregation rules, no relationship mappings, and the default retention policy from §10.6.
+#### 7.3.1.2 Golden fixture: one host property graph
 
-Golden fixture: one host property digest inputs.
+Fixture source JSON:
+
+```json
+{"projection_schema_id":"graph_projection.v1","graph_view_id":"gv_7b34489c234cb6caa432f92afc6fb122788e525f8bb057d214c96be9289d8893","source_snapshot_id":"snap_incident_1","projection_config":{"graph_view_key":"incident_graph","declared_source_entity_kinds":["host"],"declared_source_relationship_kinds":["logon"],"entity_mappings":[{"mapping_rule_id":"map_host","source_entity_kind":"host","projected_vertex_kind":"host_vertex","required_property_keys":["hostname"]}],"relationship_mappings":[{"mapping_rule_id":"map_logon","source_relationship_kind":"logon","projected_edge_kind":"logon_edge"}]},"source_entities":[{"source_entity_id":"host1","source_entity_kind":"host","properties":{"hostname":"WS-023"}}],"source_relationships":[],"source_metadata":{"case":"alpha"},"property_definitions":[{"property_definition_id":"pd_hostname","target_scope":"vertex","target_kind":"host_vertex","source_field_path":"properties.hostname","projected_key":"hostname","projected_type":"string","required":true}],"requested_at":"2026-05-30T00:00:00Z","requested_by":"fixture"}
+```
+
+Normalized input after default materialization:
+
+```json
+{"projection_schema_id":"graph_projection.v1","graph_view_id":"gv_7b34489c234cb6caa432f92afc6fb122788e525f8bb057d214c96be9289d8893","source_snapshot_id":"snap_incident_1","projection_config":{"graph_view_key":"incident_graph","projection_version":"1","declared_source_entity_kinds":["host"],"declared_source_relationship_kinds":["logon"],"entity_mappings":[{"mapping_rule_id":"map_host","source_entity_kind":"host","projected_vertex_kind":"host_vertex","inclusion_predicate":"always","label_policy":"mapping_only","mapping_labels":[],"required_property_keys":["hostname"],"optional_property_keys":[]}],"relationship_mappings":[{"mapping_rule_id":"map_logon","source_relationship_kind":"logon","projected_edge_kind":"logon_edge","inclusion_predicate":"always","direction_policy":"preserve","emit_reverse_edge":false,"reverse_edge_kind":"logon_edge","label_policy":"mapping_only","mapping_labels":[],"required_property_keys":[],"optional_property_keys":[]}],"metadata_mappings":[],"aggregation_rules":[],"default_vertex_labels":[],"default_edge_labels":[],"allow_empty_kind_registry":false,"retention_policy":{"retain_replaced_results":true,"retention_count":5,"retention_duration_seconds":2592000,"retain_failed_results":true,"failed_retention_count":20,"failed_retention_duration_seconds":2592000},"custom_config":{}},"source_entities":[{"source_entity_id":"host1","source_entity_kind":"host","properties":{"hostname":"WS-023"},"metadata":{},"labels":[]}],"source_relationships":[],"source_metadata":{"case":"alpha"},"filters":{"entity_filters":[],"relationship_filters":[],"logic":"and"},"relationship_definitions":[],"property_definitions":[{"property_definition_id":"pd_hostname","target_scope":"vertex","target_kind":"host_vertex","source_field_path":"properties.hostname","projected_key":"hostname","projected_type":"string","required":true,"missing_behavior":"error","source_null_behavior":"error","null_output_policy":"omit","merge_behavior":"single_value"}],"requested_at":"2026-05-30T00:00:00Z","requested_by":"fixture"}
+```
+
+| Digest field | Canonical bytes |
+| --- | --- |
+| `projection_config_core` | `{"graph_view_key":"incident_graph","projection_version":"1","declared_source_entity_kinds":["host"],"declared_source_relationship_kinds":["logon"],"entity_mappings":[{"mapping_rule_id":"map_host","source_entity_kind":"host","projected_vertex_kind":"host_vertex","inclusion_predicate":"always","label_policy":"mapping_only","mapping_labels":[],"required_property_keys":["hostname"],"optional_property_keys":[]}],"default_vertex_labels":[],"default_edge_labels":[],"allow_empty_kind_registry":false,"retention_policy":{"retain_replaced_results":true,"retention_count":5,"retention_duration_seconds":2592000,"retain_failed_results":true,"failed_retention_count":20,"failed_retention_duration_seconds":2592000}}` |
+| `active_relationship_mapping_source` | `projection_config_relationship_mappings` |
+| `active_relationship_mappings[]` | `[{"mapping_rule_id":"map_logon","source_relationship_kind":"logon","projected_edge_kind":"logon_edge","inclusion_predicate":"always","direction_policy":"preserve","emit_reverse_edge":false,"reverse_edge_kind":"logon_edge","label_policy":"mapping_only","mapping_labels":[],"required_property_keys":[],"optional_property_keys":[]}]` |
+| `filters` | `{"entity_filters":[],"relationship_filters":[],"logic":"and"}` |
+| `property_definitions[]` | `[{"property_definition_id":"pd_hostname","target_scope":"vertex","target_kind":"host_vertex","source_field_path":"properties.hostname","projected_key":"hostname","projected_type":"string","required":true,"missing_behavior":"error","source_null_behavior":"error","null_output_policy":"omit","merge_behavior":"single_value"}]` |
+| `metadata_mappings[]` | `[]` |
+| `aggregation_rules[]` | `[]` |
+| `source_entities[]` | `[{"source_entity_id":"host1","source_entity_kind":"host","properties":{"hostname":"WS-023"},"metadata":{},"labels":[]}]` |
+| `source_relationships[]` | `[]` |
+| `source_metadata` | `{"case":"alpha"}` |
+
+| Tuple | Lowercase hex bytes |
+| --- | --- |
+| `projection_config_digest` input | `4750434f4e464947310a31393a67726170685f70726f6a656374696f6e2e76310a3730373a7b2267726170685f766965775f6b6579223a22696e636964656e745f6772617068222c2270726f6a656374696f6e5f76657273696f6e223a2231222c226465636c617265645f736f757263655f656e746974795f6b696e6473223a5b22686f7374225d2c226465636c617265645f736f757263655f72656c6174696f6e736869705f6b696e6473223a5b226c6f676f6e225d2c22656e746974795f6d617070696e6773223a5b7b226d617070696e675f72756c655f6964223a226d61705f686f7374222c22736f757263655f656e746974795f6b696e64223a22686f7374222c2270726f6a65637465645f7665727465785f6b696e64223a22686f73745f766572746578222c22696e636c7573696f6e5f707265646963617465223a22616c77617973222c226c6162656c5f706f6c696379223a226d617070696e675f6f6e6c79222c226d617070696e675f6c6162656c73223a5b5d2c2272657175697265645f70726f70657274795f6b657973223a5b22686f73746e616d65225d2c226f7074696f6e616c5f70726f70657274795f6b657973223a5b5d7d5d2c2264656661756c745f7665727465785f6c6162656c73223a5b5d2c2264656661756c745f656467655f6c6162656c73223a5b5d2c22616c6c6f775f656d7074795f6b696e645f7265676973747279223a66616c73652c22726574656e74696f6e5f706f6c696379223a7b2272657461696e5f7265706c616365645f726573756c7473223a747275652c22726574656e74696f6e5f636f756e74223a352c22726574656e74696f6e5f6475726174696f6e5f7365636f6e6473223a323539323030302c2272657461696e5f6661696c65645f726573756c7473223a747275652c226661696c65645f726574656e74696f6e5f636f756e74223a32302c226661696c65645f726574656e74696f6e5f6475726174696f6e5f7365636f6e6473223a323539323030307d7d0a33393a70726f6a656374696f6e5f636f6e6669675f72656c6174696f6e736869705f6d617070696e67730a3332393a5b7b226d617070696e675f72756c655f6964223a226d61705f6c6f676f6e222c22736f757263655f72656c6174696f6e736869705f6b696e64223a226c6f676f6e222c2270726f6a65637465645f656467655f6b696e64223a226c6f676f6e5f65646765222c22696e636c7573696f6e5f707265646963617465223a22616c77617973222c22646972656374696f6e5f706f6c696379223a227072657365727665222c22656d69745f726576657273655f65646765223a66616c73652c22726576657273655f656467655f6b696e64223a226c6f676f6e5f65646765222c226c6162656c5f706f6c696379223a226d617070696e675f6f6e6c79222c226d617070696e675f6c6162656c73223a5b5d2c2272657175697265645f70726f70657274795f6b657973223a5b5d2c226f7074696f6e616c5f70726f70657274795f6b657973223a5b5d7d5d0a36313a7b22656e746974795f66696c74657273223a5b5d2c2272656c6174696f6e736869705f66696c74657273223a5b5d2c226c6f676963223a22616e64227d0a3332333a5b7b2270726f70657274795f646566696e6974696f6e5f6964223a2270645f686f73746e616d65222c227461726765745f73636f7065223a22766572746578222c227461726765745f6b696e64223a22686f73745f766572746578222c22736f757263655f6669656c645f70617468223a2270726f706572746965732e686f73746e616d65222c2270726f6a65637465645f6b6579223a22686f73746e616d65222c2270726f6a65637465645f74797065223a22737472696e67222c227265717569726564223a747275652c226d697373696e675f6265686176696f72223a226572726f72222c22736f757263655f6e756c6c5f6265686176696f72223a226572726f72222c226e756c6c5f6f75747075745f706f6c696379223a226f6d6974222c226d657267655f6265686176696f72223a2273696e676c655f76616c7565227d5d0a323a5b5d0a323a5b5d0a` |
+| `projection_source_digest` input | `4750534f55524345310a31393a67726170685f70726f6a656374696f6e2e76310a31353a736e61705f696e636964656e745f310a3131393a5b7b22736f757263655f656e746974795f6964223a22686f737431222c22736f757263655f656e746974795f6b696e64223a22686f7374222c2270726f70657274696573223a7b22686f73746e616d65223a2257532d303233227d2c226d65746164617461223a7b7d2c226c6162656c73223a5b5d7d5d0a323a5b5d0a31363a7b2263617365223a22616c706861227d0a` |
 
 | Digest | Expected lowercase SHA-256 |
 | --- | --- |
-| `projection_config_digest` | `b61205128991059ae08ae5c1cd9594b4c8f21b3e0b497e6d8a92cdd27a6dbee5` |
+| `graph_view_id` | `gv_7b34489c234cb6caa432f92afc6fb122788e525f8bb057d214c96be9289d8893` |
+| `projection_config_digest` | `30afd15b557695969b76d262b8942a70cd0da3bb84176ccaf64dc233eb57731f` |
 | `projection_source_digest` | `2a63da49700e5cfe7bfe0fd5e8f9d0e8ccbd03d8297abf3cef6774fd5c578e31` |
 
-This fixture uses one entity mapping `map_host`, one relationship mapping `map_logon` from `projection_config.relationship_mappings[]`, one required string property definition `pd_hostname`, one source entity `host1` with `properties.hostname="WS-023"`, `source_snapshot_id="snap_incident_1"`, `source_metadata.case="alpha"`, default filters, no source relationships, no metadata mappings, no aggregation rules, and the default retention policy from §10.6.
+A conforming fixture harness MUST compare every transcript canonical value and tuple byte transcript before comparing the final SHA-256 digest. A digest-only comparison is not sufficient for `GP-AC-032` or `GP-AC-068`.
 
 ### 7.4 Graph-view identity
 
@@ -1206,7 +1401,11 @@ Generated IDs use the following tuple families.
 
 ### 7.7 Validation issue identity
 
-A validation issue ID MUST equal `gpi_` plus SHA-256 over tuple prefix `GPISSUE1\n` and fields:
+A validation issue ID is defined only for an admitted projection run. Pre-admission operation errors MUST NOT emit `issue_id`, MUST NOT emit a validation issue object, and MUST NOT use sentinel `graph_view_id`, sentinel `projection_run_id`, raw input bytes, or implementation-local attempt IDs to construct issue identity.
+
+For every admitted run, `graph_view_id` and `projection_run_id` MUST be fixed before any validation issue is constructed. If the implementation cannot derive either value, the request is pre-admission and MUST fail through the lifecycle operation error contract.
+
+For an admitted run, a validation issue ID MUST equal `gpi_` plus SHA-256 over tuple prefix `GPISSUE1\n` and fields:
 
 1. `projection_schema_id`,
 2. `graph_view_id`,
@@ -1217,7 +1416,7 @@ A validation issue ID MUST equal `gpi_` plus SHA-256 over tuple prefix `GPISSUE1
 7. `target_id`,
 8. canonical JSON of required code-specific `details` members only.
 
-The human-readable `message` and any transport-level context MUST NOT affect `issue_id`.
+The human-readable `message`, optional details, query context, transport-level context, and lifecycle operation context MUST NOT affect `issue_id`.
 
 ## 8. Defaults, omissions, and explicit nulls
 
@@ -1225,10 +1424,10 @@ The human-readable `message` and any transport-level context MUST NOT affect `is
 
 | Boundary | Omitted behavior | Explicit `null` behavior |
 | --- | --- | --- |
-| Top-level required input member | `missing_required_input` | `explicit_null_not_allowed` |
-| Top-level optional object | Materialize documented default | `explicit_null_not_allowed` |
-| Top-level optional array | Materialize `[]` unless another default is stated | `explicit_null_not_allowed` |
-| `projection_schema_id` | `missing_required_input`; no default exists | `explicit_null_not_allowed` |
+| Top-level required input member | Pre-admission lifecycle `invalid_projection_request` with `reason_code=missing_required_member` when required for admission; admitted-run `missing_required_input` only for post-admission nested validation. | Pre-admission lifecycle `invalid_projection_request` with `reason_code=explicit_null_not_allowed` when required for admission; admitted-run `explicit_null_not_allowed` only for post-admission nested validation. |
+| Top-level optional object | Materialize documented default before admission when needed for identity or digest. | Pre-admission lifecycle `invalid_projection_request` with `reason_code=explicit_null_not_allowed` when it prevents admission; otherwise admitted-run `explicit_null_not_allowed`. |
+| Top-level optional array | Materialize `[]` unless another default is stated before admission when needed for identity or digest. | Pre-admission lifecycle `invalid_projection_request` with `reason_code=explicit_null_not_allowed` when it prevents admission; otherwise admitted-run `explicit_null_not_allowed`. |
+| `projection_schema_id` | Pre-admission lifecycle `invalid_projection_request` with `reason_code=missing_required_member`; no default exists. | Pre-admission lifecycle `invalid_projection_request` with `reason_code=explicit_null_not_allowed`. |
 | `projection_config.projection_version` | `1` | `explicit_null_not_allowed` |
 | `projection_config.custom_config` | `{}` and no observable effect | `explicit_null_not_allowed` |
 | `source_entity.properties` / `metadata` | `{}` | `explicit_null_not_allowed` |
@@ -1258,20 +1457,20 @@ When both source arrays are empty and `allow_empty_kind_registry=true`, the grap
 
 ### 9.1 Validation phases and discovery order
 
-Validation MUST execute in the phases in this table. A fatal issue in a phase whose `Stops later phases when fatal?` value is `Yes` prevents all later phases from running.
+This section applies only after run admission. Pre-admission failures are lifecycle operation errors under §4.0.1 and §10.0.
+
+Admitted-run validation MUST execute in the phases in this table. A fatal issue in a phase whose `Stops later phases when fatal?` value is `Yes` prevents all later phases from running.
 
 | Phase | Scope | Stops later phases when fatal? |
 | ---: | --- | ---: |
-| 1 | JSON decoding and duplicate member detection | Yes |
-| 2 | Top-level object shape, unknown members, requiredness, and nullability | Yes |
-| 3 | Scalar contracts, enum contracts, and whole-input resource limits | Yes |
-| 4 | Projection configuration schemas and default materialization | Yes |
-| 5 | Field-path, filter, mapping, property, metadata, aggregation, retention, wildcard, and merge-compatibility validation | Yes |
-| 6 | Source entity and source relationship item validation and item exclusion | No |
-| 7 | Direct mapping derivation validation | No, unless a fatal issue is produced |
-| 8 | Aggregation derivation validation | No, unless a fatal issue is produced |
-| 9 | Output schema and projected-output resource-limit validation | Yes |
-| 10 | Validation summary construction | N/A |
+| 1 | Scalar contracts, enum contracts, and admitted whole-input resource limits not resolved before admission | Yes |
+| 2 | Projection configuration schemas and default materialization that depend on admitted identity | Yes |
+| 3 | Field-path, filter, mapping, property, metadata, aggregation, retention, wildcard, and merge-compatibility validation | Yes |
+| 4 | Source entity and source relationship item validation and item exclusion | No |
+| 5 | Direct mapping derivation validation | No, unless a fatal issue is produced |
+| 6 | Aggregation derivation validation | No, unless a fatal issue is produced |
+| 7 | Output schema and projected-output resource-limit validation | Yes |
+| 8 | Validation summary construction | N/A |
 
 Validation discovery order inside each phase MUST be deterministic.
 
@@ -1289,7 +1488,7 @@ Validation discovery order inside each phase MUST be deterministic.
 | Aggregation rules | `aggregation_rule_id`. |
 | Cross-reference checks | Referencing object identity, then referenced field path, then referenced identifier. |
 
-The implementation MUST collect all issues reachable under the phase rules until the validation issue cap in §9.3 is reached. It MUST NOT choose an arbitrary subset of issues.
+The implementation MUST construct all reachable admitted-run issues under the phase rules, then apply the issue cap selection and emission algorithm in §9.3. It MUST NOT choose an arbitrary subset of issues.
 
 ### 9.2 Validation severities
 
@@ -1304,7 +1503,7 @@ No `error` severity issue may by itself make the graph non-consumable. Any behav
 
 ### 9.3 Validation issue shape, ordering, identity, and cap behavior
 
-A validation issue MUST be a JSON object with exactly the following members.
+A validation issue object applies only to an admitted projection run. A validation issue MUST be a JSON object with exactly the following members.
 
 | Member | Type | Required | Nullable | Rule |
 | --- | --- | ---: | ---: | --- |
@@ -1317,7 +1516,7 @@ A validation issue MUST be a JSON object with exactly the following members.
 | `message` | String | Yes | No | Human-readable non-normative diagnostic. It MUST NOT affect issue identity. It MUST obey `max_validation_message_length`. |
 | `details` | Object | Yes | No | Closed per validation code by §9.6. Unknown detail keys are forbidden. |
 
-Validation issues MUST sort for output by:
+Ordinary validation issues MUST sort for output by:
 
 1. severity order `fatal`, `error`, `warning`, `info`,
 2. `code`,
@@ -1325,7 +1524,22 @@ Validation issues MUST sort for output by:
 4. `target_id`,
 5. `issue_id`.
 
-Issue-cap behavior is closed. Let `N=max_validation_issues`. If total discovered issues are `<= N`, the validation summary MUST emit all sorted issues. If total discovered issues are `> N`, the validation summary MUST emit the first `N-1` issues by deterministic discovery order after issue construction, then emit one `validation_issue_limit_exceeded` issue as the final issue. The cap issue participates in severity counts. The cap issue MUST have `target_kind=projection_input`, `target_id=projection_input`, `field_path=null`, and `details.limit=N`.
+Issue-cap behavior is a two-stage selection and emission algorithm. Let `N=max_validation_issues`.
+
+```text
+1. Construct every reachable validation issue in validation discovery order.
+2. If total discovered issue count <= N:
+   a. Select every issue.
+   b. Sort selected issues by ordinary validation issue ordering.
+3. If total discovered issue count > N:
+   a. Select the first N - 1 non-cap issues in validation discovery order.
+   b. Construct one validation_issue_limit_exceeded issue.
+   c. Sort the selected non-cap issues by ordinary validation issue ordering.
+   d. Append validation_issue_limit_exceeded as the final issues[] element.
+4. Severity counts MUST include every emitted issue, including the cap issue.
+```
+
+The cap issue is the only issue exempt from ordinary emission sorting. It MUST always be the final `issues[]` element when emitted. The cap issue MUST have `target_kind=projection_input`, `target_id=projection_input`, `field_path=null`, and `details.limit=N`.
 
 ### 9.4 Validation summary shape
 
@@ -1349,13 +1563,36 @@ A validation summary MUST be a JSON object with exactly these members.
 | `fatal_count = 0`, `error_count = 0`, and `warning_count > 0` | `passed_with_warnings` |
 | All counts zero or only `info_count > 0` | `passed` |
 
+### 9.4.1 Validation condition construction matrix
+
+Every admitted-run validation condition MUST map to exactly one validation construction row. The table below is closed for this revision. A condition not listed here MUST NOT produce a validation issue unless a later NLSpec revision adds a row.
+
+| Phase | Triggering condition | Code | Severity | Target kind | Target ID derivation | Field path | Required details | Required reason code |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Configuration | Duplicate entity mapping for the same `source_entity_kind` | `invalid_mapping_rule` | `fatal` | `mapping_rule` | Later duplicate `mapping_rule_id` when valid; otherwise canonical input path | Mapping rule path | `mapping_rule_id`, `reason_code` | `duplicate_source_entity_kind_mapping` |
+| Configuration | Duplicate relationship mapping for the same `source_relationship_kind` | `invalid_mapping_rule` | `fatal` | `mapping_rule` | Later duplicate `mapping_rule_id` when valid; otherwise canonical input path | Mapping rule path | `mapping_rule_id`, `reason_code` | `duplicate_source_relationship_kind_mapping` |
+| Configuration | Duplicate mapping rule ID | `invalid_mapping_rule` | `fatal` | `mapping_rule` | Duplicate `mapping_rule_id` | Mapping rule path | `mapping_rule_id`, `reason_code` | `duplicate_mapping_rule_id` |
+| Configuration | Missing entity mapping for a declared source entity kind | `missing_entity_mapping_rule` | `fatal` | `mapping_rule` | Missing source entity kind | `null` | `source_entity_kind` | none |
+| Configuration | Missing relationship mapping for a declared source relationship kind | `missing_relationship_mapping_rule` | `error` | `mapping_rule` | Missing source relationship kind | `null` | `source_relationship_kind` | none |
+| Configuration | Top-level and config relationship mappings are both non-empty | `invalid_projection_config` | `fatal` | `projection_config` | `projection_config` | Canonical input path | `field`, `reason_code` | `relationship_mapping_source_conflict` |
+| Configuration | Endpoint grouping key count mismatch | `invalid_aggregation_rule` | `fatal` | `mapping_rule` | `aggregation_rule_id` | Canonical input path | `aggregation_rule_id`, `reason_code` | `endpoint_grouping_key_count_mismatch` |
+| Configuration | Endpoint grouping key value is invalid for endpoint digest evaluation | `invalid_aggregation_rule` | `fatal` | `mapping_rule` | `aggregation_rule_id` | Endpoint `field_path` | `aggregation_rule_id`, `reason_code` | `endpoint_grouping_key_invalid` |
+| Derivation | Aggregated endpoint key is missing and behavior is `error` | `aggregation_endpoint_missing` | `error` | `mapping_rule` | `aggregation_rule_id` | Endpoint `field_path` | `aggregation_rule_id`, `endpoint_side`, `reason_code`, `endpoint_digest`, `field_path` | `endpoint_key_missing` |
+| Derivation | Aggregated endpoint digest has no matching vertex and behavior is `error` | `aggregation_endpoint_missing` | `error` | `mapping_rule` | `aggregation_rule_id` | `null` | `aggregation_rule_id`, `endpoint_side`, `reason_code`, `endpoint_digest`, `field_path` | `endpoint_vertex_not_found` |
+| Derivation | Aggregation merge cannot emit one value | `aggregation_merge_conflict` | `error` | `mapping_rule` | `aggregation_rule_id` | `null` | `aggregation_rule_id`, `canonical_grouping_key_digest`, `projected_key` | none |
+| Derivation | Required aggregated property has no candidate value | `required_property_missing` | `error` | `property` | `<aggregation_rule_id>#<canonical_grouping_key_digest>#<projected_key>` | Owning `source_field_path` | `projected_key`, `source_field_path`, `output_object_id`, `aggregation_rule_id`, `canonical_grouping_key_digest` | none |
+| Derivation | Required aggregated metadata has no candidate value | `invalid_metadata_mapping` | `fatal` | `mapping_rule` | `metadata_mapping_id` | Owning `source_field_path` | `metadata_mapping_id`, `reason_code` | `required_metadata_missing` |
+| Derivation | Computation fails after admission before ordinary validation summary | `projection_computation_failed` | `fatal` | `graph_view` | `graph_view_id` | `null` | `reason_code` | one of §9.6.2 |
+
+Codes and reason codes listed in §9.5 and §9.6.2 that are not represented by a more specific row above use the detail and construction rules in §9.6 and §9.6.1. A conformance fixture that exercises a validation condition MUST assert the row selected by this matrix.
+
 ### 9.5 Closed validation code registry
 
 The implementation MUST emit only the validation codes in this table.
 
 | Code | Severity | Target kind | Required meaning |
 | --- | --- | --- | --- |
-| `invalid_input_shape` | `fatal` | `projection_input` | JSON decoding, JSON shape, scalar type, duplicate object member, or schema structure is invalid. |
+| `invalid_input_shape` | `fatal` | `projection_input` | An admitted-run input shape, scalar type, or schema structure is invalid. Pre-admission JSON decoding and duplicate-member failures use lifecycle `invalid_projection_request`. |
 | `missing_required_input` | `fatal` | `projection_input` | A required member is omitted. |
 | `explicit_null_not_allowed` | `fatal` | `projection_input` | Explicit JSON null was supplied where null is forbidden. |
 | `unknown_member` | `fatal` | `projection_input` | A closed object contains an undeclared member. |
@@ -1382,9 +1619,9 @@ The implementation MUST emit only the validation codes in this table.
 | `invalid_reverse_edge_policy` | `fatal` | `mapping_rule` | Reverse-edge emission is incompatible with the static direction policy. |
 | `invalid_aggregation_rule` | `fatal` | `mapping_rule` | Aggregation rule schema, dependency, merge compatibility, or endpoint reference is invalid. |
 | `aggregation_grouping_key_missing` | `error` | `source_or_projected_item` | Required grouping key is absent under `missing_grouping_key_behavior=error`. |
-| `aggregation_endpoint_missing` | `error` | `mapping_rule` | Aggregated edge endpoint vertex cannot be resolved. |
+| `aggregation_endpoint_missing` | `error` | `mapping_rule` | Aggregated edge endpoint key is missing or endpoint vertex cannot be resolved under `missing_endpoint_behavior=error`. |
 | `aggregation_merge_conflict` | `error` | `mapping_rule` | Aggregation merge behavior cannot produce one conforming value. |
-| `resource_limit_exceeded` | `fatal` | `projection_input` | Whole projection input exceeds a closed whole-input resource limit. |
+| `resource_limit_exceeded` | `fatal` | `projection_input` | Admitted normalized projection input exceeds a closed whole-input resource limit. Pre-admission whole-input limit failures use lifecycle `invalid_projection_request`. |
 | `projected_output_limit_exceeded` | `fatal` | `graph_view` | Derived output would exceed a closed projected-output limit. |
 | `validation_issue_limit_exceeded` | `fatal` | `projection_input` | Validation issue cap reached. |
 | `invalid_retention_policy` | `fatal` | `projection_config` | Retention policy schema or bounds are invalid. |
@@ -1395,7 +1632,9 @@ Implementations MUST NOT emit `missing_mapping_rule`. That token is reserved as 
 
 ### 9.6 Validation detail schemas
 
-For every validation issue, `details` MUST contain exactly the required keys in this table unless optional keys are listed. Optional keys, when present, participate in neither issue identity nor ordering. Unknown detail keys are forbidden.
+This registry applies only to admitted-run validation issues. Pre-admission operation errors use lifecycle operation error details and MUST NOT use this registry.
+
+For every validation issue, `details` MUST contain exactly the required keys in this table unless optional keys are listed. Optional keys, when present, participate in neither issue identity nor ordering. Unknown detail keys are forbidden. Any field needed to distinguish two emitted issues MUST be required, not optional.
 
 | Code | Required details | Optional details |
 | --- | --- | --- |
@@ -1414,9 +1653,9 @@ For every validation issue, `details` MUST contain exactly the required keys in 
 | `missing_relationship_mapping_rule` | `source_relationship_kind` | none |
 | `invalid_metadata_mapping` | `metadata_mapping_id`, `reason_code` | none |
 | `invalid_property_definition` | `property_definition_id`, `reason_code` | none |
-| `invalid_property_type` | `projected_key`, `expected_type`, `actual_type` | none |
-| `required_property_missing` | `projected_key`, `source_field_path` | none |
-| `source_null_for_required_property` | `projected_key`, `source_field_path` | none |
+| `invalid_property_type` | `projected_key`, `expected_type`, `actual_type`, `source_field_path`, `output_object_id` | `aggregation_rule_id`, `canonical_grouping_key_digest`, `contributor_id` |
+| `required_property_missing` | `projected_key`, `source_field_path`, `output_object_id` | `aggregation_rule_id`, `canonical_grouping_key_digest` |
+| `source_null_for_required_property` | `projected_key`, `source_field_path`, `output_object_id` | `aggregation_rule_id`, `canonical_grouping_key_digest`, `contributor_id` |
 | `undeclared_source_kind` | `source_item_id`, `source_kind` | none |
 | `source_item_resource_limit_exceeded` | `source_item_id`, `limit_key`, `limit`, `observed` | none |
 | `missing_relationship_endpoint` | `source_relationship_id`, `endpoint_field` | none |
@@ -1426,8 +1665,8 @@ For every validation issue, `details` MUST contain exactly the required keys in 
 | `invalid_reverse_edge_policy` | `mapping_rule_id`, `projected_direction` | none |
 | `invalid_aggregation_rule` | `aggregation_rule_id`, `reason_code` | none |
 | `aggregation_grouping_key_missing` | `aggregation_rule_id`, `field_path`, `contributor_id` | none |
-| `aggregation_endpoint_missing` | `aggregation_rule_id`, `endpoint_side`, `endpoint_digest` | none |
-| `aggregation_merge_conflict` | `aggregation_rule_id`, `projected_key` | none |
+| `aggregation_endpoint_missing` | `aggregation_rule_id`, `endpoint_side`, `reason_code`, `endpoint_digest`, `field_path` | none |
+| `aggregation_merge_conflict` | `aggregation_rule_id`, `canonical_grouping_key_digest`, `projected_key` | none |
 | `resource_limit_exceeded` | `limit_key`, `limit`, `observed` | none |
 | `projected_output_limit_exceeded` | `limit_key`, `limit`, `observed` | none |
 | `validation_issue_limit_exceeded` | `limit` | none |
@@ -1462,13 +1701,14 @@ Reason-code fields are closed. A reason code outside these tables is non-conform
 
 | Validation code | Allowed `reason_code` values |
 | --- | --- |
-| `invalid_input_shape` | `invalid_utf8`, `invalid_json_syntax`, `top_level_not_object`, `duplicate_object_member`, `schema_type_mismatch`, `scalar_contract_violation`, `property_value_too_long`, `array_element_invalid`, `array_length_exceeded`, `invalid_label` |
+| `invalid_input_shape` | `schema_type_mismatch`, `scalar_contract_violation`, `property_value_too_long`, `array_element_invalid`, `array_length_exceeded`, `invalid_label` |
 | `invalid_projection_config` | `custom_config_referenced`, `relationship_mapping_source_conflict`, `empty_kind_registry_not_allowed`, `declared_kind_duplicate`, `mapping_rule_duplicate`, `metadata_mapping_duplicate`, `aggregation_rule_duplicate`, `unknown_configuration_member`, `invalid_default_materialization` |
 | `invalid_filter` | `invalid_operator`, `value_required`, `value_forbidden`, `invalid_field_scope`, `invalid_value_shape`, `unsupported_logic` |
-| `invalid_mapping_rule` | `duplicate_mapping_rule_id`, `declared_source_kind_missing`, `property_key_not_defined`, `property_requiredness_mismatch`, `required_optional_overlap`, `reverse_edge_kind_without_reverse`, `label_invalid` |
+| `invalid_mapping_rule` | `duplicate_mapping_rule_id`, `duplicate_source_entity_kind_mapping`, `duplicate_source_relationship_kind_mapping`, `declared_source_kind_missing`, `property_key_not_defined`, `property_requiredness_mismatch`, `required_optional_overlap`, `reverse_edge_kind_without_reverse`, `label_invalid` |
 | `invalid_metadata_mapping` | `reserved_metadata_key`, `duplicate_after_wildcard_expansion`, `invalid_source_scope`, `invalid_default_value`, `invalid_merge_behavior_type`, `invalid_projected_type`, `required_metadata_missing` |
 | `invalid_property_definition` | `duplicate_after_wildcard_expansion`, `invalid_source_scope`, `invalid_default_value`, `invalid_null_policy`, `invalid_merge_behavior_type`, `invalid_projected_type` |
-| `invalid_aggregation_rule` | `dependency_on_later_rule`, `aggregation_cycle`, `endpoint_rule_not_vertex_rule`, `endpoint_grouping_key_count_mismatch`, `endpoint_field_scope_invalid`, `grouping_key_invalid`, `invalid_endpoint_behavior`, `invalid_edge_direction`, `input_scope_invalid`, `invalid_merge_behavior_type` |
+| `invalid_aggregation_rule` | `dependency_on_later_rule`, `aggregation_cycle`, `endpoint_rule_not_vertex_rule`, `endpoint_grouping_key_count_mismatch`, `endpoint_grouping_key_invalid`, `endpoint_field_scope_invalid`, `grouping_key_invalid`, `invalid_endpoint_behavior`, `invalid_edge_direction`, `input_scope_invalid`, `invalid_merge_behavior_type` |
+| `aggregation_endpoint_missing` | `endpoint_key_missing`, `endpoint_vertex_not_found` |
 | `invalid_retention_policy` | `unknown_member`, `out_of_bounds`, `invalid_type`, `explicit_null_not_allowed` |
 | `output_schema_violation` | `id_mismatch`, `reference_missing`, `sort_order_invalid`, `schema_registry_mismatch`, `metadata_shape_invalid`, `closed_schema_violation`, `canonical_serialization_invalid` |
 | `projection_computation_failed` | `internal_exception`, `dependency_unavailable`, `timeout`, `resource_exhausted`, `implementation_invariant_failed` |
@@ -1479,33 +1719,73 @@ Lifecycle state is split into graph-view state and projection-run/result state. 
 
 ### 10.0 Lifecycle operation interfaces
 
-Lifecycle operations are abstract interfaces. A conforming implementation MAY expose them through any transport, but the request members, defaults, idempotency, concurrency, state transitions, and errors in this section MUST remain observable.
+Lifecycle operations are abstract interfaces. A conforming implementation MAY expose them through any transport, but the request members, defaults, idempotency, concurrency, state transitions, success envelopes, and errors in this section MUST remain observable.
 
-| Operation | Required request members | Optional request members | Success result | Primary errors |
+Lifecycle operation responses MUST use one of these abstract JSON-compatible variants.
+
+| Variant | Required shape |
+| --- | --- |
+| Success | `{ "status": "ok", "data": <operation-specific result object> }` |
+| Error | `{ "status": "error", "error": { "code": <lifecycle_error_code>, "retryable": <boolean>, "details": <closed object> } }` |
+
+A lifecycle error response MUST NOT contain partial success data.
+
+| Operation | Required request members | Optional request members | Success `data` object | Error codes |
 | --- | --- | --- | --- | --- |
-| `create_projection` | `projection_input` | `idempotency_key` | Accepted run summary | `invalid_operation`, `operation_conflict`, validation errors |
-| `refresh_projection` | `graph_view_id`, `projection_input` | `idempotency_key` | Accepted run summary | `projection_not_available`, `invalid_operation`, `operation_conflict`, validation errors |
-| `invalidate_graph_view` | `graph_view_id`, `reason_code`, `requested_at`, `requested_by` | `idempotency_key` | Invalidation summary | `graph_view_not_found`, `invalid_operation`, `operation_conflict` |
-| `invalidate_projection_run` | `graph_view_id`, `projection_run_id`, `reason_code`, `requested_at`, `requested_by` | `idempotency_key` | Invalidation summary | `projection_run_not_found`, `invalid_operation`, `operation_conflict` |
+| `create_projection` | `projection_input` | `idempotency_key` | `accepted_run_summary` | `invalid_projection_request`, `invalid_operation`, `operation_conflict` |
+| `refresh_projection` | `graph_view_id`, `projection_input` | `idempotency_key` | `accepted_run_summary` | `invalid_projection_request`, `graph_view_not_found`, `projection_not_available`, `invalid_operation`, `operation_conflict` |
+| `invalidate_graph_view` | `graph_view_id`, `reason_code`, `requested_at`, `requested_by` | `idempotency_key` | `invalidation_summary` | `graph_view_not_found`, `invalid_operation`, `operation_conflict` |
+| `invalidate_projection_run` | `graph_view_id`, `projection_run_id`, `reason_code`, `requested_at`, `requested_by` | `idempotency_key` | `invalidation_summary` | `projection_run_not_found`, `invalid_operation`, `operation_conflict` |
 
-An accepted run summary MUST contain exactly `graph_view_id`, `projection_run_id`, `state`, `source_snapshot_id`, `projection_version`, and `accepted_at`. `state` MUST be `accepted`.
+An `accepted_run_summary` MUST be a JSON object with exactly these members in this order.
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `graph_view_id` | `generated_id` with prefix `gv_` | Yes | No | Derived graph view. |
+| `projection_run_id` | `generated_id` with prefix `gpr_` | Yes | No | Admitted run. |
+| `state` | String | Yes | No | Always `accepted` in this response, even if computation completes before response emission. |
+| `source_snapshot_id` | `identifier` | Yes | No | From normalized input. |
+| `projection_version` | `identifier` | Yes | No | From normalized configuration. |
+| `accepted_at` | `timestamp` | Yes | No | Assigned by §10.8 timestamp rules. |
+| `idempotency_expires_at` | `timestamp` | Yes | Yes | Non-null when an `idempotency_key` was supplied; otherwise `null`. |
+
+If an implementation computes synchronously and the run reaches `available` or `failed` before the operation response is emitted, the operation response MUST still return `state="accepted"` and the accepted-run summary. The terminal state is observable through `get_projection_run()` and graph-reading queries.
 
 Lifecycle operation errors MUST use this registry.
 
-| Error | Retryable | Required details |
-| --- | ---: | --- |
-| `invalid_operation` | No | `operation`, `reason_code` |
-| `operation_conflict` | Yes only when `reason_code=run_already_active`; otherwise No | `operation`, `reason_code`, optional `active_projection_run_id` |
+| Error code | Retryable | Required details | Applies to |
+| --- | ---: | --- | --- |
+| `invalid_projection_request` | No | `operation`, `reason_code`, `field`, `validation_code` | `create_projection`, `refresh_projection` pre-admission failures |
+| `invalid_operation` | No | `operation`, `reason_code` | All lifecycle operations |
+| `operation_conflict` | Yes only when `reason_code=run_already_active`; otherwise No | `operation`, `reason_code`, optional `active_projection_run_id` | All lifecycle operations |
+| `graph_view_not_found` | No | `operation`, `graph_view_id` | Refresh and graph-view invalidation |
+| `projection_not_available` | Yes only for active `creating`, `refreshing`, `accepted`, or `computing`; otherwise No | `operation`, `graph_view_id`, `state` | Refresh |
+| `projection_run_not_found` | No | `operation`, `graph_view_id`, `projection_run_id` | Run invalidation |
+
+For `invalid_projection_request`, `field` is a canonical input path when one request member is attributable; otherwise it is JSON null. `validation_code` is a §9.5 code when the rejected condition corresponds to an admitted-run validation family; otherwise it is JSON null.
 
 Reason codes for lifecycle operation errors are closed.
 
 | Reason code | Applies to | Meaning |
 | --- | --- | --- |
+| `invalid_utf8` | `invalid_projection_request` | Projection input bytes are not valid UTF-8. |
+| `invalid_json_syntax` | `invalid_projection_request` | Projection input bytes are not valid JSON. |
+| `duplicate_object_member` | `invalid_projection_request` | Any object contains a duplicate member name before schema validation. |
+| `top_level_not_object` | `invalid_projection_request` | Decoded projection input is not a JSON object. |
+| `missing_required_member` | `invalid_projection_request` | Required top-level member needed for admission is omitted. |
+| `explicit_null_not_allowed` | `invalid_projection_request`, `invalid_operation` | A non-nullable admission or operation member is explicit JSON null. |
+| `unknown_member` | `invalid_projection_request` | Unknown top-level admission member is present. |
+| `invalid_projection_schema` | `invalid_projection_request` | `projection_schema_id` is not exactly `graph_projection.v1`. |
+| `invalid_graph_view_id` | `invalid_projection_request` | Supplied `graph_view_id` is malformed or not the derived value. |
+| `default_materialization_failed` | `invalid_projection_request` | Defaults cannot be materialized deterministically. |
+| `normalization_failed` | `invalid_projection_request` | Input cannot be normalized deterministically. |
+| `whole_input_limit_exceeded` | `invalid_projection_request` | A whole-input limit prevents admission. |
 | `graph_view_already_exists` | `create_projection` | A graph view already has a selected available or refreshing run; caller must use refresh. |
 | `graph_view_not_created` | `refresh_projection` | No graph view exists for refresh. |
 | `no_consumable_prior_run` | `refresh_projection` | Refresh requires an available prior run unless the graph view is invalidated. |
 | `run_already_active` | create or refresh | Graph view already has an `accepted` or `computing` run. |
 | `idempotency_key_conflict` | any operation | Same operation idempotency key was reused with different normalized request bytes. |
+| `invalid_idempotency_key` | any operation | Supplied `idempotency_key` violates §4.1. |
 | `invalid_invalidation_target` | invalidation operations | Target state cannot be invalidated. |
 | `invalid_reason_code` | invalidation operations | Reason code is outside §10.7. |
 
@@ -1513,9 +1793,39 @@ Reason codes for lifecycle operation errors are closed.
 
 At most one `accepted` or `computing` run may exist per graph view at a time. A concurrent create or refresh with a different idempotency key while a run is active MUST return `operation_conflict` with `reason_code=run_already_active` and `active_projection_run_id` set to the active run.
 
-Without an `idempotency_key`, a successful create or refresh creates a new run only when no run is active. With an `idempotency_key`, exact replay of the same normalized operation request MUST return the original accepted run summary while that run remains inspectable. Reusing the same operation and idempotency key with different normalized request bytes MUST return `operation_conflict` with `reason_code=idempotency_key_conflict`.
-
 Normalized operation request bytes MUST be canonical JSON of an object with exact members `operation`, `graph_view_id` when applicable, `projection_input` after default materialization when applicable, `projection_run_id` when applicable, `reason_code` when applicable, `requested_at` when applicable, and `requested_by` when applicable. Unknown operation request members are invalid.
+
+`idempotency_key` MUST satisfy §4.1. Idempotency behavior is closed by this table.
+
+| Operation | Idempotency scope | Record creation point | Replay comparison bytes | Expiry |
+| --- | --- | --- | --- | --- |
+| `create_projection` | `(operation, derived graph_view_id, idempotency_key)` | After admission succeeds | Normalized operation request bytes | `accepted_at + 86400 seconds` |
+| `refresh_projection` | `(operation, graph_view_id, idempotency_key)` | After admission succeeds | Normalized operation request bytes | `accepted_at + 86400 seconds` |
+| `invalidate_graph_view` | `(operation, graph_view_id, idempotency_key)` | After target validation succeeds | Normalized operation request bytes | `invalidated_at + 86400 seconds` |
+| `invalidate_projection_run` | `(operation, graph_view_id, projection_run_id, idempotency_key)` | After target validation succeeds | Normalized operation request bytes | `invalidated_at + 86400 seconds` |
+
+| Input state | Required behavior |
+| --- | --- |
+| Omitted `idempotency_key` | Operation is not replay-protected and no idempotency record is created. |
+| Explicit JSON null | Reject with lifecycle `invalid_operation`, `reason_code=explicit_null_not_allowed`. |
+| Empty string | Reject with lifecycle `invalid_operation`, `reason_code=invalid_idempotency_key`. |
+| Invalid scalar | Reject with lifecycle `invalid_operation`, `reason_code=invalid_idempotency_key`. |
+| Same key, same normalized request, record unexpired | Return original success payload. |
+| Same key, different normalized request, record unexpired | Return `operation_conflict`, `reason_code=idempotency_key_conflict`. |
+| Same key after expiry | Treat as a new operation request. |
+
+### 10.0.1 Admission, validation, and operation outcome matrix
+
+Validation errors MUST NOT be returned as lifecycle operation errors after run admission. They are observable only through retained run inspection and graph-view validation summary where applicable.
+
+| Condition after `create_projection` or `refresh_projection` is called | Operation response | Retained run? | `get_projection_run()` result |
+| --- | --- | ---: | --- |
+| Pre-admission request error | Lifecycle error | No | `projection_run_not_found` for any caller-guessed run ID |
+| Admission succeeds and run remains queued | `accepted_run_summary` | Yes | `state=accepted`, `validation_summary=null` |
+| Admission succeeds and computation starts | `accepted_run_summary` | Yes | `state=computing`, `validation_summary=null` |
+| Admission succeeds and validation has no fatal issues | `accepted_run_summary` | Yes | `state=available`, validation summary non-null |
+| Admission succeeds and validation has fatal issues | `accepted_run_summary` | Yes | `state=failed`, validation summary non-null |
+| Admission succeeds and computation fails before ordinary validation summary | `accepted_run_summary` | Yes | `state=failed`, summary with exactly one `projection_computation_failed` issue |
 
 ### 10.1 Graph-view states
 
@@ -1574,6 +1884,8 @@ Graph-view metadata for a successful replacement MUST set `previous_projection_r
 
 ### 10.5 Failure behavior
 
+Failed-run retention begins only after run admission. A pre-admission rejection MUST NOT create a failed projection run.
+
 A failed projection run MUST retain:
 
 - `graph_view_id`,
@@ -1588,7 +1900,7 @@ A failed projection run MUST retain:
 
 A failed run MUST NOT be returned by `get_graph_view()` as a consumable graph. Failed runs are inspectable only through `get_projection_run()` while retained.
 
-If computation fails before ordinary validation can produce a summary, the run's `validation_summary` MUST have `status=failed`, `fatal_count=1`, and exactly one `projection_computation_failed` issue.
+If computation fails before ordinary validation can produce a summary, the run's `validation_summary` MUST have `status=failed`, `fatal_count=1`, and exactly one `projection_computation_failed` issue. That issue MUST be constructed under §7.7 because the run is admitted and has fixed identity.
 
 ### 10.6 Retention policy fields and exact retention
 
@@ -1619,6 +1931,10 @@ If `retain_failed_results=false`, a failed run becomes expired immediately unles
 
 Runs outside the applicable bound are `expired` for all query behavior. Expired runs return `projection_run_not_found`. Retention MUST be evaluated before every run-specific read, immediately after successful replacement publication, and immediately after a failed terminal transition. Implementations MUST NOT retain additional query-addressable replaced or failed runs beyond this exact policy.
 
+Count-bound expiry is event-driven. It MUST be evaluated immediately after successful replacement publication and immediately after a failed terminal transition. It MUST also be evaluated before every run-specific read.
+
+A non-null `retention_expires_at` returned by `get_projection_run()` is the time-bound expiry timestamp under the applicable duration rule at response construction time. It is not a lease. A retained run can become expired before that timestamp only when a later run changes the applicable count-bound rank under this section.
+
 ### 10.7 Invalidation contract
 
 Invalidation reason codes are closed.
@@ -1636,6 +1952,40 @@ Invalidation reason codes are closed.
 If `invalidate_projection_run` targets the latest selected available run, graph-view state becomes `invalidated`. If it targets a retained replaced run, graph-view state does not change. Invalidated runs are never consumable by graph-reading queries. Invalidated runs remain inspectable by `get_projection_run()` until retention expires.
 
 The invalidation object stored on metadata and run inspection MUST use the shape in §5.5.1. `metadata.invalidation` is `null` for non-invalidated selected runs.
+
+### 10.7.1 Invalidation summary
+
+An `invalidation_summary` MUST be a JSON object with exactly these members in this order.
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `graph_view_id` | `generated_id` with prefix `gv_` | Yes | No | Target graph view. |
+| `target_scope` | String | Yes | No | `graph_view` or `projection_run`. |
+| `target_projection_run_id` | `generated_id` with prefix `gpr_` | Yes | Yes | Non-null only for run-specific invalidation. |
+| `invalidated_projection_run_ids[]` | Array of `gpr_` IDs | Yes | No | Runs newly invalidated by this operation, sorted by `projection_run_id` ascending. |
+| `graph_view_state_after` | String | Yes | No | Graph-view state after invalidation transition. |
+| `invalidated_at` | `timestamp` | Yes | No | Assigned by §10.8 timestamp rules. |
+| `reason_code` | String | Yes | No | One code from §10.7. |
+| `requested_by` | `identifier` | Yes | No | Copied from request after validation. |
+| `idempotency_expires_at` | `timestamp` | Yes | Yes | Non-null when an `idempotency_key` was supplied; otherwise `null`. |
+
+Exact idempotent replay within the idempotency retention window MUST return the original `invalidation_summary`. A new non-idempotent invalidation request against an already invalidated target MUST return `invalid_operation` with `reason_code=invalid_invalidation_target`. Invalidation MUST NOT change failed-run retention.
+
+`invalidated_projection_run_ids[]` MUST contain only runs whose state changed because of this operation. It MUST NOT include already invalidated runs except on exact idempotent replay, where the original response is returned.
+
+### 10.8 Lifecycle timestamp ownership
+
+Lifecycle timestamps are implementation-owned server lifecycle values. Caller-supplied `requested_at` is audit input. It MUST NOT determine lifecycle ordering, retention, cursor ordering, or `updated_at`.
+
+| Timestamp | Assigned by | Assignment instant | Precision | Monotonic rule | Tie-breaker |
+| --- | --- | --- | --- | --- | --- |
+| `accepted_at` | Implementation projection lifecycle clock | Durable run admission commit | Exactly 6 fractional digits | Non-decreasing per graph view | If clock value is not greater than prior lifecycle timestamp for the same graph view, increment by 1 microsecond. |
+| `started_at` | Implementation projection lifecycle clock | Run enters `computing` | Exactly 6 fractional digits | `started_at >= accepted_at` | Same 1 microsecond increment rule. |
+| `generated_at` | Implementation projection lifecycle clock | Consumable graph result is atomically published | Exactly 6 fractional digits | `generated_at >= started_at` | Same 1 microsecond increment rule. |
+| `completed_at` | Implementation projection lifecycle clock | Run enters terminal `available` or `failed` | Exactly 6 fractional digits | `completed_at >= started_at` when `started_at` is non-null | Same 1 microsecond increment rule. |
+| `replaced_at` | Implementation projection lifecycle clock | New available run replaces prior available run | Exactly 6 fractional digits | `replaced_at >= generated_at` of replacement run | Same 1 microsecond increment rule. |
+| `invalidated_at` | Implementation projection lifecycle clock | Invalidation transition is committed | Exactly 6 fractional digits | Non-decreasing per graph view | Same 1 microsecond increment rule. |
+| `updated_at` | Implementation projection lifecycle clock | Graph-view state or selected/latest run summary changes | Exactly 6 fractional digits | Non-decreasing per graph view | Same 1 microsecond increment rule. |
 
 ## 11. Consumer query contract
 
@@ -1818,10 +2168,33 @@ Success `data` members:
 
 | Member | Rule |
 | --- | --- |
-| `graph_views[]` | Page of graph-view summary objects sorted by `graph_view_id`. |
+| `graph_views[]` | Page of `graph_view_summary` objects sorted by `graph_view_id`. |
 | `next_cursor_token` | String for the next page, or JSON null when no next page exists. |
 
-Each graph-view summary object MUST contain exactly `graph_view_id`, `graph_view_key`, `state`, `latest_projection_run_id`, `latest_source_snapshot_id`, `projection_version`, `updated_at`, and `validation_status`. The `state` member is graph-view state from §10.1.
+A `graph_view_summary` MUST be a JSON object with exactly these members in this order.
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `graph_view_id` | `generated_id` with prefix `gv_` | Yes | No | Graph view identity. |
+| `graph_view_key` | `identifier` | Yes | No | From normalized config. |
+| `state` | String | Yes | No | One graph-view state except `not_created`, which is not listed. |
+| `latest_projection_run_id` | `generated_id` with prefix `gpr_` | Yes | No | Most recently admitted run for the graph view, whether active or terminal. |
+| `latest_source_snapshot_id` | `identifier` | Yes | No | Source snapshot for `latest_projection_run_id`. |
+| `projection_version` | `identifier` | Yes | No | Projection version for `latest_projection_run_id`. |
+| `updated_at` | `timestamp` | Yes | No | Assigned by §10.8. |
+| `validation_status` | String | Yes | No | One value from the state matrix below. |
+
+State-specific summary behavior is closed by this matrix.
+
+| Graph-view state | `latest_projection_run_id` | `latest_source_snapshot_id` | `projection_version` | `updated_at` | `validation_status` |
+| --- | --- | --- | --- | --- | --- |
+| `creating` | Active initial run | From active initial run | From active initial run | Last transition to `creating` or active-run state update | `pending` |
+| `available` | Latest available run | From latest available run | From latest available run | Publication timestamp of latest available run or later metadata update | Selected run validation summary `status` |
+| `refreshing` | Active refresh run | From active refresh run | From active refresh run | Last transition to `refreshing` or active-run state update | `pending` |
+| `failed` | Latest failed initial-create run | From latest failed run | From latest failed run | Failed terminal transition timestamp | `failed` |
+| `invalidated` | Latest invalidated selected run | From invalidated run | From invalidated run | Invalidation timestamp | Validation summary `status` from invalidated run |
+
+`not_created` graph views MUST NOT appear in `list_graph_views()`.
 
 `next_cursor_token` is `null` only when no graph view with `graph_view_id > last_returned_graph_view_id` exists at response construction time. Invalid, expired, oversized, malformed, or wrong-query-shape cursor tokens return `cursor_invalid`.
 
@@ -1851,7 +2224,9 @@ Success `data` MUST be a JSON object with exactly these members in this order.
 | `failure_reason` | Yes | Yes | Non-empty string only in `failed`; otherwise `null`. |
 | `has_consumable_graph_view` | Yes | No | `true` only for `available` and retained `replaced`; `false` otherwise. |
 | `invalidation` | Yes | Yes | Non-null only in `invalidated`; shape from §5.5.1. |
-| `retention_expires_at` | Yes | Yes | Non-null only when the run is retained under duration-bound retention; `null` for latest available and always-retained latest failed initial run. |
+| `retention_expires_at` | Yes | Yes | Time-bound expiry timestamp under the applicable duration rule at response construction time, or `null` when no duration-bound expiry applies. |
+
+`retention_expires_at` is `null` for the latest available run, the always-retained latest failed initial run, and any run that has no duration-bound expiry. A non-null `retention_expires_at` is not a lease. A retained run can become expired before that timestamp only when a later run changes the applicable count-bound rank under §10.6.
 
 Expired or unknown runs return `projection_run_not_found`. Accepted and computing runs are inspectable through this query but are not graph-readable.
 
@@ -1946,13 +2321,13 @@ A Graph Projection implementation is conformant only when every criterion in thi
 | `GP-AC-028` | Canonical output bytes are defined. | Canonical JSON serialization produces byte-identical comparison inputs after allowed run-specific exclusions. |
 | `GP-AC-029` | Implementation latitude is bounded. | Allowed internal variance cannot change observable output, validation, lifecycle, retention, or query behavior. |
 | `GP-AC-030` | The spec is self-contained. | A competent implementer can implement graph projection behavior from this NLSpec without project-specific assumptions or external graph standards. |
-| `GP-AC-031` | JSON duplicate-member behavior is closed. | Duplicate object members at every depth are rejected before schema validation with deterministic `invalid_input_shape` details. |
+| `GP-AC-031` | JSON duplicate-member behavior is closed. | Duplicate object members at every depth are rejected before run admission with deterministic lifecycle `invalid_projection_request` details and no validation issue object. |
 | `GP-AC-032` | Digest bytes are canonical. | Golden fixtures produce byte-identical `projection_config_digest` and `projection_source_digest`. |
 | `GP-AC-033` | Lifecycle operation contracts are closed. | Create, refresh, invalidation, idempotency, retry, and concurrent active-run behavior produce the specified states and errors. |
 | `GP-AC-034` | Failed-run retention is exact. | The same failed-run history and retention policy produce the same retained failed-run set. |
 | `GP-AC-035` | Invalidation scope is exact. | Graph-view invalidation cascades and run-specific invalidation affect exactly the specified retained runs. |
 | `GP-AC-036` | Validation issue construction is deterministic. | Every validation code has deterministic target ID, field, detail, reason-code, and issue ID behavior. |
-| `GP-AC-037` | Validation issue cap is deterministic. | Inputs exceeding the issue cap emit the first `N-1` issues by discovery order plus one cap issue. |
+| `GP-AC-037` | Validation issue cap is deterministic. | Inputs exceeding the issue cap select the first `N-1` non-cap issues by discovery order, sort those selected issues by ordinary issue ordering, and append one final cap issue. |
 | `GP-AC-038` | Resource-limit severity is aligned. | Whole-input limits are fatal; source-item limits exclude only the affected item; output limits are fatal. |
 | `GP-AC-039` | Wildcard collision behavior is closed. | Wildcard and concrete property or metadata definitions cannot collide after expansion. |
 | `GP-AC-040` | Mapping property-key arrays are operationally closed. | Required and optional mapping property keys resolve only to applicable property definitions and never synthesize passthrough output. |
@@ -1966,3 +2341,52 @@ A Graph Projection implementation is conformant only when every criterion in thi
 | `GP-AC-048` | Pagination mutation behavior is closed. | Live keyset pagination, cursor expiry, deletion, insertion, and limit-change cases produce deterministic pages or `cursor_invalid`. |
 | `GP-AC-049` | Traversal metadata is closed. | `traverse(...).metadata` is exactly `{}` in this revision. |
 | `GP-AC-050` | Canonical comparison fixtures state run specificity. | Conformance fixtures declare run-specific versus run-independent comparison inputs and exclude only the allowed fields. |
+| `GP-AC-051` | Admission boundary is closed. | Pre-admission failures return lifecycle operation errors, allocate no run, emit no validation issue, and create no retained run. |
+| `GP-AC-052` | Admitted failed-run boundary is closed. | Fatal validation after admission creates one retained failed run inspectable through `get_projection_run()`. |
+| `GP-AC-053` | Lifecycle response envelopes are closed. | Every lifecycle operation returns exactly one success or error variant with the specified members and no partial data on error. |
+| `GP-AC-054` | Invalidation success shape is closed. | Graph-view and run invalidation return `invalidation_summary` with exact member order, nullability, run-ID list ordering, and idempotent replay behavior. |
+| `GP-AC-055` | `idempotency_key` behavior is closed. | Omitted, explicit null, invalid, exact replay, conflict reuse, and expiry cases produce the specified outcomes. |
+| `GP-AC-056` | Early validation issue identity is impossible. | Invalid JSON, duplicate members, and invalid top-level identity fields never emit `issue_id`. |
+| `GP-AC-057` | Aggregated property candidate derivation is closed. | Missing, null, default, invalid, required, count, and merge cases produce deterministic candidates, output keys, and issues. |
+| `GP-AC-058` | Aggregated endpoint key evaluation is closed. | Missing, null, object, nested array, digest-not-found, `error`, and `exclude` cases produce deterministic edge and issue behavior. |
+| `GP-AC-059` | Aggregated output labels are closed. | Aggregated vertices and edges always emit the defined default-label arrays. |
+| `GP-AC-060` | Schema registry label and wildcard behavior is closed. | Registry label arrays, `source_labels_preserved`, and concrete wildcard-expanded property and metadata entries match fixtures. |
+| `GP-AC-061` | Validation condition matrix is exhaustive. | Every validation condition maps to exactly one code, severity, target, field path, details object, and reason code where applicable. |
+| `GP-AC-062` | Canonical string bytes are closed. | Canonical JSON string escaping matches the required grammar for all control, quote, reverse-solidus, solidus, U+2028/U+2029, and non-BMP cases. |
+| `GP-AC-063` | Scalar lexical boundaries are closed. | Integer, timestamp, and identifier whitespace fixtures accept and reject exactly the specified cases. |
+| `GP-AC-064` | Lifecycle timestamp ownership is closed. | Generated timestamps use fixed precision, monotonic per-graph-view ordering, and server-owned lifecycle assignment. |
+| `GP-AC-065` | Graph-view summaries are state-complete. | Every graph-view state in the summary matrix emits exact field values and validation status. |
+| `GP-AC-066` | Retention inspection is closed. | Duration-bound and count-bound retention fixtures produce deterministic `retention_expires_at` and addressability behavior. |
+| `GP-AC-067` | Digest fixtures are byte-reproducible. | Implementations reproduce fixture canonical bytes, tuple fields, and digest outputs exactly. |
+
+## 14. Conformance fixture registry
+
+A conformance fixture MUST define its input JSON or operation request, normalized input after defaults when applicable, expected operation response or query response, expected retained state, expected validation summary when a run is admitted, and expected canonical bytes or digest bytes when bytes are under test.
+
+| Fixture ID | Required coverage |
+| --- | --- |
+| `GP-FIX-001` | Malformed JSON pre-admission rejection. |
+| `GP-FIX-002` | Duplicate object member pre-admission rejection. |
+| `GP-FIX-003` | Invalid derived `graph_view_id` pre-admission rejection. |
+| `GP-FIX-004` | Admitted invalid mapping creates retained failed run. |
+| `GP-FIX-005` | Issue cap final ordering. |
+| `GP-FIX-006` | Aggregated property missing/default/null candidate behavior. |
+| `GP-FIX-007` | Aggregation `single_value` merge conflict after default materialization. |
+| `GP-FIX-008` | Aggregation `count` ignores `source_field_path` candidate evaluation. |
+| `GP-FIX-009` | Missing aggregated endpoint key with `error`. |
+| `GP-FIX-010` | Missing aggregated endpoint key with `exclude`. |
+| `GP-FIX-011` | Endpoint digest computed but no matching vertex. |
+| `GP-FIX-012` | Schema registry default labels, mapping labels, and source label preservation indicator. |
+| `GP-FIX-013` | Wildcard property and metadata registry expansion. |
+| `GP-FIX-014` | Canonical JSON string escaping. |
+| `GP-FIX-015` | Integer lexical forms. |
+| `GP-FIX-016` | Timestamp calendar validity. |
+| `GP-FIX-017` | Identifier Unicode whitespace boundary. |
+| `GP-FIX-018` | Lifecycle idempotency exact replay and conflict. |
+| `GP-FIX-019` | Invalidation summary graph-view cascade. |
+| `GP-FIX-020` | Graph-view summary state matrix. |
+| `GP-FIX-021` | Count-bound retention expiry before duration expiry. |
+| `GP-FIX-022` | Full digest byte transcript for minimal empty graph. |
+| `GP-FIX-023` | Full digest byte transcript for one host property graph. |
+
+Every fixture MUST be deterministic. Fixture IDs are stable. A fixture may add explanatory examples, but the expected operation response, retained state, validation summary, and canonical bytes are the normative comparison artifacts for that fixture.
