@@ -44,7 +44,7 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 | `FE-VFIX-11` | Drag-fill handle | `FE-P3`, `FE-P10` | Drag-fill affordance is visible in a deterministic focus/editor state. | Top-left grid scroll; active cell declared. | `missing` |
 | `FE-VFIX-12` | Edit cell | `FE-P3`, `FE-P4`, `FE-P10` | Active edit cell renders editor state and save-state relationship. | Top-left grid scroll; active cell declared. | `current` |
 | `FE-VFIX-13` | Tree/group row | `FE-P3`, `FE-P8`, `FE-P10` | Tree or group row state is expanded/collapsed as declared by the fixture. | Group/tree row anchor. | `current` |
-| `FE-VFIX-14` | Exposed theme states | `FE-P11` | Exposed theme, density, color, and token states render in representative controls. | Per-fixture viewport and scroll state declared. | `missing` |
+| `FE-VFIX-14` | Exposed theme states | `FE-P11` | Exposed theme, density, color, and token states render in representative controls. | Viewport `1280x720`; selector screenshot scope; no workbook-grid scroll state. | `current` |
 | `FE-VFIX-15` | Empty successful query | `FE-P3`, `FE-P4`, `FE-P8` | Successful empty result state renders without error or loading affordance. | Top-left grid scroll; empty-state container anchored. | `missing` |
 
 ### Visual Support Acceptance
@@ -77,6 +77,17 @@ screenshot scopes.
 | `V-6-GRID-01` | `tools/phase6_test_map.json` | `FE-VFIX-04` | Grid shell. |
 | `V-6-GRID-02` | `tools/phase6_test_map.json` | `FE-VFIX-03`, `FE-VFIX-08` | Fixed viewport shell. |
 | `V-6-GRID-03` | `tools/phase6_test_map.json` | `FE-VFIX-03`, `FE-VFIX-08` | Fixed viewport shell and named status-strip slot. |
+
+### Current exposed-theme fixture citation map
+
+The exposed-theme fixture uses test-only DOM inside the ordinary workbook page
+so generated theme CSS is injected through the same runtime path as the
+workbook shell. It does not expose a theme switcher and does not claim support
+for light or high-contrast themes.
+
+| Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
+| --- | --- | --- | --- | --- | --- | --- |
+| `FE-V-P11-03` | `tools/frontend_phase_maps/fe_p11_test_map.json` | `FE-VFIX-14` | Deterministic workbook incident plus test-only `section[data-design-fixture='exposed-theme']` token specimen. | `1280x720`, browser default zoom matching `{layout.zoomDefault}`. | None; specimen text is static and contains no generated IDs, actor names, timestamps, or cursors. | Selector crop, snapshot `fe-v-p11-03-exposed-theme-states`. |
 
 ## Accepted Refresh Triggers
 

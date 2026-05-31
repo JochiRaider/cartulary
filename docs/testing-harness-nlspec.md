@@ -28,7 +28,7 @@ Each public target MUST also declare one stable `command_id` using the form `car
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005
 
 **TH-HARNESS-REQ-004**
-Generated files under `internal/gen/**`, `packages/protocol-ts/src/generated/**`, generated task/schedule artifacts, and generated Make includes are downstream generated artifacts. They MUST NOT be hand-edited and MUST NOT become behavior owners unless a later adopted NLSpec explicitly promotes one of them.
+Generated files under `internal/gen/**`, `packages/protocol-ts/src/generated/**`, `packages/ui-contracts/src/generated/**`, generated task/schedule artifacts, and generated Make includes are downstream generated artifacts. They MUST NOT be hand-edited and MUST NOT become behavior owners unless a later adopted NLSpec explicitly promotes one of them.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 
 **TH-HARNESS-REQ-005**

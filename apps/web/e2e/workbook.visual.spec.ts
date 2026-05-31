@@ -6,6 +6,7 @@ import {
   changeGrouping,
 } from "@cartulary/test-utils";
 import {
+  cartularyDefaultThemeId,
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
   dataTestIdSelector,
@@ -933,6 +934,41 @@ test.describe("Phase 6 workbook visual evidence", () => {
   });
 });
 
+test.describe("FE-P11 visual readiness", () => {
+  test("FE-V-P11-03 Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("FEV11THEME"),
+      "FE-P11 exposed theme visual fixture",
+    );
+    await createViewRow(page, incidentId, timelineViewSchemaId, {
+      client_txn_id: uniqueTxn("FEV11THEME-ROW"),
+      "timeline.occurred_at": "2026-05-31T11:00:00Z",
+      "timeline.summary": "FE-P11 exposed theme fixture row",
+    });
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await expect(page.locator("main.cartulary-shell").first()).toHaveAttribute(
+      "data-cartulary-theme",
+      cartularyDefaultThemeId,
+    );
+    await assertExposedThemeCssVariables(page);
+    await injectExposedThemeVisualFixture(page);
+
+    const fixture = page.locator("[data-design-fixture='exposed-theme']");
+    await expect(fixture).toBeVisible();
+    await assertVisualRegression(
+      page,
+      "fe-v-p11-03-exposed-theme-states",
+      fixture,
+    );
+  });
+});
+
 async function assertVisualRegression(
   page: Page,
   name: string,
@@ -996,6 +1032,289 @@ async function expectStatusStripFocusAnchorVisuallyHidden(
       overflow: "hidden",
       position: "absolute",
     });
+}
+
+const exposedThemeCssVars = [
+  "--ct-colors-accent",
+  "--ct-colors-canvas",
+  "--ct-colors-surface-1",
+  "--ct-colors-surface-2",
+  "--ct-colors-ink",
+  "--ct-colors-ink-muted",
+  "--ct-colors-semantic-success",
+  "--ct-colors-semantic-caution",
+  "--ct-colors-semantic-conflict",
+  "--ct-colors-semantic-destructive",
+  "--ct-density-default-rowHeight",
+  "--ct-density-default-cellPadding",
+  "--ct-component-button-primary-backgroundColor",
+  "--ct-component-button-primary-textColor",
+  "--ct-component-button-secondary-backgroundColor",
+  "--ct-component-button-secondary-border",
+  "--ct-component-button-danger-textColor",
+  "--ct-component-text-input-backgroundColor",
+  "--ct-component-chip-backgroundColor",
+  "--ct-component-grid-cell-padding",
+  "--ct-component-focus-ring-border",
+] as const;
+
+async function assertExposedThemeCssVariables(page: Page) {
+  const missingVars = await page.evaluate(
+    (varNames) => {
+      const styles = window.getComputedStyle(document.documentElement);
+      return varNames.filter((name) => !styles.getPropertyValue(name).trim());
+    },
+    [...exposedThemeCssVars],
+  );
+  expect(missingVars).toEqual([]);
+}
+
+async function injectExposedThemeVisualFixture(page: Page) {
+  await page.evaluate(() => {
+    const existingStyle = document.querySelector(
+      "style[data-design-fixture-style='exposed-theme']",
+    );
+    existingStyle?.remove();
+    const existingFixture = document.querySelector(
+      "[data-design-fixture='exposed-theme']",
+    );
+    existingFixture?.remove();
+
+    const main = document.querySelector("main.cartulary-shell");
+    if (!(main instanceof HTMLElement)) {
+      throw new Error("Expected workbook shell main before theme fixture");
+    }
+
+    const style = document.createElement("style");
+    style.dataset.designFixtureStyle = "exposed-theme";
+    style.textContent = `
+      [data-design-fixture='exposed-theme'] {
+        position: fixed;
+        inset: var(--ct-spacing-xl);
+        box-sizing: border-box;
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: var(--ct-spacing-md);
+        overflow: hidden;
+        background: var(--ct-colors-canvas);
+        color: var(--ct-colors-ink);
+        border: var(--ct-border-strong);
+        border-radius: var(--ct-rounded-lg);
+        padding: var(--ct-spacing-lg);
+        box-shadow: var(--ct-elevation-panel);
+        font-family: var(--ct-typography-ui-fontFamily);
+        font-size: var(--ct-typography-ui-fontSize);
+        font-weight: var(--ct-typography-ui-fontWeight);
+        letter-spacing: var(--ct-typography-ui-letterSpacing);
+        line-height: var(--ct-typography-ui-lineHeight);
+        z-index: 1000;
+      }
+
+      [data-design-fixture='exposed-theme'] * {
+        box-sizing: border-box;
+      }
+
+      .theme-fixture-panel {
+        display: grid;
+        gap: var(--ct-spacing-sm);
+        align-content: start;
+        min-width: 0;
+        background: var(--ct-colors-surface-1);
+        border: var(--ct-border-hairline);
+        border-radius: var(--ct-rounded-md);
+        padding: var(--ct-spacing-md);
+      }
+
+      .theme-fixture-title {
+        margin: 0;
+        color: var(--ct-colors-ink);
+        font-family: var(--ct-typography-surface-title-fontFamily);
+        font-size: var(--ct-typography-surface-title-fontSize);
+        font-weight: var(--ct-typography-surface-title-fontWeight);
+        letter-spacing: var(--ct-typography-surface-title-letterSpacing);
+        line-height: var(--ct-typography-surface-title-lineHeight);
+      }
+
+      .theme-fixture-note {
+        margin: 0;
+        color: var(--ct-colors-ink-muted);
+        font-family: var(--ct-typography-metadata-fontFamily);
+        font-size: var(--ct-typography-metadata-fontSize);
+        font-weight: var(--ct-typography-metadata-fontWeight);
+        letter-spacing: var(--ct-typography-metadata-letterSpacing);
+        line-height: var(--ct-typography-metadata-lineHeight);
+      }
+
+      .theme-fixture-swatches,
+      .theme-fixture-components,
+      .theme-fixture-states {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--ct-spacing-xs);
+      }
+
+      .theme-swatch,
+      .theme-state {
+        min-height: var(--ct-density-default-rowHeight);
+        display: flex;
+        align-items: center;
+        gap: var(--ct-spacing-xs);
+        border: var(--ct-border-hairline);
+        border-radius: var(--ct-rounded-sm);
+        padding: var(--ct-density-default-cellPadding);
+        background: var(--ct-colors-surface-2);
+        color: var(--ct-colors-ink);
+      }
+
+      .theme-swatch::before,
+      .theme-state::before {
+        content: "";
+        inline-size: var(--ct-component-icon-inline-size);
+        block-size: var(--ct-component-icon-inline-size);
+        border-radius: var(--ct-rounded-pill);
+        border: var(--ct-border-hairline);
+        flex: 0 0 auto;
+      }
+
+      .theme-swatch[data-token='accent']::before {
+        background: var(--ct-colors-accent);
+      }
+
+      .theme-swatch[data-token='surface']::before {
+        background: var(--ct-colors-surface-3);
+      }
+
+      .theme-swatch[data-token='ink']::before {
+        background: var(--ct-colors-ink);
+      }
+
+      .theme-swatch[data-token='hairline']::before {
+        background: var(--ct-colors-hairline-strong);
+      }
+
+      .theme-state[data-state='success']::before {
+        background: var(--ct-colors-semantic-success);
+      }
+
+      .theme-state[data-state='caution']::before {
+        background: var(--ct-colors-semantic-caution);
+      }
+
+      .theme-state[data-state='conflict']::before {
+        background: var(--ct-colors-semantic-conflict);
+      }
+
+      .theme-state[data-state='destructive']::before {
+        background: var(--ct-colors-semantic-destructive);
+      }
+
+      .theme-button {
+        min-height: var(--ct-density-default-rowHeight);
+        border: 0;
+        border-radius: var(--ct-component-button-primary-rounded);
+        padding: var(--ct-component-button-primary-padding);
+        font-family: var(--ct-typography-button-fontFamily);
+        font-size: var(--ct-typography-button-fontSize);
+        font-weight: var(--ct-typography-button-fontWeight);
+        letter-spacing: var(--ct-typography-button-letterSpacing);
+        line-height: var(--ct-typography-button-lineHeight);
+      }
+
+      .theme-button-primary {
+        background: var(--ct-component-button-primary-backgroundColor);
+        color: var(--ct-component-button-primary-textColor);
+      }
+
+      .theme-button-secondary {
+        background: var(--ct-component-button-secondary-backgroundColor);
+        color: var(--ct-component-button-secondary-textColor);
+        border: var(--ct-component-button-secondary-border);
+      }
+
+      .theme-button-danger {
+        background: var(--ct-component-button-danger-backgroundColor);
+        color: var(--ct-component-button-danger-textColor);
+        border: var(--ct-border-hairline);
+      }
+
+      .theme-input,
+      .theme-grid-cell {
+        min-height: var(--ct-density-default-rowHeight);
+        width: 100%;
+        border: var(--ct-component-text-input-border);
+        border-radius: var(--ct-component-text-input-rounded);
+        background: var(--ct-component-text-input-backgroundColor);
+        color: var(--ct-component-text-input-textColor);
+        padding: var(--ct-component-text-input-padding);
+        font: inherit;
+      }
+
+      .theme-chip {
+        display: inline-flex;
+        align-items: center;
+        width: max-content;
+        border: var(--ct-component-chip-border);
+        border-radius: var(--ct-component-chip-rounded);
+        background: var(--ct-component-chip-backgroundColor);
+        color: var(--ct-component-chip-textColor);
+        padding: var(--ct-component-chip-padding);
+      }
+
+      .theme-grid-cell {
+        display: flex;
+        align-items: center;
+        background: var(--ct-component-grid-cell-backgroundColor);
+        color: var(--ct-component-grid-cell-textColor);
+        padding: var(--ct-component-grid-cell-padding);
+        font-family: var(--ct-typography-grid-cell-fontFamily);
+        font-size: var(--ct-typography-grid-cell-fontSize);
+        font-weight: var(--ct-typography-grid-cell-fontWeight);
+        letter-spacing: var(--ct-typography-grid-cell-letterSpacing);
+        line-height: var(--ct-typography-grid-cell-lineHeight);
+      }
+
+      .theme-focus-sample {
+        outline: var(--ct-component-focus-ring-border);
+        outline-offset: var(--ct-component-focus-ring-offset);
+      }
+    `;
+    document.head.append(style);
+
+    const fixture = document.createElement("section");
+    fixture.dataset.designFixture = "exposed-theme";
+    fixture.setAttribute("aria-label", "Exposed theme token state fixture");
+    fixture.innerHTML = `
+      <div class="theme-fixture-panel">
+        <h2 class="theme-fixture-title">dark_graphite token states</h2>
+        <p class="theme-fixture-note">Generated CSS variables applied through the workbook runtime.</p>
+        <div class="theme-fixture-swatches" aria-label="Color token samples">
+          <div class="theme-swatch" data-token="accent">Accent</div>
+          <div class="theme-swatch" data-token="surface">Surface</div>
+          <div class="theme-swatch" data-token="ink">Ink</div>
+          <div class="theme-swatch" data-token="hairline">Hairline</div>
+        </div>
+        <div class="theme-fixture-states" aria-label="Semantic state samples">
+          <div class="theme-state" data-state="success">Success state</div>
+          <div class="theme-state" data-state="caution">Caution state</div>
+          <div class="theme-state" data-state="conflict">Conflict state</div>
+          <div class="theme-state" data-state="destructive">Destructive state</div>
+        </div>
+      </div>
+      <div class="theme-fixture-panel">
+        <h2 class="theme-fixture-title">Component and density states</h2>
+        <p class="theme-fixture-note">Default density, buttons, input, chip, focus, and grid-cell tokens.</p>
+        <div class="theme-fixture-components">
+          <button class="theme-button theme-button-primary" type="button">Primary</button>
+          <button class="theme-button theme-button-secondary theme-focus-sample" type="button">Secondary focus</button>
+          <button class="theme-button theme-button-danger" type="button">Danger</button>
+          <span class="theme-chip">Evidence chip</span>
+        </div>
+        <input class="theme-input" value="Readonly token input" readonly />
+        <div class="theme-grid-cell">Grid cell typography and default density</div>
+      </div>
+    `;
+    main.append(fixture);
+  });
 }
 
 async function assertWorkbookGridVisualRegression(

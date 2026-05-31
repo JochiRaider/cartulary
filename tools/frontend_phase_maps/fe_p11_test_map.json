@@ -53,6 +53,36 @@
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
     {
+      "id": "FE-V-P11-03",
+      "layer": "visual_regression",
+      "evidence_class": "design_direction",
+      "owner_refs": [
+        "docs/design.md Sections 3, 14, and 15",
+        "visual golden guide Sections 2, 3, and 5"
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "D-AC-015",
+        "D-AC-055",
+        "D-AC-060",
+        "D-AC-062",
+        "D-AC-063",
+        "VG-AC-002",
+        "VG-AC-004",
+        "VG-AC-005"
+      ],
+      "targets": [
+        "make browser-e2e-visual"
+      ],
+      "scenario_titles": [
+        "FE-V-P11-03 Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples."
+      ],
+      "claim_status": "implemented",
+      "claim": "Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
+      "out_of_scope": "This frontend readiness row does not change Core product behavior, expose a theme switcher, claim light or high-contrast themes, or activate Core 05 publication authority."
+    },
+    {
       "id": "FE-A11Y-P11-01",
       "layer": "accessibility",
       "evidence_class": "design_direction",
