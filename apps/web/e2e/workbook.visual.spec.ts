@@ -26,8 +26,9 @@ import {
   timelineEvidenceFileInputTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowVersionTestId,
+  workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Route, TestInfo } from "@playwright/test";
+import type { Locator, Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import {
   createIncident,
@@ -126,11 +127,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
       ),
     ).toHaveValue("Default visual row");
 
-    await assertVisualRegression(
-      page,
-      "v-3-grid-01-timeline-default",
-      page.getByRole("main"),
-    );
+    await assertViewportVisualRegression(page, "v-3-grid-01-timeline-default");
   });
 
   test("V-3-GRID-02 captures Timeline edit save-state visuals for active cell syncing saved and conflict states", async ({
@@ -157,7 +154,6 @@ test.describe("Phase 3 workbook visual evidence", () => {
     await maskIncidentIdentity(page, incidentId);
 
     const saveState = page.getByTestId(saveStateTestId());
-    const saveStateStrip = saveState.locator("..");
     const summaryInput = page.getByTestId(
       rowCellTestId(timelineRow.record_id, "timeline.summary"),
     );
@@ -182,18 +178,13 @@ test.describe("Phase 3 workbook visual evidence", () => {
       await summaryInput.press("Enter");
       await hold.waitForHit;
       await expect(saveState).toHaveText("Syncing");
-      await assertVisualRegression(
+      await assertStatusStripVisualRegression(
         page,
         "v-3-grid-02-syncing-strip",
-        saveStateStrip,
       );
       await hold.release();
       await expect(saveState).toHaveText("Saved");
-      await assertVisualRegression(
-        page,
-        "v-3-grid-02-saved-strip",
-        saveStateStrip,
-      );
+      await assertStatusStripVisualRegression(page, "v-3-grid-02-saved-strip");
     } finally {
       await hold.dispose();
     }
@@ -232,10 +223,9 @@ test.describe("Phase 3 workbook visual evidence", () => {
       await summaryInput.fill("Conflict visual edit");
       await summaryInput.press("Enter");
       await expect(saveState).toHaveText("Conflict");
-      await assertVisualRegression(
+      await assertStatusStripVisualRegression(
         page,
         "v-3-grid-02-conflict-strip",
-        saveStateStrip,
       );
     } finally {
       await page.unroute(patchUrl, conflictHandler);
@@ -763,10 +753,9 @@ test.describe("Phase 6 workbook visual evidence", () => {
         targetTestId: rowCellTestId(timelineRow.record_id, "timeline.summary"),
       });
 
-      await assertVisualRegression(
+      await assertViewportVisualRegression(
         page,
         "v-6-grid-02-conflict-resolver",
-        page.getByRole("main"),
       );
     } finally {
       await patchController.dispose();
@@ -819,35 +808,23 @@ test.describe("Phase 6 workbook visual evidence", () => {
       rowCellTestId(syncRow.record_id, "timeline.summary"),
     );
     const saveState = page.getByTestId(saveStateTestId());
-    const saveStateStrip = saveState.locator("..");
-    const hold = await holdBrowserApiRequest(page, {
-      method: "PATCH",
-      path: `/api/v1/records/${syncRow.record_id}`,
-    });
+    const patchController = await installPatchController(page);
+    const hold = patchController.holdNextPatch({ recordId: syncRow.record_id });
 
     try {
       await summaryInput.fill("Pending visual syncing");
       await summaryInput.press("Enter");
       await hold.waitForHit;
       await expect(saveState).toHaveText("Syncing");
-      await assertVisualRegression(
+      await assertStatusStripVisualRegression(
         page,
         "v-6-grid-03-syncing-strip",
-        saveStateStrip,
       );
       await hold.release();
+      await hold.waitForCompletion;
       await expect(saveState).toHaveText("Saved");
-      await assertVisualRegression(
-        page,
-        "v-6-grid-03-saved-strip",
-        saveStateStrip,
-      );
-    } finally {
-      await hold.dispose();
-    }
+      await assertStatusStripVisualRegression(page, "v-6-grid-03-saved-strip");
 
-    const patchController = await installPatchController(page);
-    try {
       await driveRealTimelineSummaryConflict({
         afterLocalPatchHeld: async () => {
           await editTimelineSummary(
@@ -868,10 +845,9 @@ test.describe("Phase 6 workbook visual evidence", () => {
         txnPrefix: "visual-phase6-pending-conflict",
       });
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
-      await assertVisualRegression(
+      await assertViewportVisualRegression(
         page,
         "v-6-grid-03-blocked-conflict",
-        page.getByRole("main"),
       );
 
       await page.getByTestId("conflict-keep-saved").click();
@@ -882,10 +858,9 @@ test.describe("Phase 6 workbook visual evidence", () => {
 
     await expect(saveState).toHaveText("Saved");
     await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
-    await assertVisualRegression(
+    await assertStatusStripVisualRegression(
       page,
       "v-6-grid-03-recovered-saved-strip",
-      saveStateStrip,
     );
   });
 });
@@ -905,6 +880,54 @@ async function assertVisualRegression(
       ? {}
       : { maxDiffPixels: options.maxDiffPixels }),
   });
+}
+
+async function assertViewportVisualRegression(page: Page, name: string) {
+  await prepareVisualRegressionState(page);
+  await expect(page).toHaveScreenshot(`${name}.png`, {
+    animations: "disabled",
+    caret: "hide",
+    fullPage: false,
+  });
+}
+
+async function assertStatusStripVisualRegression(page: Page, name: string) {
+  const statusStrip = page.getByTestId(workbookShellSlotTestId("status-strip"));
+  await expectStatusStripFocusAnchorVisuallyHidden(statusStrip);
+  await assertVisualRegression(page, name, statusStrip);
+}
+
+async function expectStatusStripFocusAnchorVisuallyHidden(
+  statusStrip: Locator,
+) {
+  const focusAnchor = statusStrip.getByTestId("workbook-focus-anchor");
+  await expect(focusAnchor).toHaveCount(1);
+  await expect
+    .poll(
+      async () =>
+        focusAnchor.evaluate((node) => {
+          const rect = node.getBoundingClientRect();
+          const style = window.getComputedStyle(node);
+          return {
+            blockSize: Math.round(rect.height),
+            clipPath: style.clipPath,
+            inlineSize: Math.round(rect.width),
+            overflow: style.overflow,
+            position: style.position,
+          };
+        }),
+      {
+        message:
+          "Expected status-strip focus anchor to remain present but visually hidden",
+      },
+    )
+    .toEqual({
+      blockSize: 1,
+      clipPath: "inset(50%)",
+      inlineSize: 1,
+      overflow: "hidden",
+      position: "absolute",
+    });
 }
 
 async function assertWorkbookGridVisualRegression(

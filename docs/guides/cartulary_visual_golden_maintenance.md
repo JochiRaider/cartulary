@@ -14,6 +14,15 @@ Visual goldens are committed validation inputs for browser-rendered workbook sta
 - Committed Playwright goldens live beside the spec under `apps/web/e2e/workbook.visual.spec.ts-snapshots/`.
 - Retained actual/diff artifacts from failed runs live under the run root reported by the harness, usually `.cartulary/test-results/<run-id>/.../playwright-output/`.
 
+The authoritative current-profile visual rows are the `V-*` rows in
+`tools/phase*_test_map.json` whose `execution_dependency` is `browser_visual`.
+Those rows are separate from frontend `FE-*` readiness rows. A golden refresh
+for an existing `V-*` row MUST cite the affected `V-*` row IDs. When the same
+golden also serves a frontend visual fixture, the refresh MUST additionally cite
+the applicable `FE-VFIX-*` IDs and frontend phase-map rows. Do not infer
+frontend row closure from a Playwright title, filename, or base phase manifest
+entry alone.
+
 ## Visual Fixture Matrix
 
 The fixture matrix is implementation-support ownership for visual readiness rows. It does not create product behavior, does not replace frontend phase maps, and does not make visual screenshots claim-bearing evidence.
@@ -45,8 +54,28 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 | `VG-AC-001` | The matrix MUST contain exactly one row for each required `FE-VFIX-01` through `FE-VFIX-15` identifier and MUST NOT contain duplicate fixture IDs. |
 | `VG-AC-002` | Every `current` fixture MUST declare deterministic seed data, viewport, browser zoom, fixture order, dynamic masks, and artifact owner rows before golden refresh is accepted. |
 | `VG-AC-003` | Every workbook-grid fixture MUST declare scroll normalization using `GridVisualScrollState` or an equivalent named anchor before capture. |
-| `VG-AC-004` | Every golden refresh MUST cite an accepted refresh trigger, the affected fixture IDs, the corresponding frontend phase-map rows, and whether dynamic masks or viewport state changed. |
+| `VG-AC-004` | Every golden refresh MUST cite an accepted refresh trigger, the affected authoritative `V-*` phase rows, any affected `FE-VFIX-*` fixture IDs and corresponding frontend phase-map rows when applicable, and whether dynamic masks, viewport state, or screenshot scope changed. |
 | `VG-AC-005` | A `missing` fixture MUST fail support validation unless the corresponding frontend phase-map row is `claim_status="blocked"` with a precise missing-fixture reason. |
+
+### Current shell/status refresh citation map
+
+The workbook shell/status accessibility refresh uses this implementation-support
+map when regenerating stale current-profile goldens. The trigger is the accepted
+shell/status contract change: named workbook slot regions, the save-state
+`role="status"`, the visually hidden workbook focus anchor, and hardened
+screenshot scopes.
+
+| Affected row | Owner map | Related fixture IDs | Screenshot scope |
+| --- | --- | --- | --- |
+| `V-3-GRID-01` | `tools/phase3_test_map.json` | `FE-VFIX-01`, `FE-VFIX-08` | Fixed viewport shell. |
+| `V-3-GRID-02` | `tools/phase3_test_map.json` | `FE-VFIX-08`, `FE-VFIX-12` | Grid shell and named status-strip slot. |
+| `V-3-GRID-03` | `tools/phase3_test_map.json` | `FE-VFIX-06`, `FE-VFIX-13` | Grid shell. |
+| `V-4-GRID-01` | `tools/phase4_test_map.json` | None currently claimed. | Grid shell. |
+| `V-4-GRID-03` | `tools/phase4_test_map.json` | `FE-VFIX-07` | Grid shell. |
+| `V-5-GRID-02` | `tools/phase5_test_map.json` | `FE-VFIX-05` | Grid shell. |
+| `V-6-GRID-01` | `tools/phase6_test_map.json` | `FE-VFIX-04` | Grid shell. |
+| `V-6-GRID-02` | `tools/phase6_test_map.json` | `FE-VFIX-03`, `FE-VFIX-08` | Fixed viewport shell. |
+| `V-6-GRID-03` | `tools/phase6_test_map.json` | `FE-VFIX-03`, `FE-VFIX-08` | Fixed viewport shell and named status-strip slot. |
 
 ## Accepted Refresh Triggers
 

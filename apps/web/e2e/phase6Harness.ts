@@ -34,16 +34,24 @@ export type PatchCall = {
 type PatchBehavior =
   | {
       hold: Promise<void>;
+      recordId?: string;
       release: () => void;
+      resolveCompletion: (call: PatchCall) => void;
       resolveHit: (call: PatchCall) => void;
       type: "hold";
+      waitForCompletion: Promise<PatchCall>;
       waitForHit: Promise<PatchCall>;
     }
   | {
       code: string;
+      recordId?: string;
       status: number;
       type: "error";
     };
+
+type PatchBehaviorOptions = {
+  recordId?: string;
+};
 
 export type SocketMessage = {
   payload: Record<string, unknown>;
@@ -193,7 +201,7 @@ export async function driveRealTimelineSummaryConflict({
   remoteValue: string;
   txnPrefix: string;
 }) {
-  const heldPrimaryPatch = patchController.holdNextPatch();
+  const heldPrimaryPatch = patchController.holdNextPatch({ recordId });
   await editTimelineSummary(page, recordId, localValue);
   await heldPrimaryPatch.waitForHit;
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
@@ -210,7 +218,8 @@ export async function driveRealTimelineSummaryConflict({
   );
 
   heldPrimaryPatch.release();
-  await expect.poll(() => patchController.calls.at(-1)?.status ?? 0).toBe(409);
+  const primaryPatch = await heldPrimaryPatch.waitForCompletion;
+  expect(primaryPatch.status).toBe(409);
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
   if (expectConflictMarker) {
     await expect(
@@ -580,6 +589,17 @@ export async function installPatchController(page: Page) {
   const calls: PatchCall[] = [];
   const behaviors: PatchBehavior[] = [];
   const routePattern = "**/api/v1/records/*";
+  const takeBehavior = (call: PatchCall) => {
+    const behaviorIndex = behaviors.findIndex(
+      (behavior) =>
+        behavior.recordId === undefined || behavior.recordId === call.recordId,
+    );
+    if (behaviorIndex === -1) {
+      return null;
+    }
+    const [behavior] = behaviors.splice(behaviorIndex, 1);
+    return behavior ?? null;
+  };
   const handler = async (route: Route) => {
     const request = route.request();
     if (request.method().toUpperCase() !== "PATCH") {
@@ -592,7 +612,7 @@ export async function installPatchController(page: Page) {
       recordId: recordIdFromURL(request.url()),
       status: 0,
     };
-    const behavior = behaviors.shift() ?? null;
+    const behavior = takeBehavior(call);
     if (behavior?.type === "hold") {
       behavior.resolveHit(call);
       await behavior.hold;
@@ -608,6 +628,9 @@ export async function installPatchController(page: Page) {
     call.status = response.status();
     calls.push(call);
     await route.fulfill({ response });
+    if (behavior?.type === "hold") {
+      behavior.resolveCompletion(call);
+    }
   };
 
   await page.route(routePattern, handler);
@@ -617,14 +640,29 @@ export async function installPatchController(page: Page) {
     dispose: async () => {
       await safeUnroute(page, routePattern, handler);
     },
-    failNextPatch: (status: number, code: string) => {
-      behaviors.push({ code, status, type: "error" });
+    failNextPatch: (
+      status: number,
+      code: string,
+      options: PatchBehaviorOptions = {},
+    ) => {
+      behaviors.push({
+        code,
+        status,
+        type: "error",
+        ...(options.recordId === undefined
+          ? {}
+          : { recordId: options.recordId }),
+      });
     },
-    holdNextPatch: () => {
+    holdNextPatch: (options: PatchBehaviorOptions = {}) => {
       let releaseHold!: () => void;
+      let resolveCompletion!: (call: PatchCall) => void;
       let resolveHit!: (call: PatchCall) => void;
       const waitForHit = new Promise<PatchCall>((resolve) => {
         resolveHit = resolve;
+      });
+      const waitForCompletion = new Promise<PatchCall>((resolve) => {
+        resolveCompletion = resolve;
       });
       const hold = new Promise<void>((resolve) => {
         releaseHold = resolve;
@@ -632,13 +670,19 @@ export async function installPatchController(page: Page) {
       const behavior = {
         hold,
         release: releaseHold,
+        resolveCompletion,
         resolveHit,
         type: "hold" as const,
+        waitForCompletion,
         waitForHit,
+        ...(options.recordId === undefined
+          ? {}
+          : { recordId: options.recordId }),
       };
       behaviors.push(behavior);
       return {
         release: releaseHold,
+        waitForCompletion,
         waitForHit,
       };
     },
