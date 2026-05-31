@@ -133,8 +133,9 @@ test.describe("FE-P2 workbook visual readiness", () => {
     await expect(
       page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
     ).toHaveAttribute("aria-current", "page");
-    await expect(page.getByTestId(systemViewSwitcherTriggerTestId()))
-      .toBeVisible();
+    await expect(
+      page.getByTestId(systemViewSwitcherTriggerTestId()),
+    ).toBeVisible();
     await expect(
       page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
     ).toBeVisible();
@@ -145,7 +146,9 @@ test.describe("FE-P2 workbook visual readiness", () => {
       ),
     ).toHaveValue("FE-P2 visual shell row");
 
-    await page.getByTestId(rowInspectButtonTestId(timelineRow.record_id)).click();
+    await page
+      .getByTestId(rowInspectButtonTestId(timelineRow.record_id))
+      .click();
     await expect(page.getByTestId("timeline-inspector")).toBeVisible();
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },

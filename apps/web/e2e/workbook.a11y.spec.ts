@@ -28,14 +28,14 @@ import {
 } from "@cartulary/ui-contracts";
 import type { APIRequestContext, Locator, Page, Route } from "@playwright/test";
 import {
-  p1AccessibilityScenarioTitles,
-  scenarioTitlesForAccessibilityRow,
-} from "./a11yPhaseMap";
-import {
   indicatorsViewSchemaId,
   requiredBuiltInWorkbookSurfaceIds,
   timelineViewSchemaId,
 } from "../src/workbookSurfaceRegistry";
+import {
+  p1AccessibilityScenarioTitles,
+  scenarioTitlesForAccessibilityRow,
+} from "./a11yPhaseMap";
 import {
   createLocalUser as createAuthLocalUser,
   revokeAllSessions,
@@ -44,8 +44,8 @@ import { expect, test } from "./fixtures";
 import {
   apiBase,
   createIncident,
-  createViewRow,
   createIncidentMembership,
+  createViewRow,
   enrollTotpViaBootstrap,
   generateTotpCode,
   safeUnroute,
@@ -329,10 +329,7 @@ function contrastRecordPath(title: string) {
   return path.join(dir, `${slug}.json`);
 }
 
-async function collectContrastChecks(
-  page: Page,
-  testIds: readonly string[],
-) {
+async function collectContrastChecks(page: Page, testIds: readonly string[]) {
   const targets = [...new Set(testIds)].map((id) => ({
     id,
     selector: dataTestIdSelector(id),
@@ -432,10 +429,7 @@ async function collectContrastChecks(
   );
 }
 
-async function expectAndRecordContrast(
-  page: Page,
-  testIds: readonly string[],
-) {
+async function expectAndRecordContrast(page: Page, testIds: readonly string[]) {
   const title = test.info().title;
   const checks = await collectContrastChecks(page, testIds);
   expect(checks.length).toBeGreaterThan(0);
@@ -693,8 +687,9 @@ test.describe("FE-P2 accessibility readiness", () => {
     await page.goto(`/?incident_id=${incidentId}`);
     const shell = page.getByTestId(workbookShellReadyTestId());
     await expect(shell).toBeVisible();
-    await expect(page.getByRole("region", { name: "Workbook shell" }))
-      .toHaveCount(1);
+    await expect(
+      page.getByRole("region", { name: "Workbook shell" }),
+    ).toHaveCount(1);
 
     for (const slot of workbookShellSlots) {
       const label = workbookShellSlotLabel(slot);
