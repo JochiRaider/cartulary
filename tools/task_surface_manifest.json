@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.task_surface_manifest.v14",
+  "schema_id": "cartulary.task_surface_manifest.v15",
   "compact_help": {
     "entries": [
       {
@@ -239,6 +239,10 @@
         {
           "target": "browser-e2e-visual",
           "description": "run isolated visual browser E2E"
+        },
+        {
+          "target": "harness-contract",
+          "description": "run extended harness contract checks"
         }
       ]
     },
@@ -519,6 +523,12 @@
           "summary_targets": [
             "check"
           ]
+        },
+        {
+          "name": "harness-contract",
+          "summary_targets": [
+            "harness-contract"
+          ]
         }
       ],
       "steps": [
@@ -527,6 +537,13 @@
           "target": "check",
           "produces_summary_targets": [
             "check"
+          ]
+        },
+        {
+          "type": "step",
+          "target": "harness-contract",
+          "produces_summary_targets": [
+            "harness-contract"
           ]
         },
         {
@@ -542,6 +559,12 @@
           "summary_targets": [
             "check"
           ]
+        },
+        {
+          "name": "harness-contract",
+          "summary_targets": [
+            "harness-contract"
+          ]
         }
       ],
       "steps": [
@@ -550,6 +573,13 @@
           "target": "check",
           "produces_summary_targets": [
             "check"
+          ]
+        },
+        {
+          "type": "step",
+          "target": "harness-contract",
+          "produces_summary_targets": [
+            "harness-contract"
           ]
         },
         {
@@ -1415,6 +1445,20 @@
       ],
       "mode": "run_phase",
       "phase_label": "harness-contract-tests",
+      "command": [
+        "$(NODE_BIN)",
+        "--test",
+        "./scripts/test-harness-contracts.mjs"
+      ],
+      "test_target": "self"
+    },
+    "harness-contract": {
+      "type": "phase_command",
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ],
+      "mode": "run_phase",
+      "phase_label": "harness-contract",
       "command": [
         "$(NODE_BIN)",
         "--test",
@@ -6447,10 +6491,62 @@
         "scripts/test-harness-contracts.mjs"
       ],
       "target_class": "check_internal",
-      "default_inclusion_sets": [
-        "check"
-      ],
+      "default_inclusion_sets": [],
       "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "harness-contract",
+      "backing_scripts": [
+        "scripts/test-harness-contracts.mjs"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v3"
+      },
+      "command_id": "cartulary.harness.command.harness_contract.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "ci",
+        "release-check"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "static_analysis_security",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": []
+      }
     },
     {
       "name": "lint-shell",
@@ -6713,7 +6809,6 @@
       "target_class": "public",
       "default_inclusion_sets": [
         "test",
-        "check",
         "ci"
       ],
       "lifecycle_state": "public_active",
@@ -6752,6 +6847,16 @@
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
         "inputs": []
+      },
+      "check_projection": {
+        "mode": "projection",
+        "schedule": "check-service-backed",
+        "stage": "webserver-backed",
+        "evidence": "default_local_cross_stack_conformance",
+        "evidence_class": "product_conformance",
+        "reason_code": "lower_layer_gap",
+        "full_target": "browser-e2e-webserver-backed",
+        "full_target_equivalent": false
       }
     },
     {
@@ -7011,7 +7116,6 @@
       "target_class": "public",
       "default_inclusion_sets": [
         "test",
-        "check",
         "ci"
       ],
       "lifecycle_state": "public_active",
@@ -7056,6 +7160,9 @@
         "schedule": "check-service-backed",
         "stage": "a11y",
         "evidence": "bounded_accessibility_readiness",
+        "evidence_class": "accessibility_readiness",
+        "reason_code": "bounded_readiness",
+        "full_target": "browser-e2e-a11y",
         "full_target_equivalent": false
       }
     },
@@ -7188,7 +7295,6 @@
       "target_class": "public",
       "default_inclusion_sets": [
         "test",
-        "check",
         "ci"
       ],
       "lifecycle_state": "public_active",
@@ -7233,6 +7339,9 @@
         "schedule": "check-service-backed",
         "stage": "visual-smoke",
         "evidence": "bounded_visual_readiness",
+        "evidence_class": "visual_readiness",
+        "reason_code": "bounded_readiness",
+        "full_target": "browser-e2e-visual",
         "full_target_equivalent": false
       }
     },

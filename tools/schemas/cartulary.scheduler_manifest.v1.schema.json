@@ -104,6 +104,7 @@
             { "$ref": "#/$defs/command_browser_stage_session_start" },
             { "$ref": "#/$defs/command_browser_group" },
             { "$ref": "#/$defs/command_browser_stage_complete" },
+            { "$ref": "#/$defs/command_browser_session_finalizer" },
             { "$ref": "#/$defs/command_go_shard" },
             { "$ref": "#/$defs/command_go_shard_finalize" },
             { "$ref": "#/$defs/command_service_complete" }
@@ -159,6 +160,16 @@
         "type": { "const": "browser_stage_complete" },
         "service_target": { "type": "string", "minLength": 1 },
         "browser_stage": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_browser_session_finalizer": {
+      "type": "object",
+      "required": ["type", "service_target", "browser_session_group"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "browser_session_finalizer" },
+        "service_target": { "type": "string", "minLength": 1 },
+        "browser_session_group": { "type": "string", "minLength": 1 }
       }
     },
     "command_go_shard": {

@@ -496,7 +496,6 @@ for scheduled_target in \
   frontend-unit \
   check-harness-smoke \
   lint-biome \
-  harness-contract-tests \
   frontend-import-boundary-check \
   lint-scripts \
   lint-shell \
@@ -677,7 +676,6 @@ assert_check_needs deployable-shape "build-server,build-migrate,build-operator"
 for scheduled_target in \
   backend-unit \
   check-harness-smoke \
-  harness-contract-tests \
   phase-test-name-check \
   go-test-duration-baseline-coverage \
   phase-schedule-drift \

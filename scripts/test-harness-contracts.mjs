@@ -278,6 +278,7 @@ test("scheduler manifest exercises every closed command type", () => {
     "browser_stage_session_start",
     "browser_group",
     "browser_stage_complete",
+    "browser_session_finalizer",
     "go_shard",
     "go_shard_finalize",
     "service_complete",
@@ -608,8 +609,8 @@ test("per-target input contract rejects misplaced Make variables and ignores amb
   );
 });
 
-test("check schedule includes cheap harness contracts outside fast smoke", () => {
-  const { checkSchedule } = renderedArtifacts();
+test("extended harness contracts are explicit and outside default local check", () => {
+  const { checkSchedule, taskSurface } = renderedArtifacts();
   const check = checkSchedule.schedules.find(
     (schedule) => schedule.target === "check",
   );
@@ -617,9 +618,14 @@ test("check schedule includes cheap harness contracts outside fast smoke", () =>
   const harnessContracts = check.work_units.find(
     (unit) => unit.target === "harness-contract-tests",
   );
-  assert.ok(harnessContracts, "check schedule must include harness-contract-tests");
-  assert.equal(harnessContracts.priority, 12980);
-  assert.deepEqual(harnessContracts.needs, ["toolchain-drift"]);
+  assert.equal(harnessContracts, undefined, "default local check must omit deep harness contract tests");
+  const contractTarget = taskSurface.targets.find((target) => target.name === "harness-contract");
+  assert.ok(contractTarget, "task surface must expose the explicit harness-contract target");
+  assert.deepEqual(
+    contractTarget.default_inclusion_sets,
+    ["ci", "release-check"],
+    "harness-contract must be selected by extended gates only",
+  );
 });
 
 test("default check service-backed browser work uses declared session groups", () => {
@@ -668,6 +674,28 @@ test("default check service-backed browser work uses declared session groups", (
   assert.equal(
     check.work_units.some((unit) => unit.aggregate_target === "browser-e2e-measurement"),
     false,
+  );
+  const sharedSessionFinalizer = check.work_units.find(
+    (unit) =>
+      unit.kind === "browser_session_finalizer" &&
+      unit.browser_session_group === "default-check-browser-shared",
+  );
+  assert.ok(sharedSessionFinalizer, "shared default browser session must have a scheduler-level finalizer");
+  const visualComplete = check.work_units.find(
+    (unit) => unit.target === "browser-e2e-visual" && unit.kind === "browser_stage_complete",
+  );
+  assert.deepEqual(
+    visualComplete?.needs,
+    ["browser_group:browser-e2e-visual:visual-smoke"],
+    "visual projection completion must depend only on visual-smoke group evidence",
+  );
+  const a11yComplete = check.work_units.find(
+    (unit) => unit.target === "browser-e2e-a11y" && unit.kind === "browser_stage_complete",
+  );
+  assert.deepEqual(
+    a11yComplete?.needs,
+    ["browser_group:browser-e2e-a11y:a11y"],
+    "a11y projection completion must depend only on a11y group evidence",
   );
   assertBrowserWorkerSlots(
     check.work_units.filter(

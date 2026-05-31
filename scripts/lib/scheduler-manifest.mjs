@@ -19,6 +19,7 @@ const commandTypes = new Set([
   "browser_stage_session_start",
   "browser_group",
   "browser_stage_complete",
+  "browser_session_finalizer",
   "go_shard",
   "go_shard_finalize",
   "service_complete",
@@ -42,6 +43,10 @@ const commandShapes = Object.freeze({
   },
   browser_stage_complete: {
     required: ["service_target", "browser_stage"],
+    optional: [],
+  },
+  browser_session_finalizer: {
+    required: ["service_target", "browser_session_group"],
     optional: [],
   },
   go_shard: {

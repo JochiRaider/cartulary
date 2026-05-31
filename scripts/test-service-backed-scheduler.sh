@@ -1208,7 +1208,9 @@ run_scheduler() {
 }
 
 if [[ "$SUITE" == "smoke" ]]; then
-smoke_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-smoke.XXXXXX")"
+smoke_parent="${CARTULARY_HARNESS_SCRATCH_ROOT:-${ROOT_DIR}/.cartulary/tmp}"
+mkdir -p "$smoke_parent"
+smoke_dir="$(mktemp -d "${smoke_parent%/}/service-backed-scheduler-smoke.XXXXXX")"
 cleanup_paths+=("$smoke_dir")
 write_fake_make "$smoke_dir"
 smoke_manifest="${smoke_dir}/manifest.json"

@@ -25,7 +25,7 @@ export const defaultGeneratedMakePath = path.join(
   "tools",
   "task_surface.generated.mk",
 );
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v14";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
 
 const validTargetClasses = new Set([
   "public",
@@ -646,14 +646,14 @@ function validateCheckProjection(errors, entry) {
     errors.push(`${entry.name}.check_projection must be an object`);
     return;
   }
-  if (!entry.default_inclusion_sets?.includes("check")) {
-    errors.push(`${entry.name}.check_projection requires default_inclusion_sets check`);
-  }
   const allowed = new Set([
     "mode",
     "schedule",
     "stage",
     "evidence",
+    "evidence_class",
+    "reason_code",
+    "full_target",
     "full_target_equivalent",
   ]);
   for (const key of Object.keys(entry.check_projection)) {
@@ -665,7 +665,7 @@ function validateCheckProjection(errors, entry) {
   if (!["direct", "projection"].includes(projection.mode)) {
     errors.push(`${entry.name}.check_projection.mode must be direct or projection`);
   }
-  for (const key of ["schedule", "stage", "evidence"]) {
+  for (const key of ["schedule", "stage", "evidence", "evidence_class", "reason_code", "full_target"]) {
     if (
       projection[key] !== undefined &&
       (typeof projection[key] !== "string" || projection[key].trim() === "")
@@ -681,6 +681,18 @@ function validateCheckProjection(errors, entry) {
     projection.full_target_equivalent !== false
   ) {
     errors.push(`${entry.name}.check_projection projection mode must declare full_target_equivalent=false`);
+  }
+  if (projection.mode === "projection") {
+    for (const key of ["schedule", "stage", "evidence", "evidence_class", "reason_code", "full_target"]) {
+      if (typeof projection[key] !== "string" || projection[key].trim() === "") {
+        errors.push(`${entry.name}.check_projection projection mode must declare ${key}`);
+      }
+    }
+    if (entry.default_inclusion_sets?.includes("check")) {
+      errors.push(
+        `${entry.name}.check_projection projection mode must not advertise direct default_inclusion_sets check membership`,
+      );
+    }
   }
 }
 

@@ -81,11 +81,20 @@ function renderCheckProjectionLine(guidance) {
   const schedule = projection.schedule ? ` schedule=${projection.schedule}` : "";
   const stage = projection.stage ? ` stage=${projection.stage}` : "";
   const evidence = projection.evidence ? ` evidence=${projection.evidence}` : "";
+  const evidenceClass = projection.evidence_class
+    ? ` evidence_class=${projection.evidence_class}`
+    : "";
+  const reasonCode = projection.reason_code
+    ? ` reason_code=${projection.reason_code}`
+    : "";
+  const fullTarget = projection.full_target
+    ? ` full_target=${projection.full_target}`
+    : "";
   const equivalence =
     projection.full_target_equivalent === false
       ? " full_target_equivalent=false"
       : "";
-  return `check_projection:${mode}${schedule}${stage}${evidence}${equivalence}`.trimEnd();
+  return `check_projection:${mode}${schedule}${stage}${evidence}${evidenceClass}${reasonCode}${fullTarget}${equivalence}`.trimEnd();
 }
 
 function renderSummary(guidance) {

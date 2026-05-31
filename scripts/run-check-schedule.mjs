@@ -1213,6 +1213,26 @@ function attachRuntime(
       });
       continue;
     }
+    if (unit.kind === "browser_session_finalizer") {
+      const files = browserSessionFiles.get(browserSessionKeyFor(unit));
+      unit.command = () => ({
+        command: browserSessionScript,
+        args: [
+          "--session-stop",
+          "--lease-file",
+          files.leaseFile,
+        ],
+        env: makeChildEnv({
+          ...process.env,
+          ...unit.env,
+          CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
+          CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+        }),
+      });
+      continue;
+    }
     if (unit.kind === "go_shard") {
       const files = serviceSessionFiles.get(serviceSessionTarget(unit));
       unit.command = async () => ({

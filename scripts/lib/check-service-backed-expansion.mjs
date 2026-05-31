@@ -161,6 +161,18 @@ function browserSessionRetainsOwnTarget(source) {
   return browserSessionGroupName(source) === source.target;
 }
 
+function browserSessionFinalizerTarget(sessionGroup) {
+  return `browser-session-${sessionGroup.replaceAll(/[^A-Za-z0-9_.-]/g, "-")}`;
+}
+
+function browserSessionFinalizerCompletionKey(sessionGroup) {
+  return `browser_session_finalizer:${sessionGroup}`;
+}
+
+function sharedBrowserSession(info) {
+  return (info?.sources?.length ?? 0) > 1;
+}
+
 function browserSessionWorkUnitID(scheduleTarget, source) {
   const group = browserSessionGroupName(source);
   if (browserSessionRetainsOwnTarget(source)) {
@@ -289,6 +301,7 @@ export function expandServiceBackedScheduleForCheck({
       const sessionInfo = sessionInfos.get(sessionGroup);
       const isSessionOwner = sessionInfo?.firstSource === source;
       const isSessionFinalizer = sessionInfo?.finalizerSource === source;
+      const finalizeOnStageComplete = isSessionFinalizer && !sharedBrowserSession(sessionInfo);
       if (isSessionOwner) {
         expanded.push({
           id: browserSessionWorkUnitID(scheduleTarget, source),
@@ -326,13 +339,13 @@ export function expandServiceBackedScheduleForCheck({
         aggregate_target: source.target,
         priority: priority(source.priority),
         weight_ms: 1,
-        needs: sessionInfo?.groupNeeds ?? browserStageCompletionNeeds(source.groups),
+        needs: browserStageCompletionNeeds(source.groups),
         completion_keys: [source.target],
         failure_keys: [source.target],
         count_in_total: false,
         counts_started: false,
         resource_claims: {},
-        release_retained_resource_claims: isSessionFinalizer
+        release_retained_resource_claims: finalizeOnStageComplete
           ? (sessionInfo?.retainedClaims ?? {})
           : {},
         service_session: {
@@ -340,7 +353,7 @@ export function expandServiceBackedScheduleForCheck({
         },
         browser_stage: source.browser_stage,
         browser_session_group: sessionGroup,
-        browser_session_finalizer: isSessionFinalizer,
+        browser_session_finalizer: finalizeOnStageComplete,
         ...(sessionInfo?.isolationReason
           ? { browser_session_isolation_reason: sessionInfo.isolationReason }
           : {}),
@@ -470,6 +483,43 @@ export function expandServiceBackedScheduleForCheck({
     }
   }
 
+  const sharedSessionFinalizerKeys = [];
+  for (const info of sessionInfos.values()) {
+    if (!sharedBrowserSession(info)) {
+      continue;
+    }
+    const finalizerKey = browserSessionFinalizerCompletionKey(info.group);
+    sharedSessionFinalizerKeys.push(finalizerKey);
+    expanded.push({
+      id: `${scheduleTarget}:browser-session-finalizer:${info.group}`,
+      kind: "browser_session_finalizer",
+      target: browserSessionFinalizerTarget(info.group),
+      label: `${info.group}/session-finalizer`,
+      aggregate_target: browserSessionFinalizerTarget(info.group),
+      priority: info.priority,
+      weight_ms: 1,
+      needs: info.groupNeeds,
+      completion_keys: [finalizerKey],
+      failure_keys: [finalizerKey],
+      count_in_total: false,
+      counts_started: false,
+      resource_claims: {},
+      release_retained_resource_claims: info.retainedClaims,
+      service_session: {
+        target: scheduleTarget,
+      },
+      browser_session_group: info.group,
+      ...(info.isolationReason
+        ? { browser_session_isolation_reason: info.isolationReason }
+        : {}),
+      command: command("browser_session_finalizer", {
+        service_target: scheduleTarget,
+        browser_session_group: info.group,
+      }),
+      order: info.finalizerIndex,
+    });
+  }
+
   expanded.push({
     id: `${scheduleTarget}:complete`,
     kind: "service_complete",
@@ -477,7 +527,10 @@ export function expandServiceBackedScheduleForCheck({
     label: `${scheduleTarget}/complete`,
     priority: serviceCompletePriority,
     weight_ms: 1,
-    needs: (serviceSchedule.work_unit_sources ?? []).map((source) => source.target),
+    needs: [
+      ...(serviceSchedule.work_unit_sources ?? []).map((source) => source.target),
+      ...sharedSessionFinalizerKeys,
+    ],
     completion_keys: [scheduleTarget],
     failure_keys: [scheduleTarget],
     produces_summary_targets: parentUnit.produces_summary_targets ?? [scheduleTarget],
@@ -571,7 +624,9 @@ function directBrowserSessionInfos(sources) {
       priority: 0,
       weightMs: 0,
       isolationReason: "",
+      sources: [],
     };
+    info.sources.push(source);
     info.resourceClaims = mergeSessionClaims(
       info.resourceClaims,
       resourceClaimsObject(source.resource_claims ?? {}),
@@ -610,6 +665,7 @@ export function expandServiceBackedSchedule({
       const sessionInfo = sessionInfos.get(sessionGroup);
       const isSessionOwner = sessionInfo?.firstSource === source;
       const isSessionFinalizer = sessionInfo?.finalizerSource === source;
+      const finalizeOnStageComplete = isSessionFinalizer && !sharedBrowserSession(sessionInfo);
       if (isSessionOwner) {
         counted.push({
           id: browserSessionRetainsOwnTarget(source)
@@ -648,18 +704,18 @@ export function expandServiceBackedSchedule({
         aggregate_target: source.target,
         priority: priority(source.priority),
         weight_ms: 1,
-        needs: sessionInfo?.groupNeeds ?? browserStageCompletionNeeds(source.groups),
+        needs: browserStageCompletionNeeds(source.groups),
         completion_keys: [source.target],
         failure_keys: [source.target],
         count_in_total: false,
         counts_started: false,
         resource_claims: {},
-        release_retained_resource_claims: isSessionFinalizer
+        release_retained_resource_claims: finalizeOnStageComplete
           ? (sessionInfo?.retainedClaims ?? {})
           : {},
         browser_stage: source.browser_stage,
         browser_session_group: sessionGroup,
-        browser_session_finalizer: isSessionFinalizer,
+        browser_session_finalizer: finalizeOnStageComplete,
         ...(sessionInfo?.isolationReason
           ? { browser_session_isolation_reason: sessionInfo.isolationReason }
           : {}),
@@ -782,6 +838,39 @@ export function expandServiceBackedSchedule({
       shardWorkByName.set(shard.name, unit);
       counted.push(unit);
     }
+  }
+
+  for (const info of sessionInfos.values()) {
+    if (!sharedBrowserSession(info)) {
+      continue;
+    }
+    const finalizerTarget = browserSessionFinalizerTarget(info.group);
+    aggregate.push({
+      id: `browser-session-finalizer:${info.group}`,
+      kind: "browser_session_finalizer",
+      class: info.firstSource?.class,
+      target: finalizerTarget,
+      label: `${info.group}/session-finalizer`,
+      aggregate_target: finalizerTarget,
+      priority: info.priority,
+      weight_ms: 1,
+      needs: info.groupNeeds,
+      completion_keys: [browserSessionFinalizerCompletionKey(info.group)],
+      failure_keys: [browserSessionFinalizerCompletionKey(info.group)],
+      count_in_total: false,
+      counts_started: false,
+      resource_claims: {},
+      release_retained_resource_claims: info.retainedClaims,
+      browser_session_group: info.group,
+      ...(info.isolationReason
+        ? { browser_session_isolation_reason: info.isolationReason }
+        : {}),
+      command: command("browser_session_finalizer", {
+        service_target: scheduleTarget,
+        browser_session_group: info.group,
+      }),
+      order: info.finalizerIndex,
+    });
   }
 
   const workUnits = [

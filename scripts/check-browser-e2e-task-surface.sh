@@ -533,7 +533,6 @@ for scheduled_target in \
   frontend-unit \
   check-harness-smoke \
   lint-biome \
-  harness-contract-tests \
   frontend-import-boundary-check \
   lint-scripts \
   lint-shell \
@@ -765,10 +764,32 @@ if (measurementSession) {
 const webserverComplete = (schedule.work_units ?? []).find((entry) =>
   entry.target === "browser-e2e-webserver-backed" && entry.kind === "browser_stage_complete"
 );
-const expectedWebserverCompleteNeeds = [...sharedBrowserGroupKeys].sort();
+const expectedWebserverCompleteNeeds = [...webserverGroupKeys].sort();
 const actualWebserverCompleteNeeds = [...(webserverComplete?.needs ?? [])].sort();
 if (JSON.stringify(actualWebserverCompleteNeeds) !== JSON.stringify(expectedWebserverCompleteNeeds)) {
-  throw new Error("browser-e2e-webserver-backed completion must depend on every browser group");
+  throw new Error("browser-e2e-webserver-backed completion must depend only on webserver-backed browser groups");
+}
+const visualComplete = (schedule.work_units ?? []).find((entry) =>
+  entry.target === "browser-e2e-visual" && entry.kind === "browser_stage_complete"
+);
+if (JSON.stringify([...(visualComplete?.needs ?? [])].sort()) !== JSON.stringify(["browser_group:browser-e2e-visual:visual-smoke"])) {
+  throw new Error("browser-e2e-visual projection completion must depend only on visual-smoke evidence");
+}
+const a11yComplete = (schedule.work_units ?? []).find((entry) =>
+  entry.target === "browser-e2e-a11y" && entry.kind === "browser_stage_complete"
+);
+if (JSON.stringify([...(a11yComplete?.needs ?? [])].sort()) !== JSON.stringify(["browser_group:browser-e2e-a11y:a11y"])) {
+  throw new Error("browser-e2e-a11y projection completion must depend only on a11y evidence");
+}
+const sharedSessionFinalizer = (schedule.work_units ?? []).find((entry) =>
+  entry.kind === "browser_session_finalizer" &&
+  entry.browser_session_group === "default-check-browser-shared"
+);
+if (!sharedSessionFinalizer) {
+  throw new Error("shared default browser session must have a scheduler-level finalizer");
+}
+if (JSON.stringify([...(sharedSessionFinalizer.needs ?? [])].sort()) !== JSON.stringify([...sharedBrowserGroupKeys].sort())) {
+  throw new Error("shared default browser session finalizer must wait for every shared browser group");
 }
 if ((schedule.work_units ?? []).some((entry) =>
   entry.target === "browser-e2e-webserver-backed" && entry.kind === "service_make_target"

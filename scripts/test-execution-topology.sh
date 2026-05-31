@@ -85,15 +85,40 @@ for (const targetName of ["backend-integration-support", "test-fast-service-back
   );
 }
 assert.deepEqual(
+  renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-webserver-backed")?.check_projection,
+  {
+    mode: "projection",
+    schedule: "check-service-backed",
+    stage: "webserver-backed",
+    evidence: "default_local_cross_stack_conformance",
+    evidence_class: "product_conformance",
+    reason_code: "lower_layer_gap",
+    full_target: "browser-e2e-webserver-backed",
+    full_target_equivalent: false,
+  },
+  "browser-e2e-webserver-backed must label its default-check cross-stack projection",
+);
+assert.ok(
+  !(renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-webserver-backed")?.default_inclusion_sets ?? []).includes("check"),
+  "browser-e2e-webserver-backed must not advertise direct check membership when check uses a projection",
+);
+assert.deepEqual(
   renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-visual")?.check_projection,
   {
     mode: "projection",
     schedule: "check-service-backed",
     stage: "visual-smoke",
     evidence: "bounded_visual_readiness",
+    evidence_class: "visual_readiness",
+    reason_code: "bounded_readiness",
+    full_target: "browser-e2e-visual",
     full_target_equivalent: false,
   },
   "browser-e2e-visual must label its default-check visual-smoke projection",
+);
+assert.ok(
+  !(renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-visual")?.default_inclusion_sets ?? []).includes("check"),
+  "browser-e2e-visual must not advertise direct check membership when check uses a projection",
 );
 assert.deepEqual(
   renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-a11y")?.check_projection,
@@ -102,9 +127,16 @@ assert.deepEqual(
     schedule: "check-service-backed",
     stage: "a11y",
     evidence: "bounded_accessibility_readiness",
+    evidence_class: "accessibility_readiness",
+    reason_code: "bounded_readiness",
+    full_target: "browser-e2e-a11y",
     full_target_equivalent: false,
   },
   "browser-e2e-a11y must label its default-check readiness projection",
+);
+assert.ok(
+  !(renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-a11y")?.default_inclusion_sets ?? []).includes("check"),
+  "browser-e2e-a11y must not advertise direct check membership when check uses a projection",
 );
 assert.equal(
   renderedTaskSurface.targets.find((target) => target.name === "agent-finalize")?.target_class,
@@ -404,7 +436,7 @@ assert.deepEqual(artifactSnapshot(), artifactSnapshot(), "topology artifact rend
 const renderedCheckSchedule = renderCheckScheduleManifest(topology);
 const checkSchedule = renderedCheckSchedule.schedules.find((schedule) => schedule.target === "check");
 assert.ok(checkSchedule, "rendered check schedule must include check");
-assert.equal(checkSchedule.work_units.length, 39, "check schedule must render the current check work-unit set");
+assert.equal(checkSchedule.work_units.length, 38, "check schedule must render the current check work-unit set");
 assert.deepEqual(
   checkSchedule.work_units.find((unit) => unit.target === "lint-shell")?.env,
   { LINT_SHELL_STRICT: "1" },
@@ -453,7 +485,6 @@ assert.deepEqual(
     ["frontend-unit", 15000],
     ["check-harness-smoke", 14000],
     ["lint-biome", 13000],
-    ["harness-contract-tests", 12980],
     ["frontend-import-boundary-check", 12950],
     ["otel-conformance", 12940],
     ["json-shape-check", 12925],
