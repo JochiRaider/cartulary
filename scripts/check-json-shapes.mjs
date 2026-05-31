@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -1361,6 +1361,23 @@ function validateSchemaAttachmentPolicy(root) {
   }
 }
 
+function validateHarnessRequirementIDs(root) {
+  const file = repoFile(root, "docs/testing-harness-nlspec.md");
+  const source = readFileSync(file, "utf8");
+  const seen = new Set();
+  const duplicates = new Set();
+  for (const match of source.matchAll(/\*\*(TH-HARNESS-REQ-\d+)\*\*/g)) {
+    const id = match[1];
+    if (seen.has(id)) {
+      duplicates.add(id);
+    }
+    seen.add(id);
+  }
+  if (duplicates.size > 0) {
+    throw new Error(`${file} contains duplicate requirement IDs: ${[...duplicates].sort().join(", ")}`);
+  }
+}
+
 function validateKind(kind, file) {
   switch (kind) {
     case "phase-registry":
@@ -1415,6 +1432,7 @@ function validateKind(kind, file) {
 
 function validateAll(root) {
   validateSchemaAttachmentPolicy(root);
+  validateHarnessRequirementIDs(root);
   validatePhaseRegistryShape(repoFile(root, "tools/phase_registry.json"));
   validatePhaseRegistry(root);
   validateFrontendPhaseArtifacts(root);

@@ -45,7 +45,8 @@
       ],
       "claim_status": "implemented",
       "claim": "Fail before mutation-capable rendering when data rows have missing or duplicate record_id; verify group/loading/spacer/presentation rows cannot emit write events.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-U-P3-02",
@@ -89,7 +90,8 @@
       ],
       "claim_status": "implemented",
       "claim": "Translate vendor row/column coordinates to record_id + field_key for edit, copy, paste, fill-down, selection, focus, and anchor assertions.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-U-P3-03",
@@ -137,7 +139,8 @@
       ],
       "claim_status": "implemented",
       "claim": "Verify editability derives from explicit editor adapters and contract writeability; editable=true alone never enters edit mode.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-U-P3-04",
@@ -160,7 +163,8 @@
       ],
       "claim_status": "implemented",
       "claim": "Verify renderer/editor registry precedence, deterministic fallback, and lifecycle cleanup for subscriptions, portals, observers, timers, and row references.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     },
     {
       "id": "FE-I-P3-01",
@@ -208,7 +212,8 @@
       ],
       "claim_status": "implemented",
       "claim": "Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-B-P3-01",
@@ -253,7 +258,8 @@
       ],
       "claim_status": "implemented",
       "claim": "Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-V-P3-01",
@@ -283,7 +289,8 @@
       ],
       "claim_status": "implemented",
       "claim": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     },
     {
       "id": "FE-A11Y-P3-01",
@@ -309,7 +316,8 @@
       ],
       "claim_status": "implemented",
       "claim": "Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     },
     {
       "id": "FE-S-P3-01",
@@ -332,7 +340,8 @@
       "scenario_titles": [],
       "claim_status": "implemented",
       "claim": "Enforce direct RDG import containment and single stylesheet ownership in /packages/grid-adapter.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     }
   ]
 }

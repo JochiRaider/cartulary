@@ -75,7 +75,10 @@
       "symbol": "TestSupportPhase10_BackupStorageRootBindingConfig",
       "selection_pattern": "TestSupportPhase10_",
       "execution_family": "backend-unit-phase10-config-support",
-      "execution_label": "backend-unit support phase10 backup-root config"
+      "execution_label": "backend-unit support phase10 backup-root config",
+      "evidence_class": "implementation_support",
+      "layer": "backend_unit",
+      "default_check_required": false
     }
   ],
   "unit": [
@@ -99,7 +102,18 @@
       "claim": "Durable backup_set creation requires artifact-backed capture with one declared consistency_point_at, stable backup_set_id, backup-storage restore anchors, Postgres and object-store artifact proofs, integrity-manifest proof, exact verification_state vocabulary, timestamp/nullability enforcement, latest-success 24-hour freshness, required artifact durability plus redacted durability diagnostics before successful-retained classification, and 30-day metadata and artifact retention floors.",
       "out_of_scope": "This evidence does not implement restore orchestration, projection rebuild readiness, restore-verification cadence execution, or arbitrary point-in-time restore.",
       "execution_family": "backend-store-phase10-backup-metadata",
-      "execution_label": "backend-store phase10 backup metadata and retention evidence"
+      "execution_label": "backend-store phase10 backup metadata and retention evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 48
+        }
+      }
     },
     {
       "id": "U-10-02",
@@ -114,7 +128,18 @@
       "claim": "Restore readiness selects the latest retained successful backup_set only when its latest consistency point is unambiguous, restores Postgres and object storage from that one backup set, rebuilds required projections, verifies authoritative row, change-set, and blob-hash coherence, and marks readiness only after those steps complete in deterministic order.",
       "out_of_scope": "This evidence does not implement fail-closed missing/corrupt artifact behavior, restore-verification cadence, browser recovery, public route families, or arbitrary timestamp restore.",
       "execution_family": "backend-process-phase10-recovery",
-      "execution_label": "backend-process phase10 restore readiness evidence"
+      "execution_label": "backend-process phase10 restore readiness evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_process",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      }
     },
     {
       "id": "U-10-03",
@@ -129,7 +154,18 @@
       "claim": "Selected-backup restore fails before readiness when required artifacts or integrity proof are missing or corrupt, and restore verification records verified or failed state only after isolated verification execution.",
       "out_of_scope": "This evidence does not implement browser-visible restore recovery, deployment scheduling of the operator due runner, or arbitrary timestamp restore.",
       "execution_family": "backend-process-phase10-recovery",
-      "execution_label": "backend-process phase10 fail-closed restore evidence"
+      "execution_label": "backend-process phase10 fail-closed restore evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_process",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      }
     },
     {
       "id": "U-10-04",
@@ -144,7 +180,10 @@
       "claim": "Authored public route inventory exposes no `/api/v1/backups*`, `/api/v1/restores*`, `/api/v1/restore-verifications*`, `/ws/v1/backups*`, `/ws/v1/restores*`, or `/ws/v1/restore-verifications*` families.",
       "out_of_scope": "Deployment-local operator authorization is covered by `E-10-01`; live process route probing is covered by `E-10-03`.",
       "execution_family": "backend-unit-phase10-route-inventory",
-      "execution_label": "backend-unit phase10 public route inventory evidence"
+      "execution_label": "backend-unit phase10 public route inventory evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-10-05",
@@ -162,7 +201,18 @@
       "claim": "Incident-bearing backup capture requires an encrypted backup-storage adapter, encrypted artifact envelopes decrypt and verify with the configured recovery key, and wrong-key reads fail closed before proof validation can pass.",
       "out_of_scope": "Effective backup-root configuration startup rejection is covered by `E-10-04`; managed-service backup storage remains unsupported until a later adapter proof contract exists.",
       "execution_family": "backend-store-phase10-backup-metadata",
-      "execution_label": "backend-store phase10 encrypted backup-storage evidence"
+      "execution_label": "backend-store phase10 encrypted backup-storage evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 16
+        }
+      }
     }
   ],
   "integration": [
@@ -179,7 +229,19 @@
       "claim": "Real Postgres-backed runtime metadata persistence is reached only after capture writes encrypted Postgres row-snapshot, object-store snapshot, and integrity-manifest artifacts under `roots.backup_storage`; latest durable lookup exposes same-point restore anchors, default unverified/null verification state, artifact proofs, raw-ciphertext storage, and AC-398 retention floors from a fresh store.",
       "out_of_scope": "This evidence does not perform restore orchestration or prove workbook recovery.",
       "execution_family": "backend-integration-phase10-backup-metadata",
-      "execution_label": "backend-integration phase10 backup metadata persistence evidence"
+      "execution_label": "backend-integration phase10 backup metadata persistence evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-10-02",
@@ -194,7 +256,18 @@
       "claim": "Restoring the latest successful retained backup_set into a fresh isolated environment rebuilds projections, starts the server ready only after restore completion, opens the restored incident through the process, executes the built-in timeline workbook query, and preserves authoritative rows, change sets, and blob hashes.",
       "out_of_scope": "This evidence does not implement browser recovery, fail-closed missing/corrupt artifact behavior, restore-verification cadence, public route families, or arbitrary timestamp restore.",
       "execution_family": "backend-process-phase10-recovery",
-      "execution_label": "backend-process phase10 fresh restore evidence"
+      "execution_label": "backend-process phase10 fresh restore evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_process",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      }
     },
     {
       "id": "I-10-03",
@@ -209,7 +282,18 @@
       "claim": "Selecting a retained backup_set missing a required artifact or integrity proof must fail before target readiness.",
       "out_of_scope": "This evidence does not implement browser-visible restore recovery or arbitrary timestamp restore.",
       "execution_family": "backend-process-phase10-recovery",
-      "execution_label": "backend-process phase10 missing-artifact restore evidence"
+      "execution_label": "backend-process phase10 missing-artifact restore evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_process",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      }
     }
   ],
   "e2e": [
@@ -230,7 +314,18 @@
       "claim": "Deployment-local operator commands expose latest durable successful retained backup_set metadata with redacted durability diagnostics, restore the latest durable retained backup, and run due restore verification only for an active deployment_admin; inactive deployment admins, non-admins, incident-admin-only users, unsafe same-config restore targets, and unmarked verification targets are rejected.",
       "out_of_scope": "This evidence does not implement browser-visible restore recovery, public backup or restore APIs, or arbitrary timestamp restore.",
       "execution_family": "backend-process-phase10-operator-inspection",
-      "execution_label": "backend-process phase10 deployment-local operator inspection evidence"
+      "execution_label": "backend-process phase10 deployment-local operator inspection evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_process",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 12
+        }
+      }
     },
     {
       "id": "E-10-02",
@@ -242,7 +337,11 @@
       "evidence_layer": "browser_functional",
       "claim_status": "implemented",
       "claim": "A harness-owned browser fixture captures a retained backup set from the source deployment, restores it into a separately migrated target deployment through the production restore runner, rebuilds projections, opens a restored incident through the target workbook UI, and executes a built-in workbook query through ordinary product routes.",
-      "out_of_scope": "This browser evidence does not expose public backup or restore route families and does not implement arbitrary timestamp restore."
+      "out_of_scope": "This browser evidence does not expose public backup or restore route families and does not implement arbitrary timestamp restore.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-10-03",
@@ -257,7 +356,18 @@
       "claim": "A running server exposes no public HTTP or WebSocket backup, restore, or restore-verification route families.",
       "out_of_scope": "Deployment-local operator authorization is covered by `E-10-01`; this evidence does not implement restore orchestration or restore-verification cadence.",
       "execution_family": "backend-process-phase10-route-inventory",
-      "execution_label": "backend-process phase10 public route inventory evidence"
+      "execution_label": "backend-process phase10 public route inventory evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_process",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      }
     },
     {
       "id": "E-10-04",
@@ -272,7 +382,18 @@
       "claim": "Effective deployment configuration fails the real server process before readiness when roots.backup_storage is missing, uses a profile-incompatible binding, or is satisfied by export or temporary-work roots.",
       "out_of_scope": "Encrypted incident-bearing artifact conformance is covered by `U-10-05` and `I-10-01`; this process evidence does not implement backup metadata, restore orchestration, restore verification, or operator controls.",
       "execution_family": "backend-process-phase10-config",
-      "execution_label": "backend-process phase10 backup-root config evidence"
+      "execution_label": "backend-process phase10 backup-root config evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_process",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      }
     }
   ]
 }

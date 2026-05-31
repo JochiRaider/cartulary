@@ -94,7 +94,19 @@
       ],
       "selection_pattern": "TestSupportPhase4Integration_",
       "execution_family": "backend-integration-entities",
-      "execution_label": "backend-integration support phase4 entities"
+      "execution_label": "backend-integration support phase4 entities",
+      "evidence_class": "implementation_support",
+      "layer": "backend_integration_support",
+      "default_check_required": false,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 24
+        }
+      },
+      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database."
     },
     {
       "target": "backend_integration_support",
@@ -104,7 +116,19 @@
       "selection_pattern": "TestSupportPhase4Integration_",
       "symbol": "TestSupportPhase4Integration_RecordEnvelopeHeadSchema",
       "execution_family": "backend-integration-entities",
-      "execution_label": "backend-integration support phase4 entities"
+      "execution_label": "backend-integration support phase4 entities",
+      "evidence_class": "implementation_support",
+      "layer": "backend_integration_support",
+      "default_check_required": false,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database."
     },
     {
       "target": "backend_integration_support",
@@ -123,7 +147,10 @@
         }
       },
       "execution_family": "backend-integration-entities",
-      "execution_label": "backend-integration support phase4 entities"
+      "execution_label": "backend-integration support phase4 entities",
+      "evidence_class": "implementation_support",
+      "layer": "backend_integration_support",
+      "default_check_required": false
     },
     {
       "target": "backend_integration_support",
@@ -133,7 +160,19 @@
       "selection_pattern": "TestSupportPhase4Integration_",
       "symbol": "TestSupportPhase4Integration_EntityCreateIdempotencyIsActorScoped",
       "execution_family": "backend-integration-entities",
-      "execution_label": "backend-integration support phase4 entities"
+      "execution_label": "backend-integration support phase4 entities",
+      "evidence_class": "implementation_support",
+      "layer": "backend_integration_support",
+      "default_check_required": false,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database."
     }
   ],
   "unit": [
@@ -149,7 +188,18 @@
       "claim": "Timeline mention fields prove `mention_origin` binding while Host and Identity entity-origin writes create concrete entity rows, and the store writes mentions versus entity rows without synthesizing the other substrate.",
       "out_of_scope": "HTTP route behavior and browser-visible resolution flows remain integration or browser evidence.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase4 authoritative"
+      "execution_label": "backend-store phase4 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-4-02",
@@ -163,7 +213,18 @@
       "claim": "Repeated identical mention tokens persist as separate durable mentions with distinct provenance locators, mention ids, and source-row attachment.",
       "out_of_scope": "Interactive resolve and dismiss route behavior remains integration and browser evidence.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase4 authoritative"
+      "execution_label": "backend-store phase4 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-4-03",
@@ -177,7 +238,18 @@
       "claim": "Create-from-mention store paths promote unresolved mentions into durable Host or Identity rows with stable lineage and immediate relationship state.",
       "out_of_scope": "The live resolve route and current-state HTTP readback remain integration evidence.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase4 authoritative"
+      "execution_label": "backend-store phase4 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-4-04",
@@ -191,7 +263,18 @@
       "claim": "Dismiss and restore store operations preserve raw mention text, mutate durable mention status correctly, and couple link removal or restoration to the lifecycle transition.",
       "out_of_scope": "Route idempotency and authorization re-derivation remain integration evidence.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase4 authoritative"
+      "execution_label": "backend-store phase4 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-4-05",
@@ -205,7 +288,18 @@
       "claim": "Exact-match precedence resolves reuse decisions through the owned identifier hierarchy and keeps suggestion-only aliases out of authoritative reuse.",
       "out_of_scope": "HTTP conflict payload shape and browser-visible merge prompts remain higher-layer evidence.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase4 authoritative"
+      "execution_label": "backend-store phase4 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-4-06",
@@ -219,7 +313,18 @@
       "claim": "Explicit merge store behavior repoints live mentions, links, and dependent rows onto the survivor while preserving loser lineage and replay stability.",
       "out_of_scope": "HTTP merge route envelopes, websocket invalidation, and auth checks remain integration evidence.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase4 authoritative"
+      "execution_label": "backend-store phase4 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-4-07",
@@ -233,7 +338,18 @@
       "claim": "Indicator storage keeps source-bound observations separate while fanning them into one canonical indicator record and lifecycle projection state.",
       "out_of_scope": "Current-state route readback and live authorization remain integration evidence.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase4 authoritative"
+      "execution_label": "backend-store phase4 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-4-08",
@@ -247,7 +363,10 @@
       "claim": "Timeline request decoding preserves authoritative raw mention text, applies shared mention-token normalization, and accepts suppressor or forbidden rewrite tokens without silently rewriting them.",
       "out_of_scope": "Durable mention persistence and auto-match side effects remain store or integration evidence.",
       "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit phase4 authoritative"
+      "execution_label": "backend-unit phase4 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-4-09",
@@ -261,7 +380,10 @@
       "claim": "Timeline create and patch decoding accepts manual relationship actions only when client confidence or provenance metadata is omitted and fails closed on override attempts.",
       "out_of_scope": "Committed relationship mutations, replay, and current-state route readback remain integration evidence.",
       "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit phase4 authoritative"
+      "execution_label": "backend-unit phase4 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-4-WB-01",
@@ -272,7 +394,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The workbook assessment payload builder maps band-first UI state to the owned create contract, deduplicates support refs, and does not submit derived confidence-band fields.",
-      "out_of_scope": "Durable assessment history and real browser ordering remain integration and browser evidence."
+      "out_of_scope": "Durable assessment history and real browser ordering remain integration and browser evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-4-WB-02",
@@ -283,7 +408,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The ordinary workbook assessment panel submits the Phase 4 create route payload through app-level UI controls and renders the returned assessment grid row.",
-      "out_of_scope": "Service-backed append-only assessment history remains backend and browser evidence."
+      "out_of_scope": "Service-backed append-only assessment history remains backend and browser evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-4-WB-03",
@@ -294,7 +422,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The ordinary Evidence workbook surface issues preview and download handle requests with the required empty-object body and consumes opaque returned hrefs rather than deriving object storage access.",
-      "out_of_scope": "Handle issuance validation, redeem behavior, and object-store access remain backend integration evidence."
+      "out_of_scope": "Handle issuance validation, redeem behavior, and object-store access remain backend integration evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-4-WB-04",
@@ -305,7 +436,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The generic workbook mutation builder emits create payloads for required Phase 4 surfaces with trimmed direct values, timestamp fields, and explicit null clears.",
-      "out_of_scope": "Route-level validation and persistence for each surface remain backend integration evidence."
+      "out_of_scope": "Route-level validation and persistence for each surface remain backend integration evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-4-WB-05",
@@ -316,7 +450,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The generic workbook mutation builder maps direct clears plus token, party, record, and risk collection edits to typed Phase 4 collection action payloads.",
-      "out_of_scope": "Typed collection conflict payloads and foreign-target rejection remain backend integration evidence."
+      "out_of_scope": "Typed collection conflict payloads and foreign-target rejection remain backend integration evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     }
   ],
   "integration": [
@@ -332,7 +469,19 @@
       "claim": "The mention resolve route persists durable resolve, dismiss, and revert transitions through the live HTTP surface with authoritative replay/divergent-replay conformance, attributed mutation history, websocket invalidation, row-version conflict handling, and live target validation.",
       "out_of_scope": "Browser inspector workflows remain browser evidence.",
       "execution_family": "backend-integration-entities",
-      "execution_label": "backend-integration phase4 authoritative entities"
+      "execution_label": "backend-integration phase4 authoritative entities",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-4-02",
@@ -349,7 +498,19 @@
       "claim": "Host and Identity create routes reuse exact matches, keep suggestion-only aliases non-authoritative, expose contract-conformant current-state rows, reject unauthenticated or CSRF-invalid malformed create requests before body parsing without durable or websocket side effects, and rebuild deterministic entity projections through the real HTTP surface.",
       "out_of_scope": "End-user browser create flows remain browser evidence.",
       "execution_family": "backend-integration-entities",
-      "execution_label": "backend-integration phase4 authoritative entities"
+      "execution_label": "backend-integration phase4 authoritative entities",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 8
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-4-03",
@@ -363,7 +524,19 @@
       "claim": "The explicit merge route repoints live fan-out, preserves survivor reuse semantics, emits attributed history, and keeps loser lineage intact on Hosts and Identities.",
       "out_of_scope": "Browser-visible inspector merge choreography remains browser evidence.",
       "execution_family": "backend-integration-entities",
-      "execution_label": "backend-integration phase4 authoritative entities"
+      "execution_label": "backend-integration phase4 authoritative entities",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-4-07",
@@ -377,7 +550,19 @@
       "claim": "Indicator create and query routes persist canonical indicators, expose contract-conformant current-state rows, and rebuild deterministic indicator projections without collapsing source-bound observations.",
       "out_of_scope": "Browser-visible indicator discovery remains out of scope for this phase.",
       "execution_family": "backend-integration-entities",
-      "execution_label": "backend-integration phase4 authoritative entities"
+      "execution_label": "backend-integration phase4 authoritative entities",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-4-08",
@@ -391,7 +576,19 @@
       "claim": "Timeline patch and query routes auto-resolve only eligible exact matches, keep ineligible tokens unresolved, prove generic patch `resolve_item` behavior for `timeline.host_refs`, and return contract-conformant current-state rows before and after projection rebuilds.",
       "out_of_scope": "Browser-visible chip rendering and inspector affordances remain browser or support-only frontend evidence.",
       "execution_family": "backend-integration-timeline",
-      "execution_label": "backend-integration phase4 authoritative timeline"
+      "execution_label": "backend-integration phase4 authoritative timeline",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-4-09",
@@ -405,7 +602,19 @@
       "claim": "Timeline create and patch routes persist manual relationship actions with null confidence only, reject override payloads, and expose contract-conformant current-state rows across create, patch, and create-from-mention paths.",
       "out_of_scope": "Browser inspector workflows remain browser or support-only frontend evidence.",
       "execution_family": "backend-integration-timeline",
-      "execution_label": "backend-integration phase4 authoritative timeline"
+      "execution_label": "backend-integration phase4 authoritative timeline",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-4-COLLECTION-01",
@@ -419,7 +628,19 @@
       "claim": "Generic record patch collection fields use stable record anchors, `field_key`, `row_version`, `base_row_version`, `collection_actions_v1`, and `collection_value_v1` semantics for add/remove/replace actions without accepting legacy array-shaped writes.",
       "out_of_scope": "Keyboard paste expansion, queued multi-row commands, and broader grid command translation remain Phase 9 evidence.",
       "execution_family": "backend-integration-workbook",
-      "execution_label": "backend-integration phase4 authoritative workbook"
+      "execution_label": "backend-integration phase4 authoritative workbook",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-4-BLOB-01",
@@ -433,7 +654,19 @@
       "claim": "The object-blob create route enforces request shape, authorization re-derivation, and declared-size limits, records the normalized accepted contract, returns stable idempotent replay, rejects divergent replay, and creates no blob state on rejected requests.",
       "out_of_scope": "Browser upload UX and attach route lifecycle coverage remain separate evidence.",
       "execution_family": "backend-integration-evidence",
-      "execution_label": "backend-integration phase4 authoritative evidence"
+      "execution_label": "backend-integration phase4 authoritative evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-4-COORD-01",
@@ -447,7 +680,19 @@
       "claim": "Communications Log, Handoff, Status Review, and Lesson creates enforce their minimum semantic fields, apply server defaults, expose immutable server ids as read-only fields, distinguish clearable from non-clearable scalars, and include authoritative create replay/history conformance without partial rows on rejected creates.",
       "out_of_scope": "End-user browser flows for coordination surfaces remain future browser evidence.",
       "execution_family": "backend-integration-workbook",
-      "execution_label": "backend-integration phase4 authoritative workbook"
+      "execution_label": "backend-integration phase4 authoritative workbook",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-4-COORD-02",
@@ -461,7 +706,19 @@
       "claim": "Coordination collection fields round-trip typed record, party, and risk references, coalesce duplicates, reject raw arrays and nulls, reject wrong or foreign targets, and return typed collection conflict payloads for stale same-field writes.",
       "out_of_scope": "Bulk browser editing of coordination collections remains browser evidence when UI ownership is introduced.",
       "execution_family": "backend-integration-workbook",
-      "execution_label": "backend-integration phase4 authoritative workbook"
+      "execution_label": "backend-integration phase4 authoritative workbook",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-4-COORD-03",
@@ -475,7 +732,19 @@
       "claim": "Parties and coordination system views query route-created Parties and coordination rows plus seeded support rows through projection-backed or projection-shaped state with contract-declared filters, sorts, grouping values, row ids, and cell values.",
       "out_of_scope": "Optional artifact-backed surfaces outside the base profile remain outside this Phase 4 row.",
       "execution_family": "backend-integration-workbook",
-      "execution_label": "backend-integration phase4 authoritative workbook"
+      "execution_label": "backend-integration phase4 authoritative workbook",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-4-HANDLE-01",
@@ -492,7 +761,19 @@
       "claim": "Preview and download handle issuance accepts only an empty JSON object body, rejects zero-length, null, non-object, unknown, and client_txn_id bodies for both routes without side effects, re-derives session authorization, returns distinct preview versus download handle contracts, and consumes single-use download handles only after a successful redeem starts byte delivery.",
       "out_of_scope": "Detailed redeem expiry, revocation, and browser preview behavior remain separate evidence.",
       "execution_family": "backend-integration-evidence",
-      "execution_label": "backend-integration phase4 authoritative evidence"
+      "execution_label": "backend-integration phase4 authoritative evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 8
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-4-PARTIES-01",
@@ -506,7 +787,19 @@
       "claim": "The Parties system view is discoverable as a base-profile system view, fetchable by singleton schema route, incident-scoped in query behavior, rejects incomplete creates without partial state, and creates normalized party rows with authoritative replay/history conformance.",
       "out_of_scope": "Inspector-driven party linking and browser party creation affordances remain browser or later route evidence.",
       "execution_family": "backend-integration-workbook",
-      "execution_label": "backend-integration phase4 authoritative workbook"
+      "execution_label": "backend-integration phase4 authoritative workbook",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     }
   ],
   "e2e": [
@@ -519,7 +812,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "The browser inspector resolves existing entities and creates new entities from Timeline mentions through the real end-user flow.",
-      "out_of_scope": "Lower-level route replay and store substrate assertions remain backend evidence."
+      "out_of_scope": "Lower-level route replay and store substrate assertions remain backend evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-4-02",
@@ -530,7 +827,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "The browser inspector dismisses a mention and restores it to unresolved state without silently relinking it.",
-      "out_of_scope": "Mention substrate mutation details remain backend evidence."
+      "out_of_scope": "Mention substrate mutation details remain backend evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-4-03",
@@ -541,7 +842,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "The browser inspector merges duplicate entities through the end-user flow while preserving the survivor identity in the UI.",
-      "out_of_scope": "Detailed fan-out repointing and projection substrate assertions remain backend evidence."
+      "out_of_scope": "Detailed fan-out repointing and projection substrate assertions remain backend evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-4-04",
@@ -552,7 +857,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "The browser workbook shows auto-resolution only for eligible exact-match Timeline tokens and leaves ineligible tokens unresolved.",
-      "out_of_scope": "Decoder normalization details and route-level projection rebuild assertions remain backend evidence."
+      "out_of_scope": "Decoder normalization details and route-level projection rebuild assertions remain backend evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-4-05",
@@ -563,7 +872,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "The browser workbook drives the Assessments surface through ordinary user controls with band-first confidence, rationale, support refs, default ordering, and state or confidence filters.",
-      "out_of_scope": "Append-only assessment storage, projection determinism, idempotency, validation, and audit history remain backend evidence."
+      "out_of_scope": "Append-only assessment storage, projection determinism, idempotency, validation, and audit history remain backend evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-4-06",
@@ -574,7 +887,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "The browser workbook exercises Parties, Notes, Task Requests, Decisions, Evidence, Communications Log, Handoff, Status Review, and Lesson surfaces through real typed controls, including direct values, reference selectors, collection actions, and visible required-field validation.",
-      "out_of_scope": "Durable mutation history, replay/idempotency, authorization, projection rebuild, and detailed lifecycle-transition assertions remain backend integration evidence."
+      "out_of_scope": "Durable mutation history, replay/idempotency, authorization, projection rebuild, and detailed lifecycle-transition assertions remain backend integration evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     }
   ],
   "visual": [
@@ -590,7 +907,10 @@
         "VFIX-GRID-02"
       ],
       "claim": "The visual harness captures unresolved mention and resolved entity chip presentations on the live Timeline workbook grid.",
-      "out_of_scope": "Inspector resolution choreography remains functional browser evidence."
+      "out_of_scope": "Inspector resolution choreography remains functional browser evidence.",
+      "evidence_class": "visual_readiness",
+      "layer": "browser_visual",
+      "default_check_required": false
     },
     {
       "id": "V-4-GRID-02",
@@ -604,7 +924,10 @@
         "VFIX-GRID-05"
       ],
       "claim": "The visual harness captures Evidence surface access controls and blocked-access messaging through the ordinary workbook grid.",
-      "out_of_scope": "Opaque handle issuance and object access are owned by backend and frontend-unit evidence."
+      "out_of_scope": "Opaque handle issuance and object access are owned by backend and frontend-unit evidence.",
+      "evidence_class": "visual_readiness",
+      "layer": "browser_visual",
+      "default_check_required": false
     },
     {
       "id": "V-4-GRID-03",
@@ -618,7 +941,10 @@
         "VFIX-GRID-07"
       ],
       "claim": "The visual harness captures a required coordination system view rendered through the same generic workbook grid surface.",
-      "out_of_scope": "Detailed generic mutation behavior remains functional browser and component evidence."
+      "out_of_scope": "Detailed generic mutation behavior remains functional browser and component evidence.",
+      "evidence_class": "visual_readiness",
+      "layer": "browser_visual",
+      "default_check_required": false
     }
   ]
 }

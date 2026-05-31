@@ -41,7 +41,8 @@
       "scenario_titles": [],
       "claim_status": "blocked",
       "claim": "Verify WebSocket reducer handles row update, reset, invalidate, stale-row requery request, authorization close, and session revocation states.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-U-P7-02",
@@ -75,7 +76,8 @@
       "scenario_titles": [],
       "claim_status": "blocked",
       "claim": "Verify same-field conflict anchors, conflict queue, and resolver state use record_id + field_key + base_row_version rather than visible indexes.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-I-P7-01",
@@ -120,7 +122,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-E-P7-01",
@@ -171,7 +174,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-V-P7-01",
@@ -199,7 +203,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     },
     {
       "id": "FE-A11Y-P7-01",
@@ -226,7 +231,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     }
   ]
 }

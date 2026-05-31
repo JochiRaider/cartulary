@@ -91,7 +91,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Blob-create route contract coverage starts the real runtime harness through phase4test.StartServer."
+      "template_clone_reason": "Blob-create route contract coverage starts the real runtime harness through phase4test.StartServer.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-5-02",
@@ -105,7 +108,18 @@
       "claim": "Blob-create idempotency is keyed by `(actor_user_id, incident_id, client_txn_id)`, replays the same normalized request to the original slot, and rejects divergent replay with the route-owned conflict.",
       "out_of_scope": "Expired-slot replay and fresh-target behavior are integration evidence in `I-5-02`.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase5 authoritative"
+      "execution_label": "backend-store phase5 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-5-03",
@@ -119,7 +133,18 @@
       "claim": "`POST /api/v1/evidence-records/{record_id}/attach-blob` requires `object_blob_id`, `base_row_version`, and `client_txn_id`; the store rejects divergent attach replay and fails closed for pending, failed, missing, expired, incident-mismatched, or contract-mismatched blobs.",
       "out_of_scope": "End-to-end object upload and workbook query readback are covered by integration and browser rows.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase5 authoritative"
+      "execution_label": "backend-store phase5 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-5-04",
@@ -133,7 +158,18 @@
       "claim": "Evidence lifecycle state remains separate from blob `upload_state`, allowing requested or pending-receipt evidence without a blob and later advancement without unrelated custody-history mutation.",
       "out_of_scope": "Generalized custody workflow UX and scanner infrastructure are not completed by this row.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase5 authoritative"
+      "execution_label": "backend-store phase5 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-5-05",
@@ -156,7 +192,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Handle issuance route coverage starts the real runtime harness through phase4test.StartServer."
+      "template_clone_reason": "Handle issuance route coverage starts the real runtime harness through phase4test.StartServer.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-5-06",
@@ -170,7 +209,18 @@
       "claim": "Handle access revalidates current evidence/blob state at the store layer, and preview blocks explicitly for unsupported or unsafe preview conditions.",
       "out_of_scope": "HTTP session and membership re-derivation during redemption is covered by `I-5-03`; browser rendering of preview outcomes is covered by `E-5-03`.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase5 authoritative"
+      "execution_label": "backend-store phase5 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-5-07",
@@ -196,7 +246,10 @@
           "max_template_clones": 2
         }
       },
-      "template_clone_reason": "Disposition route coverage starts the real runtime harness through phase4test.StartServer."
+      "template_clone_reason": "Disposition route coverage starts the real runtime harness through phase4test.StartServer.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-5-08",
@@ -207,7 +260,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "A workbook invalidation refresh visibly updates Timeline evidence count and `has_evidence` cells without forcing navigation away from the current workbook surface.",
-      "out_of_scope": "Real object upload and backend projection rebuild behavior are integration evidence."
+      "out_of_scope": "Real object upload and backend projection rebuild behavior are integration evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-5-09",
@@ -233,7 +289,10 @@
           "max_template_clones": 2
         }
       },
-      "template_clone_reason": "Blob and preview size route coverage starts the real runtime harness through phase4test.StartServer."
+      "template_clone_reason": "Blob and preview size route coverage starts the real runtime harness through phase4test.StartServer.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-5-10",
@@ -247,7 +306,10 @@
       "claim": "Evidence create, attach, preview issuance, and redemption use closed public error and reason-code registries, with attach failures owned by `evidence_attach_rejected` and no legacy unregistered attach reasons.",
       "out_of_scope": "General non-evidence reason-code registry expansion is outside this Phase 5 row.",
       "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit phase5 authoritative"
+      "execution_label": "backend-unit phase5 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-5-11",
@@ -261,7 +323,10 @@
       "claim": "Evidence and Timeline evidence-derived field keys are closed over the derived view-schema registry and reject label, storage-name, or non-canonical key fallbacks.",
       "out_of_scope": "Whole-repository view-schema registry conformance beyond evidence-owned Phase 5 fields remains broader contract hygiene.",
       "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit phase5 authoritative"
+      "execution_label": "backend-unit phase5 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     }
   ],
   "integration": [
@@ -277,7 +342,19 @@
       "claim": "A real object-store upload can be created through a blob slot, finalized onto an evidence record, linked to Timeline through the workbook mutation route, and queried through the workbook projection without duplicate attachment rows or links.",
       "out_of_scope": "Browser-level attach interaction remains `E-5-01` and `E-5-02`.",
       "execution_family": "backend-integration-evidence",
-      "execution_label": "backend-integration phase5 evidence"
+      "execution_label": "backend-integration phase5 evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-5-02",
@@ -291,7 +368,19 @@
       "claim": "Expired-slot replay returns the same expired slot, while a fresh upload target requires a new `client_txn_id`.",
       "out_of_scope": "General idempotency for non-expired slots is unit/store evidence in `U-5-02`.",
       "execution_family": "backend-integration-evidence",
-      "execution_label": "backend-integration phase5 evidence"
+      "execution_label": "backend-integration phase5 evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-5-03",
@@ -305,7 +394,19 @@
       "claim": "A redeemed preview or download handle fails closed after logout, membership removal, or evidence/blob state invalidation.",
       "out_of_scope": "Frontend display of blocked preview outcomes is covered by `E-5-03`.",
       "execution_family": "backend-integration-evidence",
-      "execution_label": "backend-integration phase5 evidence"
+      "execution_label": "backend-integration phase5 evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-5-04",
@@ -319,7 +420,19 @@
       "claim": "When quarantine or scanning state is present, two-step attach semantics remain intact and preview never bypasses the quarantine boundary.",
       "out_of_scope": "Implementing a generalized scanner adjunct is outside the base Phase 5 row.",
       "execution_family": "backend-integration-evidence",
-      "execution_label": "backend-integration phase5 evidence"
+      "execution_label": "backend-integration phase5 evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-5-05",
@@ -333,7 +446,19 @@
       "claim": "Attach route validation, authorization, route-owned error envelopes, and divergent replay rejection occur through the real HTTP surface before object observation mutates state.",
       "out_of_scope": "Store-domain blob lifecycle retry counters remain `U-5-03` evidence.",
       "execution_family": "backend-integration-evidence",
-      "execution_label": "backend-integration phase5 evidence"
+      "execution_label": "backend-integration phase5 evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-5-06",
@@ -347,7 +472,19 @@
       "claim": "Attached-evidence projection storage can be corrupted and deterministically rebuilt from source without mutating source rows, links, or history, while the public workbook surface preserves correct evidence state.",
       "out_of_scope": "Introducing a dedicated `evidence_grid_projection` is tracked separately as broader Core 01 projection-substrate work.",
       "execution_family": "backend-integration-evidence",
-      "execution_label": "backend-integration phase5 evidence"
+      "execution_label": "backend-integration phase5 evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-5-07",
@@ -361,7 +498,19 @@
       "claim": "A successful evidence attach publishes canonical `record_changed` messages for the Evidence row and affected Timeline evidence projection through the real incident WebSocket emitter.",
       "out_of_scope": "Phase 6 continues to own general WebSocket resume, replay windows, presence, and revocation semantics.",
       "execution_family": "backend-integration-evidence",
-      "execution_label": "backend-integration phase5 evidence"
+      "execution_label": "backend-integration phase5 evidence",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     }
   ],
   "e2e": [
@@ -374,7 +523,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "An analyst attaches a screenshot to a selected Timeline row without leaving the workbook surface, and the row reflects the new evidence count after commit.",
-      "out_of_scope": "Backend object-store finalization is covered by `I-5-01`."
+      "out_of_scope": "Backend object-store finalization is covered by `I-5-01`.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-5-02",
@@ -385,7 +538,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "A screenshot-only Timeline row can be persisted through the two-step evidence path.",
-      "out_of_scope": "Generic Timeline row create behavior remains Phase 3 evidence."
+      "out_of_scope": "Generic Timeline row create behavior remains Phase 3 evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-5-03",
@@ -396,7 +553,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "An inline-safe type receives a preview handle and renders through the same-origin redeem path, while unsupported or unsafe types return an explicit blocked-preview outcome.",
-      "out_of_scope": "Low-level handle issuance and redemption checks remain backend evidence."
+      "out_of_scope": "Low-level handle issuance and redemption checks remain backend evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-5-04",
@@ -407,7 +568,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Requested evidence can be tracked before the blob exists, linked to a Timeline row without counting unavailable content, advanced to an available counted state, and preserved across Evidence and Timeline workbook pivots.",
-      "out_of_scope": "A generalized custody or collection workflow is outside this row."
+      "out_of_scope": "A generalized custody or collection workflow is outside this row.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-5-05",
@@ -418,7 +583,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "A second live workbook session receives the real `/ws/v1/incidents/{incident_id}` evidence attach event and refreshes Timeline evidence count and flags without navigation.",
-      "out_of_scope": "General collaboration socket lifecycle semantics remain Phase 6 ownership."
+      "out_of_scope": "General collaboration socket lifecycle semantics remain Phase 6 ownership.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-5-SMOKE-01",
@@ -432,7 +601,18 @@
       "claim": "The standalone server process can create evidence, create and upload an object blob, attach it, read workbook projection consequences, and fail closed for requested evidence with no blob.",
       "out_of_scope": "Authoritative Phase 5 behavior remains owned by store, integration, browser, and visual rows.",
       "execution_family": "backend-process",
-      "execution_label": "backend-process phase5 process smoke"
+      "execution_label": "backend-process phase5 process smoke",
+      "evidence_class": "implementation_support",
+      "layer": "backend_process",
+      "default_check_required": false,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      }
     }
   ],
   "visual": [
@@ -445,7 +625,10 @@
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "claim": "The visual harness captures requested evidence and the same row after workbook-surface attach advances it to available.",
-      "out_of_scope": "Low-level object upload and attach validation remain backend evidence."
+      "out_of_scope": "Low-level object upload and attach validation remain backend evidence.",
+      "evidence_class": "visual_readiness",
+      "layer": "browser_visual",
+      "default_check_required": false
     },
     {
       "id": "V-5-GRID-02",
@@ -456,7 +639,10 @@
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "claim": "The visual harness captures blocked evidence access feedback plus Timeline evidence-count and has-evidence badge presentation after browser attach.",
-      "out_of_scope": "Preview-handle issuance and redemption contracts remain backend and functional browser evidence."
+      "out_of_scope": "Preview-handle issuance and redemption contracts remain backend and functional browser evidence.",
+      "evidence_class": "visual_readiness",
+      "layer": "browser_visual",
+      "default_check_required": false
     }
   ]
 }

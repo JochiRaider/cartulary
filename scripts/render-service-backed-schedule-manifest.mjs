@@ -316,6 +316,13 @@ function backendSelector(scheduleProfile) {
             selector.check_service_backed_safe,
             `${scheduleProfile.target}.selectors.backend.check_service_backed_safe`,
           ),
+    defaultCheckRequired:
+      selector.default_check_required === undefined
+        ? false
+        : requireBoolean(
+            selector.default_check_required,
+            `${scheduleProfile.target}.selectors.backend.default_check_required`,
+          ),
   };
 }
 
@@ -401,6 +408,9 @@ function orderedServiceBackedBackendTargets(scheduleProfile) {
         if (selector.checkServiceBackedSafe && row.check_service_backed_safe !== true) {
           return false;
         }
+        if (selector.defaultCheckRequired && row.default_check_required !== true) {
+          return false;
+        }
         return true;
       })
       .map((row) => row.target),
@@ -416,7 +426,7 @@ function orderedServiceBackedBackendTargets(scheduleProfile) {
     .sort(compareBackendTargets);
 }
 
-function backendSource(profile, timing, scheduleTarget, target, priorities) {
+function backendSource(profile, timing, scheduleTarget, target, priorities, { defaultCheckOnly = false } = {}) {
   const descriptor = findTargetDescriptor(target, repoRoot);
   if (!descriptor) {
     throw new Error(`unknown backend target ${target}`);
@@ -431,6 +441,7 @@ function backendSource(profile, timing, scheduleTarget, target, priorities) {
       target,
       priority: priorities.backendCriticalPath,
       resource_claims: cloneObject(profile.defaults.go_shards_resource_claims),
+      default_check_required: defaultCheckOnly,
     };
   }
   const claims = requireObject(
@@ -447,6 +458,7 @@ function backendSource(profile, timing, scheduleTarget, target, priorities) {
     priority: priorities.backendCriticalPath,
     weight_ms: makeTargetWeight(timing, scheduleTarget, target),
     resource_claims: cloneObject(claims[target]),
+    default_check_required: defaultCheckOnly,
   };
 }
 
@@ -732,9 +744,12 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   });
   const resourceLimits = Object.fromEntries(profileLimits.limits.entries());
   const priorities = serviceBackedPriorityBands(profile);
+  const backend = backendSelector(scheduleProfile);
   const sources = [];
   for (const backendTarget of orderedServiceBackedBackendTargets(scheduleProfile)) {
-    sources.push(backendSource(profile, timing, target, backendTarget, priorities));
+    sources.push(backendSource(profile, timing, target, backendTarget, priorities, {
+      defaultCheckOnly: backend.defaultCheckRequired,
+    }));
   }
   const backendTargets = sources
     .filter((source) => source.class === "backend")

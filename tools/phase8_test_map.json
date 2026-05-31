@@ -137,7 +137,19 @@
       ],
       "selection_pattern": "TestSupportPhase8Integration_",
       "execution_family": "backend-integration-phase8-search",
-      "execution_label": "backend-integration support phase8 search"
+      "execution_label": "backend-integration support phase8 search",
+      "evidence_class": "implementation_support",
+      "layer": "backend_integration_support",
+      "default_check_required": false,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 8
+        }
+      },
+      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database."
     }
   ],
   "unit": [
@@ -153,7 +165,18 @@
       "claim": "Typed links and tags persist as structured rows and use the closed base relationship vocabulary.",
       "out_of_scope": "Saved-view, startup, query, cursor, and browser workflows are covered by separate Phase 8 rows.",
       "execution_family": "backend-store-phase8-links-tags",
-      "execution_label": "backend-store phase8 links tags"
+      "execution_label": "backend-store phase8 links tags",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-8-02",
@@ -181,7 +204,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Saved-view create/list coverage starts the real runtime harness and verifies route-owned authorization, cursor, and persistence behavior through committed state."
+      "template_clone_reason": "Saved-view create/list coverage starts the real runtime harness and verifies route-owned authorization, cursor, and persistence behavior through committed state.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-8-03",
@@ -195,7 +221,10 @@
       "claim": "Saved-view scope vocabulary is exactly private, shared, and system; obsolete team is rejected.",
       "out_of_scope": "Persistence and authorization consequences are covered by service-backed rows.",
       "execution_family": "backend-unit-phase8-savedviews",
-      "execution_label": "backend-unit phase8 saved views"
+      "execution_label": "backend-unit phase8 saved views",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-8-04",
@@ -212,6 +241,14 @@
       "execution_label": "backend-store phase8 saved views",
       "fixture_policy": {
         "postgres": "transaction"
+      },
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
       }
     },
     {
@@ -235,7 +272,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Workbook preference route coverage starts the real runtime harness to verify route-owned authorization, no-op timestamps, saved-view visibility, and startup pointer clearing through committed state."
+      "template_clone_reason": "Workbook preference route coverage starts the real runtime harness to verify route-owned authorization, no-op timestamps, saved-view visibility, and startup pointer clearing through committed state.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-8-06",
@@ -249,7 +289,10 @@
       "claim": "View-query filters, sort, and group_by accept stable field_key values only and reject invalid operators, argument shapes, duplicate keys, and invalid grouping keys.",
       "out_of_scope": "Persistence, query execution, cursor pagination, and browser controls are covered by separate rows.",
       "execution_family": "backend-unit-phase8-viewquery",
-      "execution_label": "backend-unit phase8 view query"
+      "execution_label": "backend-unit phase8 view query",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-8-07",
@@ -263,7 +306,10 @@
       "claim": "Timeline grouping permits only the declared whitelist and grouped workbook responses serialize only full row resources, never group headers, subtotals, paste targets, writable pseudo-rows, or record_id-bound mutation targets.",
       "out_of_scope": "Browser rendering of grouping and full query execution are covered by separate rows.",
       "execution_family": "backend-unit-phase8-workbook",
-      "execution_label": "backend-unit phase8 workbook"
+      "execution_label": "backend-unit phase8 workbook",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-8-08",
@@ -277,7 +323,10 @@
       "claim": "Sort and filter ceilings, canonical normalization, meta.query, default-tail expansion, and grouping omission semantics follow the Phase 8 query contract.",
       "out_of_scope": "Saved-view persistence and browser workflows are covered by separate rows.",
       "execution_family": "backend-unit-phase8-viewquery",
-      "execution_label": "backend-unit phase8 view query"
+      "execution_label": "backend-unit phase8 view query",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-8-09",
@@ -291,7 +340,10 @@
       "claim": "View-schema discovery exposes exact sorting and grouping contracts, null-last ordering, and no client-sortable record_id.",
       "out_of_scope": "Runtime query validation and browser control payloads are covered by separate rows.",
       "execution_family": "backend-unit-phase8-viewschema",
-      "execution_label": "backend-unit phase8 view schema"
+      "execution_label": "backend-unit phase8 view schema",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-8-10",
@@ -305,7 +357,19 @@
       "claim": "Full-row and sparse-patch wire families preserve hidden writable fields, authoritative nulls, and canonical changed_field_keys plus affected_views metadata.",
       "out_of_scope": "Cursor continuation and browser workflows are covered by separate rows.",
       "execution_family": "backend-integration-phase8-row-wire",
-      "execution_label": "backend-integration phase8 row wire"
+      "execution_label": "backend-integration phase8 row wire",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "U-8-GRID-01",
@@ -316,7 +380,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "Grid sort, filter, and group controls send only stable contract keys and never labels, vendor indexes, projection-table names, or storage-table names.",
-      "out_of_scope": "Server query validation and browser-functional workflows are covered by separate rows."
+      "out_of_scope": "Server query validation and browser-functional workflows are covered by separate rows.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     }
   ],
   "integration": [
@@ -332,7 +399,19 @@
       "claim": "Saved-view create, update, duplicate, and delete persist normalized state and authorization consequences in the database.",
       "out_of_scope": "Browser saved-view workflows are covered by E-8-01.",
       "execution_family": "backend-integration-phase8-savedviews",
-      "execution_label": "backend-integration phase8 saved views"
+      "execution_label": "backend-integration phase8 saved views",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-8-02",
@@ -349,7 +428,19 @@
       "claim": "Startup selection fallback behaves correctly across valid, missing, hidden, and invalid saved-view refs.",
       "out_of_scope": "Browser-visible startup behavior is covered by E-8-02.",
       "execution_family": "backend-integration-phase8-startup",
-      "execution_label": "backend-integration phase8 startup"
+      "execution_label": "backend-integration phase8 startup",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 8
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-8-03",
@@ -363,7 +454,19 @@
       "claim": "Link and tag mutations atomically update projections, history, and view-query results.",
       "out_of_scope": "Saved-view lifecycle, startup fallback, cursor continuation, and browser workflows are covered by separate rows.",
       "execution_family": "backend-integration-phase8-links-tags",
-      "execution_label": "backend-integration phase8 links tags"
+      "execution_label": "backend-integration phase8 links tags",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-8-04",
@@ -381,7 +484,19 @@
       "claim": "Cursor pagination re-derives live authorization, rejects tampering, returns fetch-time payloads, and lets fresh queries evaluate live state.",
       "out_of_scope": "Browser exact search behavior is covered by E-8-04.",
       "execution_family": "backend-integration-phase8-cursor",
-      "execution_label": "backend-integration phase8 cursor"
+      "execution_label": "backend-integration phase8 cursor",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 12
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     }
   ],
   "e2e": [
@@ -394,7 +509,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "The browser-authenticated public saved-view list/create route foundation exists and persists canonical state; full browser lifecycle affordances remain pending.",
-      "out_of_scope": "Patch, duplicate, delete, startup selection, and in-product saved-view browser controls remain outside Sprint 2."
+      "out_of_scope": "Patch, duplicate, delete, startup selection, and in-product saved-view browser controls remain outside Sprint 2.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-8-02",
@@ -405,7 +524,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Browser startup honors explicit sheet, home, default, and Timeline fallback while clearing invalid pointers.",
-      "out_of_scope": "Backend startup selection is covered by U-8-05 and I-8-02."
+      "out_of_scope": "Backend startup selection is covered by U-8-05 and I-8-02.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-8-03",
@@ -416,7 +539,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Browser Timeline sort, filter, and group reaches a stable viewport and deterministic grouping with no writable header rows.",
-      "out_of_scope": "Backend query validation and view-schema discovery are covered by U-8-06 through U-8-09."
+      "out_of_scope": "Backend query validation and view-schema discovery are covered by U-8-06 through U-8-09.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-8-04",
@@ -427,7 +554,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Browser exact-token full_text and strict prefix behavior do not degrade to fuzzy or relevance-ranked search.",
-      "out_of_scope": "Backend cursor continuation is covered by I-8-04."
+      "out_of_scope": "Backend cursor continuation is covered by I-8-04.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     }
   ]
 }

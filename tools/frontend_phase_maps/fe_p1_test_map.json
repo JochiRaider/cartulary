@@ -42,7 +42,8 @@
       ],
       "claim_status": "implemented",
       "claim": "Verify app bootstrap state distinguishes unauthenticated, MFA-required, authenticated, forbidden, revoked, loading, and public error-envelope states.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-I-P1-01",
@@ -98,7 +99,8 @@
       ],
       "claim_status": "implemented",
       "claim": "Verify API client requests stay under /api/v1/, preserve server-managed session behavior, and reject private server-detail dependencies in rendered errors.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-E-P1-01",
@@ -159,7 +161,8 @@
       ],
       "claim_status": "implemented",
       "claim": "Verify login/session bootstrap and incident entry through public routes, including current-role/current-membership authorization effects as browser-observed behavior.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-A11Y-P1-01",
@@ -193,7 +196,8 @@
       ],
       "claim_status": "implemented",
       "claim": "Verify session, MFA, incident, forbidden, loading, and error states have keyboard-reachable controls, visible focus, and screen-reader-safe labels.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     },
     {
       "id": "FE-S-P1-01",
@@ -217,7 +221,8 @@
       ],
       "claim_status": "implemented",
       "claim": "Verify bootstrap route selectors and error-state selectors use stable test-id builders.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     }
   ]
 }

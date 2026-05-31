@@ -155,7 +155,10 @@
       ],
       "selection_pattern": "TestSupportPhase6Unit_ConflictHelper",
       "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit support phase6 workbook"
+      "execution_label": "backend-unit support phase6 workbook",
+      "evidence_class": "implementation_support",
+      "layer": "backend_unit",
+      "default_check_required": false
     },
     {
       "target": "backend_unit",
@@ -168,7 +171,10 @@
       ],
       "selection_pattern": "TestSupportPhase6SharedHarness_",
       "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit support phase6 shared harness"
+      "execution_label": "backend-unit support phase6 shared harness",
+      "evidence_class": "implementation_support",
+      "layer": "backend_unit",
+      "default_check_required": false
     },
     {
       "target": "backend_unit",
@@ -178,7 +184,10 @@
       "symbol": "TestSupportPhase6_PresenceReplayRevocationTransport",
       "selection_pattern": "TestSupportPhase6_",
       "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit support phase6 websocket"
+      "execution_label": "backend-unit support phase6 websocket",
+      "evidence_class": "implementation_support",
+      "layer": "backend_unit",
+      "default_check_required": false
     },
     {
       "target": "backend_integration_support",
@@ -188,7 +197,19 @@
       "symbol": "TestSupportPhase6_IncidentSocketRevocationSources",
       "selection_pattern": "TestSupportPhase6_IncidentSocketRevocationSources",
       "execution_family": "backend-integration-collaboration",
-      "execution_label": "backend-integration support phase6 socket revocations"
+      "execution_label": "backend-integration support phase6 socket revocations",
+      "evidence_class": "implementation_support",
+      "layer": "backend_integration_support",
+      "default_check_required": false,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database."
     },
     {
       "target": "backend_integration_support",
@@ -201,7 +222,19 @@
       ],
       "selection_pattern": "TestSupportPhase6SharedHarness_",
       "execution_family": "backend-integration-workbook",
-      "execution_label": "backend-integration support phase6 shared harness"
+      "execution_label": "backend-integration support phase6 shared harness",
+      "evidence_class": "implementation_support",
+      "layer": "backend_integration_support",
+      "default_check_required": false,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 8
+        }
+      },
+      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database."
     }
   ],
   "unit": [
@@ -226,7 +259,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Workbook route concurrency coverage starts the real runtime harness through phase4test.StartServer."
+      "template_clone_reason": "Workbook route concurrency coverage starts the real runtime harness through phase4test.StartServer.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-6-02",
@@ -249,7 +285,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Workbook same-field conflict HTTP coverage starts the real runtime harness through phase4test.StartServer."
+      "template_clone_reason": "Workbook same-field conflict HTTP coverage starts the real runtime harness through phase4test.StartServer.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-6-03",
@@ -272,7 +311,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Workbook text-merge durability coverage starts the real runtime harness through phase4test.StartServer."
+      "template_clone_reason": "Workbook text-merge durability coverage starts the real runtime harness through phase4test.StartServer.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-6-04",
@@ -295,7 +337,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Workbook collection resolver route coverage starts the real runtime harness through phase4test.StartServer."
+      "template_clone_reason": "Workbook collection resolver route coverage starts the real runtime harness through phase4test.StartServer.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-6-05",
@@ -306,7 +351,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The resolver keeps the grid visible, leaves conflict state unresolved until explicit action, and returns focus to the same cell after resolution or clear.",
-      "out_of_scope": "Backend same-field conflict payload construction remains backend evidence."
+      "out_of_scope": "Backend same-field conflict payload construction remains backend evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-6-06",
@@ -329,7 +377,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Workbook conflict resolve durability coverage starts the real runtime harness through phase4test.StartServer."
+      "template_clone_reason": "Workbook conflict resolve durability coverage starts the real runtime harness through phase4test.StartServer.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-6-07",
@@ -352,7 +403,10 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "The socket route-contract row starts real HTTP server runtimes through phase3test.StartRuntime and uses PreparePackageDatabaseT, which is incompatible with transaction fixtures."
+      "template_clone_reason": "The socket route-contract row starts real HTTP server runtimes through phase3test.StartRuntime and uses PreparePackageDatabaseT, which is incompatible with transaction fixtures.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-6-08",
@@ -378,7 +432,10 @@
           "max_template_clones": 4
         }
       },
-      "template_clone_reason": "The socket route-contract row starts a real HTTP server runtime and verifies persisted session timing, which is incompatible with transaction fixtures."
+      "template_clone_reason": "The socket route-contract row starts a real HTTP server runtime and verifies persisted session timing, which is incompatible with transaction fixtures.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-6-09",
@@ -395,7 +452,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "Save-state labels use only `Syncing`, `Saved`, and `Conflict`; the local pending queue is FIFO, bounded, coalesces only contiguous same-record units, and halts on blocking failures without silently evicting queued work inside one browser runtime.",
-      "out_of_scope": "Full browser re-authentication and full reload/no-restore behavior remain `E-6-05` evidence."
+      "out_of_scope": "Full browser re-authentication and full reload/no-restore behavior remain `E-6-05` evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     }
   ],
   "integration": [
@@ -411,7 +471,19 @@
       "claim": "Two real clients connect to the same incident socket, exchange presence snapshots and deltas, and observe deterministic replay ordering within the replay window.",
       "out_of_scope": "Browser rendering of presence indicators remains `E-6-01` evidence.",
       "execution_family": "backend-integration-collaboration",
-      "execution_label": "backend-integration phase6 collaboration"
+      "execution_label": "backend-integration phase6 collaboration",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-6-02",
@@ -425,7 +497,19 @@
       "claim": "Resume with a valid replay token replays replayable messages only, while presence is rehydrated through the documented presence flow rather than replay.",
       "out_of_scope": "Low-level replay filtering helper behavior remains unit evidence.",
       "execution_family": "backend-integration-collaboration",
-      "execution_label": "backend-integration phase6 collaboration"
+      "execution_label": "backend-integration phase6 collaboration",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-6-03",
@@ -439,7 +523,19 @@
       "claim": "Concurrent edits to different fields succeed without operator intervention, while concurrent edits to the same field produce the resolver path and preserve both saved and local drafts correctly.",
       "out_of_scope": "Full browser resolver interaction remains `E-6-02` evidence.",
       "execution_family": "backend-integration-workbook",
-      "execution_label": "backend-integration phase6 workbook"
+      "execution_label": "backend-integration phase6 workbook",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-6-04",
@@ -453,7 +549,19 @@
       "claim": "Cookie-authenticated browser socket upgrades reject untrusted `Origin` values before incident subscription is granted.",
       "out_of_scope": "General host and origin policy helpers remain platform support evidence.",
       "execution_family": "backend-integration-collaboration",
-      "execution_label": "backend-integration phase6 collaboration"
+      "execution_label": "backend-integration phase6 collaboration",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     }
   ],
   "e2e": [
@@ -466,7 +574,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Two analysts on the same incident see each other's presence on the workbook surface within the expected interaction window after both browser sockets have reached the accepted `hello_ack` state, with the browser row retaining a timing artifact for the 1-second presence validation.",
-      "out_of_scope": "Socket-level presence canonicalization and pre-interaction socket readiness remain backend and harness evidence."
+      "out_of_scope": "Socket-level presence canonicalization and pre-interaction socket readiness remain backend and harness evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-6-02",
@@ -477,7 +589,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Concurrent edits to different fields on the same row auto-merge, while concurrent edits to the same field open the same-surface resolver and require explicit analyst resolution.",
-      "out_of_scope": "Resolver state unit behavior remains frontend-unit evidence."
+      "out_of_scope": "Resolver state unit behavior remains frontend-unit evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-6-03",
@@ -488,7 +604,11 @@
       "execution_dependency": "browser_stateful",
       "evidence_layer": "browser",
       "claim": "Deterministic route-owned browser revocation sources, including admin revoke-all, current-session logout, and shared-clock idle expiry, emit `session_revoked` on an established browser socket, close that socket, and preserve unsaved local work for explicit recovery and FIFO replay after re-authentication.",
-      "out_of_scope": "Browser evidence proves UI preservation and replay after deterministic revocation sources. Concurrency-limit victim selection and socket delivery remain backend and integration evidence rather than browser login-burst evidence."
+      "out_of_scope": "Browser evidence proves UI preservation and replay after deterministic revocation sources. Concurrency-limit victim selection and socket delivery remain backend and integration evidence rather than browser login-burst evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_stateful",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-6-04",
@@ -499,7 +619,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Live updates never retarget pending local edits from implemented browser command surfaces, same-field conflict markers, row-gutter presence markers, or same-cell presence markers away from the bound `record_id` and `field_key` during sorting, filtering, grouping, virtual scrolling, or live row patch.",
-      "out_of_scope": "Current-product Enter, Tab, blur, and single-cell paste completion are covered here. Multi-cell paste-matrix anchoring, fill-down, multi-row tag assignment, and broader future grid-command translation remain Phase 9 grid/paste evidence under `I-9-GRID-01` and shared `I-GRID-03` unless product scope moves earlier."
+      "out_of_scope": "Current-product Enter, Tab, blur, and single-cell paste completion are covered here. Multi-cell paste-matrix anchoring, fill-down, multi-row tag assignment, and broader future grid-command translation remain Phase 9 grid/paste evidence under `I-9-GRID-01` and shared `I-GRID-03` unless product scope moves earlier.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-6-05",
@@ -510,7 +634,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Within one browser runtime, queued unsent writes survive transient transport loss, real HTTP auth failure, or session revocation; replay in FIFO order after recovery or re-authentication; halt on the first real same-field conflict without applying later queued writes; and are never silently restored after a full reload.",
-      "out_of_scope": "Queue size and coalescing unit semantics remain frontend-unit evidence."
+      "out_of_scope": "Queue size and coalescing unit semantics remain frontend-unit evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     }
   ],
   "visual": [
@@ -523,7 +651,10 @@
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "claim": "The visual harness asserts deterministic Timeline row-gutter and same-cell presence marker presentation keyed by `record_id` and `field_key` from real browser presence state against a stable screenshot baseline.",
-      "out_of_scope": "Socket payload canonicalization and timing remain backend and functional browser evidence."
+      "out_of_scope": "Socket payload canonicalization and timing remain backend and functional browser evidence.",
+      "evidence_class": "visual_readiness",
+      "layer": "browser_visual",
+      "default_check_required": false
     },
     {
       "id": "V-6-GRID-02",
@@ -534,7 +665,10 @@
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "claim": "The visual harness asserts same-field conflict marker, same-surface resolver, and `Conflict` save-state strip presentation after a real backend `same_field_conflict` against a stable screenshot baseline.",
-      "out_of_scope": "Same-field conflict transport and resolver mutation semantics remain owned by `E-6-02`, route/component rows, and frontend-unit evidence."
+      "out_of_scope": "Same-field conflict transport and resolver mutation semantics remain owned by `E-6-02`, route/component rows, and frontend-unit evidence.",
+      "evidence_class": "visual_readiness",
+      "layer": "browser_visual",
+      "default_check_required": false
     },
     {
       "id": "V-6-GRID-03",
@@ -545,7 +679,10 @@
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
       "claim": "The visual harness asserts `Syncing`, same-field-conflict `Conflict`, and resolver-recovered `Saved` save-state presentations against stable screenshot baselines.",
-      "out_of_scope": "Pending-queue FIFO, boundedness, halt/replay behavior, and queue recovery semantics remain owned by `E-6-05`, `U-6-09`, and supporting frontend-unit evidence."
+      "out_of_scope": "Pending-queue FIFO, boundedness, halt/replay behavior, and queue recovery semantics remain owned by `E-6-05`, `U-6-09`, and supporting frontend-unit evidence.",
+      "evidence_class": "visual_readiness",
+      "layer": "browser_visual",
+      "default_check_required": false
     }
   ]
 }

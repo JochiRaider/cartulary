@@ -45,7 +45,8 @@
       "scenario_titles": [],
       "claim_status": "implemented",
       "claim": "Verify generated protocol exports and frontend contract facades expose stable identifiers without hand-editing generated code.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-U-P0-02",
@@ -103,7 +104,8 @@
       "scenario_titles": [],
       "claim_status": "implemented",
       "claim": "Verify view-schema adapters key editable and queryable fields by field_key, not labels, indexes, or visible column order.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-U-P0-03",
@@ -174,7 +176,8 @@
       "scenario_titles": [],
       "claim_status": "implemented",
       "claim": "Verify stable selector and test-id builders derive identifiers from stable IDs, including row-history history_item_ref, registry-backed view_schema_id values, and selector-relevant closed vocabularies rather than visible labels.",
-      "out_of_scope": "This frontend readiness row does not change Core 05 publication authority; row-history response identity changes remain owned by Core 01 and Core 02."
+      "out_of_scope": "This frontend readiness row does not change Core 05 publication authority; row-history response identity changes remain owned by Core 01 and Core 02.",
+      "default_check_required": true
     },
     {
       "id": "FE-S-P0-01",
@@ -196,7 +199,8 @@
       "scenario_titles": [],
       "claim_status": "implemented",
       "claim": "Enforce generated protocol policy and detect generated contract drift.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     },
     {
       "id": "FE-S-P0-02",
@@ -218,7 +222,8 @@
       "scenario_titles": [],
       "claim_status": "implemented",
       "claim": "Enforce frontend import boundaries: /apps/web must consume /packages/grid-adapter and must not import react-data-grid directly.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     },
     {
       "id": "FE-S-P0-03",
@@ -239,7 +244,8 @@
       "scenario_titles": [],
       "claim_status": "implemented",
       "claim": "Record frontend phase rows in a scheduler-enforced manifest or ledger before claiming phase-enforced completion.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     },
     {
       "id": "FE-S-P0-04",
@@ -269,7 +275,8 @@
       "scenario_titles": [],
       "claim_status": "implemented",
       "claim": "Validate docs/design.md token front matter and generated @cartulary/ui-contracts token artifacts without treating design tokens as product-conformance behavior.",
-      "out_of_scope": "This frontend readiness row does not create routes, schemas, authorization, lifecycle, storage, field registries, record types, public wire shapes, Core product behavior, or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not create routes, schemas, authorization, lifecycle, storage, field registries, record types, public wire shapes, Core product behavior, or Core 05 publication authority.",
+      "default_check_required": false
     }
   ]
 }

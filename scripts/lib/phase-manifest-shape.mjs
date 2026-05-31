@@ -3,6 +3,7 @@ import {
   assertRequiredKeys,
   assertUnique,
   readJsonObject,
+  requireBoolean,
   requireEnum,
   requireObject,
   requireObjectArray,
@@ -15,6 +16,33 @@ const phaseNamePattern = /^phase(?:0|[1-9]\d*)$/;
 const validCoverage = new Set(["authoritative", "supplemental"]);
 const validRunners = new Set(["go_test", "playwright", "vitest"]);
 const validClaimStatuses = new Set(["implemented", "blocked", "not_applicable"]);
+export const validBackendEvidenceClasses = new Set([
+  "product_conformance",
+  "implementation_support",
+  "harness_policy",
+  "readiness",
+  "diagnostic",
+  "duplicate_regression",
+  "measurement",
+  "security",
+  "release_artifact",
+  "visual_readiness",
+  "accessibility_readiness",
+  "claim_publication_boundary",
+]);
+export const validBackendLayers = new Set([
+  "backend_unit",
+  "backend_store",
+  "backend_integration",
+  "backend_integration_support",
+  "backend_process",
+  "browser_functional",
+  "browser_stateful",
+  "browser_measurement",
+  "browser_support",
+  "browser_visual",
+  "frontend_unit",
+]);
 
 export const phaseTestMapSchemaID = "cartulary.phase_test_map.v1";
 
@@ -65,6 +93,10 @@ export const phaseManifestEntryKeys = new Set([
   "title",
   "titles",
   "execution_dependency",
+  "evidence_class",
+  "layer",
+  "default_check_required",
+  "default_check_reason",
   "evidence_layer",
   "claim_status",
   "claim",
@@ -75,6 +107,7 @@ export const phaseManifestEntryKeys = new Set([
   "fixture_budget",
   "fixture_refs",
   "template_clone_reason",
+  "package_reset_reason",
   "migration_scratch_reason",
 ]);
 
@@ -88,9 +121,14 @@ export const supportGoEntryKeys = new Set([
   "selection_pattern",
   "execution_family",
   "execution_label",
+  "evidence_class",
+  "layer",
+  "default_check_required",
+  "default_check_reason",
   "fixture_policy",
   "fixture_budget",
   "template_clone_reason",
+  "package_reset_reason",
   "migration_scratch_reason",
 ]);
 
@@ -185,6 +223,12 @@ export function validatePhaseManifestShape(manifest, label) {
       ids.push(requireString(entry.id, `${entryLabel}.id`));
       requireEnum(entry.coverage, `${entryLabel}.coverage`, validCoverage);
       requireEnum(entry.runner, `${entryLabel}.runner`, validRunners);
+      requireEnum(entry.evidence_class, `${entryLabel}.evidence_class`, validBackendEvidenceClasses);
+      requireEnum(entry.layer, `${entryLabel}.layer`, validBackendLayers);
+      requireBoolean(entry.default_check_required, `${entryLabel}.default_check_required`);
+      if (entry.default_check_reason !== undefined) {
+        requireString(entry.default_check_reason, `${entryLabel}.default_check_reason`);
+      }
       requireString(entry.file, `${entryLabel}.file`);
       if (entry.title !== undefined && entry.titles !== undefined) {
         throw new Error(`${entryLabel} must declare title or titles[], not both`);
@@ -218,6 +262,12 @@ export function validatePhaseManifestShape(manifest, label) {
     const entryLabel = `${label}.support_go_targets[${index + 1}]`;
     assertObjectKeys(entry, supportGoEntryKeys, entryLabel);
     requireString(entry.target, `${entryLabel}.target`);
+    requireEnum(entry.evidence_class, `${entryLabel}.evidence_class`, validBackendEvidenceClasses);
+    requireEnum(entry.layer, `${entryLabel}.layer`, validBackendLayers);
+    requireBoolean(entry.default_check_required, `${entryLabel}.default_check_required`);
+    if (entry.default_check_reason !== undefined) {
+      requireString(entry.default_check_reason, `${entryLabel}.default_check_reason`);
+    }
     requireString(entry.section, `${entryLabel}.section`);
     requireString(entry.package, `${entryLabel}.package`);
     requireString(entry.file, `${entryLabel}.file`);

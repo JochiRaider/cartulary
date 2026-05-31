@@ -49,7 +49,8 @@
       "scenario_titles": [],
       "claim_status": "blocked",
       "claim": "Verify sync-engine pending queue orders creates, patches, paste batches, retries, success, validation failures, and replay by stable mutation identifiers.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-U-P4-02",
@@ -87,7 +88,8 @@
       "scenario_titles": [],
       "claim_status": "blocked",
       "claim": "Verify save-state presentation derives one primary label and one same-surface secondary message from pending, saved, failed, and conflict states.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-I-P4-01",
@@ -138,7 +140,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-E-P4-01",
@@ -193,7 +196,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-V-P4-01",
@@ -223,7 +227,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Capture save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     },
     {
       "id": "FE-A11Y-P4-01",
@@ -250,7 +255,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     }
   ]
 }

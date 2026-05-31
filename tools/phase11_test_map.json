@@ -7,41 +7,191 @@
       "profile_id": "enterprise_authentication",
       "claimed": false,
       "claim_ac_id": "AC-235",
-      "required_ac_ids": ["AC-036", "AC-235", "AC-288", "AC-289", "AC-290", "AC-291", "AC-292", "AC-293", "AC-348", "AC-349", "AC-350", "AC-351", "AC-352"],
+      "required_ac_ids": [
+        "AC-036",
+        "AC-235",
+        "AC-288",
+        "AC-289",
+        "AC-290",
+        "AC-291",
+        "AC-292",
+        "AC-293",
+        "AC-348",
+        "AC-349",
+        "AC-350",
+        "AC-351",
+        "AC-352"
+      ],
       "direct_evidence_ids": [],
-      "aggregate_ac_ids": ["AC-235"]
+      "aggregate_ac_ids": [
+        "AC-235"
+      ]
     },
     {
       "profile_id": "import",
       "claimed": true,
       "claim_ac_id": "AC-232",
-      "required_ac_ids": ["AC-027", "AC-028", "AC-029", "AC-063", "AC-064", "AC-065", "AC-066", "AC-067", "AC-232", "AC-262", "AC-263", "AC-264", "AC-265", "AC-323", "AC-324", "AC-325", "AC-393"],
-      "direct_evidence_ids": ["I-11-IMPORT-01", "I-11-IMPORT-02", "I-11-IMPORT-03"],
-      "aggregate_ac_ids": ["AC-232"]
+      "required_ac_ids": [
+        "AC-027",
+        "AC-028",
+        "AC-029",
+        "AC-063",
+        "AC-064",
+        "AC-065",
+        "AC-066",
+        "AC-067",
+        "AC-232",
+        "AC-262",
+        "AC-263",
+        "AC-264",
+        "AC-265",
+        "AC-323",
+        "AC-324",
+        "AC-325",
+        "AC-393"
+      ],
+      "direct_evidence_ids": [
+        "I-11-IMPORT-01",
+        "I-11-IMPORT-02",
+        "I-11-IMPORT-03"
+      ],
+      "aggregate_ac_ids": [
+        "AC-232"
+      ]
     },
     {
       "profile_id": "incident_portability",
       "claimed": true,
       "claim_ac_id": "AC-236",
-      "required_ac_ids": ["AC-164", "AC-165", "AC-166", "AC-167", "AC-168", "AC-169", "AC-236", "AC-273", "AC-274", "AC-275", "AC-276", "AC-327", "AC-328", "AC-332", "AC-386", "AC-409"],
-      "direct_evidence_ids": ["U-11-INCIDENT-BUNDLES-01", "U-11-INCIDENT-BUNDLES-02", "U-11-INCIDENT-BUNDLES-03", "U-11-INCIDENT-BUNDLES-04", "U-11-INCIDENT-BUNDLES-05", "I-11-INCIDENT-BUNDLES-01", "I-11-INCIDENT-BUNDLES-02", "I-11-INCIDENT-BUNDLES-03", "I-11-INCIDENT-BUNDLES-04", "I-11-INCIDENT-BUNDLES-05", "I-11-INCIDENT-BUNDLES-06", "I-11-INCIDENT-BUNDLES-07"],
-      "aggregate_ac_ids": ["AC-236"]
+      "required_ac_ids": [
+        "AC-164",
+        "AC-165",
+        "AC-166",
+        "AC-167",
+        "AC-168",
+        "AC-169",
+        "AC-236",
+        "AC-273",
+        "AC-274",
+        "AC-275",
+        "AC-276",
+        "AC-327",
+        "AC-328",
+        "AC-332",
+        "AC-386",
+        "AC-409"
+      ],
+      "direct_evidence_ids": [
+        "U-11-INCIDENT-BUNDLES-01",
+        "U-11-INCIDENT-BUNDLES-02",
+        "U-11-INCIDENT-BUNDLES-03",
+        "U-11-INCIDENT-BUNDLES-04",
+        "U-11-INCIDENT-BUNDLES-05",
+        "I-11-INCIDENT-BUNDLES-01",
+        "I-11-INCIDENT-BUNDLES-02",
+        "I-11-INCIDENT-BUNDLES-03",
+        "I-11-INCIDENT-BUNDLES-04",
+        "I-11-INCIDENT-BUNDLES-05",
+        "I-11-INCIDENT-BUNDLES-06",
+        "I-11-INCIDENT-BUNDLES-07"
+      ],
+      "aggregate_ac_ids": [
+        "AC-236"
+      ]
     },
     {
       "profile_id": "reference_pack",
       "claimed": true,
       "claim_ac_id": "AC-234",
-      "required_ac_ids": ["AC-033", "AC-034", "AC-035", "AC-092", "AC-093", "AC-094", "AC-095", "AC-096", "AC-234", "AC-270", "AC-271", "AC-272", "AC-308", "AC-309", "AC-310", "AC-326", "AC-369"],
-      "direct_evidence_ids": ["U-11-REFERENCE-PACK-01", "U-11-REFERENCE-PACK-02", "U-11-REFERENCE-PACK-03", "U-11-REFERENCE-PACK-04", "U-11-REFERENCE-PACK-05", "U-11-REFERENCE-PACK-06", "I-11-REFERENCE-PACK-01", "I-11-REFERENCE-PACK-02", "I-11-REFERENCE-PACK-03", "I-11-REFERENCE-PACK-04", "I-11-REFERENCE-PACK-05", "I-11-REFERENCE-PACK-06", "I-11-REFERENCE-PACK-07", "I-11-REFERENCE-PACK-08", "I-11-REFERENCE-PACK-09", "E-11-01"],
-      "aggregate_ac_ids": ["AC-234"]
+      "required_ac_ids": [
+        "AC-033",
+        "AC-034",
+        "AC-035",
+        "AC-092",
+        "AC-093",
+        "AC-094",
+        "AC-095",
+        "AC-096",
+        "AC-234",
+        "AC-270",
+        "AC-271",
+        "AC-272",
+        "AC-308",
+        "AC-309",
+        "AC-310",
+        "AC-326",
+        "AC-369"
+      ],
+      "direct_evidence_ids": [
+        "U-11-REFERENCE-PACK-01",
+        "U-11-REFERENCE-PACK-02",
+        "U-11-REFERENCE-PACK-03",
+        "U-11-REFERENCE-PACK-04",
+        "U-11-REFERENCE-PACK-05",
+        "U-11-REFERENCE-PACK-06",
+        "I-11-REFERENCE-PACK-01",
+        "I-11-REFERENCE-PACK-02",
+        "I-11-REFERENCE-PACK-03",
+        "I-11-REFERENCE-PACK-04",
+        "I-11-REFERENCE-PACK-05",
+        "I-11-REFERENCE-PACK-06",
+        "I-11-REFERENCE-PACK-07",
+        "I-11-REFERENCE-PACK-08",
+        "I-11-REFERENCE-PACK-09",
+        "E-11-01"
+      ],
+      "aggregate_ac_ids": [
+        "AC-234"
+      ]
     },
     {
       "profile_id": "snapshot_reporting",
       "claimed": true,
       "claim_ac_id": "AC-233",
-      "required_ac_ids": ["AC-030", "AC-031", "AC-032", "AC-056", "AC-057", "AC-058", "AC-059", "AC-060", "AC-061", "AC-062", "AC-071", "AC-091", "AC-104", "AC-105", "AC-106", "AC-113", "AC-114", "AC-115", "AC-233", "AC-266", "AC-267", "AC-268", "AC-269", "AC-305", "AC-306", "AC-307", "AC-333"],
-      "direct_evidence_ids": ["U-11-REPORTING-01", "U-11-REPORTING-02", "U-11-REPORTING-03", "U-11-REPORTING-04", "U-11-REPORTING-05", "U-11-REPORTING-06", "I-11-REPORTING-01", "I-11-REPORTING-02", "I-11-REPORTING-03", "I-11-REPORTING-04"],
-      "aggregate_ac_ids": ["AC-233"]
+      "required_ac_ids": [
+        "AC-030",
+        "AC-031",
+        "AC-032",
+        "AC-056",
+        "AC-057",
+        "AC-058",
+        "AC-059",
+        "AC-060",
+        "AC-061",
+        "AC-062",
+        "AC-071",
+        "AC-091",
+        "AC-104",
+        "AC-105",
+        "AC-106",
+        "AC-113",
+        "AC-114",
+        "AC-115",
+        "AC-233",
+        "AC-266",
+        "AC-267",
+        "AC-268",
+        "AC-269",
+        "AC-305",
+        "AC-306",
+        "AC-307",
+        "AC-333"
+      ],
+      "direct_evidence_ids": [
+        "U-11-REPORTING-01",
+        "U-11-REPORTING-02",
+        "U-11-REPORTING-03",
+        "U-11-REPORTING-04",
+        "U-11-REPORTING-05",
+        "U-11-REPORTING-06",
+        "I-11-REPORTING-01",
+        "I-11-REPORTING-02",
+        "I-11-REPORTING-03",
+        "I-11-REPORTING-04"
+      ],
+      "aggregate_ac_ids": [
+        "AC-233"
+      ]
     }
   ],
   "ledger": {
@@ -145,7 +295,19 @@
       "claim": "Incident-scoped common job read and cancel authorization is re-derived at request time from current incident membership and role, including denied cancel for a non-admin member and hidden job access after membership revocation.",
       "out_of_scope": "This evidence does not claim Snapshot and Reporting, Reference Pack, Incident Portability, or Enterprise Authentication route behavior.",
       "execution_family": "backend-integration-phase11-jobs-incident-auth",
-      "execution_label": "backend-integration phase11 incident job authorization"
+      "execution_label": "backend-integration phase11 incident job authorization",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "U-11-JOBS-02",
@@ -160,7 +322,19 @@
       "claim": "Deployment-scoped common job reads and cancel requests are authorized from current deployment-admin or submitter state, while unrelated non-admin callers cannot observe or cancel the job.",
       "out_of_scope": "This evidence does not claim any unselected extension profile route family.",
       "execution_family": "backend-integration-phase11-jobs-deployment-auth",
-      "execution_label": "backend-integration phase11 deployment job authorization"
+      "execution_label": "backend-integration phase11 deployment job authorization",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "U-11-JOBS-03",
@@ -175,7 +349,19 @@
       "claim": "The reusable deployment-admin incident-membership job policy requires current deployment-admin plus incident membership for reads, denies non-submitter non-admin cancellation, allows current incident admins to cancel, and hides jobs after deployment-admin demotion.",
       "out_of_scope": "This row proves the generic policy substrate; Incident Bundle route-specific export-job authorization is covered by the Incident Bundle integration rows.",
       "execution_family": "backend-integration-phase11-jobs-admin-member-auth",
-      "execution_label": "backend-integration phase11 admin-member incident job authorization"
+      "execution_label": "backend-integration phase11 admin-member incident job authorization",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "U-11-REPORTING-01",
@@ -190,7 +376,10 @@
       "claim": "Snapshot/Reporting redaction applies deterministic path-over-class-over-default precedence, executes current-profile action semantics, and emits manifest entries bound to rule ids, outcomes, and immutable profile digest.",
       "out_of_scope": "This unit fixture does not exercise route authorization or release approval lifecycle.",
       "execution_family": "backend-unit-phase11-reporting-redaction-semantics",
-      "execution_label": "backend-unit phase11 reporting redaction semantics"
+      "execution_label": "backend-unit phase11 reporting redaction semantics",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-REPORTING-02",
@@ -205,7 +394,10 @@
       "claim": "Snapshot/Reporting rejects duplicate same-precedence redaction rules, the reserved hash action, and unsafe truncate bounds before render admission.",
       "out_of_scope": "This unit fixture does not claim future keyed pseudonymization behavior for hash.",
       "execution_family": "backend-unit-phase11-reporting-profile-validation",
-      "execution_label": "backend-unit phase11 reporting profile validation"
+      "execution_label": "backend-unit phase11 reporting profile validation",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-REPORTING-03",
@@ -220,7 +412,10 @@
       "claim": "Snapshot/Reporting post-redaction validation fails closed when an external release would include opaque source bytes or working material.",
       "out_of_scope": "This unit fixture uses an in-memory export model and does not inspect packaged browser output.",
       "execution_family": "backend-unit-phase11-reporting-binary-boundary",
-      "execution_label": "backend-unit phase11 reporting binary boundary"
+      "execution_label": "backend-unit phase11 reporting binary boundary",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-REPORTING-04",
@@ -235,7 +430,10 @@
       "claim": "Snapshot/Reporting recipient redaction profiles enforce disclosure partition allowlists, keep dropped partition fields in the redaction manifest, and fail closed when external curated narrative lacks support references.",
       "out_of_scope": "This unit fixture uses in-memory export models and does not inspect rendered route output.",
       "execution_family": "backend-unit-phase11-reporting-disclosure-partitions",
-      "execution_label": "backend-unit phase11 reporting disclosure partitions"
+      "execution_label": "backend-unit phase11 reporting disclosure partitions",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-REPORTING-05",
@@ -250,7 +448,10 @@
       "claim": "Snapshot/Reporting route decoders reject legacy alias fields with registered reason codes and normalize omitted, null, and empty release-action reasons to the same idempotency payload.",
       "out_of_scope": "This unit fixture does not exercise session authorization or database idempotency persistence.",
       "execution_family": "backend-unit-phase11-reporting-decoder-normalization",
-      "execution_label": "backend-unit phase11 reporting decoder normalization"
+      "execution_label": "backend-unit phase11 reporting decoder normalization",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-REPORTING-06",
@@ -265,7 +466,10 @@
       "claim": "Snapshot/Reporting OpenAPI uses reusable closed enum schemas for release output kind and release scope in both release create and durable release resources, and documents exact snapshot/release resource envelopes for route responses.",
       "out_of_scope": "This contract-shape evidence is derived from generated OpenAPI artifacts and does not replace direct route behavior tests.",
       "execution_family": "backend-unit-phase11-reporting-openapi-contract",
-      "execution_label": "backend-unit phase11 reporting OpenAPI contract"
+      "execution_label": "backend-unit phase11 reporting OpenAPI contract",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-REFERENCE-PACK-01",
@@ -280,7 +484,10 @@
       "claim": "Reference Pack request decoders enforce activation-policy, action reason, refresh selector, idempotency-normalization, and closed verification/error reason vocabulary.",
       "out_of_scope": "This unit fixture does not exercise persistence or route authorization.",
       "execution_family": "backend-unit-phase11-reference-pack-request-validation",
-      "execution_label": "backend-unit phase11 reference pack request validation"
+      "execution_label": "backend-unit phase11 reference pack request validation",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-REFERENCE-PACK-02",
@@ -295,7 +502,10 @@
       "claim": "Reference Pack verifier accepts disconnected local bundles and fails closed for checksum, signature, path traversal, active content, missing payload, and contract incompatibility.",
       "out_of_scope": "This unit fixture does not claim route idempotency or job summaries.",
       "execution_family": "backend-unit-phase11-reference-pack-verifier",
-      "execution_label": "backend-unit phase11 reference pack verifier"
+      "execution_label": "backend-unit phase11 reference pack verifier",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-REFERENCE-PACK-03",
@@ -310,7 +520,10 @@
       "claim": "Reference Pack verifier fails closed for extracted-byte, compression-ratio, and member-count archive limits using the Reference Pack limit family.",
       "out_of_scope": "This unit fixture does not claim route job summaries or operator UI behavior.",
       "execution_family": "backend-unit-phase11-reference-pack-archive-limits",
-      "execution_label": "backend-unit phase11 reference pack archive limits"
+      "execution_label": "backend-unit phase11 reference pack archive limits",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-REFERENCE-PACK-04",
@@ -322,7 +535,10 @@
       "evidence_layer": "component",
       "claim_status": "implemented",
       "claim": "The landing-surface Reference Pack admin panel is not rendered for non-deployment-admin sessions.",
-      "out_of_scope": "This component evidence does not replace backend route authorization checks."
+      "out_of_scope": "This component evidence does not replace backend route authorization checks.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-REFERENCE-PACK-05",
@@ -337,7 +553,10 @@
       "claim": "Generated OpenAPI and error-registry artifacts expose the exact Reference Pack resource, route, state enum, verification enum, and closed error reason registries.",
       "out_of_scope": "Generated contract artifacts remain downstream evidence and do not replace direct route tests.",
       "execution_family": "backend-unit-phase11-reference-pack-contracts",
-      "execution_label": "backend-unit phase11 reference pack contracts"
+      "execution_label": "backend-unit phase11 reference pack contracts",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-REFERENCE-PACK-06",
@@ -349,7 +568,10 @@
       "evidence_layer": "component",
       "claim_status": "implemented",
       "claim": "The deployment-admin Reference Pack panel starts refresh work, polls the common job resource, displays progress, and exposes cancel for non-terminal jobs.",
-      "out_of_scope": "This component evidence uses mocked transport and does not claim backend worker execution."
+      "out_of_scope": "This component evidence uses mocked transport and does not claim backend worker execution.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-INCIDENT-BUNDLES-01",
@@ -364,7 +586,10 @@
       "claim": "Incident Bundle export requests canonicalize selector arrays, force full history/blob modes, reject user-supplied alternate modes, and normalize route-idempotency input.",
       "out_of_scope": "This unit row does not claim durable descriptor creation or worker execution.",
       "execution_family": "backend-unit-phase11-incident-bundles-request",
-      "execution_label": "backend-unit phase11 incident bundle request contract"
+      "execution_label": "backend-unit phase11 incident bundle request contract",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-INCIDENT-BUNDLES-02",
@@ -379,7 +604,10 @@
       "claim": "Incident Bundle archive construction emits deterministic checksum inventory bytes and a strict numeric `bundle_version: 1` manifest with `source_change_set_high_watermark` and `size_bytes` file metadata independent of input map order.",
       "out_of_scope": "Database source-state determinism is covered by the Incident Bundle import integration row.",
       "execution_family": "backend-unit-phase11-incident-bundles-determinism",
-      "execution_label": "backend-unit phase11 incident bundle determinism"
+      "execution_label": "backend-unit phase11 incident bundle determinism",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-INCIDENT-BUNDLES-03",
@@ -394,7 +622,10 @@
       "claim": "Incident Bundle verification accepts safe ZIP and TAR directory members as structural archive entries, counts those directories against archive member limits, rejects unsafe directory paths, rejects unsupported special member types, rejects missing required files, invalid manifest vocabularies, unsupported required capabilities, unsupported signature material, and one-byte-over compression-ratio boundaries before import visibility while known optional embedded sections remain non-blocking unless required.",
       "out_of_scope": "This unit row does not claim object-store-backed blob staging.",
       "execution_family": "backend-unit-phase11-incident-bundles-verifier",
-      "execution_label": "backend-unit phase11 incident bundle verifier"
+      "execution_label": "backend-unit phase11 incident bundle verifier",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-INCIDENT-BUNDLES-04",
@@ -409,7 +640,10 @@
       "claim": "OpenAPI and error registries expose Incident Bundle routes, resource schema, exact-token unique descriptor arrays, and the documented request/export/import error families.",
       "out_of_scope": "Generated contract artifacts remain downstream evidence and do not replace direct route tests.",
       "execution_family": "backend-unit-phase11-incident-bundles-contracts",
-      "execution_label": "backend-unit phase11 incident bundle contracts"
+      "execution_label": "backend-unit phase11 incident bundle contracts",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-11-INCIDENT-BUNDLES-05",
@@ -424,7 +658,10 @@
       "claim": "Incident Bundle contract registries use exactly the closed top-level error set and exact closed request, export-rejection, and import-rejection reason sets required by Core 04.",
       "out_of_scope": "This contract test does not prove that every reason is reachable through the runtime routes; route-level failures are covered by Incident Bundle integration rows.",
       "execution_family": "backend-unit-phase11-incident-bundles-closed-registries",
-      "execution_label": "backend-unit phase11 incident bundle closed registries"
+      "execution_label": "backend-unit phase11 incident bundle closed registries",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     }
   ],
   "integration": [
@@ -441,7 +678,19 @@
       "claim": "Import upload metadata that is syntactically valid but not a JSON object fails with `invalid_import_request` and `reason_code=request_not_object` before durable sessions, units, jobs, or idempotency rows are created.",
       "out_of_scope": "This evidence does not cover successful discovery, mapping, or apply.",
       "execution_family": "backend-integration-phase11-import-upload-envelope",
-      "execution_label": "backend-integration phase11 import upload envelope"
+      "execution_label": "backend-integration phase11 import upload envelope",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-IMPORT-02",
@@ -456,7 +705,19 @@
       "claim": "CSV Import discovery, exhaustive mapping approval, deterministic mapping fingerprint exposure, selection, apply job completion, Timeline row creation, and duplicate-apply blocking operate through the selected Import route family.",
       "out_of_scope": "This evidence does not claim XLSX discovery or unselected extension profiles.",
       "execution_family": "backend-integration-phase11-import-csv-apply",
-      "execution_label": "backend-integration phase11 import CSV apply"
+      "execution_label": "backend-integration phase11 import CSV apply",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-IMPORT-03",
@@ -471,7 +732,19 @@
       "claim": "XLSX Import discovery accepts a bounded OpenXML workbook, records XLSX provenance, creates an `xlsx_used_range` unit, and exposes source headers plus preview rows without applying incident state.",
       "out_of_scope": "This evidence does not claim table, named-range, or manual-region XLSX locators beyond the selected used-range discovery behavior.",
       "execution_family": "backend-integration-phase11-import-xlsx-discovery",
-      "execution_label": "backend-integration phase11 import XLSX discovery"
+      "execution_label": "backend-integration phase11 import XLSX discovery",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-REPORTING-01",
@@ -486,7 +759,19 @@
       "claim": "Snapshot creation resolves and persists an immutable source boundary, exact replay returns the original snapshot instead of later live state, and external release creation binds redaction profile digest, manifest digest, output hash, and dropped/truncated manifest outcomes without packaging working material.",
       "out_of_scope": "This evidence does not claim browser UI exposure or recipient-specific multi-profile output variants.",
       "execution_family": "backend-integration-phase11-reporting-provenance",
-      "execution_label": "backend-integration phase11 reporting provenance"
+      "execution_label": "backend-integration phase11 reporting provenance",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-REPORTING-02",
@@ -501,7 +786,19 @@
       "claim": "External releases require distinct reviewer and admin approvals, transition to approved only after the complete approval set, publish synchronously from approved state, and reject duplicate publication with a stable release_state_conflict reason.",
       "out_of_scope": "This evidence does not claim deployment-wide approval policies beyond the Snapshot and Reporting release gate.",
       "execution_family": "backend-integration-phase11-reporting-lifecycle",
-      "execution_label": "backend-integration phase11 reporting lifecycle"
+      "execution_label": "backend-integration phase11 reporting lifecycle",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-REPORTING-03",
@@ -516,7 +813,19 @@
       "claim": "Snapshot/Reporting route idempotency treats an omitted snapshot source boundary and the originally resolved explicit boundary as the same request, defaults omitted release_scope to approved internal_draft, and replays release actions with omitted/null/empty reason before fresh state checks.",
       "out_of_scope": "This evidence does not claim browser report inspection.",
       "execution_family": "backend-integration-phase11-reporting-idempotency",
-      "execution_label": "backend-integration phase11 reporting idempotency"
+      "execution_label": "backend-integration phase11 reporting idempotency",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-REPORTING-04",
@@ -531,7 +840,19 @@
       "claim": "Snapshot/Reporting singleton reads and release actions enforce exact durable resource shapes, route-scoped hidden-resource errors, singleton pagination rejection, admin-only publish/invalidate authorization, and action response parity with release reads.",
       "out_of_scope": "This evidence does not claim browser report inspection or network-level renderer instrumentation.",
       "execution_family": "backend-integration-phase11-reporting-shape-visibility",
-      "execution_label": "backend-integration phase11 reporting shape and visibility"
+      "execution_label": "backend-integration phase11 reporting shape and visibility",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-REFERENCE-PACK-01",
@@ -546,7 +867,19 @@
       "claim": "Reference Pack import uses the shared upload envelope, staged_only policy, file-hash idempotency, terminal job summary, list/read pagination, singleton pagination rejection, sorting, and exact version resource shape.",
       "out_of_scope": "This row does not claim activation, reverify, refresh, or failure modes.",
       "execution_family": "backend-integration-phase11-reference-pack-import-list-read",
-      "execution_label": "backend-integration phase11 reference pack import list read"
+      "execution_label": "backend-integration phase11 reference pack import list read",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-REFERENCE-PACK-02",
@@ -561,7 +894,19 @@
       "claim": "Reference Pack activation, prior-active retention, disable, route-scoped idempotency, reverify job behavior, and refresh selector behavior follow the legal state-transition contract.",
       "out_of_scope": "This row does not claim malformed bundle failure reasons.",
       "execution_family": "backend-integration-phase11-reference-pack-lifecycle",
-      "execution_label": "backend-integration phase11 reference pack lifecycle"
+      "execution_label": "backend-integration phase11 reference pack lifecycle",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-REFERENCE-PACK-03",
@@ -576,7 +921,19 @@
       "claim": "Disconnected Reference Pack failure modes produce terminal verification failures, keep candidates inactive, and leave the previously active local version active without any live fetch dependency.",
       "out_of_scope": "This row does not add an operator UI claim.",
       "execution_family": "backend-integration-phase11-reference-pack-failures",
-      "execution_label": "backend-integration phase11 reference pack failures"
+      "execution_label": "backend-integration phase11 reference pack failures",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-REFERENCE-PACK-04",
@@ -591,7 +948,19 @@
       "claim": "Reference Pack import admission returns a queued common job before verification starts and cancellation before worker commit prevents durable pack-version state.",
       "out_of_scope": "This row does not claim archive-limit failure reasons.",
       "execution_family": "backend-integration-phase11-reference-pack-async-admission",
-      "execution_label": "backend-integration phase11 reference pack async admission"
+      "execution_label": "backend-integration phase11 reference pack async admission",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-REFERENCE-PACK-05",
@@ -606,7 +975,19 @@
       "claim": "A fresh disconnected runtime seeds exactly the three active built-in type-registry Reference Packs and no framework or enrichment packs.",
       "out_of_scope": "This row does not claim operator-managed non-empty deployment migrations.",
       "execution_family": "backend-integration-phase11-reference-pack-minimum-disconnected",
-      "execution_label": "backend-integration phase11 reference pack minimum disconnected"
+      "execution_label": "backend-integration phase11 reference pack minimum disconnected",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-REFERENCE-PACK-06",
@@ -621,7 +1002,19 @@
       "claim": "Omitted Reference Pack refresh selectors replay against the admission-time resolved pack-key set even after later pack visibility changes.",
       "out_of_scope": "This row does not claim explicit selector validation failures.",
       "execution_family": "backend-integration-phase11-reference-pack-refresh-replay",
-      "execution_label": "backend-integration phase11 reference pack refresh replay"
+      "execution_label": "backend-integration phase11 reference pack refresh replay",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-REFERENCE-PACK-07",
@@ -636,7 +1029,19 @@
       "claim": "Reference Pack upload-envelope failures create no durable pack or job-payload state, and state-changing Reference Pack routes require deployment-admin authorization.",
       "out_of_scope": "This row does not claim successful bundle verification or UI visibility.",
       "execution_family": "backend-integration-phase11-reference-pack-envelope-authz",
-      "execution_label": "backend-integration phase11 reference pack envelope authz"
+      "execution_label": "backend-integration phase11 reference pack envelope authz",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-REFERENCE-PACK-08",
@@ -651,7 +1056,19 @@
       "claim": "Absent, disabled, failed, and missing optional Reference Packs leave timeline capture, entity resolution, binary evidence attachment, core workbook editing, and the current-profile view-schema inventory functional and stable.",
       "out_of_scope": "This row does not claim optional overlay, enrichment-widget, or reporting-template rendering behavior.",
       "execution_family": "backend-integration-phase11-reference-pack-degradation",
-      "execution_label": "backend-integration phase11 reference pack degradation"
+      "execution_label": "backend-integration phase11 reference pack degradation",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-REFERENCE-PACK-09",
@@ -666,7 +1083,19 @@
       "claim": "Reference Pack import jobs re-derive route-family deployment-admin authorization at poll and cancel time, so a demoted submitter cannot read or cancel the job until deployment-admin status is restored.",
       "out_of_scope": "This row does not change generic deployment-job submitter access for non-Reference-Pack route families.",
       "execution_family": "backend-integration-phase11-reference-pack-job-authz",
-      "execution_label": "backend-integration phase11 reference pack job authz"
+      "execution_label": "backend-integration phase11 reference pack job authz",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-INCIDENT-BUNDLES-01",
@@ -681,7 +1110,19 @@
       "claim": "Incident Bundle export uses the common job resource, route-scoped idempotency, divergent replay rejection, terminal incident_bundle ref summary, and durable descriptor reads with canonical fixed modes and manifest hash.",
       "out_of_scope": "This row does not claim import staging or projection rebuild.",
       "execution_family": "backend-integration-phase11-incident-bundles-export",
-      "execution_label": "backend-integration phase11 incident bundle export"
+      "execution_label": "backend-integration phase11 incident bundle export",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-INCIDENT-BUNDLES-02",
@@ -696,7 +1137,19 @@
       "claim": "Incident Bundle import reuses the shared upload envelope, exports from an independent source deployment, imports into an empty target deployment, keys idempotency by uploaded file hash, rejects divergent replay, cleans failed staging, emits one imported incident ref, rebuilds projections, opens the imported incident through the normal workbook startup route, preserves IDs, row versions, change-set and revision counts, record links, record tags, custody events, entity mentions, indicator observations, blob bytes under target-owned storage keys, inert actor descriptors, imported source actor attribution in history, stable imported history selectors, and ordinary rollback success and failure semantics. The same test also proves DB-backed source-state export determinism for ordered structured files and checksum inventory.",
       "out_of_scope": "This row does not claim optional embedded snapshot or reference-pack rendering behavior beyond verifier-level optional-section degradation.",
       "execution_family": "backend-integration-phase11-incident-bundles-import",
-      "execution_label": "backend-integration phase11 incident bundle import"
+      "execution_label": "backend-integration phase11 incident bundle import",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-INCIDENT-BUNDLES-03",
@@ -711,7 +1164,19 @@
       "claim": "Incident Bundle export jobs use the incident-scoped deployment-admin-plus-membership job policy: nonmember deployment admins and non-deployment-admin incident members cannot observe or cancel the export job, deployment-admin incident members can poll it, non-submitter non-admin members cannot cancel, and current incident admins can cancel.",
       "out_of_scope": "Import jobs remain deployment-scoped because no target incident exists before successful import.",
       "execution_family": "backend-integration-phase11-incident-bundles-export-auth",
-      "execution_label": "backend-integration phase11 incident bundle export authorization"
+      "execution_label": "backend-integration phase11 incident bundle export authorization",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-INCIDENT-BUNDLES-04",
@@ -726,7 +1191,19 @@
       "claim": "Incident Bundle export and import preserve an active Timeline supersedes relation and rebuild the imported Timeline projection so query rows expose the same hidden replacement_record_id for the superseded row.",
       "out_of_scope": "This row exercises committed Timeline supersession portability only; broader source-state round-trip counts are covered by the main import row.",
       "execution_family": "backend-integration-phase11-incident-bundles-supersede-portability",
-      "execution_label": "backend-integration phase11 incident bundle supersede portability"
+      "execution_label": "backend-integration phase11 incident bundle supersede portability",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-INCIDENT-BUNDLES-05",
@@ -741,7 +1218,19 @@
       "claim": "Incident Bundle missing source blobs, malformed or incomplete import bundles, duplicate incident IDs, checksum and blob-hash failures, unsupported required capabilities, unsupported signature material, invalid optional-section vocabulary, extracted-byte limits, and member-count limits fail with closed reason codes while preserving pre-failure incident visibility, projection, membership, imported actor, descriptor, object-store, job-payload, and staging cleanup boundaries; safe archive directory entries remain importable as structural wrapper members.",
       "out_of_scope": "This row does not add public partial import modes or remote fetch behavior.",
       "execution_family": "backend-integration-phase11-incident-bundles-fail-closed",
-      "execution_label": "backend-integration phase11 incident bundle fail closed"
+      "execution_label": "backend-integration phase11 incident bundle fail closed",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-INCIDENT-BUNDLES-06",
@@ -756,7 +1245,19 @@
       "claim": "Incident Bundle descriptor reads reject singleton pagination members and successful exports serialize descriptor and manifest selector arrays in canonical exact-token order with fixed full history/blob modes and resolved reference_pack_mode.",
       "out_of_scope": "This row does not claim import of bundles with unsupported required capabilities.",
       "execution_family": "backend-integration-phase11-incident-bundles-descriptor-canonical",
-      "execution_label": "backend-integration phase11 incident bundle descriptor canonicalization"
+      "execution_label": "backend-integration phase11 incident bundle descriptor canonicalization",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-11-INCIDENT-BUNDLES-07",
@@ -771,7 +1272,19 @@
       "claim": "Incident Bundle import upload-envelope failures, including missing boundary, duplicate or unexpected parts, malformed metadata JSON, duplicate metadata keys, non-object metadata, invalid file content type, and forbidden import-mode fields, return closed request reasons before jobs, job payloads, route idempotency, or staging files are created.",
       "out_of_scope": "This row proves early route failure durability only; accepted-job import verifier failures are covered by the fail-closed integration row.",
       "execution_family": "backend-integration-phase11-incident-bundles-upload-envelope",
-      "execution_label": "backend-integration phase11 incident bundle upload envelope"
+      "execution_label": "backend-integration phase11 incident bundle upload envelope",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     }
   ],
   "e2e": [
@@ -787,7 +1300,11 @@
       "claim": "Deployment-admin browser sessions expose Reference Pack job progress and cancel controls within one second of job start while ordinary landing interaction remains responsive.",
       "out_of_scope": "This browser row mocks the Reference Pack job endpoints and does not replace backend durable worker, authorization, or verification evidence.",
       "execution_family": "browser-functional-phase11-reference-pack-admin",
-      "execution_label": "browser functional phase11 reference pack admin progress"
+      "execution_label": "browser functional phase11 reference pack admin progress",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     }
   ],
   "visual": []

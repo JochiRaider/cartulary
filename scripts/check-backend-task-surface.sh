@@ -168,6 +168,29 @@ if (values.length > 0) {
 EOF
 }
 
+target_plan_default_check_service_backed_targets() {
+  "$node_bin" - "$target_plan_file" <<'EOF'
+const fs = require("node:fs");
+
+const [planFile] = process.argv.slice(2);
+const rows = JSON.parse(fs.readFileSync(planFile, "utf8"));
+const targets = new Set();
+for (const row of rows) {
+  if (
+    row.service_backed === true &&
+    row.check_service_backed_safe === true &&
+    row.default_check_required === true
+  ) {
+    targets.add(row.target);
+  }
+}
+const values = Array.from(targets).sort();
+if (values.length > 0) {
+  process.stdout.write(`${values.join("\n")}\n`);
+}
+EOF
+}
+
 list_target_plan_service_backed_unsafe_targets() {
   "$node_bin" - "$target_plan_file" <<'EOF'
 const fs = require("node:fs");
@@ -336,6 +359,7 @@ trap 'rm -f "$target_plan_file"' EXIT
 "$node_bin" "$repo_root/scripts/print-target-plan.mjs" --json >"$target_plan_file"
 mapfile -t target_plan_check_heavy_targets < <(target_plan_boolean_targets check_heavy_safe true)
 mapfile -t target_plan_service_backed_safe_targets < <(target_plan_boolean_targets check_service_backed_safe true)
+mapfile -t target_plan_default_check_service_backed_targets < <(target_plan_default_check_service_backed_targets)
 mapfile -t target_plan_service_backed_unsafe_targets < <(list_target_plan_service_backed_unsafe_targets)
 
 if target_exists check-build-prereqs; then
@@ -458,9 +482,10 @@ for scheduled_target in \
 	  build-migrate \
 	  build-operator \
 	  testservices-build \
-	  test-service-images \
+  test-service-images \
   check-service-backed \
-  migration-drift \
+  migration-input-drift \
+  migration-scratch-apply \
   deployable-shape \
   backend-unit \
   frontend-typecheck \
@@ -543,7 +568,8 @@ assertCheckMetadata("build-operator", "build_readiness_go_binary");
 assertCheckMetadata("testservices-build", "build_readiness_go_binary");
 assertCheckMetadata("test-service-images", "build_readiness_service_images");
 assertCheckMetadata("check-service-backed", "service_session_start");
-assertCheckMetadata("migration-drift", "post_build_migration_scratch_postgres");
+assertCheckMetadata("migration-input-drift", "after_setup_cpu_io");
+assertCheckMetadata("migration-scratch-apply", "post_build_migration_scratch_postgres");
 assertCheckMetadata("backend-unit", "after_setup_cpu");
 assertCheckMetadata("go-vulncheck", "after_setup_cpu_io");
 if (manifest.schema_id !== "cartulary.scheduler_manifest.v1") {
@@ -615,10 +641,13 @@ if (service.retained_resource_claims?.suite_service_stack !== 1) {
 if ((schedule.work_units ?? []).some((entry) => entry.nested_scheduler)) {
   throw new Error("check schedule must not use nested service-backed scheduler metadata");
 }
-for (const expectedLeaf of ["backend-store", "backend-integration", "backend-integration-support", "backend-process"]) {
+for (const expectedLeaf of ["backend-store", "backend-integration", "backend-process"]) {
   if (!(schedule.work_units ?? []).some((entry) => entry.target === expectedLeaf && entry.service_session?.target === "check-service-backed")) {
     throw new Error(`check schedule must expose ${expectedLeaf} as service-backed leaf work`);
   }
+}
+if ((schedule.work_units ?? []).some((entry) => entry.target === "backend-integration-support" && entry.service_session?.target === "check-service-backed")) {
+  throw new Error("check schedule must not include support-only backend-integration-support work in the default service-backed projection");
 }
 EOF
 
@@ -642,7 +671,8 @@ assert_check_needs build-operator "toolchain-drift"
 assert_check_needs testservices-build "toolchain-drift"
 assert_check_needs test-service-images "testservices-build"
 assert_check_needs check-service-backed "test-service-images"
-assert_check_needs migration-drift "build-migrate"
+assert_check_needs migration-input-drift "toolchain-drift"
+assert_check_needs migration-scratch-apply "build-migrate"
 assert_check_needs deployable-shape "build-server,build-migrate,build-operator"
 for scheduled_target in \
   backend-unit \
@@ -668,8 +698,11 @@ done
 if [[ "$(check_schedule_field check-service-backed resource_claims)" != "host_cpu,host_io,suite_service_stack" ]]; then
   fail "check-service-backed must claim host_cpu, host_io, and suite_service_stack resources in the check schedule"
 fi
-if [[ "$(check_schedule_field migration-drift resource_claims)" != "host_cpu,host_io,migration_scratch_postgres" ]]; then
-  fail "migration-drift must claim host_cpu, host_io, and migration_scratch_postgres resources in the check schedule"
+if [[ "$(check_schedule_field migration-input-drift resource_claims)" != "host_cpu,host_io" ]]; then
+  fail "migration-input-drift must claim only host_cpu and host_io resources in the check schedule"
+fi
+if [[ "$(check_schedule_field migration-scratch-apply resource_claims)" != "host_cpu,host_io,migration_scratch_postgres" ]]; then
+  fail "migration-scratch-apply must claim host_cpu, host_io, and migration_scratch_postgres resources in the check schedule"
 fi
 
 if grep -Fq 'rg --files' "$makefile"; then
@@ -901,8 +934,9 @@ require_service_backed_schedule_target check-service-backed "check service-backe
 
 mapfile -t check_service_backend_schedule_targets < <(schedule_targets check-service-backed backend)
 check_service_backend_schedule_text="$(printf '%s\n' "${check_service_backend_schedule_targets[@]}")"
-assert_text_contains_targets "check-service-backed schedule" "$check_service_backend_schedule_text" "${target_plan_service_backed_safe_targets[@]}"
+assert_text_contains_targets "check-service-backed schedule" "$check_service_backend_schedule_text" "${target_plan_default_check_service_backed_targets[@]}"
 assert_text_excludes_targets "check-service-backed schedule" "$check_service_backend_schedule_text" "${target_plan_check_heavy_targets[@]}" "${target_plan_service_backed_unsafe_targets[@]}"
+assert_text_excludes_targets "check-service-backed schedule" "$check_service_backend_schedule_text" backend-integration-support
 
 backend_integration_support_block="$(extract_target_block backend-integration-support)"
 if ! text_contains "$backend_integration_support_block" '$(CARTULARY_RUNNER_SCRIPT) go-target backend-integration-support'; then

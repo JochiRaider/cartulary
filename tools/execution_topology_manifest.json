@@ -1122,6 +1122,43 @@
         ],
         "test_target": "self"
       },
+      "migration-input-drift": {
+        "prerequisites": [],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "migration-input-drift",
+        "command": [
+          "./scripts/check-migrations.sh"
+        ],
+        "args": [
+          "--mode",
+          "input"
+        ],
+        "test_target": "self"
+      },
+      "migration-scratch-apply": {
+        "prerequisites": [
+          "build-migrate"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "migration-scratch-apply",
+        "env": {
+          "GO": "$(GO)",
+          "CONFIG_FILE": "$(CONFIG_FILE)",
+          "GOCACHE": "$(GO_CACHE_DIR)",
+          "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
+          "CARTULARY_MIGRATE_BIN": "$(MIGRATE_BIN)"
+        },
+        "command": [
+          "./scripts/check-migrations.sh"
+        ],
+        "args": [
+          "--mode",
+          "scratch"
+        ],
+        "test_target": "self"
+      },
       "deployable-shape": {
         "prerequisites": [
           "build-server",
@@ -3331,7 +3368,73 @@
         }
       },
       {
-        "name": "migration-drift",
+        "name": "migration-input-drift",
+        "backing_scripts": [
+          "scripts/check-migrations.sh"
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "drift_validation",
+          "order": 400,
+          "needs": [
+            "toolchain-drift"
+          ],
+          "local_input_stamp": {
+            "profile": "migration_input_drift"
+          }
+        },
+        "output_policy": {
+          "output_class": "summary_with_artifacts",
+          "artifact_policy": "tool_run_summary",
+          "success_budget": {
+            "stdout_lines": 2,
+            "stdout_bytes": 600,
+            "stderr_lines": 0,
+            "stderr_bytes": 0
+          },
+          "failure_budget": {
+            "stderr_lines": 35,
+            "stderr_bytes": 6000,
+            "excerpt_lines": 25,
+            "excerpt_bytes": 4096
+          },
+          "raw_stream_policy": "never_default",
+          "summary_schema": "cartulary.tool_run_summary.v3"
+        },
+        "command_id": "cartulary.harness.command.migration_input_drift.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child",
+        "side_effects": [
+          {
+            "class": "retained_artifacts",
+            "owner_section": "Section 8",
+            "artifact_policy": "tool_run_summary"
+          }
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
+      },
+      {
+        "name": "migration-scratch-apply",
         "service_requirements": [
           "postgres"
         ],
@@ -3347,11 +3450,75 @@
           "order": 0,
           "needs": [
             "build-migrate"
-          ],
-          "local_input_stamp": {
-            "profile": "migration_drift"
-          }
+          ]
         },
+        "output_policy": {
+          "output_class": "summary_with_artifacts",
+          "artifact_policy": "tool_run_summary",
+          "success_budget": {
+            "stdout_lines": 2,
+            "stdout_bytes": 600,
+            "stderr_lines": 0,
+            "stderr_bytes": 0
+          },
+          "failure_budget": {
+            "stderr_lines": 35,
+            "stderr_bytes": 6000,
+            "excerpt_lines": 25,
+            "excerpt_bytes": 4096
+          },
+          "raw_stream_policy": "never_default",
+          "summary_schema": "cartulary.tool_run_summary.v3"
+        },
+        "command_id": "cartulary.harness.command.migration_scratch_apply.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child",
+        "side_effects": [
+          {
+            "class": "retained_artifacts",
+            "owner_section": "Section 8",
+            "artifact_policy": "tool_run_summary"
+          },
+          {
+            "class": "service_resource_mutation",
+            "owner_section": "Section 11",
+            "ownership_mode": "local_or_scratch",
+            "resource_families": [
+              "scratch databases",
+              "object buckets or prefixes",
+              "fixture resources",
+              "runtime roots"
+            ],
+            "lifecycle_machine": "fixture and service lifecycle from Section 11"
+          }
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
+      },
+      {
+        "name": "migration-drift",
+        "service_requirements": [
+          "postgres"
+        ],
+        "backing_scripts": [
+          "scripts/check-migrations.sh"
+        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -9553,7 +9720,8 @@
         "selectors": {
           "backend": {
             "service_backed": true,
-            "check_service_backed_safe": true
+            "check_service_backed_safe": true,
+            "default_check_required": true
           },
           "browser": {
             "schedule_tags": [

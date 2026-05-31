@@ -25,6 +25,8 @@ import {
   phaseLedgerKeys,
   phaseManifestEntryKeys,
   supportGoEntryKeys,
+  validBackendEvidenceClasses,
+  validBackendLayers,
   validatePhaseManifestShape,
 } from "./phase-manifest-shape.mjs";
 
@@ -43,6 +45,12 @@ const implementationTestingGuidePath = path.join(
 const validCoverage = new Set(["authoritative", "supplemental"]);
 const validGoSections = new Set(["unit", "integration", "e2e"]);
 const validClaimStatuses = new Set(["implemented", "blocked", "not_applicable"]);
+const defaultReasonRequiredLayers = new Set([
+  "browser_functional",
+  "browser_stateful",
+  "browser_support",
+  "browser_visual",
+]);
 const phasePolicyExceptionsSchemaID = "cartulary.phase_policy_exceptions.v1";
 const validPhasePolicyExceptionTypes = new Set(["allowed_empty_go_manifest_selection"]);
 const phasePolicyExceptionKeys = new Set([
@@ -238,6 +246,27 @@ function validateExecutionFamily(entry, label) {
   }
   if (typeof entry.execution_label !== "string" || entry.execution_label.trim() === "") {
     throw new Error(`${label} must declare execution_label`);
+  }
+}
+
+function validateEvidencePlacement(entry, label) {
+  if (typeof entry.evidence_class !== "string" || !validBackendEvidenceClasses.has(entry.evidence_class)) {
+    throw new Error(`${label} must declare closed evidence_class`);
+  }
+  if (typeof entry.layer !== "string" || !validBackendLayers.has(entry.layer)) {
+    throw new Error(`${label} must declare closed layer`);
+  }
+  if (typeof entry.default_check_required !== "boolean") {
+    throw new Error(`${label} must declare default_check_required as a boolean`);
+  }
+  const requiresReason =
+    entry.default_check_required === true &&
+    (entry.evidence_class !== "product_conformance" ||
+      defaultReasonRequiredLayers.has(entry.layer));
+  if (requiresReason) {
+    if (typeof entry.default_check_reason !== "string" || entry.default_check_reason.trim() === "") {
+      throw new Error(`${label} must declare default_check_reason for non-obvious default check inclusion`);
+    }
   }
 }
 
@@ -997,6 +1026,7 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
       if (typeof entry.coverage !== "string" || !validCoverage.has(entry.coverage)) {
         throw new Error(`manifest entry ${entry.id} must declare coverage=authoritative|supplemental`);
       }
+      validateEvidencePlacement(entry, `manifest entry ${entry.id}`);
       if (
         typeof entry.execution_dependency === "string" &&
         !validExecutionDependencies.has(entry.execution_dependency)
@@ -1091,6 +1121,7 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
         `${supportGoEntryLabel(entry)} must declare target=backend_unit|backend_integration_support`,
       );
     }
+    validateEvidencePlacement(entry, supportGoEntryLabel(entry));
     if (typeof entry.section !== "string" || !validGoSections.has(entry.section)) {
       throw new Error(`${supportGoEntryLabel(entry)} must declare section=unit|integration|e2e`);
     }

@@ -90,7 +90,10 @@
       ],
       "selection_pattern": "TestSupportPhase3Unit_",
       "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit support phase3"
+      "execution_label": "backend-unit support phase3",
+      "evidence_class": "implementation_support",
+      "layer": "backend_unit",
+      "default_check_required": false
     },
     {
       "target": "backend_integration_support",
@@ -100,7 +103,19 @@
       "symbol": "TestSupportPhase3Integration_AuthorizationMatrix",
       "selection_pattern": "TestSupportPhase3Integration_",
       "execution_family": "backend-integration-timeline",
-      "execution_label": "backend-integration support phase3 timeline"
+      "execution_label": "backend-integration support phase3 timeline",
+      "evidence_class": "implementation_support",
+      "layer": "backend_integration_support",
+      "default_check_required": false,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database."
     },
     {
       "target": "backend_integration_support",
@@ -110,7 +125,19 @@
       "symbol": "TestSupportPhase3Integration_RouteIdempotencyIsActorScoped",
       "selection_pattern": "TestSupportPhase3Integration_",
       "execution_family": "backend-integration-timeline",
-      "execution_label": "backend-integration support phase3 timeline"
+      "execution_label": "backend-integration support phase3 timeline",
+      "evidence_class": "implementation_support",
+      "layer": "backend_integration_support",
+      "default_check_required": false,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Support integration evidence starts committed runtime or store fixtures and requires an isolated template-clone database."
     }
   ],
   "unit": [
@@ -126,7 +153,18 @@
       "claim": "A one-value Timeline create commits a real row, assigns `record_id`, starts at `row_version=1`, and persists the Timeline projection row.",
       "out_of_scope": "Browser-visible create flow and draft-row continuation remain browser evidence.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase3 authoritative"
+      "execution_label": "backend-store phase3 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-3-02",
@@ -140,7 +178,18 @@
       "claim": "A committed Timeline create initializes `capture_state='rough'` on the persisted row and projection state.",
       "out_of_scope": "Obsolete lifecycle-token rejection remains supplemental helper coverage until a public executed submission path owns that proof.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase3 authoritative"
+      "execution_label": "backend-store phase3 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-3-03",
@@ -154,7 +203,18 @@
       "claim": "The first material patch transitions `rough -> enriched`, and store-driven `mark-reviewed` persists an explicit `reviewed` transition on real store state.",
       "out_of_scope": "Reviewer or admin authorization is owned by `I-3-03`, not this store-only row.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase3 authoritative"
+      "execution_label": "backend-store phase3 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-3-04",
@@ -168,7 +228,18 @@
       "claim": "A material edit demotes `reviewed -> enriched`, legal supersede persists `superseded`, and ordinary patch attempts fail closed afterwards.",
       "out_of_scope": "Replacement-target guards and rollback coupling are owned by `U-3-10` and integration rows.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase3 authoritative"
+      "execution_label": "backend-store phase3 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-3-05",
@@ -179,7 +250,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The workbook component proves autosave commits on Enter, Tab, blur, and paste completion without a Save button, with exact `Syncing`, `Saved`, and `Conflict` labels.",
-      "out_of_scope": "Focus continuation on the real browser surface remains `E-3-01`."
+      "out_of_scope": "Focus continuation on the real browser surface remains `E-3-01`.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-3-06",
@@ -193,7 +267,10 @@
       "claim": "Patch decode fails closed on missing required members, duplicate `field_key` entries, empty `changes[]`, protected field mutations, and unknown top-level members.",
       "out_of_scope": "Durable patch consequences remain store or integration evidence.",
       "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit phase3 authoritative"
+      "execution_label": "backend-unit phase3 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-3-07",
@@ -207,7 +284,18 @@
       "claim": "Patch replay returns the original committed result and creates no second mutation row or record revision on the write substrate.",
       "out_of_scope": "Collaboration suppression remains integration and browser evidence.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase3 authoritative"
+      "execution_label": "backend-store phase3 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-3-08",
@@ -221,7 +309,10 @@
       "claim": "Timeline projection contract shaping exposes the full grid-owned field contract and keeps stable `record_id` and `row_version` binding plus derived field shapes.",
       "out_of_scope": "Persisted rebuild maintenance remains integration evidence.",
       "execution_family": "backend-unit-core",
-      "execution_label": "backend-unit phase3 authoritative"
+      "execution_label": "backend-unit phase3 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-3-09",
@@ -235,7 +326,18 @@
       "claim": "Successful Timeline create and patch each write one attributed mutation entry and one new row revision on the real write substrate.",
       "out_of_scope": "Browser-visible history inspection is deferred to later phases.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase3 authoritative"
+      "execution_label": "backend-store phase3 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-3-10",
@@ -249,7 +351,18 @@
       "claim": "Supersede-with-replacement rejects illegal targets, replays idempotently, writes one coupled `timeline_record` plus one `record_link` mutation in one change set, and rollback removes both lifecycle and link state together.",
       "out_of_scope": "End-to-end action routing and visible browser disclosure remain integration and browser evidence.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase3 authoritative"
+      "execution_label": "backend-store phase3 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-3-11",
@@ -263,7 +376,18 @@
       "claim": "Stale Timeline patches derive committed writable field changes since the client base row version. Different-field edits rebase, same-field direct edits return `same_field_conflict`, collection fields use `collection_value_v1`, lifecycle-only stale edits apply against current state, and replay precedence remains idempotent.",
       "out_of_scope": "HTTP conflict envelope transport and browser-visible concurrent editing behavior remain integration or browser evidence.",
       "execution_family": "backend-store",
-      "execution_label": "backend-store phase3 authoritative"
+      "execution_label": "backend-store phase3 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 8
+        }
+      }
     },
     {
       "id": "U-3-12",
@@ -274,7 +398,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The workbook create payload builder omits zero-field creates during ordinary draft autosave, but emits `client_txn_id`-only payloads for explicit blank-row creation.",
-      "out_of_scope": "Server-side zero-field validation and durable initial row state remain backend store or integration evidence."
+      "out_of_scope": "Server-side zero-field validation and durable initial row state remain backend store or integration evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-3-13",
@@ -285,7 +412,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The workbook blank-row action submits exactly one pending `client_txn_id`-only create for a duplicate click burst and renders the committed rough Timeline row plus a fresh draft row.",
-      "out_of_scope": "Real browser create continuation remains `E-3-01`; backend replay and projection durability remain integration evidence."
+      "out_of_scope": "Real browser create continuation remains `E-3-01`; backend replay and projection durability remain integration evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-3-GRID-01",
@@ -296,7 +426,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The RDG-backed workbook grid binds Timeline columns from the active `view_schema` and commits writable cells by authoritative `field_key`.",
-      "out_of_scope": "Vendor-specific RDG behavior stays with adapter tests; this row owns workbook binding only."
+      "out_of_scope": "Vendor-specific RDG behavior stays with adapter tests; this row owns workbook binding only.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-3-GRID-02",
@@ -307,7 +440,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The RDG-backed workbook grid keeps saved-row identity bound to `record_id` and `row_version` rather than visible row position.",
-      "out_of_scope": "Real browser reorder regressions remain supplemental coverage."
+      "out_of_scope": "Real browser reorder regressions remain supplemental coverage.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     },
     {
       "id": "U-3-GRID-03",
@@ -318,7 +454,10 @@
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The RDG-backed workbook grid keeps sorted and filtered local edits bound to the original `record_id`, `base_row_version`, and `field_key`.",
-      "out_of_scope": "End-to-end browser interaction remains supplemental because this row owns workbook binding semantics."
+      "out_of_scope": "End-to-end browser interaction remains supplemental because this row owns workbook binding semantics.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true
     }
   ],
   "integration": [
@@ -334,7 +473,19 @@
       "claim": "Real HTTP create, patch, review, supersede, replay, mutation history, projection maintenance, WebSocket invalidation, and rollback stay transactionally coherent.",
       "out_of_scope": "None.",
       "execution_family": "backend-integration-timeline",
-      "execution_label": "backend-integration phase3 authoritative timeline"
+      "execution_label": "backend-integration phase3 authoritative timeline",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-3-02",
@@ -348,7 +499,19 @@
       "claim": "The query route reads projection rows instead of source rows, and deterministic rebuild restores the same Timeline query surface.",
       "out_of_scope": "None.",
       "execution_family": "backend-integration-timeline",
-      "execution_label": "backend-integration phase3 authoritative timeline"
+      "execution_label": "backend-integration phase3 authoritative timeline",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-3-03",
@@ -362,7 +525,19 @@
       "claim": "Incident-role authorization, review and supersede legality, replay semantics, replacement-target guards, and supersede change-set shape all hold on the live route surface.",
       "out_of_scope": "Malformed route-envelope matrix coverage is owned by `I-3-06`.",
       "execution_family": "backend-integration-timeline",
-      "execution_label": "backend-integration phase3 authoritative timeline"
+      "execution_label": "backend-integration phase3 authoritative timeline",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-3-04",
@@ -376,7 +551,19 @@
       "claim": "Same-field Timeline patch conflicts are transported as `409 same_field_conflict` with `error.conflict` and no mutation or idempotency write.",
       "out_of_scope": "Field-level rebase and conflict payload construction remain store-domain evidence; browser conflict resolution remains Phase 6 evidence.",
       "execution_family": "backend-integration-timeline",
-      "execution_label": "backend-integration phase3 authoritative timeline"
+      "execution_label": "backend-integration phase3 authoritative timeline",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-3-05",
@@ -390,7 +577,19 @@
       "claim": "The canonical incident WebSocket route proves hello, hello_ack, presence_snapshot ordering, membership-gated acceptance, browser-origin rejection, and incident-access revocation while preserving access to other authorized incidents.",
       "out_of_scope": "Session-wide logout and concurrency revocation consequences remain Phase 1 evidence.",
       "execution_family": "backend-integration-timeline",
-      "execution_label": "backend-integration phase3 authoritative timeline"
+      "execution_label": "backend-integration phase3 authoritative timeline",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-3-06",
@@ -404,7 +603,19 @@
       "claim": "Create, patch, mark-reviewed, supersede, query, and WebSocket pre-upgrade failure paths return common error envelopes with route-specific details and no malformed-request writes.",
       "out_of_scope": "Untrusted WebSocket origin remains AC-131 status-only rejection unless the owner spec adds a public JSON error code.",
       "execution_family": "backend-integration-timeline",
-      "execution_label": "backend-integration phase3 authoritative timeline"
+      "execution_label": "backend-integration phase3 authoritative timeline",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-3-07",
@@ -418,7 +629,19 @@
       "claim": "Rough and uncertain Timeline capture preserves null structured fields, raw details, source text, and unresolved mention text through later explicit resolution.",
       "out_of_scope": "Entity merge lineage and browser-visible resolution workflows remain Phase 4 evidence.",
       "execution_family": "backend-integration-timeline",
-      "execution_label": "backend-integration phase3 authoritative timeline"
+      "execution_label": "backend-integration phase3 authoritative timeline",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     }
   ],
   "e2e": [
@@ -431,7 +654,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "A user creates a Timeline row on the real workbook surface and immediately continues editing on the fresh draft row without leaving the grid.",
-      "out_of_scope": "None."
+      "out_of_scope": "None.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-3-02",
@@ -442,7 +669,10 @@
       "execution_dependency": "browser_measurement",
       "evidence_layer": "browser_measurement",
       "claim": "The isolated measurement suite proves one real-stack visible `Syncing -> Saved` transition under controlled latency, then measures typing acknowledgement and blank-row-create completion against the Phase 3 envelope.",
-      "out_of_scope": "`Conflict` labeling remains component-layer evidence."
+      "out_of_scope": "`Conflict` labeling remains component-layer evidence.",
+      "evidence_class": "measurement",
+      "layer": "browser_measurement",
+      "default_check_required": false
     },
     {
       "id": "E-3-03",
@@ -453,7 +683,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "A reviewer-session browser flow visibly performs review, material-edit demotion, legal supersede, and post-supersede disabling on the workbook surface.",
-      "out_of_scope": "Durable substrate counts and replay internals remain backend or disclosed hybrid evidence."
+      "out_of_scope": "Durable substrate counts and replay internals remain backend or disclosed hybrid evidence.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-3-04",
@@ -464,7 +698,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Real browser replay preserves the original committed result, avoids duplicate history growth, and suppresses duplicate visible invalidation.",
-      "out_of_scope": "The disclosed snapshot harness is intentionally test-only and not part of runtime behavior."
+      "out_of_scope": "The disclosed snapshot harness is intentionally test-only and not part of runtime behavior.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-3-SUPPORT-01",
@@ -473,7 +711,10 @@
       "file": "apps/web/e2e/phase3.support.spec.ts",
       "title": "FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.",
       "execution_dependency": "browser_support",
-      "evidence_layer": "browser_support"
+      "evidence_layer": "browser_support",
+      "evidence_class": "implementation_support",
+      "layer": "browser_support",
+      "default_check_required": false
     },
     {
       "id": "E-3-SUPPORT-02",
@@ -482,7 +723,10 @@
       "file": "apps/web/e2e/phase3.support.spec.ts",
       "title": "support Phase 3 keeps a pending edit anchored to its record under sort, filter, group, and live invalidation",
       "execution_dependency": "browser_support",
-      "evidence_layer": "browser_support"
+      "evidence_layer": "browser_support",
+      "evidence_class": "implementation_support",
+      "layer": "browser_support",
+      "default_check_required": false
     },
     {
       "id": "E-3-SUPPORT-03",
@@ -491,7 +735,10 @@
       "file": "apps/web/e2e/phase3.support.spec.ts",
       "title": "support Phase 3 keeps repeated scalar grid edits out of the RDG measured-width crash path",
       "execution_dependency": "browser_support",
-      "evidence_layer": "browser_support"
+      "evidence_layer": "browser_support",
+      "evidence_class": "implementation_support",
+      "layer": "browser_support",
+      "default_check_required": false
     }
   ],
   "visual": [
@@ -507,7 +754,10 @@
         "VFIX-GRID-01"
       ],
       "claim": "The visual harness captures a deterministic Timeline default viewport with visible row version and save-state strip while masking generated incident identity.",
-      "out_of_scope": "Presence, row-gutter collaboration markers, frozen columns, and future grid controls remain owned by later phase visual rows when exposed."
+      "out_of_scope": "Presence, row-gutter collaboration markers, frozen columns, and future grid controls remain owned by later phase visual rows when exposed.",
+      "evidence_class": "visual_readiness",
+      "layer": "browser_visual",
+      "default_check_required": false
     },
     {
       "id": "V-3-GRID-02",
@@ -522,7 +772,10 @@
         "VFIX-GRID-12"
       ],
       "claim": "The visual harness drives the real Timeline workbook surface through active edit, `Syncing`, `Saved`, and `Conflict` save-state presentations.",
-      "out_of_scope": "Full same-field conflict resolution UI remains Phase 6 evidence."
+      "out_of_scope": "Full same-field conflict resolution UI remains Phase 6 evidence.",
+      "evidence_class": "visual_readiness",
+      "layer": "browser_visual",
+      "default_check_required": false
     },
     {
       "id": "V-3-GRID-03",
@@ -536,7 +789,10 @@
         "VFIX-GRID-06"
       ],
       "claim": "The visual harness captures a deterministic grouped Timeline viewport with group headers rendered as presentation-only rows and visible grid chrome currently exposed by the product.",
-      "out_of_scope": "Drag-fill, resize handles, treegrid controls, and frozen-column visual states are not claimed until those capabilities are product-exposed."
+      "out_of_scope": "Drag-fill, resize handles, treegrid controls, and frozen-column visual states are not claimed until those capabilities are product-exposed.",
+      "evidence_class": "visual_readiness",
+      "layer": "browser_visual",
+      "default_check_required": false
     }
   ]
 }

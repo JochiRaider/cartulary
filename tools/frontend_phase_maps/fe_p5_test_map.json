@@ -40,7 +40,8 @@
       "scenario_titles": [],
       "claim_status": "blocked",
       "claim": "Verify mention chip view models preserve unresolved, resolved, auto-resolved, dismissed, and manual-resolution state by stable identifiers and field keys.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-I-P5-01",
@@ -104,7 +105,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-E-P5-01",
@@ -157,7 +159,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-V-P5-01",
@@ -183,7 +186,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution state fixtures.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     },
     {
       "id": "FE-A11Y-P5-01",
@@ -210,7 +214,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     }
   ]
 }

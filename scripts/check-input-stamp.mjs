@@ -21,19 +21,14 @@ const profiles = {
     ],
     env: ["SHELLCHECK_BIN", "SHELLCHECK_VERSION", "LINT_SHELL_STRICT"],
   },
-  migration_drift: {
-    prefixes: ["cmd/migrate/", "cmd/operator/", "db/migrations/", "internal/app/", "internal/platform/", "scripts/"],
-    suffixes: [".go", ".sql", ".sh"],
+  migration_input_drift: {
+    prefixes: ["db/migrations/"],
+    suffixes: [".sql"],
     files: [
       "Makefile",
-      "go.mod",
-      "go.sum",
-      "configs/dev/config.toml",
-      "docker-compose.dev.yml",
       "scripts/check-migrations.sh",
-      "scripts/dev-services.sh",
     ],
-    env: ["GO", "CONFIG_FILE", "CARTULARY_MIGRATE_BIN"],
+    env: ["CARTULARY_MIGRATIONS_DIR"],
   },
   static_artifact_validation: {
     prefixes: ["contracts/", "scripts/", "tools/", "docs/spec/"],

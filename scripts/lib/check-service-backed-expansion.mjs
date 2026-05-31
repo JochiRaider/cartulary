@@ -409,7 +409,9 @@ export function expandServiceBackedScheduleForCheck({
       throw new Error(`${scheduleTarget} source ${source.target} has unsupported type ${source.type}`);
     }
 
-    const shards = collectGoShardsForTarget(repoRoot, source.target);
+    const shards = collectGoShardsForTarget(repoRoot, source.target, {
+      defaultCheckOnly: source.default_check_required === true,
+    });
     if (shards.length === 0) {
       throw new Error(`${scheduleTarget} go_shards source ${source.target} selected no shards`);
     }
@@ -720,7 +722,9 @@ export function expandServiceBackedSchedule({
       throw new Error(`${scheduleTarget} source ${source.target} has unsupported type ${source.type}`);
     }
 
-    const shards = collectGoShardsForTarget(repoRoot, source.target);
+    const shards = collectGoShardsForTarget(repoRoot, source.target, {
+      defaultCheckOnly: source.default_check_required === true,
+    });
     if (shards.length === 0) {
       throw new Error(`${scheduleTarget} go_shards source ${source.target} selected no shards`);
     }

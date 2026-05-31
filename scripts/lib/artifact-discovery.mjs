@@ -96,6 +96,8 @@ export function expectedTargetArtifacts(target, { root = repoRoot } = {}) {
   if (recipeType === "check_schedule" || recipeType === "service_backed_schedule") {
     expected.push(
       relToRepo(path.join(resultsRoot, "<run-id>", target, "scheduler-summary.json"), root),
+      relToRepo(path.join(resultsRoot, "<run-id>", target, "scheduler-events.jsonl"), root),
+      relToRepo(path.join(resultsRoot, "<run-id>", target, "pressure-summary.json"), root),
       relToRepo(path.join(resultsRoot, "<run-id>", target, "progress-summary.log"), root),
     );
   }
@@ -130,6 +132,14 @@ export function targetArtifactCandidates(target, { root = repoRoot } = {}) {
     const schedulerSummary = path.join(targetDir, "scheduler-summary.json");
     if (existsSync(schedulerSummary) && safeReadJSON(schedulerSummary)?.target === target) {
       candidates.push(artifactRecord(schedulerSummary, "scheduler_summary", runID, root));
+    }
+    const schedulerEvents = path.join(targetDir, "scheduler-events.jsonl");
+    if (existsSync(schedulerEvents)) {
+      candidates.push(artifactRecord(schedulerEvents, "scheduler_events", runID, root));
+    }
+    const pressureSummary = path.join(targetDir, "pressure-summary.json");
+    if (existsSync(pressureSummary) && safeReadJSON(pressureSummary)?.target === target) {
+      candidates.push(artifactRecord(pressureSummary, "pressure_summary", runID, root));
     }
     if (hasRunSummary) {
       const runSummary = path.join(runDir, "run-summary.json");

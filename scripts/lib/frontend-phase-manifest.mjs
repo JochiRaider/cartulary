@@ -5,6 +5,7 @@ import {
   assertObjectKeys,
   assertUnique,
   readJsonObject,
+  requireBoolean,
   requireEnum,
   requireObjectArray,
   requireRepoRelativePath,
@@ -38,6 +39,7 @@ const rowKeys = new Set([
   "id",
   "layer",
   "evidence_class",
+  "default_check_required",
   "owner_refs",
   "core_req_ids",
   "core_ac_ids",
@@ -332,6 +334,7 @@ export function validateFrontendPhaseMap(
       `${rowLabel}.evidence_class`,
       validEvidenceClasses,
     );
+    requireBoolean(row.default_check_required, `${rowLabel}.default_check_required`);
     requireStringArray(row.owner_refs, `${rowLabel}.owner_refs`, {
       nonEmpty: true,
     });

@@ -109,7 +109,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Phase 7 history route coverage will exercise persisted change sets, mutation entries, record revisions, records, and tombstone state through the runtime-backed store harness."
+      "template_clone_reason": "Phase 7 history route coverage will exercise persisted change sets, mutation entries, record revisions, records, and tombstone state through the runtime-backed store harness.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-7-02",
@@ -132,7 +135,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Selector stability coverage needs durable persisted history materialization rather than in-memory-only helpers."
+      "template_clone_reason": "Selector stability coverage needs durable persisted history materialization rather than in-memory-only helpers.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-7-03",
@@ -158,7 +164,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Soft-delete route coverage requires persisted record envelope state and route-scoped idempotency."
+      "template_clone_reason": "Soft-delete route coverage requires persisted record envelope state and route-scoped idempotency.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-7-04",
@@ -181,7 +190,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Restore route coverage needs durable tombstone concurrency and append-only history state."
+      "template_clone_reason": "Restore route coverage needs durable tombstone concurrency and append-only history state.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-7-05",
@@ -204,7 +216,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Rollback selector coverage requires persisted change sets, mutation entries, and record revisions."
+      "template_clone_reason": "Rollback selector coverage requires persisted change sets, mutation entries, and record revisions.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-7-06",
@@ -227,7 +242,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Lock precedence coverage needs real transaction-scoped persisted record locks."
+      "template_clone_reason": "Lock precedence coverage needs real transaction-scoped persisted record locks.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     },
     {
       "id": "U-7-07",
@@ -250,7 +268,10 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Retained-history coverage needs durable committed state across lifecycle transitions and restart boundaries."
+      "template_clone_reason": "Retained-history coverage needs durable committed state across lifecycle transitions and restart boundaries.",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true
     }
   ],
   "integration": [
@@ -266,7 +287,19 @@
       "claim": "Sprint 4 covers delete, restore, single-entry rollback, direct attached-evidence create/delete association rollback, executable whole-change-set rollback for reversible non-merge substrate, and whole-row restore across source rows, projections, history rows, record revisions, affected_record_ids, and ordinary record_changed collaboration events.",
       "out_of_scope": "Reviewer workbook UI, browser workflows, and typed tag rollback remain unclaimed.",
       "execution_family": "backend-integration-revisions",
-      "execution_label": "backend-integration phase7 revisions"
+      "execution_label": "backend-integration phase7 revisions",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-7-02",
@@ -280,7 +313,19 @@
       "claim": "History pagination remains bound to `record_id`, rejects cross-record cursor replay, and preserves deterministic item ordering across pages.",
       "out_of_scope": "General pagination registry behavior remains existing platform support evidence.",
       "execution_family": "backend-integration-revisions",
-      "execution_label": "backend-integration phase7 revisions"
+      "execution_label": "backend-integration phase7 revisions",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-7-03",
@@ -294,7 +339,19 @@
       "claim": "Sprint 4 covers stale restore plus stale or non-reversible single-entry, whole-change-set, and row-restore rollback failure as closed transactions: no envelope/source state, projection, history, idempotency, or collaboration event changes.",
       "out_of_scope": "Merge-specific stale base-version rollback is covered by `I-7-05`; later dependent merge graph edits remain closed by the shared rollback precondition substrate.",
       "execution_family": "backend-integration-revisions",
-      "execution_label": "backend-integration phase7 revisions"
+      "execution_label": "backend-integration phase7 revisions",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-7-04",
@@ -308,7 +365,19 @@
       "claim": "Sprint 4 retained-history evidence for an extant record remains fully paginatable and stable across the explicit restart, incident-closure, and later-change sequence covered by this test, with prior `history_entry_ref` values preserved.",
       "out_of_scope": "Incident portability selector preservation across deployments is outside Phase 7; Sprint 5 browser rows own reviewer workbook UI evidence.",
       "execution_family": "backend-integration-revisions",
-      "execution_label": "backend-integration phase7 revisions"
+      "execution_label": "backend-integration phase7 revisions",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     },
     {
       "id": "I-7-05",
@@ -322,7 +391,19 @@
       "claim": "Merge-aware change-set rollback restores survivor and loser entity rows, carried aliases and preserved identifiers, repointed or deduped mentions, links, tags, assessments, projections, canonical affected records, append-only rollback history, idempotent replay, and stale base-version failure through the existing rollback route.",
       "out_of_scope": "Browser-visible merge rollback remains hidden unless the server supplies legal row-history rollback metadata for that merge change set; typed tag rollback remains a Phase 8 owner dependency.",
       "execution_family": "backend-integration-revisions",
-      "execution_label": "backend-integration phase7 revisions"
+      "execution_label": "backend-integration phase7 revisions",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
     }
   ],
   "e2e": [
@@ -335,7 +416,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Sprint 5 opens row history from the selected Timeline workbook row and renders actor, timestamp, operation, diff summary, and legal action controls from server-owned history metadata.",
-      "out_of_scope": "The browser row does not claim Phase 8 saved-view behavior, Phase 9 keyboard or clipboard behavior, typed tag rollback, or full Phase 7 exit."
+      "out_of_scope": "The browser row does not claim Phase 8 saved-view behavior, Phase 9 keyboard or clipboard behavior, typed tag rollback, or full Phase 7 exit.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-7-02",
@@ -346,7 +431,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Sprint 5 uses a server-supplied `history_entry_ref` from row history to roll back an attached-evidence record-link mutation, proves another client observes an ordinary `record_changed` `invalidate` event for the affected Timeline view, and proves a later unrelated row summary edit remains intact.",
-      "out_of_scope": "Typed tag rollback and client-inferred rollback legality remain unclaimed."
+      "out_of_scope": "Typed tag rollback and client-inferred rollback legality remain unclaimed.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-7-03",
@@ -357,7 +446,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Sprint 5 soft-deletes and restores a Timeline row from workbook history controls using current and tombstone row versions, while another client observes ordinary `record_changed` `remove` and `invalidate` collaboration messages.",
-      "out_of_scope": "The browser row does not claim any special collaboration event family, Phase 8 saved-view behavior, or Phase 9 keyboard or clipboard behavior."
+      "out_of_scope": "The browser row does not claim any special collaboration event family, Phase 8 saved-view behavior, or Phase 9 keyboard or clipboard behavior.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-7-04",
@@ -368,7 +461,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Sprint 5 invokes a server-supplied `row_restore` action from row history, proves the rollback request uses only `restore_to_revision_no`, verifies the visible Timeline summary returns to the selected historical snapshot, and confirms prior history remains visible after the new attributed revision with actor attribution and timestamp metadata.",
-      "out_of_scope": "Browser non-merge whole-change-set rollback, typed tag rollback, Phase 8 saved-view behavior, and Phase 9 keyboard or clipboard behavior remain unclaimed."
+      "out_of_scope": "Browser non-merge whole-change-set rollback, typed tag rollback, Phase 8 saved-view behavior, and Phase 9 keyboard or clipboard behavior remain unclaimed.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     },
     {
       "id": "E-7-05",
@@ -379,7 +476,11 @@
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
       "claim": "Sprint 5 invokes a server-supplied `change_set` action from survivor host row history after a merge, sends the rollback request through the existing rollback route without an unmerge API, and verifies survivor and loser host rows return to the workbook surface.",
-      "out_of_scope": "Typed tag rollback, Phase 8 saved-view behavior, and Phase 9 keyboard or clipboard behavior remain unclaimed."
+      "out_of_scope": "Typed tag rollback, Phase 8 saved-view behavior, and Phase 9 keyboard or clipboard behavior remain unclaimed.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves cross-stack workflow behavior that lower layers cannot fully exercise."
     }
   ]
 }

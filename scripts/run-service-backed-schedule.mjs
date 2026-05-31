@@ -696,7 +696,9 @@ function _expandSchedule(schedule) {
       continue;
     }
 
-    const shards = collectGoShardsForTarget(repoRoot, source.target);
+    const shards = collectGoShardsForTarget(repoRoot, source.target, {
+      defaultCheckOnly: source.default_check_required === true,
+    });
     if (shards.length === 0) {
       throw new Error(`go_shards source ${source.target} selected no shards`);
     }

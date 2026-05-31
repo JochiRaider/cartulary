@@ -368,7 +368,7 @@ assert.deepEqual(artifactSnapshot(), artifactSnapshot(), "topology artifact rend
 const renderedCheckSchedule = renderCheckScheduleManifest(topology);
 const checkSchedule = renderedCheckSchedule.schedules.find((schedule) => schedule.target === "check");
 assert.ok(checkSchedule, "rendered check schedule must include check");
-assert.equal(checkSchedule.work_units.length, 38, "check schedule must render the current check work-unit set");
+assert.equal(checkSchedule.work_units.length, 39, "check schedule must render the current check work-unit set");
 assert.deepEqual(
   checkSchedule.work_units.find((unit) => unit.target === "lint-shell")?.env,
   { LINT_SHELL_STRICT: "1" },
@@ -406,7 +406,7 @@ assert.deepEqual(
     ["testservices-build", 38050],
     ["test-service-images", 38000],
     ["check-service-backed", 37000],
-    ["migration-drift", 27000],
+    ["migration-scratch-apply", 27000],
     ["deployable-shape", 26000],
     ["backend-unit", 25000],
     ["frontend-typecheck", 24000],
@@ -431,6 +431,7 @@ assert.deepEqual(
     ["service-backed-unit-check", 11100],
     ["generated-artifact-policy-check", 11050],
     ["generate-drift", 11000],
+    ["migration-input-drift", 10900],
   ],
   "profile-expanded check schedule must preserve setup fanout and DAG priority order",
 );
@@ -772,7 +773,7 @@ assert.throws(
     loadExecutionTopology({
       manifestPath: writeTopologyFixture("missing-service-boundary-topology.json", missingServiceBoundaryTopology),
     }),
-  /migration-drift\.check_schedule target declares service_requirements and must claim a check service boundary resource/,
+  /migration-scratch-apply\.check_schedule target declares service_requirements and must claim a check service boundary resource/,
   "topology validation must require a boundary resource for service-backed check schedule profiles",
 );
 

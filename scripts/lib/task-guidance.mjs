@@ -120,7 +120,12 @@ function phaseRowsForTarget(target, rows) {
     );
   }
   if (target === "check") {
-    return rows.filter((row) => row.coverage !== "raw" && row.target !== "browser-e2e-measurement");
+    return rows.filter(
+      (row) =>
+        row.coverage !== "raw" &&
+        row.target !== "browser-e2e-measurement" &&
+        row.default_check_required === true,
+    );
   }
   if (["test", "ci", "release-check"].includes(target)) {
     return rows.filter((row) => row.coverage !== "raw");

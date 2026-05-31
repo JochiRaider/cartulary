@@ -112,6 +112,64 @@ function slowestWork(completedWork) {
     .slice(0, 5);
 }
 
+function incrementCount(counts, key, amount = 1) {
+  if (!key) {
+    return;
+  }
+  counts[key] = (counts[key] ?? 0) + amount;
+}
+
+function pressureFixtureClass(resourceClaims) {
+  if (resourceClaims.migration_scratch_postgres) {
+    return "migration_scratch";
+  }
+  if (resourceClaims.postgres_clone) {
+    return "template_clone";
+  }
+  if (resourceClaims.postgres_reset) {
+    return "package_reset";
+  }
+  if (resourceClaims.postgres) {
+    return "transaction_or_shared_postgres";
+  }
+  return "";
+}
+
+function buildPressureSummary({ reporter, status, slowest, timing }) {
+  const resourceClaimCounts = {};
+  const fixtureClassCounts = {};
+  const laneDurations = {};
+  const targetCounts = {};
+  for (const record of reporter.completedWork) {
+    if (record.kind !== "work_unit") {
+      continue;
+    }
+    const lane = record.aggregate_target || record.service_session_target || record.label;
+    laneDurations[lane] = (laneDurations[lane] ?? 0) + record.duration_ms;
+    incrementCount(targetCounts, lane);
+    for (const [resource, amount] of Object.entries(record.resource_claims ?? {})) {
+      if (amount) {
+        incrementCount(resourceClaimCounts, resource, Number(amount));
+      }
+    }
+    incrementCount(fixtureClassCounts, pressureFixtureClass(record.resource_claims ?? {}));
+  }
+  return {
+    schema_id: "cartulary.scheduler_pressure_summary.v1",
+    target: reporter.schedule.target,
+    scheduler_kind: reporter.schedule.kind,
+    status,
+    total_work_units: reporter.schedule.totalWorkUnits,
+    completed_work_units: reporter.completedCount,
+    scheduler_total_duration_ms: timing.scheduler_total_duration_ms,
+    target_counts: targetCounts,
+    lane_duration_ms: laneDurations,
+    resource_claim_counts: resourceClaimCounts,
+    fixture_class_counts: fixtureClassCounts,
+    slowest_work_units: slowest,
+  };
+}
+
 function parseInputStampOutcome(content) {
   const prefix = "check input stamp evidence: ";
   let outcome = null;
@@ -356,6 +414,7 @@ class SchedulerReporter {
     this.verbose = verboseSchedulerOutput();
     this.eventsPath = path.join(targetDir, "scheduler-events.jsonl");
     this.summaryPath = path.join(targetDir, "scheduler-summary.json");
+    this.pressureSummaryPath = path.join(targetDir, "pressure-summary.json");
     this.progressSummaryPath = path.join(targetDir, "progress-summary.log");
     this.events = createWriteStream(this.eventsPath, { flags: "w" });
     this.progressRecorder = new SchedulerProgressRecorder(this.progressSummaryPath);
@@ -547,6 +606,7 @@ class SchedulerReporter {
       finished_monotonic_ms: now,
       needs: [...(unit.needs ?? [])],
       completion_keys: [...unitCompletionKeys(unit)],
+      resource_claims: resourceMapToObject(unit.resourceClaims),
       log_file: relToRepo(this.repoRoot, result.logFile),
       ...stampFields,
     };
@@ -974,6 +1034,7 @@ class SchedulerReporter {
       artifacts: {
         events_jsonl: relToRepo(this.repoRoot, this.eventsPath),
         scheduler_logs_dir: relToRepo(this.repoRoot, this.logDir),
+        pressure_summary_json: relToRepo(this.repoRoot, this.pressureSummaryPath),
         progress_summary_log: relToRepo(this.repoRoot, this.progressSummaryPath),
       },
     };
@@ -994,6 +1055,10 @@ class SchedulerReporter {
     };
     validateSchemaSync(schedulerSummary.schema_id, schedulerSummary);
     await writeFile(this.summaryPath, prettyJSONString(schedulerSummary));
+    await writeFile(
+      this.pressureSummaryPath,
+      prettyJSONString(buildPressureSummary({ reporter: this, status, slowest, timing })),
+    );
     return schedulerSummary;
   }
 

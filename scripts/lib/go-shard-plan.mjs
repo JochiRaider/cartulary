@@ -125,14 +125,14 @@ function normalizePostgresFixturePolicy(value) {
     : "";
 }
 
-function buildExecutionItems(root, { phase = "" } = {}) {
+function buildExecutionItems(root, { phase = "", defaultCheckOnly = false } = {}) {
   const modulePath = loadGoModulePath(root);
   const baselines = readGoDurationBaselineMaps(root, "", { allowMissing: true });
   const rows = collectTargetPlanRows(root).filter((row) => {
     if (!phase) {
-      return true;
+      return !defaultCheckOnly || row.default_check_required === true;
     }
-    return row.manifest_phase === phase;
+    return row.manifest_phase === phase && (!defaultCheckOnly || row.default_check_required === true);
   });
   const aggregates = new Map();
   const executableItems = [];
@@ -438,11 +438,12 @@ function schedulerProfileForShard(items, weightMs) {
 
 export function collectGoShardPlan(root = process.cwd(), options = {}) {
   const phase = typeof options.phase === "string" ? options.phase.trim() : "";
+  const defaultCheckOnly = options.defaultCheckOnly === true;
   const requestedTargetMs = normalizePositiveInteger(
     options.targetMs,
     Number.NaN,
   );
-  const { baselines, aggregates, executableItems } = buildExecutionItems(root, { phase });
+  const { baselines, aggregates, executableItems } = buildExecutionItems(root, { phase, defaultCheckOnly });
   const itemsByAggregate = new Map();
   for (const item of executableItems) {
     if (!itemsByAggregate.has(item.aggregate_name)) {

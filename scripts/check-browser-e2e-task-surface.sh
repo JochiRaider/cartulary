@@ -426,18 +426,19 @@ const expectedBrowser = [
 ].sort();
 const expectedCheckBrowser = expectedBrowser.filter((target) => target !== "browser-e2e-measurement").sort();
 const expectedBackend = ["backend-integration", "backend-integration-support", "backend-process", "backend-store"];
+const expectedCheckBackend = expectedBackend.filter((target) => target !== "backend-integration-support");
 const testGroups = resolveSummaryGroups(context, manifest.sequences?.test?.summary_groups ?? []);
 const checkGroups = resolveSummaryGroups(context, (checkSchedule.schedules ?? []).find((entry) => entry.target === "check")?.summary_groups ?? []);
-for (const [label, groups, browserTargets] of [
-  ["test", testGroups, expectedBrowser],
-  ["check", checkGroups, expectedCheckBrowser],
+for (const [label, groups, browserTargets, backendTargets] of [
+  ["test", testGroups, expectedBrowser, expectedBackend],
+  ["check", checkGroups, expectedCheckBrowser, expectedCheckBackend],
 ]) {
   const browser = groups.find((group) => group.name === "browser");
   const backend = groups.find((group) => group.name === "backend-service-backed");
   if (JSON.stringify([...(browser?.summaryTargets ?? [])].sort()) !== JSON.stringify(browserTargets)) {
     throw new Error(`${label} browser summary group must derive service-backed browser leaves`);
   }
-  if (JSON.stringify([...(backend?.summaryTargets ?? [])].sort()) !== JSON.stringify(expectedBackend)) {
+  if (JSON.stringify([...(backend?.summaryTargets ?? [])].sort()) !== JSON.stringify(backendTargets)) {
     throw new Error(`${label} backend-service-backed summary group must derive backend service targets`);
   }
 }
@@ -518,9 +519,10 @@ for scheduled_target in \
 	  build-server \
 	  build-migrate \
 	  testservices-build \
-	  test-service-images \
+  test-service-images \
   check-service-backed \
-  migration-drift \
+  migration-input-drift \
+  migration-scratch-apply \
   deployable-shape \
   backend-unit \
   frontend-typecheck \
@@ -814,7 +816,7 @@ while IFS=$'\t' read -r stage_name group_name group_target _group_kind group_cov
   if [[ -z "$group_execution_dependency" ]]; then
     fail "browser batch group $stage_name/$group_name must declare execution_dependency for $group_coverage coverage"
   fi
-  if [[ "$group_execution_dependency" == "browser_a11y" ]]; then
+  if [[ "$group_execution_dependency" == "browser_a11y" || "$group_execution_dependency" == "browser_a11y_preflight" ]]; then
     continue
   fi
   group_count="$("$node_bin" "$phase_manifest_helper" playwright-count-all "$group_coverage" "$group_execution_dependency")"
@@ -1197,7 +1199,6 @@ assert_manifest_owned_files_not_raw_selected \
   "browser visual execution" \
   authoritative \
   browser_visual \
-  "$visual_script" \
   "$web_package_json"
 if ! grep -Fq 'run-browser-e2e-batch.sh" resettable' "$resettable_script"; then
   fail "scripts/run-browser-e2e-resettable.sh must delegate resettable sequencing to the browser batch runner"

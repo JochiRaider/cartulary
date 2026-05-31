@@ -63,7 +63,8 @@
       "scenario_titles": [],
       "claim_status": "blocked",
       "claim": "Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-I-P9-01",
@@ -108,7 +109,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Verify history and rollback preview/action use public route contracts, preserve retained history, and render public error envelopes.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-E-P9-01",
@@ -186,7 +188,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Verify inspector Details, Relationships, Evidence, History, rollback, and destructive-action authorization through public browser routes.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": true
     },
     {
       "id": "FE-V-P9-01",
@@ -214,7 +217,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     },
     {
       "id": "FE-A11Y-P9-01",
@@ -239,7 +243,8 @@
       ],
       "claim_status": "blocked",
       "claim": "Verify inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors are keyboard reachable and announced.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "default_check_required": false
     }
   ]
 }
