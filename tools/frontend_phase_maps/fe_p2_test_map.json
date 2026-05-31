@@ -39,7 +39,8 @@
       "claim_status": "implemented",
       "claim": "Verify startup-surface resolution order: explicit launch surface, user preference, incident default, Timeline fallback, with invalid pointers clearing and falling through.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior."
     },
     {
       "id": "FE-U-P2-02",
@@ -88,7 +89,8 @@
       "claim_status": "implemented",
       "claim": "Verify built-in tabs and required system-view groups are registered by stable surface IDs, not visible labels.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior."
     },
     {
       "id": "FE-B-P2-01",
@@ -131,7 +133,8 @@
       "claim_status": "implemented",
       "claim": "Verify continuous workbook shell composition: top bar, tab bar, System views, view bar, grid slot, inspector tabs, and status strip slots stay in one shell.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default browser integration coverage proves cross-stack UI behavior that lower frontend layers cannot observe."
     },
     {
       "id": "FE-B-P2-02",
@@ -175,7 +178,8 @@
       "claim_status": "implemented",
       "claim": "Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default browser integration coverage proves cross-stack UI behavior that lower frontend layers cannot observe."
     },
     {
       "id": "FE-E-P2-01",
@@ -214,7 +218,8 @@
       "claim_status": "implemented",
       "claim": "Verify saved views appear only under the active surface's view selector, never as primary tabs; contract-backed system views stay in the same shell with view_schema sheet refs; saved views including scope=system remain distinct saved-view objects selected by saved_view sheet refs; and saved-view selection queries/renders through the base view_schema_id.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default e2e browser coverage proves complete user workflow behavior across frontend and backend boundaries."
     },
     {
       "id": "FE-V-P2-01",

@@ -4704,7 +4704,6 @@
         "target_class": "check_internal",
         "default_inclusion_sets": [
           "test",
-          "check",
           "ci"
         ],
         "lifecycle_state": "candidate_child"
@@ -7621,6 +7620,13 @@
           "undeclared_make_command_line": "usage_error",
           "undeclared_inherited_env": "ignore",
           "inputs": []
+        },
+        "check_projection": {
+          "mode": "projection",
+          "schedule": "check-service-backed",
+          "stage": "a11y",
+          "evidence": "bounded_accessibility_readiness",
+          "full_target_equivalent": false
         }
       },
       {
@@ -7791,6 +7797,13 @@
           "undeclared_make_command_line": "usage_error",
           "undeclared_inherited_env": "ignore",
           "inputs": []
+        },
+        "check_projection": {
+          "mode": "projection",
+          "schedule": "check-service-backed",
+          "stage": "visual-smoke",
+          "evidence": "bounded_visual_readiness",
+          "full_target_equivalent": false
         }
       },
       {
@@ -7899,7 +7912,6 @@
         "target_class": "check_internal",
         "default_inclusion_sets": [
           "test",
-          "check",
           "ci"
         ],
         "lifecycle_state": "candidate_child"

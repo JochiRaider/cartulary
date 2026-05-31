@@ -57,8 +57,16 @@ assert.ok(
   "check-service-backed must exclude ordinary measurement from default local check",
 );
 assert.ok(
+  !(renderedCheckServiceBacked?.work_unit_sources ?? []).some((source) => source.target === "backend-integration-support"),
+  "check-service-backed must exclude support-only backend integration evidence from default local check",
+);
+assert.ok(
   (renderedTestServiceBacked?.work_unit_sources ?? []).some((source) => source.target === "browser-e2e-measurement"),
   "test-service-backed must retain ordinary measurement evidence",
+);
+assert.ok(
+  (renderedTestServiceBacked?.work_unit_sources ?? []).some((source) => source.target === "backend-integration-support"),
+  "test-service-backed must retain explicit support-only backend integration evidence",
 );
 const renderedTaskSurfaceErrors = taskSurfaceModule.collectTaskSurfaceManifestErrors(renderedTaskSurface, {
   browserBatchManifest: renderedBrowserBatch,
@@ -69,6 +77,34 @@ assert.deepEqual(
   renderedTaskSurface.targets.find((target) => target.name === "migration-drift")?.service_requirements,
   ["postgres"],
   "migration-drift must declare its Postgres service requirement",
+);
+for (const targetName of ["backend-integration-support", "test-fast-service-backed"]) {
+  assert.ok(
+    !(renderedTaskSurface.targets.find((target) => target.name === targetName)?.default_inclusion_sets ?? []).includes("check"),
+    `${targetName} must not advertise default check membership unless check actually schedules it`,
+  );
+}
+assert.deepEqual(
+  renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-visual")?.check_projection,
+  {
+    mode: "projection",
+    schedule: "check-service-backed",
+    stage: "visual-smoke",
+    evidence: "bounded_visual_readiness",
+    full_target_equivalent: false,
+  },
+  "browser-e2e-visual must label its default-check visual-smoke projection",
+);
+assert.deepEqual(
+  renderedTaskSurface.targets.find((target) => target.name === "browser-e2e-a11y")?.check_projection,
+  {
+    mode: "projection",
+    schedule: "check-service-backed",
+    stage: "a11y",
+    evidence: "bounded_accessibility_readiness",
+    full_target_equivalent: false,
+  },
+  "browser-e2e-a11y must label its default-check readiness projection",
 );
 assert.equal(
   renderedTaskSurface.targets.find((target) => target.name === "agent-finalize")?.target_class,

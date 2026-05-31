@@ -40,6 +40,8 @@ const rowKeys = new Set([
   "layer",
   "evidence_class",
   "default_check_required",
+  "future_default_check_candidate",
+  "default_check_reason",
   "owner_refs",
   "core_req_ids",
   "core_ac_ids",
@@ -335,6 +337,15 @@ export function validateFrontendPhaseMap(
       validEvidenceClasses,
     );
     requireBoolean(row.default_check_required, `${rowLabel}.default_check_required`);
+    if (row.future_default_check_candidate !== undefined) {
+      requireBoolean(
+        row.future_default_check_candidate,
+        `${rowLabel}.future_default_check_candidate`,
+      );
+    }
+    if (row.default_check_reason !== undefined) {
+      requireString(row.default_check_reason, `${rowLabel}.default_check_reason`);
+    }
     requireStringArray(row.owner_refs, `${rowLabel}.owner_refs`, {
       nonEmpty: true,
     });
@@ -346,11 +357,33 @@ export function validateFrontendPhaseMap(
     );
     requireStringArray(row.targets, `${rowLabel}.targets`, { nonEmpty: true });
     requireStringArray(row.scenario_titles, `${rowLabel}.scenario_titles`);
-    requireEnum(
+    const claimStatus = requireEnum(
       row.claim_status,
       `${rowLabel}.claim_status`,
       validClaimStatuses,
     );
+    if (claimStatus === "blocked" && row.default_check_required === true) {
+      throw new Error(
+        `${rowLabel} blocked rows must not declare current default_check_required=true; use future_default_check_candidate for planned check placement`,
+      );
+    }
+    if (
+      row.future_default_check_candidate === true &&
+      claimStatus !== "blocked"
+    ) {
+      throw new Error(
+        `${rowLabel}.future_default_check_candidate is only valid for blocked rows`,
+      );
+    }
+    if (
+      row.default_check_required === true &&
+      (typeof row.default_check_reason !== "string" ||
+        row.default_check_reason.trim() === "")
+    ) {
+      throw new Error(
+        `${rowLabel} default-check frontend rows must declare default_check_reason`,
+      );
+    }
     requireString(row.claim, `${rowLabel}.claim`);
     requireString(row.out_of_scope, `${rowLabel}.out_of_scope`);
     if (!row.id.includes(`-${phaseID.replace("FE-", "")}-`)) {

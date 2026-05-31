@@ -154,6 +154,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
     });
+    await scrollViewportToText(page, "Incident summary", 3);
 
     await assertViewportVisualRegression(
       page,
@@ -1036,6 +1037,23 @@ async function assertViewportVisualRegression(page: Page, name: string) {
     caret: "hide",
     fullPage: false,
   });
+}
+
+async function scrollViewportToText(page: Page, text: string, offsetY = 0) {
+  await page.evaluate(
+    ({ targetText, offsetY: scrollOffsetY }) => {
+      const element = Array.from(document.querySelectorAll("h1,h2,h3,h4")).find(
+        (candidate) => candidate.textContent?.trim() === targetText,
+      );
+      if (!element) {
+        return;
+      }
+      const top =
+        element.getBoundingClientRect().top + window.scrollY + scrollOffsetY;
+      window.scrollTo(0, top);
+    },
+    { targetText: text, offsetY },
+  );
 }
 
 async function assertStatusStripVisualRegression(page: Page, name: string) {

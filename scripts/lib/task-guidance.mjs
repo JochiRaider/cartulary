@@ -197,6 +197,7 @@ export function targetGuidance(
     target,
     target_class: entry.target_class,
     default_inclusion_sets: entry.default_inclusion_sets ?? [],
+    check_projection: entry.check_projection ?? null,
     help_tier: tiers.get(target) ?? null,
     backing_scripts: entry.backing_scripts ?? [],
     execution_map: executionMap,

@@ -400,6 +400,7 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         );
       }
     }
+    validateCheckProjection(errors, entry);
     if (!validLifecycleStates.has(entry.lifecycle_state)) {
       errors.push(
         `${entry.name} has invalid lifecycle_state ${JSON.stringify(entry.lifecycle_state)}`,
@@ -631,6 +632,56 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
   validateOutputPolicyRouting(errors, targets, manifest.make_recipes);
 
   return errors;
+}
+
+function validateCheckProjection(errors, entry) {
+  if (entry.check_projection === undefined) {
+    return;
+  }
+  if (
+    !entry.check_projection ||
+    typeof entry.check_projection !== "object" ||
+    Array.isArray(entry.check_projection)
+  ) {
+    errors.push(`${entry.name}.check_projection must be an object`);
+    return;
+  }
+  if (!entry.default_inclusion_sets?.includes("check")) {
+    errors.push(`${entry.name}.check_projection requires default_inclusion_sets check`);
+  }
+  const allowed = new Set([
+    "mode",
+    "schedule",
+    "stage",
+    "evidence",
+    "full_target_equivalent",
+  ]);
+  for (const key of Object.keys(entry.check_projection)) {
+    if (!allowed.has(key)) {
+      errors.push(`${entry.name}.check_projection has unknown key ${key}`);
+    }
+  }
+  const projection = entry.check_projection;
+  if (!["direct", "projection"].includes(projection.mode)) {
+    errors.push(`${entry.name}.check_projection.mode must be direct or projection`);
+  }
+  for (const key of ["schedule", "stage", "evidence"]) {
+    if (
+      projection[key] !== undefined &&
+      (typeof projection[key] !== "string" || projection[key].trim() === "")
+    ) {
+      errors.push(`${entry.name}.check_projection.${key} must be a non-empty string`);
+    }
+  }
+  if (projection.full_target_equivalent !== undefined && typeof projection.full_target_equivalent !== "boolean") {
+    errors.push(`${entry.name}.check_projection.full_target_equivalent must be a boolean`);
+  }
+  if (
+    projection.mode === "projection" &&
+    projection.full_target_equivalent !== false
+  ) {
+    errors.push(`${entry.name}.check_projection projection mode must declare full_target_equivalent=false`);
+  }
 }
 
 function validatePublicCommandIdentity(errors, entry, commandIDs) {

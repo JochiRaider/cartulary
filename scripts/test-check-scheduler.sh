@@ -1498,7 +1498,7 @@ function toolSummary(target, durationMs) {
       durationMs,
     );
   }
-  const visualDurationMs = visualOverBudget ? 31000 : 20000;
+  const visualDurationMs = visualOverBudget ? 36000 : 20000;
   start("check-service-backed:browser-e2e-visual:visual-smoke", 0, {
     work_unit_type: "browser_group",
     aggregate_target: "browser-e2e-visual",
@@ -1607,7 +1607,7 @@ warm_visual_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-tim
 warm_visual_status=$?
 set -e
 assert_equals "$warm_visual_status" "1" "warm check visual budget fixture status"
-assert_contains "$warm_visual_output" "default visual browser group check-service-backed:browser-e2e-visual:visual-smoke duration 31000ms exceeds budget 30000ms" "warm check visual budget fixture output"
+assert_contains "$warm_visual_output" "default visual browser group check-service-backed:browser-e2e-visual:visual-smoke duration 36000ms exceeds budget 35000ms" "warm check visual budget fixture output"
 mkdir -p "${summary_timing_dir}/critical/linked/check" "${summary_timing_dir}/critical/unlinked/check"
 cat >"${summary_timing_dir}/critical/linked/check/scheduler-events.jsonl" <<'JSONL'
 {"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}

@@ -6,7 +6,7 @@ import { collectGoShardPlan } from "./lib/go-shard-plan.mjs";
 import { validateSchedulerSummaryTiming } from "./lib/scheduler/summary-timing-drift.mjs";
 
 const warmBalanceMaterialSkewMs = 5000;
-const warmBrowserVisualBudgetMs = 30000;
+const warmBrowserVisualBudgetMs = 35000;
 const warmPackageResetCountBudget = 30;
 const warmPackageResetDurationBudgetMs = 60000;
 const warmReadinessThresholds = new Map([

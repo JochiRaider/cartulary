@@ -640,7 +640,7 @@ function scenarioGuidanceMakeWrappers(fixture) {
   }
 
   const detailZeroOutput = makeTargetFails(["explain-target", "TARGET=backend-store", "DETAIL=0"]);
-  assertContains(detailZeroOutput, "usage: print-explain-target.mjs", "DETAIL=0 rejected");
+  assertContains(detailZeroOutput, "DETAIL must be one of summary, rows, artifacts", "DETAIL=0 rejected");
 }
 
 function scenarioGuidanceCore(fixture) {

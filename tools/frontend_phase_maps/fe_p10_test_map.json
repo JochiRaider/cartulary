@@ -54,7 +54,8 @@
       "claim_status": "blocked",
       "claim": "Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": false,
+      "future_default_check_candidate": true
     },
     {
       "id": "FE-B-P10-01",
@@ -99,7 +100,8 @@
       "claim_status": "blocked",
       "claim": "Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Status Review, and Lesson open inside the same workbook shell and retain view controls.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": false,
+      "future_default_check_candidate": true
     },
     {
       "id": "FE-B-P10-02",
@@ -149,7 +151,8 @@
       "claim_status": "blocked",
       "claim": "Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": false,
+      "future_default_check_candidate": true
     },
     {
       "id": "FE-E-P10-01",
@@ -225,7 +228,8 @@
       "claim_status": "blocked",
       "claim": "Verify coordination rows can be queried and edited through public view/row mutation contracts with current-role authorization.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": false,
+      "future_default_check_candidate": true
     },
     {
       "id": "FE-V-P10-01",

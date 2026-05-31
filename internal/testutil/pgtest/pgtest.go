@@ -656,7 +656,8 @@ func (h *Harness) PreparePackageDatabaseT(t testing.TB, prefix string) *TestData
 
 	// PreparePackageDatabaseT selects the fixture policy assigned by the target
 	// plan. Package reset is an explicit compatibility path for tests that prove
-	// reset behavior; ordinary integration tests should use template clones, and
+	// reset behavior; grouped clones reuse committed state only within the exact
+	// caller test, ordinary integration tests should use template clones, and
 	// store-domain tests should use BeginRollbackDBT.
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = resolvePostgresFixturePolicy(attribution)
@@ -665,7 +666,11 @@ func (h *Harness) PreparePackageDatabaseT(t testing.TB, prefix string) *TestData
 		t.Fatalf("postgres fixture policy %q requires BeginRollbackTxT, not PreparePackageDatabaseT", postgresFixturePolicyTransaction)
 	}
 	if attribution.PostgresFixturePolicy == postgresFixturePolicyGroupClone {
-		t.Fatalf("postgres fixture policy %q requires PrepareGroupDatabaseT, not PreparePackageDatabaseT", postgresFixturePolicyGroupClone)
+		groupKey := attribution.TestName
+		if groupKey == "" {
+			groupKey = prefix
+		}
+		return h.prepareGroupDatabaseT(t, prefix, groupKey, attribution)
 	}
 	if attribution.PostgresFixturePolicy == postgresFixturePolicyTemplateClone {
 		testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePerTest, attribution)
@@ -763,6 +768,13 @@ func (h *Harness) PrepareGroupDatabaseT(t testing.TB, prefix string, groupKey st
 	t.Helper()
 
 	attribution := fixtureAttributionFor(t, "pgtest")
+	attribution.PostgresFixturePolicy = postgresFixturePolicyGroupClone
+	return h.prepareGroupDatabaseT(t, prefix, groupKey, attribution)
+}
+
+func (h *Harness) prepareGroupDatabaseT(t testing.TB, prefix string, groupKey string, attribution fixtureAttribution) *TestDatabase {
+	t.Helper()
+
 	attribution.PostgresFixturePolicy = postgresFixturePolicyGroupClone
 	key := attribution.CallerPackage + ":" + topLevelTestName(attribution.TestName) + ":" + sanitizeIdentifier(groupKey)
 	if key == "::" {

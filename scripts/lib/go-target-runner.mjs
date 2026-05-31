@@ -1299,11 +1299,32 @@ export async function runUnshardedTarget(ctx, target) {
   return await finishTarget(ctx, status);
 }
 
-export async function finalizeScheduledShards(ctx, target, metadataDir) {
+export async function finalizeScheduledShards(
+  ctx,
+  target,
+  metadataDir,
+  selectedShardNames = [],
+) {
   let status = 0;
   const metadataByShard = new Map();
   const aggregateReports = [];
+  const selectedShardSet =
+    selectedShardNames.length > 0 ? new Set(selectedShardNames) : null;
+  if (selectedShardSet) {
+    const knownShards = new Set(targetShards(ctx, target).map((shard) => shard.name));
+    for (const shardName of selectedShardSet) {
+      if (!knownShards.has(shardName)) {
+        throw new Error(`unknown scheduled shard ${shardName} for ${target}`);
+      }
+    }
+  }
   for (const aggregate of targetAggregates(ctx, target)) {
+    const shardNames = selectedShardSet
+      ? aggregate.shards.filter((shardName) => selectedShardSet.has(shardName))
+      : aggregate.shards;
+    if (selectedShardSet && shardNames.length === 0) {
+      continue;
+    }
     const aggregateStarted = captureStart();
     let report = null;
     try {
@@ -1312,7 +1333,7 @@ export async function finalizeScheduledShards(ctx, target, metadataDir) {
         metadataDir,
         aggregate.name,
         target,
-        aggregate.shards,
+        shardNames,
         metadataByShard,
       );
       const aggregateWindow = captureFinish(aggregateStarted);
@@ -1422,7 +1443,7 @@ export async function runShardedTarget(ctx, target) {
     shardNames,
   );
   if (status === 0) {
-    status = await finalizeScheduledShards(ctx, target, metadataDir);
+    status = await finalizeScheduledShards(ctx, target, metadataDir, shardNames);
   } else {
     status = await finishTarget(ctx, status);
   }
@@ -1445,7 +1466,7 @@ function usage() {
     "usage: run-go-target.mjs <backend-unit|backend-store|backend-integration|backend-integration-support|backend-process>",
     "       run-go-target.mjs inspect-aggregate-command <target> <execution-family-or-shard>",
     "       run-go-target.mjs capture-shard <target> <shard-name> <metadata-dir>",
-    "       run-go-target.mjs finalize-shards <target> <metadata-dir>",
+    "       run-go-target.mjs finalize-shards <target> <metadata-dir> [shard-name...]",
   ].join("\n");
 }
 
@@ -1475,12 +1496,12 @@ export async function runGoTargetCLI(argv, options = {}) {
         await captureScheduledShard(ctx, rest[0], rest[1], rest[2]);
         return 0;
       case "finalize-shards":
-        if (rest.length !== 2) {
+        if (rest.length < 2) {
           process.stderr.write(`${usage()}\n`);
           return 2;
         }
         ctx.invocation = captureStart();
-        return await finalizeScheduledShards(ctx, rest[0], rest[1]);
+        return await finalizeScheduledShards(ctx, rest[0], rest[1], rest.slice(2));
       case "backend-unit":
         if (rest.length !== 0) {
           process.stderr.write(`${usage()}\n`);

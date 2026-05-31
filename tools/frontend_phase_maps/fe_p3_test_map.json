@@ -46,7 +46,8 @@
       "claim_status": "implemented",
       "claim": "Fail before mutation-capable rendering when data rows have missing or duplicate record_id; verify group/loading/spacer/presentation rows cannot emit write events.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior."
     },
     {
       "id": "FE-U-P3-02",
@@ -91,7 +92,8 @@
       "claim_status": "implemented",
       "claim": "Translate vendor row/column coordinates to record_id + field_key for edit, copy, paste, fill-down, selection, focus, and anchor assertions.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior."
     },
     {
       "id": "FE-U-P3-03",
@@ -140,7 +142,8 @@
       "claim_status": "implemented",
       "claim": "Verify editability derives from explicit editor adapters and contract writeability; editable=true alone never enters edit mode.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior."
     },
     {
       "id": "FE-U-P3-04",
@@ -213,7 +216,8 @@
       "claim_status": "implemented",
       "claim": "Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default frontend integration coverage proves implemented UI composition that unit rows cannot isolate alone."
     },
     {
       "id": "FE-B-P3-01",
@@ -259,7 +263,8 @@
       "claim_status": "implemented",
       "claim": "Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default browser integration coverage proves cross-stack UI behavior that lower frontend layers cannot observe."
     },
     {
       "id": "FE-V-P3-01",

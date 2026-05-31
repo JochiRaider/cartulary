@@ -48,7 +48,8 @@
       "claim_status": "blocked",
       "claim": "Compile sort, filter, group, layout, and active chips to owner query contracts using schema field_key and capability metadata.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": false,
+      "future_default_check_candidate": true
     },
     {
       "id": "FE-I-P8-01",
@@ -82,7 +83,8 @@
       "claim_status": "blocked",
       "claim": "Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": false,
+      "future_default_check_candidate": true
     },
     {
       "id": "FE-B-P8-01",
@@ -124,7 +126,8 @@
       "claim_status": "blocked",
       "claim": "Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": false,
+      "future_default_check_candidate": true
     },
     {
       "id": "FE-E-P8-01",
@@ -181,7 +184,8 @@
       "claim_status": "blocked",
       "claim": "Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": false,
+      "future_default_check_candidate": true
     },
     {
       "id": "FE-V-P8-01",

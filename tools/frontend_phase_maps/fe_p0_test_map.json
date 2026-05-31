@@ -46,7 +46,8 @@
       "claim_status": "implemented",
       "claim": "Verify generated protocol exports and frontend contract facades expose stable identifiers without hand-editing generated code.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior."
     },
     {
       "id": "FE-U-P0-02",
@@ -105,7 +106,8 @@
       "claim_status": "implemented",
       "claim": "Verify view-schema adapters key editable and queryable fields by field_key, not labels, indexes, or visible column order.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior."
     },
     {
       "id": "FE-U-P0-03",
@@ -177,7 +179,8 @@
       "claim_status": "implemented",
       "claim": "Verify stable selector and test-id builders derive identifiers from stable IDs, including row-history history_item_ref, registry-backed view_schema_id values, and selector-relevant closed vocabularies rather than visible labels.",
       "out_of_scope": "This frontend readiness row does not change Core 05 publication authority; row-history response identity changes remain owned by Core 01 and Core 02.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior."
     },
     {
       "id": "FE-S-P0-01",

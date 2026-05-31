@@ -72,12 +72,29 @@ function renderExpectedArtifactLines(guidance, limit = 4) {
   return lines;
 }
 
+function renderCheckProjectionLine(guidance) {
+  const projection = guidance.check_projection;
+  if (!projection) {
+    return "check_projection: none";
+  }
+  const mode = projection.mode ? ` mode=${projection.mode}` : "";
+  const schedule = projection.schedule ? ` schedule=${projection.schedule}` : "";
+  const stage = projection.stage ? ` stage=${projection.stage}` : "";
+  const evidence = projection.evidence ? ` evidence=${projection.evidence}` : "";
+  const equivalence =
+    projection.full_target_equivalent === false
+      ? " full_target_equivalent=false"
+      : "";
+  return `check_projection:${mode}${schedule}${stage}${evidence}${equivalence}`.trimEnd();
+}
+
 function renderSummary(guidance) {
   return [
     `Cartulary target guidance: ${guidance.target}`,
     `target_class: ${guidance.target_class}`,
     `help_tier: ${guidance.help_tier ?? "none"}`,
     `default_inclusion_sets: ${guidance.default_inclusion_sets.join(",") || "none"}`,
+    renderCheckProjectionLine(guidance),
     `services: ${formatRequirements(guidance.service_requirements)}`,
     `execution: ${guidance.execution_summary || "none"}`,
     ...renderSchedulerPathLines(guidance),

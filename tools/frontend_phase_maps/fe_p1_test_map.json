@@ -43,7 +43,8 @@
       "claim_status": "implemented",
       "claim": "Verify app bootstrap state distinguishes unauthenticated, MFA-required, authenticated, forbidden, revoked, loading, and public error-envelope states.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior."
     },
     {
       "id": "FE-I-P1-01",
@@ -100,7 +101,8 @@
       "claim_status": "implemented",
       "claim": "Verify API client requests stay under /api/v1/, preserve server-managed session behavior, and reject private server-detail dependencies in rendered errors.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default frontend integration coverage proves implemented UI composition that unit rows cannot isolate alone."
     },
     {
       "id": "FE-E-P1-01",
@@ -162,7 +164,8 @@
       "claim_status": "implemented",
       "claim": "Verify login/session bootstrap and incident entry through public routes, including current-role/current-membership authorization effects as browser-observed behavior.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": true,
+      "default_check_reason": "Default e2e browser coverage proves complete user workflow behavior across frontend and backend boundaries."
     },
     {
       "id": "FE-A11Y-P1-01",

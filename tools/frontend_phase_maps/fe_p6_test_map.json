@@ -52,7 +52,8 @@
       "claim_status": "blocked",
       "claim": "Verify evidence state view models cover requested, pending upload, available, preview blocked, failed, inconsistent, and count-display states.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": false,
+      "future_default_check_candidate": true
     },
     {
       "id": "FE-I-P6-01",
@@ -100,7 +101,8 @@
       "claim_status": "blocked",
       "claim": "Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": false,
+      "future_default_check_candidate": true
     },
     {
       "id": "FE-E-P6-01",
@@ -163,7 +165,8 @@
       "claim_status": "blocked",
       "claim": "Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": false,
+      "future_default_check_candidate": true
     },
     {
       "id": "FE-V-P6-01",

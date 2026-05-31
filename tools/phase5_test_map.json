@@ -451,14 +451,14 @@
       "layer": "backend_integration",
       "default_check_required": true,
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "group_clone"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 4
+          "max_group_clones": 1
         }
       },
-      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture."
+      "group_clone_reason": "Attach-route contract coverage starts one shared runtime for nested shape, authorization, failure, and replay cases; the row does not require separate per-test database identity."
     },
     {
       "id": "I-5-06",

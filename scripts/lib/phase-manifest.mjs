@@ -607,6 +607,18 @@ function validateTemplateCloneReason(entry, policy, label) {
   }
 }
 
+function validateGroupCloneReason(entry, policy, label) {
+  if (policy !== postgresFixturePolicyGroupClone) {
+    return;
+  }
+  if (entry.fixture_policy?.postgres !== postgresFixturePolicyGroupClone) {
+    return;
+  }
+  if (typeof entry.group_clone_reason !== "string" || entry.group_clone_reason.trim() === "") {
+    throw new Error(`${label} explicit group_clone must declare group_clone_reason`);
+  }
+}
+
 function fixturePolicyAssignments(entries, symbolsForEntry, policyForEntry) {
   const assignments = [];
   for (const entry of entries) {
@@ -1088,6 +1100,7 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
           `manifest entry ${entry.id}`,
         );
         validateTemplateCloneReason(entry, postgresFixturePolicy, `manifest entry ${entry.id}`);
+        validateGroupCloneReason(entry, postgresFixturePolicy, `manifest entry ${entry.id}`);
         if (typeof entry.package !== "string" || !entry.package.startsWith("./")) {
           throw new Error(`manifest entry ${entry.id} must declare a repo-relative Go package owner`);
         }
@@ -1171,6 +1184,7 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
       supportGoEntryLabel(entry),
     );
     validateTemplateCloneReason(entry, postgresFixturePolicy, supportGoEntryLabel(entry));
+    validateGroupCloneReason(entry, postgresFixturePolicy, supportGoEntryLabel(entry));
     for (const symbol of symbols) {
       if (!selectionPattern.test(symbol)) {
         throw new Error(

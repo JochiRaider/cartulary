@@ -107,6 +107,7 @@ export const phaseManifestEntryKeys = new Set([
   "fixture_budget",
   "fixture_refs",
   "template_clone_reason",
+  "group_clone_reason",
   "package_reset_reason",
   "migration_scratch_reason",
 ]);
@@ -128,6 +129,7 @@ export const supportGoEntryKeys = new Set([
   "fixture_policy",
   "fixture_budget",
   "template_clone_reason",
+  "group_clone_reason",
   "package_reset_reason",
   "migration_scratch_reason",
 ]);

@@ -691,6 +691,106 @@ write_summary() {
 JSON
 }
 
+write_frontend_phase_summary() {
+  if [[ -z "${CARTULARY_TEST_RESULTS_DIR:-}" || -z "${CARTULARY_TEST_RUN_ID:-}" ]]; then
+    return 0
+  fi
+  node --input-type=module - "${CARTULARY_TEST_RESULTS_DIR}" "${CARTULARY_TEST_RUN_ID}" "$target" <<'NODE'
+import fs from "node:fs";
+import path from "node:path";
+
+const [resultsDir, runID, target] = process.argv.slice(2);
+const root = process.cwd();
+const mapDir = path.join(root, "tools", "frontend_phase_maps");
+const inventory = [];
+const owners = new Set();
+const counts = {
+  tests: 0,
+  failed: 0,
+  authoritative: 0,
+  support: 0,
+  raw: 0,
+  tooling_support: 0,
+  unowned_regression: 0,
+  unmapped: 0,
+  non_test: 0,
+  authoritative_failed: 0,
+  support_failed: 0,
+  raw_failed: 0,
+  tooling_support_failed: 0,
+  unowned_regression_failed: 0,
+  unmapped_failed: 0,
+  non_test_failed: 0,
+  packages: 0,
+};
+const owner = "apps/web/e2e/fake-service-backed-scheduler.spec.ts";
+for (const file of fs.readdirSync(mapDir).filter((entry) => entry.endsWith(".json")).sort()) {
+  const manifest = JSON.parse(fs.readFileSync(path.join(mapDir, file), "utf8"));
+  for (const row of manifest.rows ?? []) {
+    if (!(row.targets ?? []).includes(`make ${target}`)) {
+      continue;
+    }
+    const coverage = row.evidence_class === "product_conformance" ? "authoritative" : "support";
+    for (const title of row.scenario_titles ?? []) {
+      inventory.push({
+        coverage,
+        phase: manifest.phase_id,
+        id: row.id,
+        package_or_file: owner,
+        symbol_or_title: title,
+      });
+      counts.tests += 1;
+      counts[coverage] += 1;
+      owners.add(owner);
+    }
+  }
+}
+if (inventory.length === 0) {
+  process.exit(0);
+}
+counts.packages = owners.size;
+const outDir = path.join(resultsDir, runID, target, "fake-frontend-row-accounting");
+fs.mkdirSync(outDir, { recursive: true });
+fs.writeFileSync(
+  path.join(outDir, "phase-summary.json"),
+  `${JSON.stringify({
+    schema_id: "cartulary.test_phase_summary.v3",
+    label: `${target} frontend row accounting`,
+    target,
+    runner: "fake-browser-group",
+    status: "pass",
+    phase: "frontend-row-accounting",
+    command: "fake browser group",
+    start_time: "2026-01-01T00:00:00Z",
+    end_time: "2026-01-01T00:00:01Z",
+    accounting_mode: "actual",
+    executed_duration_ms: 1,
+    logical_duration_ms: 1,
+    reused_duration_ms: 0,
+    derived_duration_ms: 0,
+    wall_duration_ms: 1,
+    critical_path_wall_duration_ms: 1,
+    teardown_duration_ms: 0,
+    timing_bucket: "execution",
+    exit_status: 0,
+    counting_mode: "counted",
+    artifacts: {},
+    counts,
+    failure_class: null,
+    failure_reason: null,
+    failure_classes: {},
+    failure_reasons: {},
+    failures: [],
+    failure_headline: "",
+    owners: [...owners].sort(),
+    inventory,
+    dossiers: [],
+    manifest_mismatch: null,
+  }, null, 2)}\n`,
+);
+NODE
+}
+
 change_active 1
 sleep "$sleep_duration"
 change_active -1
@@ -701,6 +801,7 @@ if [[ "${FAKE_FAIL_TARGET:-}" == "$target" ]]; then
 fi
 
 write_summary
+write_frontend_phase_summary
 echo "fake browser group pass for $target"
 EOF
   chmod +x "${dir}/fake-browser-group"
@@ -837,8 +938,8 @@ case "${1:-}" in
     log_event "end capture ${target} ${shard}"
     ;;
   finalize-shards)
-    if [[ "$#" -ne 3 ]]; then
-      echo "usage: fake-go-target finalize-shards <target> <metadata-dir>" >&2
+    if [[ "$#" -lt 3 ]]; then
+      echo "usage: fake-go-target finalize-shards <target> <metadata-dir> [shard...]" >&2
       exit 2
     fi
 

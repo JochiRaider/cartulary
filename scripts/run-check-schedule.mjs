@@ -1236,6 +1236,7 @@ function attachRuntime(
           "finalize-shards",
           unit.aggregateTarget,
           files?.metadataDir ?? tempDir,
+          ...unit.shardNames,
         ],
         env: {
           ...process.env,

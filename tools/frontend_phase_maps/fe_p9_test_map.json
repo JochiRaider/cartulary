@@ -64,7 +64,8 @@
       "claim_status": "blocked",
       "claim": "Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": false,
+      "future_default_check_candidate": true
     },
     {
       "id": "FE-I-P9-01",
@@ -110,7 +111,8 @@
       "claim_status": "blocked",
       "claim": "Verify history and rollback preview/action use public route contracts, preserve retained history, and render public error envelopes.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": false,
+      "future_default_check_candidate": true
     },
     {
       "id": "FE-E-P9-01",
@@ -189,7 +191,8 @@
       "claim_status": "blocked",
       "claim": "Verify inspector Details, Relationships, Evidence, History, rollback, and destructive-action authorization through public browser routes.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
-      "default_check_required": true
+      "default_check_required": false,
+      "future_default_check_candidate": true
     },
     {
       "id": "FE-V-P9-01",
