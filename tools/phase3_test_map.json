@@ -471,7 +471,7 @@
       "coverage": "supplemental",
       "runner": "playwright",
       "file": "apps/web/e2e/phase3.support.spec.ts",
-      "title": "FE-B-P3-01 Verify sort, filter, group, resize, paste, drag fill, scroll-to-cell, tree expand/collapse, and anchor assertions through browser command helpers.",
+      "title": "FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.",
       "execution_dependency": "browser_support",
       "evidence_layer": "browser_support"
     },

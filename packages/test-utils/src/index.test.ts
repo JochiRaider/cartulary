@@ -21,6 +21,10 @@ import {
   assertGridFocusContinuity,
   assertMarkerAnchoredToGridTarget,
   changeGrouping,
+  collapseGridGroup,
+  expandGridGroup,
+  fillDownGridCells,
+  pasteMatrixText,
   removeFilterChip,
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
@@ -83,6 +87,121 @@ describe("@cartulary/test-utils selector choreography", () => {
       "timeline.capture_state",
     );
     expect(filled).toEqual({});
+  });
+
+  it("formats and posts fill-down browser command payloads", async () => {
+    const fetches: {
+      data: unknown;
+      headers?: Record<string, string>;
+      url: string;
+    }[] = [];
+    const page = {
+      evaluate: async (
+        _pageFunction: (arg?: unknown) => unknown,
+        arg?: unknown,
+      ) => {
+        fetches.push(
+          arg as {
+            data: unknown;
+            headers?: Record<string, string>;
+            url: string;
+          },
+        );
+        return { ok: true, status: 200 };
+      },
+      getByTestId() {
+        throw new Error("fill-down helper must not touch locators");
+      },
+    };
+
+    const response = await fillDownGridCells({
+      apiBase: "http://cartulary.test",
+      csrfHeaders: { "x-csrf-token": "token-1" },
+      fieldKey: "timeline.summary",
+      incidentId: "incident-1",
+      page,
+      surface: testTimelineViewSchemaId,
+      targetRecords: [
+        { baseRowVersion: 7, recordId: "record-1" },
+        { baseRowVersion: 8, recordId: "record-2" },
+      ],
+      value: "filled",
+    });
+
+    expect(response.ok()).toBe(true);
+    expect(fetches).toHaveLength(1);
+    expect(fetches[0]?.url).toBe(
+      `/api/v1/incidents/incident-1/views/${testTimelineViewSchemaId}/bulk-mutations`,
+    );
+    expect(fetches[0]?.headers).toEqual({
+      "content-type": "application/json",
+      "x-csrf-token": "token-1",
+    });
+    expect(fetches[0]?.data).toMatchObject({
+      view_schema_id: testTimelineViewSchemaId,
+      kind: "fill_down_v1",
+      field_key: "timeline.summary",
+      value: "filled",
+      targets: [
+        { record_id: "record-1", base_row_version: 7 },
+        { record_id: "record-2", base_row_version: 8 },
+      ],
+    });
+    expect(
+      pasteMatrixText([
+        ["a", "b"],
+        ["c", "d"],
+      ]),
+    ).toBe("a\tb\nc\td");
+  });
+
+  it("toggles group outline expansion by aria state", async () => {
+    let ariaExpanded = "true";
+    let clickCount = 0;
+    const element = {
+      getAttribute(name: string) {
+        return name === "aria-expanded" ? ariaExpanded : null;
+      },
+    } as Element;
+    const page = {
+      getByTestId(value: string) {
+        expect(value).toBe("group-row");
+        return {
+          click: async () => {
+            clickCount += 1;
+            ariaExpanded = ariaExpanded === "true" ? "false" : "true";
+          },
+          evaluate: async (
+            pageFunction: (element: Element, arg?: unknown) => unknown,
+            arg?: unknown,
+          ) => pageFunction(element, arg),
+          fill: async () => undefined,
+        };
+      },
+    };
+
+    await collapseGridGroup({
+      groupTestId: "group-row",
+      page,
+      surface: testTimelineViewSchemaId,
+    });
+    expect(ariaExpanded).toBe("false");
+    expect(clickCount).toBe(1);
+
+    await collapseGridGroup({
+      groupTestId: "group-row",
+      page,
+      surface: testTimelineViewSchemaId,
+    });
+    expect(clickCount).toBe(1);
+
+    await expandGridGroup({
+      groupTestId: "group-row",
+      page,
+      surface: testTimelineViewSchemaId,
+    });
+    expect(ariaExpanded).toBe("true");
+    expect(clickCount).toBe(2);
   });
 });
 

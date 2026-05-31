@@ -39,6 +39,19 @@ function plan(phase, mode) {
   return JSON.parse(result.stdout);
 }
 
+function frontendPlan(phase, mode) {
+  const result = run([
+    "--phase",
+    phase,
+    "--phase-namespace",
+    "frontend",
+    "--mode",
+    mode,
+    "--json",
+  ]);
+  return JSON.parse(result.stdout);
+}
+
 function targets(plan) {
   return new Set(plan.child_targets);
 }
@@ -139,6 +152,59 @@ assert.deepEqual(frontendGroups[0].ids, [
   "U-3-GRID-03",
 ]);
 assert.ok(workTargets(phase3, "frontend_unit").has("frontend-unit"), "phase3 must schedule frontend-unit through Vitest phase work");
+
+const feP3 = frontendPlan("FE-P3", "phase");
+assert.equal(feP3.schema_id, "cartulary.phase_slice_plan.v1");
+assert.equal(feP3.phase_namespace, "frontend");
+assert.equal(feP3.phase, "FE-P3");
+assert.equal(feP3.target, "phase-slice");
+assert.equal(feP3.no_op, false);
+for (const target of [
+  "frontend-unit",
+  "browser-e2e-support",
+  "browser-e2e-webserver-backed",
+  "browser-e2e-visual",
+  "browser-e2e-a11y",
+  "frontend-import-boundary-check",
+  "lint-biome",
+]) {
+  assert.ok(targets(feP3).has(target), `FE-P3 frontend phase slice must include ${target}`);
+  assert.ok(workTargets(feP3, "make_target").has(target), `FE-P3 frontend phase slice must schedule ${target}`);
+}
+assert.deepEqual(feP3.service_requirements, ["browser_stack", "minio", "postgres"]);
+assert.equal(feP3.phase_claim_status, "complete");
+
+const feP3Service = frontendPlan("FE-P3", "service-backed");
+assert.equal(feP3Service.target, "service-backed-slice");
+assert.equal(feP3Service.mode, "service_backed");
+for (const target of [
+  "browser-e2e-support",
+  "browser-e2e-webserver-backed",
+  "browser-e2e-visual",
+  "browser-e2e-a11y",
+]) {
+  assert.ok(targets(feP3Service).has(target), `FE-P3 service-backed slice must include ${target}`);
+}
+for (const target of ["frontend-unit", "frontend-import-boundary-check", "lint-biome"]) {
+  assert.ok(!targets(feP3Service).has(target), `FE-P3 service-backed slice must exclude ${target}`);
+}
+
+const feP0Service = frontendPlan("FE-P0", "service-backed");
+assert.equal(feP0Service.target, "service-backed-slice");
+assert.equal(feP0Service.no_op, true);
+assert.deepEqual(feP0Service.child_targets, []);
+
+const plannedFrontend = run([
+  "--phase",
+  "FE-P4",
+  "--phase-namespace",
+  "frontend",
+  "--mode",
+  "phase",
+  "--json",
+], {}, { allowFailure: true });
+assert.equal(plannedFrontend.status, 2, "planned frontend phases must fail as bounded non-executable usage");
+assert.match(plannedFrontend.stderr, /planned\/non-executable frontend phase FE-P4/);
 
 const tempRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-phase-slice-test-"));
 try {

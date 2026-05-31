@@ -95,7 +95,7 @@ JSON
     ;;
   support_success)
     cat >"$output_file" <<'JSON'
-{"suites":[{"specs":[{"title":"FE-B-P3-01 Verify sort, filter, group, resize, paste, drag fill, scroll-to-cell, tree expand/collapse, and anchor assertions through browser command helpers.","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"support Phase 3 keeps a pending edit anchored to its record under sort, filter, group, and live invalidation","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"support Phase 3 keeps repeated scalar grid edits out of the RDG measured-width crash path","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]}],"suites":[]}],"errors":[]}
+{"suites":[{"specs":[{"title":"FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"support Phase 3 keeps a pending edit anchored to its record under sort, filter, group, and live invalidation","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"support Phase 3 keeps repeated scalar grid edits out of the RDG measured-width crash path","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]}],"suites":[]}],"errors":[]}
 JSON
     ;;
   failure)

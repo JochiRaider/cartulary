@@ -117,10 +117,10 @@
         "make browser-e2e-support"
       ],
       "scenario_titles": [
-        "FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, tree/group expand-collapse, and startup/default surface UI."
+        "FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI."
       ],
       "claim_status": "blocked",
-      "claim": "Verify browser command helpers for sort, filter, group, active chips, layout persistence, tree/group expand-collapse, and startup/default surface UI.",
+      "claim": "Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
     {
@@ -203,10 +203,10 @@
         "make browser-e2e-visual"
       ],
       "scenario_titles": [
-        "FE-V-P8-01 Capture saved-view selector, active chips, grouped result, tree/group row, default/startup state indicator, and empty successful query fixtures."
+        "FE-V-P8-01 Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures."
       ],
       "claim_status": "blocked",
-      "claim": "Capture saved-view selector, active chips, grouped result, tree/group row, default/startup state indicator, and empty successful query fixtures.",
+      "claim": "Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
     {
@@ -232,10 +232,10 @@
         "make browser-e2e-a11y-preflight"
       ],
       "scenario_titles": [
-        "FE-A11Y-P8-01 Verify sort, filter, group, saved-view menu, active chips, tree/group expand-collapse, and default/startup controls are keyboard reachable and announced."
+        "FE-A11Y-P8-01 Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced."
       ],
       "claim_status": "blocked",
-      "claim": "Verify sort, filter, group, saved-view menu, active chips, tree/group expand-collapse, and default/startup controls are keyboard reachable and announced.",
+      "claim": "Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     }
   ]

@@ -1,140 +1,77 @@
-# FE-P3 Implementation And Handoff
+# FE-P3 Active Completion Handoff
 
 ## Status
 
-FE-P3 grid-adapter remediation is implemented as of 2026-05-31. The frontend
-phase remains `status="planned"` in `tools/frontend_phase_registry.json`, but
-all nine FE-P3 rows in `tools/frontend_phase_maps/fe_p3_test_map.json` now have
-`claim_status="implemented"` and direct row-owned evidence from their intended
-targets.
+FE-P3 is active and executable as of 2026-05-31. `tools/frontend_phase_registry.json`
+now promotes the contiguous FE-P0 through FE-P3 chain to `active`; FE-P4 and
+later remain `planned`.
 
-This file is a progress and handoff record only. It is not behavior authority.
-Core 00 through Core 04 remain the current product-conformance authority.
-`docs/testing-harness-nlspec.md` owns harness mechanics. Frontend visual and
-accessibility evidence remain `design_direction`, not product conformance and
-not Core 05 claim-publication evidence. Core 05 stayed inactive for this work.
+This file is a handoff record only. Core 00 through Core 04 remain the current
+product-conformance authority. `docs/testing-harness-nlspec.md` owns harness
+mechanics. Frontend visual and accessibility rows remain `design_direction` or
+`implementation_support` where mapped. Core 05 stayed inactive; no
+claim-publication predicate was introduced.
 
-## Remediation Decisions
+## Completed Remediation
 
-| Gap | Resolution | Areas changed | Migration impact |
-| --- | --- | --- | --- |
-| FE-P3 rows had no direct row-owned implementation evidence. | FE-P3 rows were promoted only after exact scenario titles or support-target row accounting existed in the mapped target artifacts. Scenario-less implemented `implementation_support` rows can close from a passing mapped target while product/design rows remain scenario-backed. | Map, harness row accounting, implementation, tests, guide, generated ledger. | Old retained artifacts cannot close the revised rows. Consumers should use the new target artifacts listed below. |
-| `FE-V-P3-01` mixed adapter visuals with later-phase fixtures. | FE-P3 now owns only grid-adapter visual states: frozen column, resize handle, drag-fill handle, edit cell, tree/group row, and empty successful query. Row-gutter presence remains FE-P7. Grouped-result query ownership remains FE-P8. | Frontend guide, visual guide, FE-P3 map, visual test, golden, generated ledger. | Added snapshot `apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png`. Historical FE-P3 visual artifacts are no longer closure evidence. |
-| `FE-A11Y-P3-01` mapped to preflight smoke. | FE-P3 accessibility now closes under `make browser-e2e-a11y`; preflight remains only for blocked future rows. | Frontend guide, FE-P3 map, a11y test, accessibility summary writer, generated ledger. | CI/check surfaces now have stricter implemented FE-P3 a11y evidence. Preflight summaries no longer include FE-P3. |
+| Area | Result |
+| --- | --- |
+| Frontend phase governance | Added active frontend phase-slice planning and execution under `PHASE_NAMESPACE=frontend`; full FE-P3 slices schedule the target-owned row-accounting targets, and service-backed FE-P3 slices schedule browser-backed targets only. |
+| Phase activation | FE-P0, FE-P1, FE-P2, and FE-P3 are active; FE-P4+ remain planned because future rows are still blocked. |
+| FE-P0 evidence cleanup | Removed `make generate` from FE-P0 executable evidence; drift and generated-artifact checks remain validation evidence. |
+| Browser helper behavior | FE-B-P3 now proves real browser route behavior for sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and stable mutation anchors. Unsupported drag/tree helper claims were removed. |
+| Grid adapter | Group rows expose a non-mutating `aria-expanded` outline toggle while preserving record-mutation gating and stable group labels. |
+| Visual evidence | Refreshed `v-3-grid-03-grouped-grid-linux.png` for the intentional group outline affordance. Resize/fill handles remain design/support evidence, not Core product conformance. |
+| Documentation and ledgers | Updated frontend maps, guide wording, visual guide wording, and regenerated frontend/base ledgers from the maps. |
 
-## Implementation Summary
-
-FE-P3 behavior is contained in `/packages/grid-adapter` and exposed through the
-adapter boundary consumed by `/apps/web`. Direct RDG imports and the RDG
-stylesheet remain adapter-owned.
-
-Implemented adapter behavior:
-
-- stable `record_id` row identity with unsafe or duplicate IDs rejected before
-  mutation-capable anchoring;
-- `field_key` cell identity for edit, paste, fill, focus, selection, and anchor
-  translation;
-- presentation-row write gating for group, tree, loading, spacer, and other
-  non-record rows;
-- explicit editor-adapter and contract writeability checks;
-- deterministic renderer/editor resolution with cleanup hooks;
-- sort, filter, group, resize, paste, drag-fill, scroll-to-cell, tree/group,
-  and mutation-anchor browser helper evidence;
-- sparse patch reconciliation that preserves unchanged row references and
-  replaces changed rows by `record_id`;
-- target-owned row-accounting emission for import-boundary and Biome support
-  rows.
-
-## Row Evidence
-
-| Row | Target evidence | Closure |
-| --- | --- | --- |
-| `FE-U-P3-01` | `.cartulary/test-results/20260531T121030Z-p1670716/frontend-unit/frontend-row-accounting.json` | closed |
-| `FE-U-P3-02` | `.cartulary/test-results/20260531T121030Z-p1670716/frontend-unit/frontend-row-accounting.json` | closed |
-| `FE-U-P3-03` | `.cartulary/test-results/20260531T121030Z-p1670716/frontend-unit/frontend-row-accounting.json` | closed |
-| `FE-U-P3-04` | `.cartulary/test-results/20260531T121030Z-p1670716/frontend-unit/frontend-row-accounting.json` | closed |
-| `FE-I-P3-01` | `.cartulary/test-results/20260531T121030Z-p1670716/frontend-unit/frontend-row-accounting.json` | closed |
-| `FE-B-P3-01` | `.cartulary/test-results/20260531T121352Z-p1677560/browser-e2e-support/frontend-row-accounting.json` and `.cartulary/test-results/20260531T121442Z-p1681140/browser-e2e-webserver-backed/frontend-row-accounting.json` | closed |
-| `FE-V-P3-01` | `.cartulary/test-results/20260531T121945Z-p1698018/browser-e2e-visual/frontend-row-accounting.json` | closed |
-| `FE-A11Y-P3-01` | `.cartulary/test-results/20260531T122048Z-p1703601/browser-e2e-a11y/frontend-row-accounting.json` | closed |
-| `FE-S-P3-01` | `.cartulary/test-results/20260531T121323Z-p1676077/frontend-import-boundary-check/frontend-row-accounting.json` and `.cartulary/test-results/20260531T121324Z-p1676275/lint-biome/frontend-row-accounting.json` | closed |
-
-Accessibility evidence:
-
-- `.cartulary/test-results/20260531T122048Z-p1703601/browser-e2e-a11y/accessibility/frontend-accessibility-summary.json`
-  reports `FE-A11Y-P3-01` as implemented `design_direction` evidence with a
-  passing scenario, keyboard checks, state-communication checks, contrast
-  checks, and zero FE-P3 violations.
-- `.cartulary/test-results/20260531T122138Z-p1707284/browser-e2e-a11y-preflight/accessibility-preflight/frontend-accessibility-preflight-summary.json`
-  passed with zero FE-P3 rows, confirming FE-P3 no longer relies on preflight
-  smoke.
-
-Visual evidence:
-
-- `FE-V-P3-01` closes from `make browser-e2e-visual` with snapshot
-  `fe-v-p3-01-grid-adapter-fixtures`.
-- Claimed fixtures: `FE-VFIX-09`, `FE-VFIX-10`, `FE-VFIX-11`, `FE-VFIX-12`,
-  `FE-VFIX-13`, and `FE-VFIX-15`.
-- Deferred fixtures: `FE-VFIX-04` row-gutter presence remains FE-P7;
-  `FE-VFIX-06` grouped result remains FE-P8.
-
-## Validation Record
+## Current Evidence
 
 | Command | Result |
 | --- | --- |
-| `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P3` | pass; reports all FE-P3 rows implemented and mapped to intended targets |
-| `make frontend-typecheck` | pass, `.cartulary/test-results/20260531T121021Z-p1670349` |
-| `make frontend-unit` | pass, `.cartulary/test-results/20260531T121030Z-p1670716` |
-| `make frontend-import-boundary-check` | pass, `.cartulary/test-results/20260531T121323Z-p1676077` |
-| `make lint-biome` | pass, `.cartulary/test-results/20260531T121324Z-p1676275` |
-| `make browser-e2e-support` | pass, `.cartulary/test-results/20260531T121352Z-p1677560` |
-| `make browser-e2e-webserver-backed` | pass, `.cartulary/test-results/20260531T121442Z-p1681140` |
-| `make browser-e2e-visual` | pass, `.cartulary/test-results/20260531T121945Z-p1698018` |
-| `make browser-e2e-a11y` | pass, `.cartulary/test-results/20260531T122048Z-p1703601` |
-| `make browser-e2e-a11y-preflight` | pass, `.cartulary/test-results/20260531T122138Z-p1707284` |
-| `make phase-ledgers` | pass, `.cartulary/test-results/20260531T121056Z-p1672401` |
-| `make generated-artifact-policy-check` | pass, `.cartulary/test-results/20260531T123721Z-p1776984` |
-| `make phase-ledger-drift` | pass, `.cartulary/test-results/20260531T123721Z-p1776999` |
-| `make phase-schedule-drift` | pass, `.cartulary/test-results/20260531T123721Z-p1776987` |
-| `make lint-scripts` | pass, `.cartulary/test-results/20260531T122349Z-p1713874` |
-| `make generate-drift` | pass, `.cartulary/test-results/20260531T122357Z-p1714188` |
-| `git diff --check` | pass |
-| `make agent-finalize` | pass, `.cartulary/test-results/20260531T122524Z-p1716747`; generated maintenance files updated, retained-run maintenance skipped because `RESULTS_DIR` was unset |
-| `make check` | pass, `.cartulary/test-results/20260531T122740Z-p1721061`, 167/167 work units and 817 tests |
-| `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260531T122740Z-p1721061` | pass, `.cartulary/test-results/20260531T123531Z-p1773328`; retained-run maintenance validated, duration baselines refreshed, run checks passed |
+| `make phase-slice PHASE_NAMESPACE=frontend PHASE=FE-P3` | pass, `.cartulary/test-results/20260531T140247Z-p2010616` |
+| `make service-backed-slice PHASE_NAMESPACE=frontend PHASE=FE-P3` | pass, `.cartulary/test-results/20260531T140949Z-p2035166` |
+| `make browser-e2e-support` | pass, retained in service-backed FE-P3 root `.cartulary/test-results/20260531T140949Z-p2035166/browser-e2e-support` |
+| `make browser-e2e-webserver-backed` | pass, final full-check root `.cartulary/test-results/20260531T141811Z-p2060579/browser-e2e-webserver-backed` |
+| `make browser-e2e-visual` | pass, final full-check root `.cartulary/test-results/20260531T141811Z-p2060579/browser-e2e-visual` |
+| `make browser-e2e-a11y` | pass, final full-check root `.cartulary/test-results/20260531T141811Z-p2060579/browser-e2e-a11y` |
+| `make phase-ledgers` | pass, `.cartulary/test-results/20260531T140225Z-p2008590` |
+| `make phase-ledger-drift` | pass, `.cartulary/test-results/20260531T142813Z-p2117283` |
+| `make phase-map-check` | pass, `.cartulary/test-results/20260531T142813Z-p2117290` |
+| `make generated-artifact-policy-check` | pass, `.cartulary/test-results/20260531T142908Z-p2118786` |
+| `make generate-drift` | pass, `.cartulary/test-results/20260531T142908Z-p2118789` |
+| `make agent-finalize` | pass, `.cartulary/test-results/20260531T141709Z-p2058483`; generated maintenance updated one file, retained-run maintenance skipped because `RESULTS_DIR` was unset |
+| `make check` | pass, `.cartulary/test-results/20260531T141811Z-p2060579`, 161/161 work units, 819 tests |
+| `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260531T141811Z-p2060579` | pass, `.cartulary/test-results/20260531T142602Z-p2112935`; retained-run maintenance passed, duration baselines refreshed |
 
-`make agent-finalize` refreshed `tools/execution_topology_render_index.json`
-and `tools/scheduler_manifest.json`; its embedded `phase-ledger-drift`,
-`phase-schedule-drift`, `json-shape-check`, and duration-baseline coverage
-substeps passed.
-
-The retained-run `agent-finalize` refreshed
-`tools/browser_e2e_duration_baselines.json`,
+The first `agent-finalize` updated
+`tools/execution_topology_render_index.json`. The retained-run finalizer
+updated `tools/browser_e2e_duration_baselines.json`,
 `tools/go_test_duration_baselines.json`,
-`tools/harness_smoke_duration_baselines.json`, and
-`tools/service_backed_make_target_duration_baselines.json`. Its retained-run
-preflight, duration-baseline drift suite, scheduler event-order drift, and
-scheduler summary timing drift checks passed.
+`tools/harness_smoke_duration_baselines.json`, `tools/scheduler_manifest.json`,
+and `tools/service_backed_make_target_duration_baselines.json`.
 
-## FE-P4 Handoff
+## Row Closure Boundary
 
-FE-P4 can build on a grid foundation with direct evidence for stable row/cell
-identity, adapter-only RDG containment, editability gating, command-helper
-translation, sparse patch preservation, deterministic visual fixtures, and
-implemented accessibility coverage.
+FE-P3 row closure is through target-owned
+`cartulary.frontend_row_accounting.v1` artifacts. The active `phase-slice` root
+closes all FE-P3 rows from the intended targets:
 
-Carry-forward constraints:
+- `frontend-unit` closes `FE-U-P3-01` through `FE-U-P3-04` and `FE-I-P3-01`.
+- `browser-e2e-support` and `browser-e2e-webserver-backed` close `FE-B-P3-01`.
+- `browser-e2e-visual` closes `FE-V-P3-01` as `design_direction`.
+- `browser-e2e-a11y` closes `FE-A11Y-P3-01` as `design_direction`.
+- `frontend-import-boundary-check` and `lint-biome` close `FE-S-P3-01` as
+  `implementation_support`.
 
-- Preserve RDG import and stylesheet ownership in `/packages/grid-adapter`.
-- Keep product/design/support evidence classes separate in maps, ledgers, and
-  retained artifacts.
-- Do not reuse FE-P3 visual artifacts to close FE-P7 row-gutter or FE-P8
-  grouped-result ownership.
-- Continue closing product and design rows only from exact scenario-backed
-  target artifacts.
-- Keep scenario-less target-level closure limited to implemented
-  `implementation_support` rows.
+Old retained artifacts from the planned-phase period are historical only and do
+not support the active phase-completion claim.
 
-## Unresolved Blockers
+## Carry Forward
 
-No FE-P3-owned blocker remains in the current remediation record.
+- Keep frontend active phase execution target-owned; do not add row-local
+  execution when existing target row accounting can close the row.
+- Keep resize as visual/support evidence until an owner spec adopts product
+  conformance semantics.
+- Treat group expand/collapse as one-level grouping behavior, not tree rows.
+- Preserve Core product, design-direction, implementation-support, and Core 05
+  claim-publication boundaries in future maps, ledgers, and handoffs.

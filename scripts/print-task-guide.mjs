@@ -134,18 +134,39 @@ function main() {
       phase_namespace: "frontend",
       phase: phase.phase_id,
       status: phase.status,
-      recommendations: [
-        `make explain-phase PHASE_NAMESPACE=frontend PHASE=${phase.phase_id}`,
-        "make phase-ledger-drift",
-      ],
+      recommendations:
+        phase.status === "active"
+          ? [
+              `make phase-slice PHASE_NAMESPACE=frontend PHASE=${phase.phase_id}`,
+              `make service-backed-slice PHASE_NAMESPACE=frontend PHASE=${phase.phase_id}`,
+              `make explain-phase PHASE_NAMESPACE=frontend PHASE=${phase.phase_id}`,
+              "make phase-ledger-drift",
+            ]
+          : [
+              `make explain-phase PHASE_NAMESPACE=frontend PHASE=${phase.phase_id}`,
+              "make phase-ledger-drift",
+            ],
     };
     if (options.json) {
       process.stdout.write(`${JSON.stringify(guide, null, 2)}\n`);
       return;
     }
-    process.stdout.write(
-      `Cartulary task guide\nrole=${guide.role} phase_namespace=frontend phase=${phase.phase_id}\nstatus=${phase.status}\n  make explain-phase PHASE_NAMESPACE=frontend PHASE=${phase.phase_id} | inspect planned frontend phase rows\n  make phase-ledger-drift | verify frontend ledgers and base ledgers\n`,
+    const lines = [
+      "Cartulary task guide",
+      `role=${guide.role} phase_namespace=frontend phase=${phase.phase_id}`,
+      `status=${phase.status}`,
+    ];
+    if (phase.status === "active") {
+      lines.push(
+        `  make phase-slice PHASE_NAMESPACE=frontend PHASE=${phase.phase_id} | run active frontend phase row targets`,
+        `  make service-backed-slice PHASE_NAMESPACE=frontend PHASE=${phase.phase_id} | run active browser-backed frontend row targets`,
+      );
+    }
+    lines.push(
+      `  make explain-phase PHASE_NAMESPACE=frontend PHASE=${phase.phase_id} | inspect frontend phase rows`,
+      "  make phase-ledger-drift | verify frontend ledgers and base ledgers",
     );
+    process.stdout.write(`${lines.join("\n")}\n`);
     return;
   }
   if (options.phase.startsWith("FE-P")) {

@@ -262,7 +262,6 @@
         "D-AC-073"
       ],
       "targets": [
-        "make generate",
         "make generated-artifact-policy-check",
         "make generate-drift",
         "make frontend-import-boundary-check"

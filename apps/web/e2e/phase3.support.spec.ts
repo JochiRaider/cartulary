@@ -2,12 +2,12 @@ import {
   applyFilterChip,
   assertRecordFieldMutationAnchor,
   changeGrouping,
-  dragFillGridCells,
+  collapseGridGroup,
+  expandGridGroup,
+  fillDownGridCells,
   pasteGridMatrix,
-  resizeGridColumn,
   scrollGridCellIntoView,
   sortByHeader,
-  toggleGridTreeExpansion,
 } from "@cartulary/test-utils";
 import {
   gridGroupRowTestId,
@@ -32,7 +32,7 @@ import {
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
-test("FE-B-P3-01 Verify sort, filter, group, resize, paste, drag fill, scroll-to-cell, tree expand/collapse, and anchor assertions through browser command helpers.", async ({
+test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.", async ({
   page,
 }) => {
   const incidentId = await createIncident(
@@ -106,15 +106,66 @@ test("FE-B-P3-01 Verify sort, filter, group, resize, paste, drag fill, scroll-to
       { direction: "asc", field_key: "timeline.summary" },
     ],
   });
+  const reviewedGroupTestId = gridGroupRowTestId(
+    timelineViewSchemaId,
+    "timeline.capture_state",
+    "reviewed",
+  );
+  await expect(page.getByTestId(reviewedGroupTestId)).toBeVisible();
+  await collapseGridGroup({
+    groupTestId: reviewedGroupTestId,
+    page,
+    surface: timelineViewSchemaId,
+  });
   await expect(
-    page.getByTestId(
-      gridGroupRowTestId(
-        timelineViewSchemaId,
-        "timeline.capture_state",
-        "reviewed",
-      ),
-    ),
+    page.getByTestId(rowCellTestId(betaRow.record_id, "timeline.summary")),
+  ).not.toBeVisible();
+  await expandGridGroup({
+    groupTestId: reviewedGroupTestId,
+    page,
+    surface: timelineViewSchemaId,
+  });
+  await expect(
+    page.getByTestId(rowCellTestId(betaRow.record_id, "timeline.summary")),
   ).toBeVisible();
+
+  const bulkMutationRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`,
+        ),
+  );
+  const bulkMutationResponse = await fillDownGridCells({
+    apiBase,
+    csrfHeaders: await csrfHeaders(page),
+    fieldKey: "timeline.details",
+    incidentId,
+    page,
+    surface: timelineViewSchemaId,
+    targetRecords: [
+      {
+        baseRowVersion: alphaRow.row_version,
+        recordId: alphaRow.record_id,
+      },
+    ],
+    value: "Filled details through helper",
+  });
+  expect(bulkMutationResponse.ok()).toBeTruthy();
+  expect(readPostBody(await bulkMutationRequest)).toMatchObject({
+    view_schema_id: timelineViewSchemaId,
+    kind: "fill_down_v1",
+    field_key: "timeline.details",
+    value: "Filled details through helper",
+    targets: [
+      {
+        base_row_version: alphaRow.row_version,
+        record_id: alphaRow.record_id,
+      },
+    ],
+  });
 
   await scrollGridCellIntoView({
     cellKey: "timeline.summary",
@@ -143,44 +194,45 @@ test("FE-B-P3-01 Verify sort, filter, group, resize, paste, drag fill, scroll-to
     page.getByTestId(rowCellTestId(betaRow.record_id, "timeline.summary")),
   ).toHaveValue("Beta summary anchored");
 
-  await expect(
-    resizeGridColumn({
-      deltaPx: 24,
-      fieldKey: "timeline.summary",
-      page,
-      surface: timelineViewSchemaId,
-    }),
-  ).rejects.toThrow(/does not support column resize/i);
-  await expect(
-    pasteGridMatrix({
-      fieldKey: "timeline.summary",
-      matrix: [["Gamma pasted", "details"]],
-      page,
-      recordId: betaRow.record_id,
-      surface: timelineViewSchemaId,
-    }),
-  ).rejects.toThrow(/does not support paste matrix/i);
-  await expect(
-    dragFillGridCells({
-      fieldKey: "timeline.summary",
-      fromRecordId: betaRow.record_id,
-      page,
-      surface: timelineViewSchemaId,
-      targetRecordIds: [alphaRow.record_id],
-    }),
-  ).rejects.toThrow(/does not support drag fill/i);
-  await expect(
-    toggleGridTreeExpansion({
-      groupTestId: gridGroupRowTestId(
-        timelineViewSchemaId,
-        "timeline.capture_state",
-        "reviewed",
-      ),
-      input: "keyboard",
-      page,
-      surface: timelineViewSchemaId,
-    }),
-  ).rejects.toThrow(/does not support tree expand\/collapse/i);
+  const pasteRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
+        ),
+  );
+  const pasteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
+        ),
+  );
+  await pasteGridMatrix({
+    fieldKey: "timeline.summary",
+    matrix: [["Beta pasted through helper", "host-token"]],
+    page,
+    recordId: betaRow.record_id,
+    surface: timelineViewSchemaId,
+  });
+  expect(readPostBody(await pasteRequest)).toMatchObject({
+    view_schema_id: timelineViewSchemaId,
+    clipboard_text: "Beta pasted through helper\thost-token",
+    format: "tsv",
+    start_field_key: "timeline.summary",
+    columns: ["timeline.summary", "timeline.host_refs"],
+    targets: [
+      {
+        kind: "record",
+        record_id: betaRow.record_id,
+      },
+    ],
+  });
+  expect((await pasteResponse).ok()).toBeTruthy();
 });
 
 test("support Phase 3 keeps a pending edit anchored to its record under sort, filter, group, and live invalidation", async ({

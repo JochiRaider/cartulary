@@ -5,7 +5,7 @@
   "phases": [
     {
       "phase_id": "FE-P0",
-      "status": "planned",
+      "status": "active",
       "manifest_path": "tools/frontend_phase_maps/fe_p0_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p0_coverage_ledger.md",
       "owner_refs": [
@@ -15,7 +15,7 @@
     },
     {
       "phase_id": "FE-P1",
-      "status": "planned",
+      "status": "active",
       "manifest_path": "tools/frontend_phase_maps/fe_p1_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md",
       "owner_refs": [
@@ -27,7 +27,7 @@
     },
     {
       "phase_id": "FE-P2",
-      "status": "planned",
+      "status": "active",
       "manifest_path": "tools/frontend_phase_maps/fe_p2_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p2_coverage_ledger.md",
       "owner_refs": [
@@ -40,7 +40,7 @@
     },
     {
       "phase_id": "FE-P3",
-      "status": "planned",
+      "status": "active",
       "manifest_path": "tools/frontend_phase_maps/fe_p3_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p3_coverage_ledger.md",
       "owner_refs": [

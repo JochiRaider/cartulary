@@ -46,10 +46,10 @@
         "make browser-e2e-visual"
       ],
       "scenario_titles": [
-        "FE-V-P11-02 Ensure the visual fixture matrix includes default grid shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, drag-fill handle, edit cell, tree/group row, exposed theme states, and empty successful query."
+        "FE-V-P11-02 Ensure the visual fixture matrix includes default grid shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query."
       ],
       "claim_status": "blocked",
-      "claim": "Ensure the visual fixture matrix includes default grid shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, drag-fill handle, edit cell, tree/group row, exposed theme states, and empty successful query.",
+      "claim": "Ensure the visual fixture matrix includes default grid shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
     {

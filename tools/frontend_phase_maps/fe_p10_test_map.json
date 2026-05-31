@@ -142,10 +142,10 @@
         "make browser-e2e-webserver-backed"
       ],
       "scenario_titles": [
-        "FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, drag fill, column resize, frozen columns, virtual scroll, tree/group rows, focus restoration, and Esc priority ladder."
+        "FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder."
       ],
       "claim_status": "blocked",
-      "claim": "Verify full keyboard/clipboard contract: copy, paste, drag fill, column resize, frozen columns, virtual scroll, tree/group rows, focus restoration, and Esc priority ladder.",
+      "claim": "Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
     {
@@ -245,10 +245,10 @@
         "make browser-e2e-visual"
       ],
       "scenario_titles": [
-        "FE-V-P10-01 Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and drag-fill fixtures."
+        "FE-V-P10-01 Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures."
       ],
       "claim_status": "blocked",
-      "claim": "Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and drag-fill fixtures.",
+      "claim": "Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
     {

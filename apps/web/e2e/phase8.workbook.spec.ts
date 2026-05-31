@@ -367,20 +367,20 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
     String(gamma.record_id),
   ]);
   for (const state of ["reviewed", "rough"]) {
+    const groupTestId = gridGroupRowTestId(
+      timelineViewSchemaId,
+      "timeline.capture_state",
+      state,
+    );
+    const groupToggle = timelineGrid.getByTestId(groupTestId);
     const groupRow = timelineGrid
-      .getByTestId(
-        gridGroupRowTestId(
-          timelineViewSchemaId,
-          "timeline.capture_state",
-          state,
-        ),
-      )
+      .getByTestId(groupTestId)
       .locator("xpath=ancestor::*[@role='row'][1]");
     await expect(groupRow).toHaveCount(1);
     await expect(groupRow).not.toHaveAttribute("data-grid-record-id", /.+/);
-    await expect(
-      groupRow.locator("input, textarea, select, button"),
-    ).toHaveCount(0);
+    await expect(groupToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(groupRow.locator("input, textarea, select")).toHaveCount(0);
+    await expect(groupRow.locator("button")).toHaveCount(1);
   }
 });
 

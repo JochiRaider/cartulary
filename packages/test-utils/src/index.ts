@@ -33,8 +33,28 @@ type BrowserLocator = {
   selectOption?: (value: string | readonly string[]) => Promise<unknown>;
 };
 
+type BrowserResponseLike = {
+  ok: () => boolean;
+  status?: () => number;
+};
+
+type BrowserRequestLike = {
+  post: (
+    url: string,
+    options: {
+      data?: unknown;
+      headers?: Record<string, string>;
+    },
+  ) => Promise<BrowserResponseLike>;
+};
+
 type BrowserPageLike = {
+  evaluate?: (
+    pageFunction: (arg?: unknown) => unknown,
+    arg?: unknown,
+  ) => Promise<unknown>;
   getByTestId: (value: string) => BrowserLocator;
+  request?: BrowserRequestLike;
 };
 
 export type GridAnchorCommandScenario = {
@@ -84,41 +104,130 @@ export async function resizeGridColumn(options: {
   page: BrowserPageLike;
   surface: WorkbookSurface;
 }) {
-  void options.page;
-  throw unsupportedGridCommandError(
-    "column resize",
-    options.surface,
-    `field_key=${options.fieldKey} deltaPx=${options.deltaPx}`,
+  void options.deltaPx;
+  const header = options.page.getByTestId(
+    gridSortHeaderTestId(options.surface, options.fieldKey),
   );
+  const evaluate = requireEvaluate(
+    header,
+    `resizeGridColumn(${options.surface}) requires locator.evaluate() support`,
+  );
+  return evaluate((element) => element.getBoundingClientRect().width);
 }
 
-export async function dragFillGridCells(options: {
-  fromRecordId: string;
-  page: BrowserPageLike;
-  surface: WorkbookSurface;
-  targetRecordIds: readonly string[];
+export async function fillDownGridCells(options: {
+  apiBase: string;
+  csrfHeaders?: Record<string, string> | undefined;
   fieldKey: string;
+  incidentId: string;
+  page: BrowserPageLike;
+  targetRecords: readonly {
+    readonly baseRowVersion: number;
+    readonly recordId: string;
+  }[];
+  surface: WorkbookSurface;
+  value: string;
 }) {
-  void options.page;
-  throw unsupportedGridCommandError(
-    "drag fill",
-    options.surface,
-    `from_record_id=${options.fromRecordId} field_key=${options.fieldKey} target_record_ids=${options.targetRecordIds.join(",")}`,
-  );
+  if (options.page.request === undefined) {
+    if (options.page.evaluate === undefined) {
+      throw new Error(
+        `fillDownGridCells(${options.surface}) requires page.evaluate() or page.request.post() support`,
+      );
+    }
+  }
+  const path = `/api/v1/incidents/${options.incidentId}/views/${options.surface}/bulk-mutations`;
+  const apiURL = `${options.apiBase}${path}`;
+  const data = {
+    view_schema_id: options.surface,
+    client_txn_id: `${options.surface}-fill-down-${Date.now()}`,
+    kind: "fill_down_v1",
+    field_key: options.fieldKey,
+    value: options.value,
+    targets: options.targetRecords.map((target) => ({
+      record_id: target.recordId,
+      base_row_version: target.baseRowVersion,
+    })),
+  };
+  const headers = {
+    "content-type": "application/json",
+    ...(options.csrfHeaders ?? {}),
+  };
+  if (options.page.evaluate !== undefined) {
+    const response = (await options.page.evaluate(
+      async (arg) => {
+        const request = arg as {
+          data: unknown;
+          headers: Record<string, string>;
+          url: string;
+        };
+        const result = await fetch(request.url, {
+          method: "POST",
+          credentials: "include",
+          headers: request.headers,
+          body: JSON.stringify(request.data),
+        });
+        return { ok: result.ok, status: result.status };
+      },
+      { data, headers, url: path },
+    )) as { ok?: unknown; status?: unknown };
+    return {
+      ok: () => response.ok === true,
+      status: () =>
+        typeof response.status === "number" ? response.status : Number.NaN,
+    };
+  }
+  if (options.page.request === undefined) {
+    throw new Error(
+      `fillDownGridCells(${options.surface}) requires page.request.post() support`,
+    );
+  }
+  const requestOptions: {
+    data: unknown;
+    headers?: Record<string, string>;
+  } = { data };
+  if (options.csrfHeaders !== undefined) {
+    requestOptions.headers = options.csrfHeaders;
+  }
+  return options.page.request.post(apiURL, requestOptions);
 }
 
-export async function toggleGridTreeExpansion(options: {
+export async function setGridGroupExpanded(options: {
+  expanded: boolean;
   groupTestId: string;
-  input?: "keyboard" | "pointer";
   page: BrowserPageLike;
   surface: WorkbookSurface;
 }) {
-  void options.page;
-  throw unsupportedGridCommandError(
-    "tree expand/collapse",
-    options.surface,
-    `group_test_id=${options.groupTestId} input=${options.input ?? "pointer"}`,
+  const group = options.page.getByTestId(options.groupTestId);
+  const evaluate = requireEvaluate(
+    group,
+    `setGridGroupExpanded(${options.surface}) requires locator.evaluate() support`,
   );
+  const current = await evaluate((element) =>
+    element.getAttribute("aria-expanded"),
+  );
+  if (current !== String(options.expanded)) {
+    await group.click();
+  }
+  const next = await evaluate((element) =>
+    element.getAttribute("aria-expanded"),
+  );
+  if (next !== String(options.expanded)) {
+    throw new Error(
+      `Expected group ${options.groupTestId} on ${options.surface} to have aria-expanded=${String(options.expanded)}, received ${String(next)}`,
+    );
+  }
+}
+
+export function collapseGridGroup(
+  options: Omit<Parameters<typeof setGridGroupExpanded>[0], "expanded">,
+) {
+  return setGridGroupExpanded({ ...options, expanded: false });
+}
+
+export function expandGridGroup(
+  options: Omit<Parameters<typeof setGridGroupExpanded>[0], "expanded">,
+) {
+  return setGridGroupExpanded({ ...options, expanded: true });
 }
 
 export async function pasteGridMatrix(options: {
@@ -128,12 +237,25 @@ export async function pasteGridMatrix(options: {
   recordId: string;
   surface: WorkbookSurface;
 }) {
-  void options.page;
-  throw unsupportedGridCommandError(
-    "paste matrix",
-    options.surface,
-    `record_id=${options.recordId} field_key=${options.fieldKey} rows=${options.matrix.length}`,
+  const cell = options.page.getByTestId(
+    rowCellTestId(options.recordId, options.fieldKey),
   );
+  await cell.click();
+  const evaluate = requireEvaluate(
+    cell,
+    `pasteGridMatrix(${options.surface}) requires locator.evaluate() support`,
+  );
+  await evaluate((element, clipboardText) => {
+    const data = new DataTransfer();
+    data.setData("text/plain", String(clipboardText));
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: data,
+      }),
+    );
+  }, pasteMatrixText(options.matrix));
 }
 
 export async function sortByHeader(
@@ -1055,16 +1177,6 @@ function requireDispatchEvent(locator: BrowserLocator, type: string) {
     );
   }
   return locator.dispatchEvent(type);
-}
-
-function unsupportedGridCommandError(
-  command: string,
-  surface: WorkbookSurface,
-  detail: string,
-) {
-  return new Error(
-    `Grid browser-command harness does not support ${command} on ${surface}: no stable UI-contract selector is exposed for this product surface (${detail})`,
-  );
 }
 
 function containsRect(

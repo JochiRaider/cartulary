@@ -88,7 +88,7 @@
         "FE-U-P3-02 Translate vendor row and column coordinates to stable record_id and field_key anchors."
       ],
       "claim_status": "implemented",
-      "claim": "Translate vendor row/column coordinates to record_id + field_key for edit, copy, paste, drag fill, selection, focus, and anchor assertions.",
+      "claim": "Translate vendor row/column coordinates to record_id + field_key for edit, copy, paste, fill-down, selection, focus, and anchor assertions.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
     {
@@ -249,10 +249,10 @@
         "make browser-e2e-webserver-backed"
       ],
       "scenario_titles": [
-        "FE-B-P3-01 Verify sort, filter, group, resize, paste, drag fill, scroll-to-cell, tree expand/collapse, and anchor assertions through browser command helpers."
+        "FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers."
       ],
       "claim_status": "implemented",
-      "claim": "Verify sort, filter, group, resize, paste, drag fill, scroll-to-cell, tree expand/collapse, and anchor assertions through browser command helpers.",
+      "claim": "Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
     {
@@ -279,10 +279,10 @@
         "make browser-e2e-visual"
       ],
       "scenario_titles": [
-        "FE-V-P3-01 Capture frozen column, resize handle, drag-fill handle, edit cell, tree/group row, and empty successful query grid-adapter fixtures."
+        "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures."
       ],
       "claim_status": "implemented",
-      "claim": "Capture frozen column, resize handle, drag-fill handle, edit cell, tree/group row, and empty successful query grid-adapter fixtures.",
+      "claim": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
     {
@@ -305,10 +305,10 @@
         "make browser-e2e-a11y"
       ],
       "scenario_titles": [
-        "FE-A11Y-P3-01 Verify grid cells, editors, group/tree rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals."
+        "FE-A11Y-P3-01 Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals."
       ],
       "claim_status": "implemented",
-      "claim": "Verify grid cells, editors, group/tree rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals.",
+      "claim": "Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
     {

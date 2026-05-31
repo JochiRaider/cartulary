@@ -6,6 +6,7 @@ import {
   type Key,
   useCallback,
   useMemo,
+  useState,
 } from "react";
 import {
   DataGrid,
@@ -101,6 +102,9 @@ export function GridTable<Row>({
   sort = [],
 }: GridTableProps<Row>) {
   assertGridRows(rows);
+  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   const totalColumnCount =
     columns.length + (actionsColumn === undefined ? 0 : 1);
@@ -108,7 +112,7 @@ export function GridTable<Row>({
     columns[0]?.fieldKey ??
     (actionsColumn === undefined ? "" : actionsColumnKey);
 
-  const renderedRows = useMemo(
+  const presentationRows = useMemo(
     () =>
       buildGridPresentationRows({
         getGroupLabel,
@@ -118,12 +122,29 @@ export function GridTable<Row>({
       }),
     [getGroupLabel, getGroupRowTestId, groupBy, rows],
   );
+  const renderedRows = useMemo(
+    () => filterCollapsedGroups(presentationRows, collapsedGroups),
+    [collapsedGroups, presentationRows],
+  );
+  const handleToggleGroup = useCallback((groupKey: string) => {
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  }, []);
 
   const rdgColumns = useMemo(() => {
     const mappedColumns = columns.map((column) =>
       buildDataColumn({
         column,
         firstColumnKey,
+        isGroupCollapsed: (groupKey) => collapsedGroups.has(groupKey),
+        onToggleGroup: handleToggleGroup,
         onToggleSort,
         sort,
         totalColumnCount,
@@ -144,8 +165,10 @@ export function GridTable<Row>({
     ];
   }, [
     actionsColumn,
+    collapsedGroups,
     columns,
     firstColumnKey,
+    handleToggleGroup,
     onToggleSort,
     sort,
     totalColumnCount,
@@ -238,6 +261,8 @@ export function GridTable<Row>({
 type BuildDataColumnProps<Row> = {
   readonly column: GridColumn<Row>;
   readonly firstColumnKey: string;
+  readonly isGroupCollapsed: (groupKey: string) => boolean;
+  readonly onToggleGroup: (groupKey: string) => void;
   readonly onToggleSort?: ((fieldKey: string) => void) | undefined;
   readonly sort: readonly GridSortEntry[];
   readonly totalColumnCount: number;
@@ -299,6 +324,8 @@ function AdapterRow<Row>({
 function buildDataColumn<Row>({
   column,
   firstColumnKey,
+  isGroupCollapsed,
+  onToggleGroup,
   onToggleSort,
   sort,
   totalColumnCount,
@@ -318,10 +345,20 @@ function buildDataColumn<Row>({
         if (column.fieldKey !== firstColumnKey) {
           return null;
         }
+        const collapsed = isGroupCollapsed(row.key);
         return (
-          <strong data-testid={row.testId}>
-            {row.groupLabel ?? gridUnassignedGroupLabel}
-          </strong>
+          <button
+            aria-expanded={!collapsed}
+            data-testid={row.testId}
+            onClick={() => {
+              onToggleGroup(row.key);
+            }}
+            style={groupToggleStyle}
+            type="button"
+          >
+            <span aria-hidden="true" style={groupToggleGlyphStyle(collapsed)} />
+            <strong>{row.groupLabel ?? gridUnassignedGroupLabel}</strong>
+          </button>
         );
       }
       return column.renderCell(row.gridRow.data);
@@ -413,6 +450,28 @@ function gridRowHeight<Row>(row: AdapterGridRow<Row>) {
 
 function gridRowKeyGetter<Row>(row: AdapterGridRow<Row>) {
   return row.key;
+}
+
+function filterCollapsedGroups<Row>(
+  rows: readonly AdapterGridRow<Row>[],
+  collapsedGroups: ReadonlySet<string>,
+): readonly AdapterGridRow<Row>[] {
+  if (collapsedGroups.size === 0) {
+    return rows;
+  }
+  const filtered: AdapterGridRow<Row>[] = [];
+  let currentGroupCollapsed = false;
+  for (const row of rows) {
+    if (row.kind === "group") {
+      currentGroupCollapsed = collapsedGroups.has(row.key);
+      filtered.push(row);
+      continue;
+    }
+    if (!currentGroupCollapsed) {
+      filtered.push(row);
+    }
+  }
+  return filtered;
 }
 
 function rowStyleForVariant<Row>(row: GridRow<Row>): CSSProperties | undefined {
@@ -514,6 +573,33 @@ const groupCellStyle = {
   background: "var(--ct-colors-surface-2)",
   color: "var(--ct-colors-ink-muted)",
 };
+
+const groupToggleStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.5rem",
+  minWidth: 0,
+  padding: 0,
+  border: 0,
+  background: "transparent",
+  color: "inherit",
+  font: "inherit",
+  cursor: "pointer",
+};
+
+function groupToggleGlyphStyle(collapsed: boolean): CSSProperties {
+  const blockBorder = "0.3rem solid transparent";
+  const colorBorder = "0.35rem solid currentColor";
+  return {
+    display: "inline-block",
+    width: 0,
+    height: 0,
+    borderTop: collapsed ? blockBorder : colorBorder,
+    borderBottom: collapsed ? blockBorder : 0,
+    borderLeft: collapsed ? colorBorder : blockBorder,
+    borderRight: 0,
+  };
+}
 
 const emptyStateStyle = {
   gridColumn: "1 / -1",

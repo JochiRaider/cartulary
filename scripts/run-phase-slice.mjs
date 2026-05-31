@@ -10,7 +10,10 @@ import {
   buildPhaseSlicePlan,
   printablePlan,
 } from "./lib/phase-slice-plan.mjs";
-import { loadFrontendPhaseRegistry } from "./lib/frontend-phase-manifest.mjs";
+import {
+  buildFrontendPhaseSlicePlan,
+  printableFrontendPlan,
+} from "./lib/frontend-phase-slice-plan.mjs";
 import {
   formatResourceMap,
 } from "./lib/scheduler-reporting.mjs";
@@ -172,6 +175,8 @@ function reexecInsideServiceWrapper(context, options) {
     options.phase,
     "--mode",
     options.mode,
+    "--phase-namespace",
+    options.phaseNamespace,
     "--inside-service-wrapper",
   ];
   return runWithContext(context.testServicesBin, args, {
@@ -271,6 +276,18 @@ function attachRuntime(plan, context, metadataDir) {
       });
       continue;
     }
+    if (unit.kind === "make_target") {
+      unit.command = () => ({
+        command: context.makeBin,
+        args: ["--no-print-directory", unit.target],
+        env: runtimeEnv(context, {
+          CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES: "1",
+          MAKEFLAGS: "",
+        }),
+      });
+      continue;
+    }
     throw new Error(`unsupported phase slice work unit kind ${unit.kind}`);
   }
 
@@ -330,7 +347,13 @@ async function runScheduler(plan, context) {
       writeSchedulerDryRun({
         repoRoot,
         schedule: runtimeSchedule,
-        manifestPath: path.join(repoRoot, "tools", "phase_registry.json"),
+        manifestPath: path.join(
+          repoRoot,
+          "tools",
+          plan.phase_namespace === "frontend"
+            ? "frontend_phase_registry.json"
+            : "phase_registry.json",
+        ),
         verboseUnitLine(unit) {
           if (unit.countInTotal === false) {
             return "";
@@ -354,25 +377,40 @@ async function runScheduler(plan, context) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  const context = createRunnerContext({ repoRoot });
+  const mode = options.mode === "service-backed" ? "service_backed" : "phase";
   if (options.phaseNamespace === "frontend") {
-    const registry = loadFrontendPhaseRegistry(repoRoot);
-    const phase = registry.phases.find((entry) => entry.phase_id === options.phase);
-    if (!phase) {
-      throw new Error(`unknown frontend phase ${options.phase}; expected FE-P0 through FE-P11`);
+    const plan = buildFrontendPhaseSlicePlan(options.phase, {
+      mode,
+      root: repoRoot,
+    });
+
+    if (options.json || process.env.JSON === "1") {
+      process.stdout.write(`${JSON.stringify(printableFrontendPlan(plan), null, 2)}\n`);
+      return 0;
     }
-    if (phase.status !== "active") {
-      process.stderr.write(
-        `planned/non-executable frontend phase ${options.phase}; frontend phases must be promoted to active before phase-slice execution\n`,
-      );
-      return 2;
+
+    if (plan.no_op) {
+      process.stdout.write(`[NOOP] ${plan.target} phase=${plan.phase} mode=${options.mode} children=0\n`);
+      return runTargetSummary(context, plan.target, "pass", []);
     }
-    throw new Error("active frontend phase-slice execution is not implemented yet");
+
+    if (!options.insideServiceWrapper) {
+      const setupStatus = runSetup(context, plan);
+      if (setupStatus !== 0) {
+        const summaryStatus = runTargetSummary(context, plan.target, "fail", plan.child_target_names);
+        return targetPublicExitCode(context, plan.target, summaryStatus === 0 ? setupStatus : summaryStatus);
+      }
+      if (needsServiceWrapper(plan)) {
+        return reexecInsideServiceWrapper(context, options);
+      }
+    }
+
+    return await runScheduler(plan, context);
   }
   if (options.phase.startsWith("FE-P")) {
     throw new Error("frontend phases require --phase-namespace frontend");
   }
-  const context = createRunnerContext({ repoRoot });
-  const mode = options.mode === "service-backed" ? "service_backed" : "phase";
   const plan = buildPhaseSlicePlan(options.phase, { mode, root: repoRoot });
 
   if (options.json || process.env.JSON === "1") {
@@ -405,6 +443,7 @@ main()
   })
   .catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`phase slice failed: ${message}\n`);
-    process.exitCode = 1;
+    const exitCode = Number.isInteger(error?.exitCode) ? error.exitCode : 1;
+    process.stderr.write(exitCode === 2 ? `${message}\n` : `phase slice failed: ${message}\n`);
+    process.exitCode = exitCode;
   });

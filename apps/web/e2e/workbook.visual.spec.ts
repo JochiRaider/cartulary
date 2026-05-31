@@ -372,7 +372,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
 });
 
 test.describe("FE-P3 visual readiness", () => {
-  test("FE-V-P3-01 Capture frozen column, resize handle, drag-fill handle, edit cell, tree/group row, and empty successful query grid-adapter fixtures.", async ({
+  test("FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });

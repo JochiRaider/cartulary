@@ -41,9 +41,9 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 | `FE-VFIX-08` | Save-state strip | `FE-P4`, `FE-P7` | Saved, syncing, conflict, or recovered save-state strip is isolated for comparison. | Strip-level crop; grid scroll irrelevant unless row context is included. | `current` |
 | `FE-VFIX-09` | Frozen column | `FE-P3`, `FE-P10` | Frozen column remains visible while horizontal scroll exposes far-right state. | Horizontal scroll right; frozen-column edge visible. | `current` |
 | `FE-VFIX-10` | Resize handle | `FE-P3`, `FE-P10` | Column resize affordance is visible in a deterministic hover/focus state. | Top-left grid scroll; pointer/hover state declared. | `current` |
-| `FE-VFIX-11` | Drag-fill handle | `FE-P3`, `FE-P10` | Drag-fill affordance is visible in a deterministic focus/editor state. | Top-left grid scroll; active cell declared. | `current` |
+| `FE-VFIX-11` | Fill-down handle | `FE-P3`, `FE-P10` | Fill-down affordance is visible in a deterministic focus/editor state. | Top-left grid scroll; active cell declared. | `current` |
 | `FE-VFIX-12` | Edit cell | `FE-P3`, `FE-P4`, `FE-P10` | Active edit cell renders editor state and save-state relationship. | Top-left grid scroll; active cell declared. | `current` |
-| `FE-VFIX-13` | Tree/group row | `FE-P3`, `FE-P8`, `FE-P10` | Tree or group row state is expanded/collapsed as declared by the fixture. | Group/tree row anchor. | `current` |
+| `FE-VFIX-13` | Group outline row | `FE-P3`, `FE-P8`, `FE-P10` | Group row state is expanded/collapsed as declared by the fixture. | Group row anchor. | `current` |
 | `FE-VFIX-14` | Exposed theme states | `FE-P11` | Exposed theme, density, color, and token states render in representative controls. | Viewport `1280x720`; selector screenshot scope; no workbook-grid scroll state. | `current` |
 | `FE-VFIX-15` | Empty successful query | `FE-P3`, `FE-P4`, `FE-P8` | Successful empty result state renders without error or loading affordance. | Top-left grid scroll; empty-state container anchored. | `current` |
 

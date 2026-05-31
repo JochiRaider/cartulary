@@ -3,7 +3,7 @@
 This ledger is generated from `tools/frontend_phase_maps/fe_p1_test_map.json`. Update the frontend phase map first, then regenerate this file.
 
 - Namespace: `frontend`
-- Status: `planned`
+- Status: `active`
 - Owner refs: `docs/guides/cartulary_frontend_implementation_testing_guide.md`
 - Depends on: `FE-P0`
 - Authority: frontend phase maps are implementation-readiness inputs. This rendered ledger does not own product behavior.
