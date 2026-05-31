@@ -161,6 +161,18 @@ export const workbookShellSlots = [
   "presence",
 ] as const satisfies readonly WorkbookShellSlot[];
 
+export const workbookShellSlotLabels = {
+  "current-title": "Current workbook surface",
+  inspector: "Inspector",
+  presence: "Presence",
+  "primary-grid": "Primary grid",
+  "status-strip": "Status strip",
+  "system-views": "System views",
+  "tab-bar": "Workbook tabs",
+  "top-bar": "Workbook top bar",
+  "view-bar": "View controls",
+} as const satisfies Record<WorkbookShellSlot, string>;
+
 export type SystemViewSwitcherGroupToken =
   | "coordination"
   | "optional-artifact-surfaces"
@@ -397,6 +409,10 @@ export function workbookShellReadyTestId(): string {
 
 export function workbookShellSlotTestId(slot: WorkbookShellSlot): StableTestId {
   return stableTestId(`workbook-shell-slot-${requireWorkbookShellSlot(slot)}`);
+}
+
+export function workbookShellSlotLabel(slot: WorkbookShellSlot): string {
+  return workbookShellSlotLabels[requireWorkbookShellSlot(slot)];
 }
 
 export function timelineMutationSubstrateReadyTestId(): string {

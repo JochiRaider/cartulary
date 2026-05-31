@@ -22,10 +22,15 @@ import {
   rowCellTestId,
   rowInspectButtonTestId,
   rowPresenceMarkerTestId,
+  savedViewSelectorTestId,
   saveStateTestId,
+  surfaceTabTestId,
+  systemViewSwitcherTriggerTestId,
   timelineEvidenceFileInputTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowVersionTestId,
+  workbookShellReadyTestId,
+  workbookShellSlots,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page, Route, TestInfo } from "@playwright/test";
@@ -92,6 +97,66 @@ type GridVisualRegressionOptions = {
   | { scroll: GridVisualScrollState; anchor?: never }
   | { anchor: GridVisualAnchor; scroll?: never }
 );
+
+test.describe("FE-P2 workbook visual readiness", () => {
+  test("FE-V-P2-01 Capture default workbook shell with top bar, tabs, System views, view bar, primary grid slot, inspector, and status strip using deterministic visual harness settings.", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("FEV2SHELL"),
+      "FE-P2 visual default shell",
+    );
+    const timelineRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("FEV2SHELL-ROW"),
+        "timeline.occurred_at": "2026-05-31T09:00:00Z",
+        "timeline.summary": "FE-P2 visual shell row",
+        "timeline.details": "Default shell inspector visual fixture",
+      },
+    )) as ViewRow;
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await maskIncidentIdentity(page, incidentId);
+
+    const shell = page.getByTestId(workbookShellReadyTestId());
+    await expect(shell).toBeVisible();
+    for (const slot of workbookShellSlots) {
+      await expect(
+        shell.locator(dataTestIdSelector(workbookShellSlotTestId(slot))),
+      ).toBeVisible();
+    }
+    await expect(
+      page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(page.getByTestId(systemViewSwitcherTriggerTestId()))
+      .toBeVisible();
+    await expect(
+      page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(
+      page.getByTestId(
+        rowCellTestId(timelineRow.record_id, "timeline.summary"),
+      ),
+    ).toHaveValue("FE-P2 visual shell row");
+
+    await page.getByTestId(rowInspectButtonTestId(timelineRow.record_id)).click();
+    await expect(page.getByTestId("timeline-inspector")).toBeVisible();
+    await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+      scroll: { top: 0, left: "left" },
+    });
+
+    await assertViewportVisualRegression(
+      page,
+      "fe-v-p2-01-default-workbook-shell",
+    );
+  });
+});
 
 test.describe("Phase 3 workbook visual evidence", () => {
   test("V-3-GRID-01 captures the Timeline default viewport with stable row version and save-state strip", async ({

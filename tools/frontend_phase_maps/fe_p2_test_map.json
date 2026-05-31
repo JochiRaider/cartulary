@@ -235,7 +235,7 @@
       "scenario_titles": [
         "FE-V-P2-01 Capture default workbook shell with top bar, tabs, System views, view bar, primary grid slot, inspector, and status strip using deterministic visual harness settings."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Capture default workbook shell with top bar, tabs, System views, view bar, primary grid slot, inspector, and status strip using deterministic visual harness settings.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
@@ -256,12 +256,12 @@
         "D-AC-012"
       ],
       "targets": [
-        "make browser-e2e-a11y-preflight"
+        "make browser-e2e-a11y"
       ],
       "scenario_titles": [
         "FE-A11Y-P2-01 Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     }

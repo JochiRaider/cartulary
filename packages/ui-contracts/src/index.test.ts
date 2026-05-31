@@ -129,6 +129,7 @@ import {
   timelineScalarEditorSurfaces,
   timelineScalarEditorTestId,
   workbookShellReadyTestId,
+  workbookShellSlotLabel,
   workbookShellSlots,
   workbookShellSlotTestId,
 } from "./index";
@@ -711,7 +712,12 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(workbookShellSlotTestId("system-views")).toBe(
       "workbook-shell-slot-system-views",
     );
+    expect(workbookShellSlotLabel("top-bar")).toBe("Workbook top bar");
+    expect(workbookShellSlotLabel("primary-grid")).toBe("Primary grid");
     expect(() => workbookShellSlotTestId("toolbar" as never)).toThrow(
+      "Invalid workbook shell slot token: toolbar",
+    );
+    expect(() => workbookShellSlotLabel("toolbar" as never)).toThrow(
       "Invalid workbook shell slot token: toolbar",
     );
     expect(timelineMutationSubstrateReadyTestId()).toBe(

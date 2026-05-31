@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:4de08285a17b07a49f096e4ceccdb73f11a97c84800d0124cfb7f88df275ec31",
+  "input_digest": "sha256:163e43147f0dd9acaebea98cfc13bf7d216f1e2e06a8ede558b52b2b582514c9",
   "inputs": [
     {
       "path": "scripts/lib/artifact-discovery.mjs",
@@ -72,7 +72,7 @@
     {
       "path": "scripts/lib/frontend-phase-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:68c06da6bc36cc9a8c1d1b04eae7af5bd2276f39568befd67c0eb35afd62cd40"
+      "hash": "sha256:2833d65a1fe5fdab9dcf815ad2e6a97cdd2e17b0200f4cb2979f431ed3a4acde"
     },
     {
       "path": "scripts/lib/go-duration-artifacts.mjs",
@@ -272,7 +272,7 @@
     {
       "path": "scripts/lib/test-output/cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:fc58b9c616088f7721ad87e6f5764faa24fdd10e2c4a5477aed5803008ff176c"
+      "hash": "sha256:ad374ceab960ec7d88ab5756c18ae001b7d21c6131e1bc5088b0d08de0c8a407"
     },
     {
       "path": "scripts/lib/test-output/context.mjs",

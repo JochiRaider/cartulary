@@ -3,6 +3,9 @@ import path from "node:path";
 import {
   currentIncidentRoleTestId,
   dataTestIdSelector,
+  gridFilterApplyTestId,
+  gridFilterFieldTestId,
+  gridGroupingSelectTestId,
   landingIncidentCardTestId,
   phase1AccountTestId,
   phase1AdminTestId,
@@ -10,11 +13,29 @@ import {
   phase1ErrorCodeTestId,
   phase1ErrorSummaryTestIds,
   phase1LandingTestId,
-  type StableTestId,
+  rowInspectButtonTestId,
+  rowInspectorFieldTestId,
+  savedViewSelectorTestId,
+  saveStateTestId,
+  surfaceTabTestId,
+  systemViewSwitcherMenuTestId,
+  systemViewSwitcherOptionTestId,
+  systemViewSwitcherTriggerTestId,
   workbookShellReadyTestId,
+  workbookShellSlotLabel,
+  workbookShellSlots,
+  workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import type { APIRequestContext, Locator, Page, Route } from "@playwright/test";
-import { p1AccessibilityScenarioTitles } from "./a11yPhaseMap";
+import {
+  p1AccessibilityScenarioTitles,
+  scenarioTitlesForAccessibilityRow,
+} from "./a11yPhaseMap";
+import {
+  indicatorsViewSchemaId,
+  requiredBuiltInWorkbookSurfaceIds,
+  timelineViewSchemaId,
+} from "../src/workbookSurfaceRegistry";
 import {
   createLocalUser as createAuthLocalUser,
   revokeAllSessions,
@@ -23,6 +44,7 @@ import { expect, test } from "./fixtures";
 import {
   apiBase,
   createIncident,
+  createViewRow,
   createIncidentMembership,
   enrollTotpViaBootstrap,
   generateTotpCode,
@@ -40,13 +62,25 @@ type IncidentMembershipRecord = {
   user_id: string;
 };
 
+type ViewRow = {
+  record_id: string;
+};
+
 declare const phase1A11yAppLocalTestIdBrand: unique symbol;
 
 type Phase1A11yAppLocalTestId = string & {
   readonly [phase1A11yAppLocalTestIdBrand]: "Phase1A11yAppLocalTestId";
 };
 
-type Phase1A11yTestId = StableTestId | Phase1A11yAppLocalTestId;
+const p2AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
+  "FE-A11Y-P2-01",
+) as [string];
+
+if (p2AccessibilityScenarioTitles.length !== 1) {
+  throw new Error(
+    `FE-A11Y-P2-01 must declare exactly 1 scenario; found ${p2AccessibilityScenarioTitles.length}`,
+  );
+}
 
 const phase1A11yAppLocalSelectors = Object.freeze({
   incidentPatchButton: {
@@ -214,7 +248,7 @@ async function removeKeyboardSentinel(page: Page) {
 
 async function expectTabOrderIncludes(
   page: Page,
-  testIds: readonly Phase1A11yTestId[],
+  testIds: readonly string[],
   maxTabs = 180,
 ) {
   await focusKeyboardSentinel(page);
@@ -297,7 +331,7 @@ function contrastRecordPath(title: string) {
 
 async function collectContrastChecks(
   page: Page,
-  testIds: readonly Phase1A11yTestId[],
+  testIds: readonly string[],
 ) {
   const targets = [...new Set(testIds)].map((id) => ({
     id,
@@ -400,7 +434,7 @@ async function collectContrastChecks(
 
 async function expectAndRecordContrast(
   page: Page,
-  testIds: readonly Phase1A11yTestId[],
+  testIds: readonly string[],
 ) {
   const title = test.info().title;
   const checks = await collectContrastChecks(page, testIds);
@@ -427,8 +461,8 @@ async function expectAndRecordContrast(
 async function expectP1SurfaceA11y(
   page: Page,
   options: {
-    focusTestId?: Phase1A11yTestId;
-    tabStops?: readonly Phase1A11yTestId[];
+    focusTestId?: string;
+    tabStops?: readonly string[];
   } = {},
 ) {
   await expectAllInteractiveControlsNamed(page);
@@ -635,6 +669,120 @@ async function fulfillPublicError(
     }),
   });
 }
+
+test.describe("FE-P2 accessibility readiness", () => {
+  test(p2AccessibilityScenarioTitles[0], async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("A11YP2"),
+      "FE-A11Y-P2-01 workbook shell",
+    );
+    const timelineRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p2-01-row"),
+        "timeline.occurred_at": "2026-05-31T09:00:00Z",
+        "timeline.summary": "FE-P2 accessibility shell row",
+        "timeline.details": "Inspector control coverage",
+      },
+    )) as ViewRow;
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    const shell = page.getByTestId(workbookShellReadyTestId());
+    await expect(shell).toBeVisible();
+    await expect(page.getByRole("region", { name: "Workbook shell" }))
+      .toHaveCount(1);
+
+    for (const slot of workbookShellSlots) {
+      const label = workbookShellSlotLabel(slot);
+      const slotByTestId = shell.locator(
+        dataTestIdSelector(workbookShellSlotTestId(slot)),
+      );
+      await expect(slotByTestId).toBeVisible();
+      await expect(slotByTestId).toHaveAttribute("aria-label", label);
+      await expect(shell.getByRole("region", { name: label })).toHaveCount(1);
+    }
+
+    for (const surface of requiredBuiltInWorkbookSurfaceIds) {
+      const tab = page.getByTestId(surfaceTabTestId(surface));
+      await expect(tab).toBeVisible();
+      await expect(tab).not.toHaveText("");
+    }
+    await expect(
+      page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+    ).toHaveAttribute("aria-current", "page");
+
+    const trigger = page.getByTestId(systemViewSwitcherTriggerTestId());
+    await expect(trigger).toBeVisible();
+    await expect(trigger).toHaveAttribute("aria-label", "System views");
+    await expectVisibleFocus(trigger);
+    await page.keyboard.press("Enter");
+
+    const menu = page.getByTestId(systemViewSwitcherMenuTestId());
+    await expect(menu).toBeVisible();
+    await expect(menu).toHaveAttribute("role", "menu");
+    const indicatorOption = page.getByTestId(
+      systemViewSwitcherOptionTestId(
+        "scope-assessment",
+        indicatorsViewSchemaId,
+      ),
+    );
+    await expect(indicatorOption).toBeFocused();
+    await expect(indicatorOption).toHaveAttribute("role", "menuitemradio");
+    await expect(indicatorOption).toHaveAttribute("aria-checked", "false");
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+
+    await expect(
+      page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(gridFilterFieldTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(gridFilterApplyTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(gridGroupingSelectTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+
+    const inspectButton = page.getByTestId(
+      rowInspectButtonTestId(timelineRow.record_id),
+    );
+    await expect(inspectButton).toBeVisible();
+    await expectVisibleFocus(inspectButton);
+    await inspectButton.click();
+
+    const inspector = page.getByTestId("timeline-inspector");
+    await expect(inspector).toBeVisible();
+    await expect(inspector).toHaveAttribute("aria-label", "Timeline inspector");
+    await expect(
+      page.getByTestId(
+        rowInspectorFieldTestId(timelineRow.record_id, "timeline.details"),
+      ),
+    ).toBeVisible();
+
+    const saveState = page.getByTestId(saveStateTestId());
+    await expectStatusRole(saveState);
+    await expect(saveState).toHaveText("Saved");
+
+    await expectAllInteractiveControlsNamed(page);
+    await expectNoFocusTrap(page);
+    await expectAndRecordContrast(page, [
+      workbookShellSlotTestId("top-bar"),
+      workbookShellSlotTestId("status-strip"),
+      systemViewSwitcherTriggerTestId(),
+      savedViewSelectorTestId(timelineViewSchemaId),
+      gridFilterApplyTestId(timelineViewSchemaId),
+      rowInspectButtonTestId(timelineRow.record_id),
+      saveStateTestId(),
+    ]);
+  });
+});
 
 test.describe("FE-P1 accessibility readiness", () => {
   test(p1AccessibilityScenarioTitles[0], async ({ page }) => {

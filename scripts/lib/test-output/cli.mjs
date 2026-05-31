@@ -2598,6 +2598,44 @@ function frontendRowAccountingForTarget(target, targetStatus, targetDir) {
   };
 }
 
+function frontendRowAccountingFailures(accounting) {
+  if (!accounting) {
+    return [];
+  }
+  return accounting.rows
+    .filter(
+      (row) =>
+        row.claim_status === "implemented" &&
+        row.scenario_titles.length > 0 &&
+        row.closure_status !== "closed",
+    )
+    .map((row) => ({
+      failure_class: "harness",
+      failure_reason: "frontend_row_accounting",
+      kind: "failure",
+      source: "frontend-row-accounting",
+      target: accounting.target,
+      row_id: row.row_id,
+      message: `${row.row_id} implemented frontend row did not close: ${row.closure_status}`,
+    }));
+}
+
+function appendFrontendRowAccountingFailures(section, failures) {
+  if (failures.length === 0) {
+    return;
+  }
+  section.status = "fail";
+  section.counts = normalizeCounts(section.counts);
+  section.counts.failed += failures.length;
+  section.counts.non_test += failures.length;
+  section.counts.non_test_failed += failures.length;
+  const failureFields = failureFieldsForJSON(
+    [...(section.failures ?? []), ...failures],
+    section.counts,
+  );
+  Object.assign(section, failureFields);
+}
+
 function parseTargetList(value) {
   return value
     .split(",")
@@ -3857,6 +3895,20 @@ function handleTargetSummary(args) {
       );
     }
   }
+  const frontendAccountingFailures =
+    status === "PASS"
+      ? frontendRowAccountingFailures(frontendRowAccounting)
+      : [];
+  appendFrontendRowAccountingFailures(
+    ownSection,
+    frontendAccountingFailures,
+  );
+  appendFrontendRowAccountingFailures(
+    totalsSection,
+    frontendAccountingFailures,
+  );
+  const finalStatus =
+    frontendAccountingFailures.length > 0 ? "FAIL" : status;
   const targetExtensions = {
     ...(schedulerAccounting
       ? {
@@ -3873,7 +3925,7 @@ function handleTargetSummary(args) {
     schema_id: targetSummarySchemaID,
     target,
     kind: childTargetNames.length > 0 ? "aggregate" : "leaf",
-    status: status.toLowerCase(),
+    status: finalStatus.toLowerCase(),
     ...topLevelTiming,
     accounting_modes: totalsSection.accounting_modes,
     failure_class:
@@ -3913,7 +3965,7 @@ function handleTargetSummary(args) {
   const shouldSuppressMachineOutput =
     suppressMachineOutput || suppressChildSuccess();
 
-  if (status === "PASS") {
+  if (finalStatus === "PASS") {
     if (machineOutput()) {
       if (!shouldSuppressMachineOutput) {
         process.stdout.write(
@@ -3968,7 +4020,7 @@ function handleTargetSummary(args) {
     );
     writeSkippedChildTargetLines(process.stderr, target, skippedChildTargets);
   }
-  return 0;
+  return frontendAccountingFailures.length > 0 ? 1 : 0;
 }
 
 function parseSummaryGroupsSpec(value) {

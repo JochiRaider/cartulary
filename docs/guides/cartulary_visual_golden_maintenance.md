@@ -67,6 +67,7 @@ screenshot scopes.
 
 | Affected row | Owner map | Related fixture IDs | Screenshot scope |
 | --- | --- | --- | --- |
+| `FE-V-P2-01` | `tools/frontend_phase_maps/fe_p2_test_map.json` | `FE-VFIX-01` | Fixed viewport shell, snapshot `fe-v-p2-01-default-workbook-shell`. |
 | `V-3-GRID-01` | `tools/phase3_test_map.json` | `FE-VFIX-01`, `FE-VFIX-08` | Fixed viewport shell. |
 | `V-3-GRID-02` | `tools/phase3_test_map.json` | `FE-VFIX-08`, `FE-VFIX-12` | Grid shell and named status-strip slot. |
 | `V-3-GRID-03` | `tools/phase3_test_map.json` | `FE-VFIX-06`, `FE-VFIX-13` | Grid shell. |

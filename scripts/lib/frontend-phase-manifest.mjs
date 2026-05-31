@@ -435,6 +435,41 @@ export function renderFrontendPhaseLedger(root, phaseID) {
   return `${lines.join("\n")}\n`;
 }
 
+export function frontendScenarioTitlesForTarget(
+  root,
+  target,
+  layer = "",
+) {
+  const normalizedTarget = target.startsWith("make ") ? target : `make ${target}`;
+  const registry = loadFrontendPhaseRegistry(root);
+  const titles = [];
+  for (const phase of registry.phases) {
+    const { manifest } = loadFrontendPhaseMap(root, phase.phase_id);
+    for (const row of manifest.rows) {
+      if (layer && row.layer !== layer) {
+        continue;
+      }
+      if (!row.targets.includes(normalizedTarget)) {
+        continue;
+      }
+      titles.push(...row.scenario_titles);
+    }
+  }
+  return [...new Set(titles)].sort();
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function frontendPlaywrightGrepForTarget(root, target, layer = "") {
+  const titles = frontendScenarioTitlesForTarget(root, target, layer);
+  if (titles.length === 0) {
+    return "";
+  }
+  return `(?:${titles.map(escapeRegExp).join("|")})`;
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const command = process.argv[2] ?? "";
   const root = process.cwd();
@@ -445,8 +480,20 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     for (const entry of loadFrontendPhaseRegistry(root).phases) {
       console.log(entry.phase_id);
     }
+  } else if (command === "playwright-grep") {
+    const target = process.argv[3] ?? "";
+    const layer = process.argv[4] ?? "";
+    if (!target) {
+      console.error(
+        "usage: frontend-phase-manifest.mjs playwright-grep <target> [layer]",
+      );
+      process.exit(2);
+    }
+    console.log(frontendPlaywrightGrepForTarget(root, target, layer));
   } else {
-    console.error("usage: frontend-phase-manifest.mjs validate|phases");
+    console.error(
+      "usage: frontend-phase-manifest.mjs validate|phases|playwright-grep <target> [layer]",
+    );
     process.exit(2);
   }
 }

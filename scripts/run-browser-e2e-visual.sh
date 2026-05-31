@@ -6,6 +6,27 @@ source "$ROOT_DIR/scripts/lib/playwright-owned-stack.sh"
 
 resolve_playwright_owned_stack_env "$ROOT_DIR"
 
-exec "$ROOT_DIR/scripts/run-browser-e2e-manifest-dependency.sh" \
+status=0
+
+"$ROOT_DIR/scripts/run-browser-e2e-manifest-dependency.sh" \
   browser-e2e-visual authoritative browser_visual -- \
-  "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test
+  "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test ||
+  status=1
+
+frontend_grep="$(
+  NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
+    "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/scripts/lib/frontend-phase-manifest.mjs" \
+      playwright-grep browser-e2e-visual visual_regression
+)"
+
+if [[ -n "$frontend_grep" ]]; then
+  "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" \
+    NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
+    "$ROOT_DIR/scripts/lib/run-playwright-phase.sh" \
+    "browser-e2e-visual frontend-readiness" -- \
+    "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test \
+    apps/web/e2e/workbook.visual.spec.ts -g "$frontend_grep" ||
+    status=1
+fi
+
+exit "$status"

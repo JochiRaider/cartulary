@@ -70,8 +70,11 @@ Locally verified facts:
   5 row-owned browser evidence for `FE-E-P2-01` now verifies active-surface
   saved-view placement, `scope='system'` saved-view non-conflation, same-shell
   contract-backed system-view navigation, and base-`view_schema_id` query
-  routing after saved-view selection. FE-P2 is still not complete:
-  visual/accessibility readiness remains Sprint 6 work.
+  routing after saved-view selection. Sprint 6 row-owned visual and
+  accessibility readiness evidence now closes the remaining FE-P2 visual/a11y
+  rows without promoting them to Core product conformance or Core 05 evidence.
+  The FE-P2 registry status remains `planned` because FE-P0 and FE-P1 are still
+  `planned`.
 
 Inherited FE-P0 handoff state:
 - `FE-P0` remains `planned` but all six FE-P0 rows are `implemented` in the
@@ -99,11 +102,12 @@ Assumptions:
 - Browser validation uses the repository's existing service-backed Playwright
   targets.
 
-Initial missing evidence at plan creation:
-- No direct FE-P2 row-owned evidence had been collected.
-- No FE-P2-specific visual golden named for a phase-2 shell capture was found;
-  visual goldens currently start with `v-3-*` files even though `FE-VFIX-01` is
-  marked current.
+Initial missing evidence at plan creation, now remediated:
+- Direct FE-P2 row-owned visual and accessibility evidence is now collected
+  under `make browser-e2e-visual` and `make browser-e2e-a11y`.
+- The FE-P2-specific visual golden
+  `apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-workbook-shell-linux.png`
+  now backs `FE-VFIX-01` for the phase-2 shell capture.
 
 ## Startup And Registry Hardening Addendum
 
@@ -205,8 +209,8 @@ Out of scope:
 | [x] | 2. Startup model and shell registry | `make frontend-unit`; `make frontend-typecheck`; `make generate-drift`; `make phase-ledger-drift`; `git diff --check` | None for `FE-U-P2-01`/`FE-U-P2-02`; saved-view runtime proof is covered by Sprint 5 / `FE-E-P2-01` |
 | [x] | 3. Continuous shell composition | `make frontend-unit`; `make browser-e2e-webserver-backed` | None for Sprint 3 audit scope; `FE-B-P2-01` appears eligible for normal row-owned promotion |
 | [x] | 4. `System views` keyboard/focus | `make frontend-unit`; `make frontend-typecheck`; `make browser-e2e-webserver-backed`; conditional `make browser-e2e-support`; `git diff --check` | None for Sprint 4 audit scope; `FE-B-P2-02` has retained row-owned browser evidence and is not FE-P2 completion |
-| [x] | 5. Saved-view placement and same-shell E2E | `make frontend-unit`; `make frontend-typecheck`; `make backend-store`; `make backend-integration`; `make browser-e2e-webserver-backed`; `make phase-ledger-drift`; `git diff --check` | None for Sprint 5 audit scope; visual/accessibility readiness remains Sprint 6 |
-| [ ] | 6. Visual and accessibility readiness | `make browser-e2e-visual`; `make browser-e2e-a11y-preflight` | Missing FE-P2 visual fixture blocks `FE-V-P2-01` |
+| [x] | 5. Saved-view placement and same-shell E2E | `make frontend-unit`; `make frontend-typecheck`; `make backend-store`; `make backend-integration`; `make browser-e2e-webserver-backed`; `make phase-ledger-drift`; `git diff --check` | None for Sprint 5 audit scope |
+| [x] | 6. Visual and accessibility readiness | `make browser-e2e-visual`; `make browser-e2e-a11y`; `make browser-e2e-a11y-preflight` | None for Sprint 6 audit scope; rows remain design-direction evidence |
 | [ ] | 7. Closure and FE-P3 handoff | Row-owned commands plus drift and regression checks | `make check` only if repository completion rules require it |
 
 ## Global References
@@ -231,7 +235,7 @@ Use these as the FE-P2 source set:
 | `FE-B-P2-02` | `product_conformance` | `make browser-e2e-webserver-backed` | Core-owned system-view identity/opening; switcher keyboard/focus remains design-direction evidence |
 | `FE-E-P2-01` | `product_conformance` | `make browser-e2e-webserver-backed` | Core-owned saved-view placement and same-shell navigation |
 | `FE-V-P2-01` | `design_direction` | `make browser-e2e-visual` | Design-direction visual readiness only; no Core product or Core 05 claim |
-| `FE-A11Y-P2-01` | `design_direction` | `make browser-e2e-a11y-preflight` | Design-direction accessibility readiness only; no Core product or Core 05 claim |
+| `FE-A11Y-P2-01` | `design_direction` | `make browser-e2e-a11y` | Design-direction accessibility readiness only; no Core product or Core 05 claim |
 
 ## Dependencies and Prerequisites
 
@@ -672,12 +676,16 @@ browser-backed E2E.
 
 ## Sprint 6: Visual And Accessibility Readiness
 
-Local execution plan, 2026-05-31:
-- confirm `FE-V-P2-01` target selection before touching visual fixtures;
-- add exact `FE-A11Y-P2-01` preflight coverage first, then make only minimal
-  shell accessibility semantics needed by that preflight;
-- keep both Sprint 6 rows `design_direction` and leave generated ledgers
-  generated-only.
+Local execution result, 2026-05-31:
+- `FE-V-P2-01` is implemented as direct frontend visual readiness evidence under
+  `make browser-e2e-visual`, selected from the frontend phase map separately
+  from base `V-*` visual manifests.
+- `FE-A11Y-P2-01` is implemented as direct frontend accessibility evidence
+  under `make browser-e2e-a11y`; blocked future-row smoke remains under
+  `make browser-e2e-a11y-preflight`.
+- Both Sprint 6 rows remain `evidence_class="design_direction"` with empty
+  Core requirement and Core acceptance ID lists. No Core 05 publication path is
+  activated.
 
 Objective: collect design-direction visual and accessibility readiness without
 turning either into product-conformance or Core 05 evidence.
@@ -687,94 +695,86 @@ Non-goals: no Core 05 publication, no benchmark/fixture-sensitive public claim.
 Source constraints: visual golden guide owns refresh mechanics; UI/UX/design own
 direction.
 
-Inspect: `workbook.visual.spec.ts`, visual snapshots,
-`workbook.a11y-preflight.spec.ts`, `a11yPhaseMap.ts`, FE-P2 map.
-
-Test-first sequence:
-- add/adjust FE-P2 visual scenario title exactly as mapped;
-- add/adjust FE-P2 a11y preflight scenario for shell regions, tabs,
-  switcher/menu, inspector controls, status strip, visible focus, names.
-
-Implementation tasks:
-- create or correct FE-P2 default shell visual fixture/golden;
-- mask dynamic incident/user/presence data;
-- ensure preflight summary keeps FE-P2 blocked-row evidence separate from
-  implemented a11y rows unless promotion rules are met.
+Implemented remediation:
+- `browser-e2e-visual` keeps base visual phase selection unchanged and adds a
+  frontend-readiness child selected from frontend phase-map scenario titles.
+- The FE-P2 visual scenario captures the default workbook shell with a fixed
+  viewport, deterministic row data, normalized grid scroll, dynamic masks, and
+  the committed golden
+  `apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-workbook-shell-linux.png`.
+- `FE-A11Y-P2-01` moved from preflight into `workbook.a11y.spec.ts`, asserting
+  named shell regions by role, tab/switcher/menu reachability, inspector
+  controls, status semantics, visible focus, accessible names, contrast records,
+  and the no-simple-focus-trap condition.
+- Shell slot labels are exported from `@cartulary/ui-contracts`; the app and
+  tests share the contract while preserving native `<section>` landmark
+  semantics.
+- Target summary generation now fails successful targets when an implemented,
+  scenario-backed frontend row mapped to that target does not close. Blocked
+  rows remain non-blocking accounting rows.
 
 Validation commands:
-- `make browser-e2e-visual`
-- `make browser-e2e-a11y-preflight`
 - `make frontend-typecheck`
+- `make frontend-unit`
+- `make browser-e2e-visual`
+- `make browser-e2e-a11y`
+- `make browser-e2e-a11y-preflight`
+- `make phase-ledgers`
 - `make phase-ledger-drift`
+- `make phase-schedules`
+- `make phase-schedule-drift`
+- `make json-shape-check`
+- `git diff --check`
+- `make agent-finalize`
 
-Deliverables: `FE-V-P2-01` and `FE-A11Y-P2-01` evidence or exact blockers.
+Deliverables: direct closed row accounting for `FE-V-P2-01` and
+`FE-A11Y-P2-01`, generated ledger parity, and updated handoff artifacts.
 
-Blocker rules: visual fixture mismatch blocks `FE-V-P2-01`; a11y preflight
-target failure blocks `FE-A11Y-P2-01`.
+Blocker rules: visual fixture mismatch blocks `FE-V-P2-01`; implemented a11y
+target failure blocks `FE-A11Y-P2-01`; preflight failures for FE-P3 and later
+remain future-row smoke blockers only.
 
 Binary acceptance: both rows remain `design_direction`; no Core 05 review runs.
 
 Execution result, 2026-05-31:
-- Sprint 6 execution scope is complete with an exact visual blocker and passing
-  blocked-row accessibility preflight evidence; FE-P2 is not claimed complete.
-- `FE-V-P2-01` remains `claim_status="blocked"` and
-  `evidence_class="design_direction"`. Exact blocker:
-  `support-tooling-owned`; direct `make browser-e2e-visual` selection is still
-  base-manifest driven and selects only `phase3`, `phase4`, `phase5`, and
-  `phase6` `browser_visual` rows. The command's retained
-  `frontend-row-accounting.json` lists the FE-P2 visual row as missing because
-  no exact FE-P2 visual Playwright title is selected. Minimum next action:
-  owner-approved support-tooling work to let `browser-e2e-visual` select
-  frontend visual rows, or owner-approved remapping to an existing visual
-  fixture without product-conformance or Core 05 promotion.
-- `FE-A11Y-P2-01` remains `claim_status="blocked"` and
-  `evidence_class="design_direction"`. Direct preflight evidence exists from
-  `make browser-e2e-a11y-preflight`, but it remains
-  `cartulary.frontend_accessibility_preflight_summary.v1` blocked-row smoke
-  evidence and is not implemented-row evidence. Minimum next action for
-  promotion: owner-approved move to the implemented accessibility evidence path.
-- Changed files: `FRONTEND_PHASE2_IMPLEMENTATION_PLAN.md`,
-  `apps/web/e2e/workbook.a11y-preflight.spec.ts`, and
-  `apps/web/src/WorkbookShell.tsx`.
-- App/test changes: the preflight spec now splits out the exact
-  `FE-A11Y-P2-01` title, keeps generic blocked-row smoke separate, and asserts
-  shell slot names, built-in tab state, System views menu behavior, saved-view
-  selector, grid controls, inspector controls, status strip semantics, visible
-  focus, accessible names, and a simple no-focus-trap condition. `WorkbookShell`
-  adds named shell/slot regions, active tab `aria-current`, a named Timeline
-  inspector, and save-state `role="status"` semantics.
-- Visual files and snapshots were not edited. Generated frontend ledgers were
-  not hand-edited.
-
-Validation and artifacts:
-- Visual target-selection inspection passed:
-  `tmp/node-runtime/bin/node scripts/lib/phase-manifest.mjs playwright-phases authoritative browser_visual`
-  returned only `phase3`, `phase4`, `phase5`, and `phase6`; the matching
-  `playwright-grep` checks returned only `V-3-*`, `V-4-*`, `V-5-*`, and
-  `V-6-*` titles.
-- Test-first `make browser-e2e-a11y-preflight` failed as `FE-P2-owned` before
-  shell semantics were added:
-  `.cartulary/test-results/20260531T004904Z-p556113/browser-e2e-a11y-preflight/tool-run-summary.json`.
-- Final `make browser-e2e-a11y-preflight` passed:
-  `.cartulary/test-results/20260531T005016Z-p560728/browser-e2e-a11y-preflight/tool-run-summary.json`;
-  normalized preflight summary:
-  `.cartulary/test-results/20260531T005016Z-p560728/browser-e2e-a11y-preflight/accessibility-preflight/frontend-accessibility-preflight-summary.json`;
-  runner:
-  `.cartulary/test-results/20260531T005016Z-p560728/browser-e2e-a11y-preflight/browser-e2e-a11y-preflight-accessibility-preflight/runner.json`.
-- `make browser-e2e-visual` failed on existing selected `V-3-*` through `V-6-*`
-  screenshot mismatches, outside FE-P2:
-  `.cartulary/test-results/20260531T005111Z-p564852/browser-e2e-visual/tool-run-summary.json`;
-  row accounting:
-  `.cartulary/test-results/20260531T005111Z-p564852/browser-e2e-visual/frontend-row-accounting.json`;
-  example retained diff:
-  `.cartulary/test-results/20260531T005111Z-p564852/browser-e2e-visual/browser-e2e-visual-phase3-authoritative/playwright-output/workbook.visual-Phase-3-wo-bbd1a-ersion-and-save-state-strip/v-3-grid-01-timeline-default-diff.png`.
+- `FE-V-P2-01` is `claim_status="implemented"` and
+  `evidence_class="design_direction"` in the FE-P2 map and generated ledger.
+  Retained row accounting:
+  `.cartulary/test-results/20260531T021119Z-p782258/browser-e2e-visual/frontend-row-accounting.json`;
+  closure status: `closed`.
+- `FE-A11Y-P2-01` is `claim_status="implemented"` and
+  `evidence_class="design_direction"` in the FE-P2 map and generated ledger.
+  Retained row accounting:
+  `.cartulary/test-results/20260531T020846Z-p767910/browser-e2e-a11y/frontend-row-accounting.json`;
+  closure status: `closed`.
+- `make browser-e2e-a11y-preflight` no longer lists `FE-A11Y-P2-01`; it passed
+  with FE-P3 through FE-P11 blocked-row smoke:
+  `.cartulary/test-results/20260531T020912Z-p771306/browser-e2e-a11y-preflight/tool-run-summary.json`.
+- `make browser-e2e-visual` passed with base visual rows plus the frontend
+  readiness child:
+  `.cartulary/test-results/20260531T021119Z-p782258/browser-e2e-visual/tool-run-summary.json`.
+- `make browser-e2e-a11y` passed:
+  `.cartulary/test-results/20260531T020846Z-p767910/browser-e2e-a11y/tool-run-summary.json`.
 - `make frontend-typecheck` passed:
-  `.cartulary/test-results/20260531T005254Z-p571141/frontend-typecheck/tool-run-summary.json`.
-- Narrow prerequisite `make frontend-unit` passed:
-  `.cartulary/test-results/20260531T005345Z-p572841/frontend-unit/tool-run-summary.json`.
+  `.cartulary/test-results/20260531T020821Z-p766105/frontend-typecheck/tool-run-summary.json`.
+- `make frontend-unit` passed:
+  `.cartulary/test-results/20260531T020829Z-p766389/frontend-unit/tool-run-summary.json`.
+- `make phase-ledgers` passed:
+  `.cartulary/test-results/20260531T021217Z-p787312/phase-ledgers/tool-run-summary.json`.
 - `make phase-ledger-drift` passed:
-  `.cartulary/test-results/20260531T005307Z-p571890/phase-ledger-drift/tool-run-summary.json`.
+  `.cartulary/test-results/20260531T021219Z-p787519/phase-ledger-drift/tool-run-summary.json`.
+- `json-shape-check` initially reported stale phase schedule inputs after
+  harness script edits. `make phase-schedules` refreshed the generated schedule
+  inputs:
+  `.cartulary/test-results/20260531T021226Z-p787938/phase-schedules/tool-run-summary.json`,
+  `make phase-schedule-drift` passed:
+  `.cartulary/test-results/20260531T021511Z-p792449/phase-schedule-drift/tool-run-summary.json`,
+  then `make json-shape-check` passed:
+  `.cartulary/test-results/20260531T021326Z-p789208/json-shape-check/tool-run-summary.json`.
 - `git diff --check` passed after recording this execution result.
+- `make agent-finalize` passed without `RESULTS_DIR`; retained-run maintenance
+  was skipped because no successful full warm `make check` run was available:
+  `.cartulary/test-results/20260531T021446Z-p791040/agent-finalize/tool-run-summary.json`.
 
 ## Sprint 7: Closure, Drift, Regression, And FE-P3 Handoff
 
@@ -799,6 +799,7 @@ Validation commands:
 - `make frontend-unit`
 - `make browser-e2e-webserver-backed`
 - `make browser-e2e-visual`
+- `make browser-e2e-a11y`
 - `make browser-e2e-a11y-preflight`
 - `make browser-e2e-support`
 - `make generated-artifact-policy-check`

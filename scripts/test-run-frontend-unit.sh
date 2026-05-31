@@ -199,6 +199,13 @@ for (const row of frontendPhase1.rows ?? []) {
     continue;
   }
   for (const [index, title] of (row.scenario_titles ?? []).entries()) {
+    if (
+      mode === "frontend-row-missing-implemented" &&
+      row.id === "FE-I-P1-01" &&
+      index === 0
+    ) {
+      continue;
+    }
     frontendPhase1Entries.push(
       assertion(
         title,
@@ -449,6 +456,23 @@ if (!fei || fei.closure_status !== "failed") {
 }
 if (!fei.scenarios.some((scenario) => scenario.status === "failed")) {
   throw new Error("mapped FE-I-P1-01 failure must retain failed scenario accounting");
+}
+EOF
+frontend_row_missing_summary="$(run_case frontend-row-missing frontend-row-missing-implemented fail)"
+assert_equals "$(json_field "$frontend_row_missing_summary" "status")" "fail" "implemented frontend row missing status"
+assert_equals "$(json_field "$frontend_row_missing_summary" "failure_class")" "harness" "implemented frontend row missing failure class"
+assert_equals "$(json_field "$frontend_row_missing_summary" "failure_reason")" "frontend_row_accounting" "implemented frontend row missing failure reason"
+"${NODE:-node}" - "$frontend_row_missing_summary" <<'EOF'
+const fs = require("node:fs");
+const [summaryPath] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+const accounting = summary.extensions?.["cartulary.frontend_row_accounting"];
+const fei = new Map((accounting?.rows ?? []).map((row) => [row.row_id, row])).get("FE-I-P1-01");
+if (!fei || fei.closure_status !== "missing") {
+  throw new Error(`implemented FE-I-P1-01 missing scenario must fail target accounting: ${JSON.stringify(fei)}`);
+}
+if (!summary.failures?.some((failure) => failure.source === "frontend-row-accounting")) {
+  throw new Error("target summary must include a frontend-row-accounting failure");
 }
 EOF
 success_target_dir="${success_summary%/target-summary.json}"

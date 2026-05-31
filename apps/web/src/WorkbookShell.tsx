@@ -93,6 +93,7 @@ import {
   type WorkbookShellSlot,
   type WorkbookSurface,
   workbookShellReadyTestId,
+  workbookShellSlotLabel,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -296,17 +297,6 @@ type WorkbookShellProps = {
 };
 
 const workbookShellId = workbookShellReadyTestId();
-const workbookShellSlotLabels = {
-  "current-title": "Current workbook surface",
-  inspector: "Inspector",
-  presence: "Presence",
-  "primary-grid": "Primary grid",
-  "status-strip": "Status strip",
-  "system-views": "System views",
-  "tab-bar": "Workbook tabs",
-  "top-bar": "Workbook top bar",
-  "view-bar": "View controls",
-} satisfies Record<WorkbookShellSlot, string>;
 
 function WorkbookShellSlotRegion({
   children,
@@ -321,7 +311,7 @@ function WorkbookShellSlotRegion({
 }) {
   return (
     <section
-      aria-label={workbookShellSlotLabels[slot]}
+      aria-label={workbookShellSlotLabel(slot)}
       data-testid={workbookShellSlotTestId(slot)}
       data-view-schema-id={viewSchemaId}
       data-workbook-shell-id={workbookShellId}

@@ -158,7 +158,7 @@ Current repository targets: `make browser-e2e-webserver-backed`, `make browser-e
 
 Visual regression rows are implementation-quality evidence. They verify that the frontend continues to meet the intended visual contract for shell density, grid affordances, state presentation, and deterministic workbook composition. They are not claim-bearing benchmark evidence unless Core 05 publication requirements are separately satisfied.
 
-Current repository target: `make browser-e2e-visual`.
+Current repository target: `make browser-e2e-visual`. That target runs current-profile `V-*` visual manifest rows and separately runs frontend visual readiness rows selected by exact `scenario_titles[]` from `tools/frontend_phase_maps/*.json`; frontend visual closure must come from `frontend-row-accounting.json`, not from base `V-*` manifest selection or snapshot filenames.
 
 ### 2.7 Accessibility
 
@@ -286,7 +286,7 @@ FE-P2 unit hardening MUST keep startup and registry behavior keyed by `sheet_ref
 | FE-B-P2-02 | Browser integration | Verify `System views` switcher keyboard entry, roving focus, selection, dismissal, and focus restoration. | Core 03 Sections 2.2 and 13; UI/UX guide Sections 6, 10 | `REQ-03-005`..`REQ-03-011`, `REQ-03-217`..`REQ-03-222` | `AC-005`, `AC-043`, `AC-078`, `AC-085`..`AC-090`, `AC-121`, `AC-122`, `AC-231`, `AC-354`, `AC-394`..`AC-396`; `R2-AC-027`..`R2-AC-032`, `R2-AC-080`..`R2-AC-086` | `make browser-e2e-webserver-backed` | `product_conformance` |
 | FE-E-P2-01 | E2E | Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell. | Core 03 Sections 2.2, 2.3; Core 01 Section 3.3.5.2 | `REQ-03-005`..`REQ-03-026`, `REQ-01-138`..`REQ-01-151` | `AC-078`, `AC-085`..`AC-090`, `AC-121`, `AC-122`, `AC-146`..`AC-153`, `AC-231`, `AC-233`, `AC-410`, `AC-411` | `make browser-e2e-webserver-backed` | `product_conformance` |
 | FE-V-P2-01 | Visual regression | Capture default workbook shell with top bar, tabs, `System views`, view bar, primary grid slot, inspector, and status strip using deterministic visual harness settings. | UI/UX guide Sections 5, 6, 8, 9, 13; visual golden guide Sections 2, 3, 5 | `N/A: design_direction; Core owner not claimed` | `R2-AC-017`..`R2-AC-026`, `R2-AC-073`..`R2-AC-079`, `D-AC-001`..`D-AC-006` | `make browser-e2e-visual` | `design_direction` |
-| FE-A11Y-P2-01 | Accessibility | Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named. | UI/UX guide Sections 10.5 and 14; `docs/design.md` Accessibility Direction | `N/A: design_direction; Core owner not claimed` | `R2-AC-080`..`R2-AC-086`, `D-AC-009`, `D-AC-012` | `make browser-e2e-a11y-preflight` | `design_direction` |
+| FE-A11Y-P2-01 | Accessibility | Verify shell regions, tabs, switchers, menus, inspector controls, and status strip are keyboard reachable, visibly focused, and named. | UI/UX guide Sections 10.5 and 14; `docs/design.md` Accessibility Direction | `N/A: design_direction; Core owner not claimed` | `R2-AC-080`..`R2-AC-086`, `D-AC-009`, `D-AC-012` | `make browser-e2e-a11y` | `design_direction` |
 
 ### 4.3 Phase FE-P3: Grid Adapter And View-Schema Rendering
 
@@ -567,7 +567,7 @@ Each `tools/frontend_phase_maps/fe_p*_test_map.json` file MUST declare `schema_i
 
 Generated frontend ledgers under `docs/testing/frontend_phase_coverage_ledgers/` MUST render registry metadata, row metadata, target mapping, evidence class, owner refs, Core IDs, support/design AC IDs, blocked status, scenario titles, and source-map claims. The maps are the source of truth; ledgers are rendered companions.
 
-Frontend-aware targets that map one or more frontend rows MUST retain `<target>/frontend-row-accounting.json` with schema ID `cartulary.frontend_row_accounting.v1`. That artifact is the durable row-to-scenario closure record for target runs. Target and tool-run summary extensions under `cartulary.frontend_row_accounting` are compatibility copies only; new audit workflows SHOULD prefer the schema-owned artifact. Base browser `manifest-selected-tests.json` files remain base phase inventory and MUST NOT be used as frontend row closure evidence.
+Frontend-aware targets that map one or more frontend rows MUST retain `<target>/frontend-row-accounting.json` with schema ID `cartulary.frontend_row_accounting.v1`. That artifact is the durable row-to-scenario closure record for target runs. Target and tool-run summary extensions under `cartulary.frontend_row_accounting` are compatibility copies only; new audit workflows SHOULD prefer the schema-owned artifact. Base browser `manifest-selected-tests.json` files remain base phase inventory and MUST NOT be used as frontend row closure evidence. A target that exits successfully while an implemented, scenario-backed frontend row is not closed MUST fail target-summary generation with `failure_class="harness"` and `failure_reason="frontend_row_accounting"`; blocked rows remain excluded from completion and may stay missing without failing the target.
 
 ### 7.3 Browser, visual, accessibility, and support classification
 
