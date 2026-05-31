@@ -256,9 +256,6 @@
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular",
     "Cascadia Mono", "Cascadia Code", Menlo, Monaco, Consolas,
     "Liberation Mono", "DejaVu Sans Mono", monospace;
-  --font-alt-ui: "Geist", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-alt-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
-  --font-report-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
   --font-readable: "Atkinson Hyperlegible", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-condensed: "IBM Plex Sans Condensed", "Inter", ui-sans-serif, system-ui, sans-serif;
 }
@@ -285,14 +282,10 @@ samp,
   font-variant-ligatures: none;
 }
 
-.report-body[data-template-tone="narrative"] {
-  font-family: var(--font-report-serif);
-}
-
 [data-reading-profile="hyperlegible"] {
-  font-family: var(--font-readable);
+  font-family: var(--ct-typography-accessible-reading-fontFamily, var(--font-readable));
 }
 
 [data-density-role="narrow-metadata"] {
-  font-family: var(--font-condensed);
+  font-family: var(--ct-typography-compact-metadata-fontFamily, var(--font-condensed));
 }

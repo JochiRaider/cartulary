@@ -38,46 +38,82 @@ colors:
 
 typography:
   ui:
-    fontFamily: "Inter, Geist, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
     fontSize: 14px
     fontWeight: 400
     lineHeight: 1.45
     letterSpacing: 0
+  grid:
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: 14px
+    fontWeight: 400
+    lineHeight: 1.35
+    letterSpacing: 0
   surface-title:
-    fontFamily: "Inter, Geist, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: 18px
     fontWeight: 600
     lineHeight: 1.25
     letterSpacing: 0
   section-heading:
-    fontFamily: "Inter, Geist, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: 16px
     fontWeight: 600
     lineHeight: 1.30
     letterSpacing: 0
   grid-cell:
-    fontFamily: "Inter, Geist, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: 14px
     fontWeight: 400
     lineHeight: 1.35
     letterSpacing: 0
   metadata:
-    fontFamily: "Inter, Geist, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: 12px
     fontWeight: 500
     lineHeight: 1.30
     letterSpacing: 0
   button:
-    fontFamily: "Inter, Geist, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: 13px
     fontWeight: 600
     lineHeight: 1.20
     letterSpacing: 0
   mono:
-    fontFamily: "JetBrains Mono, Geist Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+    fontFamily: "JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
     fontSize: 12px
     fontWeight: 400
     lineHeight: 1.40
+    letterSpacing: 0
+  alternate-ui:
+    fontFamily: "Geist, Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: 14px
+    fontWeight: 400
+    lineHeight: 1.45
+    letterSpacing: 0
+  alternate-mono:
+    fontFamily: "Geist Mono, JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+    fontSize: 12px
+    fontWeight: 400
+    lineHeight: 1.40
+    letterSpacing: 0
+  report-narrative:
+    fontFamily: "Source Serif 4, Georgia, Times New Roman, serif"
+    fontSize: 16px
+    fontWeight: 400
+    lineHeight: 1.55
+    letterSpacing: 0
+  accessible-reading:
+    fontFamily: "Atkinson Hyperlegible, Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: 14px
+    fontWeight: 400
+    lineHeight: 1.50
+    letterSpacing: 0
+  compact-metadata:
+    fontFamily: "IBM Plex Sans Condensed, Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: 12px
+    fontWeight: 600
+    lineHeight: 1.30
     letterSpacing: 0
 
 spacing:
@@ -611,12 +647,18 @@ Design contract. Typography MUST use the registry roles below.
 | Text role | Required token | Required use |
 | --- | --- | --- |
 | Shell and body UI | `{typography.ui}` | Default interface text. |
+| Workbook grid | `{typography.grid}` | Workbook grid container text unless a specialized role applies. |
 | Active surface title | `{typography.surface-title}` | Current surface and selected saved-view label. |
 | Inspector section heading | `{typography.section-heading}` | Inspector sections, dialog headings, grouped menus. |
 | Grid cells | `{typography.grid-cell}` | Workbook cell content and row-readable values. |
 | Metadata and counters | `{typography.metadata}` | Badges, timestamps, row versions, counts, compact source labels. |
 | Buttons and chips | `{typography.button}` | Button labels, chip labels, compact interactive controls. |
 | Technical identifiers | `{typography.mono}` | Stable IDs, hashes, field keys, route-like diagnostic text when shown. |
+| Alternate UI profile | `{typography.alternate-ui}` | Future optional alternate UI profile only; no runtime selector is exposed in this revision. |
+| Alternate mono profile | `{typography.alternate-mono}` | Future optional alternate mono profile only; no runtime selector is exposed in this revision. |
+| Narrative report prose | `{typography.report-narrative}` | Future report preview or export prose, not workbook hot-path text. |
+| Accessibility reading profile | `{typography.accessible-reading}` | Explicit readable-content profile activated only by a reading-profile selector. |
+| Compact metadata | `{typography.compact-metadata}` | Constrained metadata labels and dense status summaries. |
 
 Design contract. `record_id`, `field_key`, route names, storage names, and hash text MUST NOT be the primary label for ordinary users. If shown, they MUST use `{typography.mono}` and appear as secondary technical metadata.
 

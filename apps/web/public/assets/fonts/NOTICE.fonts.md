@@ -15,4 +15,18 @@ Total vendored font bytes: 3618520
 | Atkinson Hyperlegible | https://github.com/googlefonts/atkinson-hyperlegible/tree/1cb311624b2ddf88e9e37873999d165a8cd28b46 | main 1cb311624b2ddf88e9e37873999d165a8cd28b46 | OFL-1.1 | `atkinson-hyperlegible/AtkinsonHyperlegible-Regular.woff2`<br>`atkinson-hyperlegible/AtkinsonHyperlegible-Italic.woff2`<br>`atkinson-hyperlegible/AtkinsonHyperlegible-Bold.woff2`<br>`atkinson-hyperlegible/AtkinsonHyperlegible-BoldItalic.woff2` |
 | IBM Plex Sans Condensed | https://github.com/IBM/plex/releases/download/%40ibm/plex-sans-condensed%402.0.0/ibm-plex-sans-condensed.zip | @ibm/plex-sans-condensed@2.0.0 (003d81ba2d9cfdd61ba39fdc60cc3dac44186a96) | OFL-1.1 | `ibm-plex-sans-condensed/IBMPlexSansCondensed-Regular.woff2`<br>`ibm-plex-sans-condensed/IBMPlexSansCondensed-SemiBold.woff2`<br>`ibm-plex-sans-condensed/IBMPlexSansCondensed-Bold.woff2` |
 
+## Font Role Status
+
+Inter is the active default sans family for `ui`, `grid`, and `grid-cell` roles. JetBrains Mono is the active default mono family for the `mono` role and technical field selectors.
+
+Atkinson Hyperlegible is active only when rendered code sets `data-reading-profile="hyperlegible"`. IBM Plex Sans Condensed is active only for compact metadata marked with `data-density-role="narrow-metadata"`.
+
+Geist is staged/inactive for the `alternate-ui` role, and Geist Mono is staged/inactive for the paired `alternate-mono` role. They are held for a future owner-backed optional typography profile and are not reachable through runtime selectors in this revision.
+
+Source Serif 4 is staged/inactive for the `report-narrative` role. It is held for a future report preview or export visual-design task because the current frontend has no report-preview surface, and this revision does not change backend report output.
+
+The only implemented runtime theme target remains `dark_graphite`. Light mode is not implemented. High contrast is not implemented, and high contrast is not satisfied by selecting Atkinson Hyperlegible alone. Before Cartulary can claim high-contrast implementation completeness, owner-backed work must provide complete contrast tokens, contrast states, forced-color behavior where applicable, and tests for the relevant runtime surfaces.
+
+Atkinson Hyperlegible remains pinned to commit `1cb311624b2ddf88e9e37873999d165a8cd28b46`. The upstream repository had no release tags or GitHub releases when verified, and the archived main branch resolved to that commit, so the commit pin is intentional until an owner-approved provenance update changes the font bytes and manifest hashes.
+
 Each family directory includes the upstream license text and `SOURCE.json` provenance metadata. The current bundle intentionally excludes broad Noto script packs and Iosevka because no current Cartulary profile declares those script or dense technical-mode requirements.

@@ -8,6 +8,19 @@
       "family": "Inter",
       "directory": "inter",
       "role": "default-ui-grid-docs-sans",
+      "role_ids": [
+        "ui",
+        "grid",
+        "grid-cell"
+      ],
+      "activation_status": "active_default",
+      "activation_selectors": [
+        ":root --font-ui",
+        ":root --font-grid",
+        "body",
+        ".cartulary-shell",
+        ".cartulary-grid"
+      ],
       "active_by_default": true,
       "license": "OFL-1.1",
       "version_or_ref": "v4.1 (e3a3d4c57d5ecc01453a575621882a384c1995a3)",
@@ -29,6 +42,20 @@
       "family": "JetBrains Mono",
       "directory": "jetbrains-mono",
       "role": "default-technical-mono",
+      "role_ids": [
+        "mono"
+      ],
+      "activation_status": "active_default",
+      "activation_selectors": [
+        ":root --font-mono",
+        "code",
+        "pre",
+        "kbd",
+        "samp",
+        "[data-field-kind=\"hash\"]",
+        "[data-field-kind=\"record-id\"]",
+        "[data-field-kind=\"technical-ref\"]"
+      ],
       "active_by_default": true,
       "license": "OFL-1.1",
       "version_or_ref": "v2.304 (cd5227bd1f61dff3bbd6c814ceaf7ffd95e947d9)",
@@ -120,6 +147,11 @@
       "family": "Geist",
       "directory": "geist",
       "role": "inactive-alternate-sans",
+      "role_ids": [
+        "alternate-ui"
+      ],
+      "activation_status": "staged_inactive",
+      "staging_reason": "Staged for a future owner-backed optional typography profile; no runtime selector is exposed in this revision.",
       "active_by_default": false,
       "license": "OFL-1.1",
       "version_or_ref": "1.8.0 (91158e012bdc4abd59fa066d0eae9fc11c2c9f24)",
@@ -141,6 +173,11 @@
       "family": "Geist Mono",
       "directory": "geist-mono",
       "role": "inactive-alternate-mono",
+      "role_ids": [
+        "alternate-mono"
+      ],
+      "activation_status": "staged_inactive",
+      "staging_reason": "Staged as the paired mono family for a future owner-backed optional typography profile; no runtime selector is exposed in this revision.",
       "active_by_default": false,
       "license": "OFL-1.1",
       "version_or_ref": "1.8.0 (91158e012bdc4abd59fa066d0eae9fc11c2c9f24)",
@@ -162,6 +199,11 @@
       "family": "Source Serif 4",
       "directory": "source-serif-4",
       "role": "reports-only-serif",
+      "role_ids": [
+        "report-narrative"
+      ],
+      "activation_status": "staged_inactive",
+      "staging_reason": "Staged for a future report preview or export visual-design task. The current frontend has no report-preview surface, and this revision does not change backend report output.",
       "active_by_default": false,
       "license": "OFL-1.1",
       "version_or_ref": "4.005R (2823e993c53fca27c5c8749f529b56a5a7c77b6b)",
@@ -183,6 +225,13 @@
       "family": "Atkinson Hyperlegible",
       "directory": "atkinson-hyperlegible",
       "role": "selected-accessibility-reading-profile",
+      "role_ids": [
+        "accessible-reading"
+      ],
+      "activation_status": "active_selector",
+      "activation_selectors": [
+        "[data-reading-profile=\"hyperlegible\"]"
+      ],
       "active_by_default": false,
       "license": "OFL-1.1",
       "version_or_ref": "main 1cb311624b2ddf88e9e37873999d165a8cd28b46",
@@ -214,6 +263,13 @@
       "family": "IBM Plex Sans Condensed",
       "directory": "ibm-plex-sans-condensed",
       "role": "explicit-compact-metadata",
+      "role_ids": [
+        "compact-metadata"
+      ],
+      "activation_status": "active_selector",
+      "activation_selectors": [
+        "[data-density-role=\"narrow-metadata\"]"
+      ],
       "active_by_default": false,
       "license": "OFL-1.1",
       "version_or_ref": "@ibm/plex-sans-condensed@2.0.0 (003d81ba2d9cfdd61ba39fdc60cc3dac44186a96)",

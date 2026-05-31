@@ -2421,9 +2421,15 @@ function RelationshipChip({
       onClick={onSelect}
     >
       <span>{label}</span>
-      {isAutoResolved ? <span style={chipMetaStyle}>Auto</span> : null}
+      {isAutoResolved ? (
+        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
+          Auto
+        </span>
+      ) : null}
       {!isResolved && !isDismissed ? (
-        <span style={chipMetaStyle}>Mention</span>
+        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
+          Mention
+        </span>
       ) : null}
     </button>
   ) : (
@@ -2434,7 +2440,11 @@ function RelationshipChip({
       style={chipStyle}
     >
       <span>{label}</span>
-      {isAutoResolved ? <span style={chipMetaStyle}>Auto</span> : null}
+      {isAutoResolved ? (
+        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
+          Auto
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -7336,7 +7346,9 @@ export function TimelineWorkbook({
             style={statusClusterStyle}
             viewSchemaId={timelineViewSchemaId}
           >
-            <span style={statusLabelStyle}>Save State</span>
+            <span data-density-role="narrow-metadata" style={statusLabelStyle}>
+              Save State
+            </span>
             <strong
               aria-live="polite"
               aria-label="Save state"
@@ -7805,7 +7817,10 @@ export function TimelineWorkbook({
                       );
                       return (
                         <div key={status} style={mentionGroupColumnStyle}>
-                          <p style={groupLabelStyle}>
+                          <p
+                            data-density-role="narrow-metadata"
+                            style={groupLabelStyle}
+                          >
                             {status === "dismissed"
                               ? "Dismissed"
                               : status === "resolved"

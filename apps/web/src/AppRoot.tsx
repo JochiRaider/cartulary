@@ -4,9 +4,13 @@ import {
 } from "@cartulary/ui-contracts";
 import { StrictMode } from "react";
 
-import { App } from "./App";
+import { App, type CartularyReadingProfile } from "./App";
 
-export function AppRoot() {
+type AppRootProps = {
+  readonly readingProfile?: CartularyReadingProfile | undefined;
+};
+
+export function AppRoot({ readingProfile = "default" }: AppRootProps = {}) {
   return (
     <StrictMode>
       <style>{cartularyDesignThemeCssText}</style>
@@ -18,7 +22,7 @@ export function AppRoot() {
           }
         `}
       </style>
-      <App themeId={cartularyDefaultThemeId} />
+      <App readingProfile={readingProfile} themeId={cartularyDefaultThemeId} />
     </StrictMode>
   );
 }

@@ -224,9 +224,13 @@ The repo-local package boundary around that grid stack is fixed:
 
 The browser and generated-output typography baseline is centralized under `/apps/web/public/assets/fonts`. That directory owns the checked-in font files, `fonts.css`, `FONT_MANIFEST.json`, `NOTICE.fonts.md`, per-family license text, and per-family `SOURCE.json` provenance metadata.
 
-Font use MUST flow through role tokens from `fonts.css` rather than direct family names in React components or package styles. The active default roles are Inter for UI/grid sans text and JetBrains Mono for technical mono text. Geist, Geist Mono, Source Serif 4, Atkinson Hyperlegible, and IBM Plex Sans Condensed are declared only for their explicit alternate, report, accessibility, or compact metadata roles.
+Font use MUST flow through typography role tokens and selector roles rather than direct family names in React components or package styles. Inter is active by default for `ui`, `grid`, and `grid-cell`; JetBrains Mono is active by default for `mono` and technical field selectors. Atkinson Hyperlegible is active only through `data-reading-profile="hyperlegible"`, and IBM Plex Sans Condensed is active only through `data-density-role="narrow-metadata"`.
 
-Builds, documentation renders, screenshots, visual goldens, generated reports, and release artifacts MUST NOT fetch font files from remote CDNs. Deterministic validation paths SHOULD fail when active vendored UI/grid/mono fonts are missing. Use `scripts/check-font-bundle.mjs` or `make frontend-unit` to validate manifest checksums, source metadata, license text, notice coverage, CSS `local(...)` exclusion, and remote font CDN exclusion.
+Geist and Geist Mono remain staged/inactive for future owner-backed `alternate-ui` and `alternate-mono` typography profiles. Source Serif 4 remains staged/inactive for future `report-narrative` preview or export work because no frontend report-preview surface exists in this revision. Staged families MUST remain documented in `FONT_MANIFEST.json` with role IDs and staging reasons.
+
+The only implemented runtime theme target is `dark_graphite`. Light mode and high contrast are future targets, not implemented modes. High contrast cannot be claimed from a font change alone; it requires complete contrast tokens, contrast states, forced-color behavior where applicable, and tests for the affected runtime surfaces.
+
+Builds, documentation renders, screenshots, visual goldens, generated reports, and release artifacts MUST NOT fetch font files from remote CDNs. Deterministic validation paths SHOULD fail when active vendored UI/grid/mono fonts are missing. Use `scripts/check-font-bundle.mjs` or `make frontend-unit` to validate manifest checksums, source metadata, license text, notice coverage, CSS `local(...)` exclusion, remote font CDN exclusion, font-role activation metadata, selector reachability, and dead `--font-*` variables.
 
 ### 2.4 Frontend dev and build tools
 

@@ -98,8 +98,11 @@ type IncidentLandingProps = {
 };
 
 type AppProps = {
+  readonly readingProfile?: CartularyReadingProfile | undefined;
   readonly themeId?: string | undefined;
 };
+
+export type CartularyReadingProfile = "default" | "hyperlegible";
 
 const defaultAuthPrompt =
   "Sign in with your local account to open incidents, manage account security, and administer deployment users.";
@@ -378,7 +381,7 @@ export function IncidentLanding({
   );
 }
 
-export function App({ themeId }: AppProps = {}) {
+export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const [route, setRoute] = useState<RouteState>(() => readRouteState());
   const [session, setSession] = useState<SessionData | null>(null);
   const [credentialState, setCredentialState] =
@@ -670,6 +673,15 @@ export function App({ themeId }: AppProps = {}) {
             : incidents.length === 0
               ? "No visible incidents yet."
               : `Loaded ${incidents.length} visible incident${incidents.length === 1 ? "" : "s"}.`);
+  const readingProfileAttribute =
+    readingProfile === "hyperlegible" ? readingProfile : undefined;
+  const rootPageStyle =
+    readingProfile === "hyperlegible"
+      ? {
+          ...pageStyle,
+          fontFamily: "var(--ct-typography-accessible-reading-fontFamily)",
+        }
+      : pageStyle;
 
   const openIncident = useCallback(
     (incidentId: string) => {
@@ -765,8 +777,9 @@ export function App({ themeId }: AppProps = {}) {
         className="cartulary-shell"
         data-bootstrap-state={appBootstrapState}
         data-cartulary-theme={themeId}
+        data-reading-profile={readingProfileAttribute}
         data-testid={phase1RouteTestId("app-shell")}
-        style={pageStyle}
+        style={rootPageStyle}
       >
         <section style={workbookFrameStyle}>
           <Suspense
@@ -799,7 +812,8 @@ export function App({ themeId }: AppProps = {}) {
       <main
         className="cartulary-shell"
         data-cartulary-theme={themeId}
-        style={pageStyle}
+        data-reading-profile={readingProfileAttribute}
+        style={rootPageStyle}
       >
         <section style={landingPanelStyle}>
           <div style={landingHeroStyle}>
@@ -850,6 +864,7 @@ export function App({ themeId }: AppProps = {}) {
           });
         }}
         publicError={error}
+        readingProfile={readingProfile}
       />
     );
   }
@@ -860,8 +875,9 @@ export function App({ themeId }: AppProps = {}) {
       className="cartulary-shell"
       data-bootstrap-state={appBootstrapState}
       data-cartulary-theme={themeId}
+      data-reading-profile={readingProfileAttribute}
       data-testid={phase1RouteTestId("app-shell")}
-      style={pageStyle}
+      style={rootPageStyle}
     >
       <div style={shellStackStyle}>
         <IncidentLanding

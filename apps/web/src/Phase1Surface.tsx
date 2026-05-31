@@ -40,6 +40,7 @@ type Phase1AuthSurfaceProps = {
   message: string;
   onAuthenticated: () => Promise<void> | void;
   publicError?: APIError | null;
+  readingProfile?: "default" | "hyperlegible" | undefined;
 };
 
 type Phase1AccountPanelProps = {
@@ -63,6 +64,7 @@ export function Phase1AuthSurface({
   message,
   onAuthenticated,
   publicError = null,
+  readingProfile = "default",
 }: Phase1AuthSurfaceProps) {
   const [statusText, setStatusText] = useState("Ready to sign in.");
   const [error, setError] = useState<APIError | null>(null);
@@ -173,14 +175,24 @@ export function Phase1AuthSurface({
 
   const displayedError = error ?? publicError;
   const displayedBootstrapState = authChallengeState ?? bootstrapState;
+  const rootShellStyle =
+    readingProfile === "hyperlegible"
+      ? {
+          ...shellStyle,
+          fontFamily: "var(--ct-typography-accessible-reading-fontFamily)",
+        }
+      : shellStyle;
 
   return (
     <main
       aria-busy={bootstrapState === "loading"}
       className="cartulary-shell"
       data-bootstrap-state={displayedBootstrapState}
+      data-reading-profile={
+        readingProfile === "hyperlegible" ? "hyperlegible" : undefined
+      }
       data-testid={phase1AuthTestId("shell")}
-      style={shellStyle}
+      style={rootShellStyle}
     >
       <section style={shellPanelStyle}>
         <header style={sectionHeaderStyle}>
