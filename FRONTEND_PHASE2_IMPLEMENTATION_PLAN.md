@@ -672,6 +672,13 @@ browser-backed E2E.
 
 ## Sprint 6: Visual And Accessibility Readiness
 
+Local execution plan, 2026-05-31:
+- confirm `FE-V-P2-01` target selection before touching visual fixtures;
+- add exact `FE-A11Y-P2-01` preflight coverage first, then make only minimal
+  shell accessibility semantics needed by that preflight;
+- keep both Sprint 6 rows `design_direction` and leave generated ledgers
+  generated-only.
+
 Objective: collect design-direction visual and accessibility readiness without
 turning either into product-conformance or Core 05 evidence.
 
@@ -706,6 +713,68 @@ Blocker rules: visual fixture mismatch blocks `FE-V-P2-01`; a11y preflight
 target failure blocks `FE-A11Y-P2-01`.
 
 Binary acceptance: both rows remain `design_direction`; no Core 05 review runs.
+
+Execution result, 2026-05-31:
+- Sprint 6 execution scope is complete with an exact visual blocker and passing
+  blocked-row accessibility preflight evidence; FE-P2 is not claimed complete.
+- `FE-V-P2-01` remains `claim_status="blocked"` and
+  `evidence_class="design_direction"`. Exact blocker:
+  `support-tooling-owned`; direct `make browser-e2e-visual` selection is still
+  base-manifest driven and selects only `phase3`, `phase4`, `phase5`, and
+  `phase6` `browser_visual` rows. The command's retained
+  `frontend-row-accounting.json` lists the FE-P2 visual row as missing because
+  no exact FE-P2 visual Playwright title is selected. Minimum next action:
+  owner-approved support-tooling work to let `browser-e2e-visual` select
+  frontend visual rows, or owner-approved remapping to an existing visual
+  fixture without product-conformance or Core 05 promotion.
+- `FE-A11Y-P2-01` remains `claim_status="blocked"` and
+  `evidence_class="design_direction"`. Direct preflight evidence exists from
+  `make browser-e2e-a11y-preflight`, but it remains
+  `cartulary.frontend_accessibility_preflight_summary.v1` blocked-row smoke
+  evidence and is not implemented-row evidence. Minimum next action for
+  promotion: owner-approved move to the implemented accessibility evidence path.
+- Changed files: `FRONTEND_PHASE2_IMPLEMENTATION_PLAN.md`,
+  `apps/web/e2e/workbook.a11y-preflight.spec.ts`, and
+  `apps/web/src/WorkbookShell.tsx`.
+- App/test changes: the preflight spec now splits out the exact
+  `FE-A11Y-P2-01` title, keeps generic blocked-row smoke separate, and asserts
+  shell slot names, built-in tab state, System views menu behavior, saved-view
+  selector, grid controls, inspector controls, status strip semantics, visible
+  focus, accessible names, and a simple no-focus-trap condition. `WorkbookShell`
+  adds named shell/slot regions, active tab `aria-current`, a named Timeline
+  inspector, and save-state `role="status"` semantics.
+- Visual files and snapshots were not edited. Generated frontend ledgers were
+  not hand-edited.
+
+Validation and artifacts:
+- Visual target-selection inspection passed:
+  `tmp/node-runtime/bin/node scripts/lib/phase-manifest.mjs playwright-phases authoritative browser_visual`
+  returned only `phase3`, `phase4`, `phase5`, and `phase6`; the matching
+  `playwright-grep` checks returned only `V-3-*`, `V-4-*`, `V-5-*`, and
+  `V-6-*` titles.
+- Test-first `make browser-e2e-a11y-preflight` failed as `FE-P2-owned` before
+  shell semantics were added:
+  `.cartulary/test-results/20260531T004904Z-p556113/browser-e2e-a11y-preflight/tool-run-summary.json`.
+- Final `make browser-e2e-a11y-preflight` passed:
+  `.cartulary/test-results/20260531T005016Z-p560728/browser-e2e-a11y-preflight/tool-run-summary.json`;
+  normalized preflight summary:
+  `.cartulary/test-results/20260531T005016Z-p560728/browser-e2e-a11y-preflight/accessibility-preflight/frontend-accessibility-preflight-summary.json`;
+  runner:
+  `.cartulary/test-results/20260531T005016Z-p560728/browser-e2e-a11y-preflight/browser-e2e-a11y-preflight-accessibility-preflight/runner.json`.
+- `make browser-e2e-visual` failed on existing selected `V-3-*` through `V-6-*`
+  screenshot mismatches, outside FE-P2:
+  `.cartulary/test-results/20260531T005111Z-p564852/browser-e2e-visual/tool-run-summary.json`;
+  row accounting:
+  `.cartulary/test-results/20260531T005111Z-p564852/browser-e2e-visual/frontend-row-accounting.json`;
+  example retained diff:
+  `.cartulary/test-results/20260531T005111Z-p564852/browser-e2e-visual/browser-e2e-visual-phase3-authoritative/playwright-output/workbook.visual-Phase-3-wo-bbd1a-ersion-and-save-state-strip/v-3-grid-01-timeline-default-diff.png`.
+- `make frontend-typecheck` passed:
+  `.cartulary/test-results/20260531T005254Z-p571141/frontend-typecheck/tool-run-summary.json`.
+- Narrow prerequisite `make frontend-unit` passed:
+  `.cartulary/test-results/20260531T005345Z-p572841/frontend-unit/tool-run-summary.json`.
+- `make phase-ledger-drift` passed:
+  `.cartulary/test-results/20260531T005307Z-p571890/phase-ledger-drift/tool-run-summary.json`.
+- `git diff --check` passed after recording this execution result.
 
 ## Sprint 7: Closure, Drift, Regression, And FE-P3 Handoff
 

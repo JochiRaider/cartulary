@@ -296,6 +296,17 @@ type WorkbookShellProps = {
 };
 
 const workbookShellId = workbookShellReadyTestId();
+const workbookShellSlotLabels = {
+  "current-title": "Current workbook surface",
+  inspector: "Inspector",
+  presence: "Presence",
+  "primary-grid": "Primary grid",
+  "status-strip": "Status strip",
+  "system-views": "System views",
+  "tab-bar": "Workbook tabs",
+  "top-bar": "Workbook top bar",
+  "view-bar": "View controls",
+} satisfies Record<WorkbookShellSlot, string>;
 
 function WorkbookShellSlotRegion({
   children,
@@ -310,9 +321,11 @@ function WorkbookShellSlotRegion({
 }) {
   return (
     <div
+      aria-label={workbookShellSlotLabels[slot]}
       data-testid={workbookShellSlotTestId(slot)}
       data-view-schema-id={viewSchemaId}
       data-workbook-shell-id={workbookShellId}
+      role="region"
       style={style}
     >
       {children}
@@ -7095,7 +7108,9 @@ export function TimelineWorkbook({
             <span style={statusLabelStyle}>Save State</span>
             <strong
               aria-live="polite"
+              aria-label="Save state"
               data-testid={saveStateTestId()}
+              role="status"
               style={{
                 ...statusValueStyle,
                 color:
@@ -7524,7 +7539,11 @@ export function TimelineWorkbook({
           slot="inspector"
           viewSchemaId={timelineViewSchemaId}
         >
-          <aside data-testid="timeline-inspector" style={inspectorShellStyle}>
+          <aside
+            aria-label="Timeline inspector"
+            data-testid="timeline-inspector"
+            style={inspectorShellStyle}
+          >
             <div style={inspectorHeaderStyle}>
               <p style={eyebrowStyle}>Inspector</p>
               <h2 style={inspectorTitleStyle}>
@@ -11701,6 +11720,7 @@ export function WorkbookShell({
 
   return (
     <section
+      aria-label="Workbook shell"
       data-active-view-schema-id={surface}
       data-testid={workbookShellReadyTestId()}
       data-workbook-shell-id={workbookShellId}
@@ -11757,6 +11777,7 @@ export function WorkbookShell({
             const contract = requireViewContract(viewSchemaID);
             return (
               <button
+                aria-current={surface === viewSchemaID ? "page" : undefined}
                 key={viewSchemaID}
                 data-testid={surfaceTabTestId(viewSchemaID)}
                 data-view-schema-id={viewSchemaID}
