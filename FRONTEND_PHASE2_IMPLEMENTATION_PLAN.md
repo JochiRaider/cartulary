@@ -624,6 +624,35 @@ Validation completed:
   `RESULTS_DIR` was unset.
 - `git diff --check`: passed with no output.
 
+Local audit update on 2026-05-31:
+- Scope: re-audited `FE-E-P2-01` only. This audit did not assess FE-P2 closure,
+  Sprint 6 visual/accessibility readiness, FE-P8 saved-view query/layout
+  persistence, Core 05 publication evidence, or saved-view CRUD validation.
+- Result: `PASS: Sprint 5 / FE-E-P2-01 remains supported by row-owned evidence.`
+- Evidence confirmed: visible saved views remain under only the active surface's
+  saved-view selector and are absent from primary workbook tabs; contract-backed
+  system views remain in the same workbook shell as `sheet_ref.kind="view_schema"`;
+  saved views, including harness-seeded `scope="system"` saved views, remain
+  distinct saved-view objects selected as `sheet_ref.kind="saved_view"` with the
+  selected `saved_view_id`; saved-view selection still queries and renders through
+  the saved view's base `view_schema_id`; ordinary public saved-view create still
+  rejects `scope="system"`; and the harness fixture route remains guarded,
+  unavailable by default, and outside product API behavior.
+- Validation rerun: `make agent-finalize` passed
+  `.cartulary/test-results/20260531T001105Z-p488056`; `make frontend-unit`
+  passed `.cartulary/test-results/20260531T001113Z-p489022`;
+  `make frontend-typecheck` passed
+  `.cartulary/test-results/20260531T001131Z-p490550`; `make backend-store`
+  passed `.cartulary/test-results/20260531T001141Z-p490938`;
+  `make backend-integration` passed
+  `.cartulary/test-results/20260531T001707Z-p501562`;
+  `make browser-e2e-webserver-backed` passed
+  `.cartulary/test-results/20260531T002250Z-p514600`;
+  `make phase-ledger-drift` passed
+  `.cartulary/test-results/20260531T002420Z-p523377`; and
+  `git diff --check` passed with no output. `make phase-ledgers` was not run
+  because no FE-P2 metadata changed during the audit.
+
 Deliverables: satisfied for `FE-E-P2-01`: mapped browser scenario, app reload
 behavior, harness-only system saved-view fixture route, backend fixture tests,
 support-doc updates, regenerated ledgers, schedule drift validation, and duration

@@ -95,7 +95,7 @@ Make the draft OTel NLSpec implementable as a repository-controlled subsystem co
 
 ### Decision-closure registry
 
-All rows in this registry MUST be closed before `adopted_conformant` status. The OTel NLSpec lists these open decisions as unresolved until repository adoption; this plan makes their closure and failure behavior conformance-visible.[^4]
+All rows in this registry MUST be closed before `adopted_conformant` status. The OTel NLSpec lists these open decisions as unresolved until repository adoption; this plan makes their closure and failure behavior conformance-visible.[^4] Rows `OTEL-DQ-007` through `OTEL-DQ-012` are owner-coordination blockers: each names a boundary the adopted OTel NLSpec does not yet close, and each MUST remain a blocking `TODO(repo-adoption)` until the owner artifact defines the value. This plan MUST NOT assert these values independently.
 
 | Decision ID | Decision | Final required value | Owner artifact | Temporary placeholder | Conformance failure if unresolved | Verification |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -105,6 +105,12 @@ All rows in this registry MUST be closed before `adopted_conformant` status. The
 | `OTEL-DQ-004` | Public error binding | Mapping from `cartulary.error_code` and `cartulary.error_class` to the adopted public error registry | `contracts/errors/*` plus `contracts/otel/error_class_registry.json` | `TODO(repo-adoption): bind error registry` | Attribute-registry validation fails | Golden corpus includes safe public error-code and closed error-class cases |
 | `OTEL-DQ-005` | Golden corpus path | `internal/testutil/golden/otel` for committed normalized corpus; raw captures retained only under harness run root | This plan plus harness registry | None | Artifact gate fails if path differs without plan revision | Corpus comparison reads committed path and run-root raw captures separately |
 | `OTEL-DQ-006` | Retry jitter testing | Default: bounds-only conformance tests; deterministic RNG hook is optional test support and MUST NOT affect runtime behavior | This plan plus `otel-conformance` fixtures | None | Retry gate fails if tests require exact jitter without a declared deterministic hook | Retry tests assert bounds, cutoff, disabled retry, permanent rejection, timeout, shutdown, and non-blocking behavior |
+| `OTEL-DQ-007` | Row-count histogram bucket boundaries for `cartulary.workbook.rows.returned` | Explicit `{row}` histogram bucket sequence | Adopted OTel NLSpec §10.2 and §10.4 | `TODO(repo-adoption): define {row} histogram buckets` | Metric registry gate fails; `adopted_conformant` blocked | Corpus asserts the registered `{row}` bucket boundaries are emitted and byte-stable |
+| `OTEL-DQ-008` | Volatile version normalization in golden corpus | Placeholder normalization rules for `service.version` and instrumentation-scope `version` | Adopted OTel NLSpec §14.2 | `TODO(repo-adoption): normalize version fields` | Corpus byte-equality is build-fragile; `OIP-AC-014` non-deterministic | Two builds at different versions produce byte-identical normalized goldens for an unchanged corpus revision |
+| `OTEL-DQ-009` | OTLP/gRPC transport-security selection | Closed endpoint-scheme to transport-security mapping | Adopted OTel NLSpec §12.2 | `TODO(repo-adoption): define gRPC scheme to TLS mapping` | Endpoint gate cannot assert deterministic gRPC channel security | Corpus `OTEL-CORPUS-016` asserts `https` selects a secure channel and `http` selects an insecure channel for the pinned exporter |
+| `OTEL-DQ-010` | `service.instance.id` opacity-validation predicate | Closed structural opacity predicate plus an explicitly marked unenforced provenance invariant | Adopted OTel NLSpec §7.1 and §14.2 | `TODO(repo-adoption): define instance-id opacity predicate` | Resource gate cannot deterministically accept or reject a configured instance ID | Corpus asserts the structural predicate and that the default generator yields UUID v4 |
+| `OTEL-DQ-011` | `cartulary.profile.claims` value representation | Closed attribute representation and sort order | Adopted OTel NLSpec §7.1 and §8.2 | `TODO(repo-adoption): pin profile.claims representation` | Resource attribute byte-equality is non-deterministic | Corpus asserts the representation and deterministic sort |
+| `OTEL-DQ-012` | `telemetry.exporter.headers` count and size bounds | Maximum header count, maximum value length, and maximum total header-block size | Adopted OTel NLSpec §6.1 | `TODO(repo-adoption): bound header count and size` | Config gate cannot reject oversized header maps | Config tests assert rejection at the declared bounds |
 
 ### Required work items
 
@@ -134,11 +140,12 @@ The bootstrap guide reserves `contracts/otel` and `internal/testutil/golden/otel
 
 | Artifact | Canonical path | Encoding | Owner | Required contents | Failure behavior |
 | --- | --- | --- | --- | --- | --- |
-| OTel source snapshot | `contracts/otel/otel_source_snapshot.json` | UTF-8 canonical JSON | This plan plus adopted OTel NLSpec | OTel spec ref, semantic-convention ref, commit SHAs, source paths, document statuses, digest, generated constants version, SDK versions | `otel-conformance` fails before provider tests |
+| OTel source snapshot | `contracts/otel/otel_source_snapshot.json` | UTF-8 canonical JSON | This plan plus adopted OTel NLSpec | OTel spec ref, semantic-convention ref, commit SHAs, source paths, document statuses, digest, generated constants version, SDK versions, and the owner `OTEL-REQ-129` sampler metadata (`sampler_profile_review_after`, `sampler_profile_current_fractional`) | `otel-conformance` fails before provider tests |
 | Generated constants manifest | `contracts/otel/generated_constants_manifest.json` | UTF-8 canonical JSON | This plan | Generator/package source, version, input digest, output digest | Generated-constant gate fails |
 | OTel import-boundary manifest | `contracts/otel/import_boundary.json` | UTF-8 canonical JSON | This plan | Allowed API packages, bootstrap package roots, forbidden package families | Static import-boundary gate fails |
 | Error-class registry | `contracts/otel/error_class_registry.json` | UTF-8 canonical JSON | This plan plus error-registry owner | Closed low-cardinality error classes and public error-code binding | Attribute validation fails |
 | Golden corpus | `internal/testutil/golden/otel/**` | Canonical JSON files | This plan plus harness | Normalized emitted telemetry corpus | Corpus gate fails |
+| Conformance-status manifest | `contracts/otel/conformance_status.json` | UTF-8 canonical JSON | This plan | `schema_id='cartulary.otel_conformance_status.v1'`, exactly one of the four conformance modes, per-row `OTEL-DQ-*` decision status, and a blocking `TODO(repo-adoption)` inventory | `otel-conformance` fails the mode-reporting gate if absent, malformed, or reporting more than one mode |
 
 ### Implementation layout
 
@@ -233,6 +240,8 @@ For `Environment binding`, `Core04 overlay` means the key is populated only thro
 | `telemetry.attribute.incident_correlation` | enum | `none` | `none`, `hmac_64bit` | Use default | Invalid | Omit | Core04 overlay | No | `invalid_deployment_config` |
 | `telemetry.attribute.hmac_secret_ref` | string or null | `null` | Server-side secret reference | Required only when incident correlation is `hmac_64bit` | Valid only when incident correlation is `none`; otherwise invalid | Omit | Core04 overlay or secret reference | Yes | `invalid_deployment_config` |
 
+The `telemetry.exporter.headers` row bounds key charset and requires non-empty values, but maximum header count, maximum value length, and maximum total header-block size are not yet owned by the adopted OTel NLSpec. These bounds are a blocking decision (`OTEL-DQ-012`); until the owner defines them in §6.1, the implementation MUST treat their absence as a blocking `TODO(repo-adoption)` and MUST NOT assert a count or size limit on its own.
+
 ### Cross-key validation matrix
 
 | Rule ID | Inputs | Invalid condition | Required error code | Required reason code | Startup behavior | Secret-redaction rule |
@@ -244,7 +253,8 @@ For `Environment binding`, `Core04 overlay` means the key is populated only thro
 | `OTEL-CFG-005` | Retry interval keys | `retry.max_interval_ms < retry.initial_interval_ms` | `invalid_deployment_config` | `invalid_telemetry_config` | Fail before readiness | No secret values |
 | `OTEL-CFG-006` | `incident_correlation`, `hmac_secret_ref` | `hmac_64bit` without non-empty secret reference | `invalid_deployment_config` | `invalid_telemetry_config` | Fail before readiness | Secret reference MAY be identified by safe reference name only; secret value forbidden |
 | `OTEL-CFG-007` | Remote-context config | Any attempt to set `accept_remote_context=true` | `invalid_deployment_config` | `invalid_telemetry_config` | Fail before readiness | No secret values |
-| `OTEL-CFG-008` | Sampler profile | Unsupported sampler or inconsistent sampler profile and sample ratio | `invalid_deployment_config` | `invalid_telemetry_config` | Fail before readiness | No secret values |
+| `OTEL-CFG-008` | Sampler profile | Sampler profile outside the adopted set (owner `OTEL-REQ-057`), including `ProbabilitySampler`, remote, or adaptive samplers | `invalid_deployment_config` | `invalid_telemetry_config` | Fail before readiness | No secret values |
+| `OTEL-CFG-008A` | `sampler_profile`, `sample_ratio` | Explicit `sampler_profile` inconsistent with `sample_ratio` per the owner consistency table (owner `OTEL-REQ-056`): `cartulary.sampler.always_off.v1` requires exactly `0.0`; `cartulary.sampler.always_on.v1` requires exactly `1.0`; `cartulary.sampler.traceidratio_compat.v1` requires `0.0 < ratio < 1.0`. `auto` derives the profile from `sample_ratio` (owner `OTEL-REQ-055`) and is always consistent | `invalid_deployment_config` | `invalid_telemetry_config` | Fail before readiness | No secret values |
 | `OTEL-CFG-009` | Export protocol | Unsupported protocol including `http/json` | `invalid_deployment_config` | `invalid_telemetry_config` | Fail before readiness | No secret values |
 | `OTEL-CFG-010` | Effective config | Any per-signal endpoint key appears in effective behavior | `invalid_deployment_config` | `invalid_telemetry_config` | Fail before readiness | Secret values forbidden |
 | `OTEL-CFG-011` | Effective config | Any per-signal protocol or header divergence appears in effective behavior | `invalid_deployment_config` | `invalid_telemetry_config` | Fail before readiness | Header values always redacted |
@@ -337,6 +347,8 @@ Ordinary instrumentation units MUST obtain tracers, meters, and loggers only thr
 | `telemetry.enabled=true`, SDK construction fails before readiness | No active provider | No | Startup fails before readiness | No product surface exposed |
 | Test no-SDK profile | No | No | Accessors callable; no emitted telemetry | HTTP, workbook, jobs, Postgres, object-store, log-call, and WebSocket paths complete normally |
 
+When `telemetry.enabled=false`, the per-signal enables (`telemetry.traces.enabled`, `telemetry.metrics.enabled`, `telemetry.logs.bridge_enabled`) have no effect regardless of value: the master switch is authoritative and no SDK providers, exporters, processors, metric readers, or log bridges are installed except no-op placeholders needed for code safety (owner `OTEL-REQ-024`).
+
 ### Required work items
 
 1. Add the accessor package at `internal/platform/telemetry/api`.
@@ -377,6 +389,10 @@ The resource registry is closed by the adopted OTel NLSpec. No other resource at
 
 The effective provider Resource `schema_url` MUST be empty. Host, process, OS, container, Kubernetes, cloud, FaaS, browser, device, telemetry entity, environment-variable, and vendor-specific resource detectors MUST be disabled or bypassed before provider activation.[^12]
 
+`service.instance.id` opacity is validated **structurally**: a configured value MUST be non-empty, MUST be at most `128` Unicode scalar values, and MUST NOT be byte-equal to `service.name`, `service.namespace`, or any value the runtime can detect as host or container identity. Provenance-opacity — that the operator has not encoded user, incident, path, or object-store identity into the value — is an **unenforced invariant** carried by the operator contract and marked as such, because provenance is not detectable from the configured string alone (the same provenance-first principle as redaction-before-recording). The exact structural predicate and the marked unenforced invariant are owned by the adopted OTel NLSpec; until §7.1 and §14.2 state them, this is a blocking decision (`OTEL-DQ-010`).
+
+`cartulary.profile.claims` is emitted as sorted claimed profile IDs, but the attribute representation (homogeneous string array versus delimited string) and the sort collation are not yet owned by the adopted OTel NLSpec. Because both affect byte-identical golden output, this is a blocking decision (`OTEL-DQ-011`); until §7.1 and §8.2 pin the representation and sort order, the implementation MUST NOT assert one on its own.
+
 ### Forbidden-value action matrix
 
 The forbidden value families are closed by the adopted OTel NLSpec and include incident-authored content, evidence content and identity, stable product identifiers, security material, request content, database content, network and infrastructure identity, exception detail, and Baggage or trace-state detail.[^13]
@@ -407,7 +423,7 @@ Detection MUST be provenance-first. A value known to originate from an incident 
 
 | Gate | Required pass condition | Local/imported criterion |
 | --- | --- | --- |
-| Resource gate | Exported telemetry contains only registered resource attributes plus SDK-required `telemetry.sdk.*`; Resource schema URL is empty. | `OTEL-AC-010` |
+| Resource gate | Exported telemetry contains only registered resource attributes plus SDK-required `telemetry.sdk.*`; Resource schema URL is empty; `service.instance.id` passes the structural opacity predicate and the default generator yields UUID v4. | `OTEL-AC-010`, `OIP-AC-027` |
 | Detector gate | Host/process/container/cloud/resource-detector data never appears even when environment variables and detector packages are present. | `OTEL-AC-011` |
 | Forbidden-value gate | Every forbidden family is absent from spans, metrics, logs, resource attributes, diagnostics, retained artifacts, exporter requests, and User-Agent. | `OTEL-AC-012`, `OIP-AC-008` |
 | Unknown-attribute gate | Unknown `cartulary.*` attributes are rejected or omitted before recording. | `OTEL-AC-013` |
@@ -464,7 +480,7 @@ The adopted OTel NLSpec owns span family names and required/forbidden attributes
 
 | Gate | Required pass condition | Local/imported criterion |
 | --- | --- | --- |
-| Sampler gate | `sample_ratio=0.0`, `1.0`, and fractional ratios select exact sampler profiles and expose `sampler_profile_review_after='2027-01-01'`. | `OTEL-AC-015` |
+| Sampler gate | `sample_ratio=0.0`, `1.0`, and fractional ratios select exact sampler profiles, and the source snapshot records the owner `OTEL-REQ-129` sampler metadata with `sampler_profile_review_after='2027-01-01'` and `sampler_profile_current_fractional='cartulary.sampler.traceidratio_compat.v1'`. | `OTEL-AC-015`, `OIP-AC-004` |
 | Determinism gate | Fixed server-owned trace-ID corpus verifies deterministic allow/drop behavior for selected SDK version and ratio. | `OTEL-AC-016` |
 | Remote-context gate | Inbound trace and Baggage headers do not alter trace IDs, parentage, sampling, attributes, logs, or metrics. | `OTEL-AC-017` |
 | Span-shape gate | Every emitted span conforms to registered name, kind, boundary, attributes, and forbidden-attribute rules. | `OTEL-AC-018..020`, `OIP-AC-009` |
@@ -484,7 +500,7 @@ The adopted OTel NLSpec owns metric identity, histogram defaults, temporality, V
 | `cartulary.http.server.request.duration` | Histogram | `s` | HTTP server request lifecycle duration | Sync | Per observation | Explicit bucket histogram | Cumulative | Duration | `http.request.method`, `http.response.status_code`, `http.route`, `cartulary.route_family`, `cartulary.result`, optional `cartulary.error_code` | Fail corpus on `otel.metric.overflow=true`; record metric-overflow drop when non-recursive |
 | `cartulary.workbook.query.duration` | Histogram | `s` | Workbook query duration | Sync | Per query | Explicit bucket histogram | Cumulative | Duration | `cartulary.view_schema_id`, `cartulary.operation`, `cartulary.result`, optional `cartulary.error_code` | Same |
 | `cartulary.workbook.mutation.duration` | Histogram | `s` | Workbook mutation duration | Sync | Per mutation | Explicit bucket histogram | Cumulative | Duration | `cartulary.view_schema_id`, `cartulary.record_type`, `cartulary.operation`, `cartulary.result`, optional `cartulary.error_code` | Same |
-| `cartulary.workbook.rows.returned` | Histogram | `{row}` | Returned row count | Sync | Per query | Explicit registry histogram | Cumulative | Count | `cartulary.view_schema_id`, `cartulary.result` | Same |
+| `cartulary.workbook.rows.returned` | Histogram | `{row}` | Returned row count | Sync | Per query | Explicit bucket histogram (`{row}` boundaries pending `OTEL-DQ-007`) | Cumulative | `{row}` — bucket boundaries `TODO(repo-adoption)`, see `OTEL-DQ-007` | `cartulary.view_schema_id`, `cartulary.result` | Same |
 | `cartulary.collaboration.connections.active` | ObservableGauge | `{connection}` | Accepted WebSocket connection count | Async | Each metric collection | Last value | Cumulative-equivalent | None | No per-connection labels | Same |
 | `cartulary.collaboration.events.sent` | Counter | `{event}` | Server-to-client event sends | Sync | Per send/drop | Monotonic sum | Cumulative | None | `cartulary.websocket.event_type`, `cartulary.result`, optional `cartulary.drop_reason` | Same |
 | `cartulary.jobs.active` | ObservableGauge | `{job}` | Active background jobs by kind | Async | Each metric collection | Last value | Cumulative-equivalent | None | `cartulary.job_kind` | Same |
@@ -496,7 +512,7 @@ The adopted OTel NLSpec owns metric identity, histogram defaults, temporality, V
 | `cartulary.telemetry.item.dropped` | Counter | `{item}` | Pre-recording or export-time telemetry drops | Sync | Per drop | Monotonic sum | Cumulative | None | `cartulary.signal_kind`, `cartulary.drop_reason` | Same |
 | `cartulary.telemetry.queue.depth` | ObservableGauge | `{item}` | Current processor queue depth by signal | Async | Each metric collection | Last value | Cumulative-equivalent | None | `cartulary.signal_kind` | Same |
 
-Default duration histogram buckets in seconds are `0.005`, `0.010`, `0.025`, `0.050`, `0.100`, `0.250`, `0.500`, `1.000`, `2.500`, `5.000`, `10.000`, and `30.000`. Default byte buckets are `1024`, `4096`, `16384`, `65536`, `262144`, `1048576`, `4194304`, `16777216`, `67108864`, and `268435456`.[^16]
+Default duration histogram buckets in seconds are `0.005`, `0.010`, `0.025`, `0.050`, `0.100`, `0.250`, `0.500`, `1.000`, `2.500`, `5.000`, `10.000`, and `30.000`. Default byte buckets are `1024`, `4096`, `16384`, `65536`, `262144`, `1048576`, `4194304`, `16777216`, `67108864`, and `268435456`.[^16] The owner defines explicit default boundaries only for duration (`s`) and byte (`By`) histograms. `cartulary.workbook.rows.returned` is a `{row}` histogram with no owner-defined bucket sequence; its boundaries are a blocking decision (`OTEL-DQ-007`) and this plan MUST NOT invent them.
 
 ### Required work items
 
@@ -552,7 +568,7 @@ The adopted OTel NLSpec permits only safe trace correlation fields and closed Ca
 | `TraceFlags` | Current server-owned trace flags | Optional | Sampled flag only | Vendor flags | No LogRecord exported |
 | `SeverityNumber` | Severity mapping below | Required when exported | Closed numeric table | Arbitrary numeric severity | No LogRecord exported |
 | `SeverityText` | Severity mapping below | Required when exported | Maximum 32 ASCII characters | Arbitrary local severity text outside mapping | No LogRecord exported |
-| `Body` | String-only, redacted before construction | Required when exported; may be empty string | Maximum `telemetry.logs.body_max_chars` Unicode scalar values | Exception message, stacktrace, request body, SQL, paths, object keys, incident text | No LogRecord exported |
+| `Body` | String-only, redacted before construction | Required when exported; may be empty string | Body is redacted to safe content first, then the safe string is truncated to at most `telemetry.logs.body_max_chars` Unicode scalar values (counted by scalar value, not bytes); `0` yields the empty string. This bounding is not redaction-by-truncation because redaction precedes it (owner `OTEL-REQ-089` and the §6.1 key row). Dropping the LogRecord is reserved for mapping failures per the runtime telemetry failure matrix | Exception message, stacktrace, request body, SQL, paths, object keys, incident text | No LogRecord exported |
 | `Resource` | Closed resource registry | Required when exported | Registry values only | Host/process/container/cloud extras | No LogRecord exported |
 | `InstrumentationScope` | Registered scope | Required when exported | Scope registry only | Ad hoc scopes | No LogRecord exported |
 | `Attributes` | Attributes allowed by attribute registry and local log field table | Optional | Registry value shapes only | Unknown attributes or forbidden values | No LogRecord exported |
@@ -605,7 +621,7 @@ The adopted OTel NLSpec forbids default exporter endpoints and per-signal diverg
 4. Normalize the base path by removing exactly one trailing `/` for path-join purposes.
 5. Append `/v1/traces`, `/v1/metrics`, or `/v1/logs` to the normalized base path.
 6. Preserve scheme, host, port, and any non-root base path.
-7. If `telemetry.exporter.kind='otlp_grpc'`, use the configured endpoint as one gRPC target and do not derive per-signal endpoints.
+7. If `telemetry.exporter.kind='otlp_grpc'`, use the configured endpoint as one gRPC target and do not derive per-signal endpoints. Transport security is selected by endpoint scheme per `OTEL-DQ-009` and owner §12.2; this plan MUST NOT assert the scheme-to-security mapping until the owner defines it.
 
 | Configured endpoint | Trace URL | Metrics URL | Logs URL |
 | --- | --- | --- | --- |
@@ -639,8 +655,9 @@ Exporter retry behavior MUST follow this deterministic envelope.[^18]
 | Max elapsed cutoff | Do not start retry if `elapsed_since_first_failed_attempt_start + sampled_delay_ms > max_elapsed_ms`. |
 | `max_elapsed_ms=0` | Disables retries. |
 | Shutdown | No new retry loops after shutdown begins; in-progress retry may finish only inside flush timeout. |
-| Permanent rejection | No retry; drop and record `exporter_permanent_discard` when non-recursive. |
-| Timeout | Attempt aborts at export timeout; classify transient only when transport or status family is transient. |
+| Permanent rejection | No retry; drop and record `exporter_permanent_discard` when non-recursive (owner `OTEL-REQ-135`). |
+| Timeout | Attempt aborts at export timeout; classify transient only when the transport or status family is transient (owner `OTEL-REQ-135`). |
+| Transient classification | The set of retryable OTLP/HTTP and OTLP/gRPC status codes is the retryable set defined by the OTLP transport at the pinned exporter version (owner `OTEL-REQ-135`). It is fixed for conformance by fixture `OTEL-CORPUS-016` and re-evaluated under the dependency-update gate. The implementation MUST NOT retry merely because a product operation failed independently of export. |
 
 ### Runtime telemetry failure matrix
 
@@ -671,10 +688,10 @@ Runtime telemetry failures MUST NOT alter product route results, workbook mutati
 
 | Gate | Required pass condition | Imported criterion |
 | --- | --- | --- |
-| Endpoint gate | OTLP/HTTP and OTLP/gRPC tests assert exact endpoint behavior and no per-signal divergence. | `OTEL-AC-032`, `OTEL-AC-033` |
+| Endpoint gate | OTLP/HTTP and OTLP/gRPC tests assert exact endpoint behavior, no per-signal divergence, and deterministic gRPC channel-security selection by scheme (`https` secure, `http` insecure) once `OTEL-DQ-009` is closed. | `OTEL-AC-032`, `OTEL-AC-033`, `OIP-AC-012` |
 | Header gate | Secret headers are absent from every diagnostic and retained artifact. | `OTEL-AC-034` |
 | User-Agent gate | User-Agent contains only allowed identity segments and no forbidden value families. | `OTEL-AC-035` |
-| Retry gate | Retry tests cover full-jitter bounds, max elapsed cutoff, disabled retry, permanent rejection, timeout, shutdown, and non-blocking behavior. | `OTEL-AC-036` |
+| Retry gate | Retry tests cover full-jitter bounds, max elapsed cutoff, disabled retry, permanent rejection, timeout, shutdown, non-blocking behavior, and the explicit transient/permanent status classification for the pinned exporter version. | `OTEL-AC-036`, `OIP-AC-026` |
 | Overflow gate | Processor overflow uses `drop_new` and does not block product work. | `OTEL-AC-037` |
 | Shutdown gate | Flush respects timeout and shutdown continues after timeout. | `OTEL-AC-038` |
 | Recursion gate | Self-diagnostics do not recurse unboundedly. | `OTEL-AC-039` |
@@ -760,7 +777,7 @@ Retained raw telemetry captures from `otel-conformance` MUST be target-owned art
 | Line endings | LF |
 | Object members | Sorted by Unicode code point of member name |
 | Arrays | Sorted only where normalization table states deterministic sort; otherwise preserve semantic order |
-| Numbers | Decimal JSON numbers; no NaN or Infinity |
+| Numbers | Shortest round-tripping decimal representation. Integers render with no fraction and no exponent. Non-integers render with the minimum digits that round-trip, a single leading `0` for magnitudes less than `1`, no trailing zeros, and no exponent within the corpus magnitude range. No leading `+`, no negative zero. NaN and Infinity are forbidden |
 | Timestamps | Placeholder tokens only after forbidden-literal precheck |
 | Unknown fields | Fail unless registry and change-classification allow them |
 | File termination | Exactly one trailing LF |
@@ -774,8 +791,10 @@ Retained raw telemetry captures from `otel-conformance` MUST be target-owned art
 | Timestamps | `TS_<ordinal>` | Preserve event order |
 | `service.instance.id` | `SERVICE_INSTANCE_ID_1` | Validate opacity before replacement |
 | Durations | Not replaced unless wall-clock-only | Preserve metric bucket membership and asserted numeric measurements |
+| `service.version` | `SERVICE_VERSION` | Effective once `OTEL-DQ-008` closes the owner §14.2 rule. Validate format (`semver`-shaped or `0.0.0+unknown`) and registry presence before replacement |
+| Instrumentation-scope `version` | `SCOPE_VERSION` | Effective once `OTEL-DQ-008` closes the owner §14.2 rule. Same format validation; topology not applicable |
 
-The adopted OTel NLSpec requires normalization to replace only volatile timestamps and identifiers while preserving shape facts, sorting attributes/resources/spans/metrics/logs deterministically, failing on forbidden values before normalization, and failing on unknown fields unless the owner registry permits them.[^21]
+The adopted OTel NLSpec requires normalization to replace only volatile timestamps and identifiers while preserving shape facts, sorting attributes/resources/spans/metrics/logs deterministically, failing on forbidden values before normalization, and failing on unknown fields unless the owner registry permits them.[^21] The owner normalization table does not yet normalize `service.version` or instrumentation-scope `version`, both of which are exported on every signal and default to the build version; because that makes byte-identical goldens build-fragile, version normalization is a blocking decision (`OTEL-DQ-008`) and the `SERVICE_VERSION`/`SCOPE_VERSION` placeholder rows above become effective only when the owner §14.2 rule is added.
 
 ### Corpus fixture set
 
@@ -794,9 +813,9 @@ The adopted OTel NLSpec requires normalization to replace only volatile timestam
 | `OTEL-CORPUS-011` | Object storage | Upload target, attach, preview/download handle issuance, unavailable, transfer size, forbidden identifiers |
 | `OTEL-CORPUS-012` | Resource identity | Closed resource, empty schema URL, default/detector suppression, conflicting schema URL rejection |
 | `OTEL-CORPUS-013` | Attribute boundary | Null-like values omitted before OTel API calls across all signal families |
-| `OTEL-CORPUS-014` | Logs | Bridge disabled/enabled, severity mapping, forbidden exception values, omitted EventName, no optional Exception, no span-event bridge |
+| `OTEL-CORPUS-014` | Logs | Bridge disabled/enabled, severity mapping, forbidden exception values, omitted EventName, no optional Exception, no span-event bridge, Body exactly at `body_max_chars`, Body over bound (truncated and still safe), and `body_max_chars=0` (empty Body) |
 | `OTEL-CORPUS-015` | Metrics | Registration identity, stream identity, duplicate rejection, temporality, View rejection, filters, no Bind bypass, no exemplars, no overflow |
-| `OTEL-CORPUS-016` | Exporter | Export disabled, endpoint construction, headers, User-Agent, retry, timeout, shutdown |
+| `OTEL-CORPUS-016` | Exporter | Export disabled, endpoint construction, OTLP/gRPC channel security (`https` secure, `http` insecure), headers, User-Agent, retry, timeout, shutdown, and an explicit retry-classification matrix for the pinned exporter version: transient OTLP/HTTP `429`, `502`, `503`, `504` (honoring `Retry-After`/throttling when present); transient OTLP/gRPC `CANCELLED`, `DEADLINE_EXCEEDED`, `RESOURCE_EXHAUSTED` (only with retry-info), `ABORTED`, `OUT_OF_RANGE`, `UNAVAILABLE`, `DATA_LOSS`; permanent (no retry) all other HTTP 4xx (`400`, `401`, `403`, `404`, `422`) and gRPC `INVALID_ARGUMENT`, `UNAUTHENTICATED`, `PERMISSION_DENIED`, `NOT_FOUND`, `UNIMPLEMENTED` |
 | `OTEL-CORPUS-017` | Runtime invariance | HTTP request, workbook query, workbook mutation, WebSocket send, evidence access, and job transition match no-export baseline under failure modes |
 | `OTEL-CORPUS-018` | Redaction | Representative forbidden values from every family across spans, metrics, logs, self-diagnostics, retained artifacts, exporter attempts |
 
@@ -851,7 +870,7 @@ Treat telemetry as complete only when it is safe, testable, non-interfering, and
 | --- | --- | --- |
 | `OIP-AC-015` | `OTEL-AC-001..006` | Source baseline, config, hostile environment/config, export-disabled tests |
 | `OIP-AC-016` | `OTEL-AC-007..009` | Static import checks, no-SDK runtime tests, scope tests |
-| `OIP-AC-017` | `OTEL-AC-010..014A` | Resource, detector, forbidden-value, attribute, null-omission tests |
+| `OIP-AC-017` | `OTEL-AC-010..014A` | Resource, detector, forbidden-value, attribute, null-omission tests; resource attribute value shapes including `cartulary.profile.claims` representation and sort once `OTEL-DQ-011` closes |
 | `OIP-AC-018` | `OTEL-AC-015..020` | Sampler, remote-context, HTTP, Postgres, object-store span tests |
 | `OIP-AC-019` | `OTEL-AC-021..026A` | Metric identity, View, exemplar, overflow, temporality, Bind tests |
 | `OIP-AC-020` | `OTEL-AC-027..031` | Log disabled/enabled mapping, exception, EventName, span-event tests |
@@ -875,6 +894,7 @@ Implementation is done only when all of the following are true:
 - Dependency-update classification is enforced.
 - `make otel-conformance` passes.
 - Every local `OIP-AC-*` and imported `OTEL-AC-*` criterion mapped by this plan passes.
+- All `OTEL-DQ-*` decision rows, including the owner-coordination blockers `OTEL-DQ-007` through `OTEL-DQ-012`, are resolved with no remaining blocking `TODO(repo-adoption)`.
 - No blocking `TODO(repo-adoption)` appears in a conformance-visible artifact, registry, fixture, phase gate, or acceptance mapping.
 
 The adopted OTel NLSpec completion standard requires pinned source snapshots and package versions, API-only instrumentation, no-SDK safety, closed configuration, environment containment, closed resources, null omission, redaction-before-recording, registered signals, fixed metrics, disabled default logs, explicit OTLP export, bounded retry, runtime invariance, browser non-export, golden corpus comparison, and binary acceptance criteria.[^22]
@@ -884,19 +904,19 @@ The adopted OTel NLSpec completion standard requires pinned source snapshots and
 | ID | Verifies | Required evidence | Pass condition |
 | --- | --- | --- | --- |
 | `OIP-AC-001` | Source-limit closure | Revised source-limit section | No conformance-visible behavior depends on unseen live-repo convention. |
-| `OIP-AC-002` | Conformance modes | Status manifest and harness summary | Every OTel status is one of the four closed modes with required config, export, harness, and claim behavior. |
+| `OIP-AC-002` | Conformance modes | Conformance-status manifest at `contracts/otel/conformance_status.json` (`schema_id='cartulary.otel_conformance_status.v1'`) and harness summary | The manifest exists at the canonical path, declares exactly one of the four closed modes, and is the single authority that startup diagnostics, the harness summary, and release-readiness output all read; every reported OTel status carries the required config, export, harness, and claim behavior. |
 | `OIP-AC-003` | Decision closure | `OTEL-DQ-*` registry artifacts | No decision row is unresolved in `adopted_conformant`. |
-| `OIP-AC-004` | Source baseline and generated constants | Snapshot and generated-constant manifests | No `main`, short SHA, placeholder digest, missing source path, missing status, or missing SDK package version appears. |
-| `OIP-AC-005` | Config namespace closure | Generated schema and config tests | Every `telemetry.*` key has type, default, bound, omission rule, explicit-null rule, empty-env rule, secret status, and failure behavior. |
+| `OIP-AC-004` | Source baseline and generated constants | Snapshot and generated-constant manifests | No `main`, short SHA, placeholder digest, missing source path, missing status, or missing SDK package version appears, and the snapshot records the owner `OTEL-REQ-129` sampler metadata (`sampler_profile_review_after`, `sampler_profile_current_fractional`). |
+| `OIP-AC-005` | Config namespace closure | Generated schema and config tests | Every `telemetry.*` key has type, default, bound, omission rule, explicit-null rule, empty-env rule, secret status, and failure behavior; the `telemetry.exporter.headers` count, value-length, and total-size bounds are stated or carry a blocking decision reference (`OTEL-DQ-012`). |
 | `OIP-AC-006` | Cross-key and hazard closure | Config matrix and hazard fixtures | Every cross-key rule and OTel environment hazard family has explicit fixture and forbidden-effect assertion. |
 | `OIP-AC-007` | Accessor interface closure | Static import checks, no-SDK tests, scope tests | Accessor input, output, unknown-scope behavior, no-SDK behavior, and concurrency behavior are implemented. |
 | `OIP-AC-008` | Forbidden-value action closure | Redaction action tests | Each forbidden family deterministically omits, replaces with closed class, or drops before recording, and records drop metric when required and non-recursive. |
 | `OIP-AC-009` | Span lifecycle closure | Span registry tests | Every span family has deterministic name, kind, lifecycle boundary, status rule, parent rule, link rule, and allowed/forbidden attribute set. |
-| `OIP-AC-010` | Metric implementation closure | Metric registry tests | Every metric row states instrument kind, unit, aggregation, temporality, allowed attributes, and overflow behavior. |
-| `OIP-AC-011` | Log mapping closure | Log bridge tests | Disabled mode, enabled mapping, severity mapping, body bound, exception reduction, EventName omission, and span-event non-creation are tested. |
+| `OIP-AC-010` | Metric implementation closure | Metric registry tests | Every metric row states instrument kind, unit, aggregation, temporality, allowed attributes, and overflow behavior, and every histogram row states an explicit bucket sequence (duration, byte, and `{row}`) or a blocking decision reference (`OTEL-DQ-007`). |
+| `OIP-AC-011` | Log mapping closure | Log bridge tests | Disabled mode, enabled mapping, severity mapping, body truncation at `body_max_chars` and `0`-to-empty (distinct from mapping-failure drop), exception reduction, EventName omission, and span-event non-creation are tested. |
 | `OIP-AC-012` | Exporter algorithm closure | Exporter, retry, shutdown tests | Endpoint, header, User-Agent, retry, overflow, shutdown, and recursion behavior pass exact predicates. |
 | `OIP-AC-013` | Browser boundary closure | Source, package, bundle, source-map, dynamic-import, runtime-probe tests | Browser boundary tests fail closed when any required artifact cannot be inspected. |
-| `OIP-AC-014` | Golden corpus closure | Corpus manifest, normalized files, raw retained artifacts | Same input bytes, runtime config, and corpus revision produce byte-identical normalized golden files. |
+| `OIP-AC-014` | Golden corpus closure | Corpus manifest, normalized files, raw retained artifacts | Same input bytes, runtime config, and corpus revision produce byte-identical normalized golden files; `service.version` and instrumentation-scope `version` are normalized (not raw) so byte-equality is invariant across build versions (`OTEL-DQ-008`); and re-serialization of any normalized golden is byte-identical under the canonical-number rule. |
 | `OIP-AC-015` | Config and source-baseline imported criteria | Imported `OTEL-AC-001..006` evidence | All imported criteria pass. |
 | `OIP-AC-016` | API, SDK, and instrumentation-boundary criteria | Imported `OTEL-AC-007..009` evidence | All imported criteria pass. |
 | `OIP-AC-017` | Resource and attribute criteria | Imported `OTEL-AC-010..014A` evidence | All imported criteria pass. |
@@ -908,6 +928,8 @@ The adopted OTel NLSpec completion standard requires pinned source snapshots and
 | `OIP-AC-023` | Golden corpus and drift criteria | Imported `OTEL-AC-043..046` evidence | All imported criteria pass. |
 | `OIP-AC-024` | Threat-model update | STRIDE threat-model diff or checked-in document | Telemetry exporter config, headers/secrets, retained artifacts, redaction, attribute governance, browser boundary, and runtime failure invariance are covered before release. |
 | `OIP-AC-025` | Phase-gate traceability | Phase gates and acceptance mapping | Every phase gate references at least one local `OIP-AC-*` row or imported `OTEL-AC-*` row. |
+| `OIP-AC-026` | Retry classification | Retry-classification fixture `OTEL-CORPUS-016` | The transient and permanent OTLP/HTTP and OTLP/gRPC status sets are enumerated for the pinned exporter version; transient codes retry within the envelope and permanent codes record `exporter_permanent_discard`. |
+| `OIP-AC-027` | Instance-id opacity | Resource and instance-id tests | `service.instance.id` validation enforces the structural opacity predicate, the unenforced provenance invariant is documented, and the corpus asserts the default generator yields UUID v4. |
 
 ## Recommended work breakdown
 
