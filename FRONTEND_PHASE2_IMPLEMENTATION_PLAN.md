@@ -736,45 +736,83 @@ remain future-row smoke blockers only.
 
 Binary acceptance: both rows remain `design_direction`; no Core 05 review runs.
 
-Execution result, 2026-05-31:
-- `FE-V-P2-01` is `claim_status="implemented"` and
-  `evidence_class="design_direction"` in the FE-P2 map and generated ledger.
-  Retained row accounting:
-  `.cartulary/test-results/20260531T021119Z-p782258/browser-e2e-visual/frontend-row-accounting.json`;
+Row-owned audit result, 2026-05-31: PASS.
+
+- Scope was limited to `FE-V-P2-01` and `FE-A11Y-P2-01`.
+- Core 00 through Core 04 were treated as product-conformance authority; Core 05
+  was not activated because no claim-bearing publication predicate was present.
+- The visual golden guide, UI/UX guide, `docs/design.md`, and frontend
+  implementation guide were treated as design/support evidence only.
+- The generated FE-P2 ledger was treated as generated evidence, not behavior
+  authority.
+- Both Sprint 6 rows exist exactly once in the FE-P2 phase map and exactly once
+  in the generated FE-P2 ledger. Both rows remain
+  `evidence_class="design_direction"` with empty Core requirement and Core
+  acceptance ID lists.
+
+Direct row accounting:
+- `FE-V-P2-01` is `claim_status="implemented"` and directly closed by
+  `make browser-e2e-visual`. Retained row accounting:
+  `.cartulary/test-results/20260531T025101Z-p836812/browser-e2e-visual/frontend-row-accounting.json`;
   closure status: `closed`.
-- `FE-A11Y-P2-01` is `claim_status="implemented"` and
-  `evidence_class="design_direction"` in the FE-P2 map and generated ledger.
-  Retained row accounting:
-  `.cartulary/test-results/20260531T020846Z-p767910/browser-e2e-a11y/frontend-row-accounting.json`;
+- `FE-A11Y-P2-01` is `claim_status="implemented"` and directly closed by
+  `make browser-e2e-a11y`. Retained row accounting:
+  `.cartulary/test-results/20260531T025152Z-p841795/browser-e2e-a11y/frontend-row-accounting.json`;
   closure status: `closed`.
-- `make browser-e2e-a11y-preflight` no longer lists `FE-A11Y-P2-01`; it passed
-  with FE-P3 through FE-P11 blocked-row smoke:
-  `.cartulary/test-results/20260531T020912Z-p771306/browser-e2e-a11y-preflight/tool-run-summary.json`.
-- `make browser-e2e-visual` passed with base visual rows plus the frontend
-  readiness child:
-  `.cartulary/test-results/20260531T021119Z-p782258/browser-e2e-visual/tool-run-summary.json`.
-- `make browser-e2e-a11y` passed:
-  `.cartulary/test-results/20260531T020846Z-p767910/browser-e2e-a11y/tool-run-summary.json`.
+- `make browser-e2e-a11y-preflight` does not list `FE-A11Y-P2-01`. It lists
+  blocked future-row smoke for `FE-A11Y-P3-01` through `FE-A11Y-P11-01` only
+  and passed:
+  `.cartulary/test-results/20260531T025216Z-p844738/browser-e2e-a11y-preflight/frontend-row-accounting.json`.
+
+Harness evidence:
+- `make browser-e2e-visual` passed with unchanged base visual manifest
+  selection plus the intended frontend-readiness child:
+  `.cartulary/test-results/20260531T025101Z-p836812/browser-e2e-visual/tool-run-summary.json`.
+  Base selected-test artifacts:
+  `.cartulary/test-results/20260531T025101Z-p836812/browser-e2e-visual/browser-e2e-visual-phase3-authoritative/manifest-selected-tests.json`,
+  `.cartulary/test-results/20260531T025101Z-p836812/browser-e2e-visual/browser-e2e-visual-phase4-authoritative/manifest-selected-tests.json`,
+  `.cartulary/test-results/20260531T025101Z-p836812/browser-e2e-visual/browser-e2e-visual-phase5-authoritative/manifest-selected-tests.json`,
+  `.cartulary/test-results/20260531T025101Z-p836812/browser-e2e-visual/browser-e2e-visual-phase6-authoritative/manifest-selected-tests.json`.
+  Frontend-readiness runner:
+  `.cartulary/test-results/20260531T025101Z-p836812/browser-e2e-visual/browser-e2e-visual-frontend-readiness/runner.json`.
+- `make browser-e2e-a11y` passed and emitted
+  `cartulary.frontend_accessibility_summary.v2` with `FE-A11Y-P2-01` as an
+  implemented `design_direction` row:
+  `.cartulary/test-results/20260531T025152Z-p841795/browser-e2e-a11y/accessibility/frontend-accessibility-summary.json`.
+- `make browser-e2e-a11y-preflight` passed and emitted
+  `cartulary.frontend_accessibility_preflight_summary.v1` for blocked future
+  rows only:
+  `.cartulary/test-results/20260531T025216Z-p844738/browser-e2e-a11y-preflight/accessibility-preflight/frontend-accessibility-preflight-summary.json`.
+
+Validation results:
 - `make frontend-typecheck` passed:
-  `.cartulary/test-results/20260531T020821Z-p766105/frontend-typecheck/tool-run-summary.json`.
+  `.cartulary/test-results/20260531T025037Z-p835020/frontend-typecheck/tool-run-summary.json`.
 - `make frontend-unit` passed:
-  `.cartulary/test-results/20260531T020829Z-p766389/frontend-unit/tool-run-summary.json`.
+  `.cartulary/test-results/20260531T025045Z-p835346/frontend-unit/tool-run-summary.json`.
+- `make browser-e2e-visual` passed:
+  `.cartulary/test-results/20260531T025101Z-p836812/browser-e2e-visual/tool-run-summary.json`.
+- `make browser-e2e-a11y` passed:
+  `.cartulary/test-results/20260531T025152Z-p841795/browser-e2e-a11y/tool-run-summary.json`.
+- `make browser-e2e-a11y-preflight` passed:
+  `.cartulary/test-results/20260531T025216Z-p844738/browser-e2e-a11y-preflight/tool-run-summary.json`.
 - `make phase-ledgers` passed:
-  `.cartulary/test-results/20260531T021217Z-p787312/phase-ledgers/tool-run-summary.json`.
+  `.cartulary/test-results/20260531T025238Z-p847695/phase-ledgers/tool-run-summary.json`.
 - `make phase-ledger-drift` passed:
-  `.cartulary/test-results/20260531T021219Z-p787519/phase-ledger-drift/tool-run-summary.json`.
-- `json-shape-check` initially reported stale phase schedule inputs after
-  harness script edits. `make phase-schedules` refreshed the generated schedule
-  inputs:
-  `.cartulary/test-results/20260531T021226Z-p787938/phase-schedules/tool-run-summary.json`,
-  `make phase-schedule-drift` passed:
-  `.cartulary/test-results/20260531T021511Z-p792449/phase-schedule-drift/tool-run-summary.json`,
-  then `make json-shape-check` passed:
-  `.cartulary/test-results/20260531T021326Z-p789208/json-shape-check/tool-run-summary.json`.
-- `git diff --check` passed after recording this execution result.
-- `make agent-finalize` passed without `RESULTS_DIR`; retained-run maintenance
-  was skipped because no successful full warm `make check` run was available:
-  `.cartulary/test-results/20260531T021446Z-p791040/agent-finalize/tool-run-summary.json`.
+  `.cartulary/test-results/20260531T025240Z-p847876/phase-ledger-drift/tool-run-summary.json`.
+- `make phase-schedules` passed:
+  `.cartulary/test-results/20260531T025243Z-p848094/phase-schedules/tool-run-summary.json`.
+- `make phase-schedule-drift` passed:
+  `.cartulary/test-results/20260531T025248Z-p848332/phase-schedule-drift/tool-run-summary.json`.
+- `make json-shape-check` passed:
+  `.cartulary/test-results/20260531T025251Z-p848525/json-shape-check/tool-run-summary.json`.
+- `git diff --check` passed.
+- `make agent-finalize` passed:
+  `.cartulary/test-results/20260531T025257Z-p848806/agent-finalize/tool-run-summary.json`.
+  Generated maintenance was unchanged. Retained-run duration and run checks were
+  skipped because `RESULTS_DIR` was unset; this does not block Sprint 6
+  acceptance.
+
+Audit failures: none.
 
 ## Sprint 7: Closure, Drift, Regression, And FE-P3 Handoff
 
