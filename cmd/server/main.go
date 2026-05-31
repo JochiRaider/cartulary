@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -45,6 +46,7 @@ func main() {
 			httpapi.RegisterTestClockRoutes(testClock),
 			testruntime.RegisterTestRuntimeResetRoute(),
 			auth.RegisterTestRoutes(),
+			savedviews.RegisterTestRoutes(),
 			timeline.RegisterTestRoutes(),
 		}
 	}

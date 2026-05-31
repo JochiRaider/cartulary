@@ -93,6 +93,23 @@ func (s *Store) Create(ctx context.Context, actor authn.UserRecord, incidentID u
 	return recordFromSQL(row)
 }
 
+func (s *Store) CreateSystemFixture(ctx context.Context, incidentID uuid.UUID, request CreateRequest, now time.Time) (Record, error) {
+	row, err := sqlc.New(s.pool).CreateSavedView(ctx, sqlc.CreateSavedViewParams{
+		IncidentID:   pgUUID(incidentID),
+		ViewSchemaID: request.ViewSchemaID,
+		Scope:        string(ScopeSystem),
+		DisplayName:  request.DisplayName,
+		Column5:      request.QueryJSON,
+		Column6:      request.LayoutJSON,
+		OwnerUserID:  pgtype.UUID{},
+		CreatedAt:    pgtype.Timestamptz{Time: now.UTC(), Valid: true},
+	})
+	if err != nil {
+		return Record{}, fmt.Errorf("create system saved view fixture: %w", err)
+	}
+	return recordFromSQL(row)
+}
+
 func (s *Store) ListVisible(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, page ListPageRequest) ([]Record, error) {
 	if page.Limit < 1 {
 		page.Limit = 1

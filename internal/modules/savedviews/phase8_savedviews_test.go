@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase2storetest"
@@ -275,6 +276,69 @@ func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
 				t.Fatalf("invalid saved-view create must not persist %q, got %d rows", testCase.displayName, got)
 			}
 		})
+	}
+}
+
+func TestPhase8_SavedViewSystemFixtureRouteUnavailableByDefault_U_8_02(t *testing.T) {
+	runtime := phase2test.StartRuntime(t)
+	fixtureBody := map[string]any{
+		"view_schema_id": timeline.TimelineViewSchemaID,
+		"display_name":   "  Harness system view  ",
+		"query_json":     map[string]any{},
+		"layout_json":    map[string]any{},
+	}
+
+	harness := runtime.StartServer(t, "phase8-savedviews-system-fixture-unregistered")
+	unregisteredResp := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/test/incidents/00000000-0000-0000-0000-000000008901/saved-views/system",
+		fixtureBody,
+		phase2test.WithHeader(httpapi.TestRouteTokenHeader, httptestx.TestRouteToken),
+	)
+	httptestx.RequireStatus(t, unregisteredResp, http.StatusNotFound)
+	_ = unregisteredResp.Body.Close()
+}
+
+func TestPhase8_SavedViewSystemFixtureRoute_U_8_02(t *testing.T) {
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServerWithRoutes(t, "phase8-savedviews-system-fixture", savedviews.RegisterTestRoutes())
+	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase8-system-fixture-incident",
+		"incident_key":  "IR-U802-SYSTEM",
+		"title":         "Phase 8 system saved-view fixture",
+	})
+	incidentID := incident["incident_id"].(string)
+	route := harness.Server.HTTP.URL + "/api/v1/test/incidents/" + incidentID + "/saved-views/system"
+	fixtureBody := map[string]any{
+		"view_schema_id": timeline.TimelineViewSchemaID,
+		"display_name":   "  Harness system view  ",
+		"query_json":     map[string]any{},
+		"layout_json":    map[string]any{},
+	}
+
+	missingTokenResp := phase2test.DoJSON(t, http.MethodPost, route, fixtureBody)
+	httptestx.RequireErrorEnvelope(t, missingTokenResp, http.StatusForbidden, "test_route_forbidden")
+
+	createResp := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		route,
+		fixtureBody,
+		phase2test.WithHeader(httpapi.TestRouteTokenHeader, httptestx.TestRouteToken),
+	)
+	created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
+	if created["scope"] != "system" || created["owner_user_id"] != nil || created["display_name"] != "Harness system view" {
+		t.Fatalf("unexpected system fixture resource: %#v", created)
+	}
+	requireEmptyCanonicalQueryJSON(t, created["query_json"].(map[string]any))
+	requireDefaultLayoutJSON(t, created["layout_json"].(map[string]any))
+	requireStoredSavedViewMatchesResource(t, harness.DB, created)
+
+	visible := visibleSavedViewByName(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie, "Harness system view")
+	if visible["saved_view_id"] != created["saved_view_id"] || visible["scope"] != "system" {
+		t.Fatalf("system fixture must be visible through ordinary listing: created=%#v visible=%#v", created, visible)
 	}
 }
 

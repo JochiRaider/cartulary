@@ -41,6 +41,7 @@ import {
   createViewRow,
   openIncidentAsTrackedUser,
   openIncidentFromLanding,
+  seedSystemSavedView,
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
@@ -251,6 +252,10 @@ test("FE-E-P2-01 Verify saved views appear only under the active surface's view 
     scope: "shared",
     view_schema_id: indicatorsViewSchemaId,
   });
+  const indicatorSystemSavedView = await seedSystemSavedView(page, incidentId, {
+    display_name: "FE-E-P2-01 indicator system saved view",
+    view_schema_id: indicatorsViewSchemaId,
+  });
 
   await page.goto(
     `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
@@ -305,14 +310,17 @@ test("FE-E-P2-01 Verify saved views appear only under the active surface's view 
     indicatorsViewSchemaId,
   );
   await page.getByTestId(systemViewSwitcherTriggerTestId()).click();
-  await page
-    .getByTestId(
-      systemViewSwitcherOptionTestId(
-        "scope-assessment",
-        indicatorsViewSchemaId,
-      ),
-    )
-    .click();
+  const indicatorSystemViewOption = page.getByTestId(
+    systemViewSwitcherOptionTestId("scope-assessment", indicatorsViewSchemaId),
+  );
+  await expect(indicatorSystemViewOption).toHaveAttribute(
+    "data-view-schema-id",
+    indicatorsViewSchemaId,
+  );
+  await expect(indicatorSystemViewOption).not.toHaveAttribute(
+    "data-saved-view-id",
+  );
+  await indicatorSystemViewOption.click();
   await indicatorsQuery;
 
   await expect(shell).toHaveAttribute("data-workbook-shell-id", shellId ?? "");
@@ -349,24 +357,41 @@ test("FE-E-P2-01 Verify saved views appear only under the active surface's view 
     indicatorSelector.getByTestId(
       savedViewOptionTestId(
         indicatorsViewSchemaId,
+        indicatorSystemSavedView.saved_view_id,
+      ),
+    ),
+  ).toHaveAttribute(
+    "data-saved-view-id",
+    indicatorSystemSavedView.saved_view_id,
+  );
+  await expect(
+    indicatorSelector.getByTestId(
+      savedViewOptionTestId(
+        indicatorsViewSchemaId,
         hostSavedView.saved_view_id,
       ),
     ),
   ).toHaveCount(0);
 
-  await indicatorSelector.selectOption(indicatorSavedView.saved_view_id);
+  const selectedSavedViewQuery = waitForViewQuery(
+    page,
+    incidentId,
+    indicatorsViewSchemaId,
+  );
+  await indicatorSelector.selectOption(indicatorSystemSavedView.saved_view_id);
+  await selectedSavedViewQuery;
   await expect(indicatorSelector).toHaveAttribute(
     "data-selected-sheet-ref-kind",
     "saved_view",
   );
   await expect(indicatorSelector).toHaveAttribute(
     "data-selected-saved-view-id",
-    indicatorSavedView.saved_view_id,
+    indicatorSystemSavedView.saved_view_id,
   );
   const savedViewUrl = new URL(page.url());
   expect(savedViewUrl.searchParams.get("sheet_ref_kind")).toBe("saved_view");
   expect(savedViewUrl.searchParams.get("sheet_ref_id")).toBe(
-    indicatorSavedView.saved_view_id,
+    indicatorSystemSavedView.saved_view_id,
   );
   expect(savedViewUrl.searchParams.get("view_schema_id")).toBeNull();
   await expect(shell).toHaveAttribute(

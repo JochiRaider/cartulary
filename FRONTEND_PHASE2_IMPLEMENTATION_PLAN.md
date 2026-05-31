@@ -66,9 +66,12 @@ Locally verified facts:
   `FE-B-P2-01`: required shell slots remain under one workbook shell root and
   navigation remains on the same workbook route. Sprint 4 row-owned browser
   evidence for `FE-B-P2-02` now verifies the custom `System views` switcher
-  keyboard entry, roving focus, selection, dismissal, and focus restoration.
-  FE-P2 is still not complete: the active-surface saved-view selector remains
-  Sprint 5 work, and visual/accessibility readiness remains Sprint 6 work.
+  keyboard entry, roving focus, selection, dismissal, and focus restoration. Sprint
+  5 row-owned browser evidence for `FE-E-P2-01` now verifies active-surface
+  saved-view placement, `scope='system'` saved-view non-conflation, same-shell
+  contract-backed system-view navigation, and base-`view_schema_id` query
+  routing after saved-view selection. FE-P2 is still not complete:
+  visual/accessibility readiness remains Sprint 6 work.
 
 Inherited FE-P0 handoff state:
 - `FE-P0` remains `planned` but all six FE-P0 rows are `implemented` in the
@@ -119,9 +122,8 @@ Hardening scope:
   successful cleared-pointer reason codes. `saved_view_deleted` is intentionally
   not introduced in FE-P2.
 - Runtime proof that `scope='system'` saved views do not replace canonical
-  system views remains a `FE-E-P2-01` browser scenario. It is sequenced after
-  the active-surface saved-view selector exists, because the current shell still
-  lacks that selector.
+  system views is now covered by Sprint 5 / `FE-E-P2-01`; the system saved-view
+  fixture path remains harness-owned and is not product API behavior.
 
 Resolved Sprint 1 metadata defects:
 - `FE-B-P2-01` and `FE-B-P2-02` now keep design-direction `R2-AC-*` IDs in
@@ -200,10 +202,10 @@ Out of scope:
 | Done | Sprint | Primary validation | Blockers |
 | --- | --- | --- | --- |
 | [x] | 1. Readiness, map, ledger, FE-P1 handoff | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P2`; `make phase-ledger-drift`; `git diff --check` | FE-P1 handoff freshness remains a next-sprint constraint |
-| [x] | 2. Startup model and shell registry | `make frontend-unit`; `make frontend-typecheck`; `make generate-drift`; `make phase-ledger-drift`; `git diff --check` | None for `FE-U-P2-01`/`FE-U-P2-02`; saved-view selector runtime proof remains Sprint 5 / `FE-E-P2-01` |
+| [x] | 2. Startup model and shell registry | `make frontend-unit`; `make frontend-typecheck`; `make generate-drift`; `make phase-ledger-drift`; `git diff --check` | None for `FE-U-P2-01`/`FE-U-P2-02`; saved-view runtime proof is covered by Sprint 5 / `FE-E-P2-01` |
 | [x] | 3. Continuous shell composition | `make frontend-unit`; `make browser-e2e-webserver-backed` | None for Sprint 3 audit scope; `FE-B-P2-01` appears eligible for normal row-owned promotion |
 | [x] | 4. `System views` keyboard/focus | `make frontend-unit`; `make frontend-typecheck`; `make browser-e2e-webserver-backed`; conditional `make browser-e2e-support`; `git diff --check` | None for Sprint 4 audit scope; `FE-B-P2-02` has retained row-owned browser evidence and is not FE-P2 completion |
-| [ ] | 5. Saved-view placement and same-shell E2E | `make browser-e2e-webserver-backed` | Missing saved-view selector blocks `FE-E-P2-01` |
+| [x] | 5. Saved-view placement and same-shell E2E | `make frontend-unit`; `make frontend-typecheck`; `make backend-store`; `make backend-integration`; `make browser-e2e-webserver-backed`; `make phase-ledger-drift`; `git diff --check` | None for Sprint 5 audit scope; visual/accessibility readiness remains Sprint 6 |
 | [ ] | 6. Visual and accessibility readiness | `make browser-e2e-visual`; `make browser-e2e-a11y-preflight` | Missing FE-P2 visual fixture blocks `FE-V-P2-01` |
 | [ ] | 7. Closure and FE-P3 handoff | Row-owned commands plus drift and regression checks | `make check` only if repository completion rules require it |
 
@@ -550,41 +552,94 @@ workflow.
 
 ## Sprint 5: Saved-View Placement And Same-Shell E2E
 
+Status: complete for `FE-E-P2-01` after the saved-view placement remediation.
+This sprint does not complete visual or accessibility readiness and does not
+promote FE-P8 query/layout persistence.
+
 Objective: show saved views only under the active surface's view selector and
 keep system/saved views inside the same workbook shell.
 
 Non-goals: no saved-view create/update/delete UX, no FE-P8 query/layout
-persistence behavior.
+persistence behavior, and no production API path for creating `scope="system"`
+saved views.
 
 Source constraints: Core 03 saved-view model and Core 01 saved-view/workbook-startup
-routes own behavior.
+routes own product behavior. `docs/testing-harness-nlspec.md` owns only the
+harness mechanics for seeding `scope="system"` saved-view fixtures.
 
 Inspect: saved-view route helpers in phase8 e2e,
-`WorkbookShell.surfaces.test.tsx`, app URL update logic.
+`WorkbookShell.surfaces.test.tsx`, app URL update logic, saved-view backend
+routes/store code, harness test-route guards, and FE-P2/Phase 8 maps.
 
-Test-first sequence:
+Completed test-first sequence:
 - browser-test visible saved views grouped by active `view_schema_id`;
 - assert saved views do not become primary tabs;
-- assert selecting system views does not leave the shell.
+- assert selecting contract-backed system views does not leave the shell and
+  keeps `sheet_ref.kind="view_schema"`;
+- assert visible `scope="system"` saved views remain distinct saved-view
+  objects, appear only in the active saved-view selector, and select with
+  `sheet_ref.kind="saved_view"` plus `saved_view_id`;
+- assert selecting a saved view issues a query through the saved view's base
+  `view_schema_id`.
 
-Implementation tasks:
+Completed implementation tasks:
 - fetch visible saved views through existing public route;
 - render active-surface saved-view selector in the view bar;
 - keep selected saved-view identity as `sheet_ref.kind="saved_view"` and
-  `saved_view_id`, while querying/rendering by base `view_schema_id`.
+  `saved_view_id`, while querying/rendering by base `view_schema_id`;
+- add a guarded harness-only `POST
+  /api/v1/test/incidents/{incident_id}/saved-views/system` route for browser
+  evidence without changing ordinary saved-view create semantics;
+- add backend route tests for default unavailability, test-token enforcement,
+  and valid system saved-view fixture creation;
+- update the authored FE-P2 and Phase 8 maps, regenerate generated ledgers, and
+  refresh Go duration baselines for the added backend tests.
 
-Validation commands:
-- `make frontend-unit`
-- `make frontend-typecheck`
-- `make browser-e2e-webserver-backed`
+Validation completed:
+- `make generate`: passed,
+  `.cartulary/test-results/20260530T235458Z-p462859`.
+- `make phase-ledgers`: passed,
+  `.cartulary/test-results/20260530T233751Z-p421140`.
+- `make frontend-unit`: passed,
+  `.cartulary/test-results/20260530T234314Z-p432338`.
+- `make frontend-typecheck`: passed,
+  `.cartulary/test-results/20260530T234332Z-p433870`.
+- `make backend-store`: passed,
+  `.cartulary/test-results/20260530T233755Z-p421377`.
+- `make backend-integration`: passed,
+  `.cartulary/test-results/20260530T234350Z-p434353`.
+- `make browser-e2e-webserver-backed`: passed,
+  `.cartulary/test-results/20260530T234930Z-p447422`.
+- `make phase-ledger-drift`: passed,
+  `.cartulary/test-results/20260530T235514Z-p463663`.
+- `make go-test-duration-baselines RESULTS_DIR=.cartulary/test-results/20260530T233755Z-p421377`:
+  passed, `.cartulary/test-results/20260530T235310Z-p459563`.
+- `make go-test-duration-baseline-coverage`: passed,
+  `.cartulary/test-results/20260530T235514Z-p463660`.
+- `make phase-schedule-drift`: passed,
+  `.cartulary/test-results/20260530T235420Z-p461803`.
+- `make agent-finalize`: passed,
+  `.cartulary/test-results/20260530T235315Z-p459751`; generated artifacts were
+  unchanged in the final run and retained-run maintenance was skipped because
+  `RESULTS_DIR` was unset.
+- `git diff --check`: passed with no output.
 
-Deliverables: `FE-E-P2-01` mapped scenario and app code.
+Deliverables: satisfied for `FE-E-P2-01`: mapped browser scenario, app reload
+behavior, harness-only system saved-view fixture route, backend fixture tests,
+support-doc updates, regenerated ledgers, schedule drift validation, and duration
+baseline coverage.
 
-Blocker rules: missing saved-view API route behavior is `outside FE-P2`; missing
-placement/rendering is `FE-P2-owned`.
+Blocker rules: none remain for Sprint 5 audit scope. Future saved-view
+query/layout persistence remains FE-P8-owned; visual and accessibility readiness
+remain Sprint 6-owned.
 
-Binary acceptance: saved-view selector is under active surface only, keyed by
-`saved_view_id`, and row passes through browser-backed E2E.
+Binary acceptance: satisfied. Saved-view selector is under active surface only,
+saved views never render as primary tabs, contract-backed system views stay
+same-shell with `sheet_ref.kind="view_schema"`, saved views including
+`scope="system"` select by `sheet_ref.kind="saved_view"` and `saved_view_id`,
+selected saved views query/render through the base `view_schema_id`, ordinary
+public create still rejects `scope="system"`, and the row passes through
+browser-backed E2E.
 
 ## Sprint 6: Visual And Accessibility Readiness
 

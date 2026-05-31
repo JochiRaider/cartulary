@@ -52,6 +52,7 @@ export type SavedViewApiResource = {
   saved_view_id: string;
   view_schema_id: string;
   display_name: string;
+  scope?: string;
   [key: string]: unknown;
 };
 
@@ -590,6 +591,32 @@ export async function createSavedView(
         layout_json: options.layout_json ?? {},
         query_json: options.query_json ?? {},
         ...(options.scope === undefined ? {} : { scope: options.scope }),
+        view_schema_id: options.view_schema_id,
+      },
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { data: SavedViewApiResource }).data;
+}
+
+export async function seedSystemSavedView(
+  page: Page,
+  incidentId: string,
+  options: {
+    display_name: string;
+    layout_json?: Record<string, unknown>;
+    query_json?: Record<string, unknown>;
+    view_schema_id: string;
+  },
+): Promise<SavedViewApiResource> {
+  const response = await page.request.post(
+    `${apiBase}/api/v1/test/incidents/${incidentId}/saved-views/system`,
+    {
+      headers: testRouteHeaders(),
+      data: {
+        display_name: options.display_name,
+        layout_json: options.layout_json ?? {},
+        query_json: options.query_json ?? {},
         view_schema_id: options.view_schema_id,
       },
     },

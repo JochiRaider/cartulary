@@ -6,6 +6,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -34,6 +35,12 @@ func StartRuntime(t testing.TB) *RuntimeHarness {
 func (h *RuntimeHarness) StartServer(t testing.TB, prefix string) *ServerHarness {
 	t.Helper()
 
+	return h.StartServerWithRoutes(t, prefix)
+}
+
+func (h *RuntimeHarness) StartServerWithRoutes(t testing.TB, prefix string, routes ...httpapi.RouteRegistrar) *ServerHarness {
+	t.Helper()
+
 	testDB := h.prepareDatabase(t, prefix)
 	bucket := h.prepareBucket(t, prefix)
 
@@ -43,7 +50,7 @@ func (h *RuntimeHarness) StartServer(t testing.TB, prefix string) *ServerHarness
 	}
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
 
-	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env})
+	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, AdditionalRoutes: routes})
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
 		t.Fatalf("open sql db: %v", err)

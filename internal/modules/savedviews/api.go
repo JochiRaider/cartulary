@@ -63,7 +63,53 @@ func DecodeCreateRequest(reader io.Reader) (CreateRequest, *auth.APIError) {
 		}
 	}
 
+	scopeRaw, hasScope := raw["scope"]
+	scope := ScopePrivate
+	switch {
+	case !hasScope:
+	case string(scopeRaw) == "null":
+		return CreateRequest{}, invalidMutationPayload("scope", "field_not_nullable")
+	default:
+		var scopeValue string
+		if err := json.Unmarshal(scopeRaw, &scopeValue); err != nil {
+			return CreateRequest{}, invalidMutationPayload("scope", "invalid_scope")
+		}
+		parsedScope, ok := ParseScope(scopeValue)
+		if !ok {
+			return CreateRequest{}, invalidMutationPayload("scope", "invalid_scope")
+		}
+		if !IsOrdinaryCreateScope(parsedScope) {
+			return CreateRequest{}, invalidMutationPayload("scope", "system_scope_forbidden")
+		}
+		scope = parsedScope
+	}
+
+	return decodeCreateFields(raw, scope)
+}
+
+func DecodeSystemFixtureRequest(reader io.Reader) (CreateRequest, *auth.APIError) {
+	raw, apiErr := decodeObject(reader)
+	if apiErr != nil {
+		return CreateRequest{}, apiErr
+	}
+	allowed := map[string]struct{}{
+		"view_schema_id": {},
+		"display_name":   {},
+		"query_json":     {},
+		"layout_json":    {},
+	}
+	for key := range raw {
+		if _, ok := allowed[key]; !ok {
+			return CreateRequest{}, invalidMutationPayload(key, "unknown_field")
+		}
+	}
+
+	return decodeCreateFields(raw, ScopeSystem)
+}
+
+func decodeCreateFields(raw map[string]json.RawMessage, scope Scope) (CreateRequest, *auth.APIError) {
 	var request CreateRequest
+	request.Scope = scope
 	if value, ok := raw["view_schema_id"]; !ok {
 		return CreateRequest{}, invalidMutationPayload("view_schema_id", "missing_required_field")
 	} else if err := json.Unmarshal(value, &request.ViewSchemaID); err != nil || strings.TrimSpace(request.ViewSchemaID) == "" {
@@ -87,27 +133,6 @@ func DecodeCreateRequest(reader io.Reader) (CreateRequest, *auth.APIError) {
 			return CreateRequest{}, invalidMutationPayload("display_name", "invalid_value")
 		}
 		request.DisplayName = normalized
-	}
-
-	scopeRaw, hasScope := raw["scope"]
-	switch {
-	case !hasScope:
-		request.Scope = ScopePrivate
-	case string(scopeRaw) == "null":
-		return CreateRequest{}, invalidMutationPayload("scope", "field_not_nullable")
-	default:
-		var scopeValue string
-		if err := json.Unmarshal(scopeRaw, &scopeValue); err != nil {
-			return CreateRequest{}, invalidMutationPayload("scope", "invalid_scope")
-		}
-		scope, ok := ParseScope(scopeValue)
-		if !ok {
-			return CreateRequest{}, invalidMutationPayload("scope", "invalid_scope")
-		}
-		if !IsOrdinaryCreateScope(scope) {
-			return CreateRequest{}, invalidMutationPayload("scope", "system_scope_forbidden")
-		}
-		request.Scope = scope
 	}
 
 	queryRaw, ok := raw["query_json"]

@@ -265,6 +265,7 @@ type TimelineWorkbookProps = {
   incidentId: string;
   apiBase?: string | undefined;
   sheetRef?: WorkbookSheetRef | undefined;
+  reloadToken?: number | undefined;
   savedViewSelector?: ReactNode | undefined;
   hostEntities?: EntityRow[];
   identityEntities?: EntityRow[];
@@ -2582,6 +2583,7 @@ export function TimelineWorkbook({
   incidentId,
   apiBase,
   sheetRef,
+  reloadToken = 0,
   savedViewSelector,
   hostEntities = [],
   identityEntities = [],
@@ -3778,7 +3780,7 @@ export function TimelineWorkbook({
 
   useEffect(() => {
     void loadRows({ showLoading: true });
-  }, [loadRows]);
+  }, [loadRows, reloadToken]);
 
   useLayoutEffect(() => {
     if (
@@ -11179,6 +11181,7 @@ export function WorkbookShell({
   const [startupSheetRef, setStartupSheetRef] = useState<WorkbookSheetRef>(
     () => ({ kind: "view_schema", id: initialViewSchemaID }),
   );
+  const [sheetReloadToken, setSheetReloadToken] = useState(0);
   const [pendingGridFocusSurface, setPendingGridFocusSurface] = useState<
     string | null
   >(null);
@@ -11255,6 +11258,7 @@ export function WorkbookShell({
       kind: "saved_view",
       id: savedView.saved_view_id,
     });
+    setSheetReloadToken((current) => current + 1);
   }, []);
 
   const entityIndex = useMemo(() => {
@@ -11605,6 +11609,13 @@ export function WorkbookShell({
   }, [loadEntities, loadSessionRole]);
 
   useEffect(() => {
+    if (sheetReloadToken === 0) {
+      return;
+    }
+    void loadEntities();
+  }, [loadEntities, sheetReloadToken]);
+
+  useEffect(() => {
     setGenericQueryState(emptyWorkbookQueryState());
     setGenericFilterDraft(defaultFilterDraft(activeContract));
     setGenericRows([]);
@@ -11613,11 +11624,11 @@ export function WorkbookShell({
 
   useEffect(() => {
     void loadGenericSurface();
-  }, [loadGenericSurface]);
+  }, [loadGenericSurface, sheetReloadToken]);
 
   useEffect(() => {
     void loadAssessmentSurface();
-  }, [loadAssessmentSurface]);
+  }, [loadAssessmentSurface, sheetReloadToken]);
 
   useEffect(() => {
     const next = new URLSearchParams(window.location.search);
@@ -11808,6 +11819,7 @@ export function WorkbookShell({
           identityEntities={identityRows}
           incidentId={incidentId}
           onRefreshEntities={loadEntities}
+          reloadToken={sheetReloadToken}
           savedViewSelector={activeSavedViewSelector}
           sheetRef={startupSheetRef}
         />

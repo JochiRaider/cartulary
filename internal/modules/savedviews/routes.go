@@ -39,6 +39,24 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 	}
 }
 
+func RegisterTestRoutes() httpapi.RouteRegistrar {
+	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
+		if !httpapi.TestRoutesEnabled(deps.Env) {
+			return nil
+		}
+		guard, err := httpapi.NewTestRouteGuard(deps.Env)
+		if err != nil {
+			return err
+		}
+		service, err := newService(deps)
+		if err != nil {
+			return err
+		}
+		mux.HandleFunc("POST /api/v1/test/incidents/{incident_id}/saved-views/system", guard.Protect(service.handleTestSystemCreate))
+		return nil
+	}
+}
+
 func newService(deps httpapi.DependencySet) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
@@ -98,6 +116,25 @@ func (s *Service) handleItem(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+}
+
+func (s *Service) handleTestSystemCreate(w http.ResponseWriter, r *http.Request) {
+	incidentID, err := uuid.Parse(r.PathValue("incident_id"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	request, apiErr := DecodeSystemFixtureRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	record, err := s.store.CreateSystemFixture(r.Context(), incidentID, request, s.now())
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusCreated, BuildResource(record))
 }
 
 func (s *Service) handleList(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {

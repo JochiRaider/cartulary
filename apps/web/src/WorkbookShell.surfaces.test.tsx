@@ -475,6 +475,16 @@ describe("WorkbookShell surface selection", () => {
         ),
       ),
     ).toBeNull();
+    const timelineQueryCallCount = () =>
+      fetchMock.mock.calls.filter(
+        ([input, init]) =>
+          String(input).includes(`/views/${timelineViewSchemaId}/query`) &&
+          ((init as RequestInit | undefined)?.method ?? "GET") === "POST",
+      ).length;
+    await waitFor(() => {
+      expect(timelineQueryCallCount()).toBeGreaterThan(0);
+    });
+    const timelineQueryCountBeforeSavedViewSelect = timelineQueryCallCount();
 
     fireEvent.change(timelineSelector, {
       target: { value: savedViewId },
@@ -482,6 +492,9 @@ describe("WorkbookShell surface selection", () => {
 
     await waitFor(() => {
       expect(window.location.search).toContain("sheet_ref_kind=saved_view");
+      expect(timelineQueryCallCount()).toBeGreaterThan(
+        timelineQueryCountBeforeSavedViewSelect,
+      );
     });
     expect(window.location.search).toContain(`sheet_ref_id=${savedViewId}`);
     expect(window.location.search).not.toContain("view_schema_id=");

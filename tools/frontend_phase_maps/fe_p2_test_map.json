@@ -208,7 +208,7 @@
         "FE-E-P2-01 Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell."
       ],
       "claim_status": "implemented",
-      "claim": "Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell.",
+      "claim": "Verify saved views appear only under the active surface's view selector, never as primary tabs; contract-backed system views stay in the same shell with view_schema sheet refs; saved views including scope=system remain distinct saved-view objects selected by saved_view sheet refs; and saved-view selection queries/renders through the base view_schema_id.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
     {
