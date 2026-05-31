@@ -726,6 +726,8 @@ Verified by: TH-HARNESS-AC-000
 `browser-e2e-visual` MUST keep current-profile `V-*` visual manifest selection separate from frontend `FE-V-*` readiness selection. Frontend visual readiness selection MUST derive exact Playwright title patterns from `tools/frontend_phase_maps/*.json` rows targeting `make browser-e2e-visual`; matching screenshots remain implementation-readiness evidence and MUST NOT be inferred from base `V-*` manifest rows, snapshot filenames, generated ledgers, or visual fixture matrix text alone.
 Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-022
 
+Frontend row accounting MUST keep product-conformance and design-direction rows scenario-backed: implemented rows in those evidence classes are closed only by exact row `scenario_titles[]` in the mapped target artifact. An implemented `implementation_support` row MAY close from a passing mapped target with empty `scenario_titles[]` only when the support assertion is target-level; failing or incomplete mapped targets MUST leave that support row blocked by target status rather than closed.
+
 **TH-HARNESS-REQ-256**
 `explain-run` MUST diagnose retained aggregate run roots that contain `run-summary.json` and retained public tool-run roots that contain at least one `<target>/tool-run-summary.json`. Tool-run diagnostics MUST NOT require a synthetic aggregate `run-summary.json`. When a tool-run target also emits a command-specific summary artifact, such as `agent-finalize/finalize-summary.json`, `explain-run` MUST surface a bounded human summary of that artifact and retain `DETAIL=logs` access to target and child logs when `TARGET=<target>` is supplied.
 Verified by: TH-HARNESS-AC-015, TH-HARNESS-AC-019

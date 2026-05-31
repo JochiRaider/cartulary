@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { builtinModules } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -741,6 +742,33 @@ function formatDiagnostic(diagnostic, warningsAsErrors) {
   return `${diagnostic.file}:${diagnostic.line}:${diagnostic.column}: ${effectiveLevel}: ${diagnostic.ruleID}: ${diagnostic.message} (${diagnostic.importKind} "${diagnostic.specifier}")`;
 }
 
+function emitFrontendTargetSummary(root, status) {
+  const target = process.env.CARTULARY_TEST_TARGET ?? "";
+  if (target !== "frontend-import-boundary-check") {
+    return;
+  }
+  const nodeBin = process.env.NODE_BIN || process.execPath;
+  const helper =
+    process.env.TEST_OUTPUT_SCRIPT ?? path.join(root, "scripts/lib/test-output.mjs");
+  const result = spawnSync(
+    nodeBin,
+    [
+      helper,
+      "target-summary",
+      target,
+      status,
+      "--quiet-success",
+      "--suppress-machine-output",
+    ],
+    {
+      stdio: "inherit",
+    },
+  );
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const root = path.resolve(options.root);
@@ -775,9 +803,11 @@ function main() {
     console.error(
       `frontend import boundary check completed with ${warningCount} warning(s), ${files.length} file(s) checked`,
     );
+    emitFrontendTargetSummary(root, "pass");
     return;
   }
   console.log(`frontend import boundaries verified: ${files.length} file(s) checked`);
+  emitFrontendTargetSummary(root, "pass");
 }
 
 try {

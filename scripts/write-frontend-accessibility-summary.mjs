@@ -125,13 +125,14 @@ function normalizeScenarioStatus(status) {
   return "missing";
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+}
+
 function scenarioCoverageTitle(rowId, title) {
-  if (rowId === "FE-A11Y-P1-01") {
-    return title
-      .replace(/^FE-A11Y-P1-01\s+/, "")
-      .replace(/\.$/, "");
-  }
-  return "phase accessibility smoke";
+  return title
+    .replace(new RegExp(`^${escapeRegExp(rowId)}\\s+`), "")
+    .replace(/\.$/, "");
 }
 
 function scenarioRowsForMode(manifest, mode) {

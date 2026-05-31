@@ -65,4 +65,18 @@ fi
 
 command+=("${scope[@]}")
 
-env PATH="${path_prefix}" COREPACK_HOME="${corepack_home}" "${command[@]}"
+status=0
+env PATH="${path_prefix}" COREPACK_HOME="${corepack_home}" "${command[@]}" || status=$?
+
+if [[ "$status" -eq 0 && "${CARTULARY_TEST_TARGET:-}" == "lint-biome" ]]; then
+  node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+  test_output_helper="${TEST_OUTPUT_SCRIPT:-${ROOT_DIR}/scripts/lib/test-output.mjs}"
+  "${node_bin}" "${test_output_helper}" target-summary lint-biome pass \
+    --quiet-success \
+    --suppress-machine-output || status=$?
+fi
+
+exit "$status"

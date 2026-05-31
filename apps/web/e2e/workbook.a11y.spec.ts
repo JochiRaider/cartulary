@@ -6,6 +6,8 @@ import {
   gridFilterApplyTestId,
   gridFilterFieldTestId,
   gridGroupingSelectTestId,
+  gridGroupRowTestId,
+  gridSortHeaderTestId,
   landingIncidentCardTestId,
   phase1AccountTestId,
   phase1AdminTestId,
@@ -13,6 +15,7 @@ import {
   phase1ErrorCodeTestId,
   phase1ErrorSummaryTestIds,
   phase1LandingTestId,
+  rowCellTestId,
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
   savedViewSelectorTestId,
@@ -21,6 +24,7 @@ import {
   systemViewSwitcherMenuTestId,
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
+  timelineRowMarkReviewedButtonTestId,
   workbookShellReadyTestId,
   workbookShellSlotLabel,
   workbookShellSlots,
@@ -75,10 +79,18 @@ type Phase1A11yAppLocalTestId = string & {
 const p2AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P2-01",
 ) as [string];
+const p3AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
+  "FE-A11Y-P3-01",
+) as [string];
 
 if (p2AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
     `FE-A11Y-P2-01 must declare exactly 1 scenario; found ${p2AccessibilityScenarioTitles.length}`,
+  );
+}
+if (p3AccessibilityScenarioTitles.length !== 1) {
+  throw new Error(
+    `FE-A11Y-P3-01 must declare exactly 1 scenario; found ${p3AccessibilityScenarioTitles.length}`,
   );
 }
 
@@ -774,6 +786,102 @@ test.describe("FE-P2 accessibility readiness", () => {
       savedViewSelectorTestId(timelineViewSchemaId),
       gridFilterApplyTestId(timelineViewSchemaId),
       rowInspectButtonTestId(timelineRow.record_id),
+      saveStateTestId(),
+    ]);
+  });
+});
+
+test.describe("FE-P3 accessibility readiness", () => {
+  test(p3AccessibilityScenarioTitles[0], async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("A11YP3"),
+      "FE-A11Y-P3-01 grid adapter",
+    );
+    const alphaRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p3-01-alpha"),
+        "timeline.occurred_at": "2026-05-31T10:00:00Z",
+        "timeline.summary": "Alpha accessibility row",
+        "timeline.details": "Keyboard grid coverage",
+      },
+    )) as ViewRow;
+    const betaRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p3-01-beta"),
+        "timeline.occurred_at": "2026-05-31T10:05:00Z",
+        "timeline.summary": "Beta accessibility row",
+        "timeline.details": "Grouped grid coverage",
+      },
+    )) as ViewRow;
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await expect(
+      page.getByTestId(rowCellTestId(alphaRow.record_id, "timeline.summary")),
+    ).toHaveValue("Alpha accessibility row");
+
+    const betaMarkReviewed = page.getByTestId(
+      timelineRowMarkReviewedButtonTestId(betaRow.record_id),
+    );
+    await expectVisibleFocus(betaMarkReviewed);
+    await betaMarkReviewed.click();
+    await expect(betaMarkReviewed).toBeDisabled();
+    await expect(
+      page.getByTestId(
+        rowCellTestId(betaRow.record_id, "timeline.capture_state"),
+      ),
+    ).toHaveText("reviewed");
+
+    await page
+      .getByTestId(gridGroupingSelectTestId(timelineViewSchemaId))
+      .selectOption("timeline.capture_state");
+    const reviewedGroup = page.getByTestId(
+      gridGroupRowTestId(
+        timelineViewSchemaId,
+        "timeline.capture_state",
+        "reviewed",
+      ),
+    );
+    await expect(reviewedGroup).toBeVisible();
+    await expect(reviewedGroup).toContainText("reviewed");
+
+    const betaSummary = page.getByTestId(
+      rowCellTestId(betaRow.record_id, "timeline.summary"),
+    );
+    await expect(betaSummary).toHaveAttribute(
+      "aria-label",
+      `Summary ${betaRow.record_id}`,
+    );
+    await expectVisibleFocus(betaSummary);
+    await betaSummary.fill("Beta accessibility active edit");
+    await expect(betaSummary).toHaveValue("Beta accessibility active edit");
+    await expectStatusRole(page.getByTestId(saveStateTestId()));
+
+    await expect(
+      page.getByTestId(
+        gridSortHeaderTestId(timelineViewSchemaId, "timeline.capture_state"),
+      ),
+    ).toContainText("State");
+    await expectAllInteractiveControlsNamed(page);
+    await expectNoFocusTrap(page);
+    await expectAndRecordContrast(page, [
+      gridGroupingSelectTestId(timelineViewSchemaId),
+      gridGroupRowTestId(
+        timelineViewSchemaId,
+        "timeline.capture_state",
+        "reviewed",
+      ),
+      gridSortHeaderTestId(timelineViewSchemaId, "timeline.capture_state"),
+      rowCellTestId(betaRow.record_id, "timeline.summary"),
+      timelineRowMarkReviewedButtonTestId(betaRow.record_id),
       saveStateTestId(),
     ]);
   });

@@ -13,16 +13,32 @@ export type GridSortEntry = {
 };
 
 export type GridColumn<Row> = {
+  readonly contractWritable?: boolean | undefined;
+  readonly editorAdapter?: GridEditorAdapter<Row> | undefined;
   readonly fieldKey: string;
   readonly headerTestId?: string | undefined;
   readonly label: string;
   readonly renderCell: (row: Row) => ReactNode;
+  readonly rendererAdapter?: GridRendererAdapter<Row> | undefined;
   readonly sortableFieldKey?: string | null;
   readonly sortDisabled?: boolean | undefined;
   readonly sortDisabledReason?: string | null | undefined;
+  readonly valueKind?: string | undefined;
   readonly align?: "left" | "center" | "right" | undefined;
   readonly minWidth?: number | undefined;
   readonly width?: number | undefined;
+};
+
+export type GridAdapterCleanup = () => void;
+
+export type GridEditorAdapter<Row> = {
+  readonly cleanup?: GridAdapterCleanup | undefined;
+  readonly renderEditor: (row: Row) => ReactNode;
+};
+
+export type GridRendererAdapter<Row> = {
+  readonly cleanup?: GridAdapterCleanup | undefined;
+  readonly renderCell: (row: Row) => ReactNode;
 };
 
 export type GridRow<Row> = {
@@ -149,6 +165,23 @@ export type GridPasteTargetResolution = {
   readonly rowTargets: readonly GridPasteRowTarget[];
 };
 
+export type GridRendererRegistry<Row> = {
+  readonly fallbackRenderer: GridRendererAdapter<Row>;
+  readonly fieldRenderers?:
+    | ReadonlyMap<string, GridRendererAdapter<Row>>
+    | Readonly<Record<string, GridRendererAdapter<Row> | undefined>>
+    | undefined;
+  readonly valueKindRenderers?:
+    | ReadonlyMap<string, GridRendererAdapter<Row>>
+    | Readonly<Record<string, GridRendererAdapter<Row> | undefined>>
+    | undefined;
+};
+
+export type ResolveGridRendererProps<Row> = {
+  readonly column: GridColumn<Row>;
+  readonly registry: GridRendererRegistry<Row>;
+};
+
 type BuildGridPresentationRowsProps<Row> = {
   readonly getGroupLabel?:
     | ((row: Row, fieldKey: string) => string | null | undefined)
@@ -165,6 +198,52 @@ export type RecordIdentity = {
 };
 
 export const gridUnassignedGroupLabel = "Unassigned";
+
+export function isGridColumnEditable<Row>(column: GridColumn<Row>): boolean {
+  return column.contractWritable === true && column.editorAdapter !== undefined;
+}
+
+export function resolveGridRenderer<Row>({
+  column,
+  registry,
+}: ResolveGridRendererProps<Row>): GridRendererAdapter<Row> {
+  return (
+    column.rendererAdapter ??
+    lookupGridAdapter(registry.fieldRenderers, column.fieldKey) ??
+    lookupGridAdapter(registry.valueKindRenderers, column.valueKind) ??
+    registry.fallbackRenderer
+  );
+}
+
+export function cleanupGridAdapters<Row>(
+  adapters: readonly (
+    | GridColumn<Row>
+    | GridEditorAdapter<Row>
+    | GridRendererAdapter<Row>
+    | null
+    | undefined
+  )[],
+) {
+  const cleanups = new Set<GridAdapterCleanup>();
+  for (const adapter of adapters) {
+    if (adapter === null || adapter === undefined) {
+      continue;
+    }
+    if ("cleanup" in adapter && adapter.cleanup !== undefined) {
+      cleanups.add(adapter.cleanup);
+      continue;
+    }
+    if ("editorAdapter" in adapter && adapter.editorAdapter?.cleanup) {
+      cleanups.add(adapter.editorAdapter.cleanup);
+    }
+    if ("rendererAdapter" in adapter && adapter.rendererAdapter?.cleanup) {
+      cleanups.add(adapter.rendererAdapter.cleanup);
+    }
+  }
+  for (const cleanup of cleanups) {
+    cleanup();
+  }
+}
 
 export function assertGridRows<Row extends RecordIdentity>(
   rows: readonly Row[],
@@ -503,6 +582,27 @@ function shallowEqualRecord<Row extends object>(left: Row, right: Row) {
     return false;
   }
   return leftKeys.every((key) => Object.is(leftRecord[key], rightRecord[key]));
+}
+
+function lookupGridAdapter<Row>(
+  registry:
+    | ReadonlyMap<string, GridRendererAdapter<Row>>
+    | Readonly<Record<string, GridRendererAdapter<Row> | undefined>>
+    | undefined,
+  key: string | undefined,
+): GridRendererAdapter<Row> | undefined {
+  if (registry === undefined || key === undefined || key.trim() === "") {
+    return undefined;
+  }
+  if (
+    typeof (registry as ReadonlyMap<string, GridRendererAdapter<Row>>).get ===
+    "function"
+  ) {
+    return (registry as ReadonlyMap<string, GridRendererAdapter<Row>>).get(key);
+  }
+  return (
+    registry as Readonly<Record<string, GridRendererAdapter<Row> | undefined>>
+  )[key];
 }
 
 function normalizeGroupLabel(value: string | null | undefined): string | null {

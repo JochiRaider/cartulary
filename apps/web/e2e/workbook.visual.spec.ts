@@ -371,6 +371,49 @@ test.describe("Phase 3 workbook visual evidence", () => {
   });
 });
 
+test.describe("FE-P3 visual readiness", () => {
+  test("FE-V-P3-01 Capture frozen column, resize handle, drag-fill handle, edit cell, tree/group row, and empty successful query grid-adapter fixtures.", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("FEV3GRID"),
+      "FE-P3 grid adapter visual fixture",
+    );
+    await createViewRow(page, incidentId, timelineViewSchemaId, {
+      client_txn_id: uniqueTxn("FEV3GRID-ROW"),
+      "timeline.occurred_at": "2026-05-31T10:00:00Z",
+      "timeline.summary": "FE-P3 visual adapter row",
+    });
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await maskIncidentIdentity(page, incidentId);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await injectFeP3GridAdapterVisualFixture(page);
+
+    const fixture = page.locator("[data-design-fixture='fe-p3-grid-adapter']");
+    await expect(fixture).toBeVisible();
+    for (const fixtureId of [
+      "FE-VFIX-09",
+      "FE-VFIX-10",
+      "FE-VFIX-11",
+      "FE-VFIX-12",
+      "FE-VFIX-13",
+      "FE-VFIX-15",
+    ]) {
+      await expect(
+        fixture.locator(`[data-fixture-id='${fixtureId}']`),
+      ).toBeVisible();
+    }
+    await assertVisualRegression(
+      page,
+      "fe-v-p3-01-grid-adapter-fixtures",
+      fixture,
+    );
+  });
+});
+
 test.describe("Phase 4 workbook visual evidence", () => {
   test("V-4-GRID-01 captures Timeline unresolved and resolved mention chips in the workbook grid", async ({
     page,
@@ -1067,6 +1110,226 @@ async function assertExposedThemeCssVariables(page: Page) {
     [...exposedThemeCssVars],
   );
   expect(missingVars).toEqual([]);
+}
+
+async function injectFeP3GridAdapterVisualFixture(page: Page) {
+  await page.evaluate(() => {
+    document
+      .querySelector("style[data-design-fixture-style='fe-p3-grid-adapter']")
+      ?.remove();
+    document
+      .querySelector("[data-design-fixture='fe-p3-grid-adapter']")
+      ?.remove();
+
+    const main = document.querySelector("main.cartulary-shell");
+    if (!(main instanceof HTMLElement)) {
+      throw new Error("Expected workbook shell main before FE-P3 fixture");
+    }
+
+    const style = document.createElement("style");
+    style.dataset.designFixtureStyle = "fe-p3-grid-adapter";
+    style.textContent = `
+      [data-design-fixture='fe-p3-grid-adapter'] {
+        position: fixed;
+        inset: var(--ct-spacing-xl);
+        box-sizing: border-box;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 20rem;
+        gap: var(--ct-spacing-md);
+        overflow: hidden;
+        background: var(--ct-colors-canvas);
+        color: var(--ct-colors-ink);
+        border: var(--ct-border-strong);
+        border-radius: var(--ct-rounded-lg);
+        padding: var(--ct-spacing-lg);
+        box-shadow: var(--ct-elevation-panel);
+        font-family: var(--ct-typography-ui-fontFamily);
+        font-size: var(--ct-typography-ui-fontSize);
+        font-weight: var(--ct-typography-ui-fontWeight);
+        letter-spacing: var(--ct-typography-ui-letterSpacing);
+        line-height: var(--ct-typography-ui-lineHeight);
+        z-index: 1000;
+      }
+
+      [data-design-fixture='fe-p3-grid-adapter'] * {
+        box-sizing: border-box;
+      }
+
+      .fe-p3-grid-fixture-table {
+        min-width: 0;
+        overflow: hidden;
+        border: var(--ct-border-hairline);
+        border-radius: var(--ct-rounded-md);
+        background: var(--ct-colors-surface-1);
+      }
+
+      .fe-p3-grid-fixture-row {
+        display: grid;
+        grid-template-columns: 10rem 16rem 12rem 14rem 14rem;
+        min-width: 66rem;
+      }
+
+      .fe-p3-grid-fixture-head,
+      .fe-p3-grid-fixture-cell {
+        position: relative;
+        min-width: 0;
+        min-height: 3.75rem;
+        display: flex;
+        align-items: center;
+        gap: var(--ct-spacing-xs);
+        overflow: hidden;
+        padding: var(--ct-density-default-cellPadding);
+        border-inline-end: var(--ct-border-hairline);
+        border-block-end: var(--ct-border-hairline);
+        background: var(--ct-colors-surface-1);
+        color: var(--ct-colors-ink);
+      }
+
+      .fe-p3-grid-fixture-head {
+        min-height: 3rem;
+        background: var(--ct-colors-surface-2);
+        color: var(--ct-colors-ink-muted);
+        font-family: var(--ct-typography-metadata-fontFamily);
+        font-size: var(--ct-typography-metadata-fontSize);
+        font-weight: var(--ct-typography-metadata-fontWeight);
+      }
+
+      .fe-p3-grid-fixture-frozen {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        background: var(--ct-colors-surface-2);
+        box-shadow: 0.75rem 0 1rem rgba(0, 0, 0, 0.28);
+      }
+
+      .fe-p3-grid-fixture-resize-handle {
+        position: absolute;
+        inset-block: 0.45rem;
+        inset-inline-end: 0.2rem;
+        width: 0.25rem;
+        border-radius: var(--ct-rounded-sm);
+        background: var(--ct-colors-hairline-focus);
+      }
+
+      .fe-p3-grid-fixture-active {
+        outline: var(--ct-component-focus-ring-border);
+        outline-offset: -0.2rem;
+        background: var(--ct-colors-surface-3);
+      }
+
+      .fe-p3-grid-fixture-editor {
+        width: 100%;
+        min-width: 0;
+        border: var(--ct-border-strong);
+        border-radius: var(--ct-rounded-sm);
+        padding: 0.45rem 0.55rem;
+        background: var(--ct-colors-surface-1);
+        color: var(--ct-colors-ink);
+        font: inherit;
+      }
+
+      .fe-p3-grid-fixture-fill {
+        position: absolute;
+        right: 0.2rem;
+        bottom: 0.2rem;
+        width: 0.65rem;
+        height: 0.65rem;
+        border: 0.15rem solid var(--ct-colors-hairline-focus);
+        border-radius: var(--ct-rounded-sm);
+        background: var(--ct-colors-surface-1);
+      }
+
+      .fe-p3-grid-fixture-group {
+        grid-column: 1 / -1;
+        min-height: 3.5rem;
+        background: var(--ct-colors-surface-2);
+        color: var(--ct-colors-ink-muted);
+        font-weight: 600;
+      }
+
+      .fe-p3-grid-fixture-tree-toggle {
+        display: inline-grid;
+        place-items: center;
+        width: 1.35rem;
+        height: 1.35rem;
+        border: var(--ct-border-hairline);
+        border-radius: var(--ct-rounded-sm);
+        background: var(--ct-colors-surface-1);
+        color: var(--ct-colors-ink);
+      }
+
+      .fe-p3-grid-fixture-side {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: var(--ct-spacing-sm);
+        min-width: 0;
+      }
+
+      .fe-p3-grid-fixture-caption {
+        margin: 0;
+        color: var(--ct-colors-ink-muted);
+        font-family: var(--ct-typography-metadata-fontFamily);
+        font-size: var(--ct-typography-metadata-fontSize);
+      }
+
+      .fe-p3-grid-fixture-empty {
+        display: grid;
+        place-items: center;
+        min-height: 16rem;
+        border: var(--ct-border-hairline);
+        border-radius: var(--ct-rounded-md);
+        background: var(--ct-colors-surface-1);
+        color: var(--ct-colors-ink-muted);
+        text-align: center;
+      }
+
+      .fe-p3-grid-fixture-empty strong {
+        display: block;
+        margin-block-end: var(--ct-spacing-xs);
+        color: var(--ct-colors-ink);
+      }
+    `;
+    document.head.append(style);
+
+    const fixture = document.createElement("section");
+    fixture.dataset.designFixture = "fe-p3-grid-adapter";
+    fixture.setAttribute("aria-label", "FE-P3 grid adapter visual fixtures");
+    fixture.innerHTML = `
+      <div class="fe-p3-grid-fixture-table" role="grid" aria-label="Adapter fixture grid">
+        <div class="fe-p3-grid-fixture-row" role="row">
+          <div class="fe-p3-grid-fixture-head fe-p3-grid-fixture-frozen" role="columnheader" data-fixture-id="FE-VFIX-09">Record</div>
+          <div class="fe-p3-grid-fixture-head" role="columnheader" data-fixture-id="FE-VFIX-10">Summary<span class="fe-p3-grid-fixture-resize-handle" aria-hidden="true"></span></div>
+          <div class="fe-p3-grid-fixture-head" role="columnheader">State</div>
+          <div class="fe-p3-grid-fixture-head" role="columnheader">Assignee</div>
+          <div class="fe-p3-grid-fixture-head" role="columnheader">Last edit</div>
+        </div>
+        <div class="fe-p3-grid-fixture-row" role="row">
+          <div class="fe-p3-grid-fixture-cell fe-p3-grid-fixture-group" role="rowheader" data-fixture-id="FE-VFIX-13"><span class="fe-p3-grid-fixture-tree-toggle" aria-hidden="true">v</span> reviewed group, 2 rows</div>
+        </div>
+        <div class="fe-p3-grid-fixture-row" role="row">
+          <div class="fe-p3-grid-fixture-cell fe-p3-grid-fixture-frozen" role="rowheader">record-1</div>
+          <div class="fe-p3-grid-fixture-cell fe-p3-grid-fixture-active" role="gridcell" data-fixture-id="FE-VFIX-12"><input class="fe-p3-grid-fixture-editor" value="Edit cell adapter" aria-label="Summary editor" readonly><span class="fe-p3-grid-fixture-fill" data-fixture-id="FE-VFIX-11" aria-hidden="true"></span></div>
+          <div class="fe-p3-grid-fixture-cell" role="gridcell">reviewed</div>
+          <div class="fe-p3-grid-fixture-cell" role="gridcell">Analyst</div>
+          <div class="fe-p3-grid-fixture-cell" role="gridcell">saved</div>
+        </div>
+        <div class="fe-p3-grid-fixture-row" role="row">
+          <div class="fe-p3-grid-fixture-cell fe-p3-grid-fixture-frozen" role="rowheader">record-2</div>
+          <div class="fe-p3-grid-fixture-cell" role="gridcell">Frozen column remains pinned</div>
+          <div class="fe-p3-grid-fixture-cell" role="gridcell">rough</div>
+          <div class="fe-p3-grid-fixture-cell" role="gridcell">Unassigned</div>
+          <div class="fe-p3-grid-fixture-cell" role="gridcell">clean</div>
+        </div>
+      </div>
+      <aside class="fe-p3-grid-fixture-side" aria-label="Empty successful query fixture">
+        <p class="fe-p3-grid-fixture-caption">Adapter-owned visual states only. Row-gutter presence remains FE-P7 and grouped-result query ownership remains FE-P8.</p>
+        <div class="fe-p3-grid-fixture-empty" data-fixture-id="FE-VFIX-15">
+          <span><strong>No rows match this query</strong>Successful empty result</span>
+        </div>
+      </aside>
+    `;
+    main.append(fixture);
+  });
 }
 
 async function injectExposedThemeVisualFixture(page: Page) {

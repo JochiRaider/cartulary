@@ -1,12 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
+  assertGridRows,
   buildGridPresentationRows,
+  cleanupGridAdapters,
   type GridPresentationRow,
   type GridRow,
+  isGridColumnEditable,
   navigateGridCellAnchor,
   resolveGridCellAnchor,
   resolveGridPasteTargets,
+  resolveGridRenderer,
 } from "./core";
 
 type HarnessRow = {
@@ -226,6 +230,267 @@ describe("grid Cartulary anchors", () => {
     { fieldKey: "summary", label: "Summary", renderCell: () => null },
     { fieldKey: "state", label: "State", renderCell: () => null },
   ] as const;
+
+  it("FE-U-P3-01 Reject unsafe record identity and keep presentation rows from mutation-capable anchors.", () => {
+    expect(() =>
+      assertGridRows([{ recordId: "record-1" }, { recordId: " " }]),
+    ).toThrow(/missing record_id/i);
+    expect(() =>
+      assertGridRows([{ recordId: "record-1" }, { recordId: "record-1" }]),
+    ).toThrow(/duplicate record_id/i);
+
+    const rows = [
+      gridRow("record-1", "open"),
+      draftRow("draft-1", "rough"),
+      gridRow("record-2", "reviewed"),
+    ];
+    const presentationRows = buildGridPresentationRows({
+      getGroupLabel: (row) => row.state,
+      groupBy: "state",
+      rows,
+    });
+    const groupIndex = presentationRows.findIndex(
+      (row) => row.kind === "group",
+    );
+    const draftIndex = presentationRows.findIndex(
+      (row) => row.kind === "data" && row.gridRow.recordId === null,
+    );
+
+    expect(
+      resolveGridCellAnchor({
+        columns,
+        presentationRows,
+        selection: { rowIndex: groupIndex, fieldKey: "summary" },
+      }),
+    ).toBeNull();
+    expect(
+      resolveGridCellAnchor({
+        columns,
+        presentationRows,
+        selection: { rowIndex: draftIndex, fieldKey: "summary" },
+      }),
+    ).toBeNull();
+    expect(
+      resolveGridPasteTargets({
+        columns,
+        current: { recordId: "record-1", fieldKey: "summary" },
+        pastedColumnCount: 1,
+        pastedRowCount: 2,
+        presentationRows,
+      }),
+    ).toBeNull();
+    expect(
+      resolveGridPasteTargets({
+        allowCreateRows: false,
+        columns,
+        current: { recordId: "record-2", fieldKey: "summary" },
+        pastedColumnCount: 1,
+        pastedRowCount: 2,
+        presentationRows,
+      }),
+    ).toBeNull();
+  });
+
+  it("FE-U-P3-02 Translate vendor row and column coordinates to stable record_id and field_key anchors.", () => {
+    const rows = [
+      gridRow("record-3", "closed"),
+      gridRow("record-1", "open"),
+      gridRow("record-2", "reviewed"),
+    ];
+    const presentationRows = buildGridPresentationRows({ rows });
+
+    expect(
+      resolveGridCellAnchor({
+        columns,
+        presentationRows,
+        selection: { rowIndex: 1, fieldKey: "state" },
+      }),
+    ).toEqual({
+      fieldKey: "state",
+      recordId: "record-1",
+    });
+    expect(
+      navigateGridCellAnchor({
+        columns,
+        current: { recordId: "record-1", fieldKey: "summary" },
+        intent: { key: "ArrowRight" },
+        presentationRows,
+      }),
+    ).toEqual({ fieldKey: "state", recordId: "record-1" });
+    expect(
+      navigateGridCellAnchor({
+        columns,
+        current: { recordId: "record-1", fieldKey: "summary" },
+        intent: { key: "Enter" },
+        presentationRows,
+      }),
+    ).toEqual({ fieldKey: "summary", recordId: "record-2" });
+    expect(
+      resolveGridPasteTargets({
+        columns,
+        current: { recordId: "record-1", fieldKey: "summary" },
+        pastedColumnCount: 2,
+        pastedRowCount: 2,
+        presentationRows,
+      }),
+    ).toEqual({
+      columns: ["summary", "state"],
+      rowTargets: [
+        { kind: "record", recordId: "record-1" },
+        { kind: "record", recordId: "record-2" },
+      ],
+    });
+    expect(
+      resolveGridPasteTargets({
+        columns,
+        current: { recordId: "record-1", fieldKey: "state" },
+        pastedColumnCount: 1,
+        pastedRowCount: 2,
+        presentationRows,
+      }),
+    ).toEqual({
+      columns: ["state"],
+      rowTargets: [
+        { kind: "record", recordId: "record-1" },
+        { kind: "record", recordId: "record-2" },
+      ],
+    });
+    expect(
+      resolveGridPasteTargets({
+        columns,
+        current: { recordId: "", fieldKey: "state" },
+        pastedColumnCount: 1,
+        pastedRowCount: 1,
+        presentationRows,
+      }),
+    ).toBeNull();
+  });
+
+  it("FE-U-P3-03 Resolve grid editability from explicit editor adapters and contract writeability only.", () => {
+    const editorAdapter = {
+      renderEditor: (row: HarnessRow) => row.label,
+    };
+    const writableColumn = {
+      contractWritable: true,
+      editorAdapter,
+      fieldKey: "summary",
+      label: "Summary",
+      renderCell: (row: HarnessRow) => row.label,
+    };
+    const readOnlyColumn = {
+      contractWritable: false,
+      editorAdapter,
+      fieldKey: "state",
+      label: "State",
+      renderCell: (row: HarnessRow) => row.state,
+    };
+    const adapterlessColumn = {
+      contractWritable: true,
+      fieldKey: "details",
+      label: "Details",
+      renderCell: () => null,
+    };
+    const vendorEditableColumn = {
+      editable: true,
+      fieldKey: "vendor",
+      label: "Vendor",
+      renderCell: () => null,
+    } as typeof adapterlessColumn & { readonly editable: true };
+
+    expect(isGridColumnEditable(writableColumn)).toBe(true);
+    expect(isGridColumnEditable(readOnlyColumn)).toBe(false);
+    expect(isGridColumnEditable(adapterlessColumn)).toBe(false);
+    expect(isGridColumnEditable(vendorEditableColumn)).toBe(false);
+  });
+
+  it("FE-U-P3-04 Resolve renderers and editors deterministically and clean adapter-owned resources.", () => {
+    const row = { label: "Alpha", state: "open" };
+    const fallbackRenderer = { renderCell: (value: HarnessRow) => value.label };
+    const valueKindRenderer = {
+      renderCell: (value: HarnessRow) => `kind:${value.label}`,
+    };
+    const fieldRenderer = {
+      renderCell: (value: HarnessRow) => `field:${value.label}`,
+    };
+    const columnRenderer = {
+      renderCell: (value: HarnessRow) => `column:${value.label}`,
+    };
+    const registry = {
+      fallbackRenderer,
+      fieldRenderers: {
+        summary: fieldRenderer,
+      },
+      valueKindRenderers: new Map([["short_text", valueKindRenderer]]),
+    };
+
+    expect(
+      resolveGridRenderer({
+        column: {
+          fieldKey: "summary",
+          label: "Summary",
+          renderCell: () => null,
+          rendererAdapter: columnRenderer,
+          valueKind: "short_text",
+        },
+        registry,
+      }).renderCell(row),
+    ).toBe("column:Alpha");
+    expect(
+      resolveGridRenderer({
+        column: {
+          fieldKey: "summary",
+          label: "Summary",
+          renderCell: () => null,
+          valueKind: "short_text",
+        },
+        registry,
+      }).renderCell(row),
+    ).toBe("field:Alpha");
+    expect(
+      resolveGridRenderer({
+        column: {
+          fieldKey: "details",
+          label: "Details",
+          renderCell: () => null,
+          valueKind: "short_text",
+        },
+        registry,
+      }).renderCell(row),
+    ).toBe("kind:Alpha");
+    expect(
+      resolveGridRenderer({
+        column: {
+          fieldKey: "details",
+          label: "Details",
+          renderCell: () => null,
+        },
+        registry,
+      }),
+    ).toBe(fallbackRenderer);
+
+    const sharedCleanup = vi.fn();
+    const editorCleanup = vi.fn();
+    const rendererCleanup = vi.fn();
+    const sharedAdapter = { cleanup: sharedCleanup, renderCell: () => null };
+    cleanupGridAdapters([
+      sharedAdapter,
+      sharedAdapter,
+      {
+        editorAdapter: { cleanup: editorCleanup, renderEditor: () => null },
+        fieldKey: "summary",
+        label: "Summary",
+        renderCell: () => null,
+        rendererAdapter: {
+          cleanup: rendererCleanup,
+          renderCell: () => null,
+        },
+      },
+    ]);
+
+    expect(sharedCleanup).toHaveBeenCalledTimes(1);
+    expect(editorCleanup).toHaveBeenCalledTimes(1);
+    expect(rendererCleanup).toHaveBeenCalledTimes(1);
+  });
 
   it("translates valid presentation coordinates into stable record_id and field_key anchors", () => {
     const rows = [gridRow("record-1", "open"), gridRow("record-2", "closed")];

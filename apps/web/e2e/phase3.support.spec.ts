@@ -1,7 +1,13 @@
 import {
   applyFilterChip,
+  assertRecordFieldMutationAnchor,
   changeGrouping,
+  dragFillGridCells,
+  pasteGridMatrix,
+  resizeGridColumn,
+  scrollGridCellIntoView,
   sortByHeader,
+  toggleGridTreeExpansion,
 } from "@cartulary/test-utils";
 import {
   gridGroupRowTestId,
@@ -26,7 +32,7 @@ import {
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
-test("support Phase 3 grid controls submit sort, filter, and group query members through the shared route", async ({
+test("FE-B-P3-01 Verify sort, filter, group, resize, paste, drag fill, scroll-to-cell, tree expand/collapse, and anchor assertions through browser command helpers.", async ({
   page,
 }) => {
   const incidentId = await createIncident(
@@ -109,6 +115,72 @@ test("support Phase 3 grid controls submit sort, filter, and group query members
       ),
     ),
   ).toBeVisible();
+
+  await scrollGridCellIntoView({
+    cellKey: "timeline.summary",
+    page,
+    recordId: betaRow.record_id,
+    surface: timelineViewSchemaId,
+  });
+  const summaryPatch = page.waitForRequest(
+    (request) =>
+      request.method() === "PATCH" &&
+      request.url().endsWith(`/api/v1/records/${betaRow.record_id}`),
+  );
+  const betaSummary = page.getByTestId(
+    rowCellTestId(betaRow.record_id, "timeline.summary"),
+  );
+  await betaSummary.fill("Beta summary anchored");
+  await betaSummary.press("Enter");
+  assertRecordFieldMutationAnchor({
+    actualRecordId: betaRow.record_id,
+    body: readPostBody(await summaryPatch),
+    expectedRecordId: betaRow.record_id,
+    expectedValue: "Beta summary anchored",
+    fieldKey: "timeline.summary",
+  });
+  await expect(
+    page.getByTestId(rowCellTestId(betaRow.record_id, "timeline.summary")),
+  ).toHaveValue("Beta summary anchored");
+
+  await expect(
+    resizeGridColumn({
+      deltaPx: 24,
+      fieldKey: "timeline.summary",
+      page,
+      surface: timelineViewSchemaId,
+    }),
+  ).rejects.toThrow(/does not support column resize/i);
+  await expect(
+    pasteGridMatrix({
+      fieldKey: "timeline.summary",
+      matrix: [["Gamma pasted", "details"]],
+      page,
+      recordId: betaRow.record_id,
+      surface: timelineViewSchemaId,
+    }),
+  ).rejects.toThrow(/does not support paste matrix/i);
+  await expect(
+    dragFillGridCells({
+      fieldKey: "timeline.summary",
+      fromRecordId: betaRow.record_id,
+      page,
+      surface: timelineViewSchemaId,
+      targetRecordIds: [alphaRow.record_id],
+    }),
+  ).rejects.toThrow(/does not support drag fill/i);
+  await expect(
+    toggleGridTreeExpansion({
+      groupTestId: gridGroupRowTestId(
+        timelineViewSchemaId,
+        "timeline.capture_state",
+        "reviewed",
+      ),
+      input: "keyboard",
+      page,
+      surface: timelineViewSchemaId,
+    }),
+  ).rejects.toThrow(/does not support tree expand\/collapse/i);
 });
 
 test("support Phase 3 keeps a pending edit anchored to its record under sort, filter, group, and live invalidation", async ({

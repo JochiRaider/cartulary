@@ -2507,6 +2507,12 @@ function frontendScenarioStatus(observations) {
 
 function frontendRowClosureStatus(row, targetStatus) {
   if (row.scenarios.length === 0) {
+    if (
+      row.claim_status === "implemented" &&
+      row.evidence_class === "implementation_support"
+    ) {
+      return targetStatus === "pass" ? "closed" : "blocked_by_target";
+    }
     return "not_evaluable";
   }
   if (row.scenarios.some((scenario) => scenario.status === "failed")) {
@@ -2606,7 +2612,8 @@ function frontendRowAccountingFailures(accounting) {
     .filter(
       (row) =>
         row.claim_status === "implemented" &&
-        row.scenario_titles.length > 0 &&
+        (row.scenario_titles.length > 0 ||
+          row.evidence_class === "implementation_support") &&
         row.closure_status !== "closed",
     )
     .map((row) => ({

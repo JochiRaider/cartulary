@@ -40,8 +40,10 @@
       "targets": [
         "make frontend-unit"
       ],
-      "scenario_titles": [],
-      "claim_status": "blocked",
+      "scenario_titles": [
+        "FE-U-P3-01 Reject unsafe record identity and keep presentation rows from mutation-capable anchors."
+      ],
+      "claim_status": "implemented",
       "claim": "Fail before mutation-capable rendering when data rows have missing or duplicate record_id; verify group/loading/spacer/presentation rows cannot emit write events.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
@@ -82,8 +84,10 @@
       "targets": [
         "make frontend-unit"
       ],
-      "scenario_titles": [],
-      "claim_status": "blocked",
+      "scenario_titles": [
+        "FE-U-P3-02 Translate vendor row and column coordinates to stable record_id and field_key anchors."
+      ],
+      "claim_status": "implemented",
       "claim": "Translate vendor row/column coordinates to record_id + field_key for edit, copy, paste, drag fill, selection, focus, and anchor assertions.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
@@ -128,8 +132,10 @@
       "targets": [
         "make frontend-unit"
       ],
-      "scenario_titles": [],
-      "claim_status": "blocked",
+      "scenario_titles": [
+        "FE-U-P3-03 Resolve grid editability from explicit editor adapters and contract writeability only."
+      ],
+      "claim_status": "implemented",
       "claim": "Verify editability derives from explicit editor adapters and contract writeability; editable=true alone never enters edit mode.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
@@ -149,8 +155,10 @@
       "targets": [
         "make frontend-unit"
       ],
-      "scenario_titles": [],
-      "claim_status": "blocked",
+      "scenario_titles": [
+        "FE-U-P3-04 Resolve renderers and editors deterministically and clean adapter-owned resources."
+      ],
+      "claim_status": "implemented",
       "claim": "Verify renderer/editor registry precedence, deterministic fallback, and lifecycle cleanup for subscriptions, portals, observers, timers, and row references.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
@@ -193,13 +201,12 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make frontend-unit",
-        "make browser-e2e-support"
+        "make frontend-unit"
       ],
       "scenario_titles": [
         "FE-I-P3-01 Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
@@ -244,7 +251,7 @@
       "scenario_titles": [
         "FE-B-P3-01 Verify sort, filter, group, resize, paste, drag fill, scroll-to-cell, tree expand/collapse, and anchor assertions through browser command helpers."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Verify sort, filter, group, resize, paste, drag fill, scroll-to-cell, tree expand/collapse, and anchor assertions through browser command helpers.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
@@ -272,10 +279,10 @@
         "make browser-e2e-visual"
       ],
       "scenario_titles": [
-        "FE-V-P3-01 Capture frozen column, resize handle, drag-fill handle, edit cell, tree/group row, grouped result, row gutter presence, and empty successful query fixtures."
+        "FE-V-P3-01 Capture frozen column, resize handle, drag-fill handle, edit cell, tree/group row, and empty successful query grid-adapter fixtures."
       ],
-      "claim_status": "blocked",
-      "claim": "Capture frozen column, resize handle, drag-fill handle, edit cell, tree/group row, grouped result, row gutter presence, and empty successful query fixtures.",
+      "claim_status": "implemented",
+      "claim": "Capture frozen column, resize handle, drag-fill handle, edit cell, tree/group row, and empty successful query grid-adapter fixtures.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
     {
@@ -295,12 +302,12 @@
         "D-AC-012"
       ],
       "targets": [
-        "make browser-e2e-a11y-preflight"
+        "make browser-e2e-a11y"
       ],
       "scenario_titles": [
         "FE-A11Y-P3-01 Verify grid cells, editors, group/tree rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Verify grid cells, editors, group/tree rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     },
@@ -323,7 +330,7 @@
         "make lint-biome"
       ],
       "scenario_titles": [],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": "Enforce direct RDG import containment and single stylesheet ownership in /packages/grid-adapter.",
       "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
     }

@@ -347,14 +347,15 @@ function validateBodyTokenReferences(body, tokenMap, failures) {
 function tokenRefsIn(value) {
   const refs = [];
   tokenRefPattern.lastIndex = 0;
-  let match;
-  while ((match = tokenRefPattern.exec(value)) !== null) {
+  let match = tokenRefPattern.exec(value);
+  while (match !== null) {
     refs.push({
       namespace: match[1],
       path: `${match[1]}.${match[2]}`,
       text: match[0],
       tokenKey: match[2],
     });
+    match = tokenRefPattern.exec(value);
   }
   return refs;
 }
@@ -644,7 +645,7 @@ function isLayoutValue(value) {
 
 function buildTokenVars(resolvedTokenMap) {
   const vars = new Map();
-  for (const [tokenPath, entry] of resolvedTokenMap.entries()) {
+  for (const entry of resolvedTokenMap.values()) {
     if (isPlainObject(entry.resolved)) {
       continue;
     }

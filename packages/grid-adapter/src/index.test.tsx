@@ -66,13 +66,18 @@ describe("grid-adapter", () => {
     ).toThrow(/duplicate record_id/i);
   });
 
-  it("preserves unchanged saved-row references by record_id", () => {
+  it("FE-I-P3-01 Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id.", () => {
     const stable = {
       recordId: "record-1",
       label: "Alpha",
       state: "open",
     };
-    const previous = [stable];
+    const changed = {
+      recordId: "record-2",
+      label: "Beta",
+      state: "open",
+    };
+    const previous = [stable, changed];
     const next = [
       {
         recordId: "record-1",
@@ -88,7 +93,8 @@ describe("grid-adapter", () => {
 
     const reconciled = reconcileRecordRows(previous, next);
     expect(reconciled[0]).toBe(stable);
-    expect(reconciled[1]).not.toBe(next[0]);
+    expect(reconciled[1]).toBe(next[1]);
+    expect(reconciled[1]).not.toBe(changed);
   });
 
   it("renders an RDG-backed grid with stable row attributes, sort translation, and presentation-only group rows", async () => {

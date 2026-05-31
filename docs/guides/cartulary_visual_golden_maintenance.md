@@ -39,13 +39,13 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 | `FE-VFIX-06` | Grouped result | `FE-P8` | Grouped grid result or group header row is visible. | Group row anchor; scroll top normalized before capture. | `current` |
 | `FE-VFIX-07` | Task Requests or Decisions | `FE-P10` | Task Requests or Decisions view state is visible with representative rows. | Top-left or named task row anchor. | `current` |
 | `FE-VFIX-08` | Save-state strip | `FE-P4`, `FE-P7` | Saved, syncing, conflict, or recovered save-state strip is isolated for comparison. | Strip-level crop; grid scroll irrelevant unless row context is included. | `current` |
-| `FE-VFIX-09` | Frozen column | `FE-P3`, `FE-P10` | Frozen column remains visible while horizontal scroll exposes far-right state. | Horizontal scroll right; frozen-column edge visible. | `missing` |
-| `FE-VFIX-10` | Resize handle | `FE-P3`, `FE-P10` | Column resize affordance is visible in a deterministic hover/focus state. | Top-left grid scroll; pointer/hover state declared. | `missing` |
-| `FE-VFIX-11` | Drag-fill handle | `FE-P3`, `FE-P10` | Drag-fill affordance is visible in a deterministic focus/editor state. | Top-left grid scroll; active cell declared. | `missing` |
+| `FE-VFIX-09` | Frozen column | `FE-P3`, `FE-P10` | Frozen column remains visible while horizontal scroll exposes far-right state. | Horizontal scroll right; frozen-column edge visible. | `current` |
+| `FE-VFIX-10` | Resize handle | `FE-P3`, `FE-P10` | Column resize affordance is visible in a deterministic hover/focus state. | Top-left grid scroll; pointer/hover state declared. | `current` |
+| `FE-VFIX-11` | Drag-fill handle | `FE-P3`, `FE-P10` | Drag-fill affordance is visible in a deterministic focus/editor state. | Top-left grid scroll; active cell declared. | `current` |
 | `FE-VFIX-12` | Edit cell | `FE-P3`, `FE-P4`, `FE-P10` | Active edit cell renders editor state and save-state relationship. | Top-left grid scroll; active cell declared. | `current` |
 | `FE-VFIX-13` | Tree/group row | `FE-P3`, `FE-P8`, `FE-P10` | Tree or group row state is expanded/collapsed as declared by the fixture. | Group/tree row anchor. | `current` |
 | `FE-VFIX-14` | Exposed theme states | `FE-P11` | Exposed theme, density, color, and token states render in representative controls. | Viewport `1280x720`; selector screenshot scope; no workbook-grid scroll state. | `current` |
-| `FE-VFIX-15` | Empty successful query | `FE-P3`, `FE-P4`, `FE-P8` | Successful empty result state renders without error or loading affordance. | Top-left grid scroll; empty-state container anchored. | `missing` |
+| `FE-VFIX-15` | Empty successful query | `FE-P3`, `FE-P4`, `FE-P8` | Successful empty result state renders without error or loading affordance. | Top-left grid scroll; empty-state container anchored. | `current` |
 
 ### Visual Support Acceptance
 
@@ -77,6 +77,16 @@ screenshot scopes.
 | `V-6-GRID-01` | `tools/phase6_test_map.json` | `FE-VFIX-04` | Grid shell. |
 | `V-6-GRID-02` | `tools/phase6_test_map.json` | `FE-VFIX-03`, `FE-VFIX-08` | Fixed viewport shell. |
 | `V-6-GRID-03` | `tools/phase6_test_map.json` | `FE-VFIX-03`, `FE-VFIX-08` | Fixed viewport shell and named status-strip slot. |
+
+### Current FE-P3 grid-adapter fixture citation map
+
+The FE-P3 grid-adapter fixture uses deterministic test-only DOM inside an
+ordinary workbook page so adapter visual states can be owned without pulling
+later row-gutter or grouped-result query behavior into FE-P3.
+
+| Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
+| --- | --- | --- | --- | --- | --- | --- |
+| `FE-V-P3-01` | `tools/frontend_phase_maps/fe_p3_test_map.json` | `FE-VFIX-09`, `FE-VFIX-10`, `FE-VFIX-11`, `FE-VFIX-12`, `FE-VFIX-13`, `FE-VFIX-15` | Deterministic workbook incident plus test-only `section[data-design-fixture='fe-p3-grid-adapter']` grid-adapter specimen. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; specimen text is static and contains no generated IDs, actor names, timestamps, or cursors. | Selector crop, snapshot `fe-v-p3-01-grid-adapter-fixtures`. |
 
 ### Current exposed-theme fixture citation map
 

@@ -190,14 +190,22 @@ for (const [index, row] of manifestSupport.entries()) {
   byFile.set(absolute, entries);
 }
 
-const frontendPhase1 = JSON.parse(
-  fs.readFileSync(path.join(root, "tools", "frontend_phase_maps", "fe_p1_test_map.json"), "utf8"),
-);
-const frontendPhase1Entries = [];
-for (const row of frontendPhase1.rows ?? []) {
-  if (!["FE-I-P1-01", "FE-S-P1-01"].includes(row.id)) {
+const frontendPhaseEntries = [];
+for (const name of fs.readdirSync(path.join(root, "tools", "frontend_phase_maps")).sort()) {
+  if (!/^fe_p\d+_test_map\.json$/.test(name)) {
     continue;
   }
+  const frontendPhase = JSON.parse(
+    fs.readFileSync(path.join(root, "tools", "frontend_phase_maps", name), "utf8"),
+  );
+  for (const row of frontendPhase.rows ?? []) {
+    if (
+      row.claim_status !== "implemented" ||
+      !(row.targets ?? []).includes("make frontend-unit") ||
+      (row.scenario_titles ?? []).length === 0
+    ) {
+      continue;
+    }
   for (const [index, title] of (row.scenario_titles ?? []).entries()) {
     if (
       mode === "frontend-row-missing-implemented" &&
@@ -206,7 +214,7 @@ for (const row of frontendPhase1.rows ?? []) {
     ) {
       continue;
     }
-    frontendPhase1Entries.push(
+    frontendPhaseEntries.push(
       assertion(
         title,
         mode === "frontend-row-failure" && row.id === "FE-I-P1-01" && index === 0
@@ -215,10 +223,11 @@ for (const row of frontendPhase1.rows ?? []) {
       ),
     );
   }
+  }
 }
 byFile.set(path.join(root, "apps/web/src/App.phase1.test.tsx"), [
   ...(byFile.get(path.join(root, "apps/web/src/App.phase1.test.tsx")) ?? []),
-  ...frontendPhase1Entries,
+  ...frontendPhaseEntries,
 ]);
 
 byFile.set(path.join(root, "apps/web/src/App.phase1.support.test.tsx"), [
@@ -336,11 +345,19 @@ for (const entry of (registry.phases ?? [])
     }
   }
 }
-const frontendPhase1 = JSON.parse(
-  fs.readFileSync(path.join(root, "tools", "frontend_phase_maps", "fe_p1_test_map.json"), "utf8"),
-);
-for (const row of frontendPhase1.rows ?? []) {
-  if (!["FE-I-P1-01", "FE-S-P1-01"].includes(row.id)) {
+for (const name of fs.readdirSync(path.join(root, "tools", "frontend_phase_maps")).sort()) {
+  if (!/^fe_p\d+_test_map\.json$/.test(name)) {
+    continue;
+  }
+  const frontendPhase = JSON.parse(
+    fs.readFileSync(path.join(root, "tools", "frontend_phase_maps", name), "utf8"),
+  );
+  for (const row of frontendPhase.rows ?? []) {
+  if (
+    row.claim_status !== "implemented" ||
+    !(row.targets ?? []).includes("make frontend-unit") ||
+    (row.scenario_titles ?? []).length === 0
+  ) {
     continue;
   }
   const count = (row.scenario_titles ?? []).length;
@@ -348,6 +365,7 @@ for (const row of frontendPhase1.rows ?? []) {
     frontendAuthoritative += count;
   } else {
     frontendSupport += count;
+  }
   }
 }
 process.stdout.write(`${authoritative},${support},${phases.size},${frontendAuthoritative},${frontendSupport}`);
@@ -395,9 +413,12 @@ if (!fei || fei.closure_status !== "closed") {
 if (fei.scenarios.filter((scenario) => scenario.status === "passed").length !== 11) {
   throw new Error("FE-I-P1-01 must retain per-scenario passed accounting");
 }
-const missing = byID.get("FE-I-P3-01");
-if (!missing || missing.closure_status !== "missing") {
-  throw new Error(`planned FE-I-P3-01 scenario must be represented as missing: ${JSON.stringify(missing)}`);
+const fei3 = byID.get("FE-I-P3-01");
+if (!fei3 || fei3.closure_status !== "closed") {
+  throw new Error(`FE-I-P3-01 must be closed in success accounting: ${JSON.stringify(fei3)}`);
+}
+if (fei3.scenarios.filter((scenario) => scenario.status === "passed").length !== 1) {
+  throw new Error("FE-I-P3-01 must retain per-scenario passed accounting");
 }
 const toolSummary = JSON.parse(
   fs.readFileSync(path.join(path.dirname(summaryPath), "tool-run-summary.json"), "utf8"),
