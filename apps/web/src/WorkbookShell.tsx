@@ -118,6 +118,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { WorkbookGridControls } from "./WorkbookGridControls";
 import {
@@ -436,6 +437,23 @@ type PendingQueueSnapshot = {
   overflowMessage: string | null;
   resetRefreshInFlight: boolean;
 };
+
+type WorkbookTimingEvent = {
+  at: number;
+  name: string;
+  [key: string]: unknown;
+};
+
+declare global {
+  interface Window {
+    __cartularyWorkbookTimingProbe?:
+      | {
+          events: WorkbookTimingEvent[];
+          mark?: (event: WorkbookTimingEvent) => void;
+        }
+      | undefined;
+  }
+}
 
 export const pendingReplayCapacity = 64;
 const maxTimelineFreshnessRetryDepth = 2;
@@ -1248,8 +1266,35 @@ export function createDraftRow(index: number): WorkbookRow {
   };
 }
 
+function createDraftRowForKey(rowKey: string): WorkbookRow | null {
+  if (!rowKey.startsWith("draft-")) {
+    return null;
+  }
+  return { ...createDraftRow(0), key: rowKey };
+}
+
 function normalizeValue(value: string): string {
   return value.trim();
+}
+
+function recordWorkbookTiming(
+  name: string,
+  details: Record<string, unknown> = {},
+) {
+  const probe =
+    typeof window === "undefined"
+      ? undefined
+      : window.__cartularyWorkbookTimingProbe;
+  if (probe === undefined) {
+    return;
+  }
+  const event = {
+    at: performance.now(),
+    name,
+    ...details,
+  };
+  probe.events.push(event);
+  probe.mark?.(event);
 }
 
 function readStringCell(
@@ -2081,6 +2126,10 @@ function readCookie(name: string): string | null {
 async function fetchJSON<T>(
   input: RequestInfo | URL,
   init?: RequestInit,
+  options: {
+    onJSONParsed?: () => void;
+    onResponse?: (response: Response) => void;
+  } = {},
 ): Promise<{
   ok: boolean;
   status: number;
@@ -2099,15 +2148,25 @@ async function fetchJSON<T>(
       headers[csrfHeaderName] = csrfToken;
     }
   }
+  const requestURL = input instanceof Request ? input.url : String(input);
+  if (
+    window.__cartularyWorkbookTimingProbe !== undefined &&
+    method === "POST" &&
+    requestURL.includes("/views/cartulary.view.timeline.v1/rows")
+  ) {
+    headers["X-Cartulary-Timing-Debug"] = "1";
+  }
 
   const response = await fetch(input, {
     credentials: "include",
     ...init,
     headers,
   });
+  options.onResponse?.(response);
   const payload = (await response.json()) as
     | T
     | { error?: { code?: string; message?: string; details?: unknown } };
+  options.onJSONParsed?.();
   return { ok: response.ok, status: response.status, payload };
 }
 
@@ -2703,6 +2762,10 @@ export function TimelineWorkbook({
   const [viewportContinuityRequest, setViewportContinuityRequest] =
     useState<ViewportContinuityRequest | null>(null);
 
+  useLayoutEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
+
   const setConflictQueueState = useCallback(
     (
       updater: (
@@ -3120,7 +3183,29 @@ export function TimelineWorkbook({
         : document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
             dataTestIdSelector(selectorTestId),
           );
-    return selector ?? rowInputRefs.current.get(focusKey) ?? null;
+    if (selector !== null) {
+      return selector;
+    }
+    const [rowKey, fieldKey, surface] = focusKey.split(":");
+    const scalarBinding = Object.values(timelineScalarBindingIndex).find(
+      (binding) => binding.key === fieldKey,
+    );
+    if (
+      rowKey !== undefined &&
+      surface === "grid" &&
+      scalarBinding !== undefined
+    ) {
+      const fallbackTestId = rowKey.startsWith("draft-")
+        ? draftCellTestId(scalarBinding.fieldKey)
+        : rowCellTestId(rowKey, scalarBinding.fieldKey);
+      const fallback = document.querySelector<
+        HTMLInputElement | HTMLTextAreaElement
+      >(dataTestIdSelector(fallbackTestId));
+      if (fallback !== null) {
+        return fallback;
+      }
+    }
+    return rowInputRefs.current.get(focusKey) ?? null;
   }, []);
 
   const resolveTimelineAnchorElement = useCallback(
@@ -3461,20 +3546,60 @@ export function TimelineWorkbook({
         viewportContinuityToken?: number;
       } = {},
     ) => {
-      const previousRow = rowsRef.current.find(
+      let previousRow = rowsRef.current.find(
         (candidate) => candidate.key === rowKey,
       );
+      recordWorkbookTiming("apply_row_mutation_start", {
+        rowKey,
+        recordId: envelope.data.row.record_id,
+        rowVersion: envelope.data.row.row_version,
+      });
       const incomingCommitted = rowFromApi(envelope.data.row);
       const accepted = acceptCommittedTimelineRow(incomingCommitted);
       const committed = accepted.row;
-      const nextRows = rowsRef.current.map((row) =>
-        row.key === rowKey ? committed : row,
-      );
-      const hydrated = ensureDraftRowWithFreshIndex(nextRows, nextDraftIndex);
-      const hydratedRows = hydrated.rows;
-
-      rowsRef.current = hydratedRows;
-      setRows(hydratedRows);
+      let draftSummaryKey: string | null = null;
+      flushSync(() => {
+        setRows((current) => {
+          previousRow =
+            current.find((candidate) => candidate.key === rowKey) ??
+            current.find(
+              (candidate) => candidate.recordId === committed.recordId,
+            ) ??
+            previousRow;
+          let replaced = false;
+          let nextRows = current.map((row) => {
+            if (
+              row.key !== rowKey &&
+              (committed.recordId === null ||
+                row.recordId !== committed.recordId)
+            ) {
+              return row;
+            }
+            replaced = true;
+            return committed;
+          });
+          if (!replaced) {
+            const draftIndex = nextRows.findIndex(
+              (row) => row.recordId === null,
+            );
+            nextRows =
+              draftIndex === -1
+                ? [...nextRows, committed]
+                : [
+                    ...nextRows.slice(0, draftIndex),
+                    committed,
+                    ...nextRows.slice(draftIndex),
+                  ];
+          }
+          const hydrated = ensureDraftRowWithFreshIndex(
+            nextRows,
+            nextDraftIndex,
+          );
+          draftSummaryKey = hydrated.draftSummaryKey;
+          rowsRef.current = hydrated.rows;
+          return hydrated.rows;
+        });
+      });
 
       if (committed.recordId !== null) {
         setDismissedMentionsByRow((current) =>
@@ -3502,10 +3627,10 @@ export function TimelineWorkbook({
         setSelectedRowId(committed.recordId);
       }
       const nextViewportTarget =
-        options.continueOnFreshDraft && hydrated.draftSummaryKey
+        options.continueOnFreshDraft && draftSummaryKey
           ? ({
               kind: "input",
-              focusKey: hydrated.draftSummaryKey,
+              focusKey: draftSummaryKey,
             } satisfies ViewportContinuityTarget)
           : options.promoteToCommittedRowInspect && committed.recordId !== null
             ? ({
@@ -3516,11 +3641,22 @@ export function TimelineWorkbook({
       advanceViewportContinuity(options.viewportContinuityToken, {
         target: nextViewportTarget,
       });
+      if (nextViewportTarget?.kind === "input") {
+        resolveInputElement(nextViewportTarget.focusKey)?.focus({
+          preventScroll: true,
+        });
+      }
+      recordWorkbookTiming("apply_row_mutation_end", {
+        rowKey,
+        recordId: committed.recordId,
+        rowVersion: committed.rowVersion,
+      });
     },
     [
       acceptCommittedTimelineRow,
       advanceViewportContinuity,
       nextDraftIndex,
+      resolveInputElement,
       selectedRowId,
     ],
   );
@@ -4249,6 +4385,31 @@ export function TimelineWorkbook({
     return undefined;
   });
 
+  const requestPendingReplay = useCallback(
+    (reason: string) => {
+      const pending = pendingQueueRef.current;
+      const readyForImmediateDrain =
+        !pending.authPaused &&
+        pending.haltedMessage === null &&
+        !pending.resetRefreshInFlight &&
+        Object.keys(conflictQueueRef.current).length === 0 &&
+        !pending.units.some((unit) => unit.status === "in_flight") &&
+        pending.units.some((unit) => unit.status === "queued");
+      if (!readyForImmediateDrain) {
+        schedulePendingReplay();
+        return;
+      }
+      if (pendingReplayTimerRef.current !== null) {
+        window.clearTimeout(pendingReplayTimerRef.current);
+        pendingReplayTimerRef.current = null;
+      }
+      pending.replayScheduled = false;
+      recordWorkbookTiming("pending_replay_drain_immediate", { reason });
+      void replayPendingQueueRef.current();
+    },
+    [schedulePendingReplay],
+  );
+
   const enqueuePendingReplayUnit = useCallback(
     (unit: PendingReplayUnit) => {
       const pending = pendingQueueRef.current;
@@ -4291,7 +4452,7 @@ export function TimelineWorkbook({
         );
         clearViewportContinuity(unit.viewportContinuityToken);
         publishPendingQueueState();
-        schedulePendingReplay();
+        requestPendingReplay("coalesced_unit");
         return;
       }
 
@@ -4306,15 +4467,20 @@ export function TimelineWorkbook({
 
       pending.units.push(unit);
       pendingSignaturesRef.current.set(unit.rowKey, unit.mutationSignature);
+      recordWorkbookTiming("pending_unit_admitted", {
+        clientTxnId: unit.clientTxnId,
+        kind: unit.kind,
+        rowKey: unit.rowKey,
+      });
       publishPendingQueueState();
-      schedulePendingReplay();
+      requestPendingReplay("admitted_unit");
     },
     [
       clearPendingSignatureForUnit,
       clearViewportContinuity,
       mergePendingPayload,
       publishPendingQueueState,
-      schedulePendingReplay,
+      requestPendingReplay,
     ],
   );
 
@@ -4366,10 +4532,36 @@ export function TimelineWorkbook({
       ReturnType<typeof fetchJSON<TimelineMutationEnvelope>>
     > | null = null;
     try {
-      result = await fetchJSON<TimelineMutationEnvelope>(unit.path, {
-        method: unit.method,
-        body: JSON.stringify(dispatchPayload),
+      recordWorkbookTiming("pending_fetch_start", {
+        clientTxnId: unit.clientTxnId,
+        kind: unit.kind,
+        rowKey: unit.rowKey,
       });
+      result = await fetchJSON<TimelineMutationEnvelope>(
+        unit.path,
+        {
+          method: unit.method,
+          body: JSON.stringify(dispatchPayload),
+        },
+        {
+          onJSONParsed: () => {
+            recordWorkbookTiming("pending_fetch_json_parsed", {
+              clientTxnId: unit.clientTxnId,
+              kind: unit.kind,
+              rowKey: unit.rowKey,
+            });
+          },
+          onResponse: (response) => {
+            recordWorkbookTiming("pending_fetch_response", {
+              clientTxnId: unit.clientTxnId,
+              kind: unit.kind,
+              rowKey: unit.rowKey,
+              serverTiming: response.headers.get("server-timing") ?? "",
+              status: response.status,
+            });
+          },
+        },
+      );
     } catch {
       resolvePendingSocketTxn(unit.clientTxnId);
       unit.status = "queued";
@@ -4420,24 +4612,47 @@ export function TimelineWorkbook({
       return;
     }
 
-    const envelope = readEnvelope<TimelineMutationEnvelope>(result.payload);
-    clearSubmittedScalarEditorDraftValuesForRow(
-      unit.rowKey,
-      unit.rowSnapshot.values,
-    );
-    applyRowMutation(unit.rowKey, envelope, {
-      continueOnFreshDraft:
-        unit.continueOnFreshDraft && unit.rowSnapshot.recordId === null,
-      detectAutoResolution: unit.detectAutoResolution,
-      promoteToCommittedRowInspect: unit.promoteToCommittedRowInspect,
-      viewportContinuityToken: unit.viewportContinuityToken,
+    recordWorkbookTiming("pending_result_apply_start", {
+      clientTxnId: unit.clientTxnId,
+      kind: unit.kind,
+      rowKey: unit.rowKey,
+    });
+    let envelope: TimelineMutationEnvelope;
+    try {
+      envelope = readEnvelope<TimelineMutationEnvelope>(result.payload);
+      clearSubmittedScalarEditorDraftValuesForRow(
+        unit.rowKey,
+        unit.rowSnapshot.values,
+      );
+      applyRowMutation(unit.rowKey, envelope, {
+        continueOnFreshDraft:
+          unit.continueOnFreshDraft && unit.rowSnapshot.recordId === null,
+        detectAutoResolution: unit.detectAutoResolution,
+        promoteToCommittedRowInspect: unit.promoteToCommittedRowInspect,
+        viewportContinuityToken: unit.viewportContinuityToken,
+      });
+    } catch (error) {
+      recordWorkbookTiming("pending_result_apply_error", {
+        clientTxnId: unit.clientTxnId,
+        kind: unit.kind,
+        message: error instanceof Error ? error.message : String(error),
+        rowKey: unit.rowKey,
+      });
+      throw error;
+    }
+    recordWorkbookTiming("pending_result_apply_end", {
+      clientTxnId: unit.clientTxnId,
+      kind: unit.kind,
+      recordId: envelope.data.row.record_id,
+      rowKey: unit.rowKey,
+      rowVersion: envelope.data.row.row_version,
     });
     pending.units = pending.units.filter((candidate) => candidate !== unit);
     clearPendingSignatureForUnit(unit);
     pending.authPaused = false;
     pending.haltedMessage = null;
     publishPendingQueueState();
-    schedulePendingReplay();
+    requestPendingReplay("unit_completed");
   };
 
   useEffect(() => {
@@ -4706,9 +4921,16 @@ export function TimelineWorkbook({
       },
       currentValue?: string,
     ) => {
-      const focusKey = inputFocusKey(rowKey, focusField, options.surface);
-      const rowSnapshot = rowsRef.current.find(
+      const requestedRowSnapshot = rowsRef.current.find(
         (candidate) => candidate.key === rowKey,
+      );
+      const rowSnapshot =
+        requestedRowSnapshot ?? createDraftRowForKey(rowKey) ?? undefined;
+      const effectiveRowKey = rowSnapshot?.key ?? rowKey;
+      const focusKey = inputFocusKey(
+        effectiveRowKey,
+        focusField,
+        options.surface,
       );
       const snapshot =
         rowSnapshot === undefined
@@ -4744,25 +4966,31 @@ export function TimelineWorkbook({
       }
 
       const mutationSignature = buildStableMutationSignature(payload);
-      if (pendingSignaturesRef.current.get(rowKey) === mutationSignature) {
+      if (
+        pendingSignaturesRef.current.get(effectiveRowKey) === mutationSignature
+      ) {
         return;
       }
       const viewportContinuityToken = beginViewportContinuity(
         options.preserveInputFocus
           ? {
               kind: "input",
-              focusKey: inputFocusKey(rowKey, focusField, options.surface),
+              focusKey: inputFocusKey(
+                effectiveRowKey,
+                focusField,
+                options.surface,
+              ),
             }
           : {
               kind: "scroll-only",
             },
       );
-      pendingSignaturesRef.current.set(rowKey, mutationSignature);
+      pendingSignaturesRef.current.set(effectiveRowKey, mutationSignature);
 
       startTransition(() => {
         setRows((current) => {
           const nextRows = current.map((row) =>
-            row.key === rowKey
+            row.key === effectiveRowKey
               ? { ...row, pendingSignature: mutationSignature }
               : row,
           );
@@ -4781,7 +5009,7 @@ export function TimelineWorkbook({
       enqueuePendingReplayUnit({
         id: `pending-${clientTxnId}`,
         kind: snapshot.recordId === null ? "create" : "patch",
-        rowKey,
+        rowKey: effectiveRowKey,
         recordId: snapshot.recordId,
         focusField,
         focusKey,
@@ -4793,7 +5021,7 @@ export function TimelineWorkbook({
         mutationSignature,
         coalesceKey:
           snapshot.recordId === null
-            ? `draft:${rowKey}`
+            ? `draft:${effectiveRowKey}`
             : `record:${snapshot.recordId}`,
         enqueueOrder: pendingReplayOrderRef.current,
         status: "queued",
@@ -5500,6 +5728,12 @@ export function TimelineWorkbook({
         anchor === null &&
         (command.intent.key === "Enter" || command.intent.key === "Tab")
       ) {
+        recordWorkbookTiming("key_commit_accepted", {
+          field: focusField,
+          key: command.intent.key,
+          rowKey,
+          surface,
+        });
         queueScalarSave(
           rowKey,
           focusField,
@@ -5514,6 +5748,13 @@ export function TimelineWorkbook({
       }
       if (command.kind === "navigate" && anchor !== null) {
         if (command.intent.key === "Enter" || command.intent.key === "Tab") {
+          recordWorkbookTiming("key_commit_accepted", {
+            field: focusField,
+            key: command.intent.key,
+            recordId: anchor.recordId,
+            rowKey,
+            surface,
+          });
           queueScalarSave(
             rowKey,
             focusField,
@@ -5915,9 +6156,7 @@ export function TimelineWorkbook({
   const handleCreateBlankDraftRow = useCallback(
     (row: WorkbookRow) => {
       const activeRow =
-        rowsRef.current.find((candidate) => candidate.key === row.key) ??
-        rowsRef.current.find((candidate) => candidate.recordId === null) ??
-        row;
+        rowsRef.current.find((candidate) => candidate.key === row.key) ?? row;
       queueScalarSave(activeRow.key, "summary", {
         allowZeroFieldCreate: true,
         continueOnFreshDraft: true,

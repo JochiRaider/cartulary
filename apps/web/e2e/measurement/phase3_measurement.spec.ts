@@ -76,6 +76,11 @@ test("E-3-02 measures user-visible typing_ack and blank-row-create completion wi
   await draftSummary.fill("");
 
   const blankRowCreateSamples: Array<{
+    clientTimingEvents: Array<{
+      at: number;
+      name: string;
+      [key: string]: unknown;
+    }>;
     committedDurationMs: number;
     networkDurationMs: number;
     recordId: string;
@@ -106,6 +111,8 @@ test("E-3-02 measures user-visible typing_ack and blank-row-create completion wi
       .map((sample) => sample.committedDurationMs),
     { sampleLabel: "timeline_blank_row_create" },
   );
+  // Core 04 AC-043 owns this implementation threshold. This ordinary
+  // measurement target is not Core 05 claim-bearing publication evidence.
   expect(
     blankRowCreateP95,
     JSON.stringify(

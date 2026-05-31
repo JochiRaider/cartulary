@@ -96,6 +96,7 @@ describe("Phase 3 Timeline workbook payload coverage", () => {
       draftRowCreateButtonTestId(),
     );
     fireEvent.mouseDown(createButton);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     fireEvent.mouseDown(createButton);
 
     await waitFor(() => {

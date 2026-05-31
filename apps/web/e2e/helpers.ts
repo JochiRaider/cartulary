@@ -89,6 +89,23 @@ export type ServerTimingMetric = {
   raw: string;
 };
 
+export type ClientTimingEvent = {
+  at: number;
+  name: string;
+  [key: string]: unknown;
+};
+
+type CommittedRowSummaryMatch = {
+  recordId: string;
+  rowVersion: number;
+};
+
+type WorkbookTimingProbeWindow = Window & {
+  __cartularyWorkbookTimingProbe?: {
+    events: ClientTimingEvent[];
+  };
+};
+
 const suiteAdminTotpStatePath = resolvePlaywrightStateFile(
   "cartulary-playwright-admin-totp.txt",
 );
@@ -710,58 +727,72 @@ export async function measureBlankRowCreate(
   page: Page,
   expectedSummary: string,
 ) {
-  const createRoute =
-    "**/api/v1/incidents/*/views/cartulary.view.timeline.v1/rows";
-  const routeHandler = async (route: Route) => {
-    await route.fallback({
-      headers: {
-        ...route.request().headers(),
-        "X-Cartulary-Timing-Debug": "1",
-      },
-    });
-  };
-  await page.route(createRoute, routeHandler);
+  const draftSummary = page.getByTestId(draftCellTestId("timeline.summary"));
+  await expect(draftSummary).toHaveValue(expectedSummary);
+  await draftSummary.focus();
+  await resetWorkbookClientTiming(page);
+  const browserStart = await page.evaluate(() => performance.now());
   const completion = waitForCommittedRowSummary(page, {
     expectedSummary,
+    startedAtMs: browserStart,
     surface: timelineViewSchemaId,
     timeoutMs: 5_000,
   });
-  const responseCompletion = page.waitForResponse(
-    (response) => {
-      const request = response.request();
-      if (
-        request.method() !== "POST" ||
-        !response.url().includes("/views/cartulary.view.timeline.v1/rows")
-      ) {
-        return false;
-      }
-      const postData = request.postData();
-      return postData?.includes(expectedSummary) ?? false;
-    },
-    { timeout: 5_000 },
-  );
-  const networkStart = Date.now();
-  await page.getByTestId(draftCellTestId("timeline.summary")).press("Enter");
+  await draftSummary.press("Enter");
+  let committed: Awaited<ReturnType<typeof waitForCommittedRowSummary>>;
   try {
-    const [committed, response] = await Promise.all([
-      completion,
-      responseCompletion,
-    ]);
-    const status = response.status();
-    expect(status).toBe(201);
-    const serverTiming = response.headers()["server-timing"] ?? "";
-    return {
-      committedDurationMs: committed.durationMs,
-      networkDurationMs: Date.now() - networkStart,
-      recordId: committed.recordId,
-      rowVersion: committed.rowVersion,
-      serverTiming,
-      serverTimingMetrics: parseServerTiming(serverTiming),
-      status,
-    };
-  } finally {
-    await page.unroute(createRoute, routeHandler);
+    committed = await completion;
+  } catch (error) {
+    const clientTimingEvents = await readWorkbookClientTiming(page).catch(
+      () => [],
+    );
+    throw new Error(
+      `${error instanceof Error ? error.message : String(error)}\nClient timing events:\n${JSON.stringify(
+        clientTimingEvents,
+        null,
+        2,
+      )}`,
+    );
   }
+  const clientTimingEvents = await readWorkbookClientTiming(page);
+  const responseEvent = clientTimingEvents.find(
+    (event) => event.name === "pending_fetch_response",
+  );
+  const status =
+    typeof responseEvent?.status === "number" ? responseEvent.status : 0;
+  expect(status, JSON.stringify({ clientTimingEvents }, null, 2)).toBe(201);
+  const serverTiming =
+    typeof responseEvent?.serverTiming === "string"
+      ? responseEvent.serverTiming
+      : "";
+  const networkDurationMs =
+    typeof responseEvent?.at === "number"
+      ? responseEvent.at - browserStart
+      : Number.NaN;
+  return {
+    clientTimingEvents,
+    committedDurationMs: committed.durationMs,
+    networkDurationMs,
+    recordId: committed.recordId,
+    rowVersion: committed.rowVersion,
+    serverTiming,
+    serverTimingMetrics: parseServerTiming(serverTiming),
+    status,
+  };
+}
+
+async function resetWorkbookClientTiming(page: Page) {
+  await page.evaluate(() => {
+    const target = window as WorkbookTimingProbeWindow;
+    target.__cartularyWorkbookTimingProbe = { events: [] };
+  });
+}
+
+async function readWorkbookClientTiming(page: Page) {
+  return page.evaluate(() => {
+    const target = window as WorkbookTimingProbeWindow;
+    return [...(target.__cartularyWorkbookTimingProbe?.events ?? [])];
+  });
 }
 
 export function percentile95(
@@ -1220,63 +1251,180 @@ export async function waitForCommittedRowSummary(
   page: Page,
   options: {
     expectedSummary: string;
+    startedAtMs?: number;
     surface: WorkbookSurface;
     timeoutMs: number;
   },
 ) {
-  const startedAt = Date.now();
-  const deadline = startedAt + options.timeoutMs;
-  while (Date.now() <= deadline) {
-    const match = await findCommittedRowSummary(page, options);
-    if (match !== null) {
-      return {
-        durationMs: Date.now() - startedAt,
-        recordId: match.recordId,
-        rowVersion: match.rowVersion,
-      };
-    }
-    await page.waitForTimeout(50);
-  }
-  throw new Error(
-    `timed out waiting for committed row summary ${options.expectedSummary}`,
+  const startedAtMs =
+    options.startedAtMs ?? (await page.evaluate(() => performance.now()));
+  return page.evaluate(
+    ({
+      expectedSummary,
+      gridTestId,
+      rowVersionFieldKey,
+      savedRowsSelector,
+      startedAtMs,
+      summaryFieldKey,
+      timeoutMs,
+    }) =>
+      new Promise<{
+        durationMs: number;
+        recordId: string;
+        rowVersion: number;
+      }>((resolve, reject) => {
+        const deadline = startedAtMs + timeoutMs;
+        let animationFrame: number | null = null;
+        let settled = false;
+        const findByTestId = <T extends Element>(
+          root: ParentNode,
+          testId: string,
+        ): T | null =>
+          Array.from(root.querySelectorAll<T>("[data-testid]")).find(
+            (element) => element.getAttribute("data-testid") === testId,
+          ) ?? null;
+        const rowCellTestIdFor = (recordId: string, fieldKey: string) =>
+          `row-${recordId}-${fieldKey}`;
+        const findMatch = (): CommittedRowSummaryMatch | null => {
+          const grid = findByTestId<HTMLElement>(document, gridTestId);
+          if (grid === null) {
+            return null;
+          }
+          const rows = Array.from(
+            grid.querySelectorAll<HTMLElement>(savedRowsSelector),
+          );
+          for (const row of rows) {
+            const recordId = row.getAttribute("data-grid-record-id");
+            if (recordId === null || recordId.trim() === "") {
+              continue;
+            }
+            const candidate = findByTestId<
+              HTMLInputElement | HTMLTextAreaElement
+            >(row, rowCellTestIdFor(recordId, summaryFieldKey));
+            if (candidate?.value !== expectedSummary) {
+              continue;
+            }
+            const rowVersionText = findByTestId(
+              row,
+              rowCellTestIdFor(recordId, rowVersionFieldKey),
+            )?.textContent;
+            const rowVersion = Number.parseInt(rowVersionText ?? "", 10);
+            if (!Number.isInteger(rowVersion) || rowVersion < 1) {
+              continue;
+            }
+            return { recordId, rowVersion };
+          }
+          return null;
+        };
+        const observer = new MutationObserver(() => {
+          checkForMatch();
+        });
+        const finish = (match: CommittedRowSummaryMatch) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          if (animationFrame !== null) {
+            window.cancelAnimationFrame(animationFrame);
+          }
+          observer.disconnect();
+          const durationMs = performance.now() - startedAtMs;
+          const target = window as WorkbookTimingProbeWindow;
+          target.__cartularyWorkbookTimingProbe?.events.push({
+            at: performance.now(),
+            name: "committed_row_visible",
+            recordId: match.recordId,
+            rowVersion: match.rowVersion,
+          });
+          resolve({
+            durationMs,
+            recordId: match.recordId,
+            rowVersion: match.rowVersion,
+          });
+        };
+        const fail = () => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          if (animationFrame !== null) {
+            window.cancelAnimationFrame(animationFrame);
+          }
+          observer.disconnect();
+          reject(
+            new Error(
+              `timed out waiting for committed row summary ${expectedSummary}`,
+            ),
+          );
+        };
+        const checkForMatch = () => {
+          const match = findMatch();
+          if (match !== null) {
+            finish(match);
+            return;
+          }
+          if (performance.now() > deadline) {
+            fail();
+          }
+        };
+        const tick = () => {
+          if (settled) {
+            return;
+          }
+          checkForMatch();
+          if (!settled) {
+            animationFrame = window.requestAnimationFrame(tick);
+          }
+        };
+        observer.observe(document.documentElement, {
+          attributes: true,
+          childList: true,
+          subtree: true,
+        });
+        tick();
+      }),
+    {
+      expectedSummary: options.expectedSummary,
+      gridTestId: gridShellTestId(options.surface),
+      rowVersionFieldKey: "row_version",
+      savedRowsSelector: gridSavedRowsSelector(),
+      startedAtMs,
+      summaryFieldKey: "timeline.summary",
+      timeoutMs: options.timeoutMs,
+    },
   );
 }
 
-async function findCommittedRowSummary(
-  page: Page,
+export function findCommittedRowSummaryInRoot(
+  root: ParentNode,
   options: {
     expectedSummary: string;
     surface: WorkbookSurface;
   },
-) {
-  const grid = page.getByTestId(gridShellTestId(options.surface));
-  const gridCount = await grid.count().catch(() => 0);
-  if (gridCount === 0) {
+): CommittedRowSummaryMatch | null {
+  const grid = findElementByTestId(root, gridShellTestId(options.surface));
+  if (grid === null) {
     return null;
   }
-  const rows = grid.locator(gridSavedRowsSelector());
-  const rowCount = await rows.count().catch(() => 0);
-  for (let index = 0; index < rowCount; index += 1) {
-    const row = rows.nth(index);
-    const recordId = await row
-      .getAttribute("data-grid-record-id", { timeout: 100 })
-      .catch(() => null);
+  const rows = Array.from(
+    grid.querySelectorAll<HTMLElement>(gridSavedRowsSelector()),
+  );
+  for (const row of rows) {
+    const recordId = row.getAttribute("data-grid-record-id");
     if (recordId === null || recordId.trim() === "") {
       continue;
     }
-    const candidate = row.getByTestId(
-      rowCellTestId(recordId, "timeline.summary"),
-    );
-    const value = await candidate.inputValue({ timeout: 100 }).catch(() => {
-      return null;
-    });
+    const candidate = findElementByTestId<
+      HTMLInputElement | HTMLTextAreaElement
+    >(row, rowCellTestId(recordId, "timeline.summary"));
+    const value = candidate?.value ?? null;
     if (value !== options.expectedSummary) {
       continue;
     }
-    const rowVersionText = await row
-      .getByTestId(timelineRowVersionTestId(recordId))
-      .textContent({ timeout: 100 })
-      .catch(() => null);
+    const rowVersionText = findElementByTestId(
+      row,
+      timelineRowVersionTestId(recordId),
+    )?.textContent;
     const rowVersion = Number.parseInt(rowVersionText ?? "", 10);
     if (!Number.isInteger(rowVersion) || rowVersion < 1) {
       continue;
@@ -1284,6 +1432,17 @@ async function findCommittedRowSummary(
     return { recordId, rowVersion };
   }
   return null;
+}
+
+function findElementByTestId<T extends Element = HTMLElement>(
+  root: ParentNode,
+  testId: string,
+): T | null {
+  return (
+    Array.from(root.querySelectorAll<T>("[data-testid]")).find(
+      (element) => element.getAttribute("data-testid") === testId,
+    ) ?? null
+  );
 }
 
 async function provisionUserTotp(
