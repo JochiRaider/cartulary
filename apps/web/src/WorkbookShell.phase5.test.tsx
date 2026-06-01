@@ -88,6 +88,9 @@ describe("Phase 5 workbook evidence coverage", () => {
 
     await screen.findByDisplayValue("Endpoint screenshot");
     expect(visibleGridRows(container).length).toBeGreaterThanOrEqual(1);
+    const gridShellBeforeRefresh = screen.getByTestId(
+      gridShellTestId(timelineViewSchemaId),
+    );
     expect(webSocketInstance).not.toBeNull();
 
     emitRecordChanged(
@@ -109,9 +112,9 @@ describe("Phase 5 workbook evidence coverage", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    expect(
-      screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
-    ).toBeTruthy();
+    expect(screen.getByTestId(gridShellTestId(timelineViewSchemaId))).toBe(
+      gridShellBeforeRefresh,
+    );
     await waitFor(() => {
       const committedRow = visibleGridRows(container).find(
         (row) => row.getAttribute("data-grid-record-id") === "timeline-1",

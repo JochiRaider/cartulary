@@ -33,6 +33,10 @@ import {
   type ViewRow,
 } from "./phase4Helpers";
 
+test.beforeEach(({ page }) => {
+  failOnUnexpectedPageError(page);
+});
+
 test("E-5-01 attaches a screenshot to a selected Timeline row without leaving the workbook surface", async ({
   page,
 }) => {
@@ -126,11 +130,22 @@ test("E-5-02 persists a screenshot-only Timeline row through the two-step eviden
     (candidate) => candidate.cells["timeline.evidence_count"]?.value === 1,
   );
   expect(row).toBeTruthy();
+  const rowRecordId = row?.record_id;
+  expect(rowRecordId).toBeTruthy();
   expect(row?.cells["timeline.summary"]?.value ?? "").toBe("");
   expect(row?.cells["timeline.capture_state"]?.value).toBe("rough");
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
+  if (!rowRecordId) {
+    throw new Error("missing screenshot-only Timeline row id");
+  }
+  await expect(
+    page.getByTestId(rowCellTestId(rowRecordId, "timeline.evidence_count")),
+  ).toHaveText("1");
+  await expect(
+    page.getByTestId(rowCellTestId(rowRecordId, "timeline.has_evidence")),
+  ).toHaveText("true");
 });
 
 test("E-5-03 redeems inline-safe previews and shows explicit blocked-preview outcomes", async ({
@@ -371,6 +386,7 @@ test("E-5-05 refreshes a second live workbook from the real evidence attach stre
     storageState: await page.context().storageState(),
   });
   const listener = await listenerContext.newPage();
+  failOnUnexpectedPageError(listener);
   try {
     const socketMonitor = installPhase5IncidentSocketMonitor(
       listener,
@@ -475,6 +491,12 @@ function tinyPNG() {
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
     "base64",
   );
+}
+
+function failOnUnexpectedPageError(page: Page) {
+  page.on("pageerror", (error) => {
+    throw new Error(`Unexpected page error: ${error.stack ?? error.message}`);
+  });
 }
 
 type Phase5SocketMessage = {

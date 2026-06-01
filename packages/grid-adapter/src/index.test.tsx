@@ -145,6 +145,11 @@ describe("grid-adapter", () => {
     expect(grid).toBeTruthy();
     expect(grid.classList.contains(gridScrollportClassName())).toBe(true);
     expect(grid.style.gridTemplateColumns).toBe("224px 224px 176px");
+    expect(grid.style.minWidth).toBe("1248px");
+    expect(grid.style.width).toBe("1248px");
+    expect(grid.querySelectorAll('[class*="rdg-resize-handle"]')).toHaveLength(
+      0,
+    );
     expect(
       gridShell.querySelector('[data-grid-record-id="record-1"]'),
     ).toBeTruthy();
@@ -211,6 +216,11 @@ describe("grid-adapter", () => {
       '[role="grid"]',
     ) as HTMLElement;
     expect(grid.style.gridTemplateColumns).toBe("320px 224px 96px");
+    expect(grid.style.minWidth).toBe("1248px");
+    expect(grid.style.width).toBe("1248px");
+    expect(grid.querySelectorAll('[class*="rdg-resize-handle"]')).toHaveLength(
+      0,
+    );
   });
 
   it("keeps editable cells mounted across repeated parent renders with an actions column", async () => {
