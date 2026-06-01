@@ -146,6 +146,24 @@ const canonicalInternalMakeValues = Object.freeze({
   SCHEDULER_MANIFEST: "$(TASK_SURFACE_CANONICAL_SCHEDULER_MANIFEST)",
   TASK_SURFACE_MANIFEST: "$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)",
 });
+const nonCanonicalPublicMakeVariables = Object.freeze([
+  "GOVULNCHECK_DB",
+  "GOVULNCHECK_FLAGS",
+  "GOVULNCHECK_PATTERNS",
+  "GOSEC_AUDIT_RUNTIME_FLAGS",
+  "GOSEC_AUDIT_RUNTIME_PATTERNS",
+  "GOSEC_AUDIT_RUNTIME_RULES",
+  "GOSEC_AUDIT_SUPPORT_FLAGS",
+  "GOSEC_AUDIT_SUPPORT_PATTERNS",
+  "GOSEC_AUDIT_SUPPORT_RULES",
+  "GOSEC_FLAGS",
+  "GOSEC_PATTERNS",
+  "GOSEC_RULES",
+  "GOSEC_TARGETED_RUNTIME_FLAGS",
+  "GOSEC_TARGETED_RUNTIME_PATTERNS",
+  "GOSEC_TARGETED_RUNTIME_RULES",
+  "STATICCHECK_CHECKS",
+]);
 export const validSemanticBehaviors = new Set([
   "configuration_resolution",
   "evidence_normalization",
@@ -2051,7 +2069,10 @@ function goTargetEnv(recipe) {
 }
 
 function publicMakeInputNames(manifest) {
-  const names = new Set(restrictedInternalMakeVariables);
+  const names = new Set([
+    ...restrictedInternalMakeVariables,
+    ...nonCanonicalPublicMakeVariables,
+  ]);
   for (const entry of targetEntries(manifest ?? { targets: [] })) {
     if (entry.target_class !== "public") {
       continue;

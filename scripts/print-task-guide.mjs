@@ -120,8 +120,39 @@ function renderHuman(guide) {
   return lines.join("\n").trimEnd();
 }
 
+function renderBareOverview() {
+  const lines = [
+    "Cartulary task guide",
+    "role=all phase=all",
+    "",
+    "local-dev: make doctor | make bootstrap | make db-up | make dev",
+    "feature-dev: make task-guide ROLE=feature-dev | make test-fast | make lint | make agent-finalize",
+    "phase-author: make task-guide ROLE=phase-author PHASE=phaseN | make explain-phase PHASE=phaseN",
+    "ci-investigator: make explain-run RESULTS_DIR=<root|run-dir> | make explain-target TARGET=<target>",
+    "release: make release-check | make ci | make build",
+    "",
+    "examples:",
+    "  make task-guide ROLE=feature-dev",
+    "  make task-guide ROLE=feature-dev PHASE=phase4",
+    "  make task-guide PHASE_NAMESPACE=frontend PHASE=FE-P3",
+    "",
+    `roles: ${knownRoles().join(", ")}`,
+    "use ROLE=<role> and PHASE=phaseN to narrow this view",
+  ];
+  return lines.join("\n");
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
+  if (
+    !options.json &&
+    !options.role &&
+    !options.phase &&
+    options.phaseNamespace === "base"
+  ) {
+    process.stdout.write(`${renderBareOverview()}\n`);
+    return;
+  }
   if (options.phaseNamespace === "frontend") {
     const registry = loadFrontendPhaseRegistry(process.cwd());
     const phase = registry.phases.find((entry) => entry.phase_id === options.phase);

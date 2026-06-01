@@ -37,6 +37,10 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");
 export const taskExecutionMapSchemaID = "cartulary.task_execution_map.v1";
+const executionPhaseRowsCache = new Map();
+const taskSurfaceCache = new Map();
+const schedulerManifestCache = new Map();
+const browserStagesCache = new Map();
 
 const serviceRequirementDisplayNames = new Map([
   ["postgres", "Postgres"],
@@ -47,6 +51,10 @@ const serviceRequirementDisplayNames = new Map([
 
 function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
+}
+
+function cacheKeyForRoot(root) {
+  return path.resolve(root);
 }
 
 function compareStrings(left, right) {
@@ -80,6 +88,11 @@ function targetForSupportEntry(entry) {
 }
 
 export function collectExecutionPhaseRows(root = repoRoot) {
+  const cacheKey = cacheKeyForRoot(root);
+  const cached = executionPhaseRowsCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
   const rows = [];
   for (const phase of phaseManifestNames(root)) {
     const { manifest, manifestPath } = loadManifest(root, phase);
@@ -126,12 +139,14 @@ export function collectExecutionPhaseRows(root = repoRoot) {
       });
     }
   }
-  return rows.sort((left, right) => (
+  const result = rows.sort((left, right) => (
     compareStrings(left.phase, right.phase) ||
     compareStrings(left.target, right.target) ||
     compareStrings(left.section, right.section) ||
     compareStrings(left.id, right.id)
   ));
+  executionPhaseRowsCache.set(cacheKey, result);
+  return result;
 }
 
 export function sectionCounts(rows) {
@@ -171,11 +186,18 @@ export function summarizeExecutionRows(rows) {
 function loadTaskSurface(root = repoRoot) {
   const manifestFile =
     process.env.CARTULARY_TASK_SURFACE_MANIFEST ?? path.join(root, "tools", "task_surface_manifest.json");
+  const cacheKey = path.resolve(manifestFile);
+  const cached = taskSurfaceCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
   const { manifest } = loadTaskSurfaceManifest(manifestFile);
-  return {
+  const result = {
     manifest,
     targets: targetEntryMap(manifest),
   };
+  taskSurfaceCache.set(cacheKey, result);
+  return result;
 }
 
 function addServiceRequirement(requirements, value) {
@@ -193,10 +215,21 @@ function serviceBackedScheduleForTarget(target, root = repoRoot) {
   if (!existsSync(manifestPath)) {
     return null;
   }
-  const manifest = readJSON(manifestPath);
+  const manifest = loadSchedulerManifest(manifestPath);
   return (manifest.schedules ?? []).find(
     (schedule) => schedule?.target === target && schedule?.scheduler_kind === "service_backed",
   ) ?? null;
+}
+
+function loadSchedulerManifest(manifestPath) {
+  const cacheKey = path.resolve(manifestPath);
+  const cached = schedulerManifestCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  const manifest = readJSON(manifestPath);
+  schedulerManifestCache.set(cacheKey, manifest);
+  return manifest;
 }
 
 function addServiceBackedScheduleRequirements(requirements, schedule) {
@@ -264,9 +297,15 @@ function phaseRowsForTarget(target, rows) {
 }
 
 function browserStagesByTarget(root = repoRoot) {
+  const cacheKey = cacheKeyForRoot(root);
+  const cached = browserStagesCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
   const result = new Map();
   const manifestPath = path.join(root, "tools", "execution_topology_manifest.json");
   if (!existsSync(manifestPath)) {
+    browserStagesCache.set(cacheKey, result);
     return result;
   }
   const topology = loadExecutionTopology({ manifestPath });
@@ -292,6 +331,7 @@ function browserStagesByTarget(root = repoRoot) {
       result.set(group.target, groupValues);
     }
   }
+  browserStagesCache.set(cacheKey, result);
   return result;
 }
 
@@ -358,7 +398,7 @@ function checkScheduleSummary(target, root = repoRoot) {
   if (!existsSync(manifestPath)) {
     return result;
   }
-  const manifest = readJSON(manifestPath);
+  const manifest = loadSchedulerManifest(manifestPath);
   for (const schedule of (manifest.schedules ?? []).filter((entry) => entry?.scheduler_kind === "check")) {
     for (const unit of schedule.work_units ?? []) {
       if (unit.target !== target) {
@@ -387,7 +427,7 @@ function serviceBackedScheduleSummary(target, root = repoRoot) {
   if (!existsSync(manifestPath)) {
     return result;
   }
-  const manifest = readJSON(manifestPath);
+  const manifest = loadSchedulerManifest(manifestPath);
   for (const schedule of (manifest.schedules ?? []).filter((entry) => entry?.scheduler_kind === "service_backed")) {
     const seen = new Set();
     for (const unit of schedule.work_units ?? []) {

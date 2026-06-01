@@ -18,6 +18,9 @@ FRONTEND_PORT="${CARTULARY_DEV_STACK_FRONTEND_PORT:-5173}"
 BACKEND_READY_URL="${CARTULARY_DEV_STACK_BACKEND_READY_URL:-http://127.0.0.1:${BACKEND_PORT}/readyz}"
 FRONTEND_READY_URL="${CARTULARY_DEV_STACK_FRONTEND_READY_URL:-http://127.0.0.1:${FRONTEND_PORT}}"
 READY_TIMEOUT_SECONDS="${CARTULARY_DEV_STACK_READY_TIMEOUT_SECONDS:-180}"
+POSTGRES_READY_HOST="${CARTULARY_DEV_STACK_POSTGRES_HOST:-127.0.0.1}"
+POSTGRES_READY_PORT="${CARTULARY_DEV_STACK_POSTGRES_PORT:-5432}"
+MINIO_READY_URL="${CARTULARY_DEV_STACK_MINIO_READY_URL:-http://127.0.0.1:9000/minio/health/live}"
 
 SERVER_PGID=""
 VITE_PGID=""
@@ -64,6 +67,40 @@ assert_dev_port_free() {
   if port_in_use "${port}"; then
     echo "${name} port ${port} is already in use; stop the existing listener before make dev" >&2
     ss -ltnp "sport = :${port}" >&2 || true
+    return 1
+  fi
+}
+
+tcp_port_ready() {
+  local host="$1"
+  local port="$2"
+
+  if exec 3<>"/dev/tcp/${host}/${port}" 2>/dev/null; then
+    exec 3<&-
+    exec 3>&-
+    return 0
+  fi
+  return 1
+}
+
+assert_backing_services_ready() {
+  local failed=0
+
+  if [[ "${CARTULARY_DEV_STACK_SKIP_SERVICE_PREFLIGHT:-0}" == "1" ]]; then
+    return 0
+  fi
+
+  if ! tcp_port_ready "${POSTGRES_READY_HOST}" "${POSTGRES_READY_PORT}"; then
+    echo "Postgres is not reachable at ${POSTGRES_READY_HOST}:${POSTGRES_READY_PORT}; run make db-up or make services-up before make dev" >&2
+    failed=1
+  fi
+
+  if ! curl -fsS --max-time 2 "${MINIO_READY_URL}" >/dev/null 2>&1; then
+    echo "MinIO is not reachable at ${MINIO_READY_URL}; run make db-up or make services-up before make dev" >&2
+    failed=1
+  fi
+
+  if [[ "${failed}" -ne 0 ]]; then
     return 1
   fi
 }
@@ -239,6 +276,7 @@ main() {
   lifecycle_reset_shutdown_state
   lifecycle_install_signal_traps
 
+  assert_backing_services_ready
   assert_dev_port_free "${BACKEND_PORT}" "backend"
   assert_dev_port_free "${FRONTEND_PORT}" "frontend"
 

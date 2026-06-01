@@ -202,8 +202,8 @@ const expectedMakeEnvVars = {
     "RUN_GO_TARGET_SCRIPT",
     "RUN_SERVICE_BACKED_SCHEDULE_SCRIPT",
   ],
-  "target-plan": [],
-  "target-plan-json": [],
+  "target-plan": ["TARGET"],
+  "target-plan-json": ["TARGET"],
   "task-guide": ["ROLE", "PHASE", "PHASE_NAMESPACE", "JSON", "CARTULARY_TEST_RESULTS_DIR"],
   "task-surface-report": ["TASK_SURFACE_REPORT_ARGS"],
 };
@@ -427,7 +427,10 @@ assertArgs("task-surface-report", { TASK_SURFACE_REPORT_ARGS: "--check --all" },
   "--check",
   "--all",
 ]);
-assertArgs("target-plan", { PHASE: "phase4", TARGET: "backend-store", RESULTS_DIR: "/tmp/results" }, []);
+assertArgs("target-plan", { PHASE: "phase4", TARGET: "backend-store", RESULTS_DIR: "/tmp/results" }, [
+  "--target",
+  "backend-store",
+]);
 assertUsage("explain-run", {}, "make explain-run RESULTS_DIR=<root|run-dir>");
 assertUsage("phase-slice", {}, "make phase-slice PHASE=<phaseN|FE-PN>");
 assertUsage("service-backed-slice", {}, "make service-backed-slice PHASE=<phaseN|FE-PN>");
@@ -455,7 +458,7 @@ assert(targetPlanChildEnv.PATH === "/bin", "child env must preserve unrelated ru
 assert(!("PHASE" in targetPlanChildEnv), "target-plan child env must not expose undeclared PHASE");
 assert(!("RESULTS_DIR" in targetPlanChildEnv), "target-plan child env must not expose undeclared RESULTS_DIR");
 assert(!("TASK_SURFACE_MANIFEST" in targetPlanChildEnv), "target-plan child env must not expose internal manifest override");
-assert(!("TARGET" in targetPlanChildEnv), "target-plan child env must not expose undeclared TARGET");
+assert(!("TARGET" in targetPlanChildEnv), "target-plan child env must not expose TARGET after args are built");
 
 const taskGuideChildEnv = buildMakeNodeToolChildEnv("task-guide", {
   CARTULARY_TEST_RESULTS_DIR: "/tmp/results",

@@ -1404,7 +1404,7 @@ function toolSummary(target, durationMs) {
       measurement = false,
       browserSkew = false,
       coldProvisioning = false,
-      stampHitAccounting = false,
+      unexpectedReuse = false,
       fixtureOverBudget = false,
       forbiddenVisual = false,
     } = {},
@@ -1444,7 +1444,7 @@ function toolSummary(target, durationMs) {
     });
     finish("testservices-build", 30000, 30000);
   }
-  if (stampHitAccounting) {
+  if (unexpectedReuse) {
     start("lint-shell", 0, {
       work_unit_type: "make_target",
       aggregate_target: "lint-shell",
@@ -1452,7 +1452,7 @@ function toolSummary(target, durationMs) {
     finish("lint-shell", 20, 20, {
       extensions: {
         "cartulary.scheduler_accounting": {
-          accounting_mode: "actual",
+          accounting_mode: "reused",
           cache_outcome: "hit",
           input_stamp: {
             outcome: "hit",
@@ -1561,7 +1561,7 @@ writeWarmRun("overbudget", { serviceMs: 70000 });
 writeWarmRun("measurement", { measurement: true });
 writeWarmRun("skewed", { browserSkew: true });
 writeWarmRun("cold-provisioning", { coldProvisioning: true });
-writeWarmRun("stamp-unaccounted", { stampHitAccounting: true });
+writeWarmRun("unexpected-reuse", { unexpectedReuse: true });
 writeWarmRun("fixture-overbudget", { fixtureOverBudget: true });
 writeWarmRun("visual-in-default", { forbiddenVisual: true });
 EOF
@@ -1591,11 +1591,11 @@ set -e
 assert_equals "$warm_cold_status" "1" "warm check cold provisioning fixture status"
 assert_contains "$warm_cold_output" "warm readiness unit testservices-build duration 30000ms exceeds warm threshold 15000ms" "warm check cold provisioning fixture output"
 set +e
-warm_stamp_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/stamp-unaccounted" 2>&1)"
-warm_stamp_status=$?
+warm_reuse_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/unexpected-reuse" 2>&1)"
+warm_reuse_status=$?
 set -e
-assert_equals "$warm_stamp_status" "1" "warm check stamp accounting fixture status"
-assert_contains "$warm_stamp_output" "stamp hit lint-shell accounting_mode=actual must be reused" "warm check stamp accounting fixture output"
+assert_equals "$warm_reuse_status" "1" "warm check unexpected reuse fixture status"
+assert_contains "$warm_reuse_output" "unexpected reused work lint-shell is not allowed in the current check profile" "warm check unexpected reuse fixture output"
 set +e
 warm_fixture_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-timing-drift.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/fixture-overbudget" 2>&1)"
 warm_fixture_status=$?

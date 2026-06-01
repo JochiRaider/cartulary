@@ -106,7 +106,7 @@
         },
         {
           "target": "dev",
-          "description": "run the Go server and Vite dev server"
+          "description": "run the Go server and Vite dev server after db-up/services-up"
         },
         {
           "target": "generate",
@@ -118,7 +118,8 @@
         },
         {
           "target": "clean",
-          "description": "remove repo-local build and report artifacts"
+          "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
+          "description": "preview or remove repo-local build and report artifacts"
         }
       ]
     },
@@ -260,7 +261,8 @@
         },
         {
           "target": "target-plan",
-          "description": "explain backend target execution families"
+          "usage": "TARGET=backend-unit",
+          "description": "explain backend Go execution families; use explain-target for Make targets"
         },
         {
           "target": "target-plan-json",
@@ -424,7 +426,8 @@
         },
         {
           "target": "distclean",
-          "description": "also remove repo-local tool/runtime caches and dependency installs"
+          "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
+          "description": "preview or remove repo-local tool/runtime caches and dependency installs"
         }
       ]
     }
@@ -512,6 +515,74 @@
           "target": "test-service-backed",
           "produces_summary_targets": [
             "test-service-backed"
+          ]
+        }
+      ]
+    },
+    "lint": {
+      "summary_groups": [
+        {
+          "name": "blocking-lint",
+          "summary_targets": [
+            "lint-go-format",
+            "lint-go-vet",
+            "lint-go-staticcheck",
+            "lint-biome",
+            "frontend-import-boundary-check",
+            "lint-scripts",
+            "frontend-typecheck"
+          ]
+        },
+        {
+          "name": "warning-lint",
+          "summary_targets": [
+            "lint-shell"
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "type": "step",
+          "target": "lint-go",
+          "produces_summary_targets": [
+            "lint-go-format",
+            "lint-go-vet",
+            "lint-go-staticcheck"
+          ]
+        },
+        {
+          "type": "step",
+          "target": "lint-biome",
+          "produces_summary_targets": [
+            "lint-biome"
+          ]
+        },
+        {
+          "type": "step",
+          "target": "frontend-import-boundary-check",
+          "produces_summary_targets": [
+            "frontend-import-boundary-check"
+          ]
+        },
+        {
+          "type": "step",
+          "target": "lint-scripts",
+          "produces_summary_targets": [
+            "lint-scripts"
+          ]
+        },
+        {
+          "type": "step",
+          "target": "lint-shell",
+          "produces_summary_targets": [
+            "lint-shell"
+          ]
+        },
+        {
+          "type": "step",
+          "target": "frontend-typecheck",
+          "produces_summary_targets": [
+            "frontend-typecheck"
           ]
         }
       ]
@@ -1421,6 +1492,7 @@
         "$(BIOME_CHECK_FLAGS)"
       ],
       "test_target": "self",
+      "success_summary": true,
       "failure_note": "inspect Biome diagnostics; run make format only for formatting/style diagnostics"
     },
     "lint-scripts": {
@@ -1436,7 +1508,8 @@
         "./scripts/run-scripts-biome.sh",
         "$(BIOME_SCRIPT_CHECK_FLAGS)"
       ],
-      "test_target": "self"
+      "test_target": "self",
+      "success_summary": true
     },
     "harness-contract-tests": {
       "type": "phase_command",
@@ -1480,7 +1553,8 @@
       "command": [
         "./scripts/run-shellcheck.sh"
       ],
-      "test_target": "self"
+      "test_target": "self",
+      "success_summary": true
     },
     "format": {
       "prerequisites": [
@@ -1683,15 +1757,9 @@
       "sequence": "test"
     },
     "lint": {
-      "prerequisites": [
-        "lint-go",
-        "lint-biome",
-        "frontend-import-boundary-check",
-        "lint-scripts",
-        "lint-shell",
-        "frontend-typecheck"
-      ],
-      "type": "alias"
+      "prerequisites": [],
+      "type": "sequence",
+      "sequence": "lint"
     },
     "lint-go": {
       "prerequisites": [
@@ -1712,6 +1780,7 @@
         "--check"
       ],
       "test_target": "self",
+      "success_summary": true,
       "failure_note": "run make format to apply authored Go formatting"
     },
     "lint-go-vet": {
@@ -1723,7 +1792,8 @@
         "bash",
         "./scripts/run-go-vet.sh"
       ],
-      "test_target": "self"
+      "test_target": "self",
+      "success_summary": true
     },
     "lint-go-staticcheck": {
       "prerequisites": [
@@ -1736,14 +1806,14 @@
         "GO": "$(GO)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
-        "STATICCHECK_BIN": "$(STATICCHECK_BIN)",
-        "STATICCHECK_CHECKS": "$(STATICCHECK_CHECKS)"
+        "STATICCHECK_BIN": "$(STATICCHECK_BIN)"
       },
       "command": [
         "bash",
         "./scripts/run-go-staticcheck.sh"
       ],
-      "test_target": "self"
+      "test_target": "self",
+      "success_summary": true
     },
     "go-vulncheck": {
       "prerequisites": [
@@ -1757,9 +1827,8 @@
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
         "GOVULNCHECK_BIN": "$(GOVULNCHECK_BIN)",
-        "GOVULNCHECK_FLAGS": "$(GOVULNCHECK_FLAGS)",
-        "GOVULNCHECK_PATTERNS": "$(GOVULNCHECK_PATTERNS)",
-        "GOVULNCHECK_DB": "$(GOVULNCHECK_DB)"
+        "GOVULNCHECK_FLAGS": "-test",
+        "GOVULNCHECK_PATTERNS": "./cmd/... ./internal/... ./db/... ./tools/..."
       },
       "command": [
         "bash",
@@ -1779,12 +1848,12 @@
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
         "GOSEC_BIN": "$(GOSEC_BIN)",
-        "GOSEC_RULES": "$(GOSEC_RULES)",
-        "GOSEC_FLAGS": "$(GOSEC_FLAGS)",
-        "GOSEC_PATTERNS": "$(GOSEC_PATTERNS)",
-        "GOSEC_TARGETED_RUNTIME_RULES": "$(GOSEC_TARGETED_RUNTIME_RULES)",
-        "GOSEC_TARGETED_RUNTIME_FLAGS": "$(GOSEC_TARGETED_RUNTIME_FLAGS)",
-        "GOSEC_TARGETED_RUNTIME_PATTERNS": "$(GOSEC_TARGETED_RUNTIME_PATTERNS)"
+        "GOSEC_RULES": "G602,G124,G112,G114",
+        "GOSEC_FLAGS": "-exclude-generated",
+        "GOSEC_PATTERNS": "./cmd/... ./internal/... ./db/... ./tools/...",
+        "GOSEC_TARGETED_RUNTIME_RULES": "G122,G301,G302,G303,G304,G305,G306,G307",
+        "GOSEC_TARGETED_RUNTIME_FLAGS": "-exclude-generated -quiet -exclude-dir=internal/testutil",
+        "GOSEC_TARGETED_RUNTIME_PATTERNS": "./cmd/... ./internal/..."
       },
       "command": [
         "bash",
@@ -1804,12 +1873,12 @@
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
         "GOSEC_BIN": "$(GOSEC_BIN)",
-        "GOSEC_AUDIT_RUNTIME_RULES": "$(GOSEC_AUDIT_RUNTIME_RULES)",
-        "GOSEC_AUDIT_RUNTIME_FLAGS": "$(GOSEC_AUDIT_RUNTIME_FLAGS)",
-        "GOSEC_AUDIT_RUNTIME_PATTERNS": "$(GOSEC_AUDIT_RUNTIME_PATTERNS)",
-        "GOSEC_AUDIT_SUPPORT_RULES": "$(GOSEC_AUDIT_SUPPORT_RULES)",
-        "GOSEC_AUDIT_SUPPORT_FLAGS": "$(GOSEC_AUDIT_SUPPORT_FLAGS)",
-        "GOSEC_AUDIT_SUPPORT_PATTERNS": "$(GOSEC_AUDIT_SUPPORT_PATTERNS)"
+        "GOSEC_AUDIT_RUNTIME_RULES": "G118,G122,G301,G302,G303,G304,G305,G306,G307",
+        "GOSEC_AUDIT_RUNTIME_FLAGS": "-exclude-generated -no-fail -quiet -exclude-dir=internal/testutil",
+        "GOSEC_AUDIT_RUNTIME_PATTERNS": "./cmd/... ./internal/...",
+        "GOSEC_AUDIT_SUPPORT_RULES": "G122,G301,G302,G303,G304,G305,G306,G307",
+        "GOSEC_AUDIT_SUPPORT_FLAGS": "-exclude-generated -no-fail -quiet",
+        "GOSEC_AUDIT_SUPPORT_PATTERNS": "./internal/testutil/... ./tools/..."
       },
       "command": [
         "bash",
@@ -4551,7 +4620,25 @@
       "input_contract": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
-        "inputs": []
+        "inputs": [
+          {
+            "name": "TARGET",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "target_name",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          }
+        ]
       }
     },
     {
@@ -4599,7 +4686,25 @@
       "input_contract": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
-        "inputs": []
+        "inputs": [
+          {
+            "name": "TARGET",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "target_name",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          }
+        ]
       }
     },
     {
@@ -7521,7 +7626,7 @@
       "name": "lint",
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
-        "artifact_policy": "tool_run_summary",
+        "artifact_policy": "run_and_target_summaries",
         "success_budget": {
           "stdout_lines": 2,
           "stdout_bytes": 600,
@@ -7558,7 +7663,7 @@
         {
           "class": "retained_artifacts",
           "owner_section": "Section 8",
-          "artifact_policy": "tool_run_summary"
+          "artifact_policy": "run_and_target_summaries"
         }
       ],
       "input_contract": {
@@ -8406,7 +8511,25 @@
       "input_contract": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
-        "inputs": []
+        "inputs": [
+          {
+            "name": "CARTULARY_CLEANUP_DRY_RUN",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "exact_1_bool",
+            "default": false,
+            "empty_string": "false",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
       }
     },
     {
@@ -8456,7 +8579,25 @@
       "input_contract": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
-        "inputs": []
+        "inputs": [
+          {
+            "name": "CARTULARY_CLEANUP_DRY_RUN",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "exact_1_bool",
+            "default": false,
+            "empty_string": "false",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
       }
     }
   ],

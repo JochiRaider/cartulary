@@ -36,6 +36,8 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");
+const taskSurfaceCache = new Map();
+const helpTierCache = new WeakMap();
 
 const roleDefinitions = [
   {
@@ -94,20 +96,32 @@ function loadTaskSurface(root = repoRoot, taskSurfaceManifest = null) {
   }
   const manifestFile =
     process.env.CARTULARY_TASK_SURFACE_MANIFEST ?? path.join(root, "tools", "task_surface_manifest.json");
+  const cacheKey = path.resolve(manifestFile);
+  const cached = taskSurfaceCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
   const { manifest } = loadTaskSurfaceManifest(manifestFile);
-  return {
+  const result = {
     manifest,
     targets: targetEntryMap(manifest),
   };
+  taskSurfaceCache.set(cacheKey, result);
+  return result;
 }
 
 function helpTierByTarget(manifest) {
+  const cached = helpTierCache.get(manifest);
+  if (cached) {
+    return cached;
+  }
   const result = new Map();
   for (const tier of helpTiers(manifest)) {
     for (const entry of tier.entries ?? []) {
       result.set(entry.target, tier.name);
     }
   }
+  helpTierCache.set(manifest, result);
   return result;
 }
 
@@ -182,6 +196,11 @@ export function targetGuidance(
   if (!entry) {
     return null;
   }
+  const recipe = manifest.make_recipes?.[target] ?? null;
+  const sequence =
+    recipe?.type === "sequence"
+      ? (manifest.sequences?.[recipe.sequence] ?? null)
+      : null;
   const tiers = helpTierByTarget(manifest);
   const allPhaseRows = collectPhaseRows(root);
   const targetRows = phaseRowsForTarget(target, allPhaseRows);
@@ -198,8 +217,10 @@ export function targetGuidance(
     target_class: entry.target_class,
     default_inclusion_sets: entry.default_inclusion_sets ?? [],
     check_projection: entry.check_projection ?? null,
+    input_contract: entry.input_contract ?? null,
     help_tier: tiers.get(target) ?? null,
     backing_scripts: entry.backing_scripts ?? [],
+    sequence,
     execution_map: executionMap,
     execution_summary: executionMap ? executionSummary(executionMap) : "not expanded",
     service_requirements: serviceRequirementsForTarget(target, targetRows, entry.service_requirements, root),

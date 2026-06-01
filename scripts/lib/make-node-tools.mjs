@@ -158,19 +158,23 @@ export const makeNodeTools = {
     },
   },
   "target-plan": {
-    inputs: [],
+    inputs: ["TARGET"],
     script: "./scripts/print-target-plan.mjs",
-    usage: "usage: make target-plan",
-    buildArgs() {
-      return [];
+    usage: "usage: make target-plan [TARGET=<backend-go-target>]",
+    buildArgs(env) {
+      const args = [];
+      optionalFlag(args, env, "TARGET", "--target");
+      return args;
     },
   },
   "target-plan-json": {
-    inputs: [],
+    inputs: ["TARGET"],
     script: "./scripts/print-target-plan.mjs",
-    usage: "usage: make target-plan-json",
-    buildArgs() {
-      return ["--json"];
+    usage: "usage: make target-plan-json [TARGET=<backend-go-target>]",
+    buildArgs(env) {
+      const args = ["--json"];
+      optionalFlag(args, env, "TARGET", "--target");
+      return args;
     },
   },
   "fixture-report": {

@@ -158,7 +158,9 @@ function main() {
   const options = parseArgs(process.argv.slice(2));
   const knownTargets = collectTargetNames();
   if (options.target && !knownTargets.includes(options.target)) {
-    throw new Error(`unknown target ${options.target}; expected one of: ${knownTargets.join(", ")}`);
+    throw new Error(
+      `unknown backend target ${options.target}; expected one of: ${knownTargets.join(", ")}; for public Make target guidance, run make explain-target TARGET=${options.target}`,
+    );
   }
 
   let rows = collectTargetPlanRows(process.cwd());

@@ -67,6 +67,24 @@ assert_equals "${success_status}" "0" "inherited undeclared env status"
 assert_contains "$(cat "${success_stdout}")" "backend-unit" "target-plan public Make output"
 assert_equals "$(cat "${success_stderr}")" "" "inherited undeclared env stderr"
 
+target_filter_stdout="${tmp_dir}/target-filter.stdout"
+target_filter_stderr="${tmp_dir}/target-filter.stderr"
+target_filter_status="$(
+  run_make_capture "${target_filter_stdout}" "${target_filter_stderr}" make --no-print-directory target-plan TARGET=backend-unit
+)"
+assert_equals "${target_filter_status}" "0" "target-plan TARGET backend-unit status"
+assert_contains "$(cat "${target_filter_stdout}")" "backend-unit" "target-plan TARGET backend-unit output"
+assert_equals "$(cat "${target_filter_stderr}")" "" "target-plan TARGET backend-unit stderr"
+
+make_target_stdout="${tmp_dir}/make-target.stdout"
+make_target_stderr="${tmp_dir}/make-target.stderr"
+make_target_status="$(
+  run_make_capture "${make_target_stdout}" "${make_target_stderr}" make --no-print-directory target-plan TARGET=check
+)"
+assert_equals "${make_target_status}" "2" "target-plan public Make target status"
+assert_contains "$(cat "${make_target_stderr}")" "run make explain-target TARGET=check" "target-plan public Make target diagnostic"
+assert_equals "$(cat "${make_target_stdout}")" "" "target-plan public Make target stdout"
+
 wrong_target_stdout="${tmp_dir}/wrong-target.stdout"
 wrong_target_stderr="${tmp_dir}/wrong-target.stderr"
 wrong_target_status="$(
@@ -84,6 +102,15 @@ internal_status="$(
 assert_equals "${internal_status}" "2" "internal manifest override status"
 assert_contains "$(cat "${internal_stderr}")" "TASK_SURFACE_MANIFEST is an internal harness input" "internal manifest override diagnostic"
 assert_equals "$(cat "${internal_stdout}")" "" "internal manifest override stdout"
+
+override_stdout="${tmp_dir}/override.stdout"
+override_stderr="${tmp_dir}/override.stderr"
+override_status="$(
+  run_make_capture "${override_stdout}" "${override_stderr}" make --no-print-directory go-gosec-targeted GOSEC_FLAGS=-quiet
+)"
+assert_equals "${override_status}" "2" "undeclared static/security override status"
+assert_contains "$(cat "${override_stderr}")" "GOSEC_FLAGS is not declared for target go-gosec-targeted" "undeclared static/security override diagnostic"
+assert_equals "$(cat "${override_stdout}")" "" "undeclared static/security override stdout"
 
 declared_stdout="${tmp_dir}/declared.stdout"
 declared_stderr="${tmp_dir}/declared.stderr"

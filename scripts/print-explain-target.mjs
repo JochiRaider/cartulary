@@ -97,6 +97,36 @@ function renderCheckProjectionLine(guidance) {
   return `check_projection:${mode}${schedule}${stage}${evidence}${evidenceClass}${reasonCode}${fullTarget}${equivalence}`.trimEnd();
 }
 
+function renderInputLines(guidance) {
+  const inputs = guidance.input_contract?.inputs ?? [];
+  const names = inputs.map((input) => input.name);
+  const lines = [`inputs: ${names.join(",") || "none"}`];
+  if (["clean", "distclean"].includes(guidance.target)) {
+    lines.push(`dry_run: CARTULARY_CLEANUP_DRY_RUN=1 make ${guidance.target}`);
+  }
+  return lines;
+}
+
+function renderSequenceLines(guidance) {
+  const sequence = guidance.sequence;
+  if (!sequence) {
+    return [];
+  }
+  const lines = ["sequence_steps:"];
+  for (const [index, step] of (sequence.steps ?? []).entries()) {
+    const target = step.target ?? "";
+    const produces = (step.produces_summary_targets ?? []).join(",") || "none";
+    lines.push(`  - ${index + 1}. ${target} produces=${produces}`);
+  }
+  lines.push("sequence_summary_groups:");
+  for (const group of sequence.summary_groups ?? []) {
+    const semantics = group.name?.startsWith("warning") ? "warning-only" : "blocking";
+    const targets = (group.summary_targets ?? []).join(",") || "source";
+    lines.push(`  - ${group.name}: ${semantics} targets=${targets}`);
+  }
+  return lines;
+}
+
 function renderSummary(guidance) {
   return [
     `Cartulary target guidance: ${guidance.target}`,
@@ -105,7 +135,9 @@ function renderSummary(guidance) {
     `default_inclusion_sets: ${guidance.default_inclusion_sets.join(",") || "none"}`,
     renderCheckProjectionLine(guidance),
     `services: ${formatRequirements(guidance.service_requirements)}`,
+    ...renderInputLines(guidance),
     `execution: ${guidance.execution_summary || "none"}`,
+    ...renderSequenceLines(guidance),
     ...renderSchedulerPathLines(guidance),
     `latest_artifact: ${guidance.artifact.latest?.path ?? "none"}`,
     ...renderExpectedArtifactLines(guidance),

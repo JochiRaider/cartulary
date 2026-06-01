@@ -152,8 +152,22 @@ for (const target of manifest.targets.filter((entry) => entry.target_class === "
 }
 assert.deepEqual(
   manifest.targets.find((target) => target.name === "target-plan").input_contract.inputs,
-  [],
-  "target-plan must accept no target-local inputs",
+  [
+    {
+      name: "TARGET",
+      binding: "make_variable",
+      allowed_sources: ["make_command_line", "environment", "makefile_default"],
+      required: false,
+      type: "target_name",
+      default: null,
+      empty_string: "omitted",
+      normalization: "trim",
+      invalid_reason: "usage_error",
+      summary_emission: "value",
+      child_forwarding: "argv",
+    },
+  ],
+  "target-plan must accept the backend TARGET filter",
 );
 assert.deepEqual(
   manifest.targets.find((target) => target.name === "task-guide").input_contract.inputs.map((input) => input.name),
@@ -168,6 +182,7 @@ assert.deepEqual(
 assert.equal(manifest.make_recipes.help.type, "print_help", "help must be generated as print_help");
 assert.equal(manifest.make_recipes["help-all"].scope, "all", "help-all must print exhaustive help");
 assert.equal(manifest.make_recipes["frontend-install"].type, "alias", "frontend-install must be a generated alias");
+assert.equal(manifest.make_recipes.lint.type, "sequence", "lint must be a semantic sequence target");
 assert.equal(
   manifest.make_recipes["frontend-install"].test_target,
   "self",
@@ -193,6 +208,11 @@ assert.match(
   helpAllLines(manifest).join("\n"),
   /phase -> target -> scheduler work unit -> artifact/,
   "help-all must explain the task evidence concept hierarchy",
+);
+assert.match(
+  helpAllLines(manifest).join("\n"),
+  /CARTULARY_CLEANUP_DRY_RUN=1/,
+  "help-all must advertise cleanup dry-run usage",
 );
 assert.match(
   renderedMake,
@@ -288,7 +308,17 @@ cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
       "execution_dependency": "backend_store",
       "execution_family": "backend-store",
       "execution_label": "Backend store",
-      "evidence_layer": "store_domain",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "task-surface-report-fixture",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic task-surface report fixture coverage.",
+      "warm_local_cost_class": "low",
+      "evidence_layer": "backend_store",
+      "claim_status": "implemented",
       "claim": "task surface report discovers future phase dependencies",
       "out_of_scope": "task surface report discovers future phase dependencies"
     }

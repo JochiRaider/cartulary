@@ -88,6 +88,7 @@ run_dev_stack_case() {
   shift
 
   CARTULARY_DEV_STACK_ARTIFACT_DIR="$case_dir/runtime" \
+  CARTULARY_DEV_STACK_SKIP_SERVICE_PREFLIGHT=1 \
   CARTULARY_DEV_STACK_SKIP_READINESS=1 \
     "$DEV_STACK_SCRIPT" "$@" >"$case_dir/stdout" 2>"$case_dir/stderr"
 }
@@ -156,6 +157,24 @@ esac
 EOF
 chmod +x "$signal_recorder"
 
+preflight_dir="$tmp_dir/preflight"
+mkdir -p "$preflight_dir"
+if CARTULARY_DEV_STACK_ARTIFACT_DIR="$preflight_dir/runtime" \
+  CARTULARY_DEV_STACK_POSTGRES_PORT=1 \
+  CARTULARY_DEV_STACK_MINIO_READY_URL="http://127.0.0.1:1/minio/health/live" \
+  CARTULARY_DEV_STACK_BACKEND_COMMAND="printf backend-started >'$preflight_dir/backend.started'" \
+  CARTULARY_DEV_STACK_FRONTEND_COMMAND="printf frontend-started >'$preflight_dir/frontend.started'" \
+  "$DEV_STACK_SCRIPT" >"$preflight_dir/stdout" 2>"$preflight_dir/stderr"; then
+  preflight_status=0
+else
+  preflight_status=$?
+fi
+assert_equals "$preflight_status" "1" "service preflight status"
+assert_contains "$(cat "$preflight_dir/stderr")" "run make db-up or make services-up before make dev" "service preflight guidance"
+if [[ -e "$preflight_dir/backend.started" || -e "$preflight_dir/frontend.started" ]]; then
+  fail "service preflight must fail before starting child processes"
+fi
+
 term_dir="$tmp_dir/term"
 mkdir -p "$term_dir"
 backend_command="$(make_command "$signal_recorder" "$term_dir/backend.pid" "$term_dir/backend.term")"
@@ -163,6 +182,7 @@ frontend_command="$(make_command "$signal_recorder" "$term_dir/frontend.pid" "$t
 CARTULARY_DEV_STACK_BACKEND_COMMAND="$backend_command" \
 CARTULARY_DEV_STACK_FRONTEND_COMMAND="$frontend_command" \
 CARTULARY_DEV_STACK_ARTIFACT_DIR="$term_dir/runtime" \
+CARTULARY_DEV_STACK_SKIP_SERVICE_PREFLIGHT=1 \
 CARTULARY_DEV_STACK_SKIP_READINESS=1 \
   "$DEV_STACK_SCRIPT" >"$term_dir/stdout" 2>"$term_dir/stderr" &
 term_stack_pid=$!

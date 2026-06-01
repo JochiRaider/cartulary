@@ -190,51 +190,42 @@ function validateWarmReadinessDurations(eventsFile, events, errors) {
   }
 }
 
-function validateWarmStampAccounting(eventsFile, schedulerSummary, events, errors) {
-  const hitEventIDs = new Set();
+function validateWarmNoUnexpectedReuse(eventsFile, schedulerSummary, events, errors) {
+  const reusedEventIDs = new Set();
   for (const event of events) {
     if (event.event !== "finish" || typeof event.work_unit_id !== "string") {
       continue;
     }
-    if (inputStampOutcome(event) !== "hit") {
+    const accounting = schedulerAccountingExtension(event);
+    if (accounting?.accounting_mode !== "reused" && inputStampOutcome(event) !== "hit") {
       continue;
     }
-    hitEventIDs.add(event.work_unit_id);
-    const accountingMode = schedulerAccountingExtension(event)?.accounting_mode ?? "";
-    if (accountingMode !== "reused") {
-      errors.push(
-        `${eventsFile}: stamp hit ${event.work_unit_id} accounting_mode=${accountingMode || "missing"} must be reused`,
-      );
-    }
+    reusedEventIDs.add(event.work_unit_id);
+    errors.push(
+      `${eventsFile}: unexpected reused work ${event.work_unit_id} is not allowed in the current check profile`,
+    );
   }
 
   const accounting = schedulerSummary?.extensions?.["cartulary.scheduler_accounting"];
   if (!accounting || typeof accounting !== "object") {
-    if (hitEventIDs.size > 0) {
-      errors.push(`${eventsFile}: scheduler summary missing accounting extension for stamp hit work`);
-    }
     return;
   }
   const summaryUnits = Array.isArray(accounting.work_unit_accounting)
     ? accounting.work_unit_accounting
     : [];
-  const summaryByID = new Map(summaryUnits.map((unit) => [unit.id, unit]));
-  for (const id of hitEventIDs) {
-    const unit = summaryByID.get(id);
-    if (!unit) {
-      errors.push(`${eventsFile}: scheduler accounting summary missing stamp hit work unit ${id}`);
+  for (const unit of summaryUnits) {
+    if (unit.accounting_mode !== "reused") {
       continue;
     }
-    if (unit.accounting_mode !== "reused") {
-      errors.push(
-        `${eventsFile}: scheduler accounting summary records stamp hit ${id} as ${unit.accounting_mode || "missing"} instead of reused`,
-      );
-    }
+    reusedEventIDs.add(unit.id);
+    errors.push(
+      `${eventsFile}: scheduler accounting summary records unexpected reused work ${unit.id}`,
+    );
   }
   const reusedCount = nonNegativeInteger(accounting.accounting_modes?.reused) ?? 0;
-  if (hitEventIDs.size > 0 && reusedCount < hitEventIDs.size) {
+  if (reusedCount > 0) {
     errors.push(
-      `${eventsFile}: scheduler accounting reused count ${reusedCount} is below stamp hit count ${hitEventIDs.size}`,
+      `${eventsFile}: scheduler accounting reused count ${reusedCount} is not allowed in the current check profile`,
     );
   }
 }
@@ -287,7 +278,7 @@ function validateWarmCheckStream(eventsFile, options) {
     }
   }
   validateWarmReadinessDurations(eventsFile, events, errors);
-  validateWarmStampAccounting(eventsFile, schedulerSummary, events, errors);
+  validateWarmNoUnexpectedReuse(eventsFile, schedulerSummary, events, errors);
   validateWarmFixtureBudget(runDir, errors);
 
   const serviceSummaryFile = path.join(runDir, "check-service-backed", "target-summary.json");

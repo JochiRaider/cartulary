@@ -205,12 +205,9 @@ function main() {
   const stampFile = path.join(stampRoot, `${sanitizeStampID(options.stampID)}.json`);
   const existing = disabled ? null : readStamp(stampFile);
   if (!disabled && existing?.digest === digest) {
-    console.log(`check input stamp hit: ${options.stampID}`);
-    emitEvidence(options, "hit", { disabled, digest, stampFile });
-    return;
-  }
-
-  if (disabled) {
+    console.log(`check input stamp hit ignored: ${options.stampID}`);
+    emitEvidence(options, "bypassed", { disabled: true, digest, stampFile });
+  } else if (disabled) {
     console.log(`check input stamp bypassed: ${options.stampID}`);
     emitEvidence(options, "bypassed", { disabled, digest, stampFile });
   } else {

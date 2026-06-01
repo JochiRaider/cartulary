@@ -25,6 +25,8 @@ import {
 
 const validShardModes = new Set(["none", "go_shards"]);
 const validParallelismModes = new Set(["none", "package", "process"]);
+const executionTargetsCache = new Map();
+const targetPlanRowsCache = new Map();
 
 function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
@@ -48,6 +50,11 @@ function requireString(value, label) {
 }
 
 function loadExecutionTargets(root) {
+  const cacheKey = path.resolve(root);
+  const cached = executionTargetsCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
   const topology = loadExecutionTopology({ root });
   for (const descriptor of topology.goTargets.targets) {
     const label = `execution topology go target ${descriptor.name}`;
@@ -58,13 +65,15 @@ function loadExecutionTargets(root) {
       throw new Error(`${label}.go_test_parallelism must be none|package|process`);
     }
   }
-  return {
+  const result = {
     descriptors: topology.goTargets.targets,
     byName: topology.goTargets.byName,
     dependencyTargets: topology.goTargets.dependencyTargets,
     supportTargets: topology.goTargets.supportTargets,
     rawAggregates: topology.goTargets.rawAggregates,
   };
+  executionTargetsCache.set(cacheKey, result);
+  return result;
 }
 
 function rowBase(descriptor) {
@@ -189,6 +198,11 @@ function rawRows(config, aggregate) {
 }
 
 export function collectTargetPlanRows(root = process.cwd()) {
+  const cacheKey = path.resolve(root);
+  const cached = targetPlanRowsCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
   const config = loadExecutionTargets(root);
   const rows = [];
   for (const phase of phaseManifestNames(root)) {
@@ -217,7 +231,9 @@ export function collectTargetPlanRows(root = process.cwd()) {
   for (const aggregate of config.rawAggregates) {
     rows.push(rawRows(config, aggregate));
   }
-  return rows.sort(compareRows);
+  const result = rows.sort(compareRows);
+  targetPlanRowsCache.set(cacheKey, result);
+  return result;
 }
 
 export function collectTargetNames(root = process.cwd()) {

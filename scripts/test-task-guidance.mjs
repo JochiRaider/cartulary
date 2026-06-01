@@ -275,7 +275,8 @@ function scenarioTaskGuideRoles(fixture) {
   assertContains(defaultOutput, "Cartulary task guide", "default task-guide header");
   assertContains(defaultOutput, "local-dev:", "default task-guide local-dev role");
   assertContains(defaultOutput, "feature-dev:", "default task-guide feature-dev role");
-  assertContains(defaultOutput, "latest_artifact=none", "default task-guide reports missing artifacts");
+  assertContains(defaultOutput, "make task-guide ROLE=feature-dev", "default task-guide bounded role example");
+  assertContains(defaultOutput, "use ROLE=<role> and PHASE=phaseN", "default task-guide narrowing hint");
 
   for (const role of ["local-dev", "feature-dev", "phase-author", "ci-investigator", "release"]) {
     const roleOutput = nodeScript(taskGuide, ["--role", role], resultsEnv);
@@ -524,6 +525,15 @@ function scenarioExplainTargetArtifacts(fixture) {
   const checkOutput = nodeScript(explainTarget, ["--target", "check"]);
   assertContains(checkOutput, "check scheduler", "check explain-target scheduler");
   assertContains(checkOutput, "phase_coverage:", "check explain-target phase coverage");
+
+  const lintOutput = nodeScript(explainTarget, ["--target", "lint"]);
+  assertContains(lintOutput, "sequence_steps:", "lint explain-target sequence steps");
+  assertContains(lintOutput, "sequence_summary_groups:", "lint explain-target summary groups");
+  assertContains(lintOutput, "warning-lint: warning-only targets=lint-shell", "lint warning-only child semantics");
+
+  const cleanOutput = nodeScript(explainTarget, ["--target", "clean"]);
+  assertContains(cleanOutput, "inputs: CARTULARY_CLEANUP_DRY_RUN", "clean explain-target input contract");
+  assertContains(cleanOutput, "dry_run: CARTULARY_CLEANUP_DRY_RUN=1 make clean", "clean explain-target dry-run usage");
 
   const serviceBackedOutput = nodeScript(explainTarget, ["--target", "test-service-backed"]);
   assertContains(

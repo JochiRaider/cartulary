@@ -5475,9 +5475,6 @@
           "needs": [
             "check-frontend-install"
           ],
-          "local_input_stamp": {
-            "profile": "frontend_static"
-          },
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1
@@ -5495,9 +5492,6 @@
           "needs": [
             "check-frontend-install"
           ],
-          "local_input_stamp": {
-            "profile": "frontend_static"
-          },
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1
@@ -5535,9 +5529,6 @@
           "needs": [
             "toolchain-drift"
           ],
-          "local_input_stamp": {
-            "profile": "static_artifact_validation"
-          },
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1
@@ -5572,9 +5563,6 @@
           "needs": [
             "shell-lint-toolchain"
           ],
-          "local_input_stamp": {
-            "profile": "lint_shell"
-          },
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1
@@ -5710,9 +5698,6 @@
           "needs": [
             "codegen-toolchain"
           ],
-          "local_input_stamp": {
-            "profile": "generate_drift"
-          },
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1
@@ -5730,9 +5715,6 @@
           "needs": [
             "toolchain-drift"
           ],
-          "local_input_stamp": {
-            "profile": "migration_input_drift"
-          },
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1
