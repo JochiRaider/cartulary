@@ -681,7 +681,7 @@ write_valid_agent_finalize_summary() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.agent_finalize_summary.v2",
+  "schema_id": "cartulary.agent_finalize_summary.v3",
   "target": "agent-finalize",
   "status": "pass",
   "result_root": ".cartulary/test-results",
@@ -714,10 +714,23 @@ write_valid_agent_finalize_summary() {
       "requires_results_dir": false,
       "mutating": true,
       "status": "pass",
+      "execution_state": "executed",
       "started_at": "2026-01-01T00:00:00Z",
       "completed_at": "2026-01-01T00:00:01Z",
       "duration_ms": 1000,
       "skipped_reason": null,
+      "cache": {
+        "enabled": true,
+        "state": "miss",
+        "cache_schema_id": "cartulary.agent_finalize_action_cache_record.v1",
+        "action_contract_version": "v1",
+        "key_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "input_profile_id": "agent_finalize.structure_ledger_refresh.v1",
+        "input_digest_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "output_digest_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "record_path": "tmp/agent-finalize-action-cache/structure_ledger_refresh/record.json",
+        "reason_code": "cache_record_missing"
+      },
       "substeps": [
         {
           "id": "phase-ledgers",

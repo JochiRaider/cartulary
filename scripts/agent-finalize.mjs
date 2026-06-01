@@ -18,9 +18,13 @@ import {
   secureWriteFile,
   validateSchemaSync,
 } from "./lib/harness-contract.mjs";
+import {
+  evaluateActionCache,
+  writeActionCacheRecord,
+} from "./lib/agent-finalize-action-cache.mjs";
 import { normalizeOutputMode } from "./lib/tool-output.mjs";
 
-const schemaID = "cartulary.agent_finalize_summary.v2";
+const schemaID = "cartulary.agent_finalize_summary.v3";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const makeBin = process.env.MAKE || "make";
@@ -77,6 +81,11 @@ const actionRegistry = [
       "Refresh phase-ledger and phase-schedule generated artifacts, then verify no unsupported drift remains.",
     requiresResultsDir: false,
     mutating: true,
+    cache: {
+      eligible: true,
+      inputProfileID: "agent_finalize.structure_ledger_refresh.v1",
+      actionContractVersion: "v1",
+    },
     substeps: [
       {
         id: "phase-ledgers",
@@ -114,6 +123,11 @@ const actionRegistry = [
       "Validate harness-owned JSON shape and schema attachments needed by the finalizer path.",
     requiresResultsDir: false,
     mutating: false,
+    cache: {
+      eligible: true,
+      inputProfileID: "agent_finalize.schema_shape_validation.v1",
+      actionContractVersion: "v1",
+    },
     substeps: [
       {
         id: "json-shape-check",
@@ -130,6 +144,11 @@ const actionRegistry = [
       "Refresh advisory harness duration-baseline artifacts from a successful, uncontaminated retained run, then refresh schedule artifacts that consume those baselines.",
     requiresResultsDir: true,
     mutating: true,
+    cache: {
+      eligible: true,
+      inputProfileID: "agent_finalize.duration_baseline_refresh.v1",
+      actionContractVersion: "v1",
+    },
     substeps: [
       {
         id: "go-test-duration-baselines",
@@ -181,6 +200,11 @@ const actionRegistry = [
       "Verify that required advisory duration-baseline entries exist or are explicitly defaulted.",
     requiresResultsDir: false,
     mutating: false,
+    cache: {
+      eligible: true,
+      inputProfileID: "agent_finalize.duration_baseline_coverage.v1",
+      actionContractVersion: "v1",
+    },
     substeps: [
       {
         id: "go-test-duration-baseline-coverage",
@@ -197,6 +221,11 @@ const actionRegistry = [
       "Validate advisory duration-baseline freshness against the retained run.",
     requiresResultsDir: true,
     mutating: false,
+    cache: {
+      eligible: true,
+      inputProfileID: "agent_finalize.duration_baseline_drift_validation.v1",
+      actionContractVersion: "v1",
+    },
     substeps: [
       {
         id: "duration-baseline-drift-suite",
@@ -213,6 +242,11 @@ const actionRegistry = [
       "Validate scheduler event ordering and warm-check timing health against the retained run.",
     requiresResultsDir: true,
     mutating: false,
+    cache: {
+      eligible: true,
+      inputProfileID: "agent_finalize.scheduler_drift_validation.v1",
+      actionContractVersion: "v1",
+    },
     substeps: [
       {
         id: "scheduler-event-order-drift",
@@ -382,6 +416,30 @@ function baseSubstep(definition) {
   };
 }
 
+function baseActionCache(definition, selected) {
+  const cache = definition.cache ?? null;
+  return {
+    enabled: false,
+    state: selected
+      ? cache?.eligible
+        ? "bypass"
+        : "ineligible"
+      : "bypass",
+    cache_schema_id: "cartulary.agent_finalize_action_cache_record.v1",
+    action_contract_version: cache?.actionContractVersion ?? null,
+    key_sha256: null,
+    input_profile_id: cache?.inputProfileID ?? null,
+    input_digest_sha256: null,
+    output_digest_sha256: null,
+    record_path: null,
+    reason_code: selected
+      ? cache?.eligible
+        ? "not_evaluated"
+        : "action_ineligible"
+      : "action_not_selected",
+  };
+}
+
 function substepsForAction(definition, includePreflight) {
   const substeps = includePreflight
     ? [preflightSubstep, ...definition.substeps]
@@ -390,24 +448,32 @@ function substepsForAction(definition, includePreflight) {
 }
 
 function baseAction(definition, includePreflight) {
+  const selected = Boolean(resultsDirInput) || !definition.requiresResultsDir;
+  const substeps = substepsForAction(definition, includePreflight);
+  if (!selected) {
+    for (const substep of substeps) {
+      substep.status = "skipped";
+      substep.skipped_reason = "results-dir-not-provided";
+    }
+  }
   return {
     action_id: definition.actionID,
     description: definition.description,
     requires_results_dir: definition.requiresResultsDir,
     mutating: definition.mutating,
-    status: "pending",
+    status: selected ? "pending" : "skipped",
+    execution_state: selected ? "pending" : "not_selected",
     started_at: null,
     completed_at: null,
     duration_ms: null,
-    skipped_reason: null,
-    substeps: substepsForAction(definition, includePreflight),
+    skipped_reason: selected ? null : "results-dir-not-provided",
+    cache: baseActionCache(definition, selected),
+    substeps,
   };
 }
 
 function selectedActionDefinitions() {
-  return actionRegistry.filter(
-    (definition) => resultsDirInput || !definition.requiresResultsDir,
-  );
+  return actionRegistry;
 }
 
 function selectedActions() {
@@ -785,7 +851,11 @@ function markSubstepSkipped(substep, reason = "skipped-after-failure") {
 }
 
 function markActionSkipped(action, reason = "skipped-after-failure") {
+  if (action.execution_state === "not_selected") {
+    return;
+  }
   action.status = "skipped";
+  action.execution_state = "skipped_after_failure";
   action.skipped_reason = reason;
   for (const substep of action.substeps) {
     markSubstepSkipped(substep, reason);
@@ -793,16 +863,24 @@ function markActionSkipped(action, reason = "skipped-after-failure") {
 }
 
 function finalizeActionStatus(action, actionStartedMs) {
+  if (action.execution_state === "not_selected") {
+    return;
+  }
   const executedSubsteps = action.substeps.filter((substep) =>
     ["pass", "fail"].includes(substep.status),
   );
   if (executedSubsteps.length === 0 && action.status === "pending") {
     action.status = "skipped";
+    action.execution_state = "skipped_after_failure";
     action.skipped_reason = "no-selected-substeps";
   } else if (action.substeps.some((substep) => substep.status === "fail")) {
     action.status = "fail";
+    if (action.execution_state === "pending") {
+      action.execution_state = "executed";
+    }
   } else if (action.status === "pending") {
     action.status = "pass";
+    action.execution_state = "executed";
   }
   action.completed_at = now();
   action.duration_ms = durationMs(actionStartedMs);
@@ -832,6 +910,9 @@ function main() {
   for (let actionIndex = 0; actionIndex < actions.length; actionIndex += 1) {
     const action = actions[actionIndex];
     const definition = definitions[actionIndex];
+    if (action.execution_state === "not_selected") {
+      continue;
+    }
     if (failed) {
       markActionSkipped(action);
       continue;
@@ -839,8 +920,41 @@ function main() {
 
     action.started_at = now();
     const actionStartedMs = Date.now();
+    let cacheEvaluation = null;
+    let substepStartIndex = 0;
 
-    for (const substep of action.substeps) {
+    if (action.substeps[0]?.id === preflightSubstep.id) {
+      const substep = action.substeps[0];
+      const result = runPreflightSubstep(action, substep);
+      substepStartIndex = 1;
+      if (!result.ok) {
+        resultsDirStatus = "invalid";
+        failures.push(result.failure);
+        failed = true;
+      }
+    }
+
+    if (!failed) {
+      cacheEvaluation = evaluateActionCache({
+        actionDefinition: definition,
+        repoRoot,
+        makeBin,
+        retainedRunRoot: resultsDirInput ? path.resolve(resultsDirInput) : null,
+      });
+      action.cache = cacheEvaluation.summary;
+      if (cacheEvaluation.reusable) {
+        action.status = "pass";
+        action.execution_state = "reused";
+        for (const substep of action.substeps.slice(substepStartIndex)) {
+          markSubstepSkipped(substep, "action-cache-hit");
+        }
+        finalizeActionStatus(action, actionStartedMs);
+        continue;
+      }
+      action.execution_state = "executed";
+    }
+
+    for (const substep of action.substeps.slice(substepStartIndex)) {
       if (failed) {
         markSubstepSkipped(substep);
         continue;
@@ -854,16 +968,6 @@ function main() {
         throw new Error(`missing substep definition for ${action.action_id}:${substep.id}`);
       }
 
-      if (substepDefinition.run === "preflight") {
-        const result = runPreflightSubstep(action, substep);
-        if (!result.ok) {
-          resultsDirStatus = "invalid";
-          failures.push(result.failure);
-          failed = true;
-        }
-        continue;
-      }
-
       const result = runMakeSubstep(substepDefinition, substep);
       if (result.status !== 0) {
         failures.push(failureFromChild(action, substep, result.status, result.stderr));
@@ -872,6 +976,9 @@ function main() {
     }
 
     finalizeActionStatus(action, actionStartedMs);
+    if (action.status === "pass" && action.execution_state === "executed") {
+      writeActionCacheRecord({ actionDefinition: definition, evaluation: cacheEvaluation });
+    }
   }
 
   if (failed) {

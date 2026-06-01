@@ -63,7 +63,7 @@ const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
 const serviceBackedMakeTargetBaselineSchemaID =
   "cartulary.scheduler_work_unit_duration_baselines.v2";
 const toolRunSummarySchemaID = "cartulary.tool_run_summary.v3";
-const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v2";
+const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v3";
 const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v2";
 const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v3";
 const frontendVisualFixtureRegistrySchemaID =

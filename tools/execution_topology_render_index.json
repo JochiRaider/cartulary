@@ -2,8 +2,13 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:0d9ae4a615e71cff39ddfbf0985df4ac84cbbb2bb9cbfb20d6b019fcce5068db",
+  "input_digest": "sha256:df22c9b227b316fe94a609810fad30b11bc268d4338d11b5462b188f730c6936",
   "inputs": [
+    {
+      "path": "scripts/lib/agent-finalize-action-cache.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:96b4733b758a1a513ad41c37536e358567723421f495485da336f0fe2d6dc034"
+    },
     {
       "path": "scripts/lib/artifact-discovery.mjs",
       "role": "renderer_source",
@@ -282,7 +287,7 @@
     {
       "path": "scripts/lib/test-output/cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:c228513091d146ddba9be455c35ae159dbba804fc0a044942eff3a50fbb04f34"
+      "hash": "sha256:26f61ad60fe15c6b5f1e8dd4c7dda27fc96f8b27534b73825de7c2290c8107fd"
     },
     {
       "path": "scripts/lib/test-output/context.mjs",

@@ -737,7 +737,12 @@ cat >"$tool_only_results/tool-run/agent-finalize/finalize-summary.json" <<JSON
     {
       "action_id": "structure_ledger_refresh",
       "status": "pass",
+      "execution_state": "executed",
       "duration_ms": 1200,
+      "cache": {
+        "state": "miss",
+        "reason_code": "cache_record_missing"
+      },
       "substeps": [
         {
           "id": "phase-ledgers",
@@ -760,7 +765,7 @@ explain_tool_only_summary="$(
 )"
 assert_contains "$explain_tool_only_summary" "[RUN] tool-summary-only target=agent-finalize" "explain-run tool-only run line"
 assert_contains "$explain_tool_only_summary" "[FINALIZE] agent-finalize status=pass results_dir_status=valid" "explain-run finalizer summary line"
-assert_contains "$explain_tool_only_summary" "[FINALIZE-ACTION] structure_ledger_refresh status=pass substeps=1" "explain-run finalizer action line"
+assert_contains "$explain_tool_only_summary" "[FINALIZE-ACTION] structure_ledger_refresh status=pass execution_state=executed cache_state=miss" "explain-run finalizer action line"
 explain_tool_only_children="$(
   "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$tool_only_results/tool-run" --target agent-finalize --detail children \
     2>&1

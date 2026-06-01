@@ -194,6 +194,7 @@ assert_invalid_results_dir() {
   CARTULARY_TEST_RESULTS_DIR="$scenario_dir/results" \
   CARTULARY_TEST_RUN_ID="$label" \
   CARTULARY_PHASE_ARTIFACT_DIR="$scenario_dir/results/$label/agent-finalize/agent-finalize" \
+  CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
   MAKE="$scenario_make" \
   FAKE_MAKE_LOG="$scenario_log" \
   RESULTS_DIR="$retained_root" \
@@ -223,17 +224,155 @@ write_fake_make "$success_make"
 CARTULARY_TEST_RESULTS_DIR="$success_dir/results" \
 CARTULARY_TEST_RUN_ID="success" \
 CARTULARY_PHASE_ARTIFACT_DIR="$success_dir/results/success/agent-finalize/agent-finalize" \
+CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
 MAKE="$success_make" \
 FAKE_MAKE_LOG="$success_log" \
 RESULTS_DIR="" \
   "$SCRIPT"
 summary="$success_dir/results/success/agent-finalize/finalize-summary.json"
-assert_equals "$(json_field "$summary" 'value.schema_id')" "cartulary.agent_finalize_summary.v2" "no RESULTS_DIR schema"
-assert_equals "$(json_field "$summary" 'value.actions.map((action) => action.action_id)')" $'structure_ledger_refresh\nschema_shape_validation\nduration_baseline_coverage' "no RESULTS_DIR action selection"
+assert_equals "$(json_field "$summary" 'value.schema_id')" "cartulary.agent_finalize_summary.v3" "no RESULTS_DIR schema"
+assert_equals "$(json_field "$summary" 'value.actions.map((action) => action.action_id)')" $'structure_ledger_refresh\nschema_shape_validation\nduration_baseline_refresh\nduration_baseline_coverage\nduration_baseline_drift_validation\nscheduler_drift_validation' "no RESULTS_DIR action registry"
+assert_equals "$(json_field "$summary" 'value.actions.filter((action) => action.execution_state === "not_selected").length')" "3" "no RESULTS_DIR retained actions not selected"
 assert_equals "$(json_field "$summary" 'value.status')" "pass" "no RESULTS_DIR status"
 assert_equals "$(json_field "$summary" 'value.duration.status')" "skipped" "no RESULTS_DIR duration status"
 assert_equals "$(json_field "$summary" 'value.run_checks.status')" "skipped" "no RESULTS_DIR run checks"
 assert_not_contains "$(cat "$success_log")" "duration-baseline-drift-suite" "no RESULTS_DIR skips retained-run drift"
+
+cache_dir="$TMP_DIR/cache"
+cache_output="$TMP_DIR/cache-output.txt"
+printf 'cache output v1\n' >"$cache_output"
+cache_first="$TMP_DIR/cache-first"
+mkdir -p "$cache_first"
+cache_first_make="$cache_first/fake-make"
+cache_first_log="$cache_first/make.log"
+write_fake_make "$cache_first_make"
+CARTULARY_TEST_RESULTS_DIR="$cache_first/results" \
+CARTULARY_TEST_RUN_ID="cache-first" \
+CARTULARY_PHASE_ARTIFACT_DIR="$cache_first/results/cache-first/agent-finalize/agent-finalize" \
+CARTULARY_AGENT_FINALIZE_ACTION_CACHE_DIR="$cache_dir" \
+CARTULARY_AGENT_FINALIZE_TEST_CACHE_INPUT="stable" \
+CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
+MAKE="$cache_first_make" \
+FAKE_MAKE_LOG="$cache_first_log" \
+RESULTS_DIR="" \
+  "$SCRIPT"
+cache_first_summary="$cache_first/results/cache-first/agent-finalize/finalize-summary.json"
+assert_equals "$(json_field "$cache_first_summary" 'value.actions.filter((action) => action.execution_state === "executed").length')" "3" "cache first run executes selected actions"
+assert_equals "$(json_field "$cache_first_summary" 'value.actions.filter((action) => action.cache.state === "miss").length')" "3" "cache first run records selected misses"
+
+cache_second="$TMP_DIR/cache-second"
+mkdir -p "$cache_second"
+cache_second_log="$cache_second/make.log"
+CARTULARY_TEST_RESULTS_DIR="$cache_second/results" \
+CARTULARY_TEST_RUN_ID="cache-second" \
+CARTULARY_PHASE_ARTIFACT_DIR="$cache_second/results/cache-second/agent-finalize/agent-finalize" \
+CARTULARY_AGENT_FINALIZE_ACTION_CACHE_DIR="$cache_dir" \
+CARTULARY_AGENT_FINALIZE_TEST_CACHE_INPUT="stable" \
+CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
+MAKE="$cache_first_make" \
+FAKE_MAKE_LOG="$cache_second_log" \
+RESULTS_DIR="" \
+  "$SCRIPT"
+cache_second_summary="$cache_second/results/cache-second/agent-finalize/finalize-summary.json"
+assert_equals "$(json_field "$cache_second_summary" 'value.actions.filter((action) => action.execution_state === "reused").length')" "3" "cache second run reuses selected actions"
+assert_equals "$(json_field "$cache_second_summary" 'value.actions.filter((action) => action.cache.state === "hit").length')" "3" "cache second run reports hits"
+if [[ -f "$cache_second_log" ]]; then
+  fail "cache hit run must not invoke fake make"
+fi
+
+cache_disabled="$TMP_DIR/cache-disabled"
+mkdir -p "$cache_disabled"
+cache_disabled_make="$cache_disabled/fake-make"
+cache_disabled_log="$cache_disabled/make.log"
+write_fake_make "$cache_disabled_make"
+CARTULARY_TEST_RESULTS_DIR="$cache_disabled/results" \
+CARTULARY_TEST_RUN_ID="cache-disabled" \
+CARTULARY_PHASE_ARTIFACT_DIR="$cache_disabled/results/cache-disabled/agent-finalize/agent-finalize" \
+CARTULARY_AGENT_FINALIZE_ACTION_CACHE_DIR="$cache_dir" \
+CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
+CARTULARY_AGENT_FINALIZE_TEST_CACHE_INPUT="stable" \
+CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
+MAKE="$cache_disabled_make" \
+FAKE_MAKE_LOG="$cache_disabled_log" \
+RESULTS_DIR="" \
+  "$SCRIPT"
+cache_disabled_summary="$cache_disabled/results/cache-disabled/agent-finalize/finalize-summary.json"
+assert_equals "$(json_field "$cache_disabled_summary" 'value.actions.filter((action) => action.cache.state === "disabled").length')" "3" "cache disabled reports disabled selected actions"
+assert_contains "$(cat "$cache_disabled_log")" "phase-ledgers" "cache disabled executes fake make"
+
+cache_changed="$TMP_DIR/cache-input-changed"
+mkdir -p "$cache_changed"
+cache_changed_make="$cache_changed/fake-make"
+cache_changed_log="$cache_changed/make.log"
+write_fake_make "$cache_changed_make"
+CARTULARY_TEST_RESULTS_DIR="$cache_changed/results" \
+CARTULARY_TEST_RUN_ID="cache-input-changed" \
+CARTULARY_PHASE_ARTIFACT_DIR="$cache_changed/results/cache-input-changed/agent-finalize/agent-finalize" \
+CARTULARY_AGENT_FINALIZE_ACTION_CACHE_DIR="$cache_dir" \
+CARTULARY_AGENT_FINALIZE_TEST_CACHE_INPUT="changed" \
+CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
+MAKE="$cache_changed_make" \
+FAKE_MAKE_LOG="$cache_changed_log" \
+RESULTS_DIR="" \
+  "$SCRIPT"
+cache_changed_summary="$cache_changed/results/cache-input-changed/agent-finalize/finalize-summary.json"
+assert_equals "$(json_field "$cache_changed_summary" 'value.actions.filter((action) => action.cache.state === "miss").length')" "3" "cache input change reports misses"
+assert_contains "$(cat "$cache_changed_log")" "phase-ledgers" "cache input change executes fake make"
+
+rm "$cache_output"
+cache_output_missing="$TMP_DIR/cache-output-missing"
+mkdir -p "$cache_output_missing"
+cache_output_missing_make="$cache_output_missing/fake-make"
+cache_output_missing_log="$cache_output_missing/make.log"
+write_fake_make "$cache_output_missing_make"
+CARTULARY_TEST_RESULTS_DIR="$cache_output_missing/results" \
+CARTULARY_TEST_RUN_ID="cache-output-missing" \
+CARTULARY_PHASE_ARTIFACT_DIR="$cache_output_missing/results/cache-output-missing/agent-finalize/agent-finalize" \
+CARTULARY_AGENT_FINALIZE_ACTION_CACHE_DIR="$cache_dir" \
+CARTULARY_AGENT_FINALIZE_TEST_CACHE_INPUT="stable" \
+CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
+MAKE="$cache_output_missing_make" \
+FAKE_MAKE_LOG="$cache_output_missing_log" \
+RESULTS_DIR="" \
+  "$SCRIPT"
+cache_output_missing_summary="$cache_output_missing/results/cache-output-missing/agent-finalize/finalize-summary.json"
+assert_equals "$(json_field "$cache_output_missing_summary" 'value.actions.filter((action) => action.cache.reason_code === "output_missing").length')" "3" "cache output missing reason"
+assert_contains "$(cat "$cache_output_missing_log")" "phase-ledgers" "cache output missing executes fake make"
+
+printf 'cache output v1\n' >"$cache_output"
+cache_corrupt_seed="$TMP_DIR/cache-corrupt-seed"
+mkdir -p "$cache_corrupt_seed"
+cache_corrupt_seed_make="$cache_corrupt_seed/fake-make"
+write_fake_make "$cache_corrupt_seed_make"
+CARTULARY_TEST_RESULTS_DIR="$cache_corrupt_seed/results" \
+CARTULARY_TEST_RUN_ID="cache-corrupt-seed" \
+CARTULARY_PHASE_ARTIFACT_DIR="$cache_corrupt_seed/results/cache-corrupt-seed/agent-finalize/agent-finalize" \
+CARTULARY_AGENT_FINALIZE_ACTION_CACHE_DIR="$cache_dir" \
+CARTULARY_AGENT_FINALIZE_TEST_CACHE_INPUT="corrupt" \
+CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
+MAKE="$cache_corrupt_seed_make" \
+FAKE_MAKE_LOG="$cache_corrupt_seed/make.log" \
+RESULTS_DIR="" \
+  "$SCRIPT"
+cache_corrupt_seed_summary="$cache_corrupt_seed/results/cache-corrupt-seed/agent-finalize/finalize-summary.json"
+corrupt_record_rel="$(json_field "$cache_corrupt_seed_summary" 'value.actions[0].cache.record_path')"
+printf '{not valid json\n' >"$ROOT_DIR/$corrupt_record_rel"
+cache_corrupt="$TMP_DIR/cache-corrupt"
+mkdir -p "$cache_corrupt"
+cache_corrupt_log="$cache_corrupt/make.log"
+CARTULARY_TEST_RESULTS_DIR="$cache_corrupt/results" \
+CARTULARY_TEST_RUN_ID="cache-corrupt" \
+CARTULARY_PHASE_ARTIFACT_DIR="$cache_corrupt/results/cache-corrupt/agent-finalize/agent-finalize" \
+CARTULARY_AGENT_FINALIZE_ACTION_CACHE_DIR="$cache_dir" \
+CARTULARY_AGENT_FINALIZE_TEST_CACHE_INPUT="corrupt" \
+CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
+MAKE="$cache_corrupt_seed_make" \
+FAKE_MAKE_LOG="$cache_corrupt_log" \
+RESULTS_DIR="" \
+  "$SCRIPT"
+cache_corrupt_summary="$cache_corrupt/results/cache-corrupt/agent-finalize/finalize-summary.json"
+assert_equals "$(json_field "$cache_corrupt_summary" 'value.actions[0].cache.state')" "corrupt" "cache corrupt state"
+assert_contains "$(cat "$cache_corrupt_log")" "phase-ledgers" "cache corrupt executes fake make"
 
 retained_dir="$TMP_DIR/retained-run"
 write_retained_run "$retained_dir"
@@ -246,6 +385,7 @@ write_fake_make "$results_make"
 CARTULARY_TEST_RESULTS_DIR="$results_dir/results" \
 CARTULARY_TEST_RUN_ID="with-results" \
 CARTULARY_PHASE_ARTIFACT_DIR="$results_dir/results/with-results/agent-finalize/agent-finalize" \
+CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
 MAKE="$results_make" \
 FAKE_MAKE_LOG="$results_log" \
 FAKE_MAKE_ENV_LOG="$results_env_log" \
@@ -344,6 +484,7 @@ set +e
 CARTULARY_TEST_RESULTS_DIR="$failure_dir/results" \
 CARTULARY_TEST_RUN_ID="child-fail" \
 CARTULARY_PHASE_ARTIFACT_DIR="$failure_dir/results/child-fail/agent-finalize/agent-finalize" \
+CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
 MAKE="$failure_make" \
 FAKE_MAKE_LOG="$failure_log" \
 FAKE_FAIL_TARGET="phase-schedules" \
@@ -359,8 +500,9 @@ failure_summary="$failure_dir/results/child-fail/agent-finalize/finalize-summary
 assert_equals "$(json_field "$failure_summary" 'value.failures[0].action_id')" "structure_ledger_refresh" "child failure action propagation"
 assert_equals "$(json_field "$failure_summary" 'value.failures[0].substep_id')" "phase-schedules" "child failure substep propagation"
 assert_equals "$(json_field "$failure_summary" 'value.failures[0].failure_class')" "product" "child failure class propagation"
-assert_equals "$(json_field "$failure_summary" 'value.actions.filter((action) => action.status === "skipped").length')" "2" "child failure skipped actions"
-assert_equals "$(json_field "$failure_summary" 'value.actions.flatMap((action) => action.substeps).filter((step) => step.status === "skipped").length')" "3" "child failure skipped substeps"
+assert_equals "$(json_field "$failure_summary" 'value.actions.filter((action) => action.execution_state === "skipped_after_failure").length')" "2" "child failure skipped-after-failure actions"
+assert_equals "$(json_field "$failure_summary" 'value.actions.filter((action) => action.execution_state === "not_selected").length')" "3" "child failure retained actions not selected"
+assert_equals "$(json_field "$failure_summary" 'value.actions.flatMap((action) => action.substeps).filter((step) => step.status === "skipped").length')" "12" "child failure skipped substeps"
 
 wrapper_dir="$TMP_DIR/wrapper"
 mkdir -p "$wrapper_dir"
@@ -372,6 +514,7 @@ write_fake_make "$wrapper_make"
   CARTULARY_TEST_TARGET=agent-finalize \
   CARTULARY_TEST_RESULTS_DIR="$wrapper_dir/results" \
   CARTULARY_TEST_RUN_ID="wrapper-summary" \
+  CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
   MAKE="$wrapper_make" \
   FAKE_MAKE_LOG="$wrapper_log" \
   RESULTS_DIR="" \
@@ -393,6 +536,7 @@ write_fake_make "$machine_make"
   CARTULARY_TEST_TARGET=agent-finalize \
   CARTULARY_TEST_RESULTS_DIR="$machine_dir/results" \
   CARTULARY_TEST_RUN_ID="machine" \
+  CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
   MAKE="$machine_make" \
   FAKE_MAKE_LOG="$machine_log" \
   RESULTS_DIR="" \

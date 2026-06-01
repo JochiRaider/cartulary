@@ -1052,11 +1052,16 @@ function resolveArtifactPath(value) {
 }
 
 function finalizeLine(summary) {
+  const actions = Array.isArray(summary.actions) ? summary.actions : [];
+  const reused = actions.filter((action) => action.execution_state === "reused").length;
+  const cacheHits = actions.filter((action) => action.cache?.state === "hit").length;
   return `${[
     `[FINALIZE] generated=${summary.generated?.status ?? "unknown"}`,
     `files=${summary.generated?.updated_file_count ?? 0}`,
     `duration=${summary.duration?.status ?? "skipped"}`,
     `run_checks=${summary.run_checks?.status ?? "skipped"}`,
+    `reused=${reused}`,
+    `cache_hits=${cacheHits}`,
     `results_dir=${summary.results_dir ?? "-"}`,
   ].join(" ")}\n`;
 }

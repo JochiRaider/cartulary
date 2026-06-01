@@ -285,7 +285,7 @@ function writeFinalizeSummary(runDir, toolSummary) {
     const failed = substeps.filter((substep) => substep.status === "fail").map((substep) => substep.id);
     const skipped = substeps.filter((substep) => substep.status === "skipped").map((substep) => substep.id);
     process.stdout.write(
-      `[FINALIZE-ACTION] ${action.action_id} status=${action.status} substeps=${substeps.length} failed=${failed.join(",") || "none"} skipped=${skipped.join(",") || "none"} duration=${formatDuration(action.duration_ms ?? 0)}\n`,
+      `[FINALIZE-ACTION] ${action.action_id} status=${action.status} execution_state=${action.execution_state ?? "unknown"} cache_state=${action.cache?.state ?? "none"} cache_reason=${action.cache?.reason_code ?? "none"} substeps=${substeps.length} failed=${failed.join(",") || "none"} skipped=${skipped.join(",") || "none"} duration=${formatDuration(action.duration_ms ?? 0)}\n`,
     );
   }
   for (const failure of summary.failures ?? []) {
@@ -436,7 +436,7 @@ function writeToolChildren(runDir, target, toolSummary) {
     for (const action of summary.actions ?? []) {
       for (const substep of action.substeps ?? []) {
         process.stdout.write(
-          `[FINALIZE-SUBSTEP] action=${action.action_id} id=${substep.id} target=${substep.target ?? "none"} status=${substep.status} summary_json=${substep.summary_json ?? "none"} stdout_log=${substep.stdout_log ?? "none"} stderr_log=${substep.stderr_log ?? "none"}\n`,
+          `[FINALIZE-SUBSTEP] action=${action.action_id} id=${substep.id} target=${substep.target ?? "none"} status=${substep.status} skipped_reason=${substep.skipped_reason ?? "none"} summary_json=${substep.summary_json ?? "none"} stdout_log=${substep.stdout_log ?? "none"} stderr_log=${substep.stderr_log ?? "none"}\n`,
         );
       }
     }
