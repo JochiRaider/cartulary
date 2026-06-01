@@ -1,4 +1,5 @@
-import { existsSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import {
@@ -7,6 +8,8 @@ import {
   readJsonObject,
   requireBoolean,
   requireEnum,
+  requireInteger,
+  requireObject,
   requireObjectArray,
   requireRepoRelativePath,
   requireSchemaID,
@@ -16,27 +19,42 @@ import {
 
 export const frontendPhaseNamespace = "frontend";
 export const frontendPhaseRegistrySchemaID =
-  "cartulary.frontend_phase_registry.v1";
+  "cartulary.frontend_phase_registry.v2";
 export const frontendPhaseTestMapSchemaID =
-  "cartulary.frontend_phase_test_map.v2";
+  "cartulary.frontend_phase_test_map.v3";
 
 const registryKeys = new Set([
   "schema_id",
   "phase_namespace",
   "guide_path",
+  "guide_digest",
+  "schema_version",
   "phases",
 ]);
 const registryEntryKeys = new Set([
   "phase_id",
   "status",
+  "row_rollup_state",
   "manifest_path",
+  "manifest_digest",
   "ledger_path",
+  "ledger_digest",
   "owner_refs",
   "depends_on",
+  "activation_blockers",
+  "evidence_freshness_digest",
 ]);
-const mapKeys = new Set(["schema_id", "phase_namespace", "phase_id", "rows"]);
+const mapKeys = new Set([
+  "schema_id",
+  "schema_version",
+  "phase_namespace",
+  "phase_id",
+  "guide_digest",
+  "rows",
+]);
 const rowKeys = new Set([
   "id",
+  "phase_id",
   "layer",
   "evidence_class",
   "default_check_required",
@@ -56,9 +74,48 @@ const rowKeys = new Set([
   "scenario_titles",
   "claim_status",
   "claim",
+  "blockers",
   "out_of_scope",
 ]);
+const ownerRefKeys = new Set([
+  "source_key",
+  "path",
+  "section_ref",
+  "heading_text",
+  "req_ids",
+  "ac_ids",
+  "role",
+  "resolution_status",
+]);
+const targetRefKeys = new Set([
+  "target_name",
+  "command_id",
+  "evidence_role",
+  "required_for_closure",
+  "frontend_row_accounting_required",
+  "scenario_title_required",
+]);
+const claimKeys = new Set([
+  "statement",
+  "claim_publication_intent",
+  "closure_scope",
+]);
+const blockerKeys = new Set([
+  "blocker_id",
+  "reason_code",
+  "description",
+  "resolution_owner",
+]);
 const validStatuses = new Set(["planned", "active", "retired"]);
+const validRowRollupStates = new Set([
+  "no_rows_implemented",
+  "partially_implemented",
+  "implemented_dependency_blocked",
+  "activation_ready",
+  "active_green",
+  "stale",
+  "retired",
+]);
 const validEvidenceClasses = new Set([
   "product_conformance",
   "design_direction",
@@ -67,18 +124,68 @@ const validEvidenceClasses = new Set([
   "TODO_owner_lookup",
 ]);
 const validClaimStatuses = new Set([
+  "not_implemented",
   "implemented",
   "blocked",
-  "not_applicable",
+  "stale",
+  "retired",
 ]);
 const validLayers = new Set([
   "unit",
   "integration",
   "browser_integration",
   "e2e",
-  "visual_regression",
+  "visual",
   "accessibility",
   "support",
+]);
+const validOwnerSourceKeys = new Set([
+  "core00",
+  "core01",
+  "core02",
+  "core03",
+  "core04",
+  "core05",
+  "testing_harness_nlspec",
+  "design_md",
+  "ui_ux_guide",
+  "visual_golden_guide",
+  "dev_guide",
+  "implementation_testing_guide",
+  "research_rationale",
+  "guide_local",
+]);
+const validOwnerRoles = new Set([
+  "product_owner",
+  "harness_owner",
+  "design_owner",
+  "support_owner",
+  "rationale_only",
+  "claim_publication_owner",
+]);
+const validOwnerResolutionStatuses = new Set([
+  "resolved",
+  "owner_lookup_required",
+  "contradiction_detected",
+  "suspected_owner_drift",
+]);
+const validEvidenceRoles = new Set([
+  "primary",
+  "supporting",
+  "drift",
+  "diagnostic_only",
+]);
+const validClaimPublicationIntents = new Set([
+  "none",
+  "informative_engineering_measurement",
+  "claim_bearing_publication",
+]);
+const validClosureScopes = new Set([
+  "scenario",
+  "target_level",
+  "blocked",
+  "stale",
+  "retired",
 ]);
 const validDefaultCheckKinds = new Set([
   "primary_local_evidence",
@@ -115,6 +222,39 @@ const phaseIDPattern = /^FE-P(?:0|[1-9]\d*)$/;
 const phaseMapFilenamePattern = /^fe_p(0|[1-9]\d*)_test_map\.json$/;
 const phaseLedgerFilenamePattern = /^fe_p(0|[1-9]\d*)_coverage_ledger\.md$/;
 const rowIDPattern = /^FE-(?:U|I|B|E|V|A11Y|S)-P(?:0|[1-9]\d*)-\d{2}$/;
+const commandIDPattern =
+  /^cartulary\.harness\.command\.[a-z0-9_]+\.v1$/;
+const frontendVisualFixtureRegistrySchemaID =
+  "cartulary.frontend_visual_fixture_registry.v1";
+const visualFixtureRegistryKeys = new Set([
+  "schema_id",
+  "guide_path",
+  "fixtures",
+]);
+const visualFixtureKeys = new Set([
+  "fixture_id",
+  "fixture_title",
+  "status",
+  "owner_phase_ids",
+  "owner_row_ids",
+  "playwright_scenario_title",
+  "golden_filename",
+  "seed_id",
+  "viewport_css_px",
+  "device_scale_factor",
+  "browser_zoom_percent",
+  "theme_id",
+  "density_id",
+  "scroll_normalization",
+  "focus_state",
+  "editor_state",
+  "inspector_state",
+  "dynamic_masks",
+  "no_dynamic_regions",
+  "blocked_reason",
+  "replacement_fixture_id",
+]);
+const visualFixtureIDPattern = /^FE-VFIX-(?:0[1-9]|1[0-5])$/;
 const core03SortingFilteringGroupingReqIDs = new Set(
   Array.from({ length: 13 }, (_, index) => `REQ-03-${223 + index}`),
 );
@@ -155,6 +295,212 @@ function phaseFromLedgerPath(ledgerPath, label) {
 
 function requirePhaseID(value, label) {
   return requireString(value, label, { pattern: phaseIDPattern });
+}
+
+function targetDisplayName(target) {
+  return `make ${target.target_name}`;
+}
+
+function targetRefMatches(target, normalizedTarget) {
+  return targetDisplayName(target) === normalizedTarget;
+}
+
+function ownerRefDisplay(ownerRef) {
+  if (ownerRef.resolution_status === "resolved") {
+    return `${ownerRef.path}#${ownerRef.section_ref}`;
+  }
+  return `${ownerRef.path}#${ownerRef.section_ref} (${ownerRef.resolution_status})`;
+}
+
+function claimStatement(row) {
+  return row.claim.statement;
+}
+
+function outOfScopeText(row) {
+  return row.out_of_scope.join(" ");
+}
+
+function sha256File(root, relativePath) {
+  const absolute = repoPath(root, relativePath);
+  if (!existsSync(absolute)) {
+    return "";
+  }
+  return createHash("sha256")
+    .update(readFileSync(absolute))
+    .digest("hex");
+}
+
+function frontendEvidenceFreshnessDigest(root, registry, entry) {
+  const payload = {
+    schema_id: frontendPhaseRegistrySchemaID,
+    map_schema_id: frontendPhaseTestMapSchemaID,
+    row_accounting_schema_id: "cartulary.frontend_row_accounting.v2",
+    guide_digest: registry.guide_digest,
+    manifest_digest: entry.manifest_digest,
+    ledger_digest: entry.ledger_digest,
+    visual_fixture_registry_digest: sha256File(
+      root,
+      "tools/frontend_visual_fixture_registry.json",
+    ),
+    registry_schema_digest: sha256File(
+      root,
+      "tools/schemas/cartulary.frontend_phase_registry.v2.schema.json",
+    ),
+    map_schema_digest: sha256File(
+      root,
+      "tools/schemas/cartulary.frontend_phase_test_map.v3.schema.json",
+    ),
+    row_accounting_schema_digest: sha256File(
+      root,
+      "tools/schemas/cartulary.frontend_row_accounting.v2.schema.json",
+    ),
+  };
+  return createHash("sha256")
+    .update(JSON.stringify(payload))
+    .digest("hex");
+}
+
+function sectionNumbersFromOwnerRef(sectionRef) {
+  const normalized = sectionRef
+    .replace(/^Core\s+\d+\s+Sections?\s+/i, "")
+    .replace(/^Sections?\s+/i, "");
+  if (/\bthrough\b/.test(normalized)) {
+    throw new Error(`section_ref must list exact sections, got ${sectionRef}`);
+  }
+  return [...normalized.matchAll(/\d+(?:\.\d+)*[A-Z]?/g)].map(
+    (match) => match[0],
+  );
+}
+
+function coreHeadingMap(text) {
+  const headings = new Map();
+  for (const match of text.matchAll(/^#{2,6}\s+([0-9]+(?:\.[0-9]+)*[A-Z]?)\.?\s+(.+)$/gm)) {
+    headings.set(match[1], `${match[1]} ${match[2].trim()}`);
+  }
+  return headings;
+}
+
+function validateOwnerRef(ownerRef, label, row) {
+  assertObjectKeys(ownerRef, ownerRefKeys, label);
+  const sourceKey = requireEnum(
+    ownerRef.source_key,
+    `${label}.source_key`,
+    validOwnerSourceKeys,
+  );
+  const ownerPath = requireRepoRelativePath(ownerRef.path, `${label}.path`);
+  requireString(ownerRef.section_ref, `${label}.section_ref`);
+  requireString(ownerRef.heading_text, `${label}.heading_text`);
+  requireStringArray(ownerRef.req_ids, `${label}.req_ids`);
+  requireStringArray(ownerRef.ac_ids, `${label}.ac_ids`);
+  requireEnum(ownerRef.role, `${label}.role`, validOwnerRoles);
+  const resolutionStatus = requireEnum(
+    ownerRef.resolution_status,
+    `${label}.resolution_status`,
+    validOwnerResolutionStatuses,
+  );
+  if (resolutionStatus !== "resolved" && row.claim_status !== "blocked") {
+    throw new Error(
+      `${label} unresolved owner refs are valid only on blocked rows`,
+    );
+  }
+  if (sourceKey.startsWith("core") && resolutionStatus === "resolved") {
+    const absolute = repoPath(process.cwd(), ownerPath);
+    if (!existsSync(absolute)) {
+      throw new Error(`${label}.path does not exist: ${ownerPath}`);
+    }
+    const text = readFileSync(absolute, "utf8");
+    const sectionNumbers = sectionNumbersFromOwnerRef(ownerRef.section_ref);
+    if (sectionNumbers.length === 0) {
+      throw new Error(`${label}.section_ref must name at least one exact section`);
+    }
+    const headings = coreHeadingMap(text);
+    const expectedHeadingText = sectionNumbers
+      .map((sectionNumber) => {
+        const heading = headings.get(sectionNumber);
+        if (!heading) {
+          throw new Error(
+            `${label}.section_ref references missing section ${sectionNumber}`,
+          );
+        }
+        return heading;
+      })
+      .join("; ");
+    if (ownerRef.heading_text !== expectedHeadingText) {
+      throw new Error(
+        `${label}.heading_text must match resolved headings for ${ownerRef.section_ref}`,
+      );
+    }
+    for (const reqID of ownerRef.req_ids) {
+      if (!text.includes(`**${reqID}**`)) {
+        throw new Error(`${label}.req_ids references missing ${reqID}`);
+      }
+    }
+    for (const acID of ownerRef.ac_ids) {
+      if (!text.includes(acID)) {
+        throw new Error(`${label}.ac_ids references missing ${acID}`);
+      }
+    }
+  }
+  return ownerRef;
+}
+
+function validateTargetRef(target, label, row) {
+  assertObjectKeys(target, targetRefKeys, label);
+  requireString(target.target_name, `${label}.target_name`);
+  requireString(target.command_id, `${label}.command_id`, {
+    pattern: commandIDPattern,
+  });
+  requireEnum(target.evidence_role, `${label}.evidence_role`, validEvidenceRoles);
+  requireBoolean(target.required_for_closure, `${label}.required_for_closure`);
+  requireBoolean(
+    target.frontend_row_accounting_required,
+    `${label}.frontend_row_accounting_required`,
+  );
+  requireBoolean(
+    target.scenario_title_required,
+    `${label}.scenario_title_required`,
+  );
+  if (
+    row.claim_status === "implemented" &&
+    row.evidence_class !== "implementation_support" &&
+    target.required_for_closure &&
+    target.scenario_title_required !== true
+  ) {
+    throw new Error(
+      `${label}.scenario_title_required must be true for implemented non-support rows`,
+    );
+  }
+  return target;
+}
+
+function validateClaim(claim, label, row) {
+  assertObjectKeys(claim, claimKeys, label);
+  requireString(claim.statement, `${label}.statement`);
+  requireEnum(
+    claim.claim_publication_intent,
+    `${label}.claim_publication_intent`,
+    validClaimPublicationIntents,
+  );
+  requireEnum(claim.closure_scope, `${label}.closure_scope`, validClosureScopes);
+  if (
+    row.claim_status === "implemented" &&
+    !["scenario", "target_level"].includes(claim.closure_scope)
+  ) {
+    throw new Error(`${label}.closure_scope is incompatible with implemented`);
+  }
+  if (row.claim_status === "blocked" && claim.closure_scope !== "blocked") {
+    throw new Error(`${label}.closure_scope must be blocked for blocked rows`);
+  }
+  return claim;
+}
+
+function validateBlocker(blocker, label) {
+  assertObjectKeys(blocker, blockerKeys, label);
+  requireString(blocker.blocker_id, `${label}.blocker_id`);
+  requireString(blocker.reason_code, `${label}.reason_code`);
+  requireString(blocker.description, `${label}.description`);
+  requireString(blocker.resolution_owner, `${label}.resolution_owner`);
+  return blocker;
 }
 
 function validateRowMetadata(row, label) {
@@ -216,10 +562,14 @@ function validateCore03SortingFilteringGroupingOwnerRefs(row, label) {
   }
 
   const citesCore03Section14 = row.owner_refs.some((ownerRef) =>
-    core03Section14OwnerRefPattern.test(ownerRef),
+    ownerRef.source_key === "core03" &&
+    (sectionNumbersFromOwnerRef(ownerRef.section_ref).includes("14") ||
+      core03Section14OwnerRefPattern.test(ownerRef.heading_text)),
   );
   const citesCore03Section48 = row.owner_refs.some((ownerRef) =>
-    core03Section48OwnerRefPattern.test(ownerRef),
+    ownerRef.source_key === "core03" &&
+    (sectionNumbersFromOwnerRef(ownerRef.section_ref).includes("4.8") ||
+      core03Section48OwnerRefPattern.test(ownerRef.heading_text)),
   );
   if (!citesCore03Section14 || citesCore03Section48) {
     throw new Error(
@@ -232,6 +582,10 @@ export function frontendRegistryPath(root = process.cwd()) {
   return repoPath(root, "tools/frontend_phase_registry.json");
 }
 
+export function frontendVisualFixtureRegistryPath(root = process.cwd()) {
+  return repoPath(root, "tools/frontend_visual_fixture_registry.json");
+}
+
 export function loadFrontendPhaseRegistry(root = process.cwd()) {
   const file = frontendRegistryPath(root);
   const registry = readJsonObject(file, file);
@@ -242,9 +596,11 @@ export function loadFrontendPhaseRegistry(root = process.cwd()) {
       `${file}.phase_namespace must be ${frontendPhaseNamespace}`,
     );
   }
+  requireInteger(registry.schema_version, `${file}.schema_version`, { min: 2 });
   requireRepoRelativePath(registry.guide_path, `${file}.guide_path`, {
     extension: ".md",
   });
+  requireString(registry.guide_digest, `${file}.guide_digest`);
 
   const rawPhases = requireObjectArray(registry.phases, `${file}.phases`, {
     nonEmpty: true,
@@ -258,6 +614,11 @@ export function loadFrontendPhaseRegistry(root = process.cwd()) {
     assertObjectKeys(entry, registryEntryKeys, label);
     const phaseID = requirePhaseID(entry.phase_id, `${label}.phase_id`);
     const status = requireEnum(entry.status, `${label}.status`, validStatuses);
+    const rowRollupState = requireEnum(
+      entry.row_rollup_state,
+      `${label}.row_rollup_state`,
+      validRowRollupStates,
+    );
     const manifestPath = requireRepoRelativePath(
       entry.manifest_path,
       `${label}.manifest_path`,
@@ -277,12 +638,35 @@ export function loadFrontendPhaseRegistry(root = process.cwd()) {
     return {
       phase_id: phaseID,
       status,
+      row_rollup_state: rowRollupState,
       manifest_path: manifestPath,
+      manifest_digest: requireString(
+        entry.manifest_digest,
+        `${label}.manifest_digest`,
+      ),
       ledger_path: ledgerPath,
-      owner_refs: requireStringArray(entry.owner_refs, `${label}.owner_refs`, {
+      ledger_digest: requireString(entry.ledger_digest, `${label}.ledger_digest`),
+      owner_refs: requireObjectArray(entry.owner_refs, `${label}.owner_refs`, {
         nonEmpty: true,
-      }),
+      }).map((ownerRef, ownerIndex) =>
+        validateOwnerRef(ownerRef, `${label}.owner_refs[${ownerIndex + 1}]`, {
+          claim_status: "implemented",
+        }),
+      ),
       depends_on: requireStringArray(entry.depends_on, `${label}.depends_on`),
+      activation_blockers: requireObjectArray(
+        entry.activation_blockers,
+        `${label}.activation_blockers`,
+      ).map((blocker, blockerIndex) =>
+        validateBlocker(
+          blocker,
+          `${label}.activation_blockers[${blockerIndex + 1}]`,
+        ),
+      ),
+      evidence_freshness_digest: requireString(
+        entry.evidence_freshness_digest,
+        `${label}.evidence_freshness_digest`,
+      ),
     };
   });
 
@@ -319,6 +703,7 @@ export function loadFrontendPhaseRegistry(root = process.cwd()) {
     path: file,
     phase_namespace: registry.phase_namespace,
     guide_path: registry.guide_path,
+    guide_digest: registry.guide_digest,
     phases: phases.sort(
       (left, right) =>
         Number(phaseNumber(left.phase_id)) -
@@ -348,6 +733,7 @@ export function validateFrontendPhaseMap(
 ) {
   assertObjectKeys(manifest, mapKeys, label);
   requireSchemaID(manifest, frontendPhaseTestMapSchemaID, label);
+  requireInteger(manifest.schema_version, `${label}.schema_version`, { min: 3 });
   if (manifest.phase_namespace !== frontendPhaseNamespace) {
     throw new Error(
       `${label}.phase_namespace must be ${frontendPhaseNamespace}`,
@@ -357,6 +743,7 @@ export function validateFrontendPhaseMap(
   if (expectedPhaseID && phaseID !== expectedPhaseID) {
     throw new Error(`${label}.phase_id must be ${expectedPhaseID}`);
   }
+  requireString(manifest.guide_digest, `${label}.guide_digest`);
   const rows = requireObjectArray(manifest.rows, `${label}.rows`, {
     nonEmpty: true,
   });
@@ -367,6 +754,9 @@ export function validateFrontendPhaseMap(
     ids.push(
       requireString(row.id, `${rowLabel}.id`, { pattern: rowIDPattern }),
     );
+    if (requirePhaseID(row.phase_id, `${rowLabel}.phase_id`) !== phaseID) {
+      throw new Error(`${rowLabel}.phase_id must be ${phaseID}`);
+    }
     requireEnum(row.layer, `${rowLabel}.layer`, validLayers);
     requireEnum(
       row.evidence_class,
@@ -381,12 +771,7 @@ export function validateFrontendPhaseMap(
       validDefaultCheckReasonCodes,
     );
     requireString(row.primary_evidence_owner, `${rowLabel}.primary_evidence_owner`);
-    if (
-      row.duplicate_of !== null &&
-      (typeof row.duplicate_of !== "string" || row.duplicate_of.trim() === "")
-    ) {
-      throw new Error(`${rowLabel}.duplicate_of must be null or a non-empty string`);
-    }
+    requireString(row.duplicate_of, `${rowLabel}.duplicate_of`);
     requireString(row.evidence_delta, `${rowLabel}.evidence_delta`);
     requireEnum(row.warm_local_cost_class, `${rowLabel}.warm_local_cost_class`, validWarmLocalCostClasses);
     if (row.future_default_check_candidate !== undefined) {
@@ -398,8 +783,14 @@ export function validateFrontendPhaseMap(
     if (row.default_check_reason !== undefined) {
       requireString(row.default_check_reason, `${rowLabel}.default_check_reason`);
     }
-    requireStringArray(row.owner_refs, `${rowLabel}.owner_refs`, {
+    requireObjectArray(row.owner_refs, `${rowLabel}.owner_refs`, {
       nonEmpty: true,
+    }).forEach((ownerRef, ownerIndex) => {
+      validateOwnerRef(
+        ownerRef,
+        `${rowLabel}.owner_refs[${ownerIndex + 1}]`,
+        row,
+      );
     });
     requireStringArray(row.core_req_ids, `${rowLabel}.core_req_ids`);
     requireStringArray(row.core_ac_ids, `${rowLabel}.core_ac_ids`);
@@ -407,7 +798,15 @@ export function validateFrontendPhaseMap(
       row.support_or_design_ac_ids,
       `${rowLabel}.support_or_design_ac_ids`,
     );
-    requireStringArray(row.targets, `${rowLabel}.targets`, { nonEmpty: true });
+    requireObjectArray(row.targets, `${rowLabel}.targets`, {
+      nonEmpty: true,
+    }).forEach((targetRef, targetIndex) => {
+      validateTargetRef(
+        targetRef,
+        `${rowLabel}.targets[${targetIndex + 1}]`,
+        row,
+      );
+    });
     requireStringArray(row.scenario_titles, `${rowLabel}.scenario_titles`);
     const claimStatus = requireEnum(
       row.claim_status,
@@ -418,6 +817,16 @@ export function validateFrontendPhaseMap(
       throw new Error(
         `${rowLabel} blocked rows must not declare current default_check_required=true; use future_default_check_candidate for planned check placement`,
       );
+    }
+    const blockers = requireObjectArray(row.blockers, `${rowLabel}.blockers`).map(
+      (blocker, blockerIndex) =>
+        validateBlocker(blocker, `${rowLabel}.blockers[${blockerIndex + 1}]`),
+    );
+    if (claimStatus === "blocked" && blockers.length === 0) {
+      throw new Error(`${rowLabel} blocked rows must declare blockers[]`);
+    }
+    if (claimStatus === "implemented" && blockers.length !== 0) {
+      throw new Error(`${rowLabel} implemented rows must not declare blockers[]`);
     }
     if (
       row.future_default_check_candidate === true &&
@@ -448,17 +857,43 @@ export function validateFrontendPhaseMap(
         `${rowLabel} default-check frontend rows must declare default_check_reason`,
       );
     }
-    requireString(row.claim, `${rowLabel}.claim`);
-    requireString(row.out_of_scope, `${rowLabel}.out_of_scope`);
+    validateClaim(row.claim, `${rowLabel}.claim`, row);
+    requireStringArray(row.out_of_scope, `${rowLabel}.out_of_scope`);
     if (!row.id.includes(`-${phaseID.replace("FE-", "")}-`)) {
       throw new Error(`${rowLabel}.id must belong to ${phaseID}`);
     }
     if (
-      row.targets.some((target) => target.startsWith("make browser-e2e")) &&
+      row.targets.some((target) => target.target_name.startsWith("browser-e2e")) &&
       row.scenario_titles.length === 0
     ) {
       throw new Error(
         `${rowLabel}.scenario_titles must be non-empty for browser-backed rows`,
+      );
+    }
+    if (
+      row.targets.some((target) => target.scenario_title_required) &&
+      claimStatus === "implemented" &&
+      row.scenario_titles.length === 0
+    ) {
+      throw new Error(
+        `${rowLabel}.scenario_titles must be non-empty when scenario_title_required=true`,
+      );
+    }
+    if (
+      claimStatus === "implemented" &&
+      !row.targets.some((target) => target.required_for_closure)
+    ) {
+      throw new Error(
+        `${rowLabel} implemented rows must have at least one required closure target`,
+      );
+    }
+    if (
+      row.layer === "accessibility" &&
+      claimStatus === "implemented" &&
+      row.targets.some((target) => target.target_name === "browser-e2e-a11y-preflight")
+    ) {
+      throw new Error(
+        `${rowLabel} implemented accessibility rows must not close from browser-e2e-a11y-preflight`,
       );
     }
     validateRowMetadata(row, rowLabel);
@@ -467,8 +902,20 @@ export function validateFrontendPhaseMap(
   assertUnique(ids, `${label}.rows.id`);
 }
 
-export function validateFrontendPhaseArtifacts(root = process.cwd()) {
+export function validateFrontendPhaseArtifacts(root = process.cwd(), options = {}) {
+  const checkFreshness = options.checkFreshness !== false;
   const registry = loadFrontendPhaseRegistry(root);
+  const phaseStates = new Map();
+  const expectedGuideDigest = sha256File(root, registry.guide_path);
+  if (
+    checkFreshness &&
+    expectedGuideDigest &&
+    registry.guide_digest !== expectedGuideDigest
+  ) {
+    throw new Error(
+      `${registry.path}.guide_digest must match ${registry.guide_path}`,
+    );
+  }
   for (const entry of registry.phases) {
     if (!existsSync(repoPath(root, entry.manifest_path))) {
       throw new Error(`frontend phase map missing: ${entry.manifest_path}`);
@@ -478,6 +925,69 @@ export function validateFrontendPhaseArtifacts(root = process.cwd()) {
       entry.manifest_path,
     );
     validateFrontendPhaseMap(manifest, entry.manifest_path, entry.phase_id);
+    if (
+      checkFreshness &&
+      expectedGuideDigest &&
+      manifest.guide_digest !== expectedGuideDigest
+    ) {
+      throw new Error(
+        `${entry.manifest_path}.guide_digest must match ${registry.guide_path}`,
+      );
+    }
+    const expectedManifestDigest = sha256File(root, entry.manifest_path);
+    if (
+      checkFreshness &&
+      expectedManifestDigest &&
+      entry.manifest_digest !== expectedManifestDigest
+    ) {
+      throw new Error(
+        `${entry.phase_id}.manifest_digest must match ${entry.manifest_path}`,
+      );
+    }
+    const expectedLedgerDigest = sha256File(root, entry.ledger_path);
+    if (
+      checkFreshness &&
+      expectedLedgerDigest &&
+      entry.ledger_digest !== expectedLedgerDigest
+    ) {
+      throw new Error(
+        `${entry.phase_id}.ledger_digest must match ${entry.ledger_path}`,
+      );
+    }
+    const expectedFreshnessDigest = frontendEvidenceFreshnessDigest(
+      root,
+      registry,
+      entry,
+    );
+    if (
+      checkFreshness &&
+      entry.evidence_freshness_digest !== expectedFreshnessDigest
+    ) {
+      throw new Error(
+        `${entry.phase_id}.evidence_freshness_digest must match frontend freshness inputs`,
+      );
+    }
+    const rowRollupState = computeRowRollupState(entry, manifest, phaseStates);
+    phaseStates.set(entry.phase_id, rowRollupState);
+    if (entry.row_rollup_state !== rowRollupState) {
+      throw new Error(
+        `${entry.phase_id}.row_rollup_state must be ${rowRollupState}, got ${entry.row_rollup_state}`,
+      );
+    }
+    if (entry.status === "active" && rowRollupState !== "active_green") {
+      throw new Error(
+        `${entry.phase_id} active phases must have row_rollup_state=active_green`,
+      );
+    }
+    if (
+      entry.status === "planned" &&
+      rowRollupState === "activation_ready" &&
+      entry.activation_blockers.length === 0
+    ) {
+      throw new Error(
+        `${entry.phase_id} activation-ready planned phases must declare activation_blockers[] or be promoted active`,
+      );
+    }
     if (
       entry.status === "active" &&
       manifest.rows.some((row) => row.claim_status === "blocked")
@@ -497,6 +1007,126 @@ export function validateFrontendPhaseArtifacts(root = process.cwd()) {
       throw new Error(`unregistered frontend phase map: ${file}`);
     }
   }
+  validateFrontendVisualFixtureRegistry(root);
+}
+
+function computeRowRollupState(entry, manifest, priorPhaseStates) {
+  if (entry.status === "retired") {
+    return "retired";
+  }
+  const nonRetiredRows = manifest.rows.filter(
+    (row) => row.claim_status !== "retired",
+  );
+  if (nonRetiredRows.length === 0) {
+    return "retired";
+  }
+  if (nonRetiredRows.some((row) => row.claim_status === "stale")) {
+    return "stale";
+  }
+  const implementedRows = nonRetiredRows.filter(
+    (row) => row.claim_status === "implemented",
+  );
+  if (implementedRows.length === 0) {
+    return "no_rows_implemented";
+  }
+  if (implementedRows.length !== nonRetiredRows.length) {
+    return "partially_implemented";
+  }
+  const dependenciesGreen = entry.depends_on.every((phaseID) =>
+    ["active_green", "activation_ready"].includes(priorPhaseStates.get(phaseID)),
+  );
+  if (!dependenciesGreen) {
+    return "implemented_dependency_blocked";
+  }
+  return entry.status === "active" ? "active_green" : "activation_ready";
+}
+
+export function validateFrontendVisualFixtureRegistry(root = process.cwd()) {
+  const file = frontendVisualFixtureRegistryPath(root);
+  if (!existsSync(file)) {
+    throw new Error("frontend visual fixture registry missing: tools/frontend_visual_fixture_registry.json");
+  }
+  const registry = readJsonObject(file, file);
+  assertObjectKeys(registry, visualFixtureRegistryKeys, file);
+  requireSchemaID(registry, frontendVisualFixtureRegistrySchemaID, file);
+  if (registry.guide_path !== "docs/guides/cartulary_frontend_implementation_testing_guide.md") {
+    throw new Error(`${file}.guide_path must point to the frontend guide`);
+  }
+  const fixtures = requireObjectArray(registry.fixtures, `${file}.fixtures`, {
+    nonEmpty: true,
+  });
+  if (fixtures.length !== 15) {
+    throw new Error(`${file}.fixtures must contain exactly FE-VFIX-01 through FE-VFIX-15`);
+  }
+  const fixtureIDs = [];
+  const rowIDs = new Set();
+  for (const phase of loadFrontendPhaseRegistry(root).phases) {
+    const { manifest } = loadFrontendPhaseMap(root, phase.phase_id);
+    for (const row of manifest.rows) {
+      rowIDs.add(row.id);
+    }
+  }
+  for (const [index, fixture] of fixtures.entries()) {
+    const label = `${file}.fixtures[${index + 1}]`;
+    assertObjectKeys(fixture, visualFixtureKeys, label);
+    const fixtureID = requireString(fixture.fixture_id, `${label}.fixture_id`, {
+      pattern: visualFixtureIDPattern,
+    });
+    fixtureIDs.push(fixtureID);
+    requireString(fixture.fixture_title, `${label}.fixture_title`);
+    const status = requireEnum(
+      fixture.status,
+      `${label}.status`,
+      new Set(["current", "missing", "retired"]),
+    );
+    requireStringArray(fixture.owner_phase_ids, `${label}.owner_phase_ids`, {
+      nonEmpty: true,
+      pattern: phaseIDPattern,
+    });
+    const ownerRowIDs = requireStringArray(
+      fixture.owner_row_ids,
+      `${label}.owner_row_ids`,
+      { nonEmpty: true, pattern: rowIDPattern },
+    );
+    for (const rowID of ownerRowIDs) {
+      if (!rowIDs.has(rowID)) {
+        throw new Error(`${label}.owner_row_ids references unknown ${rowID}`);
+      }
+    }
+    if (status === "current") {
+      requireString(fixture.playwright_scenario_title, `${label}.playwright_scenario_title`);
+      const golden = requireRepoRelativePath(
+        fixture.golden_filename,
+        `${label}.golden_filename`,
+        { extension: ".png" },
+      );
+      if (!existsSync(repoPath(root, golden))) {
+        throw new Error(`${label}.golden_filename does not exist: ${golden}`);
+      }
+      requireString(fixture.seed_id, `${label}.seed_id`);
+    } else {
+      requireString(fixture.blocked_reason, `${label}.blocked_reason`);
+    }
+    requireString(fixture.viewport_css_px, `${label}.viewport_css_px`);
+    requireInteger(fixture.device_scale_factor, `${label}.device_scale_factor`, { min: 1 });
+    requireInteger(fixture.browser_zoom_percent, `${label}.browser_zoom_percent`, { min: 1 });
+    requireString(fixture.theme_id, `${label}.theme_id`);
+    requireString(fixture.density_id, `${label}.density_id`);
+    requireObject(fixture.scroll_normalization, `${label}.scroll_normalization`);
+    requireObject(fixture.focus_state, `${label}.focus_state`);
+    requireObject(fixture.editor_state, `${label}.editor_state`);
+    requireObject(fixture.inspector_state, `${label}.inspector_state`);
+    requireStringArray(fixture.dynamic_masks, `${label}.dynamic_masks`);
+    requireBoolean(fixture.no_dynamic_regions, `${label}.no_dynamic_regions`);
+    requireString(fixture.replacement_fixture_id || "none", `${label}.replacement_fixture_id`);
+  }
+  assertUnique(fixtureIDs, `${file}.fixtures.fixture_id`);
+  const expected = Array.from({ length: 15 }, (_, index) =>
+    `FE-VFIX-${String(index + 1).padStart(2, "0")}`,
+  );
+  if (fixtureIDs.sort().join(",") !== expected.join(",")) {
+    throw new Error(`${file}.fixtures must contain exactly ${expected.join(", ")}`);
+  }
 }
 
 export function frontendLedgerOutputPath(entry) {
@@ -512,7 +1142,8 @@ export function renderFrontendPhaseLedger(root, phaseID) {
     "",
     `- Namespace: \`${frontendPhaseNamespace}\``,
     `- Status: \`${registryEntry.status}\``,
-    `- Owner refs: ${registryEntry.owner_refs.map((owner) => `\`${owner}\``).join(", ")}`,
+    `- Row rollup state: \`${registryEntry.row_rollup_state}\``,
+    `- Owner refs: ${registryEntry.owner_refs.map((owner) => `\`${ownerRefDisplay(owner)}\``).join(", ")}`,
     `- Depends on: ${
       registryEntry.depends_on.length === 0
         ? "`none`"
@@ -528,7 +1159,7 @@ export function renderFrontendPhaseLedger(root, phaseID) {
 
   for (const row of manifest.rows) {
     lines.push(
-      `| \`${row.id}\` | \`${row.layer}\` | \`${row.evidence_class}\` | \`${row.claim_status}\` | ${row.targets.map((target) => `\`${target}\``).join("<br>")} | ${row.owner_refs.map((owner) => `\`${owner}\``).join("<br>")} | ${row.core_req_ids.map((id) => `\`${id}\``).join(", ") || "`none`"} | ${row.core_ac_ids.map((id) => `\`${id}\``).join(", ") || "`none`"} | ${row.support_or_design_ac_ids.map((id) => `\`${id}\``).join(", ") || "`none`"} | ${row.scenario_titles.map((title) => `\`${title}\``).join("<br>") || "`none`"} | ${row.claim} | ${row.out_of_scope} |`,
+      `| \`${row.id}\` | \`${row.layer}\` | \`${row.evidence_class}\` | \`${row.claim_status}\` | ${row.targets.map((target) => `\`${targetDisplayName(target)}\``).join("<br>")} | ${row.owner_refs.map((owner) => `\`${ownerRefDisplay(owner)}\``).join("<br>")} | ${row.core_req_ids.map((id) => `\`${id}\``).join(", ") || "`none`"} | ${row.core_ac_ids.map((id) => `\`${id}\``).join(", ") || "`none`"} | ${row.support_or_design_ac_ids.map((id) => `\`${id}\``).join(", ") || "`none`"} | ${row.scenario_titles.map((title) => `\`${title}\``).join("<br>") || "`none`"} | ${claimStatement(row)} | ${outOfScopeText(row)} |`,
     );
   }
 
@@ -549,7 +1180,7 @@ export function frontendScenarioTitlesForTarget(
       if (layer && row.layer !== layer) {
         continue;
       }
-      if (!row.targets.includes(normalizedTarget)) {
+      if (!row.targets.some((targetRef) => targetRefMatches(targetRef, normalizedTarget))) {
         continue;
       }
       titles.push(...row.scenario_titles);

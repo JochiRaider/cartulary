@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createHash } from "node:crypto";
 import {
   existsSync,
   readdirSync,
@@ -2259,7 +2260,6 @@ function printInventory(targetSummary) {
 }
 
 function frontendRowsForTarget(target) {
-  const makeTarget = `make ${target}`;
   let registry;
   try {
     registry = loadFrontendPhaseRegistry(repoRoot);
@@ -2270,21 +2270,45 @@ function frontendRowsForTarget(target) {
   for (const phase of registry.phases) {
     const { manifest } = loadFrontendPhaseMap(repoRoot, phase.phase_id);
     for (const row of manifest.rows) {
-      if (!row.targets.includes(makeTarget)) {
+      const targetRefs = row.targets.filter(
+        (targetRef) => targetRef.target_name === target,
+      );
+      const closingTargetRefs = targetRefs.filter(
+        (targetRef) =>
+          targetRef.required_for_closure ||
+          targetRef.frontend_row_accounting_required,
+      );
+      if (closingTargetRefs.length === 0) {
         continue;
       }
       rows.push({
         phase_id: phase.phase_id,
         phase_status: phase.status,
+        row_rollup_state: phase.row_rollup_state,
         row_id: row.id,
         layer: row.layer,
         evidence_class: row.evidence_class,
         claim_status: row.claim_status,
+        claim: row.claim,
+        blockers: row.blockers,
+        required_for_closure: closingTargetRefs.some(
+          (targetRef) => targetRef.required_for_closure,
+        ),
         scenario_titles: row.scenario_titles,
       });
     }
   }
   return rows;
+}
+
+function sha256RepoFile(relativePath) {
+  const absolute = path.join(repoRoot, relativePath);
+  if (!existsSync(absolute)) {
+    return "";
+  }
+  return createHash("sha256")
+    .update(readFileSync(absolute))
+    .digest("hex");
 }
 
 function collectVitestTitleObservations(reportFile) {
@@ -2536,6 +2560,7 @@ function frontendRowAccountingForTarget(target, targetStatus, targetDir) {
   if (frontendRows.length === 0) {
     return null;
   }
+  const registry = loadFrontendPhaseRegistry(repoRoot);
   let titleObservations = new Map();
   if (target === "frontend-unit") {
     titleObservations = collectVitestTitleObservations(
@@ -2567,10 +2592,71 @@ function frontendRowAccountingForTarget(target, targetStatus, targetDir) {
   const scenarioStatuses = rows.flatMap((row) =>
     row.scenarios.map((scenario) => scenario.status),
   );
+  const phaseMapRefs = [
+    ...new Set(
+      rows.map(
+        (row) =>
+          `tools/frontend_phase_maps/fe_p${row.phase_id.slice("FE-P".length)}_test_map.json`,
+      ),
+    ),
+  ].sort();
+  const scenarioResults = rows.flatMap((row) =>
+    row.scenarios.map((scenario) => ({
+      scenario_title: scenario.title,
+      status: scenario.status,
+      row_ids: [row.row_id],
+      artifact_refs: scenario.files,
+    })),
+  );
+  const rowResults = rows.map((row) => ({
+    row_id: row.row_id,
+    phase_id: row.phase_id,
+    evidence_class: row.evidence_class,
+    claim_status_at_run: row.claim_status,
+    target_mapping_status:
+      row.claim_status === "blocked" ? "blocked" : "mapped",
+    closure_status: frontendRowClosureStatusV2(row),
+    closing_scenario_titles: row.scenarios
+      .filter((scenario) => scenario.status === "passed")
+      .map((scenario) => scenario.title),
+    failure_reason: frontendRowFailureReason(row),
+  }));
   return {
     schema_id: frontendRowAccountingSchemaID,
-    target,
+    target_name: target,
+    command_id: `cartulary.harness.command.${target.replaceAll("-", "_")}.v1`,
+    phase_namespace: "frontend",
+    registry_ref: "tools/frontend_phase_registry.json",
+    registry_digest: sha256RepoFile("tools/frontend_phase_registry.json"),
+    guide_ref: registry.guide_path,
+    guide_digest: sha256RepoFile(registry.guide_path),
+    phase_map_refs: phaseMapRefs,
+    phase_map_digests: phaseMapRefs.map((phaseMapRef) =>
+      sha256RepoFile(phaseMapRef),
+    ),
+    run_root: normalizePath(path.relative(repoRoot, targetDir)),
     target_status: targetStatus,
+    scenario_results: scenarioResults,
+    row_results: rowResults,
+    rollup: {
+      implemented: rows.filter((row) => row.claim_status === "implemented")
+        .length,
+      blocked: rows.filter((row) => row.claim_status === "blocked").length,
+      missing: rowResults.filter((row) => row.closure_status === "not_closed")
+        .length,
+      stale: rowResults.filter((row) => row.closure_status === "stale").length,
+      not_applicable: rowResults.filter(
+        (row) => row.closure_status === "not_applicable",
+      ).length,
+      closed: rowResults.filter((row) => row.closure_status === "closed")
+        .length,
+      failed: rowResults.filter(
+        (row) =>
+          row.closure_status === "not_closed" &&
+          row.failure_reason !== "missing_required_scenario",
+      ).length,
+    },
+    target,
     rows,
     counts: {
       rows: rows.length,
@@ -2602,6 +2688,41 @@ function frontendRowAccountingForTarget(target, targetStatus, targetDir) {
       ).length,
     },
   };
+}
+
+function frontendRowClosureStatusV2(row) {
+  if (row.claim_status === "blocked") {
+    return "blocked";
+  }
+  if (row.claim_status === "stale") {
+    return "stale";
+  }
+  if (!row.required_for_closure) {
+    return "not_applicable";
+  }
+  if (row.closure_status === "closed") {
+    return "closed";
+  }
+  return "not_closed";
+}
+
+function frontendRowFailureReason(row) {
+  if (row.closure_status === "closed" || row.claim_status === "blocked") {
+    return "";
+  }
+  if (row.closure_status === "missing") {
+    return "missing_required_scenario";
+  }
+  if (row.closure_status === "failed") {
+    return "failed_required_scenario";
+  }
+  if (row.closure_status === "blocked_by_target") {
+    return "target_failed";
+  }
+  if (row.closure_status === "not_evaluable") {
+    return "row_not_evaluable";
+  }
+  return "unknown";
 }
 
 function frontendRowAccountingFailures(accounting) {
@@ -6271,7 +6392,7 @@ function loadFrontendVitestIndex() {
     const { manifest } = loadFrontendPhaseMap(repoRoot, phase.phase_id);
     for (const row of manifest.rows) {
       if (
-        !row.targets.includes("make frontend-unit") ||
+        !row.targets.some((target) => target.target_name === "frontend-unit") ||
         row.scenario_titles.length === 0
       ) {
         continue;
@@ -6306,7 +6427,7 @@ function loadFrontendPlaywrightIndex() {
     const { manifest } = loadFrontendPhaseMap(repoRoot, phase.phase_id);
     for (const row of manifest.rows) {
       if (
-        !row.targets.some((target) => target.startsWith("make browser-e2e")) ||
+        !row.targets.some((target) => target.target_name.startsWith("browser-e2e")) ||
         row.scenario_titles.length === 0
       ) {
         continue;

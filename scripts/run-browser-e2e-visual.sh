@@ -16,7 +16,7 @@ status=0
 frontend_grep="$(
   NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
     "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/scripts/lib/frontend-phase-manifest.mjs" \
-      playwright-grep browser-e2e-visual visual_regression
+      playwright-grep browser-e2e-visual visual
 )"
 
 if [[ -n "$frontend_grep" ]]; then

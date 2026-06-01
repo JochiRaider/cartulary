@@ -226,7 +226,7 @@ function renderSection(title, entries) {
 
 export function renderPhaseLedger(root, phase) {
   if (/^FE-P(?:0|[1-9]\d*)$/.test(phase)) {
-    validateFrontendPhaseArtifacts(root);
+    validateFrontendPhaseArtifacts(root, { checkFreshness: false });
     return renderFrontendPhaseLedger(root, phase);
   }
   const { manifest } = loadManifest(root, phase, { allowPlanned: true });

@@ -34,6 +34,9 @@ function uniqueSorted(values) {
 }
 
 function normalizeTarget(target) {
+  if (target && typeof target === "object") {
+    return target.target_name;
+  }
   return target.startsWith("make ") ? target.slice("make ".length) : target;
 }
 

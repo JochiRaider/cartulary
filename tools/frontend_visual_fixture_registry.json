@@ -1,0 +1,671 @@
+{
+  "schema_id": "cartulary.frontend_visual_fixture_registry.v1",
+  "guide_path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+  "fixtures": [
+    {
+      "fixture_id": "FE-VFIX-01",
+      "fixture_title": "Default grid shell",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P2"
+      ],
+      "owner_row_ids": [
+        "FE-V-P2-01"
+      ],
+      "playwright_scenario_title": "FE-V-P2-01 Capture default workbook shell with top bar, tabs, System views, view bar, primary grid slot, inspector, and status strip using deterministic visual harness settings.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-workbook-shell-linux.png",
+      "seed_id": "fe-vfix-01-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-02",
+      "fixture_title": "Unresolved and resolved entity state",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P5"
+      ],
+      "owner_row_ids": [
+        "FE-V-P5-01"
+      ],
+      "playwright_scenario_title": "V-4-GRID-01 captures mention chips for unresolved, resolved, auto-resolved, dismissed, and manual-resolution states",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-4-grid-01-mention-chips-linux.png",
+      "seed_id": "fe-vfix-02-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-03",
+      "fixture_title": "Same-field conflict",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P7"
+      ],
+      "owner_row_ids": [
+        "FE-V-P7-01"
+      ],
+      "playwright_scenario_title": "V-6-GRID-02 captures same-field conflict resolver visuals",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-02-conflict-resolver-linux.png",
+      "seed_id": "fe-vfix-03-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-04",
+      "fixture_title": "Row-gutter presence",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P7"
+      ],
+      "owner_row_ids": [
+        "FE-V-P7-01"
+      ],
+      "playwright_scenario_title": "V-6-GRID-01 captures presence and row-gutter markers anchored to grid rows",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-01-presence-markers-linux.png",
+      "seed_id": "fe-vfix-04-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-05",
+      "fixture_title": "Evidence affordance",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P6"
+      ],
+      "owner_row_ids": [
+        "FE-V-P6-01"
+      ],
+      "playwright_scenario_title": "V-4-GRID-02 captures evidence affordance and access controls",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-4-grid-02-evidence-access-linux.png",
+      "seed_id": "fe-vfix-05-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-06",
+      "fixture_title": "Grouped result",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P8"
+      ],
+      "owner_row_ids": [
+        "FE-V-P8-01"
+      ],
+      "playwright_scenario_title": "V-3-GRID-03 captures grouped grid result and group outline row visuals",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-03-grouped-grid-linux.png",
+      "seed_id": "fe-vfix-06-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-07",
+      "fixture_title": "Task Requests or Decisions",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P10"
+      ],
+      "owner_row_ids": [
+        "FE-V-P10-01"
+      ],
+      "playwright_scenario_title": "V-4-GRID-03 captures Task Requests and Decisions workbook surface visuals",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-4-grid-03-task-requests-linux.png",
+      "seed_id": "fe-vfix-07-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-08",
+      "fixture_title": "Save-state strip",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P4",
+        "FE-P7"
+      ],
+      "owner_row_ids": [
+        "FE-V-P4-01",
+        "FE-V-P7-01"
+      ],
+      "playwright_scenario_title": "V-3-GRID-02 captures Timeline edit save-state visuals for active cell syncing saved and conflict states",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-saved-strip-linux.png",
+      "seed_id": "fe-vfix-08-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-09",
+      "fixture_title": "Frozen column",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P3",
+        "FE-P10"
+      ],
+      "owner_row_ids": [
+        "FE-V-P3-01",
+        "FE-V-P10-01"
+      ],
+      "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "seed_id": "fe-vfix-09-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-10",
+      "fixture_title": "Resize handle",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P3",
+        "FE-P10"
+      ],
+      "owner_row_ids": [
+        "FE-V-P3-01",
+        "FE-V-P10-01"
+      ],
+      "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "seed_id": "fe-vfix-10-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-11",
+      "fixture_title": "Drag-fill handle",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P3",
+        "FE-P10"
+      ],
+      "owner_row_ids": [
+        "FE-V-P3-01",
+        "FE-V-P10-01"
+      ],
+      "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "seed_id": "fe-vfix-11-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-12",
+      "fixture_title": "Edit cell",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P3",
+        "FE-P4",
+        "FE-P10"
+      ],
+      "owner_row_ids": [
+        "FE-V-P3-01",
+        "FE-V-P4-01",
+        "FE-V-P10-01"
+      ],
+      "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "seed_id": "fe-vfix-12-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-13",
+      "fixture_title": "Tree/group row",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P3",
+        "FE-P8",
+        "FE-P10"
+      ],
+      "owner_row_ids": [
+        "FE-V-P3-01",
+        "FE-V-P8-01",
+        "FE-V-P10-01"
+      ],
+      "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "seed_id": "fe-vfix-13-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-14",
+      "fixture_title": "Exposed theme states",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P11"
+      ],
+      "owner_row_ids": [
+        "FE-V-P11-03"
+      ],
+      "playwright_scenario_title": "FE-V-P11-03 Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p11-03-exposed-theme-states-linux.png",
+      "seed_id": "fe-vfix-14-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-15",
+      "fixture_title": "Empty successful query",
+      "status": "current",
+      "owner_phase_ids": [
+        "FE-P3",
+        "FE-P4",
+        "FE-P8"
+      ],
+      "owner_row_ids": [
+        "FE-V-P3-01",
+        "FE-V-P4-01",
+        "FE-V-P8-01"
+      ],
+      "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "seed_id": "fe-vfix-15-deterministic-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "workbook-grid"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": ""
+    }
+  ]
+}

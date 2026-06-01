@@ -1,15 +1,42 @@
 {
-  "schema_id": "cartulary.frontend_phase_test_map.v2",
+  "schema_id": "cartulary.frontend_phase_test_map.v3",
+  "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P8",
+  "guide_digest": "ce0017daaac430a37a586b851c0788e41358b37dfa5e3bc2ece7e904b4bc741f",
   "rows": [
     {
       "id": "FE-U-P8-01",
       "layer": "unit",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Section 3.3.4",
-        "Core 03 Section 14"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Section 3.3.4",
+          "heading_text": "3.3.4 View-shaped read contract",
+          "req_ids": [
+            "REQ-01-035",
+            "REQ-01-038",
+            "REQ-01-047"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Section 14",
+          "heading_text": "14 Sorting, filtering, and grouping",
+          "req_ids": [
+            "REQ-03-223",
+            "REQ-03-235"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-035",
@@ -42,28 +69,74 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make frontend-unit"
+        {
+          "target_name": "frontend-unit",
+          "command_id": "cartulary.harness.command.frontend_unit.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": false
+        }
       ],
       "scenario_titles": [],
       "claim_status": "blocked",
-      "claim": "Compile sort, filter, group, layout, and active chips to owner query contracts using schema field_key and capability metadata.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Compile sort, filter, group, layout, and active chips to owner query contracts using schema field_key and capability metadata.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-U-P8-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "full evidence is retained outside default check",
-      "warm_local_cost_class": "low"
+      "warm_local_cost_class": "low",
+      "phase_id": "FE-P8",
+      "blockers": [
+        {
+          "blocker_id": "FE-U-P8-01-BLOCKER-01",
+          "reason_code": "frontend_phase_row_not_implemented",
+          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     },
     {
       "id": "FE-I-P8-01",
       "layer": "integration",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Section 3.3.5.2",
-        "Core 03 Section 3"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Section 3.3.5.2",
+          "heading_text": "3.3.5.2 View-schema, saved-view, and workbook-preference contracts",
+          "req_ids": [
+            "REQ-01-138",
+            "REQ-01-151"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Section 3",
+          "heading_text": "3 Collaboration and concurrency model",
+          "req_ids": [
+            "REQ-03-012",
+            "REQ-03-032"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-138",
@@ -80,31 +153,83 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make frontend-unit",
-        "make browser-e2e-webserver-backed"
+        {
+          "target_name": "frontend-unit",
+          "command_id": "cartulary.harness.command.frontend_unit.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": false
+        },
+        {
+          "target_name": "browser-e2e-webserver-backed",
+          "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": false
+        }
       ],
       "scenario_titles": [
         "FE-I-P8-01 Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts."
       ],
       "claim_status": "blocked",
-      "claim": "Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-I-P8-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "full evidence is retained outside default check",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P8",
+      "blockers": [
+        {
+          "blocker_id": "FE-I-P8-01-BLOCKER-01",
+          "reason_code": "frontend_phase_row_not_implemented",
+          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     },
     {
       "id": "FE-B-P8-01",
       "layer": "browser_integration",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 03 Sections 3 and 14",
-        "implementation guide Section 14.9A"
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Sections 3 and 14",
+          "heading_text": "3 Collaboration and concurrency model; 14 Sorting, filtering, and grouping",
+          "req_ids": [
+            "REQ-03-012",
+            "REQ-03-032",
+            "REQ-03-223",
+            "REQ-03-235"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "implementation_testing_guide",
+          "path": "docs/guides/cartulary_implementation_testing_guide.md",
+          "section_ref": "implementation guide Section 14.9A",
+          "heading_text": "implementation guide Section 14.9A",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-03-012",
@@ -129,31 +254,89 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make browser-e2e-webserver-backed",
-        "make browser-e2e-support"
+        {
+          "target_name": "browser-e2e-webserver-backed",
+          "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        },
+        {
+          "target_name": "browser-e2e-support",
+          "command_id": "cartulary.harness.command.browser_e2e_support.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI."
       ],
       "claim_status": "blocked",
-      "claim": "Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-B-P8-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "full evidence is retained outside default check",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P8",
+      "blockers": [
+        {
+          "blocker_id": "FE-B-P8-01-BLOCKER-01",
+          "reason_code": "frontend_phase_row_not_implemented",
+          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     },
     {
       "id": "FE-E-P8-01",
       "layer": "e2e",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Sections 3.3.4 and 3.3.5.2",
-        "Core 03 Sections 3 and 14"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Sections 3.3.4 and 3.3.5.2",
+          "heading_text": "3.3.4 View-shaped read contract; 3.3.5.2 View-schema, saved-view, and workbook-preference contracts",
+          "req_ids": [
+            "REQ-01-035",
+            "REQ-01-038",
+            "REQ-01-047",
+            "REQ-01-138",
+            "REQ-01-151"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Sections 3 and 14",
+          "heading_text": "3 Collaboration and concurrency model; 14 Sorting, filtering, and grouping",
+          "req_ids": [
+            "REQ-03-012",
+            "REQ-03-032",
+            "REQ-03-223",
+            "REQ-03-235"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-035",
@@ -193,31 +376,78 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make browser-e2e-webserver-backed",
-        "make browser-e2e-stateful"
+        {
+          "target_name": "browser-e2e-webserver-backed",
+          "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        },
+        {
+          "target_name": "browser-e2e-stateful",
+          "command_id": "cartulary.harness.command.browser_e2e_stateful.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-E-P8-01 Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload."
       ],
       "claim_status": "blocked",
-      "claim": "Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-E-P8-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "full evidence is retained outside default check",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P8",
+      "blockers": [
+        {
+          "blocker_id": "FE-E-P8-01-BLOCKER-01",
+          "reason_code": "frontend_phase_row_not_implemented",
+          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     },
     {
       "id": "FE-V-P8-01",
-      "layer": "visual_regression",
+      "layer": "visual",
       "evidence_class": "design_direction",
       "owner_refs": [
-        "UI/UX guide Sections 7, 10.5, 13",
-        "visual golden guide Sections 2, 3, 5"
+        {
+          "source_key": "ui_ux_guide",
+          "path": "docs/guides/cartulary-ui-ux-design-guide.md",
+          "section_ref": "UI/UX guide Sections 7, 10.5, 13",
+          "heading_text": "UI/UX guide Sections 7, 10.5, 13",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "visual_golden_guide",
+          "path": "docs/guides/cartulary_visual_golden_maintenance.md",
+          "section_ref": "visual golden guide Sections 2, 3, 5",
+          "heading_text": "visual golden guide Sections 2, 3, 5",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [],
       "core_ac_ids": [],
@@ -232,28 +462,59 @@
         "R2-RDG-AC-010"
       ],
       "targets": [
-        "make browser-e2e-visual"
+        {
+          "target_name": "browser-e2e-visual",
+          "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-V-P8-01 Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures."
       ],
       "claim_status": "blocked",
-      "claim": "Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "design_direction_explicit_only",
       "primary_evidence_owner": "FE-V-P8-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P8",
+      "blockers": [
+        {
+          "blocker_id": "FE-V-P8-01-BLOCKER-01",
+          "reason_code": "visual_fixture_not_recaptured_for_frontend_row",
+          "description": "Visual fixture is planned but direct frontend row-accounting evidence has not been recaptured under the closed fixture registry.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     },
     {
       "id": "FE-A11Y-P8-01",
       "layer": "accessibility",
       "evidence_class": "design_direction",
       "owner_refs": [
-        "UI/UX guide Sections 7, 10.5, 14"
+        {
+          "source_key": "ui_ux_guide",
+          "path": "docs/guides/cartulary-ui-ux-design-guide.md",
+          "section_ref": "UI/UX guide Sections 7, 10.5, 14",
+          "heading_text": "UI/UX guide Sections 7, 10.5, 14",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [],
       "core_ac_ids": [],
@@ -268,21 +529,43 @@
         "D-AC-012"
       ],
       "targets": [
-        "make browser-e2e-a11y-preflight"
+        {
+          "target_name": "browser-e2e-a11y-preflight",
+          "command_id": "cartulary.harness.command.browser_e2e_a11y_preflight.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-A11Y-P8-01 Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced."
       ],
       "claim_status": "blocked",
-      "claim": "Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "design_direction_explicit_only",
       "primary_evidence_owner": "FE-A11Y-P8-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P8",
+      "blockers": [
+        {
+          "blocker_id": "FE-A11Y-P8-01-BLOCKER-01",
+          "reason_code": "frontend_phase_row_not_implemented",
+          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     }
   ]
 }

@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:d45c8c478c4f741e8400e00c755b813d900153c6032cd405abc213b86afa97fc",
+  "input_digest": "sha256:527f78d6fc278e6562d9a6f0af429163299f2198781225ab7f04a3d60654db24",
   "inputs": [
     {
       "path": "scripts/lib/artifact-discovery.mjs",
@@ -27,7 +27,7 @@
     {
       "path": "scripts/lib/browser-shard-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:e2fee2ec23b2351ba2be5c86ca56328d1de1f4961c2626e102e01d5ae574edc2"
+      "hash": "sha256:5bebad4a82e5dfdbc603daa82045755c794c8d7632b3741974635002a6d5f558"
     },
     {
       "path": "scripts/lib/check-schedule-manifest.mjs",
@@ -67,7 +67,7 @@
     {
       "path": "scripts/lib/failure-taxonomy.mjs",
       "role": "renderer_source",
-      "hash": "sha256:fde8423b5d5064cabb3b93eaad9f77404badca0f192e75f00cb5d126009139b5"
+      "hash": "sha256:0aaa3e09504b2293f67acbfb41e5283d07bab5af818ece20b11533e871aafb2b"
     },
     {
       "path": "scripts/lib/fixture-reporting.mjs",
@@ -77,12 +77,12 @@
     {
       "path": "scripts/lib/frontend-phase-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:6c8d813de07e3bdd3901b79f57bde32ccd68c15d2a48d8aae7bd4eb00b6eda5b"
+      "hash": "sha256:bbfe8e88e34b1f8ab4e29694bb1b2dc17b03a6a6b74c179f87115c250c4fd666"
     },
     {
       "path": "scripts/lib/frontend-phase-slice-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:53d6d92189412443cbcc886fd6a2d51e8c6fed31af1a8312a9bfbf274b5ce63c"
+      "hash": "sha256:18c80f3a8e72b1cdab150cd25a0da8104df4b3b594d114a9b29ec193f09ddb42"
     },
     {
       "path": "scripts/lib/go-duration-artifacts.mjs",
@@ -122,7 +122,7 @@
     {
       "path": "scripts/lib/json-shape.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ecd82f86756a93fe1ad663ad895887f50a94ed4726927f5e5a45c44d9c672818"
+      "hash": "sha256:7c2b38e38a5c07234288497d9e1d573abedc9118eaecdce3f1a9ca11e6edfe3d"
     },
     {
       "path": "scripts/lib/json-test-helper.mjs",
@@ -282,12 +282,12 @@
     {
       "path": "scripts/lib/test-output/cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:dacab8859e0ff840602badbc41ffa8464646da5f6b42c0041baec669878d5706"
+      "hash": "sha256:c228513091d146ddba9be455c35ae159dbba804fc0a044942eff3a50fbb04f34"
     },
     {
       "path": "scripts/lib/test-output/context.mjs",
       "role": "renderer_source",
-      "hash": "sha256:342c190acefa852eebde23d31749e56dcf88eba83ad641b83ded87d633f80524"
+      "hash": "sha256:a48557b31a5d733e951ce4535f562cd0290326dba9f3d45fdae56dfeb812a3d1"
     },
     {
       "path": "scripts/lib/tool-output.mjs",
@@ -302,7 +302,7 @@
     {
       "path": "scripts/render-service-backed-schedule-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:a81a1c11a8970a408f5f2cd210ee6520d1988cd6e7494badc26776aadd53bd79"
+      "hash": "sha256:2405c96e6251e356ab13f87bae70d2b9d83456a59b04fdecb97edb6ea48b1375"
     },
     {
       "path": "tools/browser_e2e_duration_baselines.json",

@@ -1,16 +1,53 @@
 {
-  "schema_id": "cartulary.frontend_phase_test_map.v2",
+  "schema_id": "cartulary.frontend_phase_test_map.v3",
+  "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P3",
+  "guide_digest": "ce0017daaac430a37a586b851c0788e41358b37dfa5e3bc2ece7e904b4bc741f",
   "rows": [
     {
       "id": "FE-U-P3-01",
       "layer": "unit",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Section 3.3.4",
-        "Core 03 Sections 4.1 and 14",
-        "development guide Sections 6.3 and 6.9"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Section 3.3.4",
+          "heading_text": "3.3.4 View-shaped read contract",
+          "req_ids": [
+            "REQ-01-034",
+            "REQ-01-037"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Sections 4.1 and 14",
+          "heading_text": "4.1 Autosave; 14 Sorting, filtering, and grouping",
+          "req_ids": [
+            "REQ-03-033",
+            "REQ-03-035",
+            "REQ-03-217",
+            "REQ-03-235"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "dev_guide",
+          "path": "docs/guides/cartulary-dev-guide.md",
+          "section_ref": "development guide Sections 6.3 and 6.9",
+          "heading_text": "development guide Sections 6.3 and 6.9",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-034",
@@ -38,31 +75,82 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make frontend-unit"
+        {
+          "target_name": "frontend-unit",
+          "command_id": "cartulary.harness.command.frontend_unit.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-U-P3-01 Reject unsafe record identity and keep presentation rows from mutation-capable anchors."
       ],
       "claim_status": "implemented",
-      "claim": "Fail before mutation-capable rendering when data rows have missing or duplicate record_id; verify group/loading/spacer/presentation rows cannot emit write events.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Fail before mutation-capable rendering when data rows have missing or duplicate record_id; verify group/loading/spacer/presentation rows cannot emit write events.",
+        "claim_publication_intent": "none",
+        "closure_scope": "scenario"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": true,
       "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior.",
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
       "primary_evidence_owner": "FE-U-P3-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "primary local evidence for the declared row",
-      "warm_local_cost_class": "low"
+      "warm_local_cost_class": "low",
+      "phase_id": "FE-P3",
+      "blockers": []
     },
     {
       "id": "FE-U-P3-02",
       "layer": "unit",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Section 3.3.4",
-        "Core 03 Sections 4.1 and 4.13",
-        "development guide Sections 6.3 and 6.9"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Section 3.3.4",
+          "heading_text": "3.3.4 View-shaped read contract",
+          "req_ids": [
+            "REQ-01-034",
+            "REQ-01-035",
+            "REQ-01-058"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Sections 4.1, 18, and 19",
+          "heading_text": "4.1 Autosave; 18 Excel-like feel versus intentional differences; 19 Interaction invariants",
+          "req_ids": [
+            "REQ-03-217",
+            "REQ-03-222",
+            "REQ-03-263",
+            "REQ-03-265"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "dev_guide",
+          "path": "docs/guides/cartulary-dev-guide.md",
+          "section_ref": "development guide Sections 6.3 and 6.9",
+          "heading_text": "development guide Sections 6.3 and 6.9",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-034",
@@ -90,31 +178,80 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make frontend-unit"
+        {
+          "target_name": "frontend-unit",
+          "command_id": "cartulary.harness.command.frontend_unit.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-U-P3-02 Translate vendor row and column coordinates to stable record_id and field_key anchors."
       ],
       "claim_status": "implemented",
-      "claim": "Translate vendor row/column coordinates to record_id + field_key for edit, copy, paste, fill-down, selection, focus, and anchor assertions.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Translate vendor row/column coordinates to record_id + field_key for edit, copy, paste, fill-down, selection, focus, and anchor assertions.",
+        "claim_publication_intent": "none",
+        "closure_scope": "scenario"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": true,
       "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior.",
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
       "primary_evidence_owner": "FE-U-P3-02",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "primary local evidence for the declared row",
-      "warm_local_cost_class": "low"
+      "warm_local_cost_class": "low",
+      "phase_id": "FE-P3",
+      "blockers": []
     },
     {
       "id": "FE-U-P3-03",
       "layer": "unit",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Sections 3.3.4 and 7.4",
-        "Core 03 Section 4.1",
-        "development guide Sections 6.3 and 6.7"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Sections 3.3.4 and 7.4",
+          "heading_text": "3.3.4 View-shaped read contract; 7.4 Authoritative base-profile view schema registry",
+          "req_ids": [
+            "REQ-01-034",
+            "REQ-01-057",
+            "REQ-01-070"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Section 4.1",
+          "heading_text": "4.1 Autosave",
+          "req_ids": [
+            "REQ-03-217",
+            "REQ-03-222"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "dev_guide",
+          "path": "docs/guides/cartulary-dev-guide.md",
+          "section_ref": "development guide Sections 6.3 and 6.7",
+          "heading_text": "development guide Sections 6.3 and 6.7",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-034",
@@ -146,30 +283,63 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make frontend-unit"
+        {
+          "target_name": "frontend-unit",
+          "command_id": "cartulary.harness.command.frontend_unit.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-U-P3-03 Resolve grid editability from explicit editor adapters and contract writeability only."
       ],
       "claim_status": "implemented",
-      "claim": "Verify editability derives from explicit editor adapters and contract writeability; editable=true alone never enters edit mode.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify editability derives from explicit editor adapters and contract writeability; editable=true alone never enters edit mode.",
+        "claim_publication_intent": "none",
+        "closure_scope": "scenario"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": true,
       "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior.",
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
       "primary_evidence_owner": "FE-U-P3-03",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "primary local evidence for the declared row",
-      "warm_local_cost_class": "low"
+      "warm_local_cost_class": "low",
+      "phase_id": "FE-P3",
+      "blockers": []
     },
     {
       "id": "FE-U-P3-04",
       "layer": "unit",
       "evidence_class": "implementation_support",
       "owner_refs": [
-        "Development guide Sections 6.7, 6.9, 6.10",
-        "implementation guide Section 14.8"
+        {
+          "source_key": "dev_guide",
+          "path": "docs/guides/cartulary-dev-guide.md",
+          "section_ref": "Development guide Sections 6.7, 6.9, 6.10",
+          "heading_text": "Development guide Sections 6.7, 6.9, 6.10",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "implementation_testing_guide",
+          "path": "docs/guides/cartulary_implementation_testing_guide.md",
+          "section_ref": "implementation guide Section 14.8",
+          "heading_text": "implementation guide Section 14.8",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [],
       "core_ac_ids": [],
@@ -177,30 +347,80 @@
         "FE-SUPPORT-AC-006"
       ],
       "targets": [
-        "make frontend-unit"
+        {
+          "target_name": "frontend-unit",
+          "command_id": "cartulary.harness.command.frontend_unit.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": false
+        }
       ],
       "scenario_titles": [
         "FE-U-P3-04 Resolve renderers and editors deterministically and clean adapter-owned resources."
       ],
       "claim_status": "implemented",
-      "claim": "Verify renderer/editor registry precedence, deterministic fallback, and lifecycle cleanup for subscriptions, portals, observers, timers, and row references.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify renderer/editor registry precedence, deterministic fallback, and lifecycle cleanup for subscriptions, portals, observers, timers, and row references.",
+        "claim_publication_intent": "none",
+        "closure_scope": "scenario"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "implementation_support_explicit_only",
       "primary_evidence_owner": "FE-U-P3-04",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "support evidence is explicit-only",
-      "warm_local_cost_class": "low"
+      "warm_local_cost_class": "low",
+      "phase_id": "FE-P3",
+      "blockers": []
     },
     {
       "id": "FE-I-P3-01",
       "layer": "integration",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Section 3.3.4",
-        "Core 03 Sections 4.1 and 14",
-        "development guide Section 6.9"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Section 3.3.4",
+          "heading_text": "3.3.4 View-shaped read contract",
+          "req_ids": [
+            "REQ-01-034",
+            "REQ-01-036"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Sections 4.1 and 14",
+          "heading_text": "4.1 Autosave; 14 Sorting, filtering, and grouping",
+          "req_ids": [
+            "REQ-03-033",
+            "REQ-03-035",
+            "REQ-03-223",
+            "REQ-03-235"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "dev_guide",
+          "path": "docs/guides/cartulary-dev-guide.md",
+          "section_ref": "development guide Section 6.9",
+          "heading_text": "development guide Section 6.9",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-034",
@@ -232,30 +452,68 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make frontend-unit"
+        {
+          "target_name": "frontend-unit",
+          "command_id": "cartulary.harness.command.frontend_unit.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-I-P3-01 Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id."
       ],
       "claim_status": "implemented",
-      "claim": "Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id.",
+        "claim_publication_intent": "none",
+        "closure_scope": "scenario"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": true,
       "default_check_reason": "Default frontend integration coverage proves implemented UI composition that unit rows cannot isolate alone.",
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
       "primary_evidence_owner": "FE-I-P3-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "primary local evidence for the declared row",
-      "warm_local_cost_class": "medium"
+      "warm_local_cost_class": "medium",
+      "phase_id": "FE-P3",
+      "blockers": []
     },
     {
       "id": "FE-B-P3-01",
       "layer": "browser_integration",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 03 Sections 4.1, 14, and 4.13",
-        "implementation guide Section 14.9A"
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Sections 4.1, 14, 18, and 19",
+          "heading_text": "4.1 Autosave; 14 Sorting, filtering, and grouping; 18 Excel-like feel versus intentional differences; 19 Interaction invariants",
+          "req_ids": [
+            "REQ-03-217",
+            "REQ-03-235",
+            "REQ-03-263",
+            "REQ-03-265"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "implementation_testing_guide",
+          "path": "docs/guides/cartulary_implementation_testing_guide.md",
+          "section_ref": "implementation guide Section 14.9A",
+          "heading_text": "implementation guide Section 14.9A",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-03-217",
@@ -284,31 +542,71 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make browser-e2e-support",
-        "make browser-e2e-webserver-backed"
+        {
+          "target_name": "browser-e2e-support",
+          "command_id": "cartulary.harness.command.browser_e2e_support.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        },
+        {
+          "target_name": "browser-e2e-webserver-backed",
+          "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers."
       ],
       "claim_status": "implemented",
-      "claim": "Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.",
+        "claim_publication_intent": "none",
+        "closure_scope": "scenario"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": true,
       "default_check_reason": "Default browser integration coverage proves cross-stack UI behavior that lower frontend layers cannot observe.",
       "default_check_kind": "default_local_cross_stack_conformance",
       "default_check_reason_code": "lower_layer_gap",
       "primary_evidence_owner": "FE-B-P3-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "cross-stack frontend behavior not owned by lower layers",
-      "warm_local_cost_class": "browser"
+      "warm_local_cost_class": "browser",
+      "phase_id": "FE-P3",
+      "blockers": []
     },
     {
       "id": "FE-V-P3-01",
-      "layer": "visual_regression",
+      "layer": "visual",
       "evidence_class": "design_direction",
       "owner_refs": [
-        "UI/UX guide Sections 10 and 13",
-        "visual golden guide Sections 2, 3, 5"
+        {
+          "source_key": "ui_ux_guide",
+          "path": "docs/guides/cartulary-ui-ux-design-guide.md",
+          "section_ref": "UI/UX guide Sections 10 and 13",
+          "heading_text": "UI/UX guide Sections 10 and 13",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "visual_golden_guide",
+          "path": "docs/guides/cartulary_visual_golden_maintenance.md",
+          "section_ref": "visual golden guide Sections 2, 3, 5",
+          "heading_text": "visual golden guide Sections 2, 3, 5",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [],
       "core_ac_ids": [],
@@ -323,29 +621,62 @@
         "R2-RDG-AC-010"
       ],
       "targets": [
-        "make browser-e2e-visual"
+        {
+          "target_name": "browser-e2e-visual",
+          "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures."
       ],
       "claim_status": "implemented",
-      "claim": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+        "claim_publication_intent": "none",
+        "closure_scope": "scenario"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "design_direction_explicit_only",
       "primary_evidence_owner": "FE-V-P3-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P3",
+      "blockers": []
     },
     {
       "id": "FE-A11Y-P3-01",
       "layer": "accessibility",
       "evidence_class": "design_direction",
       "owner_refs": [
-        "UI/UX guide Sections 10.5 and 14",
-        "docs/design.md Accessibility Direction"
+        {
+          "source_key": "ui_ux_guide",
+          "path": "docs/guides/cartulary-ui-ux-design-guide.md",
+          "section_ref": "UI/UX guide Sections 10.5 and 14",
+          "heading_text": "UI/UX guide Sections 10.5 and 14",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "design_md",
+          "path": "docs/design.md",
+          "section_ref": "docs/design.md Accessibility Direction",
+          "heading_text": "docs/design.md Accessibility Direction",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [],
       "core_ac_ids": [],
@@ -356,29 +687,62 @@
         "D-AC-012"
       ],
       "targets": [
-        "make browser-e2e-a11y"
+        {
+          "target_name": "browser-e2e-a11y",
+          "command_id": "cartulary.harness.command.browser_e2e_a11y.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-A11Y-P3-01 Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals."
       ],
       "claim_status": "implemented",
-      "claim": "Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify grid cells, editors, group rows, active cell, edit mode, disabled/read-only state, and blocked actions are keyboard accessible and announced without color-only signals.",
+        "claim_publication_intent": "none",
+        "closure_scope": "scenario"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "design_direction_explicit_only",
       "primary_evidence_owner": "FE-A11Y-P3-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P3",
+      "blockers": []
     },
     {
       "id": "FE-S-P3-01",
       "layer": "support",
       "evidence_class": "implementation_support",
       "owner_refs": [
-        "Development guide Sections 6.3, 6.8, 6.10",
-        "R09 Sections 3.4 and 3.8 as rationale"
+        {
+          "source_key": "dev_guide",
+          "path": "docs/guides/cartulary-dev-guide.md",
+          "section_ref": "Development guide Sections 6.3, 6.8, 6.10",
+          "heading_text": "Development guide Sections 6.3, 6.8, 6.10",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "research_rationale",
+          "path": "docs/research/R09-react-data-grid-research-report.md",
+          "section_ref": "R09 Sections 3.4 and 3.8 as rationale",
+          "heading_text": "R09 Sections 3.4 and 3.8 as rationale",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "rationale_only",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [],
       "core_ac_ids": [],
@@ -387,20 +751,42 @@
         "FE-SUPPORT-AC-002"
       ],
       "targets": [
-        "make frontend-import-boundary-check",
-        "make lint-biome"
+        {
+          "target_name": "frontend-import-boundary-check",
+          "command_id": "cartulary.harness.command.frontend_import_boundary_check.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": false,
+          "scenario_title_required": false
+        },
+        {
+          "target_name": "lint-biome",
+          "command_id": "cartulary.harness.command.lint_biome.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": false,
+          "scenario_title_required": false
+        }
       ],
       "scenario_titles": [],
       "claim_status": "implemented",
-      "claim": "Enforce direct RDG import containment and single stylesheet ownership in /packages/grid-adapter.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Enforce direct RDG import containment and single stylesheet ownership in /packages/grid-adapter.",
+        "claim_publication_intent": "none",
+        "closure_scope": "target_level"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "implementation_support_explicit_only",
       "primary_evidence_owner": "FE-S-P3-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "support evidence is explicit-only",
-      "warm_local_cost_class": "medium"
+      "warm_local_cost_class": "medium",
+      "phase_id": "FE-P3",
+      "blockers": []
     }
   ]
 }

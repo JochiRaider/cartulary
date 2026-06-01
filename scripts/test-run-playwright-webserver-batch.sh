@@ -202,6 +202,29 @@ if (project === "functional") {
       }
     }
   }
+  const frontendRegistry = JSON.parse(
+    fs.readFileSync(path.join(root, "tools", "frontend_phase_registry.json"), "utf8"),
+  );
+  for (const frontendPhase of (frontendRegistry.phases ?? []).filter((entry) => entry.status === "active")) {
+    const frontendManifest = JSON.parse(
+      fs.readFileSync(path.join(root, frontendPhase.manifest_path), "utf8"),
+    );
+    for (const row of frontendManifest.rows ?? []) {
+      if (
+        row.claim_status !== "implemented" ||
+        !(row.targets ?? []).some((target) => target.target_name === "browser-e2e-webserver-backed")
+      ) {
+        continue;
+      }
+      for (const title of (row.scenario_titles ?? []).filter((candidate) => functionalGrep.test(candidate))) {
+        specs.push({
+          title,
+          file: "frontend-phase-readiness.spec.ts",
+          tests: [{ results: [fakeResult("passed")] }],
+        });
+      }
+    }
+  }
 }
 
 if (project === "support") {
@@ -214,7 +237,7 @@ if (project === "support") {
       const failed =
         mode === "support-failure" &&
         supportFile === "phase3.support.spec.ts" &&
-        match[1].includes("sort, filter, and group");
+        match[1].includes("sort, filter, group");
       specs.push({
         title: match[1],
         file: supportFile,
@@ -379,7 +402,7 @@ if (!artifactRel) {
 const artifact = JSON.parse(
   fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"),
 );
-if (artifact.schema_id !== "cartulary.frontend_row_accounting.v1") {
+if (artifact.schema_id !== "cartulary.frontend_row_accounting.v2") {
   throw new Error(`browser frontend row accounting artifact has wrong schema: ${artifact.schema_id}`);
 }
 if (JSON.stringify(artifact) !== JSON.stringify(accounting)) {
@@ -579,6 +602,7 @@ assert_contains "$(cat "$batch_runner")" "reset-web-e2e-stack.sh" "batch runner 
 
 summary_ownership_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
   CARTULARY_TEST_RUN_ID="summary-ownership" \
   CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
@@ -602,7 +626,15 @@ summary_ownership_output="$(
 )"
 summary_pass_count="$(printf '%s\n' "$summary_ownership_output" | grep -c '^\[RESULT\] target=browser-e2e-webserver-backed status=pass')"
 assert_equals "$summary_pass_count" "1" "webserver-backed authoritative summary line count"
-assert_contains "$summary_ownership_output" "slowest=teardown:1000" "webserver-backed authoritative summary includes teardown"
+summary_ownership_timing="$tmp_dir/results/summary-ownership/browser-e2e-webserver-backed/target-timing.json"
+"${NODE:-node}" - "$summary_ownership_timing" <<'NODE'
+const fs = require("node:fs");
+const timing = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const teardown = (timing.buckets ?? []).find((bucket) => bucket.name === "teardown");
+if (!teardown || teardown.duration_ms !== 1000) {
+  throw new Error(`expected teardown timing bucket duration 1000, got ${JSON.stringify(teardown)}`);
+}
+NODE
 
 browser_aggregate_results="$tmp_dir/results/browser-aggregate"
 for target in browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; do

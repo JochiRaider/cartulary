@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_claim_publication_review.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "claim_publication_intent",
+    "review_id",
+    "criterion_ids",
+    "measurement_predicate_ids",
+    "fixture_ids",
+    "pc_results",
+    "validation_result"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.frontend_claim_publication_review.v1" },
+    "claim_publication_intent": {
+      "enum": ["none", "informative_engineering_measurement", "claim_bearing_publication"]
+    },
+    "review_id": { "type": "string", "minLength": 1 },
+    "claim_text": { "type": "string" },
+    "criterion_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "measurement_predicate_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "fixture_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "benchmark_profile_id": { "type": "string" },
+    "benchmark_manifest_ref": { "type": "string" },
+    "artifact_bundle_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "security_controls_state": { "type": "object" },
+    "pc_results": { "type": "array", "items": { "type": "object" } },
+    "validation_result": { "enum": ["passed", "failed", "not_applicable"] }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "claim_publication_intent": { "const": "none" } },
+        "required": ["claim_publication_intent"]
+      },
+      "then": {
+        "properties": {
+          "criterion_ids": { "maxItems": 0 },
+          "measurement_predicate_ids": { "maxItems": 0 },
+          "fixture_ids": { "maxItems": 0 },
+          "pc_results": { "maxItems": 0 },
+          "validation_result": { "const": "not_applicable" }
+        },
+        "not": {
+          "anyOf": [
+            { "required": ["claim_text"] },
+            { "required": ["benchmark_profile_id"] },
+            { "required": ["benchmark_manifest_ref"] },
+            { "required": ["artifact_bundle_sha256"] },
+            { "required": ["security_controls_state"] }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "claim_publication_intent": { "const": "claim_bearing_publication" } },
+        "required": ["claim_publication_intent"]
+      },
+      "then": {
+        "required": [
+          "claim_text",
+          "benchmark_profile_id",
+          "benchmark_manifest_ref",
+          "artifact_bundle_sha256",
+          "security_controls_state"
+        ],
+        "properties": {
+          "criterion_ids": { "minItems": 1 },
+          "measurement_predicate_ids": { "minItems": 1 },
+          "pc_results": { "minItems": 1 },
+          "validation_result": { "enum": ["passed", "failed"] }
+        }
+      }
+    }
+  ]
+}

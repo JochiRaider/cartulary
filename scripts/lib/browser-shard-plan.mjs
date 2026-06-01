@@ -271,7 +271,9 @@ function frontendBrowserReadinessEntries(
     for (const row of manifest.rows) {
       if (
         row.claim_status !== "implemented" ||
-        !row.targets.includes("make browser-e2e-webserver-backed")
+        !row.targets.some(
+          (target) => target.target_name === "browser-e2e-webserver-backed",
+        )
       ) {
         continue;
       }

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.frontend_phase_registry.v1",
+  "schema_id": "cartulary.frontend_phase_registry.v2",
   "phase_namespace": "frontend",
   "guide_path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
   "phases": [
@@ -9,9 +9,23 @@
       "manifest_path": "tools/frontend_phase_maps/fe_p0_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p0_coverage_ledger.md",
       "owner_refs": [
-        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+        {
+          "source_key": "guide_local",
+          "path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "section_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "heading_text": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
-      "depends_on": []
+      "depends_on": [],
+      "row_rollup_state": "active_green",
+      "activation_blockers": [],
+      "evidence_freshness_digest": "d2202c4f69d7b4f4296e1392a71a18b209e6146a6be64ab00e79f96a8a3f12d4",
+      "manifest_digest": "e7ecc15eaa2b0bcf5f517043f009d1534f222b6d1a5f598240146287cd88403f",
+      "ledger_digest": "279b40af49d438019cc6678cbc2ef92426c0eb70e919cd9a5c5b4b9778df2a30"
     },
     {
       "phase_id": "FE-P1",
@@ -19,11 +33,25 @@
       "manifest_path": "tools/frontend_phase_maps/fe_p1_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p1_coverage_ledger.md",
       "owner_refs": [
-        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+        {
+          "source_key": "guide_local",
+          "path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "section_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "heading_text": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "depends_on": [
         "FE-P0"
-      ]
+      ],
+      "row_rollup_state": "active_green",
+      "activation_blockers": [],
+      "evidence_freshness_digest": "49aa684d3c7f30e950fae83ef1ce30cac8f6b50b9cd55a42d50aa5fb7dfb605c",
+      "manifest_digest": "05085794742c0bf2eb29561a810e8de8a35131a02e3367cd30691f688c4776c0",
+      "ledger_digest": "b605fb463feccf4372c81ed4aa6acfb82e20b054366c45591b62ac36ddeadeb6"
     },
     {
       "phase_id": "FE-P2",
@@ -31,12 +59,26 @@
       "manifest_path": "tools/frontend_phase_maps/fe_p2_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p2_coverage_ledger.md",
       "owner_refs": [
-        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+        {
+          "source_key": "guide_local",
+          "path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "section_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "heading_text": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "depends_on": [
         "FE-P0",
         "FE-P1"
-      ]
+      ],
+      "row_rollup_state": "active_green",
+      "activation_blockers": [],
+      "evidence_freshness_digest": "8b14bb04b208722c2b1419d01adf6b8a065313e0a401059872ee9908f4bdf193",
+      "manifest_digest": "7a886cbe47640ee4ce914239f5539a4846ebe63bd8864779ac8c24d0ec3dd103",
+      "ledger_digest": "67ed829fa1a60f68957b4feff293110fbf00f11d9d8b8c0374d99781e245bab5"
     },
     {
       "phase_id": "FE-P3",
@@ -44,13 +86,27 @@
       "manifest_path": "tools/frontend_phase_maps/fe_p3_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p3_coverage_ledger.md",
       "owner_refs": [
-        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+        {
+          "source_key": "guide_local",
+          "path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "section_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "heading_text": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "depends_on": [
         "FE-P0",
         "FE-P1",
         "FE-P2"
-      ]
+      ],
+      "row_rollup_state": "active_green",
+      "activation_blockers": [],
+      "evidence_freshness_digest": "27f9cf4b5d4f3b892840463b5e6f2233247db71a2031ade1875c2e505f2eb097",
+      "manifest_digest": "44222222ce170fa5ef838ce9e0bf27dbd65ea75b19b2805e471452c5acdf2000",
+      "ledger_digest": "f02eabddcc9b4a3dd4f06840caf4fecd310d50af4b2de2a3e787a11bb11dc998"
     },
     {
       "phase_id": "FE-P4",
@@ -58,14 +114,35 @@
       "manifest_path": "tools/frontend_phase_maps/fe_p4_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p4_coverage_ledger.md",
       "owner_refs": [
-        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+        {
+          "source_key": "guide_local",
+          "path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "section_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "heading_text": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "depends_on": [
         "FE-P0",
         "FE-P1",
         "FE-P2",
         "FE-P3"
-      ]
+      ],
+      "row_rollup_state": "no_rows_implemented",
+      "activation_blockers": [
+        {
+          "blocker_id": "FE-P4-ACTIVATION-BLOCKER-01",
+          "reason_code": "frontend_phase_not_active",
+          "description": "Frontend phase is not active until direct row evidence and freshness validation are promoted together.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ],
+      "evidence_freshness_digest": "d412dee907ef98681731a772f3c1c0ca02b6573d7c4fb7781c1eff631faa0321",
+      "manifest_digest": "7f60c5a909937ba29199607a76c2f752c51a0a8c57efb771c15126f0bb5552cb",
+      "ledger_digest": "bc6990dc9d18dc5dccc4251ad0fe909633a1f16bd843bb21f5401d852944e42e"
     },
     {
       "phase_id": "FE-P5",
@@ -73,7 +150,16 @@
       "manifest_path": "tools/frontend_phase_maps/fe_p5_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p5_coverage_ledger.md",
       "owner_refs": [
-        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+        {
+          "source_key": "guide_local",
+          "path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "section_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "heading_text": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "depends_on": [
         "FE-P0",
@@ -81,7 +167,19 @@
         "FE-P2",
         "FE-P3",
         "FE-P4"
-      ]
+      ],
+      "row_rollup_state": "no_rows_implemented",
+      "activation_blockers": [
+        {
+          "blocker_id": "FE-P5-ACTIVATION-BLOCKER-01",
+          "reason_code": "frontend_phase_not_active",
+          "description": "Frontend phase is not active until direct row evidence and freshness validation are promoted together.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ],
+      "evidence_freshness_digest": "239da26606e0b0df1ba100be61ba66560f6f79e6f53140b2881aee5c8b195758",
+      "manifest_digest": "f27ce85c5e5d7ddb188381b5d40ef0cd1feb9da5925fb63021d5407effc57800",
+      "ledger_digest": "353e64d33a73093c79c8912c04282c03d1744c95e58a5632718e17eaafc7cf98"
     },
     {
       "phase_id": "FE-P6",
@@ -89,7 +187,16 @@
       "manifest_path": "tools/frontend_phase_maps/fe_p6_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p6_coverage_ledger.md",
       "owner_refs": [
-        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+        {
+          "source_key": "guide_local",
+          "path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "section_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "heading_text": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "depends_on": [
         "FE-P0",
@@ -98,7 +205,19 @@
         "FE-P3",
         "FE-P4",
         "FE-P5"
-      ]
+      ],
+      "row_rollup_state": "no_rows_implemented",
+      "activation_blockers": [
+        {
+          "blocker_id": "FE-P6-ACTIVATION-BLOCKER-01",
+          "reason_code": "frontend_phase_not_active",
+          "description": "Frontend phase is not active until direct row evidence and freshness validation are promoted together.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ],
+      "evidence_freshness_digest": "67c22161fb737dbad8914d250f8c60e6a02799099fed07a61ac1b51f142b3296",
+      "manifest_digest": "c3d880506c9e399555188246cf8be8a24945c74ee48705bb1af99ee3b9211c4c",
+      "ledger_digest": "ac80524fed543c24a177bdce0c7824d90288811be11f25f5cc5104748d8e7be3"
     },
     {
       "phase_id": "FE-P7",
@@ -106,7 +225,16 @@
       "manifest_path": "tools/frontend_phase_maps/fe_p7_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p7_coverage_ledger.md",
       "owner_refs": [
-        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+        {
+          "source_key": "guide_local",
+          "path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "section_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "heading_text": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "depends_on": [
         "FE-P0",
@@ -116,7 +244,19 @@
         "FE-P4",
         "FE-P5",
         "FE-P6"
-      ]
+      ],
+      "row_rollup_state": "no_rows_implemented",
+      "activation_blockers": [
+        {
+          "blocker_id": "FE-P7-ACTIVATION-BLOCKER-01",
+          "reason_code": "frontend_phase_not_active",
+          "description": "Frontend phase is not active until direct row evidence and freshness validation are promoted together.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ],
+      "evidence_freshness_digest": "c1b32934936b160b269e10a67828362b195d092caab1806305ff6dfa14c379e8",
+      "manifest_digest": "e8a06efc0d55ee215451bd356993e00e64ebd585ae19b60f52200e97f86111e9",
+      "ledger_digest": "3a8afdfc9dc119088ba3a04888b04d2feb68641267926a4565e8d03efb8aa4d3"
     },
     {
       "phase_id": "FE-P8",
@@ -124,7 +264,16 @@
       "manifest_path": "tools/frontend_phase_maps/fe_p8_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p8_coverage_ledger.md",
       "owner_refs": [
-        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+        {
+          "source_key": "guide_local",
+          "path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "section_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "heading_text": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "depends_on": [
         "FE-P0",
@@ -135,7 +284,19 @@
         "FE-P5",
         "FE-P6",
         "FE-P7"
-      ]
+      ],
+      "row_rollup_state": "no_rows_implemented",
+      "activation_blockers": [
+        {
+          "blocker_id": "FE-P8-ACTIVATION-BLOCKER-01",
+          "reason_code": "frontend_phase_not_active",
+          "description": "Frontend phase is not active until direct row evidence and freshness validation are promoted together.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ],
+      "evidence_freshness_digest": "df7f35d055322dcb0344e520e97e44611aa2781343315dd422cd8040ba0bc7fc",
+      "manifest_digest": "7f3ae7991ab00f8ca554877635802313c6b39f42ac8413cf847466dc95c476ad",
+      "ledger_digest": "d18408e2b4dec27fe959f4338077c61cc5473e83f99eb5e1d6c2612404fbe8e1"
     },
     {
       "phase_id": "FE-P9",
@@ -143,7 +304,16 @@
       "manifest_path": "tools/frontend_phase_maps/fe_p9_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p9_coverage_ledger.md",
       "owner_refs": [
-        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+        {
+          "source_key": "guide_local",
+          "path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "section_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "heading_text": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "depends_on": [
         "FE-P0",
@@ -155,7 +325,19 @@
         "FE-P6",
         "FE-P7",
         "FE-P8"
-      ]
+      ],
+      "row_rollup_state": "no_rows_implemented",
+      "activation_blockers": [
+        {
+          "blocker_id": "FE-P9-ACTIVATION-BLOCKER-01",
+          "reason_code": "frontend_phase_not_active",
+          "description": "Frontend phase is not active until direct row evidence and freshness validation are promoted together.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ],
+      "evidence_freshness_digest": "3f568c97248889a7816c0c353375bb1f49bb137e7bd7403a3e268e374241f3f1",
+      "manifest_digest": "820fee96c626b73850dd4faea545ad13f6b818d533fcdd9105940042f7b9f7ff",
+      "ledger_digest": "ccab8974ebfff0e80eacf106b6bf9d4ef10afc7daae824b2d73c520fae116e6e"
     },
     {
       "phase_id": "FE-P10",
@@ -163,7 +345,16 @@
       "manifest_path": "tools/frontend_phase_maps/fe_p10_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p10_coverage_ledger.md",
       "owner_refs": [
-        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+        {
+          "source_key": "guide_local",
+          "path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "section_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "heading_text": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "depends_on": [
         "FE-P0",
@@ -176,7 +367,19 @@
         "FE-P7",
         "FE-P8",
         "FE-P9"
-      ]
+      ],
+      "row_rollup_state": "no_rows_implemented",
+      "activation_blockers": [
+        {
+          "blocker_id": "FE-P10-ACTIVATION-BLOCKER-01",
+          "reason_code": "frontend_phase_not_active",
+          "description": "Frontend phase is not active until direct row evidence and freshness validation are promoted together.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ],
+      "evidence_freshness_digest": "ddd285f2ab52af56ac7b47a2dfb992010757a1c11d7b8b511c451ef04743330a",
+      "manifest_digest": "3d5329d236ec66048b159b32df903cff215142f36d5c8829eb7a822ba6586242",
+      "ledger_digest": "de0ee90808402ff463b5dbdcbc34f0f04fb2e3d2230f215886956c3a20d5ecb5"
     },
     {
       "phase_id": "FE-P11",
@@ -184,7 +387,16 @@
       "manifest_path": "tools/frontend_phase_maps/fe_p11_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p11_coverage_ledger.md",
       "owner_refs": [
-        "docs/guides/cartulary_frontend_implementation_testing_guide.md"
+        {
+          "source_key": "guide_local",
+          "path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "section_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "heading_text": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "depends_on": [
         "FE-P0",
@@ -198,7 +410,21 @@
         "FE-P8",
         "FE-P9",
         "FE-P10"
-      ]
+      ],
+      "row_rollup_state": "partially_implemented",
+      "activation_blockers": [
+        {
+          "blocker_id": "FE-P11-ACTIVATION-BLOCKER-01",
+          "reason_code": "frontend_phase_not_active",
+          "description": "Frontend phase is not active until direct row evidence and freshness validation are promoted together.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ],
+      "evidence_freshness_digest": "32a880bf7a77d794f12cd13e5ffe38ac8b85aab26f7604a3314972fe90e2ef70",
+      "manifest_digest": "c7c17b6d9486a5a0c2726577b041f80b50b0582527193b4a34548c36671c935b",
+      "ledger_digest": "c7066be61a3bd86bf04368fc56e3b923a9b4cf1d4de768f70ee48d1029719c42"
     }
-  ]
+  ],
+  "schema_version": 2,
+  "guide_digest": "ce0017daaac430a37a586b851c0788e41358b37dfa5e3bc2ece7e904b4bc741f"
 }

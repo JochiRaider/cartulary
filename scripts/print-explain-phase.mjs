@@ -159,20 +159,26 @@ function frontendPhaseGuidance(phaseID) {
 }
 
 function renderFrontendHuman(phase) {
+  const ownerRefs = phase.owner_refs
+    .map((owner) => `${owner.path}#${owner.section_ref}`)
+    .join("; ");
   const lines = [
     `Cartulary frontend phase guidance: ${phase.phase}`,
     "namespace: frontend",
     `status: ${phase.status}`,
     `manifest: ${phase.manifest_path}`,
     `ledger: ${phase.ledger_path}`,
-    `owners: ${phase.owner_refs.join("; ")}`,
+    `owners: ${ownerRefs}`,
     `depends on: ${phase.depends_on.length === 0 ? "none" : phase.depends_on.join(", ")}`,
     "",
     "rows:",
   ];
   for (const row of phase.rows) {
+    const targets = row.targets
+      .map((target) => `make ${target.target_name}`)
+      .join(", ");
     lines.push(
-      `  - ${row.id} evidence_class=${row.evidence_class} claim_status=${row.claim_status} targets=${row.targets.join(", ")}`,
+      `  - ${row.id} evidence_class=${row.evidence_class} claim_status=${row.claim_status} targets=${targets}`,
     );
   }
   return lines.join("\n");

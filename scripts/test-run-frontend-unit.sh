@@ -201,7 +201,7 @@ for (const name of fs.readdirSync(path.join(root, "tools", "frontend_phase_maps"
   for (const row of frontendPhase.rows ?? []) {
     if (
       row.claim_status !== "implemented" ||
-      !(row.targets ?? []).includes("make frontend-unit") ||
+      !(row.targets ?? []).some((target) => target.target_name === "frontend-unit") ||
       (row.scenario_titles ?? []).length === 0
     ) {
       continue;
@@ -355,7 +355,7 @@ for (const name of fs.readdirSync(path.join(root, "tools", "frontend_phase_maps"
   for (const row of frontendPhase.rows ?? []) {
   if (
     row.claim_status !== "implemented" ||
-    !(row.targets ?? []).includes("make frontend-unit") ||
+    !(row.targets ?? []).some((target) => target.target_name === "frontend-unit") ||
     (row.scenario_titles ?? []).length === 0
   ) {
     continue;
@@ -399,7 +399,7 @@ if (!artifactRel) {
 const artifact = JSON.parse(
   fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"),
 );
-if (artifact.schema_id !== "cartulary.frontend_row_accounting.v1") {
+if (artifact.schema_id !== "cartulary.frontend_row_accounting.v2") {
   throw new Error(`frontend row accounting artifact has wrong schema: ${artifact.schema_id}`);
 }
 if (JSON.stringify(artifact) !== JSON.stringify(accounting)) {

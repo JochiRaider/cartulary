@@ -78,6 +78,7 @@
         "test_assertion_failure",
         "child_target_failure",
         "scheduler_accounting_error",
+        "frontend_row_accounting",
         "artifact_error",
         "cleanup_error",
         "duration_baseline_drift",

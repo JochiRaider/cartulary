@@ -64,6 +64,10 @@ const serviceBackedMakeTargetBaselineSchemaID =
   "cartulary.scheduler_work_unit_duration_baselines.v2";
 const toolRunSummarySchemaID = "cartulary.tool_run_summary.v3";
 const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v2";
+const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v2";
+const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v3";
+const frontendVisualFixtureRegistrySchemaID =
+  "cartulary.frontend_visual_fixture_registry.v1";
 const sharedExtensionsRef = "cartulary.harness.defs.v1#/$defs/extensions";
 const schedulerSummaryCommonSchemaID = "cartulary.scheduler_summary.common.v9";
 
@@ -422,6 +426,26 @@ function repoFile(root, relativePath) {
 
 function readShapeFile(file, label = file) {
   return readJsonObject(file, label);
+}
+
+function validateFrontendSchemaArtifacts(root) {
+  validateSchemaSync(
+    frontendPhaseRegistrySchemaID,
+    readShapeFile(repoFile(root, "tools/frontend_phase_registry.json")),
+  );
+  const mapDir = repoFile(root, "tools/frontend_phase_maps");
+  for (const filename of readdirSync(mapDir).filter((name) =>
+    name.endsWith(".json"),
+  )) {
+    validateSchemaSync(
+      frontendPhaseTestMapSchemaID,
+      readShapeFile(path.join(mapDir, filename)),
+    );
+  }
+  validateSchemaSync(
+    frontendVisualFixtureRegistrySchemaID,
+    readShapeFile(repoFile(root, "tools/frontend_visual_fixture_registry.json")),
+  );
 }
 
 function validatePhaseRegistryShape(file) {
@@ -1441,6 +1465,7 @@ function validateAll(root) {
   validatePhaseRegistryShape(repoFile(root, "tools/phase_registry.json"));
   validatePhaseRegistry(root);
   validateFrontendPhaseArtifacts(root);
+  validateFrontendSchemaArtifacts(root);
   for (const entry of activePhaseRegistryEntries(root)) {
     validatePhaseMapShape(repoFile(root, entry.manifest_path));
     validatePhaseManifestSemantics(root, entry.phase);

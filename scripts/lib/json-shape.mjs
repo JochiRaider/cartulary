@@ -2,8 +2,131 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 export function readJsonObject(file, label = file) {
-  const value = JSON.parse(readFileSync(file, "utf8"));
+  const text = readFileSync(file, "utf8");
+  assertNoDuplicateObjectMembers(text, label);
+  const value = JSON.parse(text);
   return requireObject(value, label);
+}
+
+export function parseJsonObject(text, label = "json") {
+  assertNoDuplicateObjectMembers(text, label);
+  return requireObject(JSON.parse(text), label);
+}
+
+function assertNoDuplicateObjectMembers(text, label) {
+  let index = skipWhitespace(text, 0);
+
+  function fail(message) {
+    throw new Error(`${label} ${message}`);
+  }
+
+  function skipWhitespaceAt(position) {
+    return skipWhitespace(text, position);
+  }
+
+  function parseString(position) {
+    if (text[position] !== '"') {
+      fail(`expected JSON string at byte ${position}`);
+    }
+    let cursor = position + 1;
+    while (cursor < text.length) {
+      const char = text[cursor];
+      if (char === "\\") {
+        cursor += 2;
+        continue;
+      }
+      if (char === '"') {
+        return [JSON.parse(text.slice(position, cursor + 1)), cursor + 1];
+      }
+      cursor += 1;
+    }
+    fail(`unterminated JSON string at byte ${position}`);
+  }
+
+  function parsePrimitive(position) {
+    let cursor = position;
+    while (cursor < text.length && !/[,\]}]/.test(text[cursor])) {
+      cursor += 1;
+    }
+    return cursor;
+  }
+
+  function parseArray(position) {
+    let cursor = skipWhitespaceAt(position + 1);
+    if (text[cursor] === "]") {
+      return cursor + 1;
+    }
+    while (cursor < text.length) {
+      cursor = skipWhitespaceAt(parseValue(cursor));
+      if (text[cursor] === ",") {
+        cursor = skipWhitespaceAt(cursor + 1);
+        continue;
+      }
+      if (text[cursor] === "]") {
+        return cursor + 1;
+      }
+      fail(`expected array separator at byte ${cursor}`);
+    }
+    fail(`unterminated JSON array at byte ${position}`);
+  }
+
+  function parseObject(position) {
+    const keys = new Set();
+    let cursor = skipWhitespaceAt(position + 1);
+    if (text[cursor] === "}") {
+      return cursor + 1;
+    }
+    while (cursor < text.length) {
+      const [key, afterKey] = parseString(cursor);
+      if (keys.has(key)) {
+        fail(`has duplicate object member ${JSON.stringify(key)}`);
+      }
+      keys.add(key);
+      cursor = skipWhitespaceAt(afterKey);
+      if (text[cursor] !== ":") {
+        fail(`expected object member separator at byte ${cursor}`);
+      }
+      cursor = skipWhitespaceAt(parseValue(skipWhitespaceAt(cursor + 1)));
+      if (text[cursor] === ",") {
+        cursor = skipWhitespaceAt(cursor + 1);
+        continue;
+      }
+      if (text[cursor] === "}") {
+        return cursor + 1;
+      }
+      fail(`expected object separator at byte ${cursor}`);
+    }
+    fail(`unterminated JSON object at byte ${position}`);
+  }
+
+  function parseValue(position) {
+    const cursor = skipWhitespaceAt(position);
+    const char = text[cursor];
+    if (char === "{") {
+      return parseObject(cursor);
+    }
+    if (char === "[") {
+      return parseArray(cursor);
+    }
+    if (char === '"') {
+      return parseString(cursor)[1];
+    }
+    return parsePrimitive(cursor);
+  }
+
+  index = parseValue(index);
+  index = skipWhitespaceAt(index);
+  if (index !== text.length) {
+    fail(`has trailing content at byte ${index}`);
+  }
+}
+
+function skipWhitespace(text, position) {
+  let cursor = position;
+  while (cursor < text.length && /\s/.test(text[cursor])) {
+    cursor += 1;
+  }
+  return cursor;
 }
 
 export function requireObject(value, label) {

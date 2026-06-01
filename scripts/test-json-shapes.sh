@@ -453,7 +453,16 @@ write_valid_frontend_accessibility_summary_v2() {
       "phase_id": "FE-P1",
       "evidence_class": "design_direction",
       "claim_status": "implemented",
-      "targets": ["make browser-e2e-a11y"]
+      "targets": [
+        {
+          "target_name": "browser-e2e-a11y",
+          "command_id": "cartulary.harness.command.browser_e2e_a11y.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
+      ]
     }
   ],
   "scenarios": [
@@ -531,7 +540,16 @@ write_valid_frontend_accessibility_preflight_summary() {
       "phase_id": "FE-P2",
       "evidence_class": "design_direction",
       "claim_status": "blocked",
-      "targets": ["make browser-e2e-a11y"]
+      "targets": [
+        {
+          "target_name": "browser-e2e-a11y",
+          "command_id": "cartulary.harness.command.browser_e2e_a11y.v1",
+          "evidence_role": "diagnostic_only",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": false,
+          "scenario_title_required": true
+        }
+      ]
     }
   ],
   "scenarios": [
@@ -557,17 +575,74 @@ write_valid_frontend_row_accounting() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.frontend_row_accounting.v1",
-  "target": "browser-e2e-webserver-backed",
+  "schema_id": "cartulary.frontend_row_accounting.v2",
+  "target_name": "browser-e2e-webserver-backed",
+  "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
+  "phase_namespace": "frontend",
+  "registry_ref": "tools/frontend_phase_registry.json",
+  "registry_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "guide_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+  "guide_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "phase_map_refs": [
+    "tools/frontend_phase_maps/fe_p2_test_map.json"
+  ],
+  "phase_map_digests": [
+    "2222222222222222222222222222222222222222222222222222222222222222"
+  ],
+  "run_root": ".cartulary/test-results/run",
   "target_status": "pass",
+  "scenario_results": [
+    {
+      "scenario_title": "FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration.",
+      "status": "passed",
+      "row_ids": [
+        "FE-B-P2-02"
+      ],
+      "artifact_refs": [
+        "apps/web/e2e/phase2.spec.ts"
+      ]
+    }
+  ],
+  "row_results": [
+    {
+      "row_id": "FE-B-P2-02",
+      "phase_id": "FE-P2",
+      "evidence_class": "product_conformance",
+      "claim_status_at_run": "implemented",
+      "target_mapping_status": "mapped",
+      "closure_status": "closed",
+      "closing_scenario_titles": [
+        "FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration."
+      ],
+      "failure_reason": ""
+    }
+  ],
+  "rollup": {
+    "implemented": 1,
+    "blocked": 0,
+    "missing": 0,
+    "stale": 0,
+    "not_applicable": 0,
+    "closed": 1,
+    "failed": 0
+  },
+  "target": "browser-e2e-webserver-backed",
   "rows": [
     {
       "phase_id": "FE-P2",
       "phase_status": "planned",
+      "row_rollup_state": "active_green",
       "row_id": "FE-B-P2-02",
       "layer": "browser_integration",
       "evidence_class": "product_conformance",
       "claim_status": "implemented",
+      "claim": {
+        "statement": "fixture claim",
+        "claim_publication_intent": "none",
+        "closure_scope": "scenario"
+      },
+      "blockers": [],
+      "required_for_closure": true,
       "scenario_titles": [
         "FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration."
       ],
@@ -953,27 +1028,27 @@ assert_contains "$frontend_a11y_preflight_implemented_output" "must be equal to 
 frontend_row_accounting="$tmp_dir/frontend-row-accounting.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting"
 assert_passes "frontend row accounting validates exact schema" \
-  run_schema_validation cartulary.frontend_row_accounting.v1 "$frontend_row_accounting" >/dev/null
+  run_schema_validation cartulary.frontend_row_accounting.v2 "$frontend_row_accounting" >/dev/null
 
 frontend_row_accounting_unknown_key="$tmp_dir/frontend-row-accounting-unknown-key.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting_unknown_key"
 mutate_json_fixture frontend-row-accounting-unknown-key "$frontend_row_accounting_unknown_key"
 frontend_row_accounting_unknown_key_output="$(assert_fails "frontend row accounting rejects unknown row keys" \
-  run_schema_validation cartulary.frontend_row_accounting.v1 "$frontend_row_accounting_unknown_key")"
+  run_schema_validation cartulary.frontend_row_accounting.v2 "$frontend_row_accounting_unknown_key")"
 assert_contains "$frontend_row_accounting_unknown_key_output" "must NOT have additional properties" "frontend row accounting unknown key"
 
 frontend_row_accounting_bad_closure="$tmp_dir/frontend-row-accounting-bad-closure.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting_bad_closure"
 mutate_json_fixture frontend-row-accounting-invalid-closure "$frontend_row_accounting_bad_closure"
 frontend_row_accounting_bad_closure_output="$(assert_fails "frontend row accounting rejects invalid closure status" \
-  run_schema_validation cartulary.frontend_row_accounting.v1 "$frontend_row_accounting_bad_closure")"
+  run_schema_validation cartulary.frontend_row_accounting.v2 "$frontend_row_accounting_bad_closure")"
 assert_contains "$frontend_row_accounting_bad_closure_output" "must be equal to one of the allowed values" "frontend row accounting invalid closure"
 
 frontend_row_accounting_bad_scenario="$tmp_dir/frontend-row-accounting-bad-scenario.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting_bad_scenario"
 mutate_json_fixture frontend-row-accounting-invalid-scenario-status "$frontend_row_accounting_bad_scenario"
 frontend_row_accounting_bad_scenario_output="$(assert_fails "frontend row accounting rejects invalid scenario status" \
-  run_schema_validation cartulary.frontend_row_accounting.v1 "$frontend_row_accounting_bad_scenario")"
+  run_schema_validation cartulary.frontend_row_accounting.v2 "$frontend_row_accounting_bad_scenario")"
 assert_contains "$frontend_row_accounting_bad_scenario_output" "must be equal to one of the allowed values" "frontend row accounting invalid scenario"
 
 frontend_a11y_writer_missing="$tmp_dir/frontend-accessibility-summary-writer-missing.json"
@@ -1017,6 +1092,17 @@ cat >"$duplicate_phase_registry" <<'JSON'
 JSON
 duplicate_phase_output="$(assert_fails "duplicate phase identifiers" run_shape_check phase-registry "$duplicate_phase_registry")"
 assert_contains "$duplicate_phase_output" "phases.phase contains duplicate phase9" "duplicate phase identifiers"
+
+duplicate_member_registry="$tmp_dir/phase_registry_duplicate_member.json"
+cat >"$duplicate_member_registry" <<'JSON'
+{
+  "schema_id": "cartulary.phase_registry.v1",
+  "schema_id": "cartulary.phase_registry.v1",
+  "phases": []
+}
+JSON
+duplicate_member_output="$(assert_fails "duplicate JSON object member" run_shape_check phase-registry "$duplicate_member_registry")"
+assert_contains "$duplicate_member_output" "duplicate object member \"schema_id\"" "duplicate JSON object member"
 
 phase_map="$tmp_dir/phase9_test_map.json"
 write_valid_phase_map "$phase_map"

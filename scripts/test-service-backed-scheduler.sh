@@ -727,7 +727,7 @@ const owner = "apps/web/e2e/fake-service-backed-scheduler.spec.ts";
 for (const file of fs.readdirSync(mapDir).filter((entry) => entry.endsWith(".json")).sort()) {
   const manifest = JSON.parse(fs.readFileSync(path.join(mapDir, file), "utf8"));
   for (const row of manifest.rows ?? []) {
-    if (!(row.targets ?? []).includes(`make ${target}`)) {
+    if (!(row.targets ?? []).some((targetRef) => targetRef.target_name === target)) {
       continue;
     }
     const coverage = row.evidence_class === "product_conformance" ? "authoritative" : "support";

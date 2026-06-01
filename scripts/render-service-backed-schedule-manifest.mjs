@@ -689,7 +689,7 @@ function hasPlaywrightRows(coverage, executionDependency) {
       return manifest.rows.some(
         (row) =>
           row.id.startsWith("FE-A11Y-") &&
-          row.targets.includes("make browser-e2e-a11y") &&
+          row.targets.some((target) => target.target_name === "browser-e2e-a11y") &&
           coverage === "authoritative",
       );
     });

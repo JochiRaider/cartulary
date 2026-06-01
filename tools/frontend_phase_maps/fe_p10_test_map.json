@@ -1,16 +1,60 @@
 {
-  "schema_id": "cartulary.frontend_phase_test_map.v2",
+  "schema_id": "cartulary.frontend_phase_test_map.v3",
+  "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P10",
+  "guide_digest": "ce0017daaac430a37a586b851c0788e41358b37dfa5e3bc2ece7e904b4bc741f",
   "rows": [
     {
       "id": "FE-U-P10-01",
       "layer": "unit",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Section 8.5",
-        "Core 02 Sections 5.3 and 5.4",
-        "Core 03 Sections 2.2, 4.9, 4.10, 4.13"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Section 8.5",
+          "heading_text": "8.5 Hot-path retrieval and evidence boundary",
+          "req_ids": [
+            "REQ-01-296",
+            "REQ-01-302",
+            "REQ-01-499",
+            "REQ-01-509"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core02",
+          "path": "docs/spec/02_domain_model_schema_and_history.md",
+          "section_ref": "Core 02 Sections 18 and 19",
+          "heading_text": "18 Canonical closed-vocabulary registry; 19 Incident-scoped party model",
+          "req_ids": [
+            "REQ-02-222",
+            "REQ-02-232"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Sections 2.2, 16.3, 16.4, 18, and 19",
+          "heading_text": "2.2 System views; 16.3 Compromise-assessment surfaces; 16.4 Analyst-work coordination surfaces; 18 Excel-like feel versus intentional differences; 19 Interaction invariants",
+          "req_ids": [
+            "REQ-03-005",
+            "REQ-03-011",
+            "REQ-03-250",
+            "REQ-03-260",
+            "REQ-03-265",
+            "REQ-03-274"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-296",
@@ -48,28 +92,74 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make frontend-unit"
+        {
+          "target_name": "frontend-unit",
+          "command_id": "cartulary.harness.command.frontend_unit.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": false
+        }
       ],
       "scenario_titles": [],
       "claim_status": "blocked",
-      "claim": "Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-U-P10-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "full evidence is retained outside default check",
-      "warm_local_cost_class": "low"
+      "warm_local_cost_class": "low",
+      "phase_id": "FE-P10",
+      "blockers": [
+        {
+          "blocker_id": "FE-U-P10-01-BLOCKER-01",
+          "reason_code": "frontend_phase_row_not_implemented",
+          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     },
     {
       "id": "FE-B-P10-01",
       "layer": "browser_integration",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 03 Sections 2.2, 4.9, 4.10",
-        "UI/UX guide Sections 6 and 11"
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Sections 2.2, 16.3, and 16.4",
+          "heading_text": "2.2 System views; 16.3 Compromise-assessment surfaces; 16.4 Analyst-work coordination surfaces",
+          "req_ids": [
+            "REQ-03-005",
+            "REQ-03-011",
+            "REQ-03-250",
+            "REQ-03-260",
+            "REQ-03-273"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "ui_ux_guide",
+          "path": "docs/guides/cartulary-ui-ux-design-guide.md",
+          "section_ref": "UI/UX guide Sections 6 and 11",
+          "heading_text": "UI/UX guide Sections 6 and 11",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-03-005",
@@ -98,30 +188,75 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make browser-e2e-webserver-backed"
+        {
+          "target_name": "browser-e2e-webserver-backed",
+          "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-B-P10-01 Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Status Review, and Lesson open inside the same workbook shell and retain view controls."
       ],
       "claim_status": "blocked",
-      "claim": "Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Status Review, and Lesson open inside the same workbook shell and retain view controls.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Status Review, and Lesson open inside the same workbook shell and retain view controls.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-B-P10-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "full evidence is retained outside default check",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P10",
+      "blockers": [
+        {
+          "blocker_id": "FE-B-P10-01-BLOCKER-01",
+          "reason_code": "frontend_phase_row_not_implemented",
+          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     },
     {
       "id": "FE-B-P10-02",
       "layer": "browser_integration",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 03 Sections 4.1, 14, and 4.13",
-        "UI/UX guide Sections 10 and 14"
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Sections 4.1, 14, 18, and 19",
+          "heading_text": "4.1 Autosave; 14 Sorting, filtering, and grouping; 18 Excel-like feel versus intentional differences; 19 Interaction invariants",
+          "req_ids": [
+            "REQ-03-217",
+            "REQ-03-235",
+            "REQ-03-263",
+            "REQ-03-265"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "ui_ux_guide",
+          "path": "docs/guides/cartulary-ui-ux-design-guide.md",
+          "section_ref": "UI/UX guide Sections 10 and 14",
+          "heading_text": "UI/UX guide Sections 10 and 14",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-03-217",
@@ -154,32 +289,104 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make browser-e2e-support",
-        "make browser-e2e-webserver-backed"
+        {
+          "target_name": "browser-e2e-support",
+          "command_id": "cartulary.harness.command.browser_e2e_support.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        },
+        {
+          "target_name": "browser-e2e-webserver-backed",
+          "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder."
       ],
       "claim_status": "blocked",
-      "claim": "Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-B-P10-02",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "full evidence is retained outside default check",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P10",
+      "blockers": [
+        {
+          "blocker_id": "FE-B-P10-02-BLOCKER-01",
+          "reason_code": "frontend_phase_row_not_implemented",
+          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     },
     {
       "id": "FE-E-P10-01",
       "layer": "e2e",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Sections 3.3.4, 3.3.6, 8.5",
-        "Core 03 Sections 4.9 and 4.10",
-        "Core 04 Section 3"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Sections 3.3.4, 3.3.6, 8.5",
+          "heading_text": "3.3.4 View-shaped read contract; 3.3.6 Success and error envelopes; 8.5 Hot-path retrieval and evidence boundary",
+          "req_ids": [
+            "REQ-01-034",
+            "REQ-01-036",
+            "REQ-01-057",
+            "REQ-01-070",
+            "REQ-01-296",
+            "REQ-01-302",
+            "REQ-01-499",
+            "REQ-01-506"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Sections 16.3 and 16.4",
+          "heading_text": "16.3 Compromise-assessment surfaces; 16.4 Analyst-work coordination surfaces",
+          "req_ids": [
+            "REQ-03-250",
+            "REQ-03-260",
+            "REQ-03-273"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core04",
+          "path": "docs/spec/04_security_deployment_and_conformance.md",
+          "section_ref": "Core 04 Section 3",
+          "heading_text": "3 Attribution and audit requirements",
+          "req_ids": [
+            "REQ-04-021",
+            "REQ-04-030"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-034",
@@ -237,31 +444,78 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make browser-e2e-webserver-backed",
-        "make browser-e2e-stateful"
+        {
+          "target_name": "browser-e2e-webserver-backed",
+          "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        },
+        {
+          "target_name": "browser-e2e-stateful",
+          "command_id": "cartulary.harness.command.browser_e2e_stateful.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-E-P10-01 Verify coordination rows can be queried and edited through public view/row mutation contracts with current-role authorization."
       ],
       "claim_status": "blocked",
-      "claim": "Verify coordination rows can be queried and edited through public view/row mutation contracts with current-role authorization.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify coordination rows can be queried and edited through public view/row mutation contracts with current-role authorization.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-E-P10-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "full evidence is retained outside default check",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P10",
+      "blockers": [
+        {
+          "blocker_id": "FE-E-P10-01-BLOCKER-01",
+          "reason_code": "frontend_phase_row_not_implemented",
+          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     },
     {
       "id": "FE-V-P10-01",
-      "layer": "visual_regression",
+      "layer": "visual",
       "evidence_class": "design_direction",
       "owner_refs": [
-        "UI/UX guide Sections 11, 13, 14",
-        "visual golden guide Sections 2, 3, 5"
+        {
+          "source_key": "ui_ux_guide",
+          "path": "docs/guides/cartulary-ui-ux-design-guide.md",
+          "section_ref": "UI/UX guide Sections 11, 13, 14",
+          "heading_text": "UI/UX guide Sections 11, 13, 14",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "visual_golden_guide",
+          "path": "docs/guides/cartulary_visual_golden_maintenance.md",
+          "section_ref": "visual golden guide Sections 2, 3, 5",
+          "heading_text": "visual golden guide Sections 2, 3, 5",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [],
       "core_ac_ids": [],
@@ -274,29 +528,69 @@
         "R2-RDG-AC-010"
       ],
       "targets": [
-        "make browser-e2e-visual"
+        {
+          "target_name": "browser-e2e-visual",
+          "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-V-P10-01 Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures."
       ],
       "claim_status": "blocked",
-      "claim": "Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "design_direction_explicit_only",
       "primary_evidence_owner": "FE-V-P10-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P10",
+      "blockers": [
+        {
+          "blocker_id": "FE-V-P10-01-BLOCKER-01",
+          "reason_code": "visual_fixture_not_recaptured_for_frontend_row",
+          "description": "Visual fixture is planned but direct frontend row-accounting evidence has not been recaptured under the closed fixture registry.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     },
     {
       "id": "FE-A11Y-P10-01",
       "layer": "accessibility",
       "evidence_class": "design_direction",
       "owner_refs": [
-        "UI/UX guide Sections 10, 11, 14",
-        "docs/design.md Accessibility Direction"
+        {
+          "source_key": "ui_ux_guide",
+          "path": "docs/guides/cartulary-ui-ux-design-guide.md",
+          "section_ref": "UI/UX guide Sections 10, 11, 14",
+          "heading_text": "UI/UX guide Sections 10, 11, 14",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "design_md",
+          "path": "docs/design.md",
+          "section_ref": "docs/design.md Accessibility Direction",
+          "heading_text": "docs/design.md Accessibility Direction",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [],
       "core_ac_ids": [],
@@ -311,21 +605,43 @@
         "D-AC-012"
       ],
       "targets": [
-        "make browser-e2e-a11y-preflight"
+        {
+          "target_name": "browser-e2e-a11y-preflight",
+          "command_id": "cartulary.harness.command.browser_e2e_a11y_preflight.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-A11Y-P10-01 Verify coordination surfaces and full keyboard/clipboard controls meet keyboard reachability, focus visibility, accessible-name, ARIA, and non-color-only state expectations."
       ],
       "claim_status": "blocked",
-      "claim": "Verify coordination surfaces and full keyboard/clipboard controls meet keyboard reachability, focus visibility, accessible-name, ARIA, and non-color-only state expectations.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify coordination surfaces and full keyboard/clipboard controls meet keyboard reachability, focus visibility, accessible-name, ARIA, and non-color-only state expectations.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "design_direction_explicit_only",
       "primary_evidence_owner": "FE-A11Y-P10-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P10",
+      "blockers": [
+        {
+          "blocker_id": "FE-A11Y-P10-01-BLOCKER-01",
+          "reason_code": "frontend_phase_row_not_implemented",
+          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     }
   ]
 }

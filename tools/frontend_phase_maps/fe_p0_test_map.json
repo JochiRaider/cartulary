@@ -1,15 +1,45 @@
 {
-  "schema_id": "cartulary.frontend_phase_test_map.v2",
+  "schema_id": "cartulary.frontend_phase_test_map.v3",
+  "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P0",
+  "guide_digest": "ce0017daaac430a37a586b851c0788e41358b37dfa5e3bc2ece7e904b4bc741f",
   "rows": [
     {
       "id": "FE-U-P0-01",
       "layer": "unit",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Sections 3.3.1, 7.4",
-        "development guide Sections 6.2, 6.6"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Sections 3.3.1, 7.4",
+          "heading_text": "3.3.1 Versioning and compatibility; 7.4 Authoritative base-profile view schema registry",
+          "req_ids": [
+            "REQ-01-019",
+            "REQ-01-020",
+            "REQ-01-022",
+            "REQ-01-034",
+            "REQ-01-307",
+            "REQ-01-308",
+            "REQ-01-309",
+            "REQ-01-310",
+            "REQ-01-311"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "dev_guide",
+          "path": "docs/guides/cartulary-dev-guide.md",
+          "section_ref": "development guide Sections 6.2, 6.6",
+          "heading_text": "development guide Sections 6.2, 6.6",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-019",
@@ -39,29 +69,93 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make frontend-typecheck",
-        "make frontend-unit"
+        {
+          "target_name": "frontend-typecheck",
+          "command_id": "cartulary.harness.command.frontend_typecheck.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": false,
+          "scenario_title_required": false
+        },
+        {
+          "target_name": "frontend-unit",
+          "command_id": "cartulary.harness.command.frontend_unit.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
-      "scenario_titles": [],
+      "scenario_titles": [
+        "exposes generated artifact families through stable facade helpers",
+        "requires and parses known contract artifacts through the facade",
+        "exposes stable current-profile view schema identifiers",
+        "exposes error and reason-code registries through facade helpers",
+        "exposes extension registry profiles through facade helpers"
+      ],
       "claim_status": "implemented",
-      "claim": "Verify generated protocol exports and frontend contract facades expose stable identifiers without hand-editing generated code.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify generated protocol exports and frontend contract facades expose stable identifiers without hand-editing generated code.",
+        "claim_publication_intent": "none",
+        "closure_scope": "target_level"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": true,
       "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior.",
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
       "primary_evidence_owner": "FE-U-P0-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "primary local evidence for the declared row",
-      "warm_local_cost_class": "low"
+      "warm_local_cost_class": "low",
+      "phase_id": "FE-P0",
+      "blockers": []
     },
     {
       "id": "FE-U-P0-02",
       "layer": "unit",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Section 3.3.4",
-        "Core 03 Section 14"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Section 3.3.4",
+          "heading_text": "3.3.4 View-shaped read contract",
+          "req_ids": [
+            "REQ-01-034",
+            "REQ-01-035",
+            "REQ-01-036"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Section 14",
+          "heading_text": "14 Sorting, filtering, and grouping",
+          "req_ids": [
+            "REQ-03-223",
+            "REQ-03-224",
+            "REQ-03-225",
+            "REQ-03-226",
+            "REQ-03-227",
+            "REQ-03-228",
+            "REQ-03-229",
+            "REQ-03-230",
+            "REQ-03-231",
+            "REQ-03-232",
+            "REQ-03-233",
+            "REQ-03-234",
+            "REQ-03-235"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-034",
@@ -106,30 +200,113 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make frontend-unit"
+        {
+          "target_name": "frontend-unit",
+          "command_id": "cartulary.harness.command.frontend_unit.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
-      "scenario_titles": [],
+      "scenario_titles": [
+        "FE-U-P0-02 selects generated contracts by view_schema_id, not display title",
+        "FE-U-P0-02 keeps field identity and capabilities stable when labels change",
+        "FE-U-P0-02 treats duplicate labels as display-only with distinct field_key identities",
+        "FE-U-P0-02 keeps field identity stable when fields and visible columns reorder",
+        "FE-U-P0-02 resolves editable, queryable, and synthetic fields by field_key",
+        "FE-U-P0-02 fails deterministically for duplicate and missing field_key inputs",
+        "FE-U-P0-02 fails deterministically for unknown field_key references",
+        "FE-U-P0-02 visibleFields fails deterministically when default-visible keys are unresolved"
+      ],
       "claim_status": "implemented",
-      "claim": "Verify view-schema adapters key editable and queryable fields by field_key, not labels, indexes, or visible column order.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify view-schema adapters key editable and queryable fields by field_key, not labels, indexes, or visible column order.",
+        "claim_publication_intent": "none",
+        "closure_scope": "target_level"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": true,
       "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior.",
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
       "primary_evidence_owner": "FE-U-P0-02",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "primary local evidence for the declared row",
-      "warm_local_cost_class": "low"
+      "warm_local_cost_class": "low",
+      "phase_id": "FE-P0",
+      "blockers": []
     },
     {
       "id": "FE-U-P0-03",
       "layer": "unit",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Section 3.3.4.2",
-        "Core 01 Section 7.4",
-        "Core 02 Section 18",
-        "development guide Section 6.4"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Section 3.3.4.2",
+          "heading_text": "3.3.4.2 Record-history read contract",
+          "req_ids": [
+            "REQ-01-052",
+            "REQ-01-053",
+            "REQ-01-053A",
+            "REQ-01-054",
+            "REQ-01-307",
+            "REQ-01-308",
+            "REQ-01-309",
+            "REQ-01-310",
+            "REQ-01-311"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Section 7.4",
+          "heading_text": "7.4 Authoritative base-profile view schema registry",
+          "req_ids": [
+            "REQ-01-052",
+            "REQ-01-053",
+            "REQ-01-053A",
+            "REQ-01-054",
+            "REQ-01-307",
+            "REQ-01-308",
+            "REQ-01-309",
+            "REQ-01-310",
+            "REQ-01-311"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core02",
+          "path": "docs/spec/02_domain_model_schema_and_history.md",
+          "section_ref": "Core 02 Section 18",
+          "heading_text": "18 Canonical closed-vocabulary registry",
+          "req_ids": [
+            "REQ-02-222",
+            "REQ-02-223"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "dev_guide",
+          "path": "docs/guides/cartulary-dev-guide.md",
+          "section_ref": "development guide Section 6.4",
+          "heading_text": "development guide Section 6.4",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-052",
@@ -185,28 +362,69 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make frontend-unit"
+        {
+          "target_name": "frontend-unit",
+          "command_id": "cartulary.harness.command.frontend_unit.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
-      "scenario_titles": [],
+      "scenario_titles": [
+        "returns deterministic selectors for identical stable identifiers",
+        "derives surface selectors from view_schema_id instead of visible titles",
+        "builds stable System views switcher selectors from closed groups and view_schema_id",
+        "keeps visible field labels and display names out of cell selectors",
+        "derives row and row-action selectors from record_id",
+        "derives row-history items and actions from stable history identity rather than render index",
+        "validates closed-vocabulary-derived selector tokens"
+      ],
       "claim_status": "implemented",
-      "claim": "Verify stable selector and test-id builders derive identifiers from stable IDs, including row-history history_item_ref, registry-backed view_schema_id values, and selector-relevant closed vocabularies rather than visible labels.",
-      "out_of_scope": "This frontend readiness row does not change Core 05 publication authority; row-history response identity changes remain owned by Core 01 and Core 02.",
+      "claim": {
+        "statement": "Verify stable selector and test-id builders derive identifiers from stable IDs, including row-history history_item_ref, registry-backed view_schema_id values, and selector-relevant closed vocabularies rather than visible labels.",
+        "claim_publication_intent": "none",
+        "closure_scope": "target_level"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core 05 publication authority; row-history response identity changes remain owned by Core 01 and Core 02."
+      ],
       "default_check_required": true,
       "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior.",
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
       "primary_evidence_owner": "FE-U-P0-03",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "primary local evidence for the declared row",
-      "warm_local_cost_class": "low"
+      "warm_local_cost_class": "low",
+      "phase_id": "FE-P0",
+      "blockers": []
     },
     {
       "id": "FE-S-P0-01",
       "layer": "support",
       "evidence_class": "implementation_support",
       "owner_refs": [
-        "Core 00 Section 1",
-        "development guide Sections 2, 6.6, 7.1"
+        {
+          "source_key": "core00",
+          "path": "docs/spec/00_document_set_status_and_precedence.md",
+          "section_ref": "Core 00 Section 1",
+          "heading_text": "1 Status",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "dev_guide",
+          "path": "docs/guides/cartulary-dev-guide.md",
+          "section_ref": "development guide Sections 2, 6.6, 7.1",
+          "heading_text": "development guide Sections 2, 6.6, 7.1",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [],
       "core_ac_ids": [],
@@ -214,28 +432,68 @@
         "FE-SUPPORT-AC-004"
       ],
       "targets": [
-        "make generated-artifact-policy-check",
-        "make generate-drift"
+        {
+          "target_name": "generated-artifact-policy-check",
+          "command_id": "cartulary.harness.command.generated_artifact_policy_check.v1",
+          "evidence_role": "drift",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": false,
+          "scenario_title_required": false
+        },
+        {
+          "target_name": "generate-drift",
+          "command_id": "cartulary.harness.command.generate_drift.v1",
+          "evidence_role": "drift",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": false,
+          "scenario_title_required": false
+        }
       ],
       "scenario_titles": [],
       "claim_status": "implemented",
-      "claim": "Enforce generated protocol policy and detect generated contract drift.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Enforce generated protocol policy and detect generated contract drift.",
+        "claim_publication_intent": "none",
+        "closure_scope": "target_level"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "implementation_support_explicit_only",
       "primary_evidence_owner": "FE-S-P0-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "support evidence is explicit-only",
-      "warm_local_cost_class": "medium"
+      "warm_local_cost_class": "medium",
+      "phase_id": "FE-P0",
+      "blockers": []
     },
     {
       "id": "FE-S-P0-02",
       "layer": "support",
       "evidence_class": "implementation_support",
       "owner_refs": [
-        "Development guide Sections 6.1, 6.3, 6.8, 6.10",
-        "implementation guide Section 14.8"
+        {
+          "source_key": "dev_guide",
+          "path": "docs/guides/cartulary-dev-guide.md",
+          "section_ref": "Development guide Sections 6.1, 6.3, 6.8, 6.10",
+          "heading_text": "Development guide Sections 6.1, 6.3, 6.8, 6.10",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "implementation_testing_guide",
+          "path": "docs/guides/cartulary_implementation_testing_guide.md",
+          "section_ref": "implementation guide Section 14.8",
+          "heading_text": "implementation guide Section 14.8",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [],
       "core_ac_ids": [],
@@ -244,26 +502,50 @@
         "FE-SUPPORT-AC-002"
       ],
       "targets": [
-        "make frontend-import-boundary-check"
+        {
+          "target_name": "frontend-import-boundary-check",
+          "command_id": "cartulary.harness.command.frontend_import_boundary_check.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": false,
+          "scenario_title_required": false
+        }
       ],
       "scenario_titles": [],
       "claim_status": "implemented",
-      "claim": "Enforce frontend import boundaries: /apps/web must consume /packages/grid-adapter and must not import react-data-grid directly.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Enforce frontend import boundaries: /apps/web must consume /packages/grid-adapter and must not import react-data-grid directly.",
+        "claim_publication_intent": "none",
+        "closure_scope": "target_level"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "implementation_support_explicit_only",
       "primary_evidence_owner": "FE-S-P0-02",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "support evidence is explicit-only",
-      "warm_local_cost_class": "medium"
+      "warm_local_cost_class": "medium",
+      "phase_id": "FE-P0",
+      "blockers": []
     },
     {
       "id": "FE-S-P0-03",
       "layer": "support",
       "evidence_class": "implementation_support",
       "owner_refs": [
-        "Implementation guide Sections 15 and 16"
+        {
+          "source_key": "guide_local",
+          "path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+          "section_ref": "Implementation guide Sections 15 and 16",
+          "heading_text": "Implementation guide Sections 15 and 16",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [],
       "core_ac_ids": [],
@@ -272,27 +554,60 @@
         "FE-GUIDE-AC-018"
       ],
       "targets": [
-        "make phase-ledger-drift"
+        {
+          "target_name": "phase-ledger-drift",
+          "command_id": "cartulary.harness.command.phase_ledger_drift.v1",
+          "evidence_role": "drift",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": false,
+          "scenario_title_required": false
+        }
       ],
       "scenario_titles": [],
       "claim_status": "implemented",
-      "claim": "Record frontend phase rows in a scheduler-enforced manifest or ledger before claiming phase-enforced completion.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Record frontend phase rows in a scheduler-enforced manifest or ledger before claiming phase-enforced completion.",
+        "claim_publication_intent": "none",
+        "closure_scope": "target_level"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "implementation_support_explicit_only",
       "primary_evidence_owner": "FE-S-P0-03",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "support evidence is explicit-only",
-      "warm_local_cost_class": "medium"
+      "warm_local_cost_class": "medium",
+      "phase_id": "FE-P0",
+      "blockers": []
     },
     {
       "id": "FE-S-P0-04",
       "layer": "support",
       "evidence_class": "implementation_support",
       "owner_refs": [
-        "docs/design.md Sections 1 and 3",
-        "development guide Sections 6.1 and 6.6"
+        {
+          "source_key": "design_md",
+          "path": "docs/design.md",
+          "section_ref": "docs/design.md Sections 1 and 3",
+          "heading_text": "docs/design.md Sections 1 and 3",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "dev_guide",
+          "path": "docs/guides/cartulary-dev-guide.md",
+          "section_ref": "development guide Sections 6.1 and 6.6",
+          "heading_text": "development guide Sections 6.1 and 6.6",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [],
       "core_ac_ids": [],
@@ -307,21 +622,50 @@
         "D-AC-073"
       ],
       "targets": [
-        "make generated-artifact-policy-check",
-        "make generate-drift",
-        "make frontend-import-boundary-check"
+        {
+          "target_name": "generated-artifact-policy-check",
+          "command_id": "cartulary.harness.command.generated_artifact_policy_check.v1",
+          "evidence_role": "drift",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": false,
+          "scenario_title_required": false
+        },
+        {
+          "target_name": "generate-drift",
+          "command_id": "cartulary.harness.command.generate_drift.v1",
+          "evidence_role": "drift",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": false,
+          "scenario_title_required": false
+        },
+        {
+          "target_name": "frontend-import-boundary-check",
+          "command_id": "cartulary.harness.command.frontend_import_boundary_check.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": false,
+          "scenario_title_required": false
+        }
       ],
       "scenario_titles": [],
       "claim_status": "implemented",
-      "claim": "Validate docs/design.md token front matter and generated @cartulary/ui-contracts token artifacts without treating design tokens as product-conformance behavior.",
-      "out_of_scope": "This frontend readiness row does not create routes, schemas, authorization, lifecycle, storage, field registries, record types, public wire shapes, Core product behavior, or Core 05 publication authority.",
+      "claim": {
+        "statement": "Validate docs/design.md token front matter and generated @cartulary/ui-contracts token artifacts without treating design tokens as product-conformance behavior.",
+        "claim_publication_intent": "none",
+        "closure_scope": "target_level"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not create routes, schemas, authorization, lifecycle, storage, field registries, record types, public wire shapes, Core product behavior, or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "implementation_support_explicit_only",
       "primary_evidence_owner": "FE-S-P0-04",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "support evidence is explicit-only",
-      "warm_local_cost_class": "medium"
+      "warm_local_cost_class": "medium",
+      "phase_id": "FE-P0",
+      "blockers": []
     }
   ]
 }

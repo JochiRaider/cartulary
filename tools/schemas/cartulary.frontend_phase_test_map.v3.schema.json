@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_phase_test_map.v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "phase_namespace", "phase_id", "guide_digest", "rows"],
+  "properties": {
+    "schema_id": { "const": "cartulary.frontend_phase_test_map.v3" },
+    "schema_version": { "const": 3 },
+    "phase_namespace": { "const": "frontend" },
+    "phase_id": { "pattern": "^FE-P(?:0|[1-9][0-9]*)$", "type": "string" },
+    "guide_digest": { "type": "string", "minLength": 1 },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/row" }
+    }
+  },
+  "$defs": {
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "layer",
+        "evidence_class",
+        "owner_refs",
+        "core_req_ids",
+        "core_ac_ids",
+        "support_or_design_ac_ids",
+        "targets",
+        "scenario_titles",
+        "claim_status",
+        "claim",
+        "out_of_scope",
+        "default_check_required",
+        "default_check_kind",
+        "default_check_reason_code",
+        "primary_evidence_owner",
+        "duplicate_of",
+        "evidence_delta",
+        "warm_local_cost_class",
+        "phase_id",
+        "blockers"
+      ],
+      "properties": {
+        "id": { "pattern": "^FE-(?:U|I|B|E|V|A11Y|S)-P(?:0|[1-9][0-9]*)-[0-9]{2}$", "type": "string" },
+        "phase_id": { "pattern": "^FE-P(?:0|[1-9][0-9]*)$", "type": "string" },
+        "layer": { "enum": ["unit", "integration", "browser_integration", "e2e", "visual", "accessibility", "support"] },
+        "evidence_class": { "enum": ["product_conformance", "design_direction", "implementation_support", "claim_publication_boundary", "TODO_owner_lookup"] },
+        "owner_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/owner_ref" } },
+        "core_req_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "core_ac_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "support_or_design_ac_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "targets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/target_ref" } },
+        "scenario_titles": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "claim_status": { "enum": ["not_implemented", "implemented", "blocked", "stale", "retired"] },
+        "claim": { "$ref": "#/$defs/claim" },
+        "blockers": { "type": "array", "items": { "$ref": "#/$defs/blocker" } },
+        "out_of_scope": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "default_check_required": { "type": "boolean" },
+        "default_check_kind": { "type": "string", "minLength": 1 },
+        "default_check_reason_code": { "type": "string", "minLength": 1 },
+        "future_default_check_candidate": { "type": "boolean" },
+        "default_check_reason": { "type": "string", "minLength": 1 },
+        "primary_evidence_owner": { "type": "string", "minLength": 1 },
+        "duplicate_of": { "type": "string", "minLength": 1 },
+        "evidence_delta": { "type": "string", "minLength": 1 },
+        "warm_local_cost_class": { "type": "string", "minLength": 1 }
+      }
+    },
+    "target_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_name",
+        "command_id",
+        "evidence_role",
+        "required_for_closure",
+        "frontend_row_accounting_required",
+        "scenario_title_required"
+      ],
+      "properties": {
+        "target_name": { "type": "string", "minLength": 1 },
+        "command_id": { "pattern": "^cartulary\\.harness\\.command\\.[a-z0-9_]+\\.v1$", "type": "string" },
+        "evidence_role": { "enum": ["primary", "supporting", "drift", "diagnostic_only"] },
+        "required_for_closure": { "type": "boolean" },
+        "frontend_row_accounting_required": { "type": "boolean" },
+        "scenario_title_required": { "type": "boolean" }
+      }
+    },
+    "owner_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_key", "path", "section_ref", "heading_text", "req_ids", "ac_ids", "role", "resolution_status"],
+      "properties": {
+        "source_key": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "section_ref": { "type": "string", "minLength": 1 },
+        "heading_text": { "type": "string", "minLength": 1 },
+        "req_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "ac_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "role": { "type": "string", "minLength": 1 },
+        "resolution_status": { "enum": ["resolved", "owner_lookup_required", "contradiction_detected", "suspected_owner_drift"] }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statement", "claim_publication_intent", "closure_scope"],
+      "properties": {
+        "statement": { "type": "string", "minLength": 1 },
+        "claim_publication_intent": { "enum": ["none", "informative_engineering_measurement", "claim_bearing_publication"] },
+        "closure_scope": { "enum": ["scenario", "target_level", "blocked", "stale", "retired"] }
+      }
+    },
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["blocker_id", "reason_code", "description", "resolution_owner"],
+      "properties": {
+        "blocker_id": { "type": "string", "minLength": 1 },
+        "reason_code": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "resolution_owner": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

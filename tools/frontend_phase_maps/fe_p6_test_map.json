@@ -1,16 +1,57 @@
 {
-  "schema_id": "cartulary.frontend_phase_test_map.v2",
+  "schema_id": "cartulary.frontend_phase_test_map.v3",
+  "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P6",
+  "guide_digest": "ce0017daaac430a37a586b851c0788e41358b37dfa5e3bc2ece7e904b4bc741f",
   "rows": [
     {
       "id": "FE-U-P6-01",
       "layer": "unit",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Sections 3.3.8 and 3.3.9",
-        "Core 02 Section 5.1",
-        "Core 03 Sections 4.11 and 4.12"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Sections 3.3.8 and 3.3.9",
+          "heading_text": "3.3.8 Evidence and blob routes; 3.3.9 Background-job routes",
+          "req_ids": [
+            "REQ-01-243",
+            "REQ-01-247",
+            "REQ-01-458",
+            "REQ-01-465"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core02",
+          "path": "docs/spec/02_domain_model_schema_and_history.md",
+          "section_ref": "Core 02 Section 13",
+          "heading_text": "13 Evidence and object metadata",
+          "req_ids": [
+            "REQ-02-186",
+            "REQ-02-201"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Sections 16.1 and 16.2",
+          "heading_text": "16.1 Entity and evidence sheets; 16.2 Inspector",
+          "req_ids": [
+            "REQ-03-242",
+            "REQ-03-249",
+            "REQ-03-272"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-243",
@@ -46,28 +87,77 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make frontend-unit"
+        {
+          "target_name": "frontend-unit",
+          "command_id": "cartulary.harness.command.frontend_unit.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": false
+        }
       ],
       "scenario_titles": [],
       "claim_status": "blocked",
-      "claim": "Verify evidence state view models cover requested, pending upload, available, preview blocked, failed, inconsistent, and count-display states.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify evidence state view models cover requested, pending upload, available, preview blocked, failed, inconsistent, and count-display states.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-U-P6-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "full evidence is retained outside default check",
-      "warm_local_cost_class": "low"
+      "warm_local_cost_class": "low",
+      "phase_id": "FE-P6",
+      "blockers": [
+        {
+          "blocker_id": "FE-U-P6-01-BLOCKER-01",
+          "reason_code": "frontend_phase_row_not_implemented",
+          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     },
     {
       "id": "FE-I-P6-01",
       "layer": "integration",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Sections 3.3.8 and 3.3.9",
-        "Core 04 Sections 5 and 6"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Sections 3.3.8 and 3.3.9",
+          "heading_text": "3.3.8 Evidence and blob routes; 3.3.9 Background-job routes",
+          "req_ids": [
+            "REQ-01-243",
+            "REQ-01-247",
+            "REQ-01-458",
+            "REQ-01-465"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core04",
+          "path": "docs/spec/04_security_deployment_and_conformance.md",
+          "section_ref": "Core 04 Sections 5 and 6",
+          "heading_text": "5 Deployment profiles; 6 Runtime roots and storage paths",
+          "req_ids": [
+            "REQ-04-048",
+            "REQ-04-052",
+            "REQ-04-053"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-243",
@@ -98,31 +188,90 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make frontend-unit",
-        "make browser-e2e-webserver-backed"
+        {
+          "target_name": "frontend-unit",
+          "command_id": "cartulary.harness.command.frontend_unit.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": false
+        },
+        {
+          "target_name": "browser-e2e-webserver-backed",
+          "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": false
+        }
       ],
       "scenario_titles": [
         "FE-I-P6-01 Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths."
       ],
       "claim_status": "blocked",
-      "claim": "Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-I-P6-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "full evidence is retained outside default check",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P6",
+      "blockers": [
+        {
+          "blocker_id": "FE-I-P6-01-BLOCKER-01",
+          "reason_code": "frontend_phase_row_not_implemented",
+          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     },
     {
       "id": "FE-E-P6-01",
       "layer": "e2e",
       "evidence_class": "product_conformance",
       "owner_refs": [
-        "Core 01 Sections 3.3.8 and 3.3.9",
-        "Core 04 Sections 3, 5, 6"
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Sections 3.3.8 and 3.3.9",
+          "heading_text": "3.3.8 Evidence and blob routes; 3.3.9 Background-job routes",
+          "req_ids": [
+            "REQ-01-243",
+            "REQ-01-247",
+            "REQ-01-458",
+            "REQ-01-465"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core04",
+          "path": "docs/spec/04_security_deployment_and_conformance.md",
+          "section_ref": "Core 04 Sections 3, 5, 6",
+          "heading_text": "3 Attribution and audit requirements; 5 Deployment profiles; 6 Runtime roots and storage paths",
+          "req_ids": [
+            "REQ-04-021",
+            "REQ-04-030",
+            "REQ-04-048",
+            "REQ-04-052",
+            "REQ-04-053",
+            "REQ-04-110"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [
         "REQ-01-243",
@@ -168,31 +317,78 @@
       ],
       "support_or_design_ac_ids": [],
       "targets": [
-        "make browser-e2e-webserver-backed",
-        "make browser-e2e-stateful"
+        {
+          "target_name": "browser-e2e-webserver-backed",
+          "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        },
+        {
+          "target_name": "browser-e2e-stateful",
+          "command_id": "cartulary.harness.command.browser_e2e_stateful.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-E-P6-01 Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles."
       ],
       "claim_status": "blocked",
-      "claim": "Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-E-P6-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "full evidence is retained outside default check",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P6",
+      "blockers": [
+        {
+          "blocker_id": "FE-E-P6-01-BLOCKER-01",
+          "reason_code": "frontend_phase_row_not_implemented",
+          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     },
     {
       "id": "FE-V-P6-01",
-      "layer": "visual_regression",
+      "layer": "visual",
       "evidence_class": "design_direction",
       "owner_refs": [
-        "UI/UX guide Sections 12 and 13",
-        "visual golden guide Sections 2, 3, 5"
+        {
+          "source_key": "ui_ux_guide",
+          "path": "docs/guides/cartulary-ui-ux-design-guide.md",
+          "section_ref": "UI/UX guide Sections 12 and 13",
+          "heading_text": "UI/UX guide Sections 12 and 13",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "visual_golden_guide",
+          "path": "docs/guides/cartulary_visual_golden_maintenance.md",
+          "section_ref": "visual golden guide Sections 2, 3, 5",
+          "heading_text": "visual golden guide Sections 2, 3, 5",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [],
       "core_ac_ids": [],
@@ -203,29 +399,69 @@
         "R2-AC-079"
       ],
       "targets": [
-        "make browser-e2e-visual"
+        {
+          "target_name": "browser-e2e-visual",
+          "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-V-P6-01 Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures."
       ],
       "claim_status": "blocked",
-      "claim": "Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "design_direction_explicit_only",
       "primary_evidence_owner": "FE-V-P6-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P6",
+      "blockers": [
+        {
+          "blocker_id": "FE-V-P6-01-BLOCKER-01",
+          "reason_code": "visual_fixture_not_recaptured_for_frontend_row",
+          "description": "Visual fixture is planned but direct frontend row-accounting evidence has not been recaptured under the closed fixture registry.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     },
     {
       "id": "FE-A11Y-P6-01",
       "layer": "accessibility",
       "evidence_class": "design_direction",
       "owner_refs": [
-        "UI/UX guide Sections 12, 14",
-        "docs/design.md Accessibility Direction"
+        {
+          "source_key": "ui_ux_guide",
+          "path": "docs/guides/cartulary-ui-ux-design-guide.md",
+          "section_ref": "UI/UX guide Sections 12, 14",
+          "heading_text": "UI/UX guide Sections 12, 14",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "design_md",
+          "path": "docs/design.md",
+          "section_ref": "docs/design.md Accessibility Direction",
+          "heading_text": "docs/design.md Accessibility Direction",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        }
       ],
       "core_req_ids": [],
       "core_ac_ids": [],
@@ -238,21 +474,43 @@
         "D-AC-012"
       ],
       "targets": [
-        "make browser-e2e-a11y-preflight"
+        {
+          "target_name": "browser-e2e-a11y-preflight",
+          "command_id": "cartulary.harness.command.browser_e2e_a11y_preflight.v1",
+          "evidence_role": "primary",
+          "required_for_closure": false,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
       ],
       "scenario_titles": [
         "FE-A11Y-P6-01 Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions."
       ],
       "claim_status": "blocked",
-      "claim": "Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions.",
-      "out_of_scope": "This frontend readiness row does not change Core product behavior or Core 05 publication authority.",
+      "claim": {
+        "statement": "Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions.",
+        "claim_publication_intent": "none",
+        "closure_scope": "blocked"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "design_direction_explicit_only",
       "primary_evidence_owner": "FE-A11Y-P6-01",
-      "duplicate_of": null,
+      "duplicate_of": "none",
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
-      "warm_local_cost_class": "explicit_heavy"
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P6",
+      "blockers": [
+        {
+          "blocker_id": "FE-A11Y-P6-01-BLOCKER-01",
+          "reason_code": "frontend_phase_row_not_implemented",
+          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "resolution_owner": "frontend_phase_owner"
+        }
+      ]
     }
   ]
 }
