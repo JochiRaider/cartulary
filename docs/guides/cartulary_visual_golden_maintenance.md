@@ -13,6 +13,7 @@ Visual goldens are committed validation inputs for browser-rendered workbook sta
 - Visual workbook tests live in `apps/web/e2e/workbook.visual.spec.ts`.
 - Committed Playwright goldens live beside the spec under `apps/web/e2e/workbook.visual.spec.ts-snapshots/`.
 - Retained actual/diff artifacts from failed runs live under the run root reported by the harness, usually `.cartulary/test-results/<run-id>/.../playwright-output/`.
+- Concept images and external bitmaps are design inputs only. The only committed golden source is Playwright output captured from the running app.
 
 The authoritative current-profile visual rows are the `V-*` rows in
 `tools/phase*_test_map.json` whose `execution_dependency` is `browser_visual`.
@@ -31,7 +32,7 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 
 | Fixture ID | Fixture title | Intended phase | Required surface state | Required scroll normalization | Status |
 | --- | --- | --- | --- | --- | --- |
-| `FE-VFIX-01` | Default grid shell | `FE-P2` | Main workbook grid with stable row version and save-state strip visible. | Top-left grid scroll; viewport `1440x900` unless the fixture row states otherwise. | `current` |
+| `FE-VFIX-01` | Default Timeline workbook shell | `FE-P2` | App-owned workbook shell root with top bar, view bar, dense Timeline grid, row-context inspector, status strip, Core default Timeline fields, selected row context, focused cell, and no admin/control card stack above the active grid. | Top-left outer and grid scroll; viewport `1440x900` unless the fixture row states otherwise. | `current` |
 | `FE-VFIX-02` | Unresolved and resolved entity state | `FE-P5` | Entity evidence or request state renders both unresolved and resolved variants. | Named row anchor; dynamic identifiers masked. | `missing` |
 | `FE-VFIX-03` | Same-field conflict | `FE-P7` | Conflict strip or resolver shows same-field conflict state and recovery affordance. | Top-left grid scroll or conflict row anchor. | `current` |
 | `FE-VFIX-04` | Row-gutter presence | `FE-P7` | Row gutter or presence marker is visible and anchored to the intended row. | Presence row anchor; dynamic actor labels masked where needed. | `current` |
@@ -67,7 +68,7 @@ screenshot scopes.
 
 | Affected row | Owner map | Related fixture IDs | Screenshot scope |
 | --- | --- | --- | --- |
-| `FE-V-P2-01` | `tools/frontend_phase_maps/fe_p2_test_map.json` | `FE-VFIX-01` | Fixed viewport shell, snapshot `fe-v-p2-01-default-workbook-shell`. |
+| `FE-V-P2-01` | `tools/frontend_phase_maps/fe_p2_test_map.json` | `FE-VFIX-01` | App-owned shell root, snapshot `fe-v-p2-01-default-timeline-workbook-shell`. |
 | `V-3-GRID-01` | `tools/phase3_test_map.json` | `FE-VFIX-01`, `FE-VFIX-08` | Fixed viewport shell. |
 | `V-3-GRID-02` | `tools/phase3_test_map.json` | `FE-VFIX-08`, `FE-VFIX-12` | Grid shell and named status-strip slot. |
 | `V-3-GRID-03` | `tools/phase3_test_map.json` | `FE-VFIX-06`, `FE-VFIX-13` | Grid shell. |

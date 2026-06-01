@@ -163,6 +163,8 @@ A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to stat
 | Inspector    | Details, Relationships, Evidence, History.                                                              | Adjacent and secondary.               |
 | Status strip | Save state, secondary same-surface message, presence summary or overflow.                               | Capacity-limited working-state strip. |
 
+*Design direction.* The default Timeline route MUST be grid-first: the first-viewport composition centers the active Timeline grid, view bar, inspector, and status strip. Incident summary, bootstrap defaults, membership management, promoted-field patch forms, or other incident administration controls MUST NOT appear as a dominant card stack above the active grid unless the user explicitly opens a secondary incident-control surface or navigates to a distinct administration context.
+
 ### 5.2 Surface composition in the shell
 
 *Core behavior.* Core 03 requires five built-in tabs in the base profile: Timeline, Hosts, Identities, Evidence, and Notes. It also requires additional contract-backed system views and keeps structured coordination artifacts workbook-native rather than separate modules.[^4]
@@ -259,7 +261,7 @@ A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to stat
 - **R2-AC-019:** Required system views are grouped and ordered exactly as §5.3 states.
 - **R2-AC-020:** Saved views appear in the active surface’s view selector, not as primary tabs.
 - **R2-AC-021:** The guide rejects all-fourteen-tabs, command-palette-only system-view access, and separate coordination modules for the base design.
-- **R2-AC-022:** The wireframe shows the tab strip, system-view switcher, view selector, grid, inspector toggle, and status strip.
+- **R2-AC-022:** The wireframe and §5.1 show the tab strip, system-view switcher, view selector, grid, inspector, status strip, and grid-first Timeline default with no dominant administration card stack above the active grid.
 - **R2-AC-023:** §5.7 defines exactly three status-strip slots.
 - **R2-AC-024:** The primary slot permits exactly one save-state label.
 - **R2-AC-025:** Overflow uses a same-surface overflow affordance rather than silently dropping messages.

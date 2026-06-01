@@ -3,7 +3,7 @@
   "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P11",
-  "guide_digest": "ce0017daaac430a37a586b851c0788e41358b37dfa5e3bc2ece7e904b4bc741f",
+  "guide_digest": "3ff5391f1dc7458422dd6abfd5f6683c3a3d2efb9b0624aedd58b9a358a56d66",
   "rows": [
     {
       "id": "FE-V-P11-01",
@@ -120,11 +120,11 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P11-02 Ensure the visual fixture matrix includes default grid shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query."
+        "FE-V-P11-02 Ensure the visual fixture matrix includes default Timeline workbook shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query."
       ],
       "claim_status": "blocked",
       "claim": {
-        "statement": "Ensure the visual fixture matrix includes default grid shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query.",
+        "statement": "Ensure the visual fixture matrix includes default Timeline workbook shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query.",
         "claim_publication_intent": "none",
         "closure_scope": "blocked"
       },
@@ -201,12 +201,12 @@
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
+        "statement": "Capture test-only exposed dark_graphite token and theme-state specimens with deterministic density, color, component, focus, and semantic-state samples; this row does not satisfy the default Timeline shell fixture.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },
       "out_of_scope": [
-        "This frontend readiness row does not change Core product behavior, expose a theme switcher, claim light or high-contrast themes, or activate Core 05 publication authority."
+        "This frontend readiness row does not change Core product behavior, satisfy FE-VFIX-01 default shell evidence, expose a theme switcher, claim light or high-contrast themes, or activate Core 05 publication authority."
       ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",

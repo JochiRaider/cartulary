@@ -3,7 +3,7 @@
   "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P3",
-  "guide_digest": "ce0017daaac430a37a586b851c0788e41358b37dfa5e3bc2ece7e904b4bc741f",
+  "guide_digest": "3ff5391f1dc7458422dd6abfd5f6683c3a3d2efb9b0624aedd58b9a358a56d66",
   "rows": [
     {
       "id": "FE-U-P3-01",
@@ -635,12 +635,12 @@
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+        "statement": "Capture test-only grid-adapter support specimens for frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query; this row does not satisfy the default Timeline shell fixture.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },
       "out_of_scope": [
-        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+        "This frontend readiness row does not change Core product behavior, satisfy FE-VFIX-01 default shell evidence, or activate Core 05 publication authority."
       ],
       "default_check_required": false,
       "default_check_kind": "explicit_only",

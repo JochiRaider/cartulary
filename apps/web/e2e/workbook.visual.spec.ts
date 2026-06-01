@@ -15,9 +15,12 @@ import {
   evidencePreviewButtonTestId,
   gridActionsHeaderTestId,
   gridGroupRowTestId,
+  gridSavedRowsSelector,
   gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
+  incidentControlsPanelTestId,
+  incidentMembershipListTestId,
   pendingQueueNoticeTestId,
   relationshipItemsTestId,
   rowCellTestId,
@@ -28,6 +31,7 @@ import {
   surfaceTabTestId,
   systemViewSwitcherTriggerTestId,
   timelineEvidenceFileInputTestId,
+  timelineInspectorSectionTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowVersionTestId,
   workbookShellReadyTestId,
@@ -40,8 +44,9 @@ import {
   createIncident,
   createIncidentMemberUser,
   createViewRow,
+  gridSavedRows,
   holdBrowserApiRequest,
-  openIncidentAsTrackedUser,
+  queryViewRows,
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
@@ -58,7 +63,9 @@ import {
 import {
   driveRealTimelineSummaryConflict,
   editTimelineSummary,
+  installIncidentSocketMonitor,
   installPatchController,
+  openIncidentAsTrackedUserReady,
 } from "./phase6Harness";
 
 type ViewRow = {
@@ -91,6 +98,16 @@ function gridShellSelector(surface: string): string {
   return dataTestIdSelector(gridShellTestId(surface));
 }
 
+function tagActionsPayload(tagNames: string[]) {
+  return {
+    kind: "collection_actions_v1",
+    actions: tagNames.map((tagName) => ({
+      op: "add_tag",
+      tag_name: tagName,
+    })),
+  };
+}
+
 type GridVisualRegressionOptions = {
   maxDiffPixels?: number;
   testInfo?: TestInfo;
@@ -100,7 +117,7 @@ type GridVisualRegressionOptions = {
 );
 
 test.describe("FE-P2 workbook visual readiness", () => {
-  test("FE-V-P2-01 Capture default workbook shell with top bar, tabs, System views, view bar, primary grid slot, inspector, and status strip using deterministic visual harness settings.", async ({
+  test("FE-V-P2-01 Capture Default Timeline workbook shell with top bar, view bar, dense Timeline grid, row-context inspector, and status strip.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -109,28 +126,82 @@ test.describe("FE-P2 workbook visual readiness", () => {
       uniqueIncidentKey("FEV2SHELL"),
       "FE-P2 visual default shell",
     );
-    const timelineRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("FEV2SHELL-ROW"),
-        "timeline.occurred_at": "2026-05-31T09:00:00Z",
-        "timeline.summary": "FE-P2 visual shell row",
-        "timeline.details": "Default shell inspector visual fixture",
-      },
-    )) as ViewRow;
+
+    const rows: ViewRow[] = [];
+    const fixtureRows = [
+      "Login attempt with valid user",
+      "Password spray from single source",
+      "Failed MFA challenge",
+      "Suspicious automation execution",
+      "Outbound connection to uncommon provider",
+      "New service installed",
+      "Potential credential access",
+      "User accessed sensitive share",
+      "Data archived to temporary directory",
+      "Archive staged for exfiltration",
+      "Alert from endpoint rule triggered",
+      "Host isolated by containment playbook",
+      "Scheduled task removed",
+      "Credential reset completed",
+      "Investigation opened",
+      "Containment review assigned",
+      "Remote shell attempt blocked",
+      "Cloud sign-in risk elevated",
+      "Analyst comment added",
+      "Final verification queued",
+    ];
+    for (const [index, summary] of fixtureRows.entries()) {
+      rows.push(
+        (await createViewRow(page, incidentId, timelineViewSchemaId, {
+          client_txn_id: uniqueTxn(`FEV2SHELL-ROW-${index + 1}`),
+          "timeline.occurred_at": new Date(
+            Date.UTC(2026, 3, 18, 14, 12 + index * 2, 34),
+          ).toISOString(),
+          "timeline.summary": summary,
+          "timeline.details": `Default Timeline workbook shell fixture row ${
+            index + 1
+          }`,
+          "timeline.host_refs": collectionActionsPayload([
+            index % 3 === 0 ? "host-gamma" : "host-alpha",
+          ]),
+          "timeline.identity_refs": collectionActionsPayload([
+            index % 2 === 0
+              ? "identity-alpha@example.test"
+              : "identity-beta@example.test",
+          ]),
+          "timeline.tags": tagActionsPayload([
+            index % 4 === 0 ? "review" : "triage",
+            index % 5 === 0 ? "evidence" : "timeline",
+          ]),
+        })) as ViewRow,
+      );
+    }
+    const rowSummariesById = new Map(
+      rows.map((row, index) => [row.record_id, fixtureRows[index] ?? ""]),
+    );
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
 
     const shell = page.getByTestId(workbookShellReadyTestId());
     await expect(shell).toBeVisible();
+    await expect(shell).toHaveAttribute(
+      "data-active-view-schema-id",
+      timelineViewSchemaId,
+    );
     for (const slot of workbookShellSlots) {
       await expect(
         shell.locator(dataTestIdSelector(workbookShellSlotTestId(slot))),
       ).toBeVisible();
     }
+    await expect(page.getByTestId(incidentControlsPanelTestId())).toHaveCount(
+      0,
+    );
+    await expect(page.getByTestId("incident-summary-key")).toHaveCount(0);
+    await expect(page.getByTestId("incident-patch-button")).toHaveCount(0);
+    await expect(page.getByTestId(incidentMembershipListTestId())).toHaveCount(
+      0,
+    );
     await expect(
       page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
     ).toHaveAttribute("aria-current", "page");
@@ -141,24 +212,123 @@ test.describe("FE-P2 workbook visual readiness", () => {
       page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
     ).toBeVisible();
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+
+    const grid = page.getByTestId(gridShellTestId(timelineViewSchemaId));
+    await expect(grid).toBeVisible();
+    await expect
+      .poll(
+        async () =>
+          (await queryViewRows(page, incidentId, timelineViewSchemaId)).length,
+      )
+      .toBe(rows.length);
+    await expect
+      .poll(async () => gridSavedRows(page, timelineViewSchemaId).count())
+      .toBeGreaterThanOrEqual(7);
+    const renderedRecordIds = await grid
+      .locator(gridSavedRowsSelector())
+      .evaluateAll((rowElements) =>
+        rowElements.map(
+          (rowElement) => rowElement.getAttribute("data-grid-record-id") ?? "",
+        ),
+      );
+    expect(rows.map((row) => row.record_id)).toEqual(
+      expect.arrayContaining(renderedRecordIds),
+    );
+    const selectedRowId = renderedRecordIds[0];
+    const selectedRow = rows.find((row) => row.record_id === selectedRowId);
+    if (selectedRow === undefined) {
+      throw new Error(`FE-V-P2 fixture selected unknown row ${selectedRowId}`);
+    }
+
+    const defaultTimelineFields = [
+      "timeline.occurred_at",
+      "timeline.summary",
+      "timeline.host_refs",
+      "timeline.identity_refs",
+      "timeline.evidence_count",
+      "timeline.tags",
+      "timeline.edited_at",
+    ];
+    const headerFieldKeys = await grid
+      .locator('[role="columnheader"] [data-grid-field-key]')
+      .evaluateAll((headers) =>
+        headers.map((header) => header.getAttribute("data-grid-field-key")),
+      );
+    expect(headerFieldKeys).toEqual(
+      expect.arrayContaining(defaultTimelineFields),
+    );
+    for (const fieldKey of defaultTimelineFields) {
+      await expect(
+        grid.locator(
+          `[data-grid-record-id="${selectedRow.record_id}"] [data-grid-field-key="${fieldKey}"]`,
+        ),
+      ).toHaveCount(1);
+    }
+
     await expect(
       page.getByTestId(
-        rowCellTestId(timelineRow.record_id, "timeline.summary"),
+        rowCellTestId(selectedRow.record_id, "timeline.summary"),
       ),
-    ).toHaveValue("FE-P2 visual shell row");
+    ).toHaveValue(rowSummariesById.get(selectedRow.record_id) ?? "");
 
     await page
-      .getByTestId(rowInspectButtonTestId(timelineRow.record_id))
+      .getByTestId(rowInspectButtonTestId(selectedRow.record_id))
       .click();
     await expect(page.getByTestId("timeline-inspector")).toBeVisible();
+    await expect(page.getByTestId("timeline-inspector")).toContainText(
+      selectedRow.record_id,
+    );
+    for (const section of [
+      "details",
+      "relationships",
+      "evidence",
+      "history",
+    ] as const) {
+      await expect(
+        page.getByTestId(timelineInspectorSectionTestId(section)),
+      ).toBeVisible();
+    }
+    await page
+      .getByTestId(timelineEvidenceFileInputTestId(selectedRow.record_id))
+      .setInputFiles({
+        name: "default-timeline-workbook-shell.png",
+        mimeType: "image/png",
+        buffer: tinyPNG(),
+      });
+    await expect(
+      page.getByTestId(
+        rowCellTestId(selectedRow.record_id, "timeline.evidence_count"),
+      ),
+    ).toHaveText("1");
+
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
     });
-    await scrollViewportToText(page, "Incident summary", 3);
+    const summaryCell = page.getByTestId(
+      rowCellTestId(selectedRow.record_id, "timeline.summary"),
+    );
+    await summaryCell.focus();
+    await expect(summaryCell).toBeFocused();
+    const timelineScrollportSelector = `${dataTestIdSelector(
+      gridShellTestId(timelineViewSchemaId),
+    )} ${gridScrollportSelector()}`;
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (selector) => ({
+            gridLeft:
+              document.querySelector<HTMLElement>(selector)?.scrollLeft ?? -1,
+            windowY: window.scrollY,
+          }),
+          timelineScrollportSelector,
+        ),
+      )
+      .toEqual({ gridLeft: 0, windowY: 0 });
 
-    await assertViewportVisualRegression(
+    await assertVisualRegression(
       page,
-      "fe-v-p2-01-default-workbook-shell",
+      "fe-v-p2-01-default-timeline-workbook-shell",
+      shell,
     );
   });
 });
@@ -756,10 +926,12 @@ test.describe("Phase 6 workbook visual evidence", () => {
         "timeline.summary": "Presence visual row",
       },
     )) as ViewRow;
+    const primarySocket = installIncidentSocketMonitor(page, incidentId);
 
     let remotePage: Page | null = null;
     try {
       await page.goto(`/?incident_id=${incidentId}`);
+      await primarySocket.waitForAcceptedSocket();
       await maskIncidentIdentity(page, incidentId);
       await expect(
         page.getByTestId(
@@ -767,17 +939,43 @@ test.describe("Phase 6 workbook visual evidence", () => {
         ),
       ).toHaveValue("Presence visual row");
 
-      remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
-        createdBy: "V-6-GRID-01",
-        email: remote.email,
-        incidentId,
-        password: remote.initial_password,
-        purpose: "Phase 6 visual presence analyst",
-        userId: remote.user_id,
+      const remoteSession = await openIncidentAsTrackedUserReady(
+        browser,
+        sessionTracker,
+        {
+          createdBy: "V-6-GRID-01",
+          email: remote.email,
+          incidentId,
+          password: remote.initial_password,
+          purpose: "Phase 6 visual presence analyst",
+          readyRecordId: timelineRow.record_id,
+          userId: remote.user_id,
+        },
+      );
+      remotePage = remoteSession.page;
+      const markerStartAt = primarySocket.messageCount();
+      const fieldKey = "timeline.summary";
+      const markerDelta = primarySocket.waitForMessage("presence_delta", {
+        matches: (message) => {
+          const presence = message.payload.presence;
+          return (
+            presence !== null &&
+            typeof presence === "object" &&
+            !Array.isArray(presence) &&
+            "record_id" in presence &&
+            presence.record_id === timelineRow.record_id &&
+            "field_key" in presence &&
+            presence.field_key === fieldKey &&
+            "mode" in presence &&
+            presence.mode === "editing"
+          );
+        },
+        startAt: markerStartAt,
       });
       await remotePage
-        .getByTestId(rowCellTestId(timelineRow.record_id, "timeline.summary"))
+        .getByTestId(rowCellTestId(timelineRow.record_id, fieldKey))
         .focus();
+      await markerDelta;
       await expect(
         page.getByTestId(rowPresenceMarkerTestId(timelineRow.record_id)),
       ).toContainText("VA");
@@ -1037,23 +1235,6 @@ async function assertViewportVisualRegression(page: Page, name: string) {
     caret: "hide",
     fullPage: false,
   });
-}
-
-async function scrollViewportToText(page: Page, text: string, offsetY = 0) {
-  await page.evaluate(
-    ({ targetText, offsetY: scrollOffsetY }) => {
-      const element = Array.from(document.querySelectorAll("h1,h2,h3,h4")).find(
-        (candidate) => candidate.textContent?.trim() === targetText,
-      );
-      if (!element) {
-        return;
-      }
-      const top =
-        element.getBoundingClientRect().top + window.scrollY + scrollOffsetY;
-      window.scrollTo(0, top);
-    },
-    { targetText: text, offsetY },
-  );
 }
 
 async function assertStatusStripVisualRegression(page: Page, name: string) {

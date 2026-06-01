@@ -45,6 +45,8 @@ import {
   gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
+  incidentControlsPanelTestId,
+  incidentControlsTriggerTestId,
   incidentMembershipAdminNoteTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,
@@ -120,6 +122,8 @@ import {
   timelineDraftEvidenceFileInputTestId,
   timelineEvidenceAttachSectionTestId,
   timelineEvidenceFileInputTestId,
+  timelineInspectorSections,
+  timelineInspectorSectionTestId,
   timelineMutationSubstrateReadyTestId,
   timelinePreviewRowTestId,
   timelineRowMarkReviewedButtonTestId,
@@ -724,6 +728,32 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "timeline-mutation-substrate-ready",
     );
     expect(currentIncidentRoleTestId()).toBe("current-incident-role");
+    expect(incidentControlsTriggerTestId()).toBe("incident-controls-trigger");
+    expect(incidentControlsPanelTestId()).toBe("incident-controls-panel");
+    expect(timelineInspectorSections).toEqual([
+      "details",
+      "relationships",
+      "evidence",
+      "history",
+    ]);
+    expect(timelineInspectorSectionTestId("details")).toBe(
+      "timeline-inspector-section-details",
+    );
+    expect(timelineInspectorSectionTestId("relationships")).toBe(
+      "timeline-inspector-section-relationships",
+    );
+    expect(timelineInspectorSectionTestId("evidence")).toBe(
+      "timeline-inspector-section-evidence",
+    );
+    expect(timelineInspectorSectionTestId("history")).toBe(
+      "timeline-inspector-section-history",
+    );
+    expect(timelineInspectorSectionTestId("details")).toBe(
+      timelineInspectorSectionTestId("details"),
+    );
+    expect(() => timelineInspectorSectionTestId("summary" as never)).toThrow(
+      "Invalid timeline inspector section token: summary",
+    );
     expect(landingIncidentCardTestId("incident-1")).toBe(
       "landing-incident-incident-1",
     );

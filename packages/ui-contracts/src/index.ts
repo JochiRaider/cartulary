@@ -52,6 +52,19 @@ export const timelineScalarEditorSurfaces = [
   "inspector",
 ] as const satisfies readonly TimelineScalarEditorSurface[];
 
+export type TimelineInspectorSection =
+  | "details"
+  | "evidence"
+  | "history"
+  | "relationships";
+
+export const timelineInspectorSections = [
+  "details",
+  "relationships",
+  "evidence",
+  "history",
+] as const satisfies readonly TimelineInspectorSection[];
+
 export type Phase1ErrorSurface = "account" | "admin" | "auth" | "landing";
 
 export type Phase1AuthSelector =
@@ -429,6 +442,22 @@ export function timelineMutationSubstrateReadyTestId(): string {
 
 export function currentIncidentRoleTestId(): string {
   return "current-incident-role";
+}
+
+export function incidentControlsTriggerTestId(): StableTestId {
+  return stableTestId("incident-controls-trigger");
+}
+
+export function incidentControlsPanelTestId(): StableTestId {
+  return stableTestId("incident-controls-panel");
+}
+
+export function timelineInspectorSectionTestId(
+  section: TimelineInspectorSection,
+): StableTestId {
+  return stableTestId(
+    `timeline-inspector-section-${requireTimelineInspectorSection(section)}`,
+  );
 }
 
 export function landingIncidentCardTestId(incidentId: string): StableTestId {
@@ -1061,6 +1090,17 @@ function requireWorkbookShellSlot(slot: WorkbookShellSlot): WorkbookShellSlot {
     return slot;
   }
   throw new Error(`Invalid workbook shell slot token: ${String(slot)}`);
+}
+
+function requireTimelineInspectorSection(
+  section: TimelineInspectorSection,
+): TimelineInspectorSection {
+  if ((timelineInspectorSections as readonly string[]).includes(section)) {
+    return section;
+  }
+  throw new Error(
+    `Invalid timeline inspector section token: ${String(section)}`,
+  );
 }
 
 function requirePhase1ErrorSurface(

@@ -44,6 +44,8 @@ import {
   gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
+  incidentControlsPanelTestId,
+  incidentControlsTriggerTestId,
   mentionCreateEntityButtonTestId,
   mentionDismissButtonTestId,
   mentionItemTestId,
@@ -83,6 +85,7 @@ import {
   timelineDraftEvidenceFileInputTestId,
   timelineEvidenceAttachSectionTestId,
   timelineEvidenceFileInputTestId,
+  timelineInspectorSectionTestId,
   timelineMutationSubstrateReadyTestId,
   timelinePreviewRowTestId,
   timelineRowMarkReviewedButtonTestId,
@@ -6911,7 +6914,10 @@ export function TimelineWorkbook({
 
   function renderInspectorFieldEditors(row: WorkbookRow) {
     return (
-      <section style={inspectorSectionStyle}>
+      <section
+        data-testid={timelineInspectorSectionTestId("details")}
+        style={inspectorSectionStyle}
+      >
         <h3 style={sectionTitleStyle}>Details</h3>
         <div style={inspectorActionStackStyle}>
           {timelineInspectorBindings.map((binding) =>
@@ -6932,11 +6938,7 @@ export function TimelineWorkbook({
     );
     return (
       <section
-        data-testid={
-          row.recordId === null
-            ? timelineDraftEvidenceAttachSectionTestId()
-            : timelineEvidenceAttachSectionTestId(row.recordId)
-        }
+        data-testid={timelineInspectorSectionTestId("evidence")}
         style={inspectorSectionStyle}
         aria-label="Timeline evidence attachment"
         onDragOver={(event) => {
@@ -6952,26 +6954,37 @@ export function TimelineWorkbook({
           }
         }}
       >
-        <h3 style={sectionTitleStyle}>Evidence</h3>
-        {row.recordId !== null ? (
-          <p style={bodyStyle}>
-            Attached evidence count:{" "}
-            {evidenceCount === "" ? "0" : evidenceCount}
-          </p>
-        ) : null}
-        <label style={labelStyle}>
-          Attach file
-          <input
-            data-testid={inputTestId}
-            style={inputStyle}
-            type="file"
-            accept="image/*,.txt,.pdf,text/plain,application/pdf"
-            onChange={(event) => {
-              handleTimelineEvidenceFiles(row, event.currentTarget.files ?? []);
-              event.currentTarget.value = "";
-            }}
-          />
-        </label>
+        <div
+          data-testid={
+            row.recordId === null
+              ? timelineDraftEvidenceAttachSectionTestId()
+              : timelineEvidenceAttachSectionTestId(row.recordId)
+          }
+        >
+          <h3 style={sectionTitleStyle}>Evidence</h3>
+          {row.recordId !== null ? (
+            <p style={bodyStyle}>
+              Attached evidence count:{" "}
+              {evidenceCount === "" ? "0" : evidenceCount}
+            </p>
+          ) : null}
+          <label style={labelStyle}>
+            Attach file
+            <input
+              data-testid={inputTestId}
+              style={inputStyle}
+              type="file"
+              accept="image/*,.txt,.pdf,text/plain,application/pdf"
+              onChange={(event) => {
+                handleTimelineEvidenceFiles(
+                  row,
+                  event.currentTarget.files ?? [],
+                );
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+        </div>
       </section>
     );
   }
@@ -6987,175 +7000,177 @@ export function TimelineWorkbook({
         : null;
     return (
       <section
-        data-testid={rowHistoryPanelTestId()}
+        data-testid={timelineInspectorSectionTestId("history")}
         style={inspectorSectionStyle}
       >
-        <div style={historySectionHeaderStyle}>
-          <h3 style={sectionTitleStyle}>Row history</h3>
-          {selectedActiveRow !== null ? (
+        <div data-testid={rowHistoryPanelTestId()}>
+          <div style={historySectionHeaderStyle}>
+            <h3 style={sectionTitleStyle}>Row history</h3>
+            {selectedActiveRow !== null ? (
+              <button
+                data-testid={rowHistoryOpenInspectorButtonTestId(
+                  selectedActiveRow.recordId ?? "",
+                )}
+                style={secondaryActionButtonStyle}
+                type="button"
+                onClick={() => {
+                  openRowHistory(selectedActiveRow.recordId ?? "");
+                }}
+              >
+                Refresh history
+              </button>
+            ) : null}
+          </div>
+          {recordId !== null && recordId !== undefined ? (
+            <p style={historyMetaStyle}>Record {recordId}</p>
+          ) : null}
+          {rowHistory.status === "idle" && selectedActiveRow !== null ? (
             <button
-              data-testid={rowHistoryOpenInspectorButtonTestId(
-                selectedActiveRow.recordId ?? "",
-              )}
-              style={secondaryActionButtonStyle}
+              data-testid={rowHistoryOpenSelectedButtonTestId()}
+              style={actionButtonStyle}
               type="button"
               onClick={() => {
                 openRowHistory(selectedActiveRow.recordId ?? "");
               }}
             >
-              Refresh history
+              Open history
             </button>
           ) : null}
-        </div>
-        {recordId !== null && recordId !== undefined ? (
-          <p style={historyMetaStyle}>Record {recordId}</p>
-        ) : null}
-        {rowHistory.status === "idle" && selectedActiveRow !== null ? (
-          <button
-            data-testid={rowHistoryOpenSelectedButtonTestId()}
-            style={actionButtonStyle}
-            type="button"
-            onClick={() => {
-              openRowHistory(selectedActiveRow.recordId ?? "");
-            }}
-          >
-            Open history
-          </button>
-        ) : null}
-        {rowHistory.status === "loading" ? (
-          <p data-testid={rowHistoryLoadingTestId()} style={bodyStyle}>
-            Loading history...
-          </p>
-        ) : null}
-        {rowHistory.message ? (
-          <p
-            data-testid={rowHistoryMessageTestId()}
-            style={genericErrorTextStyle}
-          >
-            {rowHistory.message}
-          </p>
-        ) : null}
-        {historyData !== null ? (
-          <>
-            <dl style={historyMetaGridStyle}>
-              <div>
-                <dt style={detailTermStyle}>Current row version</dt>
-                <dd style={detailValueStyle}>{historyData.row_version}</dd>
-              </div>
-              <div>
-                <dt style={detailTermStyle}>Deleted</dt>
-                <dd style={detailValueStyle}>
-                  {historyData.deleted ? "yes" : "no"}
-                </dd>
-              </div>
-            </dl>
-            <div style={inlineButtonRowStyle}>
-              {selectedActiveRow !== null && !historyData.deleted ? (
-                <button
-                  data-testid={rowHistoryDeleteButtonTestId()}
-                  style={destructiveActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    submitRowHistoryDeleteRestore("delete");
-                  }}
-                >
-                  Soft-delete row
-                </button>
-              ) : null}
-              {historyData.deleted ? (
-                <button
-                  data-testid={rowHistoryRestoreButtonTestId()}
-                  style={actionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    submitRowHistoryDeleteRestore("restore");
-                  }}
-                >
-                  Restore row
-                </button>
-              ) : null}
-            </div>
-            <ol style={historyListStyle}>
-              {historyData.items.map((item) => {
-                const itemAnchor = {
-                  historyItemRef: item.history_item_ref,
-                };
-                const actionButtons = item.available_rollback_actions.flatMap(
-                  (action) => {
-                    const target = buildRecordRollbackTargetFromHistoryAction(
-                      item,
-                      action,
-                    );
-                    if (target === null) {
-                      return [];
-                    }
-                    const label =
-                      action === "history_entry"
-                        ? "Rollback entry"
-                        : action === "change_set"
-                          ? "Rollback change set"
-                          : "Restore row fields";
-                    return [
-                      <button
-                        data-testid={rowHistoryActionTestId({
-                          ...itemAnchor,
-                          action,
-                        })}
-                        key={action}
-                        style={
-                          action === "row_restore"
-                            ? actionButtonStyle
-                            : secondaryActionButtonStyle
-                        }
-                        type="button"
-                        onClick={() => {
-                          submitRowHistoryRollback(item, action);
-                        }}
-                      >
-                        {label}
-                      </button>,
-                    ];
-                  },
-                );
-                return (
-                  <li
-                    data-testid={rowHistoryItemTestId(itemAnchor)}
-                    key={item.history_item_ref}
-                    style={historyItemStyle}
+          {rowHistory.status === "loading" ? (
+            <p data-testid={rowHistoryLoadingTestId()} style={bodyStyle}>
+              Loading history...
+            </p>
+          ) : null}
+          {rowHistory.message ? (
+            <p
+              data-testid={rowHistoryMessageTestId()}
+              style={genericErrorTextStyle}
+            >
+              {rowHistory.message}
+            </p>
+          ) : null}
+          {historyData !== null ? (
+            <>
+              <dl style={historyMetaGridStyle}>
+                <div>
+                  <dt style={detailTermStyle}>Current row version</dt>
+                  <dd style={detailValueStyle}>{historyData.row_version}</dd>
+                </div>
+                <div>
+                  <dt style={detailTermStyle}>Deleted</dt>
+                  <dd style={detailValueStyle}>
+                    {historyData.deleted ? "yes" : "no"}
+                  </dd>
+                </div>
+              </dl>
+              <div style={inlineButtonRowStyle}>
+                {selectedActiveRow !== null && !historyData.deleted ? (
+                  <button
+                    data-testid={rowHistoryDeleteButtonTestId()}
+                    style={destructiveActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      submitRowHistoryDeleteRestore("delete");
+                    }}
                   >
-                    <div style={historyItemHeaderStyle}>
-                      <strong>{item.operation}</strong>
-                      <time dateTime={item.committed_at}>
-                        {formatHistoryTimestamp(item.committed_at)}
-                      </time>
-                    </div>
-                    <dl style={detailListStyle}>
-                      <div>
-                        <dt style={detailTermStyle}>Actor</dt>
-                        <dd style={detailValueStyle}>{item.actor_user_id}</dd>
+                    Soft-delete row
+                  </button>
+                ) : null}
+                {historyData.deleted ? (
+                  <button
+                    data-testid={rowHistoryRestoreButtonTestId()}
+                    style={actionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      submitRowHistoryDeleteRestore("restore");
+                    }}
+                  >
+                    Restore row
+                  </button>
+                ) : null}
+              </div>
+              <ol style={historyListStyle}>
+                {historyData.items.map((item) => {
+                  const itemAnchor = {
+                    historyItemRef: item.history_item_ref,
+                  };
+                  const actionButtons = item.available_rollback_actions.flatMap(
+                    (action) => {
+                      const target = buildRecordRollbackTargetFromHistoryAction(
+                        item,
+                        action,
+                      );
+                      if (target === null) {
+                        return [];
+                      }
+                      const label =
+                        action === "history_entry"
+                          ? "Rollback entry"
+                          : action === "change_set"
+                            ? "Rollback change set"
+                            : "Restore row fields";
+                      return [
+                        <button
+                          data-testid={rowHistoryActionTestId({
+                            ...itemAnchor,
+                            action,
+                          })}
+                          key={action}
+                          style={
+                            action === "row_restore"
+                              ? actionButtonStyle
+                              : secondaryActionButtonStyle
+                          }
+                          type="button"
+                          onClick={() => {
+                            submitRowHistoryRollback(item, action);
+                          }}
+                        >
+                          {label}
+                        </button>,
+                      ];
+                    },
+                  );
+                  return (
+                    <li
+                      data-testid={rowHistoryItemTestId(itemAnchor)}
+                      key={item.history_item_ref}
+                      style={historyItemStyle}
+                    >
+                      <div style={historyItemHeaderStyle}>
+                        <strong>{item.operation}</strong>
+                        <time dateTime={item.committed_at}>
+                          {formatHistoryTimestamp(item.committed_at)}
+                        </time>
                       </div>
-                      <div>
-                        <dt style={detailTermStyle}>Diff</dt>
-                        <dd style={detailValueStyle}>
-                          {item.diff_summary.summary}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt style={detailTermStyle}>Change set</dt>
-                        <dd style={detailValueStyle}>{item.change_set_id}</dd>
-                      </div>
-                    </dl>
-                    {actionButtons.length > 0 ? (
-                      <div style={inlineButtonRowStyle}>{actionButtons}</div>
-                    ) : (
-                      <p style={emptyRelationshipStyle}>No rollback action</p>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          </>
-        ) : null}
+                      <dl style={detailListStyle}>
+                        <div>
+                          <dt style={detailTermStyle}>Actor</dt>
+                          <dd style={detailValueStyle}>{item.actor_user_id}</dd>
+                        </div>
+                        <div>
+                          <dt style={detailTermStyle}>Diff</dt>
+                          <dd style={detailValueStyle}>
+                            {item.diff_summary.summary}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt style={detailTermStyle}>Change set</dt>
+                          <dd style={detailValueStyle}>{item.change_set_id}</dd>
+                        </div>
+                      </dl>
+                      {actionButtons.length > 0 ? (
+                        <div style={inlineButtonRowStyle}>{actionButtons}</div>
+                      ) : (
+                        <p style={emptyRelationshipStyle}>No rollback action</p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </>
+          ) : null}
+        </div>
       </section>
     );
   }
@@ -7808,7 +7823,10 @@ export function TimelineWorkbook({
                 {renderInspectorFieldEditors(selectedRow)}
                 {renderEvidenceAttachSection(selectedRow)}
                 {renderRowHistorySection()}
-                <section style={inspectorSectionStyle}>
+                <section
+                  data-testid={timelineInspectorSectionTestId("relationships")}
+                  style={inspectorSectionStyle}
+                >
                   <h3 style={sectionTitleStyle}>Mentions</h3>
                   <div style={mentionGroupStyle}>
                     {["unresolved", "resolved", "dismissed"].map((status) => {
@@ -11465,6 +11483,7 @@ export function WorkbookShell({
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentIncidentRole, setCurrentIncidentRole] =
     useState<IncidentRole | null>(null);
+  const [incidentControlsOpen, setIncidentControlsOpen] = useState(false);
   const [hostQueryState, setHostQueryState] = useState<WorkbookQueryState>(() =>
     emptyWorkbookQueryState(),
   );
@@ -11994,6 +12013,18 @@ export function WorkbookShell({
           <div data-testid={currentIncidentRoleTestId()} style={roleBadgeStyle}>
             Current incident role: {currentIncidentRole || "viewer"}
           </div>
+          <button
+            aria-controls={incidentControlsPanelTestId()}
+            aria-expanded={incidentControlsOpen}
+            data-testid={incidentControlsTriggerTestId()}
+            style={secondaryActionButtonStyle}
+            type="button"
+            onClick={() => {
+              setIncidentControlsOpen((current) => !current);
+            }}
+          >
+            Incident controls
+          </button>
           {onReturnToLanding ? (
             <button
               data-testid={phase1LandingTestId("return")}
@@ -12063,17 +12094,6 @@ export function WorkbookShell({
           />
         </WorkbookShellSlotRegion>
       </div>
-
-      <section data-workbook-shell-region="support" style={supportRegionStyle}>
-        <IncidentAdminPanel
-          apiBase={apiBase}
-          currentIncidentRole={currentIncidentRole}
-          incidentId={incidentId}
-          onIncidentAccessLost={onIncidentAccessLost}
-          onIncidentSnapshot={onIncidentSnapshot}
-          onSessionRoleChange={loadSessionRole}
-        />
-      </section>
 
       {entityLoadError ? (
         <p data-testid="entity-load-error" style={bodyStyle}>
@@ -12238,6 +12258,24 @@ export function WorkbookShell({
           savedViewSelector={activeSavedViewSelector}
         />
       )}
+
+      {incidentControlsOpen ? (
+        <section
+          data-testid={incidentControlsPanelTestId()}
+          data-workbook-shell-region="support"
+          id={incidentControlsPanelTestId()}
+          style={supportRegionStyle}
+        >
+          <IncidentAdminPanel
+            apiBase={apiBase}
+            currentIncidentRole={currentIncidentRole}
+            incidentId={incidentId}
+            onIncidentAccessLost={onIncidentAccessLost}
+            onIncidentSnapshot={onIncidentSnapshot}
+            onSessionRoleChange={loadSessionRole}
+          />
+        </section>
+      ) : null}
     </section>
   );
 }

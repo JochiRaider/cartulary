@@ -3,7 +3,7 @@
   "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P2",
-  "guide_digest": "ce0017daaac430a37a586b851c0788e41358b37dfa5e3bc2ece7e904b4bc741f",
+  "guide_digest": "3ff5391f1dc7458422dd6abfd5f6683c3a3d2efb9b0624aedd58b9a358a56d66",
   "rows": [
     {
       "id": "FE-U-P2-01",
@@ -254,7 +254,7 @@
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Verify continuous workbook shell composition: top bar, tab bar, System views, view bar, grid slot, inspector tabs, and status strip slots stay in one shell.",
+        "statement": "Verify continuous workbook shell composition: top bar, tab bar, System views, view bar, grid-first active surface slot, inspector sections, and status strip slots stay in one shell while incident controls remain reachable only through the explicit secondary control surface.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },
@@ -464,8 +464,8 @@
         {
           "source_key": "design_md",
           "path": "docs/design.md",
-          "section_ref": "docs/design.md Sections 3, 13, 15, and 17",
-          "heading_text": "docs/design.md Sections 3, 13, 15, and 17",
+          "section_ref": "docs/design.md Sections 3, 7, 13, 15, and 17",
+          "heading_text": "docs/design.md Sections 3, 7, 13, 15, and 17",
           "req_ids": [],
           "ac_ids": [],
           "role": "design_owner",
@@ -494,7 +494,8 @@
         "D-AC-055",
         "D-AC-060",
         "D-AC-062",
-        "D-AC-063"
+        "D-AC-063",
+        "D-AC-064"
       ],
       "targets": [
         {
@@ -507,11 +508,11 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P2-01 Capture default workbook shell with top bar, tabs, System views, view bar, primary grid slot, inspector, and status strip using deterministic visual harness settings."
+        "FE-V-P2-01 Capture Default Timeline workbook shell with top bar, view bar, dense Timeline grid, row-context inspector, and status strip."
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Capture default workbook shell with top bar, tabs, System views, view bar, primary grid slot, inspector, and status strip using deterministic visual harness settings.",
+        "statement": "Capture Default Timeline workbook shell with top bar, view bar, dense Timeline grid, row-context inspector, and status strip.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },

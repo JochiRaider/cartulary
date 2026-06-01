@@ -684,6 +684,8 @@ Design contract. The application shell MUST contain the regions in the table bel
 | Inspector | Details, Relationships, Evidence, History. | Adjacent or overlay secondary surface. |
 | Status strip | Save state, secondary same-surface message, presence summary or overflow when assigned by §7.5. | Capacity-limited working-state strip. |
 
+Design contract. The default Timeline workbook shell at `{layout.baseViewport}` MUST show the top bar, view bar, active Timeline grid, row-context inspector, and status strip as the dominant first-viewport structure. Incident summary, bootstrap defaults, membership management, promoted-field patch forms, or other administration/control surfaces MUST NOT dominate the default Timeline path above the active grid; those controls are valid only inside an explicitly opened secondary surface or a distinct administration context.
+
 Design contract. A shell region MAY be visually collapsed only when the responsive algorithm in §7.5 assigns its controls to another reachable region. Omission behavior: a collapsed region with no assigned controls renders no visible container.
 
 ### 7.2 Shell-exposure surface registry
@@ -1441,7 +1443,7 @@ Design contract. The visual fixture registry is closed to the rows below for thi
 
 | Fixture ID | Required state | Viewport | Zoom | Density | Theme | Scroll normalization | Dynamic masks | Crop rule | Pass condition |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `D-VFIX-001` | Base shell with Timeline grid, tabs, `System views`, saved-view selector, status strip. | `{layout.baseViewport}` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | All shell regions visible and token pairs pass §14.3. |
+| `D-VFIX-001` | Default Timeline workbook shell with top bar, view bar, dense Timeline grid, row-context inspector, status strip, and spreadsheet affordances; no admin-card dominance above the active grid. | `{layout.baseViewport}` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | All shell regions visible, admin/control content absent unless explicitly opened, and token pairs pass §14.3. |
 | `D-VFIX-002` | Inspector open adjacent at base viewport. | `{layout.baseViewport}` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_001:timeline.summary` | Actor names, timestamps, IDs. | `full_viewport` | Grid remains visible; inspector sections in required order. |
 | `D-VFIX-003` | Same-field conflict cell and resolver. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_conflict:timeline.summary` | Actor names, timestamps, IDs. | `selector:[data-design-fixture='conflict']` | Conflict marker, local draft, saved value, and actions visible. |
 | `D-VFIX-004` | Unresolved, resolved, auto-resolved, and dismissed chips. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `row:rec_timeline_mentions` | Actor names, IDs. | `selector:[data-design-fixture='chips']` | Four chip states have distinct non-color cues. |
@@ -1621,6 +1623,7 @@ Design contract. This `design.md` is ready to guide design implementation only w
 | `D-AC-061` | §15.1 | Visual fixture metadata | Dynamic fixture data is seeded or masked. | Actor names, timestamps, IDs, cursor positions, or local browser defaults are unmasked. |
 | `D-AC-062` | §15.1 | Evidence-class audit | Fixture evidence is classified as design evidence, not claim-bearing benchmark evidence. | Fixture evidence is represented as Core 05 claim evidence without Core 05 compliance. |
 | `D-AC-063` | §15.2 | Visual fixture registry | Every fixture row has exact viewport dimensions, not band-only declarations. | Fixture viewport is open-ended. |
+| `D-AC-064` | §7.1 and §15.2 | Visual fixture review | `D-VFIX-001` captures the default Timeline workbook shell with top bar, view bar, active grid, row-context inspector, status strip, and no admin/control card stack above the grid. | The fixture captures a dashboard/admin-card layout or lacks a required workbook shell region. |
 
 ### 18.8 Boundary criteria
 

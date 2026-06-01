@@ -1,5 +1,7 @@
 import {
   currentIncidentRoleTestId,
+  incidentControlsPanelTestId,
+  incidentControlsTriggerTestId,
   incidentMembershipDeleteButtonTestId,
   incidentMembershipPatchButtonTestId,
   incidentMembershipRoleDisplayTestId,
@@ -36,6 +38,11 @@ import {
   uniqueTxn,
 } from "./helpers";
 import { Phase1Page } from "./phase1Page";
+
+async function openIncidentControls(page: Page) {
+  await page.getByTestId(incidentControlsTriggerTestId()).click();
+  await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
+}
 
 test("E-1-01 signs in as a local user and inspects the ordinary session surface", async ({
   page,
@@ -637,6 +644,7 @@ test("E-1-09 creates an incident from the landing screen, lists it, and opens th
   await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
     "Current incident role: admin",
   );
+  await openIncidentControls(page);
   await expect(page.getByTestId("incident-summary-key")).toHaveText(
     incidentKey,
   );
@@ -709,6 +717,7 @@ test("E-1-10 clears a stale selected incident after membership removal while pre
   await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
     "Current incident role: admin",
   );
+  await openIncidentControls(page);
   await expect(
     page.getByTestId(incidentMembershipRowTestId(targetUser.user_id)),
   ).toBeVisible();
@@ -798,6 +807,7 @@ test("E-1-11 observes current-role authorization on a stale reviewer edit throug
   await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
     "Current incident role: reviewer",
   );
+  await openIncidentControls(page);
   await expect(page.getByTestId("incident-patch-button")).toBeVisible();
   await expect(
     page.getByTestId(incidentMembershipRoleDisplayTestId(targetUser.user_id)),
@@ -840,6 +850,7 @@ test("E-1-11 observes current-role authorization on a stale reviewer edit throug
   await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
     "Current incident role: editor",
   );
+  await openIncidentControls(page);
   await expect(page.getByTestId("incident-patch-readonly-note")).toBeVisible();
 });
 

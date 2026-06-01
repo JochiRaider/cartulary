@@ -2,6 +2,8 @@ import {
   currentIncidentRoleTestId,
   dataTestIdSelector,
   gridShellTestId,
+  incidentControlsPanelTestId,
+  incidentControlsTriggerTestId,
   incidentMembershipAdminNoteTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,
@@ -48,6 +50,11 @@ import {
 } from "./helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
+
+async function openIncidentControls(page: Page) {
+  await page.getByTestId(incidentControlsTriggerTestId()).click();
+  await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
+}
 
 test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface", async ({
   page,
@@ -124,6 +131,7 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
     "Current incident role: admin",
   );
+  await openIncidentControls(page);
   await expect(page.getByTestId("incident-summary-key")).toHaveText(
     incidentKey,
   );
@@ -426,6 +434,7 @@ test("E-2-02 shows incident discovery, raw querystring deep-link retrieval, and 
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
+  await openIncidentControls(page);
   await expect(page.getByTestId("incident-summary-key")).toHaveText(
     incidentKey,
   );
@@ -489,6 +498,7 @@ test("E-2-03 lets incident admins manage memberships and hides those controls fr
   );
 
   await openIncidentFromLanding(page, incidentId);
+  await openIncidentControls(page);
 
   await page
     .getByTestId(incidentMembershipEmailInputTestId())
@@ -528,6 +538,7 @@ test("E-2-03 lets incident admins manage memberships and hides those controls fr
     userId: memberUser.user_id,
   });
 
+  await openIncidentControls(memberPage);
   await expect(
     memberPage.getByTestId(incidentMembershipAdminNoteTestId()),
   ).toBeVisible();
