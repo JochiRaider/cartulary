@@ -992,15 +992,15 @@ test.describe("Phase 6 workbook visual evidence", () => {
         ),
       ).toContainText("VA");
       await assertMarkerAnchoredToGridTarget({
-      anchorKind: "row-gutter",
-      markerTestId: rowPresenceMarkerTestId(timelineRow.record_id),
-      page,
-      surface: timelineViewSchemaId,
-      targetTestId: gridRowGutterTestId(
-        timelineViewSchemaId,
-        timelineRow.record_id,
-      ),
-    });
+        anchorKind: "row-gutter",
+        markerTestId: rowPresenceMarkerTestId(timelineRow.record_id),
+        page,
+        surface: timelineViewSchemaId,
+        targetTestId: gridRowGutterTestId(
+          timelineViewSchemaId,
+          timelineRow.record_id,
+        ),
+      });
       await assertMarkerAnchoredToGridTarget({
         anchorKind: "cell",
         markerTestId: cellPresenceMarkerTestId(

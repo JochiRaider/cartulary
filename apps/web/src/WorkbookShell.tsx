@@ -110,9 +110,9 @@ import {
 } from "@cartulary/view-contracts";
 import {
   type CSSProperties,
+  Fragment,
   type ClipboardEvent as ReactClipboardEvent,
   type FocusEvent as ReactFocusEvent,
-  Fragment,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
@@ -6844,9 +6844,7 @@ export function TimelineWorkbook({
                   aria-label={`${rowPresence
                     .map((presence) => presence.display_name)
                     .join(", ")} focused on this row`}
-                  data-testid={rowPresenceMarkerTestId(
-                    row.recordId ?? "draft",
-                  )}
+                  data-testid={rowPresenceMarkerTestId(row.recordId ?? "draft")}
                   role="img"
                   style={rowGutterPresenceStyle}
                 >
@@ -12053,7 +12051,6 @@ export function WorkbookShell({
         </div>
         <div style={shellTopBarActionsStyle}>
           <span
-            aria-label={currentUserLabel ?? "Unknown user"}
             data-testid={phase1RouteTestId("workbook-current-user")}
             style={currentUserChipStyle}
             title={currentUserLabel ?? "Unknown user"}
@@ -12080,7 +12077,7 @@ export function WorkbookShell({
               data-testid={phase1LandingTestId("return")}
               style={secondaryActionButtonStyle}
               type="button"
-            onClick={onReturnToLanding}
+              onClick={onReturnToLanding}
             >
               Incidents
             </button>

@@ -1189,7 +1189,9 @@ test.describe("FE-P1 accessibility readiness", () => {
         "admin",
       );
       await page.getByTestId(incidentControlsTriggerTestId()).click();
-      await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
+      await expect(
+        page.getByTestId(incidentControlsPanelTestId()),
+      ).toBeVisible();
       await expectStatusRole(page.getByTestId("incident-admin-status"));
       await expectVisibleFocus(
         page.getByTestId(phase1A11yAppLocalTestId("incidentPatchButton")),
@@ -1233,7 +1235,9 @@ test.describe("FE-P1 accessibility readiness", () => {
         "admin",
       );
       await page.getByTestId(incidentControlsTriggerTestId()).click();
-      await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
+      await expect(
+        page.getByTestId(incidentControlsPanelTestId()),
+      ).toBeVisible();
       await expect(page.getByTestId("incident-patch-tlp")).toBeVisible();
       const alternateMembership = await loadIncidentMembership(
         workerAdminRequest,

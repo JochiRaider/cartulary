@@ -168,15 +168,13 @@ export function GridTable<Row>({
                 }}
               >
                 {rowGutter === undefined ? null : (
-                  <td
+                  <th
                     data-grid-field-key="__cartulary_row_gutter__"
                     data-testid={row.gridRow.gutterTestId}
-                    role="rowheader"
+                    scope="row"
                   >
-                    {row.gridRow.gutterContent ??
-                      row.gridRow.gutterLabel ??
-                      ""}
-                  </td>
+                    {row.gridRow.gutterContent ?? row.gridRow.gutterLabel ?? ""}
+                  </th>
                 )}
                 {columns.map((column) => (
                   <td
