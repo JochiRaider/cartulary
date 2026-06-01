@@ -305,7 +305,7 @@ Patch limits and canonicalization:
 
 | Done | Sprint | Primary validation | Blockers |
 | --- | --- | --- | --- |
-| [ ] | 1. Readiness, map, ledger, FE-P3 handoff | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P4`; registry and row-inventory checks; `make phase-ledger-drift`; `git diff --check` | FE-P4 currently planned, non-executable, and all rows blocked |
+| [x] | 1. Readiness, map, ledger, FE-P3 handoff | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P4`; registry and row-inventory checks; `make phase-ledger-drift`; `git diff --check` | Complete as readiness evidence only; FE-P4 remains planned, non-executable, and all rows blocked |
 | [ ] | 2. Sync-engine pending queue unit model for `FE-U-P4-01` | `make frontend-unit`; `make frontend-typecheck` | Block if Table B capacity, overflow, FIFO, coalescing, non-survival, or non-retryable halt behavior is untested |
 | [ ] | 3. Save-state derivation and status strip unit model for `FE-U-P4-02` | `make frontend-unit`; `make frontend-typecheck` | Block if primary labels differ from Table C or secondary messages detach from the same workbook surface |
 | [ ] | 4. Timeline query/render identity integration for `FE-I-P4-01` | `make frontend-unit`; `make browser-e2e-webserver-backed` | Block if Table E query defaults, `view_row_v1` full-cell membership, or `record_id` identity are not preserved through refresh/error |
@@ -347,13 +347,26 @@ Test-first sequence:
 - Run `make phase-ledger-drift`.
 - Run `git diff --check` after creating or updating this plan.
 
-Validation commands:
+Sprint 1 execution record, 2026-06-01:
 
-- Already passed during plan creation: `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P4`.
-- Already passed during plan creation: registry tuple `jq -e` check.
-- Already passed during plan creation: row inventory `jq -e` check.
-- Already passed after this plan was written: `make phase-ledger-drift`, run root `.cartulary/test-results/20260601T210509Z-p23551`.
-- Passed after file write: `git diff --check` with the new file temporarily marked intent-to-add so the untracked Markdown file was included in whitespace validation.
+- Passed: `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P4`; FE-P4 reported as planned, explainable, and non-executable.
+- Passed: `make task-guide ROLE=feature-dev PHASE_NAMESPACE=frontend PHASE=FE-P4`; the planned-phase guide recommended `explain-phase` and `phase-ledger-drift`.
+- Passed: registry tuple inspection; FE-P4 is in the frontend namespace with the expected manifest path, ledger path, dependency chain, activation blocker, and freshness digests.
+- Passed: row inventory inspection; FE-P4 has exactly `FE-U-P4-01`, `FE-U-P4-02`, `FE-I-P4-01`, `FE-E-P4-01`, `FE-V-P4-01`, and `FE-A11Y-P4-01` once each, all `claim_status="blocked"`.
+- Passed: `make json-shape-check`, run root `.cartulary/test-results/20260601T214448Z-p61340`, summary `json-shape-check/tool-run-summary.json`.
+- Passed: `make generated-artifact-policy-check`, run root `.cartulary/test-results/20260601T214453Z-p61529`, summary `generated-artifact-policy-check/tool-run-summary.json`.
+- Passed: `make phase-ledger-drift`, run root `.cartulary/test-results/20260601T214457Z-p62021`, summary `phase-ledger-drift/tool-run-summary.json`.
+- Passed: `make explain-run RESULTS_DIR=.cartulary/test-results/20260601T214457Z-p62021 TARGET=phase-ledger-drift`.
+- Inspected target surface with `make help`, `make help-all`, and `make explain-target TARGET=<target> DETAIL=summary` for `frontend-unit`, `browser-e2e-webserver-backed`, `browser-e2e-stateful`, `browser-e2e-visual`, `browser-e2e-a11y-preflight`, `browser-e2e-a11y`, `browser-e2e-support`, and `phase-ledger-drift`.
+
+Sprint 1 handoff state:
+
+- FE-P4 remains `planned`, non-executable, and all six FE-P4 rows remain `blocked`.
+- FE-P3 handoff context and retained roots are historical only unless rerun under the current target and row-accounting rules.
+- `FE-A11Y-P4-01` remains blocked because the current `browser-e2e-a11y-preflight` and `browser-e2e-a11y` target summaries report `phase_coverage: none`.
+- `FE-V-P4-01` remains blocked because fixture registry `current` status does not equal FE-P4 row-owned recapture evidence.
+- No Core 05 claim-publication predicate was introduced.
+- No FE-P4 product behavior, row promotion, generated-ledger edit, registry/map metadata change, or phase activation was performed.
 
 Deliverables:
 
