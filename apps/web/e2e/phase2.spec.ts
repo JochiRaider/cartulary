@@ -93,12 +93,12 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
 
   await expect(
     shell
-      .locator(dataTestIdSelector(workbookShellSlotTestId("system-views")))
+      .locator(dataTestIdSelector(workbookShellSlotTestId("top-bar")))
       .getByTestId(systemViewSwitcherTriggerTestId()),
   ).toBeVisible();
 
   const tabBar = shell.locator(
-    dataTestIdSelector(workbookShellSlotTestId("tab-bar")),
+    dataTestIdSelector(workbookShellSlotTestId("top-bar")),
   );
   const builtInTabsByRegistryIndex = await tabBar
     .locator("[data-workbook-tab-index]")
@@ -287,7 +287,7 @@ test("FE-E-P2-01 Verify saved views appear only under the active surface's view 
   ).toBeVisible();
 
   const tabBar = shell.locator(
-    dataTestIdSelector(workbookShellSlotTestId("tab-bar")),
+    dataTestIdSelector(workbookShellSlotTestId("top-bar")),
   );
   await expect(tabBar.locator(savedViewFamilySelector())).toHaveCount(0);
 

@@ -1,4 +1,4 @@
-import { phase1RouteTestId } from "@cartulary/ui-contracts";
+import { phase1RouteTestId, saveStateTestId } from "@cartulary/ui-contracts";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -58,7 +58,9 @@ describe("vendored font role activation", () => {
     render(<TimelineWorkbook incidentId="incident-1" />);
 
     expect(
-      (await screen.findByText("Save State")).getAttribute("data-density-role"),
+      (await screen.findByTestId(saveStateTestId())).getAttribute(
+        "data-density-role",
+      ),
     ).toBe("narrow-metadata");
   });
 });

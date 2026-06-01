@@ -32,7 +32,7 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 
 | Fixture ID | Fixture title | Intended phase | Required surface state | Required scroll normalization | Status |
 | --- | --- | --- | --- | --- | --- |
-| `FE-VFIX-01` | Default Timeline workbook shell | `FE-P2` | App-owned workbook shell root with top bar, view bar, dense Timeline grid, row-context inspector, status strip, Core default Timeline fields, selected row context, focused cell, and no admin/control card stack above the active grid. | Top-left outer and grid scroll; viewport `1440x900` unless the fixture row states otherwise. | `current` |
+| `FE-VFIX-01` | Default Timeline workbook shell | `FE-P2` | App-owned workbook shell root with top bar, compact view bar, compact Timeline grid, row gutter, header affordances, row-context inspector, status strip, Core 01 default Timeline fields, selected row context, focused Summary cell, and no admin/control card stack above the active grid. | Top-left outer and grid scroll; viewport `1440x900` unless the fixture row states otherwise. | `current` |
 | `FE-VFIX-02` | Unresolved and resolved entity state | `FE-P5` | Entity evidence or request state renders both unresolved and resolved variants. | Named row anchor; dynamic identifiers masked. | `missing` |
 | `FE-VFIX-03` | Same-field conflict | `FE-P7` | Conflict strip or resolver shows same-field conflict state and recovery affordance. | Top-left grid scroll or conflict row anchor. | `current` |
 | `FE-VFIX-04` | Row-gutter presence | `FE-P7` | Row gutter or presence marker is visible and anchored to the intended row. | Presence row anchor; dynamic actor labels masked where needed. | `current` |
@@ -110,6 +110,8 @@ Refresh a golden only when at least one of these is true:
 - the previous golden is stale relative to already-validated functional behavior.
 
 Do not refresh a golden to hide an unexplained product regression, broken functional assertion, unstable dynamic text, missing data, or a browser/runtime mismatch.
+
+`FE-VFIX-01` refreshes MUST be fixed first-viewport captures. Full-page captures, locator captures taller than the viewport, FE-P3 grid-adapter support specimens, FE-P11 token/theme specimens, concept images, or screenshots containing the default-shell admin/demo card stack cannot satisfy the default Timeline workbook-shell fixture.
 
 ## Workbook Grid Scroll Contract
 

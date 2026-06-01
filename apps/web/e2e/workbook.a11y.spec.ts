@@ -8,6 +8,8 @@ import {
   gridGroupingSelectTestId,
   gridGroupRowTestId,
   gridSortHeaderTestId,
+  incidentControlsPanelTestId,
+  incidentControlsTriggerTestId,
   landingIncidentCardTestId,
   phase1AccountTestId,
   phase1AdminTestId,
@@ -867,9 +869,9 @@ test.describe("FE-P3 accessibility readiness", () => {
 
     await expect(
       page.getByTestId(
-        gridSortHeaderTestId(timelineViewSchemaId, "timeline.capture_state"),
+        gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
       ),
-    ).toContainText("State");
+    ).toContainText("Summary");
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
     await expectAndRecordContrast(page, [
@@ -879,7 +881,7 @@ test.describe("FE-P3 accessibility readiness", () => {
         "timeline.capture_state",
         "reviewed",
       ),
-      gridSortHeaderTestId(timelineViewSchemaId, "timeline.capture_state"),
+      gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
       rowCellTestId(betaRow.record_id, "timeline.summary"),
       timelineRowMarkReviewedButtonTestId(betaRow.record_id),
       saveStateTestId(),
@@ -1186,13 +1188,15 @@ test.describe("FE-P1 accessibility readiness", () => {
       await expect(page.getByTestId(currentIncidentRoleTestId())).toContainText(
         "admin",
       );
+      await page.getByTestId(incidentControlsTriggerTestId()).click();
+      await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
       await expectStatusRole(page.getByTestId("incident-admin-status"));
+      await expectVisibleFocus(
+        page.getByTestId(phase1A11yAppLocalTestId("incidentPatchButton")),
+      );
       await expectP1SurfaceA11y(page, {
         focusTestId: phase1LandingTestId("return"),
-        tabStops: [
-          phase1LandingTestId("return"),
-          phase1A11yAppLocalTestId("incidentPatchButton"),
-        ],
+        tabStops: [phase1LandingTestId("return")],
       });
 
       await phase1.returnToLanding();
@@ -1228,6 +1232,8 @@ test.describe("FE-P1 accessibility readiness", () => {
       await expect(page.getByTestId(currentIncidentRoleTestId())).toContainText(
         "admin",
       );
+      await page.getByTestId(incidentControlsTriggerTestId()).click();
+      await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
       await expect(page.getByTestId("incident-patch-tlp")).toBeVisible();
       const alternateMembership = await loadIncidentMembership(
         workerAdminRequest,

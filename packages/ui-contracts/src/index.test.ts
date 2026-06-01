@@ -38,6 +38,7 @@ import {
   gridGroupRowsSelector,
   gridGroupRowTestId,
   gridGroupRowTestIdPrefix,
+  gridRowGutterTestId,
   gridRowTestId,
   gridSavedRowSelector,
   gridSavedRowsSelector,
@@ -111,6 +112,7 @@ import {
   savedViewOptionTestId,
   savedViewSelectorTestId,
   saveStateTestId,
+  statusStripQueueCountTestId,
   surfaceTabTestId,
   systemViewSelectorTestId,
   systemViewSwitcherGroupTestId,
@@ -462,6 +464,9 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(gridActionsHeaderTestId("cartulary.view.timeline.v1")).toBe(
       "cartulary.view.timeline.v1-actions-header",
     );
+    expect(gridRowGutterTestId("cartulary.view.timeline.v1", "record-1")).toBe(
+      "cartulary.view.timeline.v1-row-gutter-record-1",
+    );
     expect(gridSavedRowsSelector()).toBe(
       '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])',
     );
@@ -477,6 +482,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "presence-cell-record-1-timeline.summary",
     );
     expect(saveStateTestId()).toBe("save-state");
+    expect(statusStripQueueCountTestId()).toBe("status-strip-queue-count");
     expect(referencePackAdminPanelTestId()).toBe("reference-pack-admin-panel");
     expect(referencePackFileInputTestId()).toBe("reference-pack-file");
     expect(referencePackImportButtonTestId()).toBe("reference-pack-import");
@@ -701,20 +707,16 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(workbookShellReadyTestId()).toBe("workbook-shell-ready");
     expect(workbookShellSlots).toEqual([
       "top-bar",
-      "tab-bar",
-      "system-views",
-      "current-title",
       "view-bar",
       "primary-grid",
       "inspector",
       "status-strip",
-      "presence",
     ]);
     expect(workbookShellSlotTestId("top-bar")).toBe(
       "workbook-shell-slot-top-bar",
     );
-    expect(workbookShellSlotTestId("system-views")).toBe(
-      "workbook-shell-slot-system-views",
+    expect(workbookShellSlotTestId("view-bar")).toBe(
+      "workbook-shell-slot-view-bar",
     );
     expect(workbookShellSlotLabel("top-bar")).toBe("Workbook top bar");
     expect(workbookShellSlotLabel("primary-grid")).toBe("Primary grid");

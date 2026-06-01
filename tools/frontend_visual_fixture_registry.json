@@ -19,22 +19,22 @@
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
       "theme_id": "dark_graphite",
-      "density_id": "default",
+      "density_id": "compact",
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-shell-root-and-grid"
       },
       "focus_state": {
         "kind": "fixture_specific",
-        "description": "Focused Timeline summary cell on the selected row before screenshot capture."
+        "description": "Selected Timeline row with the Summary cell focused before the fixed first-viewport screenshot capture."
       },
       "editor_state": {
         "kind": "fixture_specific",
-        "description": "Inline editor affordance available through the focused Timeline summary cell; no unsaved mutation is staged."
+        "description": "Focused Timeline Summary cell is in compact display/edit affordance state; no unsaved mutation is staged."
       },
       "inspector_state": {
         "kind": "fixture_specific",
-        "description": "Row-context Timeline inspector open with details, relationships, evidence, and history sections visible."
+        "description": "Adjacent row-context Timeline inspector open with Details, Relationships, Evidence, and History sections visible."
       },
       "dynamic_masks": [
         "incident identifiers",

@@ -151,14 +151,13 @@ describe("Phase 6 workbook collaboration coverage", () => {
     expect(screen.getByTestId("presence-header").textContent).not.toContain(
       "SA",
     );
-    expect(screen.getByTestId("presence-row-record-1").textContent).toContain(
-      "OA",
-    );
-    expect(
-      screen.getByTestId(
-        cellPresenceMarkerTestId("record-1", "timeline.summary"),
-      ).textContent,
-    ).toContain("OA");
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(
+          cellPresenceMarkerTestId("record-1", "timeline.summary"),
+        ).textContent,
+      ).toContain("OA");
+    });
     expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
 
     socket?.emit({

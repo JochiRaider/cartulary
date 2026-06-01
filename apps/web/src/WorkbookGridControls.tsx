@@ -21,6 +21,7 @@ type WorkbookGridControlsProps = {
   readonly contract: ViewContract;
   readonly filterDraft: FilterDraft;
   readonly onApplyFilter: () => void;
+  readonly onClearAll?: (() => void) | undefined;
   readonly onFilterDraftChange: (draft: FilterDraft) => void;
   readonly onGroupByChange: (groupBy: string | null) => void;
   readonly onRemoveFilter: (fieldKey: string) => void;
@@ -32,6 +33,7 @@ export function WorkbookGridControls({
   contract,
   filterDraft,
   onApplyFilter,
+  onClearAll,
   onFilterDraftChange,
   onGroupByChange,
   onRemoveFilter,
@@ -42,42 +44,25 @@ export function WorkbookGridControls({
 
   return (
     <div style={toolbarStyle}>
-      <div style={chipRowStyle}>
-        {queryState.filters.length > 0 ? (
-          queryState.filters.map((filter) => (
-            <button
-              key={filter.fieldKey}
-              data-testid={gridFilterChipTestId(surface, filter.fieldKey)}
-              style={chipButtonStyle}
-              type="button"
-              onClick={() => {
-                onRemoveFilter(filter.fieldKey);
-              }}
-            >
-              {filterChipLabel(contract, filter)}
-            </button>
-          ))
-        ) : (
-          <span style={hintStyle}>No active filters</span>
-        )}
-      </div>
-
       <div style={controlRowStyle}>
-        <label style={labelStyle}>
-          Filter
+        <button style={modeButtonStyle} type="button">
+          Sort {queryState.sort.length > 0 ? queryState.sort.length : ""}
+        </button>
+
+        <label style={inlineLabelStyle}>
+          Group
           <select
-            data-testid={gridFilterFieldTestId(surface)}
+            data-testid={gridGroupingSelectTestId(surface)}
             style={selectStyle}
-            value={filterDraft.fieldKey}
+            value={queryState.groupBy ?? ""}
             onChange={(event) => {
-              onFilterDraftChange({
-                booleanValue: "",
-                fieldKey: event.target.value,
-                value: "",
-              });
+              onGroupByChange(
+                event.target.value === "" ? null : event.target.value,
+              );
             }}
           >
-            {contract.filterFields.map((fieldKey) => (
+            <option value="">None</option>
+            {contract.groupingFields.map((fieldKey) => (
               <option key={fieldKey} value={fieldKey}>
                 {contract.fieldMap[fieldKey]?.label ?? fieldKey}
               </option>
@@ -85,10 +70,32 @@ export function WorkbookGridControls({
           </select>
         </label>
 
-        {inputMode === "boolean" ? (
-          <label style={labelStyle}>
-            Value
+        <span style={filterClusterStyle}>
+          <label style={inlineLabelStyle}>
+            Filters
             <select
+              data-testid={gridFilterFieldTestId(surface)}
+              style={selectStyle}
+              value={filterDraft.fieldKey}
+              onChange={(event) => {
+                onFilterDraftChange({
+                  booleanValue: "",
+                  fieldKey: event.target.value,
+                  value: "",
+                });
+              }}
+            >
+              {contract.filterFields.map((fieldKey) => (
+                <option key={fieldKey} value={fieldKey}>
+                  {contract.fieldMap[fieldKey]?.label ?? fieldKey}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {inputMode === "boolean" ? (
+            <select
+              aria-label="Filter value"
               data-testid={gridFilterValueTestId(surface)}
               style={selectStyle}
               value={filterDraft.booleanValue}
@@ -100,15 +107,13 @@ export function WorkbookGridControls({
                 });
               }}
             >
-              <option value="">Select value</option>
+              <option value="">Value</option>
               <option value="true">true</option>
               <option value="false">false</option>
             </select>
-          </label>
-        ) : (
-          <label style={labelStyle}>
-            Value
+          ) : (
             <input
+              aria-label="Filter value"
               data-testid={gridFilterValueTestId(surface)}
               placeholder={placeholderForMode(inputMode)}
               style={inputStyle}
@@ -121,38 +126,45 @@ export function WorkbookGridControls({
                 });
               }}
             />
-          </label>
-        )}
+          )}
 
-        <button
-          data-testid={gridFilterApplyTestId(surface)}
-          style={actionButtonStyle}
-          type="button"
-          onClick={onApplyFilter}
-        >
-          Apply filter
-        </button>
+          <button
+            data-testid={gridFilterApplyTestId(surface)}
+            style={actionButtonStyle}
+            type="button"
+            onClick={onApplyFilter}
+          >
+            Apply
+          </button>
+        </span>
 
-        <label style={labelStyle}>
-          Group by
-          <select
-            data-testid={gridGroupingSelectTestId(surface)}
-            style={selectStyle}
-            value={queryState.groupBy ?? ""}
-            onChange={(event) => {
-              onGroupByChange(
-                event.target.value === "" ? null : event.target.value,
-              );
+        {queryState.filters.map((filter) => (
+          <button
+            key={filter.fieldKey}
+            data-testid={gridFilterChipTestId(surface, filter.fieldKey)}
+            style={chipButtonStyle}
+            type="button"
+            onClick={() => {
+              onRemoveFilter(filter.fieldKey);
             }}
           >
-            <option value="">No grouping</option>
-            {contract.groupingFields.map((fieldKey) => (
-              <option key={fieldKey} value={fieldKey}>
-                {contract.fieldMap[fieldKey]?.label ?? fieldKey}
-              </option>
-            ))}
-          </select>
-        </label>
+            {filterChipLabel(contract, filter)} ×
+          </button>
+        ))}
+
+        {queryState.filters.length > 0 ||
+        queryState.sort.length > 0 ||
+        queryState.groupBy !== null ? (
+          <button
+            style={clearButtonStyle}
+            type="button"
+            onClick={() => {
+              onClearAll?.();
+            }}
+          >
+            Clear all
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -172,42 +184,44 @@ function placeholderForMode(mode: ReturnType<typeof filterInputMode>) {
 }
 
 const toolbarStyle = {
-  display: "grid",
-  gap: "0.75rem",
-  marginBottom: "0.75rem",
-};
-
-const chipRowStyle = {
   display: "flex",
-  gap: "0.5rem",
-  flexWrap: "wrap" as const,
+  alignItems: "center",
+  flex: "1 1 auto",
+  minWidth: 0,
+  overflowX: "auto" as const,
 };
 
 const controlRowStyle = {
   display: "flex",
-  gap: "0.75rem",
-  flexWrap: "wrap" as const,
-  alignItems: "end",
+  gap: "0.45rem",
+  flexWrap: "nowrap" as const,
+  alignItems: "center",
+  minWidth: 0,
 };
 
-const labelStyle = {
-  display: "grid",
+const inlineLabelStyle = {
+  display: "inline-flex",
   gap: "0.35rem",
-  minWidth: "12rem",
+  alignItems: "center",
   color: "var(--ct-colors-ink-muted)",
+  fontSize: "0.86rem",
 };
 
 const inputStyle = {
   borderRadius: "var(--ct-component-text-input-rounded)",
   border: "var(--ct-component-text-input-border)",
   background: "var(--ct-component-text-input-backgroundColor)",
-  padding: "var(--ct-component-text-input-padding)",
+  padding: "0.42rem 0.55rem",
   font: "inherit",
   color: "var(--ct-component-text-input-textColor)",
+  boxSizing: "border-box" as const,
+  minWidth: "8rem",
+  maxWidth: "10rem",
 };
 
 const selectStyle = {
   ...inputStyle,
+  minWidth: "9rem",
 };
 
 const actionButtonStyle = {
@@ -215,10 +229,15 @@ const actionButtonStyle = {
   border: "var(--ct-component-button-secondary-border)",
   background: "var(--ct-component-button-secondary-backgroundColor)",
   color: "var(--ct-component-button-secondary-textColor)",
-  padding: "var(--ct-component-button-secondary-padding)",
+  padding: "0.42rem 0.6rem",
   font: "inherit",
   cursor: "pointer",
   height: "fit-content",
+};
+
+const modeButtonStyle = {
+  ...actionButtonStyle,
+  whiteSpace: "nowrap" as const,
 };
 
 const chipButtonStyle = {
@@ -226,6 +245,16 @@ const chipButtonStyle = {
   background: "var(--ct-colors-surface-3)",
 };
 
-const hintStyle = {
+const clearButtonStyle = {
+  ...actionButtonStyle,
+  borderColor: "transparent",
+  background: "transparent",
   color: "var(--ct-colors-ink-muted)",
+};
+
+const filterClusterStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.35rem",
+  minWidth: 0,
 };

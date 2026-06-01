@@ -21,6 +21,7 @@ export {
   type GridNavigationIntent,
   type GridNavigationKey,
   type GridRow,
+  type GridRowGutter,
   type GridSortDirection,
   type GridSortEntry,
   type GridTableProps,
@@ -53,6 +54,7 @@ export function GridTable<Row>({
   getGroupRowTestId,
   groupBy = null,
   onToggleSort,
+  rowGutter,
   rows,
   sort = [],
 }: GridTableProps<Row>) {
@@ -65,12 +67,21 @@ export function GridTable<Row>({
     rows,
   });
   const totalColumnCount =
-    columns.length + (actionsColumn === undefined ? 0 : 1);
+    columns.length +
+    (rowGutter === undefined ? 0 : 1) +
+    (actionsColumn === undefined ? 0 : 1);
 
   return (
     <table role="grid">
       <thead>
         <tr role="row">
+          {rowGutter === undefined ? null : (
+            <th role="columnheader" scope="col">
+              <span data-testid={rowGutter.headerTestId}>
+                {rowGutter.label ?? ""}
+              </span>
+            </th>
+          )}
           {columns.map((column) => {
             const canToggleSort =
               onToggleSort !== undefined &&
@@ -137,6 +148,9 @@ export function GridTable<Row>({
               </tr>
             ) : (
               <tr
+                aria-selected={
+                  row.gridRow.selected === true ? "true" : undefined
+                }
                 data-grid-record-id={row.gridRow.recordId ?? ""}
                 data-testid={row.gridRow.testId}
                 key={row.key}
@@ -153,6 +167,17 @@ export function GridTable<Row>({
                   }
                 }}
               >
+                {rowGutter === undefined ? null : (
+                  <td
+                    data-grid-field-key="__cartulary_row_gutter__"
+                    data-testid={row.gridRow.gutterTestId}
+                    role="rowheader"
+                  >
+                    {row.gridRow.gutterContent ??
+                      row.gridRow.gutterLabel ??
+                      ""}
+                  </td>
+                )}
                 {columns.map((column) => (
                   <td
                     data-grid-field-key={column.fieldKey}

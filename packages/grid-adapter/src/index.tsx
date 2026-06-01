@@ -26,6 +26,7 @@ import {
   type GridColumn,
   type GridPresentationRow,
   type GridRow,
+  type GridRowGutter,
   type GridSortEntry,
   type GridTableProps,
   type GridViewportProps,
@@ -49,6 +50,7 @@ export {
   type GridRendererAdapter,
   type GridRendererRegistry,
   type GridRow,
+  type GridRowGutter,
   type GridSortDirection,
   type GridSortEntry,
   type GridTableProps,
@@ -71,10 +73,12 @@ const defaultDataColumnMinWidth = 144;
 const defaultDataColumnWidth = 224;
 const defaultActionsColumnMinWidth = 144;
 const defaultActionsColumnWidth = 176;
+const defaultRowGutterMinWidth = 48;
+const defaultRowGutterWidth = 56;
 const defaultGridClientHeight = 720;
-const gridHeaderHeight = 56;
-const gridGroupRowHeight = 48;
-const gridDataRowHeight = 168;
+const gridHeaderHeight = 32;
+const gridGroupRowHeight = 32;
+const gridDataRowHeight = 28;
 const gridVirtualizationOverscanRows = 3;
 
 export const GridViewport = forwardRef<HTMLDivElement, GridViewportProps>(
@@ -103,6 +107,7 @@ export function GridTable<Row>({
   getGroupRowTestId,
   groupBy = null,
   onToggleSort,
+  rowGutter,
   rows,
   sort = [],
 }: GridTableProps<Row>) {
@@ -117,7 +122,9 @@ export function GridTable<Row>({
   });
 
   const totalColumnCount =
-    columns.length + (actionsColumn === undefined ? 0 : 1);
+    columns.length +
+    (rowGutter === undefined ? 0 : 1) +
+    (actionsColumn === undefined ? 0 : 1);
 
   const presentationRows = useMemo(
     () =>
@@ -164,12 +171,12 @@ export function GridTable<Row>({
     refreshViewportState();
   }, [refreshViewportState]);
   const gridTemplateColumns = useMemo(
-    () => buildGridTemplateColumns(columns, actionsColumn),
-    [actionsColumn, columns],
+    () => buildGridTemplateColumns(columns, actionsColumn, rowGutter),
+    [actionsColumn, columns, rowGutter],
   );
   const gridInlineSize = useMemo(
-    () => resolveGridInlineSize(columns, actionsColumn),
-    [actionsColumn, columns],
+    () => resolveGridInlineSize(columns, actionsColumn, rowGutter),
+    [actionsColumn, columns, rowGutter],
   );
   const resolvedGridStyle = useMemo(
     () =>
@@ -203,6 +210,13 @@ export function GridTable<Row>({
       onScroll={handleScroll}
     >
       <div role="row" style={rowContentsStyle}>
+        {rowGutter === undefined ? null : (
+          <div role="columnheader" style={rowGutterHeaderStyle}>
+            <span data-testid={rowGutter.headerTestId}>
+              {rowGutter.label ?? ""}
+            </span>
+          </div>
+        )}
         {columns.map((column) => (
           <div
             key={column.fieldKey}
@@ -247,6 +261,7 @@ export function GridTable<Row>({
               actionsColumn={actionsColumn}
               columns={columns}
               key={item.key}
+              rowGutter={rowGutter}
               row={item.row.gridRow}
             />
           ),
@@ -272,6 +287,7 @@ type GroupRowProps<Row> = {
 type DataRowProps<Row> = {
   readonly actionsColumn: GridActionsColumn<Row> | undefined;
   readonly columns: readonly GridColumn<Row>[];
+  readonly rowGutter: GridRowGutter | undefined;
   readonly row: GridRow<Row>;
 };
 
@@ -385,7 +401,12 @@ function GroupRow<Row>({
   );
 }
 
-function DataRow<Row>({ actionsColumn, columns, row }: DataRowProps<Row>) {
+function DataRow<Row>({
+  actionsColumn,
+  columns,
+  row,
+  rowGutter,
+}: DataRowProps<Row>) {
   const rowStyle = rowStyleForVariant(row);
   const handleClick =
     row.onSelect === undefined
@@ -396,12 +417,23 @@ function DataRow<Row>({ actionsColumn, columns, row }: DataRowProps<Row>) {
 
   return (
     <div
+      aria-selected={row.selected === true ? "true" : undefined}
       data-grid-record-id={row.recordId ?? ""}
       data-testid={row.testId}
       role="row"
       style={rowContentsStyle}
       onClick={handleClick}
     >
+      {rowGutter === undefined ? null : (
+        <div
+          data-grid-field-key="__cartulary_row_gutter__"
+          data-testid={row.gutterTestId}
+          role="rowheader"
+          style={rowGutterCellStyle(rowStyle)}
+        >
+          {row.gutterContent ?? row.gutterLabel ?? ""}
+        </div>
+      )}
       {columns.map((column) => (
         <div
           data-grid-field-key={column.fieldKey}
@@ -455,8 +487,13 @@ function bodyCellStyleForRow(
 function buildGridTemplateColumns<Row>(
   columns: readonly GridColumn<Row>[],
   actionsColumn: GridActionsColumn<Row> | undefined,
+  rowGutter: GridRowGutter | undefined,
 ): string {
-  const widths = columns.map((column) => `${resolveDataColumnWidth(column)}px`);
+  const widths =
+    rowGutter === undefined ? [] : [`${resolveRowGutterWidth(rowGutter)}px`];
+  widths.push(
+    ...columns.map((column) => `${resolveDataColumnWidth(column)}px`),
+  );
   if (actionsColumn !== undefined) {
     widths.push(`${resolveActionsColumnWidth(actionsColumn)}px`);
   }
@@ -529,14 +566,17 @@ function gridPresentationRowHeight<Row>(row: AdapterGridRow<Row>): number {
 function resolveGridInlineSize<Row>(
   columns: readonly GridColumn<Row>[],
   actionsColumn: GridActionsColumn<Row> | undefined,
+  rowGutter: GridRowGutter | undefined,
 ): number {
   const dataWidth = columns.reduce(
     (sum, column) => sum + resolveDataColumnWidth(column),
     0,
   );
+  const gutterWidth =
+    rowGutter === undefined ? 0 : resolveRowGutterWidth(rowGutter);
   const actionsWidth =
     actionsColumn === undefined ? 0 : resolveActionsColumnWidth(actionsColumn);
-  return Math.max(defaultGridMinWidth, dataWidth + actionsWidth);
+  return Math.max(defaultGridMinWidth, gutterWidth + dataWidth + actionsWidth);
 }
 
 function resolveViewportStyle(style?: CSSProperties): CSSProperties {
@@ -647,6 +687,13 @@ function resolveActionsColumnWidth<Row>(
   );
 }
 
+function resolveRowGutterWidth(rowGutter: GridRowGutter): number {
+  return Math.max(
+    rowGutter.minWidth ?? defaultRowGutterMinWidth,
+    rowGutter.width ?? defaultRowGutterWidth,
+  );
+}
+
 const viewportStyle = {
   overflow: "hidden",
   overflowAnchor: "none" as const,
@@ -689,12 +736,18 @@ const headerCellBaseStyle = {
   display: "flex",
   alignItems: "center",
   minWidth: 0,
-  minBlockSize: "3.5rem",
-  padding: "0.5rem 0.75rem",
+  minBlockSize: gridHeaderHeight,
+  padding: "0.3rem 0.5rem",
   borderBottom: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-2)",
   color: "var(--ct-colors-ink)",
   fontWeight: 650,
+};
+
+const rowGutterHeaderStyle = {
+  ...headerCellBaseStyle,
+  justifyContent: "center",
+  color: "var(--ct-colors-ink-subtle)",
 };
 
 const headerContentBaseStyle = {
@@ -716,19 +769,39 @@ const headerButtonBaseStyle = {
 };
 
 const headerMetaStyle = {
-  fontSize: "0.7rem",
+  fontSize: "0.68rem",
   color: "var(--ct-colors-ink-subtle)",
 };
 
 const bodyCellStyle = {
+  position: "relative" as const,
   boxSizing: "border-box" as const,
   minWidth: 0,
   minBlockSize: gridDataRowHeight,
-  padding: "var(--ct-component-grid-cell-padding)",
+  padding: "var(--ct-density-compact-cellPadding)",
   borderBottom: "var(--ct-border-hairline)",
+  lineHeight: 1.25,
   overflowWrap: "anywhere" as const,
   verticalAlign: "top" as const,
 };
+
+function rowGutterCellStyle(
+  rowStyle: CSSProperties | undefined,
+): CSSProperties {
+  return {
+    ...bodyCellStyle,
+    ...rowStyle,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "0.2rem",
+    color: "var(--ct-colors-ink-subtle)",
+    fontSize: "0.76rem",
+    fontWeight: 600,
+    overflow: "hidden",
+    whiteSpace: "nowrap",
+  };
+}
 
 const groupCellStyle = {
   ...bodyCellStyle,

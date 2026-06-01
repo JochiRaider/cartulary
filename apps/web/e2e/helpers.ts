@@ -1304,10 +1304,13 @@ export async function waitForCommittedRowSummary(
             if (candidate?.value !== expectedSummary) {
               continue;
             }
-            const rowVersionText = findByTestId(
-              row,
-              rowCellTestIdFor(recordId, rowVersionFieldKey),
-            )?.textContent;
+            const rowVersionText =
+              findByTestId(row, rowCellTestIdFor(recordId, rowVersionFieldKey))
+                ?.textContent ??
+              findByTestId(
+                document,
+                rowCellTestIdFor(recordId, rowVersionFieldKey),
+              )?.textContent;
             const rowVersion = Number.parseInt(rowVersionText ?? "", 10);
             if (!Number.isInteger(rowVersion) || rowVersion < 1) {
               continue;

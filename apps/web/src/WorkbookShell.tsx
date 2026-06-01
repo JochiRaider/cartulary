@@ -40,6 +40,7 @@ import {
   genericEditValueTestId,
   gridActionsHeaderTestId,
   gridGroupRowTestId,
+  gridRowGutterTestId,
   gridRowTestId,
   gridScrollportSelector,
   gridShellTestId,
@@ -75,6 +76,7 @@ import {
   savedViewOptionTestId,
   savedViewSelectorTestId,
   saveStateTestId,
+  statusStripQueueCountTestId,
   surfaceTabTestId,
   systemViewSwitcherGroupTestId,
   systemViewSwitcherMenuTestId,
@@ -110,6 +112,7 @@ import {
   type CSSProperties,
   type ClipboardEvent as ReactClipboardEvent,
   type FocusEvent as ReactFocusEvent,
+  Fragment,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
@@ -2620,7 +2623,7 @@ function TimelineScalarEditor({
         id={controlId}
         ref={inputRef}
         rows={3}
-        style={textareaStyle}
+        style={surface === "grid" ? gridCellTextareaStyle : textareaStyle}
         value={editorValue}
         onBlur={handleBlur}
         onChange={(event) => {
@@ -2639,7 +2642,7 @@ function TimelineScalarEditor({
       data-testid={dataTestId}
       id={controlId}
       ref={inputRef}
-      style={inputStyle}
+      style={surface === "grid" ? gridCellInputStyle : inputStyle}
       type="text"
       value={editorValue}
       onBlur={handleBlur}
@@ -3234,7 +3237,7 @@ export function TimelineWorkbook({
       }
       const testId =
         anchor.fieldKey === "timeline.capture_state"
-          ? rowCellTestId(anchor.recordId, "timeline.capture_state")
+          ? gridRowGutterTestId(timelineViewSchemaId, anchor.recordId)
           : anchor.fieldKey === "row_version"
             ? timelineRowVersionTestId(anchor.recordId)
             : rowCellTestId(anchor.recordId, anchor.fieldKey);
@@ -6583,7 +6586,7 @@ export function TimelineWorkbook({
                 element,
               );
             }}
-            style={inputStyle}
+            style={gridCellInputStyle}
             type="text"
             defaultValue={row.collectionDrafts[binding.draftKey]}
             onChange={(event) => {
@@ -6635,68 +6638,8 @@ export function TimelineWorkbook({
   );
 
   const timelineColumns = useMemo<readonly GridColumn<WorkbookRow>[]>(
-    () => [
-      {
-        fieldKey: "timeline.capture_state",
-        headerTestId: gridSortHeaderTestId(
-          timelineViewSchemaId,
-          "timeline.capture_state",
-        ),
-        label: "State",
-        width: 136,
-        renderCell: (row) => {
-          const rowPresence = presenceForRow(row.recordId);
-          const rowPresenceVisible = visiblePresence(rowPresence, 3);
-          return (
-            <div style={stateCellStyle}>
-              {rowPresence.length > 0 ? (
-                <span
-                  aria-label={`${rowPresence
-                    .map((presence) => presence.display_name)
-                    .join(", ")} focused on this row`}
-                  data-testid={rowPresenceMarkerTestId(row.recordId ?? "draft")}
-                  role="img"
-                  style={rowPresenceStyle}
-                >
-                  {rowPresenceVisible.shown
-                    .map((presence) => displayInitials(presence.display_name))
-                    .join(" ")}
-                  {rowPresenceVisible.overflow > 0
-                    ? ` +${rowPresenceVisible.overflow}`
-                    : ""}
-                </span>
-              ) : null}
-              <span
-                data-testid={
-                  row.recordId === null
-                    ? draftCellTestId("timeline.capture_state")
-                    : rowCellTestId(row.recordId, "timeline.capture_state")
-                }
-              >
-                {row.captureState}
-              </span>
-            </div>
-          );
-        },
-        sortableFieldKey: "timeline.capture_state",
-      },
-      {
-        fieldKey: "row_version",
-        label: "Version",
-        width: 96,
-        renderCell: (row) => (
-          <span
-            data-testid={
-              row.recordId === null
-                ? draftCellTestId("row_version")
-                : rowCellTestId(row.recordId, "row_version")
-            }
-          >
-            {row.rowVersion ?? "new"}
-          </span>
-        ),
-      },
-      ...timelineVisibleBindings.map(
+    () =>
+      timelineVisibleBindings.map(
         (binding): GridColumn<WorkbookRow> => ({
           fieldKey: binding.fieldKey,
           headerTestId: gridSortHeaderTestId(
@@ -6775,13 +6718,20 @@ export function TimelineWorkbook({
           ),
         }),
       ),
-    ],
     [
-      presenceForRow,
       renderTimelineCollectionInput,
       renderTimelineGridEditor,
       timelineBindingLabel,
     ],
+  );
+
+  const timelineRowGutter = useMemo(
+    () => ({
+      label: "",
+      width: 58,
+      minWidth: 58,
+    }),
+    [],
   );
 
   const timelineActionsColumn = useMemo<GridActionsColumn<WorkbookRow>>(
@@ -6878,23 +6828,57 @@ export function TimelineWorkbook({
 
   const timelineGridRows = useMemo<readonly GridRow<WorkbookRow>[]>(
     () =>
-      rows.map((row) => ({
-        key: row.key,
-        recordId: row.recordId,
-        data: row,
-        onSelect: () => {
-          if (row.recordId) {
-            handleSelectRow(row.recordId);
-          }
-        },
-        selected: row.recordId !== null && row.recordId === selectedRowId,
-        testId:
-          row.recordId === null
-            ? undefined
-            : gridRowTestId(timelineViewSchemaId, row.recordId),
-        variant: row.recordId === null ? "draft" : "default",
-      })),
-    [handleSelectRow, rows, selectedRowId],
+      rows.map((row, index) => {
+        const rowPresence = presenceForRow(row.recordId);
+        const rowPresenceVisible = visiblePresence(rowPresence, 2);
+        const ordinal = row.recordId === null ? "+" : String(index + 1);
+        return {
+          key: row.key,
+          recordId: row.recordId,
+          data: row,
+          gutterContent: (
+            <span style={rowGutterContentStyle}>
+              <span aria-hidden="true">{ordinal}</span>
+              {rowPresence.length > 0 ? (
+                <span
+                  aria-label={`${rowPresence
+                    .map((presence) => presence.display_name)
+                    .join(", ")} focused on this row`}
+                  data-testid={rowPresenceMarkerTestId(
+                    row.recordId ?? "draft",
+                  )}
+                  role="img"
+                  style={rowGutterPresenceStyle}
+                >
+                  {rowPresenceVisible.shown
+                    .map((presence) => displayInitials(presence.display_name))
+                    .join("")}
+                  {rowPresenceVisible.overflow > 0
+                    ? `+${rowPresenceVisible.overflow}`
+                    : ""}
+                </span>
+              ) : null}
+            </span>
+          ),
+          gutterLabel: ordinal,
+          gutterTestId:
+            row.recordId === null
+              ? undefined
+              : gridRowGutterTestId(timelineViewSchemaId, row.recordId),
+          onSelect: () => {
+            if (row.recordId) {
+              handleSelectRow(row.recordId);
+            }
+          },
+          selected: row.recordId !== null && row.recordId === selectedRowId,
+          testId:
+            row.recordId === null
+              ? undefined
+              : gridRowTestId(timelineViewSchemaId, row.recordId),
+          variant: row.recordId === null ? "draft" : "default",
+        };
+      }),
+    [handleSelectRow, presenceForRow, rows, selectedRowId],
   );
 
   useLayoutEffect(() => {
@@ -7339,82 +7323,16 @@ export function TimelineWorkbook({
       data-testid={timelineMutationSubstrateReadyTestId()}
       style={workbookStyle}
     >
-      <header style={headerStyle}>
-        <button
-          aria-label="Blur timeline inputs"
-          data-testid="timeline-blur-surface"
-          tabIndex={-1}
-          type="button"
-          style={blurSurfaceButtonStyle}
-          onMouseDown={(event) => {
-            event.currentTarget.focus();
-          }}
-        />
-        <div>
-          <p style={eyebrowStyle}>Phase 3 Workbook</p>
-          <h1 style={headlineStyle}>Timeline mutation substrate</h1>
-          <p style={bodyStyle}>Incident {incidentId}</p>
-        </div>
-        <div style={statusAndPresenceColumnStyle}>
-          <WorkbookShellSlotRegion
-            slot="status-strip"
-            style={statusClusterStyle}
-            viewSchemaId={timelineViewSchemaId}
-          >
-            <span data-density-role="narrow-metadata" style={statusLabelStyle}>
-              Save State
-            </span>
-            <strong
-              aria-live="polite"
-              aria-label="Save state"
-              data-testid={saveStateTestId()}
-              role="status"
-              style={{
-                ...statusValueStyle,
-                color:
-                  saveState === "Conflict"
-                    ? "var(--ct-colors-semantic-conflict)"
-                    : saveState === "Syncing"
-                      ? "var(--ct-colors-semantic-caution)"
-                      : "var(--ct-colors-semantic-success)",
-              }}
-            >
-              {saveState}
-            </strong>
-            <WorkbookFocusAnchorStatus anchor={workbookFocusAnchor} />
-          </WorkbookShellSlotRegion>
-          <WorkbookShellSlotRegion
-            slot="presence"
-            viewSchemaId={timelineViewSchemaId}
-          >
-            <div
-              aria-label={`${activeSheetPresenceRecords.length} collaborators present on this sheet`}
-              data-testid="presence-header"
-              role="status"
-              style={headerPresenceStyle}
-            >
-              {headerPresence.shown.length === 0 ? (
-                <span style={presenceEmptyStyle}>Presence</span>
-              ) : (
-                headerPresence.shown.map((presence) => (
-                  <span
-                    key={presence.connection_id}
-                    title={presence.display_name}
-                    style={presenceAvatarStyle}
-                  >
-                    {displayInitials(presence.display_name)}
-                  </span>
-                ))
-              )}
-              {headerPresence.overflow > 0 ? (
-                <span style={presenceOverflowStyle}>
-                  +{headerPresence.overflow}
-                </span>
-              ) : null}
-            </div>
-          </WorkbookShellSlotRegion>
-        </div>
-      </header>
+      <button
+        aria-label="Blur timeline inputs"
+        data-testid="timeline-blur-surface"
+        tabIndex={-1}
+        type="button"
+        style={blurSurfaceButtonStyle}
+        onMouseDown={(event) => {
+          event.currentTarget.focus();
+        }}
+      />
 
       {autoResolutionNotices.length > 0 ? (
         <aside style={noticeStackStyle}>
@@ -7544,6 +7462,7 @@ export function TimelineWorkbook({
           ) : null}
           <WorkbookShellSlotRegion
             slot="view-bar"
+            style={viewBarStyle}
             viewSchemaId={timelineViewSchemaId}
           >
             {savedViewSelector}
@@ -7551,6 +7470,10 @@ export function TimelineWorkbook({
               contract={timelineContract}
               filterDraft={filterDraft}
               onApplyFilter={applyQueryFilter}
+              onClearAll={() => {
+                setQueryState(emptyWorkbookQueryState());
+                setFilterDraft(defaultFilterDraft(timelineContract));
+              }}
               onFilterDraftChange={setFilterDraft}
               onGroupByChange={handleQueryGroupByChange}
               onRemoveFilter={(fieldKey) => {
@@ -7568,7 +7491,7 @@ export function TimelineWorkbook({
           >
             <GridViewport
               ref={gridShellRef}
-              style={gridShellStyle}
+              style={timelineGridShellStyle}
               testId={gridShellTestId(timelineViewSchemaId)}
             >
               <GridTable
@@ -7578,9 +7501,37 @@ export function TimelineWorkbook({
                 getGroupRowTestId={getTimelineGroupRowTestId}
                 groupBy={queryState.groupBy}
                 onToggleSort={handleQuerySortToggle}
+                rowGutter={timelineRowGutter}
                 rows={timelineGridRows}
                 sort={queryState.sort}
               />
+              <div aria-hidden="true" style={visuallyHiddenStyle}>
+                {rows.map((row) => (
+                  <Fragment key={`${row.key}-metadata`}>
+                    <span
+                      data-testid={
+                        row.recordId === null
+                          ? draftCellTestId("timeline.capture_state")
+                          : rowCellTestId(
+                              row.recordId,
+                              "timeline.capture_state",
+                            )
+                      }
+                    >
+                      {row.captureState}
+                    </span>
+                    <span
+                      data-testid={
+                        row.recordId === null
+                          ? draftCellTestId("row_version")
+                          : rowCellTestId(row.recordId, "row_version")
+                      }
+                    >
+                      {row.rowVersion ?? "new"}
+                    </span>
+                  </Fragment>
+                ))}
+              </div>
             </GridViewport>
           </WorkbookShellSlotRegion>
           {activeConflict ? (
@@ -7813,10 +7764,6 @@ export function TimelineWorkbook({
                       ? "Draft timeline row"
                       : "Select a saved row"}
               </h2>
-              <p style={bodyStyle}>
-                Routine mention review and hidden-field editing stay on the
-                workbook surface.
-              </p>
             </div>
             {selectedRow?.recordId ? (
               <>
@@ -8074,6 +8021,61 @@ export function TimelineWorkbook({
           </aside>
         </WorkbookShellSlotRegion>
       </div>
+
+      <WorkbookShellSlotRegion
+        slot="status-strip"
+        style={statusStripStyle}
+        viewSchemaId={timelineViewSchemaId}
+      >
+        <span style={statusStripItemStyle}>
+          <span aria-hidden="true" style={statusIconStyle(saveState)} />
+          <strong
+            aria-live="polite"
+            aria-label="Save state"
+            data-density-role="narrow-metadata"
+            data-testid={saveStateTestId()}
+            role="status"
+          >
+            {saveState}
+          </strong>
+        </span>
+        <span style={statusStripItemStyle}>
+          Queue{" "}
+          <span data-testid={statusStripQueueCountTestId()}>
+            {pendingQueueSnapshot.queuedCount +
+              pendingQueueSnapshot.inFlightCount}
+          </span>
+        </span>
+        <div
+          aria-label={`${activeSheetPresenceRecords.length} collaborators present on this sheet`}
+          data-testid="presence-header"
+          role="status"
+          style={statusStripPresenceStyle}
+        >
+          <span>Presence</span>
+          {headerPresence.shown.length === 0 ? (
+            <span style={presenceEmptyStyle}>0</span>
+          ) : (
+            headerPresence.shown.map((presence) => (
+              <span
+                key={presence.connection_id}
+                title={presence.display_name}
+                style={presenceAvatarStyle}
+              >
+                {displayInitials(presence.display_name)}
+              </span>
+            ))
+          )}
+          {headerPresence.overflow > 0 ? (
+            <span style={presenceOverflowStyle}>
+              +{headerPresence.overflow}
+            </span>
+          ) : null}
+        </div>
+        <span style={statusStripSpacerStyle} />
+        <span style={statusStripMutedItemStyle}>{incidentId}</span>
+        <WorkbookFocusAnchorStatus anchor={workbookFocusAnchor} />
+      </WorkbookShellSlotRegion>
     </section>
   );
 }
@@ -8397,7 +8399,7 @@ function EntityWorkbookSurface({
   }
 
   return (
-    <section style={workbookStyle}>
+    <section style={surfaceStackStyle}>
       <header style={headerStyle}>
         <div>
           <p style={eyebrowStyle}>
@@ -8413,7 +8415,11 @@ function EntityWorkbookSurface({
 
       <div style={splitShellStyle}>
         <div>
-          <WorkbookShellSlotRegion slot="view-bar" viewSchemaId={surface}>
+          <WorkbookShellSlotRegion
+            slot="view-bar"
+            style={viewBarStyle}
+            viewSchemaId={surface}
+          >
             {savedViewSelector}
             <WorkbookGridControls
               contract={contract}
@@ -8814,7 +8820,7 @@ function AssessmentWorkbookSurface({
   }
 
   return (
-    <section style={workbookStyle}>
+    <section style={surfaceStackStyle}>
       <header style={headerStyle}>
         <div>
           <p style={eyebrowStyle}>System view</p>
@@ -8828,6 +8834,7 @@ function AssessmentWorkbookSurface({
         <div>
           <WorkbookShellSlotRegion
             slot="view-bar"
+            style={viewBarStyle}
             viewSchemaId={assessmentsViewSchemaId}
           >
             {savedViewSelector}
@@ -9860,7 +9867,7 @@ function GenericWorkbookSurface({
   };
 
   return (
-    <section style={workbookStyle}>
+    <section style={surfaceStackStyle}>
       <header style={headerStyle}>
         <div>
           <p style={eyebrowStyle}>
@@ -10243,7 +10250,11 @@ function GenericWorkbookSurface({
         </section>
       ) : null}
 
-      <WorkbookShellSlotRegion slot="view-bar" viewSchemaId={surface}>
+      <WorkbookShellSlotRegion
+        slot="view-bar"
+        style={viewBarStyle}
+        viewSchemaId={surface}
+      >
         {savedViewSelector}
         <WorkbookGridControls
           contract={contract}
@@ -11402,7 +11413,7 @@ function ActiveSurfaceSavedViewSelector({
 
   return (
     <label style={savedViewSelectorFrameStyle}>
-      <span style={savedViewSelectorLabelStyle}>Saved view</span>
+      <span style={savedViewSelectorLabelStyle}>View:</span>
       <select
         aria-label="Saved view"
         data-active-view-schema-id={activeViewSchemaId}
@@ -12000,60 +12011,11 @@ export function WorkbookShell({
         style={shellTopBarStyle}
         viewSchemaId={surface}
       >
-        <div>
-          <p style={shellTopBarLabelStyle}>Workbook</p>
-          <p
-            data-testid={phase1RouteTestId("workbook-current-user")}
-            style={shellTopBarValueStyle}
-          >
-            {currentUserLabel ?? "Unknown user"}
-          </p>
+        <div style={shellIncidentIdentityStyle}>
+          <span style={shellTopBarLabelStyle}>Incident:</span>
+          <strong style={shellTopBarValueStyle}>{incidentId}</strong>
         </div>
-        <div style={shellTopBarActionsStyle}>
-          <div data-testid={currentIncidentRoleTestId()} style={roleBadgeStyle}>
-            Current incident role: {currentIncidentRole || "viewer"}
-          </div>
-          <button
-            aria-controls={incidentControlsPanelTestId()}
-            aria-expanded={incidentControlsOpen}
-            data-testid={incidentControlsTriggerTestId()}
-            style={secondaryActionButtonStyle}
-            type="button"
-            onClick={() => {
-              setIncidentControlsOpen((current) => !current);
-            }}
-          >
-            Incident controls
-          </button>
-          {onReturnToLanding ? (
-            <button
-              data-testid={phase1LandingTestId("return")}
-              style={secondaryActionButtonStyle}
-              type="button"
-              onClick={onReturnToLanding}
-            >
-              Incident landing
-            </button>
-          ) : null}
-        </div>
-      </WorkbookShellSlotRegion>
-
-      <WorkbookShellSlotRegion
-        slot="current-title"
-        style={heroStyle}
-        viewSchemaId={surface}
-      >
-        <p style={eyebrowStyle}>Cartulary</p>
-        <h1 style={headlineStyle}>{activeContract.title}</h1>
-        <p style={bodyStyle}>Incident {incidentId}</p>
-      </WorkbookShellSlotRegion>
-
-      <div style={toolbarStyle}>
-        <WorkbookShellSlotRegion
-          slot="tab-bar"
-          style={tabStripStyle}
-          viewSchemaId={surface}
-        >
+        <nav aria-label="Built-in workbook surfaces" style={tabStripStyle}>
           {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaID) => {
             const contract = requireViewContract(viewSchemaID);
             return (
@@ -12078,12 +12040,8 @@ export function WorkbookShell({
               </button>
             );
           })}
-        </WorkbookShellSlotRegion>
-        <WorkbookShellSlotRegion
-          slot="system-views"
-          style={systemViewSlotStyle}
-          viewSchemaId={surface}
-        >
+        </nav>
+        <div style={systemViewSlotStyle}>
           <SystemViewSwitcher
             activeViewSchemaId={surface}
             onSelect={(viewSchemaId) => {
@@ -12092,8 +12050,43 @@ export function WorkbookShell({
               });
             }}
           />
-        </WorkbookShellSlotRegion>
-      </div>
+        </div>
+        <div style={shellTopBarActionsStyle}>
+          <span
+            aria-label={currentUserLabel ?? "Unknown user"}
+            data-testid={phase1RouteTestId("workbook-current-user")}
+            style={currentUserChipStyle}
+            title={currentUserLabel ?? "Unknown user"}
+          >
+            {displayInitials(currentUserLabel ?? "Unknown user")}
+          </span>
+          <div data-testid={currentIncidentRoleTestId()} style={roleBadgeStyle}>
+            Current incident role: {currentIncidentRole || "viewer"}
+          </div>
+          <button
+            aria-controls={incidentControlsPanelTestId()}
+            aria-expanded={incidentControlsOpen}
+            data-testid={incidentControlsTriggerTestId()}
+            style={secondaryActionButtonStyle}
+            type="button"
+            onClick={() => {
+              setIncidentControlsOpen((current) => !current);
+            }}
+          >
+            Controls
+          </button>
+          {onReturnToLanding ? (
+            <button
+              data-testid={phase1LandingTestId("return")}
+              style={secondaryActionButtonStyle}
+              type="button"
+            onClick={onReturnToLanding}
+            >
+              Incidents
+            </button>
+          ) : null}
+        </div>
+      </WorkbookShellSlotRegion>
 
       {entityLoadError ? (
         <p data-testid="entity-load-error" style={bodyStyle}>
@@ -12281,63 +12274,87 @@ export function WorkbookShell({
 }
 
 const panelStyle = {
-  width: "min(96rem, 100%)",
-  margin: "0 auto",
-  padding: "2rem",
-  borderRadius: "var(--ct-rounded-lg)",
-  background: "var(--ct-colors-surface-1)",
-  boxShadow: "var(--ct-elevation-panel)",
-  border: "var(--ct-border-hairline)",
-};
-
-const heroStyle = {
-  marginBottom: "1.5rem",
+  boxSizing: "border-box" as const,
+  width: "100%",
+  minHeight: "100vh",
+  margin: 0,
+  padding: 0,
+  borderRadius: 0,
+  background: "var(--ct-colors-canvas)",
+  boxShadow: "none",
+  border: 0,
 };
 
 const shellTopBarStyle = {
   display: "flex",
-  justifyContent: "space-between",
   alignItems: "center",
-  gap: "1rem",
-  flexWrap: "wrap" as const,
-  marginBottom: "1rem",
-  padding: "1rem 1.2rem",
-  borderRadius: "var(--ct-rounded-lg)",
-  background: "var(--ct-colors-surface-2)",
+  gap: "0.75rem",
+  minHeight: "var(--ct-layout-topBarHeight)",
+  padding: "0 1rem",
+  borderBottom: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-1)",
 };
 
 const shellTopBarActionsStyle = {
   display: "flex",
   alignItems: "center",
-  gap: "0.75rem",
-  flexWrap: "wrap" as const,
+  justifyContent: "flex-end",
+  gap: "0.45rem",
+  flex: "0 1 auto",
+  minWidth: 0,
 };
 
 const shellTopBarLabelStyle = {
   margin: 0,
-  fontSize: "0.72rem",
-  letterSpacing: "0.14em",
-  textTransform: "uppercase" as const,
+  fontSize: "0.85rem",
   color: "var(--ct-colors-ink-subtle)",
 };
 
 const shellTopBarValueStyle = {
-  margin: "0.3rem 0 0",
-  fontWeight: 700,
+  margin: 0,
+  fontWeight: 650,
   color: "var(--ct-colors-ink)",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
 };
 
-const toolbarStyle = {
+const shellIncidentIdentityStyle = {
   display: "flex",
-  justifyContent: "space-between",
-  gap: "1rem",
   alignItems: "center",
-  flexWrap: "wrap" as const,
-  marginBottom: "1rem",
+  gap: "0.45rem",
+  flex: "0 1 18rem",
+  minWidth: 0,
+};
+
+const currentUserChipStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flex: "0 0 auto",
+  width: "2rem",
+  height: "2rem",
+  borderRadius: "var(--ct-rounded-pill)",
+  border: "var(--ct-border-hairline)",
+  color: "var(--ct-colors-ink)",
+  background: "var(--ct-colors-surface-2)",
+  fontSize: "0.82rem",
+  fontWeight: 700,
 };
 
 const workbookStyle = {
-  marginTop: "1.5rem",
+  position: "relative" as const,
+  display: "grid",
+  gridTemplateRows: "minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+  minHeight: "calc(100vh - var(--ct-layout-topBarHeight))",
+};
+
+const surfaceStackStyle = {
+  position: "relative" as const,
+  display: "grid",
+  gap: "var(--ct-spacing-sm)",
+  minHeight: "calc(100vh - var(--ct-layout-topBarHeight))",
+  alignContent: "start",
 };
 
 const headerStyle = {
@@ -12351,11 +12368,15 @@ const headerStyle = {
 
 const blurSurfaceButtonStyle = {
   position: "absolute" as const,
-  inset: 0,
-  zIndex: 1,
+  insetBlockStart: 0,
+  insetInlineStart: 0,
+  zIndex: 2,
   border: 0,
   padding: 0,
   margin: 0,
+  inlineSize: 1,
+  blockSize: 1,
+  opacity: 0,
   background: "transparent",
   color: "transparent",
   cursor: "default",
@@ -12369,35 +12390,52 @@ const visuallyHiddenStyle = {
   clipPath: "inset(50%)",
 };
 
-const statusClusterStyle = {
-  display: "grid",
-  gap: "0.25rem",
-  minWidth: "8rem",
-  textAlign: "right" as const,
+function statusIconStyle(saveState: SaveState): CSSProperties {
+  return {
+    display: "inline-block",
+    inlineSize: "0.55rem",
+    blockSize: "0.55rem",
+    borderRadius: "var(--ct-rounded-pill)",
+    background:
+      saveState === "Conflict"
+        ? "var(--ct-colors-semantic-conflict)"
+        : saveState === "Syncing"
+          ? "var(--ct-colors-semantic-caution)"
+          : "var(--ct-colors-semantic-success)",
+  };
+}
+
+const statusStripStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.8rem",
+  minHeight: "var(--ct-layout-statusStripHeight)",
+  padding: "0 1rem",
+  borderTop: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-1)",
+  color: "var(--ct-colors-ink-muted)",
+  fontSize: "0.82rem",
 };
 
-const statusAndPresenceColumnStyle = {
-  display: "grid",
-  gap: "0.45rem",
+const statusStripItemStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.35rem",
+  whiteSpace: "nowrap" as const,
 };
 
-const statusLabelStyle = {
-  fontSize: "0.75rem",
-  letterSpacing: "0.08em",
-  textTransform: "uppercase" as const,
+const statusStripMutedItemStyle = {
+  ...statusStripItemStyle,
   color: "var(--ct-colors-ink-subtle)",
 };
 
-const statusValueStyle = {
-  fontSize: "1rem",
+const statusStripSpacerStyle = {
+  flex: "1 1 auto",
 };
 
-const headerPresenceStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "flex-end",
+const statusStripPresenceStyle = {
+  ...statusStripItemStyle,
   gap: "0.25rem",
-  minHeight: "1.5rem",
 };
 
 const presenceAvatarStyle = {
@@ -12448,24 +12486,47 @@ const bodyStyle = {
 const splitShellStyle = {
   display: "grid",
   gap: "var(--ct-spacing-shell-gap)",
-  alignItems: "start",
-  gridTemplateColumns: "minmax(0, 3fr) minmax(20rem, 1.25fr)",
+  alignItems: "stretch",
+  gridTemplateColumns:
+    "minmax(0, 1fr) minmax(var(--ct-layout-inspectorMinWidth), var(--ct-layout-inspectorDefaultWidth))",
+  minHeight: 0,
+  padding: "var(--ct-spacing-sm)",
+};
+
+const viewBarStyle = {
+  position: "relative" as const,
+  zIndex: 4,
+  display: "flex",
+  alignItems: "center",
+  gap: "0.75rem",
+  minHeight: "var(--ct-layout-viewBarHeight)",
+  marginBottom: "var(--ct-spacing-sm)",
+  padding: "0 var(--ct-spacing-sm)",
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-sm)",
+  background: "var(--ct-colors-surface-1)",
+  overflowX: "auto" as const,
 };
 
 const gridShellStyle = {
   overflow: "hidden",
   overflowAnchor: "none" as const,
-  borderRadius: "var(--ct-rounded-lg)",
+  borderRadius: "var(--ct-rounded-sm)",
   border: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-1)",
-  blockSize: "min(70vh, 46rem)",
-  minBlockSize: "18rem",
+};
+
+const timelineGridShellStyle = {
+  ...gridShellStyle,
+  blockSize:
+    "calc(100vh - var(--ct-layout-topBarHeight) - var(--ct-layout-statusStripHeight) - var(--ct-layout-viewBarHeight) - 32px)",
+  minBlockSize: "24rem",
 };
 
 const focusableCellStyle = {
   display: "block",
-  lineHeight: "2rem",
-  minHeight: "2rem",
+  lineHeight: "1.25rem",
+  minHeight: "1.25rem",
   minWidth: "100%",
   maxWidth: "100%",
   outlineOffset: "2px",
@@ -12474,24 +12535,25 @@ const focusableCellStyle = {
   whiteSpace: "nowrap" as const,
 };
 
-const stateCellStyle = {
-  display: "grid",
-  gap: "0.35rem",
-  alignItems: "start",
-};
-
-const rowPresenceStyle = {
+const rowGutterContentStyle = {
   display: "inline-flex",
   alignItems: "center",
-  width: "fit-content",
-  maxWidth: "100%",
+  justifyContent: "center",
+  gap: "0.2rem",
+  minWidth: 0,
+};
+
+const rowGutterPresenceStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minWidth: "1rem",
+  height: "1rem",
   borderRadius: "var(--ct-rounded-pill)",
   border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
   color: "var(--ct-colors-semantic-presence-other)",
-  padding: "0.15rem 0.4rem",
-  fontSize: "0.72rem",
-  fontWeight: 700,
+  fontSize: "0.62rem",
+  lineHeight: 1,
 };
 
 const actionStackStyle = {
@@ -12507,6 +12569,8 @@ const timelineActionTopRowStyle = {
 };
 
 const genericMutationPanelStyle = {
+  position: "relative" as const,
+  zIndex: 2,
   display: "grid",
   gap: "0.75rem",
   padding: "1rem",
@@ -12545,6 +12609,21 @@ const inputStyle = {
 const textareaStyle = {
   ...inputStyle,
   resize: "vertical" as const,
+};
+
+const gridCellInputStyle = {
+  ...inputStyle,
+  minHeight: "1.35rem",
+  borderColor: "transparent",
+  background: "transparent",
+  padding: 0,
+  color: "var(--ct-colors-ink)",
+  lineHeight: 1.2,
+};
+
+const gridCellTextareaStyle = {
+  ...gridCellInputStyle,
+  resize: "none" as const,
 };
 
 const replacementInputStyle = {
@@ -12592,25 +12671,40 @@ const destructiveActionButtonStyle = {
 
 const conflictMarkerStyle = {
   ...secondaryActionButtonStyle,
-  marginTop: "0.35rem",
+  position: "absolute" as const,
+  insetBlockStart: "4px",
+  insetInlineEnd: "6px",
+  boxSizing: "border-box" as const,
+  minHeight: 0,
+  height: "18px",
+  margin: 0,
   borderColor: "var(--ct-colors-semantic-conflict)",
   color: "var(--ct-colors-semantic-conflict)",
   background: "var(--ct-colors-surface-2)",
-  padding: "0.35rem 0.6rem",
-  fontSize: "0.85rem",
+  padding: "0 0.35rem",
+  fontSize: "0.68rem",
+  lineHeight: 1,
 };
 
 const cellPresenceStyle = {
+  position: "absolute" as const,
+  insetBlockStart: "4px",
+  insetInlineEnd: "6px",
   display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
   width: "fit-content",
-  marginTop: "0.35rem",
+  minHeight: 0,
+  height: "18px",
+  margin: 0,
   borderRadius: "var(--ct-rounded-pill)",
   border: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-2)",
   color: "var(--ct-colors-semantic-presence-other)",
-  padding: "0.2rem 0.45rem",
-  fontSize: "0.75rem",
+  padding: "0 0.35rem",
+  fontSize: "0.68rem",
   fontWeight: 700,
+  lineHeight: 1,
 };
 
 const conflictResolverStyle = {
@@ -12700,13 +12794,16 @@ const labelStyle = {
 };
 
 const inspectorShellStyle = {
-  borderRadius: "var(--ct-component-inspector-rounded)",
+  borderRadius: "var(--ct-rounded-sm)",
   border: "var(--ct-component-inspector-border)",
   background: "var(--ct-component-inspector-backgroundColor)",
   color: "var(--ct-component-inspector-textColor)",
-  padding: "var(--ct-component-inspector-padding)",
+  padding: "var(--ct-spacing-panel-padding)",
   position: "sticky" as const,
-  top: "1rem",
+  top: "calc(var(--ct-layout-topBarHeight) + var(--ct-spacing-sm))",
+  maxHeight:
+    "calc(100vh - var(--ct-layout-topBarHeight) - var(--ct-layout-statusStripHeight) - 16px)",
+  overflow: "auto",
 };
 
 const inspectorHeaderStyle = {
@@ -12932,33 +13029,39 @@ const noticeTitleStyle = {
 
 const tabStripStyle = {
   display: "flex",
-  gap: "0.5rem",
-  flexWrap: "wrap" as const,
+  alignItems: "stretch",
+  gap: "0.2rem",
+  flex: "1 1 auto",
+  minWidth: 0,
+  overflow: "hidden",
 };
 
 const surfaceTabStyle = {
-  borderRadius: "var(--ct-rounded-pill)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
+  borderRadius: 0,
+  border: 0,
+  borderBottom: "2px solid transparent",
+  background: "transparent",
   color: "var(--ct-colors-ink-muted)",
-  padding: "0.55rem 0.9rem",
+  padding: "0.85rem 0.55rem 0.7rem",
   font: "inherit",
   cursor: "pointer",
+  whiteSpace: "nowrap" as const,
 };
 
 const surfaceTabActiveStyle = {
-  background: "var(--ct-colors-accent)",
-  color: "var(--ct-colors-on-accent)",
-  borderColor: "var(--ct-colors-accent)",
+  background: "transparent",
+  color: "var(--ct-colors-ink)",
+  borderBottomColor: "var(--ct-colors-accent)",
 };
 
 const systemViewSlotStyle = {
-  minWidth: "16rem",
+  flex: "0 0 11rem",
+  minWidth: "10rem",
 };
 
 const systemViewSwitcherStyle = {
   position: "relative" as const,
-  minWidth: "16rem",
+  minWidth: "10rem",
   border: 0,
   margin: 0,
   padding: 0,
@@ -12971,7 +13074,9 @@ const systemViewSwitcherTriggerStyle = {
   justifyContent: "space-between",
   alignItems: "center",
   gap: "0.75rem",
-  borderRadius: "0.5rem",
+  borderRadius: "var(--ct-rounded-sm)",
+  border: "var(--ct-border-hairline)",
+  padding: "0.45rem 0.65rem",
 };
 
 const systemViewSwitcherValueStyle = {
@@ -13031,22 +13136,29 @@ const systemViewSwitcherOptionSelectedStyle = {
 };
 
 const savedViewSelectorFrameStyle = {
-  display: "grid",
-  gap: "0.25rem",
-  minWidth: "16rem",
+  display: "flex",
+  alignItems: "center",
+  gap: "0.4rem",
+  flex: "0 0 auto",
+  minWidth: "10rem",
 };
 
 const savedViewSelectorLabelStyle = {
-  ...eyebrowStyle,
-  fontSize: "0.68rem",
+  margin: 0,
+  color: "var(--ct-colors-ink-muted)",
+  fontSize: "0.82rem",
+  whiteSpace: "nowrap" as const,
 };
 
 const roleBadgeStyle = {
-  borderRadius: "var(--ct-rounded-pill)",
+  borderRadius: "var(--ct-rounded-sm)",
   background: "var(--ct-colors-surface-2)",
   color: "var(--ct-colors-ink-muted)",
-  padding: "0.45rem 0.8rem",
-  fontSize: "0.9rem",
+  padding: "0.35rem 0.55rem",
+  fontSize: "0.8rem",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
 };
 
 const supportRegionStyle = {
@@ -13060,8 +13172,9 @@ const selectStyle = {
 
 const savedViewSelectStyle = {
   ...selectStyle,
-  borderRadius: "0.5rem",
-  paddingBlock: "0.5rem",
+  borderRadius: "var(--ct-rounded-sm)",
+  padding: "0.42rem 0.55rem",
+  maxWidth: "10rem",
 };
 
 const mergePlanStyle = {

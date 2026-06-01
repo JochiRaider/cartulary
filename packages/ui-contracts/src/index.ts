@@ -160,36 +160,24 @@ export type Phase1RouteSelector =
   | "workbook-loading";
 
 export type WorkbookShellSlot =
-  | "current-title"
   | "inspector"
-  | "presence"
   | "primary-grid"
   | "status-strip"
-  | "system-views"
-  | "tab-bar"
   | "top-bar"
   | "view-bar";
 
 export const workbookShellSlots = [
   "top-bar",
-  "tab-bar",
-  "system-views",
-  "current-title",
   "view-bar",
   "primary-grid",
   "inspector",
   "status-strip",
-  "presence",
 ] as const satisfies readonly WorkbookShellSlot[];
 
 export const workbookShellSlotLabels = {
-  "current-title": "Current workbook surface",
   inspector: "Inspector",
-  presence: "Presence",
   "primary-grid": "Primary grid",
   "status-strip": "Status strip",
-  "system-views": "System views",
-  "tab-bar": "Workbook tabs",
   "top-bar": "Workbook top bar",
   "view-bar": "View controls",
 } as const satisfies Record<WorkbookShellSlot, string>;
@@ -562,6 +550,15 @@ export function gridActionsHeaderTestId(viewSchemaId: WorkbookSurface): string {
   return `${requireViewSchemaId(viewSchemaId)}-actions-header`;
 }
 
+export function gridRowGutterTestId(
+  viewSchemaId: WorkbookSurface,
+  recordId: string,
+): string {
+  return `${requireViewSchemaId(viewSchemaId)}-row-gutter-${requireRecordId(
+    recordId,
+  )}`;
+}
+
 /**
  * Scope this selector through `gridShellTestId(surface)` when targeting
  * workbook rows. Do not rely on raw table markup or renderer classes.
@@ -604,6 +601,10 @@ export function cellPresenceMarkerTestId(
 
 export function saveStateTestId(): string {
   return "save-state";
+}
+
+export function statusStripQueueCountTestId(): string {
+  return "status-strip-queue-count";
 }
 
 export function pendingQueueNoticeTestId(): string {

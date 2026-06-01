@@ -45,10 +45,20 @@ export type GridRow<Row> = {
   readonly key: string;
   readonly recordId: string | null;
   readonly data: Row;
+  readonly gutterContent?: ReactNode | undefined;
+  readonly gutterLabel?: string | undefined;
+  readonly gutterTestId?: string | undefined;
   readonly onSelect?: MouseEventHandler<HTMLTableRowElement> | undefined;
   readonly selected?: boolean | undefined;
   readonly variant?: "default" | "draft" | undefined;
   readonly testId?: string | undefined;
+};
+
+export type GridRowGutter = {
+  readonly headerTestId?: string | undefined;
+  readonly label?: ReactNode | undefined;
+  readonly minWidth?: number | undefined;
+  readonly width?: number | undefined;
 };
 
 export type GridActionsColumn<Row> = {
@@ -79,6 +89,7 @@ export type GridTableProps<Row> = {
   ) => string | undefined;
   readonly groupBy?: string | null | undefined;
   readonly onToggleSort?: ((fieldKey: string) => void) | undefined;
+  readonly rowGutter?: GridRowGutter | undefined;
   readonly rows: readonly GridRow<Row>[];
   readonly sort?: readonly GridSortEntry[] | undefined;
 };

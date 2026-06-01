@@ -63,7 +63,7 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     "host.aliases": collectionActionsPayload(["WS-023"]),
   });
 
-  await createTimelineFillers(page, incidentId, "E-4-04 filler", 12);
+  await createTimelineFillers(page, incidentId, "E-4-04 filler", 32);
   const suppressedRow = (await createViewRow(
     page,
     incidentId,

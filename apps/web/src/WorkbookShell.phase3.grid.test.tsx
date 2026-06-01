@@ -114,13 +114,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     const headerFields = Array.from(
       grid.querySelectorAll('[role="columnheader"] [data-grid-field-key]'),
     ).map((node) => node.getAttribute("data-grid-field-key"));
-    expect(headerFields.slice(0, 2)).toEqual([
-      "timeline.capture_state",
-      "row_version",
-    ]);
-    expect(headerFields.slice(2)).toEqual(
-      timelineContract.defaultVisibleFields,
-    );
+    expect(headerFields).toEqual(timelineContract.defaultVisibleFields);
 
     for (const fieldKey of timelineContract.defaultVisibleFields) {
       expect(

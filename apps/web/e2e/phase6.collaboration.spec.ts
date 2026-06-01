@@ -15,6 +15,7 @@ import {
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
   currentIncidentRoleTestId,
+  gridRowGutterTestId,
   gridShellTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
@@ -395,7 +396,7 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       surface: timelineViewSchemaId,
     });
     await assertMountedGridRowCountAtMost({
-      maxRows: 18,
+      maxRows: 30,
       page,
       surface: timelineViewSchemaId,
     });
@@ -468,7 +469,7 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       markerTestId: rowPresenceMarkerTestId(alphaId),
       page,
       surface: timelineViewSchemaId,
-      targetTestId: rowCellTestId(alphaId, "timeline.capture_state"),
+      targetTestId: gridRowGutterTestId(timelineViewSchemaId, alphaId),
     });
     await assertMarkerAnchoredToGridTarget({
       anchorKind: "cell",

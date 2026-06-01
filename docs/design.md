@@ -458,7 +458,7 @@ Design contract. Browser or operating-system forced-color modes MAY alter render
 
 Design contract. Density selection is closed to `compact`, `default`, and `comfortable`. The default density is `{density.default-mode}`.
 
-Design contract. All workbook surfaces MUST use the same active density mode. Per-surface density overrides are invalid in this revision. User-selected density is valid as client or user preference only when it applies uniformly to all workbook surfaces; if no such preference is persisted, `{density.default-mode}` applies.
+Design contract. Workbook surfaces MUST use density modes from the shared density registry. The default workbook density remains `{density.default-mode}`, except the default Timeline grid uses `compact` density from the same shared tokens to preserve first-viewport incident-response scanning. User-selected density is valid as client or user preference only when it maps to a declared shared density mode; surfaces MUST NOT invent private row-height or padding systems.
 
 Design contract. Large incident grids use fixed-height rows by default. Variable-height rows are valid only in inspector sections, preview areas, or non-grid detail regions. Omission of variable-height grid rows is conformant.
 
@@ -1443,7 +1443,7 @@ Design contract. The visual fixture registry is closed to the rows below for thi
 
 | Fixture ID | Required state | Viewport | Zoom | Density | Theme | Scroll normalization | Dynamic masks | Crop rule | Pass condition |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `D-VFIX-001` | Default Timeline workbook shell with top bar, view bar, dense Timeline grid, row-context inspector, status strip, and spreadsheet affordances; no admin-card dominance above the active grid. | `{layout.baseViewport}` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | All shell regions visible, admin/control content absent unless explicitly opened, and token pairs pass §14.3. |
+| `D-VFIX-001` | Default Timeline workbook shell with top bar, compact view bar, compact Timeline grid, row gutter, header affordances, selected row, focused Summary cell, row-context inspector, status strip, Core 01 default Timeline fields, and no admin-card dominance above the active grid. | `1440x900 CSS px` | `{layout.zoomDefault}` | `compact` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | All shell regions visible in the first viewport, admin/control content absent unless explicitly opened, and token pairs pass §14.3. |
 | `D-VFIX-002` | Inspector open adjacent at base viewport. | `{layout.baseViewport}` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_001:timeline.summary` | Actor names, timestamps, IDs. | `full_viewport` | Grid remains visible; inspector sections in required order. |
 | `D-VFIX-003` | Same-field conflict cell and resolver. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_conflict:timeline.summary` | Actor names, timestamps, IDs. | `selector:[data-design-fixture='conflict']` | Conflict marker, local draft, saved value, and actions visible. |
 | `D-VFIX-004` | Unresolved, resolved, auto-resolved, and dismissed chips. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `row:rec_timeline_mentions` | Actor names, IDs. | `selector:[data-design-fixture='chips']` | Four chip states have distinct non-color cues. |
@@ -1623,7 +1623,7 @@ Design contract. This `design.md` is ready to guide design implementation only w
 | `D-AC-061` | §15.1 | Visual fixture metadata | Dynamic fixture data is seeded or masked. | Actor names, timestamps, IDs, cursor positions, or local browser defaults are unmasked. |
 | `D-AC-062` | §15.1 | Evidence-class audit | Fixture evidence is classified as design evidence, not claim-bearing benchmark evidence. | Fixture evidence is represented as Core 05 claim evidence without Core 05 compliance. |
 | `D-AC-063` | §15.2 | Visual fixture registry | Every fixture row has exact viewport dimensions, not band-only declarations. | Fixture viewport is open-ended. |
-| `D-AC-064` | §7.1 and §15.2 | Visual fixture review | `D-VFIX-001` captures the default Timeline workbook shell with top bar, view bar, active grid, row-context inspector, status strip, and no admin/control card stack above the grid. | The fixture captures a dashboard/admin-card layout or lacks a required workbook shell region. |
+| `D-AC-064` | §7.1 and §15.2 | Visual fixture review | `D-VFIX-001` captures the fixed first viewport for the default Timeline workbook shell with top bar, compact view bar, compact grid, row gutter, header affordances, selected row, focused Summary cell, row-context inspector, status strip, Core 01 default Timeline fields, and no admin/control card stack above the grid. | The fixture captures a dashboard/admin-card layout, uses non-Core default Timeline columns, or lacks a required workbook shell region. |
 
 ### 18.8 Boundary criteria
 

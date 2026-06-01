@@ -7,6 +7,7 @@ import {
   gridFilterFieldTestId,
   gridFilterValueTestId,
   gridGroupingSelectTestId,
+  gridRowGutterTestId,
   gridScrollportClassName,
   gridShellTestId,
   gridSortHeaderTestId,
@@ -661,11 +662,11 @@ describe("@cartulary/test-utils marker anchoring", () => {
 
   it("passes row-gutter markers only when vertically aligned to the intended row", async () => {
     const anchored = installMarkerAnchorFixture({
-      markerCellFieldKey: "timeline.capture_state",
+      markerCellFieldKey: "__cartulary_row_gutter__",
       markerRect: { height: 18, left: 16, top: 54, width: 34 },
-      targetCellFieldKey: "timeline.capture_state",
+      targetCellFieldKey: "__cartulary_row_gutter__",
       targetCellRect: { height: 60, left: 0, top: 40, width: 90 },
-      targetTestId: rowCellTestId("record-1", "timeline.capture_state"),
+      targetTestId: gridRowGutterTestId(testTimelineViewSchemaId, "record-1"),
     });
 
     await expect(
@@ -680,11 +681,11 @@ describe("@cartulary/test-utils marker anchoring", () => {
 
     vi.restoreAllMocks();
     const detached = installMarkerAnchorFixture({
-      markerCellFieldKey: "timeline.capture_state",
+      markerCellFieldKey: "__cartulary_row_gutter__",
       markerRect: { height: 18, left: 16, top: 154, width: 34 },
-      targetCellFieldKey: "timeline.capture_state",
+      targetCellFieldKey: "__cartulary_row_gutter__",
       targetCellRect: { height: 60, left: 0, top: 40, width: 90 },
-      targetTestId: rowCellTestId("record-1", "timeline.capture_state"),
+      targetTestId: gridRowGutterTestId(testTimelineViewSchemaId, "record-1"),
     });
 
     await expect(

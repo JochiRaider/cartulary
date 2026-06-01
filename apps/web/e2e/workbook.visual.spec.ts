@@ -15,6 +15,7 @@ import {
   evidencePreviewButtonTestId,
   gridActionsHeaderTestId,
   gridGroupRowTestId,
+  gridRowGutterTestId,
   gridSavedRowsSelector,
   gridScrollportSelector,
   gridShellTestId,
@@ -202,6 +203,8 @@ test.describe("FE-P2 workbook visual readiness", () => {
     await expect(page.getByTestId(incidentMembershipListTestId())).toHaveCount(
       0,
     );
+    await expect(page.getByText("Phase 3 workbook")).toHaveCount(0);
+    await expect(page.getByText(/Timeline mutation substrate/u)).toHaveCount(0);
     await expect(
       page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
     ).toHaveAttribute("aria-current", "page");
@@ -223,7 +226,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
       .toBe(rows.length);
     await expect
       .poll(async () => gridSavedRows(page, timelineViewSchemaId).count())
-      .toBeGreaterThanOrEqual(7);
+      .toBeGreaterThanOrEqual(12);
     const renderedRecordIds = await grid
       .locator(gridSavedRowsSelector())
       .evaluateAll((rowElements) =>
@@ -239,6 +242,16 @@ test.describe("FE-P2 workbook visual readiness", () => {
     if (selectedRow === undefined) {
       throw new Error(`FE-V-P2 fixture selected unknown row ${selectedRowId}`);
     }
+    const selectedGridRow = grid.locator(
+      `[data-grid-record-id="${selectedRow.record_id}"]`,
+    );
+    await selectedGridRow.click();
+    await expect(selectedGridRow).toHaveAttribute("aria-selected", "true");
+    await expect(
+      selectedGridRow.locator(
+        '[role="rowheader"][data-grid-field-key="__cartulary_row_gutter__"]',
+      ),
+    ).toBeVisible();
 
     const defaultTimelineFields = [
       "timeline.occurred_at",
@@ -254,9 +267,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
       .evaluateAll((headers) =>
         headers.map((header) => header.getAttribute("data-grid-field-key")),
       );
-    expect(headerFieldKeys).toEqual(
-      expect.arrayContaining(defaultTimelineFields),
-    );
+    expect(headerFieldKeys).toEqual(defaultTimelineFields);
     for (const fieldKey of defaultTimelineFields) {
       await expect(
         grid.locator(
@@ -271,9 +282,6 @@ test.describe("FE-P2 workbook visual readiness", () => {
       ),
     ).toHaveValue(rowSummariesById.get(selectedRow.record_id) ?? "");
 
-    await page
-      .getByTestId(rowInspectButtonTestId(selectedRow.record_id))
-      .click();
     await expect(page.getByTestId("timeline-inspector")).toBeVisible();
     await expect(page.getByTestId("timeline-inspector")).toContainText(
       selectedRow.record_id,
@@ -325,10 +333,9 @@ test.describe("FE-P2 workbook visual readiness", () => {
       )
       .toEqual({ gridLeft: 0, windowY: 0 });
 
-    await assertVisualRegression(
+    await assertViewportVisualRegression(
       page,
       "fe-v-p2-01-default-timeline-workbook-shell",
-      shell,
     );
   });
 });
@@ -985,15 +992,15 @@ test.describe("Phase 6 workbook visual evidence", () => {
         ),
       ).toContainText("VA");
       await assertMarkerAnchoredToGridTarget({
-        anchorKind: "row-gutter",
-        markerTestId: rowPresenceMarkerTestId(timelineRow.record_id),
-        page,
-        surface: timelineViewSchemaId,
-        targetTestId: rowCellTestId(
-          timelineRow.record_id,
-          "timeline.capture_state",
-        ),
-      });
+      anchorKind: "row-gutter",
+      markerTestId: rowPresenceMarkerTestId(timelineRow.record_id),
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: gridRowGutterTestId(
+        timelineViewSchemaId,
+        timelineRow.record_id,
+      ),
+    });
       await assertMarkerAnchoredToGridTarget({
         anchorKind: "cell",
         markerTestId: cellPresenceMarkerTestId(
