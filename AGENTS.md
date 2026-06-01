@@ -1,96 +1,54 @@
 # Cartulary Repository Procedure
 
-## Authority and placeholders
+## Authority
 
-- Normative behavior is owned by the Cartulary normative core under `docs/spec/00_document_set_status_and_precedence.md` through Core 04. The guides under `docs/guides/` are implementation-support inputs, not independent behavior owners.
-- `docs/design.md` supplies frontend design-direction constraints and token definitions only. It is not Base Profile or extension-profile implementation conformance, and design-direction evidence must not be represented as product-conformance evidence. Core 05 remains claim-publication-only for timed or fixture-sensitive claims.
-- Consult `docs/domain.md` before domain-facing changes, terminology-sensitive changes, view-schema work, record-model work, workbook-surface work, or documentation edits that touch project vocabulary. It is a vocabulary and concept reference, not a replacement for owner specs.
+- Product behavior is owned by the normative core: `docs/spec/00_document_set_status_and_precedence.md` through Core 04. Core 05 is only for claim-bearing timed, benchmark, fixture-sensitive, or publication evidence.
+- `docs/testing-harness-nlspec.md` owns harness mechanics: command invocation, target selection, scheduling, fixture lifecycle, artifact emission, cleanup, and verification gates.
+- `docs/domain.md` is the domain vocabulary and concept-boundary reference. Consult it before domain-facing changes, terminology-sensitive changes, view-schema work, record-model work, workbook-surface work, or docs that touch project vocabulary.
+- `docs/design.md` owns frontend design-direction constraints and token definitions. It is not product-conformance evidence by itself, and design evidence must not be represented as Base Profile or extension-profile conformance.
+- Guides under `docs/guides/` are implementation-support inputs unless an adopted owner document explicitly promotes a narrower rule.
 - The canonical Go module path is `github.com/JochiRaider/cartulary`.
-- Supported toolchain baseline: `Go 1.26` with `toolchain go1.26.3`, `Node 24.15.0`, and `pnpm 10.33.0`.
-- Pinned bootstrap tools: `github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0`, `github.com/pressly/goose/v3/cmd/goose@v3.27.0`, `honnef.co/go/tools/cmd/staticcheck@v0.7.0`, `golang.org/x/vuln/cmd/govulncheck@v1.3.0`, `github.com/securego/gosec/v2/cmd/gosec@v2.26.1`, `github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0`, `github.com/anchore/syft/cmd/syft@v1.44.0`, ShellCheck `0.11.0`, and `github.com/testcontainers/testcontainers-go v0.42.0`.
 
-## Repo map and path conventions
+## Repository Boundaries
 
-- `cmd/server` and `cmd/migrate` are binary entrypoints only. Keep composition roots here; do not place domain logic in `cmd/`.
-- `internal/app` is reserved for application assembly shared by the binaries.
+- `cmd/server`, `cmd/migrate`, and other `cmd/*` packages are binary composition roots only. Keep feature behavior out of `cmd/`.
+- `internal/app` owns application assembly shared by binaries.
 - `internal/platform/*` owns transport, runtime plumbing, configuration, storage adapters, auth primitives, and job shells.
 - `internal/modules/*` owns domain and application logic inside the modular monolith.
-- `internal/gen/**` is generated Go code derived from `/contracts/**` or `/db/queries/**`. Do not hand-edit it.
+- `contracts/*` is the repo-local derived contract layer, downstream of owner specs and upstream of generated code.
 - `db/migrations` and `db/queries` are authored SQL inputs.
-- `contracts/*` is the repo-local derived contract layer. It is downstream of the normative core and upstream of generated code.
-- `apps/web` is the single top-level web app in the pnpm workspace.
-- `packages/*` is for shared TypeScript packages. `packages/protocol-ts/src/generated/**` is generated and must not be hand-edited.
-- `scripts` and `tools` hold repo-local automation and pinned helper tooling.
-- `configs/dev` is reserved for local development configuration inputs.
-- `internal/testutil/*` is reserved for reusable backend test harnesses and fixtures.
-- `cmd/server` and `cmd/migrate` remain bootstrap wiring only in this step. Keep feature behavior out of them.
+- `apps/web` is the top-level web app in the pnpm workspace.
+- `packages/*` contains shared TypeScript packages.
+- `scripts` and `tools` contain repo-local automation, manifests, schemas, and pinned helper tooling.
+- `configs/dev` contains local development configuration inputs.
+- `internal/testutil/*` contains reusable backend test harnesses and fixtures.
 
-## Canonical command surface
+## Generated Files And Artifacts
 
-- Compact help: `make help`.
-- Guided target selection: `make task-guide [ROLE=<role>] [PHASE=phaseN]`.
-- Phase slices: `make phase-slice PHASE=phaseN`, `make service-backed-slice PHASE=phaseN`.
-- Exhaustive workflow help: `make help-all`.
-- Local dev: `make doctor`, `make bootstrap`, `make bootstrap-node-runtime`, `make frontend-toolchain`, `make frontend-install`, `make playwright-install`, `make db-up`, `make db-reset`, `make services-up`, `make minio-init`, `make dev`, `make generate`, `make format`, `make clean`.
-- Fast verification: `make test-fast`, `make phase-slice PHASE=phaseN`, `make service-backed-slice PHASE=phaseN`, `make backend-unit`, `make backend-store`, `make backend-integration`, `make backend-process`, `make frontend-typecheck`, `make frontend-unit`, `make lint`, `make lint-biome`, `make lint-scripts`, `make lint-shell`, `make go-vulncheck`, `make go-gosec-targeted`, `make go-gosec-audit`.
-- Full gates: `make test`, `make check`, `make browser-e2e`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-measurement`, `make browser-e2e-visual`.
-- Investigate a run: `make task-guide [ROLE=<role>] [PHASE=phaseN]`, `make task-surface-report`, `make target-plan`, `make target-plan-json`, `make explain-phase PHASE=phaseN`, `make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]`, `make explain-run RESULTS_DIR=<root|run-dir>`, `make fixture-report RESULTS_DIR=<root|run-dir>`.
-- Phase maintenance: `make generate-drift`, `make toolchain-drift`, `make migration-drift`, `make phase-ledgers`, `make phase-ledger-drift`, `make phase-schedules`, `make phase-schedule-drift`, `make agent-finalize`, `make benchmark-claim-check`, `make go-test-duration-baselines RESULTS_DIR=<dir>`, `make go-test-duration-baseline-coverage`, `make go-test-duration-baseline-drift RESULTS_DIR=<dir>`, `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>`, `make scheduler-event-order-drift RESULTS_DIR=<dir> [TARGET=<target>]`.
-- Release: `make ci`, `make release-check`, `make build`, `make build-server`, `make build-migrate`, `make build-web`, `make distclean`.
+- Do not hand-edit generated roots declared by `tools/generated_artifact_policy.json`: `internal/gen/**`, `packages/protocol-ts/src/generated/**`, and `packages/ui-contracts/src/generated/**`.
+- Do not hand-edit generated harness/topology outputs such as `tools/task_surface.generated.mk` or generated outputs listed in `tools/execution_topology_manifest.json`.
+- Generated phase ledgers and schedules are downstream of phase manifests and frontend phase maps. Update the owner inputs, then run the relevant Make generator or drift target.
+- Do not hand-edit `go.sum`, `pnpm-lock.yaml`, or tool-managed dependency/install artifacts.
+- For visual golden changes, follow `docs/guides/cartulary_visual_golden_maintenance.md`. Visual and accessibility artifacts remain design-direction or implementation-support evidence unless a Core 05 claim-publication boundary is separately satisfied.
 
-## Artifact ownership and edit rules
+## Commands
 
-- The normative core owns behavior. Change owner text first when behavior changes.
-- `/contracts/*` contains repo-local derived contract artifacts. Hand-edit them only as owner-driven contract updates, and do not treat them as the behavioral owner.
-- `/internal/gen/**` and `/packages/protocol-ts/src/generated/**` are generated outputs. Do not hand-edit either path.
-- `/packages/ui-contracts/src/generated/**` is generated frontend design-token output derived from `docs/design.md`. Do not hand-edit it; update `docs/design.md` or the generator and run `make generate`.
-- `pnpm-lock.yaml` and `go.sum` are tool-managed. Do not hand-edit either file.
-- Keep codegen drift and migration drift separate.
-- Codegen drift means generated outputs change after `make generate`.
-- Migration drift means schema-affecting changes are missing from numbered migrations or migrations do not apply cleanly.
-- UI changes that affect visual goldens must follow `docs/guides/cartulary_visual_golden_maintenance.md`; visual and accessibility artifacts remain design-direction or implementation-support evidence unless a Core 05 claim-publication boundary is separately satisfied.
+- Run repository commands from the repository root through public Make targets. Direct `go`, `pnpm`, Vitest, Playwright, Biome, and raw script commands are developer conveniences unless a Make-owned wrapper invokes them.
+- Use `make help` for the compact task surface and `make help-all` for the current public target inventory. Do not copy target lists into new docs when a pointer is sufficient.
+- Use `make task-guide ROLE=<role> PHASE=phaseN` to choose narrow verification by role and phase. Useful roles include `local-dev`, `feature-dev`, `phase-author`, `ci-investigator`, and `release`.
+- Use investigation targets such as `make explain-phase PHASE=phaseN`, `make explain-target TARGET=<target> DETAIL=summary|rows|artifacts`, `make explain-run RESULTS_DIR=<root|run-dir>`, `make target-plan`, and `make target-plan-json` before rerunning broad suites.
+- Local setup and dev: `make doctor`, `make bootstrap`, `make db-up`, `make db-reset`, `make services-up`, `make minio-init`, and `make dev`.
+- Generation and drift: `make generate`, `make generate-drift`, `make generated-artifact-policy-check`, `make json-shape-check`, `make toolchain-drift`, `make migration-drift`, `make phase-ledger-drift`, and `make phase-schedule-drift`.
+- Common verification: `make test-fast`, `make test`, `make check`, `make lint`, `make frontend-typecheck`, `make frontend-unit`, `make frontend-import-boundary-check`, `make lint-biome`, `make lint-scripts`, `make lint-shell`, `make go-vulncheck`, `make go-gosec-targeted`, and `make go-gosec-audit`.
+- Browser and frontend readiness targets include `make browser-e2e`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-measurement`, `make browser-e2e-a11y`, `make browser-e2e-a11y-preflight`, and `make browser-e2e-visual`.
+- Release/build targets include `make ci`, `make release-check`, `make harness-contract`, `make build`, `make build-server`, `make build-migrate`, `make build-operator`, and `make build-web`.
+- Cleanup targets are destructive within repo-local outputs: `make clean` removes reproducible build/report artifacts, and `make distclean` also removes repo-local tool/runtime caches and dependency installs.
 
-## Local execution procedure
+## Verification And Handoff
 
-- Start local backing services with `make db-up`.
-- Then run `make dev`.
-- The local bootstrap server uses `configs/dev/config.toml` through `CARTULARY_CONFIG_FILE`.
-- `make help` prints the compact workflow task surface without bootstrapping Node or pnpm.
-- `make task-guide [ROLE=<local-dev|feature-dev|phase-author|ci-investigator|release>] [PHASE=phaseN]` prints the concise role and phase oriented "which target should I run?" view with service requirements, scheduler ownership, latest artifact paths, and phase coverage; feature-dev phase guidance recommends the public `phase-slice` and `service-backed-slice` wrappers rather than internal support targets.
-- `make help-all` prints the exhaustive public workflow-tiered task surface without bootstrapping Node or pnpm.
-- `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all` prints public targets plus private/check-internal task-surface diagnostics.
-- `make doctor` verifies required local tools and pinned toolchain versions without installing them.
-- `make bootstrap` installs the pinned Go CLI tools, pinned ShellCheck, and workspace dependencies.
-- `make go-vulncheck` runs pinned Govulncheck against authored Go source and tests using the default `./cmd/... ./internal/... ./db/... ./tools/...` package roots, with generated Go packages filtered out.
-- `make go-gosec-targeted` runs pinned Gosec with the focused `G602,G124,G112,G114` rule set plus scoped blocking runtime file/path rules against authored Go source.
-- `make go-gosec-audit` runs pinned Gosec warning-only audit profiles for `G118` and scoped file/path rules across runtime and support code.
-- `make lint-shell` runs pinned ShellCheck warning-only over the deterministic tracked shell-script inventory; set `LINT_SHELL_STRICT=1` to fail on findings.
-- `make phase-ledgers` regenerates the committed phase coverage ledgers from `tools/phase*_test_map.json`.
-- `make phase-ledger-drift` verifies committed phase coverage ledgers match the phase manifests without requiring Docker or service-backed tests.
-- `make agent-finalize` is the required first end-of-run maintenance command before broader verification. It refreshes and validates harness-maintenance artifacts; when `RESULTS_DIR=<successful retained run root>` is supplied it first validates the retained run, then refreshes and checks duration-maintenance inputs plus warm scheduler timing evidence. Report whether it ran unchanged, updated generated artifacts, skipped retained-run maintenance because `RESULTS_DIR` was unset, failed at a subtarget, or was explicitly skipped.
-- `make backend-store` runs the service-backed store-domain `U-*` backend slice that keeps unit-layer phase IDs while using real Postgres.
-- `make phase-slice PHASE=phaseN` runs the public target-level slice selected from the phase manifest, including internal support evidence as child work when the phase declares it.
-- `make service-backed-slice PHASE=phaseN` runs the selected phase's service-backed target-level slice and reports an explicit no-op when the phase has no service-backed work.
-- `make target-plan` and `make target-plan-json` inspect the backend Go target execution plan without running tests or starting services.
-- `make explain-phase PHASE=phaseN` inspects one phase manifest, coverage ledger path, execution dependencies, service requirements, and target coverage without running tests or starting services.
-- `make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]` inspects backend, frontend, browser, aggregate, check, and release targets without running tests or starting services.
-- Investigation commands include `make task-guide`, `make target-plan`, `make target-plan-json`, `make explain-phase PHASE=phaseN`, `make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]`, `make fixture-report RESULTS_DIR=<root|run-dir>`, and `make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs|progress]`; they inspect existing plans or retained run artifacts without rerunning tests.
-- Scheduled helper phases write artifacts under their target-owned directory. They remain helper support evidence unless a schedule explicitly lists them as produced summary targets; use `make explain-target TARGET=<target> DETAIL=artifacts` or `make explain-run ... TARGET=<target> DETAIL=logs` to find helper phase summaries and logs.
-- `make go-test-duration-baselines RESULTS_DIR=<dir>` refreshes committed Go shard duration baselines from successful service-backed shard artifacts.
-- `make go-test-duration-baseline-coverage` verifies every service-backed Go shard-plan item has committed baseline timing components before service-backed execution.
-- `make go-test-duration-baseline-drift RESULTS_DIR=<dir>` verifies committed Go shard duration baselines against successful service-backed shard artifacts and fails when the planned weights are badly stale.
-- `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>` verifies committed browser functional spec duration baselines against successful Playwright timing artifacts and fails when planned weights are badly stale.
-- `make scheduler-event-order-drift RESULTS_DIR=<dir> [TARGET=<target>]` verifies retained scheduler event streams have strict sequence ordering, monotonic timing, and display timestamp regressions only when explicitly marked by clock-skew diagnostics.
-- `make test-fast` runs the pure backend unit slice, the service-backed backend store and integration slices, the backend process or E2E slice, frontend type-checking, and the frontend unit suite for the narrower local loop.
-- `make test` is the authoritative full-corpus test surface. It runs pure backend unit, frontend type-check, and frontend unit work first, then shares one service-backed scheduler stage across backend service-backed work, `browser-e2e-webserver-backed`, and the isolated `browser-e2e` batch with explicit reset boundaries. The Phase 0 process evidence under `cmd/server` is part of this surface and is not a direct-only command.
-- `make check` is the developer verification gate. The check scheduler runs `toolchain-drift` as the root setup gate, then fans out exact readiness work for codegen, Go lint, Govulncheck, Gosec, ShellCheck, and frontend install. Downstream check work depends only on the readiness units it consumes. `tools/execution_topology_manifest.json` owns profile-driven check schedule metadata and renders `tools/check_schedule_manifest.json`, while `tools/scheduler_resource_registry.json` owns scheduler capacity profiles, default limits, override environment names, and service-backed auto-limit policies. The runtime scheduler consumes those artifacts to schedule readiness fanout and independent check work by declared resources; Make forwards `CHECK_HOST_CPU_JOBS` and `CHECK_HOST_IO_JOBS` only when explicitly set. The gate runs service-backed backend work, shared-stack browser verification, and the isolated `browser-e2e` aggregate through one capacity-aware service-backed scheduler stage with browser-stage resource claims. Migration verification remains explicit scheduler work, but it uses scratch Postgres databases and claims the shared `service_stack` lane. Static validation, harness smoke, backend lint, blocking scheduled shell lint, Go vulnerability scanning and tests, frontend type-check and tests, plus backend and frontend builds remain explicit scheduler work.
-- Apply authored Go and frontend formatting with `make format`.
-- `make ci` is the provider-neutral CI enforcement entrypoint. It composes the canonical repo task surface and fails on codegen drift, phase coverage ledger drift, migration failures, and deployable-shape drift.
-- `make release-check` is the release verification gate. It runs the developer gate plus license report verification, SBOM verification, and build verification; until generators are chosen, the license and SBOM targets fail if their configured artifacts are missing or empty.
-- `make clean` removes reproducible repo-local build and report artifacts while preserving checked-in files and external Go caches.
-- `make distclean` additionally removes repo-local tool/runtime caches after printing the removal list.
-- `make check` and `make ci` summary output is the default. Successful default runs print bounded `[RESULT]` and `[ARTIFACTS]` summaries, keep successful child logs in artifacts, and keep stderr empty. Use `VERBOSE=1` or `CARTULARY_OUTPUT_MODE=verbose` when you need full streaming logs for investigation. `CARTULARY_OUTPUT_MODE=machine` emits canonical JSON instead of human progress.
-- If a check-scheduler work unit fails under parallel execution, GNU Make may still print `Waiting for unfinished jobs....` while sibling jobs drain; that line is expected orchestration output, not a second root cause.
-- Shell-backed verification wrappers such as frontend lint or migration drift report as non-test failures rather than unmapped test inventory when they exit non-zero.
-- From PowerShell, prefer repo commands through `wsl.exe -d Ubuntu-24.04 --cd /home/askahn/code/cartulary ...`; for Node/pnpm, prepend `/home/askahn/code/cartulary/tmp/node-runtime/bin` to `PATH` and use `corepack pnpm`.
-- If Git on the UNC WSL path reports dubious ownership, retry with `git -c safe.directory=//wsl.localhost/Ubuntu-24.04/home/askahn/code/cartulary ...`.
+- Choose the narrowest target that covers the change, then broaden only when risk or ownership requires it. For phase work, prefer `make phase-slice PHASE=phaseN` and `make service-backed-slice PHASE=phaseN` after checking `make task-guide`.
+- Run `make agent-finalize` before broader end-of-run verification. If using retained successful run evidence, pass `RESULTS_DIR=<successful full warm check run root>`; otherwise report that retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+- For docs-only changes, use documentation/harness validation targets such as `make generated-artifact-policy-check`, `make json-shape-check`, and command-surface inspection before considering broad `make check`.
+- `make format` rewrites authored Go and frontend sources; do not run it solely for Markdown-only edits unless another touched file needs that formatter.
+- When a command fails, report the failing target, the relevant summary artifact or run root when available, and whether the failure appears related to the change.
+- Final reports should state the planning summary, files inspected or changed, substantive edits, verification commands and results, and any skipped checks with the reason.
