@@ -100,12 +100,12 @@ At FE-P4 exit, a browser user must be able to:
 - create a low-friction rough Timeline row without requiring entity mention resolution, evidence handles, or canonical enrichment first;
 - edit cells inline;
 - paste tabular data into the Timeline hot path;
-- see queued, saved, failed, and conflict save-state feedback on the same workbook surface;
+- see `Syncing`, `Saved`, and `Conflict` save-state feedback, plus same-surface secondary failure, overflow, and replay messages;
 - recover from transient write failure through deterministic pending replay;
 - see cell-level validation and public error-envelope feedback without private server details;
 - refresh without losing stable row identity or retargeting pending work by visible row order.
 
-FE-P4 completion requires current row-owned evidence for all intended FE-P4 rows plus satisfaction or precise blocking for every triggered shared harness.
+FE-P4 phase completion requires current row-owned evidence for all six FE-P4 rows plus satisfaction or precise blocking for every triggered shared harness. Product hot-path closure is a narrower handoff claim and does not equal FE-P4 phase completion.
 
 ## Implementation Scope
 
@@ -137,7 +137,7 @@ FE-P4 completion requires current row-owned evidence for all intended FE-P4 rows
 | Row | Evidence class | Intended validation layer | Target(s) | Core/product ownership | Claim intent |
 | --- | --- | --- | --- | --- | --- |
 | `FE-U-P4-01` | `product_conformance` | Unit sync-engine model | `make frontend-unit` | Core REQs: `REQ-01-057`, `REQ-01-070`, `REQ-03-217`, `REQ-03-222`, `REQ-03-236`, `REQ-03-241`; Core ACs: `AC-003`, `AC-005`, `AC-040`, `AC-043`, `AC-119`, `AC-120`, `AC-124`, `AC-127`, `AC-181`, `AC-183`, `AC-188`, `AC-193`, `AC-200`, `AC-218`, `AC-221`, `AC-225`, `AC-231`, `AC-299`, `AC-354`, `AC-394`, `AC-396` | Pending queue ordering, retry, success, validation failure, and replay by stable mutation identifiers |
-| `FE-U-P4-02` | `product_conformance` | Unit save-state model | `make frontend-unit` | Core REQs: `REQ-03-033`, `REQ-03-040`, `REQ-03-077`, `REQ-03-084`; Core ACs: `AC-009`, `AC-013`, `AC-040`, `AC-041`, `AC-047`, `AC-126`, `AC-163`, `AC-231`, `AC-381`, `AC-023`, `AC-026`, `AC-045`, `AC-050` | One primary save-state label and one same-surface secondary message from pending, saved, failed, and conflict states |
+| `FE-U-P4-02` | `product_conformance` | Unit save-state model | `make frontend-unit` | Core REQs: `REQ-03-033`, `REQ-03-040`, `REQ-03-077`, `REQ-03-084`; Core ACs: `AC-009`, `AC-013`, `AC-040`, `AC-041`, `AC-047`, `AC-126`, `AC-163`, `AC-231`, `AC-381`, `AC-023`, `AC-026`, `AC-045`, `AC-050` | Exactly one primary save-state label from `Syncing`, `Saved`, or `Conflict`, plus one same-surface secondary message when failure, overflow, validation, or replay-halted detail is required |
 | `FE-I-P4-01` | `product_conformance` | Integration plus browser-backed query/render identity | `make frontend-unit`; `make browser-e2e-webserver-backed` | Core REQs: `REQ-01-034`, `REQ-01-036`, `REQ-01-057`, `REQ-01-070`, `REQ-03-236`, `REQ-03-241`; Core ACs: `AC-119`, `AC-120`, `AC-124`, `AC-127`, `AC-181`, `AC-183`, `AC-188`, `AC-193`, `AC-200`, `AC-218`, `AC-221`, `AC-225`, `AC-231`, `AC-238`, `AC-243`, `AC-299`, `AC-361`, `AC-366`, `AC-367`, `AC-372`, `AC-374` | Timeline query rows render full `view_row_v1` cells and preserve row identity through create, patch, validation error, and refresh |
 | `FE-E-P4-01` | `product_conformance` | Public-route browser E2E | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | Core REQs: `REQ-01-057`, `REQ-01-070`, `REQ-02-024`, `REQ-02-025`, `REQ-03-217`, `REQ-03-222`, `REQ-03-236`, `REQ-03-241`; Core ACs: `AC-003`, `AC-005`, `AC-040`, `AC-043`, `AC-119`, `AC-120`, `AC-124`, `AC-127`, `AC-181`, `AC-183`, `AC-188`, `AC-193`, `AC-200`, `AC-218`, `AC-221`, `AC-225`, `AC-231`, `AC-299`, `AC-354`, `AC-394`, `AC-396`, `AC-406` | Rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through `/api/v1/` route contracts |
 | `FE-V-P4-01` | `design_direction` | Visual regression | `make browser-e2e-visual` | No Core product-conformance claim; support/design ACs: `R2-AC-023`, `R2-AC-026`, `R2-AC-033`, `R2-AC-039`, `R2-AC-045`, `R2-AC-050`, `R2-AC-073`, `R2-AC-079` | Design-direction capture of save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures |
@@ -166,7 +166,7 @@ Design-direction rows MUST NOT claim Core product conformance. Product-conforman
 | `FE-H-03` Renderer/editor registry behavior and lifecycle cleanup | FE-P4 may add editor lifecycle states for inline edit, validation, or pending replay display. | Required only if FE-P4 changes editor registry, portals, timers, observers, subscriptions, or adapter cleanup. Then run `make frontend-unit` and `make browser-e2e-support`; block if cleanup coverage is absent. |
 | `FE-H-04` Sync-engine pending queue and replay behavior | FE-P4 introduces pending queue, retries, failures, and replay for creates, patches, and paste batches. | Sprint 2 owns the unit model; Sprint 5 owns browser public-route replay; both require stable mutation identifiers and row accounting. |
 | `FE-H-06` Same-field conflict anchoring | FE-P4 save-state must represent conflict state and preserve anchors without implementing the resolver. | Sprints 2, 3, and 5 must anchor conflict state by `record_id + field_key + base_row_version`; block any resolver UI claim as out of scope. |
-| `FE-H-08` Save-state presentation | FE-P4 introduces queued, saved, failed, conflict, and replay-visible save-state. | Sprint 3 owns unit derivation; Sprint 5 validates browser behavior; Sprint 6 captures design-direction visual/a11y state where available. |
+| `FE-H-08` Save-state presentation | FE-P4 introduces `Syncing`, `Saved`, and `Conflict` save-state labels plus replay-visible same-surface secondary detail. | Sprint 3 owns unit derivation; Sprint 5 validates browser behavior; Sprint 6 captures design-direction visual/a11y state where available. |
 | `FE-H-09` Browser command helpers | Paste, edit, replay, and row-anchor browser helpers may need extension. | If helpers change, run `make browser-e2e-support` and keep helper selectors stable; otherwise document no helper change. |
 | `FE-H-10` Visual-regression fixtures | FE-P4 visual row maps to `FE-VFIX-08`, `FE-VFIX-12`, and `FE-VFIX-15`. | Sprint 6 must use exact fixture IDs and exact scenario titles. It must not infer closure from snapshot filenames or base `V-*` rows. |
 | `FE-H-11` Keyboard and focus traversal | Inline edit, paste, validation feedback, pending replay, and `Esc` priority affect keyboard behavior. | Sprint 5 must keep browser hot-path focus behavior stable; Sprint 6 records current a11y preflight limitation and blocks implemented-row closure until `browser-e2e-a11y` mapping exists. |
@@ -193,17 +193,125 @@ No shared harness is satisfied by this plan alone.
 - Expected phase metadata handling: update `tools/frontend_phase_maps/fe_p4_test_map.json` only after direct row-owned evidence exists; regenerate `docs/testing/frontend_phase_coverage_ledgers/fe_p4_coverage_ledger.md` through `make phase-ledgers`; validate with `make phase-ledger-drift`.
 - FE-P4 should consume existing public route contracts. This plan does not create new public API routes or wire shapes.
 
+## NLSpec Boundary Closure Contract
+
+This section is the closed FE-P4 implementation contract for readers of this plan. It imports the Core-owned and harness-owned boundary values that FE-P4 implementation work needs in order to avoid drift. Core 00 through Core 04 remain the normative product owners, and `docs/testing-harness-nlspec.md` remains the normative harness owner. When this plan restates a Core or harness rule, the restatement MUST preserve the exact owner semantics. If a future edit discovers a conflict, the owner document wins and this plan MUST be corrected before FE-P4 row promotion or phase-completion claims.
+
+Normative terms:
+
+- `MUST`, `MUST NOT`, `SHOULD`, and `MAY` have their ordinary requirement force in this plan.
+- `omitted` means the JSON member, map member, table row, fixture link, scenario title, or artifact is absent.
+- `explicit null` means the JSON member is present with value `null`; explicit null is distinct from omission unless the owner contract says they compare equal.
+- `blocked` means the row, target, fixture, or claim lacks current direct evidence or has a recorded reason that prevents the affected closure claim.
+- `closed` means the row or closure claim has current direct row-owned evidence from the mapped target and required row accounting.
+- `product hot-path closed` is a narrow FE-P4 handoff claim for product-conformance rows only. It is not FE-P4 phase completion.
+
+### Completion State Model
+
+Table A. FE-P4 Completion Claims:
+
+| Claim name | Included rows | Required evidence | Allowed blockers | Forbidden wording |
+| --- | --- | --- | --- | --- |
+| `product hot-path closed` | `FE-U-P4-01`, `FE-U-P4-02`, `FE-I-P4-01`, `FE-E-P4-01` | Current row-owned evidence from every mapped product-conformance target, current frontend row accounting where required, exact scenario titles where required, and generated ledger freshness after map promotion. | Design-direction rows may remain blocked only if the handoff explicitly says `FE-P4 product hot-path closed; FE-P4 phase completion blocked by <row/blocker>`. Product rows may not remain blocked. | `FE-P4 complete`, `phase complete`, `all FE-P4 rows closed`, or any wording that implies visual or accessibility closure. |
+| `visual readiness closed` | `FE-V-P4-01` | Current `browser-e2e-visual` row-owned evidence, exact FE-P4 scenario title, and exact fixture linkage for `FE-VFIX-08`, `FE-VFIX-12`, and `FE-VFIX-15` or an owner-approved map/registry correction. | None for this claim. Missing fixture identity, stale fixture evidence, or snapshot-only evidence blocks the claim. | `product conformance`, `Core conformance`, or closure from snapshot filenames alone. |
+| `accessibility readiness closed` | `FE-A11Y-P4-01` | Current implemented accessibility row evidence from `make browser-e2e-a11y`, exact FE-P4 row mapping, and `cartulary.frontend_accessibility_summary.v2`. | None for this claim. Current preflight-only mapping blocks the claim. | `implemented a11y closed` from `browser-e2e-a11y-preflight`, or product-conformance wording. |
+| `FE-P4 phase complete` | All six FE-P4 rows: `FE-U-P4-01`, `FE-U-P4-02`, `FE-I-P4-01`, `FE-E-P4-01`, `FE-V-P4-01`, `FE-A11Y-P4-01` | Product hot-path closed, visual readiness closed, accessibility readiness closed, all triggered shared harnesses satisfied, generated drift checks passing, FE-P0 through FE-P3 still green or precisely owner-accepted, and registry/map/ledger/freshness promotion performed together. | None. A blocked row may be documented, but it prevents this claim. | Any wording that excludes blocked design rows from full FE-P4 phase completion. |
+
+### Table B. Pending Queue Boundary
+
+| Boundary | Closed FE-P4 rule |
+| --- | --- |
+| Queue unit | One autosave-originated workbook hot-path mutation: one row-create intent or one row-patch intent. Paste batches are represented by their route-shaped create and patch replay units. |
+| Scope | The local pending queue is memory-local, incident-scoped, and client-instance-scoped by `(incident_id, client_instance_id)`. |
+| Capacity | Exactly `64` replay units per `(incident_id, client_instance_id)`. The 65th non-coalescible unit MUST be refused. |
+| Ordering | Admission order and replay order are FIFO. The client MUST NOT reorder queued writes by visible row order, sort order, record type, labels, or other presentation-derived state. |
+| Survival | The queue MUST survive transient transport failure, HTTP auth failure on a queued write, and `session_revoked` within the same browser runtime. |
+| Non-survival | The base profile MUST NOT rely on queue survival across full page reload, tab close, browser restart, cross-tab transfer, or tab crash. |
+| Cross-tab behavior | Queue contents MUST NOT be shared across tabs or client instances in the base profile. |
+| Overflow behavior | On capacity overflow, the client MUST keep all already queued units, refuse admission of the new unit, preserve the current visible edit as unsaved local work, set save state to `Conflict`, and show a same-surface non-modal overflow message. It MUST NOT silently evict queued units or reorder to make room. |
+| Allowed coalescing | A still-uncommitted local row may fold one queued create plus later unsent edits to that same local row into one create unit until the first authoritative create succeeds. Existing-row unsent patch units for the same `record_id` MAY coalesce only within one contiguous same-record run; the coalesced unit preserves final direct-write value per `field_key` and declared order of any `collection_actions_v1.actions[]`. |
+| Forbidden coalescing | The client MUST NOT coalesce across record boundaries, intervening queued units for another record, destructive actions, conflict-resolution actions, or non-hot-path operations. An interleaving such as `A1, B1, A2` MUST NOT replay as reordered `A1+A2, B1`. |
+| Non-retryable halt | Replay MUST stop at the first non-retryable failure that requires analyst action. Later queued units remain queued and unapplied behind the blocked unit. |
+
+### Table C. Save-State Derivation
+
+| Input condition | Primary label | Secondary same-surface message | Closure rule |
+| --- | --- | --- | --- |
+| Any unresolved same-field conflict exists. | `Conflict` | Conflict detail anchored by `record_id:field_key`; resolver UI remains out of FE-P4 scope. | `Conflict` wins over `Syncing` and `Saved`. |
+| Queue overflow refused admission of a replay unit. | `Conflict` | Overflow message explaining the current visible edit remains unsaved local work. | Must reference Table B overflow behavior. |
+| Replay halted on a non-retryable failure that requires analyst action. | `Conflict` | Public failure detail from the error envelope without private server details. | Later queued units remain queued and unapplied. |
+| At least one workbook mutation is in flight or the local pending queue is non-empty, including paused replay waiting for connectivity recovery, re-authentication, or HTTP re-query. | `Syncing` | Optional queue/replay detail when needed for browser evidence or accessibility communication. | Ambient presence or collaboration state MUST NOT change this label. |
+| No workbook mutation is in flight, local pending queue is empty, and no unresolved same-field local drafts exist. | `Saved` | Optional recent-success detail only if it remains on the same workbook surface. | Presence updates alone MUST NOT move the label away from `Saved`. |
+
+Primary labels are exactly `Syncing`, `Saved`, and `Conflict`. `Failed`, `Queued`, `Pending`, `Retrying`, and `Replay halted` MAY appear only as secondary same-surface detail or test/internal state names; they MUST NOT be primary save-state labels.
+
+### Table D. Public Mutation Route Matrix
+
+| Operation | Route | Required request members | Idempotency key | First success | Exact replay | Same key, different normalized request | Stale version behavior | Returned row shape |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Row create | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` | JSON object with required `client_txn_id`; additional top-level members only when each member name is a writable `field_key` allowed for create by the addressed view contract. | `(actor_user_id, incident_id, view_schema_id, client_txn_id)` | `201 Created` with `data.view_schema_id`, `data.change_set_id`, and `data.row`. | `200 OK` with the originally committed create result, not current mutable row state. | `409` with `error.code = client_txn_conflict` and `error.details.client_txn_id` at minimum. | Not applicable to create. | `data.row` is exactly full `view_row_v1`; `record_id` and `row_version` are carried only inside `data.row`. |
+| Patch | `PATCH /api/v1/records/{record_id}` | JSON object with required `view_schema_id`, `base_row_version`, `client_txn_id`, and non-empty `changes[]`. Each `changes[]` entry contains `field_key` and exactly one of `value` or `action_payload`. | `(actor_user_id, record_id, client_txn_id)`; `view_schema_id`, `base_row_version`, and canonical `changes[]` participate in normalized replay comparison. | `200 OK` with `data.view_schema_id`, `data.change_set_id`, and `data.row`. | `200 OK` with the originally committed patch result before fresh optimistic-concurrency evaluation. | `409` with `error.code = client_txn_conflict`; this wins before fresh optimistic-concurrency evaluation. | With no prior committed idempotency hit, non-overlapping writable fields auto-rebase, overlapping writable fields fail with `same_field_conflict`, and missing or unusable revision history fails closed with `row_version_conflict`. | `data.row` is exactly full `view_row_v1`; `record_id` and `row_version` are carried only inside `data.row`. |
+
+Patch limits and canonicalization:
+
+- `changes[]` is required and non-empty; `changes[]: []` and explicit null are invalid mutation payload.
+- Raw parsed `changes[]` length MUST be at most `32`.
+- Duplicate `field_key` entries are invalid and MUST NOT be normalized away.
+- Outer `changes[]` order is non-semantic and canonicalized by `field_key asc`.
+- `collection_actions_v1.actions[]` is ordered inside its field payload; empty `actions[]` is invalid and raw parsed length MUST be at most `64`.
+- Count-limit failures are evaluated before idempotency replay comparison or write execution.
+
+### Table E. Query And `view_row_v1` Omission Semantics
+
+| Surface | Omission or boundary rule |
+| --- | --- |
+| `sort` | Omitted `sort` or `sort: []` means no user sort override. When present, `sort[]` contains at most `8` raw entries. Duplicate normalized `field_key` entries are invalid. Effective applied sort appends the remaining schema default-sort tail and `record_id asc` when absent. |
+| `filters` | Omitted `filters` or `filters: []` means no filters. Request order is non-semantic. Raw `filters[]` length is at most `16`. |
+| `group_by` | Omitted `group_by` means grouping inactive. `group_by: null` is invalid. The current profile allows at most one active grouping key. |
+| Pagination members | `limit` and `cursor_token` appear only as JSON-body members for the view-query route, not query parameters. `limit` counts serialized `rows[]` entries only. |
+| `meta.query` | Successful view-query responses MUST include `meta.query`. `meta.query.sort[]` is the effective applied sort after default-tail expansion. `meta.query.group_by` is omitted when grouping is inactive and never serialized as JSON null. |
+| Full row cells | Every `rows[]` entry is full `view_row_v1`. `rows[].cells` MUST include every schema-declared non-technical field for the active `view_schema_id`, regardless of visibility, default-hidden state, writability, or read-only state. |
+| Authoritative null | A schema-declared non-technical field serialized as `{ "value": null }` means authoritative null when the field admits null. Omission of that field is invalid. |
+| Technical fields | `record_id` and `row_version` are top-level technical identifiers and MUST NOT be duplicated inside `cells`. |
+| Group values | If the schema declares grouping keys, the full row includes the full current `group_values` object. If the schema declares no grouping keys, `group_values` is omitted. |
+| Unknown additive members | Clients MAY ignore unknown additive members inside row or cell objects only where Core allows additive unknown members. Missing required members MUST fail or render a public error; they MUST NOT be silently replaced by blanks. |
+
+### Table F. Clipboard Paste Boundary
+
+| Paste boundary | Closed FE-P4 rule |
+| --- | --- |
+| Base-profile scope | Clipboard paste remains base hot-path ingest. It MUST NOT be used to claim file-based structured import support. |
+| Default Ctrl+V dispatch | Interactive tabular dispatch requires an unambiguous tabular signal: tab, newline, carriage return, or a future explicit paste-as-table command. |
+| Single-line comma text | A single-line comma-only `text/plain` payload such as `Hello, world` is scalar text by default, not default tabular CSV. |
+| Planning identity | Base-profile clipboard paste derives its row plan from active `view_schema_id`, stable `field_key` columns, source-column ordinals, and declared `entity_binding_mode`. It MUST NOT use surface-local header heuristics as authoritative identity. |
+| Existing-row targets | Every record target must belong to the addressed incident and active workbook surface. Target ownership and visibility are validated before row-version comparison, conflict construction, batch commit, or response row serialization. |
+| Rejected batch targets | A paste containing a missing, foreign-incident, wrong-surface, wrong-type, or deleted record target MUST fail closed as one rejected batch rather than partially committing other targets. |
+| Successful non-conflicting writes | Successful non-conflicting writes from one paste action appear as one visible `change_set`, ordered mutation entries, and one row revision per affected record. |
+| Same-field conflicts | Same-field conflicts from the paste remain outside the committed non-conflicting batch until explicit resolution. Each later same-field conflict resolution creates its own attributed `change_set`. |
+
+### Table G. Frontend Error-State Mapping
+
+| Public condition | Frontend anchor | Queue behavior | Required user-visible behavior |
+| --- | --- | --- | --- |
+| `invalid_view_query` | Query/surface level, with `error.details` when available. | No mutation replay. | Render same-surface public error and keep private server details hidden. |
+| `invalid_mutation_payload` | Cell-level when `error.details.field`, `field_key`, or equivalent member identifies a cell; otherwise row or mutation level. | Non-retryable; halt the affected replay unit when it is queued. | Preserve local unsaved work when possible and show same-surface validation detail. |
+| `client_txn_conflict` | Mutation level keyed by `client_txn_id` plus the route scope. | Non-retryable; keep later units queued behind the blocked unit. | Show same-surface conflict/error detail without treating it as successful replay. |
+| `same_field_conflict` | Cell conflict keyed by `record_id:field_key`. | Blocked unit leaves the local pending queue and enters the client-local same-field conflict queue; later units remain queued and unapplied. | Primary save-state label is `Conflict`; resolver implementation remains outside FE-P4. |
+| `row_version_conflict` | Record or cell level according to `error.details`. | Non-retryable unless Core field-level rules auto-rebase the request before failure; otherwise later units remain queued behind the blocked unit. | Show same-surface conflict/error detail and do not retarget by visible row index. |
+| Auth failure, `session_revoked`, or transient transport disconnect on queued write | Queue/runtime level scoped to the same browser runtime. | Retryable after re-authentication, current incident authorization re-derivation, and any required HTTP re-query. | Preserve queued writes and unresolved same-field local drafts within the same browser runtime. |
+| Unknown public error code | Surface, row, or mutation level using any stable public details available. | Non-retryable unless public `error.retryable=true`; retryable unknown errors still obey FIFO queue order. | Render a same-surface non-private public error; never silently discard the pending unit. |
+
 ## Sprint Checklist
 
 | Done | Sprint | Primary validation | Blockers |
 | --- | --- | --- | --- |
 | [ ] | 1. Readiness, map, ledger, FE-P3 handoff | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P4`; registry and row-inventory checks; `make phase-ledger-drift`; `git diff --check` | FE-P4 currently planned, non-executable, and all rows blocked |
-| [ ] | 2. Sync-engine pending queue unit model for `FE-U-P4-01` | `make frontend-unit`; `make frontend-typecheck` | Block if queue ordering, retry, validation failure, or replay is not keyed by stable mutation identifiers |
-| [ ] | 3. Save-state derivation and status strip unit model for `FE-U-P4-02` | `make frontend-unit`; `make frontend-typecheck` | Block if more than one primary label appears or secondary message is detached from the same surface |
-| [ ] | 4. Timeline query/render identity integration for `FE-I-P4-01` | `make frontend-unit`; `make browser-e2e-webserver-backed` | Block if full `view_row_v1` cells or `record_id` identity are not preserved through refresh/error |
-| [ ] | 5. Public-route E2E for rough create, edit, paste, pending save, refresh, and replay for `FE-E-P4-01` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | Block if product evidence uses frontend-only mocks instead of public `/api/v1/` route contracts |
-| [ ] | 6. Visual and accessibility readiness for `FE-V-P4-01` and `FE-A11Y-P4-01` | `make browser-e2e-visual`; current `make browser-e2e-a11y-preflight`; implemented closure requires `make browser-e2e-a11y` mapping | FE-V row is blocked until recaptured; FE-A11Y row is preflight-only and cannot complete from preflight evidence |
-| [ ] | 7. Closure, drift, final validation, and FE-P5 handoff | Row-owned targets plus `make frontend-import-boundary-check`, `make generated-artifact-policy-check`, `make generate-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make agent-finalize`, and `make check` when required | Block if any row remains blocked/stale or earlier phases cannot be rerun or precisely justified |
+| [ ] | 2. Sync-engine pending queue unit model for `FE-U-P4-01` | `make frontend-unit`; `make frontend-typecheck` | Block if Table B capacity, overflow, FIFO, coalescing, non-survival, or non-retryable halt behavior is untested |
+| [ ] | 3. Save-state derivation and status strip unit model for `FE-U-P4-02` | `make frontend-unit`; `make frontend-typecheck` | Block if primary labels differ from Table C or secondary messages detach from the same workbook surface |
+| [ ] | 4. Timeline query/render identity integration for `FE-I-P4-01` | `make frontend-unit`; `make browser-e2e-webserver-backed` | Block if Table E query defaults, `view_row_v1` full-cell membership, or `record_id` identity are not preserved through refresh/error |
+| [ ] | 5. Public-route E2E for rough create, edit, paste, pending save, refresh, and replay for `FE-E-P4-01` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | Block if rough create, inline edit, paste, replay, or validation evidence bypasses Tables D, F, and G public-boundary behavior |
+| [ ] | 6. Visual and accessibility readiness for `FE-V-P4-01` and `FE-A11Y-P4-01` | `make browser-e2e-visual`; current `make browser-e2e-a11y-preflight`; implemented closure requires `make browser-e2e-a11y` mapping | FE-V row is blocked until recaptured; FE-A11Y row is preflight-only and blocks full FE-P4 phase completion until implemented evidence exists |
+| [ ] | 7. Closure, drift, final validation, and FE-P5 handoff | Row-owned targets plus `make frontend-import-boundary-check`, `make generated-artifact-policy-check`, `make generate-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make agent-finalize`, and `make check` when required | Block if any row remains blocked/stale for full phase completion; product hot-path closure must be named separately when design rows remain blocked |
 
 ## Sprint 1: Readiness, Map, Ledger, And FE-P3 Handoff
 
@@ -284,24 +392,29 @@ Non-owned rows: `FE-U-P4-02`, `FE-I-P4-01`, `FE-E-P4-01`, `FE-V-P4-01`, and `FE-
 Source constraints:
 
 - Core 01 Section 3.3.6 owns success/error envelope and mutation route behavior.
-- Core 03 Sections 4.1 and 15 own autosave and Timeline read/write interaction behavior.
+- Core 03 Sections 4.1, 4.4, and 15 own autosave, local pending queue, and Timeline read/write interaction behavior.
 - The sync engine must be unit-testable without private server behavior.
 
 Test-first sequence:
 
-- Add failing unit tests that cover creates, patches, paste batches, retries, successes, validation failures, and replay.
-- Assert ordering by stable mutation identifiers, not visible row order.
-- Assert replay idempotency behavior uses stable keys such as `client_txn_id`, `record_id`, `base_row_version`, and `field_key` as applicable.
-- Assert non-retryable validation failure stops or surfaces according to public envelope semantics.
+- Add failing unit tests that cover row-create units, row-patch units, paste-derived create and patch replay units, retryable public failures, success replay, validation failures, and non-retryable replay halt.
+- Assert Table B capacity exactly: 64 non-coalescible units are admitted for one `(incident_id, client_instance_id)`, and a 65th non-coalescible unit is refused without evicting or reordering the first 64.
+- Assert overflow preserves the current visible edit as unsaved local work, sets primary save-state label input to `Conflict`, and emits same-surface overflow detail.
+- Assert replay is FIFO by original enqueue order and never reorders by visible row order, sort order, record type, labels, or presentation position.
+- Assert base-profile non-survival boundaries: a full reload or recreated page instance does not restore or silently replay the local pending queue.
+- Assert allowed coalescing for a still-uncommitted local row and one contiguous same-record patch run, and forbidden coalescing across an interleaving such as `A1, B1, A2`.
+- Assert create identity uses `client_txn_id` plus create route scope; assert patch identity uses `record_id`, `client_txn_id`, `view_schema_id`, `base_row_version`, and canonical `changes[]`.
+- Assert non-retryable validation, `client_txn_conflict`, `same_field_conflict`, and terminal `row_version_conflict` follow Table G queue behavior.
 
 Implementation tasks:
 
-- Model queue entries for row create, row patch, and paste batch.
+- Model queue entries for row create, row patch, and paste-derived create or patch units.
 - Preserve admission order and dispatch order deterministically.
-- Associate every queue entry with a stable mutation identity and public route shape.
-- Distinguish pending, dispatching, retryable failure, validation failure, conflict, and success outcomes.
+- Associate every queue entry with the Table D route shape and route-scoped idempotency identity.
+- Distinguish pending, dispatching, retryable failure, validation failure, conflict, overflow, replay-halted, and success outcomes without turning non-Core state names into primary save-state labels.
 - Apply successful row refreshes without retargeting pending entries by visible row index.
 - Surface validation failures as cell-level state for later rendering work.
+- Preserve Table B same-runtime survival and base-profile non-survival boundaries.
 - Keep same-field conflict resolver implementation out of scope; preserve only conflict anchoring.
 
 Validation commands:
@@ -319,13 +432,14 @@ Evidence requirements:
 
 Blocker rules:
 
-- `BLOCKER: FE-U-P4-01 pending queue evidence missing stable mutation identifiers; minimum_follow_up=add unit coverage for create, patch, paste, retry, success, validation failure, and replay identity.`
+- `BLOCKER: FE-U-P4-01 pending queue evidence missing Table B boundary coverage; missing=<capacity|overflow|FIFO|coalescing|non_survival|non_retryable_halt> minimum_follow_up=add unit coverage for the missing closed boundary.`
+- `BLOCKER: FE-U-P4-01 pending queue evidence missing route-scoped mutation identity; minimum_follow_up=add unit coverage for create identity client_txn_id plus route scope and patch identity record_id, client_txn_id, view_schema_id, base_row_version, and canonical changes[].`
 - `BLOCKER: FE-U-P4-01 product evidence uses visible row order or labels as mutation identity; minimum_follow_up=replace with record_id, field_key, base_row_version, view_schema_id, and client_txn_id as owner contracts require.`
 - `BLOCKER: FE-U-P4-01 target passed but frontend row accounting did not close row; target=frontend-unit failure_reason=frontend_row_accounting.`
 
 Binary acceptance:
 
-- `FE-U-P4-01` is implemented only when the row is closed by current `make frontend-unit` evidence and the FE-P4 map/ledger are updated through the proper generator flow.
+- `FE-U-P4-01` is implemented only when current `make frontend-unit` evidence closes the row, every Table B and Table G queue boundary required by Sprint 2 is covered, and the FE-P4 map/ledger are updated through the proper generator flow.
 
 Explicit non-claims:
 
@@ -343,13 +457,14 @@ Non-owned rows: `FE-U-P4-01`, `FE-I-P4-01`, `FE-E-P4-01`, `FE-V-P4-01`, and `FE-
 
 Source constraints:
 
-- Core 03 Sections 4.1 and 4.4 own autosave and local pending queue behavior.
+- Core 03 Sections 4.1, 4.2, and 4.4 own autosave, save-state presentation, and local pending queue behavior.
 - UI/UX guide and design docs contribute design-direction only and must not widen product-conformance claims.
 
 Test-first sequence:
 
-- Add unit tests for pending, saved, failed, conflict, queue-overflow, validation-failure, and replay-halted states.
-- Assert exactly one primary label.
+- Add unit tests for every Table C input condition: unresolved same-field conflict, queue overflow, replay halted on non-retryable failure, mutation in flight, non-empty local pending queue, paused replay, fully saved state, and ambient presence-only updates.
+- Assert exactly one primary label and assert the label is always one of `Syncing`, `Saved`, or `Conflict`.
+- Assert `Failed`, `Queued`, `Pending`, `Retrying`, and `Replay halted` never appear as primary save-state labels.
 - Assert exactly one secondary message on the same surface when a secondary message is needed.
 - Assert conflict state remains compatible with `record_id + field_key + base_row_version` anchoring.
 
@@ -357,7 +472,8 @@ Implementation tasks:
 
 - Build or harden a pure save-state derivation function.
 - Feed save-state derivation from pending queue and conflict/error state rather than DOM or visible labels.
-- Preserve status strip capacity limits.
+- Preserve Table C precedence: `Conflict` wins over `Syncing`, and `Saved` is emitted only when no mutation is in flight, the queue is empty, and no unresolved same-field local drafts exist.
+- Treat failed, overflow, validation, and replay-halted detail as secondary same-surface messages, not primary labels.
 - Keep validation and conflict text non-color-only and ready for a11y work.
 
 Validation commands:
@@ -374,13 +490,13 @@ Evidence requirements:
 
 Blocker rules:
 
-- `BLOCKER: FE-U-P4-02 save-state derivation emits more than one primary label; minimum_follow_up=normalize pending/saved/failed/conflict precedence into one primary label.`
+- `BLOCKER: FE-U-P4-02 save-state derivation emits more than one primary label or a non-Core primary label; minimum_follow_up=normalize Table C precedence into exactly one of Syncing, Saved, or Conflict.`
 - `BLOCKER: FE-U-P4-02 save-state secondary message is detached from the same workbook surface; minimum_follow_up=render or derive secondary message in the status strip surface.`
 - `BLOCKER: FE-P4 evidence classes collapsed; design/support/claim-publication-boundary evidence cannot be counted as product_conformance.`
 
 Binary acceptance:
 
-- `FE-U-P4-02` is implemented only when current `make frontend-unit` row accounting closes it and the generated ledger is refreshed from the authored map.
+- `FE-U-P4-02` is implemented only when current `make frontend-unit` row accounting closes it, every Table C derivation row is covered, no non-Core primary save-state label is normative, and the generated ledger is refreshed from the authored map.
 
 Explicit non-claims:
 
@@ -408,6 +524,9 @@ Test-first sequence:
 - Add tests for row identity preservation through create, patch, validation error, and refresh.
 - Add browser-backed scenario with the exact current map title: `FE-I-P4-01 Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh.`
 - Assert missing or omitted schema-declared non-technical cells fail or render a public error rather than silently dropping fields.
+- Assert Table E query omission semantics: omitted `sort` and `sort: []`, omitted `filters` and `filters: []`, omitted `group_by`, invalid `group_by: null`, required `meta.query`, and effective sort/default-tail behavior.
+- Assert hidden and default-hidden schema-declared non-technical fields remain present in full `view_row_v1.cells`.
+- Assert unknown additive row or cell members are ignored only where Core allows additive unknown members; missing required members fail or render a public error.
 
 Implementation tasks:
 
@@ -416,6 +535,8 @@ Implementation tasks:
 - Ensure create and patch refreshes merge by `record_id`.
 - Ensure validation errors anchor to stable cell identity.
 - Keep presentation rows non-mutating.
+- Treat `record_id` and `row_version` as top-level technical identifiers, never as editable or queryable `cells` entries.
+- Treat `{ "value": null }` as authoritative null and omitted schema-declared non-technical cells as invalid.
 
 Validation commands:
 
@@ -434,11 +555,12 @@ Blocker rules:
 
 - `BLOCKER: FE-P4 browser row lacks exact scenario_titles[] for row-owned closure; row=FE-I-P4-01 target=browser-e2e-webserver-backed.`
 - `BLOCKER: FE-I-P4-01 Timeline query row omitted full view_row_v1 cells; minimum_follow_up=preserve every schema-declared non-technical field under rows[].cells.`
+- `BLOCKER: FE-I-P4-01 query omission semantics incomplete; missing=<sort|filters|group_by|meta.query|hidden_fields|null_vs_omission> minimum_follow_up=add Table E coverage.`
 - `BLOCKER: FE-I-P4-01 row identity retargeted by visible index after refresh; minimum_follow_up=anchor refresh and validation state by record_id and field_key.`
 
 Binary acceptance:
 
-- `FE-I-P4-01` is implemented only when both mapped layers that are required by the current map and harness close with current row accounting.
+- `FE-I-P4-01` is implemented only when both mapped layers required by the current map and harness close with current row accounting and Table E query and full-row boundaries are covered.
 
 Explicit non-claims:
 
@@ -465,12 +587,14 @@ Test-first sequence:
 - Add or extend browser scenario with the exact current map title: `FE-E-P4-01 Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts.`
 - Start from an authenticated browser session and a real incident.
 - Query Timeline through public route-backed UI.
-- Create a rough Timeline row with low-friction input.
-- Inline edit a writable cell and observe pending then saved state.
-- Paste deterministic tabular content and verify ordered creates or patches by stable row/cell anchors.
+- Rough create requirement: create a rough Timeline row through `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`, include required `client_txn_id`, use only create-time `field_key` members allowed by the active view contract, preserve rough input, and verify forbidden, read-only, or server-managed fields fail closed through the public envelope.
+- Inline edit requirement: patch a writable cell through `PATCH /api/v1/records/{record_id}` with non-empty `changes[]`, required `view_schema_id`, required `base_row_version`, required `client_txn_id`, max-`32` change boundary coverage, duplicate-`field_key` rejection, and original committed replay response for exact idempotent replay.
+- Save-state requirement: observe Table C primary labels through public-route behavior, including `Syncing` while work is in flight or queued and `Saved` only when the queue is empty and no unresolved local drafts remain.
+- Paste requirement: paste deterministic scalar and tabular content to prove Table F scalar-vs-tabular dispatch, target validation before commit, non-conflicting commit behavior, same-field conflict grouping, and public-envelope rendering.
 - Induce a transient failure only through an accepted harness-owned public test control or service-boundary behavior. If only private frontend mocks are available, block the row.
-- Refresh and verify stable row identity and replay behavior.
-- Verify cell-level validation and public error-envelope rendering.
+- Replay requirement: verify transient transport/auth/session failure preserves queued work within the same browser runtime, re-auth/re-query occurs when required, replay remains FIFO, and a full reload or recreated page instance does not silently restore or replay the base-profile queue.
+- Refresh requirement: refresh and verify stable row identity by `record_id` plus cell identity by `field_key`; pending work must not retarget by visible row order.
+- Validation requirement: verify Table G public error-state mapping for cell-level validation, mutation-level conflict, same-field conflict, row-version conflict, and unknown public error fallback without private server details.
 
 Implementation tasks:
 
@@ -479,6 +603,8 @@ Implementation tasks:
 - Keep rough capture valid without mention resolution or evidence handles.
 - Prevent replay from applying later units out of order after non-retryable failure.
 - Keep validation and conflict state on the same workbook surface.
+- Keep create and patch request construction within Table D limits and omission semantics.
+- Keep paste dispatch and batch target validation within Table F.
 
 Validation commands:
 
@@ -493,16 +619,21 @@ Evidence requirements:
 - Both mapped browser targets must emit current frontend row accounting for `FE-E-P4-01` when required by the harness.
 - Browser evidence must show `/api/v1/` route use, server-managed session behavior, stable IDs, and public error envelopes.
 - Any test-only control used to trigger transient failure must be harness-owned and not a production route behavior claim.
+- Browser evidence must separately exercise rough create, inline edit, paste, replay, refresh, and validation requirements, even if they are implemented in one scenario file.
 
 Blocker rules:
 
 - `BLOCKER: FE-P4 public-boundary behavior was tested through frontend-only mocks; product-conformance route evidence requires public /api/v1/ browser-facing evidence.`
 - `BLOCKER: FE-E-P4-01 replay cannot be induced through a harness-owned public boundary; minimum_follow_up=add accepted test control or record row as blocked.`
+- `BLOCKER: FE-E-P4-01 rough create route contract incomplete; missing=<client_txn_id|allowed_field_keys|forbidden_field_rejection|rough_input_preservation> minimum_follow_up=add Table D public-create coverage.`
+- `BLOCKER: FE-E-P4-01 inline edit route contract incomplete; missing=<non_empty_changes|max_32|duplicate_field_key|original_committed_replay> minimum_follow_up=add Table D public-patch coverage.`
+- `BLOCKER: FE-E-P4-01 clipboard paste boundary incomplete; missing=<scalar_vs_tabular|target_validation|non_conflicting_commit|same_field_conflict_grouping> minimum_follow_up=add Table F browser coverage.`
+- `BLOCKER: FE-E-P4-01 public error-state mapping incomplete; missing=<invalid_mutation_payload|client_txn_conflict|same_field_conflict|row_version_conflict|unknown_public_error> minimum_follow_up=add Table G browser coverage.`
 - `BLOCKER: FE-E-P4-01 browser target passed but row accounting is missing or stale; target=<target> failure_reason=frontend_row_accounting.`
 
 Binary acceptance:
 
-- `FE-E-P4-01` is implemented only when current browser row accounting closes the row through the mapped webserver-backed and stateful targets, or the current map is corrected with owner-approved target semantics before promotion.
+- `FE-E-P4-01` is implemented only when current browser row accounting closes the row through the mapped webserver-backed and stateful targets, every Sprint 5 requirement above is covered against Tables C, D, F, and G, or the current map is corrected with owner-approved target semantics before promotion.
 
 Explicit non-claims:
 
@@ -529,11 +660,12 @@ Source constraints:
 Test-first sequence:
 
 - Validate exact FE-P4 visual fixture IDs: `FE-VFIX-08`, `FE-VFIX-12`, and `FE-VFIX-15`.
-- Verify whether pending replay indication is covered by `FE-VFIX-08` or requires a registry/map update with a precise blocker.
+- Resolve pending replay visual coverage by exact fixture linkage to `FE-VFIX-08`, `FE-VFIX-12`, or `FE-VFIX-15`; if no exact linkage exists, record a fixture-registry or phase-map blocker before any visual readiness claim.
 - Add or update exact visual scenario title from the FE-P4 map.
 - Run `make browser-e2e-visual`.
 - Run current `make browser-e2e-a11y-preflight` only as blocked-row smoke.
 - If the row is promoted to implemented accessibility evidence, update the map to `make browser-e2e-a11y` and require `cartulary.frontend_accessibility_summary.v2`.
+- If `FE-A11Y-P4-01` remains mapped only to `browser-e2e-a11y-preflight`, record it as a blocker to `FE-P4 phase complete` under Table A. Product hot-path closure may still be reported separately when product rows close.
 
 Implementation tasks:
 
@@ -552,19 +684,21 @@ Validation commands:
 Evidence requirements:
 
 - `FE-V-P4-01` must close from exact scenario titles and frontend row accounting, not snapshot filenames or base `V-*` rows.
-- `FE-A11Y-P4-01` must remain blocked while mapped only to preflight. Preflight artifacts may support diagnostics but not completion.
+- `FE-A11Y-P4-01` must remain blocked while mapped only to preflight. Preflight artifacts may support diagnostics but not accessibility readiness closure or FE-P4 phase completion.
 - Visual and accessibility evidence must not be promoted into product conformance.
+- Visual readiness closure and accessibility readiness closure are separate Table A claims and must be named separately in handoff text.
 
 Blocker rules:
 
 - `BLOCKER: FE-V-P4-01 fixture identity missing or ambiguous; expected exact FE-VFIX-08, FE-VFIX-12, and FE-VFIX-15 linkage or precise map/registry correction.`
 - `BLOCKER: FE-V-P4-01 visual fixture is current in registry but not recaptured as FE-P4 row-owned evidence; target=browser-e2e-visual minimum_follow_up=run exact FE-P4 scenario with frontend row accounting.`
-- `BLOCKER: FE-P4 accessibility row is preflight-only and cannot be counted as implemented accessibility completion; row=FE-A11Y-P4-01 target=browser-e2e-a11y-preflight minimum_follow_up=map implemented scenario to browser-e2e-a11y or keep row blocked.`
+- `BLOCKER: FE-P4 accessibility row is preflight-only and cannot be counted as accessibility readiness closure or FE-P4 phase completion; row=FE-A11Y-P4-01 target=browser-e2e-a11y-preflight minimum_follow_up=map implemented scenario to browser-e2e-a11y with cartulary.frontend_accessibility_summary.v2 or keep row blocked.`
+- `BLOCKER: FE-V-P4-01 pending replay visual coverage unresolved; expected exact fixture linkage or owner-approved map/registry correction; minimum_follow_up=resolve pending replay fixture identity before visual readiness claim.`
 
 Binary acceptance:
 
 - `FE-V-P4-01` is implemented only when direct visual row accounting closes it.
-- `FE-A11Y-P4-01` is not implemented under the current preflight-only closure posture.
+- `FE-A11Y-P4-01` is not implemented under the current preflight-only closure posture, and full `FE-P4 phase complete` remains blocked until implemented accessibility evidence exists.
 
 Explicit non-claims:
 
@@ -589,7 +723,8 @@ Source constraints:
 Test-first sequence:
 
 - Confirm every FE-P4 product row has direct current row-owned evidence.
-- Confirm design-direction rows are either closed by intended current design evidence or explicitly blocked and excluded from completion.
+- Confirm design-direction rows are closed by intended current design evidence before any `FE-P4 phase complete` claim.
+- If a design-direction row remains blocked, record only the narrower handoff claim `FE-P4 product hot-path closed; FE-P4 phase completion blocked by <row/blocker>`.
 - Confirm every triggered shared harness is satisfied or precisely blocked.
 - Rerun earlier-phase checks required by risk and touched surfaces.
 - Run drift and policy checks.
@@ -626,16 +761,18 @@ Evidence requirements:
 
 Blocker rules:
 
-- `BLOCKER: FE-P4 row remains blocked at closure; row=<row_id> blocker=<reason_code> minimum_follow_up=<specific target or owner patch>.`
+- `BLOCKER: FE-P4 row remains blocked for phase completion; row=<row_id> blocker=<reason_code> closure_claim=<product_hot_path|visual_readiness|accessibility_readiness|phase_complete> minimum_follow_up=<specific target or owner patch>.`
 - `BLOCKER: FE-P4 generated ledger is stale relative to map; rerun generator only after confirming authored map is intended source.`
 - `BLOCKER: FE-P4 earlier active phase regression failed; phase=<FE-P0..FE-P3> target=<target> run_root=<run_root> minimum_follow_up=<fix or owner acceptance>.`
 - `BLOCKER: FE-P4 evidence freshness digest stale; minimum_follow_up=rerun freshness/ledger validation after map, registry, fixture, and target evidence are final.`
+- `BLOCKER: FE-P4 product hot-path closure cannot be reported as phase completion; blocked_design_rows=<rows> minimum_follow_up=close design readiness rows or use the exact product-hot-path handoff wording.`
 
 Binary acceptance:
 
-- All intended FE-P4 rows close through current row-owned evidence.
-- Shared harnesses are satisfied or have precise blocking entries that exclude affected rows from completion.
-- FE-P0 through FE-P3 remain green or have precise owner-accepted blockers that do not invalidate FE-P4 closure.
+- `product hot-path closed` is allowed only when `FE-U-P4-01`, `FE-U-P4-02`, `FE-I-P4-01`, and `FE-E-P4-01` close through current row-owned evidence.
+- `FE-P4 phase complete` is allowed only when all six FE-P4 rows close through current row-owned evidence.
+- Shared harnesses are satisfied or have precise blocking entries that prevent the affected Table A closure claim.
+- FE-P0 through FE-P3 remain green or have precise owner-accepted blockers that do not invalidate the specific Table A closure claim being made.
 - `make phase-ledger-drift`, `make phase-schedule-drift`, generated-artifact policy, generated drift, and whitespace checks pass.
 - Core/product, design-direction, implementation-support, and claim-publication evidence classes remain separate.
 
@@ -655,7 +792,7 @@ Every blocker must record:
 - failure class and reason when exposed by the harness;
 - ownership: product, design, support, harness, generated, fixture, or source-doc;
 - minimum follow-up action;
-- whether it blocks FE-P4 completion.
+- the exact Table A closure claim it blocks.
 
 Required blocker language:
 
@@ -664,13 +801,14 @@ Required blocker language:
 - `BLOCKER: FE-P4 generated ledger is stale relative to map; rerun generator only after confirming the authored map is the intended source.`
 - `BLOCKER: FE-P4 owner refs unresolved; row=<row_id> owner_ref=<source/section/req/ac> minimum_follow_up=<specific inspection or owner patch>.`
 - `BLOCKER: FE-P4 browser row lacks exact scenario_titles[] for row-owned closure; row=<row_id> target=<target>.`
-- `BLOCKER: FE-P4 accessibility row is preflight-only and cannot be counted as implemented accessibility completion; row=FE-A11Y-P4-01 target=browser-e2e-a11y-preflight minimum_follow_up=<required implemented-row a11y target or map status correction>.`
+- `BLOCKER: FE-P4 accessibility row is preflight-only and cannot be counted as accessibility readiness closure or FE-P4 phase completion; row=FE-A11Y-P4-01 target=browser-e2e-a11y-preflight minimum_follow_up=<required implemented-row a11y target or map status correction>.`
 - `BLOCKER: FE-P4 evidence classes collapsed; design/support/claim-publication-boundary evidence cannot be counted as product_conformance.`
 - `BLOCKER: FE-P4 public-boundary behavior was tested through frontend-only mocks; product-conformance route evidence requires public /api/v1/ browser-facing evidence.`
 
 Strict non-claims:
 
-- Do not claim FE-P4 completion from generated ledgers, old retained artifacts, broad `make check`, test names, visual goldens, support-only tests, accessibility preflight smoke, or this plan.
+- Do not claim FE-P4 phase completion from generated ledgers, old retained artifacts, broad `make check`, test names, visual goldens, support-only tests, accessibility preflight smoke, or this plan.
+- Do not claim FE-P4 phase completion when any of the six FE-P4 rows remains `blocked`, `stale`, or missing row accounting. Use `FE-P4 product hot-path closed; FE-P4 phase completion blocked by <row/blocker>` only when the product rows close and design rows remain blocked.
 - Do not hand-edit generated ledgers.
 - Do not invent run roots, test counts, row statuses, target availability, current package files, fixture IDs, or registry status.
 - Do not promote visual or accessibility evidence into product-conformance evidence.
@@ -690,15 +828,21 @@ Plan creation is complete when:
 FE-P4 phase completion is allowed only when:
 
 - FE-P4 registry status and row rollup are updated through the proper authored metadata path;
-- every intended FE-P4 row closes from direct current row-owned evidence;
+- all six FE-P4 rows close from direct current row-owned evidence;
 - all product-conformance rows have Core 00 through Core 04 or adopted NLSpec ownership with resolved REQ and AC IDs;
 - all design-direction rows remain design-direction only;
-- every triggered shared harness is satisfied or blocks affected completion claims;
+- every triggered shared harness is satisfied or blocks the affected Table A closure claim;
 - generated ledgers and schedules are regenerated through Make and drift checks pass;
 - generated-artifact policy and generated drift checks pass when generated or contract surfaces are touched;
 - earlier active frontend phases remain green or precise owner-accepted blockers are recorded;
 - Core/design/support/claim-publication evidence classes remain separate;
 - no Core 05 claim-publication evidence is claimed unless explicit claim metadata satisfies Core 05.
+
+Product hot-path handoff is allowed only when:
+
+- `FE-U-P4-01`, `FE-U-P4-02`, `FE-I-P4-01`, and `FE-E-P4-01` close from direct current row-owned evidence;
+- the handoff uses the exact form `FE-P4 product hot-path closed; FE-P4 phase completion blocked by <row/blocker>` when any design-direction row remains blocked;
+- no product hot-path handoff text claims visual readiness, accessibility readiness, full FE-P4 phase completion, or Core 05 publication evidence.
 
 ## FE-P5 Handoff
 
