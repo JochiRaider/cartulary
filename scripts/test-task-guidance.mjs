@@ -529,7 +529,8 @@ function scenarioExplainTargetArtifacts(fixture) {
   const lintOutput = nodeScript(explainTarget, ["--target", "lint"]);
   assertContains(lintOutput, "sequence_steps:", "lint explain-target sequence steps");
   assertContains(lintOutput, "sequence_summary_groups:", "lint explain-target summary groups");
-  assertContains(lintOutput, "warning-lint: warning-only targets=lint-shell", "lint warning-only child semantics");
+  assertContains(lintOutput, "blocking-lint: blocking targets=", "lint blocking child semantics");
+  assertContains(lintOutput, "lint-shell", "lint shell child appears in blocking group");
 
   const cleanOutput = nodeScript(explainTarget, ["--target", "clean"]);
   assertContains(cleanOutput, "inputs: CARTULARY_CLEANUP_DRY_RUN", "clean explain-target input contract");

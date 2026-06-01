@@ -1454,11 +1454,6 @@ function toolSummary(target, durationMs) {
         "cartulary.scheduler_accounting": {
           accounting_mode: "reused",
           cache_outcome: "hit",
-          input_stamp: {
-            outcome: "hit",
-            stamp_id: "lint-shell",
-            profile: "lint_shell",
-          },
         },
       },
     });

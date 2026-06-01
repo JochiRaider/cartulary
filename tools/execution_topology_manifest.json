@@ -401,7 +401,7 @@
           },
           {
             "target": "lint-shell",
-            "description": "run warning-only ShellCheck over tracked shell scripts"
+            "description": "run blocking ShellCheck over tracked shell scripts"
           },
           {
             "target": "go-vulncheck",
@@ -413,7 +413,7 @@
           },
           {
             "target": "go-gosec-audit",
-            "description": "run warning-only Go security audit profiles"
+            "description": "run advisory Go security audit profiles"
           }
         ]
       },
@@ -745,13 +745,8 @@
               "lint-biome",
               "frontend-import-boundary-check",
               "lint-scripts",
+              "lint-shell",
               "frontend-typecheck"
-            ]
-          },
-          {
-            "name": "warning-lint",
-            "summary_targets": [
-              "lint-shell"
             ]
           }
         ],
@@ -815,6 +810,18 @@
             "summary_targets": [
               "harness-contract"
             ]
+          },
+          {
+            "name": "advisory-security",
+            "summary_targets": [
+              "go-gosec-audit"
+            ]
+          },
+          {
+            "name": "release-shape",
+            "summary_targets": [
+              "deployable-shape"
+            ]
           }
         ],
         "steps": [
@@ -830,6 +837,20 @@
             "target": "harness-contract",
             "produces_summary_targets": [
               "harness-contract"
+            ]
+          },
+          {
+            "type": "step",
+            "target": "go-gosec-audit",
+            "produces_summary_targets": [
+              "go-gosec-audit"
+            ]
+          },
+          {
+            "type": "step",
+            "target": "deployable-shape",
+            "produces_summary_targets": [
+              "deployable-shape"
             ]
           },
           {
@@ -851,6 +872,18 @@
             "summary_targets": [
               "harness-contract"
             ]
+          },
+          {
+            "name": "advisory-security",
+            "summary_targets": [
+              "go-gosec-audit"
+            ]
+          },
+          {
+            "name": "release-shape",
+            "summary_targets": [
+              "deployable-shape"
+            ]
           }
         ],
         "steps": [
@@ -870,6 +903,13 @@
           },
           {
             "type": "step",
+            "target": "go-gosec-audit",
+            "produces_summary_targets": [
+              "go-gosec-audit"
+            ]
+          },
+          {
+            "type": "step",
             "target": "license-report"
           },
           {
@@ -879,6 +919,13 @@
           {
             "type": "step",
             "target": "build"
+          },
+          {
+            "type": "step",
+            "target": "deployable-shape",
+            "produces_summary_targets": [
+              "deployable-shape"
+            ]
           }
         ]
       }
@@ -1272,7 +1319,8 @@
         "command": [
           "./scripts/ci/check-deployable-shape.sh"
         ],
-        "test_target": "self"
+        "test_target": "self",
+        "success_summary": true
       },
       "phase-map-check": {
         "prerequisites": [
@@ -1752,7 +1800,8 @@
           "--test",
           "./scripts/test-harness-contracts.mjs"
         ],
-        "test_target": "self"
+        "test_target": "self",
+        "success_summary": true
       },
       "lint-shell": {
         "prerequisites": [
@@ -1763,7 +1812,7 @@
         "phase_label": "lint shell",
         "env": {
           "SHELLCHECK_BIN": "$(SHELLCHECK_BIN)",
-          "LINT_SHELL_STRICT": "$(LINT_SHELL_STRICT)"
+          "LINT_SHELL_STRICT": "1"
         },
         "command": [
           "./scripts/run-shellcheck.sh"
@@ -2042,6 +2091,7 @@
           "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
           "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
           "GOVULNCHECK_BIN": "$(GOVULNCHECK_BIN)",
+          "GOVULNCHECK_DB": "$(GOVULNCHECK_DB)",
           "GOVULNCHECK_FLAGS": "-test",
           "GOVULNCHECK_PATTERNS": "./cmd/... ./internal/... ./db/... ./tools/..."
         },
@@ -2099,7 +2149,8 @@
           "bash",
           "./scripts/run-go-gosec-audit.sh"
         ],
-        "test_target": "self"
+        "test_target": "self",
+        "success_summary": true
       },
       "check": {
         "type": "check_schedule",
@@ -3686,23 +3737,8 @@
         "backing_scripts": [
           "scripts/ci/check-deployable-shape.sh"
         ],
-        "check_schedule": {
-          "schedules": [
-            "check"
-          ],
-          "profile": "post_build_cpu_io",
-          "priority_band": "post_build",
-          "order": 1000,
-          "needs": [
-            "build-server",
-            "build-migrate",
-            "build-operator"
-          ]
-        },
         "target_class": "internal_helper",
-        "default_inclusion_sets": [
-          "check"
-        ],
+        "default_inclusion_sets": [],
         "lifecycle_state": "candidate_child"
       },
       {
@@ -8329,7 +8365,25 @@
         "input_contract": {
           "undeclared_make_command_line": "usage_error",
           "undeclared_inherited_env": "ignore",
-          "inputs": []
+          "inputs": [
+            {
+              "name": "GOVULNCHECK_DB",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "path",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "runtime_env"
+            }
+          ]
         }
       },
       {
@@ -8405,17 +8459,6 @@
         "backing_scripts": [
           "scripts/run-go-gosec-audit.sh"
         ],
-        "check_schedule": {
-          "schedules": [
-            "check"
-          ],
-          "profile": "after_setup_cpu_io",
-          "priority_band": "local_evidence",
-          "order": 3200,
-          "needs": [
-            "gosec-toolchain"
-          ]
-        },
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -8451,7 +8494,8 @@
         ],
         "target_class": "public",
         "default_inclusion_sets": [
-          "check"
+          "ci",
+          "release-check"
         ],
         "lifecycle_state": "public_active",
         "family_id": "static_analysis_security",
@@ -8997,17 +9041,6 @@
       },
       {
         "name": "build-operator",
-        "check_schedule": {
-          "schedules": [
-            "check"
-          ],
-          "profile": "build_readiness_go_binary",
-          "priority_band": "build_readiness",
-          "order": 1200,
-          "needs": [
-            "toolchain-drift"
-          ]
-        },
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -9039,7 +9072,7 @@
         ],
         "target_class": "public",
         "default_inclusion_sets": [
-          "check"
+          "helper_only"
         ],
         "lifecycle_state": "public_active",
         "family_id": "builds",

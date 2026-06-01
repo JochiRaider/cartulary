@@ -412,8 +412,8 @@ lint_go_staticcheck_block="$(extract_target_block lint-go-staticcheck)"
 if ! text_contains "$lint_go_staticcheck_block" 'scripts/run-go-staticcheck.sh'; then
   fail "lint-go-staticcheck must run the curated Staticcheck wrapper"
 fi
-if ! text_contains "$lint_go_staticcheck_block" 'STATICCHECK_CHECKS="$(STATICCHECK_CHECKS)"'; then
-  fail "lint-go-staticcheck must pass the configured Staticcheck check set"
+if text_contains "$lint_go_staticcheck_block" 'STATICCHECK_CHECKS="$(STATICCHECK_CHECKS)"'; then
+  fail "lint-go-staticcheck must not expose STATICCHECK_CHECKS as a canonical public profile override"
 fi
 assert_target_prereq govulncheck-toolchain '$(GOVULNCHECK_BIN)' "govulncheck-toolchain must own pinned Govulncheck readiness"
 assert_target_prereq gosec-toolchain '$(GOSEC_BIN)' "gosec-toolchain must own pinned Gosec readiness"
@@ -431,20 +431,20 @@ go_gosec_block="$(extract_target_block go-gosec-targeted)"
 if ! text_contains "$go_gosec_block" 'scripts/run-go-gosec-targeted.sh'; then
   fail "go-gosec-targeted must run the curated targeted Gosec wrapper"
 fi
-if ! text_contains "$go_gosec_block" 'GOSEC_RULES="$(GOSEC_RULES)"'; then
-  fail "go-gosec-targeted must pass the configured Gosec rule set"
+if ! text_contains "$go_gosec_block" 'GOSEC_RULES="G602,G124,G112,G114"'; then
+  fail "go-gosec-targeted must pass the canonical Gosec rule set"
 fi
-if ! text_contains "$go_gosec_block" 'GOSEC_PATTERNS="$(GOSEC_PATTERNS)"'; then
-  fail "go-gosec-targeted must pass the configured Gosec package patterns"
+if ! text_contains "$go_gosec_block" 'GOSEC_PATTERNS="./cmd/... ./internal/... ./db/... ./tools/..."'; then
+  fail "go-gosec-targeted must pass the canonical Gosec package patterns"
 fi
-if ! text_contains "$go_gosec_block" 'GOSEC_TARGETED_RUNTIME_RULES="$(GOSEC_TARGETED_RUNTIME_RULES)"'; then
-  fail "go-gosec-targeted must pass the configured runtime Gosec rule set"
+if ! text_contains "$go_gosec_block" 'GOSEC_TARGETED_RUNTIME_RULES="G122,G301,G302,G303,G304,G305,G306,G307"'; then
+  fail "go-gosec-targeted must pass the canonical runtime Gosec rule set"
 fi
-if ! text_contains "$go_gosec_block" 'GOSEC_TARGETED_RUNTIME_FLAGS="$(GOSEC_TARGETED_RUNTIME_FLAGS)"'; then
-  fail "go-gosec-targeted must pass the configured runtime Gosec flags"
+if ! text_contains "$go_gosec_block" 'GOSEC_TARGETED_RUNTIME_FLAGS="-exclude-generated -quiet -exclude-dir=internal/testutil"'; then
+  fail "go-gosec-targeted must pass the canonical runtime Gosec flags"
 fi
-if ! text_contains "$go_gosec_block" 'GOSEC_TARGETED_RUNTIME_PATTERNS="$(GOSEC_TARGETED_RUNTIME_PATTERNS)"'; then
-  fail "go-gosec-targeted must pass the configured runtime Gosec package patterns"
+if ! text_contains "$go_gosec_block" 'GOSEC_TARGETED_RUNTIME_PATTERNS="./cmd/... ./internal/..."'; then
+  fail "go-gosec-targeted must pass the canonical runtime Gosec package patterns"
 fi
 go_gosec_audit_block="$(extract_target_block go-gosec-audit)"
 if ! text_contains "$go_gosec_audit_block" 'gosec-toolchain'; then
@@ -452,23 +452,23 @@ if ! text_contains "$go_gosec_audit_block" 'gosec-toolchain'; then
 fi
 go_gosec_audit_block="$(extract_target_block go-gosec-audit)"
 if ! text_contains "$go_gosec_audit_block" 'scripts/run-go-gosec-audit.sh'; then
-  fail "go-gosec-audit must run the curated warning-only Gosec audit wrapper"
+  fail "go-gosec-audit must run the curated advisory Gosec audit wrapper"
 fi
-if ! text_contains "$go_gosec_audit_block" 'GOSEC_AUDIT_RUNTIME_RULES="$(GOSEC_AUDIT_RUNTIME_RULES)"'; then
-  fail "go-gosec-audit must pass the configured runtime Gosec audit rule set"
+if ! text_contains "$go_gosec_audit_block" 'GOSEC_AUDIT_RUNTIME_RULES="G118,G122,G301,G302,G303,G304,G305,G306,G307"'; then
+  fail "go-gosec-audit must pass the canonical runtime Gosec audit rule set"
 fi
-if ! text_contains "$go_gosec_audit_block" 'GOSEC_AUDIT_SUPPORT_PATTERNS="$(GOSEC_AUDIT_SUPPORT_PATTERNS)"'; then
-  fail "go-gosec-audit must pass the configured support Gosec audit package patterns"
+if ! text_contains "$go_gosec_audit_block" 'GOSEC_AUDIT_SUPPORT_PATTERNS="./internal/testutil/... ./tools/..."'; then
+  fail "go-gosec-audit must pass the canonical support Gosec audit package patterns"
 fi
 lint_shell_block="$(extract_target_block lint-shell)"
 if ! text_contains "$lint_shell_block" 'shell-lint-toolchain'; then
   fail "lint-shell must prepare the pinned ShellCheck toolchain"
 fi
 if ! text_contains "$lint_shell_block" 'scripts/run-shellcheck.sh'; then
-  fail "lint-shell must run the curated warning-only ShellCheck wrapper"
+  fail "lint-shell must run the curated ShellCheck wrapper"
 fi
-if ! text_contains "$lint_shell_block" 'LINT_SHELL_STRICT="$(LINT_SHELL_STRICT)"'; then
-  fail "lint-shell must expose LINT_SHELL_STRICT strict-mode passthrough"
+if ! text_contains "$lint_shell_block" 'LINT_SHELL_STRICT="1"'; then
+  fail "lint-shell must force strict blocking ShellCheck under public Make"
 fi
 for scheduled_target in \
   toolchain-drift \
@@ -480,19 +480,16 @@ for scheduled_target in \
   check-frontend-install \
 	  build-server \
 	  build-migrate \
-	  build-operator \
 	  testservices-build \
   test-service-images \
   check-service-backed \
   migration-input-drift \
   migration-scratch-apply \
-  deployable-shape \
   backend-unit \
   frontend-typecheck \
   lint-go \
   go-vulncheck \
   go-gosec-targeted \
-  go-gosec-audit \
   frontend-unit \
   check-harness-smoke \
   lint-biome \
@@ -512,6 +509,20 @@ check_schedule_targets_text="$(check_schedule_targets)"
 for unscheduled_lint_leaf in lint-go-format lint-go-vet lint-go-staticcheck; do
   if text_has_token "$check_schedule_targets_text" "$unscheduled_lint_leaf"; then
     fail "check schedule must keep lint-go as the scheduler-visible Go lint work unit"
+  fi
+done
+for explicit_only_target in \
+  build-operator \
+  deployable-shape \
+  go-gosec-audit \
+  license-report \
+  sbom \
+  browser-e2e-measurement \
+  browser-e2e-visual \
+  browser-e2e-a11y
+do
+  if text_has_token "$check_schedule_targets_text" "$explicit_only_target"; then
+    fail "check schedule must not include explicit-only target $explicit_only_target"
   fi
 done
 "$node_bin" - "$check_schedule_manifest" "$execution_topology_manifest" <<'EOF'
@@ -563,7 +574,6 @@ assertCheckMetadata("shell-lint-toolchain", "setup_cpu_io");
 assertCheckMetadata("check-frontend-install", "setup_cpu_io");
 assertCheckMetadata("build-server", "build_readiness_server");
 assertCheckMetadata("build-migrate", "build_readiness_go_binary");
-assertCheckMetadata("build-operator", "build_readiness_go_binary");
 assertCheckMetadata("testservices-build", "build_readiness_go_binary");
 assertCheckMetadata("test-service-images", "build_readiness_service_images");
 assertCheckMetadata("check-service-backed", "service_session_start");
@@ -623,7 +633,6 @@ const assertClaims = (target, expectedClaims) => {
 };
 assertClaims("build-server", { host_cpu: 2, host_io: 2 });
 assertClaims("build-migrate", { host_cpu: 1, host_io: 1 });
-assertClaims("build-operator", { host_cpu: 1, host_io: 1 });
 assertClaims("testservices-build", { host_cpu: 1, host_io: 1 });
 assertClaims("test-service-images", { host_cpu: 1, host_io: 2 });
 const service = (schedule.work_units ?? []).find((entry) => entry.kind === "service_session" && entry.target === "check-service-backed");
@@ -666,13 +675,11 @@ for scheduled_target in codegen-toolchain go-lint-toolchain govulncheck-toolchai
 done
 assert_check_needs build-server "check-frontend-install"
 assert_check_needs build-migrate "toolchain-drift"
-assert_check_needs build-operator "toolchain-drift"
 assert_check_needs testservices-build "toolchain-drift"
 assert_check_needs test-service-images "testservices-build"
 assert_check_needs check-service-backed "test-service-images"
 assert_check_needs migration-input-drift "toolchain-drift"
 assert_check_needs migration-scratch-apply "build-migrate"
-assert_check_needs deployable-shape "build-server,build-migrate,build-operator"
 for scheduled_target in \
   backend-unit \
   check-harness-smoke \
@@ -688,7 +695,6 @@ assert_check_needs generate-drift "codegen-toolchain"
 assert_check_needs lint-go "go-lint-toolchain"
 assert_check_needs go-vulncheck "govulncheck-toolchain"
 assert_check_needs go-gosec-targeted "gosec-toolchain"
-assert_check_needs go-gosec-audit "gosec-toolchain"
 assert_check_needs lint-shell "shell-lint-toolchain"
 for scheduled_target in frontend-typecheck frontend-unit frontend-import-boundary-check lint-biome lint-scripts phase-map-check phase-ledger-drift; do
   assert_check_needs "$scheduled_target" "check-frontend-install"

@@ -528,13 +528,11 @@ for scheduled_target in \
   check-service-backed \
   migration-input-drift \
   migration-scratch-apply \
-  deployable-shape \
   backend-unit \
   frontend-typecheck \
   lint-go \
   go-vulncheck \
   go-gosec-targeted \
-  go-gosec-audit \
   frontend-unit \
   check-harness-smoke \
   lint-biome \
@@ -562,6 +560,20 @@ done
 if text_has_token "$check_schedule_text" browser-e2e; then
   fail "browser-e2e must be service-backed scheduler work, not a top-level check work unit"
 fi
+for explicit_only_target in \
+  build-operator \
+  deployable-shape \
+  go-gosec-audit \
+  license-report \
+  sbom \
+  browser-e2e-measurement \
+  browser-e2e-visual \
+  browser-e2e-a11y
+do
+  if text_has_token "$check_schedule_text" "$explicit_only_target"; then
+    fail "check schedule must not include explicit-only target $explicit_only_target"
+  fi
+done
 "$node_bin" - "$check_schedule_manifest" "$execution_topology_manifest" <<'EOF'
 const fs = require("node:fs");
 

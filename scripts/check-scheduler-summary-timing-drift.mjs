@@ -17,7 +17,6 @@ const warmReadinessThresholds = new Map([
   ["check-frontend-install", 30000],
   ["build-server", 15000],
   ["build-migrate", 15000],
-  ["build-operator", 15000],
   ["testservices-build", 15000],
   ["test-service-images", 15000],
 ]);
@@ -163,9 +162,9 @@ function schedulerAccountingExtension(record) {
   return extension && typeof extension === "object" ? extension : null;
 }
 
-function inputStampOutcome(record) {
+function cacheOutcome(record) {
   const extension = schedulerAccountingExtension(record);
-  return extension?.input_stamp?.outcome ?? extension?.cache_outcome ?? "";
+  return extension?.cache_outcome ?? "";
 }
 
 function validateWarmReadinessDurations(eventsFile, events, errors) {
@@ -197,7 +196,7 @@ function validateWarmNoUnexpectedReuse(eventsFile, schedulerSummary, events, err
       continue;
     }
     const accounting = schedulerAccountingExtension(event);
-    if (accounting?.accounting_mode !== "reused" && inputStampOutcome(event) !== "hit") {
+    if (accounting?.accounting_mode !== "reused" && cacheOutcome(event) !== "hit") {
       continue;
     }
     reusedEventIDs.add(event.work_unit_id);

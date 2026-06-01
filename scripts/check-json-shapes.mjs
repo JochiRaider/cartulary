@@ -172,7 +172,6 @@ const schedulerWorkUnitKeys = new Set([
   "weight_ms",
   "needs",
   "produces_summary_targets",
-  "local_input_stamp",
   "completion_keys",
   "failure_keys",
   "running_dependency_keys",

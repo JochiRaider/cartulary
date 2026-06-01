@@ -112,6 +112,24 @@ assert_equals "${override_status}" "2" "undeclared static/security override stat
 assert_contains "$(cat "${override_stderr}")" "GOSEC_FLAGS is not declared for target go-gosec-targeted" "undeclared static/security override diagnostic"
 assert_equals "$(cat "${override_stdout}")" "" "undeclared static/security override stdout"
 
+govuln_flags_stdout="${tmp_dir}/govuln-flags.stdout"
+govuln_flags_stderr="${tmp_dir}/govuln-flags.stderr"
+govuln_flags_status="$(
+  run_make_capture "${govuln_flags_stdout}" "${govuln_flags_stderr}" make --no-print-directory go-vulncheck GOVULNCHECK_FLAGS=-scan=module
+)"
+assert_equals "${govuln_flags_status}" "2" "undeclared govulncheck flags override status"
+assert_contains "$(cat "${govuln_flags_stderr}")" "GOVULNCHECK_FLAGS is not declared for target go-vulncheck" "undeclared govulncheck flags diagnostic"
+assert_equals "$(cat "${govuln_flags_stdout}")" "" "undeclared govulncheck flags stdout"
+
+govuln_db_stdout="${tmp_dir}/govuln-db.stdout"
+govuln_db_stderr="${tmp_dir}/govuln-db.stderr"
+govuln_db_status="$(
+  run_make_capture "${govuln_db_stdout}" "${govuln_db_stderr}" env -i PATH="${PATH}" HOME="${HOME:-}" GOVULNCHECK_DB=/tmp/cartulary-vulndb CARTULARY_MAKE_ORIGIN_GOVULNCHECK_DB="command line" "${ROOT_DIR}/scripts/harness-contract.sh" preflight go-vulncheck
+)"
+assert_equals "${govuln_db_status}" "0" "declared GOVULNCHECK_DB preflight status"
+assert_equals "$(cat "${govuln_db_stdout}")" "" "declared GOVULNCHECK_DB preflight stdout"
+assert_equals "$(cat "${govuln_db_stderr}")" "" "declared GOVULNCHECK_DB preflight stderr"
+
 declared_stdout="${tmp_dir}/declared.stdout"
 declared_stderr="${tmp_dir}/declared.stderr"
 declared_status="$(

@@ -426,7 +426,11 @@ assert.deepEqual(artifactSnapshot(), artifactSnapshot(), "topology artifact rend
 const renderedCheckSchedule = renderCheckScheduleManifest(topology);
 const checkSchedule = renderedCheckSchedule.schedules.find((schedule) => schedule.target === "check");
 assert.ok(checkSchedule, "rendered check schedule must include check");
-assert.equal(checkSchedule.work_units.length, 38, "check schedule must render the current check work-unit set");
+assert.equal(checkSchedule.work_units.length, 35, "check schedule must render the current check work-unit set");
+assert.ok(
+  checkSchedule.work_units.every((unit) => unit.local_input_stamp === undefined),
+  "check schedule must not render retired local_input_stamp metadata",
+);
 assert.deepEqual(
   checkSchedule.work_units.find((unit) => unit.target === "lint-shell")?.env,
   { LINT_SHELL_STRICT: "1" },
@@ -460,18 +464,15 @@ assert.deepEqual(
     ["check-frontend-install", 49400],
     ["build-server", 40000],
     ["build-migrate", 39000],
-    ["build-operator", 38800],
     ["testservices-build", 38050],
     ["test-service-images", 38000],
     ["check-service-backed", 37000],
     ["migration-scratch-apply", 27000],
-    ["deployable-shape", 26000],
     ["backend-unit", 25000],
     ["frontend-typecheck", 24000],
     ["lint-go", 23000],
     ["go-vulncheck", 22000],
     ["go-gosec-targeted", 21900],
-    ["go-gosec-audit", 21800],
     ["frontend-unit", 15000],
     ["check-harness-smoke", 14000],
     ["lint-biome", 13000],
@@ -757,6 +758,19 @@ assert.throws(
   () => loadExecutionTopology({ manifestPath: writeTopologyFixture("legacy-flat-topology.json", legacyFlatTopology) }),
   /flat check_schedules\[\] work_units are no longer supported/,
   "topology validation must reject the obsolete flat check schedule source shape",
+);
+
+const localInputStampTopology = topologyFixture();
+localInputStampTopology.task_surface.targets.find((target) => target.name === "generate-drift").check_schedule.local_input_stamp = {
+  profile: "generate_drift",
+};
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture("retired-local-input-stamp-topology.json", localInputStampTopology),
+    }),
+  /generate-drift\.check_schedule has unknown key local_input_stamp/,
+  "topology validation must reject retired local_input_stamp metadata",
 );
 
 const unknownProfileTopology = topologyFixture();

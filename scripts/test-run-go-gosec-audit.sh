@@ -95,12 +95,12 @@ output="$(
     "$SCRIPT" 2>&1
 )" || status=$?
 if [[ "$status" -ne 0 ]]; then
-  fail "audit findings must remain warning-only, got status $status: $output"
+  fail "advisory audit findings must not fail the target, got status $status: $output"
 fi
 
-assert_contains "$output" "go-gosec-audit runtime profile rules=G118,G122,G301,G302,G303,G304,G305,G306,G307 patterns=./cmd/... ./internal/..." "runtime profile label"
-assert_contains "$output" "go-gosec-audit support profile rules=G122,G301,G302,G303,G304,G305,G306,G307 patterns=./internal/testutil/... ./tools/..." "support profile label"
-assert_contains "$output" "simulated gosec finding" "warning-only finding output"
+assert_contains "$output" "go-gosec-audit advisory runtime profile rules=G118,G122,G301,G302,G303,G304,G305,G306,G307 patterns=./cmd/... ./internal/..." "runtime advisory profile label"
+assert_contains "$output" "go-gosec-audit advisory support profile rules=G122,G301,G302,G303,G304,G305,G306,G307 patterns=./internal/testutil/... ./tools/..." "support advisory profile label"
+assert_contains "$output" "simulated gosec finding" "advisory finding output"
 
 args="$(cat "$args_log")"
 assert_equals "$(grep -c '^--call--$' "$args_log")" "2" "gosec invocation count"

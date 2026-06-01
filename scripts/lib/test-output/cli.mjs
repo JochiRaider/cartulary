@@ -2961,10 +2961,6 @@ function schedulerAccountingFromSummary(summary) {
     reused_duration_ms: clampDurationMs(accounting.reused_duration_ms ?? 0),
     actual_duration_ms: clampDurationMs(accounting.actual_duration_ms ?? 0),
     accounting_modes: resolveAccountingModes(accounting.accounting_modes, 0),
-    input_stamp_outcomes:
-      accounting.input_stamp_outcomes && typeof accounting.input_stamp_outcomes === "object"
-        ? accounting.input_stamp_outcomes
-        : {},
     work_unit_accounting: Array.isArray(accounting.work_unit_accounting)
       ? accounting.work_unit_accounting
       : [],

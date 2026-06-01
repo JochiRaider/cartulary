@@ -33,6 +33,16 @@ assert_contains() {
   fi
 }
 
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local label="$3"
+
+  if [[ "$haystack" == *"$needle"* ]]; then
+    fail "$label: expected output not to contain [$needle]"
+  fi
+}
+
 assert_equals() {
   local got="$1"
   local want="$2"
@@ -179,6 +189,29 @@ if [[ "$strict_status" -eq 0 ]]; then
   fail "strict mode: expected failure"
 fi
 assert_contains "$strict_output" "SC2086 simulated finding" "strict mode finding output"
+
+make_strict_repo="$(make_fixture_repo)"
+mkdir -p "$make_strict_repo/scripts"
+printf '%s\n' "echo \"\$HOME\"" >"$make_strict_repo/scripts/warn.sh"
+track_all "$make_strict_repo"
+make_strict_shellcheck="$(make_fake_shellcheck "$make_strict_repo")"
+make_strict_args_log="$make_strict_repo/shellcheck-args.log"
+set +e
+make_strict_output="$(
+  CARTULARY_SHELLCHECK_ROOT="$make_strict_repo" \
+  SHELLCHECK_BIN="$make_strict_shellcheck" \
+  FAKE_SHELLCHECK_ARGS_LOG="$make_strict_args_log" \
+  FAKE_SHELLCHECK_OUTPUT="SC2086 simulated finding" \
+  FAKE_SHELLCHECK_STATUS=1 \
+    make -C "$ROOT_DIR" --no-print-directory lint-shell 2>&1
+)"
+make_strict_status=$?
+set -e
+if [[ "$make_strict_status" -eq 0 ]]; then
+  fail "public Make lint-shell: expected strict ShellCheck failure"
+fi
+assert_contains "$make_strict_output" "SC2086 simulated finding" "public Make lint-shell finding output"
+assert_not_contains "$make_strict_output" "lint-shell warning-only" "public Make lint-shell must not use warning-only mode"
 
 real_shellcheck=""
 if [[ -n "${SHELLCHECK_BIN:-}" && -x "${SHELLCHECK_BIN}" ]]; then

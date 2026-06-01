@@ -46,7 +46,6 @@ const checkScheduleTargetKeys = new Set([
   "profile",
   "needs",
   "expanded_needs",
-  "local_input_stamp",
   "priority_band",
   "order",
   "produces_summary_targets",
@@ -521,7 +520,6 @@ function normalizeCheckScheduleMetadata(entry, label, scheduleTargets) {
     profile: requireString(raw.profile, `${label}.check_schedule.profile`),
     needs: requireStringArray(raw.needs ?? [], `${label}.check_schedule.needs`),
     expandedNeeds: requireStringArray(raw.expanded_needs ?? [], `${label}.check_schedule.expanded_needs`),
-    localInputStamp: normalizeLocalInputStamp(raw.local_input_stamp, `${label}.check_schedule.local_input_stamp`),
     priorityBand: requireString(raw.priority_band, `${label}.check_schedule.priority_band`),
     order: requireNonNegativeInteger(raw.order, `${label}.check_schedule.order`),
     producesSummaryTargets,
@@ -529,17 +527,6 @@ function normalizeCheckScheduleMetadata(entry, label, scheduleTargets) {
       ? null
       : requireString(raw.service_backed_schedule, `${label}.check_schedule.service_backed_schedule`),
     env: normalizeCheckScheduleEnv(raw.env, `${label}.check_schedule.env`),
-  };
-}
-
-function normalizeLocalInputStamp(value, label) {
-  if (value === undefined) {
-    return null;
-  }
-  const raw = requireObject(value, label);
-  validateAllowedKeys(raw, new Set(["profile"]), label);
-  return {
-    profile: requireString(raw.profile, `${label}.profile`),
   };
 }
 
@@ -651,7 +638,6 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
         weight_ms: defaultCheckWorkUnitWeightMs,
         needs: clone(metadata.needs),
         ...(metadata.expandedNeeds.length > 0 ? { expanded_needs: clone(metadata.expandedNeeds) } : {}),
-        ...(metadata.localInputStamp ? { local_input_stamp: clone(metadata.localInputStamp) } : {}),
         ...(metadata.producesSummaryTargets.length > 0
           ? { produces_summary_targets: clone(metadata.producesSummaryTargets) }
           : {}),

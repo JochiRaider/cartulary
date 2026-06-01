@@ -285,8 +285,8 @@ lint_shell_block="$(extract_target_block lint-shell)"
 if ! text_contains "$lint_shell_block" 'scripts/run-shellcheck.sh'; then
   fail "lint-shell must run the curated ShellCheck wrapper"
 fi
-if ! text_contains "$lint_shell_block" 'LINT_SHELL_STRICT="$(LINT_SHELL_STRICT)"'; then
-  fail "lint-shell must expose strict-mode passthrough"
+if ! text_contains "$lint_shell_block" 'LINT_SHELL_STRICT="1"'; then
+  fail "lint-shell must force blocking strict mode for public Make evidence"
 fi
 if ! grep -Fq -- '--error-on-warnings' "$scripts_biome_script"; then
   fail "scripts Biome check mode must fail on warnings"

@@ -67,7 +67,7 @@ run_profile() {
     printf '{"tool":"gosec","target":"go-gosec-audit","profile":"%s","rules":"%s","flags":"%s","patterns":"%s"}\n' \
       "$label" "$rules" "$flags" "$patterns_value" >>"$profile_metadata"
   fi
-  printf 'go-gosec-audit %s profile rules=%s patterns=%s\n' "$label" "$rules" "$patterns_value"
+  printf 'go-gosec-audit advisory %s profile rules=%s patterns=%s\n' "$label" "$rules" "$patterns_value"
   env GOCACHE="$GO_CACHE_DIR" \
     GOMODCACHE="$GO_MOD_CACHE_DIR" \
     PATH="$(dirname "$GO_BIN"):$PATH" \

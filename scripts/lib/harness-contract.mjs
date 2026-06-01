@@ -166,7 +166,6 @@ const restrictedInternalMakeVariables = Object.freeze([
   "TASK_SURFACE_MANIFEST",
 ]);
 const nonCanonicalPublicMakeVariables = Object.freeze([
-  "GOVULNCHECK_DB",
   "GOVULNCHECK_FLAGS",
   "GOVULNCHECK_PATTERNS",
   "GOSEC_AUDIT_RUNTIME_FLAGS",

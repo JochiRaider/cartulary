@@ -67,11 +67,6 @@ const schedulerOwnedEnvNames = new Set([
   "CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT",
 ]);
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
-const checkInputStampScript = path.join(
-  repoRoot,
-  "scripts",
-  "check-input-stamp.mjs",
-);
 const schedulerReadinessTargets = new Set([
   "toolchain-drift",
   "codegen-toolchain",
@@ -82,7 +77,6 @@ const schedulerReadinessTargets = new Set([
   "check-frontend-install",
   "build-server",
   "build-migrate",
-  "build-operator",
   "testservices-build",
   "test-service-images",
 ]);
@@ -204,23 +198,6 @@ function normalizeUnitEnv(value, label) {
   return Object.fromEntries(
     entries.sort(([left], [right]) => left.localeCompare(right)),
   );
-}
-
-function normalizeLocalInputStamp(value, label) {
-  if (value === undefined) {
-    return null;
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${label} local_input_stamp must be an object`);
-  }
-  if (typeof value.profile !== "string" || value.profile.trim() === "") {
-    throw new Error(
-      `${label} local_input_stamp.profile must be a non-empty string`,
-    );
-  }
-  return {
-    profile: value.profile.trim(),
-  };
 }
 
 function normalizeNestedScheduler(value, label, unitTarget, resourceClaims) {
@@ -517,10 +494,6 @@ function _findSchedule(manifest, target, overrides) {
         claims,
       ),
       env: normalizeUnitEnv(unit.env, `${label} ${unitTarget}`),
-      localInputStamp: normalizeLocalInputStamp(
-        unit.local_input_stamp,
-        `${label} ${unitTarget}`,
-      ),
       nestedScheduler,
       serviceSession: unit.service_session ?? null,
       browserStage:
@@ -1309,23 +1282,7 @@ function attachRuntime(
           ? {}
           : { CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES: "1" }),
       });
-      if (!unit.localInputStamp) {
-        return { command: makeBin, args, env };
-      }
-      return {
-        command: process.execPath,
-        args: [
-          checkInputStampScript,
-          "--stamp-id",
-          unit.id,
-          "--profile",
-          unit.localInputStamp.profile,
-          "--",
-          makeBin,
-          ...args,
-        ],
-        env,
-      };
+      return { command: makeBin, args, env };
     };
   }
   return {
