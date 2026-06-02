@@ -7,6 +7,7 @@ import {
   type PendingReplayUnitInput,
   type PendingReplayUnitState,
   type PendingReplayVisibleEdit,
+  deriveWorkbookSaveState,
   parsePendingReplayPublicError,
   pendingReplayCapacity,
   WorkbookPendingQueueModel,
@@ -148,6 +149,20 @@ function sameFieldConflictError(options: {
       base_value: "base value",
     },
   };
+}
+
+const allowedPrimarySaveStateLabels = ["Conflict", "Saved", "Syncing"];
+const forbiddenPrimarySaveStateLabels = [
+  "Failed",
+  "Pending",
+  "Queued",
+  "Replay halted",
+  "Retrying",
+];
+
+function expectCorePrimaryLabel(label: string) {
+  expect(allowedPrimarySaveStateLabels).toContain(label);
+  expect(forbiddenPrimarySaveStateLabels).not.toContain(label);
 }
 
 describe("FE-U-P4-01 pending queue unit model", () => {
@@ -989,5 +1004,278 @@ describe("FE-U-P4-01 pending queue unit model", () => {
       row_version: 12,
     });
     expect(queue.dispatchNext()?.unit.recordId).toBe("record-b");
+  });
+});
+
+describe("FE-U-P4-02 save-state unit model", () => {
+  it("FE-U-P4-02 derives exactly one primary save-state label for every Table C input condition", () => {
+    const sameFieldConflict = {
+      key: "record-conflict:timeline.summary",
+      conflict_token: "conflict-token",
+      record_id: "record-conflict",
+      field_key: "timeline.summary",
+      conflict_resolution_class: "text_compare_merge",
+      base_row_version: 7,
+      current_row_version: 8,
+    };
+    const overflow = {
+      message:
+        "Local pending queue is full. The current edit remains unsaved local work.",
+      refused_unit_id: "unit-overflow",
+      preserve_visible_edit_as_unsaved: true,
+      visible_edit: {
+        rowKey: "row-overflow",
+        fieldKey: "timeline.summary",
+        value: "overflow draft",
+      },
+    } as const;
+    const halted = {
+      unit_id: "unit-halted",
+      error_code: "invalid_mutation_payload",
+      message: "Summary is required",
+      anchor: {
+        kind: "cell",
+        record_id: "record-halted",
+        field_key: "timeline.summary",
+      },
+    } as const;
+
+    const cases = [
+      {
+        name: "unresolved same-field conflict",
+        input: {
+          queuedCount: 1,
+          inFlightCount: 1,
+          sameFieldConflicts: [sameFieldConflict],
+          overflow,
+          halted,
+        },
+        expected: "Conflict",
+        secondaryKind: "same_field_conflict",
+      },
+      {
+        name: "queue overflow",
+        input: {
+          queuedCount: pendingReplayCapacity,
+          inFlightCount: 0,
+          overflow,
+        },
+        expected: "Conflict",
+        secondaryKind: "overflow",
+      },
+      {
+        name: "replay halted",
+        input: {
+          queuedCount: 1,
+          inFlightCount: 0,
+          halted,
+        },
+        expected: "Conflict",
+        secondaryKind: "replay_halted",
+      },
+      {
+        name: "mutation in flight",
+        input: { queuedCount: 0, inFlightCount: 1 },
+        expected: "Syncing",
+        secondaryKind: "queued",
+      },
+      {
+        name: "non-empty pending queue",
+        input: { queuedCount: 1, inFlightCount: 0 },
+        expected: "Syncing",
+        secondaryKind: "queued",
+      },
+      {
+        name: "paused replay awaiting authentication",
+        input: { queuedCount: 1, inFlightCount: 0, authPaused: true },
+        expected: "Syncing",
+        secondaryKind: "auth_paused",
+      },
+      {
+        name: "paused replay awaiting refresh",
+        input: { queuedCount: 1, inFlightCount: 0, refreshPaused: true },
+        expected: "Syncing",
+        secondaryKind: "queued",
+      },
+      {
+        name: "legacy direct mutation in progress",
+        input: { queuedCount: 0, inFlightCount: 0, pendingMutationCount: 1 },
+        expected: "Syncing",
+        secondaryKind: "queued",
+      },
+      {
+        name: "fully saved",
+        input: { queuedCount: 0, inFlightCount: 0 },
+        expected: "Saved",
+        secondaryKind: null,
+      },
+      {
+        name: "ambient presence-only update",
+        input: { queuedCount: 0, inFlightCount: 0 },
+        expected: "Saved",
+        secondaryKind: null,
+      },
+    ] as const;
+
+    for (const entry of cases) {
+      const presentation = deriveWorkbookSaveState(entry.input);
+      expect(presentation.primaryLabel, entry.name).toBe(entry.expected);
+      expectCorePrimaryLabel(presentation.primaryLabel);
+      expect(presentation.secondaryKind, entry.name).toBe(entry.secondaryKind);
+      expect(
+        allowedPrimarySaveStateLabels.filter(
+          (label) => label === presentation.primaryLabel,
+        ),
+        entry.name,
+      ).toHaveLength(1);
+    }
+  });
+
+  it("FE-U-P4-02 keeps failure, overflow, validation, and replay details as same-surface secondary status messages", () => {
+    const overflowPresentation = deriveWorkbookSaveState({
+      queuedCount: pendingReplayCapacity,
+      inFlightCount: 0,
+      overflow: {
+        message:
+          "Local pending queue is full. The current edit remains unsaved local work.",
+        refused_unit_id: "unit-overflow",
+        preserve_visible_edit_as_unsaved: true,
+        visible_edit: null,
+      },
+    });
+    expect(overflowPresentation.primaryLabel).toBe("Conflict");
+    expect(overflowPresentation.secondaryKind).toBe("overflow");
+    expect(overflowPresentation.secondaryMessage).toContain(
+      "current edit remains unsaved local work",
+    );
+
+    const validationPresentation = deriveWorkbookSaveState({
+      queuedCount: 1,
+      inFlightCount: 0,
+      halted: {
+        unit_id: "unit-validation",
+        error_code: "invalid_mutation_payload",
+        message: "Summary is required",
+        anchor: {
+          kind: "cell",
+          record_id: "record-validation",
+          field_key: "timeline.summary",
+        },
+      },
+    });
+    expect(validationPresentation.primaryLabel).toBe("Conflict");
+    expect(validationPresentation.secondaryKind).toBe("replay_halted");
+    expect(validationPresentation.secondaryMessage).toBe("Summary is required");
+
+    const replayFailurePresentation = deriveWorkbookSaveState({
+      queuedCount: 2,
+      inFlightCount: 0,
+      halted: {
+        unit_id: "unit-failure",
+        error_code: "future_terminal_public_error",
+        message: "Future terminal public error",
+        anchor: {
+          kind: "mutation",
+          client_txn_id: "txn-failure",
+          route_scope: {
+            kind: "patch",
+            method: "PATCH",
+            route_scope: {
+              path: "/api/v1/records/record-failure",
+              record_id: "record-failure",
+            },
+            record_id: "record-failure",
+            client_txn_id: "txn-failure",
+            view_schema_id: viewSchemaId,
+            base_row_version: 1,
+            changes: [{ field_key: "timeline.summary", value: "failure" }],
+          },
+        },
+      },
+    });
+    expect(replayFailurePresentation.primaryLabel).toBe("Conflict");
+    expect(replayFailurePresentation.secondaryKind).toBe("replay_halted");
+    expect(replayFailurePresentation.secondaryMessage).toBe(
+      "Future terminal public error",
+    );
+
+    for (const presentation of [
+      overflowPresentation,
+      validationPresentation,
+      replayFailurePresentation,
+    ]) {
+      expectCorePrimaryLabel(presentation.primaryLabel);
+      expect(forbiddenPrimarySaveStateLabels).not.toContain(
+        presentation.secondaryMessage,
+      );
+    }
+  });
+
+  it("FE-U-P4-02 preserves same-field conflict anchors by record_id, field_key, and base_row_version", () => {
+    const sameFieldQueue = createQueue();
+    expectAccepted(
+      sameFieldQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-save-state-conflict",
+          recordId: "record-save-state-conflict",
+          order: 1,
+          baseRowVersion: 11,
+          fieldKey: "timeline.summary",
+        }),
+      ),
+    );
+    sameFieldQueue.dispatchNext();
+    const settlement = sameFieldQueue.settleDispatched({
+      ok: false,
+      status: 409,
+      error: sameFieldConflictError({
+        conflictToken: "conflict-token-save-state",
+        recordId: "record-save-state-conflict",
+        fieldKey: "timeline.summary",
+        baseRowVersion: 11,
+        currentRowVersion: 12,
+      }),
+    });
+    expect(settlement.outcome).toBe("same_field_conflict");
+    expect(sameFieldQueue.snapshot().saveStatePresentation).toEqual({
+      primaryLabel: "Conflict",
+      secondaryKind: "same_field_conflict",
+      secondaryMessage:
+        "Conflict on record-save-state-conflict:timeline.summary.",
+      conflictAnchors: [
+        {
+          record_id: "record-save-state-conflict",
+          field_key: "timeline.summary",
+          base_row_version: 11,
+          current_row_version: 12,
+        },
+      ],
+    });
+
+    const localDraftPresentation = deriveWorkbookSaveState({
+      queuedCount: 0,
+      inFlightCount: 0,
+      localDraftConflicts: [
+        {
+          record_id: "record-local-draft",
+          field_key: "timeline.details",
+          base_row_version: 4,
+          current_row_version: 5,
+        },
+      ],
+    });
+    expect(localDraftPresentation).toEqual({
+      primaryLabel: "Conflict",
+      secondaryKind: "same_field_conflict",
+      secondaryMessage: "Conflict on record-local-draft:timeline.details.",
+      conflictAnchors: [
+        {
+          record_id: "record-local-draft",
+          field_key: "timeline.details",
+          base_row_version: 4,
+          current_row_version: 5,
+        },
+      ],
+    });
   });
 });

@@ -171,38 +171,37 @@
           "target_name": "frontend-unit",
           "command_id": "cartulary.harness.command.frontend_unit.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
-          "scenario_title_required": false
+          "scenario_title_required": true
         }
       ],
-      "scenario_titles": [],
-      "claim_status": "blocked",
+      "scenario_titles": [
+        "FE-U-P4-02 derives exactly one primary save-state label for every Table C input condition",
+        "FE-U-P4-02 keeps failure, overflow, validation, and replay details as same-surface secondary status messages",
+        "FE-U-P4-02 preserves same-field conflict anchors by record_id, field_key, and base_row_version",
+        "FE-U-P4-02 renders derived secondary save-state detail inside the workbook status strip"
+      ],
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify save-state presentation derives one primary label and one same-surface secondary message from pending, saved, failed, and conflict states.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
-      "default_check_required": false,
-      "future_default_check_candidate": true,
-      "default_check_kind": "explicit_only",
-      "default_check_reason_code": "explicit_full_target",
+      "default_check_required": true,
+      "future_default_check_candidate": false,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior.",
+      "default_check_reason_code": "cheapest_authoritative_layer",
       "primary_evidence_owner": "FE-U-P4-02",
       "duplicate_of": "none",
       "evidence_delta": "full evidence is retained outside default check",
       "warm_local_cost_class": "low",
       "phase_id": "FE-P4",
-      "blockers": [
-        {
-          "blocker_id": "FE-U-P4-02-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-I-P4-01",

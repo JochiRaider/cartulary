@@ -6,6 +6,13 @@ export type PendingReplaySource = "autosave" | "paste";
 export type PendingReplayStatus = "queued" | "in_flight";
 export type PendingReplayPayloadIntent = Record<string, unknown>;
 export type PendingReplayPrimarySaveState = "Conflict" | "Saved" | "Syncing";
+export type WorkbookSaveStatePrimaryLabel = PendingReplayPrimarySaveState;
+export type WorkbookSaveStateSecondaryKind =
+  | "auth_paused"
+  | "overflow"
+  | "queued"
+  | "replay_halted"
+  | "same_field_conflict";
 
 export type PendingReplayScope = {
   incidentId: string;
@@ -169,6 +176,32 @@ export type PendingReplaySameFieldConflict = {
   current_row_version: number;
 };
 
+export type WorkbookSaveStateConflictAnchor = {
+  record_id: string;
+  field_key: string;
+  base_row_version: number;
+  current_row_version?: number;
+};
+
+export type WorkbookSaveStateDerivationInput = {
+  queuedCount: number;
+  inFlightCount: number;
+  authPaused?: boolean;
+  refreshPaused?: boolean;
+  pendingMutationCount?: number;
+  halted?: PendingReplayHalt | null;
+  overflow?: PendingReplayOverflow | null;
+  sameFieldConflicts?: readonly PendingReplaySameFieldConflict[];
+  localDraftConflicts?: readonly WorkbookSaveStateConflictAnchor[];
+};
+
+export type WorkbookSaveStatePresentation = {
+  primaryLabel: WorkbookSaveStatePrimaryLabel;
+  secondaryKind: WorkbookSaveStateSecondaryKind | null;
+  secondaryMessage: string | null;
+  conflictAnchors: WorkbookSaveStateConflictAnchor[];
+};
+
 export type PendingReplayHalt = {
   unit_id: string;
   error_code: string;
@@ -194,6 +227,7 @@ export type PendingQueueSnapshot = {
   overflow: PendingReplayOverflow | null;
   sameFieldConflicts: PendingReplaySameFieldConflict[];
   primarySaveStateInput: PendingReplayPrimarySaveState;
+  saveStatePresentation: WorkbookSaveStatePresentation;
 };
 
 export type PendingQueueAdmissionResult =
@@ -706,24 +740,119 @@ function cloneOverflow(value: PendingReplayOverflow): PendingReplayOverflow {
   };
 }
 
-function derivePrimarySaveStateInput(params: {
-  readonly authPaused: boolean;
-  readonly halted: PendingReplayHalt | null;
-  readonly overflow: PendingReplayOverflow | null;
-  readonly sameFieldConflictCount: number;
-  readonly unitCount: number;
-}): PendingReplayPrimarySaveState {
-  if (
-    params.overflow !== null ||
-    params.halted !== null ||
-    params.sameFieldConflictCount > 0
-  ) {
-    return "Conflict";
+function conflictAnchorFromSameFieldConflict(
+  conflict: PendingReplaySameFieldConflict,
+): WorkbookSaveStateConflictAnchor {
+  return {
+    record_id: conflict.record_id,
+    field_key: conflict.field_key,
+    base_row_version: conflict.base_row_version,
+    current_row_version: conflict.current_row_version,
+  };
+}
+
+function cloneSaveStateConflictAnchor(
+  anchor: WorkbookSaveStateConflictAnchor,
+): WorkbookSaveStateConflictAnchor {
+  const output: WorkbookSaveStateConflictAnchor = {
+    record_id: anchor.record_id,
+    field_key: anchor.field_key,
+    base_row_version: anchor.base_row_version,
+  };
+  if (anchor.current_row_version !== undefined) {
+    output.current_row_version = anchor.current_row_version;
   }
-  if (params.unitCount > 0 || params.authPaused) {
-    return "Syncing";
+  return output;
+}
+
+function normalizeSaveStateConflictAnchors(
+  value: readonly WorkbookSaveStateConflictAnchor[] | undefined,
+): WorkbookSaveStateConflictAnchor[] {
+  return (value ?? []).map((anchor) => cloneSaveStateConflictAnchor(anchor));
+}
+
+export function deriveWorkbookSaveState(
+  input: WorkbookSaveStateDerivationInput,
+): WorkbookSaveStatePresentation {
+  const sameFieldConflictAnchors = (input.sameFieldConflicts ?? []).map(
+    (conflict) => conflictAnchorFromSameFieldConflict(conflict),
+  );
+  const conflictAnchors = [
+    ...sameFieldConflictAnchors,
+    ...normalizeSaveStateConflictAnchors(input.localDraftConflicts),
+  ];
+
+  if (conflictAnchors.length > 0) {
+    const [firstConflict] = conflictAnchors;
+    return {
+      primaryLabel: "Conflict",
+      secondaryKind: "same_field_conflict",
+      secondaryMessage:
+        firstConflict === undefined
+          ? "A same-field conflict requires review."
+          : `Conflict on ${firstConflict.record_id}:${firstConflict.field_key}.`,
+      conflictAnchors,
+    };
   }
-  return "Saved";
+
+  if (input.overflow !== null && input.overflow !== undefined) {
+    return {
+      primaryLabel: "Conflict",
+      secondaryKind: "overflow",
+      secondaryMessage: input.overflow.message,
+      conflictAnchors,
+    };
+  }
+
+  if (input.halted !== null && input.halted !== undefined) {
+    return {
+      primaryLabel: "Conflict",
+      secondaryKind: "replay_halted",
+      secondaryMessage: input.halted.message,
+      conflictAnchors,
+    };
+  }
+
+  if (input.authPaused === true) {
+    return {
+      primaryLabel: "Syncing",
+      secondaryKind: "auth_paused",
+      secondaryMessage:
+        "Authentication is required before queued edits can replay.",
+      conflictAnchors,
+    };
+  }
+
+  if (input.refreshPaused === true) {
+    return {
+      primaryLabel: "Syncing",
+      secondaryKind: "queued",
+      secondaryMessage: "Queued edits are waiting for workbook refresh.",
+      conflictAnchors,
+    };
+  }
+
+  const pendingMutationCount = input.pendingMutationCount ?? 0;
+  const activeMutationCount =
+    input.queuedCount + input.inFlightCount + pendingMutationCount;
+  if (activeMutationCount > 0) {
+    return {
+      primaryLabel: "Syncing",
+      secondaryKind: "queued",
+      secondaryMessage:
+        input.queuedCount + input.inFlightCount > 0
+          ? "Queued edits are waiting to replay."
+          : "Workbook edits are syncing.",
+      conflictAnchors,
+    };
+  }
+
+  return {
+    primaryLabel: "Saved",
+    secondaryKind: null,
+    secondaryMessage: null,
+    conflictAnchors,
+  };
 }
 
 function stringDetail(
@@ -896,6 +1025,14 @@ export class WorkbookPendingQueueModel {
     const inFlightCount = this.units.filter(
       (unit) => unit.status === "in_flight",
     ).length;
+    const saveStatePresentation = deriveWorkbookSaveState({
+      authPaused: this.authPaused,
+      halted: this.halted,
+      overflow: this.overflow,
+      sameFieldConflicts: this.sameFieldConflicts,
+      queuedCount,
+      inFlightCount,
+    });
     return {
       scope: { ...this.scope },
       capacity: pendingReplayCapacity,
@@ -908,13 +1045,15 @@ export class WorkbookPendingQueueModel {
       sameFieldConflicts: this.sameFieldConflicts.map((conflict) =>
         cloneConflict(conflict),
       ),
-      primarySaveStateInput: derivePrimarySaveStateInput({
-        authPaused: this.authPaused,
-        halted: this.halted,
-        overflow: this.overflow,
-        sameFieldConflictCount: this.sameFieldConflicts.length,
-        unitCount: this.units.length,
-      }),
+      primarySaveStateInput: saveStatePresentation.primaryLabel,
+      saveStatePresentation: {
+        primaryLabel: saveStatePresentation.primaryLabel,
+        secondaryKind: saveStatePresentation.secondaryKind,
+        secondaryMessage: saveStatePresentation.secondaryMessage,
+        conflictAnchors: saveStatePresentation.conflictAnchors.map((anchor) =>
+          cloneSaveStateConflictAnchor(anchor),
+        ),
+      },
     };
   }
 

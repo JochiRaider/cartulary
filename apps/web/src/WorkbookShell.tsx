@@ -137,8 +137,10 @@ import {
 import { mapWorkbookKeyboardCommand } from "./workbookKeyboard";
 import {
   buildStableMutationSignature,
+  deriveWorkbookSaveState,
   type PendingReplayUnitInput,
   type PendingReplayUnitState,
+  type WorkbookSaveStateConflictAnchor,
   parsePendingReplayPublicError,
   pendingReplayCapacity,
   WorkbookPendingQueueModel,
@@ -438,6 +440,17 @@ type PendingQueueRuntimeSnapshot = {
   overflowMessage: string | null;
   resetRefreshInFlight: boolean;
 };
+
+function saveStateConflictAnchorsFromLocalConflicts(
+  conflicts: Record<string, LocalConflictState>,
+): WorkbookSaveStateConflictAnchor[] {
+  return Object.values(conflicts).map((entry) => ({
+    record_id: entry.conflict.record_id,
+    field_key: entry.conflict.field_key,
+    base_row_version: entry.conflict.base_row_version,
+    current_row_version: entry.conflict.current_row_version,
+  }));
+}
 
 type WorkbookTimingEvent = {
   at: number;
@@ -2661,6 +2674,9 @@ export function TimelineWorkbook({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("Saved");
+  const [saveStateSecondaryMessage, setSaveStateSecondaryMessage] = useState<
+    string | null
+  >(null);
   const [conflictQueue, setConflictQueue] = useState<
     Record<string, LocalConflictState>
   >({});
@@ -2789,32 +2805,41 @@ export function TimelineWorkbook({
     [],
   );
 
-  const computeSaveState = useCallback(
+  const computeSaveStatePresentation = useCallback(
     (
       pending: PendingQueueRuntime,
       conflicts: Record<string, LocalConflictState> = conflictQueueRef.current,
-    ): SaveState => {
+    ) => {
       const snapshot = pending.model.snapshot();
-      if (
-        Object.keys(conflicts).length > 0 ||
-        snapshot.overflow !== null ||
-        snapshot.halted !== null ||
-        snapshot.sameFieldConflicts.length > 0
-      ) {
-        return "Conflict";
-      }
-      if (
-        snapshot.queuedCount + snapshot.inFlightCount > 0 ||
-        snapshot.authPaused ||
-        pending.resetRefreshInFlight ||
-        pendingOpsRef.current > 0
-      ) {
-        return "Syncing";
-      }
-      return "Saved";
+      return deriveWorkbookSaveState({
+        authPaused: snapshot.authPaused,
+        halted: snapshot.halted,
+        overflow: snapshot.overflow,
+        sameFieldConflicts: snapshot.sameFieldConflicts,
+        localDraftConflicts:
+          saveStateConflictAnchorsFromLocalConflicts(conflicts),
+        queuedCount: snapshot.queuedCount,
+        inFlightCount: snapshot.inFlightCount,
+        refreshPaused: pending.resetRefreshInFlight,
+        pendingMutationCount: pendingOpsRef.current,
+      });
     },
     [],
   );
+
+  const publishSaveStatePresentation = useCallback(
+    (
+      pending: PendingQueueRuntime,
+      conflicts: Record<string, LocalConflictState> = conflictQueueRef.current,
+    ) => {
+      const presentation = computeSaveStatePresentation(pending, conflicts);
+      setSaveState(presentation.primaryLabel);
+      setSaveStateSecondaryMessage(presentation.secondaryMessage);
+      return presentation;
+    },
+    [computeSaveStatePresentation],
+  );
+
   const activeSheetRef = useMemo<WorkbookSheetRef>(
     () => sheetRef ?? { kind: "view_schema", id: timelineViewSchemaId },
     [sheetRef],
@@ -2896,8 +2921,8 @@ export function TimelineWorkbook({
       overflowMessage: snapshot.overflow?.message ?? null,
       resetRefreshInFlight: pending.resetRefreshInFlight,
     });
-    setSaveState(computeSaveState(pending));
-  }, [computeSaveState]);
+    publishSaveStatePresentation(pending);
+  }, [publishSaveStatePresentation]);
 
   useEffect(() => {
     const clientInstanceId =
@@ -3877,7 +3902,7 @@ export function TimelineWorkbook({
         }
         return next;
       });
-      setSaveState(computeSaveState(pendingQueueRef.current));
+      publishSaveStatePresentation(pendingQueueRef.current);
       hasLoadedRowsRef.current = true;
       setLoadError(null);
       setRefreshError(null);
@@ -3887,7 +3912,7 @@ export function TimelineWorkbook({
       advanceViewportContinuity,
       acceptCommittedTimelineRows,
       clearViewportContinuity,
-      computeSaveState,
+      publishSaveStatePresentation,
       freshTimelineRowsForQueryResult,
       nextDraftIndex,
       queryBody,
@@ -4069,19 +4094,20 @@ export function TimelineWorkbook({
 
   const beginSave = useCallback(() => {
     pendingOpsRef.current += 1;
-    setSaveState(computeSaveState(pendingQueueRef.current));
-  }, [computeSaveState]);
+    publishSaveStatePresentation(pendingQueueRef.current);
+  }, [publishSaveStatePresentation]);
 
   const finishSave = useCallback(
     (nextState: SaveState) => {
       pendingOpsRef.current = Math.max(0, pendingOpsRef.current - 1);
       if (nextState === "Conflict") {
         setSaveState("Conflict");
+        setSaveStateSecondaryMessage("Conflict requires review.");
         return;
       }
-      setSaveState(computeSaveState(pendingQueueRef.current));
+      publishSaveStatePresentation(pendingQueueRef.current);
     },
-    [computeSaveState],
+    [publishSaveStatePresentation],
   );
 
   const restoreConflictFocus = useCallback(
@@ -4095,9 +4121,9 @@ export function TimelineWorkbook({
 
   const updateSaveStateForConflicts = useCallback(
     (nextQueue: Record<string, LocalConflictState>) => {
-      setSaveState(computeSaveState(pendingQueueRef.current, nextQueue));
+      publishSaveStatePresentation(pendingQueueRef.current, nextQueue);
     },
-    [computeSaveState],
+    [publishSaveStatePresentation],
   );
 
   const registerSameFieldConflict = useCallback(
@@ -7227,6 +7253,7 @@ export function TimelineWorkbook({
             : conflict.mergedDraft;
       }
       setSaveState("Syncing");
+      setSaveStateSecondaryMessage("Workbook edits are syncing.");
       saveQueueRef.current = saveQueueRef.current
         .catch(() => undefined)
         .then(async () => {
@@ -7249,9 +7276,11 @@ export function TimelineWorkbook({
                 "grid",
               );
               setSaveState("Conflict");
+              setSaveStateSecondaryMessage("Conflict requires review.");
               return;
             }
             setSaveState("Conflict");
+            setSaveStateSecondaryMessage("Conflict requires review.");
             return;
           }
           const envelope = readEnvelope<TimelineMutationEnvelope>(
@@ -8033,6 +8062,11 @@ export function TimelineWorkbook({
             {saveState}
           </strong>
         </span>
+        {saveStateSecondaryMessage !== null ? (
+          <span style={statusStripSecondaryItemStyle}>
+            {saveStateSecondaryMessage}
+          </span>
+        ) : null}
         <span style={statusStripItemStyle}>
           Queue{" "}
           <span data-testid={statusStripQueueCountTestId()}>
@@ -12420,6 +12454,14 @@ const statusStripItemStyle = {
 const statusStripMutedItemStyle = {
   ...statusStripItemStyle,
   color: "var(--ct-colors-ink-subtle)",
+};
+
+const statusStripSecondaryItemStyle = {
+  ...statusStripMutedItemStyle,
+  minWidth: 0,
+  maxWidth: "min(34rem, 42vw)",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 
 const statusStripSpacerStyle = {
