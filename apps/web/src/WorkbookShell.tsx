@@ -136,6 +136,14 @@ import {
 } from "./workbookContinuity";
 import { mapWorkbookKeyboardCommand } from "./workbookKeyboard";
 import {
+  buildStableMutationSignature,
+  mergePendingReplayPayload,
+  type PendingReplayKind,
+  type PendingReplayPayloadIntent,
+  type PendingReplayStatus,
+  pendingReplayCapacity,
+} from "./workbookPendingQueue";
+import {
   applyFilterDraft,
   buildQueryRequest,
   defaultFilterDraft,
@@ -183,6 +191,8 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./workbookSurfaceRegistry";
+
+export { pendingReplayCapacity };
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const hostsContract = requireViewContract(hostsViewSchemaId);
@@ -399,10 +409,6 @@ type PasteConflictGroupState = {
   keys: string[];
 };
 
-type PendingReplayKind = "create" | "patch";
-type PendingReplayStatus = "queued" | "in_flight";
-type PendingReplayPayloadIntent = Record<string, unknown>;
-
 type PendingReplayUnit = {
   id: string;
   kind: PendingReplayKind;
@@ -461,7 +467,6 @@ declare global {
   }
 }
 
-export const pendingReplayCapacity = 64;
 const maxTimelineFreshnessRetryDepth = 2;
 
 type TimelineActionEnvelope = {
@@ -1979,20 +1984,6 @@ function buildAttachedEvidencePatchPayload(
       },
     ],
   };
-}
-
-// Dedup queued autosaves by the logical mutation payload, not per-request metadata.
-function buildStableMutationSignature(payload: unknown): string {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return JSON.stringify(payload);
-  }
-
-  const {
-    client_txn_id: _clientTxnID,
-    base_row_version: _baseRowVersion,
-    ...stablePayload
-  } = payload as Record<string, unknown>;
-  return JSON.stringify(stablePayload);
 }
 
 function materializePendingReplayPayload(
@@ -4255,96 +4246,6 @@ export function TimelineWorkbook({
     [],
   );
 
-  const mergeCollectionActionPayload = useCallback(
-    (existing: unknown, next: unknown) => {
-      if (
-        existing &&
-        typeof existing === "object" &&
-        !Array.isArray(existing) &&
-        next &&
-        typeof next === "object" &&
-        !Array.isArray(next) &&
-        "kind" in existing &&
-        "kind" in next &&
-        existing.kind === "collection_actions_v1" &&
-        next.kind === "collection_actions_v1" &&
-        "actions" in existing &&
-        "actions" in next &&
-        Array.isArray(existing.actions) &&
-        Array.isArray(next.actions)
-      ) {
-        return {
-          kind: "collection_actions_v1",
-          actions: [...existing.actions, ...next.actions],
-        };
-      }
-      return next;
-    },
-    [],
-  );
-
-  const mergePendingPayload = useCallback(
-    (
-      existing: Record<string, unknown>,
-      next: Record<string, unknown>,
-      kind: PendingReplayKind,
-    ) => {
-      if (kind === "create") {
-        const merged = { ...existing };
-        for (const [key, value] of Object.entries(next)) {
-          if (key === "client_txn_id") {
-            continue;
-          }
-          merged[key] = mergeCollectionActionPayload(merged[key], value);
-        }
-        return merged;
-      }
-
-      const existingChanges = Array.isArray(existing.changes)
-        ? (existing.changes as Array<Record<string, unknown>>)
-        : [];
-      const nextChanges = Array.isArray(next.changes)
-        ? (next.changes as Array<Record<string, unknown>>)
-        : [];
-      const mergedByField = new Map<string, Record<string, unknown>>();
-      for (const change of existingChanges) {
-        const fieldKey = change.field_key;
-        if (typeof fieldKey === "string") {
-          mergedByField.set(fieldKey, { ...change });
-        }
-      }
-      for (const change of nextChanges) {
-        const fieldKey = change.field_key;
-        if (typeof fieldKey !== "string") {
-          continue;
-        }
-        const existingChange = mergedByField.get(fieldKey);
-        if (
-          existingChange &&
-          "action_payload" in existingChange &&
-          "action_payload" in change
-        ) {
-          mergedByField.set(fieldKey, {
-            ...existingChange,
-            action_payload: mergeCollectionActionPayload(
-              existingChange.action_payload,
-              change.action_payload,
-            ),
-          });
-          continue;
-        }
-        mergedByField.set(fieldKey, { ...change });
-      }
-      return {
-        ...existing,
-        changes: Array.from(mergedByField.values()).sort((left, right) =>
-          String(left.field_key).localeCompare(String(right.field_key)),
-        ),
-      };
-    },
-    [mergeCollectionActionPayload],
-  );
-
   const schedulePendingReplay = useCallback(() => {
     const pending = pendingQueueRef.current;
     if (pending.replayScheduled) {
@@ -4450,7 +4351,7 @@ export function TimelineWorkbook({
         (unit.kind === "create" ||
           (unit.recordId !== null && lastUnit.recordId === unit.recordId));
       if (canCoalesce) {
-        lastUnit.payloadIntent = mergePendingPayload(
+        lastUnit.payloadIntent = mergePendingReplayPayload(
           lastUnit.payloadIntent,
           unit.payloadIntent,
           unit.kind,
@@ -4494,7 +4395,6 @@ export function TimelineWorkbook({
     [
       clearPendingSignatureForUnit,
       clearViewportContinuity,
-      mergePendingPayload,
       publishPendingQueueState,
       requestPendingReplay,
     ],

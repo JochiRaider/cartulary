@@ -76,38 +76,38 @@
           "target_name": "frontend-unit",
           "command_id": "cartulary.harness.command.frontend_unit.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
-          "scenario_title_required": false
+          "scenario_title_required": true
         }
       ],
-      "scenario_titles": [],
-      "claim_status": "blocked",
+      "scenario_titles": [
+        "FE-U-P4-01 admits row-create, row-patch, and paste-derived replay units with route-scoped mutation identity",
+        "FE-U-P4-01 preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction",
+        "FE-U-P4-01 coalesces only same-draft creates and contiguous same-record patches",
+        "FE-U-P4-01 preserves same-runtime retryable failures and does not survive a new page instance",
+        "FE-U-P4-01 halts non-retryable public failures with Table G anchors and queued units behind the blocker",
+        "FE-U-P4-01 applies successful replay without retargeting by visible row order or labels"
+      ],
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify sync-engine pending queue orders creates, patches, paste batches, retries, success, validation failures, and replay by stable mutation identifiers.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
-      "default_check_required": false,
-      "future_default_check_candidate": true,
-      "default_check_kind": "explicit_only",
-      "default_check_reason_code": "explicit_full_target",
+      "default_check_required": true,
+      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
       "primary_evidence_owner": "FE-U-P4-01",
       "duplicate_of": "none",
-      "evidence_delta": "full evidence is retained outside default check",
+      "evidence_delta": "primary local evidence for the declared row",
       "warm_local_cost_class": "low",
       "phase_id": "FE-P4",
-      "blockers": [
-        {
-          "blocker_id": "FE-U-P4-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-U-P4-02",
