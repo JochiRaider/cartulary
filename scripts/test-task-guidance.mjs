@@ -536,6 +536,42 @@ function scenarioExplainTargetArtifacts(fixture) {
   assertContains(cleanOutput, "inputs: CARTULARY_CLEANUP_DRY_RUN", "clean explain-target input contract");
   assertContains(cleanOutput, "dry_run: CARTULARY_CLEANUP_DRY_RUN=1 make clean", "clean explain-target dry-run usage");
 
+  const servicesDownOutput = nodeScript(explainTarget, ["--target", "services-down"]);
+  assertContains(
+    servicesDownOutput,
+    "inputs: CARTULARY_CLEANUP_DRY_RUN",
+    "services-down explain-target input contract",
+  );
+  assertContains(
+    servicesDownOutput,
+    "dry_run: CARTULARY_CLEANUP_DRY_RUN=1 make services-down",
+    "services-down explain-target dry-run usage",
+  );
+
+  const dbResetOutput = nodeScript(explainTarget, ["--target", "db-reset"]);
+  assertContains(
+    dbResetOutput,
+    "inputs: CARTULARY_CLEANUP_DRY_RUN,CARTULARY_DESTRUCTIVE_CONFIRM",
+    "db-reset explain-target destructive input contract",
+  );
+  assertContains(
+    dbResetOutput,
+    "dry_run: CARTULARY_CLEANUP_DRY_RUN=1 make db-reset",
+    "db-reset explain-target dry-run usage",
+  );
+
+  const objectStoreResetOutput = nodeScript(explainTarget, ["--target", "object-store-reset"]);
+  assertContains(
+    objectStoreResetOutput,
+    "inputs: CARTULARY_CLEANUP_DRY_RUN,CARTULARY_DESTRUCTIVE_CONFIRM",
+    "object-store-reset explain-target destructive input contract",
+  );
+  assertContains(
+    objectStoreResetOutput,
+    "dry_run: CARTULARY_CLEANUP_DRY_RUN=1 make object-store-reset",
+    "object-store-reset explain-target dry-run usage",
+  );
+
   const serviceBackedOutput = nodeScript(explainTarget, ["--target", "test-service-backed"]);
   assertContains(
     serviceBackedOutput,

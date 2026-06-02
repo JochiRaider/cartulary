@@ -101,7 +101,7 @@ function renderInputLines(guidance) {
   const inputs = guidance.input_contract?.inputs ?? [];
   const names = inputs.map((input) => input.name);
   const lines = [`inputs: ${names.join(",") || "none"}`];
-  if (["clean", "distclean"].includes(guidance.target)) {
+  if (names.includes("CARTULARY_CLEANUP_DRY_RUN")) {
     lines.push(`dry_run: CARTULARY_CLEANUP_DRY_RUN=1 make ${guidance.target}`);
   }
   return lines;

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
@@ -168,6 +169,26 @@ test("fast harness smoke is role-complete and intentionally small", () => {
       "check_scheduler_semantic",
       "service_backed_scheduler_semantic",
     ],
+  );
+});
+
+test("dev service lifecycle guards are mutation-safe", () => {
+  const result = spawnSync("bash", ["./scripts/test-dev-services-lifecycle.sh"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: { ...process.env },
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  assert.equal(
+    result.status,
+    0,
+    [
+      "scripts/test-dev-services-lifecycle.sh failed",
+      "--- stdout ---",
+      result.stdout,
+      "--- stderr ---",
+      result.stderr,
+    ].join("\n"),
   );
 });
 
@@ -604,6 +625,29 @@ test("per-target input contract rejects misplaced Make variables and ignores amb
     preflightPublicTarget("target-plan", {
       TASK_SURFACE_MANIFEST: "/tmp/override.json",
       CARTULARY_MAKE_ORIGIN_TASK_SURFACE_MANIFEST: "environment",
+    }),
+  );
+  assert.throws(
+    () =>
+      preflightPublicTarget("db-reset", {
+        CARTULARY_DESTRUCTIVE_CONFIRM: "object-store-reset",
+        CARTULARY_MAKE_ORIGIN_CARTULARY_DESTRUCTIVE_CONFIRM: "command line",
+      }),
+    (error) =>
+      error instanceof HarnessConfigError &&
+      error.failure_reason === "usage_error" &&
+      /CARTULARY_DESTRUCTIVE_CONFIRM must be one of db-reset/.test(error.message),
+  );
+  assert.doesNotThrow(() =>
+    preflightPublicTarget("db-reset", {
+      CARTULARY_DESTRUCTIVE_CONFIRM: "db-reset",
+      CARTULARY_MAKE_ORIGIN_CARTULARY_DESTRUCTIVE_CONFIRM: "command line",
+    }),
+  );
+  assert.doesNotThrow(() =>
+    preflightPublicTarget("db-reset", {
+      CARTULARY_DESTRUCTIVE_CONFIRM: "db-reset",
+      CARTULARY_MAKE_ORIGIN_CARTULARY_DESTRUCTIVE_CONFIRM: "environment",
     }),
   );
 });

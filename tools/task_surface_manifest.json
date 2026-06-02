@@ -24,7 +24,8 @@
       },
       {
         "target": "db-reset",
-        "description": "recreate the local database only; does not reset object storage"
+        "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
+        "description": "preview or recreate the local database only; does not reset object storage; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=db-reset"
       },
       {
         "target": "dev",
@@ -94,15 +95,31 @@
         },
         {
           "target": "db-reset",
-          "description": "recreate the local database only; does not reset object storage"
+          "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
+          "description": "preview or recreate the local database only; does not reset object storage; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=db-reset"
         },
         {
           "target": "services-up",
           "description": "start local Postgres and MinIO, then wait until ready"
         },
         {
+          "target": "services-down",
+          "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
+          "description": "preview or stop local Postgres and MinIO while preserving named volumes"
+        },
+        {
+          "target": "db-down",
+          "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
+          "description": "deprecated alias for services-down"
+        },
+        {
           "target": "minio-init",
           "description": "create the default local MinIO bucket if needed"
+        },
+        {
+          "target": "object-store-reset",
+          "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
+          "description": "preview or clear objects from the default local object-store bucket; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset"
         },
         {
           "target": "dev",
@@ -832,7 +849,8 @@
         "GO": "$(GO)",
         "CONFIG_FILE": "$(CONFIG_FILE)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
-        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)"
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "CARTULARY_DESTRUCTIVE_CONFIRM": "$(if $(findstring command line,$(origin CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)"
       },
       "command": [
         "bash",
@@ -848,6 +866,26 @@
         "bash",
         "./scripts/dev-services.sh",
         "up"
+      ]
+    },
+    "services-down": {
+      "prerequisites": [],
+      "type": "phase_command",
+      "mode": "command",
+      "command": [
+        "bash",
+        "./scripts/dev-services.sh",
+        "services-down"
+      ]
+    },
+    "db-down": {
+      "prerequisites": [],
+      "type": "phase_command",
+      "mode": "command",
+      "command": [
+        "bash",
+        "./scripts/dev-services.sh",
+        "db-down"
       ]
     },
     "services-wait": {
@@ -890,6 +928,20 @@
         "bash",
         "./scripts/dev-services.sh",
         "init-minio"
+      ]
+    },
+    "object-store-reset": {
+      "prerequisites": [],
+      "type": "phase_command",
+      "mode": "command",
+      "env": {
+        "MINIO_BUCKET": "$(MINIO_BUCKET)",
+        "CARTULARY_DESTRUCTIVE_CONFIRM": "$(if $(findstring command line,$(origin CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)"
+      },
+      "command": [
+        "bash",
+        "./scripts/dev-services.sh",
+        "object-store-reset"
       ]
     },
     "dev": {
@@ -2640,6 +2692,10 @@
           "owner_section": "Section 13"
         },
         {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
           "behavior": "failure_normalization",
           "owner_section": "Section 9"
         }
@@ -2657,6 +2713,12 @@
           "artifact_policy": "tool_run_summary"
         },
         {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
           "class": "destructive_cleanup",
           "owner_section": "Section 13",
           "predicates_section": "Section 13"
@@ -2665,7 +2727,43 @@
       "input_contract": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
-        "inputs": []
+        "inputs": [
+          {
+            "name": "CARTULARY_CLEANUP_DRY_RUN",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "exact_1_bool",
+            "default": false,
+            "empty_string": "false",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_DESTRUCTIVE_CONFIRM",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "db-reset"
+            ],
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "none"
+          }
+        ]
       }
     },
     {
@@ -2730,6 +2828,175 @@
         "undeclared_inherited_env": "ignore",
         "inputs": []
       }
+    },
+    {
+      "name": "services-down",
+      "backing_scripts": [
+        "scripts/dev-services.sh"
+      ],
+      "output_policy": {
+        "output_class": "service_summary",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 4,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v3"
+      },
+      "command_id": "cartulary.harness.command.services_down.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        },
+        {
+          "behavior": "destructive_safety",
+          "owner_section": "Section 13"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "destructive_cleanup",
+          "owner_section": "Section 13",
+          "predicates_section": "Section 13"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_CLEANUP_DRY_RUN",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "exact_1_bool",
+            "default": false,
+            "empty_string": "false",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
+    },
+    {
+      "name": "db-down",
+      "backing_scripts": [
+        "scripts/dev-services.sh"
+      ],
+      "output_policy": {
+        "output_class": "service_summary",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 4,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v3"
+      },
+      "command_id": "cartulary.harness.command.db_down.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        },
+        {
+          "behavior": "destructive_safety",
+          "owner_section": "Section 13"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_deprecated",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "destructive_cleanup",
+          "owner_section": "Section 13",
+          "predicates_section": "Section 13"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_CLEANUP_DRY_RUN",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "exact_1_bool",
+            "default": false,
+            "empty_string": "false",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      },
+      "notes": "Deprecated alias for services-down."
     },
     {
       "name": "services-wait",
@@ -2822,6 +3089,110 @@
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
         "inputs": []
+      }
+    },
+    {
+      "name": "object-store-reset",
+      "backing_scripts": [
+        "scripts/dev-services.sh"
+      ],
+      "output_policy": {
+        "output_class": "service_summary",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 4,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v3"
+      },
+      "command_id": "cartulary.harness.command.object_store_reset.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "destructive_safety",
+          "owner_section": "Section 13"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "destructive_cleanup",
+          "owner_section": "Section 13",
+          "predicates_section": "Section 13"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_CLEANUP_DRY_RUN",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "exact_1_bool",
+            "default": false,
+            "empty_string": "false",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_DESTRUCTIVE_CONFIRM",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "object-store-reset"
+            ],
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "none"
+          }
+        ]
       }
     },
     {
@@ -6640,7 +7011,8 @@
     {
       "name": "harness-contract-tests",
       "backing_scripts": [
-        "scripts/test-harness-contracts.mjs"
+        "scripts/test-harness-contracts.mjs",
+        "scripts/test-dev-services-lifecycle.sh"
       ],
       "target_class": "check_internal",
       "default_inclusion_sets": [],
@@ -6649,7 +7021,8 @@
     {
       "name": "harness-contract",
       "backing_scripts": [
-        "scripts/test-harness-contracts.mjs"
+        "scripts/test-harness-contracts.mjs",
+        "scripts/test-dev-services-lifecycle.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",

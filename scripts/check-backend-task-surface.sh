@@ -716,7 +716,7 @@ if ! grep -Fq 'scripts/list-build-inputs.sh' "$makefile"; then
   fail "Makefile must use scripts/list-build-inputs.sh for build input discovery"
 fi
 
-for target in services-up services-wait postgres-wait minio-wait minio-init; do
+for target in services-up services-down db-down services-wait postgres-wait minio-wait minio-init object-store-reset; do
   if ! target_exists "$target"; then
     fail "Makefile must define $target"
   fi
@@ -740,6 +740,20 @@ fi
 if ! text_contains "$dev_services_body" 'wait_postgres' || ! text_contains "$dev_services_body" 'wait_minio'; then
   fail "services-up must wait for service readiness"
 fi
+services_down_block="$(extract_target_block services-down)"
+if ! text_contains "$services_down_block" './scripts/dev-services.sh services-down'; then
+  fail "services-down must delegate to scripts/dev-services.sh"
+fi
+db_down_block="$(extract_target_block db-down)"
+if ! text_contains "$db_down_block" './scripts/dev-services.sh db-down'; then
+  fail "db-down must delegate to scripts/dev-services.sh"
+fi
+if ! text_contains "$dev_services_body" 'compose down --remove-orphans'; then
+  fail "services-down must stop local compose services and remove orphans"
+fi
+if text_contains "$dev_services_body" '--volumes'; then
+  fail "services-down must preserve named volumes"
+fi
 
 db_up_block="$(extract_target_block db-up)"
 if ! text_contains "$db_up_block" './scripts/dev-services.sh db-up'; then
@@ -756,6 +770,15 @@ db_reset_block="$(extract_target_block db-reset)"
 if ! text_contains "$db_reset_block" './scripts/dev-services.sh db-reset'; then
   fail "db-reset must delegate to scripts/dev-services.sh"
 fi
+if ! text_contains "$db_reset_block" 'CARTULARY_DESTRUCTIVE_CONFIRM="$(if $(findstring command line,$(origin CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)"'; then
+  fail "db-reset must forward destructive confirmation only from the Make command line"
+fi
+if ! text_contains "$dev_services_body" 'require_destructive_confirm "db-reset"'; then
+  fail "db-reset must require explicit destructive confirmation"
+fi
+if ! text_contains "$dev_services_body" 'DRY-RUN'; then
+  fail "dev-services destructive commands must support normalized dry-run output"
+fi
 if ! text_contains "$dev_services_body" 'wait_postgres'; then
   fail "db-reset must wait for postgres before resetting the database"
 fi
@@ -771,12 +794,47 @@ if ! text_contains "$minio_init_block" 'init-minio'; then
   fail "minio-init must delegate bucket creation to dev-services.sh"
 fi
 
+object_store_reset_block="$(extract_target_block object-store-reset)"
+if ! text_contains "$object_store_reset_block" 'MINIO_BUCKET="$(MINIO_BUCKET)"'; then
+  fail "object-store-reset must pass the configured MINIO_BUCKET"
+fi
+if ! text_contains "$object_store_reset_block" 'CARTULARY_DESTRUCTIVE_CONFIRM="$(if $(findstring command line,$(origin CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)"'; then
+  fail "object-store-reset must forward destructive confirmation only from the Make command line"
+fi
+if ! text_contains "$object_store_reset_block" './scripts/dev-services.sh object-store-reset'; then
+  fail "object-store-reset must delegate to dev-services.sh"
+fi
+if ! text_contains "$dev_services_body" 'require_destructive_confirm "object-store-reset"'; then
+  fail "object-store-reset must require explicit destructive confirmation"
+fi
+if ! text_contains "$dev_services_body" 'mc rm --recursive --force "local/${MINIO_BUCKET}"'; then
+  fail "object-store-reset must delete only objects in the configured bucket"
+fi
+
 help_text="$(cat "$generated_make")"
 if ! text_contains "$help_text" 'make services-up'; then
   fail "help must document services-up"
 fi
+if ! text_contains "$help_text" 'make services-down'; then
+  fail "help must document services-down"
+fi
+if ! text_contains "$help_text" 'make db-down'; then
+  fail "help must document deprecated db-down"
+fi
+if ! text_contains "$help_text" 'make object-store-reset'; then
+  fail "help must document object-store-reset"
+fi
 if ! text_contains "$help_text" 'does not reset object storage'; then
   fail "help must document db-reset object-storage scope"
+fi
+if ! text_contains "$help_text" 'CARTULARY_DESTRUCTIVE_CONFIRM=db-reset'; then
+  fail "help must document db-reset destructive confirmation"
+fi
+if ! text_contains "$help_text" 'CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset'; then
+  fail "help must document object-store-reset destructive confirmation"
+fi
+if text_contains "$help_text" 'make minio-reset'; then
+  fail "help must not publish a minio-reset compatibility alias"
 fi
 
 if ! rg -q '^backend-store:' "$generated_make" "$makefile"; then
