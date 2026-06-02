@@ -243,6 +243,7 @@ export function timelineRow({
       "timeline.identity_refs": { value: collectionValue(true, identityRefs) },
       "timeline.evidence_count": { value: evidenceCount },
       "timeline.tags": { value: collectionValue(false, tags.map(tagItem)) },
+      "timeline.attached_evidence_ids": { value: collectionValue(false, []) },
       "timeline.edited_at": { value: editedAt },
       "timeline.recorded_at": { value: "" },
       "timeline.sort_ts": { value: occurredAt },

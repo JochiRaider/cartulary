@@ -54,6 +54,26 @@ export type ViewContract = {
   readonly technicalFields: readonly string[];
 };
 
+export type ViewRowCellV1 = {
+  readonly value: unknown;
+};
+
+export type ViewRowV1 = {
+  readonly record_id: string;
+  readonly row_version: number;
+  readonly cells: Readonly<Record<string, ViewRowCellV1>>;
+  readonly group_values?: Readonly<Record<string, unknown>> | undefined;
+  readonly view_schema_id?: string | undefined;
+};
+
+export type NormalizedViewRowV1 = {
+  readonly recordId: string;
+  readonly rowVersion: number;
+  readonly viewSchemaId: string;
+  readonly cells: Readonly<Record<string, ViewRowCellV1>>;
+  readonly groupValues?: Readonly<Record<string, unknown>> | undefined;
+};
+
 type RawField = {
   readonly clearable?: boolean;
   readonly conflict_resolution_class?: string | null;
@@ -108,6 +128,10 @@ type RawViewContract = {
 // view-schema adapter inputs that could otherwise drift away from field_key.
 function viewContractInvariant(source: string, detail: string): never {
   throw new Error(`View contract invariant failed: ${source} ${detail}`);
+}
+
+function viewRowInvariant(source: string, detail: string): never {
+  throw new Error(`View row invariant failed: ${source} ${detail}`);
 }
 
 function requireStableKey(
@@ -235,6 +259,160 @@ function truthMap(values: readonly string[]): Readonly<Record<string, true>> {
       true
     >,
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasOwn(object: Record<string, unknown>, key: string): boolean {
+  return Object.hasOwn(object, key);
+}
+
+function requireRowObject(value: unknown, source: string, label: string) {
+  if (!isRecord(value)) {
+    viewRowInvariant(source, `${label} must be an object`);
+  }
+  return value;
+}
+
+function requireRowRecordId(value: unknown, source: string): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    viewRowInvariant(source, "record_id must be a non-empty string");
+  }
+  return value;
+}
+
+function requireRowVersion(value: unknown, source: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    viewRowInvariant(source, "row_version must be a non-negative safe integer");
+  }
+  return value;
+}
+
+function declaredDataFieldKeys(contract: ViewContract): ReadonlySet<string> {
+  return new Set(contract.fields.map((field) => field.fieldKey));
+}
+
+function technicalFieldKeys(contract: ViewContract): ReadonlySet<string> {
+  return new Set(contract.technicalFields);
+}
+
+function sanitizeViewRowCell(
+  value: unknown,
+  source: string,
+  fieldKey: string,
+): ViewRowCellV1 {
+  const cell = requireRowObject(value, source, `cells.${fieldKey}`);
+  if (!hasOwn(cell, "value")) {
+    viewRowInvariant(source, `cell ${fieldKey} missing value`);
+  }
+  return Object.freeze({ value: cell.value });
+}
+
+function sanitizeGroupValues(
+  value: unknown,
+  source: string,
+): Readonly<Record<string, unknown>> | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return Object.freeze({
+    ...requireRowObject(value, source, "group_values"),
+  });
+}
+
+function validateOptionalRowViewSchemaId(
+  raw: Record<string, unknown>,
+  contract: ViewContract,
+  source: string,
+) {
+  const value = raw.view_schema_id;
+  if (value === undefined) {
+    return;
+  }
+  if (value !== contract.viewSchemaId) {
+    viewRowInvariant(source, `view_schema_id must be ${contract.viewSchemaId}`);
+  }
+}
+
+function normalizeViewRowCells({
+  allowSparse,
+  contract,
+  rawCells,
+  source,
+}: {
+  readonly allowSparse: boolean;
+  readonly contract: ViewContract;
+  readonly rawCells: unknown;
+  readonly source: string;
+}): Readonly<Record<string, ViewRowCellV1>> {
+  const cells = requireRowObject(rawCells, source, "cells");
+  const dataFields = declaredDataFieldKeys(contract);
+  const technicalFields = technicalFieldKeys(contract);
+  const normalized: Record<string, ViewRowCellV1> = {};
+
+  for (const [fieldKey, cell] of Object.entries(cells)) {
+    if (technicalFields.has(fieldKey)) {
+      viewRowInvariant(source, `technical cell ${fieldKey} is not allowed`);
+    }
+    if (!dataFields.has(fieldKey)) {
+      viewRowInvariant(source, `unknown cell ${fieldKey}`);
+    }
+    normalized[fieldKey] = sanitizeViewRowCell(cell, source, fieldKey);
+  }
+
+  if (!allowSparse) {
+    for (const field of contract.fields) {
+      if (!hasOwn(cells, field.fieldKey)) {
+        viewRowInvariant(source, `missing cell ${field.fieldKey}`);
+      }
+    }
+  }
+
+  return Object.freeze(normalized);
+}
+
+export function normalizeViewRowV1(
+  contract: ViewContract,
+  row: unknown,
+  source = contract.viewSchemaId,
+): NormalizedViewRowV1 {
+  const raw = requireRowObject(row, source, "view_row_v1");
+  validateOptionalRowViewSchemaId(raw, contract, source);
+  return Object.freeze({
+    recordId: requireRowRecordId(raw.record_id, source),
+    rowVersion: requireRowVersion(raw.row_version, source),
+    viewSchemaId: contract.viewSchemaId,
+    cells: normalizeViewRowCells({
+      allowSparse: false,
+      contract,
+      rawCells: raw.cells,
+      source,
+    }),
+    groupValues: sanitizeGroupValues(raw.group_values, source),
+  });
+}
+
+export function normalizeViewRowPatchV1(
+  contract: ViewContract,
+  row: unknown,
+  source = contract.viewSchemaId,
+): NormalizedViewRowV1 {
+  const raw = requireRowObject(row, source, "view_row_patch_v1");
+  validateOptionalRowViewSchemaId(raw, contract, source);
+  return Object.freeze({
+    recordId: requireRowRecordId(raw.record_id, source),
+    rowVersion: requireRowVersion(raw.row_version, source),
+    viewSchemaId: contract.viewSchemaId,
+    cells: normalizeViewRowCells({
+      allowSparse: true,
+      contract,
+      rawCells: raw.cells,
+      source,
+    }),
+    groupValues: sanitizeGroupValues(raw.group_values, source),
+  });
 }
 
 export function parseViewContractJSON(

@@ -102,6 +102,8 @@ import {
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import {
+  normalizeViewRowPatchV1,
+  normalizeViewRowV1,
   requireViewContract,
   resolveHeaderSortFieldKey,
   type ViewContract,
@@ -140,10 +142,10 @@ import {
   deriveWorkbookSaveState,
   type PendingReplayUnitInput,
   type PendingReplayUnitState,
-  type WorkbookSaveStateConflictAnchor,
   parsePendingReplayPublicError,
   pendingReplayCapacity,
   WorkbookPendingQueueModel,
+  type WorkbookSaveStateConflictAnchor,
 } from "./workbookPendingQueue";
 import {
   applyFilterDraft,
@@ -268,6 +270,7 @@ type WorkbookRow = {
   key: string;
   recordId: string | null;
   rowVersion: number | null;
+  viewSchemaId: string | null;
   captureState: string;
   values: RowValues;
   committedValues: RowValues;
@@ -345,7 +348,7 @@ type WorkbookQueryEnvelope = {
   data: {
     incident_id: string;
     view_schema_id: string;
-    rows: TimelineApiRow[];
+    rows: unknown[];
   };
 };
 
@@ -371,7 +374,7 @@ type TimelineMutationEnvelope = {
   data: {
     view_schema_id: string;
     change_set_id?: string;
-    row: TimelineApiRow;
+    row: unknown;
   };
 };
 
@@ -379,7 +382,7 @@ type TimelineClipboardPasteEnvelope = {
   data: {
     view_schema_id: string;
     change_set_id?: string;
-    rows: TimelineApiRow[];
+    rows: unknown[];
     conflicts?: SameFieldConflictPayload[];
   };
 };
@@ -761,14 +764,18 @@ type EvidencePreviewState = {
   previewKind: string | null;
 };
 
-type TimelineApiRow = {
+type ViewApiRow = {
   record_id: string;
   row_version: number;
   cells: Record<string, { value: unknown }>;
   group_values?: Record<string, unknown>;
 };
 
-type EntityApiRow = TimelineApiRow;
+type TimelineApiRow = ViewApiRow & {
+  view_schema_id: string;
+};
+
+type EntityApiRow = ViewApiRow;
 
 type WorkbookStartupEnvelope = {
   data?: unknown;
@@ -1265,6 +1272,7 @@ export function createDraftRow(index: number): WorkbookRow {
     key: `draft-${index}`,
     recordId: null,
     rowVersion: null,
+    viewSchemaId: timelineViewSchemaId,
     captureState: "rough",
     values: emptyValues(),
     committedValues: emptyValues(),
@@ -1457,6 +1465,60 @@ function entityCellContent(
   return genericCellLabel(row.rawRow.cells[fieldKey]?.value);
 }
 
+function validateTimelineViewSchemaId(value: unknown, source: string) {
+  if (value !== timelineViewSchemaId) {
+    throw new Error(
+      `Timeline view row envelope failed: ${source} view_schema_id must be ${timelineViewSchemaId}.`,
+    );
+  }
+}
+
+function materializeTimelineCells(
+  cells: Readonly<Record<string, { readonly value: unknown }>>,
+): Record<string, { value: unknown }> {
+  return Object.fromEntries(
+    Object.entries(cells).map(([fieldKey, cell]) => [
+      fieldKey,
+      { value: cell.value },
+    ]),
+  );
+}
+
+function normalizeTimelineFullRow(
+  row: unknown,
+  source: string,
+): TimelineApiRow {
+  const normalized = normalizeViewRowV1(timelineContract, row, source);
+  return {
+    view_schema_id: normalized.viewSchemaId,
+    record_id: normalized.recordId,
+    row_version: normalized.rowVersion,
+    cells: materializeTimelineCells(normalized.cells),
+    ...(normalized.groupValues === undefined
+      ? {}
+      : { group_values: { ...normalized.groupValues } }),
+  };
+}
+
+type TimelinePatchCells = NonNullable<
+  RecordChangedPayload["affected_views"][number]["patch_cells"]
+>;
+
+function normalizeTimelinePatchCells(
+  patch: unknown,
+  source: string,
+): TimelinePatchCells {
+  const normalized = normalizeViewRowPatchV1(timelineContract, patch, source);
+  return {
+    record_id: normalized.recordId,
+    row_version: normalized.rowVersion,
+    cells: materializeTimelineCells(normalized.cells),
+    ...(normalized.groupValues === undefined
+      ? {}
+      : { group_values: { ...normalized.groupValues } }),
+  };
+}
+
 function rowFromApi(row: TimelineApiRow): WorkbookRow {
   const values: RowValues = {
     occurredAt: readStringCell(row, "timeline.occurred_at"),
@@ -1469,6 +1531,7 @@ function rowFromApi(row: TimelineApiRow): WorkbookRow {
     key: row.record_id,
     recordId: row.record_id,
     rowVersion: row.row_version,
+    viewSchemaId: row.view_schema_id,
     captureState: readStringCell(row, "timeline.capture_state"),
     values,
     committedValues: values,
@@ -1485,9 +1548,7 @@ function rowFromApi(row: TimelineApiRow): WorkbookRow {
 
 function applyViewRowPatch(
   row: TimelineApiRow,
-  patch: NonNullable<
-    RecordChangedPayload["affected_views"][number]["patch_cells"]
-  >,
+  patch: TimelinePatchCells,
 ): TimelineApiRow {
   return {
     ...row,
@@ -1745,12 +1806,42 @@ function reconcileCommittedRowsWithLocalDrafts({
   readonly committedRows: WorkbookRow[];
   readonly rows: WorkbookRow[];
 } {
-  const committedRows = [
-    ...reconcileRecordRows(
-      currentRows.filter((row) => row.recordId !== null),
-      incomingRows,
-    ),
-  ];
+  const currentCommittedByRecordId = new Map(
+    currentRows
+      .filter(
+        (row): row is WorkbookRow & { recordId: string } =>
+          row.recordId !== null,
+      )
+      .map((row) => [row.recordId, row]),
+  );
+  const committedRows = reconcileRecordRows(
+    currentRows.filter((row) => row.recordId !== null),
+    incomingRows,
+  ).map((row) => {
+    let rowWithLocalState = row;
+    if (row.recordId === null) {
+      return row;
+    }
+    const current = currentCommittedByRecordId.get(row.recordId);
+    if (current !== undefined) {
+      if (
+        current.pendingSignature !== null ||
+        current.collectionDrafts.hostRefs !== "" ||
+        current.collectionDrafts.identityRefs !== "" ||
+        current.collectionDrafts.tags !== ""
+      ) {
+        rowWithLocalState = {
+          ...rowWithLocalState,
+          collectionDrafts: current.collectionDrafts,
+          pendingSignature: current.pendingSignature,
+        };
+      }
+    }
+    return rowWithMaterializedScalarDrafts(
+      rowWithLocalState,
+      draftValueForFocusKey,
+    );
+  });
   const localDraftRows = currentRows
     .filter((row) => row.recordId === null)
     .map((row) => rowWithMaterializedScalarDrafts(row, draftValueForFocusKey));
@@ -3605,12 +3696,20 @@ export function TimelineWorkbook({
       let previousRow = rowsRef.current.find(
         (candidate) => candidate.key === rowKey,
       );
+      validateTimelineViewSchemaId(
+        envelope.data.view_schema_id,
+        "mutation response",
+      );
+      const responseRow = normalizeTimelineFullRow(
+        envelope.data.row,
+        "mutation response row",
+      );
       recordWorkbookTiming("apply_row_mutation_start", {
         rowKey,
-        recordId: envelope.data.row.record_id,
-        rowVersion: envelope.data.row.row_version,
+        recordId: responseRow.record_id,
+        rowVersion: responseRow.row_version,
       });
-      const incomingCommitted = rowFromApi(envelope.data.row);
+      const incomingCommitted = rowFromApi(responseRow);
       const accepted = acceptCommittedTimelineRow(incomingCommitted);
       const committed = accepted.row;
       let draftSummaryKey: string | null = null;
@@ -3868,10 +3967,32 @@ export function TimelineWorkbook({
         return;
       }
 
-      const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
-      const incomingFreshness = freshTimelineRowsForQueryResult(
-        envelope.data.rows.map(rowFromApi),
-      );
+      let incomingRows: WorkbookRow[];
+      try {
+        const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
+        validateTimelineViewSchemaId(
+          envelope.data.view_schema_id,
+          "query response",
+        );
+        incomingRows = envelope.data.rows.map((row, index) =>
+          rowFromApi(
+            normalizeTimelineFullRow(row, `query response rows[${index}]`),
+          ),
+        );
+      } catch {
+        if (options.viewportContinuityToken !== undefined) {
+          clearViewportContinuity(options.viewportContinuityToken);
+        }
+        const message = "Timeline projection load failed.";
+        if (hasLoadedRowsRef.current) {
+          setRefreshError(message);
+        } else {
+          setLoadError(message);
+          setIsInitialLoading(false);
+        }
+        return;
+      }
+      const incomingFreshness = freshTimelineRowsForQueryResult(incomingRows);
       if (incomingFreshness.hasStaleRows) {
         const refreshed = await refreshTimelineRowsAfterStaleResult(options);
         if (refreshed) {
@@ -3934,13 +4055,23 @@ export function TimelineWorkbook({
       );
       if (
         affectedView?.change_kind !== "patch" ||
-        affectedView.patch_cells === undefined ||
-        affectedView.patch_cells.record_id !== payload.record_id
+        affectedView.patch_cells === undefined
       ) {
         return false;
       }
 
-      const patch = affectedView.patch_cells;
+      let patch: TimelinePatchCells;
+      try {
+        patch = normalizeTimelinePatchCells(
+          affectedView.patch_cells,
+          "record_changed patch_cells",
+        );
+      } catch {
+        return false;
+      }
+      if (patch.record_id !== payload.record_id) {
+        return false;
+      }
       if (isStaleTimelineRowVersion(patch.record_id, patch.row_version)) {
         return true;
       }
@@ -4616,8 +4747,17 @@ export function TimelineWorkbook({
       rowKey: dispatchedUnit.rowKey,
     });
     let envelope: TimelineMutationEnvelope;
+    let appliedRow: { record_id: string; row_version: number };
     try {
       envelope = readEnvelope<TimelineMutationEnvelope>(result.payload);
+      const responseRow = normalizeTimelineFullRow(
+        envelope.data.row,
+        "pending mutation response row",
+      );
+      appliedRow = {
+        record_id: responseRow.record_id,
+        row_version: responseRow.row_version,
+      };
       clearSubmittedScalarEditorDraftValuesForRow(
         dispatchedUnit.rowKey,
         meta.rowSnapshot.values,
@@ -4653,16 +4793,13 @@ export function TimelineWorkbook({
     recordWorkbookTiming("pending_result_apply_end", {
       clientTxnId: dispatchedUnit.clientTxnId,
       kind: dispatchedUnit.kind,
-      recordId: envelope.data.row.record_id,
+      recordId: appliedRow.record_id,
       rowKey: dispatchedUnit.rowKey,
-      rowVersion: envelope.data.row.row_version,
+      rowVersion: appliedRow.row_version,
     });
     const successResult = {
       ok: true,
-      row: {
-        record_id: envelope.data.row.record_id,
-        row_version: envelope.data.row.row_version,
-      },
+      row: appliedRow,
       ...(envelope.data.change_set_id === undefined
         ? {}
         : { change_set_id: envelope.data.change_set_id }),
@@ -8380,14 +8517,36 @@ function EntityWorkbookSurface({
         return;
       }
       const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
-      const draftKey = entityType === "host" ? "hostRefs" : "identityRefs";
-      const previewRows = envelope.data.rows
-        .map(rowFromApi)
-        .filter((row) =>
-          row.collectionValues[draftKey].some(
-            (item) => item.resolvedRecordId === recordId,
-          ),
+      try {
+        validateTimelineViewSchemaId(
+          envelope.data.view_schema_id,
+          "timeline preview query response",
         );
+      } catch {
+        setTimelinePreviewRows([]);
+        return;
+      }
+      const draftKey = entityType === "host" ? "hostRefs" : "identityRefs";
+      let previewRows: WorkbookRow[];
+      try {
+        previewRows = envelope.data.rows
+          .map((row, index) =>
+            rowFromApi(
+              normalizeTimelineFullRow(
+                row,
+                `timeline preview query rows[${index}]`,
+              ),
+            ),
+          )
+          .filter((row) =>
+            row.collectionValues[draftKey].some(
+              (item) => item.resolvedRecordId === recordId,
+            ),
+          );
+      } catch {
+        setTimelinePreviewRows([]);
+        return;
+      }
       setTimelinePreviewRows(previewRows);
     },
     [apiBase, entityType, incidentId],
@@ -8800,7 +8959,22 @@ function AssessmentWorkbookSurface({
         return;
       }
       const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
-      setSupportRows(envelope.data.rows);
+      try {
+        validateTimelineViewSchemaId(
+          envelope.data.view_schema_id,
+          "assessment support query response",
+        );
+        setSupportRows(
+          envelope.data.rows.map((row, index) =>
+            normalizeTimelineFullRow(
+              row,
+              `assessment support query rows[${index}]`,
+            ),
+          ),
+        );
+      } catch {
+        setSupportRows([]);
+      }
     }
     void loadSupportRows();
     return () => {

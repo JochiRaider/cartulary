@@ -16,7 +16,10 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred, requireJSONBodyAt } from "./fetchMockTestSupport";
-import { successEnvelope } from "./timelineWorkbookTestSupport";
+import {
+  timelineRow as fullTimelineRow,
+  successEnvelope,
+} from "./timelineWorkbookTestSupport";
 import {
   buildAssessmentCreatePayload,
   confidenceScoreFromBand,
@@ -523,23 +526,12 @@ function hostRow(options: { displayName?: string; recordId?: string } = {}) {
 }
 
 function timelineRow() {
-  return {
-    record_id: "support-1",
-    row_version: 1,
-    cells: {
-      "timeline.summary": { value: "Supporting timeline row" },
-      "timeline.capture_state": { value: "reviewed" },
-      "timeline.host_refs": {
-        value: { kind: "collection_value_v1", ordered: false, items: [] },
-      },
-      "timeline.identity_refs": {
-        value: { kind: "collection_value_v1", ordered: false, items: [] },
-      },
-      "timeline.tags": {
-        value: { kind: "collection_value_v1", ordered: false, items: [] },
-      },
-    },
-  };
+  return fullTimelineRow({
+    recordId: "support-1",
+    rowVersion: 1,
+    summary: "Supporting timeline row",
+    captureState: "reviewed",
+  });
 }
 
 function assessmentRow(options: { recordId?: string; state?: string } = {}) {

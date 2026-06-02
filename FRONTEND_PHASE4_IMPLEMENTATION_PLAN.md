@@ -6,7 +6,7 @@ Frontend verification contract. This file is the execution roadmap, progress mar
 
 Frontend verification contract. This plan is not behavior authority and MUST NOT mark any FE-P4 row complete without direct current row-owned evidence from the mapped target and `cartulary.frontend_row_accounting.v2` where the harness requires it.
 
-Source limit. This task creates planning documentation only. It does not implement FE-P4 product behavior, does not activate FE-P4, does not edit generated ledgers, and does not introduce a Core 05 claim-publication predicate.
+Source limit. This plan is not behavior authority. Sprint execution records may summarize row-owned implementation outcomes, but they do not activate FE-P4, do not replace generated ledgers, and do not introduce a Core 05 claim-publication predicate.
 
 ## Authority Model
 
@@ -23,7 +23,7 @@ Source limit. This task creates planning documentation only. It does not impleme
 
 ## Current Repo Status
 
-Locally verified facts as of 2026-06-01, with Sprint 2 and Sprint 3 updates noted below:
+Locally verified facts as of 2026-06-01, with Sprint 2, Sprint 3, and Sprint 4 updates noted below:
 
 - `FRONTEND_PHASE4_IMPLEMENTATION_PLAN.md` did not exist before this plan was created.
 - `tools/frontend_phase_registry.json` has `schema_id="cartulary.frontend_phase_registry.v2"`, `schema_version=2`, `phase_namespace="frontend"`, and `guide_path="docs/guides/cartulary_frontend_implementation_testing_guide.md"`.
@@ -49,9 +49,9 @@ FE-P4 registry tuple:
 | Ledger path | `docs/testing/frontend_phase_coverage_ledgers/fe_p4_coverage_ledger.md` |
 | Depends on | `FE-P0`, `FE-P1`, `FE-P2`, `FE-P3` |
 | Activation blocker | `FE-P4-ACTIVATION-BLOCKER-01`, `reason_code="frontend_phase_not_active"` |
-| Manifest digest | `3b661fdf53bc63b3fbf51732442959b34d76580b7aece1002fb6fc49cb419942` |
-| Ledger digest | `b1cb07047ee1d79377d044db0d83bf633449dc6ea0a6b2ec4dade50e3df9cc5f` |
-| Evidence freshness digest | `1331e57d6e9490fcff24f00f41e650bbced1bbfdc167e7614b02b7fd1efcd9cb` |
+| Manifest digest | `573d699ee59e3e9c613acd57f650991756a71f3b6b3c118744818f219d92cf47` |
+| Ledger digest | `fa39e019598bcc765a94271e46ad197e2714fa0ab4147c0fb1fe7fc449b67212` |
+| Evidence freshness digest | `2280965556d8bcdb20e6dfdc340fe9184b41a46bb6f0f2ed89e4773a1ecdf6ea` |
 
 FE-P0 through FE-P4 current activation chain:
 
@@ -69,7 +69,7 @@ FE-P4 row inventory:
 | --- | --- | --- | --- | --- | --- | --- |
 | `FE-U-P4-01` | `unit` | `product_conformance` | `implemented` | `make frontend-unit` | 9 exact row-owned titles | none |
 | `FE-U-P4-02` | `unit` | `product_conformance` | `implemented` | `make frontend-unit` | 4 exact row-owned titles | none |
-| `FE-I-P4-01` | `integration` | `product_conformance` | `blocked` | `make frontend-unit`; `make browser-e2e-webserver-backed` | exact row title present | `frontend_phase_row_not_implemented` |
+| `FE-I-P4-01` | `integration` | `product_conformance` | `implemented` | `make frontend-unit`; `make browser-e2e-webserver-backed` | exact row title present | none |
 | `FE-E-P4-01` | `e2e` | `product_conformance` | `blocked` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | exact row title present | `frontend_phase_row_not_implemented` |
 | `FE-V-P4-01` | `visual` | `design_direction` | `blocked` | `make browser-e2e-visual` | exact row title present | `visual_fixture_not_recaptured_for_frontend_row` |
 | `FE-A11Y-P4-01` | `accessibility` | `design_direction` | `blocked` | `make browser-e2e-a11y-preflight` | exact row title present | `frontend_phase_row_not_implemented` |
@@ -86,7 +86,7 @@ Source limits:
 
 - The generated FE-P4 ledger was inspected but not edited. It is downstream of `tools/frontend_phase_maps/fe_p4_test_map.json` and is not behavior authority.
 - Current `current` fixture status does not close `FE-V-P4-01`; row-owned frontend visual accounting is still blocked.
-- Current row-owned `frontend-unit` evidence closes `FE-U-P4-01` and `FE-U-P4-02`. Existing latest artifacts for other FE-P4 rows remain historical diagnostic context until their owning targets rerun.
+- Current row-owned `frontend-unit` evidence closes `FE-U-P4-01`, `FE-U-P4-02`, and `FE-I-P4-01`; current row-owned `browser-e2e-webserver-backed` evidence also closes `FE-I-P4-01`. Existing latest artifacts for other FE-P4 rows remain historical diagnostic context until their owning targets rerun.
 - The current FE-P4 accessibility row is preflight-only in the map. Preflight evidence cannot complete an implemented accessibility row under the current frontend guide and testing harness NLSpec.
 - The plan does not inspect every implementation module under `/apps/web`; exact local module filenames must be rechecked in the owning sprint before product edits.
 
@@ -103,6 +103,14 @@ Sprint 3 update as of 2026-06-02:
 - `deriveWorkbookSaveState` owns Table C primary-label precedence and same-surface secondary message derivation from pending queue, conflict, overflow, halted replay, paused replay, in-flight mutation, and saved inputs.
 - `WorkbookShell` publishes the derived save-state presentation into the status strip; ambient presence-only updates do not move the primary label away from `Saved`.
 - FE-P4 remains `planned`; `FE-I-P4-01`, `FE-E-P4-01`, `FE-V-P4-01`, `FE-A11Y-P4-01`, and phase activation remain blocked.
+
+Sprint 4 update as of 2026-06-02:
+
+- `FE-I-P4-01` is implemented from current row-owned `frontend-unit` and `browser-e2e-webserver-backed` evidence using the exact scenario title `FE-I-P4-01 Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh.`
+- Timeline query, create-success, patch-success, refresh, and record-changed patch rows now route through the view-contract `view_row_v1` boundary before grid rendering or reconciliation.
+- Full Timeline row coverage requires schema-declared non-technical cells, including hidden and default-hidden fields, treats `{ "value": null }` as authoritative null, rejects omitted declared cells, rejects technical or unknown cells, and preserves top-level `record_id`, `row_version`, and `view_schema_id`.
+- Browser-backed coverage exercises omitted and empty `sort` and `filters`, omitted `group_by`, rejected `group_by: null`, required `meta.query`, default-tail sort behavior, public error rendering for invalid full rows, and stable identity through create, patch, validation error, and refresh.
+- FE-P4 remains `planned`; `FE-E-P4-01`, `FE-V-P4-01`, `FE-A11Y-P4-01`, and phase activation remain blocked.
 
 ## Phase Objective
 
@@ -322,7 +330,7 @@ Patch limits and canonicalization:
 | [x] | 1. Readiness, map, ledger, FE-P3 handoff | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P4`; registry and row-inventory checks; `make phase-ledger-drift`; `git diff --check` | Complete as readiness evidence only; at Sprint 1 handoff FE-P4 remained planned, non-executable, and all rows were blocked |
 | [x] | 2. Sync-engine pending queue unit model for `FE-U-P4-01` | `make frontend-unit`; `make frontend-typecheck` | Complete as Sprint 2 only; does not close save-state, browser public-route, visual, accessibility, or full FE-P4 phase readiness |
 | [x] | 3. Save-state derivation and status strip unit model for `FE-U-P4-02` | `make frontend-unit`; `make frontend-typecheck` | Complete as Sprint 3 only; does not close public-route replay, visual, accessibility, conflict resolution, or full FE-P4 phase readiness |
-| [ ] | 4. Timeline query/render identity integration for `FE-I-P4-01` | `make frontend-unit`; `make browser-e2e-webserver-backed` | Block if Table E query defaults, `view_row_v1` full-cell membership, or `record_id` identity are not preserved through refresh/error |
+| [x] | 4. Timeline query/render identity integration for `FE-I-P4-01` | `make frontend-unit`; `make browser-e2e-webserver-backed` | Complete as Sprint 4 only; does not close public-route replay, rough-create/paste hot path, visual, accessibility, saved-view persistence, WebSocket live updates, or full FE-P4 phase readiness |
 | [ ] | 5. Public-route E2E for rough create, edit, paste, pending save, refresh, and replay for `FE-E-P4-01` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | Block if rough create, inline edit, paste, replay, or validation evidence bypasses Tables D, F, and G public-boundary behavior |
 | [ ] | 6. Visual and accessibility readiness for `FE-V-P4-01` and `FE-A11Y-P4-01` | `make browser-e2e-visual`; current `make browser-e2e-a11y-preflight`; implemented closure requires `make browser-e2e-a11y` mapping | FE-V row is blocked until recaptured; FE-A11Y row is preflight-only and blocks full FE-P4 phase completion until implemented evidence exists |
 | [ ] | 7. Closure, drift, final validation, and FE-P5 handoff | Row-owned targets plus `make frontend-import-boundary-check`, `make generated-artifact-policy-check`, `make generate-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make agent-finalize`, and `make check` when required | Block if any row remains blocked/stale for full phase completion; product hot-path closure must be named separately when design rows remain blocked |
@@ -604,6 +612,35 @@ Blocker rules:
 Binary acceptance:
 
 - `FE-I-P4-01` is implemented only when both mapped layers required by the current map and harness close with current row accounting and Table E query and full-row boundaries are covered.
+
+Sprint 4 execution record, 2026-06-02:
+
+- Started with discovery of the current FE-P4 map, row inventory, exact scenario title, row accounting, and target mapping for `FE-I-P4-01`; both `frontend-unit` and `browser-e2e-webserver-backed` were confirmed required for row closure.
+- Added failing test-first coverage before product edits. Initial `make frontend-unit` failed at run root `.cartulary/test-results/20260602T224252Z-p61355` because the Timeline row fixture omitted a schema-declared non-technical cell.
+- Added unit/integration coverage in `apps/web/src/WorkbookShell.phase4.timelineQuery.test.tsx` with the exact scenario title `FE-I-P4-01 Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh.`
+- Added browser-backed coverage in `apps/web/e2e/frontend.phase4.timeline-query.spec.ts` with the same exact scenario title.
+- Implemented `view_row_v1` interpretation in `packages/view-contracts/src/index.ts` for full rows and sparse patch rows, preserving `record_id`, `row_version`, `view_schema_id`, `field_key`, authoritative null values, and additive-member behavior only where allowed.
+- Routed Timeline query rows, mutation-success rows, refresh rows, preview/support rows, and record-changed patch rows in `apps/web/src/WorkbookShell.tsx` through the view-contract boundary before rendering or reconciliation.
+- Reconciled refreshed Timeline rows by `record_id`, preserved high-water `row_version`, retained validation and pending local state by `record_id` plus `field_key`, and replaced draft-created rows with server-returned `record_id`.
+- Updated authored FE-P4 map metadata for `FE-I-P4-01`, regenerated the FE-P4 coverage ledger through `make phase-ledgers`, and refreshed FE-P4 registry digests required by `json-shape-check`.
+
+Sprint 4 validation record, 2026-06-02:
+
+- Passed: `make frontend-typecheck`, run root `.cartulary/test-results/20260602T230401Z-p132932`, summary `frontend-typecheck/tool-run-summary.json`.
+- Passed: `make frontend-unit`, run root `.cartulary/test-results/20260602T230410Z-p133356`, summary `frontend-unit/tool-run-summary.json`.
+- Passed: `make browser-e2e-webserver-backed`, run root `.cartulary/test-results/20260602T230428Z-p134964`, summary `browser-e2e-webserver-backed/tool-run-summary.json`.
+- Passed: `make phase-ledgers`, run root `.cartulary/test-results/20260602T225425Z-p95709`, summary `phase-ledgers/tool-run-summary.json`.
+- Passed: `make phase-ledger-drift`, run root `.cartulary/test-results/20260602T230555Z-p143317`, summary `phase-ledger-drift/tool-run-summary.json`.
+- Passed: `make json-shape-check`, run root `.cartulary/test-results/20260602T230601Z-p143632`, summary `json-shape-check/tool-run-summary.json`.
+- Passed: `make agent-finalize`, run root `.cartulary/test-results/20260602T230619Z-p144653`, summary `agent-finalize/tool-run-summary.json`; retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+- Skipped: `make browser-e2e-support`; Sprint 4 added a browser spec but did not change shared browser helpers, selector contracts, or shared choreography.
+- Diagnostic only: a scoped Biome check for Sprint 4 touched files passed; full `make lint-biome` still failed on existing untouched import-order/format findings in `apps/web/src/WorkbookShell.phase4.saveState.test.tsx` and `apps/web/src/workbookPendingQueue.test.ts`.
+
+Sprint 4 row-accounting outcome, 2026-06-02:
+
+- `FE-I-P4-01` is closed for `frontend-unit` in `.cartulary/test-results/20260602T230410Z-p133356/frontend-unit/frontend-row-accounting.json` with the exact row-owned scenario title.
+- `FE-I-P4-01` is closed for `browser-e2e-webserver-backed` in `.cartulary/test-results/20260602T230428Z-p134964/browser-e2e-webserver-backed/frontend-row-accounting.json` with the exact row-owned scenario title.
+- `FE-I-P4-01` is implemented from current row-owned evidence.
 
 Explicit non-claims:
 
