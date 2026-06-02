@@ -82,12 +82,15 @@
         }
       ],
       "scenario_titles": [
+        "FE-U-P4-01 keeps pending queues isolated by incident and client instance scope",
         "FE-U-P4-01 admits row-create, row-patch, and paste-derived replay units with route-scoped mutation identity",
         "FE-U-P4-01 preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction",
         "FE-U-P4-01 coalesces only same-draft creates and contiguous same-record patches",
         "FE-U-P4-01 preserves same-runtime retryable failures and does not survive a new page instance",
         "FE-U-P4-01 halts non-retryable public failures with Table G anchors and queued units behind the blocker",
-        "FE-U-P4-01 applies successful replay without retargeting by visible row order or labels"
+        "FE-U-P4-01 applies successful replay without retargeting by visible row order or labels",
+        "FE-U-P4-01 drives WorkbookShell admission, coalescing, overflow, and save-state from the shared pending queue model",
+        "FE-U-P4-01 drives WorkbookShell retry, auth pause, same-field conflict, halt, and success settlement from the shared pending queue model"
       ],
       "claim_status": "implemented",
       "claim": {
@@ -99,12 +102,13 @@
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
       "default_check_required": true,
-      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior.",
+      "future_default_check_candidate": false,
       "default_check_kind": "primary_local_evidence",
+      "default_check_reason": "Default frontend unit coverage is the cheapest executable proof for implemented UI behavior.",
       "default_check_reason_code": "cheapest_authoritative_layer",
       "primary_evidence_owner": "FE-U-P4-01",
       "duplicate_of": "none",
-      "evidence_delta": "primary local evidence for the declared row",
+      "evidence_delta": "full evidence is retained outside default check",
       "warm_local_cost_class": "low",
       "phase_id": "FE-P4",
       "blockers": []

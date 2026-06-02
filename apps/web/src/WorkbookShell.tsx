@@ -137,11 +137,11 @@ import {
 import { mapWorkbookKeyboardCommand } from "./workbookKeyboard";
 import {
   buildStableMutationSignature,
-  mergePendingReplayPayload,
-  type PendingReplayKind,
-  type PendingReplayPayloadIntent,
-  type PendingReplayStatus,
+  type PendingReplayUnitInput,
+  type PendingReplayUnitState,
+  parsePendingReplayPublicError,
   pendingReplayCapacity,
+  WorkbookPendingQueueModel,
 } from "./workbookPendingQueue";
 import {
   applyFilterDraft,
@@ -409,22 +409,10 @@ type PasteConflictGroupState = {
   keys: string[];
 };
 
-type PendingReplayUnit = {
-  id: string;
-  kind: PendingReplayKind;
-  rowKey: string;
-  recordId: string | null;
+type PendingReplayRuntimeMeta = {
   focusField: FocusFieldKey;
   focusKey: string;
   surface: TimelineScalarEditorSurface;
-  method: "POST" | "PATCH";
-  path: string;
-  payloadIntent: PendingReplayPayloadIntent;
-  clientTxnId: string;
-  mutationSignature: string;
-  coalesceKey: string;
-  enqueueOrder: number;
-  status: PendingReplayStatus;
   rowSnapshot: WorkbookRow;
   continueOnFreshDraft: boolean;
   detectAutoResolution: boolean;
@@ -432,16 +420,17 @@ type PendingReplayUnit = {
   viewportContinuityToken: number;
 };
 
+type PendingReplayAdmissionRequest = PendingReplayUnitInput &
+  PendingReplayRuntimeMeta;
+
 type PendingQueueRuntime = {
-  units: PendingReplayUnit[];
-  haltedMessage: string | null;
-  authPaused: boolean;
-  overflowMessage: string | null;
+  model: WorkbookPendingQueueModel;
+  metaByUnitId: Map<string, PendingReplayRuntimeMeta>;
   resetRefreshInFlight: boolean;
   replayScheduled: boolean;
 };
 
-type PendingQueueSnapshot = {
+type PendingQueueRuntimeSnapshot = {
   queuedCount: number;
   inFlightCount: number;
   haltedMessage: string | null;
@@ -1987,7 +1976,7 @@ function buildAttachedEvidencePatchPayload(
 }
 
 function materializePendingReplayPayload(
-  unit: PendingReplayUnit,
+  unit: PendingReplayUnitState,
   currentRow: WorkbookRow | undefined,
 ) {
   if (unit.kind === "create") {
@@ -2162,7 +2151,15 @@ async function fetchJSON<T>(
   options.onResponse?.(response);
   const payload = (await response.json()) as
     | T
-    | { error?: { code?: string; message?: string; details?: unknown } };
+    | {
+        error?: {
+          code?: string;
+          message?: string;
+          retryable?: unknown;
+          conflict?: unknown;
+          details?: unknown;
+        };
+      };
   options.onJSONParsed?.();
   return { ok: response.ok, status: response.status, payload };
 }
@@ -2714,16 +2711,21 @@ export function TimelineWorkbook({
   const collectionKeyboardCommitRef = useRef(new Map<string, string>());
   const pendingSocketTxnTimeoutsRef = useRef(new Map<string, number>());
   const saveQueueRef = useRef(Promise.resolve());
+  const socketClientInstanceIdRef = useRef<string | null>(null);
+  if (socketClientInstanceIdRef.current === null) {
+    socketClientInstanceIdRef.current = tabClientInstanceId();
+  }
   const pendingQueueRef = useRef<PendingQueueRuntime>({
-    units: [],
-    haltedMessage: null,
-    authPaused: false,
-    overflowMessage: null,
+    model: new WorkbookPendingQueueModel({
+      incidentId,
+      clientInstanceId: socketClientInstanceIdRef.current,
+    }),
+    metaByUnitId: new Map(),
     resetRefreshInFlight: false,
     replayScheduled: false,
   });
   const [pendingQueueSnapshot, setPendingQueueSnapshot] =
-    useState<PendingQueueSnapshot>({
+    useState<PendingQueueRuntimeSnapshot>({
       queuedCount: 0,
       inFlightCount: 0,
       haltedMessage: null,
@@ -2755,7 +2757,6 @@ export function TimelineWorkbook({
   const schedulePendingReplayRef = useRef<() => void>(() => undefined);
   const socketResumeTokenRef = useRef<string | null>(null);
   const socketLastSeenStreamSeqRef = useRef(0);
-  const socketClientInstanceIdRef = useRef<string | null>(null);
   const rowInputRefs = useRef(
     new Map<string, HTMLInputElement | HTMLTextAreaElement>(),
   );
@@ -2793,15 +2794,18 @@ export function TimelineWorkbook({
       pending: PendingQueueRuntime,
       conflicts: Record<string, LocalConflictState> = conflictQueueRef.current,
     ): SaveState => {
+      const snapshot = pending.model.snapshot();
       if (
         Object.keys(conflicts).length > 0 ||
-        pending.overflowMessage !== null ||
-        pending.haltedMessage !== null
+        snapshot.overflow !== null ||
+        snapshot.halted !== null ||
+        snapshot.sameFieldConflicts.length > 0
       ) {
         return "Conflict";
       }
       if (
-        pending.units.length > 0 ||
+        snapshot.queuedCount + snapshot.inFlightCount > 0 ||
+        snapshot.authPaused ||
         pending.resetRefreshInFlight ||
         pendingOpsRef.current > 0
       ) {
@@ -2883,18 +2887,38 @@ export function TimelineWorkbook({
 
   const publishPendingQueueState = useCallback(() => {
     const pending = pendingQueueRef.current;
+    const snapshot = pending.model.snapshot();
     setPendingQueueSnapshot({
-      queuedCount: pending.units.filter((unit) => unit.status === "queued")
-        .length,
-      inFlightCount: pending.units.filter((unit) => unit.status === "in_flight")
-        .length,
-      haltedMessage: pending.haltedMessage,
-      authPaused: pending.authPaused,
-      overflowMessage: pending.overflowMessage,
+      queuedCount: snapshot.queuedCount,
+      inFlightCount: snapshot.inFlightCount,
+      haltedMessage: snapshot.halted?.message ?? null,
+      authPaused: snapshot.authPaused,
+      overflowMessage: snapshot.overflow?.message ?? null,
       resetRefreshInFlight: pending.resetRefreshInFlight,
     });
     setSaveState(computeSaveState(pending));
   }, [computeSaveState]);
+
+  useEffect(() => {
+    const clientInstanceId =
+      socketClientInstanceIdRef.current ?? tabClientInstanceId();
+    socketClientInstanceIdRef.current = clientInstanceId;
+    const scope = pendingQueueRef.current.model.scope;
+    if (
+      scope.incidentId === incidentId &&
+      scope.clientInstanceId === clientInstanceId
+    ) {
+      return;
+    }
+    pendingQueueRef.current = {
+      model: new WorkbookPendingQueueModel({ incidentId, clientInstanceId }),
+      metaByUnitId: new Map(),
+      resetRefreshInFlight: false,
+      replayScheduled: false,
+    };
+    pendingSignaturesRef.current.clear();
+    publishPendingQueueState();
+  }, [incidentId, publishPendingQueueState]);
 
   const queryPath = useMemo(
     () =>
@@ -3679,13 +3703,15 @@ export function TimelineWorkbook({
       let attemptedRefresh = false;
       for (;;) {
         const pending = pendingQueueRef.current;
-        const hasPendingRecordWork = pending.units.some(
+        const snapshot = pending.model.snapshot();
+        const hasPendingRecordWork = snapshot.units.some(
           (unit) => unit.recordId === recordId,
         );
         if (
-          pending.authPaused ||
-          pending.haltedMessage !== null ||
-          pending.overflowMessage !== null ||
+          snapshot.authPaused ||
+          snapshot.halted !== null ||
+          snapshot.overflow !== null ||
+          snapshot.sameFieldConflicts.length > 0 ||
           Object.keys(conflictQueueRef.current).length > 0
         ) {
           return null;
@@ -4228,7 +4254,13 @@ export function TimelineWorkbook({
   );
 
   const clearPendingSignatureForUnit = useCallback(
-    (unit: PendingReplayUnit) => {
+    (unit: {
+      readonly rowKey: string;
+      readonly mutationSignature?: string;
+    }) => {
+      if (unit.mutationSignature === undefined) {
+        return;
+      }
       if (
         pendingSignaturesRef.current.get(unit.rowKey) === unit.mutationSignature
       ) {
@@ -4277,7 +4309,7 @@ export function TimelineWorkbook({
     }
     pendingReplayAuthRetryRef.current = window.setTimeout(async () => {
       pendingReplayAuthRetryRef.current = null;
-      if (!pendingQueueRef.current.authPaused) {
+      if (!pendingQueueRef.current.model.snapshot().authPaused) {
         return;
       }
       try {
@@ -4288,8 +4320,7 @@ export function TimelineWorkbook({
           scheduleAuthRecoveryProbe();
           return;
         }
-        pendingQueueRef.current.authPaused = false;
-        pendingQueueRef.current.haltedMessage = null;
+        pendingQueueRef.current.model.resumeAfterAuthRecovery();
         publishPendingQueueState();
         schedulePendingReplay();
       } catch {
@@ -4305,13 +4336,15 @@ export function TimelineWorkbook({
   const requestPendingReplay = useCallback(
     (reason: string) => {
       const pending = pendingQueueRef.current;
+      const snapshot = pending.model.snapshot();
       const readyForImmediateDrain =
-        !pending.authPaused &&
-        pending.haltedMessage === null &&
+        !snapshot.authPaused &&
+        snapshot.halted === null &&
+        snapshot.sameFieldConflicts.length === 0 &&
         !pending.resetRefreshInFlight &&
         Object.keys(conflictQueueRef.current).length === 0 &&
-        !pending.units.some((unit) => unit.status === "in_flight") &&
-        pending.units.some((unit) => unit.status === "queued");
+        snapshot.inFlightCount === 0 &&
+        snapshot.queuedCount > 0;
       if (!readyForImmediateDrain) {
         schedulePendingReplay();
         return;
@@ -4328,69 +4361,56 @@ export function TimelineWorkbook({
   );
 
   const enqueuePendingReplayUnit = useCallback(
-    (unit: PendingReplayUnit) => {
+    (unit: PendingReplayAdmissionRequest) => {
       const pending = pendingQueueRef.current;
-      pending.overflowMessage = null;
-      pending.haltedMessage = null;
-      const duplicate = pending.units.some(
-        (candidate) =>
-          candidate.rowKey === unit.rowKey &&
-          candidate.mutationSignature === unit.mutationSignature,
-      );
-      if (duplicate) {
-        clearViewportContinuity(unit.viewportContinuityToken);
-        return;
-      }
-
-      const lastUnit = pending.units[pending.units.length - 1];
-      const canCoalesce =
-        lastUnit !== undefined &&
-        lastUnit.status === "queued" &&
-        lastUnit.kind === unit.kind &&
-        lastUnit.coalesceKey === unit.coalesceKey &&
-        (unit.kind === "create" ||
-          (unit.recordId !== null && lastUnit.recordId === unit.recordId));
-      if (canCoalesce) {
-        lastUnit.payloadIntent = mergePendingReplayPayload(
-          lastUnit.payloadIntent,
-          unit.payloadIntent,
-          unit.kind,
-        );
-        lastUnit.rowSnapshot = unit.rowSnapshot;
-        lastUnit.focusField = unit.focusField;
-        lastUnit.focusKey = unit.focusKey;
-        lastUnit.surface = unit.surface;
-        lastUnit.mutationSignature = buildStableMutationSignature(
-          lastUnit.payloadIntent,
-        );
-        pendingSignaturesRef.current.set(
-          lastUnit.rowKey,
-          lastUnit.mutationSignature,
-        );
+      const {
+        focusField,
+        focusKey,
+        surface,
+        rowSnapshot,
+        continueOnFreshDraft,
+        detectAutoResolution,
+        promoteToCommittedRowInspect,
+        viewportContinuityToken,
+        ...input
+      } = unit;
+      const meta: PendingReplayRuntimeMeta = {
+        focusField,
+        focusKey,
+        surface,
+        rowSnapshot,
+        continueOnFreshDraft,
+        detectAutoResolution,
+        promoteToCommittedRowInspect,
+        viewportContinuityToken,
+      };
+      const admission = pending.model.admit(input);
+      if (admission.status === "duplicate") {
         clearViewportContinuity(unit.viewportContinuityToken);
         publishPendingQueueState();
-        requestPendingReplay("coalesced_unit");
         return;
       }
-
-      if (pending.units.length >= pendingReplayCapacity) {
-        pending.overflowMessage =
-          "Local pending queue is full. The current edit remains unsaved.";
+      if (admission.status === "refused") {
         clearPendingSignatureForUnit(unit);
         clearViewportContinuity(unit.viewportContinuityToken);
         publishPendingQueueState();
         return;
       }
 
-      pending.units.push(unit);
-      pendingSignaturesRef.current.set(unit.rowKey, unit.mutationSignature);
+      pending.metaByUnitId.set(admission.unit.id, meta);
+      pendingSignaturesRef.current.set(
+        admission.unit.rowKey,
+        admission.unit.mutationSignature,
+      );
       recordWorkbookTiming("pending_unit_admitted", {
-        clientTxnId: unit.clientTxnId,
-        kind: unit.kind,
-        rowKey: unit.rowKey,
+        clientTxnId: admission.unit.clientTxnId,
+        kind: admission.unit.kind,
+        rowKey: admission.unit.rowKey,
       });
       publishPendingQueueState();
-      requestPendingReplay("admitted_unit");
+      requestPendingReplay(
+        admission.status === "coalesced" ? "coalesced_unit" : "admitted_unit",
+      );
     },
     [
       clearPendingSignatureForUnit,
@@ -4400,30 +4420,42 @@ export function TimelineWorkbook({
     ],
   );
 
-  const shouldRetryPendingResult = useCallback((status: number) => {
-    return status === 0 || status === 408 || status === 425 || status >= 500;
-  }, []);
-
   replayPendingQueueRef.current = async () => {
     const pending = pendingQueueRef.current;
     pending.replayScheduled = false;
+    const snapshot = pending.model.snapshot();
     if (
-      pending.authPaused ||
-      pending.haltedMessage !== null ||
+      snapshot.authPaused ||
+      snapshot.halted !== null ||
+      snapshot.sameFieldConflicts.length > 0 ||
       pending.resetRefreshInFlight ||
       Object.keys(conflictQueueRef.current).length > 0
     ) {
       publishPendingQueueState();
       return;
     }
-    if (pending.units.some((unit) => unit.status === "in_flight")) {
+    const candidate = pending.model.peekNextQueued();
+    if (candidate === null) {
       publishPendingQueueState();
       return;
     }
-    const unit = pending.units.find(
-      (candidate) => candidate.status === "queued",
-    );
-    if (!unit) {
+    const unit = candidate.unit;
+    const meta = pending.metaByUnitId.get(unit.id);
+    if (meta === undefined) {
+      const dispatch = pending.model.markDispatched(unit.id);
+      if (dispatch !== null) {
+        const settlement = pending.model.settleDispatched({
+          ok: false,
+          status: 0,
+          error: {
+            code: "pending_runtime_metadata_missing",
+            message: "Queued edit metadata is missing.",
+          },
+        });
+        if (settlement.outcome === "halted") {
+          setRefreshError(settlement.halt.message);
+        }
+      }
       publishPendingQueueState();
       return;
     }
@@ -4440,9 +4472,14 @@ export function TimelineWorkbook({
       return;
     }
 
-    unit.status = "in_flight";
+    const dispatch = pending.model.markDispatched(unit.id);
+    if (dispatch === null) {
+      publishPendingQueueState();
+      return;
+    }
+    const dispatchedUnit = dispatch.unit;
     publishPendingQueueState();
-    trackPendingSocketTxn(unit.clientTxnId);
+    trackPendingSocketTxn(dispatchedUnit.clientTxnId);
 
     let result: Awaited<
       ReturnType<typeof fetchJSON<TimelineMutationEnvelope>>
@@ -4454,9 +4491,9 @@ export function TimelineWorkbook({
         rowKey: unit.rowKey,
       });
       result = await fetchJSON<TimelineMutationEnvelope>(
-        unit.path,
+        dispatchedUnit.path,
         {
-          method: unit.method,
+          method: dispatchedUnit.method,
           body: JSON.stringify(dispatchPayload),
         },
         {
@@ -4479,19 +4516,30 @@ export function TimelineWorkbook({
         },
       );
     } catch {
-      resolvePendingSocketTxn(unit.clientTxnId);
-      unit.status = "queued";
+      resolvePendingSocketTxn(dispatchedUnit.clientTxnId);
+      pending.model.settleDispatched({
+        ok: false,
+        status: 0,
+        error: {
+          code: "transport_failure",
+          message: "Transport failure",
+          retryable: true,
+        },
+      });
       publishPendingQueueState();
       schedulePendingReplayRetry();
       return;
     }
 
     if (!result.ok) {
-      resolvePendingSocketTxn(unit.clientTxnId);
-      if (result.status === 401 || result.status === 403) {
-        unit.status = "queued";
-        pending.authPaused = true;
-        pending.haltedMessage = null;
+      resolvePendingSocketTxn(dispatchedUnit.clientTxnId);
+      const publicError = parsePendingReplayPublicError(result.payload);
+      const settlement = pending.model.settleDispatched({
+        ok: false,
+        status: result.status,
+        error: publicError,
+      });
+      if (settlement.outcome === "auth_paused") {
         setRefreshError(
           "Authentication required before queued edits can replay.",
         );
@@ -4500,73 +4548,104 @@ export function TimelineWorkbook({
         return;
       }
 
-      if (
-        handleMutationConflict(
-          result.payload,
-          unit.rowKey,
-          unit.focusField,
-          unit.surface,
-        )
-      ) {
-        pending.units = pending.units.filter((candidate) => candidate !== unit);
-        clearPendingSignatureForUnit(unit);
+      if (settlement.outcome === "same_field_conflict") {
+        if (
+          handleMutationConflict(
+            result.payload,
+            settlement.unit.rowKey,
+            meta.focusField,
+            meta.surface,
+          )
+        ) {
+          pending.metaByUnitId.delete(settlement.unit.id);
+          clearPendingSignatureForUnit(settlement.unit);
+          publishPendingQueueState();
+          return;
+        }
+        setRefreshError(
+          publicError.message ?? parseErrorMessage(result.payload),
+        );
         publishPendingQueueState();
         return;
       }
 
-      if (shouldRetryPendingResult(result.status)) {
-        unit.status = "queued";
+      if (settlement.outcome === "retryable_failure") {
         publishPendingQueueState();
         schedulePendingReplayRetry();
         return;
       }
 
-      unit.status = "queued";
-      pending.haltedMessage = parseErrorMessage(result.payload);
-      setRefreshError(pending.haltedMessage);
+      if (settlement.outcome === "halted") {
+        setRefreshError(settlement.halt.message);
+      } else {
+        setRefreshError(parseErrorMessage(result.payload));
+      }
       publishPendingQueueState();
       return;
     }
 
     recordWorkbookTiming("pending_result_apply_start", {
-      clientTxnId: unit.clientTxnId,
-      kind: unit.kind,
-      rowKey: unit.rowKey,
+      clientTxnId: dispatchedUnit.clientTxnId,
+      kind: dispatchedUnit.kind,
+      rowKey: dispatchedUnit.rowKey,
     });
     let envelope: TimelineMutationEnvelope;
     try {
       envelope = readEnvelope<TimelineMutationEnvelope>(result.payload);
       clearSubmittedScalarEditorDraftValuesForRow(
-        unit.rowKey,
-        unit.rowSnapshot.values,
+        dispatchedUnit.rowKey,
+        meta.rowSnapshot.values,
       );
-      applyRowMutation(unit.rowKey, envelope, {
+      applyRowMutation(dispatchedUnit.rowKey, envelope, {
         continueOnFreshDraft:
-          unit.continueOnFreshDraft && unit.rowSnapshot.recordId === null,
-        detectAutoResolution: unit.detectAutoResolution,
-        promoteToCommittedRowInspect: unit.promoteToCommittedRowInspect,
-        viewportContinuityToken: unit.viewportContinuityToken,
+          meta.continueOnFreshDraft && meta.rowSnapshot.recordId === null,
+        detectAutoResolution: meta.detectAutoResolution,
+        promoteToCommittedRowInspect: meta.promoteToCommittedRowInspect,
+        viewportContinuityToken: meta.viewportContinuityToken,
       });
     } catch (error) {
       recordWorkbookTiming("pending_result_apply_error", {
-        clientTxnId: unit.clientTxnId,
-        kind: unit.kind,
+        clientTxnId: dispatchedUnit.clientTxnId,
+        kind: dispatchedUnit.kind,
         message: error instanceof Error ? error.message : String(error),
-        rowKey: unit.rowKey,
+        rowKey: dispatchedUnit.rowKey,
       });
-      throw error;
+      const settlement = pending.model.settleDispatched({
+        ok: false,
+        status: 0,
+        error: {
+          code: "client_apply_error",
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
+      if (settlement.outcome === "halted") {
+        setRefreshError(settlement.halt.message);
+      }
+      publishPendingQueueState();
+      return;
     }
     recordWorkbookTiming("pending_result_apply_end", {
-      clientTxnId: unit.clientTxnId,
-      kind: unit.kind,
+      clientTxnId: dispatchedUnit.clientTxnId,
+      kind: dispatchedUnit.kind,
       recordId: envelope.data.row.record_id,
-      rowKey: unit.rowKey,
+      rowKey: dispatchedUnit.rowKey,
       rowVersion: envelope.data.row.row_version,
     });
-    pending.units = pending.units.filter((candidate) => candidate !== unit);
-    clearPendingSignatureForUnit(unit);
-    pending.authPaused = false;
-    pending.haltedMessage = null;
+    const successResult = {
+      ok: true,
+      row: {
+        record_id: envelope.data.row.record_id,
+        row_version: envelope.data.row.row_version,
+      },
+      ...(envelope.data.change_set_id === undefined
+        ? {}
+        : { change_set_id: envelope.data.change_set_id }),
+    } as const;
+    const settlement = pending.model.settleDispatched(successResult);
+    if (settlement.outcome === "success") {
+      pending.metaByUnitId.delete(settlement.unit.id);
+      clearPendingSignatureForUnit(settlement.unit);
+    }
     publishPendingQueueState();
     requestPendingReplay("unit_completed");
   };
@@ -4705,7 +4784,7 @@ export function TimelineWorkbook({
           });
           return;
         }
-        pendingQueueRef.current.authPaused = false;
+        pendingQueueRef.current.model.resumeAfterAuthRecovery();
         publishPendingQueueState();
         schedulePendingReplay();
         return;
@@ -4721,7 +4800,7 @@ export function TimelineWorkbook({
       if (message.type === "session_revoked") {
         socketResumeTokenRef.current = null;
         socketEstablishedRef.current = false;
-        pendingQueueRef.current.authPaused = true;
+        pendingQueueRef.current.model.pauseForAuthRecovery();
         setRefreshError(
           "Authentication required before queued edits can replay.",
         );
@@ -4922,9 +5001,16 @@ export function TimelineWorkbook({
               `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
             )
           : apiPath(apiBase, `/api/v1/records/${snapshot.recordId}`);
+      const clientInstanceId =
+        socketClientInstanceIdRef.current ?? tabClientInstanceId();
+      socketClientInstanceIdRef.current = clientInstanceId;
       enqueuePendingReplayUnit({
         id: `pending-${clientTxnId}`,
         kind: snapshot.recordId === null ? "create" : "patch",
+        source: "autosave",
+        incidentId,
+        clientInstanceId,
+        viewSchemaId: timelineViewSchemaId,
         rowKey: effectiveRowKey,
         recordId: snapshot.recordId,
         focusField,
@@ -4940,6 +5026,7 @@ export function TimelineWorkbook({
             ? `draft:${effectiveRowKey}`
             : `record:${snapshot.recordId}`,
         enqueueOrder: pendingReplayOrderRef.current,
+        operationClass: "hot_path",
         status: "queued",
         rowSnapshot: snapshot,
         continueOnFreshDraft: options.continueOnFreshDraft,
@@ -5044,9 +5131,16 @@ export function TimelineWorkbook({
               `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
             )
           : apiPath(apiBase, `/api/v1/records/${snapshot.recordId}`);
+      const clientInstanceId =
+        socketClientInstanceIdRef.current ?? tabClientInstanceId();
+      socketClientInstanceIdRef.current = clientInstanceId;
       enqueuePendingReplayUnit({
         id: `pending-${clientTxnId}`,
         kind: snapshot.recordId === null ? "create" : "patch",
+        source: "autosave",
+        incidentId,
+        clientInstanceId,
+        viewSchemaId: timelineViewSchemaId,
         rowKey,
         recordId: snapshot.recordId,
         focusField,
@@ -5062,6 +5156,7 @@ export function TimelineWorkbook({
             ? `draft:${rowKey}`
             : `record:${snapshot.recordId}`,
         enqueueOrder: pendingReplayOrderRef.current,
+        operationClass: "hot_path",
         status: "queued",
         rowSnapshot: effectiveSnapshot,
         continueOnFreshDraft: snapshot.recordId === null,
@@ -7085,6 +7180,7 @@ export function TimelineWorkbook({
 
   const clearLocalConflict = useCallback(
     (conflict: LocalConflictState) => {
+      pendingQueueRef.current.model.clearSameFieldConflict(conflict.key);
       setConflictQueueState((current) => {
         const next = { ...current };
         delete next[conflict.key];

@@ -7,6 +7,7 @@ import {
   type PendingReplayUnitInput,
   type PendingReplayUnitState,
   type PendingReplayVisibleEdit,
+  parsePendingReplayPublicError,
   pendingReplayCapacity,
   WorkbookPendingQueueModel,
 } from "./workbookPendingQueue";
@@ -123,7 +124,84 @@ function patchUnit(options: {
   return unit;
 }
 
+function sameFieldConflictError(options: {
+  readonly conflictToken: string;
+  readonly recordId: string;
+  readonly fieldKey: string;
+  readonly baseRowVersion?: number;
+  readonly currentRowVersion?: number;
+}) {
+  return {
+    code: "same_field_conflict",
+    message: "Public same-field conflict",
+    conflict: {
+      conflict_token: options.conflictToken,
+      record_id: options.recordId,
+      field_key: options.fieldKey,
+      conflict_resolution_class: "text_compare_merge",
+      base_row_version: options.baseRowVersion ?? 1,
+      current_row_version: options.currentRowVersion ?? 2,
+      client_value: "local draft",
+      server_value: "server value",
+      server_updated_by: "user-server",
+      server_updated_at: "2026-06-02T00:00:00Z",
+      base_value: "base value",
+    },
+  };
+}
+
 describe("FE-U-P4-01 pending queue unit model", () => {
+  it("FE-U-P4-01 keeps pending queues isolated by incident and client instance scope", () => {
+    const queue = createQueue();
+    const otherClientQueue = new WorkbookPendingQueueModel({
+      incidentId,
+      clientInstanceId: "client-instance-other",
+    });
+
+    expectAccepted(
+      queue.admit(
+        patchUnit({
+          clientTxnId: "txn-scope-a",
+          recordId: "record-scope-a",
+          order: 1,
+        }),
+      ),
+    );
+    expectAccepted(
+      otherClientQueue.admit({
+        ...patchUnit({
+          clientTxnId: "txn-scope-b",
+          recordId: "record-scope-b",
+          order: 1,
+        }),
+        clientInstanceId: "client-instance-other",
+      }),
+    );
+
+    expect(queue.snapshot().queuedCount).toBe(1);
+    expect(otherClientQueue.snapshot().queuedCount).toBe(1);
+    expect(queue.dispatchNext()?.unit.clientTxnId).toBe("txn-scope-a");
+    expect(otherClientQueue.dispatchNext()?.unit.clientTxnId).toBe(
+      "txn-scope-b",
+    );
+
+    const foreignIncidentAdmission = queue.admit({
+      ...patchUnit({
+        clientTxnId: "txn-foreign-incident",
+        recordId: "record-foreign-incident",
+        order: 2,
+      }),
+      incidentId: "incident-other",
+    });
+    expect(foreignIncidentAdmission.accepted).toBe(false);
+    expect(foreignIncidentAdmission.status).toBe("refused");
+    if (foreignIncidentAdmission.status !== "refused") {
+      throw new Error("expected scope mismatch refusal");
+    }
+    expect(foreignIncidentAdmission.refusedReason).toBe("scope_mismatch");
+    expect(foreignIncidentAdmission.preserveVisibleEditAsUnsaved).toBe(false);
+  });
+
   it("FE-U-P4-01 admits row-create, row-patch, and paste-derived replay units with route-scoped mutation identity", () => {
     const queue = createQueue();
 
@@ -219,6 +297,61 @@ describe("FE-U-P4-01 pending queue unit model", () => {
   });
 
   it("FE-U-P4-01 preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction", () => {
+    const apiQueue = createQueue();
+    expectAccepted(
+      apiQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-api-1",
+          recordId: "record-api-1",
+          order: 1,
+        }),
+      ),
+    );
+    expectAccepted(
+      apiQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-api-2",
+          recordId: "record-api-2",
+          order: 2,
+        }),
+      ),
+    );
+    const peeked = apiQueue.peekNextQueued();
+    expect(peeked?.unit.clientTxnId).toBe("txn-api-1");
+    expect(apiQueue.snapshot().inFlightCount).toBe(0);
+    expect(apiQueue.markDispatched("unit-txn-api-2")).toBeNull();
+    const marked = apiQueue.markDispatched(peeked?.unit.id ?? "");
+    expect(marked?.unit.clientTxnId).toBe("txn-api-1");
+    expect(
+      apiQueue.snapshot().units.map((unit) => [unit.clientTxnId, unit.status]),
+    ).toEqual([
+      ["txn-api-1", "in_flight"],
+      ["txn-api-2", "queued"],
+    ]);
+    expect(apiQueue.peekNextQueued()).toBeNull();
+    apiQueue.settleDispatched({
+      ok: true,
+      row: { record_id: "record-api-1", row_version: 2 },
+    });
+    expect(apiQueue.peekNextQueued()?.unit.clientTxnId).toBe("txn-api-2");
+
+    const materializationRetryQueue = createQueue();
+    expectAccepted(
+      materializationRetryQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-materialize",
+          recordId: "record-materialize",
+          order: 1,
+        }),
+      ),
+    );
+    const materializationPeek = materializationRetryQueue.peekNextQueued();
+    expect(materializationPeek?.unit.clientTxnId).toBe("txn-materialize");
+    expect(materializationRetryQueue.snapshot().inFlightCount).toBe(0);
+    expect(materializationRetryQueue.peekNextQueued()?.unit.clientTxnId).toBe(
+      "txn-materialize",
+    );
+
     const queue = createQueue();
     const admittedTxnIds: string[] = [];
 
@@ -420,6 +553,36 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     expect(
       interleavedQueue.snapshot().units.map((unit) => unit.clientTxnId),
     ).toEqual(["txn-a1", "txn-b1", "txn-a2"]);
+
+    for (const operationClass of [
+      "destructive",
+      "conflict_resolution",
+      "non_hot_path",
+    ] as const) {
+      const forbiddenQueue = createQueue();
+      expectAccepted(
+        forbiddenQueue.admit(
+          patchUnit({
+            clientTxnId: `txn-${operationClass}-1`,
+            recordId: `record-${operationClass}`,
+            order: 1,
+            operationClass,
+          }),
+        ),
+      );
+      const secondAdmission = forbiddenQueue.admit(
+        patchUnit({
+          clientTxnId: `txn-${operationClass}-2`,
+          recordId: `record-${operationClass}`,
+          order: 2,
+          operationClass,
+        }),
+      );
+      expect(secondAdmission.status).toBe("accepted");
+      expect(
+        forbiddenQueue.snapshot().units.map((unit) => unit.clientTxnId),
+      ).toEqual([`txn-${operationClass}-1`, `txn-${operationClass}-2`]);
+    }
   });
 
   it("FE-U-P4-01 preserves same-runtime retryable failures and does not survive a new page instance", () => {
@@ -448,6 +611,57 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     expect(retryQueue.snapshot().queuedCount).toBe(1);
     expect(retryQueue.snapshot().primarySaveStateInput).toBe("Syncing");
     expect(retryQueue.dispatchNext()?.unit.clientTxnId).toBe("txn-retry");
+
+    const unknownRetryableQueue = createQueue();
+    const parsedUnknownRetryable = parsePendingReplayPublicError({
+      error: {
+        code: "future_public_error",
+        message: "Future public error",
+        retryable: true,
+      },
+    });
+    expect(parsedUnknownRetryable).toEqual({
+      code: "future_public_error",
+      message: "Future public error",
+      retryable: true,
+    });
+    expectAccepted(
+      unknownRetryableQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-unknown-retryable",
+          recordId: "record-unknown-retryable",
+          order: 1,
+        }),
+      ),
+    );
+    expectAccepted(
+      unknownRetryableQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-behind-unknown-retryable",
+          recordId: "record-behind-unknown-retryable",
+          order: 2,
+        }),
+      ),
+    );
+    expect(unknownRetryableQueue.dispatchNext()?.unit.clientTxnId).toBe(
+      "txn-unknown-retryable",
+    );
+    const unknownRetryableResult = unknownRetryableQueue.settleDispatched({
+      ok: false,
+      status: 409,
+      error: {
+        code: "future_public_error",
+        message: "Future public error",
+        retryable: true,
+      },
+    });
+    expect(unknownRetryableResult.outcome).toBe("retryable_failure");
+    expect(
+      unknownRetryableResult.snapshot.units.map((unit) => unit.clientTxnId),
+    ).toEqual(["txn-unknown-retryable", "txn-behind-unknown-retryable"]);
+    expect(unknownRetryableQueue.dispatchNext()?.unit.clientTxnId).toBe(
+      "txn-unknown-retryable",
+    );
 
     const authQueue = createQueue();
     expectAccepted(
@@ -537,6 +751,46 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     expect(validationQueue.dispatchNext()).toBeNull();
     expect(validationQueue.snapshot().primarySaveStateInput).toBe("Conflict");
 
+    const unknownTerminalQueue = createQueue();
+    expectAccepted(
+      unknownTerminalQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-unknown-terminal",
+          recordId: "record-unknown-terminal",
+          order: 1,
+        }),
+      ),
+    );
+    expectAccepted(
+      unknownTerminalQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-behind-unknown-terminal",
+          recordId: "record-behind-unknown-terminal",
+          order: 2,
+        }),
+      ),
+    );
+    unknownTerminalQueue.dispatchNext();
+    const unknownTerminalResult = unknownTerminalQueue.settleDispatched({
+      ok: false,
+      status: 409,
+      error: {
+        code: "future_terminal_public_error",
+        message: "Future terminal public error",
+      },
+    });
+    expect(unknownTerminalResult.outcome).toBe("halted");
+    if (unknownTerminalResult.outcome !== "halted") {
+      throw new Error("expected unknown terminal public error halt");
+    }
+    expect(
+      unknownTerminalResult.snapshot.units.map((unit) => unit.clientTxnId),
+    ).toEqual(["txn-unknown-terminal", "txn-behind-unknown-terminal"]);
+    expect(unknownTerminalQueue.dispatchNext()).toBeNull();
+    expect(unknownTerminalResult.halt.error_code).toBe(
+      "future_terminal_public_error",
+    );
+
     const clientTxnConflictQueue = createQueue();
     expectAccepted(
       clientTxnConflictQueue.admit(
@@ -613,13 +867,13 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     const sameFieldConflict = sameFieldQueue.settleDispatched({
       ok: false,
       status: 409,
-      error: {
-        code: "same_field_conflict",
-        details: {
-          record_id: "record-same-field",
-          field_key: "timeline.summary",
-        },
-      },
+      error: sameFieldConflictError({
+        conflictToken: "conflict-token-same-field",
+        recordId: "record-same-field",
+        fieldKey: "timeline.summary",
+        baseRowVersion: 7,
+        currentRowVersion: 8,
+      }),
     });
     expect(sameFieldConflict.outcome).toBe("same_field_conflict");
     if (sameFieldConflict.outcome !== "same_field_conflict") {
@@ -627,14 +881,54 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     }
     expect(sameFieldConflict.conflict).toEqual({
       key: "record-same-field:timeline.summary",
+      conflict_token: "conflict-token-same-field",
       record_id: "record-same-field",
       field_key: "timeline.summary",
+      conflict_resolution_class: "text_compare_merge",
+      base_row_version: 7,
+      current_row_version: 8,
     });
     expect(
       sameFieldConflict.snapshot.units.map((unit) => unit.clientTxnId),
     ).toEqual(["txn-behind-same-field"]);
     expect(sameFieldQueue.dispatchNext()).toBeNull();
     expect(sameFieldQueue.snapshot().primarySaveStateInput).toBe("Conflict");
+    sameFieldQueue.clearSameFieldConflict("record-same-field:timeline.summary");
+    expect(sameFieldQueue.snapshot().sameFieldConflicts).toEqual([]);
+    expect(sameFieldQueue.dispatchNext()?.unit.clientTxnId).toBe(
+      "txn-behind-same-field",
+    );
+
+    const detailsOnlySameFieldQueue = createQueue();
+    expectAccepted(
+      detailsOnlySameFieldQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-details-only-same-field",
+          recordId: "record-details-only-same-field",
+          order: 1,
+        }),
+      ),
+    );
+    detailsOnlySameFieldQueue.dispatchNext();
+    const detailsOnlySameField = detailsOnlySameFieldQueue.settleDispatched({
+      ok: false,
+      status: 409,
+      error: {
+        code: "same_field_conflict",
+        details: {
+          record_id: "record-details-only-same-field",
+          field_key: "timeline.summary",
+        },
+      },
+    });
+    expect(detailsOnlySameField.outcome).toBe("halted");
+    if (detailsOnlySameField.outcome !== "halted") {
+      throw new Error("expected details-only same-field conflict halt");
+    }
+    expect(detailsOnlySameField.snapshot.sameFieldConflicts).toEqual([]);
+    expect(
+      detailsOnlySameField.snapshot.units.map((unit) => unit.clientTxnId),
+    ).toEqual(["txn-details-only-same-field"]);
   });
 
   it("FE-U-P4-01 applies successful replay without retargeting by visible row order or labels", () => {

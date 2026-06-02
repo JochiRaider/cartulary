@@ -140,9 +140,9 @@
           "resolution_owner": "frontend_phase_owner"
         }
       ],
-      "evidence_freshness_digest": "c039e9226d621cccaed05aaef5ccc45e7268799fb5b035a5b12ea56f9634756b",
-      "manifest_digest": "acdea970d58f00cc6394d960a3e12fb409c367e5f39e6a19824b94558fb1b3f3",
-      "ledger_digest": "0ae779ff72695914944a95f26ff7923a2855a766fbb209a145665594ce816595"
+      "evidence_freshness_digest": "2a6f32129c5519304f6ce3a8dd5e0e242bdf0ed27e2f83e466495ea4874ffddc",
+      "manifest_digest": "a26c4ddc0f546b036dd01b64556ac8a085ac857eaa09502d8c6066b552c6fe2f",
+      "ledger_digest": "7a7ab384fe60daa5416723241b20b64b13ea5bee588397f4c27d32da389c4d03"
     },
     {
       "phase_id": "FE-P5",

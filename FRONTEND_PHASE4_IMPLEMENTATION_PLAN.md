@@ -49,9 +49,9 @@ FE-P4 registry tuple:
 | Ledger path | `docs/testing/frontend_phase_coverage_ledgers/fe_p4_coverage_ledger.md` |
 | Depends on | `FE-P0`, `FE-P1`, `FE-P2`, `FE-P3` |
 | Activation blocker | `FE-P4-ACTIVATION-BLOCKER-01`, `reason_code="frontend_phase_not_active"` |
-| Manifest digest | `dc056454fb03e6a172346cb6890c30509ae4ce2a7fa8f9bb424294e0fe99d298` |
+| Manifest digest | `ecb3ee6a9566b1ce2e58b9a5b90af0652d715ed5868b8fcb176c85fab0df4f64` |
 | Ledger digest | `bc6990dc9d18dc5dccc4251ad0fe909633a1f16bd843bb21f5401d852944e42e` |
-| Evidence freshness digest | `7bb17dd7fd1d5bbfa1423571b3c85b3ac152aedaf49bb8eeef8fc462daf61857` |
+| Evidence freshness digest | `59958a87641647bc4d785a9b640d10576f3eb80ddfdc074ff7b3db8fc8dae679` |
 
 FE-P0 through FE-P4 current activation chain:
 
@@ -61,13 +61,13 @@ FE-P0 through FE-P4 current activation chain:
 | `FE-P1` | `active` | `active_green` | none | `FE-P0` |
 | `FE-P2` | `active` | `active_green` | none | `FE-P0`, `FE-P1` |
 | `FE-P3` | `active` | `active_green` | none | `FE-P0`, `FE-P1`, `FE-P2` |
-| `FE-P4` | `planned` | `no_rows_implemented` | `frontend_phase_not_active` | `FE-P0`, `FE-P1`, `FE-P2`, `FE-P3` |
+| `FE-P4` | `planned` | `partially_implemented` | `frontend_phase_not_active` | `FE-P0`, `FE-P1`, `FE-P2`, `FE-P3` |
 
 FE-P4 row inventory:
 
 | Row | Layer | Evidence class | Claim status | Target(s) | Scenario titles | Current blocker |
 | --- | --- | --- | --- | --- | --- | --- |
-| `FE-U-P4-01` | `unit` | `product_conformance` | `blocked` | `make frontend-unit` | none | `frontend_phase_row_not_implemented` |
+| `FE-U-P4-01` | `unit` | `product_conformance` | `implemented` | `make frontend-unit` | 9 exact row-owned titles | none |
 | `FE-U-P4-02` | `unit` | `product_conformance` | `blocked` | `make frontend-unit` | none | `frontend_phase_row_not_implemented` |
 | `FE-I-P4-01` | `integration` | `product_conformance` | `blocked` | `make frontend-unit`; `make browser-e2e-webserver-backed` | exact row title present | `frontend_phase_row_not_implemented` |
 | `FE-E-P4-01` | `e2e` | `product_conformance` | `blocked` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | exact row title present | `frontend_phase_row_not_implemented` |
@@ -86,9 +86,16 @@ Source limits:
 
 - The generated FE-P4 ledger was inspected but not edited. It is downstream of `tools/frontend_phase_maps/fe_p4_test_map.json` and is not behavior authority.
 - Current `current` fixture status does not close `FE-V-P4-01`; row-owned frontend visual accounting is still blocked.
-- No FE-P4 row-owned target was run in this planning task. Existing latest artifacts reported by `make explain-target` are historical diagnostic context only.
+- Current Sprint 2 row-owned `frontend-unit` evidence closes `FE-U-P4-01` only. Existing latest artifacts for other FE-P4 rows remain historical diagnostic context until their owning targets rerun.
 - The current FE-P4 accessibility row is preflight-only in the map. Preflight evidence cannot complete an implemented accessibility row under the current frontend guide and testing harness NLSpec.
 - The plan does not inspect every implementation module under `/apps/web`; exact local module filenames must be rechecked in the owning sprint before product edits.
+
+Sprint 2 remediation update as of 2026-06-02:
+
+- `FE-U-P4-01` is implemented from current `frontend-unit` row accounting after expanded model coverage and `WorkbookShell` runtime convergence on the shared pending-queue model.
+- `WorkbookShell` pending replay uses the shared queue semantics for admission, replay, retry, overflow, auth pause, same-field conflict, halt, success settlement, and save-state derivation.
+- Paste-derived queue-unit evidence MUST NOT be used as full clipboard planning evidence. Actual paste closure belongs to public-route browser evidence for `/api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste`.
+- FE-P4 remains `planned`; `FE-U-P4-02`, `FE-I-P4-01`, `FE-E-P4-01`, `FE-V-P4-01`, and `FE-A11Y-P4-01` remain blocked.
 
 ## Phase Objective
 
@@ -306,7 +313,7 @@ Patch limits and canonicalization:
 | Done | Sprint | Primary validation | Blockers |
 | --- | --- | --- | --- |
 | [x] | 1. Readiness, map, ledger, FE-P3 handoff | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P4`; registry and row-inventory checks; `make phase-ledger-drift`; `git diff --check` | Complete as readiness evidence only; FE-P4 remains planned, non-executable, and all rows blocked |
-| [ ] | 2. Sync-engine pending queue unit model for `FE-U-P4-01` | `make frontend-unit`; `make frontend-typecheck` | Block if Table B capacity, overflow, FIFO, coalescing, non-survival, or non-retryable halt behavior is untested |
+| [x] | 2. Sync-engine pending queue unit model for `FE-U-P4-01` | `make frontend-unit`; `make frontend-typecheck` | Complete as Sprint 2 only; does not close save-state, browser public-route, visual, accessibility, or full FE-P4 phase readiness |
 | [ ] | 3. Save-state derivation and status strip unit model for `FE-U-P4-02` | `make frontend-unit`; `make frontend-typecheck` | Block if primary labels differ from Table C or secondary messages detach from the same workbook surface |
 | [ ] | 4. Timeline query/render identity integration for `FE-I-P4-01` | `make frontend-unit`; `make browser-e2e-webserver-backed` | Block if Table E query defaults, `view_row_v1` full-cell membership, or `record_id` identity are not preserved through refresh/error |
 | [ ] | 5. Public-route E2E for rough create, edit, paste, pending save, refresh, and replay for `FE-E-P4-01` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | Block if rough create, inline edit, paste, replay, or validation evidence bypasses Tables D, F, and G public-boundary behavior |
@@ -441,7 +448,15 @@ Evidence requirements:
 
 - `frontend-unit` must emit current frontend row accounting that closes `FE-U-P4-01` when the row is promoted.
 - Unit evidence must use public route-shaped success/error results, not private server internals.
-- The row must remain `claim_status="blocked"` until direct current evidence exists.
+- Before promotion, the row must remain `claim_status="blocked"` until direct current evidence exists.
+
+Sprint 2 execution record, 2026-06-02:
+
+- Implemented the shared pending-queue semantic owner in `workbookPendingQueue.ts` with peek, mark-dispatched, settlement, auth pause/resume, same-field conflict clearing, and public pending-error parsing.
+- Converted `WorkbookShell` pending replay to a model-backed runtime adapter with shell-only replay metadata keyed by queue unit ID.
+- Added row-owned model and shell runtime scenarios for the nine mapped `FE-U-P4-01` titles.
+- Promoted only `FE-U-P4-01` to `claim_status="implemented"` and regenerated the FE-P4 coverage ledger with `make phase-ledgers`.
+- Current `frontend-unit` row accounting closes `FE-U-P4-01`; all other FE-P4 rows remain blocked or outside Sprint 2 scope.
 
 Blocker rules:
 

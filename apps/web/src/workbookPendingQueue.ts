@@ -112,7 +112,17 @@ export type PendingReplayPublicError = {
   code: string;
   message?: string;
   retryable?: boolean;
+  conflict?: PendingReplayPublicSameFieldConflict;
   details?: Record<string, unknown>;
+};
+
+export type PendingReplayPublicSameFieldConflict = Record<string, unknown> & {
+  base_row_version: number;
+  conflict_resolution_class: string;
+  conflict_token: string;
+  current_row_version: number;
+  field_key: string;
+  record_id: string;
 };
 
 export type PendingReplayPublicResult =
@@ -151,8 +161,12 @@ export type PendingReplayPublicAnchor =
 
 export type PendingReplaySameFieldConflict = {
   key: string;
+  conflict_token: string;
   record_id: string;
   field_key: string;
+  conflict_resolution_class: string;
+  base_row_version: number;
+  current_row_version: number;
 };
 
 export type PendingReplayHalt = {
@@ -260,6 +274,92 @@ export type PendingReplaySettlement =
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function publicErrorMessageFromPayload(payload: unknown): string {
+  if (!isRecord(payload) || !isRecord(payload.error)) {
+    return "Request failed.";
+  }
+  const error = payload.error;
+  if (typeof error.message === "string" && error.message.trim() !== "") {
+    return error.message;
+  }
+  if (typeof error.code === "string" && error.code.trim() !== "") {
+    const details = error.details;
+    if (
+      isRecord(details) &&
+      typeof details.reason_code === "string" &&
+      details.reason_code.trim() !== ""
+    ) {
+      return `${error.code}: ${details.reason_code}`;
+    }
+    return error.code;
+  }
+  return "Request failed.";
+}
+
+function parsePendingReplayPublicConflict(
+  value: unknown,
+): PendingReplayPublicSameFieldConflict | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  if (
+    typeof value.conflict_token !== "string" ||
+    value.conflict_token.trim() === "" ||
+    typeof value.record_id !== "string" ||
+    value.record_id.trim() === "" ||
+    typeof value.field_key !== "string" ||
+    value.field_key.trim() === "" ||
+    typeof value.conflict_resolution_class !== "string" ||
+    value.conflict_resolution_class.trim() === "" ||
+    typeof value.base_row_version !== "number" ||
+    typeof value.current_row_version !== "number"
+  ) {
+    return undefined;
+  }
+  return {
+    ...value,
+    conflict_token: value.conflict_token,
+    record_id: value.record_id,
+    field_key: value.field_key,
+    conflict_resolution_class: value.conflict_resolution_class,
+    base_row_version: value.base_row_version,
+    current_row_version: value.current_row_version,
+  };
+}
+
+export function parsePendingReplayPublicError(
+  payload: unknown,
+): PendingReplayPublicError {
+  if (!isRecord(payload) || !isRecord(payload.error)) {
+    return {
+      code: "public_error",
+      message: publicErrorMessageFromPayload(payload),
+    };
+  }
+
+  const error = payload.error;
+  const parsed: PendingReplayPublicError = {
+    code:
+      typeof error.code === "string" && error.code.trim() !== ""
+        ? error.code
+        : "public_error",
+  };
+  if (typeof error.message === "string" && error.message.trim() !== "") {
+    parsed.message = error.message;
+  }
+  if (typeof error.retryable === "boolean") {
+    parsed.retryable = error.retryable;
+  }
+  if (isRecord(error.details)) {
+    parsed.details = error.details;
+  }
+  const conflict = parsePendingReplayPublicConflict(error.conflict);
+  if (conflict !== undefined) {
+    parsed.conflict = conflict;
+  }
+  return parsed;
 }
 
 function stableJSONValue(value: unknown): unknown {
@@ -587,8 +687,12 @@ function cloneConflict(
 ): PendingReplaySameFieldConflict {
   return {
     key: value.key,
+    conflict_token: value.conflict_token,
     record_id: value.record_id,
     field_key: value.field_key,
+    conflict_resolution_class: value.conflict_resolution_class,
+    base_row_version: value.base_row_version,
+    current_row_version: value.current_row_version,
   };
 }
 
@@ -667,22 +771,45 @@ function failureAnchor(
   };
 }
 
-function sameFieldConflictAnchor(
-  unit: PendingReplayUnitState,
+function parseSameFieldConflict(
   error: PendingReplayPublicError,
-): PendingReplaySameFieldConflict {
-  const fieldKey =
-    stringDetail(error.details, ["field_key", "field", "fieldKey"]) ??
-    canonicalizePendingReplayChanges(unit.payloadIntent)[0]?.field_key ??
-    "";
-  const recordId =
-    stringDetail(error.details, ["record_id", "recordId"]) ??
-    unit.recordId ??
-    "";
+): PendingReplayPublicSameFieldConflict | null {
+  const conflict = error.conflict;
+  if (conflict === undefined) {
+    return null;
+  }
+  if (
+    typeof conflict.conflict_token !== "string" ||
+    conflict.conflict_token.trim() === "" ||
+    typeof conflict.record_id !== "string" ||
+    conflict.record_id.trim() === "" ||
+    typeof conflict.field_key !== "string" ||
+    conflict.field_key.trim() === "" ||
+    typeof conflict.conflict_resolution_class !== "string" ||
+    conflict.conflict_resolution_class.trim() === "" ||
+    typeof conflict.base_row_version !== "number" ||
+    typeof conflict.current_row_version !== "number"
+  ) {
+    return null;
+  }
+  return conflict;
+}
+
+function sameFieldConflictAnchor(
+  error: PendingReplayPublicError,
+): PendingReplaySameFieldConflict | null {
+  const conflict = parseSameFieldConflict(error);
+  if (conflict === null) {
+    return null;
+  }
   return {
-    key: `${recordId}:${fieldKey}`,
-    record_id: recordId,
-    field_key: fieldKey,
+    key: `${conflict.record_id}:${conflict.field_key}`,
+    conflict_token: conflict.conflict_token,
+    record_id: conflict.record_id,
+    field_key: conflict.field_key,
+    conflict_resolution_class: conflict.conflict_resolution_class,
+    base_row_version: conflict.base_row_version,
+    current_row_version: conflict.current_row_version,
   };
 }
 
@@ -700,7 +827,7 @@ function isAuthFailure(status: number, code: string): boolean {
   );
 }
 
-function shouldRetryFailure(
+export function shouldRetryPendingFailure(
   status: number,
   error: PendingReplayPublicError,
 ): boolean {
@@ -718,15 +845,27 @@ function shouldRetryFailure(
   );
 }
 
-function canCoalesceUnits(
-  existing: PendingReplayUnitState,
-  next: PendingReplayUnitState,
+export type PendingReplayCoalescingUnit = {
+  readonly status: PendingReplayStatus;
+  readonly operationClass: PendingReplayOperationClass;
+  readonly kind: PendingReplayKind;
+  readonly incidentId: string;
+  readonly clientInstanceId: string;
+  readonly coalesceKey: string;
+  readonly recordId: string | null;
+};
+
+export function canCoalescePendingReplayUnits(
+  existing: PendingReplayCoalescingUnit,
+  next: PendingReplayCoalescingUnit,
 ): boolean {
   if (
     existing.status !== "queued" ||
     existing.operationClass !== "hot_path" ||
     next.operationClass !== "hot_path" ||
     existing.kind !== next.kind ||
+    existing.incidentId !== next.incidentId ||
+    existing.clientInstanceId !== next.clientInstanceId ||
     existing.coalesceKey !== next.coalesceKey
   ) {
     return false;
@@ -779,6 +918,15 @@ export class WorkbookPendingQueueModel {
     };
   }
 
+  private isReplayBlocked(): boolean {
+    return (
+      this.authPaused ||
+      this.halted !== null ||
+      this.sameFieldConflicts.length > 0 ||
+      this.units.some((unit) => unit.status === "in_flight")
+    );
+  }
+
   admit(input: PendingReplayUnitInput): PendingQueueAdmissionResult {
     this.overflow = null;
     const unit = normalizeUnit(input);
@@ -814,7 +962,10 @@ export class WorkbookPendingQueueModel {
     }
 
     const lastUnit = this.units[this.units.length - 1];
-    if (lastUnit !== undefined && canCoalesceUnits(lastUnit, unit)) {
+    if (
+      lastUnit !== undefined &&
+      canCoalescePendingReplayUnits(lastUnit, unit)
+    ) {
       lastUnit.payloadIntent = mergePendingReplayPayload(
         lastUnit.payloadIntent,
         unit.payloadIntent,
@@ -866,17 +1017,28 @@ export class WorkbookPendingQueueModel {
     };
   }
 
-  dispatchNext(): PendingReplayDispatch | null {
-    if (
-      this.authPaused ||
-      this.halted !== null ||
-      this.sameFieldConflicts.length > 0 ||
-      this.units.some((unit) => unit.status === "in_flight")
-    ) {
+  peekNextQueued(): PendingReplayDispatch | null {
+    if (this.isReplayBlocked()) {
       return null;
     }
     const unit = this.units.find((candidate) => candidate.status === "queued");
     if (unit === undefined) {
+      return null;
+    }
+    return {
+      unit: cloneUnit(unit),
+      identity: cloneIdentity(unit.identity),
+      payloadIntent: cloneJSONRecord(unit.payloadIntent),
+      snapshot: this.snapshot(),
+    };
+  }
+
+  markDispatched(unitId: string): PendingReplayDispatch | null {
+    if (this.isReplayBlocked()) {
+      return null;
+    }
+    const unit = this.units.find((candidate) => candidate.status === "queued");
+    if (unit === undefined || unit.id !== unitId) {
       return null;
     }
     unit.status = "in_flight";
@@ -886,6 +1048,11 @@ export class WorkbookPendingQueueModel {
       payloadIntent: cloneJSONRecord(unit.payloadIntent),
       snapshot: this.snapshot(),
     };
+  }
+
+  dispatchNext(): PendingReplayDispatch | null {
+    const next = this.peekNextQueued();
+    return next === null ? null : this.markDispatched(next.unit.id);
   }
 
   settleDispatched(result: PendingReplayPublicResult): PendingReplaySettlement {
@@ -927,18 +1094,20 @@ export class WorkbookPendingQueueModel {
     }
 
     if (result.error.code === "same_field_conflict") {
-      const conflict = sameFieldConflictAnchor(unit, result.error);
-      this.units = this.units.filter((candidate) => candidate !== unit);
-      this.sameFieldConflicts.push(conflict);
-      return {
-        outcome: "same_field_conflict",
-        unit: cloneUnit(unit),
-        conflict: cloneConflict(conflict),
-        snapshot: this.snapshot(),
-      };
+      const conflict = sameFieldConflictAnchor(result.error);
+      if (conflict !== null) {
+        this.units = this.units.filter((candidate) => candidate !== unit);
+        this.sameFieldConflicts.push(conflict);
+        return {
+          outcome: "same_field_conflict",
+          unit: cloneUnit(unit),
+          conflict: cloneConflict(conflict),
+          snapshot: this.snapshot(),
+        };
+      }
     }
 
-    if (shouldRetryFailure(result.status, result.error)) {
+    if (shouldRetryPendingFailure(result.status, result.error)) {
       return {
         outcome: "retryable_failure",
         unit: cloneUnit(unit),
@@ -962,6 +1131,22 @@ export class WorkbookPendingQueueModel {
 
   resumeAfterAuthRecovery(): PendingQueueSnapshot {
     this.authPaused = false;
+    return this.snapshot();
+  }
+
+  pauseForAuthRecovery(): PendingQueueSnapshot {
+    this.authPaused = true;
+    this.halted = null;
+    return this.snapshot();
+  }
+
+  clearSameFieldConflict(key: string): PendingQueueSnapshot {
+    const conflictIndex = this.sameFieldConflicts.findIndex(
+      (conflict) => conflict.key === key,
+    );
+    if (conflictIndex >= 0) {
+      this.sameFieldConflicts.splice(conflictIndex, 1);
+    }
     return this.snapshot();
   }
 }

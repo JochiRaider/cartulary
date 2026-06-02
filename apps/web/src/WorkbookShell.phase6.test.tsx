@@ -67,6 +67,25 @@ describe("Phase 6 workbook collaboration coverage", () => {
     await new Promise((resolve) => window.setTimeout(resolve, 0));
   }
 
+  function retryableErrorEnvelope(code: string, status: number) {
+    return new Response(
+      JSON.stringify({
+        error: {
+          status,
+          code,
+          message: code,
+          request_id: "req-retryable-error",
+          retryable: true,
+          details: {},
+        },
+      }),
+      {
+        status,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+
   it("Phase 6 presence indicators render from keyed socket state without changing save-state", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
@@ -973,5 +992,327 @@ describe("Phase 6 workbook collaboration coverage", () => {
       );
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("FE-U-P4-01 drives WorkbookShell admission, coalescing, overflow, and save-state from the shared pending queue model", async () => {
+    expect(pendingReplayCapacity).toBe(64);
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Queue 1",
+            captureState: "rough",
+          }),
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 1,
+            summary: "Queue 2",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(errorEnvelope("session_required", 401));
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    const firstInput = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    )) as HTMLInputElement;
+    const secondInput = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-2",
+      "timeline.summary",
+    )) as HTMLInputElement;
+
+    await changeQueuedCellValue(firstInput, "Queue 1 local");
+    fireEvent.blur(firstInput);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
+    });
+
+    await changeQueuedCellValue(secondInput, "Queue 2 first");
+    fireEvent.blur(secondInput);
+    await changeQueuedCellValue(secondInput, "Queue 2 final");
+    fireEvent.blur(secondInput);
+    await waitFor(() => {
+      expect(screen.getByTestId("pending-queue-count").textContent).toContain(
+        "2",
+      );
+    });
+
+    for (let index = 3; index <= pendingReplayCapacity + 1; index += 1) {
+      const input = index % 2 === 0 ? secondInput : firstInput;
+      await changeQueuedCellValue(input, `Queue ${index} local`);
+      fireEvent.blur(input);
+    }
+
+    await waitFor(() => {
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+        "Conflict",
+      );
+      expect(screen.getByTestId("pending-queue-notice").textContent).toContain(
+        "Local pending queue is full",
+      );
+      expect(screen.getByTestId("pending-queue-count").textContent).toContain(
+        "64",
+      );
+    });
+    expect(firstInput.value).toBe("Queue 65 local");
+    expect(
+      fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes("/api/v1/records/"),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("FE-U-P4-01 drives WorkbookShell retry, auth pause, same-field conflict, halt, and success settlement from the shared pending queue model", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Retry one",
+            captureState: "rough",
+          }),
+          timelineRow({
+            recordId: "record-2",
+            rowVersion: 1,
+            summary: "Retry two",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      retryableErrorEnvelope("future_retryable_public_error", 409),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-retry-1",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "Retry head",
+          captureState: "rough",
+        }),
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-retry-2",
+        row: timelineRow({
+          recordId: "record-2",
+          rowVersion: 2,
+          summary: "Retry behind",
+          captureState: "rough",
+        }),
+      }),
+    );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    const retryFirstInput = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    )) as HTMLInputElement;
+    const retrySecondInput = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-2",
+      "timeline.summary",
+    )) as HTMLInputElement;
+    await changeQueuedCellValue(retryFirstInput, "Retry head");
+    fireEvent.blur(retryFirstInput);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await changeQueuedCellValue(retrySecondInput, "Retry behind");
+    fireEvent.blur(retrySecondInput);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
+    });
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
+      "/api/v1/records/record-1",
+    );
+    expect(String(fetchMock.mock.calls[2]?.[0])).toContain(
+      "/api/v1/records/record-1",
+    );
+    expect(String(fetchMock.mock.calls[3]?.[0])).toContain(
+      "/api/v1/records/record-2",
+    );
+
+    cleanup();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-auth",
+            rowVersion: 1,
+            summary: "Auth base",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-auth",
+        row: timelineRow({
+          recordId: "record-auth",
+          rowVersion: 2,
+          summary: "Auth queued",
+          captureState: "rough",
+        }),
+      }),
+    );
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    const authInput = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-auth",
+      "timeline.summary",
+    )) as HTMLInputElement;
+    await waitFor(() => expect(latestTimelineWebSocket()).not.toBeNull());
+    latestTimelineWebSocket()?.emit({
+      type: "session_revoked",
+      payload: { reason_code: "session_revoked" },
+    });
+    await changeQueuedCellValue(authInput, "Auth queued");
+    fireEvent.blur(authInput);
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
+    latestTimelineWebSocket()?.emit({
+      type: "hello_ack",
+      payload: { resume_token: "resume-fe-u-p4" },
+    });
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
+    });
+
+    cleanup();
+    fetchMock.mockReset();
+    const conflictPatch = deferred<Response>();
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-conflict",
+            rowVersion: 1,
+            summary: "Conflict base",
+            captureState: "rough",
+          }),
+          timelineRow({
+            recordId: "record-behind",
+            rowVersion: 1,
+            summary: "Behind base",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockReturnValueOnce(conflictPatch.promise);
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    const conflictInput = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-conflict",
+      "timeline.summary",
+    )) as HTMLInputElement;
+    const behindInput = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-behind",
+      "timeline.summary",
+    )) as HTMLInputElement;
+    await changeQueuedCellValue(conflictInput, "Conflict local");
+    fireEvent.blur(conflictInput);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await changeQueuedCellValue(behindInput, "Behind queued");
+    fireEvent.blur(behindInput);
+    conflictPatch.resolve(
+      errorEnvelope("same_field_conflict", 409, {
+        conflict_token: "conflict-token-fe-u-p4",
+        record_id: "record-conflict",
+        field_key: "timeline.summary",
+        conflict_resolution_class: "text_compare_merge",
+        base_row_version: 1,
+        current_row_version: 2,
+        base_value: "Conflict base",
+        server_value: "Server conflict",
+        client_value: "Conflict local",
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+        "Conflict",
+      );
+      expect(screen.getByTestId("conflict-resolver")).toBeTruthy();
+      expect(screen.getByTestId("pending-queue-count").textContent).toContain(
+        "1",
+      );
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    cleanup();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-halt",
+            rowVersion: 1,
+            summary: "Halt base",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      errorEnvelope("future_terminal_public_error", 409),
+    );
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    const haltInput = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-halt",
+      "timeline.summary",
+    )) as HTMLInputElement;
+    await changeQueuedCellValue(haltInput, "Halt local");
+    fireEvent.blur(haltInput);
+    await waitFor(() => {
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+        "Conflict",
+      );
+      expect(screen.getByTestId("pending-queue-count").textContent).toContain(
+        "1",
+      );
+      expect(screen.getByTestId("pending-queue-notice").textContent).toContain(
+        "future_terminal_public_error",
+      );
+    });
   });
 });
