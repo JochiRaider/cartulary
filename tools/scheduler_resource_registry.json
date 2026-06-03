@@ -97,8 +97,8 @@
       }
     },
     {
-      "name": "minio",
-      "display_name": "MinIO",
+      "name": "object_store",
+      "display_name": "object store",
       "schedulers": ["check", "service_backed"],
       "display_order": 140,
       "capacity": {
@@ -155,7 +155,7 @@
       "scheduler": "service_backed",
       "resources": [
         "postgres",
-        "minio",
+        "object_store",
         "go_cpu",
         "go_io",
         "postgres_reset",
@@ -167,7 +167,7 @@
     {
       "name": "service_backed_backend",
       "scheduler": "service_backed",
-      "resources": ["postgres", "minio", "go_cpu", "go_io", "postgres_reset", "postgres_clone", "process"]
+      "resources": ["postgres", "object_store", "go_cpu", "go_io", "postgres_reset", "postgres_clone", "process"]
     }
   ],
   "forwarding_profiles": []

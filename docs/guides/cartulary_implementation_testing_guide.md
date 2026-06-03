@@ -32,12 +32,12 @@ Runner summaries use the following accounting buckets. `authoritative` is phase 
 
 ### 1.1.1 Service-backed fixture modes
 
-Service-backed Go tests must keep service ownership centralized in `tools/testservices`; phase helpers choose only the fixture isolation mode used inside that already-running Postgres and MinIO pair.
+Service-backed Go tests must keep service ownership centralized in `tools/testservices`; phase helpers choose only the fixture isolation mode used inside that already-running Postgres and object-store pair.
 
 - Use isolated per-test Postgres template clones for startup, migration, rollback, process-boundary, HTTP/runtime, and unclear isolation cases.
 - Use transaction-backed Postgres fixtures for store-only tests once their seed and assertion helpers run through the shared `postgres.DB` test surface.
 - Use package-reused Postgres databases only for harness self-tests or rows with explicitly declared dirty-table reset scope; broad mutable-table resets are not a default fixture mode.
-- Use package-reused MinIO buckets for ordinary route tests; helpers clear object contents before each test. Prefix cleanup is available for tests that can route all object keys through a unique prefix.
+- Use package-reused object-store buckets for ordinary route tests; helpers clear object contents before each test. Prefix cleanup is available for tests that can route all object keys through a unique prefix.
 - Treat fixture churn diagnostics in `service-scope.json` and `target-summary.json` as the source of truth when deciding whether a test needs stronger isolation. For failed harness runs, read compact `failure_class` and `failure_reason` fields in phase, target, scheduler, and run summaries before reading detailed logs: `product` means product evidence failed, `infra` means backing service/runtime readiness failed, `harness` means orchestration failed, `timing` means duration drift failed, and `artifact` means expected reports or cleanup artifacts failed.
 
 ### 1.1.2 Toolchain output policy

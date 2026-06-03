@@ -289,7 +289,7 @@ Design-direction rows MUST NOT claim Core product conformance. Product-conforman
 - FE-P4 is currently `active` with `row_rollup_state="active_green"` after Sprint 7. Its map, generated ledger, public targets, target schedule metadata, row evidence, evidence-class owner metadata, and evidence freshness were promoted together.
 - Generated protocol outputs under `packages/protocol-ts/src/generated/**`, generated backend outputs under `internal/gen/**`, generated frontend ledgers, generated schedules, `tools/task_surface.generated.mk`, `pnpm-lock.yaml`, and `go.sum` must not be hand-edited.
 - Any FE-P4 map or registry metadata change requires `make phase-ledgers` followed by `make phase-ledger-drift`.
-- Browser rows require service-backed infrastructure: Postgres, MinIO, owned backend/frontend processes, and browser runtime readiness.
+- Browser rows require service-backed infrastructure: Postgres, object-store service, owned backend/frontend processes, and browser runtime readiness.
 - Public-boundary FE-P4 product-conformance rows must use `/api/v1/`, server-managed sessions, stable IDs, public success envelopes, and public error envelopes. Frontend-only mocks cannot close public-route product rows.
 - Same-field conflict work in FE-P4 is limited to anchoring and save-state compatibility. Resolver implementation belongs outside FE-P4.
 - Accessibility preflight evidence is diagnostic readiness evidence only. It cannot close an implemented accessibility row under the current harness rules.

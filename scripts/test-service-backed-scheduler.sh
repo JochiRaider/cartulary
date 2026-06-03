@@ -1023,7 +1023,7 @@ write_manifest() {
     printf '{\n'
     printf '  "schema_id": "cartulary.service_backed_schedule_sources.v1",\n'
     printf '  "schedules": [\n'
-    printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 6, "go_io": 6, "postgres_clone": 8, "postgres_reset": 8, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1, "browser_stage_stateful": 1, "browser_stage_measurement": 1, "browser_stage_visual": 1 }, "work_unit_sources": [\n' "$target"
+    printf '    { "target": "%s", "resource_limits": { "postgres": 32, "object_store": 32, "go_cpu": 6, "go_io": 6, "postgres_clone": 8, "postgres_reset": 8, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1, "browser_stage_stateful": 1, "browser_stage_measurement": 1, "browser_stage_visual": 1 }, "work_unit_sources": [\n' "$target"
     local first=1
     local source
 	    for source in "$@"; do
@@ -1134,9 +1134,9 @@ write_legacy_manifest() {
   "schedules": [
     {
       "target": "test-fast-service-backed",
-      "resource_limits": { "postgres": 32, "minio": 32, "backend": 4 },
+      "resource_limits": { "postgres": 32, "object_store": 32, "backend": 4 },
       "children": [
-        { "target": "backend-integration", "kind": "backend", "weight_ms": 1, "resource_claims": ["postgres", "minio", "backend"] }
+        { "target": "backend-integration", "kind": "backend", "weight_ms": 1, "resource_claims": ["postgres", "object_store", "backend"] }
       ]
     }
   ]
@@ -1215,8 +1215,8 @@ cleanup_paths+=("$smoke_dir")
 write_fake_make "$smoke_dir"
 smoke_manifest="${smoke_dir}/manifest.json"
 write_manifest "$smoke_manifest" test-fast-service-backed \
-  'make_target|backend-store|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1' \
-  'make_target|backend-process|9|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend||backend-store'
+  'make_target|backend-store|10|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1' \
+  'make_target|backend-process|9|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend||backend-store'
 smoke_output="$(FAKE_SCHEDULER_SLEEP=0.01 run_scheduler "$smoke_dir" "$smoke_manifest" test-fast-service-backed smoke 2>&1)"
 assert_contains "$smoke_output" "[SCHEDULER] test-fast-service-backed start work_units=2 finalizers=0 capacity={go_cpu:6,go_io:6,browser_stack:" "smoke scheduler start"
 assert_contains "$smoke_output" "[SUMMARY] target=test-fast-service-backed status=pass work_units=2/2 failed=none slowest=" "smoke scheduler pass summary"
@@ -1235,9 +1235,9 @@ cleanup_paths+=("$weighted_dir")
 write_fake_make "$weighted_dir"
 weighted_manifest="${weighted_dir}/manifest.json"
 write_manifest "$weighted_manifest" test-fast-service-backed \
-  'make_target|backend-store|1|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1' \
-  'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1' \
-  'make_target|backend-integration-support|5|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1'
+  'make_target|backend-store|1|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1' \
+  'make_target|backend-process|10|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1' \
+  'make_target|backend-integration-support|5|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1'
 weighted_output="$(run_scheduler "$weighted_dir" "$weighted_manifest" test-fast-service-backed weighted 2>&1)"
 assert_not_contains "$weighted_output" "[STEP] test-fast-service-backed" "default service scheduler output hides per-unit steps"
 assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_units=3 finalizers=0 capacity={go_cpu:6,go_io:6,browser_stack:" "quiet scheduler shows aggregate start"
@@ -1252,8 +1252,8 @@ assert_scheduler_artifacts "$weighted_dir" weighted test-fast-service-backed pas
 
 weighted_verbose_output="$(VERBOSE=1 run_scheduler "$weighted_dir" "$weighted_manifest" test-fast-service-backed weighted-verbose 2>&1)"
 assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed start work_units=3 finalizers=0 capacity={go_cpu:6,go_io:6,browser_stack:" "verbose scheduler aggregate start"
-assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={go_cpu:1,go_io:1,minio:1,postgres:1,process:1} active=1 pending=2" "verbose scheduler start telemetry"
-assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-store claims={go_cpu:1,go_io:1,minio:1,postgres:1} active=3 pending=0 active_resource_claims={go_cpu:3,go_io:3,minio:3,postgres:3,process:1}" "verbose scheduler starts all compatible weighted children"
+assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={go_cpu:1,go_io:1,object_store:1,postgres:1,process:1} active=1 pending=2" "verbose scheduler start telemetry"
+assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-store claims={go_cpu:1,go_io:1,object_store:1,postgres:1} active=3 pending=0 active_resource_claims={go_cpu:3,go_io:3,object_store:3,postgres:3,process:1}" "verbose scheduler starts all compatible weighted children"
 assert_contains "$weighted_verbose_output" "resource_limits={go_cpu:6,go_io:6,browser_stack:" "verbose scheduler resource limit telemetry includes browser stack"
 assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed finish work_unit=backend-process status=0" "verbose scheduler finish telemetry"
 assert_contains "$weighted_verbose_output" "fake pass for backend-store" "verbose scheduler replays successful child logs"
@@ -1272,7 +1272,7 @@ cat >"${auto_capacity_manifest}.sources" <<'JSON'
       "capacity_profile": "service_backed_full",
       "resource_limits": {
         "postgres": 32,
-        "minio": 32,
+        "object_store": 32,
         "go_cpu": "auto",
         "go_io": "auto",
         "postgres_reset": "auto",
@@ -1281,7 +1281,7 @@ cat >"${auto_capacity_manifest}.sources" <<'JSON'
         "browser_stack": "auto"
       },
       "work_unit_sources": [
-        { "type": "make_target", "class": "backend", "target": "backend-process", "weight_ms": 1, "resource_claims": { "postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1 } }
+        { "type": "make_target", "class": "backend", "target": "backend-process", "weight_ms": 1, "resource_claims": { "postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1 } }
       ]
     }
   ]
@@ -1351,9 +1351,9 @@ cleanup_paths+=("$resource_block_dir")
 write_fake_make "$resource_block_dir"
 resource_block_manifest="${resource_block_dir}/manifest.json"
 write_manifest "$resource_block_manifest" test-fast-service-backed \
-  'make_target|backend-integration|10|"postgres": 1, "minio": 1, "go_cpu": 4, "go_io": 1' \
-  'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 3, "go_io": 1' \
-  'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 2, "go_io": 1, "process": 1'
+  'make_target|backend-integration|10|"postgres": 1, "object_store": 1, "go_cpu": 4, "go_io": 1' \
+  'make_target|backend-store|9|"postgres": 1, "object_store": 1, "go_cpu": 3, "go_io": 1' \
+  'make_target|backend-process|8|"postgres": 1, "object_store": 1, "go_cpu": 2, "go_io": 1, "process": 1'
 resource_block_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 run_scheduler "$resource_block_dir" "$resource_block_manifest" test-fast-service-backed resource-block 2>&1)"
 assert_contains "$resource_block_output" "[PROGRESS] target=test-fast-service-backed completed=0/3" "scheduler go_cpu-blocked human progress"
 assert_contains "$resource_block_output" "blocker=go_cpu" "scheduler go_cpu-blocked human progress explains blocker"
@@ -1390,10 +1390,10 @@ cleanup_paths+=("$backend_capacity_dir")
 write_fake_make "$backend_capacity_dir"
 backend_capacity_manifest="${backend_capacity_dir}/manifest.json"
 write_manifest "$backend_capacity_manifest" test-fast-service-backed \
-  'make_target|backend-integration|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1' \
-  'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1' \
-  'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1' \
-  'make_target|backend-integration-support|7|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1'
+  'make_target|backend-integration|10|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1' \
+  'make_target|backend-store|9|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1' \
+  'make_target|backend-process|8|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1' \
+  'make_target|backend-integration-support|7|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1'
 backend_capacity_output="$(run_scheduler "$backend_capacity_dir" "$backend_capacity_manifest" test-fast-service-backed backend-capacity 2>&1)"
 assert_contains "$backend_capacity_output" "[SUMMARY] target=test-fast-service-backed status=pass" "quiet go resource model shows success scheduler summary"
 
@@ -1402,9 +1402,9 @@ cleanup_paths+=("$io_block_dir")
 write_fake_make "$io_block_dir"
 io_block_manifest="${io_block_dir}/manifest.json"
 write_manifest "$io_block_manifest" test-fast-service-backed \
-  'make_target|backend-integration|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 4' \
-  'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 3' \
-  'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 2, "process": 1'
+  'make_target|backend-integration|10|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 4' \
+  'make_target|backend-store|9|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 3' \
+  'make_target|backend-process|8|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 2, "process": 1'
 io_block_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 run_scheduler "$io_block_dir" "$io_block_manifest" test-fast-service-backed host_io-block 2>&1)"
 assert_contains "$io_block_output" "[PROGRESS] target=test-fast-service-backed completed=0/3" "scheduler go_io-blocked human progress"
 assert_contains "$io_block_output" "blocker=go_io" "scheduler go_io-blocked human progress explains blocker"
@@ -1415,8 +1415,8 @@ cleanup_paths+=("$browser_dir")
 write_fake_make "$browser_dir"
 browser_manifest="${browser_dir}/manifest.json"
 write_manifest "$browser_manifest" test-service-backed \
-  'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend' \
-  'make_target|browser-e2e-webserver-backed|9|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed'
+  'make_target|backend-process|10|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend' \
+  'make_target|browser-e2e-webserver-backed|9|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed'
 browser_output="$(run_scheduler "$browser_dir" "$browser_manifest" test-service-backed browser 2>&1)"
 assert_not_contains "$browser_output" "[STEP] test-service-backed" "browser schedule hides default scheduler steps"
 assert_contains "$browser_output" "[RESULT] target=test-service-backed status=pass" "browser schedule aggregate child tests"
@@ -1436,16 +1436,16 @@ cat >"${eager_finalizer_manifest}.sources" <<'JSON'
   "schedules": [
     {
       "target": "test-service-backed",
-      "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 64, "go_io": 64, "postgres_clone": 8, "postgres_reset": 8, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1 },
+      "resource_limits": { "postgres": 32, "object_store": 32, "go_cpu": 64, "go_io": 64, "postgres_clone": 8, "postgres_reset": 8, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1 },
       "work_unit_sources": [
-        { "type": "go_shards", "class": "backend", "target": "backend-store", "resource_claims": { "postgres": 1, "minio": 1 } },
+        { "type": "go_shards", "class": "backend", "target": "backend-store", "resource_claims": { "postgres": 1, "object_store": 1 } },
         {
           "type": "browser_stage",
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
           "weight_ms": 9,
-          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 },
+          "resource_claims": { "postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 },
           "groups": [
             { "id": "browser-e2e-webserver-backed:support", "name": "support", "kind": "support", "target": "browser-e2e-webserver-backed", "aggregate_target": "browser-e2e-webserver-backed", "coverage": "authoritative", "execution_dependency": "browser_support", "weight_ms": 9, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
           ]
@@ -1490,8 +1490,8 @@ write_fake_make "$separate_finalizer_dir"
 write_fake_go_target_runner "$separate_finalizer_dir"
 separate_finalizer_manifest="${separate_finalizer_dir}/manifest.json"
 write_manifest "$separate_finalizer_manifest" test-fast-service-backed \
-  'go_shards|backend-integration|0|"postgres": 1, "minio": 1' \
-  'go_shards|backend-integration-support|0|"postgres": 1, "minio": 1'
+  'go_shards|backend-integration|0|"postgres": 1, "object_store": 1' \
+  'go_shards|backend-integration-support|0|"postgres": 1, "object_store": 1'
 assert_no_shared_backend_integration_shards
 separate_finalizer_output="$(
   FAKE_GO_SLEEP_CAPTURE=0.005 \
@@ -1524,8 +1524,8 @@ cleanup_paths+=("$check_browser_dir")
 write_fake_make "$check_browser_dir"
 check_browser_manifest="${check_browser_dir}/manifest.json"
 write_manifest "$check_browser_manifest" check-service-backed \
-  'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed' \
-  'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend'
+  'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed' \
+  'make_target|backend-process|10|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend'
 check_browser_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2
   FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS=0.3
@@ -1544,8 +1544,8 @@ cleanup_paths+=("$dual_browser_dir")
 write_fake_make "$dual_browser_dir"
 dual_browser_manifest="${dual_browser_dir}/manifest.json"
 write_manifest "$dual_browser_manifest" check-service-backed \
-  'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed' \
-  'make_target|browser-e2e-stateful|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful'
+  'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed' \
+  'make_target|browser-e2e-stateful|20|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful'
 dual_browser_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.2 \
@@ -1586,7 +1586,7 @@ cat >"${browser_auto_manifest}.sources" <<'JSON'
       "target": "check-service-backed",
       "resource_limits": {
         "postgres": 32,
-        "minio": 32,
+        "object_store": 32,
         "go_cpu": 8,
         "go_io": 8,
         "process": 4,
@@ -1603,7 +1603,7 @@ cat >"${browser_auto_manifest}.sources" <<'JSON'
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
           "weight_ms": 40,
-          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 },
+          "resource_claims": { "postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 },
           "groups": [
             { "id": "browser-e2e-webserver-backed:browser-functional-shard-01", "name": "browser-functional-shard-01", "kind": "functional_shard", "target": "browser-e2e-webserver-backed", "aggregate_target": "browser-e2e-webserver-backed", "coverage": "authoritative", "execution_dependency": "browser_functional", "shard_name": "browser-functional-shard-01", "shard_index": 0, "shard_count": 2, "entry_ids": ["E-1-01"], "weight_ms": 41, "resource_claims": { "go_cpu": 1, "go_io": 1 } },
             { "id": "browser-e2e-webserver-backed:browser-functional-shard-02", "name": "browser-functional-shard-02", "kind": "functional_shard", "target": "browser-e2e-webserver-backed", "aggregate_target": "browser-e2e-webserver-backed", "coverage": "authoritative", "execution_dependency": "browser_functional", "shard_name": "browser-functional-shard-02", "shard_index": 1, "shard_count": 2, "entry_ids": ["E-1-02"], "weight_ms": 40, "resource_claims": { "go_cpu": 1, "go_io": 1 } },
@@ -1616,7 +1616,7 @@ cat >"${browser_auto_manifest}.sources" <<'JSON'
           "target": "browser-e2e-stateful",
           "browser_stage": "stateful",
           "weight_ms": 30,
-          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1 },
+          "resource_claims": { "postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1 },
           "groups": [
             { "id": "browser-e2e-stateful:stateful", "name": "stateful", "kind": "stateful", "target": "browser-e2e-stateful", "aggregate_target": "browser-e2e-stateful", "coverage": "authoritative", "execution_dependency": "browser_stateful", "weight_ms": 30, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
           ]
@@ -1628,7 +1628,7 @@ cat >"${browser_auto_manifest}.sources" <<'JSON'
           "browser_stage": "measurement",
           "needs": ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-visual"],
           "weight_ms": 20,
-          "resource_claims": { "postgres": "limit", "minio": "limit", "process": "limit", "browser_stack": "limit", "go_cpu": "limit", "go_io": "limit", "browser_stage_measurement": 1 },
+          "resource_claims": { "postgres": "limit", "object_store": "limit", "process": "limit", "browser_stack": "limit", "go_cpu": "limit", "go_io": "limit", "browser_stage_measurement": 1 },
           "groups": [
             { "id": "browser-e2e-measurement:measurement", "name": "measurement", "kind": "measurement", "target": "browser-e2e-measurement", "aggregate_target": "browser-e2e-measurement", "coverage": "authoritative", "execution_dependency": "browser_measurement", "weight_ms": 20, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
           ]
@@ -1639,7 +1639,7 @@ cat >"${browser_auto_manifest}.sources" <<'JSON'
           "target": "browser-e2e-visual",
           "browser_stage": "visual",
           "weight_ms": 10,
-          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_visual": 1 },
+          "resource_claims": { "postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_visual": 1 },
           "groups": [
             { "id": "browser-e2e-visual:visual", "name": "visual", "kind": "visual", "target": "browser-e2e-visual", "aggregate_target": "browser-e2e-visual", "coverage": "authoritative", "execution_dependency": "browser_visual", "weight_ms": 10, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
           ]
@@ -1704,8 +1704,8 @@ cleanup_paths+=("$browser_backend_overlap_dir")
 write_fake_make "$browser_backend_overlap_dir"
 browser_backend_overlap_manifest="${browser_backend_overlap_dir}/manifest.json"
 write_manifest "$browser_backend_overlap_manifest" check-service-backed \
-  'make_target|backend-process|30|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend' \
-  'make_target|browser-e2e-stateful|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful'
+  'make_target|backend-process|30|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend' \
+  'make_target|browser-e2e-stateful|20|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful'
 browser_backend_overlap_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
   FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS=0.25 \
@@ -1741,10 +1741,10 @@ cat >"${scheduler_priority_manifest}.sources" <<'JSON'
   "schedules": [
     {
       "target": "check-service-backed",
-      "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 1, "go_io": 1, "process": 2 },
+      "resource_limits": { "postgres": 32, "object_store": 32, "go_cpu": 1, "go_io": 1, "process": 2 },
       "work_unit_sources": [
-        { "type": "make_target", "class": "backend", "target": "backend-store", "priority": 0, "weight_ms": 100, "resource_claims": { "postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1 } },
-        { "type": "make_target", "class": "backend", "target": "backend-process", "priority": 10, "weight_ms": 1, "resource_claims": { "postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1 } }
+        { "type": "make_target", "class": "backend", "target": "backend-store", "priority": 0, "weight_ms": 100, "resource_claims": { "postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1 } },
+        { "type": "make_target", "class": "backend", "target": "backend-process", "priority": 10, "weight_ms": 1, "resource_claims": { "postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1 } }
       ]
     }
   ]
@@ -1769,9 +1769,9 @@ cleanup_paths+=("$dependency_order_dir")
 write_fake_make "$dependency_order_dir"
 dependency_order_manifest="${dependency_order_dir}/manifest.json"
 write_manifest "$dependency_order_manifest" check-service-backed \
-  'make_target|backend-process|30|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend||' \
-  'make_target|browser-e2e-webserver-backed|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed|' \
-  'make_target|browser-e2e-stateful|10|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful|backend-process'
+  'make_target|backend-process|30|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend||' \
+  'make_target|browser-e2e-webserver-backed|20|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed|' \
+  'make_target|browser-e2e-stateful|10|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful|backend-process'
 dependency_order_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
   CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 \
@@ -1833,7 +1833,7 @@ cleanup_paths+=("$makeflags_sanitize_dir")
 write_fake_make "$makeflags_sanitize_dir"
 makeflags_sanitize_manifest="${makeflags_sanitize_dir}/manifest.json"
 write_manifest "$makeflags_sanitize_manifest" test-fast-service-backed \
-  'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1'
+  'make_target|backend-process|10|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1'
 makeflags_sanitize_output="$(
   MAKEFLAGS='--jobserver-auth=3,4 -j --trace' \
   MFLAGS='--jobserver-fds=3,4 -j' \
@@ -1850,8 +1850,8 @@ write_fake_make "$go_dependency_order_dir"
 write_fake_go_target_runner "$go_dependency_order_dir"
 go_dependency_order_manifest="${go_dependency_order_dir}/manifest.json"
 write_manifest "$go_dependency_order_manifest" check-service-backed \
-  'go_shards|backend-store|0|"postgres": 1, "minio": 1|backend||' \
-  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed|backend-store'
+  'go_shards|backend-store|0|"postgres": 1, "object_store": 1|backend||' \
+  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed|backend-store'
 go_dependency_order_output="$(
   CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 \
   FAKE_GO_SLEEP_CAPTURE=0.005 \
@@ -1884,8 +1884,8 @@ write_fake_make "$dependency_failure_skip_dir"
 write_fake_go_target_runner "$dependency_failure_skip_dir"
 dependency_failure_skip_manifest="${dependency_failure_skip_dir}/manifest.json"
 write_manifest "$dependency_failure_skip_manifest" check-service-backed \
-  'go_shards|backend-store|0|"postgres": 1, "minio": 1|backend||' \
-  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed|backend-store'
+  'go_shards|backend-store|0|"postgres": 1, "object_store": 1|backend||' \
+  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed|backend-store'
 set +e
 dependency_failure_skip_output="$(
   FAKE_GO_FAIL_SHARD=backend-store-shard-01 \
@@ -1917,8 +1917,8 @@ cleanup_paths+=("$browser_stack_lane_dir")
 write_fake_make "$browser_stack_lane_dir"
 browser_stack_lane_manifest="${browser_stack_lane_dir}/manifest.json"
 write_manifest "$browser_stack_lane_manifest" check-service-backed \
-  'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed' \
-  'make_target|browser-e2e-stateful|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful'
+  'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed' \
+  'make_target|browser-e2e-stateful|20|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1|browser|stateful'
 browser_stack_lane_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=1 \
   CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 \
@@ -1933,8 +1933,8 @@ cleanup_paths+=("$same_browser_lane_dir")
 write_fake_make "$same_browser_lane_dir"
 same_browser_lane_manifest="${same_browser_lane_dir}/manifest.json"
 write_manifest "$same_browser_lane_manifest" test-fast-service-backed \
-  'make_target|backend-process|30|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1, "browser_stage_stateful": 1|backend' \
-  'make_target|backend-store|20|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "browser_stage_stateful": 1|backend'
+  'make_target|backend-process|30|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1, "browser_stage_stateful": 1|backend' \
+  'make_target|backend-store|20|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "browser_stage_stateful": 1|backend'
 same_browser_lane_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
   CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=1 \
@@ -1973,7 +1973,7 @@ cleanup_paths+=("$fixture_shape_dir")
 write_fake_make "$fixture_shape_dir"
 fixture_shape_manifest="${fixture_shape_dir}/manifest.json"
 write_manifest "$fixture_shape_manifest" test-fast-service-backed \
-  'make_target|backend-integration|10|"postgres": 1, "minio": 1'
+  'make_target|backend-integration|10|"postgres": 1, "object_store": 1'
 fixture_events_dir="${fixture_shape_dir}/results/fixture-shape-fail/_shared/test-services/suite/events"
 mkdir -p "$fixture_events_dir"
 cat >"${fixture_events_dir}/001-postgres-db-created.json" <<'JSON'
@@ -2026,8 +2026,8 @@ cleanup_paths+=("$failure_dir")
 write_fake_make "$failure_dir"
 failure_manifest="${failure_dir}/manifest.json"
 write_manifest "$failure_manifest" test-fast-service-backed \
-  'make_target|backend-integration|10|"postgres": 1, "minio": 1' \
-  'make_target|backend-store|9|"postgres": 1, "minio": 1'
+  'make_target|backend-integration|10|"postgres": 1, "object_store": 1' \
+  'make_target|backend-store|9|"postgres": 1, "object_store": 1'
 set +e
 failure_output="$(
   FAKE_FAIL_WRITES_SUMMARY=1 \
@@ -2060,7 +2060,7 @@ write_fake_make "$failed_shard_dir"
 write_fake_go_target_runner "$failed_shard_dir"
 failed_shard_manifest="${failed_shard_dir}/manifest.json"
 write_manifest "$failed_shard_manifest" test-fast-service-backed \
-  'go_shards|backend-store|0|"postgres": 1, "minio": 1'
+  'go_shards|backend-store|0|"postgres": 1, "object_store": 1'
 set +e
 failed_shard_output="$(
   FAKE_GO_FAIL_SHARD=backend-store-shard-01 \
@@ -2114,8 +2114,8 @@ cleanup_paths+=("$defer_summary_dir")
 write_fake_make "$defer_summary_dir"
 defer_summary_manifest="${defer_summary_dir}/manifest.json"
 write_manifest "$defer_summary_manifest" test-fast-service-backed \
-  'make_target|backend-integration|10|"postgres": 1, "minio": 1' \
-  'make_target|backend-store|9|"postgres": 1, "minio": 1'
+  'make_target|backend-integration|10|"postgres": 1, "object_store": 1' \
+  'make_target|backend-store|9|"postgres": 1, "object_store": 1'
 defer_summary_output="$(run_scheduler "$defer_summary_dir" "$defer_summary_manifest" test-fast-service-backed defer-summary --defer-summary 2>&1)"
 assert_not_contains "$defer_summary_output" "[TARGET] start test-fast-service-backed" "defer-summary quiet output hides target start"
 assert_file_absent "${defer_summary_dir}/results/defer-summary/test-fast-service-backed/target-summary.json" "defer-summary parent target summary"
@@ -2125,7 +2125,7 @@ cleanup_paths+=("$unsafe_dir")
 write_fake_make "$unsafe_dir"
 unsafe_manifest="${unsafe_dir}/manifest.json"
 write_manifest "$unsafe_manifest" check-service-backed \
-  'make_target|backend-unit|10|"postgres": 1, "minio": 1'
+  'make_target|backend-unit|10|"postgres": 1, "object_store": 1'
 set +e
 unsafe_output="$(run_scheduler "$unsafe_dir" "$unsafe_manifest" check-service-backed unsafe 2>&1)"
 unsafe_status=$?
@@ -2138,7 +2138,7 @@ cleanup_paths+=("$unknown_dir")
 write_fake_make "$unknown_dir"
 unknown_manifest="${unknown_dir}/manifest.json"
 write_manifest "$unknown_manifest" test-fast-service-backed \
-  'make_target|unknown-backend-target|10|"postgres": 1, "minio": 1'
+  'make_target|unknown-backend-target|10|"postgres": 1, "object_store": 1'
 set +e
 unknown_output="$(run_scheduler "$unknown_dir" "$unknown_manifest" test-fast-service-backed unknown 2>&1)"
 unknown_status=$?
@@ -2151,14 +2151,14 @@ cleanup_paths+=("$dry_run_dir")
 write_fake_make "$dry_run_dir"
 dry_run_manifest="${dry_run_dir}/manifest.json"
 write_manifest "$dry_run_manifest" test-service-backed \
-  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed'
+  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed'
 dry_run_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
   MAKEFLAGS=n \
     run_scheduler "$dry_run_dir" "$dry_run_manifest" test-service-backed dry-run 2>&1
 )"
 assert_contains "$dry_run_output" "[DRY-RUN] test-service-backed manifest=" "dry-run output"
-assert_contains "$dry_run_output" "resource_limits={go_cpu:6,go_io:6,browser_stack:2,minio:32,postgres:32,process:2" "dry-run includes compact resolved resources"
+assert_contains "$dry_run_output" "resource_limits={go_cpu:6,go_io:6,browser_stack:2,object_store:32,postgres:32,process:2" "dry-run includes compact resolved resources"
 assert_contains "$dry_run_output" "work_units=2" "dry-run includes compact browser stage work summary"
 assert_contains "$dry_run_output" "finalizers=0" "dry-run excludes browser stage completion from finalizers"
 assert_not_contains "$dry_run_output" "claims={" "default dry-run hides per-unit claims"
@@ -2169,7 +2169,7 @@ cleanup_paths+=("$go_shard_dry_run_dir")
 write_fake_make "$go_shard_dry_run_dir"
 go_shard_dry_run_manifest="${go_shard_dry_run_dir}/manifest.json"
 write_manifest "$go_shard_dry_run_manifest" test-fast-service-backed \
-  'go_shards|backend-store|0|"postgres": 1, "minio": 1'
+  'go_shards|backend-store|0|"postgres": 1, "object_store": 1'
 go_shard_dry_run_output="$(
   VERBOSE=1 \
   MAKEFLAGS=n \
@@ -2186,12 +2186,12 @@ if (!shard) {
   process.exit(1);
 }
 const claimsByProfile = {
-	  balanced: "{go_cpu:1,go_io:1,minio:1,postgres:1}",
-	  cpu_heavy: "{go_cpu:2,go_io:1,minio:1,postgres:1}",
-	  io_heavy: "{go_cpu:1,go_io:2,minio:1,postgres:1}",
-	  reset_heavy: "{go_cpu:1,go_io:2,minio:1,postgres:1,postgres_reset:1}",
-	  clone_heavy: "{go_cpu:1,go_io:2,minio:1,postgres:1,postgres_clone:1}",
-  transaction_heavy: "{go_cpu:1,go_io:1,minio:1,postgres:1}",
+	  balanced: "{go_cpu:1,go_io:1,object_store:1,postgres:1}",
+	  cpu_heavy: "{go_cpu:2,go_io:1,object_store:1,postgres:1}",
+	  io_heavy: "{go_cpu:1,go_io:2,object_store:1,postgres:1}",
+	  reset_heavy: "{go_cpu:1,go_io:2,object_store:1,postgres:1,postgres_reset:1}",
+	  clone_heavy: "{go_cpu:1,go_io:2,object_store:1,postgres:1,postgres_clone:1}",
+  transaction_heavy: "{go_cpu:1,go_io:1,object_store:1,postgres:1}",
 };
 process.stdout.write(`backend-store/${shard.name} type=go_shard class=backend profile=${shard.scheduler_profile} claims=${claimsByProfile[shard.scheduler_profile]}`);
 EOF
@@ -2410,7 +2410,7 @@ cleanup_paths+=("$unknown_dependency_dir")
 write_fake_make "$unknown_dependency_dir"
 unknown_dependency_manifest="${unknown_dependency_dir}/manifest.json"
 write_manifest "$unknown_dependency_manifest" test-fast-service-backed \
-  'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend||missing-target'
+  'make_target|backend-process|10|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend||missing-target'
 set +e
 unknown_dependency_output="$(run_scheduler "$unknown_dependency_dir" "$unknown_dependency_manifest" test-fast-service-backed unknown-dependency 2>&1)"
 unknown_dependency_status=$?
@@ -2423,8 +2423,8 @@ cleanup_paths+=("$cycle_dependency_dir")
 write_fake_make "$cycle_dependency_dir"
 cycle_dependency_manifest="${cycle_dependency_dir}/manifest.json"
 write_manifest "$cycle_dependency_manifest" test-fast-service-backed \
-  'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend||backend-store' \
-  'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1|backend||backend-process'
+  'make_target|backend-process|10|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend||backend-store' \
+  'make_target|backend-store|9|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1|backend||backend-process'
 set +e
 cycle_dependency_output="$(run_scheduler "$cycle_dependency_dir" "$cycle_dependency_manifest" test-fast-service-backed cycle-dependency 2>&1)"
 cycle_dependency_status=$?
@@ -2437,7 +2437,7 @@ cleanup_paths+=("$invalid_browser_dir")
 write_fake_make "$invalid_browser_dir"
 invalid_browser_manifest="${invalid_browser_dir}/manifest.json"
 write_manifest "$invalid_browser_manifest" test-service-backed \
-  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "minio": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|missing-stage'
+  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "object_store": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|missing-stage'
 set +e
 invalid_browser_output="$(run_scheduler "$invalid_browser_dir" "$invalid_browser_manifest" test-service-backed invalid-browser 2>&1)"
 invalid_browser_status=$?
@@ -2450,7 +2450,7 @@ cleanup_paths+=("$invalid_browser_target_dir")
 write_fake_make "$invalid_browser_target_dir"
 invalid_browser_target_manifest="${invalid_browser_target_dir}/manifest.json"
 write_manifest "$invalid_browser_target_manifest" test-service-backed \
-  'make_target|browser-e2e-visual|10|"postgres": 1, "minio": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed'
+  'make_target|browser-e2e-visual|10|"postgres": 1, "object_store": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed'
 set +e
 invalid_browser_target_output="$(run_scheduler "$invalid_browser_target_dir" "$invalid_browser_target_manifest" test-service-backed invalid-browser-target 2>&1)"
 invalid_browser_target_status=$?
@@ -2477,7 +2477,7 @@ cleanup_paths+=("$unknown_option_dir")
 write_fake_make "$unknown_option_dir"
 unknown_option_manifest="${unknown_option_dir}/manifest.json"
 write_manifest "$unknown_option_manifest" test-fast-service-backed \
-  'make_target|backend-integration|10|"postgres": 1, "minio": 1'
+  'make_target|backend-integration|10|"postgres": 1, "object_store": 1'
 set +e
 unknown_option_output="$(
   env \

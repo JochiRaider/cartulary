@@ -459,7 +459,7 @@ export function classifyTimingFailure(span = {}) {
       bucket === "server_startup" ||
       bucket === "frontend_startup" ||
       label.includes("postgres") ||
-      label.includes("minio") ||
+      label.includes("object-store") ||
       label.includes("service")
     ) {
       return "infra";

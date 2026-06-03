@@ -77,7 +77,7 @@ This ledger is generated from `tools/phase3_test_map.json`. Update the manifest 
 
 | Harness | Phase 3 evidence |
 | --- | --- |
-| Real runtime and store harnesses | `internal/testutil/phase3test` centralizes the Postgres + MinIO runtime boot path and HTTP session helpers, `internal/testutil/incidentwstest` owns canonical incident WebSocket handshakes and revocation assertions, and `internal/testutil/phase3storetest` owns rollback-backed incident, membership, and store helpers for service-backed unit rows. |
+| Real runtime and store harnesses | `internal/testutil/phase3test` centralizes the Postgres + object-store runtime boot path and HTTP session helpers, `internal/testutil/incidentwstest` owns canonical incident WebSocket handshakes and revocation assertions, and `internal/testutil/phase3storetest` owns rollback-backed incident, membership, and store helpers for service-backed unit rows. |
 | Cross-cutting HTTP and replay helpers | `internal/testutil/httptestx` owns success or error envelope checks, replay scaffolding, mutation attribution helpers, and closed-vocabulary assertions used across the Phase 3 backend suite. |
 | Timeline substrate inspection helpers | `internal/testutil/timelinetest` owns projection-row, change-set, mutation-row, revision-count, and supersede-link inspection used by the Phase 3 store and integration slices. |
 | Browser timing and replay helpers | `apps/web/e2e/helpers.ts` provides the Phase 3 timing predicates, tracked-user browser auth helpers, and substrate snapshot accessors shared by `E-3-02`, `E-3-03`, and `E-3-04`. |

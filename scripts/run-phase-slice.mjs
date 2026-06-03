@@ -127,7 +127,8 @@ function makeTarget(context, target) {
 function setupTargets(plan) {
   const targets = [];
   const classes = new Set(plan.work_units.map((unit) => unit.class));
-  const hasService = plan.service_requirements.includes("postgres") || plan.service_requirements.includes("minio");
+  const hasService =
+    plan.service_requirements.includes("postgres") || plan.service_requirements.includes("object_store");
   const hasBrowser = classes.has("browser");
   const hasFrontend = classes.has("frontend");
   const hasBackendProcess = plan.work_units.some((unit) => unit.target === "backend-process");
@@ -158,7 +159,7 @@ function runSetup(context, plan) {
 }
 
 function needsServiceWrapper(plan) {
-  return plan.service_requirements.includes("postgres") || plan.service_requirements.includes("minio");
+  return plan.service_requirements.includes("postgres") || plan.service_requirements.includes("object_store");
 }
 
 function reexecInsideServiceWrapper(context, options) {

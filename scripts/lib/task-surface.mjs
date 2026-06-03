@@ -60,7 +60,7 @@ const validLifecycleStates = new Set([
 ]);
 const validServiceRequirements = new Set([
   "postgres",
-  "minio",
+  "object_store",
   "browser_stack",
   "vite",
 ]);

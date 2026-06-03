@@ -19,7 +19,7 @@
         "suite_service_stack": 1,
         "migration_scratch_postgres": 1,
         "postgres": 32,
-        "minio": 32,
+        "object_store": 32,
         "postgres_reset": "auto",
         "postgres_clone": "auto",
         "process": 6,
@@ -295,7 +295,7 @@
             "browser_stage_webserver_backed": 1,
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "process": 1
           },
@@ -392,7 +392,7 @@
             "browser_stage_stateful": 1,
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "process": 1
           },
@@ -1030,7 +1030,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -1064,7 +1064,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "process": 1
           },
@@ -1103,7 +1103,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -1143,7 +1143,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -1183,7 +1183,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -1223,7 +1223,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -1262,7 +1262,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -1302,7 +1302,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -1342,7 +1342,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -1382,7 +1382,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -1421,7 +1421,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -1460,7 +1460,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -1500,7 +1500,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -1539,7 +1539,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -1579,7 +1579,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -1618,7 +1618,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -1658,7 +1658,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -1697,7 +1697,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -1737,7 +1737,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -1776,7 +1776,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -1815,7 +1815,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -1854,7 +1854,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -1894,7 +1894,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -1933,7 +1933,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -1973,7 +1973,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2013,7 +2013,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2053,7 +2053,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2093,7 +2093,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2133,7 +2133,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2173,7 +2173,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2213,7 +2213,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2253,7 +2253,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2293,7 +2293,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -2332,7 +2332,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2372,7 +2372,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2412,7 +2412,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -2451,7 +2451,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2491,7 +2491,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2531,7 +2531,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -2570,7 +2570,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2610,7 +2610,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -2649,7 +2649,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -2688,7 +2688,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2728,7 +2728,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -2767,7 +2767,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2807,7 +2807,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2847,7 +2847,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -2887,7 +2887,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -2926,7 +2926,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -2965,7 +2965,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -3004,7 +3004,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3044,7 +3044,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3084,7 +3084,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3124,7 +3124,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3164,7 +3164,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3204,7 +3204,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3244,7 +3244,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -3283,7 +3283,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3323,7 +3323,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3363,7 +3363,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3403,7 +3403,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3443,7 +3443,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3483,7 +3483,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3523,7 +3523,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3563,7 +3563,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3603,7 +3603,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3643,7 +3643,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3683,7 +3683,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3723,7 +3723,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3763,7 +3763,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3803,7 +3803,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3843,7 +3843,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3883,7 +3883,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3923,7 +3923,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -3963,7 +3963,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4003,7 +4003,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -4042,7 +4042,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4082,7 +4082,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4122,7 +4122,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4162,7 +4162,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "service_session": {
@@ -4201,7 +4201,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4241,7 +4241,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4281,7 +4281,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4321,7 +4321,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4361,7 +4361,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4401,7 +4401,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4441,7 +4441,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4481,7 +4481,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4521,7 +4521,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4561,7 +4561,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4601,7 +4601,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4641,7 +4641,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4681,7 +4681,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4721,7 +4721,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4761,7 +4761,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -4801,7 +4801,7 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -5517,7 +5517,7 @@
       "capacity_profile": "service_backed_full",
       "resource_limits": {
         "postgres": 32,
-        "minio": 32,
+        "object_store": 32,
         "go_cpu": "auto",
         "go_io": "auto",
         "postgres_reset": "auto",
@@ -5554,7 +5554,7 @@
           "resource_claims": {
             "browser_stack": 1,
             "browser_stage_webserver_backed": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "process": 1
           },
@@ -6137,7 +6137,7 @@
           "resource_claims": {
             "browser_stack": 1,
             "browser_stage_stateful": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "process": 1
           },
@@ -6175,7 +6175,7 @@
           "resource_claims": {
             "go_cpu": "limit",
             "go_io": "limit",
-            "minio": "limit",
+            "object_store": "limit",
             "postgres": "limit"
           },
           "browser_stage": "measurement",
@@ -6195,7 +6195,7 @@
               "go_cpu": "limit",
               "go_io": "limit",
               "postgres": "limit",
-              "minio": "limit"
+              "object_store": "limit"
             }
           },
           "env": {
@@ -6235,7 +6235,7 @@
             "browser_stage_measurement": 1,
             "go_cpu": "limit",
             "go_io": "limit",
-            "minio": "limit",
+            "object_store": "limit",
             "postgres": "limit",
             "process": "limit"
           },
@@ -6322,7 +6322,7 @@
           "resource_claims": {
             "browser_stack": 1,
             "browser_stage_visual": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "process": 1
           },
@@ -6409,7 +6409,7 @@
           "resource_claims": {
             "browser_stack": 1,
             "browser_stage_a11y": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "process": 1
           },
@@ -6451,7 +6451,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -6487,7 +6487,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -6523,7 +6523,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -6559,7 +6559,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -6589,7 +6589,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "process": 1
           },
@@ -6623,7 +6623,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -6659,7 +6659,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -6695,7 +6695,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -6731,7 +6731,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -6766,7 +6766,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -6802,7 +6802,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -6838,7 +6838,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -6874,7 +6874,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -6910,7 +6910,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -6945,7 +6945,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -6980,7 +6980,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7016,7 +7016,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7052,7 +7052,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -7087,7 +7087,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7123,7 +7123,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -7158,7 +7158,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7194,7 +7194,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -7229,7 +7229,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7265,7 +7265,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -7300,7 +7300,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -7335,7 +7335,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -7370,7 +7370,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7406,7 +7406,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -7441,7 +7441,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7477,7 +7477,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7513,7 +7513,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7549,7 +7549,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7585,7 +7585,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7621,7 +7621,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7657,7 +7657,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7693,7 +7693,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7729,7 +7729,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7765,7 +7765,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7801,7 +7801,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7837,7 +7837,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7873,7 +7873,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -7908,7 +7908,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7944,7 +7944,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -7980,7 +7980,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -8015,7 +8015,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8051,7 +8051,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8087,7 +8087,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -8122,7 +8122,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8158,7 +8158,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -8193,7 +8193,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8229,7 +8229,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -8264,7 +8264,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8300,7 +8300,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -8335,7 +8335,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8371,7 +8371,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8407,7 +8407,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8443,7 +8443,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8479,7 +8479,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -8514,7 +8514,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -8549,7 +8549,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -8584,7 +8584,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8620,7 +8620,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8656,7 +8656,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8692,7 +8692,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8728,7 +8728,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -8763,7 +8763,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8799,7 +8799,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8835,7 +8835,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8871,7 +8871,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -8906,7 +8906,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_reset": 1
           },
@@ -8942,7 +8942,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -8978,7 +8978,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9014,7 +9014,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9050,7 +9050,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9086,7 +9086,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9122,7 +9122,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9158,7 +9158,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9194,7 +9194,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9230,7 +9230,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9266,7 +9266,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9302,7 +9302,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9338,7 +9338,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9374,7 +9374,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9410,7 +9410,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9446,7 +9446,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9482,7 +9482,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9518,7 +9518,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9554,7 +9554,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9590,7 +9590,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9626,7 +9626,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9662,7 +9662,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9698,7 +9698,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9734,7 +9734,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9770,7 +9770,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9806,7 +9806,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9842,7 +9842,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -9877,7 +9877,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9913,7 +9913,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9949,7 +9949,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -9985,7 +9985,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -10020,7 +10020,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10056,7 +10056,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10092,7 +10092,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10128,7 +10128,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10164,7 +10164,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10200,7 +10200,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10236,7 +10236,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10272,7 +10272,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10308,7 +10308,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10344,7 +10344,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10380,7 +10380,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10416,7 +10416,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10452,7 +10452,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10488,7 +10488,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10524,7 +10524,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -10560,7 +10560,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11078,7 +11078,7 @@
       "capacity_profile": "service_backed_backend",
       "resource_limits": {
         "postgres": 32,
-        "minio": 32,
+        "object_store": 32,
         "go_cpu": "auto",
         "go_io": "auto",
         "postgres_reset": "auto",
@@ -11115,7 +11115,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11151,7 +11151,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11187,7 +11187,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11223,7 +11223,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11253,7 +11253,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "process": 1
           },
@@ -11287,7 +11287,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11323,7 +11323,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11359,7 +11359,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11395,7 +11395,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -11430,7 +11430,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11466,7 +11466,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11502,7 +11502,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11538,7 +11538,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11574,7 +11574,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -11609,7 +11609,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -11644,7 +11644,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11680,7 +11680,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11716,7 +11716,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -11751,7 +11751,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11787,7 +11787,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -11822,7 +11822,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11858,7 +11858,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -11893,7 +11893,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -11929,7 +11929,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -11964,7 +11964,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -11999,7 +11999,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -12034,7 +12034,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12070,7 +12070,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -12105,7 +12105,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12141,7 +12141,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12177,7 +12177,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12213,7 +12213,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12249,7 +12249,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12285,7 +12285,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12321,7 +12321,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12357,7 +12357,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12393,7 +12393,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12429,7 +12429,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12465,7 +12465,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12501,7 +12501,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12537,7 +12537,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -12572,7 +12572,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12608,7 +12608,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12644,7 +12644,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -12679,7 +12679,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12715,7 +12715,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12751,7 +12751,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -12786,7 +12786,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12822,7 +12822,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -12857,7 +12857,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12893,7 +12893,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -12928,7 +12928,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -12964,7 +12964,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -12999,7 +12999,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13035,7 +13035,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13071,7 +13071,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13107,7 +13107,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13143,7 +13143,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -13178,7 +13178,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -13213,7 +13213,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -13248,7 +13248,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13284,7 +13284,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13320,7 +13320,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13356,7 +13356,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13392,7 +13392,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -13427,7 +13427,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13463,7 +13463,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13499,7 +13499,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13535,7 +13535,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -13570,7 +13570,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_reset": 1
           },
@@ -13606,7 +13606,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13642,7 +13642,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13678,7 +13678,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13714,7 +13714,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13750,7 +13750,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13786,7 +13786,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13822,7 +13822,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13858,7 +13858,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13894,7 +13894,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13930,7 +13930,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -13966,7 +13966,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14002,7 +14002,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14038,7 +14038,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14074,7 +14074,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14110,7 +14110,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14146,7 +14146,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14182,7 +14182,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14218,7 +14218,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14254,7 +14254,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14290,7 +14290,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14326,7 +14326,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14362,7 +14362,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14398,7 +14398,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14434,7 +14434,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14470,7 +14470,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14506,7 +14506,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -14541,7 +14541,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14577,7 +14577,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14613,7 +14613,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14649,7 +14649,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -14684,7 +14684,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14720,7 +14720,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14756,7 +14756,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14792,7 +14792,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14828,7 +14828,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14864,7 +14864,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14900,7 +14900,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14936,7 +14936,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -14972,7 +14972,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -15008,7 +15008,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -15044,7 +15044,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -15080,7 +15080,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -15116,7 +15116,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -15152,7 +15152,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -15188,7 +15188,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -15224,7 +15224,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -15561,7 +15561,7 @@
       "capacity_profile": "service_backed_full",
       "resource_limits": {
         "postgres": 32,
-        "minio": 32,
+        "object_store": 32,
         "go_cpu": "auto",
         "go_io": "auto",
         "postgres_reset": "auto",
@@ -15595,7 +15595,7 @@
           "resource_claims": {
             "browser_stack": 1,
             "browser_stage_webserver_backed": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "process": 1
           },
@@ -15682,7 +15682,7 @@
           "resource_claims": {
             "browser_stack": 1,
             "browser_stage_stateful": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "process": 1
           },
@@ -16221,7 +16221,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -16251,7 +16251,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "process": 1
           },
@@ -16285,7 +16285,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -16321,7 +16321,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -16357,7 +16357,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -16393,7 +16393,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -16428,7 +16428,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -16464,7 +16464,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -16500,7 +16500,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -16536,7 +16536,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -16571,7 +16571,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -16606,7 +16606,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -16642,7 +16642,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -16677,7 +16677,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -16713,7 +16713,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -16748,7 +16748,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -16784,7 +16784,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -16819,7 +16819,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -16855,7 +16855,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -16890,7 +16890,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -16925,7 +16925,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -16960,7 +16960,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -16996,7 +16996,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -17031,7 +17031,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17067,7 +17067,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17103,7 +17103,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17139,7 +17139,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17175,7 +17175,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17211,7 +17211,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17247,7 +17247,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17283,7 +17283,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17319,7 +17319,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17355,7 +17355,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -17390,7 +17390,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17426,7 +17426,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17462,7 +17462,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -17497,7 +17497,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17533,7 +17533,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17569,7 +17569,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -17604,7 +17604,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17640,7 +17640,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -17675,7 +17675,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -17710,7 +17710,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17746,7 +17746,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -17781,7 +17781,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17817,7 +17817,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17853,7 +17853,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -17889,7 +17889,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -17924,7 +17924,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -17959,7 +17959,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -17994,7 +17994,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18030,7 +18030,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18066,7 +18066,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18102,7 +18102,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18138,7 +18138,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18174,7 +18174,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18210,7 +18210,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -18245,7 +18245,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18281,7 +18281,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18317,7 +18317,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18353,7 +18353,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18389,7 +18389,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18425,7 +18425,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18461,7 +18461,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18497,7 +18497,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18533,7 +18533,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18569,7 +18569,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18605,7 +18605,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18641,7 +18641,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18677,7 +18677,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18713,7 +18713,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18749,7 +18749,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18785,7 +18785,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18821,7 +18821,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18857,7 +18857,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18893,7 +18893,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -18928,7 +18928,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -18964,7 +18964,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19000,7 +19000,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19036,7 +19036,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1
           },
           "command": {
@@ -19071,7 +19071,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19107,7 +19107,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19143,7 +19143,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19179,7 +19179,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19215,7 +19215,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19251,7 +19251,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19287,7 +19287,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19323,7 +19323,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19359,7 +19359,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19395,7 +19395,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19431,7 +19431,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19467,7 +19467,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19503,7 +19503,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19539,7 +19539,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19575,7 +19575,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },
@@ -19611,7 +19611,7 @@
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 2,
-            "minio": 1,
+            "object_store": 1,
             "postgres": 1,
             "postgres_clone": 1
           },

@@ -26,17 +26,18 @@ import (
 )
 
 const (
-	minioImage                = "minio/minio:RELEASE.2025-09-07T16-13-09Z"
-	minioAPIPort              = "9000/tcp"
-	minioConsolePort          = "9001/tcp"
-	minioPortMappingTimeout   = 30 * time.Second
-	minioHealthPollInterval   = 500 * time.Millisecond
-	minioClientReadyTimeout   = 60 * time.Second
-	minioClientAttemptTimeout = 5 * time.Second
+	seaweedFSS3Image                = "docker.io/chrislusf/seaweedfs:4.17@sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9"
+	seaweedFSS3Port                 = "8333/tcp"
+	objectStorePortMappingTimeout   = 30 * time.Second
+	objectStoreHealthPollInterval   = 500 * time.Millisecond
+	objectStoreClientReadyTimeout   = 60 * time.Second
+	objectStoreClientAttemptTimeout = 5 * time.Second
+	objectStoreAccessKey            = "cartulary-local"
+	objectStoreSecretKey            = "cartulary-local-secret"
 )
 
 func ContainerImage() string {
-	return minioImage
+	return seaweedFSS3Image
 }
 
 type Harness struct {
@@ -152,27 +153,35 @@ func startHarness(ctx context.Context, labels map[string]string) (*Harness, erro
 
 func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harness, error) {
 	req := testcontainers.ContainerRequest{
-		Image:        minioImage,
-		ExposedPorts: []string{minioAPIPort, minioConsolePort},
-		Cmd:          []string{"server", "/data", "--console-address", ":9001"},
-		Env: map[string]string{
-			"MINIO_ROOT_USER":     "minioadmin",
-			"MINIO_ROOT_PASSWORD": "minioadmin",
+		Image:        seaweedFSS3Image,
+		ExposedPorts: []string{seaweedFSS3Port},
+		Cmd: []string{
+			"server",
+			"-dir=/data",
+			"-s3",
+			"-s3.port=8333",
+			"-s3.allowedOrigins=http://localhost:5173,http://127.0.0.1:5173",
+			"-s3.port.iceberg=0",
+			"-webdav=false",
 		},
-		WaitingFor: minioPortWaitStrategy(),
+		Env: map[string]string{
+			"AWS_ACCESS_KEY_ID":     objectStoreAccessKey,
+			"AWS_SECRET_ACCESS_KEY": objectStoreSecretKey,
+		},
+		WaitingFor: objectStorePortWaitStrategy(),
 	}
 	if len(options.Labels) > 0 {
 		req.Labels = cloneLabels(options.Labels)
 	}
 
 	harness, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
-		Service:        "minio testcontainer",
-		Image:          minioImage,
+		Service:        "object-store testcontainer",
+		Image:          seaweedFSS3Image,
 		MaxAttempts:    testcontainersx.DefaultMaxAttempts,
 		AttemptTimeout: options.AttemptTimeout,
 		RetryBackoff:   testcontainersx.DefaultRetryBackoff,
 		Preflight:      startPreflightFn,
-		Retryable:      isRetryableMinIOStartupFailure,
+		Retryable:      isRetryableObjectStoreStartupFailure,
 		Sleep:          startSleepFn,
 		Observer:       options.Observer,
 	}, func(ctx context.Context) (*Harness, error) {
@@ -205,34 +214,34 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 
 	host, err := container.Host(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("resolve minio host: %w", err)
+		return nil, fmt.Errorf("resolve object-store host: %w", err)
 	}
 
-	port, err := container.MappedPort(ctx, minioAPIPort)
+	port, err := container.MappedPort(ctx, seaweedFSS3Port)
 	if err != nil {
-		return nil, fmt.Errorf("resolve minio mapped port: %w", err)
+		return nil, fmt.Errorf("resolve object-store mapped port: %w", err)
 	}
 
 	harness := &Harness{
 		Container:   container,
 		Endpoint:    host + ":" + port.Port(),
-		AccessKey:   "minioadmin",
-		SecretKey:   "minioadmin",
+		AccessKey:   objectStoreAccessKey,
+		SecretKey:   objectStoreSecretKey,
 		Secure:      false,
 		suiteHash:   resolveSuiteHash(),
 		processHash: suiteservices.ProcessHash(),
 	}
 
 	if err := waitReadyFn(ctx, harness); err != nil {
-		return nil, fmt.Errorf("wait for minio readiness: %w", err)
+		return nil, fmt.Errorf("wait for object-store readiness: %w", err)
 	}
 
 	attemptSucceeded = true
 	return harness, nil
 }
 
-func minioPortWaitStrategy() *wait.HostPortStrategy {
-	return wait.ForMappedPort(minioAPIPort).WithStartupTimeout(minioPortMappingTimeout)
+func objectStorePortWaitStrategy() *wait.HostPortStrategy {
+	return wait.ForMappedPort(seaweedFSS3Port).WithStartupTimeout(objectStorePortMappingTimeout)
 }
 
 func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
@@ -243,12 +252,12 @@ func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
 		return nil, false, nil
 	}
 	if endpoint == "" || accessKey == "" || secretKey == "" {
-		return nil, false, fmt.Errorf("attach minio harness: %s, %s, and %s must all be set", suiteservices.S3EndpointEnv, suiteservices.S3AccessKeyEnv, suiteservices.S3SecretKeyEnv)
+		return nil, false, fmt.Errorf("attach object-store harness: %s, %s, and %s must all be set", suiteservices.S3EndpointEnv, suiteservices.S3AccessKeyEnv, suiteservices.S3SecretKeyEnv)
 	}
 
 	secure, err := suiteservices.ParseBool(suiteservices.LookupEnvValue(nil, suiteservices.S3SecureEnv))
 	if err != nil {
-		return nil, false, fmt.Errorf("attach minio harness: %w", err)
+		return nil, false, fmt.Errorf("attach object-store harness: %w", err)
 	}
 
 	harness := &Harness{
@@ -261,22 +270,22 @@ func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
 		attached:    true,
 	}
 	if err := verifyAttachedFn(ctx, harness); err != nil {
-		return nil, false, fmt.Errorf("attach minio harness: authenticated readiness: %w", err)
+		return nil, false, fmt.Errorf("attach object-store harness: authenticated readiness: %w", err)
 	}
 	recordSuiteEvent(suiteservices.Event{Type: suiteservices.EventS3Attach})
 	return harness, true, nil
 }
 
 func (h *Harness) WaitReady(ctx context.Context) error {
-	readyCtx, cancel := context.WithTimeout(ctx, minioClientReadyTimeout)
+	readyCtx, cancel := context.WithTimeout(ctx, objectStoreClientReadyTimeout)
 	defer cancel()
 
-	ticker := time.NewTicker(minioHealthPollInterval)
+	ticker := time.NewTicker(objectStoreHealthPollInterval)
 	defer ticker.Stop()
 
 	var lastErr error
 	for {
-		attemptCtx, attemptCancel := context.WithTimeout(readyCtx, minioClientAttemptTimeout)
+		attemptCtx, attemptCancel := context.WithTimeout(readyCtx, objectStoreClientAttemptTimeout)
 		client, err := h.Client(attemptCtx)
 		if err == nil {
 			_, err = client.ListBuckets(attemptCtx)
@@ -285,8 +294,8 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 		if err == nil {
 			return nil
 		}
-		if isNonRetryableMinIOReadinessError(err) {
-			return &minioReadinessError{LastErr: err}
+		if isNonRetryableObjectStoreReadinessError(err) {
+			return &objectStoreReadinessError{LastErr: err}
 		}
 
 		lastErr = err
@@ -295,7 +304,7 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 			if lastErr == nil {
 				lastErr = readyCtx.Err()
 			}
-			return &minioReadinessError{
+			return &objectStoreReadinessError{
 				LastErr:         lastErr,
 				DeadlineExpired: errors.Is(readyCtx.Err(), context.DeadlineExceeded),
 			}
@@ -304,40 +313,40 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 	}
 }
 
-type minioReadinessError struct {
+type objectStoreReadinessError struct {
 	LastErr         error
 	DeadlineExpired bool
 }
 
-func (e *minioReadinessError) Error() string {
+func (e *objectStoreReadinessError) Error() string {
 	if e == nil {
 		return ""
 	}
 	if e.LastErr == nil {
-		return "minio did not become ready via authenticated api"
+		return "object-store did not become ready via authenticated api"
 	}
-	return fmt.Sprintf("minio did not become ready via authenticated api: %v", e.LastErr)
+	return fmt.Sprintf("object-store did not become ready via authenticated api: %v", e.LastErr)
 }
 
-func (e *minioReadinessError) Unwrap() error {
+func (e *objectStoreReadinessError) Unwrap() error {
 	if e == nil {
 		return nil
 	}
 	return e.LastErr
 }
 
-func isRetryableMinIOStartupFailure(err error) bool {
-	var readinessErr *minioReadinessError
+func isRetryableObjectStoreStartupFailure(err error) bool {
+	var readinessErr *objectStoreReadinessError
 	if !errors.As(err, &readinessErr) {
 		return false
 	}
 	if !readinessErr.DeadlineExpired {
 		return false
 	}
-	return !isNonRetryableMinIOReadinessError(readinessErr.LastErr)
+	return !isNonRetryableObjectStoreReadinessError(readinessErr.LastErr)
 }
 
-func isNonRetryableMinIOReadinessError(err error) bool {
+func isNonRetryableObjectStoreReadinessError(err error) bool {
 	if err == nil {
 		return false
 	}

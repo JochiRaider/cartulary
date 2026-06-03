@@ -328,7 +328,7 @@ cat >"$contaminated_results_dir/run-a/_shared/test-services/suite-retry/service-
       "final_status": "pass"
     }
   },
-  "minio": {
+  "object_store": {
     "startup": {
       "retry_count": 0,
       "final_status": "pass"

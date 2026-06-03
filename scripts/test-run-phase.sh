@@ -500,7 +500,7 @@ cat >"$infra_service_dir/001.json" <<'JSON'
   "details": {
     "target": "infra-target",
     "bucket": "service_wait",
-    "label": "test-services start minio",
+    "label": "test-services start object-store",
     "start_time": "2026-01-01T00:00:01Z",
     "end_time": "2026-01-01T00:00:02Z",
     "duration_ms": 1000,
@@ -516,7 +516,7 @@ infra_timing_output="$(
     2>&1
 )"
 assert_contains "$infra_timing_output" "failure_class=infra" "infra timing target failure class"
-assert_contains "$infra_timing_output" "tests passed; infra reason=preflight_error timing failure: test-services start minio" "infra timing target headline"
+assert_contains "$infra_timing_output" "tests passed; infra reason=preflight_error timing failure: test-services start object-store" "infra timing target headline"
 infra_timing_summary="$infra_timing_results/infra-timing/infra-target/target-summary.json"
 assert_equals "$(json_field "$infra_timing_summary" "failure_class")" "infra" "infra timing JSON failure class"
 assert_equals "$(json_field "$infra_timing_summary" "failure_classes.infra")" "1" "infra timing JSON class count"
@@ -533,12 +533,12 @@ cat >"$retry_service_dir/001.json" <<'JSON'
   "details": {
     "target": "retry-target",
     "bucket": "service_wait",
-    "label": "test-services start minio attempt 1",
+    "label": "test-services start object-store attempt 1",
     "start_time": "2026-01-01T00:00:01Z",
     "end_time": "2026-01-01T00:00:02Z",
     "duration_ms": 1000,
     "status": "fail",
-    "service": "minio",
+    "service": "object_store",
     "startup_attempt": true,
     "attempt": 1,
     "max_attempts": 2,

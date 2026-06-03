@@ -150,7 +150,7 @@ export function loadServiceFixtureActivities(options = {}) {
   for (const { event, artifact } of loadServiceFixtureEvents(options)) {
     const details = event.details ?? {};
     activities.push({
-      service: event.type.startsWith("postgres-") ? "postgres" : "minio",
+      service: event.type.startsWith("postgres-") ? "postgres" : "object_store",
       operation: fixtureOperationForEvent(event.type),
       name: event.name ?? "",
       strategy: details.strategy ?? details.preparation_strategy ?? "",

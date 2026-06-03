@@ -3573,7 +3573,7 @@ function serviceSharedMetadata(runRunRoot) {
       const scope = readJsonIfExists(
         path.join(serviceRoot, suiteID, "service-scope.json"),
       );
-      const serviceNames = ["postgres", "minio"].filter(
+      const serviceNames = ["postgres", "object_store"].filter(
         (name) => scope?.[name]?.started === true,
       );
       const startupStatuses = serviceNames.map(

@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	ServicePostgres = "postgres"
-	ServiceMinIO    = "minio"
+	ServicePostgres    = "postgres"
+	ServiceObjectStore = "object_store"
 )
 
 const (
@@ -91,7 +91,7 @@ type ServiceScope struct {
 	Failure      *FailureSummary      `json:"failure,omitempty"`
 	Cleanup      CleanupSummary       `json:"cleanup"`
 	Postgres     PostgresSummary      `json:"postgres"`
-	MinIO        MinIOSummary         `json:"minio"`
+	ObjectStore  ObjectStoreSummary   `json:"object_store"`
 	BrowserE2E   BrowserE2ESummary    `json:"browser_e2e"`
 	Fixture      FixtureSummary       `json:"fixture"`
 	StartedNames StartedServiceRecord `json:"started_services"`
@@ -160,7 +160,7 @@ type PostgresDatabasePreparation struct {
 	Timestamp        string `json:"timestamp"`
 }
 
-type MinIOSummary struct {
+type ObjectStoreSummary struct {
 	Started              bool                  `json:"started"`
 	StartedAt            string                `json:"started_at,omitempty"`
 	Endpoint             string                `json:"endpoint,omitempty"`
@@ -392,11 +392,11 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 				if templateDB := stringDetail(event.Details, "template_database"); templateDB != "" {
 					scope.Postgres.TemplateDatabase = templateDB
 				}
-			case ServiceMinIO:
-				scope.MinIO.Started = true
-				scope.MinIO.StartedAt = earliestTimestamp(scope.MinIO.StartedAt, event.Timestamp)
-				scope.MinIO.Endpoint = stringDetail(event.Details, "endpoint")
-				scope.MinIO.Secure = boolDetail(event.Details, "secure")
+			case ServiceObjectStore:
+				scope.ObjectStore.Started = true
+				scope.ObjectStore.StartedAt = earliestTimestamp(scope.ObjectStore.StartedAt, event.Timestamp)
+				scope.ObjectStore.Endpoint = stringDetail(event.Details, "endpoint")
+				scope.ObjectStore.Secure = boolDetail(event.Details, "secure")
 			}
 		case EventCleanupCompleted:
 			scope.Cleanup.Status = event.Status
@@ -431,15 +431,15 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			scope.Postgres.TemplateCloneCount++
 			upsertPostgresPreparation(databasePreparations, event, PostgresPreparationTemplateClone)
 		case EventS3Attach:
-			scope.MinIO.AttachedHarnessCount++
+			scope.ObjectStore.AttachedHarnessCount++
 		case EventS3BucketCreated:
-			scope.MinIO.BucketCreateCount++
+			scope.ObjectStore.BucketCreateCount++
 			if event.Name != "" {
 				createdBuckets[event.Name] = struct{}{}
 			}
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventS3BucketCleaned:
-			scope.MinIO.BucketCleanupCount++
+			scope.ObjectStore.BucketCleanupCount++
 			if event.Name != "" {
 				cleanedBuckets[event.Name] = struct{}{}
 			}
@@ -462,10 +462,10 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 
 	scope.Postgres.CreatedDatabases = sortedKeys(createdDatabases)
 	scope.Postgres.DatabasePreparations = sortedPostgresPreparations(databasePreparations)
-	scope.MinIO.CreatedBuckets = sortedKeys(createdBuckets)
-	scope.MinIO.CleanedBuckets = sortedKeys(cleanedBuckets)
+	scope.ObjectStore.CreatedBuckets = sortedKeys(createdBuckets)
+	scope.ObjectStore.CleanedBuckets = sortedKeys(cleanedBuckets)
 	scope.Postgres.Startup = finalizeStartupSummary(scope.Postgres.Startup)
-	scope.MinIO.Startup = finalizeStartupSummary(scope.MinIO.Startup)
+	scope.ObjectStore.Startup = finalizeStartupSummary(scope.ObjectStore.Startup)
 	scope.BrowserE2E.RetiredFixtures = sortedWebE2EFixtures(retiredWebE2EFixtures)
 	scope.BrowserE2E.CleanedFixtures = sortedWebE2EFixtures(cleanedWebE2EFixtures)
 	scope.BrowserE2E.ReclaimedFixtures = sortedWebE2EFixtures(reclaimedWebE2EFixtures)
@@ -500,8 +500,8 @@ func recordStartupAttempt(scope *ServiceScope, event Event) {
 	switch service {
 	case ServicePostgres:
 		scope.Postgres.Startup.Attempts = append(scope.Postgres.Startup.Attempts, attempt)
-	case ServiceMinIO:
-		scope.MinIO.Startup.Attempts = append(scope.MinIO.Startup.Attempts, attempt)
+	case ServiceObjectStore:
+		scope.ObjectStore.Startup.Attempts = append(scope.ObjectStore.Startup.Attempts, attempt)
 	}
 }
 
@@ -595,7 +595,7 @@ func fixtureServiceForEvent(eventType string) string {
 	case EventPostgresDBCreated, EventPostgresDBDropped, EventPostgresDBMigrated, EventPostgresDBRetained, EventPostgresDBReset, EventPostgresTransaction:
 		return ServicePostgres
 	case EventS3BucketCreated, EventS3BucketCleaned, EventS3PrefixCleaned:
-		return ServiceMinIO
+		return ServiceObjectStore
 	default:
 		return ""
 	}

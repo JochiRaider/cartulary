@@ -29,9 +29,9 @@ func TestRunPassThroughModeStartsNoServices(t *testing.T) {
 			t.Fatal("startPostgres must not run in pass-through mode")
 			return postgresService{}, nil
 		},
-		startMinIO: func(context.Context, map[string]string) (minioService, error) {
-			t.Fatal("startMinIO must not run in pass-through mode")
-			return minioService{}, nil
+		startObjectStore: func(context.Context, map[string]string) (objectStoreService, error) {
+			t.Fatal("startObjectStore must not run in pass-through mode")
+			return objectStoreService{}, nil
 		},
 		startChild: func(argv []string, env map[string]string) (childProcess, error) {
 			receivedEnv = cloneEnv(env)
@@ -68,7 +68,7 @@ func TestRunPassThroughModeStartsNoServices(t *testing.T) {
 
 func TestRunSchedulesServiceReaperOnChildFailureAndPropagatesStatus(t *testing.T) {
 	postgresClosed := 0
-	minioClosed := 0
+	objectStoreClosed := 0
 	reaperLease := ""
 	deps := defaultTestDependencies(t)
 	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
@@ -92,21 +92,21 @@ func TestRunSchedulesServiceReaperOnChildFailureAndPropagatesStatus(t *testing.T
 			},
 		}, nil
 	}
-	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
-		return minioService{
+	deps.startObjectStore = func(context.Context, map[string]string) (objectStoreService, error) {
+		return objectStoreService{
 			endpoint:    "127.0.0.1:9000",
-			accessKey:   "minio-access",
-			secretKey:   "minio-secret",
-			containerID: "minio-container",
-			image:       "minio:test",
+			accessKey:   "object-store-access",
+			secretKey:   "object-store-secret",
+			containerID: "object-store-container",
+			image:       "object-store:test",
 			labels: map[string]string{
 				testServiceLabelManaged: testServiceManagedValue,
 				testServiceLabelSuiteID: "suite-redaction",
 				testServiceLabelRunID:   "wrapper-tests",
-				testServiceLabelService: suiteservices.ServiceMinIO,
+				testServiceLabelService: suiteservices.ServiceObjectStore,
 			},
 			close: func(context.Context) error {
-				minioClosed++
+				objectStoreClosed++
 				return nil
 			},
 		}, nil
@@ -126,8 +126,8 @@ func TestRunSchedulesServiceReaperOnChildFailureAndPropagatesStatus(t *testing.T
 	if postgresClosed != 0 {
 		t.Fatalf("postgres termination must be delegated to the reaper, got %d direct cleanup call(s)", postgresClosed)
 	}
-	if minioClosed != 0 {
-		t.Fatalf("minio termination must be delegated to the reaper, got %d direct cleanup call(s)", minioClosed)
+	if objectStoreClosed != 0 {
+		t.Fatalf("object-store termination must be delegated to the reaper, got %d direct cleanup call(s)", objectStoreClosed)
 	}
 	if reaperLease == "" {
 		t.Fatal("expected service reaper to be scheduled")
@@ -157,7 +157,7 @@ func TestRunSchedulesServiceReaperOnChildFailureAndPropagatesStatus(t *testing.T
 	requireTimingEvent(t, events, bucketSetup, "test-services wrapper setup")
 	requireTimingEvent(t, events, bucketServiceWait, "test-services start postgres")
 	requireTimingEvent(t, events, bucketMigration, "test-services prepare postgres template database")
-	requireTimingEvent(t, events, bucketServiceWait, "test-services start minio")
+	requireTimingEvent(t, events, bucketServiceWait, "test-services start object-store")
 	requireTimingEvent(t, events, bucketTeardown, "test-services schedule service reaper")
 }
 
@@ -174,14 +174,14 @@ func TestRunReturnsBeforeSlowServiceTerminationAfterChildSuccess(t *testing.T) {
 			close:       func(context.Context) error { closeCalled <- struct{}{}; time.Sleep(time.Second); return nil },
 		}, nil
 	}
-	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
-		return minioService{
+	deps.startObjectStore = func(context.Context, map[string]string) (objectStoreService, error) {
+		return objectStoreService{
 			endpoint:    "127.0.0.1:9000",
-			accessKey:   "minio-access",
-			secretKey:   "minio-secret",
-			containerID: "minio-container",
-			image:       "minio:test",
-			labels:      suiteServiceLabels(map[string]string{suiteservices.SuiteIDEnv: "suite-redaction", "CARTULARY_TEST_RUN_ID": "wrapper-tests"}, suiteservices.ServiceMinIO),
+			accessKey:   "object-store-access",
+			secretKey:   "object-store-secret",
+			containerID: "object-store-container",
+			image:       "object-store:test",
+			labels:      suiteServiceLabels(map[string]string{suiteservices.SuiteIDEnv: "suite-redaction", "CARTULARY_TEST_RUN_ID": "wrapper-tests"}, suiteservices.ServiceObjectStore),
 			close:       func(context.Context) error { closeCalled <- struct{}{}; time.Sleep(time.Second); return nil },
 		}, nil
 	}
@@ -209,10 +209,10 @@ func TestRunReturnsBeforeSlowServiceTerminationAfterChildSuccess(t *testing.T) {
 	}
 }
 
-func TestRunStartsMinIOWhilePostgresTemplateIsPreparing(t *testing.T) {
+func TestRunStartsObjectStoreWhilePostgresTemplateIsPreparing(t *testing.T) {
 	deps := defaultTestDependencies(t)
-	minioStarted := make(chan struct{})
-	releaseMinIO := make(chan struct{})
+	objectStoreStarted := make(chan struct{})
+	releaseObjectStore := make(chan struct{})
 	childStarted := false
 
 	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
@@ -225,28 +225,28 @@ func TestRunStartsMinIOWhilePostgresTemplateIsPreparing(t *testing.T) {
 			close:       func(context.Context) error { return nil },
 		}, nil
 	}
-	deps.startMinIO = func(ctx context.Context, _ map[string]string) (minioService, error) {
-		close(minioStarted)
+	deps.startObjectStore = func(ctx context.Context, _ map[string]string) (objectStoreService, error) {
+		close(objectStoreStarted)
 		select {
-		case <-releaseMinIO:
-			return minioService{
+		case <-releaseObjectStore:
+			return objectStoreService{
 				endpoint:  "127.0.0.1:9000",
-				accessKey: "minio-access",
-				secretKey: "minio-secret",
+				accessKey: "object-store-access",
+				secretKey: "object-store-secret",
 				secure:    false,
 				close:     func(context.Context) error { return nil },
 			}, nil
 		case <-ctx.Done():
-			return minioService{}, ctx.Err()
+			return objectStoreService{}, ctx.Err()
 		}
 	}
 	deps.createTemplate = func(context.Context, string, string) error {
 		select {
-		case <-minioStarted:
-			close(releaseMinIO)
+		case <-objectStoreStarted:
+			close(releaseObjectStore)
 			return nil
 		case <-time.After(time.Second):
-			return errors.New("minio did not start before postgres template preparation")
+			return errors.New("object-store did not start before postgres template preparation")
 		}
 	}
 	deps.startChild = func(argv []string, env map[string]string) (childProcess, error) {
@@ -255,10 +255,10 @@ func TestRunStartsMinIOWhilePostgresTemplateIsPreparing(t *testing.T) {
 			t.Fatal("child must receive the migrated template database name")
 		}
 		if env[suiteservices.S3EndpointEnv] != "127.0.0.1:9000" {
-			t.Fatalf("child missing minio endpoint: %#v", env)
+			t.Fatalf("child missing object-store endpoint: %#v", env)
 		}
-		if env[suiteservices.S3AccessKeyEnv] != "minio-access" || env[suiteservices.S3SecretKeyEnv] != "minio-secret" {
-			t.Fatalf("child missing minio credentials: %#v", env)
+		if env[suiteservices.S3AccessKeyEnv] != "object-store-access" || env[suiteservices.S3SecretKeyEnv] != "object-store-secret" {
+			t.Fatalf("child missing object-store credentials: %#v", env)
 		}
 		return fakeChild{}, nil
 	}
@@ -273,20 +273,20 @@ func TestRunStartsMinIOWhilePostgresTemplateIsPreparing(t *testing.T) {
 
 	events := loadTestEvents(t, deps)
 	requireTimingEvent(t, events, bucketServiceWait, "test-services start postgres")
-	requireTimingEvent(t, events, bucketServiceWait, "test-services start minio")
+	requireTimingEvent(t, events, bucketServiceWait, "test-services start object-store")
 	requireTimingEvent(t, events, bucketMigration, "test-services prepare postgres template database")
 }
 
 func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 	previousPostgresStarter := startPostgresHarnessWithOptions
-	previousMinIOStarter := startMinIOHarnessWithOptions
+	previousObjectStoreStarter := startObjectStoreHarnessWithOptions
 	defer func() {
 		startPostgresHarnessWithOptions = previousPostgresStarter
-		startMinIOHarnessWithOptions = previousMinIOStarter
+		startObjectStoreHarnessWithOptions = previousObjectStoreStarter
 	}()
 
 	var postgresAttemptTimeout time.Duration
-	var minioAttemptTimeout time.Duration
+	var objectStoreAttemptTimeout time.Duration
 
 	startPostgresHarnessWithOptions = func(ctx context.Context, options pgtest.StartOptions) (*pgtest.Harness, error) {
 		postgresAttemptTimeout = options.AttemptTimeout
@@ -297,12 +297,12 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 			Password: "cartulary",
 		}, nil
 	}
-	startMinIOHarnessWithOptions = func(ctx context.Context, options s3test.StartOptions) (*s3test.Harness, error) {
-		minioAttemptTimeout = options.AttemptTimeout
+	startObjectStoreHarnessWithOptions = func(ctx context.Context, options s3test.StartOptions) (*s3test.Harness, error) {
+		objectStoreAttemptTimeout = options.AttemptTimeout
 		return &s3test.Harness{
 			Endpoint:  "127.0.0.1:9000",
-			AccessKey: "minio-access",
-			SecretKey: "minio-secret",
+			AccessKey: "object-store-access",
+			SecretKey: "object-store-secret",
 		}, nil
 	}
 
@@ -310,18 +310,18 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 	if _, err := startPostgresService(context.Background(), env); err != nil {
 		t.Fatalf("start postgres service: %v", err)
 	}
-	if _, err := startMinIOService(context.Background(), env); err != nil {
-		t.Fatalf("start minio service: %v", err)
+	if _, err := startObjectStoreService(context.Background(), env); err != nil {
+		t.Fatalf("start object-store service: %v", err)
 	}
 
 	if postgresAttemptTimeout != 35*time.Second {
 		t.Fatalf("unexpected postgres attempt timeout: got %v want %v", postgresAttemptTimeout, 35*time.Second)
 	}
-	if minioAttemptTimeout != 2*time.Minute {
-		t.Fatalf("unexpected minio attempt timeout: got %v want %v", minioAttemptTimeout, 2*time.Minute)
+	if objectStoreAttemptTimeout != 2*time.Minute {
+		t.Fatalf("unexpected object-store attempt timeout: got %v want %v", objectStoreAttemptTimeout, 2*time.Minute)
 	}
-	if postgresAttemptTimeout == minioAttemptTimeout {
-		t.Fatal("postgres and minio suite startup attempts must not share one timeout budget")
+	if postgresAttemptTimeout == objectStoreAttemptTimeout {
+		t.Fatal("postgres and object-store suite startup attempts must not share one timeout budget")
 	}
 }
 
@@ -338,7 +338,7 @@ func TestRunDisablesRyukOnlyForSuiteStartup(t *testing.T) {
 
 	deps := defaultTestDependencies(t)
 	postgresSawRyukDisabled := false
-	minioSawRyukDisabled := false
+	objectStoreSawRyukDisabled := false
 	childSawRyukSetting := false
 	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
 		postgresSawRyukDisabled = os.Getenv("TESTCONTAINERS_RYUK_DISABLED") == "true"
@@ -350,14 +350,14 @@ func TestRunDisablesRyukOnlyForSuiteStartup(t *testing.T) {
 			close:       func(context.Context) error { return nil },
 		}, nil
 	}
-	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
-		minioSawRyukDisabled = os.Getenv("TESTCONTAINERS_RYUK_DISABLED") == "true"
-		return minioService{
+	deps.startObjectStore = func(context.Context, map[string]string) (objectStoreService, error) {
+		objectStoreSawRyukDisabled = os.Getenv("TESTCONTAINERS_RYUK_DISABLED") == "true"
+		return objectStoreService{
 			endpoint:    "127.0.0.1:9000",
-			accessKey:   "minio-access",
-			secretKey:   "minio-secret",
-			containerID: "minio-container",
-			image:       "minio:test",
+			accessKey:   "object-store-access",
+			secretKey:   "object-store-secret",
+			containerID: "object-store-container",
+			image:       "object-store:test",
 			close:       func(context.Context) error { return nil },
 		}, nil
 	}
@@ -370,8 +370,8 @@ func TestRunDisablesRyukOnlyForSuiteStartup(t *testing.T) {
 	if status != 0 {
 		t.Fatalf("unexpected exit status: got %d want 0", status)
 	}
-	if !postgresSawRyukDisabled || !minioSawRyukDisabled {
-		t.Fatalf("suite service startup must disable Ryuk, postgres=%t minio=%t", postgresSawRyukDisabled, minioSawRyukDisabled)
+	if !postgresSawRyukDisabled || !objectStoreSawRyukDisabled {
+		t.Fatalf("suite service startup must disable Ryuk, postgres=%t object_store=%t", postgresSawRyukDisabled, objectStoreSawRyukDisabled)
 	}
 	if childSawRyukSetting {
 		t.Fatal("child scheduler env must not receive a synthetic Ryuk override")
@@ -389,7 +389,7 @@ func TestRunDisablesRyukOnlyForSuiteStartup(t *testing.T) {
 func TestRunFailsFastWhenSuitePreflightFails(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	startedPostgres := false
-	startedMinIO := false
+	startedObjectStore := false
 	startedChild := false
 	deps.preflightSuite = func(context.Context, map[string]string) (suitePreflightResult, error) {
 		return suitePreflightResult{
@@ -401,9 +401,9 @@ func TestRunFailsFastWhenSuitePreflightFails(t *testing.T) {
 		startedPostgres = true
 		return postgresService{}, nil
 	}
-	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
-		startedMinIO = true
-		return minioService{}, nil
+	deps.startObjectStore = func(context.Context, map[string]string) (objectStoreService, error) {
+		startedObjectStore = true
+		return objectStoreService{}, nil
 	}
 	deps.startChild = func([]string, map[string]string) (childProcess, error) {
 		startedChild = true
@@ -414,8 +414,8 @@ func TestRunFailsFastWhenSuitePreflightFails(t *testing.T) {
 	if status != 1 {
 		t.Fatalf("unexpected exit status: got %d want 1", status)
 	}
-	if startedPostgres || startedMinIO || startedChild {
-		t.Fatalf("preflight failure must stop before services or child, postgres=%t minio=%t child=%t", startedPostgres, startedMinIO, startedChild)
+	if startedPostgres || startedObjectStore || startedChild {
+		t.Fatalf("preflight failure must stop before services or child, postgres=%t object_store=%t child=%t", startedPostgres, startedObjectStore, startedChild)
 	}
 	scope := loadScope(t, deps)
 	if scope.Preflight.Status != "fail" || scope.Preflight.DockerEndpoint != "unix:///var/run/docker.sock" {
@@ -430,21 +430,21 @@ func TestRunFailsFastWhenSuitePreflightFails(t *testing.T) {
 	requireTimingEventStatus(t, loadTestEvents(t, deps), bucketSetup, "test-services suite startup preflight", "fail")
 }
 
-func TestRunCleansUpMinIOWhenPostgresStartupFails(t *testing.T) {
+func TestRunCleansUpObjectStoreWhenPostgresStartupFails(t *testing.T) {
 	deps := defaultTestDependencies(t)
-	minioClosed := 0
+	objectStoreClosed := 0
 	childStarted := false
 
 	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
 		return postgresService{}, errors.New("postgres refused startup")
 	}
-	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
-		return minioService{
+	deps.startObjectStore = func(context.Context, map[string]string) (objectStoreService, error) {
+		return objectStoreService{
 			endpoint:  "127.0.0.1:9000",
-			accessKey: "minio-access",
-			secretKey: "minio-secret",
+			accessKey: "object-store-access",
+			secretKey: "object-store-secret",
 			close: func(context.Context) error {
-				minioClosed++
+				objectStoreClosed++
 				return nil
 			},
 		}, nil
@@ -461,8 +461,8 @@ func TestRunCleansUpMinIOWhenPostgresStartupFails(t *testing.T) {
 	if childStarted {
 		t.Fatal("child must not start when postgres startup fails")
 	}
-	if minioClosed != 1 {
-		t.Fatalf("expected minio cleanup after postgres startup failure, got %d", minioClosed)
+	if objectStoreClosed != 1 {
+		t.Fatalf("expected object-store cleanup after postgres startup failure, got %d", objectStoreClosed)
 	}
 
 	scope := loadScope(t, deps)
@@ -489,11 +489,11 @@ func TestRunRedactsCredentialsInDiagnostics(t *testing.T) {
 			close:       func(context.Context) error { return nil },
 		}, nil
 	}
-	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
-		return minioService{
+	deps.startObjectStore = func(context.Context, map[string]string) (objectStoreService, error) {
+		return objectStoreService{
 			endpoint:  "127.0.0.1:9000",
 			accessKey: "access-secret",
-			secretKey: "minio-secret",
+			secretKey: "object-store-secret",
 			secure:    false,
 			close:     func(context.Context) error { return nil },
 		}, nil
@@ -535,7 +535,7 @@ func TestRunRedactsCredentialsInDiagnostics(t *testing.T) {
 		t.Fatalf("successful run must omit failure summary, got %#v", scope.Failure)
 	}
 
-	for _, secret := range []string{"supersecret", "access-secret", "minio-secret"} {
+	for _, secret := range []string{"supersecret", "access-secret", "object-store-secret"} {
 		if string(raw) == "" {
 			t.Fatal("expected diagnostics summary output")
 		}
@@ -545,7 +545,7 @@ func TestRunRedactsCredentialsInDiagnostics(t *testing.T) {
 	}
 }
 
-func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
+func TestRunRecordsObjectStoreStartupFailureWithStructuredSummary(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	childStarted := false
 	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
@@ -558,17 +558,17 @@ func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
 			close:       func(context.Context) error { return nil },
 		}, nil
 	}
-	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
-		return minioService{}, &testcontainersx.StartFailure{
+	deps.startObjectStore = func(context.Context, map[string]string) (objectStoreService, error) {
+		return objectStoreService{}, &testcontainersx.StartFailure{
 			Operation:             "start",
-			Service:               "minio testcontainer",
-			Image:                 "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+			Service:               "object-store testcontainer",
+			Image:                 "docker.io/chrislusf/seaweedfs:4.17:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9",
 			DockerEndpoint:        "unix:///var/run/docker.sock",
 			AttemptsStarted:       1,
 			MaxAttempts:           2,
 			Retryable:             true,
 			RetryBlockedByContext: true,
-			Cause:                 errors.New("docker.sock connection refused password=minio-secret access_key=access-secret"),
+			Cause:                 errors.New("docker.sock connection refused password=object-store-secret access_key=access-secret"),
 		}
 	}
 	deps.startChild = func([]string, map[string]string) (childProcess, error) {
@@ -581,7 +581,7 @@ func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
 		t.Fatalf("unexpected exit status: got %d want 1", status)
 	}
 	if childStarted {
-		t.Fatal("child must not start when minio startup fails")
+		t.Fatal("child must not start when object-store startup fails")
 	}
 
 	scope := loadScope(t, deps)
@@ -589,12 +589,12 @@ func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
 		t.Fatal("expected startup failure summary")
 	}
 	if scope.Failure.FailureClass != suiteservices.FailureClassInfra {
-		t.Fatalf("unexpected minio failure class: got %q", scope.Failure.FailureClass)
+		t.Fatalf("unexpected object-store failure class: got %q", scope.Failure.FailureClass)
 	}
-	if scope.Failure.Service != suiteservices.ServiceMinIO {
+	if scope.Failure.Service != suiteservices.ServiceObjectStore {
 		t.Fatalf("unexpected failure service: got %q", scope.Failure.Service)
 	}
-	if scope.Failure.Stage != stageMinIOStart {
+	if scope.Failure.Stage != stageObjectStoreStart {
 		t.Fatalf("unexpected failure stage: got %q", scope.Failure.Stage)
 	}
 	if scope.Failure.Operation != "start" {
@@ -615,7 +615,7 @@ func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
 	if !strings.Contains(scope.Failure.Message, "connection refused") {
 		t.Fatalf("expected connection failure detail, got %q", scope.Failure.Message)
 	}
-	for _, secret := range []string{"minio-secret", "access-secret"} {
+	for _, secret := range []string{"object-store-secret", "access-secret"} {
 		if strings.Contains(scope.Failure.Message, secret) {
 			t.Fatalf("failure message must redact %q, got %q", secret, scope.Failure.Message)
 		}
@@ -651,7 +651,7 @@ func TestServiceStartupAttemptTimingSummarizesRetries(t *testing.T) {
 		Duration:    5 * time.Millisecond,
 		Status:      "pass",
 	})
-	recordServiceStartupAttempt(activeEnv, suiteservices.ServiceMinIO, testcontainersx.StartEvent{
+	recordServiceStartupAttempt(activeEnv, suiteservices.ServiceObjectStore, testcontainersx.StartEvent{
 		Attempt:     1,
 		MaxAttempts: 2,
 		StartTime:   start,
@@ -683,8 +683,8 @@ func TestServiceStartupAttemptTimingSummarizesRetries(t *testing.T) {
 	if strings.Contains(scope.Postgres.Startup.Attempts[0].Message, "secret@") || strings.Contains(scope.Postgres.Startup.Attempts[0].Message, "password=secret") {
 		t.Fatalf("startup attempt message must be redacted, got %q", scope.Postgres.Startup.Attempts[0].Message)
 	}
-	if scope.MinIO.Startup.AttemptCount != 1 || scope.MinIO.Startup.FinalStatus != "pass" {
-		t.Fatalf("unexpected minio startup summary: %#v", scope.MinIO.Startup)
+	if scope.ObjectStore.Startup.AttemptCount != 1 || scope.ObjectStore.Startup.FinalStatus != "pass" {
+		t.Fatalf("unexpected object-store startup summary: %#v", scope.ObjectStore.Startup)
 	}
 	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketServiceWait, "test-services start postgres attempt 1", "fail")
 	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketServiceWait, "test-services start postgres attempt 2", "pass")
@@ -692,7 +692,7 @@ func TestServiceStartupAttemptTimingSummarizesRetries(t *testing.T) {
 
 func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 	deps := defaultTestDependencies(t)
-	minioClosed := 0
+	objectStoreClosed := 0
 	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
 		return postgresService{
 			adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
@@ -703,13 +703,13 @@ func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 			close:       func(context.Context) error { return nil },
 		}, nil
 	}
-	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
-		return minioService{
+	deps.startObjectStore = func(context.Context, map[string]string) (objectStoreService, error) {
+		return objectStoreService{
 			endpoint:  "127.0.0.1:9000",
 			accessKey: "access-secret",
-			secretKey: "minio-secret",
+			secretKey: "object-store-secret",
 			close: func(context.Context) error {
-				minioClosed++
+				objectStoreClosed++
 				return nil
 			},
 		}, nil
@@ -745,8 +745,8 @@ func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 	if scope.Cleanup.Status != "startup_failed" {
 		t.Fatalf("unexpected cleanup status: got %#v", scope.Cleanup)
 	}
-	if minioClosed != 1 {
-		t.Fatalf("expected minio cleanup after template failure, got %d", minioClosed)
+	if objectStoreClosed != 1 {
+		t.Fatalf("expected object-store cleanup after template failure, got %d", objectStoreClosed)
 	}
 }
 
@@ -762,11 +762,11 @@ func TestRunRecordsChildStartFailureWithStructuredSummary(t *testing.T) {
 			close:       func(context.Context) error { return nil },
 		}, nil
 	}
-	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
-		return minioService{
+	deps.startObjectStore = func(context.Context, map[string]string) (objectStoreService, error) {
+		return objectStoreService{
 			endpoint:  "127.0.0.1:9000",
-			accessKey: "minio-access",
-			secretKey: "minio-secret",
+			accessKey: "object-store-access",
+			secretKey: "object-store-secret",
 			secure:    false,
 			close:     func(context.Context) error { return nil },
 		}, nil
@@ -957,8 +957,8 @@ func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
 		preparation.Target != "browser-e2e-webserver-backed" {
 		t.Fatalf("unexpected browser database preparation: %#v", preparation)
 	}
-	if scope.MinIO.BucketCreateCount != 1 || len(scope.MinIO.CreatedBuckets) != 1 || scope.MinIO.CreatedBuckets[0] != "ct-web" {
-		t.Fatalf("expected browser fixture to create one isolated bucket, got %#v", scope.MinIO)
+	if scope.ObjectStore.BucketCreateCount != 1 || len(scope.ObjectStore.CreatedBuckets) != 1 || scope.ObjectStore.CreatedBuckets[0] != "ct-web" {
+		t.Fatalf("expected browser fixture to create one isolated bucket, got %#v", scope.ObjectStore)
 	}
 	requireTimingEvent(t, loadTestEventsForEnv(t, activeEnv), bucketMigration, "test-services prepare browser e2e fixture")
 }
@@ -1025,7 +1025,7 @@ func TestCleanupOwnedServicesReclaimsRetiredWebE2EFixturesOnce(t *testing.T) {
 			t.Fatalf("leak check missing postgres admin dsn: %#v", env)
 		}
 		if env[suiteservices.S3EndpointEnv] != "127.0.0.1:9000" {
-			t.Fatalf("leak check missing minio endpoint: %#v", env)
+			t.Fatalf("leak check missing object-store endpoint: %#v", env)
 		}
 		return nil
 	}
@@ -1040,7 +1040,7 @@ func TestCleanupOwnedServicesReclaimsRetiredWebE2EFixturesOnce(t *testing.T) {
 				return nil
 			},
 		},
-		minioService{
+		objectStoreService{
 			endpoint:  "127.0.0.1:9000",
 			accessKey: "access",
 			secretKey: "secret",
@@ -1055,7 +1055,7 @@ func TestCleanupOwnedServicesReclaimsRetiredWebE2EFixturesOnce(t *testing.T) {
 	)
 
 	if !closedPG || !closedS3 {
-		t.Fatalf("expected suite services to close after browser fixture reclamation, postgres=%t minio=%t", closedPG, closedS3)
+		t.Fatalf("expected suite services to close after browser fixture reclamation, postgres=%t object_store=%t", closedPG, closedS3)
 	}
 	scope, ok, err := suiteservices.Summarize(activeEnv)
 	if err != nil {
@@ -1078,7 +1078,7 @@ func TestCleanupOwnedServicesReclaimsRetiredWebE2EFixturesOnce(t *testing.T) {
 	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services reclaim pooled browser fixtures by owned stack", "pass")
 	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services janitor stale browser fixtures", "pass")
 	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services terminate postgres", "pass")
-	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services terminate minio", "pass")
+	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services terminate object-store", "pass")
 }
 
 func TestCleanupOwnedServicesTerminatesServicesConcurrently(t *testing.T) {
@@ -1089,7 +1089,7 @@ func TestCleanupOwnedServicesTerminatesServicesConcurrently(t *testing.T) {
 	activeEnv[suiteservices.TargetEnv] = "check-service-backed"
 
 	postgresStarted := make(chan struct{})
-	minioStarted := make(chan struct{})
+	objectStoreStarted := make(chan struct{})
 	release := make(chan struct{})
 	done := make(chan struct{})
 
@@ -1100,14 +1100,14 @@ func TestCleanupOwnedServicesTerminatesServicesConcurrently(t *testing.T) {
 			postgresService{
 				close: func(context.Context) error {
 					close(postgresStarted)
-					<-minioStarted
+					<-objectStoreStarted
 					<-release
 					return nil
 				},
 			},
-			minioService{
+			objectStoreService{
 				close: func(context.Context) error {
-					close(minioStarted)
+					close(objectStoreStarted)
 					<-postgresStarted
 					<-release
 					return nil
@@ -1126,9 +1126,9 @@ func TestCleanupOwnedServicesTerminatesServicesConcurrently(t *testing.T) {
 		t.Fatal("postgres cleanup did not start")
 	}
 	select {
-	case <-minioStarted:
+	case <-objectStoreStarted:
 	case <-time.After(time.Second):
-		t.Fatal("minio cleanup did not start concurrently with postgres")
+		t.Fatal("object-store cleanup did not start concurrently with postgres")
 	}
 	close(release)
 	select {
@@ -1241,7 +1241,7 @@ func TestPreviousSuiteContainerCleanupEligibilityUsesCompletedSummaryOrAge(t *te
 			testServiceLabelManaged: testServiceManagedValue,
 			testServiceLabelSuiteID: "stale-suite",
 			testServiceLabelRunID:   "stale-run",
-			testServiceLabelService: suiteservices.ServiceMinIO,
+			testServiceLabelService: suiteservices.ServiceObjectStore,
 		},
 	}
 	if !previousSuiteContainerCleanupEligible(activeEnv, staleContainer, now) {
@@ -1376,7 +1376,7 @@ func TestCleanupOwnedServicesFailsFastOnBrowserFixtureLeak(t *testing.T) {
 		return nil
 	}
 
-	cleanupOwnedServices(deps.dependencies, activeEnv, postgresService{}, minioService{}, "", "succeeded", 0)
+	cleanupOwnedServices(deps.dependencies, activeEnv, postgresService{}, objectStoreService{}, "", "succeeded", 0)
 
 	scope, ok, err := suiteservices.Summarize(activeEnv)
 	if err != nil {
@@ -1455,8 +1455,8 @@ func defaultTestDependencies(t testing.TB) testDeps {
 			startPostgres: func(context.Context, map[string]string) (postgresService, error) {
 				return postgresService{}, nil
 			},
-			startMinIO: func(context.Context, map[string]string) (minioService, error) {
-				return minioService{}, nil
+			startObjectStore: func(context.Context, map[string]string) (objectStoreService, error) {
+				return objectStoreService{}, nil
 			},
 			startChild: func(argv []string, env map[string]string) (childProcess, error) {
 				return fakeChild{}, nil

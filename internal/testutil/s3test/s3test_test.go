@@ -134,52 +134,52 @@ func TestBucketNamesAreUniqueAcrossSimulatedProcesses(t *testing.T) {
 	}
 }
 
-func TestMinIOContainerWaitStrategyOnlyWaitsForPortMapping(t *testing.T) {
-	strategy := minioPortWaitStrategy()
+func TestObjectStoreContainerWaitStrategyOnlyWaitsForPortMapping(t *testing.T) {
+	strategy := objectStorePortWaitStrategy()
 	if got := strategy.String(); !strings.Contains(got, "to be mapped") {
 		t.Fatalf("expected mapped-port-only wait strategy, got %q", got)
 	}
-	if timeout := strategy.Timeout(); timeout == nil || *timeout != minioPortMappingTimeout {
-		t.Fatalf("unexpected port mapping timeout: got %v want %v", timeout, minioPortMappingTimeout)
+	if timeout := strategy.Timeout(); timeout == nil || *timeout != objectStorePortMappingTimeout {
+		t.Fatalf("unexpected port mapping timeout: got %v want %v", timeout, objectStorePortMappingTimeout)
 	}
 }
 
-func TestOwnedMinIOAppliesContainerLabels(t *testing.T) {
-	stubOwnedMinIOStartup(t)
+func TestOwnedObjectStoreAppliesContainerLabels(t *testing.T) {
+	stubOwnedObjectStoreStartup(t)
 
 	var gotLabels map[string]string
 	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
 		gotLabels = req.Labels
-		return fakeMinIOContainer{
+		return fakeObjectStoreContainer{
 			host: "127.0.0.1",
-			port: network.MustParsePort("9000/tcp"),
+			port: network.MustParsePort("8333/tcp"),
 		}, nil
 	}
 	waitReadyFn = func(context.Context, *Harness) error { return nil }
 
 	labels := map[string]string{"cartulary.test": "suite"}
 	if _, err := StartOwnedWithLabels(context.Background(), labels); err != nil {
-		t.Fatalf("start labeled minio: %v", err)
+		t.Fatalf("start labeled object store: %v", err)
 	}
 	if gotLabels["cartulary.test"] != "suite" {
 		t.Fatalf("container labels not applied: %#v", gotLabels)
 	}
 }
 
-func TestOwnedMinIORetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testing.T) {
-	stubOwnedMinIOStartup(t)
+func TestOwnedObjectStoreRetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testing.T) {
+	stubOwnedObjectStoreStartup(t)
 
 	starts := 0
 	terminations := 0
 	readinessChecks := 0
 	var events []testcontainersx.StartEvent
 	ports := []network.Port{
-		network.MustParsePort("9001/tcp"),
-		network.MustParsePort("9002/tcp"),
+		network.MustParsePort("8333/tcp"),
+		network.MustParsePort("8334/tcp"),
 	}
 	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
 		starts++
-		return fakeMinIOContainer{
+		return fakeObjectStoreContainer{
 			host: "127.0.0.1",
 			port: ports[starts-1],
 			terminate: func(context.Context) error {
@@ -191,7 +191,7 @@ func TestOwnedMinIORetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testing.
 	waitReadyFn = func(ctx context.Context, harness *Harness) error {
 		readinessChecks++
 		if readinessChecks == 1 {
-			return &minioReadinessError{
+			return &objectStoreReadinessError{
 				LastErr:         context.DeadlineExceeded,
 				DeadlineExpired: true,
 			}
@@ -216,24 +216,24 @@ func TestOwnedMinIORetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testing.
 	if terminations != 1 {
 		t.Fatalf("expected failed readiness attempt to terminate its container once, got %d", terminations)
 	}
-	if harness.Endpoint != "127.0.0.1:9002" {
+	if harness.Endpoint != "127.0.0.1:8334" {
 		t.Fatalf("expected second attempt endpoint, got %q", harness.Endpoint)
 	}
-	if !observedMinIORetry(events) {
+	if !observedObjectStoreRetry(events) {
 		t.Fatalf("expected observer to record retryable attempt and retry decision, got %#v", events)
 	}
 }
 
-func TestOwnedMinIODoesNotRetryAuthenticationReadinessFailure(t *testing.T) {
-	stubOwnedMinIOStartup(t)
+func TestOwnedObjectStoreDoesNotRetryAuthenticationReadinessFailure(t *testing.T) {
+	stubOwnedObjectStoreStartup(t)
 
 	starts := 0
 	terminations := 0
 	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
 		starts++
-		return fakeMinIOContainer{
+		return fakeObjectStoreContainer{
 			host: "127.0.0.1",
-			port: network.MustParsePort("9000/tcp"),
+			port: network.MustParsePort("8333/tcp"),
 			terminate: func(context.Context) error {
 				terminations++
 				return nil
@@ -241,7 +241,7 @@ func TestOwnedMinIODoesNotRetryAuthenticationReadinessFailure(t *testing.T) {
 		}, nil
 	}
 	waitReadyFn = func(ctx context.Context, harness *Harness) error {
-		return &minioReadinessError{
+		return &objectStoreReadinessError{
 			LastErr: minio.ErrorResponse{
 				Code:    "AccessDenied",
 				Message: "Access Denied",
@@ -273,7 +273,7 @@ func TestOwnedMinIODoesNotRetryAuthenticationReadinessFailure(t *testing.T) {
 	}
 }
 
-func TestHarnessStartsMinIOAndRoundTripsObjects(t *testing.T) {
+func TestHarnessStartsSeaweedFSS3AndRoundTripsObjects(t *testing.T) {
 	harness := Start(t)
 
 	bucket, err := harness.BootstrapBucket(context.Background(), "bootstrap")
@@ -322,7 +322,7 @@ func TestCleanupPrefixPreservesSiblingObjects(t *testing.T) {
 
 	client, err := harness.Client(context.Background())
 	if err != nil {
-		t.Fatalf("create minio client: %v", err)
+		t.Fatalf("create s3 client: %v", err)
 	}
 	if _, err := client.StatObject(context.Background(), bucket, "current/proof.txt", minio.StatObjectOptions{}); err == nil {
 		t.Fatal("expected current prefix object to be removed")
@@ -346,7 +346,7 @@ func resetSharedHarness(t testing.TB) {
 	})
 }
 
-func observedMinIORetry(events []testcontainersx.StartEvent) bool {
+func observedObjectStoreRetry(events []testcontainersx.StartEvent) bool {
 	sawRetryableAttempt := false
 	sawRetryScheduled := false
 	for _, event := range events {
@@ -360,7 +360,7 @@ func observedMinIORetry(events []testcontainersx.StartEvent) bool {
 	return sawRetryableAttempt && sawRetryScheduled
 }
 
-func stubOwnedMinIOStartup(t testing.TB) {
+func stubOwnedObjectStoreStartup(t testing.TB) {
 	t.Helper()
 
 	oldStartContainer := startContainerFn
@@ -382,22 +382,22 @@ func stubOwnedMinIOStartup(t testing.TB) {
 	}
 }
 
-type fakeMinIOContainer struct {
+type fakeObjectStoreContainer struct {
 	testcontainers.Container
 	host      string
 	port      network.Port
 	terminate func(context.Context) error
 }
 
-func (c fakeMinIOContainer) Host(context.Context) (string, error) {
+func (c fakeObjectStoreContainer) Host(context.Context) (string, error) {
 	return c.host, nil
 }
 
-func (c fakeMinIOContainer) MappedPort(context.Context, string) (network.Port, error) {
+func (c fakeObjectStoreContainer) MappedPort(context.Context, string) (network.Port, error) {
 	return c.port, nil
 }
 
-func (c fakeMinIOContainer) Terminate(ctx context.Context, opts ...testcontainers.TerminateOption) error {
+func (c fakeObjectStoreContainer) Terminate(ctx context.Context, opts ...testcontainers.TerminateOption) error {
 	if c.terminate == nil {
 		return nil
 	}

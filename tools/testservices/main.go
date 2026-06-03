@@ -35,20 +35,20 @@ import (
 )
 
 const (
-	postgresStartupTimeout     = 3 * time.Minute
-	suitePreflightTimeout      = 3 * time.Second
-	suitePostgresAttemptLimit  = 35 * time.Second
-	suiteMinIOAttemptLimit     = 2 * time.Minute
-	staleSuiteContainerAge     = 10 * time.Minute
-	templateStartupTimeout     = 2 * time.Minute
-	minioStartupTimeout        = 2 * time.Minute
-	cleanupTimeout             = 2 * time.Minute
-	webE2ELeakCheckTimeout     = 5 * time.Second
-	signalWaitTimeout          = 15 * time.Second
-	webE2ECleanupWorkers       = 4
-	webE2ECleanupMaxWorkers    = 16
-	staleFixtureMaxCandidates  = 32
-	staleFixtureJanitorTimeout = 10 * time.Second
+	postgresStartupTimeout       = 3 * time.Minute
+	suitePreflightTimeout        = 3 * time.Second
+	suitePostgresAttemptLimit    = 35 * time.Second
+	suiteObjectStoreAttemptLimit = 2 * time.Minute
+	staleSuiteContainerAge       = 10 * time.Minute
+	templateStartupTimeout       = 2 * time.Minute
+	objectStoreStartupTimeout    = 2 * time.Minute
+	cleanupTimeout               = 2 * time.Minute
+	webE2ELeakCheckTimeout       = 5 * time.Second
+	signalWaitTimeout            = 15 * time.Second
+	webE2ECleanupWorkers         = 4
+	webE2ECleanupMaxWorkers      = 16
+	staleFixtureMaxCandidates    = 32
+	staleFixtureJanitorTimeout   = 10 * time.Second
 
 	webE2ECleanupWorkersEnv = "CARTULARY_TEST_SERVICES_WEB_E2E_CLEANUP_WORKERS"
 
@@ -60,17 +60,17 @@ const (
 
 	testServiceManagedValue = "true"
 
-	stagePostgresStart    = "postgres-start"
-	stageStartupPreflight = "startup-preflight"
-	stagePostgresTemplate = "postgres-template"
-	stageMinIOStart       = "minio-start"
-	stageChildStart       = "child-start"
-	stageCleanupLease     = "cleanup-lease"
-	stageCleanupReaper    = "cleanup-reaper"
-	stageCleanupWebE2E    = "cleanup-web-e2e"
-	stageCleanupJanitor   = "cleanup-janitor"
-	stageCleanupPostgres  = "cleanup-postgres"
-	stageCleanupMinIO     = "cleanup-minio"
+	stagePostgresStart      = "postgres-start"
+	stageStartupPreflight   = "startup-preflight"
+	stagePostgresTemplate   = "postgres-template"
+	stageObjectStoreStart   = "object-store-start"
+	stageChildStart         = "child-start"
+	stageCleanupLease       = "cleanup-lease"
+	stageCleanupReaper      = "cleanup-reaper"
+	stageCleanupWebE2E      = "cleanup-web-e2e"
+	stageCleanupJanitor     = "cleanup-janitor"
+	stageCleanupPostgres    = "cleanup-postgres"
+	stageCleanupObjectStore = "cleanup-object-store"
 
 	webE2EReclaimStrategyOwnedStack = "owned_stack_termination"
 
@@ -81,8 +81,8 @@ const (
 )
 
 var (
-	startPostgresHarnessWithOptions = pgtest.StartOwnedWithOptions
-	startMinIOHarnessWithOptions    = s3test.StartOwnedWithOptions
+	startPostgresHarnessWithOptions    = pgtest.StartOwnedWithOptions
+	startObjectStoreHarnessWithOptions = s3test.StartOwnedWithOptions
 )
 
 type postgresService struct {
@@ -98,7 +98,7 @@ type postgresService struct {
 	labels      map[string]string
 }
 
-type minioService struct {
+type objectStoreService struct {
 	endpoint    string
 	accessKey   string
 	secretKey   string
@@ -117,8 +117,8 @@ type postgresStartResult struct {
 	err     error
 }
 
-type minioStartResult struct {
-	service minioService
+type objectStoreStartResult struct {
+	service objectStoreService
 	start   time.Time
 	end     time.Time
 	err     error
@@ -207,7 +207,7 @@ type childProcess interface {
 
 type dependencies struct {
 	startPostgres       func(context.Context, map[string]string) (postgresService, error)
-	startMinIO          func(context.Context, map[string]string) (minioService, error)
+	startObjectStore    func(context.Context, map[string]string) (objectStoreService, error)
 	startChild          func(argv []string, env map[string]string) (childProcess, error)
 	startReaper         func(leasePath string, env map[string]string) error
 	preflightSuite      func(context.Context, map[string]string) (suitePreflightResult, error)
@@ -269,14 +269,14 @@ func startPostgresAsync(parent context.Context, deps dependencies, env map[strin
 	return resultCh
 }
 
-func startMinIOAsync(parent context.Context, deps dependencies, env map[string]string) <-chan minioStartResult {
-	resultCh := make(chan minioStartResult, 1)
+func startObjectStoreAsync(parent context.Context, deps dependencies, env map[string]string) <-chan objectStoreStartResult {
+	resultCh := make(chan objectStoreStartResult, 1)
 	go func() {
-		ctx, cancel := context.WithTimeout(parent, minioStartupTimeout)
+		ctx, cancel := context.WithTimeout(parent, objectStoreStartupTimeout)
 		defer cancel()
 
-		result := minioStartResult{start: time.Now().UTC()}
-		result.service, result.err = deps.startMinIO(ctx, env)
+		result := objectStoreStartResult{start: time.Now().UTC()}
+		result.service, result.err = deps.startObjectStore(ctx, env)
 		result.end = time.Now().UTC()
 		resultCh <- result
 	}()
@@ -339,7 +339,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	}
 
 	var postgresSvc postgresService
-	var minioSvc minioService
+	var objectStoreSvc objectStoreService
 	childExitCode := 1
 	cleanupStatus := "startup_failed"
 	leasePath := ""
@@ -347,23 +347,23 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	startupCtx, cancelStartup := context.WithCancel(context.Background())
 	defer cancelStartup()
 	postgresResultCh := startPostgresAsync(startupCtx, deps, ownedEnv)
-	minioResultCh := startMinIOAsync(startupCtx, deps, ownedEnv)
+	objectStoreResultCh := startObjectStoreAsync(startupCtx, deps, ownedEnv)
 
 	postgresResult := <-postgresResultCh
 	postgresSvc = postgresResult.service
 	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start postgres", postgresResult.start, postgresResult.end, postgresResult.err)
 	if postgresResult.err != nil {
 		cancelStartup()
-		minioResult := <-minioResultCh
-		minioSvc = minioResult.service
-		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
+		objectStoreResult := <-objectStoreResultCh
+		objectStoreSvc = objectStoreResult.service
+		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", postgresResult.err))
 		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", childExitCode)
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", childExitCode)
 		return 1
 	}
 	defer func() {
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, leasePath, cleanupStatus, childExitCode)
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, leasePath, cleanupStatus, childExitCode)
 	}()
 
 	schemaHash, err := pgschema.Hash()
@@ -394,9 +394,9 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	cancelTemplate()
 	if err != nil {
 		cancelStartup()
-		minioResult := <-minioResultCh
-		minioSvc = minioResult.service
-		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
+		objectStoreResult := <-objectStoreResultCh
+		objectStoreSvc = objectStoreResult.service
+		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
 		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
 		return 1
@@ -415,25 +415,25 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	})
 	deps.refreshSummary(ownedEnv)
 
-	minioResult := <-minioResultCh
-	minioSvc = minioResult.service
-	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
-	if minioResult.err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceMinIO, stageMinIOStart, "start suite minio", minioResult.err))
+	objectStoreResult := <-objectStoreResultCh
+	objectStoreSvc = objectStoreResult.service
+	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
+	if objectStoreResult.err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceObjectStore, stageObjectStoreStart, "start suite object-store", objectStoreResult.err))
 		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
 		return 1
 	}
 	deps.recordEvent(ownedEnv, suiteservices.Event{
 		Type:    suiteservices.EventServiceStarted,
-		Service: suiteservices.ServiceMinIO,
+		Service: suiteservices.ServiceObjectStore,
 		Details: map[string]any{
-			"endpoint": minioSvc.endpoint,
-			"secure":   minioSvc.secure,
+			"endpoint": objectStoreSvc.endpoint,
+			"secure":   objectStoreSvc.secure,
 		},
 	})
 	deps.refreshSummary(ownedEnv)
 
-	leasePath, err = writeServiceLease(ownedEnv, postgresSvc, minioSvc)
+	leasePath, err = writeServiceLease(ownedEnv, postgresSvc, objectStoreSvc)
 	if err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "write suite service lease", err))
 		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
@@ -443,7 +443,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 
 	janitorCtx, cancelJanitor := context.WithTimeout(context.Background(), staleFixtureJanitorTimeout)
 	janitorStart := time.Now().UTC()
-	err = cleanupStaleWebE2EFixtures(janitorCtx, deps, serviceBackedCleanupEnv(ownedEnv, postgresSvc, minioSvc))
+	err = cleanupStaleWebE2EFixtures(janitorCtx, deps, serviceBackedCleanupEnv(ownedEnv, postgresSvc, objectStoreSvc))
 	recordTimingSpanStatus(deps, ownedEnv, bucketSetup, "test-services janitor stale browser fixtures", janitorStart, err)
 	cancelJanitor()
 	if err != nil {
@@ -463,10 +463,10 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	childEnv[suiteservices.PGDSNTemplateEnv] = postgresSvc.dsnTemplate
 	childEnv[suiteservices.PGTemplateDBEnv] = templateDB
 	childEnv[suiteservices.PGSchemaHashEnv] = schemaHash
-	childEnv[suiteservices.S3EndpointEnv] = minioSvc.endpoint
-	childEnv[suiteservices.S3AccessKeyEnv] = minioSvc.accessKey
-	childEnv[suiteservices.S3SecretKeyEnv] = minioSvc.secretKey
-	childEnv[suiteservices.S3SecureEnv] = fmt.Sprintf("%t", minioSvc.secure)
+	childEnv[suiteservices.S3EndpointEnv] = objectStoreSvc.endpoint
+	childEnv[suiteservices.S3AccessKeyEnv] = objectStoreSvc.accessKey
+	childEnv[suiteservices.S3SecretKeyEnv] = objectStoreSvc.secretKey
+	childEnv[suiteservices.S3SecureEnv] = fmt.Sprintf("%t", objectStoreSvc.secure)
 
 	child, err := deps.startChild(command, childEnv)
 	if err != nil {
@@ -545,30 +545,30 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	}
 
 	var postgresSvc postgresService
-	var minioSvc minioService
+	var objectStoreSvc objectStoreService
 	startupCtx, cancelStartup := context.WithCancel(context.Background())
 	defer cancelStartup()
 	postgresResultCh := startPostgresAsync(startupCtx, deps, ownedEnv)
-	minioResultCh := startMinIOAsync(startupCtx, deps, ownedEnv)
+	objectStoreResultCh := startObjectStoreAsync(startupCtx, deps, ownedEnv)
 
 	postgresResult := <-postgresResultCh
 	postgresSvc = postgresResult.service
 	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start postgres", postgresResult.start, postgresResult.end, postgresResult.err)
 	if postgresResult.err != nil {
 		cancelStartup()
-		minioResult := <-minioResultCh
-		minioSvc = minioResult.service
-		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
+		objectStoreResult := <-objectStoreResultCh
+		objectStoreSvc = objectStoreResult.service
+		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", postgresResult.err))
 		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", 1)
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
 		return 1
 	}
 
 	schemaHash, err := pgschema.Hash()
 	if err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "hash postgres schema", err))
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", 1)
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
 		return 1
 	}
 	ownedEnv[suiteservices.PGSchemaHashEnv] = schemaHash
@@ -594,12 +594,12 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	cancelTemplate()
 	if err != nil {
 		cancelStartup()
-		minioResult := <-minioResultCh
-		minioSvc = minioResult.service
-		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
+		objectStoreResult := <-objectStoreResultCh
+		objectStoreSvc = objectStoreResult.service
+		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
 		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", 1)
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
 		return 1
 	}
 	deps.recordEvent(ownedEnv, suiteservices.Event{
@@ -616,53 +616,53 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	})
 	deps.refreshSummary(ownedEnv)
 
-	minioResult := <-minioResultCh
-	minioSvc = minioResult.service
-	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
-	if minioResult.err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceMinIO, stageMinIOStart, "start suite minio", minioResult.err))
+	objectStoreResult := <-objectStoreResultCh
+	objectStoreSvc = objectStoreResult.service
+	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
+	if objectStoreResult.err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceObjectStore, stageObjectStoreStart, "start suite object-store", objectStoreResult.err))
 		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", 1)
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
 		return 1
 	}
 	deps.recordEvent(ownedEnv, suiteservices.Event{
 		Type:    suiteservices.EventServiceStarted,
-		Service: suiteservices.ServiceMinIO,
+		Service: suiteservices.ServiceObjectStore,
 		Details: map[string]any{
-			"endpoint": minioSvc.endpoint,
-			"secure":   minioSvc.secure,
+			"endpoint": objectStoreSvc.endpoint,
+			"secure":   objectStoreSvc.secure,
 		},
 	})
 	deps.refreshSummary(ownedEnv)
 
-	generatedLeasePath, err := writeServiceLease(ownedEnv, postgresSvc, minioSvc)
+	generatedLeasePath, err := writeServiceLease(ownedEnv, postgresSvc, objectStoreSvc)
 	if err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "write suite service lease", err))
 		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", 1)
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
 		return 1
 	}
 	if err := copyFile(generatedLeasePath, leaseFile, 0o600); err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "copy suite service lease", err))
 		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, generatedLeasePath, "startup_failed", 1)
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, generatedLeasePath, "startup_failed", 1)
 		return 1
 	}
 
 	janitorCtx, cancelJanitor := context.WithTimeout(context.Background(), staleFixtureJanitorTimeout)
 	janitorStart := time.Now().UTC()
-	err = cleanupStaleWebE2EFixtures(janitorCtx, deps, serviceBackedCleanupEnv(ownedEnv, postgresSvc, minioSvc))
+	err = cleanupStaleWebE2EFixtures(janitorCtx, deps, serviceBackedCleanupEnv(ownedEnv, postgresSvc, objectStoreSvc))
 	recordTimingSpanStatus(deps, ownedEnv, bucketSetup, "test-services janitor stale browser fixtures", janitorStart, err)
 	cancelJanitor()
 	if err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupJanitor, "janitor stale browser e2e fixtures", err))
 		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, generatedLeasePath, "startup_failed", 1)
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, generatedLeasePath, "startup_failed", 1)
 		return 1
 	}
 	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventReadinessPassed, ""); err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageChildStart, "record service readiness lifecycle", err))
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, generatedLeasePath, "startup_failed", 1)
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, generatedLeasePath, "startup_failed", 1)
 		return 1
 	}
 
@@ -671,13 +671,13 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	childEnv[suiteservices.PGDSNTemplateEnv] = postgresSvc.dsnTemplate
 	childEnv[suiteservices.PGTemplateDBEnv] = templateDB
 	childEnv[suiteservices.PGSchemaHashEnv] = schemaHash
-	childEnv[suiteservices.S3EndpointEnv] = minioSvc.endpoint
-	childEnv[suiteservices.S3AccessKeyEnv] = minioSvc.accessKey
-	childEnv[suiteservices.S3SecretKeyEnv] = minioSvc.secretKey
-	childEnv[suiteservices.S3SecureEnv] = fmt.Sprintf("%t", minioSvc.secure)
+	childEnv[suiteservices.S3EndpointEnv] = objectStoreSvc.endpoint
+	childEnv[suiteservices.S3AccessKeyEnv] = objectStoreSvc.accessKey
+	childEnv[suiteservices.S3SecretKeyEnv] = objectStoreSvc.secretKey
+	childEnv[suiteservices.S3SecureEnv] = fmt.Sprintf("%t", objectStoreSvc.secure)
 	if err := writeEnvJSON(envFile, childEnv); err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageChildStart, "write suite child environment", err))
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, generatedLeasePath, "startup_failed", 1)
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, generatedLeasePath, "startup_failed", 1)
 		return 1
 	}
 	deps.refreshSummary(ownedEnv)
@@ -967,7 +967,7 @@ func parseFlagPairs(args []string, allowed map[string]struct{}) (map[string]stri
 func defaultDependencies() dependencies {
 	return dependencies{
 		startPostgres:       startPostgresService,
-		startMinIO:          startMinIOService,
+		startObjectStore:    startObjectStoreService,
 		startChild:          startChildProcess,
 		startReaper:         startDetachedSuiteReaper,
 		preflightSuite:      runSuiteStartupPreflight,
@@ -1077,7 +1077,7 @@ func suiteServiceLabels(env map[string]string, service string) map[string]string
 	}
 }
 
-func writeServiceLease(env map[string]string, postgresSvc postgresService, minioSvc minioService) (string, error) {
+func writeServiceLease(env map[string]string, postgresSvc postgresService, objectStoreSvc objectStoreService) (string, error) {
 	suiteDir, ok, err := suiteservices.ResolveSuiteArtifactDir(env)
 	if err != nil {
 		return "", err
@@ -1126,11 +1126,11 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, minio
 			},
 			{
 				Kind:        "container",
-				Service:     suiteservices.ServiceMinIO,
-				ContainerID: minioSvc.containerID,
-				Name:        minioSvc.name,
-				Image:       minioSvc.image,
-				Labels:      cloneStringMap(minioSvc.labels),
+				Service:     suiteservices.ServiceObjectStore,
+				ContainerID: objectStoreSvc.containerID,
+				Name:        objectStoreSvc.name,
+				Image:       objectStoreSvc.image,
+				Labels:      cloneStringMap(objectStoreSvc.labels),
 			},
 		},
 		ProofLabels: proofLabels,
@@ -1275,17 +1275,17 @@ func startPostgresService(ctx context.Context, env map[string]string) (postgresS
 	}, nil
 }
 
-func startMinIOService(ctx context.Context, env map[string]string) (minioService, error) {
-	labels := suiteServiceLabels(env, suiteservices.ServiceMinIO)
-	harness, err := startMinIOHarnessWithOptions(ctx, s3test.StartOptions{
+func startObjectStoreService(ctx context.Context, env map[string]string) (objectStoreService, error) {
+	labels := suiteServiceLabels(env, suiteservices.ServiceObjectStore)
+	harness, err := startObjectStoreHarnessWithOptions(ctx, s3test.StartOptions{
 		Labels:         labels,
-		Observer:       suiteServiceStartObserver(env, suiteservices.ServiceMinIO),
-		AttemptTimeout: suiteMinIOAttemptLimit,
+		Observer:       suiteServiceStartObserver(env, suiteservices.ServiceObjectStore),
+		AttemptTimeout: suiteObjectStoreAttemptLimit,
 	})
 	if err != nil {
-		return minioService{}, err
+		return objectStoreService{}, err
 	}
-	return minioService{
+	return objectStoreService{
 		endpoint:    harness.Endpoint,
 		accessKey:   harness.AccessKey,
 		secretKey:   harness.SecretKey,
@@ -1505,7 +1505,7 @@ func prepareWebE2EFixture(ctx context.Context, env map[string]string) (webE2EFix
 	s3Harness, err := s3test.StartShared(ctx)
 	if err != nil {
 		_ = postgresHarness.DropDatabase(context.Background(), testDB.Name)
-		return webE2EFixture{}, fmt.Errorf("attach suite minio: %w", err)
+		return webE2EFixture{}, fmt.Errorf("attach suite object-store: %w", err)
 	}
 	bucket, err := s3Harness.BootstrapBucket(ctx, "web-e2e")
 	if err != nil {
@@ -1586,7 +1586,7 @@ func cleanupWebE2EBucket(ctx context.Context, metadata webE2EMetadata, env map[s
 	}
 	s3Harness, err := s3test.StartShared(ctx)
 	if err != nil {
-		return fmt.Errorf("attach suite minio: %w", err)
+		return fmt.Errorf("attach suite object-store: %w", err)
 	}
 	return s3Harness.CleanupBucket(ctx, metadata.Bucket)
 }
@@ -2142,7 +2142,7 @@ func webE2EFixtureKey(metadata webE2EMetadata) string {
 	}, "\x1f")
 }
 
-func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc postgresService, minioSvc minioService, leasePath string, status string, childExitCode int) {
+func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc postgresService, objectStoreSvc objectStoreService, leasePath string, status string, childExitCode int) {
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
 
@@ -2155,7 +2155,7 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 	}
 	browserCleanupFailed := false
 
-	cleanupEnv := serviceBackedCleanupEnv(env, postgresSvc, minioSvc)
+	cleanupEnv := serviceBackedCleanupEnv(env, postgresSvc, objectStoreSvc)
 	pendingFixtures, err := pendingRetiredWebE2EFixtures(cleanupEnv)
 	if err != nil {
 		cleanupStatus = "cleanup_failed"
@@ -2202,7 +2202,7 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 		if err != nil {
 			cleanupStatus = "cleanup_failed"
 			printSuiteFailure(env, failureSummary("", stageCleanupReaper, "schedule suite service reaper", err))
-			for _, result := range cleanupServices(cleanupCtx, postgresSvc, minioSvc) {
+			for _, result := range cleanupServices(cleanupCtx, postgresSvc, objectStoreSvc) {
 				recordTimingSpanStatusAt(deps, env, bucketTeardown, result.label, result.start, result.end, result.err)
 				if result.err != nil {
 					printSuiteFailure(env, failureSummary(result.service, result.stage, result.label, result.err))
@@ -2212,7 +2212,7 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 			recordServiceReaperScheduled(deps, env, leasePath)
 		}
 	} else {
-		for _, result := range cleanupServices(cleanupCtx, postgresSvc, minioSvc) {
+		for _, result := range cleanupServices(cleanupCtx, postgresSvc, objectStoreSvc) {
 			recordTimingSpanStatusAt(deps, env, bucketTeardown, result.label, result.start, result.end, result.err)
 			if result.err != nil {
 				cleanupStatus = "cleanup_failed"
@@ -2233,7 +2233,7 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 	}
 }
 
-func cleanupServices(ctx context.Context, postgresSvc postgresService, minioSvc minioService) []serviceCleanupResult {
+func cleanupServices(ctx context.Context, postgresSvc postgresService, objectStoreSvc objectStoreService) []serviceCleanupResult {
 	results := make(chan serviceCleanupResult, 2)
 	var wg sync.WaitGroup
 	if postgresSvc.close != nil {
@@ -2252,16 +2252,16 @@ func cleanupServices(ctx context.Context, postgresSvc postgresService, minioSvc 
 			}
 		}()
 	}
-	if minioSvc.close != nil {
+	if objectStoreSvc.close != nil {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			start := time.Now().UTC()
-			err := minioSvc.close(ctx)
+			err := objectStoreSvc.close(ctx)
 			results <- serviceCleanupResult{
-				service: suiteservices.ServiceMinIO,
-				stage:   stageCleanupMinIO,
-				label:   "test-services terminate minio",
+				service: suiteservices.ServiceObjectStore,
+				stage:   stageCleanupObjectStore,
+				label:   "test-services terminate object-store",
 				start:   start,
 				end:     time.Now().UTC(),
 				err:     err,
@@ -2498,15 +2498,15 @@ func requiredLeaseLabels(lease serviceLease, service serviceLeaseResource) map[s
 }
 
 func cleanupStageForService(service string) string {
-	if service == suiteservices.ServiceMinIO {
-		return stageCleanupMinIO
+	if service == suiteservices.ServiceObjectStore {
+		return stageCleanupObjectStore
 	}
 	return stageCleanupPostgres
 }
 
 func cleanupLabelForService(service string) string {
-	if service == suiteservices.ServiceMinIO {
-		return "test-services terminate minio"
+	if service == suiteservices.ServiceObjectStore {
+		return "test-services terminate object-store"
 	}
 	return "test-services terminate postgres"
 }
@@ -2534,21 +2534,21 @@ func isDockerRemovalInProgress(err error) bool {
 	return strings.Contains(lower, "removal of container") && strings.Contains(lower, "already in progress")
 }
 
-func serviceBackedCleanupEnv(env map[string]string, postgresSvc postgresService, minioSvc minioService) map[string]string {
+func serviceBackedCleanupEnv(env map[string]string, postgresSvc postgresService, objectStoreSvc objectStoreService) map[string]string {
 	cleanupEnv := cloneEnv(env)
 	if postgresSvc.adminDSN != "" {
 		cleanupEnv[suiteservices.PGAdminDSNEnv] = postgresSvc.adminDSN
 	}
-	if minioSvc.endpoint != "" {
-		cleanupEnv[suiteservices.S3EndpointEnv] = minioSvc.endpoint
+	if objectStoreSvc.endpoint != "" {
+		cleanupEnv[suiteservices.S3EndpointEnv] = objectStoreSvc.endpoint
 	}
-	if minioSvc.accessKey != "" {
-		cleanupEnv[suiteservices.S3AccessKeyEnv] = minioSvc.accessKey
+	if objectStoreSvc.accessKey != "" {
+		cleanupEnv[suiteservices.S3AccessKeyEnv] = objectStoreSvc.accessKey
 	}
-	if minioSvc.secretKey != "" {
-		cleanupEnv[suiteservices.S3SecretKeyEnv] = minioSvc.secretKey
+	if objectStoreSvc.secretKey != "" {
+		cleanupEnv[suiteservices.S3SecretKeyEnv] = objectStoreSvc.secretKey
 	}
-	cleanupEnv[suiteservices.S3SecureEnv] = fmt.Sprintf("%t", minioSvc.secure)
+	cleanupEnv[suiteservices.S3SecureEnv] = fmt.Sprintf("%t", objectStoreSvc.secure)
 	return cleanupEnv
 }
 
@@ -2580,11 +2580,11 @@ func failureSummary(service string, stage string, operation string, err error) s
 
 func classifyFailureStage(service string, stage string) string {
 	switch stage {
-	case stageStartupPreflight, stagePostgresStart, stagePostgresTemplate, stageMinIOStart:
+	case stageStartupPreflight, stagePostgresStart, stagePostgresTemplate, stageObjectStoreStart:
 		return suiteservices.FailureClassInfra
 	case stageChildStart:
 		return suiteservices.FailureClassHelper
-	case stageCleanupLease, stageCleanupReaper, stageCleanupWebE2E, stageCleanupJanitor, stageCleanupPostgres, stageCleanupMinIO:
+	case stageCleanupLease, stageCleanupReaper, stageCleanupWebE2E, stageCleanupJanitor, stageCleanupPostgres, stageCleanupObjectStore:
 		return suiteservices.FailureClassArtifact
 	}
 	if strings.TrimSpace(service) != "" {

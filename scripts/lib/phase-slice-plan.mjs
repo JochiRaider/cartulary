@@ -104,7 +104,7 @@ function serviceRequirementsForRows(rows) {
         requirements.add("browser_stack");
       }
       requirements.add("postgres");
-      requirements.add("minio");
+      requirements.add("object_store");
     }
   }
   return Array.from(requirements).sort(compareStrings);
@@ -312,7 +312,7 @@ function addGoUnits(plan, target, rows) {
   }
   const sourceClaims = new Map([
     ["postgres", 1],
-    ["minio", 1],
+    ["object_store", 1],
   ]);
   plan.workUnits.push({
     id: `finalize:${target}`,
@@ -384,7 +384,7 @@ function addBrowserUnit(plan, target, rows, stageByTarget) {
   }
   const claims = new Map([
     ["postgres", 1],
-    ["minio", 1],
+    ["object_store", 1],
     ["process", 1],
     [browserStackResource, 1],
     [browserStageResource(stage.name), 1],
@@ -449,7 +449,7 @@ function planResourceLimits(rows, root) {
   }
   if (hasService) {
     resourceLimits.set("postgres", 32);
-    resourceLimits.set("minio", 32);
+    resourceLimits.set("object_store", 32);
   }
   if (rows.some((row) => row.runner === "go_test" && findTargetDescriptor(row.target, root)?.sharding === "go_shards")) {
     resourceLimits.set(postgresResetResource, 1);

@@ -199,13 +199,13 @@ func TestStartWithRetryEmitsObserverEvents(t *testing.T) {
 func TestStartWithRetryRetriesCustomClassifiedStartupError(t *testing.T) {
 	t.Parallel()
 
-	readinessErr := errors.New("wait for minio readiness: minio did not become ready via authenticated api: context deadline exceeded")
+	readinessErr := errors.New("wait for object-store readiness: object-store did not become ready via authenticated api: context deadline exceeded")
 	startCalls := 0
 	sleepCalls := 0
 
 	value, err := StartWithRetry(context.Background(), StartConfig{
-		Service:      "minio testcontainer",
-		Image:        "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		Service:      "object-store testcontainer",
+		Image:        "docker.io/chrislusf/seaweedfs:4.17:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9",
 		MaxAttempts:  DefaultMaxAttempts,
 		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
@@ -242,12 +242,12 @@ func TestStartWithRetryRetriesCustomClassifiedStartupError(t *testing.T) {
 func TestStartWithRetryReportsCustomRetryMetadataAfterExhaustion(t *testing.T) {
 	t.Parallel()
 
-	readinessErr := errors.New("wait for minio readiness: context deadline exceeded")
+	readinessErr := errors.New("wait for object-store readiness: context deadline exceeded")
 	startCalls := 0
 
 	_, err := StartWithRetry(context.Background(), StartConfig{
-		Service:      "minio testcontainer",
-		Image:        "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		Service:      "object-store testcontainer",
+		Image:        "docker.io/chrislusf/seaweedfs:4.17:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9",
 		MaxAttempts:  3,
 		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
@@ -297,8 +297,8 @@ func TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff(t *te
 	retryableErr := errors.New(`wait until ready: get state: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.51/containers/id/json": context deadline exceeded`)
 
 	_, err := StartWithRetry(ctx, StartConfig{
-		Service:      "minio testcontainer",
-		Image:        "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		Service:      "object-store testcontainer",
+		Image:        "docker.io/chrislusf/seaweedfs:4.17:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9",
 		MaxAttempts:  DefaultMaxAttempts,
 		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
@@ -347,8 +347,8 @@ func TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff(t *te
 
 	message := err.Error()
 	for _, want := range []string{
-		"start minio testcontainer",
-		"image minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		"start object-store testcontainer",
+		"image docker.io/chrislusf/seaweedfs:4.17:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9",
 		"docker endpoint unix:///var/run/docker.sock",
 		"after 1/2 attempt(s)",
 		"retry blocked by context: context deadline exceeded",
@@ -454,8 +454,8 @@ func TestStartWithRetryFormatsFinalFailureWithContext(t *testing.T) {
 	t.Parallel()
 
 	_, err := StartWithRetry(context.Background(), StartConfig{
-		Service:      "minio testcontainer",
-		Image:        "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		Service:      "object-store testcontainer",
+		Image:        "docker.io/chrislusf/seaweedfs:4.17:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9",
 		MaxAttempts:  DefaultMaxAttempts,
 		RetryBackoff: DefaultRetryBackoff,
 		Preflight: func(context.Context) (string, error) {
@@ -473,8 +473,8 @@ func TestStartWithRetryFormatsFinalFailureWithContext(t *testing.T) {
 
 	message := err.Error()
 	for _, want := range []string{
-		"start minio testcontainer",
-		"image minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		"start object-store testcontainer",
+		"image docker.io/chrislusf/seaweedfs:4.17:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9",
 		"docker endpoint unix:///var/run/docker.sock",
 		"after 2/2 attempt(s)",
 		"connection refused",

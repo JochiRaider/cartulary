@@ -173,7 +173,7 @@ const serviceAttachGroups = Object.freeze([
     },
   },
   {
-    label: "MinIO attach set",
+    label: "Object-store S3 attach set",
     names: [
       "CARTULARY_S3TEST_ENDPOINT",
       "CARTULARY_S3TEST_ACCESS_KEY_ID",

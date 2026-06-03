@@ -694,9 +694,9 @@ for (const session of [sharedSession, statefulSession]) {
   }
   if (
     Object.prototype.hasOwnProperty.call(session.retained_resource_claims ?? {}, "postgres") ||
-    Object.prototype.hasOwnProperty.call(session.retained_resource_claims ?? {}, "minio")
+    Object.prototype.hasOwnProperty.call(session.retained_resource_claims ?? {}, "object_store")
   ) {
-    throw new Error(`${session.label} browser stage session must not retain broad Postgres or MinIO claims`);
+    throw new Error(`${session.label} browser stage session must not retain broad Postgres or object-store claims`);
   }
 }
 for (const resource of ["browser_stage_webserver_backed"]) {
@@ -902,9 +902,9 @@ if ! grep -Fq 'cleanup-web-e2e --metadata-file' "$start_web_e2e_script"; then
   fail "scripts/start-web-e2e.sh must clean browser fixtures through cartulary-test-services when active"
 fi
 if ! grep -Fq '"${DEV_SERVICES_SCRIPT}" wait' "$start_web_e2e_script"; then
-  fail "scripts/start-web-e2e.sh must wait for Postgres and MinIO through dev-services.sh"
+  fail "scripts/start-web-e2e.sh must wait for Postgres and object-store through dev-services.sh"
 fi
-if ! grep -Fq 'docker compose -f "${COMPOSE_FILE}" up -d postgres minio' "$start_web_e2e_script"; then
+if ! grep -Fq 'docker compose -f "${COMPOSE_FILE}" up -d postgres seaweedfs-s3' "$start_web_e2e_script"; then
   fail "scripts/start-web-e2e.sh must keep Compose-backed startup for standalone browser E2E"
 fi
 

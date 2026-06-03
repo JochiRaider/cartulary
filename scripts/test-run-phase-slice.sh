@@ -112,7 +112,7 @@ assert.ok(workTargets(phase4, "go_shard").has("backend-store"), "phase4 full sli
 assert.ok(workTargets(phase4, "go_shard").has("backend-integration"), "phase4 full slice must include service-backed integration Go shards");
 assert.ok(workTargets(phase4, "go_shard").has("backend-integration-support"), "phase4 full slice must include support Go shards");
 assert.ok(workTargets(phase4, "browser_target").has("browser-e2e-webserver-backed"), "phase4 full slice must include browser functional work");
-assert.deepEqual(phase4.service_requirements, ["browser_stack", "minio", "postgres"]);
+assert.deepEqual(phase4.service_requirements, ["browser_stack", "object_store", "postgres"]);
 assert.ok(phase4.resource_limits.browser_stage_webserver_backed >= 1, "phase4 browser stage resource must be declared");
 assert.ok(
   phase4.work_units.some((unit) => unit.id.includes("phase4-backend-store")),
@@ -171,7 +171,7 @@ for (const target of [
   assert.ok(targets(feP3).has(target), `FE-P3 frontend phase slice must include ${target}`);
   assert.ok(workTargets(feP3, "make_target").has(target), `FE-P3 frontend phase slice must schedule ${target}`);
 }
-assert.deepEqual(feP3.service_requirements, ["browser_stack", "minio", "postgres"]);
+assert.deepEqual(feP3.service_requirements, ["browser_stack", "object_store", "postgres"]);
 assert.equal(feP3.phase_claim_status, "complete");
 
 const feP3Service = frontendPlan("FE-P3", "service-backed");

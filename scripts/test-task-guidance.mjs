@@ -481,7 +481,7 @@ function scenarioExplainTargetArtifacts(fixture) {
   const resultsEnv = { CARTULARY_TEST_RESULTS_DIR: fixture.resultsDir };
   const backendSummary = nodeScript(explainTarget, ["--target", "backend-store"], resultsEnv);
   assertContains(backendSummary, "Cartulary target guidance: backend-store", "backend-store explain-target header");
-  assertContains(backendSummary, "services: Postgres,MinIO", "backend-store service requirements");
+  assertContains(backendSummary, "services: Postgres,object store", "backend-store service requirements");
   assertContains(backendSummary, "scheduler paths:", "backend-store scheduler paths");
   assertContains(backendSummary, "latest_artifact: tmp/task-guidance", "backend-store latest artifact");
   assertNotContains(backendSummary, "scheduler=", "explain-target must not print flat scheduler owner fields");
@@ -575,14 +575,14 @@ function scenarioExplainTargetArtifacts(fixture) {
   const serviceBackedOutput = nodeScript(explainTarget, ["--target", "test-service-backed"]);
   assertContains(
     serviceBackedOutput,
-    "services: Postgres,MinIO,browser stack",
+    "services: Postgres,object store,browser stack",
     "test-service-backed service requirements",
   );
 
   const fastServiceBackedOutput = nodeScript(explainTarget, ["--target", "test-fast-service-backed"]);
   assertContains(
     fastServiceBackedOutput,
-    "services: Postgres,MinIO",
+    "services: Postgres,object store",
     "test-fast-service-backed service requirements",
   );
   assertNotContains(

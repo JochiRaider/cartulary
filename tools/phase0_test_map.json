@@ -371,7 +371,7 @@
       "symbol": "TestPhase0_InvalidConfigNeverReachesReady_I_0_03",
       "execution_dependency": "backend_integration",
       "evidence_layer": "runtime_integration",
-      "claim": "Config failures on real Postgres and MinIO prevent ready state and stop handler, WebSocket, and job startup even when backing services are healthy.",
+      "claim": "Config failures on real Postgres and object-store services prevent ready state and stop handler, WebSocket, and job startup even when backing services are healthy.",
       "out_of_scope": "Real process exit behavior and connection refusal remain `E-0-02`.",
       "execution_family": "backend-integration-app",
       "execution_label": "backend-integration phase0 authoritative app",

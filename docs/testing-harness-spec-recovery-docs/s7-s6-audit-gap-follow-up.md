@@ -71,7 +71,7 @@ runtime behavior owner.
 | Gap group | Controlling rows | Remaining gap | S7 handling |
 |---|---|---|---|
 | S0-S6 closure preflight | `s0-s6-gap-closure-plan.md`, S0-S6 handoffs and audits | S0-S6 are complete only if source limits, named TODOs, and owner questions remain preserved. | Use the closure plan as the S7 preflight gate before drafting requirements. |
-| Runtime readiness and services | `SL-0012`, `SL-FU-0001`, `RTR-0004`, `SVC-0001..SVC-0015` | Live Docker/testcontainers, Postgres, MinIO, Compose, browser stack, service-backed targets, reset route, and readiness behavior remain unobserved. | Draft as source-observed lifecycle and keep live behavior `source_limit` unless later authorized evidence exists. |
+| Runtime readiness and services | `SL-0012`, `SL-FU-0001`, `RTR-0004`, `SVC-0001..SVC-0015` | Live Docker/testcontainers, Postgres, object-store, Compose, browser stack, service-backed targets, reset route, and readiness behavior remain unobserved. | Draft as source-observed lifecycle and keep live behavior `source_limit` unless later authorized evidence exists. |
 | Cleanup and timing guarantees | `SL-0014`, `SL-FU-0002`, `RTR-0007`, `RTR-0008`, `RTR-0012` | Timeout, interrupt, parent-death, detached reaper completion, active DB connection cleanup, stale janitor execution, and port release remain source-limited. | Do not claim guaranteed cleanup completion; distinguish cleanup path, cleanup scheduling, best effort, and verified completion. |
 | Artifact provenance | `SL-0004`, `SL-0009`, `SL-0010`, `SL-FU-0005`, `RTR-0016`, `PRES-0017` | Retained artifact freshness, failure-only bundles, and newest-run fallback need explicit selected-run provenance. | Normative or durable claims require explicit `RESULTS_DIR`, `RUN_ID`, command, platform/tool profile, and artifact paths. |
 | Environment and platform contracts | `SL-0013`, `SL-0015`, `AUTH-0006`, `AUTH-0008`, `PRES-0014`, `PRES-0015` | Public env-var set, override precedence, supported OS/tool profile, and missing-tool behavior need owner decisions. | Record observed env reads/defaults only; keep precedence and platform support owner-required. |
@@ -113,7 +113,7 @@ while creating this follow-up track.
 
 | Evidence area | Later authorized command or scenario | Required evidence record |
 |---|---|---|
-| Service-backed Docker/Postgres/MinIO readiness | `make backend-store`, `make backend-integration`, and `make backend-process` with unique `CARTULARY_TEST_RESULTS_DIR` and `CARTULARY_TEST_RUN_ID`. | Suite events, service leases, fixture summaries, cleanup summaries, command, run ID, result dir, platform/tool profile, timestamps, and exit status. |
+| Service-backed Docker/Postgres/object-store readiness | `make backend-store`, `make backend-integration`, and `make backend-process` with unique `CARTULARY_TEST_RESULTS_DIR` and `CARTULARY_TEST_RUN_ID`. | Suite events, service leases, fixture summaries, cleanup summaries, command, run ID, result dir, platform/tool profile, timestamps, and exit status. |
 | Phase/service-backed coverage | Select the phase with static `make explain-phase PHASE=<phase>`, then run `make service-backed-slice PHASE=<selected phase>`. | Phase selection rationale, scheduler summaries/events, result dir, run ID, and service-backed child artifacts. |
 | Browser/reset/readiness | `make browser-e2e-webserver-backed` for shared-stack readiness and `make browser-e2e-resettable` for reset-route evidence. | Browser stack env/json, backend/frontend logs, reset response/status files, Playwright reports, result dir, run ID, and explicit reset-route authority status. |
 | Compose/local-dev | `make services-up` or `make db-up`, then a controlled `make dev` session. | Readiness behavior, manual interrupt behavior, fixed-port release, persistent Compose state notes, and `AUTH-0005` decision status. |
@@ -131,7 +131,7 @@ while creating this follow-up track.
 | Harness/service owner plus product/security input | Decide reset-route visibility, stale janitor deletion proof, cleanup guarantee strength, and detached reaper contract. | Reset route and destructive cleanup remain authority-required; cleanup completion remains source-limited. |
 | Harness config owner plus Core 04 owner for overlapping product config | Decide public env-var set and precedence across Make, generated recipes, schedulers, shell wrappers, package scripts, Go helpers, config files, and Playwright. | Observed reads/defaults only; precedence remains unresolved. |
 | Harness/platform owner | Define supported platform/tool profile for Linux/WSL, Docker, Compose, `ss`, `curl`, `setsid`, `realpath`, shell, localhost networking, Node/pnpm, and browsers. | Platform/tool support remains source-limited except where source explicitly validates or fails. |
-| Local-dev owner | Decide whether Compose fixed ports, persistent volumes, `db-reset` MinIO exclusion, and `make dev` are harness contract or operator guidance. | Local-dev behavior is operator/local-dev guidance, not verification contract. |
+| Local-dev owner | Decide whether Compose fixed ports, persistent volumes, `db-reset` object-store exclusion, and `make dev` are harness contract or operator guidance. | Local-dev behavior is operator/local-dev guidance, not verification contract. |
 | Browser/harness owner | Decide visual snapshot platform/browser/update authority. | Validation-only; no snapshot update authority. |
 | CI owner | Decide whether provider workflows are external, absent, or intentionally represented only by `scripts/ci/**`. | Provider workflow and annotations remain absent/source-limited while `.github/**` is absent. |
 
@@ -149,7 +149,7 @@ decisions exist:
 - any public contract for reset route, env precedence, direct package scripts,
   local-dev Compose, visual snapshot updates, external Go cache cleanup, or CI
   provider annotations without owner decision;
-- any claim that scheduler lanes are concrete host, Docker, Postgres, MinIO, or
+- any claim that scheduler lanes are concrete host, Docker, Postgres, object-store, or
   browser capacity guarantees.
 
 ## Non-Blocking Follow-Ups

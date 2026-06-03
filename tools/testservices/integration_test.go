@@ -72,8 +72,8 @@ func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedWorkUnits(t *testing.T)
 	}
 	assertPostgresPreparationStrategy(t, scope, suiteservices.PostgresPreparationTemplate)
 	assertPostgresPreparationStrategy(t, scope, suiteservices.PostgresPreparationTemplateClone)
-	if scope.MinIO.BucketCreateCount == 0 {
-		t.Fatalf("expected minio bucket create activity, got %#v", scope.MinIO)
+	if scope.ObjectStore.BucketCreateCount == 0 {
+		t.Fatalf("expected object-store bucket create activity, got %#v", scope.ObjectStore)
 	}
 	if scope.Fixture.TotalCount == 0 || len(scope.Fixture.ByPackage) == 0 {
 		t.Fatalf("expected fixture diagnostics grouped by package, got %#v", scope.Fixture)
@@ -83,12 +83,12 @@ func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedWorkUnits(t *testing.T)
 	assertPostgresPackageResetsLimitedToHarnessPolicy(t, scope)
 
 	postgresPIDs := uniqueEventPIDs(events, suiteservices.EventPostgresDBCreated)
-	minioPIDs := uniqueEventPIDs(events, suiteservices.EventS3BucketCreated)
+	objectStorePIDs := uniqueEventPIDs(events, suiteservices.EventS3BucketCreated)
 	if len(postgresPIDs) < 2 {
 		t.Fatalf("expected postgres database creation from multiple go test package processes, got %v", postgresPIDs)
 	}
-	if len(minioPIDs) < 2 {
-		t.Fatalf("expected bucket creation from multiple go test package processes, got %v", minioPIDs)
+	if len(objectStorePIDs) < 2 {
+		t.Fatalf("expected bucket creation from multiple go test package processes, got %v", objectStorePIDs)
 	}
 	if hasDuplicateNames(events, suiteservices.EventPostgresDBCreated) {
 		t.Fatal("expected distinct database names across package binaries")
@@ -258,8 +258,8 @@ func assertSuiteServicesStarted(t testing.TB, scope suiteservices.ServiceScope) 
 	if !scope.Postgres.Started {
 		t.Fatalf("expected postgres suite service to start, got %#v", scope.Postgres)
 	}
-	if !scope.MinIO.Started {
-		t.Fatalf("expected minio suite service to start, got %#v", scope.MinIO)
+	if !scope.ObjectStore.Started {
+		t.Fatalf("expected object-store suite service to start, got %#v", scope.ObjectStore)
 	}
 }
 

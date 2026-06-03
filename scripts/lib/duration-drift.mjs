@@ -151,7 +151,7 @@ function recordServiceScopeContamination(reasons, repoRoot, file) {
     return;
   }
   const artifact = rel(repoRoot, path.dirname(file));
-  for (const service of ["postgres", "minio"]) {
+  for (const service of ["postgres", "object_store"]) {
     const startup = scope?.[service]?.startup;
     const retries = retryCount(startup);
     if (retries > 0) {

@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	if err := s3test.StopShared(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "terminate shared minio testcontainer: %v\n", err)
+		fmt.Fprintf(os.Stderr, "terminate shared object-store testcontainer: %v\n", err)
 		code = 1
 	}
 	if err := pgtest.StopShared(ctx); err != nil {
@@ -60,7 +60,7 @@ func sharedProcessHarnesses(t testing.TB) (*pgtest.Harness, *s3test.Harness) {
 		t.Fatalf("shared process harnesses unavailable: %v", processHarnessesErr)
 	}
 	if processPostgres == nil || processS3 == nil {
-		t.Fatal("shared process harnesses unavailable: package setup did not initialize postgres and minio")
+		t.Fatal("shared process harnesses unavailable: package setup did not initialize postgres and object store")
 	}
 
 	return processPostgres, processS3

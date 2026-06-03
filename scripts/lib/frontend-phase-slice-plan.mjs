@@ -205,7 +205,7 @@ function resourceLimitsForTargets(targets) {
   }
   if (targets.some((target) => isBrowserTarget(target))) {
     resourceLimits.set("postgres", 32);
-    resourceLimits.set("minio", 32);
+    resourceLimits.set("object_store", 32);
     resourceLimits.set(browserStackResource, defaultBrowserStackLimit());
   }
   return resourceLimits;
@@ -215,7 +215,7 @@ function resourceClaimsForTarget(target) {
   if (isBrowserTarget(target)) {
     return new Map([
       ["postgres", 1],
-      ["minio", 1],
+      ["object_store", 1],
       ["process", 1],
       [browserStackResource, 1],
     ]);
@@ -236,7 +236,7 @@ function serviceRequirementsForTargets(targets) {
   if (!targets.some((target) => isBrowserTarget(target))) {
     return [];
   }
-  return ["browser_stack", "minio", "postgres"];
+  return ["browser_stack", "object_store", "postgres"];
 }
 
 function knownTaskTargets(root) {

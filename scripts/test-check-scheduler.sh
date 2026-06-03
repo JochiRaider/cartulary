@@ -1090,7 +1090,7 @@ const validSchedulerRegistry = () => ({
 if (browserStageResource("webserver-backed") !== "browser_stage_webserver_backed") {
   fail("browser stage lane derivation changed");
 }
-if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,suite_service_stack,migration_scratch_postgres,browser_stack,minio,postgres,process,postgres_reset,postgres_clone") {
+if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,suite_service_stack,migration_scratch_postgres,browser_stack,object_store,postgres,process,postgres_reset,postgres_clone") {
   fail("check resource display order changed");
 }
 if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_CPU_JOBS,CHECK_HOST_IO_JOBS,CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT,CARTULARY_SERVICE_BACKED_POSTGRES_RESET_LIMIT,CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT") {

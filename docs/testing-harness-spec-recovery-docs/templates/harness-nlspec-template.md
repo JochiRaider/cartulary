@@ -276,7 +276,7 @@ baseline use, and non-guarantees.
 
 Scheduler lanes and resource claims are logical scheduling constraints unless
 this spec explicitly states otherwise. They must not be described as physical
-capacity guarantees for host CPUs, Docker, Postgres, MinIO, browser processes,
+capacity guarantees for host CPUs, Docker, Postgres, object-store, browser processes,
 network ports, or external services without owner evidence.
 
 ### Resource allocation table

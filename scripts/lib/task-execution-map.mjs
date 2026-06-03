@@ -44,8 +44,7 @@ const browserStagesCache = new Map();
 
 const serviceRequirementDisplayNames = new Map([
   ["postgres", "Postgres"],
-  ["minio", "MinIO"],
-  ["object_store", "SeaweedFS S3"],
+  ["object_store", "object store"],
   ["browser_stack", "browser stack"],
   ["vite", "Vite"],
 ]);
@@ -238,7 +237,7 @@ function addServiceBackedScheduleRequirements(requirements, schedule) {
     return;
   }
   addServiceRequirement(requirements, "postgres");
-  addServiceRequirement(requirements, "minio");
+  addServiceRequirement(requirements, "object_store");
   const sources = Array.isArray(schedule.work_unit_sources) ? schedule.work_unit_sources : [];
   if (
     sources.some((source) => source?.class === "browser" || source?.browser_stage) ||
@@ -256,11 +255,11 @@ export function serviceRequirementsForTarget(target, targetRows = [], declaredRe
   const goDescriptor = findTargetDescriptor(target, root);
   if (goDescriptor?.serviceBacked) {
     addServiceRequirement(requirements, "postgres");
-    addServiceRequirement(requirements, "minio");
+    addServiceRequirement(requirements, "object_store");
   }
   if (target.startsWith("browser-e2e")) {
     addServiceRequirement(requirements, "postgres");
-    addServiceRequirement(requirements, "minio");
+    addServiceRequirement(requirements, "object_store");
     addServiceRequirement(requirements, "browser_stack");
   }
   if (target === "db-up" || target === "services-up" || target === "object-store-init") {
@@ -274,7 +273,7 @@ export function serviceRequirementsForTarget(target, targetRows = [], declaredRe
   }
   if (["test", "test-fast", "check", "ci", "release-check"].includes(target)) {
     addServiceRequirement(requirements, "postgres");
-    addServiceRequirement(requirements, "minio");
+    addServiceRequirement(requirements, "object_store");
   }
   if (targetRows.some((row) => row.target.startsWith("browser-e2e"))) {
     addServiceRequirement(requirements, "browser_stack");
