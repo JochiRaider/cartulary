@@ -2576,6 +2576,9 @@
       },
       {
         "name": "bootstrap-node-runtime",
+        "backing_scripts": [
+          "scripts/bootstrap-node-runtime.sh"
+        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -2638,6 +2641,8 @@
       {
         "name": "frontend-toolchain",
         "backing_scripts": [
+          "scripts/cache-artifact.sh",
+          "scripts/frontend-toolchain.sh",
           "scripts/print-frontend-toolchain.sh"
         ],
         "output_policy": {
@@ -2691,6 +2696,7 @@
       {
         "name": "frontend-install",
         "backing_scripts": [
+          "scripts/cache-artifact.sh",
           "scripts/frontend-install.sh"
         ],
         "output_policy": {
@@ -2755,6 +2761,10 @@
       },
       {
         "name": "playwright-install",
+        "backing_scripts": [
+          "scripts/cache-artifact.sh",
+          "scripts/playwright-install.sh"
+        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -7107,6 +7117,10 @@
       },
       {
         "name": "testservices-build",
+        "backing_scripts": [
+          "scripts/cache-artifact.sh",
+          "scripts/build-go-artifact.sh"
+        ],
         "check_schedule": {
           "schedules": [
             "check"
@@ -9274,6 +9288,11 @@
       },
       {
         "name": "build-server",
+        "backing_scripts": [
+          "scripts/cache-artifact.sh",
+          "scripts/build-go-artifact.sh",
+          "scripts/embed-web-assets.sh"
+        ],
         "check_schedule": {
           "schedules": [
             "check"
@@ -9344,6 +9363,10 @@
       },
       {
         "name": "build-migrate",
+        "backing_scripts": [
+          "scripts/cache-artifact.sh",
+          "scripts/build-go-artifact.sh"
+        ],
         "check_schedule": {
           "schedules": [
             "check"
@@ -9414,6 +9437,10 @@
       },
       {
         "name": "build-operator",
+        "backing_scripts": [
+          "scripts/cache-artifact.sh",
+          "scripts/build-go-artifact.sh"
+        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -9473,6 +9500,10 @@
       },
       {
         "name": "build-web",
+        "backing_scripts": [
+          "scripts/cache-artifact.sh",
+          "scripts/build-web-artifact.sh"
+        ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -9684,6 +9715,7 @@
           "harness-smoke-toolchain-pins",
           "harness-smoke-bootstrap-node-runtime",
           "harness-smoke-bootstrap-shellcheck",
+          "harness-smoke-cache-artifact",
           "harness-smoke-lint-shell",
           "harness-smoke-build-input-discovery",
           "harness-smoke-check-migrations",
@@ -9739,6 +9771,7 @@
           "harness-smoke-toolchain-pins",
           "harness-smoke-bootstrap-node-runtime",
           "harness-smoke-bootstrap-shellcheck",
+          "harness-smoke-cache-artifact",
           "harness-smoke-lint-shell",
           "harness-smoke-build-input-discovery",
           "harness-smoke-check-migrations",
@@ -9805,6 +9838,13 @@
         "backing_scripts": [
           "scripts/test-bootstrap-shellcheck.sh",
           "scripts/bootstrap-shellcheck.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-cache-artifact",
+        "backing_scripts": [
+          "scripts/test-cache-artifact.sh",
+          "scripts/cache-artifact.sh"
         ]
       },
       {

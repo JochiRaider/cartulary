@@ -792,7 +792,9 @@ function normalizeSaveStateConflictAnchors(
   return (value ?? []).map((anchor) => cloneSaveStateConflictAnchor(anchor));
 }
 
-function conflictAnchorIdentity(anchor: WorkbookSaveStateConflictAnchor): string {
+function conflictAnchorIdentity(
+  anchor: WorkbookSaveStateConflictAnchor,
+): string {
   return `${anchor.record_id}\u0000${anchor.field_key}\u0000${anchor.base_row_version}`;
 }
 

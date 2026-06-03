@@ -12,14 +12,14 @@ import {
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
   landingIncidentCardTestId,
+  pendingQueueCountTestId,
+  pendingQueueNoticeTestId,
   phase1AccountTestId,
   phase1AdminTestId,
   phase1AuthTestId,
   phase1ErrorCodeTestId,
   phase1ErrorSummaryTestIds,
   phase1LandingTestId,
-  pendingQueueCountTestId,
-  pendingQueueNoticeTestId,
   rowCellTestId,
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
@@ -1001,9 +1001,9 @@ test.describe("FE-P4 accessibility readiness", () => {
       await pendingSummary.press("Enter");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
       await expectStatusRole(page.getByTestId(pendingQueueNoticeTestId()));
-      await expect(
-        page.getByTestId(pendingQueueCountTestId()),
-      ).toContainText("1");
+      await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+        "1",
+      );
 
       patchController.connect();
       await expect

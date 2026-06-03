@@ -63,6 +63,8 @@ MINIO_BUCKET ?= cartulary
 FRONTEND_INSTALL_STAMP ?= $(CURDIR)/tmp/frontend-install/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
 PLAYWRIGHT_INSTALL_STAMP ?= $(CURDIR)/tmp/playwright/chromium.stamp
 FRONTEND_TOOLCHAIN_STAMP ?= $(CURDIR)/tmp/frontend-toolchain/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
+CARTULARY_READINESS_CACHE_DIR ?= $(CURDIR)/.cache/cartulary/readiness
+CARTULARY_BUILD_CACHE_DIR ?= $(CURDIR)/.cache/cartulary/build-artifacts
 FRONTEND_NODE_MODULES_DIRS ?= $(CURDIR)/node_modules $(CURDIR)/apps/web/node_modules $(CURDIR)/packages/*/node_modules
 PNPM_RUN_ENV := PATH=$(NODE_RUNTIME_DIR)/bin:$$PATH COREPACK_HOME=$(NODE_RUNTIME_DIR)/corepack
 GO_ENV := env $(GO_RUN_ENV)
@@ -80,6 +82,7 @@ RUN_HARNESS_SMOKE_SCRIPT := $(CURDIR)/scripts/run-harness-smoke.mjs
 RUN_SERVICE_BACKED_SCHEDULE_SCRIPT := $(CURDIR)/scripts/run-service-backed-schedule.mjs
 RUN_CHECK_SCHEDULE_SCRIPT := $(CURDIR)/scripts/run-check-schedule.mjs
 BUILD_INPUTS_SCRIPT := $(CURDIR)/scripts/list-build-inputs.sh
+CACHE_ARTIFACT_SCRIPT := $(CURDIR)/scripts/cache-artifact.sh
 HARNESS_CONTRACT_SCRIPT := $(CURDIR)/scripts/harness-contract.sh
 RUN_PHASE = $(Q)$(RUN_PHASE_SCRIPT)
 RUN_HARNESS_PREFLIGHT = $(Q)$(HARNESS_CONTRACT_SCRIPT) preflight
@@ -225,106 +228,64 @@ if [ -d "$$dir" ]; then \
 fi
 endef
 
+FORCE:
+
 include tools/task_surface.generated.mk
 
 $(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT): $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(CYCLONEDX_GOMOD_BIN) $(SYFT_BIN) scripts/generate-sbom-license-evidence.mjs scripts/validate-cyclonedx.mjs go.mod go.sum package.json pnpm-lock.yaml pnpm-workspace.yaml docker-compose.dev.yml $(wildcard apps/web/package.json packages/*/package.json)
 	$(Q)mkdir -p $(RELEASE_ARTIFACT_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(Q)CARTULARY_TEST_TARGET=release-evidence CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_PHASE_SCRIPT) "generate SBOM/license evidence" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" CYCLONEDX_GOMOD_BIN="$(CYCLONEDX_GOMOD_BIN)" SYFT_BIN="$(SYFT_BIN)" RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" SBOM_ARTIFACT="$(SBOM_ARTIFACT)" $(NODE_BIN) ./scripts/generate-sbom-license-evidence.mjs
 
-$(NODE_BIN): scripts/bootstrap-node-runtime.sh Makefile
+$(NODE_BIN): FORCE scripts/bootstrap-node-runtime.sh Makefile
 	$(Q)NODE_VERSION="$(NODE_VERSION)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" ./scripts/bootstrap-node-runtime.sh
 
-$(FRONTEND_TOOLCHAIN_STAMP): $(NODE_BIN) Makefile
-	$(Q)mkdir -p $(dir $(FRONTEND_TOOLCHAIN_STAMP))
-	$(Q)$(PNPM_ENV) $(NODE_RUNTIME_DIR)/bin/corepack enable --install-directory "$(NODE_RUNTIME_DIR)/bin" pnpm
-	$(Q)$(PNPM_ENV) $(NODE_RUNTIME_DIR)/bin/corepack prepare pnpm@$(PNPM_VERSION) --activate >/dev/null
-	$(Q)node_version="$$($(NODE_BIN) --version)"; \
-	if [ "$$node_version" != "v$(NODE_VERSION)" ]; then \
-		echo "node version mismatch: expected v$(NODE_VERSION), got $$node_version at $(NODE_BIN)" >&2; \
-		exit 1; \
-	fi; \
-	pnpm_version="$$($(PNPM_ENV) $(PNPM) --version)"; \
-	if [ "$$pnpm_version" != "$(PNPM_VERSION)" ]; then \
-		echo "pnpm version mismatch: expected $(PNPM_VERSION), got $$pnpm_version at $(PNPM)" >&2; \
-		exit 1; \
-	fi; \
-	printf 'node_path=%s\nnode_version=%s\npnpm_path=%s\npnpm_version=%s\n' "$(NODE_BIN)" "$$node_version" "$(PNPM)" "$$pnpm_version" > $(FRONTEND_TOOLCHAIN_STAMP)
+$(FRONTEND_TOOLCHAIN_STAMP): FORCE $(NODE_BIN) Makefile scripts/frontend-toolchain.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.readiness.v1 --scope readiness --profile frontend-toolchain --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input scripts/frontend-toolchain.sh --input scripts/cache-artifact.sh --output "$(FRONTEND_TOOLCHAIN_STAMP)" --key "node_version=$(NODE_VERSION)" --key "pnpm_version=$(PNPM_VERSION)" --key "node_bin=$(NODE_BIN)" --key "pnpm=$(PNPM)" -- env NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" FRONTEND_TOOLCHAIN_STAMP="$(FRONTEND_TOOLCHAIN_STAMP)" ./scripts/frontend-toolchain.sh
 
-$(FRONTEND_INSTALL_STAMP): $(FRONTEND_INSTALL_INPUTS) $(FRONTEND_TOOLCHAIN_STAMP)
-	$(Q)PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" CI=true FRONTEND_INSTALL_STAMP="$(FRONTEND_INSTALL_STAMP)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" PNPM="$(PNPM)" PNPM_INSTALL_FLAGS="$(PNPM_INSTALL_FLAGS)" NODE_BIN="$(NODE_BIN)" NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" bash ./scripts/frontend-install.sh
+$(FRONTEND_INSTALL_STAMP): FORCE $(FRONTEND_INSTALL_INPUTS) $(FRONTEND_TOOLCHAIN_STAMP) scripts/frontend-install.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.readiness.v1 --scope readiness --profile frontend-install --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL $(foreach input,$(FRONTEND_INSTALL_INPUTS),--input "$(input)") --input .npmrc --input scripts/frontend-install.sh --input scripts/cache-artifact.sh --output "$(FRONTEND_INSTALL_STAMP)" --key "node_version=$(NODE_VERSION)" --key "pnpm_version=$(PNPM_VERSION)" --key "pnpm_install_flags=$(PNPM_INSTALL_FLAGS)" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" CI=true FRONTEND_INSTALL_STAMP="$(FRONTEND_INSTALL_STAMP)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" PNPM="$(PNPM)" PNPM_INSTALL_FLAGS="$(PNPM_INSTALL_FLAGS)" NODE_BIN="$(NODE_BIN)" NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" bash ./scripts/frontend-install.sh
 
-$(SQLC_BIN):
-	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(Q)rm -f $(TOOLBIN_DIR)/sqlc $(SQLC_BIN)
-	$(RUN_PHASE) "bootstrap sqlc tool" -- env GOBIN=$(TOOLBIN_DIR) $(GO_RUN_ENV) $(GO) install $(SQLC_TOOL)
-	$(Q)mv $(TOOLBIN_DIR)/sqlc $(SQLC_BIN)
+$(SQLC_BIN): FORCE Makefile scripts/bootstrap-go-tool.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.readiness.v1 --scope readiness --profile go-tool-sqlc --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input scripts/bootstrap-go-tool.sh --input scripts/cache-artifact.sh --input "$(GO)" --output "$(SQLC_BIN)" --key "tool=$(SQLC_TOOL)" --key "binary=sqlc" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(SQLC_BIN)" TOOL_MODULE="$(SQLC_TOOL)" TOOL_BINARY_NAME="sqlc" TOOL_LABEL="bootstrap sqlc tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" ./scripts/bootstrap-go-tool.sh
 
-$(GOOSE_BIN):
-	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(Q)rm -f $(TOOLBIN_DIR)/goose $(GOOSE_BIN)
-	$(RUN_PHASE) "bootstrap goose tool" -- env GOBIN=$(TOOLBIN_DIR) $(GO_RUN_ENV) $(GO) install $(GOOSE_TOOL)
-	$(Q)mv $(TOOLBIN_DIR)/goose $(GOOSE_BIN)
+$(GOOSE_BIN): FORCE Makefile scripts/bootstrap-go-tool.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.readiness.v1 --scope readiness --profile go-tool-goose --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input scripts/bootstrap-go-tool.sh --input scripts/cache-artifact.sh --input "$(GO)" --output "$(GOOSE_BIN)" --key "tool=$(GOOSE_TOOL)" --key "binary=goose" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(GOOSE_BIN)" TOOL_MODULE="$(GOOSE_TOOL)" TOOL_BINARY_NAME="goose" TOOL_LABEL="bootstrap goose tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" ./scripts/bootstrap-go-tool.sh
 
-$(STATICCHECK_BIN):
-	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(Q)rm -f $(TOOLBIN_DIR)/staticcheck $(STATICCHECK_BIN)
-	$(RUN_PHASE) "bootstrap staticcheck tool" -- env GOBIN=$(TOOLBIN_DIR) $(GO_RUN_ENV) $(GO) install $(STATICCHECK_TOOL)
-	$(Q)mv $(TOOLBIN_DIR)/staticcheck $(STATICCHECK_BIN)
+$(STATICCHECK_BIN): FORCE Makefile scripts/bootstrap-go-tool.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.readiness.v1 --scope readiness --profile go-tool-staticcheck --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input scripts/bootstrap-go-tool.sh --input scripts/cache-artifact.sh --input "$(GO)" --output "$(STATICCHECK_BIN)" --key "tool=$(STATICCHECK_TOOL)" --key "binary=staticcheck" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(STATICCHECK_BIN)" TOOL_MODULE="$(STATICCHECK_TOOL)" TOOL_BINARY_NAME="staticcheck" TOOL_LABEL="bootstrap staticcheck tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" ./scripts/bootstrap-go-tool.sh
 
-$(GOVULNCHECK_BIN):
-	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(Q)rm -f $(TOOLBIN_DIR)/govulncheck $(GOVULNCHECK_BIN)
-	$(RUN_PHASE) "bootstrap govulncheck tool" -- env GOBIN=$(TOOLBIN_DIR) $(GO_RUN_ENV) $(GO) install $(GOVULNCHECK_TOOL)
-	$(Q)mv $(TOOLBIN_DIR)/govulncheck $(GOVULNCHECK_BIN)
+$(GOVULNCHECK_BIN): FORCE Makefile scripts/bootstrap-go-tool.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.readiness.v1 --scope readiness --profile go-tool-govulncheck --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input scripts/bootstrap-go-tool.sh --input scripts/cache-artifact.sh --input "$(GO)" --output "$(GOVULNCHECK_BIN)" --key "tool=$(GOVULNCHECK_TOOL)" --key "binary=govulncheck" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(GOVULNCHECK_BIN)" TOOL_MODULE="$(GOVULNCHECK_TOOL)" TOOL_BINARY_NAME="govulncheck" TOOL_LABEL="bootstrap govulncheck tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" ./scripts/bootstrap-go-tool.sh
 
-$(GOSEC_BIN):
-	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(Q)rm -f $(TOOLBIN_DIR)/gosec $(GOSEC_BIN)
-	$(RUN_PHASE) "bootstrap gosec tool" -- env GOBIN=$(TOOLBIN_DIR) $(GO_RUN_ENV) $(GO) install $(GOSEC_TOOL)
-	$(Q)mv $(TOOLBIN_DIR)/gosec $(GOSEC_BIN)
+$(GOSEC_BIN): FORCE Makefile scripts/bootstrap-go-tool.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.readiness.v1 --scope readiness --profile go-tool-gosec --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input scripts/bootstrap-go-tool.sh --input scripts/cache-artifact.sh --input "$(GO)" --output "$(GOSEC_BIN)" --key "tool=$(GOSEC_TOOL)" --key "binary=gosec" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(GOSEC_BIN)" TOOL_MODULE="$(GOSEC_TOOL)" TOOL_BINARY_NAME="gosec" TOOL_LABEL="bootstrap gosec tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" ./scripts/bootstrap-go-tool.sh
 
-$(CYCLONEDX_GOMOD_BIN):
-	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(Q)rm -f $(TOOLBIN_DIR)/cyclonedx-gomod $(CYCLONEDX_GOMOD_BIN)
-	$(RUN_PHASE) "bootstrap cyclonedx-gomod tool" -- bash -c 'cd "$$1" && env GOBIN="$$2" GOCACHE="$$3" GOMODCACHE="$$4" "$$5" install "$$6"' _ "$(GO_CACHE_DIR)" "$(TOOLBIN_DIR)" "$(GO_CACHE_DIR)" "$(GO_MOD_CACHE_DIR)" "$(GO)" "$(CYCLONEDX_GOMOD_TOOL)"
-	$(Q)mv $(TOOLBIN_DIR)/cyclonedx-gomod $(CYCLONEDX_GOMOD_BIN)
+$(CYCLONEDX_GOMOD_BIN): FORCE Makefile scripts/bootstrap-go-tool.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.readiness.v1 --scope readiness --profile go-tool-cyclonedx-gomod --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input scripts/bootstrap-go-tool.sh --input scripts/cache-artifact.sh --input "$(GO)" --output "$(CYCLONEDX_GOMOD_BIN)" --key "tool=$(CYCLONEDX_GOMOD_TOOL)" --key "binary=cyclonedx-gomod" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(CYCLONEDX_GOMOD_BIN)" TOOL_MODULE="$(CYCLONEDX_GOMOD_TOOL)" TOOL_BINARY_NAME="cyclonedx-gomod" TOOL_LABEL="bootstrap cyclonedx-gomod tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" ./scripts/bootstrap-go-tool.sh
 
-$(SYFT_BIN):
-	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(Q)rm -f $(TOOLBIN_DIR)/syft $(SYFT_BIN)
-	$(RUN_PHASE) "bootstrap syft tool" -- bash -c 'cd "$$1" && env GOBIN="$$2" GOCACHE="$$3" GOMODCACHE="$$4" "$$5" install "$$6"' _ "$(GO_CACHE_DIR)" "$(TOOLBIN_DIR)" "$(GO_CACHE_DIR)" "$(GO_MOD_CACHE_DIR)" "$(GO)" "$(SYFT_TOOL)"
-	$(Q)mv $(TOOLBIN_DIR)/syft $(SYFT_BIN)
+$(SYFT_BIN): FORCE Makefile scripts/bootstrap-go-tool.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.readiness.v1 --scope readiness --profile go-tool-syft --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input scripts/bootstrap-go-tool.sh --input scripts/cache-artifact.sh --input "$(GO)" --output "$(SYFT_BIN)" --key "tool=$(SYFT_TOOL)" --key "binary=syft" -- env GO="$(GO)" TOOLBIN_DIR="$(TOOLBIN_DIR)" TOOL_OUTPUT="$(SYFT_BIN)" TOOL_MODULE="$(SYFT_TOOL)" TOOL_BINARY_NAME="syft" TOOL_LABEL="bootstrap syft tool" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" ./scripts/bootstrap-go-tool.sh
 
-$(SHELLCHECK_BIN): scripts/bootstrap-shellcheck.sh Makefile
-	$(RUN_PHASE) "bootstrap shellcheck tool" -- env SHELLCHECK_VERSION=$(SHELLCHECK_VERSION) TOOLBIN_DIR=$(TOOLBIN_DIR) SHELLCHECK_BIN=$(SHELLCHECK_BIN) CARTULARY_SHELLCHECK_ARCHIVE_DIR=$(SHELLCHECK_ARCHIVE_DIR) ./scripts/bootstrap-shellcheck.sh
+$(SHELLCHECK_BIN): FORCE scripts/bootstrap-shellcheck.sh Makefile $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.readiness.v1 --scope readiness --profile shellcheck-tool --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input Makefile --input scripts/bootstrap-shellcheck.sh --input scripts/cache-artifact.sh --output "$(SHELLCHECK_BIN)" --key "shellcheck_version=$(SHELLCHECK_VERSION)" -- env SHELLCHECK_VERSION="$(SHELLCHECK_VERSION)" TOOLBIN_DIR="$(TOOLBIN_DIR)" SHELLCHECK_BIN="$(SHELLCHECK_BIN)" CARTULARY_SHELLCHECK_ARCHIVE_DIR="$(SHELLCHECK_ARCHIVE_DIR)" ./scripts/bootstrap-shellcheck.sh
 
-$(TEST_SERVICES_BIN): $$(TEST_SERVICES_BUILD_INPUTS)
-	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(Q)CARTULARY_TEST_TARGET=testservices-build CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_PHASE_SCRIPT) "build testservices" -- $(GO_ENV) $(GO) build -o $(TEST_SERVICES_BIN) ./tools/testservices
+$(TEST_SERVICES_BIN): FORCE $$(TEST_SERVICES_BUILD_INPUTS) scripts/build-go-artifact.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.build_artifact.v1 --scope build-artifact --profile testservices-build --cache-dir "$(CARTULARY_BUILD_CACHE_DIR)" --disable-env CARTULARY_BUILD_CACHE_DISABLE --force-env CARTULARY_FORCE_REBUILD $(foreach input,$(TEST_SERVICES_BUILD_INPUTS),--input "$(input)") --input scripts/build-go-artifact.sh --input scripts/cache-artifact.sh --input "$(GO)" --output "$(TEST_SERVICES_BIN)" --key "go=$${GO:-$(GO)}" --key "GOOS=$${GOOS:-}" --key "GOARCH=$${GOARCH:-}" --key "CGO_ENABLED=$${CGO_ENABLED:-}" --key "GOFLAGS=$${GOFLAGS:-}" -- env GO="$(GO)" BUILD_OUTPUT="$(TEST_SERVICES_BIN)" BUILD_PACKAGE="./tools/testservices" BUILD_LABEL="build testservices" CARTULARY_TEST_TARGET="testservices-build" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" ./scripts/build-go-artifact.sh
 
-$(PLAYWRIGHT_INSTALL_STAMP): $(FRONTEND_INSTALL_STAMP) $(FRONTEND_TOOLCHAIN_STAMP)
-	$(Q)mkdir -p $(dir $(PLAYWRIGHT_INSTALL_STAMP))
-	$(RUN_PHASE) "playwright-install" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec playwright install chromium
-	$(Q)printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\n' "$(NODE_BIN)" "$(NODE_VERSION)" "$(PNPM)" "$(PNPM_VERSION)" > $(PLAYWRIGHT_INSTALL_STAMP)
+$(PLAYWRIGHT_INSTALL_STAMP): FORCE $(FRONTEND_INSTALL_STAMP) $(FRONTEND_TOOLCHAIN_STAMP) scripts/playwright-install.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.readiness.v1 --scope readiness --profile playwright-install --cache-dir "$(CARTULARY_READINESS_CACHE_DIR)" --disable-env CARTULARY_READINESS_DISABLE_CACHE --force-env CARTULARY_FORCE_REINSTALL --input package.json --input pnpm-lock.yaml --input apps/web/package.json --input scripts/playwright-install.sh --input scripts/cache-artifact.sh --output "$(PLAYWRIGHT_INSTALL_STAMP)" --key "node_version=$(NODE_VERSION)" --key "pnpm_version=$(PNPM_VERSION)" -- env PLAYWRIGHT_INSTALL_STAMP="$(PLAYWRIGHT_INSTALL_STAMP)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" ./scripts/playwright-install.sh
 
-$(EMBEDDED_WEB_ASSET_STAMP) $(EMBEDDED_WEB_ASSET_INDEX) $(EMBEDDED_WEB_ASSET_READY_STAMP) &: $(WEB_DIST_INDEX)
-	$(Q)mkdir -p $(EMBEDDED_WEB_ASSET_DIR) $(dir $(EMBEDDED_WEB_ASSET_STAMP))
-	$(Q)find $(EMBEDDED_WEB_ASSET_DIR) -mindepth 1 ! -name '.keep' -exec rm -rf {} +
-	$(Q)cp -R $(dir $(WEB_DIST_INDEX)). $(EMBEDDED_WEB_ASSET_DIR)/
-	$(Q)printf 'source=%s\n' "$(WEB_DIST_INDEX)" > $(EMBEDDED_WEB_ASSET_READY_STAMP)
-	$(Q)printf 'source=%s\n' "$(WEB_DIST_INDEX)" > $(EMBEDDED_WEB_ASSET_STAMP)
+$(EMBEDDED_WEB_ASSET_STAMP) $(EMBEDDED_WEB_ASSET_INDEX) $(EMBEDDED_WEB_ASSET_READY_STAMP) &: FORCE $(WEB_DIST_INDEX) scripts/embed-web-assets.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.build_artifact.v1 --scope build-artifact --profile embedded-web-assets --cache-dir "$(CARTULARY_BUILD_CACHE_DIR)" --disable-env CARTULARY_BUILD_CACHE_DISABLE --force-env CARTULARY_FORCE_REBUILD --input-dir "$(CURDIR)/apps/web/dist" --input scripts/embed-web-assets.sh --input scripts/cache-artifact.sh --output "$(EMBEDDED_WEB_ASSET_STAMP)" --output "$(EMBEDDED_WEB_ASSET_INDEX)" --output "$(EMBEDDED_WEB_ASSET_READY_STAMP)" --output-dir "$(EMBEDDED_WEB_ASSET_DIR)" --key "source=$(WEB_DIST_INDEX)" -- env WEB_DIST_INDEX="$(WEB_DIST_INDEX)" EMBEDDED_WEB_ASSET_DIR="$(EMBEDDED_WEB_ASSET_DIR)" EMBEDDED_WEB_ASSET_STAMP="$(EMBEDDED_WEB_ASSET_STAMP)" EMBEDDED_WEB_ASSET_READY_STAMP="$(EMBEDDED_WEB_ASSET_READY_STAMP)" ./scripts/embed-web-assets.sh
 
-$(SERVER_BIN): $$(SERVER_BUILD_INPUTS) $(EMBEDDED_WEB_ASSET_STAMP) $(EMBEDDED_WEB_ASSET_INDEX) $(EMBEDDED_WEB_ASSET_READY_STAMP)
-	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE) "build server" -- $(GO_ENV) $(GO) build -o $(SERVER_BIN) ./cmd/server
+$(SERVER_BIN): FORCE $$(SERVER_BUILD_INPUTS) $(EMBEDDED_WEB_ASSET_STAMP) $(EMBEDDED_WEB_ASSET_INDEX) $(EMBEDDED_WEB_ASSET_READY_STAMP) scripts/build-go-artifact.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.build_artifact.v1 --scope build-artifact --profile build-server --cache-dir "$(CARTULARY_BUILD_CACHE_DIR)" --disable-env CARTULARY_BUILD_CACHE_DISABLE --force-env CARTULARY_FORCE_REBUILD $(foreach input,$(SERVER_BUILD_INPUTS),--input "$(input)") --input-dir "$(EMBEDDED_WEB_ASSET_DIR)" --input scripts/build-go-artifact.sh --input scripts/cache-artifact.sh --input "$(GO)" --output "$(SERVER_BIN)" --key "go=$${GO:-$(GO)}" --key "GOOS=$${GOOS:-}" --key "GOARCH=$${GOARCH:-}" --key "CGO_ENABLED=$${CGO_ENABLED:-}" --key "GOFLAGS=$${GOFLAGS:-}" -- env GO="$(GO)" BUILD_OUTPUT="$(SERVER_BIN)" BUILD_PACKAGE="./cmd/server" BUILD_LABEL="build server" CARTULARY_TEST_TARGET="build-server" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" ./scripts/build-go-artifact.sh
 
-$(MIGRATE_BIN): $$(MIGRATE_BUILD_INPUTS)
-	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE) "build migrate" -- $(GO_ENV) $(GO) build -o $(MIGRATE_BIN) ./cmd/migrate
+$(MIGRATE_BIN): FORCE $$(MIGRATE_BUILD_INPUTS) scripts/build-go-artifact.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.build_artifact.v1 --scope build-artifact --profile build-migrate --cache-dir "$(CARTULARY_BUILD_CACHE_DIR)" --disable-env CARTULARY_BUILD_CACHE_DISABLE --force-env CARTULARY_FORCE_REBUILD $(foreach input,$(MIGRATE_BUILD_INPUTS),--input "$(input)") --input scripts/build-go-artifact.sh --input scripts/cache-artifact.sh --input "$(GO)" --output "$(MIGRATE_BIN)" --key "go=$${GO:-$(GO)}" --key "GOOS=$${GOOS:-}" --key "GOARCH=$${GOARCH:-}" --key "CGO_ENABLED=$${CGO_ENABLED:-}" --key "GOFLAGS=$${GOFLAGS:-}" -- env GO="$(GO)" BUILD_OUTPUT="$(MIGRATE_BIN)" BUILD_PACKAGE="./cmd/migrate" BUILD_LABEL="build migrate" CARTULARY_TEST_TARGET="build-migrate" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" ./scripts/build-go-artifact.sh
 
-$(OPERATOR_BIN): $$(OPERATOR_BUILD_INPUTS)
-	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE) "build operator" -- $(GO_ENV) $(GO) build -o $(OPERATOR_BIN) ./cmd/operator
+$(OPERATOR_BIN): FORCE $$(OPERATOR_BUILD_INPUTS) scripts/build-go-artifact.sh $(CACHE_ARTIFACT_SCRIPT)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.build_artifact.v1 --scope build-artifact --profile build-operator --cache-dir "$(CARTULARY_BUILD_CACHE_DIR)" --disable-env CARTULARY_BUILD_CACHE_DISABLE --force-env CARTULARY_FORCE_REBUILD $(foreach input,$(OPERATOR_BUILD_INPUTS),--input "$(input)") --input scripts/build-go-artifact.sh --input scripts/cache-artifact.sh --input "$(GO)" --output "$(OPERATOR_BIN)" --key "go=$${GO:-$(GO)}" --key "GOOS=$${GOOS:-}" --key "GOARCH=$${GOARCH:-}" --key "CGO_ENABLED=$${CGO_ENABLED:-}" --key "GOFLAGS=$${GOFLAGS:-}" -- env GO="$(GO)" BUILD_OUTPUT="$(OPERATOR_BIN)" BUILD_PACKAGE="./cmd/operator" BUILD_LABEL="build operator" CARTULARY_TEST_TARGET="build-operator" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" ./scripts/build-go-artifact.sh
 
-$(WEB_DIST_INDEX): $$(WEB_BUILD_INPUTS) $(FRONTEND_INSTALL_STAMP) | $(NODE_BIN)
-	$(Q)CARTULARY_TEST_TARGET=build-web CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_PHASE_SCRIPT) "build web" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vite build $(VITE_BUILD_FLAGS)
+$(WEB_DIST_INDEX): FORCE $$(WEB_BUILD_INPUTS) $(FRONTEND_INSTALL_STAMP) scripts/build-web-artifact.sh $(CACHE_ARTIFACT_SCRIPT) | $(NODE_BIN)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --schema-id cartulary.cache.build_artifact.v1 --scope build-artifact --profile build-web --cache-dir "$(CARTULARY_BUILD_CACHE_DIR)" --disable-env CARTULARY_BUILD_CACHE_DISABLE --force-env CARTULARY_FORCE_REBUILD $(foreach input,$(WEB_BUILD_INPUTS),--input "$(input)") --input scripts/build-web-artifact.sh --input scripts/cache-artifact.sh --output-dir "$(CURDIR)/apps/web/dist" --key "node_version=$(NODE_VERSION)" --key "pnpm_version=$(PNPM_VERSION)" --key "vite_flags=$(VITE_BUILD_FLAGS)" -- env RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" VITE_BUILD_FLAGS="$(VITE_BUILD_FLAGS)" CARTULARY_TEST_TARGET="build-web" ./scripts/build-web-artifact.sh

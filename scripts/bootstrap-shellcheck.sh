@@ -125,7 +125,7 @@ install_archive() {
 }
 
 main() {
-  if [[ -x "$SHELLCHECK_BIN" && "$(installed_version "$SHELLCHECK_BIN")" == "$SHELLCHECK_VERSION" ]]; then
+  if [[ "${CARTULARY_FORCE_REINSTALL:-0}" != "1" && -x "$SHELLCHECK_BIN" && "$(installed_version "$SHELLCHECK_BIN")" == "$SHELLCHECK_VERSION" ]]; then
     return 0
   fi
 
@@ -144,7 +144,15 @@ main() {
   archive="${ARCHIVE_DIR}/${archive_name}"
   url="https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/${archive_name}"
 
-  download_archive "$archive" "$url"
+  if [[ -f "$archive" ]]; then
+    actual="$(sha256_file "$archive")"
+    if [[ "$actual" != "$expected" ]]; then
+      rm -f "$archive"
+    fi
+  fi
+  if [[ ! -f "$archive" ]]; then
+    download_archive "$archive" "$url"
+  fi
 
   actual="$(sha256_file "$archive")"
   if [[ "$actual" != "$expected" ]]; then

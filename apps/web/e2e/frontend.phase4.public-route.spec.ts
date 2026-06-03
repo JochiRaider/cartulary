@@ -134,10 +134,7 @@ async function postTimelinePastePublic(
   );
 }
 
-async function armPublicErrorFault(
-  page: Page,
-  body: Record<string, unknown>,
-) {
+async function armPublicErrorFault(page: Page, body: Record<string, unknown>) {
   const response = await page.request.post(
     `${apiBase}/api/v1/test/runtime/public-error-faults`,
     {

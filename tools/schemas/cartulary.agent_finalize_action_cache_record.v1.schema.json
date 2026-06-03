@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.agent_finalize_action_cache_record.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "action_id",
+    "command_id",
+    "action_contract_version",
+    "input_profile_id",
+    "key_sha256",
+    "cache_schema_id",
+    "digests",
+    "output_paths",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.agent_finalize_action_cache_record.v1" },
+    "action_id": {
+      "enum": [
+        "structure_ledger_refresh",
+        "schema_shape_validation",
+        "duration_baseline_refresh",
+        "duration_baseline_coverage",
+        "duration_baseline_drift_validation",
+        "scheduler_drift_validation"
+      ]
+    },
+    "command_id": { "const": "cartulary.harness.command.agent_finalize.v1" },
+    "action_contract_version": { "type": "string", "minLength": 1 },
+    "input_profile_id": { "type": "string", "minLength": 1 },
+    "key_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "cache_schema_id": { "const": "cartulary.agent_finalize_action_cache_record.v1" },
+    "digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repo_input_digest",
+        "implementation_digest",
+        "toolchain_digest",
+        "environment_digest",
+        "substep_digest",
+        "input_digest_sha256",
+        "output_digest_sha256"
+      ],
+      "properties": {
+        "repo_input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "implementation_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "toolchain_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "environment_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "retained_run_digest": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "substep_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "input_digest_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "output_digest_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "output_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "updated_at": { "type": "string", "minLength": 1, "format": "date-time" }
+  }
+}

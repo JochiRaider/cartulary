@@ -2,12 +2,12 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:3c1da39f40d780b34dcd2a36ef4bdaf6e76436bd48092f8d61f2cae7b10212fd",
+  "input_digest": "sha256:eaf4b808fcd1f0b8fbc77608ad95af3aaf873aac69ebdb3077b49ad950efbf11",
   "inputs": [
     {
       "path": "scripts/lib/agent-finalize-action-cache.mjs",
       "role": "renderer_source",
-      "hash": "sha256:96b4733b758a1a513ad41c37536e358567723421f495485da336f0fe2d6dc034"
+      "hash": "sha256:2c01884ac40d05b558d45fa0b279f039d5fcd38ca817dd3cbb34bf9bba5bcff1"
     },
     {
       "path": "scripts/lib/artifact-discovery.mjs",
@@ -302,7 +302,7 @@
     {
       "path": "scripts/render-execution-topology-artifacts.mjs",
       "role": "renderer_source",
-      "hash": "sha256:56f560ff88fc66a689f92abdff0822e5c4eb167168d21d70b16123c9e79dfcae"
+      "hash": "sha256:0b370396f62ec8fe161ba11391c35bb04675bc1a4c50145d8a38aa91574cf488"
     },
     {
       "path": "scripts/render-service-backed-schedule-manifest.mjs",
@@ -317,7 +317,7 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:6c548ebce31c8234ad5685391e5ef464c5244c4df6144b6070540185a706da4c"
+      "hash": "sha256:b8981174e0d5a6c297e12f858625f5293f9092139cdaddcc965bce07eca5fbcf"
     },
     {
       "path": "tools/go_test_duration_baselines.json",
@@ -408,7 +408,7 @@
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:092b7a644c059fffe096a5b4578cfa973307577531d62d8eefa200f1de5dfa42",
     "tools/scheduler_manifest.json": "sha256:fd1115c2d9b2e22ddcc87a2279c66af45dae56001469ea495069c2ba71458be7",
-    "tools/task_surface_manifest.json": "sha256:28cf34ba0bfd93bdaf4c1122b1863cda9ff04b91b91eb985038dc5ca0968b7bc",
+    "tools/task_surface_manifest.json": "sha256:ef431e716389b93f7632638c84b25a5536316cfe60cac7dee70195746d4237ec",
     "tools/task_surface.generated.mk": "sha256:1277113519e608a1968a66f673e8e0913f05eae6f22fc05383927179d849428e"
   }
 }

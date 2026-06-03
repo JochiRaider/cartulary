@@ -1,8 +1,8 @@
 import {
-  publicErrorView,
   type PublicAPIError,
   type PublicErrorDetail,
   type PublicErrorView,
+  publicErrorView,
 } from "./publicError";
 
 export type APIError = {
@@ -20,7 +20,7 @@ export type APIResult<T> = {
   payload: T | { error?: APIError };
 };
 
-export { publicErrorView, type PublicErrorDetail, type PublicErrorView };
+export { type PublicErrorDetail, type PublicErrorView, publicErrorView };
 
 export const csrfCookieName = "cartulary_csrf";
 export const csrfHeaderName = "X-CSRF-Token";

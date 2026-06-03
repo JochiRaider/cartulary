@@ -11,8 +11,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  findWorkbookCell,
   cleanupTimelineWorkbookTestGlobals,
+  findWorkbookCell,
   installTimelineWorkbookTestGlobals,
   latestTimelineWebSocket,
   successEnvelope,
@@ -132,9 +132,9 @@ describe("FE-U-P4-02 WorkbookShell save-state status strip", () => {
     fireEvent.blur(input);
 
     await waitFor(() => {
-      expect(within(statusStrip).getByTestId(saveStateTestId()).textContent).toBe(
-        "Syncing",
-      );
+      expect(
+        within(statusStrip).getByTestId(saveStateTestId()).textContent,
+      ).toBe("Syncing");
       expect(
         within(statusStrip).getByText(
           "Authentication is required before queued edits can replay.",

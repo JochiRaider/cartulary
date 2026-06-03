@@ -208,5 +208,5 @@ run_service object_store_reset_confirmed env CARTULARY_DESTRUCTIVE_CONFIRM=objec
 assert_status 0
 assert_file_contains "$docker_log" "up -d minio" "object-store-reset starts minio"
 assert_file_contains "$docker_log" "MINIO_BUCKET=ct-test" "object-store-reset passes configured bucket"
-assert_file_contains "$docker_log" 'mc rm --recursive --force "local/${MINIO_BUCKET}"' "object-store-reset deletes configured bucket objects"
+assert_file_contains "$docker_log" "mc rm --recursive --force \"local/\${MINIO_BUCKET}\"" "object-store-reset deletes configured bucket objects"
 assert_log_empty "$go_log" "object-store-reset confirmed go"

@@ -728,7 +728,7 @@ write_valid_agent_finalize_summary() {
         "input_profile_id": "agent_finalize.structure_ledger_refresh.v1",
         "input_digest_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
         "output_digest_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
-        "record_path": "tmp/agent-finalize-action-cache/structure_ledger_refresh/record.json",
+        "record_path": ".cache/cartulary/agent-finalize-action-cache/structure_ledger_refresh/record.json",
         "reason_code": "cache_record_missing"
       },
       "substeps": [
@@ -759,6 +759,79 @@ write_valid_agent_finalize_summary() {
       "path": ".cartulary/test-results/run/phase-ledgers/tool-run-summary.json"
     }
   ]
+}
+JSON
+}
+
+write_valid_cache_record() {
+  local schema_id="$1"
+  local scope="$2"
+  local file="$3"
+
+  cat >"$file" <<JSON
+{
+  "schema_id": "$schema_id",
+  "cache_scope": "$scope",
+  "profile_id": "fixture-profile",
+  "state": "stored",
+  "reason_code": "cache_record_missing",
+  "key_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "input_digest_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "output_digest_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "record_path": ".cache/cartulary/${scope}/fixture-profile/record.json",
+  "cacheable_outputs": ["tmp/fixture-output"],
+  "non_cacheable_side_effects": ["public_target_summary"],
+  "created_at": "2026-01-01T00:00:00Z"
+}
+JSON
+}
+
+write_valid_agent_finalize_action_cache_record() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.agent_finalize_action_cache_record.v1",
+  "action_id": "structure_ledger_refresh",
+  "command_id": "cartulary.harness.command.agent_finalize.v1",
+  "action_contract_version": "v1",
+  "input_profile_id": "agent_finalize.structure_ledger_refresh.v1",
+  "key_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "cache_schema_id": "cartulary.agent_finalize_action_cache_record.v1",
+  "digests": {
+    "repo_input_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "implementation_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "toolchain_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "environment_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "retained_run_digest": null,
+    "substep_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "input_digest_sha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "output_digest_sha256": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+  },
+  "output_paths": ["tools/task_surface_manifest.json"],
+  "updated_at": "2026-01-01T00:00:00Z"
+}
+JSON
+}
+
+write_valid_execution_topology_render_cache_record() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.execution_topology_render_cache.v1",
+  "generator": "scripts/render-execution-topology-artifacts.mjs",
+  "generator_version": 1,
+  "node_version": "v24.15.0",
+  "input_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "artifacts": [
+    {
+      "file": "tools/task_surface_manifest.json",
+      "hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "content": "{}\n"
+    }
+  ],
+  "written_at": "2026-01-01T00:00:00Z"
 }
 JSON
 }
@@ -1338,6 +1411,22 @@ write_valid_agent_finalize_summary "$agent_finalize_summary"
 assert_contains "$(assert_passes "valid agent finalize summary" run_shape_check agent-finalize-summary "$agent_finalize_summary")" \
   "json shape check passed" \
   "valid agent finalize summary"
+
+readiness_cache_record="$tmp_dir/readiness-cache-record.json"
+write_valid_cache_record cartulary.cache.readiness.v1 readiness "$readiness_cache_record"
+run_schema_validation cartulary.cache.readiness.v1 "$readiness_cache_record" >/dev/null
+
+build_cache_record="$tmp_dir/build-cache-record.json"
+write_valid_cache_record cartulary.cache.build_artifact.v1 build-artifact "$build_cache_record"
+run_schema_validation cartulary.cache.build_artifact.v1 "$build_cache_record" >/dev/null
+
+agent_action_cache_record="$tmp_dir/agent-action-cache-record.json"
+write_valid_agent_finalize_action_cache_record "$agent_action_cache_record"
+run_schema_validation cartulary.agent_finalize_action_cache_record.v1 "$agent_action_cache_record" >/dev/null
+
+render_cache_record="$tmp_dir/render-cache-record.json"
+write_valid_execution_topology_render_cache_record "$render_cache_record"
+run_schema_validation cartulary.execution_topology_render_cache.v1 "$render_cache_record" >/dev/null
 
 bad_agent_finalize_action="$tmp_dir/agent-finalize-summary-bad-action.json"
 write_valid_agent_finalize_summary "$bad_agent_finalize_action"

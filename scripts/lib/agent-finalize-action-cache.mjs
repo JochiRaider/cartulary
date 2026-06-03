@@ -37,6 +37,7 @@ const implementationFiles = [
   "scripts/agent-finalize.sh",
   "scripts/lib/agent-finalize-action-cache.mjs",
   "scripts/lib/harness-contract.mjs",
+  "tools/schemas/cartulary.agent_finalize_action_cache_record.v1.schema.json",
   "tools/schemas/cartulary.agent_finalize_summary.v3.schema.json",
   "tools/task_surface.generated.mk",
   "tools/task_surface_manifest.json",
@@ -364,7 +365,7 @@ function cacheRoot(repoRoot) {
   ).trim();
   return configured
     ? path.resolve(configured)
-    : path.join(repoRoot, "tmp", "agent-finalize-action-cache");
+    : path.join(repoRoot, ".cache", "cartulary", "agent-finalize-action-cache");
 }
 
 function recordPath(repoRoot, actionID, keyHash) {

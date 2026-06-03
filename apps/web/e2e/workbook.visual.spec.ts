@@ -651,10 +651,7 @@ test.describe("FE-P4 visual readiness", () => {
       await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
         scroll: { top: 0, left: "left" },
       });
-      await assertVisualRegression(
-        page,
-        "fe-v-p4-01-pending-replay-status",
-      );
+      await assertVisualRegression(page, "fe-v-p4-01-pending-replay-status");
 
       patchController.connect();
       await expect

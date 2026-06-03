@@ -31,7 +31,9 @@ const repoRoot = path.resolve(scriptDir, "..");
 export const renderIndexSchemaID = "cartulary.execution_topology_render_index.v1";
 const renderCacheSchemaID = "cartulary.execution_topology_render_cache.v1";
 const generatorVersion = 1;
-const cacheDir = path.join(repoRoot, ".cache", "cartulary", "execution-topology-render");
+const cacheDir = process.env.CARTULARY_EXECUTION_TOPOLOGY_RENDER_CACHE_DIR
+  ? path.resolve(process.env.CARTULARY_EXECUTION_TOPOLOGY_RENDER_CACHE_DIR)
+  : path.join(repoRoot, ".cache", "cartulary", "execution-topology-render");
 const renderedOutputKeys = [
   "task_surface_manifest",
   "browser_e2e_batch_manifest",
@@ -421,6 +423,9 @@ function cachePath(inputDigest) {
 }
 
 function readCachedArtifacts(inputDigest) {
+  if (process.env.CARTULARY_EXECUTION_TOPOLOGY_RENDER_DISABLE_CACHE === "1") {
+    return null;
+  }
   const file = cachePath(inputDigest);
   if (!existsSync(file)) {
     return null;
@@ -428,6 +433,9 @@ function readCachedArtifacts(inputDigest) {
   const cache = readJSON(file);
   if (
     cache?.schema_id !== renderCacheSchemaID ||
+    cache.generator !== "scripts/render-execution-topology-artifacts.mjs" ||
+    cache.generator_version !== generatorVersion ||
+    cache.node_version !== process.version ||
     cache.input_digest !== inputDigest ||
     !Array.isArray(cache.artifacts)
   ) {
@@ -449,17 +457,24 @@ function readCachedArtifacts(inputDigest) {
 }
 
 function writeCache(inputDigest, artifacts) {
+  if (process.env.CARTULARY_EXECUTION_TOPOLOGY_RENDER_DISABLE_CACHE === "1") {
+    return;
+  }
   mkdirSync(cacheDir, { recursive: true });
   writeFileSync(
     cachePath(inputDigest),
     serializeJSON({
       schema_id: renderCacheSchemaID,
+      generator: "scripts/render-execution-topology-artifacts.mjs",
+      generator_version: generatorVersion,
+      node_version: process.version,
       input_digest: inputDigest,
       artifacts: artifacts.map((artifact) => ({
         file: artifact.file,
         hash: hashContent(artifact.content),
         content: artifact.content,
       })),
+      written_at: new Date().toISOString(),
     }),
   );
 }

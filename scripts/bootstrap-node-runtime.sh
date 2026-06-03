@@ -97,7 +97,7 @@ install_archive() {
 
 main() {
   local node_bin="${NODE_RUNTIME_DIR}/bin/node"
-  if [[ -x "${node_bin}" && "$("${node_bin}" -v)" == "v${NODE_VERSION}" ]]; then
+  if [[ "${CARTULARY_FORCE_REINSTALL:-0}" != "1" && -x "${node_bin}" && "$("${node_bin}" -v)" == "v${NODE_VERSION}" ]]; then
     return 0
   fi
 
@@ -111,9 +111,17 @@ main() {
   local archive="${ARCHIVE_DIR}/${archive_name}"
   local url="https://nodejs.org/dist/v${NODE_VERSION}/${archive_name}"
 
-  download_archive "${archive}" "${url}"
-
   local actual
+  if [[ -f "${archive}" ]]; then
+    actual="$(sha256_file "${archive}")"
+    if [[ "${actual}" != "${expected}" ]]; then
+      rm -f "${archive}"
+    fi
+  fi
+  if [[ ! -f "${archive}" ]]; then
+    download_archive "${archive}" "${url}"
+  fi
+
   actual="$(sha256_file "${archive}")"
   if [[ "${actual}" != "${expected}" ]]; then
     rm -f "${archive}"

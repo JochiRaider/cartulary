@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.cache.readiness.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "cache_scope",
+    "profile_id",
+    "state",
+    "reason_code",
+    "key_sha256",
+    "input_digest_sha256",
+    "output_digest_sha256",
+    "record_path",
+    "cacheable_outputs",
+    "non_cacheable_side_effects",
+    "created_at"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.cache.readiness.v1" },
+    "cache_scope": { "const": "readiness" },
+    "profile_id": { "type": "string", "minLength": 1 },
+    "state": { "enum": ["stored", "hit", "miss", "disabled", "corrupt"] },
+    "reason_code": {
+      "enum": [
+        "cache_hit",
+        "cache_record_invalid",
+        "cache_record_missing",
+        "env_disabled",
+        "force_rebuild",
+        "output_missing"
+      ]
+    },
+    "key_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "input_digest_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "output_digest_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "record_path": { "type": "string", "minLength": 1 },
+    "cacheable_outputs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "non_cacheable_side_effects": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "created_at": { "type": "string", "minLength": 1, "format": "date-time" }
+  }
+}

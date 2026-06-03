@@ -75,7 +75,7 @@ export function publicErrorStatusText(
     return message;
   }
   const status =
-    typeof error?.status === "number" ? error.status : fallbackStatus ?? null;
+    typeof error?.status === "number" ? error.status : (fallbackStatus ?? null);
   switch (status) {
     case 400:
       return "Invalid request.";
