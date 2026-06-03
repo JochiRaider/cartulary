@@ -54,7 +54,7 @@ func TestRegisterTestClockRoutesRejectsUnauthenticatedMutation(t *testing.T) {
 		t.Fatalf("unexpected error code: got %v", got)
 	}
 
-	body = postClockSetRawWithToken(t, server.URL, `{"offset_seconds":0}`, "wrong-token-wrong-token-wrong-token", http.StatusForbidden)
+	body = postClockSetRawWithToken(t, server.URL, `{"offset_seconds":0}`, "ABCDEFGabcdefghijklmnopqrstuvwxyz0123456789", http.StatusForbidden)
 	errorPayload = body["error"].(map[string]any)
 	if got := errorPayload["code"]; got != "test_route_forbidden" {
 		t.Fatalf("unexpected wrong-token error code: got %v", got)
@@ -198,7 +198,7 @@ func postClockSet(t testing.TB, baseURL string, payload any, wantStatus int) map
 	return postClockSetRaw(t, baseURL, string(requestBody), wantStatus)
 }
 
-const testClockRouteToken = "0123456789abcdef0123456789abcdef"
+const testClockRouteToken = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFG"
 
 func postClockSetRaw(t testing.TB, baseURL string, payload string, wantStatus int) map[string]any {
 	t.Helper()

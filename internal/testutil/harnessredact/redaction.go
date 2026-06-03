@@ -6,12 +6,28 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 	"sync"
 )
 
 const fallbackReplacement = "[REDACTED]"
 
 var sensitiveCLIFlagPattern = regexp.MustCompile(`(?i)^--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)$`)
+var structuredSecretKeyTokens = map[string]struct{}{
+	"PASSWORD":                     {},
+	"PASS":                         {},
+	"PWD":                          {},
+	"TOKEN":                        {},
+	"JWT":                          {},
+	"BEARER":                       {},
+	"API_KEY":                      {},
+	"ACCESS_KEY":                   {},
+	"SECRET_KEY":                   {},
+	"AUTHORIZATION":                {},
+	"COOKIE":                       {},
+	"SET_COOKIE":                   {},
+	"X_CARTULARY_TEST_ROUTE_TOKEN": {},
+}
 
 type manifest struct {
 	Replacement          string        `json:"replacement"`
@@ -65,12 +81,8 @@ func StructuredString(value string) string {
 
 func Value(value any, key string) any {
 	compiled := compiledRules()
-	if key != "" {
-		for _, pattern := range compiled.keyPatterns {
-			if pattern.MatchString(key) {
-				return compiled.replacement
-			}
-		}
+	if key != "" && isStructuredSecretKey(key) {
+		return compiled.replacement
 	}
 	switch typed := value.(type) {
 	case string:
@@ -114,6 +126,39 @@ func Value(value any, key string) any {
 	default:
 		return value
 	}
+}
+
+func canonicalStructuredKey(value string) string {
+	var builder strings.Builder
+	lastUnderscore := false
+	for _, r := range strings.ToUpper(value) {
+		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			builder.WriteRune(r)
+			lastUnderscore = false
+			continue
+		}
+		if !lastUnderscore {
+			builder.WriteByte('_')
+			lastUnderscore = true
+		}
+	}
+	return strings.Trim(builder.String(), "_")
+}
+
+func isStructuredSecretKey(key string) bool {
+	canonical := canonicalStructuredKey(key)
+	if canonical == "" {
+		return false
+	}
+	if _, ok := structuredSecretKeyTokens[canonical]; ok {
+		return true
+	}
+	for token := range structuredSecretKeyTokens {
+		if strings.HasPrefix(canonical, token+"_") || strings.HasSuffix(canonical, "_"+token) {
+			return true
+		}
+	}
+	return false
 }
 
 func compiledRules() compiledManifest {
@@ -185,9 +230,11 @@ func fallbackRules() compiledManifest {
 		},
 		valueRules: []compiledRule{
 			{pattern: regexp.MustCompile(`(?i)\bBearer\s+[-._~+/A-Za-z0-9]+=*`), replacement: fallbackReplacement},
-			{pattern: regexp.MustCompile(`(?i)\bBasic\s+[-._~+/A-Za-z0-9]+=*`), replacement: fallbackReplacement},
+			{pattern: regexp.MustCompile(`(?i)\b(Authorization\s*:\s*)Bearer\s+[-._~+/A-Za-z0-9]+=*`), replacement: `$1` + fallbackReplacement},
+			{pattern: regexp.MustCompile(`(?i)\b((?:Cookie|Set-Cookie|X-Cartulary-Test-Route-Token)\s*:\s*)([^\r\n]+)`), replacement: `$1` + fallbackReplacement},
 			{pattern: regexp.MustCompile(`(?i)postgres(?:ql)?://([^:\s/@]+):([^@\s]+)@`), replacement: `postgres://$1:[REDACTED]@`},
-			{pattern: regexp.MustCompile(`(?i)\b(password|passwd|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret)=([^\s&]+)`), replacement: `$1=[REDACTED]`},
+			{pattern: regexp.MustCompile(`(?i)\b(password|passwd|secret|token|api[_-]?key|access[_-]?key|secret[_-]?key|client[_-]?secret)\s*=\s*([^\s&]+)`), replacement: `$1=[REDACTED]`},
+			{pattern: regexp.MustCompile(`(?i)\b((?:minio|s3|aws)?[_-]?(?:access[_-]?key|secret[_-]?key|access[_-]?key[_-]?id|secret[_-]?access[_-]?key)\s*=\s*)([^\s&]+)`), replacement: `$1[REDACTED]`},
 			{pattern: regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----`), replacement: fallbackReplacement},
 		},
 	}

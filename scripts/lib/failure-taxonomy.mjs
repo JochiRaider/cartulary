@@ -29,8 +29,23 @@ export const failureReasonOrder = [
   "unknown_failure",
 ];
 
+export const commandLifecycleOrder = [
+  "wrapper_identity",
+  "output_mode_resolution",
+  "configuration_resolution",
+  "result_root_run_id_resolution",
+  "redaction_initialization",
+  "semantic_target_behavior",
+  "artifact_validation",
+  "cleanup_finalizers",
+  "public_output_emission",
+];
+
 const failureClassSet = new Set(failureClassOrder);
 const failureReasonSet = new Set(failureReasonOrder);
+const commandLifecycleRank = new Map(
+  commandLifecycleOrder.map((step, index) => [step, index]),
+);
 
 const legacyFailureClassMap = new Map([
   ["test", "product"],
@@ -160,6 +175,28 @@ export function normalizeFailureRecord(record = {}, defaults = {}) {
     message: String(record.message ?? defaults.message ?? ""),
     artifact: String(record.artifact ?? defaults.artifact ?? ""),
   };
+  const lifecycleStep = String(
+    record.lifecycle_step ??
+      record.lifecycle ??
+      record.lifecycleStep ??
+      defaults.lifecycle_step ??
+      "",
+  ).trim();
+  if (lifecycleStep) {
+    normalized.lifecycle_step = lifecycleStep;
+  }
+  for (const [field, aliases] of [
+    ["scheduler_event_sequence", ["scheduler_event_sequence", "scheduler_seq", "event_sequence", "seq"]],
+    ["child_registry_order", ["child_registry_order", "child_target_order", "target_registry_order"]],
+  ]) {
+    for (const alias of aliases) {
+      const value = record[alias] ?? defaults[alias];
+      if (Number.isInteger(value) && value >= 0) {
+        normalized[field] = value;
+        break;
+      }
+    }
+  }
   const childTarget = String(record.child_target ?? defaults.child_target ?? "");
   const workUnit = String(record.work_unit ?? defaults.work_unit ?? "");
   if (childTarget) {
@@ -169,6 +206,32 @@ export function normalizeFailureRecord(record = {}, defaults = {}) {
     normalized.work_unit = workUnit;
   }
   return normalized;
+}
+
+function classRank(failure) {
+  const rank = failureClassOrder.indexOf(failure.failure_class);
+  return rank === -1 ? Number.MAX_SAFE_INTEGER : rank;
+}
+
+function lifecycleRank(failure) {
+  if (!failure.lifecycle_step) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return commandLifecycleRank.get(failure.lifecycle_step) ?? Number.MAX_SAFE_INTEGER;
+}
+
+function numericTie(value) {
+  return Number.isInteger(value) ? value : Number.MAX_SAFE_INTEGER;
+}
+
+function compareFailureRecords(left, right) {
+  return classRank(left) - classRank(right) ||
+    lifecycleRank(left) - lifecycleRank(right) ||
+    numericTie(left.scheduler_event_sequence) - numericTie(right.scheduler_event_sequence) ||
+    numericTie(left.child_registry_order) - numericTie(right.child_registry_order) ||
+    String(left.artifact ?? "").localeCompare(String(right.artifact ?? "")) ||
+    String(left.failure_reason ?? "").localeCompare(String(right.failure_reason ?? "")) ||
+    numericTie(left.__input_order) - numericTie(right.__input_order);
 }
 
 function publicExitCodeForInterrupted(context = {}) {
@@ -238,27 +301,18 @@ export function publicExitCodeForFailure(record = {}, context = {}) {
 export function primaryPublicFailure(failures = [], fallback = null) {
   const normalized = failures
     .filter(Boolean)
-    .map((failure) => normalizeFailureRecord(failure))
+    .map((failure, index) => ({
+      ...normalizeFailureRecord(failure),
+      __input_order: index,
+    }))
     .filter((failure) => failure.failure_class);
   const selectByClassPrecedence = (candidates) => {
-    let selected = null;
-    let selectedIndex = Number.MAX_SAFE_INTEGER;
-    let selectedClassRank = Number.MAX_SAFE_INTEGER;
-    for (const [index, failure] of candidates.entries()) {
-      const classRank = failureClassOrder.indexOf(failure.failure_class);
-      const normalizedRank =
-        classRank === -1 ? Number.MAX_SAFE_INTEGER : classRank;
-      if (
-        selected === null ||
-        normalizedRank < selectedClassRank ||
-        (normalizedRank === selectedClassRank && index < selectedIndex)
-      ) {
-        selected = failure;
-        selectedIndex = index;
-        selectedClassRank = normalizedRank;
-      }
+    const selected = candidates.slice().sort(compareFailureRecords)[0] ?? null;
+    if (!selected) {
+      return null;
     }
-    return selected;
+    const { __input_order: _inputOrder, ...publicFailure } = selected;
+    return publicFailure;
   };
   const nonCleanup = normalized.filter(
     (failure) => failure.failure_reason !== "cleanup_error",
@@ -306,10 +360,9 @@ export function summarizeFailures(failures = [], counts = {}) {
     failureClasses[failure.failure_class] += 1;
     failureReasons[failure.failure_reason] += 1;
   }
-  const failureClass = primaryFailureClass(failureClasses);
-  const failureReason =
-    normalized.find((failure) => failure.failure_class === failureClass)?.failure_reason ??
-    null;
+  const primaryFailure = primaryPublicFailure(normalized);
+  const failureClass = primaryFailure?.failure_class ?? primaryFailureClass(failureClasses);
+  const failureReason = primaryFailure?.failure_reason ?? null;
   const headline = failureClass
     ? formatFailureHeadline({ failureClass, failures: normalized, counts })
     : "";

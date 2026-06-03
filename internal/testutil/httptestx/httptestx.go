@@ -32,7 +32,7 @@ type ServerOptions struct {
 
 type AuthCookies = authcookietest.AuthCookies
 
-const TestRouteToken = "0123456789abcdef0123456789abcdef"
+const TestRouteToken = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFG"
 
 func StartServer(t testing.TB, options ServerOptions) *Server {
 	t.Helper()

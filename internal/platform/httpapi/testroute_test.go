@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-const testRouteGuardToken = "0123456789abcdef0123456789abcdef"
+const testRouteGuardToken = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFG"
 
 func TestNewTestRouteGuardRequiresHarnessOwnedRuntime(t *testing.T) {
 	for _, tc := range []struct {
@@ -65,7 +65,7 @@ func TestTestRouteGuardAuthorization(t *testing.T) {
 	}
 
 	wrongToken := req.Clone(req.Context())
-	wrongToken.Header.Set(TestRouteTokenHeader, "wrong-token-wrong-token-wrong-token")
+	wrongToken.Header.Set(TestRouteTokenHeader, "ABCDEFGabcdefghijklmnopqrstuvwxyz0123456789")
 	if guard.Authorized(wrongToken) {
 		t.Fatal("wrong token authorized")
 	}
@@ -80,6 +80,23 @@ func TestTestRouteGuardAuthorization(t *testing.T) {
 	missingOrigin.Header.Del("Origin")
 	if guard.AllowedRequestBoundary(missingOrigin) {
 		t.Fatal("missing origin passed boundary when origins are configured")
+	}
+}
+
+func TestValidTestRouteTokenRejectsClosedWeakAttachTokens(t *testing.T) {
+	if !ValidTestRouteToken(testRouteGuardToken) {
+		t.Fatal("expected fixture token to be valid")
+	}
+	for _, token := range []string{
+		"short",
+		"token",
+		"password",
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"0123456789abcdefghijklmnopqrstuvwxyzABCDEF\n",
+	} {
+		if ValidTestRouteToken(token) {
+			t.Fatalf("expected token %q to be invalid", token)
+		}
 	}
 }
 

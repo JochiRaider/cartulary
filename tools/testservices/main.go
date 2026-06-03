@@ -35,13 +35,13 @@ import (
 )
 
 const (
-	postgresStartupTimeout     = 2 * time.Minute
+	postgresStartupTimeout     = 3 * time.Minute
 	suitePreflightTimeout      = 3 * time.Second
 	suitePostgresAttemptLimit  = 35 * time.Second
 	suiteMinIOAttemptLimit     = 2 * time.Minute
 	staleSuiteContainerAge     = 10 * time.Minute
 	templateStartupTimeout     = 2 * time.Minute
-	minioStartupTimeout        = 5 * time.Minute
+	minioStartupTimeout        = 2 * time.Minute
 	cleanupTimeout             = 2 * time.Minute
 	webE2ELeakCheckTimeout     = 5 * time.Second
 	signalWaitTimeout          = 15 * time.Second
@@ -230,7 +230,7 @@ func main() {
 
 func run(args []string, env map[string]string, deps dependencies) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> | prepare-web-e2e --env-file <path> --metadata-file <path> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | warm-images")
+		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> | record-lifecycle --env-file <path> --event <event> [--child-key <key>] | prepare-web-e2e --env-file <path> --metadata-file <path> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | warm-images")
 		return 2
 	}
 
@@ -239,6 +239,8 @@ func run(args []string, env map[string]string, deps dependencies) int {
 		return runWrappedCommand(args, env, deps)
 	case "start-suite":
 		return runStartSuite(args[1:], env, deps)
+	case "record-lifecycle":
+		return runRecordLifecycle(args[1:], env)
 	case "prepare-web-e2e":
 		return runPrepareWebE2E(args[1:], env, deps)
 	case "cleanup-web-e2e":
@@ -308,8 +310,13 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	ownedEnv := cloneEnv(env)
 	ownedEnv[suiteservices.ActiveEnv] = "1"
 	ownedEnv[suiteservices.SuiteIDEnv] = suiteID
+	ownedEnv[suiteservices.LifecycleModeEnv] = "owned"
 
 	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart})
+	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartServices, ""); err != nil {
+		fmt.Fprintf(os.Stderr, "record service lifecycle start: %v\n", err)
+		return 1
+	}
 	deps.refreshSummary(ownedEnv)
 	recordTimingSpan(deps, ownedEnv, bucketSetup, "test-services wrapper setup", wrapperStart, time.Now().UTC(), "pass")
 
@@ -326,6 +333,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	deps.refreshSummary(ownedEnv)
 	if err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageStartupPreflight, "suite startup preflight", err))
+		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
 		recordCleanupAndRefresh(deps, ownedEnv, "startup_failed", 1)
 		return 1
 	}
@@ -350,6 +358,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 		minioSvc = minioResult.service
 		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", postgresResult.err))
+		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", childExitCode)
 		return 1
 	}
@@ -389,6 +398,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 		minioSvc = minioResult.service
 		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
+		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
 		return 1
 	}
 	deps.recordEvent(ownedEnv, suiteservices.Event{
@@ -410,6 +420,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
 	if minioResult.err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceMinIO, stageMinIOStart, "start suite minio", minioResult.err))
+		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
 		return 1
 	}
 	deps.recordEvent(ownedEnv, suiteservices.Event{
@@ -425,6 +436,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	leasePath, err = writeServiceLease(ownedEnv, postgresSvc, minioSvc)
 	if err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "write suite service lease", err))
+		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
 		cleanupStatus = "startup_failed"
 		return 1
 	}
@@ -436,6 +448,12 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	cancelJanitor()
 	if err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupJanitor, "janitor stale browser e2e fixtures", err))
+		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		cleanupStatus = "startup_failed"
+		return 1
+	}
+	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventReadinessPassed, ""); err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageChildStart, "record service readiness lifecycle", err))
 		cleanupStatus = "startup_failed"
 		return 1
 	}
@@ -457,7 +475,18 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 		return 1
 	}
 
+	childKey := fmt.Sprintf("%d:%s", child.PID(), strings.Join(command, " "))
+	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventChildStarted, childKey); err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageChildStart, "record child lifecycle start", err))
+		cleanupStatus = "child_start_failed"
+		return 1
+	}
 	childExitCode = waitForChild(command, child, deps)
+	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventChildFinished, childKey); err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageChildStart, "record child lifecycle finish", err))
+		cleanupStatus = "failed"
+		return 1
+	}
 	if childExitCode == 0 {
 		cleanupStatus = "succeeded"
 		return 0
@@ -487,8 +516,13 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	ownedEnv := cloneEnv(env)
 	ownedEnv[suiteservices.ActiveEnv] = "1"
 	ownedEnv[suiteservices.SuiteIDEnv] = suiteID
+	ownedEnv[suiteservices.LifecycleModeEnv] = "owned"
 
 	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart})
+	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartServices, ""); err != nil {
+		fmt.Fprintf(os.Stderr, "record service lifecycle start: %v\n", err)
+		return 1
+	}
 	deps.refreshSummary(ownedEnv)
 	recordTimingSpan(deps, ownedEnv, bucketSetup, "test-services wrapper setup", wrapperStart, time.Now().UTC(), "pass")
 
@@ -505,6 +539,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	deps.refreshSummary(ownedEnv)
 	if err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageStartupPreflight, "suite startup preflight", err))
+		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
 		recordCleanupAndRefresh(deps, ownedEnv, "startup_failed", 1)
 		return 1
 	}
@@ -525,6 +560,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 		minioSvc = minioResult.service
 		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", postgresResult.err))
+		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", 1)
 		return 1
 	}
@@ -562,6 +598,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 		minioSvc = minioResult.service
 		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
+		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", 1)
 		return 1
 	}
@@ -584,6 +621,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
 	if minioResult.err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceMinIO, stageMinIOStart, "start suite minio", minioResult.err))
+		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", 1)
 		return 1
 	}
@@ -600,11 +638,13 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	generatedLeasePath, err := writeServiceLease(ownedEnv, postgresSvc, minioSvc)
 	if err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "write suite service lease", err))
+		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", 1)
 		return 1
 	}
 	if err := copyFile(generatedLeasePath, leaseFile, 0o600); err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "copy suite service lease", err))
+		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, generatedLeasePath, "startup_failed", 1)
 		return 1
 	}
@@ -616,6 +656,12 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	cancelJanitor()
 	if err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupJanitor, "janitor stale browser e2e fixtures", err))
+		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, generatedLeasePath, "startup_failed", 1)
+		return 1
+	}
+	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventReadinessPassed, ""); err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageChildStart, "record service readiness lifecycle", err))
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, generatedLeasePath, "startup_failed", 1)
 		return 1
 	}
@@ -684,6 +730,44 @@ func runPrepareWebE2E(args []string, env map[string]string, deps dependencies) i
 	return 0
 }
 
+func runRecordLifecycle(args []string, env map[string]string) int {
+	envFile, event, childKey, err := parseRecordLifecycleArgs(args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	lifecycleEnv := cloneEnv(env)
+	if envFile != "" {
+		fileEnv, err := readEnvJSON(envFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "read lifecycle env file: %v\n", err)
+			return 1
+		}
+		for key, value := range fileEnv {
+			lifecycleEnv[key] = value
+		}
+	}
+	if err := suiteservices.RecordLifecycleEvent(lifecycleEnv, event, childKey); err != nil {
+		fmt.Fprintf(os.Stderr, "record lifecycle event: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func recordLifecycleEventIfPresent(env map[string]string, event string, childKey string) error {
+	path, ok, err := suiteservices.LifecycleEventsPath(env)
+	if err != nil || !ok {
+		return err
+	}
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	return suiteservices.RecordLifecycleEvent(env, event, childKey)
+}
+
 func runCleanupWebE2E(args []string, env map[string]string, deps dependencies) int {
 	metadataFile, err := parseCleanupWebE2EArgs(args)
 	if err != nil {
@@ -723,6 +807,7 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 	leaseEnv := cloneEnv(env)
 	leaseEnv[suiteservices.ActiveEnv] = "1"
 	leaseEnv[suiteservices.SuiteIDEnv] = lease.SuiteID
+	leaseEnv[suiteservices.LifecycleModeEnv] = "owned"
 	if lease.Target != "" {
 		leaseEnv[suiteservices.TargetEnv] = lease.Target
 	}
@@ -730,6 +815,9 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 		leaseEnv["CARTULARY_TEST_RUN_ID"] = lease.RunID
 	}
 
+	if err := recordLifecycleEventIfPresent(leaseEnv, suiteservices.LifecycleEventCleanupStarted, ""); err != nil {
+		printSuiteFailure(leaseEnv, failureSummary("", stageCleanupReaper, "record cleanup lifecycle start", err))
+	}
 	status := 0
 	for _, result := range terminateSuiteServices(context.Background(), lease) {
 		recordTimingSpanStatusAt(deps, leaseEnv, bucketTeardown, result.label, result.start, result.end, result.err, true)
@@ -739,6 +827,15 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 		}
 	}
 	deps.refreshSummary(leaseEnv)
+	if status == 0 {
+		if err := recordLifecycleEventIfPresent(leaseEnv, suiteservices.LifecycleEventCleanupSucceeded, ""); err != nil {
+			printSuiteFailure(leaseEnv, failureSummary("", stageCleanupReaper, "record cleanup lifecycle success", err))
+			return 1
+		}
+	} else if err := recordLifecycleEventIfPresent(leaseEnv, suiteservices.LifecycleEventCleanupFailed, ""); err != nil {
+		printSuiteFailure(leaseEnv, failureSummary("", stageCleanupReaper, "record cleanup lifecycle failure", err))
+		return 1
+	}
 	return status
 }
 
@@ -783,6 +880,22 @@ func parsePrepareWebE2EArgs(args []string) (string, string, error) {
 		return "", "", errors.New("usage: testservices prepare-web-e2e --env-file <path> --metadata-file <path>")
 	}
 	return envFile, metadataFile, nil
+}
+
+func parseRecordLifecycleArgs(args []string) (string, string, string, error) {
+	values, err := parseFlagPairs(args, map[string]struct{}{
+		"--env-file":  {},
+		"--event":     {},
+		"--child-key": {},
+	})
+	if err != nil {
+		return "", "", "", err
+	}
+	event := strings.TrimSpace(values["--event"])
+	if event == "" {
+		return "", "", "", errors.New("usage: testservices record-lifecycle --env-file <path> --event <event> [--child-key <key>]")
+	}
+	return strings.TrimSpace(values["--env-file"]), event, strings.TrimSpace(values["--child-key"]), nil
 }
 
 func parseCleanupWebE2EArgs(args []string) (string, error) {
@@ -2033,6 +2146,9 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
 
+	if err := recordLifecycleEventIfPresent(env, suiteservices.LifecycleEventCleanupStarted, ""); err != nil {
+		printSuiteFailure(env, failureSummary("", stageCleanupReaper, "record cleanup lifecycle start", err))
+	}
 	cleanupStatus := status
 	if cleanupStatus == "" {
 		cleanupStatus = "succeeded"
@@ -2106,6 +2222,15 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 	}
 
 	recordCleanupAndRefresh(deps, env, cleanupStatus, childExitCode)
+	if cleanupStatus == "cleanup_failed" {
+		if err := recordLifecycleEventIfPresent(env, suiteservices.LifecycleEventCleanupFailed, ""); err != nil {
+			printSuiteFailure(env, failureSummary("", stageCleanupReaper, "record cleanup lifecycle failure", err))
+		}
+	} else {
+		if err := recordLifecycleEventIfPresent(env, suiteservices.LifecycleEventCleanupSucceeded, ""); err != nil {
+			printSuiteFailure(env, failureSummary("", stageCleanupReaper, "record cleanup lifecycle success", err))
+		}
+	}
 }
 
 func cleanupServices(ctx context.Context, postgresSvc postgresService, minioSvc minioService) []serviceCleanupResult {
@@ -2632,6 +2757,21 @@ func writeEnvJSON(path string, env map[string]string) error {
 		return fmt.Errorf("write suite env: %w", err)
 	}
 	return nil
+}
+
+func readEnvJSON(path string) (map[string]string, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var env map[string]string
+	if err := json.Unmarshal(raw, &env); err != nil {
+		return nil, err
+	}
+	if env == nil {
+		env = map[string]string{}
+	}
+	return env, nil
 }
 
 func cloneEnv(env map[string]string) map[string]string {

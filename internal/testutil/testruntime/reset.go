@@ -90,13 +90,17 @@ func RegisterTestRuntimeResetRoute(resetHooks ...func()) httpapi.RouteRegistrar 
 		if deps.ObjectStore == nil {
 			return fmt.Errorf("register test runtime reset route: object store dependency is required")
 		}
+		effectiveResetHooks := append([]func(){}, resetHooks...)
+		if clearable, ok := deps.PublicErrorFaults.(interface{ Clear() }); ok {
+			effectiveResetHooks = append(effectiveResetHooks, clearable.Clear)
+		}
 		service := &testRuntimeResetService{
 			cfg:         deps.Config,
 			env:         deps.Env,
 			postgres:    deps.Postgres,
 			objectStore: deps.ObjectStore,
 			guard:       guard,
-			resetHooks:  append([]func(){}, resetHooks...),
+			resetHooks:  effectiveResetHooks,
 		}
 		mux.HandleFunc("GET /api/v1/test/runtime/identity", service.handleIdentity)
 		mux.HandleFunc("POST /api/v1/test/runtime/reset", service.handleReset)

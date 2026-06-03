@@ -20,6 +20,14 @@ const (
 	TestRouteTokenHeader       = "X-Cartulary-Test-Route-Token"
 )
 
+var weakTestRouteTokens = map[string]struct{}{
+	"test":     {},
+	"token":    {},
+	"secret":   {},
+	"password": {},
+	"changeme": {},
+}
+
 type TestRouteGuard struct {
 	Token          string
 	ExpectedHost   string
@@ -40,7 +48,7 @@ func NewTestRouteGuard(env map[string]string) (TestRouteGuard, error) {
 	}
 	token := lookupTestRouteEnv(env, TestRouteTokenEnv)
 	if !ValidTestRouteToken(token) {
-		return guard, fmt.Errorf("test routes require %s must be a harness-generated token with at least 128 bits of entropy", TestRouteTokenEnv)
+		return guard, fmt.Errorf("test routes require %s must be a visible ASCII token of length 43..512 and not a weak token", TestRouteTokenEnv)
 	}
 	boundary, err := resolveTestRouteBoundary(env)
 	if err != nil {
@@ -99,13 +107,26 @@ func (g TestRouteGuard) AllowedRequestBoundary(r *http.Request) bool {
 }
 
 func ValidTestRouteToken(token string) bool {
-	if len(token) < 22 {
+	if len(token) < 43 || len(token) > 512 {
 		return false
 	}
-	for _, r := range token {
+	repeated := true
+	first := rune(0)
+	for index, r := range token {
 		if r <= ' ' || r > '~' {
 			return false
 		}
+		if index == 0 {
+			first = r
+		} else if r != first {
+			repeated = false
+		}
+	}
+	if repeated {
+		return false
+	}
+	if _, weak := weakTestRouteTokens[strings.ToLower(token)]; weak {
+		return false
 	}
 	return true
 }

@@ -27,14 +27,18 @@ func TestStringUsesSharedHarnessRules(t *testing.T) {
 
 func TestValueRedactsStructuredKeysAndCLIArgs(t *testing.T) {
 	input := map[string]any{
-		"Authorization": "Bearer nested.secret",
-		"Cookie":        "session=nested-cookie",
-		"args":          []any{"--token", "route-secret", "--dsn=postgres://cartulary:secret@127.0.0.1:5432/postgres"},
+		"Authorization":  "Bearer nested.secret",
+		"Cookie":         "session=nested-cookie",
+		"args":           []any{"--token", "route-secret", "--dsn=postgres://cartulary:secret@127.0.0.1:5432/postgres"},
+		"session_target": "not-redacted-token-substring",
 		"service_sessions": []any{
 			map[string]any{
 				"target":            "service-timing-suite",
+				"session_target":    "browser-stage-token-name",
 				"cleanup_status":    "pass",
 				"setup_duration_ms": float64(12),
+				"healthy":           true,
+				"absent":            nil,
 				"session_token":     "nested-session-token",
 			},
 		},
@@ -51,6 +55,12 @@ func TestValueRedactsStructuredKeysAndCLIArgs(t *testing.T) {
 	session := sessions[0].(map[string]any)
 	if session["target"] != "service-timing-suite" || session["cleanup_status"] != "pass" {
 		t.Fatalf("service session structural fields were redacted: %#v", session)
+	}
+	if session["session_target"] != "browser-stage-token-name" || session["setup_duration_ms"] != float64(12) || session["healthy"] != true || session["absent"] != nil {
+		t.Fatalf("service session shape or scalar values were not preserved: %#v", session)
+	}
+	if got["session_target"] != "not-redacted-token-substring" {
+		t.Fatalf("substring-only structural key was redacted: %#v", got)
 	}
 	raw := strings.Join([]string{
 		got["Authorization"].(string),
@@ -92,5 +102,22 @@ func TestStructuredStringDecodesJSONBeforeRedaction(t *testing.T) {
 	raw := StructuredString("Authorization: Bearer raw.secret")
 	if strings.Contains(raw, "raw.secret") {
 		t.Fatalf("raw fallback redaction leaked secret: %s", raw)
+	}
+}
+
+func TestStringRedactsClosedRawFamilies(t *testing.T) {
+	input := strings.Join([]string{
+		"https://user:secret@example.test/path",
+		"postgres://cartulary:supersecret@127.0.0.1:5432/postgres password=supersecret",
+		"Authorization: Bearer abc.def.ghi",
+		"X-Cartulary-Test-Route-Token: route-secret",
+		"minio_secret_access_key=minio-secret",
+		"-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----",
+	}, "\n")
+	got := String(input)
+	for _, secret := range []string{"secret@example", "supersecret", "abc.def.ghi", "route-secret", "minio-secret", "BEGIN PRIVATE KEY"} {
+		if strings.Contains(got, secret) {
+			t.Fatalf("redacted output still contains %q: %s", secret, got)
+		}
 	}
 }

@@ -96,6 +96,26 @@ func TestPublicErrorFaultRouteArmsOneShotOrdinaryPublicMutation(t *testing.T) {
 	if success["data"].(map[string]any)["ok"] != true {
 		t.Fatalf("ordinary route did not run after one-shot fault was consumed: %#v", success)
 	}
+
+	rearm := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/public-error-faults", publicErrorFaultBody()))
+	requireTestRuntimeResetSuccessEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), rearm), http.StatusCreated)
+}
+
+func TestPublicErrorFaultRouteRejectsSecondArmWhilePending(t *testing.T) {
+	faults := NewPublicErrorFaultRegistry()
+	server := startPublicErrorFaultHTTPServer(t, testRuntimeEnabledEnv(), faults)
+
+	first := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/public-error-faults", publicErrorFaultBody()))
+	requireTestRuntimeResetSuccessEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), first), http.StatusCreated)
+
+	secondBody := publicErrorFaultBody()
+	secondBody["path"] = "/api/v1/records/record-2"
+	second := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/public-error-faults", secondBody))
+	requireTestRuntimeResetErrorEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), second), http.StatusConflict, "test_public_error_fault_already_armed")
+
+	requireTestRuntimeResetErrorEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), newTestRuntimeResetJSONRequest(t, http.MethodPatch, server.URL+"/api/v1/records/record-1", map[string]any{})), http.StatusInternalServerError, "unknown_public_error_probe")
+	third := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/public-error-faults", secondBody))
+	requireTestRuntimeResetSuccessEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), third), http.StatusCreated)
 }
 
 func TestPublicErrorFaultRouteRejectsInvalidTargets(t *testing.T) {
@@ -131,7 +151,7 @@ func TestTestRuntimeResetClearsPublicErrorFaults(t *testing.T) {
 
 	faults := NewPublicErrorFaultRegistry()
 	_, server := startTestRuntimeResetServerWithHTTPDeps(t, env, []httpapi.RouteRegistrar{
-		RegisterTestRuntimeResetRoute(faults.Clear),
+		RegisterTestRuntimeResetRoute(),
 		RegisterPublicErrorFaultRoutes(faults),
 	}, httpapi.DependencySet{PublicErrorFaults: faults})
 

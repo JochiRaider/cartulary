@@ -21,7 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
-const testRuntimeResetToken = "0123456789abcdef0123456789abcdef"
+const testRuntimeResetToken = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFG"
 
 func TestTestRuntimeResetRouteDisabledByDefault(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
@@ -63,7 +63,7 @@ func TestTestRuntimeIdentityRouteRequiresHarnessAuthorization(t *testing.T) {
 	requireTestRuntimeResetErrorEnvelope(t, missing, http.StatusForbidden, "test_route_forbidden")
 
 	wrong := newTestRuntimeResetJSONRequest(t, http.MethodGet, server.URL+"/api/v1/test/runtime/identity", nil)
-	wrong.Header.Set(testRouteTokenHeader, "wrong-token-wrong-token-wrong-token")
+	wrong.Header.Set(testRouteTokenHeader, "ABCDEFGabcdefghijklmnopqrstuvwxyz0123456789")
 	requireTestRuntimeResetErrorEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), wrong), http.StatusForbidden, "test_route_forbidden")
 
 	success := doTestRuntimeResetRequest(t, server.Client(), authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodGet, server.URL+"/api/v1/test/runtime/identity", nil)))
@@ -269,7 +269,7 @@ func requireTestRuntimeResetForbiddenOrInvalidRequests(t testing.TB, server *htt
 	requireTestRuntimeResetErrorEnvelope(t, missing, http.StatusForbidden, "test_route_forbidden")
 
 	wrong := newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/reset", nil)
-	wrong.Header.Set(testRouteTokenHeader, "wrong-token-wrong-token-wrong-token")
+	wrong.Header.Set(testRouteTokenHeader, "ABCDEFGabcdefghijklmnopqrstuvwxyz0123456789")
 	requireTestRuntimeResetErrorEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), wrong), http.StatusForbidden, "test_route_forbidden")
 
 	invalidBody := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/reset", map[string]any{

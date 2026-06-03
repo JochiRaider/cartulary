@@ -167,6 +167,9 @@ function buildPressureSummary({ reporter, status, slowest, timing }) {
     resource_claim_counts: resourceClaimCounts,
     fixture_class_counts: fixtureClassCounts,
     slowest_work_units: slowest,
+    reused_accounting_counts: {},
+    readiness_attribution_counts: {},
+    generated_at: timing.scheduler_completed_at,
   };
 }
 

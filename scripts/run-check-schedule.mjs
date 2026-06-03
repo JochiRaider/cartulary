@@ -23,6 +23,7 @@ import {
   estimateCheckHostIOLimit,
   estimatePostgresCloneAutoLimit,
   estimatePostgresResetAutoLimit,
+  maxResourceClaims,
   normalizeResourceClaims as normalizeSchedulerResourceClaims,
   normalizeResourceLimits as normalizeSchedulerResourceLimits,
   provisionalResourceLimitsForClaims,
@@ -567,6 +568,7 @@ function _findSchedule(manifest, target, overrides) {
           ioResources: ["host_io"],
         }),
     },
+    maxResourceClaims(provisionalUnits),
   );
   const resourceLimits = resolvedLimits.resourceLimits;
   const units = schedule.work_units.map((unit, index) =>
@@ -983,6 +985,30 @@ function attachRuntime(
       ...(await readServiceSessionEnv(files.envFile)),
     };
   };
+  const recordServiceChildLifecycle = async (unit, event) => {
+    if (!unit.serviceSession?.target) {
+      return;
+    }
+    if (unit.kind === "service_session" || unit.kind === "service_complete") {
+      return;
+    }
+    const files = serviceSessionFiles.get(serviceSessionTarget(unit));
+    if (!files?.envFile || !existsSync(files.envFile)) {
+      return;
+    }
+    if (!testServicesBin) {
+      throw new Error("TEST_SERVICES_BIN is required for service lifecycle accounting");
+    }
+    await runLifecycle(repoRoot, testServicesBin, [
+      "record-lifecycle",
+      "--env-file",
+      files.envFile,
+      "--event",
+      event,
+      "--child-key",
+      unit.id,
+    ]);
+  };
   const browserEnvFor = async (target) => {
     const files = browserSessionFiles.get(target);
     if (!files) {
@@ -1299,8 +1325,12 @@ function attachRuntime(
       unit.countInTotal !== false && result.status === 0,
     shouldReplayLog: ({ result, reporter }) =>
       result.status !== 0 || reporter.verbose,
-    afterUnitFinish: refreshNestedSchedulerTargetSummary,
+    afterUnitFinish: async (context) => {
+      await refreshNestedSchedulerTargetSummary(context);
+      await recordServiceChildLifecycle(context.unit, "child_finished");
+    },
     beforeUnitStart: async ({ unit, started, total, reporter }) => {
+      await recordServiceChildLifecycle(unit, "child_started");
       if (!reporter.verbose || unit.countInTotal === false) {
         return;
       }

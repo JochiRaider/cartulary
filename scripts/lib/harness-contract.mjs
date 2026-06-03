@@ -59,18 +59,45 @@ const schedulerResourceRegistryPath = path.join(
 );
 const defaultTaskSurfaceManifestPath = "tools/task_surface_manifest.json";
 const protectedCleanupIdentities = new Set([
-  ".cartulary",
   ".git",
   "apps",
   "cmd",
   "configs",
   "contracts",
-  "db",
+  "db/migrations",
+  "db/queries",
   "docs",
+  "go.mod",
+  "go.sum",
   "internal",
+  "package.json",
   "packages",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
   "scripts",
   "tools",
+]);
+const structuredSecretKeyTokens = new Set([
+  "PASSWORD",
+  "PASS",
+  "PWD",
+  "TOKEN",
+  "JWT",
+  "BEARER",
+  "API_KEY",
+  "ACCESS_KEY",
+  "SECRET_KEY",
+  "AUTHORIZATION",
+  "COOKIE",
+  "SET_COOKIE",
+  "X_CARTULARY_TEST_ROUTE_TOKEN",
+]);
+const weakTestRouteTokens = new Set([
+  "test",
+  "token",
+  "secret",
+  "password",
+  "changeme",
 ]);
 const defaultHarnessConfig = Object.freeze({
   CARTULARY_TEST_RESULTS_DIR: ".cartulary/test-results",
@@ -1005,9 +1032,6 @@ function compiledRedactionRules() {
   redactionRules = {
     replacement,
     tokens,
-    keyPatterns: (manifest.sensitive_key_patterns ?? []).map((pattern) =>
-      new RegExp(pattern, "iu"),
-    ),
     valuePatterns: (manifest.value_patterns ?? []).map((rule) => ({
       name: rule.name,
       regex: new RegExp(String(rule.pattern).replace(/^\(\?i\)/u, ""), "giu"),
@@ -1021,6 +1045,29 @@ function isSensitiveCLIFlag(value) {
   return /^--(?:password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)$/iu.test(
     String(value ?? ""),
   );
+}
+
+function canonicalStructuredKey(value) {
+  return String(value ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/gu, "_")
+    .replace(/^_+|_+$/gu, "");
+}
+
+function isStructuredSecretKey(key) {
+  const canonical = canonicalStructuredKey(key);
+  if (!canonical) {
+    return false;
+  }
+  if (structuredSecretKeyTokens.has(canonical)) {
+    return true;
+  }
+  for (const token of structuredSecretKeyTokens) {
+    if (canonical.startsWith(`${token}_`) || canonical.endsWith(`_${token}`)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function redactString(value) {
@@ -1043,7 +1090,7 @@ export function redactStructuredText(value) {
 
 export function redactValue(value, key = "") {
   const rules = compiledRedactionRules();
-  if (typeof key === "string" && rules.keyPatterns.some((pattern) => pattern.test(key))) {
+  if (typeof key === "string" && isStructuredSecretKey(key)) {
     return rules.replacement;
   }
   if (typeof value === "string") {
@@ -1252,11 +1299,24 @@ function removeChildren(entry) {
 
 export function testRouteTokenValid(token) {
   const value = String(token ?? "");
-  return /^[A-Za-z0-9._~-]{22,512}$/u.test(value);
+  if (value.length < 43 || value.length > 512) {
+    return false;
+  }
+  if (!/^[!-~]+$/u.test(value)) {
+    return false;
+  }
+  const lower = value.toLowerCase();
+  if (weakTestRouteTokens.has(lower)) {
+    return false;
+  }
+  if (/^(.)\1+$/u.test(value)) {
+    return false;
+  }
+  return true;
 }
 
 export function generateTestRouteToken() {
-  return randomBytes(32).toString("hex");
+  return randomBytes(32).toString("base64url");
 }
 
 export function timingSafeTokenEqual(left, right) {

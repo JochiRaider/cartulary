@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -22,8 +28,14 @@ import {
 } from "./lib/task-surface.mjs";
 import {
   HarnessConfigError,
+  generateTestRouteToken,
   preflightPublicTarget,
+  redactString,
+  redactValue,
+  runCleanup,
+  testRouteTokenValid,
 } from "./lib/harness-contract.mjs";
+import { primaryPublicFailure } from "./lib/failure-taxonomy.mjs";
 import { collectGoShardsForTarget } from "./lib/go-shard-plan.mjs";
 import { renderServiceBackedScheduleManifest } from "./render-service-backed-schedule-manifest.mjs";
 
@@ -149,6 +161,169 @@ function parseHarnessPublicRegistry() {
     });
   }
   return rows;
+}
+
+function markdownCodeTokens(cell) {
+  return [...String(cell ?? "").matchAll(/`([^`]+)`/gu)].map((match) => match[1]);
+}
+
+function normalizeSpecAllowedSources(cell) {
+  const text = String(cell ?? "").toLowerCase();
+  const sources = [];
+  if (text.includes("make command line")) {
+    sources.push("make_command_line");
+  }
+  if (text.includes("environment")) {
+    sources.push("environment");
+  }
+  if (text.includes("makefile default")) {
+    sources.push("makefile_default");
+  }
+  if (text.includes("internal default")) {
+    sources.push("internal_default");
+  }
+  if (text.includes("manifest")) {
+    sources.push("manifest");
+  }
+  return sources;
+}
+
+function normalizeSpecDefault(cell) {
+  const text = String(cell ?? "").trim();
+  if (text === "none") {
+    return null;
+  }
+  const token = markdownCodeTokens(text)[0];
+  if (token === undefined) {
+    return null;
+  }
+  if (token === "false") {
+    return false;
+  }
+  if (/^(0|[1-9][0-9]*)$/u.test(token)) {
+    return Number.parseInt(token, 10);
+  }
+  if (/^(?:0|[1-9][0-9]*)\.[0-9]+$/u.test(token)) {
+    return Number(token);
+  }
+  return token;
+}
+
+function normalizeSpecEmptyString(cell) {
+  const text = String(cell ?? "").toLowerCase();
+  if (text.includes("false")) {
+    return "false";
+  }
+  if (text.includes("invalid")) {
+    return "invalid";
+  }
+  return "omitted";
+}
+
+function normalizeSpecInvalidReason(cell) {
+  return markdownCodeTokens(cell)[0] ?? "";
+}
+
+function normalizeSpecChildForwarding(cell) {
+  return String(cell ?? "").trim().toLowerCase().replaceAll(" ", "_");
+}
+
+function normalizeSpecValuesAndBounds(cell, type) {
+  const text = String(cell ?? "");
+  if (type === "enum") {
+    return { values: markdownCodeTokens(text) };
+  }
+  const range = text.match(/`?([0-9]+)\.\.([0-9]+)`?/u);
+  if (range) {
+    return {
+      min: Number.parseInt(range[1], 10),
+      max: Number.parseInt(range[2], 10),
+    };
+  }
+  const min = text.match(/`?>=\s*([0-9]+(?:\.[0-9]+)?)`?/u);
+  if (min) {
+    return { min: Number(min[1]) };
+  }
+  return {};
+}
+
+function parseHarnessInputMatrix() {
+  const text = readFileSync(
+    path.join(repoRoot, "docs/testing-harness-nlspec.md"),
+    "utf8",
+  );
+  const lines = text.split("\n");
+  const byTarget = new Map();
+  let inMatrix = false;
+  for (const line of lines) {
+    if (line.startsWith("| Target(s) | Input | Type |")) {
+      inMatrix = true;
+      continue;
+    }
+    if (inMatrix && line.startsWith("`fixture-report` remains")) {
+      break;
+    }
+    if (!inMatrix || !line.startsWith("| `")) {
+      continue;
+    }
+    const cells = splitMarkdownRow(line);
+    const targets = markdownCodeTokens(cells[0]);
+    const name = markdownCodeTokens(cells[1])[0];
+    const type = markdownCodeTokens(cells[2])[0];
+    const entry = {
+      name,
+      binding: "make_variable",
+      allowed_sources: normalizeSpecAllowedSources(cells[4]),
+      required: cells[3] === "yes",
+      type,
+      default: normalizeSpecDefault(cells[5]),
+      empty_string: normalizeSpecEmptyString(cells[7]),
+      normalization: markdownCodeTokens(cells[8])[0] ?? "",
+      invalid_reason: normalizeSpecInvalidReason(cells[10]),
+      summary_emission: String(cells[11] ?? "").trim(),
+      child_forwarding: normalizeSpecChildForwarding(cells[12]),
+      ...normalizeSpecValuesAndBounds(cells[9], type),
+    };
+    for (const target of targets) {
+      if (!byTarget.has(target)) {
+        byTarget.set(target, []);
+      }
+      byTarget.get(target).push(entry);
+    }
+  }
+  return byTarget;
+}
+
+function normalizeManifestInput(input) {
+  const normalized = {
+    name: input.name,
+    binding: input.binding,
+    allowed_sources: input.allowed_sources,
+    required: input.required,
+    type: input.type,
+    default: input.default,
+    empty_string: input.empty_string,
+    normalization: input.normalization,
+    invalid_reason: input.invalid_reason,
+    summary_emission: input.summary_emission,
+    child_forwarding: input.child_forwarding,
+  };
+  if (input.values !== undefined) {
+    normalized.values = input.values;
+  }
+  if (input.min !== undefined) {
+    normalized.min = input.min;
+  }
+  if (input.max !== undefined) {
+    normalized.max = input.max;
+  }
+  return normalized;
+}
+
+function normalizeInputList(inputs = []) {
+  return inputs
+    .map((input) => ({ ...input }))
+    .sort((left, right) => left.name.localeCompare(right.name));
 }
 
 test("fast harness smoke is role-complete and intentionally small", () => {
@@ -289,6 +464,41 @@ test("harness NLSpec registry mirrors public target output classes and side effe
       `${target.name} side effects must match NLSpec registry`,
     );
   }
+});
+
+test("harness NLSpec input matrix mirrors public target input contracts", () => {
+  const { taskSurface } = renderedArtifacts();
+  const specInputs = parseHarnessInputMatrix();
+  const publicTargets = taskSurface.targets.filter(
+    (entry) => entry.target_class === "public",
+  );
+  for (const target of publicTargets) {
+    const expected = normalizeInputList(specInputs.get(target.name) ?? []);
+    const actual = normalizeInputList(
+      (target.input_contract?.inputs ?? []).map(normalizeManifestInput),
+    );
+    assert.deepEqual(
+      actual,
+      expected,
+      `${target.name} input_contract must match the NLSpec input matrix`,
+    );
+  }
+
+  const synthetic = structuredClone(taskSurface);
+  const drift = synthetic.targets.find(
+    (target) => target.name === "scheduler-summary-timing-drift",
+  );
+  drift.input_contract.inputs.find(
+    (input) => input.name === "SCHEDULER_WARM_CHECK_BUDGET_MS",
+  ).default = null;
+  const expected = normalizeInputList(
+    specInputs.get("scheduler-summary-timing-drift") ?? [],
+  );
+  assert.notDeepEqual(
+    normalizeInputList(drift.input_contract.inputs.map(normalizeManifestInput)),
+    expected,
+    "matrix parity check must detect implementation default drift",
+  );
 });
 
 test("scheduler manifest exercises every required command type", () => {
@@ -750,4 +960,155 @@ test("default check service-backed browser work uses declared session groups", (
     serviceBackedCheckUnits.filter((unit) => unit.kind === "browser_group"),
     "direct check-service-backed browser groups",
   );
+});
+
+test("primary public failure uses closed deterministic tie breakers", () => {
+  assert.deepEqual(
+    primaryPublicFailure([
+      {
+        failure_class: "harness",
+        failure_reason: "cleanup_error",
+        lifecycle_step: "cleanup_finalizers",
+        artifact: "z.log",
+      },
+      {
+        failure_class: "product",
+        failure_reason: "test_assertion_failure",
+        lifecycle_step: "semantic_target_behavior",
+        scheduler_event_sequence: 8,
+        child_registry_order: 2,
+        artifact: "b.log",
+      },
+      {
+        failure_class: "product",
+        failure_reason: "test_assertion_failure",
+        lifecycle_step: "semantic_target_behavior",
+        scheduler_event_sequence: 7,
+        child_registry_order: 3,
+        artifact: "a.log",
+      },
+    ]),
+    {
+      failure_class: "product",
+      failure_reason: "test_assertion_failure",
+      kind: "failure",
+      source: "",
+      target: "",
+      phase: "",
+      runner: "",
+      label: "",
+      message: "",
+      artifact: "a.log",
+      lifecycle_step: "semantic_target_behavior",
+      scheduler_event_sequence: 7,
+      child_registry_order: 3,
+    },
+  );
+
+  assert.equal(
+    primaryPublicFailure([
+      {
+        failure_class: "harness",
+        failure_reason: "scheduler_accounting_error",
+        lifecycle_step: "artifact_validation",
+        artifact: "b.log",
+      },
+      {
+        failure_class: "harness",
+        failure_reason: "fixture_error",
+        lifecycle_step: "artifact_validation",
+        artifact: "a.log",
+      },
+    ])?.failure_reason,
+    "fixture_error",
+  );
+});
+
+test("cleanup guard protects closed roots and permits cleanup-owned paths", () => {
+  const output = [];
+  const stdout = { write: (value) => output.push(value) };
+  runCleanup({
+    scope: "clean",
+    candidates: ["go.mod", "db/migrations"],
+    includeTmp: false,
+    dryRun: true,
+    stdout,
+  });
+  assert.match(output.join(""), /DRY-RUN retain go\.mod protected_root/);
+  assert.match(output.join(""), /DRY-RUN retain db\/migrations protected_root/);
+  assert.match(
+    output.join(""),
+    /DRY-RUN remove-children internal\/platform\/httpapi\/webassets\/dist registered_embedded_web_assets_preserve_keep/,
+  );
+
+  const tempRoot = mkdtempSync(path.join(repoRoot, "tmp", "cleanup-owned."));
+  const owned = path.relative(repoRoot, tempRoot).replaceAll("\\", "/");
+  writeFileSync(path.join(tempRoot, "artifact.txt"), "temporary");
+  runCleanup({
+    candidates: [owned, "tmp/missing-cleanup-owned-path"],
+    includeTmp: false,
+    dryRun: false,
+    stdout,
+  });
+  assert.equal(existsSync(tempRoot), false, "cleanup-owned temp path must be removed");
+  rmSync(tempRoot, { recursive: true, force: true });
+});
+
+test("test route token generation and validation follow closed attach rules", () => {
+  const generated = generateTestRouteToken();
+  assert.equal(generated.length, 43);
+  assert.match(generated, /^[A-Za-z0-9_-]{43}$/u);
+  assert.equal(testRouteTokenValid(generated), true);
+  assert.equal(testRouteTokenValid("short"), false);
+  assert.equal(testRouteTokenValid("token"), false);
+  assert.equal(testRouteTokenValid("a".repeat(43)), false);
+  assert.equal(testRouteTokenValid(`${"a".repeat(42)}\n`), false);
+});
+
+test("redaction uses closed structured keys and raw secret families", () => {
+  const structured = redactValue({
+    service_sessions: [
+      {
+        session_target: "browser-stage-token-name",
+        cleanup_status: "pass",
+        setup_duration_ms: 12,
+        healthy: true,
+        count: 3,
+        absent: null,
+        session_token: "nested-session-token",
+      },
+    ],
+    X_Cartulary_Test_Route_Token: "route-secret",
+    CARTULARY_S3TEST_SECRET_ACCESS_KEY: "object-store-secret",
+    session_target: "not-redacted-token-substring",
+  });
+  assert.equal(structured.service_sessions[0].session_target, "browser-stage-token-name");
+  assert.equal(structured.service_sessions[0].cleanup_status, "pass");
+  assert.equal(structured.service_sessions[0].setup_duration_ms, 12);
+  assert.equal(structured.service_sessions[0].healthy, true);
+  assert.equal(structured.service_sessions[0].count, 3);
+  assert.equal(structured.service_sessions[0].absent, null);
+  assert.equal(structured.service_sessions[0].session_token, "[REDACTED]");
+  assert.equal(structured.X_Cartulary_Test_Route_Token, "[REDACTED]");
+  assert.equal(structured.CARTULARY_S3TEST_SECRET_ACCESS_KEY, "[REDACTED]");
+  assert.equal(structured.session_target, "not-redacted-token-substring");
+
+  const raw = redactString([
+    "postgres://cartulary:supersecret@127.0.0.1:5432/postgres password=supersecret",
+    "https://user:secret@example.test/path",
+    "Authorization: Bearer abc.def.ghi",
+    "X-Cartulary-Test-Route-Token: route-secret",
+    "minio_secret_access_key=minio-secret",
+    "-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----",
+  ].join("\n"));
+  for (const leaked of [
+    "supersecret",
+    "secret@example",
+    "abc.def.ghi",
+    "route-secret",
+    "minio-secret",
+    "BEGIN PRIVATE KEY",
+  ]) {
+    assert.equal(raw.includes(leaked), false, `raw redaction leaked ${leaked}: ${raw}`);
+  }
 });

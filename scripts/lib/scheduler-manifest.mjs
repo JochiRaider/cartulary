@@ -5,6 +5,7 @@ import {
   browserGroupWorkerSlotCount,
 } from "./browser-scheduler-dependencies.mjs";
 import {
+  maxResourceClaims,
   normalizeResourceClaims as normalizeSchedulerResourceClaims,
   normalizeResourceLimits as normalizeSchedulerResourceLimits,
   provisionalResourceLimitsForClaims,
@@ -497,6 +498,7 @@ export function normalizeSchedulerSchedule(manifest, target, {
     normalizedLimits.sources,
     scheduleLabel,
     autoLimitResolvers(provisionalUnits),
+    maxResourceClaims(provisionalUnits),
   );
   const units = schedule.work_units.map((unit, index) =>
     normalizeWorkUnit(unit, index, scheduleLabel, schedulerKind, resolvedLimits.resourceLimits),

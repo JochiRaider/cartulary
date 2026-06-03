@@ -11,13 +11,9 @@
   },
   "sensitive_key_patterns": [
     "^(?:authorization|cookie|set-cookie|x-cartulary-test-route-token)$",
-    "^(?:password|passwd|pwd|secret|token|jwt|bearer|dsn)$",
-    "(?:^|[_-])(?:password|passwd|pwd|secret|token|jwt|dsn)$",
-    "(?:^|[_-])api[_-]?key$",
-    "(?:^|[_-])access[_-]?key$",
-    "(?:^|[_-])secret[_-]?key$",
-    "(?:^|[_-])private[_-]?key$",
-    "(?:^|[_-])client[_-]?secret$"
+    "^(?:password|pass|pwd|token|jwt|bearer|api[_-]?key|access[_-]?key|secret[_-]?key)$",
+    "(?:^|[_-])(?:password|pass|pwd|token|jwt|bearer|api[_-]?key|access[_-]?key|secret[_-]?key)$",
+    "^(?:password|pass|pwd|token|jwt|bearer|api[_-]?key|access[_-]?key|secret[_-]?key)(?:[_-]|$)"
   ],
   "value_patterns": [
     {
@@ -51,6 +47,11 @@
       "replacement": "postgres://$1:[REDACTED:dsn]@"
     },
     {
+      "name": "postgres_password_assignment",
+      "pattern": "(?i)\\b(password\\s*=\\s*)([^\\s&;]+)",
+      "replacement": "$1[REDACTED:dsn]"
+    },
+    {
       "name": "generic_url_userinfo",
       "pattern": "(?i)\\b([a-z][a-z0-9+.-]*://)([^:/\\s@]+):([^@\\s]+)@",
       "replacement": "$1$2:[REDACTED:dsn]@"
@@ -67,8 +68,13 @@
     },
     {
       "name": "generic_password_assignment",
-      "pattern": "(?i)\\b(password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)=([^\\s&]+)",
+      "pattern": "(?i)\\b(password|passwd|pwd|secret|token|jwt|api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|dsn)\\s*=\\s*([^\\s&]+)",
       "replacement": "$1=[REDACTED]"
+    },
+    {
+      "name": "object_store_credential_assignment",
+      "pattern": "(?i)\\b((?:minio|s3|aws)?[_-]?(?:access[_-]?key|secret[_-]?key|access[_-]?key[_-]?id|secret[_-]?access[_-]?key)\\s*=\\s*)([^\\s&]+)",
+      "replacement": "$1[REDACTED:object-store-credential]"
     },
     {
       "name": "json_like_secret_assignment",

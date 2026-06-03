@@ -30,6 +30,7 @@ import {
   estimateBrowserStackAutoLimit,
   estimatePostgresCloneAutoLimit,
   estimatePostgresResetAutoLimit,
+  maxResourceClaims,
   normalizeResourceClaims as normalizeSchedulerResourceClaims,
   normalizeResourceLimits as normalizeSchedulerResourceLimits,
   provisionalResourceLimitsForClaims,
@@ -901,6 +902,7 @@ function resolveResourceLimits(
           ioResources: [goIOResource],
         }),
     },
+    maxResourceClaims(workUnits),
   );
 }
 

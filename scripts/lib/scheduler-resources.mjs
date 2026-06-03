@@ -31,7 +31,7 @@ const templateKeys = new Set(["name", "prefix", "display_name", "schedulers", "d
 const capacityProfileKeys = new Set(["name", "scheduler", "resources"]);
 const forwardingProfileKeys = new Set(["name", "mappings"]);
 const forwardingMappingKeys = new Set(["source_resource", "target_resource", "env_variable"]);
-export const checkHostCPUMaxAutoLimit = 14;
+export const checkHostCPUMaxAutoLimit = 256;
 
 let cachedRegistry = null;
 
@@ -599,12 +599,29 @@ export function normalizeResourceLimits(value, label, { scheduler, capacityProfi
   return { limits, sources };
 }
 
-export function resolveAutoResourceLimits(resourceLimits, resourceLimitSources, label, autoResolvers) {
+export function maxResourceClaims(workUnits = []) {
+  const claims = new Map();
+  for (const unit of workUnits ?? []) {
+    for (const [resource, amount] of unit.resourceClaims?.entries?.() ?? []) {
+      if (amount >= Number.MAX_SAFE_INTEGER) {
+        continue;
+      }
+      claims.set(resource, Math.max(claims.get(resource) ?? 0, amount));
+    }
+  }
+  return claims;
+}
+
+export function resolveAutoResourceLimits(resourceLimits, resourceLimitSources, label, autoResolvers, declaredMaxClaims = new Map()) {
   const resolved = new Map(resourceLimits.entries());
   const sources = new Map(resourceLimitSources.entries());
   const entries = Array.from(resolved.entries()).sort((left, right) => compareResources(left[0], right[0]));
   for (const [resource, limit] of entries) {
     if (limit !== "auto") {
+      const declaredClaim = declaredMaxClaims.get(resource) ?? 0;
+      if (declaredClaim > 0 && Number.isInteger(limit) && limit < declaredClaim) {
+        throw new Error(`${label} resource_limits.${resource} must be >= largest declared claim ${declaredClaim}`);
+      }
       continue;
     }
     const descriptor = resourceDescriptor(resource);
@@ -620,7 +637,9 @@ export function resolveAutoResourceLimits(resourceLimits, resourceLimitSources, 
     if (!Number.isInteger(amount) || amount < 1) {
       throw new Error(`${label} auto policy ${policy} for ${resource} must return a positive integer`);
     }
-    resolved.set(resource, validateRawLimit(amount, label, resource, { allowAuto: false }));
+    const declaredClaim = declaredMaxClaims.get(resource) ?? 0;
+    const flooredAmount = Math.max(amount, declaredClaim);
+    resolved.set(resource, validateRawLimit(flooredAmount, label, resource, { allowAuto: false }));
     sources.set(resource, `auto:${policy}`);
   }
   return { resourceLimits: resolved, resourceLimitSources: sources };

@@ -176,7 +176,7 @@ prepare_runtime_root() {
 }
 
 generate_test_route_token() {
-  od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
+  dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 | tr '+/' '-_' | tr -d '=\n'
 }
 
 prepare_test_route_token() {
@@ -796,7 +796,7 @@ wait_for_http() {
   local url="$1"
   local name="$2"
 
-  for _ in $(seq 1 180); do
+  for _ in $(seq 1 240); do
     if exit_for_requested_shutdown "${name} readiness"; then
       :
     else
@@ -815,7 +815,7 @@ wait_for_http() {
     if curl -fsS "$url" >/dev/null 2>&1; then
       return 0
     fi
-    sleep 1
+    sleep 0.5
   done
 
   echo "timed out waiting for ${name} at ${url}" >&2
@@ -925,7 +925,7 @@ browser_wait_backend_ready() {
 }
 
 browser_wait_frontend_ready() {
-  for _ in $(seq 1 180); do
+  for _ in $(seq 1 240); do
     if exit_for_requested_shutdown "frontend readiness"; then
       :
     else
@@ -947,7 +947,7 @@ browser_wait_frontend_ready() {
       write_stack_metadata
       return 0
     fi
-    sleep 1
+    sleep 0.5
   done
 
   echo "timed out waiting for frontend owned listener at ${PUBLIC_ORIGIN}" >&2

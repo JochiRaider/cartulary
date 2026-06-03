@@ -111,6 +111,65 @@ func TestSummarizeReportsPostgresDatabasePreparations(t *testing.T) {
 	})
 }
 
+func TestRecordLifecycleEventTracksConcurrentChildrenAndIllegalTransitions(t *testing.T) {
+	env := map[string]string{
+		SuiteIDEnv:        "0123456789abcdef01234567",
+		TargetEnv:         "check-service-backed",
+		testResultsDirEnv: t.TempDir(),
+		testRunIDEnv:      "run-lifecycle",
+		LifecycleModeEnv:  "owned",
+	}
+
+	for _, step := range []struct {
+		event    string
+		childKey string
+	}{
+		{LifecycleEventStartServices, ""},
+		{LifecycleEventReadinessPassed, ""},
+		{LifecycleEventChildStarted, "alpha"},
+		{LifecycleEventChildStarted, "beta"},
+		{LifecycleEventChildFinished, "alpha"},
+	} {
+		if err := RecordLifecycleEvent(env, step.event, step.childKey); err != nil {
+			t.Fatalf("record lifecycle %s/%s: %v", step.event, step.childKey, err)
+		}
+	}
+
+	if err := RecordLifecycleEvent(env, LifecycleEventChildFinished, "missing"); err == nil {
+		t.Fatal("expected missing child finish to be illegal")
+	}
+	if err := RecordLifecycleEvent(env, LifecycleEventChildFinished, "beta"); err != nil {
+		t.Fatalf("legal child finish after illegal transition failed: %v", err)
+	}
+
+	records, err := ReadLifecycleEvents(env)
+	if err != nil {
+		t.Fatalf("read lifecycle events: %v", err)
+	}
+	if len(records) != 7 {
+		t.Fatalf("expected seven lifecycle records, got %#v", records)
+	}
+	if records[2].Event != LifecycleEventChildStarted || records[2].ActiveChildCount != 1 {
+		t.Fatalf("unexpected first child count: %#v", records[2])
+	}
+	if records[3].Event != LifecycleEventChildStarted || records[3].ActiveChildCount != 2 {
+		t.Fatalf("unexpected second child count: %#v", records[3])
+	}
+	illegal := records[5]
+	if illegal.TransitionStatus != "illegal" || illegal.FromState != illegal.ToState {
+		t.Fatalf("illegal transition must be recorded without state mutation: %#v", illegal)
+	}
+	if illegal.FailureClass == nil || *illegal.FailureClass != FailureClassHelper {
+		t.Fatalf("illegal transition failure class: %#v", illegal.FailureClass)
+	}
+	if illegal.FailureReason == nil || *illegal.FailureReason != "scheduler_accounting_error" {
+		t.Fatalf("illegal transition failure reason: %#v", illegal.FailureReason)
+	}
+	if records[6].Event != LifecycleEventChildFinished || records[6].ActiveChildCount != 0 || records[6].ToState != "ready" {
+		t.Fatalf("legal child finish after illegal transition did not close runtime state: %#v", records[6])
+	}
+}
+
 func TestSummarizeReportsFixtureActivity(t *testing.T) {
 	env := map[string]string{
 		SuiteIDEnv:        "suite-fixtures",

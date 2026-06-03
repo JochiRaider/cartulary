@@ -118,13 +118,17 @@ func (r *PublicErrorFaultRegistry) Clear() {
 	r.faults = map[string]publicErrorFault{}
 }
 
-func (r *PublicErrorFaultRegistry) arm(fault publicErrorFault) {
+func (r *PublicErrorFaultRegistry) arm(fault publicErrorFault) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.faults == nil {
 		r.faults = map[string]publicErrorFault{}
 	}
+	if len(r.faults) > 0 {
+		return false
+	}
 	r.faults[publicErrorFaultKey(fault.Method, fault.Path)] = fault
+	return true
 }
 
 func publicErrorFaultKey(method string, path string) string {
@@ -149,7 +153,10 @@ func (s *publicErrorFaultService) handleArm(w http.ResponseWriter, r *http.Reque
 		})
 		return
 	}
-	s.faults.arm(fault)
+	if !s.faults.arm(fault) {
+		_ = httpapi.WriteError(w, r, http.StatusConflict, "test_public_error_fault_already_armed", "public error fault is already armed", map[string]any{})
+		return
+	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusCreated, publicErrorFaultResult{
 		SchemaID:    testPublicErrorFaultSchemaID,
 		FaultID:     fault.ID,

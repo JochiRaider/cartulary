@@ -44,6 +44,8 @@
         "cleanup_failed"
       ]
     },
+    "child_key": { "type": "string", "minLength": 1 },
+    "active_child_count": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
     "from_state": { "$ref": "#/$defs/state" },
     "to_state": { "$ref": "#/$defs/state" },
     "transition_status": { "enum": ["applied", "illegal"] },

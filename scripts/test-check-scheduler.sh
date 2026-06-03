@@ -106,17 +106,20 @@ assert_check_scheduler_artifacts() {
   local expected_event="$7"
   local summary_file="${dir}/results/${run_id}/${target}/scheduler-summary.json"
   local events_file="${dir}/results/${run_id}/${target}/scheduler-events.jsonl"
+  local pressure_file="${dir}/results/${run_id}/${target}/pressure-summary.json"
   local progress_file="${dir}/results/${run_id}/${target}/progress-summary.log"
 
   assert_file_present "$summary_file" "$target scheduler summary"
   assert_file_present "$events_file" "$target scheduler events"
+  assert_file_present "$pressure_file" "$target pressure summary"
   assert_file_present "$progress_file" "$target progress summary"
-  "$NODE_BIN" - "$summary_file" "$events_file" "$progress_file" "$expected_status" "$expected_failed" "$expected_total" "$expected_event" "$ROOT_DIR" <<'EOF'
+  "$NODE_BIN" - "$summary_file" "$events_file" "$pressure_file" "$progress_file" "$expected_status" "$expected_failed" "$expected_total" "$expected_event" "$ROOT_DIR" <<'EOF'
 const fs = require("node:fs");
 const path = require("node:path");
-const [summaryFile, eventsFile, progressFile, expectedStatus, expectedFailed, expectedTotal, expectedEvent, repoRoot] = process.argv.slice(2);
+const [summaryFile, eventsFile, pressureFile, progressFile, expectedStatus, expectedFailed, expectedTotal, expectedEvent, repoRoot] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
+const pressure = JSON.parse(fs.readFileSync(pressureFile, "utf8"));
 const progressLog = fs.readFileSync(progressFile, "utf8");
 const resolveArtifact = (artifactPath) => path.resolve(repoRoot, artifactPath);
 const assertRepoRelativeArtifact = (artifactPath, label) => {
@@ -230,6 +233,42 @@ if (!summary.artifacts?.progress_summary_log) {
 assertRepoRelativeArtifact(summary.artifacts.events_jsonl, "events_jsonl");
 assertRepoRelativeArtifact(summary.artifacts.scheduler_logs_dir, "scheduler_logs_dir");
 assertRepoRelativeArtifact(summary.artifacts.progress_summary_log, "progress_summary_log");
+if (pressure.schema_id !== "cartulary.scheduler_pressure_summary.v1") {
+  throw new Error(`unexpected pressure schema ${pressure.schema_id}`);
+}
+for (const field of [
+  "target",
+  "scheduler_kind",
+  "status",
+  "target_counts",
+  "lane_duration_ms",
+  "resource_claim_counts",
+  "fixture_class_counts",
+  "slowest_work_units",
+  "reused_accounting_counts",
+  "readiness_attribution_counts",
+  "generated_at",
+]) {
+  if (!Object.hasOwn(pressure, field)) {
+    throw new Error(`pressure summary missing ${field}`);
+  }
+}
+if (pressure.target !== summary.target || pressure.status !== summary.status) {
+  throw new Error("pressure summary target/status must match scheduler summary");
+}
+if (typeof pressure.generated_at !== "string" || Number.isNaN(Date.parse(pressure.generated_at))) {
+  throw new Error("pressure summary generated_at must be a timestamp");
+}
+if (
+  pressure.reused_accounting_counts === null ||
+  Array.isArray(pressure.reused_accounting_counts) ||
+  typeof pressure.reused_accounting_counts !== "object" ||
+  pressure.readiness_attribution_counts === null ||
+  Array.isArray(pressure.readiness_attribution_counts) ||
+  typeof pressure.readiness_attribution_counts !== "object"
+) {
+  throw new Error("pressure summary accounting fields must be objects");
+}
 const schedulerLogsDir = resolveArtifact(summary.artifacts.scheduler_logs_dir);
 if (!fs.statSync(schedulerLogsDir).isDirectory()) {
   throw new Error(`scheduler log artifact path must be an existing directory: ${summary.artifacts.scheduler_logs_dir}`);
@@ -874,6 +913,8 @@ case "$mode" in
   terminate-suite)
     sleep 0.02
     ;;
+  record-lifecycle)
+    ;;
   *)
     echo "unexpected fake test-services mode ${mode}" >&2
     exit 2
@@ -999,11 +1040,13 @@ import {
   estimatePostgresResetAutoLimit,
   isAutoLimitResource,
   loadSchedulerResourceRegistry,
+  maxResourceClaims,
   normalizeResourceClaims,
   normalizeResourceLimits,
   resourceLimitsForCapacityProfile,
   resourceOverrideEnvVariablesForScheduler,
   preferredResourcesForScheduler,
+  resolveAutoResourceLimits,
 } from "./scripts/lib/scheduler-resources.mjs";
 
 const fail = (message) => {
@@ -1128,6 +1171,36 @@ const cliResolved = normalizeResourceLimits(
 );
 if (cliResolved.limits.get("host_cpu") !== 4 || cliResolved.sources.get("host_cpu") !== "cli") {
   fail("check host_cpu CLI override must win over env override");
+}
+const declaredClaimUnits = [
+  { resourceClaims: new Map([["host_cpu", 6], ["host_io", 3]]) },
+];
+const autoFloored = resolveAutoResourceLimits(
+  new Map([["host_cpu", "auto"], ["host_io", "auto"]]),
+  new Map([["host_cpu", "registry:test"], ["host_io", "registry:test"]]),
+  "registry auto floor test",
+  {
+    check_host_cpu: () => 2,
+    check_host_io: () => 1,
+  },
+  maxResourceClaims(declaredClaimUnits),
+);
+if (autoFloored.resourceLimits.get("host_cpu") !== 6 || autoFloored.resourceLimits.get("host_io") !== 3) {
+  fail("auto resource limits must not resolve below the largest declared claim");
+}
+try {
+  resolveAutoResourceLimits(
+    new Map([["host_cpu", 5]]),
+    new Map([["host_cpu", "cli"]]),
+    "registry override floor test",
+    {},
+    new Map([["host_cpu", 6]]),
+  );
+  fail("resource override below largest declared claim was accepted");
+} catch (error) {
+  if (!String(error.message).includes("resource_limits.host_cpu must be >= largest declared claim 6")) {
+    throw error;
+  }
 }
 try {
   normalizeResourceLimits(
@@ -2749,6 +2822,9 @@ case "\$mode" in
     printf 'test-services terminate-suite\n' >>"\$log_file"
     echo "terminate-suite should not run without a lease" >&2
     exit 11
+    ;;
+  record-lifecycle)
+    printf 'test-services record-lifecycle\n' >>"\$log_file"
     ;;
   *)
     echo "unexpected fake test-services mode \${mode}" >&2
