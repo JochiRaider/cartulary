@@ -239,6 +239,7 @@ const visualFixtureKeys = new Set([
   "owner_row_ids",
   "playwright_scenario_title",
   "golden_filename",
+  "golden_artifacts",
   "seed_id",
   "viewport_css_px",
   "device_scale_factor",
@@ -1102,6 +1103,23 @@ export function validateFrontendVisualFixtureRegistry(root = process.cwd()) {
       );
       if (!existsSync(repoPath(root, golden))) {
         throw new Error(`${label}.golden_filename does not exist: ${golden}`);
+      }
+      const goldenArtifacts = requireStringArray(
+        fixture.golden_artifacts,
+        `${label}.golden_artifacts`,
+        { nonEmpty: true },
+      );
+      if (!goldenArtifacts.includes(fixture.golden_filename)) {
+        throw new Error(`${label}.golden_artifacts must include golden_filename`);
+      }
+      for (const [artifactIndex, artifact] of goldenArtifacts.entries()) {
+        const artifactLabel = `${label}.golden_artifacts[${artifactIndex + 1}]`;
+        const artifactPath = requireRepoRelativePath(artifact, artifactLabel, {
+          extension: ".png",
+        });
+        if (!existsSync(repoPath(root, artifactPath))) {
+          throw new Error(`${artifactLabel} does not exist: ${artifactPath}`);
+        }
       }
       requireString(fixture.seed_id, `${label}.seed_id`);
     } else {

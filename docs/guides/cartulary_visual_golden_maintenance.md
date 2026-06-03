@@ -53,7 +53,7 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 | ID | Requirement |
 | --- | --- |
 | `VG-AC-001` | The matrix MUST contain exactly one row for each required `FE-VFIX-01` through `FE-VFIX-15` identifier and MUST NOT contain duplicate fixture IDs. |
-| `VG-AC-002` | Every `current` fixture MUST declare deterministic seed data, viewport, browser zoom, fixture order, dynamic masks, and artifact owner rows before golden refresh is accepted. |
+| `VG-AC-002` | Every `current` fixture MUST declare deterministic seed data, viewport, browser zoom, fixture order, dynamic masks, artifact owner rows, a primary golden filename, and every supporting golden artifact owned by the fixture before golden refresh is accepted. |
 | `VG-AC-003` | Every workbook-grid fixture MUST declare scroll normalization using `GridVisualScrollState` or an equivalent named anchor before capture. |
 | `VG-AC-004` | Every golden refresh MUST cite an accepted refresh trigger, the affected authoritative `V-*` phase rows, any affected `FE-VFIX-*` fixture IDs and corresponding frontend phase-map rows when applicable, and whether dynamic masks, viewport state, or screenshot scope changed. |
 | `VG-AC-005` | A `missing` fixture MUST fail support validation unless the corresponding frontend phase-map row is `claim_status="blocked"` with a precise missing-fixture reason. |

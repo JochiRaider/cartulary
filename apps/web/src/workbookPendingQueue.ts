@@ -792,26 +792,50 @@ function normalizeSaveStateConflictAnchors(
   return (value ?? []).map((anchor) => cloneSaveStateConflictAnchor(anchor));
 }
 
+function conflictAnchorIdentity(anchor: WorkbookSaveStateConflictAnchor): string {
+  return `${anchor.record_id}\u0000${anchor.field_key}\u0000${anchor.base_row_version}`;
+}
+
+function dedupeSaveStateConflictAnchors(
+  value: readonly WorkbookSaveStateConflictAnchor[],
+): WorkbookSaveStateConflictAnchor[] {
+  const seen = new Set<string>();
+  const output: WorkbookSaveStateConflictAnchor[] = [];
+  for (const anchor of value) {
+    const identity = conflictAnchorIdentity(anchor);
+    if (seen.has(identity)) {
+      continue;
+    }
+    seen.add(identity);
+    output.push(anchor);
+  }
+  return output;
+}
+
+function sameFieldConflictSecondaryMessage(conflictCount: number): string {
+  return conflictCount === 1
+    ? "1 same-field conflict needs review."
+    : `${conflictCount} same-field conflicts need review.`;
+}
+
 export function deriveWorkbookSaveState(
   input: WorkbookSaveStateDerivationInput,
 ): WorkbookSaveStatePresentation {
   const sameFieldConflictAnchors = (input.sameFieldConflicts ?? []).map(
     (conflict) => conflictAnchorFromSameFieldConflict(conflict),
   );
-  const conflictAnchors = [
+  const conflictAnchors = dedupeSaveStateConflictAnchors([
     ...sameFieldConflictAnchors,
     ...normalizeSaveStateConflictAnchors(input.localDraftConflicts),
-  ];
+  ]);
 
   if (conflictAnchors.length > 0) {
-    const [firstConflict] = conflictAnchors;
     return {
       primaryLabel: "Conflict",
       secondaryKind: "same_field_conflict",
-      secondaryMessage:
-        firstConflict === undefined
-          ? "A same-field conflict requires review."
-          : `Conflict on ${firstConflict.record_id}:${firstConflict.field_key}.`,
+      secondaryMessage: sameFieldConflictSecondaryMessage(
+        conflictAnchors.length,
+      ),
       conflictAnchors,
     };
   }

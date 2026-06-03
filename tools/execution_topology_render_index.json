@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:ac27529a85ff4fab999304b298523f7de2ce7e4a65af86e6a065951f3728ceff",
+  "input_digest": "sha256:3c1da39f40d780b34dcd2a36ef4bdaf6e76436bd48092f8d61f2cae7b10212fd",
   "inputs": [
     {
       "path": "scripts/lib/agent-finalize-action-cache.mjs",
@@ -82,7 +82,7 @@
     {
       "path": "scripts/lib/frontend-phase-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:bbfe8e88e34b1f8ab4e29694bb1b2dc17b03a6a6b74c179f87115c250c4fd666"
+      "hash": "sha256:d5a18a5248134eec106c88028f5575c73023ec54df115e696880b4e203bad7c5"
     },
     {
       "path": "scripts/lib/frontend-phase-slice-plan.mjs",

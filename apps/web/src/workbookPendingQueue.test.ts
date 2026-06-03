@@ -1308,8 +1308,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
     expect(sameFieldQueue.snapshot().saveStatePresentation).toEqual({
       primaryLabel: "Conflict",
       secondaryKind: "same_field_conflict",
-      secondaryMessage:
-        "Conflict on record-save-state-conflict:timeline.summary.",
+      secondaryMessage: "1 same-field conflict needs review.",
       conflictAnchors: [
         {
           record_id: "record-save-state-conflict",
@@ -1319,6 +1318,12 @@ describe("FE-U-P4-02 save-state unit model", () => {
         },
       ],
     });
+    expect(
+      sameFieldQueue.snapshot().saveStatePresentation.secondaryMessage,
+    ).not.toContain("record-save-state-conflict");
+    expect(
+      sameFieldQueue.snapshot().saveStatePresentation.secondaryMessage,
+    ).not.toContain("timeline.summary");
 
     const localDraftPresentation = deriveWorkbookSaveState({
       queuedCount: 0,
@@ -1335,7 +1340,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
     expect(localDraftPresentation).toEqual({
       primaryLabel: "Conflict",
       secondaryKind: "same_field_conflict",
-      secondaryMessage: "Conflict on record-local-draft:timeline.details.",
+      secondaryMessage: "1 same-field conflict needs review.",
       conflictAnchors: [
         {
           record_id: "record-local-draft",
@@ -1345,5 +1350,100 @@ describe("FE-U-P4-02 save-state unit model", () => {
         },
       ],
     });
+
+    const duplicateSourcePresentation = deriveWorkbookSaveState({
+      queuedCount: 0,
+      inFlightCount: 0,
+      sameFieldConflicts: [
+        {
+          key: "record-duplicate:timeline.summary",
+          conflict_token: "conflict-duplicate",
+          record_id: "record-duplicate",
+          field_key: "timeline.summary",
+          conflict_resolution_class: "text_compare_merge",
+          base_row_version: 9,
+          current_row_version: 10,
+        },
+      ],
+      localDraftConflicts: [
+        {
+          record_id: "record-duplicate",
+          field_key: "timeline.summary",
+          base_row_version: 9,
+          current_row_version: 10,
+        },
+      ],
+    });
+    expect(duplicateSourcePresentation.secondaryMessage).toBe(
+      "1 same-field conflict needs review.",
+    );
+    expect(duplicateSourcePresentation.conflictAnchors).toEqual([
+      {
+        record_id: "record-duplicate",
+        field_key: "timeline.summary",
+        base_row_version: 9,
+        current_row_version: 10,
+      },
+    ]);
+
+    const multiConflictPresentation = deriveWorkbookSaveState({
+      queuedCount: 3,
+      inFlightCount: 1,
+      sameFieldConflicts: [
+        {
+          key: "record-a:timeline.summary",
+          conflict_token: "conflict-a",
+          record_id: "record-a",
+          field_key: "timeline.summary",
+          conflict_resolution_class: "text_compare_merge",
+          base_row_version: 1,
+          current_row_version: 2,
+        },
+        {
+          key: "record-b:timeline.details",
+          conflict_token: "conflict-b",
+          record_id: "record-b",
+          field_key: "timeline.details",
+          conflict_resolution_class: "text_compare_merge",
+          base_row_version: 3,
+          current_row_version: 4,
+        },
+      ],
+      localDraftConflicts: [
+        {
+          record_id: "record-c",
+          field_key: "timeline.tags",
+          base_row_version: 5,
+        },
+      ],
+    });
+    expect(multiConflictPresentation.primaryLabel).toBe("Conflict");
+    expect(multiConflictPresentation.secondaryKind).toBe("same_field_conflict");
+    expect(multiConflictPresentation.secondaryMessage).toBe(
+      "3 same-field conflicts need review.",
+    );
+    expect(multiConflictPresentation.conflictAnchors).toEqual([
+      {
+        record_id: "record-a",
+        field_key: "timeline.summary",
+        base_row_version: 1,
+        current_row_version: 2,
+      },
+      {
+        record_id: "record-b",
+        field_key: "timeline.details",
+        base_row_version: 3,
+        current_row_version: 4,
+      },
+      {
+        record_id: "record-c",
+        field_key: "timeline.tags",
+        base_row_version: 5,
+      },
+    ]);
+    expect(multiConflictPresentation.secondaryMessage).not.toContain("record-");
+    expect(multiConflictPresentation.secondaryMessage).not.toContain(
+      "timeline.",
+    );
   });
 });

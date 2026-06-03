@@ -1051,7 +1051,7 @@ select_primary_save_label(state):
   return Saved
 ```
 
-Design contract. `Conflict` has precedence over `Syncing`. Presence MUST NOT change the primary save label. A secondary message MAY describe lower-priority state. Omission behavior: absence of the secondary message MUST NOT change the primary label.
+Design contract. `Conflict` has precedence over `Syncing`. Presence MUST NOT change the primary save label. A secondary message MAY describe lower-priority state. Omission behavior: absence of the secondary message MUST NOT change the primary label. For same-field conflicts, any ordinary visible secondary message MUST summarize the affected count in user-facing language and MUST NOT use `record_id`, `field_key`, `conflict_token`, route names, or raw error text as its primary copy.
 
 | Label | Visual treatment | Required accessible representation |
 | --- | --- | --- |

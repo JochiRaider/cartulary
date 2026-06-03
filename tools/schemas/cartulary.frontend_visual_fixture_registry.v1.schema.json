@@ -26,6 +26,7 @@
         "owner_row_ids",
         "playwright_scenario_title",
         "golden_filename",
+        "golden_artifacts",
         "seed_id",
         "viewport_css_px",
         "device_scale_factor",
@@ -57,6 +58,11 @@
         },
         "playwright_scenario_title": { "type": "string" },
         "golden_filename": { "type": "string" },
+        "golden_artifacts": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
         "seed_id": { "type": "string" },
         "viewport_css_px": { "type": "string", "pattern": "^[0-9]+x[0-9]+$" },
         "device_scale_factor": { "type": "integer", "minimum": 1 },

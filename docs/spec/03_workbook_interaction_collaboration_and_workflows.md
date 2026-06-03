@@ -625,6 +625,8 @@ For the base profile, the label mapping is:
 - `Saved`: no workbook mutation is in flight, the local pending queue is empty, and the client has no unresolved same-field local drafts for that workbook state.
 - `Conflict`: at least one unresolved same-field conflict exists, or queue overflow has refused admission of a new replay unit, or replay is halted on a non-retryable failure that requires analyst action.
 
+When the save-state label is `Conflict` because unresolved same-field local drafts exist, the status strip MUST render exactly one primary label, `Conflict`, and MAY render one user-facing same-surface secondary message that summarizes the affected conflict count. That ordinary visible status-strip summary MUST NOT use `record_id`, `field_key`, `conflict_token`, route names, or raw public error text as its primary copy. The client MAY retain those anchors for resolver routing and MAY expose them as technical metadata in an appropriate secondary detail surface.
+
 Ambient collaboration state MUST NOT change this label mapping.
 Profiles: base
 Verified by: AC-043, AC-231, AC-376

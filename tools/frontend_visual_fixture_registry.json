@@ -14,6 +14,9 @@
       ],
       "playwright_scenario_title": "FE-V-P2-01 Capture Default Timeline workbook shell with top bar, view bar, dense Timeline grid, row-context inspector, and status strip.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-timeline-workbook-shell-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-timeline-workbook-shell-linux.png"
+      ],
       "seed_id": "fe-vfix-01-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
@@ -57,6 +60,9 @@
       ],
       "playwright_scenario_title": "V-4-GRID-01 captures mention chips for unresolved, resolved, auto-resolved, dismissed, and manual-resolution states",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-4-grid-01-mention-chips-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-4-grid-01-mention-chips-linux.png"
+      ],
       "seed_id": "fe-vfix-02-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
@@ -100,6 +106,10 @@
       ],
       "playwright_scenario_title": "V-6-GRID-02 captures same-field conflict resolver visuals",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-02-conflict-resolver-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-02-conflict-resolver-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-03-blocked-conflict-linux.png"
+      ],
       "seed_id": "fe-vfix-03-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
@@ -143,6 +153,9 @@
       ],
       "playwright_scenario_title": "V-6-GRID-01 captures presence and row-gutter markers anchored to grid rows",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-01-presence-markers-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-01-presence-markers-linux.png"
+      ],
       "seed_id": "fe-vfix-04-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
@@ -186,6 +199,9 @@
       ],
       "playwright_scenario_title": "V-4-GRID-02 captures evidence affordance and access controls",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-4-grid-02-evidence-access-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-4-grid-02-evidence-access-linux.png"
+      ],
       "seed_id": "fe-vfix-05-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
@@ -229,6 +245,9 @@
       ],
       "playwright_scenario_title": "V-3-GRID-03 captures grouped grid result and group outline row visuals",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-03-grouped-grid-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-03-grouped-grid-linux.png"
+      ],
       "seed_id": "fe-vfix-06-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
@@ -272,6 +291,9 @@
       ],
       "playwright_scenario_title": "V-4-GRID-03 captures Task Requests and Decisions workbook surface visuals",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-4-grid-03-task-requests-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-4-grid-03-task-requests-linux.png"
+      ],
       "seed_id": "fe-vfix-07-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
@@ -317,6 +339,15 @@
       ],
       "playwright_scenario_title": "V-3-GRID-02 captures Timeline edit save-state visuals for active cell syncing saved and conflict states",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-saved-strip-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-saved-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-syncing-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-conflict-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-03-syncing-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-03-saved-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-03-blocked-conflict-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-03-recovered-saved-strip-linux.png"
+      ],
       "seed_id": "fe-vfix-08-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
@@ -362,6 +393,9 @@
       ],
       "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
+      ],
       "seed_id": "fe-vfix-09-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
@@ -407,6 +441,9 @@
       ],
       "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
+      ],
       "seed_id": "fe-vfix-10-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
@@ -452,6 +489,9 @@
       ],
       "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
+      ],
       "seed_id": "fe-vfix-11-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
@@ -499,6 +539,10 @@
       ],
       "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-active-edit-cell-linux.png"
+      ],
       "seed_id": "fe-vfix-12-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
@@ -546,6 +590,9 @@
       ],
       "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
+      ],
       "seed_id": "fe-vfix-13-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
@@ -589,6 +636,9 @@
       ],
       "playwright_scenario_title": "FE-V-P11-03 Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p11-03-exposed-theme-states-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p11-03-exposed-theme-states-linux.png"
+      ],
       "seed_id": "fe-vfix-14-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
@@ -636,6 +686,9 @@
       ],
       "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
+      ],
       "seed_id": "fe-vfix-15-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
