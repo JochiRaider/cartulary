@@ -23,23 +23,28 @@ Source limit. This plan is not behavior authority. Sprint execution records may 
 
 ## Current Repo Status
 
-Locally verified facts as of 2026-06-03, with Sprint 2, Sprint 3, Sprint 4, Sprint 5, and Sprint 6 updates noted below:
+Locally verified facts as of 2026-06-03, with Sprint 2 through Sprint 7 updates noted below:
 
 - `FRONTEND_PHASE4_IMPLEMENTATION_PLAN.md` did not exist before this plan was created.
 - `tools/frontend_phase_registry.json` has `schema_id="cartulary.frontend_phase_registry.v2"`, `schema_version=2`, `phase_namespace="frontend"`, and `guide_path="docs/guides/cartulary_frontend_implementation_testing_guide.md"`.
 - FE-P0 through FE-P3 are currently registry-active with `row_rollup_state="active_green"` and no activation blockers.
 - `FRONTEND_PHASE3_IMPLEMENTATION_PLAN.md` is an active-completion handoff. It records FE-P3 as active and executable as of 2026-05-31 and states FE-P4 and later remain planned. Its historical run roots are handoff context only unless rerun.
-- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P4` passed and reported FE-P4 as planned, explainable, and non-executable.
+- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P4` passed after Sprint 7 activation and reported FE-P4 as `active`, with all six FE-P4 rows `implemented`.
 - `make help` passed and points to `make help-all` for the exhaustive public target catalog.
 - `make explain-target` confirmed local target availability for FE-P4 direct or conditional targets: `frontend-unit`, `browser-e2e-webserver-backed`, `browser-e2e-stateful`, `browser-e2e-visual`, `browser-e2e-a11y`, `browser-e2e-a11y-preflight`, `browser-e2e-support`, and `phase-ledger-drift`.
 - `make explain-target TARGET=browser-e2e-a11y-preflight DETAIL=summary` reports `phase_coverage: none`; this preflight target is blocked-row smoke and does not close implemented accessibility rows.
 - `make explain-target TARGET=browser-e2e-a11y DETAIL=summary` reports `phase_coverage: none` at target-surface level; current FE-P4 accessibility closure is owned by the FE-P4 map, frontend row accounting, and `cartulary.frontend_accessibility_summary.v2` from the mapped implemented-row run.
-- `make phase-ledger-drift` passed after this plan was written with run root `.cartulary/test-results/20260601T210509Z-p23551` and summary `phase-ledger-drift/tool-run-summary.json`.
-- `make browser-e2e-visual` passed after Sprint 6 fixture correction with run root `.cartulary/test-results/20260603T023800Z-p588133` and `FE-V-P4-01` row accounting reported `claim_status_at_run="implemented"`, `target_mapping_status="mapped"`, `closure_status="closed"`, and the exact FE-P4 scenario title.
-- `make browser-e2e-a11y` passed after FE-P4 accessibility promotion with run root `.cartulary/test-results/20260603T025801Z-p639449`; `FE-A11Y-P4-01` row accounting reported `claim_status="implemented"`, `target="browser-e2e-a11y"`, `target_status="pass"`, `closure_status="closed"`, and the exact FE-P4 scenario title.
-- `make browser-e2e-a11y-preflight` passed after FE-P4 accessibility promotion with run root `.cartulary/test-results/20260603T025840Z-p642822`; `FE-A11Y-P4-01` no longer appears in the blocked preflight phase rows.
-- `make json-shape-check` passed after Sprint 6 accessibility promotion with run root `.cartulary/test-results/20260603T025626Z-p636349`.
-- `make phase-ledger-drift` passed after Sprint 6 accessibility promotion with run root `.cartulary/test-results/20260603T025620Z-p636092`.
+- `make phase-ledgers` passed during Sprint 7 activation with run root `.cartulary/test-results/20260603T151001Z-p93764` and summary `phase-ledgers/tool-run-summary.json`.
+- `make frontend-unit` passed after Sprint 7 activation with run root `.cartulary/test-results/20260603T151052Z-p95951`; row accounting closed `FE-U-P4-01`, `FE-U-P4-02`, and `FE-I-P4-01`.
+- `make browser-e2e-webserver-backed` passed after Sprint 7 activation with run root `.cartulary/test-results/20260603T151114Z-p97846`; row accounting closed `FE-I-P4-01` and `FE-E-P4-01`.
+- `make browser-e2e-stateful` passed after Sprint 7 activation with run root `.cartulary/test-results/20260603T151251Z-p110257`; row accounting closed `FE-E-P4-01`.
+- `make browser-e2e-visual` passed after Sprint 7 activation with run root `.cartulary/test-results/20260603T151336Z-p118500`; row accounting closed `FE-V-P4-01` with the exact FE-P4 scenario title.
+- `make browser-e2e-a11y` passed after Sprint 7 activation with run root `.cartulary/test-results/20260603T151434Z-p127872`; row accounting closed `FE-A11Y-P4-01` and emitted passing `cartulary.frontend_accessibility_summary.v2`.
+- `make browser-e2e-a11y-preflight` passed after Sprint 7 activation with run root `.cartulary/test-results/20260603T151514Z-p135434`; the preflight summary has no `FE-A11Y-P4-01` blocked-row entry.
+- `make json-shape-check` passed after Sprint 7 activation with run root `.cartulary/test-results/20260603T153644Z-p277168`.
+- `make phase-ledger-drift` passed after Sprint 7 activation with run root `.cartulary/test-results/20260603T153644Z-p277175`.
+- `make phase-schedule-drift` passed after Sprint 7 activation with run root `.cartulary/test-results/20260603T153644Z-p277184`.
+- `make check` passed after Sprint 7 activation and post-finalize drift validation with run root `.cartulary/test-results/20260603T153655Z-p279076`.
 - Registry tuple validation passed with `jq -e`.
 - FE-P4 row-inventory validation passed with `jq -e`.
 
@@ -48,15 +53,15 @@ FE-P4 registry tuple:
 | Field | Current value |
 | --- | --- |
 | Phase ID | `FE-P4` |
-| Status | `planned` |
-| Row rollup state | `activation_ready` |
+| Status | `active` |
+| Row rollup state | `active_green` |
 | Manifest path | `tools/frontend_phase_maps/fe_p4_test_map.json` |
 | Ledger path | `docs/testing/frontend_phase_coverage_ledgers/fe_p4_coverage_ledger.md` |
 | Depends on | `FE-P0`, `FE-P1`, `FE-P2`, `FE-P3` |
-| Activation blocker | `FE-P4-ACTIVATION-BLOCKER-01`, `reason_code="frontend_phase_not_active"` |
+| Activation blocker | none |
 | Manifest digest | `28855914b349c4e963f092d443ea9ba00f2110bb1a618e39b63e32a25070981e` |
-| Ledger digest | `86df5013d08b7534ad5b740c2038dc9e57481983b20a3a4f685102d28e5f1b3b` |
-| Evidence freshness digest | `e28fffc763e3cddd514d1ce866620666dd81ac6e2c652f8e90bae91d2ac1aed9` |
+| Ledger digest | `afef608db7f600e9d8fdb07c370039cd9e1ba816b636f29efaeaabc70f0251f7` |
+| Evidence freshness digest | `28d340ed8b471bd187919e97cc3cfc7ca7aea66f1fe416172be8d96f0507def6` |
 
 FE-P0 through FE-P4 current activation chain:
 
@@ -66,7 +71,7 @@ FE-P0 through FE-P4 current activation chain:
 | `FE-P1` | `active` | `active_green` | none | `FE-P0` |
 | `FE-P2` | `active` | `active_green` | none | `FE-P0`, `FE-P1` |
 | `FE-P3` | `active` | `active_green` | none | `FE-P0`, `FE-P1`, `FE-P2` |
-| `FE-P4` | `planned` | `activation_ready` | `frontend_phase_not_active` | `FE-P0`, `FE-P1`, `FE-P2`, `FE-P3` |
+| `FE-P4` | `active` | `active_green` | none | `FE-P0`, `FE-P1`, `FE-P2`, `FE-P3` |
 
 FE-P4 row inventory:
 
@@ -89,7 +94,7 @@ FE-P4 visual fixture registry facts:
 
 Source limits:
 
-- The generated FE-P4 ledger is downstream of `tools/frontend_phase_maps/fe_p4_test_map.json` and is not behavior authority. It was regenerated after Sprint 6 row promotion through `make phase-ledgers`.
+- The generated FE-P4 ledger is downstream of `tools/frontend_phase_maps/fe_p4_test_map.json` and is not behavior authority. It was regenerated during Sprint 7 activation through `make phase-ledgers`.
 - Current `browser-e2e-visual` row accounting closes `FE-V-P4-01` only as design-direction visual readiness evidence through the exact FE-P4 scenario title and exact `FE-VFIX-08`, `FE-VFIX-12`, and `FE-VFIX-15` fixture linkage.
 - Current row-owned `frontend-unit` evidence closes `FE-U-P4-01`, `FE-U-P4-02`, and `FE-I-P4-01`; current row-owned `browser-e2e-webserver-backed` evidence closes `FE-I-P4-01` and `FE-E-P4-01`; current row-owned `browser-e2e-stateful` evidence closes `FE-E-P4-01`; current row-owned `browser-e2e-visual` evidence closes `FE-V-P4-01`; current row-owned `browser-e2e-a11y` evidence closes `FE-A11Y-P4-01`.
 - Current `browser-e2e-a11y` evidence closes `FE-A11Y-P4-01` only as design-direction accessibility readiness evidence through the exact FE-P4 scenario title and `cartulary.frontend_accessibility_summary.v2`.
@@ -137,8 +142,91 @@ Sprint 6 update as of 2026-06-03:
 - Current `browser-e2e-a11y-preflight` evidence in `.cartulary/test-results/20260603T025840Z-p642822/browser-e2e-a11y-preflight/accessibility-preflight/frontend-accessibility-preflight-summary.json` no longer includes `FE-A11Y-P4-01` as a blocked preflight row.
 - Passed: `make browser-e2e-visual`, `make browser-e2e-a11y`, `make browser-e2e-a11y-preflight`, `make json-shape-check`, `make phase-ledgers`, `make phase-ledger-drift`, `make frontend-typecheck`, and `make agent-finalize`.
 - `make agent-finalize` passed with run root `.cartulary/test-results/20260603T025937Z-p646361`; retained-run evidence maintenance was skipped because `RESULTS_DIR` was unset.
-- FE-P4 remains `planned`; row rollup is `activation_ready`; phase activation remains blocked by `frontend_phase_not_active`.
+- At Sprint 6 handoff, FE-P4 remained `planned`; row rollup was `activation_ready`; phase activation remained blocked by `frontend_phase_not_active`.
 - No FE-P4 phase completion, product-conformance, Core conformance, or Core 05 claim-publication readiness claim is made.
+
+Sprint 7 closure update as of 2026-06-03:
+
+- FE-P4 is active with `row_rollup_state="active_green"` and no activation blockers. The registry tuple is `manifest_digest="28855914b349c4e963f092d443ea9ba00f2110bb1a618e39b63e32a25070981e"`, `ledger_digest="afef608db7f600e9d8fdb07c370039cd9e1ba816b636f29efaeaabc70f0251f7"`, and `evidence_freshness_digest="28d340ed8b471bd187919e97cc3cfc7ca7aea66f1fe416172be8d96f0507def6"`.
+- The current registry file digest observed by post-activation row accounting is `5197581f21544877f51e2ec39014f184344e7c7c17fd8880056b8656d71c86ab`.
+- The FE-P4 coverage ledger at `docs/testing/frontend_phase_coverage_ledgers/fe_p4_coverage_ledger.md` was regenerated through `make phase-ledgers` and now renders `Status: active` and `Row rollup state: active_green`.
+- Baseline inspection commands run before activation: `git status --short`; `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P4`; `make task-guide ROLE=phase-author PHASE_NAMESPACE=frontend PHASE=FE-P4`; `make explain-target TARGET=<target> DETAIL=summary` for `frontend-unit`, `browser-e2e-webserver-backed`, `browser-e2e-stateful`, `browser-e2e-visual`, `browser-e2e-a11y`, `browser-e2e-a11y-preflight`, `frontend-typecheck`, `frontend-import-boundary-check`, `generated-artifact-policy-check`, `generate-drift`, `phase-ledgers`, `phase-ledger-drift`, `phase-schedule-drift`, `agent-finalize`, `check`, and `json-shape-check`.
+- Baseline inspection found FE-P4 `planned` with `row_rollup_state="activation_ready"` before activation; all six rows were already `implemented`, but visual evidence from `.cartulary/test-results/20260603T023800Z-p588133` predates the then-current registry/map digest and was treated as audit context only.
+
+Pre-activation fresh row-owned evidence:
+
+| Command | Status | Run root | Relevant artifact |
+| --- | --- | --- | --- |
+| `make frontend-unit` | pass | `.cartulary/test-results/20260603T150319Z-p39930` | `frontend-unit/frontend-row-accounting.json` |
+| `make browser-e2e-webserver-backed` | pass | `.cartulary/test-results/20260603T150343Z-p41753` | `browser-e2e-webserver-backed/frontend-row-accounting.json` |
+| `make browser-e2e-stateful` | pass | `.cartulary/test-results/20260603T150543Z-p59353` | `browser-e2e-stateful/frontend-row-accounting.json` |
+| `make browser-e2e-visual` | pass | `.cartulary/test-results/20260603T150630Z-p67781` | `browser-e2e-visual/frontend-row-accounting.json` |
+| `make browser-e2e-a11y` | pass | `.cartulary/test-results/20260603T150728Z-p77137` | `browser-e2e-a11y/frontend-row-accounting.json`; `browser-e2e-a11y/accessibility/frontend-accessibility-summary.json` |
+| `make browser-e2e-a11y-preflight` | pass | `.cartulary/test-results/20260603T150810Z-p84922` | `browser-e2e-a11y-preflight/accessibility-preflight/frontend-accessibility-preflight-summary.json` |
+
+Activation metadata and generated ledger update:
+
+| Command or edit | Status | Run root or path | Evidence |
+| --- | --- | --- | --- |
+| Edited `tools/frontend_phase_registry.json` FE-P4 only | applied | `tools/frontend_phase_registry.json` | `status="active"`, `row_rollup_state="active_green"`, `activation_blockers=[]` |
+| `make phase-ledgers` | pass | `.cartulary/test-results/20260603T151001Z-p93764` | `phase-ledgers/tool-run-summary.json`; regenerated FE-P4 ledger |
+| FE-P4 digest recomputation by `scripts/lib/frontend-phase-manifest.mjs` formula | pass | `tools/frontend_phase_registry.json` | manifest digest unchanged; ledger digest and evidence freshness digest refreshed to the current values above |
+| `make json-shape-check` | pass | `.cartulary/test-results/20260603T151028Z-p94843` | `json-shape-check/tool-run-summary.json` |
+| `make phase-ledger-drift` | pass | `.cartulary/test-results/20260603T151028Z-p94851` | `phase-ledger-drift/tool-run-summary.json` |
+
+Post-activation row-owned evidence used for closure:
+
+| Command | Status | Run root | Row-accounting artifact | FE-P4 closure result |
+| --- | --- | --- | --- | --- |
+| `make frontend-unit` | pass | `.cartulary/test-results/20260603T151052Z-p95951` | `frontend-unit/frontend-row-accounting.json` | `FE-U-P4-01`, `FE-U-P4-02`, and `FE-I-P4-01`: `claim_status_at_run="implemented"`, `target_mapping_status="mapped"`, `closure_status="closed"`, `failure_reason=""` |
+| `make browser-e2e-webserver-backed` | pass | `.cartulary/test-results/20260603T151114Z-p97846` | `browser-e2e-webserver-backed/frontend-row-accounting.json` | `FE-I-P4-01` and `FE-E-P4-01`: implemented, mapped, closed, empty failure reason |
+| `make browser-e2e-stateful` | pass | `.cartulary/test-results/20260603T151251Z-p110257` | `browser-e2e-stateful/frontend-row-accounting.json` | `FE-E-P4-01`: implemented, mapped, closed, empty failure reason |
+| `make browser-e2e-visual` | pass | `.cartulary/test-results/20260603T151336Z-p118500` | `browser-e2e-visual/frontend-row-accounting.json` | `FE-V-P4-01`: implemented, mapped, closed, empty failure reason |
+| `make browser-e2e-a11y` | pass | `.cartulary/test-results/20260603T151434Z-p127872` | `browser-e2e-a11y/frontend-row-accounting.json` | `FE-A11Y-P4-01`: implemented, mapped, closed, empty failure reason |
+| `make browser-e2e-a11y-preflight` | pass | `.cartulary/test-results/20260603T151514Z-p135434` | `browser-e2e-a11y-preflight/accessibility-preflight/frontend-accessibility-preflight-summary.json` | preflight smoke only; no FE-P4 row closure claim |
+
+Every post-activation `cartulary.frontend_row_accounting.v2` artifact above records `registry_digest="5197581f21544877f51e2ec39014f184344e7c7c17fd8880056b8656d71c86ab"`. Closing scenario-title counts match the FE-P4 map: `FE-U-P4-01` has 9, `FE-U-P4-02` has 4, and `FE-I-P4-01`, `FE-E-P4-01`, `FE-V-P4-01`, and `FE-A11Y-P4-01` each have 1 exact closing scenario title.
+
+Visual fixture registry consistency:
+
+| Fixture | Status | FE-P4 owner link | Scenario title | Golden filename |
+| --- | --- | --- | --- | --- |
+| `FE-VFIX-08` | `current` | `owner_phase_ids` includes `FE-P4`; `owner_row_ids` includes `FE-V-P4-01` | `FE-V-P4-01 Capture save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures.` | `apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-pending-replay-status-linux.png` |
+| `FE-VFIX-12` | `current` | `owner_phase_ids` includes `FE-P4`; `owner_row_ids` includes `FE-V-P4-01` | same FE-P4 visual scenario title | `apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-active-edit-cell-linux.png` |
+| `FE-VFIX-15` | `current` | `owner_phase_ids` includes `FE-P4`; `owner_row_ids` includes `FE-V-P4-01` | same FE-P4 visual scenario title | `apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-empty-timeline-query-linux.png` |
+
+Accessibility summary consistency:
+
+- `.cartulary/test-results/20260603T151434Z-p127872/browser-e2e-a11y/accessibility/frontend-accessibility-summary.json` has `schema_id="cartulary.frontend_accessibility_summary.v2"`, `status="pass"`, includes `FE-A11Y-P4-01` as an implemented `FE-P4` design-direction row, and has `violations=[]`.
+- The same summary records passing FE-P4 keyboard, state-communication, and contrast evidence through the owning accessibility scenario. It is accessibility readiness evidence only and does not promote `FE-A11Y-P4-01` into product conformance.
+- `.cartulary/test-results/20260603T151514Z-p135434/browser-e2e-a11y-preflight/accessibility-preflight/frontend-accessibility-preflight-summary.json` has `schema_id="cartulary.frontend_accessibility_preflight_summary.v1"`, `status="pass"`, and no `FE-A11Y-P4-01` blocked-row entry.
+
+Final validation and drift:
+
+| Command | Status | Run root | Relevant artifact |
+| --- | --- | --- | --- |
+| `make frontend-typecheck` | pass | `.cartulary/test-results/20260603T153536Z-p271237` | `frontend-typecheck/tool-run-summary.json` |
+| `make frontend-import-boundary-check` | pass | `.cartulary/test-results/20260603T153536Z-p271218` | `frontend-import-boundary-check/tool-run-summary.json` |
+| `make generated-artifact-policy-check` | pass | `.cartulary/test-results/20260603T153644Z-p277222` | `generated-artifact-policy-check/tool-run-summary.json` |
+| `make generate-drift` | pass | `.cartulary/test-results/20260603T153644Z-p277181` | `generate-drift/tool-run-summary.json` |
+| `make phase-ledger-drift` | pass | `.cartulary/test-results/20260603T153644Z-p277175` | `phase-ledger-drift/tool-run-summary.json` |
+| `make phase-schedule-drift` | pass | `.cartulary/test-results/20260603T153644Z-p277184` | `phase-schedule-drift/tool-run-summary.json` |
+| `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260603T152818Z-p208582` | pass | `.cartulary/test-results/20260603T153548Z-p273715` | `agent-finalize/tool-run-summary.json`; `agent-finalize/finalize-summary.json` |
+| `make check` | pass | `.cartulary/test-results/20260603T153655Z-p279076` | `tool-run-summary.json`; 141/141 work units, 741 tests, 0 failed |
+| `git diff --check` | pass | none | whitespace diff check |
+
+Resolved drift:
+
+- Old retained visual evidence was not used for Sprint 7 closure because it predated the closure-pass registry/map digest. It was replaced by fresh pre-activation and post-activation `make browser-e2e-visual` runs, and closure uses only the post-activation row accounting from `.cartulary/test-results/20260603T151336Z-p118500`.
+- The first broad `make check` after activation failed at `.cartulary/test-results/20260603T151713Z-p148412` with a harness lifecycle accounting error: `illegal lifecycle transition child_started from requested` for `check-service-backed:backend-integration:backend-integration-timeline-shard-01`. The cause was scheduler service-session startup running without the current `CARTULARY_TEST_RUN_ID`, so startup lifecycle events were written to the `adhoc` run while child events were written to the check run.
+- The lifecycle drift was resolved by updating `scripts/run-check-schedule.mjs` so `service_session` work units pass `process.env`, `CARTULARY_TEST_RESULTS_DIR`, and `CARTULARY_TEST_RUN_ID` into `testservices start-suite`. `make check-harness-smoke` passed at `.cartulary/test-results/20260603T152239Z-p200135/check-harness-smoke/tool-run-summary.json`, and `make lint-scripts` passed at `.cartulary/test-results/20260603T152239Z-p200133/lint-scripts/tool-run-summary.json`; the leaked failed-run service lease was terminated with `tmp/toolbin/cartulary-test-services terminate-suite --lease .cartulary/test-results/adhoc/_shared/test-services/bbfd80198ccbbba14b785bd0/service-lease.json`.
+- `make check` then passed at `.cartulary/test-results/20260603T152818Z-p208582`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260603T152818Z-p208582` refreshed retained generated artifacts; post-finalize drift gates passed; final `make check` passed at `.cartulary/test-results/20260603T153655Z-p279076`.
+
+Closure statement:
+
+- `FE-P4 phase complete` is supported by current repository evidence. All six FE-P4 rows close from current post-activation row-owned evidence and required `cartulary.frontend_row_accounting.v2` artifacts; FE-P4 registry, generated ledger, manifest digest, ledger digest, and evidence freshness digest agree; visual fixture links and accessibility summary evidence are current; generated drift, phase-ledger drift, phase-schedule drift, generated-artifact policy, import-boundary, typecheck, agent-finalize, and final `make check` all pass.
+- FE-P4 remains separated by evidence class: product-conformance closure applies only to `FE-U-P4-01`, `FE-U-P4-02`, `FE-I-P4-01`, and `FE-E-P4-01`; visual readiness applies only to `FE-V-P4-01`; accessibility readiness applies only to `FE-A11Y-P4-01`.
+- No Core 05 claim-publication predicate was introduced, and no claim-bearing timed, benchmark, fixture-sensitive, or publication evidence is asserted.
 
 ## Phase Objective
 
@@ -198,7 +286,7 @@ Design-direction rows MUST NOT claim Core product conformance. Product-conforman
 ## Dependencies And Prerequisites
 
 - FE-P0 through FE-P3 must remain green. Current registry state is `active_green`, but closure work must rerun relevant earlier-phase checks or record precise blockers before FE-P4 completion.
-- FE-P4 is currently `planned` and non-executable as a frontend phase. It may move to `active` only when its map, generated ledger, public targets, target schedule metadata, row evidence, evidence-class owner metadata, and evidence freshness are promoted together.
+- FE-P4 is currently `active` with `row_rollup_state="active_green"` after Sprint 7. Its map, generated ledger, public targets, target schedule metadata, row evidence, evidence-class owner metadata, and evidence freshness were promoted together.
 - Generated protocol outputs under `packages/protocol-ts/src/generated/**`, generated backend outputs under `internal/gen/**`, generated frontend ledgers, generated schedules, `tools/task_surface.generated.mk`, `pnpm-lock.yaml`, and `go.sum` must not be hand-edited.
 - Any FE-P4 map or registry metadata change requires `make phase-ledgers` followed by `make phase-ledger-drift`.
 - Browser rows require service-backed infrastructure: Postgres, MinIO, owned backend/frontend processes, and browser runtime readiness.
@@ -360,8 +448,8 @@ Patch limits and canonicalization:
 | [x] | 3. Save-state derivation and status strip unit model for `FE-U-P4-02` | `make frontend-unit`; `make frontend-typecheck` | Complete as Sprint 3 only; does not close public-route replay, visual, accessibility, conflict resolution, or full FE-P4 phase readiness |
 | [x] | 4. Timeline query/render identity integration for `FE-I-P4-01` | `make frontend-unit`; `make browser-e2e-webserver-backed` | Complete as Sprint 4 only; does not close public-route replay, rough-create/paste hot path, visual, accessibility, saved-view persistence, WebSocket live updates, or full FE-P4 phase readiness |
 | [x] | 5. Public-route E2E for rough create, edit, paste, pending save, refresh, and replay for `FE-E-P4-01` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; remediation also ran `make backend-integration-support`, `make harness-contract`, `make frontend-unit`, and `make frontend-typecheck` | Complete as Sprint 5 only; does not close visual, accessibility, WebSocket, same-field resolver UI, Core 05, product hot-path, or full FE-P4 phase readiness |
-| [x] | 6. Visual and accessibility readiness for `FE-V-P4-01` and `FE-A11Y-P4-01` | `make browser-e2e-visual`; `make browser-e2e-a11y`; `make browser-e2e-a11y-preflight` confirms later blocked rows only | FE-V and FE-A11Y rows closed from current row accounting; FE-P4 remains planned until Sprint 7 phase activation metadata is completed |
-| [ ] | 7. Closure, drift, final validation, and FE-P5 handoff | Row-owned targets plus `make frontend-import-boundary-check`, `make generated-artifact-policy-check`, `make generate-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make agent-finalize`, and `make check` when required | Block if any row is stale or if the FE-P4 activation blocker remains unresolved; product hot-path, visual readiness, and accessibility readiness claims must remain separate |
+| [x] | 6. Visual and accessibility readiness for `FE-V-P4-01` and `FE-A11Y-P4-01` | `make browser-e2e-visual`; `make browser-e2e-a11y`; `make browser-e2e-a11y-preflight` confirms later blocked rows only | At Sprint 6 handoff, FE-V and FE-A11Y rows were closed from current row accounting while FE-P4 remained planned until Sprint 7 phase activation metadata |
+| [x] | 7. Closure, drift, final validation, and FE-P5 handoff | Row-owned targets plus `make frontend-import-boundary-check`, `make generated-artifact-policy-check`, `make generate-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make agent-finalize`, and `make check` | Complete: FE-P4 is active and `active_green`; all six rows close from current post-activation row-owned evidence; product hot-path, visual readiness, and accessibility readiness claims remain separate |
 
 ## Sprint 1: Readiness, Map, Ledger, And FE-P3 Handoff
 
@@ -1000,7 +1088,7 @@ Product hot-path handoff is allowed only when:
 
 ## FE-P5 Handoff
 
-If FE-P4 completes, FE-P5 may rely on:
+After Sprint 7 closure, FE-P5 may rely on:
 
 - a route-backed Timeline query surface that renders full `view_row_v1` cells by stable identity;
 - rough Timeline row creation through public route contracts;
@@ -1009,11 +1097,12 @@ If FE-P4 completes, FE-P5 may rely on:
 - same-surface save-state and validation/error presentation;
 - visual and accessibility readiness state recorded without promoting design evidence into product conformance.
 
-Current unresolved blockers after FE-P4 accessibility closure:
+Current FE-P5 blockers and inherited constraints after FE-P4 closure:
 
-- FE-P4 is `planned`, not active.
-- FE-P4 registry row rollup is `activation_ready`; activation still requires Sprint 7 metadata closure and validation.
-- Product-conformance row-owned targets have current evidence through Sprint 5; visual readiness has current design-direction evidence through Sprint 6; accessibility readiness has current design-direction evidence through `make browser-e2e-a11y`.
+- FE-P5 remains `planned` with `row_rollup_state="no_rows_implemented"`.
+- FE-P5 remains blocked by `FE-P5-ACTIVATION-BLOCKER-01`, `reason_code="frontend_phase_not_active"`, and must not inherit FE-P4 row closure as FE-P5 row evidence.
+- FE-P5 depends on active `FE-P4`; this dependency is now satisfied by FE-P4 registry activation and current Sprint 7 closure evidence.
+- FE-P5 must collect its own row-owned evidence from its mapped targets before promoting any future row.
 
 Non-claims carried to FE-P5:
 

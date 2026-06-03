@@ -3,8 +3,8 @@
 This ledger is generated from `tools/frontend_phase_maps/fe_p4_test_map.json`. Update the frontend phase map first, then regenerate this file.
 
 - Namespace: `frontend`
-- Status: `planned`
-- Row rollup state: `activation_ready`
+- Status: `active`
+- Row rollup state: `active_green`
 - Owner refs: `docs/guides/cartulary_frontend_implementation_testing_guide.md#docs/guides/cartulary_frontend_implementation_testing_guide.md`
 - Depends on: `FE-P0`, `FE-P1`, `FE-P2`, `FE-P3`
 - Authority: frontend phase maps are implementation-readiness inputs. This rendered ledger does not own product behavior.

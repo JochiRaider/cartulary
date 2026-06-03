@@ -110,7 +110,7 @@
     },
     {
       "phase_id": "FE-P4",
-      "status": "planned",
+      "status": "active",
       "manifest_path": "tools/frontend_phase_maps/fe_p4_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p4_coverage_ledger.md",
       "owner_refs": [
@@ -131,18 +131,11 @@
         "FE-P2",
         "FE-P3"
       ],
-      "row_rollup_state": "activation_ready",
-      "activation_blockers": [
-        {
-          "blocker_id": "FE-P4-ACTIVATION-BLOCKER-01",
-          "reason_code": "frontend_phase_not_active",
-          "description": "Frontend phase is not active until direct row evidence and freshness validation are promoted together.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ],
-      "evidence_freshness_digest": "e28fffc763e3cddd514d1ce866620666dd81ac6e2c652f8e90bae91d2ac1aed9",
+      "row_rollup_state": "active_green",
+      "activation_blockers": [],
+      "evidence_freshness_digest": "28d340ed8b471bd187919e97cc3cfc7ca7aea66f1fe416172be8d96f0507def6",
       "manifest_digest": "28855914b349c4e963f092d443ea9ba00f2110bb1a618e39b63e32a25070981e",
-      "ledger_digest": "86df5013d08b7534ad5b740c2038dc9e57481983b20a3a4f685102d28e5f1b3b"
+      "ledger_digest": "afef608db7f600e9d8fdb07c370039cd9e1ba816b636f29efaeaabc70f0251f7"
     },
     {
       "phase_id": "FE-P5",

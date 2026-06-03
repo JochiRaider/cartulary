@@ -1044,7 +1044,10 @@ function attachRuntime(
             files.leaseFile,
           ],
           env: makeChildEnv({
+            ...process.env,
             ...unit.env,
+            CARTULARY_TEST_RESULTS_DIR: resultsDir,
+            CARTULARY_TEST_RUN_ID: runId,
             CARTULARY_TEST_TARGET: unit.target,
             CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
           }),
