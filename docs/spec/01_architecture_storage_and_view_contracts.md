@@ -2615,6 +2615,8 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `record_locked` | `409` | `true` | An overlapping in-flight destructive operation already holds one or more required protected-set locks for the requested restore, rollback, or merge. |  |  |  |
 | `evidence_attach_rejected` | `409` | `false` | An evidence attach request cannot commit because the supplied blob is not visible or is not attachable, the target evidence row is quarantined or inconsistent, or observed upload bytes violate the accepted blob contract. `error.details.reason_code` MUST use the `evidence_attach_rejected` registry in §3.3.6.2. |  |  |  |
 | `evidence_access_unavailable` | `409` | `false` | Preview or download cannot currently proceed because the visible evidence or linked blob is unavailable, pending, failed, missing, quarantined, inconsistent, or not previewable for the requested preview contract or preview-size ceiling. |  |  |  |
+| `object_store_unavailable` | `503` | `true` | An object-store-backed route reached the object-store dependency and the dependency cannot currently be reached or used, including unreachable endpoint, missing bucket, or exhausted retry budget. `error.details.reason_code` MUST use the `object_store_unavailable` registry in §3.3.6.2. |  |  |  |
+| `object_store_access_rejected` | `503` | `false` | An object-store-backed route reached the object-store dependency, but credentials, policy, required capability, or browser-upload CORS behavior rejected the required operation. `error.details.reason_code` MUST use the `object_store_access_rejected` registry in §3.3.6.2. |  |  |  |
 | `entity_mention_not_found` | `404` | `false` | An entity-mention action route targeted no visible current entity-mention row for the supplied `entity_mention_id`. |  |  |  |
 | `resolved_record_not_found` | `404` | `false` | A mention-resolve request supplied `resolved_record_id` that does not identify a visible active target record. |  |  |  |
 | `rollback_target_not_found` | `404` | `false` | A rollback request targeted no visible history item, `change_set_id`, or row revision that is legal for the addressed `record_id`. |  |  |  |
@@ -2660,6 +2662,8 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `incident_bundle_export_rejected` | `409` | `false` | Whole-incident export could not materialize a conformant bundle because required structured files or required blobs were unavailable. `error.details.reason_code` MUST use the `incident_bundle_export_rejected` registry in §3.3.6.2. |  |  |  |
 | `incident_bundle_import_rejected` | `409` | `false` | Whole-incident import failed closed because bundle-member validation, integrity validation, incident-identity collision checks, or capability checks did not pass. `error.details.reason_code` MUST use the `incident_bundle_import_rejected` registry in §3.3.6.2. |  |  |  |
 
+For public evidence and blob routes, `object_store_unavailable` and `object_store_access_rejected` apply only after authentication, authorization, route-shape validation, idempotency conflict checks, and visible authoritative evidence/blob state checks that can be completed without object-store access. They are valid for blob-slot upload-target creation, evidence attach finalization when object bytes or metadata must be verified, preview-handle or download-handle issuance when object bytes or metadata must be verified, and evidence-handle redemption. Existing route-specific errors such as `invalid_blob_create_request`, `blob_create_rejected`, `evidence_attach_rejected`, and `evidence_access_unavailable` retain precedence when they more specifically describe request shape or authoritative evidence/blob state.
+
 ##### 3.3.6.2 Canonical public reason-code registries
 
 **REQ-01-238**
@@ -2699,6 +2703,22 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `reason_code` | Canonical meaning |
 | --- | --- |
 | `byte_size_exceeds_limit` | The declared `byte_size` exceeds `limits.object_blobs.max_declared_byte_size` for the current deployment. |
+
+`object_store_unavailable` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `endpoint_unreachable` | The configured object-store endpoint cannot be reached or cannot complete the required connection or request handshake. |
+| `bucket_missing` | The configured object-store bucket or namespace required by the route is missing or unavailable to the application. |
+| `retry_exhausted` | The route exhausted its owner-defined retry budget for a retryable object-store operation before success. |
+
+`object_store_access_rejected` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `credential_denied` | The configured object-store credentials or equivalent service identity were rejected for the required operation. |
+| `capability_missing` | The object-store endpoint or bucket policy lacks a required operation or response behavior for the route contract. |
+| `cors_rejected` | Browser upload-target use was rejected by object-store CORS policy or required CORS preflight behavior. |
 
 
 `evidence_attach_rejected` `error.details.reason_code` values:
@@ -3469,7 +3489,7 @@ S3-compatible object storage MUST store:
 Profiles: base, snapshot_reporting
 Verified by: AC-231, AC-233, AC-405
 
-The object store implementation MAY be MinIO in flyaway or on-prem deployments. Cloud deployments MAY use native S3, GCS, or Azure Blob behind an equivalent abstraction.
+For official local development, service-backed test, and disconnected deployment examples, the default S3-compatible object-store target is SeaweedFS S3. Deployments MAY use a legacy external S3-compatible endpoint, native S3, GCS, Azure Blob, or another operator-managed equivalent only when Cartulary does not ship, start, manage, or document that endpoint as the default object-store service and the object-store adapter, public route, backup, restore, and portability contracts remain unchanged.
 
 ### 4.3 Storage exclusions
 
@@ -4169,6 +4189,7 @@ Verified by: AC-098, AC-118, AC-124, AC-125, AC-231
   - `evidence.requested_at`: read `requested_at`; write target `evidence_records.requested_at`; `direct_scalar_contract_id=timestamp_instant_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
   - `evidence.received_at`: read `received_at`; write target `evidence_records.received_at`; `direct_scalar_contract_id=timestamp_instant_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
   - `evidence.storage_ref`: read `storage_ref`; write target `evidence_records.storage_ref`; `string_contract_id=locator_text_v1`; `conflict_resolution_class=atomic_replace`
+    - TODO: `SWFS-OWNER-STORAGEREF-001` remains unresolved. Before a migration or server-generated object-key implementation can claim this owner dependency, Core 01 or another adopted owner must define or cite the exact storage-ref grammar, canonicalization rules, server-generated object-key grammar, maximum length, and invalid-state behavior. The current `locator_text_v1` reference is not sufficient by itself to claim MinIO-to-SeaweedFS key-preservation or storage-ref mutation behavior.
   - `evidence.collector_party_text`: read `collector_party_text`; write target `evidence_records.collector_party_text`; `string_contract_id=party_text_v1`; `conflict_resolution_class=text_compare_merge`
   - `evidence.collector_party_id`: read the canonical collector party reference; write target `evidence_records.collector_party_id`; `direct_reference_contract_id=same_incident_party_ref_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
   - `evidence.source_party_text`: read `source_party_text`; write target `evidence_records.source_party_text`; `string_contract_id=party_text_v1`; `conflict_resolution_class=text_compare_merge`
@@ -5164,6 +5185,8 @@ A `backup_set` counts as successful only when all of the following are durably c
 At creation time, `verification_state` MUST be `unverified`. `verification_state` MUST use exactly `unverified`, `verified`, or `failed`. `last_verified_restore_at` MAY be `null` only while `verification_state='unverified'`.
 
 An implementation MUST NOT classify or expose a `backup_attestation` or `backup_set` metadata row as the latest successful retained backup unless the required artifact set and integrity proof for that same row are still readable from the configured backup storage and match the persisted proofs. Metadata freshness alone is not sufficient successful-retained evidence.
+
+For a SeaweedFS S3 object-store realization, an operator-private `cartulary.object_store_backup_manifest.v1` manifest is sufficient object-store artifact evidence only when it belongs to the same `backup_set_id` and `consistency_point_at` as the enclosing `backup_set`, includes every restoreable object required by authoritative blob state at that point, includes a non-null lowercase SHA-256 digest computed from each backed-up object byte stream, and includes a manifest digest over canonical manifest bytes. A redacted `cartulary.object_store_backup_summary.v1` may be retained or shared as a derivative summary, but it MUST NOT be accepted as restore input and MUST NOT contain raw bucket names, storage refs, object keys, endpoint URLs, credentials, or raw storage backend paths.
 Profiles: base
 Verified by: AC-398, AC-401
 
@@ -5212,6 +5235,8 @@ Verified by: AC-399
 A successful retained `backup_set` MUST undergo full restore verification in an isolated environment at least every 7 days and after any change to the backup mechanism, `roots.database_storage` binding, `roots.object_storage` binding, or `roots.backup_storage` binding. Implementations MUST persist or deterministically derive a non-secret verification-basis digest that is sufficient to detect those mechanism and root-binding changes. A successful verification MUST restore the selected `backup_set`, rebuild projections, satisfy authoritative evidence/blob lifecycle invariants, and, when the restored set contains incident data, successfully open at least one incident and execute at least one built-in workbook query. A successful verification MUST set `verification_state='verified'`, update `last_verified_restore_at`, and record the verification basis used. A failed verification MUST set `verification_state='failed'`, update `last_verified_restore_at`, and record the verification basis used.
 
 A manual one-shot restore-verification command MAY exist, but it is not sufficient by itself to satisfy the cadence requirement. The deployment-local implementation MUST provide an operator-runnable due-verification control that selects retained backups due by verification age or verification-basis change, runs verification in an isolated restore target, records each result, and fails closed before mutating any target that is not proven to be a restore-verification target.
+
+For a SeaweedFS S3 object-store realization, a `cartulary.restore_verification.v1` artifact is sufficient restore-verification evidence only when it selects exactly one retained `backup_set`, restores Postgres and object-store contents from that same set and same `consistency_point_at`, verifies manifest size and SHA-256 proofs for every manifest object, rebuilds projections, verifies authoritative evidence/blob lifecycle invariants, and records `result='pass'` only when all required checks pass. Zero-incident backups may pass only when blob and manifest checks pass and the artifact records the incident-open check as skipped because no incidents exist.
 Profiles: base
 Verified by: AC-401
 
@@ -5562,7 +5587,7 @@ Profiles: base
 Verified by: AC-231, AC-252, AC-253, AC-256
 
 **REQ-01-461**
-A successful preview-handle issuance MUST set `data.handle_kind='preview'`, `data.single_use=false`, `data.disposition='inline'`, and a non-null `data.preview_kind` that uses the exact tokens owned by Core 02 §18. In the base profile, preview issuance MUST succeed only when `data.preview_kind` is one of `image_inline`, `pdf_inline`, or `text_inline`, when `data.size_bytes <= limits.previews.max_previewable_payload_bytes`, and, for `data.preview_kind='text_inline'`, when `data.size_bytes <= limits.previews.max_text_inline_bytes`. Preview handles MUST expire exactly 5 minutes after issuance and MUST be reusable until expiry, including repeated byte-range fetches made by a browser preview surface. The server MUST NOT silently downgrade preview issuance into a download contract. When the evidence is otherwise visible but the base-profile preview allowlist does not allow a safe preview, the route MUST fail with `409`, `error.code='evidence_access_unavailable'`, and `error.details.reason_code='unsupported_preview'`. When the evidence is otherwise visible but the payload exceeds the configured preview-size ceiling for the requested preview contract, the route MUST fail with `409`, `error.code='evidence_access_unavailable'`, and `error.details.reason_code='preview_payload_too_large'`. Download-handle issuance remains legal when preview is blocked solely by preview-size limits.
+A successful preview-handle issuance MUST set `data.handle_kind='preview'`, `data.single_use=false`, `data.disposition='inline'`, and a non-null `data.preview_kind` that uses the exact tokens owned by Core 02 §18. In the base profile, preview issuance MUST succeed only when `data.preview_kind` is one of `image_inline`, `pdf_inline`, or `text_inline`, when `data.size_bytes <= limits.previews.max_previewable_payload_bytes`, and, for `data.preview_kind='text_inline'`, when `data.size_bytes <= limits.previews.max_text_inline_bytes`. Preview handles MUST expire exactly 5 minutes after issuance and MUST be reusable until expiry. Preview-handle redemption MUST support repeated byte-range fetches made by a browser preview surface for the lifetime of the handle; a storage backend or adapter profile that cannot satisfy byte-range redemption MUST fail readiness for preview-capable evidence routes rather than silently downgrade preview issuance into a download contract. The server MUST NOT silently downgrade preview issuance into a download contract. When the evidence is otherwise visible but the base-profile preview allowlist does not allow a safe preview, the route MUST fail with `409`, `error.code='evidence_access_unavailable'`, and `error.details.reason_code='unsupported_preview'`. When the evidence is otherwise visible but the payload exceeds the configured preview-size ceiling for the requested preview contract, the route MUST fail with `409`, `error.code='evidence_access_unavailable'`, and `error.details.reason_code='preview_payload_too_large'`. Download-handle issuance remains legal when preview is blocked solely by preview-size limits.
 Profiles: base
 Verified by: AC-231, AC-252, AC-322
 
@@ -5630,6 +5655,8 @@ Example download-handle success payload:
 
 **REQ-01-463**
 Every redeem of `GET /api/v1/evidence-handles/{handle_token}` MUST re-check current session validity, current incident membership, current evidence or blob accessibility state, and handle freshness at redeem time. A handle MUST be bound, at minimum, to the issuing session, incident, `record_id`, `object_blob_id`, `handle_kind`, resolved `filename`, and `disposition`; preview handles MUST also bind `preview_kind`. A handle issued before logout, session expiry, incident-membership loss, blob detach or replacement, evidence delete or restore, quarantine, pending or failed blob transition, or detected evidence/blob inconsistency MUST fail closed when redeemed later.
+
+Download-handle redemption MAY serve a full object stream without depending on backend byte-range support. If a client asks for a partial response through a download handle and the implementation cannot safely satisfy that partial response, it MAY instead require a fresh ordinary full-download handle path; it MUST NOT expose raw object-store URLs, bucket names, object keys, credentials, or storage-backend-specific identifiers as a fallback.
 Profiles: base
 Verified by: AC-231, AC-254, AC-255
 
@@ -5639,7 +5666,7 @@ Profiles: base
 Verified by: AC-231, AC-256
 
 **REQ-01-465**
-Issuance MUST use `invalid_evidence_handle_request`, `evidence_record_not_found`, and `evidence_access_unavailable` from §3.3.6.1. Redemption MUST use `handle_not_found_or_revoked`, `handle_expired`, `handle_consumed`, and `evidence_access_unavailable`. Standard authentication or session failures MUST occur before handle-specific lookup and MUST use the ordinary authentication envelope rather than a handle-specific code. Whenever `evidence_access_unavailable` is used on issuance or redemption, `error.details.reason_code` MUST use the exact `evidence_access_unavailable` registry from §3.3.6.2. `preview_payload_too_large` is reserved for preview-size rejections under REQ-01-461 and MUST NOT be used for download-handle issuance.
+Issuance MUST use `invalid_evidence_handle_request`, `evidence_record_not_found`, and `evidence_access_unavailable` from §3.3.6.1. Redemption MUST use `handle_not_found_or_revoked`, `handle_expired`, `handle_consumed`, and `evidence_access_unavailable`. Standard authentication or session failures MUST occur before handle-specific lookup and MUST use the ordinary authentication envelope rather than a handle-specific code. Whenever `evidence_access_unavailable` is used on issuance or redemption, `error.details.reason_code` MUST use the exact `evidence_access_unavailable` registry from §3.3.6.2. `preview_payload_too_large` is reserved for preview-size rejections under REQ-01-461 and MUST NOT be used for download-handle issuance. When issuance or redemption reaches the object-store dependency and fails because that dependency is unavailable or rejects the required backend operation, the route MUST use `object_store_unavailable` or `object_store_access_rejected` from §3.3.6.1 instead of overloading `evidence_access_unavailable`; object-store dependency error details MUST use the matching registry from §3.3.6.2 and MUST NOT include raw endpoint hosts, bucket names, object keys, storage refs, credentials, or backend URLs.
 Profiles: base
 Verified by: AC-231, AC-251, AC-252, AC-253, AC-254, AC-255, AC-322
 

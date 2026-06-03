@@ -259,6 +259,16 @@
       "summary": "Preview or download cannot currently proceed because the visible evidence or linked blob is unavailable, not previewable, or inconsistent."
     },
     {
+      "code": "object_store_unavailable",
+      "http_status": 503,
+      "summary": "An object-store-backed route reached the object-store dependency, but the dependency is unavailable or exhausted its retry budget."
+    },
+    {
+      "code": "object_store_access_rejected",
+      "http_status": 503,
+      "summary": "An object-store-backed route reached the object-store dependency, but credentials, policy, capability, or CORS behavior rejected the required operation."
+    },
+    {
       "code": "handle_not_found_or_revoked",
       "http_status": 404,
       "summary": "The opaque evidence handle token is unknown, revoked, or no longer available for redeem."
@@ -1103,6 +1113,40 @@
         {
           "code": "byte_size_exceeds_limit",
           "summary": "The declared byte_size exceeds the configured object-blob limit."
+        }
+      ]
+    },
+    {
+      "error_code": "object_store_unavailable",
+      "reason_codes": [
+        {
+          "code": "endpoint_unreachable",
+          "summary": "The configured object-store endpoint cannot be reached or cannot complete the required connection or request handshake."
+        },
+        {
+          "code": "bucket_missing",
+          "summary": "The configured object-store bucket or namespace required by the route is missing or unavailable to the application."
+        },
+        {
+          "code": "retry_exhausted",
+          "summary": "The route exhausted its retry budget for a retryable object-store operation before success."
+        }
+      ]
+    },
+    {
+      "error_code": "object_store_access_rejected",
+      "reason_codes": [
+        {
+          "code": "credential_denied",
+          "summary": "The configured object-store credentials or equivalent service identity were rejected for the required operation."
+        },
+        {
+          "code": "capability_missing",
+          "summary": "The object-store endpoint or bucket policy lacks a required operation or response behavior for the route contract."
+        },
+        {
+          "code": "cors_rejected",
+          "summary": "Browser upload-target use was rejected by object-store CORS policy or required CORS preflight behavior."
         }
       ]
     },

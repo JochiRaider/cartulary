@@ -178,7 +178,7 @@ These tools do not ship in the compiled application binary.
 | `sqlc`              | Generate typed Go code from authored SQL queries      |
 | `goose`             | Apply numbered SQL migrations                         |
 | `staticcheck`       | Enforce selected Go static analysis checks            |
-| `testcontainers-go` | Run integration tests against real Postgres and MinIO |
+| `testcontainers-go` | Run integration tests against real Postgres and an S3-compatible object store |
 
 ### 2.3 Frontend runtime dependencies
 
@@ -298,7 +298,7 @@ The path tree below is an intended baseline shape, not an independently verified
   AGENTS.md                          # Contributor and coding-agent procedure; not owned by this guide
   README.md
   Makefile                           # Repo-wide task surface
-  docker-compose.dev.yml             # Local Postgres + MinIO only
+  docker-compose.dev.yml             # Local Postgres + S3-compatible object store only
   .editorconfig
   .env.example
 
@@ -761,7 +761,7 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make help-all`      | Print the exhaustive public workflow task surface plus the `phase -> target -> scheduler work unit -> artifact` reading model without bootstrapping local toolchains |
 | `make doctor`        | Verify required local tools and pinned toolchain versions without installing them                            |
 | `make bootstrap`     | Install tools, install workspace dependencies, prepare local services                                        |
-| `make db-up`         | Start local Postgres and MinIO                                                                               |
+| `make db-up`         | Start local Postgres and the S3-compatible object store                                                      |
 | `make db-reset`      | Recreate the database and run migrations                                                                     |
 | `make dev`           | Start the Go server and Vite dev server                                                                      |
 | `make generate`      | Regenerate Go and TypeScript artifacts derived from `/db/queries/*` and `/contracts/*`                       |
@@ -888,7 +888,7 @@ The default local loop is:
 
 1. `make db-up`
 2. `make dev`
-3. use the Vite-served browser app against the Go server and local Postgres plus MinIO
+3. use the Vite-served browser app against the Go server and local Postgres plus the S3-compatible object store
 
 Production packaging MUST embed the built frontend assets into the application deployable. `build-server` is the deployable server shape and MUST stage the frontend bundle before compiling the binary. `build-operator` builds the deployment-local operational tooling binary. The production deployable MUST NOT depend on the Vite dev server.
 
@@ -898,7 +898,7 @@ Production packaging MUST embed the built frontend assets into the application d
 
 **Backend store tests** keep `U-*` evidence where the owner contract is still store-domain behavior, but they run against real Postgres rather than stubs. These tests execute through `make backend-store`, not `make backend-unit`.
 
-**Backend integration tests** use real Postgres and MinIO through `testcontainers-go` or an equivalent real-service harness. Integration tests MUST exercise:
+**Backend integration tests** use real Postgres and an S3-compatible object store through `testcontainers-go` or an equivalent real-service harness. Integration tests MUST exercise:
 
 - HTTP routes,
 - WebSocket behavior,
@@ -1162,7 +1162,7 @@ The smallest useful deployment remains:
 
 - one application container,
 - one Postgres service,
-- one S3-compatible object-storage service, typically MinIO in disconnected deployments.
+- one SeaweedFS S3-compatible object-storage service in default disconnected deployments.
 
 On-prem and cloud deployments MAY swap the backing services for managed equivalents as long as the same behavioral contracts hold.
 

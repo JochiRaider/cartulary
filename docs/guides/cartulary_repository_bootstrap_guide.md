@@ -219,7 +219,7 @@ Do not introduce a Go web framework or ORM into the bootstrap. The baseline expl
 
 ## 8. Step 5: create local development services and configuration
 
-`docker-compose.dev.yml` should stand up only the local backing services needed by the modular monolith during development: PostgreSQL and MinIO.[^6][^18]
+`docker-compose.dev.yml` should stand up only the local backing services needed by the modular monolith during development: PostgreSQL and a SeaweedFS S3-compatible object store.[^6][^18]
 
 Create a repo-local sample config such as `configs/dev/config.toml`, but keep the runtime contract aligned with the normative deployment-config rules:
 
@@ -291,7 +291,7 @@ Repository-local recommended meanings:
 - `make help-all`: print the exhaustive public workflow-tiered task surface without bootstrapping local toolchains.
 - `make doctor`: verify required local tools and pinned toolchain versions without installing them.
 - `make bootstrap`: install Go tools, install pinned ShellCheck, install pnpm dependencies, and prepare local service prerequisites.
-- `make db-up`: start PostgreSQL and MinIO through Compose.
+- `make db-up`: start PostgreSQL and the S3-compatible object store through Compose.
 - `make db-reset`: recreate the local database and apply migrations.
 - `make dev`: run the Go server and, once present, the Vite dev server.
 - `make generate`: regenerate `sqlc` outputs and contract-derived outputs.
@@ -340,7 +340,7 @@ Recommended responsibilities:
 - `configtest`: effective-config fixture loader, overlay helper, invalid-config golden files.
 - `pgtest`: Postgres testcontainer startup plus fresh migrated database-per-test helpers.
 - `processtest`: real `cmd/server` lifecycle, readiness and health polling, fail-closed connection probes, and startup diagnostics parsing.
-- `s3test`: MinIO testcontainer startup, bucket bootstrap, round-trip helper.
+- `s3test`: S3-compatible object-store testcontainer startup, bucket bootstrap, round-trip helper.
 - `httptestx`: in-process runtime or HTTP server boot helper, authenticated request helper, and JSON envelope assertions.
 - `wstest`: WebSocket connect, handshake, receive, revoke, and close assertions.
 - `fixtures`: canonical bootstrap manifests, config artifacts, and payload fixtures.
@@ -358,7 +358,7 @@ Then implement the shared cross-cutting harnesses as reusable assertions rather 
 - projection determinism and rebuild.
 - WebSocket lifecycle behavior.[^8]
 
-The development guide adds one more concrete boundary: backend integration tests must use real Postgres and MinIO through `testcontainers-go` or equivalent real-service harnesses, and they must exercise HTTP routes, WebSocket behavior, object-store lifecycle, projection maintenance, and migration application.[^21]
+The development guide adds one more concrete boundary: backend integration tests must use real Postgres and an S3-compatible object store through `testcontainers-go` or equivalent real-service harnesses, and they must exercise HTTP routes, WebSocket behavior, object-store lifecycle, projection maintenance, and migration application.[^21]
 
 ## 12. Step 9: define the TDD workflow as repository law
 
@@ -398,7 +398,7 @@ Goal: create the tree, dependencies, Compose services, `Makefile`, minimal confi
 Definition of done:
 
 - `go test ./...` compiles and runs the empty or stubbed backend packages.
-- `make db-up` starts Postgres and MinIO.
+- `make db-up` starts Postgres and the S3-compatible object store.
 - `make db-reset` can connect and apply an initial migration set.
 - `make generate` runs successfully, even if the generated outputs are skeletal.
 - `make check` passes on the bootstrap baseline.[^6]
@@ -498,7 +498,7 @@ Use Codex in this order:
 A useful initial Codex prompt is:
 
 ```text
-Bootstrap a greenfield Cartulary repo as a modular monolith in Go with a pnpm workspace. Create the baseline tree, root Makefile, docker-compose.dev.yml for Postgres and MinIO, cmd/server, cmd/migrate, internal/platform/*, internal/modules/*, db/migrations, db/queries, contracts/*, and a reusable backend test harness. Then write failing Phase 0 tests U-0-01 through U-0-05 before implementing config loading, runtime-root validation, and fail-closed startup.
+Bootstrap a greenfield Cartulary repo as a modular monolith in Go with a pnpm workspace. Create the baseline tree, root Makefile, docker-compose.dev.yml for Postgres and a SeaweedFS S3-compatible object store, cmd/server, cmd/migrate, internal/platform/*, internal/modules/*, db/migrations, db/queries, contracts/*, and a reusable backend test harness. Then write failing Phase 0 tests U-0-01 through U-0-05 before implementing config loading, runtime-root validation, and fail-closed startup.
 ```
 
 ## 16. Bootstrap definition of done
@@ -507,7 +507,7 @@ The repository bootstrap is complete when all of the following are true:
 
 - the baseline monorepo tree exists and is committed.[^4]
 - the command surface exists and `make check` is the enforced developer gate.[^6]
-- PostgreSQL and MinIO can be started locally through Compose.[^18]
+- PostgreSQL and the S3-compatible object store can be started locally through Compose.[^18]
 - contract/codegen directories exist and generated outputs are treated as read-only.[^7]
 - the frontend smoke path renders a minimal `react-data-grid` fixture through `/packages/grid-adapter`, imports `react-data-grid/lib/styles.css`, and keys fixture rows by distinct `record_id` values.[^25]
 - reusable shared harnesses exist for in-process HTTP envelopes, real process readiness or diagnostics, authorization re-derivation where applicable, idempotency, projection determinism where applicable, and WebSocket lifecycle.[^8]

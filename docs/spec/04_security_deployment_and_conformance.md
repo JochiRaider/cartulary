@@ -409,12 +409,12 @@ Verified by: AC-048, AC-231
 
 | STRIDE class | Minimum project-specific scope | Required control direction |
 | --- | --- | --- |
-| Spoofing | analyst sessions, provider-backed identities, explicit system-process actors, object-store upload/download capabilities, telemetry exporter endpoint identity, same-origin browser diagnostics | authenticated sessions, stable internal user mapping, explicit system actors, short-lived operation-scoped object access, explicit configured telemetry endpoints only, no environment-driven telemetry egress, no browser direct export |
-| Tampering | incident records, revisions, object blobs, backup artifacts, restore-verification extracts, reference packs, snapshots, exports, telemetry config, generated telemetry constants, telemetry source snapshot, golden telemetry corpus, retained telemetry artifacts | row-versioned writes, immutable change sets, blob hashes, fail-closed integrity verification, immutable published snapshots, source-snapshot validation, generated-constant drift checks, artifact integrity checks |
-| Repudiation | edits, imports, rollbacks, pack activation, export generation, evidence lifecycle actions, telemetry config changes, exporter failures | attributed append-only history with actor, timestamp, source, and reversible mutation detail, attributed deployment-config changes, retained telemetry conformance summaries |
-| Information disclosure | evidence blobs, backup artifacts, restore-verification extracts, exports, previews, secrets, portable runtime roots, exporter headers, incident-derived telemetry, local diagnostics, raw telemetry captures | incident-scoped authorization, secret isolation, untrusted-content rendering rules, self-contained outputs, encrypted flyaway storage, redaction before recording, forbidden-value tests, secret redaction, raw capture retention outside committed source |
-| Denial of service | oversized evidence, archive bombs, pathological imports, expensive report or preview jobs, exporter retry loops, processor queues, telemetry self-diagnostics | size and decompression limits, background-job isolation, cancellation, bounded hot-path retrieval, bounded telemetry queues, retry cutoff, non-blocking hot path, recursion guard |
-| Elevation of privilege | user-controlled record or blob identifiers, destructive operations, job-worker storage access, telemetry test hooks, browser telemetry configuration, environment autoconfiguration | server-side authorization derived from object ownership, role gates for destructive actions, least-privilege worker credentials, no runtime deterministic telemetry test hook, no browser telemetry config, environment containment |
+| Spoofing | analyst sessions, provider-backed identities, explicit system-process actors, object-store upload/download capabilities, SeaweedFS S3 endpoint identity, reverse-proxy trust boundary, direct-upload target scope, telemetry exporter endpoint identity, same-origin browser diagnostics | authenticated sessions, stable internal user mapping, explicit system actors, short-lived operation-scoped object access, configured object-store endpoints only, direct-upload targets bound to one pending blob slot, explicit configured telemetry endpoints only, no environment-driven telemetry egress, no browser direct export |
+| Tampering | incident records, revisions, object blobs, object overwrite or delete attempts, object metadata drift, SeaweedFS migration copy mismatch, backup manifests, backup artifacts, restore-verification extracts, reference packs, snapshots, exports, telemetry config, generated telemetry constants, telemetry source snapshot, golden telemetry corpus, retained telemetry artifacts | row-versioned writes, immutable change sets, write-once product evidence keys, blob hashes, SHA-256 migration and backup proofs, fail-closed integrity verification, immutable published snapshots, source-snapshot validation, generated-constant drift checks, artifact integrity checks |
+| Repudiation | edits, imports, rollbacks, pack activation, export generation, evidence lifecycle actions, direct-upload issuance and attach finalization, object-store dependency failures, migration copy and validation events, backup and restore verification, telemetry config changes, exporter failures | attributed append-only history with actor, timestamp, source, and reversible mutation detail, application attach audit as authoritative, object-store logs as diagnostics only, attributed deployment-config changes, retained migration and backup/restore summaries, retained telemetry conformance summaries |
+| Information disclosure | evidence blobs, direct-upload targets, same-origin evidence handles, raw object keys, storage refs, bucket names, SeaweedFS admin, filer, master, volume, WebDAV, and debug surfaces, backup artifacts, restore-verification extracts, migration ledgers, exports, previews, secrets, portable runtime roots, exporter headers, incident-derived telemetry, local diagnostics, raw telemetry captures | incident-scoped authorization, same-origin preview/download handles, no raw backend identifiers in public responses, secret isolation, untrusted-content rendering rules, self-contained outputs, encrypted flyaway storage, operator-private artifact redaction, forbidden-value tests, secret redaction, admin/debug surface non-exposure by default, raw capture retention outside committed source |
+| Denial of service | oversized evidence, archive bombs, pathological imports, expensive report or preview jobs, object-store prefix listing abuse, storage exhaustion, repeated range reads, startup probe cleanup failures, exporter retry loops, processor queues, telemetry self-diagnostics | size and decompression limits, background-job isolation, cancellation, bounded hot-path retrieval, no user-facing object-store listing primitive, storage quotas or operational capacity controls, bounded range behavior, deterministic probe cleanup, bounded telemetry queues, retry cutoff, non-blocking hot path, recursion guard |
+| Elevation of privilege | user-controlled record or blob identifiers, destructive operations, job-worker storage access, wildcard object-store credentials, anonymous bucket access, exposed SeaweedFS admin APIs, wildcard CORS, default-service confusion, telemetry test hooks, browser telemetry configuration, environment autoconfiguration | server-side authorization derived from object ownership, role gates for destructive actions, least-privilege worker credentials, no anonymous default object-store access, no wildcard bucket credentials for product runtime, restrictive upload CORS, no admin API exposure in ordinary deployments, explicit service references, no runtime deterministic telemetry test hook, no browser telemetry config, environment containment |
 
 ### 4.5 Focused MITRE CWE constraints
 
@@ -444,7 +444,7 @@ The recommended disconnected deployment MUST consist of:
 
 - one application container,
 - one Postgres container,
-- one MinIO container or equivalent S3-compatible object store.
+- one SeaweedFS S3-compatible object-store container or equivalent S3-compatible object store.
 Profiles: base
 Verified by: AC-055, AC-092, AC-096, AC-169, AC-231
 
@@ -1740,7 +1740,7 @@ Profiles: base, reference_pack
 Verified by: AC-294, AC-295, AC-297, AC-403
 
 **REQ-04-072**
-Each root binding MUST be a typed object. `binding_kind` MUST use the closed vocabulary `filesystem_root` or `managed_service`. When `binding_kind='filesystem_root'`, `path` is required and `service_ref` MUST NOT be present. When `binding_kind='managed_service'`, `service_ref` is required and `path` MUST NOT be present. Credentials, vendor-specific connection properties, reverse-proxy settings, and other deployment-adjacent configuration remain outside this contract.
+Each root binding MUST be a typed object. `binding_kind` MUST use the closed vocabulary `filesystem_root` or `managed_service`. When `binding_kind='filesystem_root'`, `path` is required and `service_ref` MUST NOT be present. When `binding_kind='managed_service'`, `service_ref` is required and `path` MUST NOT be present. Credentials, vendor-specific connection properties, reverse-proxy settings, and other deployment-adjacent configuration remain outside the TOML file and `CARTULARY__` overlay contract except where a managed-service reference below defines an explicit environment binding.
 Profiles: base
 Verified by: AC-295
 
@@ -1748,6 +1748,18 @@ Verified by: AC-295
 `roots.reference_pack_storage`, `roots.temporary_work`, and `roots.export_outputs` MUST use `binding_kind='filesystem_root'`. `roots.backup_storage` is governed by §12.3.3. When `deployment_profile='disconnected'`, `roots.database_storage` and `roots.object_storage` MUST also use `binding_kind='filesystem_root'`. In `deployment_profile='on_prem'` or `deployment_profile='cloud'`, those two roots MAY use `binding_kind='managed_service'`.
 Profiles: base, reference_pack
 Verified by: AC-295, AC-297, AC-403
+
+For `roots.object_storage`, the file and `CARTULARY__` overlay configuration remain backend-neutral. The only deployment-configuration keys for this root are the standardized root-binding keys above; the configuration schema MUST NOT add `seaweedfs.*`, `s3.*`, bucket, endpoint, access-key, secret-key, CORS, or vendor-specific object-store keys. When `roots.object_storage.binding_kind='filesystem_root'`, omitted `path`, explicit `path=null`, present `service_ref`, or explicit `service_ref=null` are invalid according to the root-binding contract. When `roots.object_storage.binding_kind='managed_service'`, omitted `service_ref`, explicit `service_ref=null`, present `path`, or explicit `path=null` are invalid according to the root-binding contract.
+
+For `roots.object_storage.binding_kind='managed_service'`, `service_ref` MUST contain at least one ASCII letter or digit after normalization. Normalization for managed object-storage service environment keys MUST uppercase letters, retain digits, replace every non-alphanumeric run with one underscore, trim leading and trailing underscores, and reject an empty normalized result. The normalized reference `<REF>` selects the following environment variables, which are service binding material rather than deployment-configuration keys and MUST NOT be accepted through the `CARTULARY__` overlay grammar:
+
+- `CARTULARY_S3_<REF>_ENDPOINT` is required.
+- `CARTULARY_S3_<REF>_ACCESS_KEY_ID` is required.
+- `CARTULARY_S3_<REF>_SECRET_ACCESS_KEY` is required.
+- `CARTULARY_S3_<REF>_BUCKET` is required.
+- `CARTULARY_S3_<REF>_SECURE` is optional and defaults to `false` when omitted; when present it MUST be exactly `true` or `false`.
+
+Missing required service-binding environment variables, invalid normalized `service_ref`, or invalid optional `SECURE` values MUST fail closed before readiness. Diagnostics MUST identify the config path or service binding field and a registered validation reason without exposing raw endpoint hosts, bucket names, access keys, secret keys, object keys, storage refs, or backend URLs. Endpoint values are redacted as endpoint material, bucket values as bucket material, and access-key and secret-key values as secret material.
 
 #### 12.3.2 First-admin bootstrap binding
 
@@ -1792,6 +1804,8 @@ Verified by: AC-403
 `roots.backup_storage` is a persistent runtime root. When `deployment_profile='disconnected'`, it MUST use `binding_kind='filesystem_root'`. In `deployment_profile='on_prem'` or `deployment_profile='cloud'`, it MAY use `binding_kind='filesystem_root'` or `binding_kind='managed_service'`. `roots.export_outputs` and `roots.temporary_work` MUST NOT be treated as authoritative backup roots or used to satisfy the retained-backup floor.
 
 For the current filesystem-backed backup-storage realization, backup artifacts and restore-verification extracts that carry incident data MUST be written through authenticated application-level envelope encryption before they reach `roots.backup_storage`. File permissions, root separation, or an operator assertion that the underlying volume is encrypted are not sufficient implementation proof for this realization. Implementations MUST fail closed when the recovery encryption key material required to read or write those encrypted envelopes is unavailable.
+
+For SeaweedFS S3 object-store backup and restore, operator-private object-store manifests, restore-verification artifacts, copy ledgers, and validation extracts are deployment-local recovery artifacts. Any such artifact that carries incident-derived object identity, storage refs, raw object keys, bucket names, or blob metadata MUST remain outside incident portability bundles and public user-facing responses. Shareable summaries MUST redact those values before retention outside the deployment-local recovery boundary.
 Profiles: base
 Verified by: AC-403
 
@@ -1840,6 +1854,9 @@ Deployment-configuration validation failures MUST surface the top-level error co
 - `path_forbidden_segment`,
 - `path_overlap`,
 - `profile_incompatible_binding`,
+- `managed_service_ref_invalid`,
+- `managed_service_env_missing`,
+- `managed_service_env_invalid`,
 - `path_not_writable`,
 - `bootstrap_manifest_path_missing`,
 - `bootstrap_manifest_not_readable`,
@@ -1859,5 +1876,7 @@ Verified by: AC-294, AC-295, AC-296, AC-298, AC-320
 
 **REQ-04-078**
 Validation of the effective deployment configuration MUST complete before any HTTP listener, WebSocket listener, or background-job runner starts. Invalid deployment configuration MUST cause non-zero process exit. The implementation MUST NOT partially start and then discover deployment-configuration invalidity later during analyst workflow.
+
+Application liveness and readiness MUST distinguish process health from object-store dependency readiness. `/healthz` is a process-liveness surface and MUST NOT become unhealthy solely because the object store is unreachable after the process is running. `/readyz` is the public readiness surface and MUST emit a structured state with `status` equal to one of `starting_object_store_probe`, `ready`, `degraded_object_store`, or `recovering_object_store` when object storage participates in the active deployment. `/readyz` MUST return HTTP `200` only when `status='ready'`; it MUST return HTTP `503` for startup object-store probing, post-ready object-store degradation, and recovery probing until the required probe passes. Readiness diagnostics MUST use redacted reason data and MUST NOT expose raw endpoint hosts, bucket names, access keys, secret keys, object keys, storage refs, or backend URLs.
 Profiles: base
 Verified by: AC-298

@@ -6,7 +6,7 @@ The repository is an active, specification-first implementation. Alongside the n
 
 - one root Go module with the canonical path `github.com/JochiRaider/cartulary`;
 - one top-level pnpm workspace with a Vite + React web client under `apps/web` and shared packages under `packages/`;
-- local PostgreSQL and MinIO development services through `docker-compose.dev.yml`;
+- local PostgreSQL and S3-compatible object-store development services through `docker-compose.dev.yml`;
 - buildable `cmd/server`, `cmd/migrate`, and `cmd/operator` entrypoints with their platform and domain modules;
 - generated API and view-schema contracts under `contracts/` and sequential schema migrations under `db/migrations/`;
 - a sample disconnected development config at `configs/dev/config.toml`.
@@ -104,7 +104,7 @@ Cartulary uses a **modular monolith**. The intended base deployment is one web a
 
 PostgreSQL is a deliberate architectural choice. DFIR incident data is heterogeneous: typed records, free-text fields, semi-structured metadata, case-insensitive identifiers, partial uniqueness rules, append-only history, and projection-backed workbook views all need to coexist in one operationally simple system. PostgreSQL supports that breadth without forcing a more specialized stack.
 
-Binary evidence belongs outside the relational store. In disconnected deployments the intended object store is MinIO. In on-premises or cloud deployments, equivalent managed services can replace PostgreSQL and object storage so long as the data and behavioral contracts remain unchanged.
+Binary evidence belongs outside the relational store. In disconnected deployments the intended default object store is SeaweedFS S3-compatible storage. In on-premises or cloud deployments, equivalent managed services can replace PostgreSQL and object storage so long as the data and behavioral contracts remain unchanged.
 
 Microservice decomposition is out of scope. The hard problems here are mutation semantics, projection maintenance, concurrency, and interaction design, not horizontal service partitioning.
 
@@ -157,7 +157,7 @@ flowchart LR
 
 ## Deployment and security posture
 
-The minimum useful deployment model is an **air-gapped flyaway kit**: one application container, one PostgreSQL container, and one MinIO container on encrypted storage. This is the smallest deployment that preserves binary evidence handling, collaboration, authentication, and auditable source-of-truth behavior without collapsing back into a workbook file.
+The minimum useful deployment model is an **air-gapped flyaway kit**: one application container, one PostgreSQL container, and one SeaweedFS S3-compatible object-store container on encrypted storage. This is the smallest deployment that preserves binary evidence handling, collaboration, authentication, and auditable source-of-truth behavior without collapsing back into a workbook file.
 
 The broader deployment posture is intentionally flexible:
 
