@@ -433,8 +433,8 @@
       "blockers": [
         {
           "blocker_id": "FE-E-P4-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
+          "reason_code": "public_error_state_mapping_incomplete",
+          "description": "BLOCKER: FE-E-P4-01 public error-state mapping incomplete; missing=unknown_public_error minimum_follow_up=add Table G browser coverage.",
           "resolution_owner": "frontend_phase_owner"
         }
       ]

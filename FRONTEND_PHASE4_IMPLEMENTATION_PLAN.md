@@ -715,6 +715,13 @@ Binary acceptance:
 
 - `FE-E-P4-01` is implemented only when current browser row accounting closes the row through the mapped webserver-backed and stateful targets, every Sprint 5 requirement above is covered against Tables C, D, F, and G, or the current map is corrected with owner-approved target semantics before promotion.
 
+Execution note (2026-06-02):
+
+- Added focused exact-title browser coverage in `apps/web/e2e/frontend.phase4.public-route.spec.ts` for the real public-route create, patch, paste, save-state, refresh, and replay paths that can be induced through the current harness.
+- Kept `FE-E-P4-01` blocked because the unknown public error fallback cannot currently be induced through a real public route, accepted harness-owned control, or service-boundary behavior without private frontend mocks:
+  `BLOCKER: FE-E-P4-01 public error-state mapping incomplete; missing=unknown_public_error minimum_follow_up=add Table G browser coverage.`
+- No FE-P4 phase, visual, accessibility, WebSocket, same-field resolver UI, Core 05, or product hot-path closure is claimed.
+
 Explicit non-claims:
 
 - Sprint 5 does not close visual or accessibility rows.

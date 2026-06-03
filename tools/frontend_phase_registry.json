@@ -140,8 +140,8 @@
           "resolution_owner": "frontend_phase_owner"
         }
       ],
-      "evidence_freshness_digest": "2280965556d8bcdb20e6dfdc340fe9184b41a46bb6f0f2ed89e4773a1ecdf6ea",
-      "manifest_digest": "573d699ee59e3e9c613acd57f650991756a71f3b6b3c118744818f219d92cf47",
+      "evidence_freshness_digest": "dce68074df978d245ac293f99e37fd45d3b7c75ded5627f15919dbb9992e1ec4",
+      "manifest_digest": "36cc747e1120827a580ea61d56e0003a69f953b26a941f5fe21c06619c4f007c",
       "ledger_digest": "fa39e019598bcc765a94271e46ad197e2714fa0ab4147c0fb1fe7fc449b67212"
     },
     {
