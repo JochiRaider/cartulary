@@ -95,7 +95,7 @@ run_service() {
       FAKE_DOCKER_LOG="$docker_log" \
       FAKE_GO_LOG="$go_log" \
       CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS=1 \
-      CARTULARY_MINIO_READY_TIMEOUT_SECONDS=1 \
+      CARTULARY_OBJECT_STORE_READY_TIMEOUT_SECONDS=1 \
       "$@"
   ) >"$run_stdout" 2>"$run_stderr"
   run_status=$?
@@ -192,7 +192,7 @@ assert_file_contains "$go_log" "run ./cmd/migrate up" "db-reset runs migrations"
 reset_logs
 run_service object_store_reset_dry_run env CARTULARY_CLEANUP_DRY_RUN=1 bash scripts/dev-services.sh object-store-reset
 assert_status 0
-assert_file_contains "$run_stdout" "DRY-RUN reset-object-store minio-bucket:cartulary" "object-store-reset dry-run"
+assert_file_contains "$run_stdout" "DRY-RUN reset-object-store object-store-bucket:cartulary" "object-store-reset dry-run"
 assert_log_empty "$docker_log" "object-store-reset dry-run docker"
 assert_log_empty "$go_log" "object-store-reset dry-run go"
 
@@ -204,9 +204,9 @@ assert_log_empty "$docker_log" "object-store-reset missing confirmation docker"
 assert_log_empty "$go_log" "object-store-reset missing confirmation go"
 
 reset_logs
-run_service object_store_reset_confirmed env CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset MINIO_BUCKET=ct-test bash scripts/dev-services.sh object-store-reset
+run_service object_store_reset_confirmed env CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset OBJECT_STORE_BUCKET=ct-test bash scripts/dev-services.sh object-store-reset
 assert_status 0
-assert_file_contains "$docker_log" "up -d minio" "object-store-reset starts minio"
-assert_file_contains "$docker_log" "MINIO_BUCKET=ct-test" "object-store-reset passes configured bucket"
-assert_file_contains "$docker_log" "mc rm --recursive --force \"local/\${MINIO_BUCKET}\"" "object-store-reset deletes configured bucket objects"
-assert_log_empty "$go_log" "object-store-reset confirmed go"
+assert_file_contains "$docker_log" "up -d --remove-orphans seaweedfs-s3" "object-store-reset starts seaweedfs-s3"
+assert_file_contains "$go_log" "run ./tools/objectstoreprobe" "object-store-reset runs object-store probe"
+assert_file_contains "$go_log" "--mode reset" "object-store-reset selects reset mode"
+assert_file_contains "$go_log" "--bucket ct-test" "object-store-reset passes configured bucket"

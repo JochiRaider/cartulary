@@ -235,7 +235,7 @@
         },
         {
           "target": "db-up",
-          "description": "start local Postgres and MinIO, then initialize the default MinIO bucket"
+          "description": "start local Postgres and SeaweedFS S3, then initialize the default object-store bucket"
         },
         {
           "target": "db-reset",
@@ -303,33 +303,33 @@
           {
             "target": "playwright-install",
             "description": "install browser dependencies"
-          },
-          {
-            "target": "db-up",
-            "description": "start local Postgres and MinIO, then initialize the default MinIO bucket"
+        },
+        {
+          "target": "db-up",
+          "description": "start local Postgres and SeaweedFS S3, then initialize the default object-store bucket"
           },
           {
             "target": "db-reset",
             "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
             "description": "preview or recreate the local database only; does not reset object storage; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=db-reset"
           },
-          {
-            "target": "services-up",
-            "description": "start local Postgres and MinIO, then wait until ready"
-          },
-          {
-            "target": "services-down",
-            "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
-            "description": "preview or stop local Postgres and MinIO while preserving named volumes"
+        {
+          "target": "services-up",
+          "description": "start local Postgres and SeaweedFS S3, then wait until ready"
+        },
+        {
+          "target": "services-down",
+          "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
+          "description": "preview or stop local Postgres and SeaweedFS S3 while preserving named volumes"
           },
           {
             "target": "db-down",
             "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
             "description": "deprecated alias for services-down"
-          },
-          {
-            "target": "minio-init",
-            "description": "create the default local MinIO bucket if needed"
+        },
+        {
+          "target": "object-store-init",
+          "description": "create the default local object-store bucket if needed"
           },
           {
             "target": "object-store-reset",
@@ -1106,7 +1106,7 @@
       "services-wait": {
         "prerequisites": [
           "postgres-wait",
-          "minio-wait"
+          "object-store-wait"
         ],
         "type": "alias"
       },
@@ -1120,29 +1120,29 @@
           "wait-postgres"
         ]
       },
-      "minio-wait": {
+      "object-store-wait": {
         "prerequisites": [],
         "type": "phase_command",
         "mode": "command",
         "command": [
           "bash",
           "./scripts/dev-services.sh",
-          "wait-minio"
+          "wait-object-store"
         ]
       },
-      "minio-init": {
+      "object-store-init": {
         "prerequisites": [
           "services-wait"
         ],
         "type": "phase_command",
         "mode": "command",
         "env": {
-          "MINIO_BUCKET": "$(MINIO_BUCKET)"
+          "OBJECT_STORE_BUCKET": "$(OBJECT_STORE_BUCKET)"
         },
         "command": [
           "bash",
           "./scripts/dev-services.sh",
-          "init-minio"
+          "init-object-store"
         ]
       },
       "object-store-reset": {
@@ -1150,7 +1150,7 @@
         "type": "phase_command",
         "mode": "command",
         "env": {
-          "MINIO_BUCKET": "$(MINIO_BUCKET)",
+          "OBJECT_STORE_BUCKET": "$(OBJECT_STORE_BUCKET)",
           "CARTULARY_DESTRUCTIVE_CONFIRM": "$(if $(findstring command line,$(origin CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)"
         },
         "command": [
@@ -3239,7 +3239,7 @@
         "lifecycle_state": "candidate_child"
       },
       {
-        "name": "minio-wait",
+        "name": "object-store-wait",
         "backing_scripts": [
           "scripts/dev-services.sh"
         ],
@@ -3248,7 +3248,7 @@
         "lifecycle_state": "candidate_child"
       },
       {
-        "name": "minio-init",
+        "name": "object-store-init",
         "backing_scripts": [
           "scripts/dev-services.sh"
         ],
@@ -3270,7 +3270,7 @@
           "raw_stream_policy": "failure_or_verbose",
           "summary_schema": "cartulary.tool_run_summary.v3"
         },
-        "command_id": "cartulary.harness.command.minio_init.v1",
+        "command_id": "cartulary.harness.command.object_store_init.v1",
         "semantic_behaviors": [
           {
             "behavior": "service_lifecycle",

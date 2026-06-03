@@ -161,7 +161,7 @@ preflight_dir="$tmp_dir/preflight"
 mkdir -p "$preflight_dir"
 if CARTULARY_DEV_STACK_ARTIFACT_DIR="$preflight_dir/runtime" \
   CARTULARY_DEV_STACK_POSTGRES_PORT=1 \
-  CARTULARY_DEV_STACK_MINIO_READY_URL="http://127.0.0.1:1/minio/health/live" \
+  CARTULARY_DEV_STACK_OBJECT_STORE_PORT=1 \
   CARTULARY_DEV_STACK_BACKEND_COMMAND="printf backend-started >'$preflight_dir/backend.started'" \
   CARTULARY_DEV_STACK_FRONTEND_COMMAND="printf frontend-started >'$preflight_dir/frontend.started'" \
   "$DEV_STACK_SCRIPT" >"$preflight_dir/stdout" 2>"$preflight_dir/stderr"; then

@@ -45,6 +45,7 @@ const browserStagesCache = new Map();
 const serviceRequirementDisplayNames = new Map([
   ["postgres", "Postgres"],
   ["minio", "MinIO"],
+  ["object_store", "SeaweedFS S3"],
   ["browser_stack", "browser stack"],
   ["vite", "Vite"],
 ]);
@@ -262,13 +263,13 @@ export function serviceRequirementsForTarget(target, targetRows = [], declaredRe
     addServiceRequirement(requirements, "minio");
     addServiceRequirement(requirements, "browser_stack");
   }
-  if (target === "db-up" || target === "services-up" || target === "minio-init") {
+  if (target === "db-up" || target === "services-up" || target === "object-store-init") {
     addServiceRequirement(requirements, "postgres");
-    addServiceRequirement(requirements, "minio");
+    addServiceRequirement(requirements, "object_store");
   }
   if (target === "dev") {
     addServiceRequirement(requirements, "postgres");
-    addServiceRequirement(requirements, "minio");
+    addServiceRequirement(requirements, "object_store");
     addServiceRequirement(requirements, "vite");
   }
   if (["test", "test-fast", "check", "ci", "release-check"].includes(target)) {

@@ -4,11 +4,22 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 COMPOSE_FILE="${CARTULARY_COMPOSE_FILE:-$ROOT_DIR/docker-compose.dev.yml}"
 POSTGRES_READY_TIMEOUT_SECONDS="${CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS:-180}"
-MINIO_READY_TIMEOUT_SECONDS="${CARTULARY_MINIO_READY_TIMEOUT_SECONDS:-120}"
-MINIO_BUCKET="${MINIO_BUCKET:-cartulary}"
+OBJECT_STORE_READY_TIMEOUT_SECONDS="${CARTULARY_OBJECT_STORE_READY_TIMEOUT_SECONDS:-120}"
+SEAWEEDFS_S3_PORT="${SEAWEEDFS_S3_PORT:-8333}"
+OBJECT_STORE_ENDPOINT="${OBJECT_STORE_ENDPOINT:-127.0.0.1:${SEAWEEDFS_S3_PORT}}"
+OBJECT_STORE_BUCKET="${OBJECT_STORE_BUCKET:-cartulary}"
+SEAWEEDFS_S3_ACCESS_KEY_ID="${SEAWEEDFS_S3_ACCESS_KEY_ID:-cartulary-local}"
+SEAWEEDFS_S3_SECRET_ACCESS_KEY="${SEAWEEDFS_S3_SECRET_ACCESS_KEY:-cartulary-local-secret}"
+OBJECT_STORE_SECURE="${OBJECT_STORE_SECURE:-false}"
+OBJECT_STORE_CORS_ORIGIN="${OBJECT_STORE_CORS_ORIGIN:-http://127.0.0.1:5173}"
+SEAWEEDFS_S3_IMAGE="${SEAWEEDFS_S3_IMAGE:-docker.io/chrislusf/seaweedfs:4.17}"
+SEAWEEDFS_S3_IMAGE_DIGEST="${SEAWEEDFS_S3_IMAGE_DIGEST:-sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9}"
+GO_BIN="${GO:-go}"
+GO_CACHE="${GOCACHE:-${GO_CACHE_DIR:-/tmp/cartulary-go-build}}"
+GO_MOD_CACHE="${GOMODCACHE:-${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}}"
 
 usage() {
-  echo "usage: dev-services.sh up|services-down|db-down|wait-postgres|wait-minio|wait|init-minio|db-up|db-reset|object-store-reset" >&2
+  echo "usage: dev-services.sh up|services-down|db-down|wait-postgres|wait-object-store|wait|init-object-store|db-up|db-reset|object-store-reset" >&2
 }
 
 compose() {
@@ -78,48 +89,58 @@ wait_postgres() {
   return 1
 }
 
-# shellcheck disable=SC2016
-minio_ready_command='mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null 2>&1 && mc ready local >/dev/null 2>&1'
+probe_object_store() {
+  local mode="${1:-probe}"
 
-wait_minio() {
+  cd "$ROOT_DIR"
+  env GOCACHE="$GO_CACHE" GOMODCACHE="$GO_MOD_CACHE" \
+    "$GO_BIN" run ./tools/objectstoreprobe \
+      --mode "$mode" \
+      --endpoint "$OBJECT_STORE_ENDPOINT" \
+      --access-key-id "$SEAWEEDFS_S3_ACCESS_KEY_ID" \
+      --secret-access-key "$SEAWEEDFS_S3_SECRET_ACCESS_KEY" \
+      --secure "$OBJECT_STORE_SECURE" \
+      --bucket "$OBJECT_STORE_BUCKET" \
+      --origin "$OBJECT_STORE_CORS_ORIGIN" \
+      --service-name seaweedfs-s3 \
+      --image "$SEAWEEDFS_S3_IMAGE" \
+      --image-digest "$SEAWEEDFS_S3_IMAGE_DIGEST"
+}
+
+wait_object_store() {
   local start_time="$SECONDS"
   local status="unknown"
   local health="unknown"
 
-  while (( SECONDS - start_time < MINIO_READY_TIMEOUT_SECONDS )); do
-    if compose exec -T minio sh -c "$minio_ready_command"; then
+  while (( SECONDS - start_time < OBJECT_STORE_READY_TIMEOUT_SECONDS )); do
+    if probe_object_store probe >/dev/null 2>&1; then
       return 0
     fi
 
-    read -r status health < <(container_state minio)
+    read -r status health < <(container_state seaweedfs-s3)
     if [[ "$status" == "exited" || "$status" == "dead" || "$status" == "missing" ]]; then
-      echo "minio container is ${status} during readiness wait (health=${health})" >&2
-      compose logs --no-color --tail 120 minio >&2 || true
+      echo "seaweedfs-s3 container is ${status} during readiness wait (health=${health})" >&2
+      compose logs --no-color --tail 120 seaweedfs-s3 >&2 || true
       return 1
     fi
 
     sleep 1
   done
 
-  echo "minio did not become ready after ${MINIO_READY_TIMEOUT_SECONDS}s (state=${status} health=${health})" >&2
-  compose logs --no-color --tail 120 minio >&2 || true
+  echo "seaweedfs-s3 did not become ready after ${OBJECT_STORE_READY_TIMEOUT_SECONDS}s (state=${status} health=${health})" >&2
+  probe_object_store probe >&2 || true
+  compose logs --no-color --tail 120 seaweedfs-s3 >&2 || true
   return 1
 }
 
-init_minio() {
-  wait_minio
-  # shellcheck disable=SC2016
-  compose exec -T -e MINIO_BUCKET="$MINIO_BUCKET" minio sh -c '
-    set -e
-    mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
-    mc mb --ignore-existing "local/${MINIO_BUCKET}" >/dev/null
-  '
+init_object_store() {
+  wait_object_store
 }
 
 services_up() {
-  compose up -d postgres minio
+  compose up -d --remove-orphans postgres seaweedfs-s3
   wait_postgres
-  wait_minio
+  wait_object_store
 }
 
 services_down() {
@@ -133,7 +154,7 @@ services_down() {
 
 db_up() {
   services_up
-  init_minio
+  init_object_store
 }
 
 db_down() {
@@ -155,7 +176,7 @@ db_reset() {
 
   compose up -d postgres
   wait_postgres
-  printf '%s\n' 'db-reset: database reset only; MinIO/object storage is not reset.'
+  printf '%s\n' 'db-reset: database reset only; object storage is not reset.'
   compose exec -T postgres psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS cartulary;"
   compose exec -T postgres psql -U cartulary -d postgres -c "CREATE DATABASE cartulary;"
   cd "$ROOT_DIR"
@@ -168,21 +189,14 @@ db_reset() {
 object_store_reset() {
   require_destructive_confirm "object-store-reset"
   if cleanup_dry_run; then
-    dry_run_line "start-service" "compose:${COMPOSE_FILE}:minio" "local_dev_minio_required_for_object_store_reset"
-    dry_run_line "reset-object-store" "minio-bucket:${MINIO_BUCKET}" "delete_objects_and_preserve_bucket"
+    dry_run_line "start-service" "compose:${COMPOSE_FILE}:seaweedfs-s3" "local_dev_object_store_required_for_object_store_reset"
+    dry_run_line "reset-object-store" "object-store-bucket:${OBJECT_STORE_BUCKET}" "delete_objects_and_preserve_bucket"
     return 0
   fi
 
-  compose up -d minio
-  wait_minio
-  # shellcheck disable=SC2016
-  compose exec -T -e MINIO_BUCKET="$MINIO_BUCKET" minio sh -c '
-    set -e
-    mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
-    mc mb --ignore-existing "local/${MINIO_BUCKET}" >/dev/null
-    mc rm --recursive --force "local/${MINIO_BUCKET}" >/dev/null
-    mc mb --ignore-existing "local/${MINIO_BUCKET}" >/dev/null
-  '
+  compose up -d --remove-orphans seaweedfs-s3
+  wait_object_store
+  probe_object_store reset
 }
 
 case "${1:-}" in
@@ -198,15 +212,15 @@ case "${1:-}" in
   wait-postgres)
     wait_postgres
     ;;
-  wait-minio)
-    wait_minio
+  wait-object-store)
+    wait_object_store
     ;;
   wait)
     wait_postgres
-    wait_minio
+    wait_object_store
     ;;
-  init-minio)
-    init_minio
+  init-object-store)
+    init_object_store
     ;;
   db-up)
     db_up

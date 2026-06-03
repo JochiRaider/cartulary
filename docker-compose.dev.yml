@@ -15,23 +15,24 @@ services:
       timeout: 5s
       retries: 10
 
-  minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
-    command: server /data --console-address ":9001"
+  seaweedfs-s3:
+    image: docker.io/chrislusf/seaweedfs:4.17@sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9
+    command:
+      - server
+      - -dir=/data
+      - -s3
+      - -s3.port=8333
+      - -s3.allowedOrigins=http://localhost:5173,http://127.0.0.1:5173
+      - -s3.port.iceberg=0
+      - -webdav=false
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      AWS_ACCESS_KEY_ID: ${SEAWEEDFS_S3_ACCESS_KEY_ID:-cartulary-local}
+      AWS_SECRET_ACCESS_KEY: ${SEAWEEDFS_S3_SECRET_ACCESS_KEY:-cartulary-local-secret}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${SEAWEEDFS_S3_PORT:-8333}:8333"
     volumes:
-      - minio-data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "mc alias set local http://127.0.0.1:9000 minioadmin minioadmin >/dev/null 2>&1 && mc ready local >/dev/null 2>&1"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
+      - seaweedfs-s3-data:/data
 
 volumes:
   postgres-data:
-  minio-data:
+  seaweedfs-s3-data:

@@ -716,14 +716,17 @@ if ! grep -Fq 'scripts/list-build-inputs.sh' "$makefile"; then
   fail "Makefile must use scripts/list-build-inputs.sh for build input discovery"
 fi
 
-for target in services-up services-down db-down services-wait postgres-wait minio-wait minio-init object-store-reset; do
+for target in services-up services-down db-down services-wait postgres-wait object-store-wait object-store-init object-store-reset; do
   if ! target_exists "$target"; then
     fail "Makefile must define $target"
   fi
 done
+if target_exists minio-init; then
+  fail "Makefile must not define the legacy minio-init local-service target"
+fi
 
 services_wait_prereqs="$(extract_target_prereqs services-wait)"
-for target in postgres-wait minio-wait; do
+for target in postgres-wait object-store-wait; do
   if ! text_matches "$services_wait_prereqs" "(^|[[:space:]])$target($|[[:space:]])"; then
     fail "services-wait must depend on $target"
   fi
@@ -734,10 +737,10 @@ services_up_block="$(extract_target_block services-up)"
 if ! text_contains "$services_up_block" './scripts/dev-services.sh up'; then
   fail "services-up must delegate to scripts/dev-services.sh"
 fi
-if ! text_contains "$dev_services_body" 'compose up -d postgres minio'; then
-  fail "services-up must start postgres and minio"
+if ! text_contains "$dev_services_body" 'compose up -d --remove-orphans postgres seaweedfs-s3'; then
+  fail "services-up must start postgres and seaweedfs-s3"
 fi
-if ! text_contains "$dev_services_body" 'wait_postgres' || ! text_contains "$dev_services_body" 'wait_minio'; then
+if ! text_contains "$dev_services_body" 'wait_postgres' || ! text_contains "$dev_services_body" 'wait_object_store'; then
   fail "services-up must wait for service readiness"
 fi
 services_down_block="$(extract_target_block services-down)"
@@ -762,8 +765,8 @@ fi
 if ! text_contains "$dev_services_body" 'services_up'; then
   fail "db-up must delegate service startup to services-up"
 fi
-if ! text_contains "$dev_services_body" 'init_minio'; then
-  fail "db-up must initialize the default MinIO bucket"
+if ! text_contains "$dev_services_body" 'init_object_store'; then
+  fail "db-up must initialize the default object-store bucket"
 fi
 
 db_reset_block="$(extract_target_block db-reset)"
@@ -782,21 +785,21 @@ fi
 if ! text_contains "$dev_services_body" 'wait_postgres'; then
   fail "db-reset must wait for postgres before resetting the database"
 fi
-if ! text_contains "$dev_services_body" 'MinIO/object storage is not reset'; then
+if ! text_contains "$dev_services_body" 'object storage is not reset'; then
   fail "db-reset must explicitly report that object storage is not reset"
 fi
 
-minio_init_block="$(extract_target_block minio-init)"
-if ! text_contains "$minio_init_block" 'MINIO_BUCKET="$(MINIO_BUCKET)"'; then
-  fail "minio-init must pass the configured MINIO_BUCKET"
+object_store_init_block="$(extract_target_block object-store-init)"
+if ! text_contains "$object_store_init_block" 'OBJECT_STORE_BUCKET="$(OBJECT_STORE_BUCKET)"'; then
+  fail "object-store-init must pass the configured OBJECT_STORE_BUCKET"
 fi
-if ! text_contains "$minio_init_block" 'init-minio'; then
-  fail "minio-init must delegate bucket creation to dev-services.sh"
+if ! text_contains "$object_store_init_block" 'init-object-store'; then
+  fail "object-store-init must delegate bucket creation to dev-services.sh"
 fi
 
 object_store_reset_block="$(extract_target_block object-store-reset)"
-if ! text_contains "$object_store_reset_block" 'MINIO_BUCKET="$(MINIO_BUCKET)"'; then
-  fail "object-store-reset must pass the configured MINIO_BUCKET"
+if ! text_contains "$object_store_reset_block" 'OBJECT_STORE_BUCKET="$(OBJECT_STORE_BUCKET)"'; then
+  fail "object-store-reset must pass the configured OBJECT_STORE_BUCKET"
 fi
 if ! text_contains "$object_store_reset_block" 'CARTULARY_DESTRUCTIVE_CONFIRM="$(if $(findstring command line,$(origin CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)"'; then
   fail "object-store-reset must forward destructive confirmation only from the Make command line"
@@ -807,8 +810,8 @@ fi
 if ! text_contains "$dev_services_body" 'require_destructive_confirm "object-store-reset"'; then
   fail "object-store-reset must require explicit destructive confirmation"
 fi
-if ! text_contains "$dev_services_body" 'mc rm --recursive --force "local/${MINIO_BUCKET}"'; then
-  fail "object-store-reset must delete only objects in the configured bucket"
+if ! text_contains "$dev_services_body" 'probe_object_store reset'; then
+  fail "object-store-reset must delete only objects in the configured bucket through the object-store probe"
 fi
 
 help_text="$(cat "$generated_make")"
@@ -823,6 +826,9 @@ if ! text_contains "$help_text" 'make db-down'; then
 fi
 if ! text_contains "$help_text" 'make object-store-reset'; then
   fail "help must document object-store-reset"
+fi
+if ! text_contains "$help_text" 'make object-store-init'; then
+  fail "help must document object-store-init"
 fi
 if ! text_contains "$help_text" 'does not reset object storage'; then
   fail "help must document db-reset object-storage scope"

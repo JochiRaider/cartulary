@@ -38,7 +38,7 @@
 - Use `make help` for the compact task surface and `make help-all` for the current public target inventory. Do not copy target lists into new docs when a pointer is sufficient.
 - Use `make task-guide ROLE=<role> PHASE=phaseN` to choose narrow verification by role and phase. Useful roles include `local-dev`, `feature-dev`, `phase-author`, `ci-investigator`, and `release`.
 - Use investigation targets such as `make explain-phase PHASE=phaseN`, `make explain-target TARGET=<target> DETAIL=summary|rows|artifacts`, `make explain-run RESULTS_DIR=<root|run-dir>`, `make target-plan`, and `make target-plan-json` before rerunning broad suites.
-- Local setup and dev: `make doctor`, `make bootstrap`, `make db-up`, `make db-reset`, `make services-up`, `make minio-init`, and `make dev`.
+- Local setup and dev: `make doctor`, `make bootstrap`, `make db-up`, `make db-reset`, `make services-up`, `make object-store-init`, and `make dev`.
 - Generation and drift: `make generate`, `make generate-drift`, `make generated-artifact-policy-check`, `make json-shape-check`, `make toolchain-drift`, `make migration-drift`, `make phase-ledger-drift`, and `make phase-schedule-drift`.
 - Common verification: `make test-fast`, `make test`, `make check`, `make lint`, `make frontend-typecheck`, `make frontend-unit`, `make frontend-import-boundary-check`, `make lint-biome`, `make lint-scripts`, `make lint-shell`, `make go-vulncheck`, `make go-gosec-targeted`, and `make go-gosec-audit`.
 - Browser and frontend readiness targets include `make browser-e2e`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-measurement`, `make browser-e2e-a11y`, `make browser-e2e-a11y-preflight`, and `make browser-e2e-visual`.

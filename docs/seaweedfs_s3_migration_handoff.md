@@ -19,21 +19,21 @@ This handoff uses the plan's phase structure, terminology, closure classes, acce
 
 ## 1. Current repository snapshot
 
-Planning inspection was performed against commit `92fa79edbedc95c9c6ad51e666b107b09dc0755c`. Phase A contract cleanup was implemented in the working tree against that same commit. At the start of Phase A implementation, `git status --short` showed this handoff file as untracked and no tracked file modifications.
+Planning inspection was performed against commit `92fa79edbedc95c9c6ad51e666b107b09dc0755c`. Phase A contract cleanup was implemented in the working tree against that same commit. Phase B local service replacement was then implemented in the same working tree. At the start of Phase A implementation, `git status --short` showed this handoff file as untracked and no tracked file modifications.
 
 The following are inspection facts only. They are not `SWFS-AC-*` acceptance evidence unless a later retained artifact or command result ties them to the acceptance-evidence matrix.
 
 | Area | Inspected fact | Evidence |
 | --- | --- | --- |
-| Default local Compose service | `docker-compose.dev.yml` still defines service `minio`, image `minio/minio:RELEASE.2025-09-07T16-13-09Z`, console address `:9001`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, ports `9000` and `9001`, and volume `minio-data`. | `docker-compose.dev.yml:18` through `docker-compose.dev.yml:30`. |
+| Default local Compose service | Phase B replaces the default local object-store service with `seaweedfs-s3`, pinned to `docker.io/chrislusf/seaweedfs:4.17@sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9`. The only host-published object-store port is S3 port `8333`. | `docker-compose.dev.yml`; `make services-up` run root `.cartulary/test-results/20260603T195218Z-p648759`; direct post-run `docker compose ps` inspection showed Postgres plus `seaweedfs-s3` only and host-published object-store port `0.0.0.0:8333`. |
 | Test S3 fixture | `internal/testutil/s3test/s3test.go` still imports `github.com/minio/minio-go/v7`, uses `github.com/minio/minio-go/v7/pkg/credentials`, and defines `minioImage = "minio/minio:RELEASE.2025-09-07T16-13-09Z"`. | `internal/testutil/s3test/s3test.go:18` through `internal/testutil/s3test/s3test.go:29`. |
-| Local dev service scripts | `scripts/dev-services.sh` still owns `wait_minio`, `init_minio`, starts `postgres minio`, initializes `MINIO_BUCKET`, and uses MinIO-specific reset wording. | `scripts/dev-services.sh:82` through `scripts/dev-services.sh:182`. |
-| Harness public target registry | `docs/testing-harness-nlspec.md` still lists `minio-init` with command ID `cartulary.harness.command.minio_init.v1`. | `docs/testing-harness-nlspec.md:267`. |
-| Generated harness manifests | `tools/task_surface_manifest.json` and `tools/execution_topology_manifest.json` still include `minio-init`, MinIO descriptions, and `cartulary.harness.command.minio_init.v1`. | Planning search output; TODO: retained occurrence inventory artifact with path, line, column, token, classification, owner, and rationale. |
+| Local dev service scripts | Phase B replaces local wait/init/reset behavior with provider-neutral object-store helpers backed by `tools/objectstoreprobe`. `make services-up`, `make db-up`, `make object-store-init`, and `make object-store-reset` now use `seaweedfs-s3` and `OBJECT_STORE_BUCKET`. | `scripts/dev-services.sh`; `scripts/dev-stack.sh`; `make services-up` run root `.cartulary/test-results/20260603T195218Z-p648759`; `make object-store-init` run root `.cartulary/test-results/20260603T195740Z-p652397`. |
+| Harness public target registry | Phase B replaces local `minio-init` with `object-store-init` and generated `object-store-wait` from owner inputs. | `docs/testing-harness-nlspec.md:267`; `tools/execution_topology_manifest.json`; `make phase-schedules` run root `.cartulary/test-results/20260603T194856Z-p641032`. |
+| Generated harness manifests | Generated task-surface outputs now include `object-store-init`, `object-store-wait`, and SeaweedFS S3 local help wording. Remaining generated `minio` tokens are service-backed scheduler resource claims and are Phase C blockers. | `tools/task_surface_manifest.json`; `tools/task_surface.generated.mk`; `tools/execution_topology_render_index.json`; `make phase-schedule-drift` run root `.cartulary/test-results/20260603T195015Z-p643182`. |
 | Testcontainers fixtures | `tools/testservices`, `internal/testutil/testcontainersx` tests, and harness recovery docs still contain MinIO service, startup, bucket, and image references. | Planning search output; TODO: retained occurrence inventory artifact with complete scan scope. |
 | `minio-go` dependency | `go.mod` contains `github.com/minio/minio-go/v7 v7.0.100`; `go.sum` contains matching module checksums. | `go.mod:12`, `go.sum:91`, `go.sum:92`. |
-| SeaweedFS references | During planning search, SeaweedFS references were found only in `docs/seaweedfs_s3_migration_implementation_plan.md`. | TODO: retained occurrence inventory artifact that proves complete scan scope and exact results. |
-| SeaweedFS image tag and digest | No repo-controlled SeaweedFS image tag plus digest was verified. | TODO: repo-controlled service manifest plus registry digest evidence. |
+| SeaweedFS references | Phase B adds repo-controlled local SeaweedFS S3 references in Compose, local service scripts, dev env defaults, task-surface owner inputs, generated task-surface outputs, and the local probe. | Phase B diff; `make help-all` output showed SeaweedFS S3 local command wording. |
+| SeaweedFS image tag and digest | SeaweedFS image digest verified from current registry metadata and `docker buildx imagetools inspect`: index digest `sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9`. | `docker-compose.dev.yml`; `docker image inspect` showed repo digest `chrislusf/seaweedfs@sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9`. |
 | Owner-document patches | Phase A owner diffs were added for public object-store dependency errors, backend-neutral managed object-store service binding, readiness state, range fallback semantics, backup/restore artifact adoption, threat-model coverage, and default SeaweedFS S3 wording. `SWFS-OWNER-STORAGEREF-001` remains an explicit owner-decision TODO at the Core 01 storage-ref anchor. | `docs/spec/01_architecture_storage_and_view_contracts.md`; `docs/spec/04_security_deployment_and_conformance.md`; `contracts/errors/index.json`; generated contract embeddings from `make generate`. |
 | Acceptance command results | No `SWFS-AC-*` acceptance command was run or retained for this handoff. Phase A validation commands ran only owner/doc/contract hygiene checks. | See Section 5.2. |
 
@@ -44,9 +44,9 @@ No phase may be marked complete by prose-only completion. Each exit gate require
 | Phase | Status | Current handoff state | Evidence needed to close |
 | --- | --- | --- | --- |
 | A. Contract cleanup | `complete_for_phase_a_with_retained_blockers` | Phase A owner cleanup is implemented in the working tree. Seven owner rows have local owner diffs or authored registry changes; `SWFS-OWNER-STORAGEREF-001` remains blocked with an explicit Core 01 TODO blocker rather than invented behavior. Downstream acceptance rows remain unclaimed. | Commit or review the Phase A diffs, then carry remaining implementation evidence into later phases. |
-| B. Local service replacement | `blocked` | Incomplete. The inspected repo still defines a default `minio` service and `minio/minio` image in `docker-compose.dev.yml`. SeaweedFS image tag/digest evidence remains unresolved. | Repo-controlled `seaweedfs-s3` service with pinned SeaweedFS image tag plus digest, ordinary local exposure limited to the S3 endpoint, and clean Section 9 capability probe. |
+| B. Local service replacement | `complete_for_phase_b_with_retained_local_evidence` | Implemented. The default local object-store service is `seaweedfs-s3`, uses the pinned SeaweedFS tag plus digest, publishes only S3 port `8333` to the host, and passes the local S3 capability probe. | Keep the retained `services-up` evidence root and do not widen the claim to Phase C harness fixtures or release support. |
 | C. Harness replacement | `blocked` | Incomplete. Harness docs/manifests, testservice code, and fixture terminology still include MinIO surfaces. | Backend-neutral object-store harness vocabulary, generated manifest updates from owner inputs, service-backed fixture replacement, and retained artifact scan proving forbidden MinIO readiness fields are absent. |
-| D. Adapter hardening | `TODO:evidence-required` | Not verified. Existing adapter still uses `minio-go`; this is allowed only as SDK-only if boundary and artifact evidence prove it is not MinIO server support. No adapter-hardening tests or probe artifacts were retained. | Adapter tests, capability probe artifact, direct-upload probe evidence, retry/error mapping evidence, and owner-blocked public mapping status. |
+| D. Adapter hardening | `TODO:evidence-required` | Not verified. Existing adapter still uses `minio-go`; this is allowed only as SDK-only if boundary and artifact evidence prove it is not MinIO server support. Phase B retained a local capability probe, but no adapter-hardening tests or runtime outage artifacts were retained. | Adapter tests, compatibility probe/report evidence, direct-upload route evidence, retry/error mapping evidence, and owner-blocked public mapping status. |
 | E. Backup and restore | `TODO:evidence-required` | Not verified. Phase A added owner text for backup/restore artifact shapes, but no SeaweedFS backup manifest, shareable summary, restore verification artifact, or tooling evidence was produced. | `cartulary.object_store_backup_manifest.v1`, `cartulary.object_store_backup_summary.v1` if emitted, and `cartulary.restore_verification.v1` with `result='pass'`. |
 | F. Migration tooling | `TODO:evidence-required` | Not verified. No application-stopped migration utility, lifecycle artifact, copy ledger, validation artifact, or rollback evidence was verified. | `cartulary.object_store_migration_run.v1`, copy ledger evidence, `cartulary.object_store_migration_validation.v1`, storage-ref owner citation, mismatch-blocking fixture, and rollback documentation evidence. |
 | G. Security and release gate | `blocked` | Blocked. Phase A added threat-model owner text, but occurrence inventory, scanner/release evidence, SBOM/license, release-gate, and remaining owner dependency evidence are not available. | Occurrence inventory with zero invalid and zero unclassified rows, SBOM/license report, release manifest exposure scan, `make release-check` or plan-owned release gate evidence after prior blockers resolve. |
@@ -66,7 +66,15 @@ Completed Phase A decisions and edits:
 - `SWFS-OWNER-THREAT-001`: Core 04 §4.4 STRIDE coverage now names SeaweedFS S3 endpoint identity, direct upload target scope, object tampering, migration mismatch, credentials, admin surfaces, CORS, storage exhaustion, backup/restore, and migration validation risks.
 - `SWFS-OWNER-DOCS-001`: Authored README and guide default wording now uses SeaweedFS S3-compatible or backend-neutral S3-compatible object-store terminology. Remaining SDK-only and current scheduler/generated-surface references are retained as blockers for later phases.
 
-Planning inspection also identified current blocking MinIO server surfaces in local Compose, local service scripts, service-backed harness/testservice fixtures, generated harness manifests, harness docs, testcontainer fixtures, and dependency files. Those inspection results are evidence of remaining work, not completion evidence for any `SWFS-AC-*` row.
+Completed Phase B decisions and edits:
+
+- Local Compose now defines `seaweedfs-s3` as the default object-store service and pins `docker.io/chrislusf/seaweedfs:4.17@sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9`.
+- Ordinary local Compose publishes only host S3 port `8333` for object storage. SeaweedFS admin, master, filer, volume, WebDAV, console, Iceberg, and debug ports are not host-published by the local Compose file.
+- `scripts/dev-services.sh`, `scripts/dev-stack.sh`, `.env.example`, `AGENTS.md`, `Makefile`, `docs/testing-harness-nlspec.md`, and task-surface owner inputs now use `OBJECT_STORE_BUCKET`, `object-store-init`, `object-store-wait`, and SeaweedFS S3 local defaults.
+- `tools/objectstoreprobe` provides the Phase B local S3 capability probe using the existing S3-compatible SDK dependency. It validates bucket create-or-exists, PutObject, HeadObject, full GetObject, range read, presigned PUT, CORS preflight, and cleanup.
+- `make phase-schedules` regenerated task-surface outputs from owner inputs; generated files were not hand-edited.
+
+Planning inspection and the Phase B final scan still identify blocking MinIO server surfaces in service-backed harness/testservice fixtures, browser E2E service-backed startup, scheduler resource vocabulary, and dependency files. Those remaining results are evidence of later-phase work, not completion evidence for any release-wide `SWFS-AC-*` row.
 
 ## 4. Remaining work and blockers
 
@@ -88,11 +96,11 @@ Planning inspection also identified current blocking MinIO server surfaces in lo
 | Fact class | Required evidence | Current status |
 | --- | --- | --- |
 | Live repository commit | `git rev-parse HEAD` or equivalent retained artifact. | Planning value recorded as `92fa79edbedc95c9c6ad51e666b107b09dc0755c`; TODO: retained artifact for completion claims. |
-| Compose/service manifests inspected | Path list and line ranges for every default service definition. | Partial inspection found `docker-compose.dev.yml` MinIO service; TODO: complete manifest inventory. |
-| Make targets inspected | Path list and command registry evidence. | `make help-all` was consulted during planning; TODO: retained command-surface artifact if used as acceptance evidence. |
+| Compose/service manifests inspected | Path list and line ranges for every default service definition. | Phase B local Compose evidence is `docker-compose.dev.yml` plus `make services-up` run root `.cartulary/test-results/20260603T195218Z-p648759`; full repo occurrence inventory remains TODO for release-wide claims. |
+| Make targets inspected | Path list and command registry evidence. | `make help-all` and `make explain-target TARGET=services-up DETAIL=summary` were run after Phase B; `services-up` reports `Postgres,SeaweedFS S3`. |
 | Go module and lockfiles inspected | Path list and dependency evidence. | `go.mod` and `go.sum` show `minio-go`; TODO: SBOM/license evidence and dependency-boundary scan. |
 | Frontend/browser route evidence inspected | Browser/E2E evidence path list. | TODO: browser route inventory and evidence-flow tests. |
-| SeaweedFS image tag/digest | Repo-control file plus registry digest evidence. | TODO: pinned image tag plus digest. |
+| SeaweedFS image tag/digest | Repo-control file plus registry digest evidence. | Resolved for Phase B local Compose: `docker.io/chrislusf/seaweedfs:4.17@sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9`. |
 | License/SBOM evidence | Retained SBOM/license report. | TODO: release SBOM/license artifact. |
 | Threat model patch | Diff or retained scanner-ready document. | Core 04 §4.4 owner text patched; TODO: scanner/release evidence. |
 | Owner error registry patch | Owner diff plus generated error contract. | Core 01 and generated error contracts patched; TODO: review/commit evidence if used for acceptance. |
@@ -101,7 +109,7 @@ Planning inspection also identified current blocking MinIO server surfaces in lo
 ### 4.3 Unresolved evidence requirements
 
 - TODO: `cartulary.seaweedfs_migration_occurrence_inventory.v1` over the full plan-defined scan scope.
-- TODO: `cartulary.object_store_capability_probe.v1` with `result='pass'` and clean cleanup classification.
+- Phase B retained `cartulary.object_store_capability_probe.v1` with `result='pass'` for local `services-up` at `.cartulary/test-results/20260603T195218Z-p648759/services-up/object-store-capability-probe.json`. TODO: broader compatibility, service-backed, and adapter-hardening probe evidence.
 - TODO: backend-neutral harness artifact summaries with forbidden MinIO fields absent.
 - TODO: SeaweedFS compatibility report covering every `SWFS-COMP-*` case with no multipart or presigned-GET skip row.
 - TODO: public route evidence for blob-slot shape, timers, same-origin evidence handles, and negative evidence-state matrix.
@@ -140,21 +148,47 @@ The commands below verify only Phase A owner/doc/contract hygiene. They are not 
 
 Skipped checks:
 
-- `make harness-contract` was skipped because Phase A did not edit `docs/testing-harness-nlspec.md`, harness command topology, generated harness manifests, or harness public command surfaces.
-- Broad `make check` was skipped because Phase A touched owner docs, authored contract registry input, generated contract embeddings, support docs, and this handoff only; no implementation behavior or service/harness replacement was changed.
+- `make harness-contract` was skipped during Phase A because Phase A did not edit `docs/testing-harness-nlspec.md`, harness command topology, generated harness manifests, or harness public command surfaces.
+- Broad `make check` was skipped during Phase A because Phase A touched owner docs, authored contract registry input, generated contract embeddings, support docs, and this handoff only; no implementation behavior or service/harness replacement was changed.
 
-### 5.3 Acceptance command backlog
+### 5.3 Phase B verification commands
 
-All plan-owned acceptance commands below remain unrun and all rows remain unclaimed unless a later retained artifact supplies the required evidence.
+The commands below verify the Phase B local-service replacement only. They do not claim Phase C service-backed harness replacement, Phase D adapter hardening, release SBOM/license closure, or release-wide occurrence inventory closure.
+
+| Command | Status | Run root or evidence |
+| --- | --- | --- |
+| `make phase-schedules` | `pass`; regenerated task-surface outputs from `tools/execution_topology_manifest.json`. | `.cartulary/test-results/20260603T194856Z-p641032` |
+| `make generated-artifact-policy-check` | `pass`. | `.cartulary/test-results/20260603T194954Z-p642411` |
+| `make json-shape-check` | `pass`. | `.cartulary/test-results/20260603T194959Z-p642656` |
+| `make help-all` | `pass`; output names SeaweedFS S3 for local `db-up`, `services-up`, and `services-down`, and lists `object-store-init`. | terminal output summarized here |
+| `make explain-target TARGET=services-up DETAIL=summary` | `pass`; output reports `services: Postgres,SeaweedFS S3`. | terminal output summarized here |
+| `make phase-schedule-drift` | `pass`. | `.cartulary/test-results/20260603T195015Z-p643182` |
+| `make lint-scripts` | `pass`. | `.cartulary/test-results/20260603T195025Z-p643537` |
+| `make lint-shell` | `pass` after final shell edits. | `.cartulary/test-results/20260603T195749Z-p652769` |
+| `make lint-go-format` | `pass`; no wrapper output. | terminal status |
+| `make lint-go-vet` | `pass`; no wrapper output. | terminal status |
+| `make services-up` | `pass`; started Postgres plus `seaweedfs-s3`, removed the prior MinIO orphan, and emitted the local capability probe artifact. | `.cartulary/test-results/20260603T195218Z-p648759`; probe `.cartulary/test-results/20260603T195218Z-p648759/services-up/object-store-capability-probe.json` |
+| `make object-store-init` | `pass`; public provider-neutral helper target. | `.cartulary/test-results/20260603T195740Z-p652397` |
+| `make agent-finalize` | `pass`; generated outputs unchanged; finalizer reported `results_dir=-`. | `.cartulary/test-results/20260603T200800Z-p658561` |
+| `make services-down` | `pass`; stopped local Compose services after evidence capture. | `.cartulary/test-results/20260603T195829Z-p654702` |
+
+Skipped Phase B checks:
+
+- Broad `make check` was skipped because Phase B touched local-service Compose/scripts, local task-surface owner inputs, generated task surfaces, local docs/support wording, and a narrow support probe. It did not implement Phase C service-backed fixtures, Phase D adapter hardening, or broad runtime behavior.
+- Phase C service-backed harness/browser fixture replacement checks were skipped because they are out of Phase B scope and remain blockers.
+
+### 5.4 Acceptance command backlog
+
+All plan-owned acceptance commands below remain unrun and all rows remain unclaimed unless a later retained artifact supplies the required evidence. Phase B makes `SWFS-AC-005` and `SWFS-AC-007` claimable with the retained local evidence named in Section 5.3; it does not make any release-wide or harness-wide row claimable.
 
 | Command or evidence source | Status |
 | --- | --- |
 | `TODO:repo-compose-inventory-command` | `TODO: unrun; required for SWFS-AC-001`. |
 | `TODO:dependency-boundary-command` | `TODO: unrun; required for SWFS-AC-002`. |
 | owner diff for `SWFS-AC-003` and `SWFS-AC-004` | `TODO: working-tree owner wording exists, but acceptance completion is not claimed until reviewed/retained as evidence`. |
-| `TODO:compose-service-validation-command` | `TODO: unrun; required for SWFS-AC-005`. |
+| `TODO:compose-service-validation-command` | Phase B local evidence retained for `SWFS-AC-005`; full occurrence inventory still TODO for release-wide closure. |
 | occurrence inventory plus release manifest scan | `TODO: unrun; required for SWFS-AC-006`. |
-| `TODO:capability-probe-command` | `TODO: unrun; required for SWFS-AC-007`. |
+| `TODO:capability-probe-command` | Phase B local probe retained for `SWFS-AC-007`; broader compatibility probe/report remains TODO. |
 | `TODO:startup-failure-e2e-command` | `TODO: unrun; required for SWFS-AC-008`. |
 | `TODO:runtime-outage-e2e-command` | `TODO: unrun; required for SWFS-AC-009`. |
 | `TODO:blob-slot-contract-command` | `TODO: unrun; required for SWFS-AC-010`. |
@@ -183,9 +217,9 @@ Every `SWFS-AC-*` row remains non-claimable in this handoff unless the current s
 | `SWFS-AC-002` | `github.com/minio/minio-go/v7`, if present, appears only as an S3 client dependency behind the object-store adapter. | `repo_or_external_fact_required` | none | `TODO:dependency-boundary-command` | SBOM/license report | no runtime service, fixture, readiness label, or operator instruction treats SDK as server support | `blocks_release` | `not_claimable`; `minio-go` is present in `go.mod`; TODO: dependency-boundary and SBOM/license report. |
 | `SWFS-AC-003` | Core 01 object-storage wording names SeaweedFS S3 as the default local/disconnected S3-compatible target while preserving generic S3 compatibility. | `blocked_until_owner_patch` | `SWFS-OWNER-DOCS-001` or core owner patch | owner diff | not applicable | target wording patched at owner anchor | `blocks_docs` | `blocked`; working-tree Core 01 wording exists, but no acceptance completion is claimed until retained owner-diff evidence is reviewed. |
 | `SWFS-AC-004` | Core 04 disconnected deployment wording names one SeaweedFS S3 container or equivalent S3-compatible object store. | `blocked_until_owner_patch` | `SWFS-OWNER-DOCS-001` or core owner patch | owner diff | not applicable | target wording patched at owner anchor | `blocks_docs` | `blocked`; working-tree Core 04 wording exists, but no acceptance completion is claimed until retained owner-diff evidence is reviewed. |
-| `SWFS-AC-005` | The default local service is named `seaweedfs-s3`, uses a pinned SeaweedFS image tag plus digest, and exposes only the S3 endpoint in ordinary local development. | `repo_or_external_fact_required` | none | `TODO:compose-service-validation-command` | capability probe | service name, digest, and exposure table match Sections 6 and 7 | `blocks_phase` | `not_claimable`; current Compose service is `minio`; TODO: pinned SeaweedFS service and probe evidence. |
+| `SWFS-AC-005` | The default local service is named `seaweedfs-s3`, uses a pinned SeaweedFS image tag plus digest, and exposes only the S3 endpoint in ordinary local development. | `repo_or_external_fact_required` | none | `make services-up`; `docker-compose.dev.yml`; post-run Compose inspection | capability probe plus repo-controlled Compose file | service name, digest, and exposure table match Sections 6 and 7 | `blocks_phase` | `claimable_for_phase_b_local`; evidence: `docker-compose.dev.yml`, probe artifact `.cartulary/test-results/20260603T195218Z-p648759/services-up/object-store-capability-probe.json`, and post-run inspection showing only host-published object-store port `8333`. Does not claim Phase C or release-wide occurrence closure. |
 | `SWFS-AC-006` | Production documentation forbids default exposure of SeaweedFS admin, master, filer, volume, WebDAV, and debug surfaces. | `repo_or_external_fact_required` | `SWFS-OWNER-DOCS-001` | occurrence inventory plus release manifest scan | occurrence inventory | no invalid exposure instructions | `blocks_release` | `blocked`; Phase A touched default wording only; TODO: occurrence inventory and release manifest scan. |
-| `SWFS-AC-007` | The capability probe completes required PutObject, HeadObject, full GetObject, range GetObject, DeleteObject, CORS preflight, and presigned PUT stages within timeout and retry bounds. | `plan_local_closed` | `SWFS-OWNER-RANGE-001` if range owner declares required semantics | `TODO:capability-probe-command` | `cartulary.object_store_capability_probe.v1` | `result='pass'` and every required stage `status='pass'` | `blocks_phase` | `not_claimable`; TODO: capability probe command and artifact; range owner dependency may apply. |
+| `SWFS-AC-007` | The capability probe completes required PutObject, HeadObject, full GetObject, range GetObject, DeleteObject, CORS preflight, and presigned PUT stages within timeout and retry bounds. | `plan_local_closed` | `SWFS-OWNER-RANGE-001` if range owner declares required semantics | `make services-up` | `cartulary.object_store_capability_probe.v1` | `result='pass'` and every required stage `status='pass'` | `blocks_phase` | `claimable_for_phase_b_local`; retained artifact `.cartulary/test-results/20260603T195218Z-p648759/services-up/object-store-capability-probe.json` has `result='pass'` and pass stages for bucket create-or-exists, PutObject, HeadObject, full GetObject, range read, presigned PUT URL, CORS preflight, presigned PUT upload, direct-upload head, and cleanup. |
 | `SWFS-AC-008` | In production profile, missing bucket, denied credentials, endpoint unreachable, CORS failure, or missing required capability fails startup before ready state. | `blocked_until_owner_patch` | `SWFS-OWNER-CONFIG-001`, `SWFS-OWNER-HEALTH-001` | `TODO:startup-failure-e2e-command` | probe artifact plus startup diagnostics | no listener becomes ready; diagnostic reason matches Section 9.3 | `blocks_release` | `blocked`; owner text patched in working tree; TODO: startup failure E2E artifact. |
 | `SWFS-AC-009` | After a post-ready object-store outage, ordinary non-evidence workbook row editing remains available while evidence operations fail through mapped public dependency errors. | `blocked_until_owner_patch` | `SWFS-OWNER-ERR-001`, `SWFS-OWNER-HEALTH-001` | `TODO:runtime-outage-e2e-command` | public error contract evidence | non-evidence route succeeds; evidence route errors match Section 10.2 | `blocks_phase` | `blocked`; owner text and generated error contracts patched in working tree; TODO: runtime outage E2E artifact. |
 | `SWFS-AC-010` | `POST /api/v1/object-blobs` still returns the Core-owned blob-slot response shape and timers. | `plan_local_closed` | none | `TODO:blob-slot-contract-command` | public route evidence | response includes required fields; timers unchanged | `blocks_phase` | `not_claimable`; TODO: blob-slot contract command and public route evidence. |
@@ -209,19 +243,18 @@ Every `SWFS-AC-*` row remains non-claimable in this handoff unless the current s
 
 ### 7.1 Risks and assumptions
 
-- Current default local and service-backed surfaces still appear MinIO-centered. Treat Phase B and Phase C as blocked until the service replacement and harness replacement are implemented from owner inputs and regenerated surfaces where applicable.
+- Current default local surfaces now use SeaweedFS S3. Service-backed harness/browser fixtures still appear MinIO-centered and remain Phase C blockers until fixture ownership, generated schedules, and artifact vocabulary are replaced from owner inputs.
 - `minio-go` presence is not itself invalid, but any claim that it is SDK-only is currently unverified.
 - Runtime implementation evidence remains missing for dependency errors, readiness shape, production object-store configuration, range behavior, backup/restore, and threat-model release checks. Storage-ref grammar and key-generation behavior remain owner-blocked by `SWFS-OWNER-STORAGEREF-001`.
 - The implementation plan requires byte-equivalence proof by SHA-256. Do not use ETag-only evidence for migration equivalence.
-- The handoff's planning inspection used local command output that is summarized here. Release or acceptance claims require retained artifacts, not this prose summary.
+- The handoff's planning inspection and Phase B command output are summarized here. Release-wide claims require retained artifacts and occurrence inventory, not this prose summary alone.
 
 ### 7.2 Recommended next actions
 
 1. Review and commit the Phase A owner, registry, generated-contract, support-doc, and handoff diffs if accepted.
 2. Resolve `SWFS-OWNER-STORAGEREF-001` with an owner decision for storage-ref grammar, canonicalization, key generation, maximum length, and invalid-state behavior.
 3. Build `cartulary.seaweedfs_migration_occurrence_inventory.v1` and use it to classify all MinIO tokens before editing broad service and docs surfaces.
-4. Replace the default local service with `seaweedfs-s3`, pin the SeaweedFS image tag plus digest, remove ordinary local admin-surface exposure, and add a clean Section 9 capability probe.
-5. Replace harness/testservice MinIO vocabulary and service ownership with backend-neutral object-store vocabulary and SeaweedFS S3 fixtures, updating generated manifests from owner inputs rather than hand-editing generated outputs.
-6. Harden the object-store adapter and probe path while preserving public blob-slot, attach, preview, download, authorization, and evidence lifecycle semantics.
-7. Implement backup/restore and migration tooling only after the owner dependencies and adapter/probe evidence are in place.
-8. Finish with SBOM/license, occurrence inventory, release manifest exposure scan, `make agent-finalize`, and the full release gate after all release blockers are closed.
+4. Replace harness/testservice MinIO vocabulary and service ownership with backend-neutral object-store vocabulary and SeaweedFS S3 fixtures, updating generated manifests from owner inputs rather than hand-editing generated outputs.
+5. Harden the object-store adapter beyond the Phase B local probe while preserving public blob-slot, attach, preview, download, authorization, and evidence lifecycle semantics.
+6. Implement backup/restore and migration tooling only after the owner dependencies and adapter/probe evidence are in place.
+7. Finish with SBOM/license, occurrence inventory, release manifest exposure scan, `make agent-finalize`, and the full release gate after all release blockers are closed.
