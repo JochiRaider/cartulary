@@ -475,7 +475,7 @@
           "target_name": "browser-e2e-visual",
           "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         }
@@ -483,11 +483,11 @@
       "scenario_titles": [
         "FE-V-P4-01 Capture save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Capture save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
@@ -500,14 +500,7 @@
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P4",
-      "blockers": [
-        {
-          "blocker_id": "FE-V-P4-01-BLOCKER-01",
-          "reason_code": "visual_fixture_not_recaptured_for_frontend_row",
-          "description": "Visual fixture is planned but direct frontend row-accounting evidence has not been recaptured under the closed fixture registry.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-A11Y-P4-01",
@@ -537,10 +530,10 @@
       ],
       "targets": [
         {
-          "target_name": "browser-e2e-a11y-preflight",
-          "command_id": "cartulary.harness.command.browser_e2e_a11y_preflight.v1",
+          "target_name": "browser-e2e-a11y",
+          "command_id": "cartulary.harness.command.browser_e2e_a11y.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         }
@@ -548,11 +541,11 @@
       "scenario_titles": [
         "FE-A11Y-P4-01 Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify grid navigation, edit entry/exit, paste feedback, validation feedback, save-state communication, and Esc priority are keyboard and screen-reader safe.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
@@ -565,14 +558,7 @@
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P4",
-      "blockers": [
-        {
-          "blocker_id": "FE-A11Y-P4-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     }
   ]
 }

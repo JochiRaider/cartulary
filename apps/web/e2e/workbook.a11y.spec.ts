@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { pasteGridMatrix } from "@cartulary/test-utils";
 import {
   currentIncidentRoleTestId,
   dataTestIdSelector,
@@ -17,6 +18,8 @@ import {
   phase1ErrorCodeTestId,
   phase1ErrorSummaryTestIds,
   phase1LandingTestId,
+  pendingQueueCountTestId,
+  pendingQueueNoticeTestId,
   rowCellTestId,
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
@@ -61,6 +64,10 @@ import {
   uniqueTxn,
 } from "./helpers";
 import { Phase1Page } from "./phase1Page";
+import {
+  installPatchTransportFailureController,
+  successfulPatchCalls,
+} from "./phase6Harness";
 
 type IncidentMembershipRecord = {
   membership_version: number;
@@ -84,6 +91,9 @@ const p2AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
 const p3AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P3-01",
 ) as [string];
+const p4AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
+  "FE-A11Y-P4-01",
+) as [string];
 
 if (p2AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
@@ -93,6 +103,11 @@ if (p2AccessibilityScenarioTitles.length !== 1) {
 if (p3AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
     `FE-A11Y-P3-01 must declare exactly 1 scenario; found ${p3AccessibilityScenarioTitles.length}`,
+  );
+}
+if (p4AccessibilityScenarioTitles.length !== 1) {
+  throw new Error(
+    `FE-A11Y-P4-01 must declare exactly 1 scenario; found ${p4AccessibilityScenarioTitles.length}`,
   );
 }
 
@@ -884,6 +899,167 @@ test.describe("FE-P3 accessibility readiness", () => {
       gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
       rowCellTestId(betaRow.record_id, "timeline.summary"),
       timelineRowMarkReviewedButtonTestId(betaRow.record_id),
+      saveStateTestId(),
+    ]);
+  });
+});
+
+test.describe("FE-P4 accessibility readiness", () => {
+  test(p4AccessibilityScenarioTitles[0], async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("A11YP4"),
+      "FE-A11Y-P4-01 Timeline accessibility",
+    );
+    const editRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p4-01-edit"),
+        "timeline.occurred_at": "2026-06-03T10:00:00Z",
+        "timeline.summary": "FE-P4 edit accessibility row",
+        "timeline.details": "Escape priority details",
+      },
+    )) as ViewRow;
+    const pasteRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p4-01-paste"),
+        "timeline.occurred_at": "2026-06-03T10:05:00Z",
+        "timeline.summary": "FE-P4 paste accessibility row",
+      },
+    )) as ViewRow;
+    const pendingRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p4-01-pending"),
+        "timeline.occurred_at": "2026-06-03T10:10:00Z",
+        "timeline.summary": "FE-P4 pending accessibility row",
+      },
+    )) as ViewRow;
+    const validationRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p4-01-validation"),
+        "timeline.occurred_at": "2026-06-03T10:15:00Z",
+        "timeline.summary": "FE-P4 validation accessibility row",
+      },
+    )) as ViewRow;
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await expectStatusRole(page.getByTestId(saveStateTestId()));
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expectTabOrderIncludes(page, [
+      gridFilterFieldTestId(timelineViewSchemaId),
+      gridFilterApplyTestId(timelineViewSchemaId),
+      gridGroupingSelectTestId(timelineViewSchemaId),
+      rowInspectButtonTestId(editRow.record_id),
+    ]);
+
+    const editSummary = page.getByTestId(
+      rowCellTestId(editRow.record_id, "timeline.summary"),
+    );
+    await expect(editSummary).toHaveAttribute(
+      "aria-label",
+      `Summary ${editRow.record_id}`,
+    );
+    await expectVisibleFocus(editSummary);
+    await editSummary.fill("FE-P4 accessibility committed edit");
+    await editSummary.press("Enter");
+    await expect(editSummary).toHaveValue("FE-P4 accessibility committed edit");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+
+    await pasteGridMatrix({
+      fieldKey: "timeline.summary",
+      matrix: [["FE-P4 accessibility pasted summary", "a11y-host.example"]],
+      page,
+      recordId: pasteRow.record_id,
+      surface: timelineViewSchemaId,
+    });
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(
+      page.getByTestId(rowCellTestId(pasteRow.record_id, "timeline.summary")),
+    ).toHaveValue("FE-P4 accessibility pasted summary");
+
+    const patchController = await installPatchTransportFailureController(page);
+    try {
+      patchController.disconnect();
+      const pendingSummary = page.getByTestId(
+        rowCellTestId(pendingRow.record_id, "timeline.summary"),
+      );
+      await expectVisibleFocus(pendingSummary);
+      await pendingSummary.fill("FE-P4 accessibility pending replay");
+      await pendingSummary.press("Enter");
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+      await expectStatusRole(page.getByTestId(pendingQueueNoticeTestId()));
+      await expect(
+        page.getByTestId(pendingQueueCountTestId()),
+      ).toContainText("1");
+
+      patchController.connect();
+      await expect
+        .poll(() => successfulPatchCalls(patchController.calls).length)
+        .toBe(1);
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+    } finally {
+      patchController.connect();
+      await patchController.dispose();
+    }
+
+    const originSummary = page.getByTestId(
+      rowCellTestId(editRow.record_id, "timeline.summary"),
+    );
+    await expectVisibleFocus(originSummary);
+    const inspectButton = page.getByTestId(
+      rowInspectButtonTestId(editRow.record_id),
+    );
+    await expectVisibleFocus(inspectButton);
+    await inspectButton.click();
+    const inspectorDetails = page.getByTestId(
+      rowInspectorFieldTestId(editRow.record_id, "timeline.details"),
+    );
+    await expectVisibleFocus(inspectorDetails);
+    await page.keyboard.press("Escape");
+    await expect(originSummary).toBeFocused();
+
+    const validationCell = page.getByTestId(
+      rowCellTestId(validationRow.record_id, "timeline.occurred_at"),
+    );
+    await expectVisibleFocus(validationCell);
+    await validationCell.fill("not-a-timestamp");
+    await validationCell.press("Enter");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+    const validationNotice = page.getByTestId(pendingQueueNoticeTestId());
+    await expectStatusRole(validationNotice);
+    await expectNoPrivateDiagnostics(validationNotice);
+    await expect(validationCell).toHaveValue("not-a-timestamp");
+
+    await expect(
+      page.getByTestId(
+        gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
+      ),
+    ).toContainText("Summary");
+    await expectAllInteractiveControlsNamed(page);
+    await expectNoFocusTrap(page);
+    await expectAndRecordContrast(page, [
+      workbookShellSlotTestId("status-strip"),
+      gridFilterApplyTestId(timelineViewSchemaId),
+      gridGroupingSelectTestId(timelineViewSchemaId),
+      gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
+      rowCellTestId(editRow.record_id, "timeline.summary"),
+      rowCellTestId(validationRow.record_id, "timeline.occurred_at"),
+      rowInspectButtonTestId(editRow.record_id),
+      pendingQueueNoticeTestId(),
       saveStateTestId(),
     ]);
   });

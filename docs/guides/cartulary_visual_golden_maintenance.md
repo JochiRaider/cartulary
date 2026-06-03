@@ -89,6 +89,18 @@ later row-gutter or grouped-result query behavior into FE-P3.
 | --- | --- | --- | --- | --- | --- | --- |
 | `FE-V-P3-01` | `tools/frontend_phase_maps/fe_p3_test_map.json` | `FE-VFIX-09`, `FE-VFIX-10`, `FE-VFIX-11`, `FE-VFIX-12`, `FE-VFIX-13`, `FE-VFIX-15` | Deterministic workbook incident plus test-only `section[data-design-fixture='fe-p3-grid-adapter']` grid-adapter specimen. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; specimen text is static and contains no generated IDs, actor names, timestamps, or cursors. | Selector crop, snapshot `fe-v-p3-01-grid-adapter-fixtures`. |
 
+### Current FE-P4 visual readiness fixture citation map
+
+The FE-P4 visual readiness fixture uses deterministic app-owned Timeline
+workbook state. It captures the real status strip, pending queue notice, active
+inline edit cell, and successful empty Timeline query state. This map is
+design-direction evidence only; it does not create product conformance or Core
+05 publication evidence.
+
+| Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
+| --- | --- | --- | --- | --- | --- | --- |
+| `FE-V-P4-01` | `tools/frontend_phase_maps/fe_p4_test_map.json` | `FE-VFIX-08`, `FE-VFIX-12`, `FE-VFIX-15` | Deterministic workbook incident with one Timeline row, held transport failure for pending replay, and a fresh zero-row Timeline incident for the empty query state. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation. | Grid/status captures, snapshots `fe-v-p4-01-active-edit-cell`, `fe-v-p4-01-pending-replay-status`, and `fe-v-p4-01-empty-timeline-query`. |
+
 ### Current exposed-theme fixture citation map
 
 The exposed-theme fixture uses test-only DOM inside the ordinary workbook page

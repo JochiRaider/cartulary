@@ -22,6 +22,7 @@ import {
   gridSortHeaderTestId,
   incidentControlsPanelTestId,
   incidentMembershipListTestId,
+  pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   relationshipItemsTestId,
   rowCellTestId,
@@ -66,7 +67,9 @@ import {
   editTimelineSummary,
   installIncidentSocketMonitor,
   installPatchController,
+  installPatchTransportFailureController,
   openIncidentAsTrackedUserReady,
+  successfulPatchCalls,
 } from "./phase6Harness";
 
 type ViewRow = {
@@ -593,6 +596,106 @@ test.describe("FE-P3 visual readiness", () => {
       page,
       "fe-v-p3-01-grid-adapter-fixtures",
       fixture,
+    );
+  });
+});
+
+test.describe("FE-P4 visual readiness", () => {
+  test("FE-V-P4-01 Capture save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures.", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("FEV4VISUAL"),
+      "FE-P4 visual readiness",
+    );
+    const timelineRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("FEV4VISUAL-ROW"),
+        "timeline.occurred_at": "2026-06-03T10:00:00Z",
+        "timeline.summary": "FE-P4 visual editable row",
+      },
+    )) as ViewRow;
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await maskIncidentIdentity(page, incidentId);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+
+    const summaryInput = page.getByTestId(
+      rowCellTestId(timelineRow.record_id, "timeline.summary"),
+    );
+    await expect(summaryInput).toHaveValue("FE-P4 visual editable row");
+    await summaryInput.focus();
+    await summaryInput.fill("FE-P4 active visual edit");
+    await assertWorkbookGridVisualRegression(
+      page,
+      "fe-v-p4-01-active-edit-cell",
+      timelineViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
+    );
+
+    const patchController = await installPatchTransportFailureController(page);
+    try {
+      patchController.disconnect();
+      await summaryInput.press("Enter");
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+      await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
+      await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+        "1",
+      );
+      await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+        scroll: { top: 0, left: "left" },
+      });
+      await assertVisualRegression(
+        page,
+        "fe-v-p4-01-pending-replay-status",
+      );
+
+      patchController.connect();
+      await expect
+        .poll(() => successfulPatchCalls(patchController.calls).length)
+        .toBe(1);
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+    } finally {
+      patchController.connect();
+      await patchController.dispose();
+    }
+
+    const emptyIncidentId = await createIncident(
+      page,
+      uniqueIncidentKey("FEV4EMPTY"),
+      "FE-P4 empty Timeline query",
+    );
+    await page.goto(`/?incident_id=${emptyIncidentId}`);
+    await maskIncidentIdentity(page, emptyIncidentId);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(
+      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await expect
+      .poll(
+        async () =>
+          (await queryViewRows(page, emptyIncidentId, timelineViewSchemaId))
+            .length,
+      )
+      .toBe(0);
+    await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(0);
+    await expect(page.getByText("Draft timeline row")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Create blank row" }),
+    ).toBeVisible();
+    await assertWorkbookGridVisualRegression(
+      page,
+      "fe-v-p4-01-empty-timeline-query",
+      timelineViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
     );
   });
 });

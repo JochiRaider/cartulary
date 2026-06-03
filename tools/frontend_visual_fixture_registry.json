@@ -337,9 +337,10 @@
         "FE-V-P4-01",
         "FE-V-P7-01"
       ],
-      "playwright_scenario_title": "V-3-GRID-02 captures Timeline edit save-state visuals for active cell syncing saved and conflict states",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-saved-strip-linux.png",
+      "playwright_scenario_title": "FE-V-P4-01 Capture save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-pending-replay-status-linux.png",
       "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-pending-replay-status-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-saved-strip-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-syncing-strip-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-conflict-strip-linux.png",
@@ -537,9 +538,10 @@
         "FE-V-P4-01",
         "FE-V-P10-01"
       ],
-      "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "playwright_scenario_title": "FE-V-P4-01 Capture save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-active-edit-cell-linux.png",
       "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-active-edit-cell-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-active-edit-cell-linux.png"
       ],
@@ -684,9 +686,10 @@
         "FE-V-P4-01",
         "FE-V-P8-01"
       ],
-      "playwright_scenario_title": "FE-V-P3-01 Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+      "playwright_scenario_title": "FE-V-P4-01 Capture save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-empty-timeline-query-linux.png",
       "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-empty-timeline-query-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
       ],
       "seed_id": "fe-vfix-15-deterministic-seed",
