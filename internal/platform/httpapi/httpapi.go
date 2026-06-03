@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -23,15 +24,16 @@ import (
 const RequestIDHeader = "X-Request-Id"
 
 type DependencySet struct {
-	Config      config.Config
-	Env         map[string]string
-	Postgres    *pgxpool.Pool
-	ObjectStore objectstore.Store
-	Jobs        *jobs.Manager
-	JobRunner   *jobs.Runner
-	WSHub       *platformws.Hub
-	CursorCodec *pagination.Codec
-	Now         func() time.Time
+	Config            config.Config
+	Env               map[string]string
+	Postgres          *pgxpool.Pool
+	ObjectStore       objectstore.Store
+	Jobs              *jobs.Manager
+	JobRunner         *jobs.Runner
+	WSHub             *platformws.Hub
+	CursorCodec       *pagination.Codec
+	PublicErrorFaults PublicErrorFaultStore
+	Now               func() time.Time
 }
 
 type RouteRegistrar func(*http.ServeMux, DependencySet) error
@@ -71,6 +73,18 @@ type ErrorPayload struct {
 	Message   string         `json:"message,omitempty"`
 	Details   map[string]any `json:"details"`
 	Conflict  any            `json:"conflict,omitempty"`
+}
+
+type PublicErrorFault struct {
+	Status    int
+	Code      string
+	Message   string
+	Retryable bool
+	Details   map[string]any
+}
+
+type PublicErrorFaultStore interface {
+	ConsumePublicErrorFault(method string, path string) (PublicErrorFault, bool)
 }
 
 type requestIDContextKey struct{}
@@ -129,7 +143,12 @@ func NewHandler(options ...Options) (http.Handler, error) {
 		}
 	}
 
-	return withRequestID(mux, option.RequestIDSequence), nil
+	handler := http.Handler(mux)
+	if option.Dependencies.PublicErrorFaults != nil {
+		handler = withPublicErrorFaults(handler, option.Dependencies.PublicErrorFaults)
+	}
+
+	return withRequestID(handler, option.RequestIDSequence), nil
 }
 
 func RequestIDFromContext(ctx context.Context) string {
@@ -162,17 +181,53 @@ func WriteError(w http.ResponseWriter, r *http.Request, status int, code string,
 }
 
 func WriteErrorWithConflict(w http.ResponseWriter, r *http.Request, status int, code string, message string, details map[string]any, conflict any) error {
+	return WriteErrorWithOptions(w, r, status, code, message, details, ErrorOptions{
+		Conflict:  conflict,
+		Retryable: status == http.StatusConflict && code == "record_locked",
+	})
+}
+
+type ErrorOptions struct {
+	Conflict  any
+	Retryable bool
+}
+
+func WriteErrorWithOptions(w http.ResponseWriter, r *http.Request, status int, code string, message string, details map[string]any, options ErrorOptions) error {
+	if details == nil {
+		details = map[string]any{}
+	}
 	return writeJSON(w, status, ErrorEnvelope{
 		Error: ErrorPayload{
 			Code:      code,
 			Status:    status,
 			RequestID: RequestIDFromContext(r.Context()),
-			Retryable: status == http.StatusConflict && code == "record_locked",
+			Retryable: options.Retryable,
 			Message:   message,
 			Details:   details,
-			Conflict:  conflict,
+			Conflict:  options.Conflict,
 		},
 	})
+}
+
+func withPublicErrorFaults(next http.Handler, faults PublicErrorFaultStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isOrdinaryPublicAPIRoute(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		fault, ok := faults.ConsumePublicErrorFault(r.Method, r.URL.Path)
+		if !ok {
+			next.ServeHTTP(w, r)
+			return
+		}
+		_ = WriteErrorWithOptions(w, r, fault.Status, fault.Code, fault.Message, fault.Details, ErrorOptions{
+			Retryable: fault.Retryable,
+		})
+	})
+}
+
+func isOrdinaryPublicAPIRoute(path string) bool {
+	return strings.HasPrefix(path, "/api/v1/") && !strings.HasPrefix(path, "/api/v1/test/")
 }
 
 func withRequestID(next http.Handler, generator func() string) http.Handler {

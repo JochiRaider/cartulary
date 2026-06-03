@@ -45,6 +45,7 @@ import {
   phaseManifestNames,
   playwrightEntryTitles,
   selectManifestEntries,
+  selectPlaywrightEntries,
   vitestEntryTitles,
 } from "../phase-manifest.mjs";
 import {
@@ -5775,11 +5776,20 @@ function finalizeManifestAwareRunnerPhase(
   if (manifestAware && selectedSlicePassed) {
     const scope = readManifestScopeEnv();
     const selectedIDs = optionalSetFromLines("CARTULARY_MANIFEST_SELECTED_IDS");
-    const entries = selectManifestEntries(repoRoot, {
-      runner,
-      section,
-      ...scope,
-    }).filter((entry) => selectedIDs.size === 0 || selectedIDs.has(entry.id));
+    const entries = (
+      runner === "playwright"
+        ? selectPlaywrightEntries(
+            repoRoot,
+            scope.phase,
+            scope.coverage,
+            scope.executionDependency,
+          )
+        : selectManifestEntries(repoRoot, {
+            runner,
+            section,
+            ...scope,
+          })
+    ).filter((entry) => selectedIDs.size === 0 || selectedIDs.has(entry.id));
     const verification = evaluateFlatTitleManifest(summary, {
       phase: scope.phase,
       entries,
@@ -6887,12 +6897,12 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
 }
 
 function selectPlaywrightManifestEntries(phase, coverage, executionDependency) {
-  return selectManifestEntries(repoRoot, {
-    runner: "playwright",
+  return selectPlaywrightEntries(
+    repoRoot,
     phase,
     coverage,
     executionDependency,
-  });
+  );
 }
 
 function handlePlaywrightPhase({ manifestAware }) {

@@ -252,6 +252,10 @@ function frontendPhaseToBasePhase(phaseID) {
   return match ? `phase${match[1]}` : "";
 }
 
+function isPlaywrightSupportFile(file) {
+  return file.includes(".support.");
+}
+
 function frontendBrowserReadinessEntries(
   root,
   { baseEntries, phase = "" } = {},
@@ -286,6 +290,9 @@ function frontendBrowserReadinessEntries(
           throw new Error(
             `implemented frontend browser row ${row.id} has no Playwright test title: ${title}`,
           );
+        }
+        if (isPlaywrightSupportFile(file)) {
+          continue;
         }
         seenTitles.add(title);
         entries.push({

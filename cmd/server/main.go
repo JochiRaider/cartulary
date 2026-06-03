@@ -41,10 +41,13 @@ func main() {
 	options := app.Options{}
 	if os.Getenv(enableTestRoutesEnv) == "1" {
 		testClock := httpapi.NewTestClock()
+		publicErrorFaults := testruntime.NewPublicErrorFaultRegistry()
 		options.Now = testClock.Now
+		options.HTTP.Dependencies.PublicErrorFaults = publicErrorFaults
 		options.HTTP.AdditionalRoutes = []httpapi.RouteRegistrar{
 			httpapi.RegisterTestClockRoutes(testClock),
-			testruntime.RegisterTestRuntimeResetRoute(),
+			testruntime.RegisterTestRuntimeResetRoute(publicErrorFaults.Clear),
+			testruntime.RegisterPublicErrorFaultRoutes(publicErrorFaults),
 			auth.RegisterTestRoutes(),
 			savedviews.RegisterTestRoutes(),
 			timeline.RegisterTestRoutes(),

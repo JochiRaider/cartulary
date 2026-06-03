@@ -22,6 +22,7 @@ import {
   patchTimelineRecord,
   queryViewRows,
   safeUnroute,
+  testRouteHeaders,
   uniqueIncidentKey,
   uniqueTxn,
   type ViewApiRow,
@@ -131,6 +132,24 @@ async function postTimelinePastePublic(
       data: body,
     },
   );
+}
+
+async function armPublicErrorFault(
+  page: Page,
+  body: Record<string, unknown>,
+) {
+  const response = await page.request.post(
+    `${apiBase}/api/v1/test/runtime/public-error-faults`,
+    {
+      headers: testRouteHeaders(),
+      data: {
+        ...body,
+        consume_once: true,
+      },
+    },
+  );
+  expect(response.status()).toBe(201);
+  return readEnvelope(response);
 }
 
 async function dispatchClipboardText(
@@ -831,6 +850,67 @@ test(
       await expect(
         page.getByTestId(rowCellTestId(beta.record_id, "timeline.occurred_at")),
       ).toHaveValue("not-a-timestamp");
+      page.once("dialog", async (dialog) => {
+        await dialog.accept();
+      });
+      await page.reload();
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    });
+
+    await test.step("unknown public error fallback is induced through a harness-owned public boundary", async () => {
+      const faultPath = `/api/v1/records/${alpha.record_id}`;
+      const armedFault = await armPublicErrorFault(page, {
+        method: "PATCH",
+        path: faultPath,
+        status: 418,
+        code: "future_private_public_error",
+        message:
+          "stack trace at handler (/home/cartulary/internal/private.go:42)",
+        retryable: false,
+        details: {
+          reason_code: "future_private_public_error",
+          private_path: "/home/cartulary/internal/private.go",
+        },
+      });
+      expect(armedFault.data).toMatchObject({
+        schema_id: "cartulary.test.public_error_fault.v1",
+        method: "PATCH",
+        path: faultPath,
+        status: 418,
+        code: "future_private_public_error",
+        retryable: false,
+        consume_once: true,
+      });
+
+      const unknownPatchResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "PATCH" &&
+          response.url().endsWith(faultPath),
+      );
+      const alphaSummaryCell = page.getByTestId(
+        rowCellTestId(alpha.record_id, "timeline.summary"),
+      );
+      await alphaSummaryCell.scrollIntoViewIfNeeded();
+      await alphaSummaryCell.fill("FE-E-P4-01 unknown fallback local");
+      await alphaSummaryCell.press("Enter");
+      const unknownEnvelope = await expectPublicError(
+        await unknownPatchResponse,
+        418,
+        "future_private_public_error",
+        { reason_code: "future_private_public_error" },
+      );
+      expect(unknownEnvelope.error.retryable).toBe(false);
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+      const notice = page.getByTestId(pendingQueueNoticeTestId());
+      await expect(notice).toBeVisible();
+      await expect(notice).toContainText("Request failed.");
+      await expect(notice).not.toContainText("/home/cartulary");
+      await expect(notice).not.toContainText("stack trace");
+      await expect(notice).not.toContainText("private.go");
+      await expect(alphaSummaryCell).toHaveValue(
+        "FE-E-P4-01 unknown fallback local",
+      );
+
       page.once("dialog", async (dialog) => {
         await dialog.accept();
       });

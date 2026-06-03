@@ -41,6 +41,7 @@ type testRuntimeResetService struct {
 	postgres    *pgxpool.Pool
 	objectStore objectstore.Store
 	guard       httpapi.TestRouteGuard
+	resetHooks  []func()
 	resetMu     sync.Mutex
 }
 
@@ -74,7 +75,7 @@ type testRuntimeIdentityResult struct {
 	TestRoutes    bool   `json:"test_routes_enabled"`
 }
 
-func RegisterTestRuntimeResetRoute() httpapi.RouteRegistrar {
+func RegisterTestRuntimeResetRoute(resetHooks ...func()) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		if !httpapi.TestRoutesEnabled(deps.Env) {
 			return nil
@@ -95,6 +96,7 @@ func RegisterTestRuntimeResetRoute() httpapi.RouteRegistrar {
 			postgres:    deps.Postgres,
 			objectStore: deps.ObjectStore,
 			guard:       guard,
+			resetHooks:  append([]func(){}, resetHooks...),
 		}
 		mux.HandleFunc("GET /api/v1/test/runtime/identity", service.handleIdentity)
 		mux.HandleFunc("POST /api/v1/test/runtime/reset", service.handleReset)
@@ -129,6 +131,11 @@ func (s *testRuntimeResetService) handleReset(w http.ResponseWriter, r *http.Req
 		return
 	}
 	defer s.resetMu.Unlock()
+	for _, resetHook := range s.resetHooks {
+		if resetHook != nil {
+			resetHook()
+		}
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), testRuntimeResetTimeout)
 	defer cancel()

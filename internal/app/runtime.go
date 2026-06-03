@@ -113,6 +113,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	runtime.Jobs.ConfigureProgressHub(hub)
 
 	httpOptions := options.HTTP
+	testRuntimeDeps := httpOptions.Dependencies
 	keys, err := authn.LoadMasterKeys(options.Env)
 	if err != nil {
 		runtime.Close()
@@ -122,15 +123,16 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	cursorCodec := pagination.NewCodec(cursorKey[:])
 	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidents.RegisterRoutes(), jobapi.RegisterRoutes(), imports.RegisterRoutes(), reporting.RegisterRoutes(), reference_data.RegisterRoutes(), incidentbundles.RegisterRoutes(), savedviews.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisions.RegisterRoutes()}, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
-		Config:      normalizedCfg,
-		Env:         options.Env,
-		Postgres:    runtime.Postgres,
-		ObjectStore: runtime.ObjectStore,
-		Jobs:        runtime.Jobs,
-		JobRunner:   runtime.JobRunner,
-		WSHub:       hub,
-		CursorCodec: cursorCodec,
-		Now:         now,
+		Config:            normalizedCfg,
+		Env:               options.Env,
+		Postgres:          runtime.Postgres,
+		ObjectStore:       runtime.ObjectStore,
+		Jobs:              runtime.Jobs,
+		JobRunner:         runtime.JobRunner,
+		WSHub:             hub,
+		CursorCodec:       cursorCodec,
+		PublicErrorFaults: testRuntimeDeps.PublicErrorFaults,
+		Now:               now,
 	}
 
 	handler, err := newHTTPHandler(httpOptions)

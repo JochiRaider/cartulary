@@ -729,6 +729,7 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.web_e2e_stack.v2`                    | `tools/schemas/cartulary.web_e2e_stack.v2.schema.json`                    | present           | Browser stack            | Before browser target starts Playwright.  |
 | `cartulary.test.runtime_identity.v1`             | `tools/schemas/cartulary.test.runtime_identity.v1.schema.json`             | present           | Browser stack            | During backend identity readiness probing. |
 | `cartulary.test.runtime_reset.v1`               | `tools/schemas/cartulary.test.runtime_reset.v1.schema.json`               | present           | Reset route/wrapper      | Before browser reset success is accepted. |
+| `cartulary.test.public_error_fault.v1`          | `tools/schemas/cartulary.test.public_error_fault.v1.schema.json`          | present           | Browser stack            | Before an armed public-error fault is accepted. |
 | `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | present           | Fixture report target    | Before machine JSON is emitted.           |
 | `cartulary.agent_finalize_summary.v3`           | `tools/schemas/cartulary.agent_finalize_summary.v3.schema.json`           | present           | Agent finalizer          | Before `agent-finalize` exits.            |
 | `cartulary.frontend_accessibility_summary.v1`   | `tools/schemas/cartulary.frontend_accessibility_summary.v1.schema.json`   | present           | Historical browser accessibility target | Retained artifact compatibility only. |
@@ -1393,6 +1394,31 @@ Verified by: TH-HARNESS-AC-008
 
 This fixture route MUST create only saved-view fixture rows through the saved-view store path. It MUST NOT expose arbitrary SQL execution, projection mutation, generic fixture mutation, or caller-supplied saved-view identity, owner, timestamps, version, or scope. The route fixes `scope='system'`, fixes `owner_user_id=null`, derives `incident_id` from the path, and returns the normal saved-view resource in the standard success envelope with HTTP `201`.
 
+### 12.2.4 Public-Error Fault Control
+
+`POST /api/v1/test/runtime/public-error-faults` is a harness test route with the same enablement, host/origin, and token authorization predicates as the reset route. The route MAY arm a one-shot public error envelope for the next exact ordinary `/api/v1/` request whose method and path match the request body. It MUST NOT be exposed as production API behavior, MUST NOT be listed in production OpenAPI, MUST NOT accept ordinary session, role, CSRF, bearer, bootstrap-token, or `deployment_admin` authorization as a substitute for the test-route token, and MUST fail host/origin or token checks before decoding the body or arming any fault.
+
+The armed fault is in-memory harness runtime state. It is consumed at the service boundary before the ordinary route handler runs. Matching is exact on uppercase HTTP method and request path; query strings and fragments are not part of the accepted path. Faults MUST apply only to paths that start with `/api/v1/` and MUST NOT apply to paths that start with `/api/v1/test/`. Test-control routes therefore cannot fault themselves or other test-only harness controls.
+
+The request body MUST be a JSON object with exactly the fields below.
+
+| Field          | Required | Behavior                                                                                             |
+| -------------- | -------- | ---------------------------------------------------------------------------------------------------- |
+| `method`       | yes      | Non-empty HTTP method; normalized to uppercase for exact matching.                                   |
+| `path`         | yes      | Exact ordinary public route path beginning `/api/v1/` and not beginning `/api/v1/test/`; no query.   |
+| `status`       | yes      | Public error status from `400` through `599`.                                                        |
+| `code`         | yes      | Non-empty public error code.                                                                         |
+| `message`      | no       | Public error message to place in the public envelope.                                                |
+| `retryable`    | no       | Public retryability flag; omitted values default to `false`.                                         |
+| `details`      | no       | Public error details object. Consumers MUST render only details keys allowlisted by product UI code. |
+| `consume_once` | yes      | Must be `true`; persistent or multi-consume faults are not accepted.                                 |
+
+Unknown members, missing required fields, non-object JSON, invalid JSON, status outside `400..599`, empty `code`, a path outside ordinary `/api/v1/`, a path under `/api/v1/test/`, a path with query or fragment, or `consume_once` other than `true` MUST fail with `400`, `error.code=invalid_public_error_fault_request`.
+
+Successful arming MUST return HTTP `201` with `cartulary.test.public_error_fault.v1` in the standard success envelope. The response MUST include a generated `fault_id`, normalized `method`, exact `path`, `status`, `code`, `retryable`, and `consume_once=true`. The response MUST NOT include the test-route token, configured origins, cookies, product session credentials, database credentials, object-store credentials, or private runtime state.
+
+The next exact ordinary public-route match MUST return a standard public error envelope using the armed `status`, `code`, `message`, `retryable`, and `details`, with the request's public `request_id`. After that response, the fault MUST be consumed and the same request match MUST reach the ordinary route handler unless another fault is armed.
+
 ### 12.3 Runtime Reset Request Body
 
 | Body                                | Behavior                                        |
@@ -1428,7 +1454,7 @@ Successful fixture creation MUST return a saved-view resource with `scope='syste
 
 ### 12.6 Runtime Reset Algorithm and Partial Failure
 
-The reset route MUST preserve migration metadata, restore the active deployment admin, truncate mutable incident/product state, clear route idempotency state, and clear the configured object store bucket or prefix for the harness-owned runtime.
+The reset route MUST preserve migration metadata, restore the active deployment admin, truncate mutable incident/product state, clear route idempotency state, clear in-memory public-error fault state, and clear the configured object store bucket or prefix for the harness-owned runtime.
 
 Database table truncation and bootstrap restoration MUST execute in one database transaction when the database supports that transaction shape. Object-store deletion occurs after the database transaction commits. The route MUST NOT claim rollback across object-store deletion.
 

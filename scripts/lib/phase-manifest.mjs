@@ -8,6 +8,10 @@ import {
   validSupportTargets,
 } from "./execution-dependencies.mjs";
 import {
+  loadFrontendPhaseMap,
+  loadFrontendPhaseRegistry,
+} from "./frontend-phase-manifest.mjs";
+import {
   activePhaseRegistryEntries,
   activePhaseRegistryEntry,
   manifestPhaseRegistryEntries,
@@ -1588,6 +1592,126 @@ function toGoImportPath(root, repoRelativePackage) {
   return `${loadGoModulePath(root)}/${suffix}`;
 }
 
+let cachedPlaywrightSourceFiles = null;
+
+function playwrightSourceFiles(root) {
+  if (cachedPlaywrightSourceFiles !== null) {
+    return cachedPlaywrightSourceFiles;
+  }
+  const e2eRoot = path.join(root, "apps", "web", "e2e");
+  const files = [];
+  const stack = [e2eRoot];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+        continue;
+      }
+      if (entry.isFile() && entry.name.endsWith(".spec.ts")) {
+        files.push(path.relative(root, next).replaceAll("\\", "/"));
+      }
+    }
+  }
+  cachedPlaywrightSourceFiles = files.sort();
+  return cachedPlaywrightSourceFiles;
+}
+
+function findPlaywrightFileForTitle(root, title) {
+  for (const file of playwrightSourceFiles(root)) {
+    if (readFileSync(path.join(root, file), "utf8").includes(title)) {
+      return file;
+    }
+  }
+  return "";
+}
+
+function frontendPhaseToBasePhase(phaseID) {
+  const match = /^FE-P([0-9]+)$/u.exec(phaseID);
+  return match ? `phase${match[1]}` : "";
+}
+
+function frontendTargetForPlaywrightDependency(executionDependency) {
+  switch (executionDependency) {
+    case "browser_functional":
+      return "browser-e2e-webserver-backed";
+    case "browser_stateful":
+      return "browser-e2e-stateful";
+    default:
+      return "";
+  }
+}
+
+function isPlaywrightSupportFile(file) {
+  return file.includes(".support.");
+}
+
+function selectFrontendPlaywrightEntries(root, phase, coverage, executionDependency) {
+  const target = frontendTargetForPlaywrightDependency(executionDependency);
+  if (coverage !== "authoritative" || target === "") {
+    return [];
+  }
+  const entries = [];
+  let registry;
+  try {
+    registry = loadFrontendPhaseRegistry(root);
+  } catch {
+    return entries;
+  }
+  for (const frontendPhase of registry.phases) {
+    const basePhase = frontendPhaseToBasePhase(frontendPhase.phase_id);
+    if (basePhase !== phase) {
+      continue;
+    }
+    const { manifest } = loadFrontendPhaseMap(root, frontendPhase.phase_id);
+    for (const row of manifest.rows) {
+      if (
+        row.claim_status !== "implemented" ||
+        !row.targets.some((targetRef) => targetRef.target_name === target)
+      ) {
+        continue;
+      }
+      for (const title of row.scenario_titles) {
+        const file = findPlaywrightFileForTitle(root, title);
+        if (file === "") {
+          throw new Error(
+            `implemented frontend browser row ${row.id} has no Playwright test title: ${title}`,
+          );
+        }
+        if (
+          executionDependency === "browser_functional" &&
+          isPlaywrightSupportFile(file)
+        ) {
+          continue;
+        }
+        entries.push({
+          id: row.id,
+          phase,
+          section: "e2e",
+          runner: "playwright",
+          coverage: "authoritative",
+          execution_dependency: executionDependency,
+          file,
+          title,
+          evidence_class: row.evidence_class,
+          layer: row.layer,
+          claim_status: row.claim_status,
+        });
+      }
+    }
+  }
+  return entries.sort((left, right) => {
+    if (left.file !== right.file) {
+      return left.file.localeCompare(right.file);
+    }
+    if (left.title !== right.title) {
+      return left.title.localeCompare(right.title);
+    }
+    return left.id.localeCompare(right.id, undefined, { numeric: true });
+  });
+}
+
 function goLogKey(pkg, test) {
   return `${pkg}::${test}`;
 }
@@ -1637,7 +1761,19 @@ function readGoLogTopLevelStatuses(logFile) {
   return seen;
 }
 
-function selectPlaywrightEntries(root, phase, coverage, executionDependency) {
+export function selectPlaywrightEntries(root, phase, coverage, executionDependency) {
+  return [
+    ...selectManifestEntries(root, {
+      phase,
+      runner: "playwright",
+      coverage,
+      executionDependency,
+    }),
+    ...selectFrontendPlaywrightEntries(root, phase, coverage, executionDependency),
+  ];
+}
+
+function selectBasePlaywrightEntries(root, phase, coverage, executionDependency) {
   return selectManifestEntries(root, {
     phase,
     runner: "playwright",
@@ -1658,12 +1794,10 @@ function selectPlaywrightEntriesAll(root, coverage, executionDependency) {
 function selectPlaywrightPhases(root, coverage, executionDependency) {
   return phaseManifestNames(root).filter(
     (phase) =>
-      selectManifestEntries(root, {
-        phase,
-        runner: "playwright",
-        coverage,
-        executionDependency,
-      }).length > 0,
+      selectBasePlaywrightEntries(root, phase, coverage, executionDependency)
+        .length > 0 ||
+      selectFrontendPlaywrightEntries(root, phase, coverage, executionDependency)
+        .length > 0,
   );
 }
 

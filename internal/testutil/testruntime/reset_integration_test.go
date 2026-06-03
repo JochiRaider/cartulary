@@ -280,6 +280,11 @@ func requireTestRuntimeResetForbiddenOrInvalidRequests(t testing.TB, server *htt
 
 func startTestRuntimeResetServer(t testing.TB, env map[string]string, routes []httpapi.RouteRegistrar) (*app.Runtime, *httptest.Server) {
 	t.Helper()
+	return startTestRuntimeResetServerWithHTTPDeps(t, env, routes, httpapi.DependencySet{})
+}
+
+func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string, routes []httpapi.RouteRegistrar, deps httpapi.DependencySet) (*app.Runtime, *httptest.Server) {
+	t.Helper()
 	effectiveEnv := make(map[string]string, len(env)+8)
 	for key, value := range env {
 		effectiveEnv[key] = value
@@ -307,6 +312,7 @@ func startTestRuntimeResetServer(t testing.TB, env map[string]string, routes []h
 		Env: effectiveEnv,
 		Now: clock.Now,
 		HTTP: httpapi.Options{
+			Dependencies:     deps,
 			AdditionalRoutes: append([]httpapi.RouteRegistrar{httpapi.RegisterTestClockRoutes(clock)}, routes...),
 		},
 	})

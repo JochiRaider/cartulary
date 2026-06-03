@@ -1,3 +1,5 @@
+import { publicErrorCode, publicErrorStatusText } from "./publicError";
+
 export const pendingReplayCapacity = 64;
 
 export type PendingReplayKind = "create" | "patch";
@@ -315,8 +317,18 @@ function publicErrorMessageFromPayload(payload: unknown): string {
     return "Request failed.";
   }
   const error = payload.error;
-  if (typeof error.message === "string" && error.message.trim() !== "") {
-    return error.message;
+  const status = typeof error.status === "number" ? error.status : null;
+  const message = publicErrorStatusText(
+    {
+      code: typeof error.code === "string" ? error.code : undefined,
+      details: isRecord(error.details) ? error.details : undefined,
+      message: typeof error.message === "string" ? error.message : undefined,
+      status: status ?? undefined,
+    },
+    status,
+  );
+  if (message !== "Request failed.") {
+    return message;
   }
   if (typeof error.code === "string" && error.code.trim() !== "") {
     const details = error.details;
@@ -374,20 +386,29 @@ export function parsePendingReplayPublicError(
   }
 
   const error = payload.error;
+  const status = typeof error.status === "number" ? error.status : null;
+  const details = isRecord(error.details) ? error.details : undefined;
   const parsed: PendingReplayPublicError = {
-    code:
-      typeof error.code === "string" && error.code.trim() !== ""
-        ? error.code
-        : "public_error",
+    code: publicErrorCode({
+      code: typeof error.code === "string" ? error.code : undefined,
+    }),
   };
   if (typeof error.message === "string" && error.message.trim() !== "") {
-    parsed.message = error.message;
+    parsed.message = publicErrorStatusText(
+      {
+        code: parsed.code,
+        details,
+        message: error.message,
+        status: status ?? undefined,
+      },
+      status,
+    );
   }
   if (typeof error.retryable === "boolean") {
     parsed.retryable = error.retryable;
   }
-  if (isRecord(error.details)) {
-    parsed.details = error.details;
+  if (details !== undefined) {
+    parsed.details = details;
   }
   const conflict = parsePendingReplayPublicConflict(error.conflict);
   if (conflict !== undefined) {
@@ -1257,7 +1278,15 @@ export class WorkbookPendingQueueModel {
     this.halted = {
       unit_id: unit.id,
       error_code: result.error.code,
-      message: result.error.message ?? result.error.code,
+      message: publicErrorStatusText(
+        {
+          code: result.error.code,
+          details: result.error.details,
+          message: result.error.message,
+          status: result.status,
+        },
+        result.status,
+      ),
       anchor: failureAnchor(unit, result.error),
     };
     return {

@@ -640,6 +640,23 @@ describe("FE-U-P4-01 pending queue unit model", () => {
       message: "Future public error",
       retryable: true,
     });
+    const parsedUnsafeUnknownRetryable = parsePendingReplayPublicError({
+      error: {
+        code: "future_public_error",
+        message: "stack trace at handler (/home/cartulary/internal.go:42)",
+        retryable: true,
+        status: 409,
+        details: {
+          private_path: "/home/cartulary/internal.go",
+          reason_code: "future_public_error",
+        },
+      },
+    });
+    expect(parsedUnsafeUnknownRetryable).toMatchObject({
+      code: "future_public_error",
+      message: "Conflict.",
+      retryable: true,
+    });
     expectAccepted(
       unknownRetryableQueue.admit(
         patchUnit({
@@ -805,6 +822,57 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     expect(unknownTerminalResult.halt.error_code).toBe(
       "future_terminal_public_error",
     );
+    expect(unknownTerminalResult.halt.message).toBe(
+      "Future terminal public error",
+    );
+
+    const unsafeUnknownTerminalQueue = createQueue();
+    expectAccepted(
+      unsafeUnknownTerminalQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-unsafe-unknown-terminal",
+          recordId: "record-unsafe-unknown-terminal",
+          order: 1,
+        }),
+      ),
+    );
+    unsafeUnknownTerminalQueue.dispatchNext();
+    const unsafeUnknownTerminalResult =
+      unsafeUnknownTerminalQueue.settleDispatched({
+        ok: false,
+        status: 418,
+        error: {
+          code: "future_terminal_public_error",
+          message:
+            "stack trace at handler (/home/cartulary/internal/private.go:42)",
+          details: {
+            private_path: "/home/cartulary/internal/private.go",
+            reason_code: "future_terminal_public_error",
+          },
+        },
+      });
+    expect(unsafeUnknownTerminalResult.outcome).toBe("halted");
+    if (unsafeUnknownTerminalResult.outcome !== "halted") {
+      throw new Error("expected unsafe unknown terminal public error halt");
+    }
+    expect(unsafeUnknownTerminalResult.halt.error_code).toBe(
+      "future_terminal_public_error",
+    );
+    expect(unsafeUnknownTerminalResult.halt.message).toBe("Request failed.");
+    expect(JSON.stringify(unsafeUnknownTerminalResult.halt)).not.toContain(
+      "/home/cartulary",
+    );
+
+    const missingCodeMessage = parsePendingReplayPublicError({
+      error: {
+        status: 500,
+        details: {
+          private_path: "/home/cartulary/internal/private.go",
+        },
+      },
+    });
+    expect(missingCodeMessage.code).toBe("unknown_public_error");
+    expect(missingCodeMessage.message).toBeUndefined();
 
     const clientTxnConflictQueue = createQueue();
     expectAccepted(

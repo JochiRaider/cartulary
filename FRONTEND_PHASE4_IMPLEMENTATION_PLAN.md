@@ -23,7 +23,7 @@ Source limit. This plan is not behavior authority. Sprint execution records may 
 
 ## Current Repo Status
 
-Locally verified facts as of 2026-06-01, with Sprint 2, Sprint 3, and Sprint 4 updates noted below:
+Locally verified facts as of 2026-06-03, with Sprint 2, Sprint 3, Sprint 4, and Sprint 5 updates noted below:
 
 - `FRONTEND_PHASE4_IMPLEMENTATION_PLAN.md` did not exist before this plan was created.
 - `tools/frontend_phase_registry.json` has `schema_id="cartulary.frontend_phase_registry.v2"`, `schema_version=2`, `phase_namespace="frontend"`, and `guide_path="docs/guides/cartulary_frontend_implementation_testing_guide.md"`.
@@ -49,9 +49,9 @@ FE-P4 registry tuple:
 | Ledger path | `docs/testing/frontend_phase_coverage_ledgers/fe_p4_coverage_ledger.md` |
 | Depends on | `FE-P0`, `FE-P1`, `FE-P2`, `FE-P3` |
 | Activation blocker | `FE-P4-ACTIVATION-BLOCKER-01`, `reason_code="frontend_phase_not_active"` |
-| Manifest digest | `573d699ee59e3e9c613acd57f650991756a71f3b6b3c118744818f219d92cf47` |
-| Ledger digest | `fa39e019598bcc765a94271e46ad197e2714fa0ab4147c0fb1fe7fc449b67212` |
-| Evidence freshness digest | `2280965556d8bcdb20e6dfdc340fe9184b41a46bb6f0f2ed89e4773a1ecdf6ea` |
+| Manifest digest | `cbfcdf7c84d7308d4cb46deb64a17b7130152a474649cab5af45989e10fc79fb` |
+| Ledger digest | `49b98ba2dd7466de16b4b647ac893f94cbab615f54b9fd3b80bf8c0d9a608036` |
+| Evidence freshness digest | `73a006580c2ab54de70c215dd536402e7bd80274572430e4866ddad0119045fe` |
 
 FE-P0 through FE-P4 current activation chain:
 
@@ -70,7 +70,7 @@ FE-P4 row inventory:
 | `FE-U-P4-01` | `unit` | `product_conformance` | `implemented` | `make frontend-unit` | 9 exact row-owned titles | none |
 | `FE-U-P4-02` | `unit` | `product_conformance` | `implemented` | `make frontend-unit` | 4 exact row-owned titles | none |
 | `FE-I-P4-01` | `integration` | `product_conformance` | `implemented` | `make frontend-unit`; `make browser-e2e-webserver-backed` | exact row title present | none |
-| `FE-E-P4-01` | `e2e` | `product_conformance` | `blocked` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | exact row title present | `frontend_phase_row_not_implemented` |
+| `FE-E-P4-01` | `e2e` | `product_conformance` | `implemented` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | exact row title present | none |
 | `FE-V-P4-01` | `visual` | `design_direction` | `blocked` | `make browser-e2e-visual` | exact row title present | `visual_fixture_not_recaptured_for_frontend_row` |
 | `FE-A11Y-P4-01` | `accessibility` | `design_direction` | `blocked` | `make browser-e2e-a11y-preflight` | exact row title present | `frontend_phase_row_not_implemented` |
 
@@ -84,9 +84,9 @@ FE-P4 visual fixture registry facts:
 
 Source limits:
 
-- The generated FE-P4 ledger was inspected but not edited. It is downstream of `tools/frontend_phase_maps/fe_p4_test_map.json` and is not behavior authority.
+- The generated FE-P4 ledger is downstream of `tools/frontend_phase_maps/fe_p4_test_map.json` and is not behavior authority. It was regenerated after Sprint 5 row promotion through `make phase-ledgers`.
 - Current `current` fixture status does not close `FE-V-P4-01`; row-owned frontend visual accounting is still blocked.
-- Current row-owned `frontend-unit` evidence closes `FE-U-P4-01`, `FE-U-P4-02`, and `FE-I-P4-01`; current row-owned `browser-e2e-webserver-backed` evidence also closes `FE-I-P4-01`. Existing latest artifacts for other FE-P4 rows remain historical diagnostic context until their owning targets rerun.
+- Current row-owned `frontend-unit` evidence closes `FE-U-P4-01`, `FE-U-P4-02`, and `FE-I-P4-01`; current row-owned `browser-e2e-webserver-backed` evidence closes `FE-I-P4-01` and `FE-E-P4-01`; current row-owned `browser-e2e-stateful` evidence closes `FE-E-P4-01`. Existing latest artifacts for design-direction FE-P4 rows remain historical diagnostic context until their owning targets rerun.
 - The current FE-P4 accessibility row is preflight-only in the map. Preflight evidence cannot complete an implemented accessibility row under the current frontend guide and testing harness NLSpec.
 - The plan does not inspect every implementation module under `/apps/web`; exact local module filenames must be rechecked in the owning sprint before product edits.
 
@@ -111,6 +111,14 @@ Sprint 4 update as of 2026-06-02:
 - Full Timeline row coverage requires schema-declared non-technical cells, including hidden and default-hidden fields, treats `{ "value": null }` as authoritative null, rejects omitted declared cells, rejects technical or unknown cells, and preserves top-level `record_id`, `row_version`, and `view_schema_id`.
 - Browser-backed coverage exercises omitted and empty `sort` and `filters`, omitted `group_by`, rejected `group_by: null`, required `meta.query`, default-tail sort behavior, public error rendering for invalid full rows, and stable identity through create, patch, validation error, and refresh.
 - FE-P4 remains `planned`; `FE-E-P4-01`, `FE-V-P4-01`, `FE-A11Y-P4-01`, and phase activation remain blocked.
+
+Sprint 5 update as of 2026-06-03:
+
+- `FE-E-P4-01` is implemented from current row-owned `browser-e2e-webserver-backed` and `browser-e2e-stateful` evidence using the exact scenario title `FE-E-P4-01 Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts.`
+- A harness-owned, non-production public-error fault control under `/api/v1/test/runtime/public-error-faults` now provides a token-gated, one-shot way to induce unknown public error envelopes through ordinary `/api/v1/` mutation routes without Playwright route fulfillment or frontend-only mocks.
+- Frontend public-error rendering now uses shared sanitization for browser API handling and pending replay, so unknown or unsafe public errors render same-surface generic text without private server details while preserving public error codes and allowed public details.
+- Browser evidence covers rough create, inline edit, paste, save-state, refresh, conflict and validation mapping, session-revocation replay, and unknown public error fallback through public-route or harness-owned service-boundary behavior.
+- FE-P4 remains `planned`; `FE-V-P4-01`, `FE-A11Y-P4-01`, and phase activation remain blocked.
 
 ## Phase Objective
 
@@ -213,7 +221,7 @@ No shared harness is satisfied by this plan alone.
   - accessibility preflight now, and implemented accessibility target mapping before any FE-A11Y completion claim.
 - Expected selector/test-id updates: only through stable builders when selectors cross runtime, unit, browser, support-test, helper, or option-object boundaries.
 - Expected phase metadata handling: update `tools/frontend_phase_maps/fe_p4_test_map.json` only after direct row-owned evidence exists; regenerate `docs/testing/frontend_phase_coverage_ledgers/fe_p4_coverage_ledger.md` through `make phase-ledgers`; validate with `make phase-ledger-drift`.
-- FE-P4 should consume existing public route contracts. This plan does not create new public API routes or wire shapes.
+- FE-P4 should consume existing production public route contracts. Harness-owned test controls such as `/api/v1/test/runtime/public-error-faults` are non-production mechanics owned by `docs/testing-harness-nlspec.md` and do not create production API conformance claims.
 
 ## NLSpec Boundary Closure Contract
 
@@ -331,7 +339,7 @@ Patch limits and canonicalization:
 | [x] | 2. Sync-engine pending queue unit model for `FE-U-P4-01` | `make frontend-unit`; `make frontend-typecheck` | Complete as Sprint 2 only; does not close save-state, browser public-route, visual, accessibility, or full FE-P4 phase readiness |
 | [x] | 3. Save-state derivation and status strip unit model for `FE-U-P4-02` | `make frontend-unit`; `make frontend-typecheck` | Complete as Sprint 3 only; does not close public-route replay, visual, accessibility, conflict resolution, or full FE-P4 phase readiness |
 | [x] | 4. Timeline query/render identity integration for `FE-I-P4-01` | `make frontend-unit`; `make browser-e2e-webserver-backed` | Complete as Sprint 4 only; does not close public-route replay, rough-create/paste hot path, visual, accessibility, saved-view persistence, WebSocket live updates, or full FE-P4 phase readiness |
-| [ ] | 5. Public-route E2E for rough create, edit, paste, pending save, refresh, and replay for `FE-E-P4-01` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | Block if rough create, inline edit, paste, replay, or validation evidence bypasses Tables D, F, and G public-boundary behavior |
+| [x] | 5. Public-route E2E for rough create, edit, paste, pending save, refresh, and replay for `FE-E-P4-01` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; remediation also ran `make backend-integration-support`, `make harness-contract`, `make frontend-unit`, and `make frontend-typecheck` | Complete as Sprint 5 only; does not close visual, accessibility, WebSocket, same-field resolver UI, Core 05, product hot-path, or full FE-P4 phase readiness |
 | [ ] | 6. Visual and accessibility readiness for `FE-V-P4-01` and `FE-A11Y-P4-01` | `make browser-e2e-visual`; current `make browser-e2e-a11y-preflight`; implemented closure requires `make browser-e2e-a11y` mapping | FE-V row is blocked until recaptured; FE-A11Y row is preflight-only and blocks full FE-P4 phase completion until implemented evidence exists |
 | [ ] | 7. Closure, drift, final validation, and FE-P5 handoff | Row-owned targets plus `make frontend-import-boundary-check`, `make generated-artifact-policy-check`, `make generate-drift`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make agent-finalize`, and `make check` when required | Block if any row remains blocked/stale for full phase completion; product hot-path closure must be named separately when design rows remain blocked |
 
@@ -660,6 +668,7 @@ Source constraints:
 
 - Product-conformance evidence must use public `/api/v1/` route contracts and server-managed sessions.
 - Core 02 Section 5 owns rough and uncertain input preservation.
+- Unknown public error fallback evidence may use only a real public route behavior, an accepted harness-owned public test control, or service-boundary behavior. Frontend route interception does not close the row.
 - Frontend-only mocks, private server details, snapshot filenames, and generated ledgers cannot close this row.
 
 Test-first sequence:
@@ -675,6 +684,7 @@ Test-first sequence:
 - Replay requirement: verify transient transport/auth/session failure preserves queued work within the same browser runtime, re-auth/re-query occurs when required, replay remains FIFO, and a full reload or recreated page instance does not silently restore or replay the base-profile queue.
 - Refresh requirement: refresh and verify stable row identity by `record_id` plus cell identity by `field_key`; pending work must not retarget by visible row order.
 - Validation requirement: verify Table G public error-state mapping for cell-level validation, mutation-level conflict, same-field conflict, row-version conflict, and unknown public error fallback without private server details.
+- Unknown fallback requirement: when no natural production route can safely emit an unknown public error, use the harness-owned public-error fault control and verify the browser receives the configured envelope through an ordinary non-test `/api/v1/` mutation route.
 
 Implementation tasks:
 
@@ -685,14 +695,21 @@ Implementation tasks:
 - Keep validation and conflict state on the same workbook surface.
 - Keep create and patch request construction within Table D limits and omission semantics.
 - Keep paste dispatch and batch target validation within Table F.
+- If unknown public error fallback is otherwise unavailable, add a durable harness-owned test control under `docs/testing-harness-nlspec.md` rather than introducing frontend mocks.
 
 Validation commands:
 
+- `make backend-integration-support` when harness runtime behavior changes
+- `make harness-contract` when harness contract/schema behavior changes
 - `make browser-e2e-webserver-backed`
 - `make browser-e2e-stateful`
 - `make browser-e2e-support` if browser helpers or selectors change
 - `make frontend-unit` if app controller or helper unit code changes
 - `make frontend-typecheck`
+- `make json-shape-check` after map, registry, or harness schema edits
+- `make phase-ledgers` and `make phase-ledger-drift` after row metadata promotion
+- `make phase-schedules` and `make phase-schedule-drift` after browser selection or schedule metadata changes
+- `make agent-finalize` before handoff
 
 Evidence requirements:
 
@@ -715,12 +732,20 @@ Binary acceptance:
 
 - `FE-E-P4-01` is implemented only when current browser row accounting closes the row through the mapped webserver-backed and stateful targets, every Sprint 5 requirement above is covered against Tables C, D, F, and G, or the current map is corrected with owner-approved target semantics before promotion.
 
-Execution note (2026-06-02):
+Sprint 5 execution record, 2026-06-03:
 
-- Added focused exact-title browser coverage in `apps/web/e2e/frontend.phase4.public-route.spec.ts` for the real public-route create, patch, paste, save-state, refresh, and replay paths that can be induced through the current harness.
-- Kept `FE-E-P4-01` blocked because the unknown public error fallback cannot currently be induced through a real public route, accepted harness-owned control, or service-boundary behavior without private frontend mocks:
-  `BLOCKER: FE-E-P4-01 public error-state mapping incomplete; missing=unknown_public_error minimum_follow_up=add Table G browser coverage.`
-- No FE-P4 phase, visual, accessibility, WebSocket, same-field resolver UI, Core 05, or product hot-path closure is claimed.
+- Added the harness-owned public-error fault control defined by `cartulary.test.public_error_fault.v1` and documented in `docs/testing-harness-nlspec.md` Section 12. The route is token-gated, host/origin-guarded, disabled outside test runtime, one-shot, reset-cleared, and cannot target `/api/v1/test/*`.
+- Added backend support tests for fault-control enablement, authorization, origin/host protection, path and status validation, one-shot consumption, and reset cleanup.
+- Centralized frontend public-error normalization in `apps/web/src/publicError.ts` and reused it from `browserApi` and `workbookPendingQueue` so pending replay no longer stores or renders unsafe unknown public error messages.
+- Extended the exact-title browser scenario in `apps/web/e2e/frontend.phase4.public-route.spec.ts` to arm the harness fault and receive an unknown public error through a real `PATCH /api/v1/records/{record_id}` mutation. The UI asserts the generic same-surface fallback and absence of private path, stack, or file details.
+- Kept the existing scenario coverage for authenticated setup, Timeline query, rough create, inline edit, save-state, paste, conflict/validation envelopes, refresh by `record_id` and `field_key`, and stateful session-revocation replay.
+- Promoted only `FE-E-P4-01` to `claim_status="implemented"` in `tools/frontend_phase_maps/fe_p4_test_map.json`, regenerated the FE-P4 coverage ledger, refreshed registry freshness digests, and left non-owned FE-P4 rows unchanged.
+- Verified `browser-e2e-webserver-backed` row accounting in `.cartulary/test-results/20260603T004906Z-p375940/browser-e2e-webserver-backed/frontend-row-accounting.json`: `FE-E-P4-01` had `claim_status_at_run="implemented"`, `closure_status="closed"`, no failure reason, and the exact scenario title passed.
+- Verified `browser-e2e-stateful` row accounting in `.cartulary/test-results/20260603T005044Z-p384177/browser-e2e-stateful/frontend-row-accounting.json`: `FE-E-P4-01` had `claim_status_at_run="implemented"`, `closure_status="closed"`, no failure reason, and the exact scenario title passed.
+- Passed: `make backend-integration-support`, `make harness-contract`, `make frontend-unit`, `make frontend-typecheck`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make json-shape-check`, `make phase-ledgers`, `make phase-ledger-drift`, `make phase-schedules`, `make phase-schedule-drift`, and `make agent-finalize`.
+- Skipped `make browser-e2e-support` because no shared browser helper or selector package changed.
+- Retained-run evidence maintenance was skipped by `make agent-finalize` because `RESULTS_DIR` was unset.
+- No FE-P4 phase, visual, accessibility, WebSocket, same-field resolver UI, Core 05, product hot-path, or product API expansion claim is made.
 
 Explicit non-claims:
 
@@ -942,13 +967,13 @@ If FE-P4 completes, FE-P5 may rely on:
 - same-surface save-state and validation/error presentation;
 - visual and accessibility readiness state recorded without promoting design evidence into product conformance.
 
-Current unresolved blockers at plan creation:
+Current unresolved blockers after Sprint 5:
 
 - FE-P4 is `planned`, not active.
-- All six FE-P4 rows have `claim_status="blocked"`.
+- `FE-V-P4-01` and `FE-A11Y-P4-01` have `claim_status="blocked"`.
 - `FE-V-P4-01` is blocked because direct frontend row-accounting visual evidence has not been recaptured under the closed fixture registry.
 - `FE-A11Y-P4-01` is mapped to `make browser-e2e-a11y-preflight`; preflight evidence cannot complete an implemented accessibility row.
-- No FE-P4 row-owned implementation target has been run in this planning task.
+- Product-conformance row-owned targets have current evidence through Sprint 5; visual and accessibility readiness targets remain unresolved for phase completion.
 
 Non-claims carried to FE-P5:
 
