@@ -11950,13 +11950,14 @@ export function WorkbookShell({
       abortLatestQuery(genericQueryRuntimeRef);
       return;
     }
+    const requestedSurface = surface;
     const request = beginLatestQuery(genericQueryRuntimeRef);
     setGenericLoadError(null);
     try {
       const result = await fetchJSON<ViewQueryEnvelope>(
         apiPath(
           apiBase,
-          `/api/v1/incidents/${incidentId}/views/${surface}/query`,
+          `/api/v1/incidents/${incidentId}/views/${requestedSurface}/query`,
         ),
         {
           method: "POST",
@@ -11973,6 +11974,11 @@ export function WorkbookShell({
         throw new Error(parseErrorMessage(result.payload));
       }
       const envelope = readEnvelope<ViewQueryEnvelope>(result.payload);
+      if (envelope.data.view_schema_id !== requestedSurface) {
+        throw new Error(
+          `Surface load returned ${envelope.data.view_schema_id} for ${requestedSurface}.`,
+        );
+      }
       setGenericRows(envelope.data.rows);
     } catch (error) {
       if (!request.isCurrent() || isAbortError(error)) {

@@ -7,6 +7,7 @@ import {
   gridFilterValueTestId,
   gridSavedRowsSelector,
   gridShellTestId,
+  rowCellTestId,
   rowInspectButtonTestId,
   savedViewOptionTestId,
   savedViewSelectorTestId,
@@ -42,6 +43,7 @@ import {
   indicatorsViewSchemaId,
   optionalStandardizedWorkbookSurfaceIds,
   requiredBuiltInWorkbookSurfaceIds,
+  statusReviewViewSchemaId,
   timelineViewSchemaId,
 } from "./workbookSurfaceRegistry";
 
@@ -70,6 +72,14 @@ describe("WorkbookShell surface selection", () => {
     row_version: number;
     cells: Record<string, { value: unknown }>;
   }>;
+  let genericRowsByView: Record<
+    string,
+    Array<{
+      record_id: string;
+      row_version: number;
+      cells: Record<string, { value: unknown }>;
+    }>
+  >;
   let savedViews: Array<{
     saved_view_id: string;
     view_schema_id: string;
@@ -93,6 +103,7 @@ describe("WorkbookShell surface selection", () => {
     window.history.replaceState({}, "", "/");
     evidenceRows = [];
     timelineRows = [];
+    genericRowsByView = {};
     savedViews = [];
     queryResponseOverride = null;
     startupSelection = {
@@ -234,6 +245,7 @@ describe("WorkbookShell surface selection", () => {
         identitiesViewSchemaId,
         evidenceViewSchemaId,
         indicatorsViewSchemaId,
+        statusReviewViewSchemaId,
       ]) {
         if (url.includes(`/views/${viewSchemaId}/query`)) {
           const override = queryResponseOverride?.(viewSchemaId, init);
@@ -248,7 +260,7 @@ describe("WorkbookShell surface selection", () => {
                 ? evidenceRows
                 : viewSchemaId === timelineViewSchemaId
                   ? timelineRows
-                  : [],
+                  : (genericRowsByView[viewSchemaId] ?? []),
           });
         }
       }
@@ -414,6 +426,84 @@ describe("WorkbookShell surface selection", () => {
     expect(window.location.search).toContain(
       `view_schema_id=${encodeURIComponent(evidenceViewSchemaId)}`,
     );
+  });
+
+  it("loads a direct Status Review URL with the active surface query result", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      `/?view_schema_id=${encodeURIComponent(statusReviewViewSchemaId)}`,
+    );
+    startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: statusReviewViewSchemaId },
+      selected_view_schema_id: statusReviewViewSchemaId,
+      selected_saved_view: null,
+      source: "explicit",
+    };
+    genericRowsByView[statusReviewViewSchemaId] = [
+      statusReviewRow(
+        "status-review-1",
+        1,
+        "Direct Status Review surface load",
+      ),
+    ];
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining(`/views/${statusReviewViewSchemaId}/query`),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    expect(
+      (
+        await screen.findByTestId(
+          rowCellTestId(
+            "status-review-1",
+            "status_review.current_state_summary",
+          ),
+        )
+      ).textContent,
+    ).toBe("Direct Status Review surface load");
+  });
+
+  it("rejects generic query envelopes from a different view_schema_id", async () => {
+    startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: statusReviewViewSchemaId },
+      selected_view_schema_id: statusReviewViewSchemaId,
+      selected_saved_view: null,
+      source: "explicit",
+    };
+    queryResponseOverride = (viewSchemaId) => {
+      if (viewSchemaId !== statusReviewViewSchemaId) {
+        return null;
+      }
+      return successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: evidenceViewSchemaId,
+        rows: [
+          statusReviewRow(
+            "status-review-1",
+            1,
+            "Mismatched Status Review result",
+          ),
+        ],
+      });
+    };
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    expect(
+      (await screen.findByTestId("generic-surface-load-error")).textContent,
+    ).toContain(
+      `Surface load returned ${evidenceViewSchemaId} for ${statusReviewViewSchemaId}.`,
+    );
+    expect(
+      screen.queryByTestId(
+        rowCellTestId("status-review-1", "status_review.current_state_summary"),
+      ),
+    ).toBeNull();
   });
 
   it("keeps a selected saved-view sheet ref distinct from its base view_schema", async () => {
@@ -816,6 +906,36 @@ function evidenceRow(recordId: string, rowVersion: number, title: string) {
       "evidence.upload_state": { value: "pending" },
       "evidence.linked_record_count": { value: 0 },
       "evidence.edited_at": { value: null },
+    },
+  };
+}
+
+function statusReviewRow(
+  recordId: string,
+  rowVersion: number,
+  summary: string,
+) {
+  return {
+    record_id: recordId,
+    row_version: rowVersion,
+    cells: {
+      "status_review.timestamp_utc": { value: "2026-04-24T15:00:00.000Z" },
+      "status_review.review_owner_user_id": { value: "user-1" },
+      "status_review.current_state_summary": { value: summary },
+      "status_review.active_risks_summary": { value: null },
+      "status_review.next_report_at": { value: null },
+      "status_review.blocked_task_ids": {
+        value: { kind: "collection_value_v1", ordered: false, items: [] },
+      },
+      "status_review.pending_evidence_ids": {
+        value: { kind: "collection_value_v1", ordered: false, items: [] },
+      },
+      "status_review.open_decision_ids": {
+        value: { kind: "collection_value_v1", ordered: false, items: [] },
+      },
+      "status_review.timestamp_day": { value: "2026-04-24" },
+      "status_review.next_report_day": { value: null },
+      "status_review.edited_at": { value: "2026-04-24T15:00:00.000Z" },
     },
   };
 }

@@ -661,6 +661,36 @@ export async function queryViewRows(
   ).data.rows;
 }
 
+export async function waitForViewRow(
+  page: Page,
+  incidentId: string,
+  viewSchemaId: string,
+  recordId: string,
+  options: { timeout?: number } = {},
+): Promise<ViewApiRow> {
+  let lastRows: ViewApiRow[] = [];
+  await expect
+    .poll(
+      async () => {
+        lastRows = await queryViewRows(page, incidentId, viewSchemaId);
+        return lastRows.some((row) => row.record_id === recordId);
+      },
+      {
+        message: `${viewSchemaId} default query should include created row ${recordId}`,
+        timeout: options.timeout ?? 10_000,
+      },
+    )
+    .toBe(true);
+  const row = lastRows.find((candidate) => candidate.record_id === recordId);
+  expect(
+    row,
+    `${viewSchemaId} default query rows: ${lastRows
+      .map((candidate) => candidate.record_id)
+      .join(", ")}`,
+  ).toBeTruthy();
+  return row as ViewApiRow;
+}
+
 export async function fetchTimelineRecordSubstrate(
   page: Page,
   recordId: string,

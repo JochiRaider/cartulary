@@ -10,7 +10,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
@@ -88,6 +90,129 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 	}
 	if !reflect.DeepEqual(gotIDs, wantIDs) {
 		t.Fatalf("unexpected discovered ids:\ngot  %v\nwant %v", gotIDs, wantIDs)
+	}
+}
+
+func TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows(t *testing.T) {
+	harness := phase4test.StartServer(t, "workbook-coordination-default-query")
+	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-workbook-coordination-default-query-incident",
+		"incident_key":  "IR-WORKBOOK-COORD-QUERY",
+		"title":         "Workbook coordination default query",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	tests := []struct {
+		name          string
+		viewSchemaID  string
+		body          map[string]any
+		wantField     string
+		wantValue     any
+		requireFields func(testing.TB, map[string]any)
+	}{
+		{
+			name:         "comm_log",
+			viewSchemaID: workbook.CommLogViewSchemaID,
+			body: map[string]any{
+				"client_txn_id":               "txn-workbook-default-query-comm",
+				"comm_log.comm_type":          "briefing",
+				"comm_log.audience":           "leadership",
+				"comm_log.channel_or_meeting": "Bridge",
+				"comm_log.summary":            "Default query comm log",
+			},
+			wantField: "comm_log.summary",
+			wantValue: "Default query comm log",
+			requireFields: func(t testing.TB, row map[string]any) {
+				t.Helper()
+				requireNonEmptyCellValue(t, row, "comm_log.timestamp_utc")
+				requireCollectionItemCount(t, row, "comm_log.decision_ids", 0)
+				requireCollectionItemCount(t, row, "comm_log.action_task_ids", 0)
+				requireCollectionItemCount(t, row, "comm_log.audience_party_ids", 0)
+				requireCollectionItemCount(t, row, "comm_log.attendee_party_ids", 0)
+				requireCellValue(t, row, "comm_log.next_report_at", nil)
+				requireCellValue(t, row, "comm_log.privilege_tag", nil)
+			},
+		},
+		{
+			name:         "handoff",
+			viewSchemaID: workbook.HandoffViewSchemaID,
+			body: map[string]any{
+				"client_txn_id":                  "txn-workbook-default-query-handoff",
+				"handoff.incoming_owner_user_id": adminUserID.String(),
+				"handoff.current_state_summary":  "Default query handoff",
+			},
+			wantField: "handoff.current_state_summary",
+			wantValue: "Default query handoff",
+			requireFields: func(t testing.TB, row map[string]any) {
+				t.Helper()
+				requireNonEmptyCellValue(t, row, "handoff.timestamp_utc")
+				requireCellValue(t, row, "handoff.outgoing_owner_user_id", adminUserID.String())
+				requireCollectionItemCount(t, row, "handoff.open_task_ids", 0)
+				requireCollectionItemCount(t, row, "handoff.open_decision_ids", 0)
+				requireCollectionItemCount(t, row, "handoff.open_risk_refs", 0)
+				requireCellValue(t, row, "handoff.next_checks", nil)
+				requireCellValue(t, row, "handoff.acknowledged_at", nil)
+			},
+		},
+		{
+			name:         "status_review",
+			viewSchemaID: workbook.StatusReviewViewSchemaID,
+			body: map[string]any{
+				"client_txn_id":                       "txn-workbook-default-query-status",
+				"status_review.current_state_summary": "Default query status review",
+			},
+			wantField: "status_review.current_state_summary",
+			wantValue: "Default query status review",
+			requireFields: func(t testing.TB, row map[string]any) {
+				t.Helper()
+				requireNonEmptyCellValue(t, row, "status_review.timestamp_utc")
+				requireCellValue(t, row, "status_review.review_owner_user_id", adminUserID.String())
+				requireCollectionItemCount(t, row, "status_review.blocked_task_ids", 0)
+				requireCollectionItemCount(t, row, "status_review.pending_evidence_ids", 0)
+				requireCollectionItemCount(t, row, "status_review.open_decision_ids", 0)
+				requireCellValue(t, row, "status_review.active_risks_summary", nil)
+				requireCellValue(t, row, "status_review.next_report_at", nil)
+			},
+		},
+		{
+			name:         "lesson",
+			viewSchemaID: workbook.LessonViewSchemaID,
+			body: map[string]any{
+				"client_txn_id":  "txn-workbook-default-query-lesson",
+				"lesson.summary": "Default query lesson",
+			},
+			wantField: "lesson.summary",
+			wantValue: "Default query lesson",
+			requireFields: func(t testing.TB, row map[string]any) {
+				t.Helper()
+				requireNonEmptyCellValue(t, row, "lesson.timestamp_utc")
+				requireCellValue(t, row, "lesson.owner_user_id", adminUserID.String())
+				requireCellValue(t, row, "lesson.closure_state", "open")
+				requireCollectionItemCount(t, row, "lesson.follow_up_task_ids", 0)
+				requireCollectionItemCount(t, row, "lesson.evidence_refs", 0)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			created := requireWorkbookCreate(t, harness, adminLogin, incidentID, tc.viewSchemaID, tc.body)
+			createdRow := created["row"].(map[string]any)
+			recordID := phase4test.MustUUID(t, createdRow["record_id"].(string))
+			requireCellValue(t, createdRow, tc.wantField, tc.wantValue)
+
+			queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + tc.viewSchemaID + "/query"
+			query := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{})
+			data := query["data"].(map[string]any)
+			if data["view_schema_id"] != tc.viewSchemaID {
+				t.Fatalf("default query for %s returned wrong view_schema_id: %#v", tc.viewSchemaID, data)
+			}
+			row := findResponseRow(t, responseRows(query), recordID)
+			requireDefaultVisibleCells(t, tc.viewSchemaID, row)
+			requireCellValue(t, row, tc.wantField, tc.wantValue)
+			tc.requireFields(t, row)
+		})
 	}
 }
 
@@ -812,4 +937,21 @@ func findResponseRow(t testing.TB, rows []map[string]any, recordID uuid.UUID) ma
 	}
 	t.Fatalf("row %s not found in %#v", recordID, rows)
 	return nil
+}
+
+func requireDefaultVisibleCells(t testing.TB, viewSchemaID string, row map[string]any) {
+	t.Helper()
+	resource, ok := viewschema.LookupPublicResource(viewSchemaID)
+	if !ok {
+		t.Fatalf("missing public view schema resource %s", viewSchemaID)
+	}
+	cells := row["cells"].(map[string]any)
+	for _, field := range resource.Fields {
+		if field.DefaultHidden {
+			continue
+		}
+		if _, ok := cells[field.FieldKey]; !ok {
+			t.Fatalf("%s default-visible field %s missing from row %#v", viewSchemaID, field.FieldKey, row)
+		}
+	}
 }
