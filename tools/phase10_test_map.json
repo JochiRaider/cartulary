@@ -369,13 +369,14 @@
       "symbols": [
         "TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata",
         "TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup",
-        "TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner"
+        "TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner",
+        "TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassAndMismatchEvidence"
       ],
       "execution_dependency": "backend_process",
       "evidence_layer": "backend_process",
       "claim_status": "implemented",
-      "claim": "Deployment-local operator commands expose latest durable successful retained backup_set metadata with redacted durability diagnostics, restore the latest durable retained backup, and run due restore verification only for an active deployment_admin; inactive deployment admins, non-admins, incident-admin-only users, unsafe same-config restore targets, and unmarked verification targets are rejected.",
-      "out_of_scope": "This evidence does not implement browser-visible restore recovery, public backup or restore APIs, or arbitrary timestamp restore.",
+      "claim": "Deployment-local operator commands expose latest durable successful retained backup_set metadata with redacted durability diagnostics, restore the latest durable retained backup, run due restore verification, and run object-store migration tooling only for an active deployment_admin; inactive deployment admins, non-admins, incident-admin-only users, unsafe same-config restore targets, unmarked verification targets, and target-side migration mismatches are rejected.",
+      "out_of_scope": "This evidence does not implement browser-visible restore recovery, public backup, restore, or migration APIs, arbitrary timestamp restore, or SWFS-OWNER-STORAGEREF-001 resolution.",
       "execution_family": "backend-process-phase10-operator-inspection",
       "execution_label": "backend-process phase10 deployment-local operator inspection evidence",
       "evidence_class": "product_conformance",

@@ -24,13 +24,14 @@ import (
 )
 
 const (
-	BackupMetadataInspectionSchemaID              = "cartulary.operator.backup_metadata.v1"
-	OperatorRestoreResultSchemaID                 = "cartulary.operator.restore_result.v1"
-	OperatorRestoreVerificationSchemaID           = "cartulary.operator.restore_verification_result.v1"
-	OperatorRestoreVerificationDueSchemaID        = "cartulary.operator.restore_verification_due_result.v1"
-	RestoreVerificationTargetMarkerSchemaID       = "cartulary.restore_verification_target.v1"
-	phase10RestoreMinimumSchemaVersion      int64 = 22
-	restoreVerificationAdvisoryLockKey      int64 = 401010
+	BackupMetadataInspectionSchemaID                 = "cartulary.operator.backup_metadata.v1"
+	OperatorRestoreResultSchemaID                    = "cartulary.operator.restore_result.v1"
+	OperatorRestoreVerificationSchemaID              = "cartulary.operator.restore_verification_result.v1"
+	OperatorRestoreVerificationDueSchemaID           = "cartulary.operator.restore_verification_due_result.v1"
+	OperatorObjectStoreMigrationResultSchemaID       = "cartulary.operator.object_store_migration_result.v1"
+	RestoreVerificationTargetMarkerSchemaID          = "cartulary.restore_verification_target.v1"
+	phase10RestoreMinimumSchemaVersion         int64 = 22
+	restoreVerificationAdvisoryLockKey         int64 = 401010
 )
 
 type operatorPostgresPool interface {
@@ -57,6 +58,11 @@ type operatorCLIResult struct {
 	sourceConfigPath   string
 	targetConfigPath   string
 	confirmBackupSetID uuid.UUID
+	runID              uuid.UUID
+	artifactsDir       string
+	quiescenceProof    string
+	sourceBackend      string
+	targetBackend      string
 }
 
 type BackupMetadataInspection struct {
@@ -132,6 +138,28 @@ type OperatorRestoreVerificationDueItem struct {
 	RestoreVerificationArtifactSizeBytes int64      `json:"restore_verification_artifact_size_bytes,omitempty"`
 }
 
+type OperatorObjectStoreMigrationResult struct {
+	SchemaID             string                                `json:"schema_id"`
+	RunID                string                                `json:"run_id"`
+	CurrentState         string                                `json:"current_state"`
+	TerminalResult       *string                               `json:"terminal_result"`
+	CutoverReady         bool                                  `json:"cutover_ready"`
+	BlockingFailure      bool                                  `json:"blocking_failure"`
+	MigrationRunArtifact operatorMigrationArtifactPathAndProof `json:"migration_run_artifact"`
+	CopyLedgerArtifact   operatorMigrationArtifactPathAndProof `json:"copy_ledger_artifact"`
+	ValidationArtifact   operatorMigrationArtifactPathAndProof `json:"validation_artifact"`
+	ProbeArtifact        operatorMigrationArtifactPathAndProof `json:"probe_artifact"`
+	RollbackArtifact     operatorMigrationArtifactPathAndProof `json:"rollback_artifact"`
+}
+
+type operatorMigrationArtifactPathAndProof struct {
+	Path        string `json:"path"`
+	Key         string `json:"key"`
+	SHA256      string `json:"sha256"`
+	SizeBytes   int64  `json:"size_bytes"`
+	ContentType string `json:"content_type"`
+}
+
 func RunOperatorCLIContext(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
 	return newOperatorRunnerForCLI(stdout, stderr).runCLI(ctx, args)
 }
@@ -190,6 +218,8 @@ func (runner operatorRunner) run(ctx context.Context, parsed operatorCLIResult) 
 		return runner.runRestoreVerifyLatest(ctx, parsed)
 	case "restore-verify due":
 		return runner.runRestoreVerifyDue(ctx, parsed)
+	case "object-store-migration run":
+		return runner.runObjectStoreMigration(ctx, parsed)
 	default:
 		return fmt.Errorf("unsupported operator command %q", parsed.command)
 	}
@@ -426,10 +456,218 @@ func (runner operatorRunner) runRestoreVerifyDue(ctx context.Context, parsed ope
 	return nil
 }
 
+func (runner operatorRunner) runObjectStoreMigration(ctx context.Context, parsed operatorCLIResult) error {
+	sourceCfg, targetCfg, sourcePool, sourceObjectStore, targetObjectStore, backupStorage, err := runner.openObjectStoreMigrationRuntime(ctx, parsed)
+	if err != nil {
+		return err
+	}
+	defer sourcePool.Close()
+	defer func() { _ = sourceObjectStore.Close() }()
+	defer func() { _ = targetObjectStore.Close() }()
+
+	if err := authorizeDeploymentAdmin(ctx, sourcePool, parsed.email); err != nil {
+		return err
+	}
+	sourceSettings, targetSettings, err := runner.preflightObjectStoreMigrationConfig(parsed, sourceCfg, targetCfg)
+	if err != nil {
+		return err
+	}
+	proof, err := loadObjectStoreMigrationQuiescenceProof(parsed.quiescenceProof)
+	if err != nil {
+		return err
+	}
+	if err := recovery.ValidateObjectStoreMigrationWriteQuiescenceProof(proof); err != nil {
+		return err
+	}
+	asOf := parsed.asOf
+	if asOf.IsZero() {
+		asOf = runner.now()
+	}
+	sourceStore := recovery.NewStore(sourcePool)
+	backupSet, err := recovery.NewBackupCatalog(sourceStore, backupStorage).RestoreCandidateBackup(ctx, asOf)
+	if err != nil {
+		return err
+	}
+	if backupSet.BackupSetID != parsed.confirmBackupSetID {
+		return fmt.Errorf("confirmed backup_set_id %s does not match latest retained backup %s", parsed.confirmBackupSetID, backupSet.BackupSetID)
+	}
+	backupRef, err := recovery.LoadObjectStoreMigrationBackupRefs(ctx, backupStorage, backupSet)
+	if err != nil {
+		return fmt.Errorf("load migration backup refs: %w", err)
+	}
+	runID := parsed.runID
+	if runID == uuid.Nil {
+		runID = uuid.New()
+	}
+	now := runner.now()
+	run, err := recovery.NewObjectStoreMigrationRun(runID, now, parsed.email, sourceSettings.Endpoint, targetSettings.Endpoint, sourceSettings.Bucket, targetSettings.Bucket)
+	if err != nil {
+		return err
+	}
+	if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventPreflightPassed, now.Add(time.Millisecond), map[string]string{
+		"source_backend": parsed.sourceBackend,
+		"target_backend": parsed.targetBackend,
+	}); err != nil {
+		return err
+	}
+	if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventWriteQuiescenceVerified, proof.CheckedAt, map[string]string{
+		"proof_kind": proof.ProofKind,
+	}); err != nil {
+		return err
+	}
+	run.BackupRefs = append(run.BackupRefs, backupRef)
+	if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventBackupCaptured, backupSet.ConsistencyPointAt, map[string]string{
+		"backup_set_id": backupSet.BackupSetID.String(),
+	}); err != nil {
+		return err
+	}
+
+	artifactDir, err := filepath.Abs(parsed.artifactsDir)
+	if err != nil {
+		return fmt.Errorf("resolve artifacts-dir: %w", err)
+	}
+	probe, probeBody, err := recovery.ProbeObjectStoreMigrationTarget(ctx, runID, targetSettings.Bucket, targetObjectStore, runner.now())
+	if err != nil {
+		return err
+	}
+	probeArtifact, err := writeOperatorMigrationArtifact(artifactDir, "target-probe.json", probeBody)
+	if err != nil {
+		return err
+	}
+	run.ProbeRef = &probeArtifact.ref
+	if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventTargetPrepared, probe.CompletedAt, map[string]string{
+		"probe_ref": probeArtifact.path,
+	}); err != nil {
+		return err
+	}
+
+	rollback, rollbackBody, err := recovery.BuildObjectStoreMigrationRollbackEvidence(runID, runner.now())
+	if err != nil {
+		return err
+	}
+	rollbackArtifact, err := writeOperatorMigrationArtifact(artifactDir, "rollback-evidence.json", rollbackBody)
+	if err != nil {
+		return err
+	}
+	run.RollbackRef = &rollbackArtifact.ref
+
+	objects, err := recovery.ListObjectStoreMigrationBlobs(ctx, sourcePool)
+	if err != nil {
+		return err
+	}
+	if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventCopyStarted, runner.now(), nil); err != nil {
+		return err
+	}
+	copyLedger, copyLedgerBody, err := recovery.CopyObjectStoreMigrationObjects(ctx, recovery.ObjectStoreMigrationCopyParams{
+		RunID:         runID,
+		SourceBackend: parsed.sourceBackend,
+		TargetBackend: parsed.targetBackend,
+		SourceBucket:  sourceSettings.Bucket,
+		TargetBucket:  targetSettings.Bucket,
+		SourceStore:   sourceObjectStore,
+		TargetStore:   targetObjectStore,
+		Objects:       objects,
+	})
+	if err != nil {
+		return err
+	}
+	copyArtifact, err := writeOperatorMigrationArtifact(artifactDir, "copy-ledger.json", copyLedgerBody)
+	if err != nil {
+		return err
+	}
+	run.CopyLedgerRef = &copyArtifact.ref
+
+	validationStartedAt := runner.now()
+	validation, validationBody, err := recovery.ValidateObjectStoreMigration(ctx, recovery.ObjectStoreMigrationValidationParams{
+		RunID:         runID,
+		StartedAt:     validationStartedAt,
+		CompletedAt:   validationStartedAt.Add(time.Millisecond),
+		SourceBackend: parsed.sourceBackend,
+		TargetBackend: parsed.targetBackend,
+		SourceBucket:  sourceSettings.Bucket,
+		TargetBucket:  targetSettings.Bucket,
+		SourceStore:   sourceObjectStore,
+		TargetStore:   targetObjectStore,
+		Objects:       objects,
+	})
+	if err != nil {
+		return err
+	}
+	validationArtifact, err := writeOperatorMigrationArtifact(artifactDir, "validation.json", validationBody)
+	if err != nil {
+		return err
+	}
+	run.ValidationRef = &validationArtifact.ref
+
+	blockingFailure := copyLedger.Result != "pass" || validation.Result != "pass"
+	if !blockingFailure {
+		if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventCopyCompleted, runner.now(), map[string]string{
+			"copy_ledger_ref": copyArtifact.path,
+		}); err != nil {
+			return err
+		}
+		if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventValidationStarted, validationStartedAt, map[string]string{
+			"validation_ref": validationArtifact.path,
+		}); err != nil {
+			return err
+		}
+		if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventValidationPassed, *validation.CompletedAt, map[string]string{
+			"validation_result": validation.Result,
+		}); err != nil {
+			return err
+		}
+	} else {
+		if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventBlockingFailure, runner.now(), map[string]string{
+			"copy_ledger_result": copyLedger.Result,
+			"validation_result":  validation.Result,
+		}); err != nil {
+			return err
+		}
+	}
+
+	runBody, err := recovery.EncodeObjectStoreMigrationRun(run)
+	if err != nil {
+		return err
+	}
+	runArtifact, err := writeOperatorMigrationArtifact(artifactDir, "migration-run.json", runBody)
+	if err != nil {
+		return err
+	}
+	var terminal *string
+	if run.TerminalResult != nil {
+		value := string(*run.TerminalResult)
+		terminal = &value
+	}
+	payload := OperatorObjectStoreMigrationResult{
+		SchemaID:             OperatorObjectStoreMigrationResultSchemaID,
+		RunID:                run.RunID,
+		CurrentState:         string(run.CurrentState),
+		TerminalResult:       terminal,
+		CutoverReady:         run.CurrentState == recovery.ObjectStoreMigrationStateCutoverReady,
+		BlockingFailure:      blockingFailure,
+		MigrationRunArtifact: runArtifact.payload(),
+		CopyLedgerArtifact:   copyArtifact.payload(),
+		ValidationArtifact:   validationArtifact.payload(),
+		ProbeArtifact:        probeArtifact.payload(),
+		RollbackArtifact:     rollbackArtifact.payload(),
+	}
+	if err := runner.encodeJSON(payload); err != nil {
+		return err
+	}
+	if blockingFailure {
+		return errors.New("object-store migration blocked before cutover")
+	}
+	_ = rollback
+	return nil
+}
+
 func parseOperatorCLIArgs(args []string, stderr io.Writer) operatorCLIResult {
 	if len(args) < 2 {
 		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), operatorUsage())
 		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	if len(args) >= 2 && args[0] == "object-store-migration" && args[1] == "run" {
+		return parseObjectStoreMigrationRunArgs(args[2:], stderr)
 	}
 	switch args[0] + " " + args[1] {
 	case "backup-metadata latest":
@@ -443,6 +681,71 @@ func parseOperatorCLIArgs(args []string, stderr io.Writer) operatorCLIResult {
 	default:
 		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), operatorUsage())
 		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+}
+
+func parseObjectStoreMigrationRunArgs(args []string, stderr io.Writer) operatorCLIResult {
+	flags := flag.NewFlagSet("operator object-store-migration run", flag.ContinueOnError)
+	flags.SetOutput(normalizeOperatorWriter(stderr))
+	email := flags.String("deployment-admin-email", "", "active deployment-admin email authorized to migrate object storage")
+	sourceConfig := flags.String("source-config", "", "source deployment config path")
+	targetConfig := flags.String("target-config", "", "target deployment config path")
+	confirmRaw := flags.String("confirm-backup-set-id", "", "latest backup_set_id confirmation")
+	asOfRaw := flags.String("as-of", "", "RFC3339 timestamp for latest-success freshness evaluation")
+	runIDRaw := flags.String("run-id", "", "optional stable migration run UUID")
+	artifactsDir := flags.String("artifacts-dir", "", "directory for retained migration artifacts")
+	quiescenceProof := flags.String("quiescence-proof", "", "path to process_stopped write-quiescence proof JSON")
+	sourceBackend := flags.String("source-backend", recovery.ObjectStoreBackendMinIOS3, "source backend label for migration evidence")
+	targetBackend := flags.String("target-backend", recovery.ObjectStoreBackendSeaweedFSS3, "target backend label for migration evidence")
+	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return operatorCLIResult{stop: true, exitCode: 0}
+		}
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	normalizedEmail, asOf, ok := parseOperatorCommonFlags(stderr, *email, *asOfRaw)
+	if !ok {
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	confirm, ok := parseRequiredUUIDFlag(stderr, "confirm-backup-set-id", *confirmRaw)
+	if !ok {
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	sourcePath, targetPath, ok := parseRequiredRestoreConfigFlags(stderr, *sourceConfig, *targetConfig)
+	if !ok {
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	artifactPath := strings.TrimSpace(*artifactsDir)
+	if artifactPath == "" {
+		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), "artifacts-dir is required")
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	proofPath := strings.TrimSpace(*quiescenceProof)
+	if proofPath == "" {
+		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), "quiescence-proof is required")
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	var runID uuid.UUID
+	if strings.TrimSpace(*runIDRaw) != "" {
+		parsed, err := uuid.Parse(strings.TrimSpace(*runIDRaw))
+		if err != nil {
+			_, _ = fmt.Fprintf(normalizeOperatorWriter(stderr), "run-id must be a UUID: %v\n", err)
+			return operatorCLIResult{stop: true, exitCode: 2}
+		}
+		runID = parsed
+	}
+	return operatorCLIResult{
+		command:            "object-store-migration run",
+		email:              normalizedEmail,
+		asOf:               asOf,
+		sourceConfigPath:   sourcePath,
+		targetConfigPath:   targetPath,
+		confirmBackupSetID: confirm,
+		runID:              runID,
+		artifactsDir:       artifactPath,
+		quiescenceProof:    proofPath,
+		sourceBackend:      strings.TrimSpace(*sourceBackend),
+		targetBackend:      strings.TrimSpace(*targetBackend),
 	}
 }
 
@@ -598,6 +901,7 @@ func operatorUsage() string {
 		"  operator restore latest -source-config <path> -target-config <path> -deployment-admin-email <email> -confirm-backup-set-id <uuid> [-as-of <RFC3339>]",
 		"  operator restore-verify latest -source-config <path> -target-config <path> -deployment-admin-email <email> [-as-of <RFC3339>]",
 		"  operator restore-verify due -source-config <path> -target-config <path> -deployment-admin-email <email> [-as-of <RFC3339>]",
+		"  operator object-store-migration run -source-config <path> -target-config <path> -deployment-admin-email <email> -confirm-backup-set-id <uuid> -quiescence-proof <path> -artifacts-dir <dir> [-as-of <RFC3339>] [-run-id <uuid>]",
 	}, "\n")
 }
 
@@ -636,6 +940,135 @@ func backupMetadataInspectionFromStore(backupSet recovery.BackupSet) BackupMetad
 		VerificationState:                     string(backupSet.VerificationState),
 		LastVerifiedRestoreAt:                 backupSet.LastVerifiedRestoreAt,
 		LastVerificationBasisSHA256:           backupSet.LastVerificationBasisSHA256,
+	}
+}
+
+func (runner operatorRunner) openObjectStoreMigrationRuntime(ctx context.Context, parsed operatorCLIResult) (config.Config, config.Config, operatorPostgresPool, objectstore.Store, objectstore.Store, recovery.BackupStorage, error) {
+	sourceCfg, err := runner.loadConfig(parsed.sourceConfigPath)
+	if err != nil {
+		return config.Config{}, config.Config{}, nil, nil, nil, nil, fmt.Errorf("load source config: %w", err)
+	}
+	targetCfg, err := runner.loadConfig(parsed.targetConfigPath)
+	if err != nil {
+		return config.Config{}, config.Config{}, nil, nil, nil, nil, fmt.Errorf("load target config: %w", err)
+	}
+	sourcePool, err := runner.setupPostgres(ctx, sourceCfg)
+	if err != nil {
+		return config.Config{}, config.Config{}, nil, nil, nil, nil, fmt.Errorf("open source postgres: %w", err)
+	}
+	sourceObjectStore, err := runner.setupObjectStore(ctx, sourceCfg)
+	if err != nil {
+		sourcePool.Close()
+		return config.Config{}, config.Config{}, nil, nil, nil, nil, fmt.Errorf("open source object store: %w", err)
+	}
+	targetObjectStore, err := runner.setupObjectStore(ctx, targetCfg)
+	if err != nil {
+		sourcePool.Close()
+		_ = sourceObjectStore.Close()
+		return config.Config{}, config.Config{}, nil, nil, nil, nil, fmt.Errorf("open target object store: %w", err)
+	}
+	backupStorage, err := runner.newBackupStorage(sourceCfg)
+	if err != nil {
+		sourcePool.Close()
+		_ = sourceObjectStore.Close()
+		_ = targetObjectStore.Close()
+		return config.Config{}, config.Config{}, nil, nil, nil, nil, fmt.Errorf("open source backup storage: %w", err)
+	}
+	return sourceCfg, targetCfg, sourcePool, sourceObjectStore, targetObjectStore, backupStorage, nil
+}
+
+func (runner operatorRunner) preflightObjectStoreMigrationConfig(parsed operatorCLIResult, sourceCfg config.Config, targetCfg config.Config) (objectstore.Settings, objectstore.Settings, error) {
+	if sameConfigPath(parsed.sourceConfigPath, parsed.targetConfigPath) {
+		return objectstore.Settings{}, objectstore.Settings{}, errors.New("object-store migration preflight failed: source-config and target-config must be different files")
+	}
+	sourceObject, err := objectstore.ResolveSettings(sourceCfg, nil)
+	if err != nil {
+		return objectstore.Settings{}, objectstore.Settings{}, fmt.Errorf("resolve source object-store settings: %w", err)
+	}
+	targetObject, err := objectstore.ResolveSettings(targetCfg, nil)
+	if err != nil {
+		return objectstore.Settings{}, objectstore.Settings{}, fmt.Errorf("resolve target object-store settings: %w", err)
+	}
+	if sourceObject.BindingKind != "managed_service" || targetObject.BindingKind != "managed_service" {
+		return objectstore.Settings{}, objectstore.Settings{}, errors.New("object-store migration preflight failed: source and target object stores must be managed_service S3-compatible bindings")
+	}
+	if objectStoreBindingID(sourceObject) == objectStoreBindingID(targetObject) {
+		return objectstore.Settings{}, objectstore.Settings{}, errors.New("object-store migration preflight failed: source and target object stores must differ")
+	}
+	if strings.TrimSpace(sourceObject.Bucket) != strings.TrimSpace(targetObject.Bucket) {
+		return objectstore.Settings{}, objectstore.Settings{}, errors.New("object-store migration preflight failed: default migration requires identical source and target bucket names")
+	}
+	if strings.TrimSpace(parsed.sourceBackend) == "" || strings.TrimSpace(parsed.targetBackend) == "" {
+		return objectstore.Settings{}, objectstore.Settings{}, errors.New("object-store migration preflight failed: source-backend and target-backend are required")
+	}
+	return sourceObject, targetObject, nil
+}
+
+func loadObjectStoreMigrationQuiescenceProof(path string) (recovery.ObjectStoreMigrationWriteQuiescenceProof, error) {
+	body, err := os.ReadFile(filepath.Clean(path)) // #nosec G304 -- operator supplied local proof path is intentionally read by deployment-local CLI.
+	if err != nil {
+		return recovery.ObjectStoreMigrationWriteQuiescenceProof{}, fmt.Errorf("read migration quiescence proof: %w", err)
+	}
+	var proof recovery.ObjectStoreMigrationWriteQuiescenceProof
+	decoder := json.NewDecoder(strings.NewReader(string(body)))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&proof); err != nil {
+		return recovery.ObjectStoreMigrationWriteQuiescenceProof{}, fmt.Errorf("decode migration quiescence proof: %w", err)
+	}
+	if decoder.Decode(&struct{}{}) != io.EOF {
+		return recovery.ObjectStoreMigrationWriteQuiescenceProof{}, errors.New("decode migration quiescence proof: trailing JSON content")
+	}
+	return proof, nil
+}
+
+type operatorMigrationArtifact struct {
+	path string
+	ref  recovery.ObjectStoreMigrationArtifactRef
+}
+
+func writeOperatorMigrationArtifact(dir string, name string, body []byte) (operatorMigrationArtifact, error) {
+	if len(body) == 0 {
+		return operatorMigrationArtifact{}, errors.New("write migration artifact: body is empty")
+	}
+	if strings.TrimSpace(dir) == "" {
+		return operatorMigrationArtifact{}, errors.New("write migration artifact: artifacts-dir is required")
+	}
+	if strings.TrimSpace(name) == "" || filepath.Base(name) != name {
+		return operatorMigrationArtifact{}, errors.New("write migration artifact: artifact name must be a file name")
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return operatorMigrationArtifact{}, fmt.Errorf("create migration artifact dir: %w", err)
+	}
+	path := filepath.Join(dir, name)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // #nosec G304 -- path is beneath operator-selected retained artifact directory.
+	if err != nil {
+		return operatorMigrationArtifact{}, fmt.Errorf("create migration artifact %s: %w", path, err)
+	}
+	_, writeErr := file.Write(body)
+	closeErr := file.Close()
+	if writeErr != nil {
+		return operatorMigrationArtifact{}, fmt.Errorf("write migration artifact %s: %w", path, writeErr)
+	}
+	if closeErr != nil {
+		return operatorMigrationArtifact{}, fmt.Errorf("close migration artifact %s: %w", path, closeErr)
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return operatorMigrationArtifact{}, fmt.Errorf("resolve migration artifact path: %w", err)
+	}
+	return operatorMigrationArtifact{
+		path: abs,
+		ref:  recovery.ArtifactRefForBody(abs, body, "application/json"),
+	}, nil
+}
+
+func (artifact operatorMigrationArtifact) payload() operatorMigrationArtifactPathAndProof {
+	return operatorMigrationArtifactPathAndProof{
+		Path:        artifact.path,
+		Key:         artifact.ref.Key,
+		SHA256:      artifact.ref.SHA256,
+		SizeBytes:   artifact.ref.SizeBytes,
+		ContentType: artifact.ref.ContentType,
 	}
 }
 
