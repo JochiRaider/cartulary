@@ -96,8 +96,27 @@ func (s *Service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 	storageKey := fmt.Sprintf("incidents/%s/object-blobs/%s", request.IncidentID, objectBlobID)
 	targetExpiresAt := now.Add(60 * time.Minute)
 	pendingExpiresAt := now.Add(24 * time.Hour)
-	target, err := s.objectStore.UploadTarget(r.Context(), storageKey, targetExpiresAt)
+	contentTypeHint := ""
+	if request.ContentTypeHint != nil {
+		contentTypeHint = *request.ContentTypeHint
+	}
+	sha256Hex := ""
+	if request.SHA256Hex != nil {
+		sha256Hex = *request.SHA256Hex
+	}
+	target, err := s.createUploadTarget(r.Context(), objectstore.UploadTargetRequest{
+		Key:         storageKey,
+		ByteSize:    request.ByteSize,
+		ContentType: contentTypeHint,
+		SHA256Hex:   sha256Hex,
+		ExpiresAt:   targetExpiresAt,
+		Purpose:     objectstore.PurposeProductUpload,
+	})
 	if err != nil {
+		if apiErr := objectStoreDependencyAPIError(err); apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -147,6 +166,10 @@ func (s *Service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 	body := http.MaxBytesReader(w, r.Body, s.maxBlobBytes+1)
 	defer body.Close()
 	if err := s.objectStore.CompleteUploadTarget(r.Context(), token, body, contentType); err != nil {
+		if apiErr := objectStoreDependencyAPIError(err); apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -190,6 +213,10 @@ func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 	if err == nil && blob.UploadState == "pending" {
 		observed, err = s.observeUploadedObject(r.Context(), blob)
 		if err != nil {
+			if apiErr := objectStoreDependencyAPIError(err); apiErr != nil {
+				writeAPIError(w, r, apiErr)
+				return
+			}
 			observed = nil
 		}
 	}
@@ -274,7 +301,10 @@ func (s *Service) handleIssueHandle(w http.ResponseWriter, r *http.Request, kind
 		writeAPIError(w, r, evidenceAccessUnavailable(reasonCode))
 		return
 	}
-	if reasonCode := s.verifyEvidenceObjectAvailable(r.Context(), access); reasonCode != "" {
+	if reasonCode, apiErr := s.verifyEvidenceObjectAvailable(r.Context(), access); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	} else if reasonCode != "" {
 		writeAPIError(w, r, evidenceAccessUnavailable(reasonCode))
 		return
 	}
@@ -390,8 +420,16 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 			contentRange = fmt.Sprintf("bytes %d-%d/%d", start, end, handle.SizeBytes)
 		}
 	}
-	object, _, err := s.objectStore.ReadObject(r.Context(), handle.StorageKey, readOptions)
+	object, _, err := s.getObject(r.Context(), handle.StorageKey, readOptions, objectstore.PurposeProductRead)
 	if err != nil {
+		if apiErr := objectStoreDependencyAPIError(err); apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		if adapterErr, ok := objectstore.AsAdapterError(err); ok && adapterErr.Code == objectstore.ErrorCodeRangeNotSatisfiable {
+			writeAPIError(w, r, evidenceAccessUnavailable("evidence_inconsistent"))
+			return
+		}
 		writeAPIError(w, r, evidenceAccessUnavailable("blob_missing"))
 		return
 	}
@@ -415,11 +453,11 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) observeUploadedObject(ctx context.Context, blob BlobRecord) (*ObservedObject, error) {
-	stat, err := s.objectStore.StatObject(ctx, blob.StorageKey)
+	stat, err := s.headObject(ctx, blob.StorageKey, objectstore.PurposeProductUpload)
 	if err != nil {
 		return nil, err
 	}
-	object, _, err := s.objectStore.ReadObject(ctx, blob.StorageKey, objectstore.ReadOptions{})
+	object, _, err := s.getObject(ctx, blob.StorageKey, objectstore.ReadOptions{}, objectstore.PurposeProductRead)
 	if err != nil {
 		return nil, err
 	}
@@ -435,14 +473,38 @@ func (s *Service) observeUploadedObject(ctx context.Context, blob BlobRecord) (*
 	return &ObservedObject{Size: stat.Size, ContentType: contentType, SHA256Hex: fmt.Sprintf("%x", hash.Sum(nil))}, nil
 }
 
-func (s *Service) verifyEvidenceObjectAvailable(ctx context.Context, access EvidenceAccessRecord) string {
+func (s *Service) verifyEvidenceObjectAvailable(ctx context.Context, access EvidenceAccessRecord) (string, *auth.APIError) {
 	if access.StorageKey == nil {
-		return "evidence_inconsistent"
+		return "evidence_inconsistent", nil
 	}
-	if _, err := s.objectStore.StatObject(ctx, *access.StorageKey); err != nil {
-		return "blob_missing"
+	if _, err := s.headObject(ctx, *access.StorageKey, objectstore.PurposeProductRead); err != nil {
+		if apiErr := objectStoreDependencyAPIError(err); apiErr != nil {
+			return "", apiErr
+		}
+		return "blob_missing", nil
 	}
-	return ""
+	return "", nil
+}
+
+func (s *Service) createUploadTarget(ctx context.Context, request objectstore.UploadTargetRequest) (objectstore.UploadTarget, error) {
+	if typed, ok := s.objectStore.(objectstore.TypedStore); ok {
+		return typed.CreateUploadTarget(ctx, request)
+	}
+	return s.objectStore.UploadTarget(ctx, request.Key, request.ExpiresAt)
+}
+
+func (s *Service) headObject(ctx context.Context, key string, purpose objectstore.Purpose) (objectstore.ObjectInfo, error) {
+	if typed, ok := s.objectStore.(objectstore.TypedStore); ok {
+		return typed.Head(ctx, objectstore.HeadObjectRequest{Key: key, Purpose: purpose})
+	}
+	return s.objectStore.StatObject(ctx, key)
+}
+
+func (s *Service) getObject(ctx context.Context, key string, options objectstore.ReadOptions, purpose objectstore.Purpose) (io.ReadCloser, objectstore.ObjectInfo, error) {
+	if typed, ok := s.objectStore.(objectstore.TypedStore); ok {
+		return typed.Get(ctx, objectstore.GetObjectRequest{Key: key, RangeStart: options.RangeStart, RangeEnd: options.RangeEnd, Purpose: purpose})
+	}
+	return s.objectStore.ReadObject(ctx, key, options)
 }
 
 func (s *Service) publishRecordChange(result AttachBlobResult, actorUserID uuid.UUID) {
@@ -582,7 +644,10 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError
 	if message == "" {
 		message = apiErr.Code
 	}
-	_ = httpapi.WriteErrorWithConflict(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details, apiErr.Conflict)
+	_ = httpapi.WriteErrorWithOptions(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details, httpapi.ErrorOptions{
+		Conflict:  apiErr.Conflict,
+		Retryable: apiErr.Retryable || (apiErr.Status == http.StatusConflict && apiErr.Code == "record_locked"),
+	})
 }
 
 func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bool) {
@@ -596,6 +661,62 @@ func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bo
 
 func internalAPIError(err error) *auth.APIError {
 	return &auth.APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: err.Error(), Details: map[string]any{}}
+}
+
+func objectStoreDependencyAPIError(err error) *auth.APIError {
+	adapterErr, ok := objectstore.AsAdapterError(err)
+	if !ok {
+		return nil
+	}
+	switch adapterErr.Code {
+	case objectstore.ErrorCodeUnavailable:
+		return objectStoreUnavailableAPIError(unavailableReason(adapterErr), true)
+	case objectstore.ErrorCodeDeadlineExceeded, objectstore.ErrorCodeRetryExhausted:
+		return objectStoreUnavailableAPIError("retry_exhausted", true)
+	case objectstore.ErrorCodeAccessRejected:
+		return &auth.APIError{
+			Status: http.StatusServiceUnavailable,
+			Code:   "object_store_access_rejected",
+			Details: map[string]any{
+				"reason_code": accessRejectedReason(adapterErr),
+			},
+		}
+	default:
+		return nil
+	}
+}
+
+func objectStoreUnavailableAPIError(reasonCode string, retryable bool) *auth.APIError {
+	return &auth.APIError{
+		Status:    http.StatusServiceUnavailable,
+		Code:      "object_store_unavailable",
+		Retryable: retryable,
+		Details: map[string]any{
+			"reason_code": reasonCode,
+		},
+	}
+}
+
+func unavailableReason(adapterErr *objectstore.AdapterError) string {
+	switch adapterErr.Reason {
+	case objectstore.ReasonBucketMissing:
+		return "bucket_missing"
+	case objectstore.ReasonRetryExhausted, objectstore.ReasonDeadlineExceeded:
+		return "retry_exhausted"
+	default:
+		return "endpoint_unreachable"
+	}
+}
+
+func accessRejectedReason(adapterErr *objectstore.AdapterError) string {
+	switch adapterErr.Reason {
+	case objectstore.ReasonCredentialDenied:
+		return "credential_denied"
+	case objectstore.ReasonCORSRejected:
+		return "cors_rejected"
+	default:
+		return "capability_missing"
+	}
 }
 
 func incidentNotFoundError() *auth.APIError {

@@ -15,6 +15,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -108,6 +109,28 @@ func (h *RuntimeHarness) StartServerWithConfig(t testing.TB, prefix string, muta
 	}
 
 	server := httptestx.StartServer(t, httptestx.ServerOptions{Config: cfg, Env: env})
+	db, err := sql.Open("pgx", testDB.DSN)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
+	return &ServerHarness{
+		Server: server,
+		DB:     db,
+	}
+}
+
+func (h *RuntimeHarness) StartServerWithObjectStore(t testing.TB, prefix string, store objectstore.Store) *ServerHarness {
+	t.Helper()
+
+	testDB := h.Postgres.PreparePackageDatabaseT(t, prefix)
+	env := testDB.Env()
+	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
+
+	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, ObjectStore: store})
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
 		t.Fatalf("open sql db: %v", err)

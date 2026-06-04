@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -118,25 +119,55 @@ func ResolveSettings(cfg config.Config, env map[string]string) (Settings, error)
 }
 
 func newS3Store(ctx context.Context, settings Settings) (Store, error) {
+	if err := validateBucketName(settings.Bucket); err != nil {
+		return nil, err
+	}
 	client, err := minio.New(settings.Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(settings.AccessKey, settings.SecretKey, ""),
-		Secure: settings.Secure,
+		Creds:      credentials.NewStaticV4(settings.AccessKey, settings.SecretKey, ""),
+		Secure:     settings.Secure,
+		MaxRetries: 1,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("create minio client: %w", err)
+		return nil, fmt.Errorf("create S3 client: %w", err)
 	}
 
-	exists, err := client.BucketExists(ctx, settings.Bucket)
+	store := &S3Store{client: client, bucket: settings.Bucket}
+	exists, err := runWithRetry(ctx, OperationStartupValidation, objectMetadataTimeout, true, func(ctx context.Context) (bool, error) {
+		return client.BucketExists(ctx, settings.Bucket)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("check object store bucket %q: %w", settings.Bucket, err)
+		return nil, fmt.Errorf("validate object-store bucket: %w", err)
 	}
 	if !exists {
-		if err := client.MakeBucket(ctx, settings.Bucket, minio.MakeBucketOptions{}); err != nil {
-			return nil, fmt.Errorf("create object store bucket %q: %w", settings.Bucket, err)
-		}
+		return nil, adapterError(OperationStartupValidation, ErrorCodeUnavailable, ReasonBucketMissing, true, "configured bucket is missing", nil)
+	}
+	if err := store.validateStartupCapabilities(ctx); err != nil {
+		return nil, err
 	}
 
-	return &S3Store{client: client, bucket: settings.Bucket}, nil
+	return store, nil
+}
+
+func (s *S3Store) validateStartupCapabilities(ctx context.Context) error {
+	_, err := runWithRetry(ctx, OperationStartupValidation, objectMetadataTimeout, true, func(ctx context.Context) (struct{}, error) {
+		_, statErr := s.client.StatObject(ctx, s.bucket, ".cartulary/startup/capability-check", minio.StatObjectOptions{})
+		if statErr == nil {
+			return struct{}{}, nil
+		}
+		mapped := mapBackendError(OperationStartupValidation, statErr)
+		if IsObjectNotFound(mapped) {
+			return struct{}{}, nil
+		}
+		return struct{}{}, mapped
+	})
+	if err != nil {
+		return err
+	}
+	_, err = s.client.PresignedPutObject(ctx, s.bucket, ".cartulary/startup/direct-put-check", time.Minute)
+	if err != nil {
+		return mapBackendError(OperationStartupValidation, err)
+	}
+	return nil
 }
 
 type S3Store struct {
@@ -145,71 +176,173 @@ type S3Store struct {
 }
 
 func (s *S3Store) UploadTarget(ctx context.Context, key string, expiresAt time.Time) (UploadTarget, error) {
-	expiresIn := time.Until(expiresAt)
-	if expiresIn <= 0 {
-		return UploadTarget{}, fmt.Errorf("create S3 upload target: expires_at must be in the future")
+	return s.CreateUploadTarget(ctx, UploadTargetRequest{Key: key, ByteSize: -1, ExpiresAt: expiresAt, Purpose: PurposeProductUpload})
+}
+
+func (s *S3Store) CreateUploadTarget(ctx context.Context, request UploadTargetRequest) (UploadTarget, error) {
+	if err := validateUploadTargetRequest(request); err != nil {
+		return UploadTarget{}, err
 	}
-	targetURL, err := s.client.PresignedPutObject(ctx, s.bucket, key, expiresIn)
+	expiresIn := time.Until(request.ExpiresAt)
+	target, err := runWithRetry(ctx, OperationCreateUploadTarget, uploadTargetTimeout, true, func(ctx context.Context) (UploadTarget, error) {
+		targetURL, err := s.client.PresignedPutObject(ctx, s.bucket, request.Key, expiresIn)
+		if err != nil {
+			return UploadTarget{}, err
+		}
+		return UploadTarget{Href: targetURL.String(), Method: "PUT", Headers: map[string]string{}}, nil
+	})
 	if err != nil {
 		return UploadTarget{}, err
 	}
-	return UploadTarget{Href: targetURL.String(), Method: "PUT", Headers: map[string]string{}}, nil
+	return target, nil
 }
 
 func (s *S3Store) CompleteUploadTarget(context.Context, string, io.Reader, string) error {
-	return fmt.Errorf("complete S3 upload target: uploads must use the presigned object-store URL")
+	return adapterError(OperationCompleteUploadTarget, ErrorCodeInvalidRequest, ReasonInvalidRequest, false, "direct upload targets must use the presigned object-store URL", nil)
 }
 
 func (s *S3Store) PutObject(ctx context.Context, key string, body io.Reader, size int64, contentType string) error {
-	opts := minio.PutObjectOptions{ContentType: contentType}
-	_, err := s.client.PutObject(ctx, s.bucket, key, body, size, opts)
+	_, err := s.Put(ctx, PutObjectRequest{Key: key, Body: body, Size: size, ContentType: contentType, Purpose: PurposeMigrationCopy})
 	return err
 }
 
+func (s *S3Store) Put(ctx context.Context, request PutObjectRequest) (PutObjectResult, error) {
+	if err := validatePutObjectRequest(request); err != nil {
+		return PutObjectResult{}, err
+	}
+	opts := minio.PutObjectOptions{ContentType: request.ContentType}
+	if len(request.Metadata) > 0 {
+		opts.UserMetadata = map[string]string(request.Metadata)
+	}
+	info, err := runWithRetry(ctx, OperationPutObject, objectMutationTimeout, false, func(ctx context.Context) (minio.UploadInfo, error) {
+		return s.client.PutObject(ctx, s.bucket, request.Key, request.Body, request.Size, opts)
+	})
+	if err != nil {
+		return PutObjectResult{}, err
+	}
+	return PutObjectResult{ETag: info.ETag, SizeBytes: info.Size, ContentType: request.ContentType, Metadata: request.Metadata}, nil
+}
+
 func (s *S3Store) ReadObject(ctx context.Context, key string, options ReadOptions) (io.ReadCloser, ObjectInfo, error) {
+	return s.Get(ctx, GetObjectRequest{Key: key, RangeStart: options.RangeStart, RangeEnd: options.RangeEnd, Purpose: PurposeProductRead})
+}
+
+func (s *S3Store) Get(ctx context.Context, request GetObjectRequest) (io.ReadCloser, ObjectInfo, error) {
+	if err := validateGetObjectRequest(request); err != nil {
+		return nil, ObjectInfo{}, err
+	}
+	operation := OperationGetObject
+	if request.RangeStart != nil {
+		operation = OperationGetObjectRange
+	}
+	info, err := s.Head(ctx, HeadObjectRequest{Key: request.Key, Purpose: request.Purpose})
+	if err != nil {
+		return nil, ObjectInfo{}, err
+	}
+	if request.RangeStart != nil && *request.RangeStart >= info.Size {
+		return nil, ObjectInfo{}, adapterError(OperationGetObjectRange, ErrorCodeRangeNotSatisfiable, ReasonRangeInvalid, false, "object range not satisfiable", nil)
+	}
 	opts := minio.GetObjectOptions{}
-	if options.RangeStart != nil {
+	if request.RangeStart != nil {
 		end := int64(0)
-		if options.RangeEnd != nil {
-			end = *options.RangeEnd
+		if request.RangeEnd != nil {
+			end = *request.RangeEnd
 		}
-		if err := opts.SetRange(*options.RangeStart, end); err != nil {
-			return nil, ObjectInfo{}, err
+		if err := opts.SetRange(*request.RangeStart, end); err != nil {
+			return nil, ObjectInfo{}, mapBackendError(operation, err)
 		}
 	}
-	object, err := s.client.GetObject(ctx, s.bucket, key, opts)
+	object, err := runWithRetry(ctx, operation, objectReadTimeout, true, func(ctx context.Context) (*minio.Object, error) {
+		return s.client.GetObject(ctx, s.bucket, request.Key, opts)
+	})
 	if err != nil {
 		return nil, ObjectInfo{}, err
 	}
-	info, err := s.StatObject(ctx, key)
-	if err != nil {
-		_ = object.Close()
-		return nil, ObjectInfo{}, err
-	}
-	return object, info, nil
+	return closeObservedStream(operation, request.Key, object), info, nil
 }
 
 func (s *S3Store) StatObject(ctx context.Context, key string) (ObjectInfo, error) {
-	stat, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
+	return s.Head(ctx, HeadObjectRequest{Key: key, Purpose: PurposeProductRead})
+}
+
+func (s *S3Store) Head(ctx context.Context, request HeadObjectRequest) (ObjectInfo, error) {
+	if err := validateHeadObjectRequest(request); err != nil {
+		return ObjectInfo{}, err
+	}
+	stat, err := runWithRetry(ctx, OperationHeadObject, objectMetadataTimeout, true, func(ctx context.Context) (minio.ObjectInfo, error) {
+		return s.client.StatObject(ctx, s.bucket, request.Key, minio.StatObjectOptions{})
+	})
 	if err != nil {
 		return ObjectInfo{}, err
 	}
-	return ObjectInfo{Key: key, Size: stat.Size, ContentType: stat.ContentType}, nil
+	return ObjectInfo{Key: request.Key, Size: stat.Size, ContentType: stat.ContentType}, nil
 }
 
 func (s *S3Store) ListObjects(ctx context.Context, prefix string) ([]ObjectInfo, error) {
-	objects := make([]ObjectInfo, 0)
-	for objectInfo := range s.client.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
-		if objectInfo.Err != nil {
-			return objects, objectInfo.Err
-		}
-		objects = append(objects, ObjectInfo{Key: objectInfo.Key, Size: objectInfo.Size, ContentType: objectInfo.ContentType})
+	result, err := s.ListPrefix(ctx, ListPrefixRequest{Prefix: prefix, Purpose: PurposeTestCleanup})
+	if err != nil {
+		return nil, err
 	}
-	return objects, nil
+	return result.Objects, nil
+}
+
+func (s *S3Store) ListPrefix(ctx context.Context, request ListPrefixRequest) (ListPrefixResult, error) {
+	if err := validateListPrefixRequest(request); err != nil {
+		return ListPrefixResult{}, err
+	}
+	objects, err := runWithRetry(ctx, OperationListPrefix, objectMutationTimeout, true, func(ctx context.Context) ([]ObjectInfo, error) {
+		objects := make([]ObjectInfo, 0)
+		for objectInfo := range s.client.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{Prefix: request.Prefix, Recursive: true}) {
+			if objectInfo.Err != nil {
+				return objects, objectInfo.Err
+			}
+			objects = append(objects, ObjectInfo{Key: objectInfo.Key, Size: objectInfo.Size, ContentType: objectInfo.ContentType})
+		}
+		return objects, nil
+	})
+	if err != nil {
+		return ListPrefixResult{}, err
+	}
+	sort.Slice(objects, func(left, right int) bool {
+		return objects[left].Key < objects[right].Key
+	})
+	return ListPrefixResult{Objects: objects}, nil
 }
 
 func (s *S3Store) DeleteObject(ctx context.Context, key string) error {
-	return s.client.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{})
+	return s.Delete(ctx, DeleteObjectRequest{Key: key, Purpose: PurposeTestCleanup})
+}
+
+func (s *S3Store) Delete(ctx context.Context, request DeleteObjectRequest) error {
+	if err := validateDeleteObjectRequest(request); err != nil {
+		return err
+	}
+	_, err := runWithRetry(ctx, OperationDeleteObject, objectMutationTimeout, true, func(ctx context.Context) (struct{}, error) {
+		return struct{}{}, s.client.RemoveObject(ctx, s.bucket, request.Key, minio.RemoveObjectOptions{})
+	})
+	return err
+}
+
+func (s *S3Store) EnsureBucketForDevTest(ctx context.Context, request EnsureBucketRequest) (EnsureBucketResult, error) {
+	if err := validateEnsureBucketRequest(request); err != nil {
+		return EnsureBucketResult{}, err
+	}
+	exists, err := runWithRetry(ctx, OperationEnsureBucketForDevTest, objectMetadataTimeout, true, func(ctx context.Context) (bool, error) {
+		return s.client.BucketExists(ctx, s.bucket)
+	})
+	if err != nil {
+		return EnsureBucketResult{}, err
+	}
+	if exists {
+		return EnsureBucketResult{AlreadyExists: true}, nil
+	}
+	_, err = runWithRetry(ctx, OperationEnsureBucketForDevTest, objectMutationTimeout, true, func(ctx context.Context) (struct{}, error) {
+		return struct{}{}, s.client.MakeBucket(ctx, s.bucket, minio.MakeBucketOptions{})
+	})
+	if err != nil {
+		return EnsureBucketResult{}, err
+	}
+	return EnsureBucketResult{Created: true}, nil
 }
 
 func (s *S3Store) Close() error {
@@ -345,10 +478,14 @@ func (s *FilesystemStore) ReadObject(_ context.Context, key string, options Read
 				_ = file.Close()
 				return nil, ObjectInfo{}, fmt.Errorf("read filesystem object: invalid byte range")
 			}
-			return readLimitCloser{Reader: io.LimitReader(file, length), Closer: file}, info, nil
+			return closeObservedStream(OperationGetObjectRange, key, readLimitCloser{Reader: io.LimitReader(file, length), Closer: file}), info, nil
 		}
 	}
-	return file, info, nil
+	operation := OperationGetObject
+	if options.RangeStart != nil {
+		operation = OperationGetObjectRange
+	}
+	return closeObservedStream(operation, key, file), info, nil
 }
 
 func (s *FilesystemStore) StatObject(_ context.Context, key string) (ObjectInfo, error) {
@@ -396,6 +533,91 @@ func (s *FilesystemStore) DeleteObject(_ context.Context, key string) error {
 		return fmt.Errorf("delete filesystem object metadata: %w", err)
 	}
 	return nil
+}
+
+func (s *FilesystemStore) CreateUploadTarget(ctx context.Context, request UploadTargetRequest) (UploadTarget, error) {
+	if err := validateUploadTargetRequest(request); err != nil {
+		return UploadTarget{}, err
+	}
+	target, err := s.UploadTarget(ctx, request.Key, request.ExpiresAt)
+	if err != nil {
+		return UploadTarget{}, mapBackendError(OperationCreateUploadTarget, err)
+	}
+	return target, nil
+}
+
+func (s *FilesystemStore) Put(ctx context.Context, request PutObjectRequest) (PutObjectResult, error) {
+	if err := validatePutObjectRequest(request); err != nil {
+		return PutObjectResult{}, err
+	}
+	if err := s.PutObject(ctx, request.Key, request.Body, request.Size, request.ContentType); err != nil {
+		return PutObjectResult{}, mapBackendError(OperationPutObject, err)
+	}
+	return PutObjectResult{SizeBytes: request.Size, ContentType: request.ContentType, Metadata: request.Metadata}, nil
+}
+
+func (s *FilesystemStore) Head(ctx context.Context, request HeadObjectRequest) (ObjectInfo, error) {
+	if err := validateHeadObjectRequest(request); err != nil {
+		return ObjectInfo{}, err
+	}
+	info, err := s.StatObject(ctx, request.Key)
+	if err != nil {
+		return ObjectInfo{}, mapBackendError(OperationHeadObject, err)
+	}
+	return info, nil
+}
+
+func (s *FilesystemStore) Get(ctx context.Context, request GetObjectRequest) (io.ReadCloser, ObjectInfo, error) {
+	if err := validateGetObjectRequest(request); err != nil {
+		return nil, ObjectInfo{}, err
+	}
+	operation := OperationGetObject
+	if request.RangeStart != nil {
+		operation = OperationGetObjectRange
+		info, err := s.Head(ctx, HeadObjectRequest{Key: request.Key, Purpose: request.Purpose})
+		if err != nil {
+			return nil, ObjectInfo{}, err
+		}
+		if *request.RangeStart >= info.Size {
+			return nil, ObjectInfo{}, adapterError(OperationGetObjectRange, ErrorCodeRangeNotSatisfiable, ReasonRangeInvalid, false, "object range not satisfiable", nil)
+		}
+	}
+	object, info, err := s.ReadObject(ctx, request.Key, ReadOptions{RangeStart: request.RangeStart, RangeEnd: request.RangeEnd})
+	if err != nil {
+		return nil, ObjectInfo{}, mapBackendError(operation, err)
+	}
+	return object, info, nil
+}
+
+func (s *FilesystemStore) ListPrefix(ctx context.Context, request ListPrefixRequest) (ListPrefixResult, error) {
+	if err := validateListPrefixRequest(request); err != nil {
+		return ListPrefixResult{}, err
+	}
+	objects, err := s.ListObjects(ctx, request.Prefix)
+	if err != nil {
+		return ListPrefixResult{}, mapBackendError(OperationListPrefix, err)
+	}
+	sort.Slice(objects, func(left, right int) bool {
+		return objects[left].Key < objects[right].Key
+	})
+	return ListPrefixResult{Objects: objects}, nil
+}
+
+func (s *FilesystemStore) Delete(ctx context.Context, request DeleteObjectRequest) error {
+	if err := validateDeleteObjectRequest(request); err != nil {
+		return err
+	}
+	if err := s.DeleteObject(ctx, request.Key); err != nil {
+		return mapBackendError(OperationDeleteObject, err)
+	}
+	return nil
+}
+
+func (s *FilesystemStore) EnsureBucketForDevTest(_ context.Context, request EnsureBucketRequest) (EnsureBucketResult, error) {
+	if err := validateEnsureBucketRequest(request); err != nil {
+		return EnsureBucketResult{}, err
+	}
+	return EnsureBucketResult{AlreadyExists: true}, nil
 }
 
 func (s *FilesystemStore) resolvePath(key string) (string, error) {

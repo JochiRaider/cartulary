@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -28,6 +29,7 @@ type ServerOptions struct {
 	Config           config.Config
 	Env              map[string]string
 	AdditionalRoutes []httpapi.RouteRegistrar
+	ObjectStore      objectstore.Store
 }
 
 type AuthCookies = authcookietest.AuthCookies
@@ -69,8 +71,9 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	clock := httpapi.NewTestClock()
 	routes := append([]httpapi.RouteRegistrar{RegisterBootstrapRoutes(), httpapi.RegisterTestClockRoutes(clock)}, options.AdditionalRoutes...)
 	runtime, err := app.NewRuntime(context.Background(), cfg, app.Options{
-		Env: env,
-		Now: clock.Now,
+		Env:         env,
+		Now:         clock.Now,
+		ObjectStore: options.ObjectStore,
 		HTTP: httpapi.Options{
 			AdditionalRoutes: routes,
 		},

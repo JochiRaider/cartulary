@@ -217,6 +217,8 @@ func TestPhase5_AttachRouteContract_I_5_05(t *testing.T) {
 			t.Fatalf("first attach object_blob_id got %#v want %s", first["object_blob_id"], firstBlobID)
 		}
 	})
+
+	t.Run("object-store dependency errors use owner public mapping", requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping)
 }
 
 func TestPhase5_AttachedEvidenceProjectionRebuild_I_5_06(t *testing.T) {

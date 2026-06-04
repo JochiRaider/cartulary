@@ -22,6 +22,9 @@ func TestSupportPhase0_ManagedServiceObjectStoreBinding(t *testing.T) {
 				t.Logf("cleanup bucket: %v", err)
 			}
 		}()
+		if err := s3Harness.CreateBucket(context.Background(), bucket); err != nil {
+			t.Fatalf("create managed-service test bucket: %v", err)
+		}
 
 		store, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), s3Harness.EnvForServiceRef("object_primary", bucket))
 		if err != nil {
@@ -47,6 +50,21 @@ func TestSupportPhase0_ManagedServiceObjectStoreBinding(t *testing.T) {
 			t.Fatalf("unexpected managed-service binding failure: %v", err)
 		}
 	})
+
+	t.Run("fails closed when the configured managed-service bucket is missing", func(t *testing.T) {
+		bucket := fmt.Sprintf("phase0-support-managed-object-missing-%d", time.Now().UnixNano())
+
+		_, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), s3Harness.EnvForServiceRef("object_primary", bucket))
+		if err == nil {
+			t.Fatal("expected managed-service object-store setup to reject a missing bucket")
+		}
+		adapterErr, ok := objectstore.AsAdapterError(err)
+		if !ok || adapterErr.Code != objectstore.ErrorCodeUnavailable || adapterErr.Reason != objectstore.ReasonBucketMissing {
+			t.Fatalf("unexpected missing bucket error: %#v %v", adapterErr, err)
+		}
+	})
+
+	t.Run("phase_d_adapter_contract_hardening", requirePhaseDAdapterContractHardening)
 }
 
 func managedObjectStoreConfig(t testing.TB) config.Config {
