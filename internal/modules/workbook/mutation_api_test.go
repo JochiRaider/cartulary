@@ -69,6 +69,22 @@ func TestWorkbookMutationDecoderRejectsCollectionReplacement(t *testing.T) {
 	}
 }
 
+func TestWorkbookMutationDecoderRejectsReservedEvidenceStorageRef(t *testing.T) {
+	body := `{"client_txn_id":"txn-reserved-ref","evidence.title":"Reserved ref","evidence.storage_ref":"object://00000000-0000-0000-0000-000000210004"}`
+	if _, apiErr := DecodeCreateRequest(EvidenceViewSchemaID, strings.NewReader(body)); apiErr == nil {
+		t.Fatalf("expected reserved evidence storage_ref create to fail")
+	} else if apiErr.Code != "invalid_mutation_payload" || apiErr.Details["field"] != "evidence.storage_ref" || apiErr.Details["reason_code"] != "reserved_server_managed_ref" {
+		t.Fatalf("unexpected create error: %#v", apiErr)
+	}
+
+	patch := `{"view_schema_id":"cartulary.view.evidence.v1","base_row_version":1,"client_txn_id":"txn-reserved-ref-patch","changes":[{"field_key":"evidence.storage_ref","value":"object://00000000-0000-0000-0000-000000210005"}]}`
+	if _, apiErr := DecodePatchRequest(strings.NewReader(patch)); apiErr == nil {
+		t.Fatalf("expected reserved evidence storage_ref patch to fail")
+	} else if apiErr.Code != "invalid_mutation_payload" || apiErr.Details["field"] != "evidence.storage_ref" || apiErr.Details["reason_code"] != "reserved_server_managed_ref" {
+		t.Fatalf("unexpected patch error: %#v", apiErr)
+	}
+}
+
 func TestWorkbookMutationDecoderCollectionIDsAreExactLexicalTokens(t *testing.T) {
 	stableID := "11111111-2222-3333-4444-555555555555"
 	tests := []struct {

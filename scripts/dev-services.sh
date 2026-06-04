@@ -12,11 +12,13 @@ SEAWEEDFS_S3_ACCESS_KEY_ID="${SEAWEEDFS_S3_ACCESS_KEY_ID:-cartulary-local}"
 SEAWEEDFS_S3_SECRET_ACCESS_KEY="${SEAWEEDFS_S3_SECRET_ACCESS_KEY:-cartulary-local-secret}"
 OBJECT_STORE_SECURE="${OBJECT_STORE_SECURE:-false}"
 OBJECT_STORE_CORS_ORIGIN="${OBJECT_STORE_CORS_ORIGIN:-http://127.0.0.1:5173}"
+OBJECT_STORE_CORS_ALLOWED_ORIGINS="${OBJECT_STORE_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}"
 SEAWEEDFS_S3_IMAGE="${SEAWEEDFS_S3_IMAGE:-docker.io/chrislusf/seaweedfs:4.17}"
 SEAWEEDFS_S3_IMAGE_DIGEST="${SEAWEEDFS_S3_IMAGE_DIGEST:-sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9}"
 GO_BIN="${GO:-go}"
 GO_CACHE="${GOCACHE:-${GO_CACHE_DIR:-/tmp/cartulary-go-build}}"
 GO_MOD_CACHE="${GOMODCACHE:-${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}}"
+export OBJECT_STORE_CORS_ALLOWED_ORIGINS
 
 usage() {
   echo "usage: dev-services.sh up|services-down|db-down|wait-postgres|wait-object-store|wait|init-object-store|db-up|db-reset|object-store-reset" >&2

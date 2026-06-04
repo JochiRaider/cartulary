@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:10df867641adc085eb5e4eaeb22dacdd7d3f263645b3f918fc9c4deba58b40d3",
+  "input_digest": "sha256:3d9c9670797bedd65851672608407955fe4dfebbd9e4cb5bf97a012060f69807",
   "inputs": [
     {
       "path": "scripts/lib/agent-finalize-action-cache.mjs",
@@ -312,22 +312,22 @@
     {
       "path": "tools/browser_e2e_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:81102b00982bc4bec163413c8aadcac8b03ffc966b3bcdae105e7d12b2c14a43"
+      "hash": "sha256:0d2f79e45795758bbd0ca98e1accd1b633003808295a576fbbbac87a7707e90a"
     },
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:b33372e9f6f2448b197f907382d94e22c64e67c5fb197614e1f4f25ec40a49bd"
+      "hash": "sha256:db8e2646417fb660d8256c20f0f71da2254d9264b1667a1e87c5716b8de89e7a"
     },
     {
       "path": "tools/go_test_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:5ea5c027a99fced36a058e5dd744c1b5ac436d91453cbc7b2767e9d5d9df61fa"
+      "hash": "sha256:5cbd99c33d775f6804f6e389af46681261b04d3a5f65e2019cde9e49204591e0"
     },
     {
       "path": "tools/harness_smoke_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:32f562a43287bbc409a960904b7a18cdc89b8ab68ef7abf0fa91bb4b7390cba8"
+      "hash": "sha256:5ac7c2ec785815838f1fe6005a0d1c8ec0c8d063aa9306272baee560632e85c2"
     },
     {
       "path": "tools/phase_registry.json",
@@ -402,13 +402,13 @@
     {
       "path": "tools/service_backed_make_target_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:e29af9ac14ba903da7cc1281aab3a411f5b0d6556750dcf24db3d50ab5cae68e"
+      "hash": "sha256:f239629217da3b3eae178266930ac2f5cf0ede07001520685bd03d520d526a7e"
     }
   ],
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:092b7a644c059fffe096a5b4578cfa973307577531d62d8eefa200f1de5dfa42",
-    "tools/scheduler_manifest.json": "sha256:74c93ec5546e2f8e23789ec8f883a321dbfd8d9ea481278315afe5c08db5c1c9",
-    "tools/task_surface_manifest.json": "sha256:9e8ab1cc85b2750bcebb55c904a58e816f9369f02a5ae6f008aa0e3b6fd0c908",
-    "tools/task_surface.generated.mk": "sha256:7c66c2804e09da6357c8f2a362264e54280c798abfef7123aa2eba37ff0e1d78"
+    "tools/scheduler_manifest.json": "sha256:692f4e22454a992d26305ff98e8508c810f4e3f2e4ed1e59a09a9b9439c40f1d",
+    "tools/task_surface_manifest.json": "sha256:e394473ac93934fec1369e33948373c6e896a94267f6a6a2526f317e5323cdad",
+    "tools/task_surface.generated.mk": "sha256:e0da11835d2b827670011612f3122922786ea1a292696bfdbab97e9c3cf41993"
   }
 }

@@ -130,6 +130,8 @@ tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/web-e2e-lifecycle-smoke.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_PHASE_TIMING_BUCKET=service_wait run_phase_command "browser-e2e startup services"' "browser lifecycle service timing bucket"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" "OBJECT_STORE_CORS_ORIGIN=\"\${PUBLIC_ORIGIN}\"" "browser lifecycle object-store CORS probe uses allocated public origin"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" "OBJECT_STORE_CORS_ALLOWED_ORIGINS=\"\${PUBLIC_ORIGIN},http://localhost:5173,http://127.0.0.1:5173\"" "browser lifecycle object-store CORS allows allocated public origin"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_PHASE_TIMING_BUCKET=migration run_phase_command "browser-e2e startup database"' "browser lifecycle migration timing bucket"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_timing_span "server_startup" "browser-e2e start backend process"' "browser lifecycle backend startup span"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_timing_span "frontend_startup" "browser-e2e start frontend process"' "browser lifecycle frontend startup span"
@@ -809,6 +811,28 @@ unset CARTULARY_WEB_E2E_API_ORIGIN
 unset CARTULARY_WEB_E2E_PUBLIC_ORIGIN
 
 CARTULARY_TEST_SERVICES_ACTIVE=1
+resolve_owned_stack_ports
+if (( FRONTEND_PORT < 39000 || FRONTEND_PORT > 39099 )); then
+  fail "active test-service browser frontend port must stay inside the webserver-backed SeaweedFS CORS range, got ${FRONTEND_PORT}"
+fi
+
+CARTULARY_TEST_TARGET="browser-e2e-stateful"
+unset CARTULARY_WEB_E2E_BACKEND_PORT
+unset CARTULARY_WEB_E2E_FRONTEND_PORT
+resolve_owned_stack_ports
+if (( FRONTEND_PORT < 39100 || FRONTEND_PORT > 39199 )); then
+  fail "active stateful test-service browser frontend port must stay inside its SeaweedFS CORS range, got ${FRONTEND_PORT}"
+fi
+unset CARTULARY_TEST_TARGET
+
+out_of_range_frontend_stderr="$tmp_dir/out-of-range-frontend.stderr"
+CARTULARY_WEB_E2E_FRONTEND_PORT=39200
+if resolve_owned_stack_ports 2>"$out_of_range_frontend_stderr"; then
+  fail "active test-service browser frontend port outside the CORS range must fail"
+fi
+assert_file_contains "$out_of_range_frontend_stderr" "service-backed browser CORS range 39000-39199" "active test-service frontend port range error"
+unset CARTULARY_WEB_E2E_FRONTEND_PORT
+
 TEST_SERVICES_BIN="$tmp_dir/missing-test-services"
 missing_test_services_stderr="$tmp_dir/missing-test-services.stderr"
 if browser_start_services 2>"$missing_test_services_stderr"; then

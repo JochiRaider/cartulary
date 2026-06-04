@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -93,7 +94,11 @@ func (s *Service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 	}
 	now := s.now().UTC()
 	objectBlobID := uuid.New()
-	storageKey := fmt.Sprintf("incidents/%s/object-blobs/%s", request.IncidentID, objectBlobID)
+	storageKey, err := blobref.ObjectBlobStorageKey(request.IncidentID, objectBlobID)
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(fmt.Errorf("build object blob storage key: %w", err)))
+		return
+	}
 	targetExpiresAt := now.Add(60 * time.Minute)
 	pendingExpiresAt := now.Add(24 * time.Hour)
 	contentTypeHint := ""

@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -469,6 +470,9 @@ func decodeDirectValue(fieldKey string, field viewschema.Field, value json.RawMe
 	normalized, ok := normalizeStringContract(field, raw)
 	if !ok {
 		return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
+	}
+	if fieldKey == "evidence.storage_ref" && blobref.IsServerManagedStorageRef(normalized) {
+		return ValueChange{}, nil, invalidMutationPayload(fieldKey, "reserved_server_managed_ref")
 	}
 	return ValueChange{Kind: "text", Text: &normalized}, normalized, nil
 }

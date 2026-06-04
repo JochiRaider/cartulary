@@ -599,11 +599,6 @@ func verifyRestoredBlobHashes(ctx context.Context, target RestoreTarget, artifac
 	return hex.EncodeToString(digest.Sum(nil)), len(objects), nil
 }
 
-func verifyRestoredBlobRows(ctx context.Context, db postgres.DB, store objectstore.Store) (string, error) {
-	digest, _, err := verifyRestoredBlobRowsDetailed(ctx, db, store)
-	return digest, err
-}
-
 func verifyRestoredBlobRowsDetailed(ctx context.Context, db postgres.DB, store objectstore.Store) (string, int, error) {
 	rows, err := db.Query(ctx, `
 SELECT b.storage_key,

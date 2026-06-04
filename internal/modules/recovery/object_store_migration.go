@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -493,6 +494,9 @@ func CopyObjectStoreMigrationObjects(ctx context.Context, params ObjectStoreMigr
 	if params.SourceStore == nil || params.TargetStore == nil {
 		return ObjectStoreMigrationCopyLedger{}, nil, fmt.Errorf("%w: migration source and target object stores are required", ErrInvalidBackupArtifact)
 	}
+	if err := ValidateObjectStoreMigrationBlobReferences(params.Objects); err != nil {
+		return ObjectStoreMigrationCopyLedger{}, nil, err
+	}
 	ledger := ObjectStoreMigrationCopyLedger{
 		SchemaID:        ObjectStoreMigrationCopyLedgerSchemaID,
 		RunID:           params.RunID.String(),
@@ -529,6 +533,9 @@ func CopyObjectStoreMigrationObjects(ctx context.Context, params ObjectStoreMigr
 func ValidateObjectStoreMigration(ctx context.Context, params ObjectStoreMigrationValidationParams) (ObjectStoreMigrationValidation, []byte, error) {
 	if params.RunID == uuid.Nil {
 		return ObjectStoreMigrationValidation{}, nil, fmt.Errorf("%w: migration run_id is required for validation", ErrInvalidBackupArtifact)
+	}
+	if err := ValidateObjectStoreMigrationBlobReferences(params.Objects); err != nil {
+		return ObjectStoreMigrationValidation{}, nil, err
 	}
 	completed := backupTimestamp(params.CompletedAt)
 	artifact := ObjectStoreMigrationValidation{
@@ -586,6 +593,33 @@ func ValidateObjectStoreMigration(ctx context.Context, params ObjectStoreMigrati
 	}
 	artifact.ArtifactSHA256 = sha256Hex(canonicalObjectStoreMigrationValidationBytes(artifact, false))
 	return artifact, body, nil
+}
+
+func ValidateObjectStoreMigrationBlobReferences(objects []ObjectStoreMigrationBlob) error {
+	for _, object := range objects {
+		if strings.TrimSpace(object.StorageKey) == "" {
+			return fmt.Errorf("%w: migration object storage_key is required", ErrInvalidBackupArtifact)
+		}
+		if parts, err := blobref.ParseObjectBlobStorageKey(object.StorageKey); err == nil {
+			if parts.IncidentID != object.IncidentID || parts.ObjectBlobID != object.ObjectBlobID {
+				return fmt.Errorf("%w: migration object storage_key does not match object identity", ErrInvalidBackupArtifact)
+			}
+		}
+		storageRef := strings.TrimSpace(object.EvidenceStorageRef)
+		if storageRef == "" {
+			continue
+		}
+		if strings.HasPrefix(storageRef, blobref.StorageRefScheme) {
+			objectBlobID, err := blobref.ParseObjectBlobStorageRef(storageRef)
+			if err != nil {
+				return fmt.Errorf("%w: migration object has malformed server-managed storage_ref", ErrInvalidBackupArtifact)
+			}
+			if objectBlobID != object.ObjectBlobID {
+				return fmt.Errorf("%w: migration object storage_ref does not match object_blob_id", ErrInvalidBackupArtifact)
+			}
+		}
+	}
+	return nil
 }
 
 func ProbeObjectStoreMigrationTarget(ctx context.Context, runID uuid.UUID, targetBucket string, targetStore objectstore.Store, startedAt time.Time) (ObjectStoreMigrationTargetProbe, []byte, error) {
@@ -1223,12 +1257,7 @@ func migrationCopyIdempotencyKeySHA256(sourceBucket string, sourceKey string, ta
 }
 
 func migrationArtifactRefFromProof(proof BackupArtifactProof) ObjectStoreMigrationArtifactRef {
-	return ObjectStoreMigrationArtifactRef{
-		Key:         proof.Key,
-		SHA256:      proof.SHA256,
-		SizeBytes:   proof.SizeBytes,
-		ContentType: proof.ContentType,
-	}
+	return ObjectStoreMigrationArtifactRef(proof)
 }
 
 func migrationArtifactRefPtr(proof *BackupArtifactProof) *ObjectStoreMigrationArtifactRef {

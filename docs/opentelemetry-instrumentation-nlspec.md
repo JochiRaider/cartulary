@@ -706,7 +706,7 @@ Every Core 01 §3.3.6.1 public `error.code` token MUST map to exactly one `cartu
 | `not_found` | `entity_mention_not_found`, `resolved_record_not_found`, `rollback_target_not_found`, `evidence_record_not_found`, `handle_not_found_or_revoked`, `job_not_found`, `auth_binding_not_found`, `user_not_found`, `membership_not_found`, `import_session_not_found`, `import_unit_not_found`, `snapshot_not_found`, `release_not_found`, `reference_pack_not_found`, `incident_bundle_not_found` |
 | `expired_or_consumed` | `handle_expired`, `handle_consumed` |
 | `policy_rejected` | `blob_create_rejected`, `evidence_attach_rejected`, `import_source_unsupported`, `import_source_rejected`, `release_render_failed`, `reference_pack_verification_failed`, `incident_bundle_export_rejected`, `incident_bundle_import_rejected` |
-| `dependency_unavailable` | `evidence_access_unavailable` |
+| `dependency_unavailable` | `evidence_access_unavailable`, `object_store_unavailable`, `object_store_access_rejected` |
 
 **OTEL-REQ-143**
 The complete `cartulary.error_class` registry additionally includes the following dependency and runtime classes.

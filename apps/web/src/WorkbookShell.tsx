@@ -6391,7 +6391,7 @@ export function TimelineWorkbook({
           : blobEnvelope.data.upload_target.href;
       const upload = await fetch(uploadHref, {
         method: blobEnvelope.data.upload_target.method ?? "PUT",
-        credentials: "include",
+        credentials: "omit",
         headers: {
           "Content-Type": file.type || "application/octet-stream",
         },
@@ -9578,7 +9578,7 @@ function GenericWorkbookSurface({
             : blobEnvelope.data.upload_target.href;
         const upload = await fetch(uploadHref, {
           method: blobEnvelope.data.upload_target.method ?? "PUT",
-          credentials: "include",
+          credentials: "omit",
           headers: {
             "Content-Type": file.type || "application/octet-stream",
           },

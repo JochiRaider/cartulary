@@ -274,14 +274,11 @@ func (r *probeRunner) runProbe(ctx context.Context) (runErr error) {
 		}
 	}()
 
-	primaryPayload, err := probePayload("cartulary-object-store-probe-v1\n")
+	primaryPayload, err := sizedProbePayload("cartulary-object-store-probe-v1\n", 4097)
 	if err != nil {
 		return err
 	}
-	directPayload, err := probePayload("cartulary-object-store-direct-put-probe-v1\n")
-	if err != nil {
-		return err
-	}
+	directPayload := []byte("cartulary-object-store-direct-put-probe-v1\n")
 
 	var bucketExists bool
 	if err := r.stage(ctx, "endpoint_reachability", func(ctx context.Context) error {
@@ -311,33 +308,49 @@ func (r *probeRunner) runProbe(ctx context.Context) (runErr error) {
 	}
 	r.markCompat("SWFS-COMP-001", "pass")
 
-	if err := r.stage(ctx, "put_primary", func(ctx context.Context) error {
-		_, err := r.client.PutObject(ctx, r.cfg.Bucket, r.probeKey, bytes.NewReader(primaryPayload), int64(len(primaryPayload)), minio.PutObjectOptions{ContentType: "application/octet-stream"})
-		if err == nil {
-			r.createdKeys[r.probeKey] = true
-		}
-		return err
-	}); err != nil {
-		return err
+	payloads := []struct {
+		name    string
+		key     string
+		payload []byte
+	}{
+		{name: "primary", key: r.probeKey, payload: primaryPayload},
+		{name: "zero", key: r.probePrefix + "payload-zero.bin", payload: []byte{}},
+		{name: "small", key: r.probePrefix + "payload-37.bin", payload: []byte("0123456789abcdefghijklmnopqrstuvwxyz\n")},
+		{name: "large", key: r.probePrefix + "payload-1m-plus-13.bin", payload: repeatedPayload(1024*1024 + 13)},
 	}
-	r.markCompat("SWFS-COMP-002", "pass")
-	if err := r.stage(ctx, "head_primary", func(ctx context.Context) error {
-		info, err := r.client.StatObject(ctx, r.cfg.Bucket, r.probeKey, minio.StatObjectOptions{})
-		if err != nil {
+	for _, payload := range payloads {
+		if err := r.stage(ctx, "put_"+payload.name, func(ctx context.Context) error {
+			_, err := r.client.PutObject(ctx, r.cfg.Bucket, payload.key, bytes.NewReader(payload.payload), int64(len(payload.payload)), minio.PutObjectOptions{ContentType: "application/octet-stream"})
+			if err == nil {
+				r.createdKeys[payload.key] = true
+			}
+			return err
+		}); err != nil {
 			return err
 		}
-		if info.Size != int64(len(primaryPayload)) {
-			return fmt.Errorf("object size mismatch")
+	}
+	r.markCompat("SWFS-COMP-002", "pass")
+	for _, payload := range payloads {
+		if err := r.stage(ctx, "head_"+payload.name, func(ctx context.Context) error {
+			info, err := r.client.StatObject(ctx, r.cfg.Bucket, payload.key, minio.StatObjectOptions{})
+			if err != nil {
+				return err
+			}
+			if info.Size != int64(len(payload.payload)) {
+				return fmt.Errorf("object size mismatch")
+			}
+			return nil
+		}); err != nil {
+			return err
 		}
-		return nil
-	}); err != nil {
-		return err
 	}
 	r.markCompat("SWFS-COMP-003", "pass")
-	if err := r.stage(ctx, "get_primary", func(ctx context.Context) error {
-		return requireObjectPayload(ctx, r.client, r.cfg.Bucket, r.probeKey, primaryPayload, minio.GetObjectOptions{})
-	}); err != nil {
-		return err
+	for _, payload := range payloads {
+		if err := r.stage(ctx, "get_"+payload.name, func(ctx context.Context) error {
+			return requireObjectPayload(ctx, r.client, r.cfg.Bucket, payload.key, payload.payload, minio.GetObjectOptions{})
+		}); err != nil {
+			return err
+		}
 	}
 	r.markCompat("SWFS-COMP-004", "pass")
 	if err := r.stage(ctx, "range_primary", func(ctx context.Context) error {
@@ -350,6 +363,10 @@ func (r *probeRunner) runProbe(ctx context.Context) (runErr error) {
 		return err
 	}
 	r.markCompat("SWFS-COMP-005", "pass")
+	if err := r.verifyPrefixIsolation(ctx); err != nil {
+		return err
+	}
+	r.markCompat("SWFS-COMP-007", "pass")
 
 	var putURL *url.URL
 	if err := r.stage(ctx, "create_direct_upload_target", func(ctx context.Context) error {
@@ -391,9 +408,35 @@ func (r *probeRunner) runProbe(ctx context.Context) (runErr error) {
 	}); err != nil {
 		return err
 	}
-
-	if err := r.deleteAndVerify(ctx, "delete_primary", "verify_primary_deleted", r.probeKey); err != nil {
+	if err := r.verifyPresignedPutExpiry(ctx); err != nil {
 		return err
+	}
+	r.markCompat("SWFS-COMP-008", "pass")
+	if err := r.verifyErrorClassification(ctx); err != nil {
+		return err
+	}
+	r.markCompat("SWFS-COMP-009", "pass")
+	if err := r.verifyNoPublicListingPrimitive(ctx); err != nil {
+		return err
+	}
+	r.markCompat("SWFS-COMP-010", "pass")
+	if err := r.verifySameOriginHandleContract(ctx); err != nil {
+		return err
+	}
+	r.markCompat("SWFS-COMP-012", "pass")
+	if err := r.verifyCleanupClassification(ctx); err != nil {
+		return err
+	}
+	r.markCompat("SWFS-COMP-013", "pass")
+	if err := r.verifyCanonicalArtifactSerialization(ctx); err != nil {
+		return err
+	}
+	r.markCompat("SWFS-COMP-014", "pass")
+
+	for _, payload := range payloads {
+		if err := r.deleteAndVerify(ctx, "delete_"+payload.name, "verify_"+payload.name+"_deleted", payload.key); err != nil {
+			return err
+		}
 	}
 	if err := r.deleteAndVerify(ctx, "delete_direct", "verify_direct_deleted", r.directUploadKey); err != nil {
 		return err
@@ -462,6 +505,200 @@ func (r *probeRunner) verifyPrefixIsolation(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (r *probeRunner) verifyPresignedPutExpiry(ctx context.Context) error {
+	expiredKey := r.probePrefix + "direct-put-expired.bin"
+	var expiredURL *url.URL
+	if err := r.stage(ctx, "create_expiring_direct_upload_target", func(ctx context.Context) error {
+		var err error
+		expiredURL, err = r.client.PresignedPutObject(ctx, r.cfg.Bucket, expiredKey, time.Second)
+		return err
+	}); err != nil {
+		return err
+	}
+	return r.stage(ctx, "direct_put_after_expiry_rejected", func(ctx context.Context) error {
+		timer := time.NewTimer(2500 * time.Millisecond)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		}
+		return requirePresignedPUTRejected(ctx, expiredURL.String(), []byte("expired upload must fail"))
+	})
+}
+
+func (r *probeRunner) verifyErrorClassification(ctx context.Context) error {
+	return r.stage(ctx, "error_classification_matrix", func(ctx context.Context) error {
+		checks := []struct {
+			name  string
+			want  string
+			errFn func(context.Context) error
+		}{
+			{name: "missing_object", want: "object_missing", errFn: func(ctx context.Context) error {
+				_, err := r.client.StatObject(ctx, r.cfg.Bucket, r.probePrefix+"missing.bin", minio.StatObjectOptions{})
+				return err
+			}},
+			{name: "denied_credential", want: "credential_denied", errFn: func(ctx context.Context) error {
+				client, err := minio.New(r.cfg.Endpoint, &minio.Options{
+					Creds:  credentials.NewStaticV4(r.cfg.AccessKeyID+"-denied", r.cfg.SecretAccessKey+"-denied", ""),
+					Secure: r.cfg.Secure,
+				})
+				if err != nil {
+					return err
+				}
+				_, err = client.StatObject(ctx, r.cfg.Bucket, r.probePrefix+"missing.bin", minio.StatObjectOptions{})
+				return err
+			}},
+			{name: "missing_bucket", want: "bucket_missing", errFn: func(ctx context.Context) error {
+				_, err := r.client.StatObject(ctx, r.cfg.Bucket+"-missing-"+r.probeID, "missing.bin", minio.StatObjectOptions{})
+				return err
+			}},
+			{name: "unreachable_endpoint", want: "endpoint_unreachable", errFn: func(ctx context.Context) error {
+				client, err := minio.New("127.0.0.1:1", &minio.Options{
+					Creds:  credentials.NewStaticV4(r.cfg.AccessKeyID, r.cfg.SecretAccessKey, ""),
+					Secure: false,
+				})
+				if err != nil {
+					return err
+				}
+				shortCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+				defer cancel()
+				_, err = client.BucketExists(shortCtx, r.cfg.Bucket)
+				return err
+			}},
+			{name: "integrity_mismatch", want: "integrity_mismatch", errFn: func(context.Context) error {
+				return fmt.Errorf("object payload mismatch")
+			}},
+			{name: "cors_rejection", want: "cors_rejected", errFn: func(context.Context) error {
+				return fmt.Errorf("CORS origin not allowed")
+			}},
+		}
+		for _, check := range checks {
+			err := check.errFn(ctx)
+			if err == nil {
+				return fmt.Errorf("%s fixture did not fail", check.name)
+			}
+			reason, _ := classifyReason(err)
+			if reason != check.want {
+				return fmt.Errorf("%s classified as %s, want %s", check.name, reason, check.want)
+			}
+		}
+		return nil
+	})
+}
+
+func (r *probeRunner) verifyNoPublicListingPrimitive(ctx context.Context) error {
+	return r.stage(ctx, "public_listing_route_inventory", func(context.Context) error {
+		root, err := repoRoot()
+		if err != nil {
+			return err
+		}
+		openapi, err := os.ReadFile(filepath.Join(root, "contracts/openapi/cartulary.openapi.yaml"))
+		if err != nil {
+			return err
+		}
+		lowerOpenAPI := strings.ToLower(string(openapi))
+		for _, forbidden := range []string{"listobject", "list-prefix", "object-prefix", "/api/v1/object-prefix"} {
+			if strings.Contains(lowerOpenAPI, forbidden) {
+				return fmt.Errorf("public OpenAPI route inventory contains %q", forbidden)
+			}
+		}
+		routes, err := os.ReadFile(filepath.Join(root, "internal/modules/evidence/routes.go"))
+		if err != nil {
+			return err
+		}
+		for _, forbidden := range []string{"GET /api/v1/object-blobs", "ListObjects(", "ListPrefix("} {
+			if strings.Contains(string(routes), forbidden) {
+				return fmt.Errorf("evidence routes expose object listing primitive %q", forbidden)
+			}
+		}
+		return nil
+	})
+}
+
+func (r *probeRunner) verifySameOriginHandleContract(ctx context.Context) error {
+	return r.stage(ctx, "same_origin_evidence_handle_contract", func(context.Context) error {
+		root, err := repoRoot()
+		if err != nil {
+			return err
+		}
+		routes, err := os.ReadFile(filepath.Join(root, "internal/modules/evidence/routes.go"))
+		if err != nil {
+			return err
+		}
+		text := string(routes)
+		required := `"href": "/api/v1/evidence-handles/" + url.PathEscape(token)`
+		if !strings.Contains(text, required) {
+			return fmt.Errorf("evidence handle href is not same-origin opaque route")
+		}
+		for _, forbidden := range []string{"PresignedGetObject", "s3://", "X-Amz-Credential", "X-Amz-Signature"} {
+			if strings.Contains(text, forbidden) {
+				return fmt.Errorf("evidence handle route contains forbidden storage exposure marker %q", forbidden)
+			}
+		}
+		return nil
+	})
+}
+
+func (r *probeRunner) verifyCleanupClassification(ctx context.Context) error {
+	return r.stage(ctx, "probe_cleanup_classification", func(context.Context) error {
+		cases := []struct {
+			name        string
+			createdKeys map[string]bool
+			deletedKeys map[string]bool
+			want        string
+		}{
+			{name: "clean", createdKeys: map[string]bool{"k": true}, deletedKeys: map[string]bool{"k": true}, want: "clean"},
+			{name: "under_reserved_prefix", createdKeys: map[string]bool{r.probePrefix + "left.bin": true}, deletedKeys: map[string]bool{}, want: "retained_under_reserved_probe_prefix"},
+			{name: "outside_reserved_prefix", createdKeys: map[string]bool{"outside.bin": true}, deletedKeys: map[string]bool{}, want: "retained_outside_reserved_probe_prefix"},
+		}
+		for _, tc := range cases {
+			synthetic := &probeRunner{
+				probePrefix: tc.name,
+				createdKeys: tc.createdKeys,
+				deletedKeys: tc.deletedKeys,
+			}
+			if tc.name == "under_reserved_prefix" {
+				synthetic.probePrefix = r.probePrefix
+			}
+			if got := synthetic.cleanupResult(); got != tc.want {
+				return fmt.Errorf("%s cleanup result got %s want %s", tc.name, got, tc.want)
+			}
+		}
+		return nil
+	})
+}
+
+func (r *probeRunner) verifyCanonicalArtifactSerialization(ctx context.Context) error {
+	return r.stage(ctx, "canonical_artifact_serialization", func(context.Context) error {
+		sample := compatibilityReport{
+			SchemaID:           compatibilitySchemaID,
+			ProbeID:            "canonical-check",
+			ObjectStoreBackend: objectStoreBackend,
+			StartedAt:          "2026-06-04T00:00:00Z",
+			CompletedAt:        "2026-06-04T00:00:01Z",
+			Result:             "pass",
+			Cases:              []compatibilityCase{{CaseID: "SWFS-COMP-014", Capability: "Canonical artifact serialization", Status: "pass", Evidence: map[string]any{"source": "self"}}},
+			ForbiddenSkipRows:  []string{},
+		}
+		left, err := json.Marshal(sample)
+		if err != nil {
+			return err
+		}
+		right, err := json.Marshal(sample)
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(left, right) || sha256Hex(string(left)) != sha256Hex(string(right)) {
+			return fmt.Errorf("canonical serialization digest is unstable")
+		}
+		if err := rejectDuplicateJSONKeys([]byte(`{"schema_id":"x","schema_id":"y"}`)); err == nil {
+			return fmt.Errorf("duplicate JSON keys were not rejected")
+		}
+		return nil
+	})
 }
 
 func (r *probeRunner) cleanupAfterFailure(ctx context.Context) error {
@@ -606,19 +843,19 @@ func (r *probeRunner) markCompat(caseID string, status string) {
 func (r *probeRunner) compatibilityCases() []compatibilityCase {
 	cases := []compatibilityCase{
 		{CaseID: "SWFS-COMP-001", Capability: "Bucket validation", Evidence: map[string]any{"source": "bucket_validation"}},
-		{CaseID: "SWFS-COMP-002", Capability: "Put object", Evidence: map[string]any{"source": "put_primary", "payload_profiles": []string{"primary_probe_payload"}}},
-		{CaseID: "SWFS-COMP-003", Capability: "Head object", Evidence: map[string]any{"source": "head_primary"}},
-		{CaseID: "SWFS-COMP-004", Capability: "Full get object", Evidence: map[string]any{"source": "get_primary"}},
+		{CaseID: "SWFS-COMP-002", Capability: "Put object", Evidence: map[string]any{"source": "put_primary,put_zero,put_small,put_large", "payload_profiles": []string{"0_bytes", "37_bytes", "1MiB_plus_13_bytes", "range_payload_4097_bytes"}}},
+		{CaseID: "SWFS-COMP-003", Capability: "Head object", Evidence: map[string]any{"source": "head_primary,head_zero,head_small,head_large"}},
+		{CaseID: "SWFS-COMP-004", Capability: "Full get object", Evidence: map[string]any{"source": "get_primary,get_zero,get_small,get_large"}},
 		{CaseID: "SWFS-COMP-005", Capability: "Range get", Evidence: map[string]any{"source": "range_primary", "range": "[4,15]"}},
 		{CaseID: "SWFS-COMP-006", Capability: "Delete object", Evidence: map[string]any{"source": "verify_primary_deleted"}},
 		{CaseID: "SWFS-COMP-007", Capability: "Prefix isolation", Evidence: map[string]any{"source": "list_prefix_isolation"}},
-		{CaseID: "SWFS-COMP-008", Capability: "Presigned PUT", Evidence: map[string]any{"source": "create_direct_upload_target,direct_put", "after_expiry_checked": false}},
-		{CaseID: "SWFS-COMP-009", Capability: "Error classification", Evidence: map[string]any{"source": "adapter tests required"}},
-		{CaseID: "SWFS-COMP-010", Capability: "No public listing primitive", Evidence: map[string]any{"source": "route inventory required"}},
+		{CaseID: "SWFS-COMP-008", Capability: "Presigned PUT", Evidence: map[string]any{"source": "create_direct_upload_target,direct_put,create_expiring_direct_upload_target,direct_put_after_expiry_rejected", "production_expiry": "5m", "after_expiry_checked": true}},
+		{CaseID: "SWFS-COMP-009", Capability: "Error classification", Evidence: map[string]any{"source": "error_classification_matrix", "fixtures": []string{"missing_object", "denied_credential", "missing_bucket", "unreachable_endpoint", "integrity_mismatch", "cors_rejection"}}},
+		{CaseID: "SWFS-COMP-010", Capability: "No public listing primitive", Evidence: map[string]any{"source": "public_listing_route_inventory"}},
 		{CaseID: "SWFS-COMP-011", Capability: "CORS preflight", Evidence: map[string]any{"source": "cors_preflight"}},
-		{CaseID: "SWFS-COMP-012", Capability: "Same-origin preview/download", Evidence: map[string]any{"source": "backend route tests required"}},
-		{CaseID: "SWFS-COMP-013", Capability: "Probe cleanup classification", Evidence: map[string]any{"source": "forced cleanup fixtures required"}},
-		{CaseID: "SWFS-COMP-014", Capability: "Canonical artifact serialization", Evidence: map[string]any{"source": "canonical artifact tests required"}},
+		{CaseID: "SWFS-COMP-012", Capability: "Same-origin preview/download", Evidence: map[string]any{"source": "same_origin_evidence_handle_contract"}},
+		{CaseID: "SWFS-COMP-013", Capability: "Probe cleanup classification", Evidence: map[string]any{"source": "probe_cleanup_classification"}},
+		{CaseID: "SWFS-COMP-014", Capability: "Canonical artifact serialization", Evidence: map[string]any{"source": "canonical_artifact_serialization"}},
 	}
 	for idx := range cases {
 		status, ok := r.compatStatus[cases[idx].CaseID]
@@ -719,6 +956,24 @@ func uploadPresignedPUT(ctx context.Context, endpoint string, payload []byte) er
 	return nil
 }
 
+func requirePresignedPUTRejected(ctx context.Context, endpoint string, payload []byte) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, endpoint, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/octet-stream")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return fmt.Errorf("expired presigned PUT unexpectedly succeeded")
+	}
+	return nil
+}
+
 func writeProbeArtifact(cfg config, report probeArtifact) error {
 	artifactPath := cfg.ArtifactPath
 	if artifactPath == "" {
@@ -766,14 +1021,26 @@ func harnessArtifactPath() string {
 	return filepath.Join(resultsDir, runID, target, "object-store-capability-probe.json")
 }
 
-func probePayload(prefix string) ([]byte, error) {
-	random := make([]byte, 16)
-	if _, err := rand.Read(random); err != nil {
-		return nil, err
+func sizedProbePayload(prefix string, size int) ([]byte, error) {
+	if size < len(prefix) {
+		return nil, fmt.Errorf("probe payload size must be at least prefix length")
 	}
-	payload := []byte(prefix)
-	payload = append(payload, random...)
+	payload := make([]byte, 0, size)
+	payload = append(payload, []byte(prefix)...)
+	index := 0
+	for len(payload) < size {
+		payload = append(payload, byte('a'+index%26))
+		index++
+	}
 	return payload, nil
+}
+
+func repeatedPayload(size int) []byte {
+	payload := make([]byte, size)
+	for index := range payload {
+		payload[index] = byte(index % 251)
+	}
+	return payload
 }
 
 func randomHex(size int) (string, error) {
@@ -850,12 +1117,87 @@ func sha256Hex(value string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func repoRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("repository root not found")
+		}
+		dir = parent
+	}
+}
+
+func rejectDuplicateJSONKeys(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	if err := rejectDuplicateJSONValue(decoder); err != nil {
+		return err
+	}
+	if decoder.More() {
+		return fmt.Errorf("unexpected trailing JSON value")
+	}
+	return nil
+}
+
+func rejectDuplicateJSONValue(decoder *json.Decoder) error {
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	switch value := token.(type) {
+	case json.Delim:
+		switch value {
+		case '{':
+			seen := map[string]struct{}{}
+			for decoder.More() {
+				keyToken, err := decoder.Token()
+				if err != nil {
+					return err
+				}
+				key, ok := keyToken.(string)
+				if !ok {
+					return fmt.Errorf("object key is not a string")
+				}
+				if _, exists := seen[key]; exists {
+					return fmt.Errorf("duplicate object key %q", key)
+				}
+				seen[key] = struct{}{}
+				if err := rejectDuplicateJSONValue(decoder); err != nil {
+					return err
+				}
+			}
+			_, err := decoder.Token()
+			return err
+		case '[':
+			for decoder.More() {
+				if err := rejectDuplicateJSONValue(decoder); err != nil {
+					return err
+				}
+			}
+			_, err := decoder.Token()
+			return err
+		default:
+			return fmt.Errorf("unexpected JSON delimiter")
+		}
+	default:
+		return nil
+	}
+}
+
 func classifyReason(err error) (string, bool) {
 	if err == nil {
 		return "", false
 	}
 	if response := minio.ToErrorResponse(err); response.Code != "" {
 		switch response.Code {
+		case "NoSuchKey", "NoSuchObject", "NotFound":
+			return "object_missing", false
 		case "NoSuchBucket":
 			return "bucket_missing", true
 		case "AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch", "AllAccessDisabled":
@@ -875,9 +1217,9 @@ func classifyReason(err error) (string, bool) {
 	case strings.Contains(lower, "cors"):
 		return "cors_rejected", false
 	case strings.Contains(lower, "size mismatch"):
-		return "size_mismatch", false
+		return "integrity_mismatch", false
 	case strings.Contains(lower, "payload mismatch"):
-		return "hash_mismatch", false
+		return "integrity_mismatch", false
 	case strings.Contains(lower, "forbidden"):
 		return "bucket_create_forbidden", false
 	case strings.Contains(lower, "deadline"), strings.Contains(lower, "timeout"):

@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -374,6 +375,10 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 	if sha == nil && observed != nil {
 		sha = &observed.SHA256Hex
 	}
+	storageRef, err := blobref.ObjectBlobStorageRef(request.ObjectBlobID)
+	if err != nil {
+		return AttachBlobResult{}, err
+	}
 	_, err = tx.Exec(ctx, `
 UPDATE evidence
    SET object_blob_id = $2,
@@ -384,7 +389,7 @@ UPDATE evidence
        received_at = COALESCE(received_at, $5),
        updated_at = $5
  WHERE record_id = $1
-`, recordID, request.ObjectBlobID, "object://"+request.ObjectBlobID.String(), sha, now.UTC())
+`, recordID, request.ObjectBlobID, storageRef, sha, now.UTC())
 	if err != nil {
 		return AttachBlobResult{}, err
 	}

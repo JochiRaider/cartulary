@@ -13,6 +13,9 @@ SERVER_BIN="${CARTULARY_SERVER_BIN:-}"
 MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
 TEST_SERVICES_BIN="${CARTULARY_TEST_SERVICES_BIN:-}"
 USE_REPO_ROOT_RUNTIME_ARTIFACTS_ENV="CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"
+TEST_SERVICE_FRONTEND_PORT_START=39000
+TEST_SERVICE_FRONTEND_PORT_END=39199
+TEST_SERVICE_FRONTEND_STAGE_WIDTH=100
 
 KEEP_RUNTIME_ROOT=0
 TARGET_ARTIFACT_DIR=""
@@ -214,6 +217,12 @@ allocate_available_port() {
 
   if [[ -n "${configured_port}" ]]; then
     validate_port_number "${configured_port}" "${name}" || return $?
+    if [[ "${name}" == "frontend" ]] && using_test_services_stack; then
+      if (( configured_port < TEST_SERVICE_FRONTEND_PORT_START || configured_port > TEST_SERVICE_FRONTEND_PORT_END )); then
+        echo "frontend port ${configured_port} must be in service-backed browser CORS range ${TEST_SERVICE_FRONTEND_PORT_START}-${TEST_SERVICE_FRONTEND_PORT_END}" >&2
+        return 1
+      fi
+    fi
     if [[ -n "${excluded_port}" && "${configured_port}" == "${excluded_port}" ]]; then
       echo "${name} port ${configured_port} must differ from the other browser e2e stack port" >&2
       return 1
@@ -226,6 +235,32 @@ allocate_available_port() {
     # shellcheck disable=SC2034
     port_ref="${configured_port}"
     return 0
+  fi
+
+  if [[ "${name}" == "frontend" ]] && using_test_services_stack; then
+    local candidate
+    local range_start="${TEST_SERVICE_FRONTEND_PORT_START}"
+    local range_end="${TEST_SERVICE_FRONTEND_PORT_END}"
+    if [[ "${CARTULARY_TEST_TARGET:-}" == *"stateful"* ]]; then
+      range_start=$((TEST_SERVICE_FRONTEND_PORT_START + TEST_SERVICE_FRONTEND_STAGE_WIDTH))
+    fi
+    range_end=$((range_start + TEST_SERVICE_FRONTEND_STAGE_WIDTH - 1))
+    if (( range_end > TEST_SERVICE_FRONTEND_PORT_END )); then
+      range_end="${TEST_SERVICE_FRONTEND_PORT_END}"
+    fi
+    for candidate in $(seq "${range_start}" "${range_end}"); do
+      if [[ -n "${excluded_port}" && "${candidate}" == "${excluded_port}" ]]; then
+        continue
+      fi
+      if ! port_in_use "${candidate}"; then
+        # shellcheck disable=SC2034
+        port_ref="${candidate}"
+        return 0
+      fi
+    done
+
+    echo "failed to allocate an available frontend port in service-backed browser CORS range ${range_start}-${range_end}" >&2
+    return 1
   fi
 
   local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
@@ -846,8 +881,9 @@ browser_start_services() {
     return 0
   fi
 
-  docker compose -f "${COMPOSE_FILE}" up -d postgres seaweedfs-s3 >/dev/null
-  "${DEV_SERVICES_SCRIPT}" wait
+  OBJECT_STORE_CORS_ORIGIN="${PUBLIC_ORIGIN}" \
+  OBJECT_STORE_CORS_ALLOWED_ORIGINS="${PUBLIC_ORIGIN},http://localhost:5173,http://127.0.0.1:5173" \
+    "${DEV_SERVICES_SCRIPT}" up >/dev/null
 }
 
 browser_prepare_database() {

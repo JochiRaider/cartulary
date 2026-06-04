@@ -219,6 +219,42 @@ func TestSupportPhaseF_CopyLedgerStatusesAndZeroByteObjects(t *testing.T) {
 	}
 }
 
+func TestSupportPhaseF_MigrationBlobReferencePreflight(t *testing.T) {
+	objectBlobID := uuid.MustParse("00000000-0000-0000-0000-000000130030")
+	incidentID := uuid.MustParse("00000000-0000-0000-0000-000000130031")
+	validBlob := func() recovery.ObjectStoreMigrationBlob {
+		return recovery.ObjectStoreMigrationBlob{
+			ObjectBlobID:       objectBlobID,
+			IncidentID:         incidentID,
+			StorageKey:         "incidents/00000000-0000-0000-0000-000000130031/object-blobs/00000000-0000-0000-0000-000000130030",
+			EvidenceStorageRef: "object://00000000-0000-0000-0000-000000130030",
+			ByteSize:           1,
+		}
+	}
+	valid := []recovery.ObjectStoreMigrationBlob{validBlob()}
+	if err := recovery.ValidateObjectStoreMigrationBlobReferences(valid); err != nil {
+		t.Fatalf("valid canonical migration refs rejected: %v", err)
+	}
+
+	mismatchedKey := []recovery.ObjectStoreMigrationBlob{validBlob()}
+	mismatchedKey[0].StorageKey = "incidents/00000000-0000-0000-0000-000000130031/object-blobs/00000000-0000-0000-0000-000000130099"
+	if err := recovery.ValidateObjectStoreMigrationBlobReferences(mismatchedKey); err == nil {
+		t.Fatalf("mismatched canonical storage_key unexpectedly accepted")
+	}
+
+	mismatchedRef := []recovery.ObjectStoreMigrationBlob{validBlob()}
+	mismatchedRef[0].EvidenceStorageRef = "object://00000000-0000-0000-0000-000000130099"
+	if err := recovery.ValidateObjectStoreMigrationBlobReferences(mismatchedRef); err == nil {
+		t.Fatalf("mismatched server-managed storage_ref unexpectedly accepted")
+	}
+
+	externalRef := []recovery.ObjectStoreMigrationBlob{validBlob()}
+	externalRef[0].EvidenceStorageRef = "ticket://collect-legacy"
+	if err := recovery.ValidateObjectStoreMigrationBlobReferences(externalRef); err != nil {
+		t.Fatalf("external evidence storage_ref should remain migratable: %v", err)
+	}
+}
+
 func newMigrationFilesystemStore(t testing.TB) *objectstore.FilesystemStore {
 	t.Helper()
 	store, err := objectstore.NewFilesystemStore(t.TempDir())

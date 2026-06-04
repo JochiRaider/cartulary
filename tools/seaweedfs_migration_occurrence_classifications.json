@@ -1,0 +1,133 @@
+{
+  "schema_id": "cartulary.seaweedfs_migration_occurrence_classifications.v1",
+  "rules": [
+    {
+      "id": "go-sdk-module-files",
+      "path_globs": [
+        "go.mod",
+        "go.sum"
+      ],
+      "classification": "sdk_only",
+      "owner": "Phase G dependency-boundary evidence",
+      "rationale": "Retained Go module and checksum rows for the generic S3-compatible client SDK and its transitive implementation dependencies."
+    },
+    {
+      "id": "object-store-adapter-sdk-imports",
+      "path_globs": [
+        "internal/platform/objectstore/**"
+      ],
+      "classification": "sdk_only",
+      "owner": "internal/platform/objectstore adapter boundary",
+      "rationale": "Generic S3-compatible client SDK usage is confined to the internal object-store adapter boundary."
+    },
+    {
+      "id": "object-store-probe-sdk-imports",
+      "path_globs": [
+        "tools/objectstoreprobe/**"
+      ],
+      "classification": "sdk_only",
+      "owner": "tools/objectstoreprobe compatibility probe boundary",
+      "rationale": "Generic S3-compatible client SDK usage is confined to the deployment-local object-store probe."
+    },
+    {
+      "id": "s3-test-fixture-sdk-imports",
+      "path_globs": [
+        "internal/testutil/s3test/**"
+      ],
+      "classification": "sdk_only",
+      "owner": "internal/testutil/s3test fixture boundary",
+      "rationale": "Generic S3-compatible client SDK usage is confined to the repository test fixture client."
+    },
+    {
+      "id": "migration-source-backend-labels",
+      "path_globs": [
+        "internal/app/operator.go",
+        "cmd/operator/**",
+        "internal/modules/recovery/**"
+      ],
+      "classification": "migration_source",
+      "owner": "Phase F migration-source evidence",
+      "rationale": "Retained source-backend labels identify the legacy source side of the migration and are not default runtime service references."
+    },
+    {
+      "id": "migration-plan-and-handoff-docs",
+      "path_globs": [
+        "docs/seaweedfs_s3_migration_*.md"
+      ],
+      "classification": "migration_source",
+      "owner": "SeaweedFS S3 migration plan and handoff",
+      "rationale": "The migration plan and handoff intentionally describe source, target, acceptance, and claimability boundaries."
+    },
+    {
+      "id": "core-storage-ref-owner-blocker",
+      "path_globs": [
+        "docs/spec/01_architecture_storage_and_view_contracts.md"
+      ],
+      "classification": "migration_source",
+      "owner": "Core 01 storage-ref owner blocker",
+      "rationale": "The owner document records the unresolved storage-reference blocker for migration key-preservation claims."
+    },
+    {
+      "id": "dependency-guide-sdk-list",
+      "path_globs": [
+        "docs/guides/cartulary-dev-guide.md",
+        "docs/guides/cartulary_repository_bootstrap_guide.md"
+      ],
+      "classification": "sdk_only",
+      "owner": "Developer dependency guide",
+      "rationale": "The remaining guide references are dependency-list entries for the generic S3-compatible client SDK."
+    },
+    {
+      "id": "legacy-redaction-fixtures",
+      "path_globs": [
+        "internal/testutil/harnessredact/**",
+        "scripts/test-harness-contracts.mjs",
+        "tools/harness_redaction_manifest.json"
+      ],
+      "classification": "legacy_external_endpoint",
+      "owner": "Harness redaction compatibility tests",
+      "rationale": "Legacy credential-key spellings are retained only as redaction fixtures and policy patterns."
+    },
+    {
+      "id": "legacy-negative-guards",
+      "path_globs": [
+        "scripts/check-backend-task-surface.sh",
+        "scripts/generate-sbom-license-evidence.mjs"
+      ],
+      "classification": "legacy_external_endpoint",
+      "owner": "Release and task-surface guard tooling",
+      "rationale": "Legacy server-image or target spellings are retained only as negative guards in scanner and task-surface tooling."
+    },
+    {
+      "id": "legacy-config-test-values",
+      "path_globs": [
+        "internal/platform/config/**"
+      ],
+      "classification": "legacy_external_endpoint",
+      "owner": "Configuration fixture tests",
+      "rationale": "Legacy service-ref spellings remain only as opaque fixture strings in configuration tests."
+    },
+    {
+      "id": "historical-spec-appendices",
+      "path_globs": [
+        "docs/spec/A_*",
+        "docs/spec/B_*",
+        "docs/spec/E_*",
+        "docs/spec/G_*"
+      ],
+      "classification": "historical_changelog",
+      "owner": "Non-core exploratory specification archive",
+      "rationale": "These files are non-core archived or exploratory source material and are not default runtime or release-support instructions."
+    },
+    {
+      "id": "historical-harness-recovery-docs",
+      "path_globs": [
+        "docs/archive/**",
+        "docs/testing-harness-spec-recovery-docs/**"
+      ],
+      "classification": "historical_changelog",
+      "owner": "Historical harness recovery archive",
+      "rationale": "Archived recovery notes and audits preserve historical service vocabulary without defining current defaults."
+    }
+  ]
+}

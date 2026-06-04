@@ -838,6 +838,9 @@ func operatorPhaseFArtifactsDir(t testing.TB, name string) string {
 	if root == "" {
 		root = filepath.Join(t.TempDir(), "test-results")
 	}
+	if runID := strings.TrimSpace(os.Getenv("CARTULARY_TEST_RUN_ID")); runID != "" && filepath.Base(root) != runID {
+		root = filepath.Join(root, runID)
+	}
 	dir := filepath.Join(root, "backend-process", "phase-f-object-store-migration", name)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatalf("create phase f artifacts dir: %v", err)

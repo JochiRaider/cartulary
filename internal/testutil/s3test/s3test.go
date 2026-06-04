@@ -26,14 +26,16 @@ import (
 )
 
 const (
-	seaweedFSS3Image                = "docker.io/chrislusf/seaweedfs:4.17@sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9"
-	seaweedFSS3Port                 = "8333/tcp"
-	objectStorePortMappingTimeout   = 30 * time.Second
-	objectStoreHealthPollInterval   = 500 * time.Millisecond
-	objectStoreClientReadyTimeout   = 60 * time.Second
-	objectStoreClientAttemptTimeout = 5 * time.Second
-	objectStoreAccessKey            = "cartulary-local"
-	objectStoreSecretKey            = "cartulary-local-secret"
+	seaweedFSS3Image                   = "docker.io/chrislusf/seaweedfs:4.17@sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9"
+	seaweedFSS3Port                    = "8333/tcp"
+	defaultSeaweedFSS3BrowserPortStart = 39000
+	defaultSeaweedFSS3BrowserPortEnd   = 39199
+	objectStorePortMappingTimeout      = 30 * time.Second
+	objectStoreHealthPollInterval      = 500 * time.Millisecond
+	objectStoreClientReadyTimeout      = 60 * time.Second
+	objectStoreClientAttemptTimeout    = 5 * time.Second
+	objectStoreAccessKey               = "cartulary-local"
+	objectStoreSecretKey               = "cartulary-local-secret"
 )
 
 func ContainerImage() string {
@@ -160,7 +162,7 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 			"-dir=/data",
 			"-s3",
 			"-s3.port=8333",
-			"-s3.allowedOrigins=http://localhost:5173,http://127.0.0.1:5173",
+			"-s3.allowedOrigins=" + seaweedFSS3AllowedOrigins(),
 			"-s3.port.iceberg=0",
 			"-webdav=false",
 		},
@@ -191,6 +193,24 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 		return nil, err
 	}
 	return harness, nil
+}
+
+func seaweedFSS3AllowedOrigins() string {
+	if origins := strings.TrimSpace(suiteservices.LookupEnvValue(nil, "OBJECT_STORE_CORS_ALLOWED_ORIGINS")); origins != "" {
+		return origins
+	}
+	if origins := strings.TrimSpace(suiteservices.LookupEnvValue(nil, "OBJECT_STORE_CORS_ORIGIN")); origins != "" {
+		return origins
+	}
+	return defaultSeaweedFSS3AllowedOrigins()
+}
+
+func defaultSeaweedFSS3AllowedOrigins() string {
+	origins := []string{"http://localhost:5173", "http://127.0.0.1:5173"}
+	for port := defaultSeaweedFSS3BrowserPortStart; port <= defaultSeaweedFSS3BrowserPortEnd; port++ {
+		origins = append(origins, fmt.Sprintf("http://localhost:%d", port), fmt.Sprintf("http://127.0.0.1:%d", port))
+	}
+	return strings.Join(origins, ",")
 }
 
 func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerRequest) (*Harness, error) {

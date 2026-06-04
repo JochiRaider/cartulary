@@ -2,8 +2,10 @@ package evidence_test
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,7 +29,7 @@ func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(t *testing.T)
 				Reason:    objectstore.ReasonEndpointUnreachable,
 				Operation: objectstore.OperationCreateUploadTarget,
 				Retryable: true,
-				Message:   "endpoint unreachable",
+				Message:   "endpoint unreachable source.internal private-bucket incidents/raw/key CARTULARY_S3_SECRET_KEY=secret",
 			},
 		}
 
@@ -54,6 +56,13 @@ func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(t *testing.T)
 			t.Fatalf("object_store_unavailable retryable got %#v want true", errorValue["retryable"])
 		}
 		httptestx.RequireErrorDetail(t, body, "reason_code", "endpoint_unreachable")
+		requireNoPublicEvidenceLeak(t, "blob slot dependency error", body, []string{
+			"source.internal",
+			"private-bucket",
+			"incidents/raw/key",
+			"CARTULARY_S3_SECRET_KEY",
+			"secret",
+		})
 		if got := countObjectBlobs(t, harness, incidentID); got != 0 {
 			t.Fatalf("object-store outage wrote blob slots: got %d want 0", got)
 		}
@@ -71,7 +80,7 @@ func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(t *testing.T)
 				Reason:    objectstore.ReasonCapabilityMissing,
 				Operation: objectstore.OperationHeadObject,
 				Retryable: false,
-				Message:   "capability missing",
+				Message:   "capability missing target.internal private-bucket incidents/raw/key AWS_SECRET_ACCESS_KEY=secret",
 			},
 		}
 
@@ -95,7 +104,90 @@ func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(t *testing.T)
 		if retryable, ok := errorValue["retryable"].(bool); !ok || retryable {
 			t.Fatalf("object_store_access_rejected retryable got %#v want false", errorValue["retryable"])
 		}
+		requireNoPublicEvidenceLeak(t, "preview dependency error", body, []string{
+			"target.internal",
+			"private-bucket",
+			"incidents/raw/key",
+			"AWS_SECRET_ACCESS_KEY",
+			"secret",
+		})
 	})
+}
+
+func TestPhaseG_PublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase-g-evidence-redaction")
+	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-phase-g-redaction-incident",
+		"incident_key":  "phase-g-redaction",
+		"title":         "Phase G evidence redaction",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	recordID := uuid.New()
+	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
+
+	payload := []byte("phase g public evidence response body")
+	attachData := attachUploadedBlobWithMetadata(
+		t,
+		harness,
+		login,
+		incidentID,
+		recordID,
+		payload,
+		"phase-g.txt",
+		"text/plain",
+		"txn-phase-g-redaction-blob",
+		"txn-phase-g-redaction-attach",
+	)
+	objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
+	storageKey := "incidents/" + incidentID.String() + "/object-blobs/" + objectBlobID.String()
+	forbidden := []string{
+		storageKey,
+		"storage_ref",
+		"s3://",
+		"private-bucket",
+		"source.internal",
+		"target.internal",
+		"CARTULARY_S3_ACCESS_KEY",
+		"CARTULARY_S3_SECRET_KEY",
+		"AWS_ACCESS_KEY_ID",
+		"AWS_SECRET_ACCESS_KEY",
+		"X-Amz-Credential",
+		"X-Amz-Signature",
+	}
+
+	createResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+		"incident_id":       incidentID.String(),
+		"client_txn_id":     "txn-phase-g-redaction-extra-blob",
+		"byte_size":         1,
+		"filename_hint":     "extra.txt",
+		"content_type_hint": "text/plain",
+	}, authOptions(login)...)
+	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
+	requireNoPublicEvidenceLeak(t, "blob create response", createData, forbidden)
+
+	for _, endpoint := range []string{"preview-handle", "download-handle"} {
+		handle := issueEvidenceHandle(t, harness, login, recordID, endpoint)
+		requireNoPublicEvidenceLeak(t, endpoint+" response", handle, forbidden)
+		href, ok := handle["href"].(string)
+		if !ok || !strings.HasPrefix(href, "/api/v1/evidence-handles/hdl_") {
+			t.Fatalf("%s returned non-opaque same-origin href: %#v", endpoint, handle["href"])
+		}
+	}
+}
+
+func requireNoPublicEvidenceLeak(t testing.TB, label string, value any, forbidden []string) {
+	t.Helper()
+	data, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal %s: %v", label, err)
+	}
+	text := string(data)
+	for _, marker := range forbidden {
+		if marker != "" && strings.Contains(text, marker) {
+			t.Fatalf("%s leaked forbidden marker %q in %s", label, marker, text)
+		}
+	}
 }
 
 type overrideObjectStore struct {

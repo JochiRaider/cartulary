@@ -422,6 +422,18 @@
           "description": "run check, extended harness, release artifacts, and build verification"
         },
         {
+          "target": "seaweedfs-compatibility",
+          "description": "run the full SeaweedFS S3 compatibility profile"
+        },
+        {
+          "target": "seaweedfs-release-evidence",
+          "description": "emit SeaweedFS release-gate evidence without enforcing the strict gate"
+        },
+        {
+          "target": "seaweedfs-release-gate",
+          "description": "enforce the strict SeaweedFS S3 release gate"
+        },
+        {
           "target": "build",
           "description": "build backend and operator binaries with embedded web assets"
         },
@@ -717,6 +729,14 @@
         {
           "type": "step",
           "target": "sbom"
+        },
+        {
+          "type": "step",
+          "target": "seaweedfs-compatibility"
+        },
+        {
+          "type": "step",
+          "target": "seaweedfs-release-gate"
         },
         {
           "type": "step",
@@ -2068,6 +2088,82 @@
         "./scripts/check-release-artifact.sh",
         "\"SBOM\"",
         "\"$(SBOM_ARTIFACT)\""
+      ],
+      "test_target": "self"
+    },
+    "seaweedfs-compatibility": {
+      "prerequisites": [
+        "object-store-init"
+      ],
+      "type": "phase_command",
+      "mode": "run_phase",
+      "phase_label": "seaweedfs-compatibility",
+      "env": {
+        "GO": "$(GO)",
+        "GOCACHE": "$(GO_CACHE_DIR)",
+        "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
+        "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "OBJECT_STORE_PROFILE_ID": "local_dev",
+        "OBJECT_STORE_BUCKET": "$(OBJECT_STORE_BUCKET)"
+      },
+      "command": [
+        "$(GO)",
+        "run",
+        "./tools/objectstoreprobe",
+        "--artifact",
+        "$(RELEASE_ARTIFACT_DIR)/seaweedfs/object-store-capability-probe.json"
+      ],
+      "test_target": "self"
+    },
+    "seaweedfs-release-evidence": {
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(SBOM_ARTIFACT)",
+        "$(LICENSE_REPORT_ARTIFACT)",
+        "scripts/seaweedfs-release-evidence.mjs",
+        "tools/seaweedfs_migration_occurrence_classifications.json"
+      ],
+      "type": "phase_command",
+      "mode": "run_phase",
+      "phase_label": "seaweedfs-release-evidence",
+      "env": {
+        "RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)",
+        "SBOM_ARTIFACT": "$(SBOM_ARTIFACT)",
+        "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
+        "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
+        "SEAWEEDFS_COMPATIBILITY_REPORT": "$(RELEASE_ARTIFACT_DIR)/seaweedfs/object-store-compatibility-report.json",
+        "SEAWEEDFS_MIGRATION_PASS_DIR": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/backend-process/phase-f-object-store-migration/pass"
+      },
+      "command": [
+        "$(NODE_BIN)",
+        "./scripts/seaweedfs-release-evidence.mjs"
+      ],
+      "test_target": "self"
+    },
+    "seaweedfs-release-gate": {
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(SBOM_ARTIFACT)",
+        "$(LICENSE_REPORT_ARTIFACT)",
+        "scripts/seaweedfs-release-evidence.mjs",
+        "tools/seaweedfs_migration_occurrence_classifications.json"
+      ],
+      "type": "phase_command",
+      "mode": "run_phase",
+      "phase_label": "seaweedfs-release-gate",
+      "env": {
+        "RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)",
+        "SBOM_ARTIFACT": "$(SBOM_ARTIFACT)",
+        "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
+        "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
+        "SEAWEEDFS_COMPATIBILITY_REPORT": "$(RELEASE_ARTIFACT_DIR)/seaweedfs/object-store-compatibility-report.json",
+        "SEAWEEDFS_MIGRATION_PASS_DIR": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/backend-process/phase-f-object-store-migration/pass"
+      },
+      "command": [
+        "$(NODE_BIN)",
+        "./scripts/seaweedfs-release-evidence.mjs",
+        "--enforce-release-gate"
       ],
       "test_target": "self"
     },
@@ -8625,6 +8721,192 @@
       "lifecycle_state": "candidate_child"
     },
     {
+      "name": "seaweedfs-compatibility",
+      "backing_scripts": [
+        "tools/objectstoreprobe/main.go"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v3"
+      },
+      "command_id": "cartulary.harness.command.seaweedfs_compatibility.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "release-check"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "resource_families": [
+            "object buckets or prefixes"
+          ],
+          "lifecycle_machine": "object-store compatibility probe lifecycle from Section 11"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": []
+      }
+    },
+    {
+      "name": "seaweedfs-release-evidence",
+      "backing_scripts": [
+        "scripts/seaweedfs-release-evidence.mjs",
+        "tools/seaweedfs_migration_occurrence_classifications.json"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v3"
+      },
+      "command_id": "cartulary.harness.command.seaweedfs_release_evidence.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        },
+        {
+          "behavior": "security_boundary",
+          "owner_section": "Section 15"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "public_active",
+      "family_id": "static_analysis_security",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": []
+      }
+    },
+    {
+      "name": "seaweedfs-release-gate",
+      "backing_scripts": [
+        "scripts/seaweedfs-release-evidence.mjs",
+        "tools/seaweedfs_migration_occurrence_classifications.json"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v3"
+      },
+      "command_id": "cartulary.harness.command.seaweedfs_release_gate.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        },
+        {
+          "behavior": "security_boundary",
+          "owner_section": "Section 15"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "release-check"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "static_analysis_security",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": []
+      }
+    },
+    {
       "name": "build",
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -9103,6 +9385,7 @@
         "harness-smoke-run-go-gosec-audit",
         "harness-smoke-release-task-surface",
         "harness-smoke-sbom-license-evidence",
+        "harness-smoke-seaweedfs-release-evidence",
         "harness-smoke-benchmark-claim-check",
         "harness-smoke-make-node-tools",
         "harness-smoke-guidance-core",
@@ -9159,6 +9442,7 @@
         "harness-smoke-run-go-gosec-audit",
         "harness-smoke-release-task-surface",
         "harness-smoke-sbom-license-evidence",
+        "harness-smoke-seaweedfs-release-evidence",
         "harness-smoke-benchmark-claim-check",
         "harness-smoke-make-node-tools",
         "harness-smoke-guidance-core",
@@ -9316,6 +9600,18 @@
       "command": [
         "$(NODE_BIN)",
         "./scripts/test-sbom-license-evidence.mjs"
+      ]
+    },
+    {
+      "name": "harness-smoke-seaweedfs-release-evidence",
+      "backing_scripts": [
+        "scripts/test-seaweedfs-release-evidence.mjs",
+        "scripts/seaweedfs-release-evidence.mjs",
+        "tools/seaweedfs_migration_occurrence_classifications.json"
+      ],
+      "command": [
+        "$(NODE_BIN)",
+        "./scripts/test-seaweedfs-release-evidence.mjs"
       ]
     },
     {

@@ -144,6 +144,30 @@ func TestObjectStoreContainerWaitStrategyOnlyWaitsForPortMapping(t *testing.T) {
 	}
 }
 
+func TestSeaweedFSS3AllowedOriginsDefaultSupportsLoopbackBrowserPortRange(t *testing.T) {
+	t.Setenv("OBJECT_STORE_CORS_ALLOWED_ORIGINS", "")
+	t.Setenv("OBJECT_STORE_CORS_ORIGIN", "")
+
+	got := seaweedFSS3AllowedOrigins()
+	for _, want := range []string{
+		"http://localhost:5173",
+		"http://127.0.0.1:5173",
+		"http://localhost:39000",
+		"http://127.0.0.1:39000",
+		"http://localhost:39199",
+		"http://127.0.0.1:39199",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("default SeaweedFS S3 allowed origins missing %q in %q", want, got)
+		}
+	}
+	for _, forbidden := range []string{"*", "http://0.0.0.0", "http://[::]"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("default SeaweedFS S3 allowed origins must stay exact and loopback-scoped, got %q", got)
+		}
+	}
+}
+
 func TestOwnedObjectStoreAppliesContainerLabels(t *testing.T) {
 	stubOwnedObjectStoreStartup(t)
 
