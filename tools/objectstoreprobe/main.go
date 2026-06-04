@@ -164,7 +164,7 @@ func parseConfig() (config, error) {
 	flag.StringVar(&cfg.SecretAccessKey, "secret-access-key", envDefault("SEAWEEDFS_S3_SECRET_ACCESS_KEY", "cartulary-local-secret"), "S3 secret key")
 	flag.StringVar(&secureText, "secure", envDefault("OBJECT_STORE_SECURE", "false"), "whether to use HTTPS")
 	flag.StringVar(&cfg.Bucket, "bucket", envDefault("OBJECT_STORE_BUCKET", "cartulary"), "S3 bucket")
-	flag.StringVar(&cfg.Origin, "origin", envDefault("OBJECT_STORE_CORS_ORIGIN", "http://127.0.0.1:5173"), "browser origin for CORS preflight")
+	flag.StringVar(&cfg.Origin, "origin", envDefault("OBJECT_STORE_CORS_ORIGIN", "http://localhost:5173"), "browser origin for CORS preflight")
 	flag.StringVar(&cfg.ServiceName, "service-name", envDefault("OBJECT_STORE_SERVICE_NAME", "seaweedfs-s3"), "local object-store service name")
 	flag.StringVar(&cfg.Image, "image", envDefault("SEAWEEDFS_S3_IMAGE", "docker.io/chrislusf/seaweedfs:4.17"), "object-store image tag")
 	flag.StringVar(&cfg.ImageDigest, "image-digest", envDefault("SEAWEEDFS_S3_IMAGE_DIGEST", "sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9"), "object-store image digest")
@@ -383,7 +383,7 @@ func (r *probeRunner) runProbe(ctx context.Context) (runErr error) {
 	}
 	r.markCompat("SWFS-COMP-011", "pass")
 	if err := r.stage(ctx, "direct_put", func(ctx context.Context) error {
-		err := uploadPresignedPUT(ctx, putURL.String(), directPayload)
+		err := uploadPresignedPUT(ctx, putURL.String(), r.cfg.Origin, directPayload)
 		if err == nil {
 			r.createdKeys[r.directUploadKey] = true
 		}
@@ -924,25 +924,134 @@ func checkCORSPreflight(ctx context.Context, endpoint string, origin string) err
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("CORS preflight status %d", resp.StatusCode)
 	}
+	if err := validateCORSPreflightResponse(resp.Header, origin); err != nil {
+		return err
+	}
+	if err := checkCORSDisallowedPreflightRejected(ctx, endpoint, origin, http.MethodGet, "content-type"); err != nil {
+		return err
+	}
+	if err := checkCORSDisallowedPreflightRejected(ctx, endpoint, origin, http.MethodPut, "content-type, authorization"); err != nil {
+		return err
+	}
+	return checkCORSNullOriginRejected(ctx, endpoint)
+}
+
+func checkCORSDisallowedPreflightRejected(ctx context.Context, endpoint string, origin string, method string, requestHeaders string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodOptions, endpoint, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Origin", origin)
+	req.Header.Set("Access-Control-Request-Method", method)
+	if requestHeaders != "" {
+		req.Header.Set("Access-Control-Request-Headers", requestHeaders)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
 	allowOrigin := strings.TrimSpace(resp.Header.Get("Access-Control-Allow-Origin"))
-	if allowOrigin != "*" && allowOrigin != origin {
-		return fmt.Errorf("CORS origin not allowed")
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 && allowOrigin != "" {
+		return fmt.Errorf("CORS disallowed preflight unexpectedly granted")
 	}
-	if strings.EqualFold(strings.TrimSpace(resp.Header.Get("Access-Control-Allow-Credentials")), "true") {
-		return fmt.Errorf("CORS credentials are enabled")
-	}
-	methods := strings.ToUpper(resp.Header.Get("Access-Control-Allow-Methods"))
-	if !strings.Contains(methods, http.MethodPut) {
-		return fmt.Errorf("CORS PUT method not allowed")
+	if allowOrigin == "*" || allowOrigin == origin {
+		return fmt.Errorf("CORS disallowed preflight unexpectedly granted")
 	}
 	return nil
 }
 
-func uploadPresignedPUT(ctx context.Context, endpoint string, payload []byte) error {
+func checkCORSNullOriginRejected(ctx context.Context, endpoint string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodOptions, endpoint, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Origin", "null")
+	req.Header.Set("Access-Control-Request-Method", http.MethodPut)
+	req.Header.Set("Access-Control-Request-Headers", "content-type,x-amz-checksum-sha256")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	allowOrigin := strings.TrimSpace(resp.Header.Get("Access-Control-Allow-Origin"))
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 && allowOrigin != "" {
+		return fmt.Errorf("CORS Origin null unexpectedly allowed")
+	}
+	if allowOrigin == "*" || strings.EqualFold(allowOrigin, "null") {
+		return fmt.Errorf("CORS Origin null unexpectedly allowed")
+	}
+	return nil
+}
+
+func validateCORSPreflightResponse(header http.Header, origin string) error {
+	if strings.TrimSpace(origin) == "" {
+		return fmt.Errorf("CORS origin is required")
+	}
+	allowOrigin := strings.TrimSpace(header.Get("Access-Control-Allow-Origin"))
+	if allowOrigin != origin {
+		return fmt.Errorf("CORS origin must exactly match application public origin")
+	}
+	if strings.EqualFold(strings.TrimSpace(header.Get("Access-Control-Allow-Credentials")), "true") {
+		return fmt.Errorf("CORS credentials are enabled")
+	}
+	if !equalHeaderTokenSet(header.Values("Access-Control-Allow-Methods"), []string{http.MethodPut, http.MethodOptions}) {
+		return fmt.Errorf("CORS methods must be exactly PUT and OPTIONS")
+	}
+	if !equalHeaderTokenSet(header.Values("Access-Control-Allow-Headers"), []string{"content-type", "x-amz-checksum-sha256"}) {
+		return fmt.Errorf("CORS request headers must be exactly content-type and x-amz-checksum-sha256")
+	}
+	if strings.TrimSpace(header.Get("Access-Control-Max-Age")) != "600" {
+		return fmt.Errorf("CORS max age must be exactly 600 seconds")
+	}
+	return nil
+}
+
+func validateCORSActualPUTResponse(header http.Header, origin string) error {
+	allowOrigin := strings.TrimSpace(header.Get("Access-Control-Allow-Origin"))
+	if allowOrigin != origin {
+		return fmt.Errorf("CORS PUT origin must exactly match application public origin")
+	}
+	if strings.EqualFold(strings.TrimSpace(header.Get("Access-Control-Allow-Credentials")), "true") {
+		return fmt.Errorf("CORS PUT credentials are enabled")
+	}
+	if !equalHeaderTokenSet(header.Values("Access-Control-Expose-Headers"), []string{"etag"}) {
+		return fmt.Errorf("CORS exposed response headers must be exactly etag")
+	}
+	return nil
+}
+
+func equalHeaderTokenSet(values []string, want []string) bool {
+	gotTokens := map[string]struct{}{}
+	for _, value := range values {
+		for _, token := range strings.Split(value, ",") {
+			normalized := strings.ToLower(strings.TrimSpace(token))
+			if normalized != "" {
+				gotTokens[normalized] = struct{}{}
+			}
+		}
+	}
+	if len(gotTokens) != len(want) {
+		return false
+	}
+	for _, token := range want {
+		if _, ok := gotTokens[strings.ToLower(token)]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func uploadPresignedPUT(ctx context.Context, endpoint string, origin string, payload []byte) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, endpoint, bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Origin", origin)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -953,7 +1062,7 @@ func uploadPresignedPUT(ctx context.Context, endpoint string, payload []byte) er
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("presigned PUT status %d", resp.StatusCode)
 	}
-	return nil
+	return validateCORSActualPUTResponse(resp.Header, origin)
 }
 
 func requirePresignedPUTRejected(ctx context.Context, endpoint string, payload []byte) error {

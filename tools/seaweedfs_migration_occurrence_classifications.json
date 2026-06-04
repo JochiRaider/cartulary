@@ -89,6 +89,26 @@
       "rationale": "Legacy credential-key spellings are retained only as redaction fixtures and policy patterns."
     },
     {
+      "id": "release-evidence-migration-source-support-literals",
+      "path_globs": [
+        "scripts/seaweedfs-release-evidence.mjs"
+      ],
+      "line_regex": "Min[I]O-to-SeaweedFS migration|m[i]nio_s3",
+      "classification": "migration_source",
+      "owner": "SeaweedFS release evidence migration-source checks",
+      "rationale": "These support literals name the default migration source backend or owner-coverage phrase and are not default runtime service references."
+    },
+    {
+      "id": "release-evidence-test-migration-source-fixture",
+      "path_globs": [
+        "scripts/test-seaweedfs-release-evidence.mjs"
+      ],
+      "line_regex": "source_backend:\\s+\"m[i]nio_s3\"",
+      "classification": "migration_source",
+      "owner": "SeaweedFS release evidence migration-source fixture",
+      "rationale": "The fixture retains the default migration source backend label for release-evidence validation only."
+    },
+    {
       "id": "legacy-negative-guards",
       "path_globs": [
         "scripts/check-backend-task-surface.sh",

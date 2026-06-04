@@ -2348,7 +2348,7 @@
           "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
           "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
           "SEAWEEDFS_COMPATIBILITY_REPORT": "$(RELEASE_ARTIFACT_DIR)/seaweedfs/object-store-compatibility-report.json",
-          "SEAWEEDFS_MIGRATION_PASS_DIR": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/backend-process/phase-f-object-store-migration/pass"
+          "SEAWEEDFS_MIGRATION_PASS_DIR": "$(SEAWEEDFS_MIGRATION_PASS_DIR)"
         },
         "command": [
           "$(NODE_BIN)",
@@ -2373,7 +2373,7 @@
           "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
           "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
           "SEAWEEDFS_COMPATIBILITY_REPORT": "$(RELEASE_ARTIFACT_DIR)/seaweedfs/object-store-compatibility-report.json",
-          "SEAWEEDFS_MIGRATION_PASS_DIR": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/backend-process/phase-f-object-store-migration/pass"
+          "SEAWEEDFS_MIGRATION_PASS_DIR": "$(SEAWEEDFS_MIGRATION_PASS_DIR)"
         },
         "command": [
           "$(NODE_BIN)",

@@ -597,13 +597,12 @@ func ValidateObjectStoreMigration(ctx context.Context, params ObjectStoreMigrati
 
 func ValidateObjectStoreMigrationBlobReferences(objects []ObjectStoreMigrationBlob) error {
 	for _, object := range objects {
-		if strings.TrimSpace(object.StorageKey) == "" {
-			return fmt.Errorf("%w: migration object storage_key is required", ErrInvalidBackupArtifact)
+		parts, err := blobref.ParseObjectBlobStorageKey(object.StorageKey)
+		if err != nil {
+			return fmt.Errorf("%w: migration object storage_key violates object_blob_storage_key_v1: %v", ErrInvalidBackupArtifact, err)
 		}
-		if parts, err := blobref.ParseObjectBlobStorageKey(object.StorageKey); err == nil {
-			if parts.IncidentID != object.IncidentID || parts.ObjectBlobID != object.ObjectBlobID {
-				return fmt.Errorf("%w: migration object storage_key does not match object identity", ErrInvalidBackupArtifact)
-			}
+		if parts.IncidentID != object.IncidentID || parts.ObjectBlobID != object.ObjectBlobID {
+			return fmt.Errorf("%w: migration object storage_key does not match object identity", ErrInvalidBackupArtifact)
 		}
 		storageRef := strings.TrimSpace(object.EvidenceStorageRef)
 		if storageRef == "" {

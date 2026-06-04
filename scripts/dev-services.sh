@@ -6,19 +6,27 @@ COMPOSE_FILE="${CARTULARY_COMPOSE_FILE:-$ROOT_DIR/docker-compose.dev.yml}"
 POSTGRES_READY_TIMEOUT_SECONDS="${CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS:-180}"
 OBJECT_STORE_READY_TIMEOUT_SECONDS="${CARTULARY_OBJECT_STORE_READY_TIMEOUT_SECONDS:-120}"
 SEAWEEDFS_S3_PORT="${SEAWEEDFS_S3_PORT:-8333}"
+SEAWEEDFS_S3_UPSTREAM_PORT="${SEAWEEDFS_S3_UPSTREAM_PORT:-18333}"
 OBJECT_STORE_ENDPOINT="${OBJECT_STORE_ENDPOINT:-127.0.0.1:${SEAWEEDFS_S3_PORT}}"
 OBJECT_STORE_BUCKET="${OBJECT_STORE_BUCKET:-cartulary}"
 SEAWEEDFS_S3_ACCESS_KEY_ID="${SEAWEEDFS_S3_ACCESS_KEY_ID:-cartulary-local}"
 SEAWEEDFS_S3_SECRET_ACCESS_KEY="${SEAWEEDFS_S3_SECRET_ACCESS_KEY:-cartulary-local-secret}"
 OBJECT_STORE_SECURE="${OBJECT_STORE_SECURE:-false}"
-OBJECT_STORE_CORS_ORIGIN="${OBJECT_STORE_CORS_ORIGIN:-http://127.0.0.1:5173}"
-OBJECT_STORE_CORS_ALLOWED_ORIGINS="${OBJECT_STORE_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}"
+OBJECT_STORE_CORS_ORIGIN="${OBJECT_STORE_CORS_ORIGIN:-http://localhost:5173}"
+OBJECT_STORE_CORS_ALLOWED_ORIGINS="${OBJECT_STORE_CORS_ALLOWED_ORIGINS:-$OBJECT_STORE_CORS_ORIGIN}"
+OBJECT_STORE_CORS_PROXY_LISTEN="${OBJECT_STORE_CORS_PROXY_LISTEN:-127.0.0.1:${SEAWEEDFS_S3_PORT}}"
+OBJECT_STORE_CORS_PROXY_UPSTREAM="${OBJECT_STORE_CORS_PROXY_UPSTREAM:-http://127.0.0.1:${SEAWEEDFS_S3_UPSTREAM_PORT}}"
 SEAWEEDFS_S3_IMAGE="${SEAWEEDFS_S3_IMAGE:-docker.io/chrislusf/seaweedfs:4.17}"
 SEAWEEDFS_S3_IMAGE_DIGEST="${SEAWEEDFS_S3_IMAGE_DIGEST:-sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9}"
 GO_BIN="${GO:-go}"
 GO_CACHE="${GOCACHE:-${GO_CACHE_DIR:-/tmp/cartulary-go-build}}"
 GO_MOD_CACHE="${GOMODCACHE:-${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}}"
+RUNTIME_DIR="${CARTULARY_RUNTIME_DIR:-$ROOT_DIR/.cartulary/runtime}"
+OBJECT_STORE_CORS_PROXY_PID_FILE="${OBJECT_STORE_CORS_PROXY_PID_FILE:-$RUNTIME_DIR/seaweedfs-s3-cors-proxy.pid}"
+OBJECT_STORE_CORS_PROXY_LOG_FILE="${OBJECT_STORE_CORS_PROXY_LOG_FILE:-$RUNTIME_DIR/seaweedfs-s3-cors-proxy.log}"
+OBJECT_STORE_CORS_PROXY_BIN="${OBJECT_STORE_CORS_PROXY_BIN:-$RUNTIME_DIR/s3corsproxy}"
 export OBJECT_STORE_CORS_ALLOWED_ORIGINS
+export SEAWEEDFS_S3_UPSTREAM_PORT
 
 usage() {
   echo "usage: dev-services.sh up|services-down|db-down|wait-postgres|wait-object-store|wait|init-object-store|db-up|db-reset|object-store-reset" >&2
@@ -109,11 +117,46 @@ probe_object_store() {
       --image-digest "$SEAWEEDFS_S3_IMAGE_DIGEST"
 }
 
+stop_object_store_proxy() {
+  local pid=""
+  if [[ -f "$OBJECT_STORE_CORS_PROXY_PID_FILE" ]]; then
+    pid="$(cat "$OBJECT_STORE_CORS_PROXY_PID_FILE" 2>/dev/null || true)"
+  fi
+  if [[ -n "$pid" ]] && kill -0 "$pid" >/dev/null 2>&1; then
+    kill "$pid" >/dev/null 2>&1 || true
+    for _ in {1..50}; do
+      if ! kill -0 "$pid" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 0.1
+    done
+    if kill -0 "$pid" >/dev/null 2>&1; then
+      kill -9 "$pid" >/dev/null 2>&1 || true
+    fi
+  fi
+  rm -f "$OBJECT_STORE_CORS_PROXY_PID_FILE"
+}
+
+start_object_store_proxy() {
+  mkdir -p "$RUNTIME_DIR"
+  stop_object_store_proxy
+  cd "$ROOT_DIR"
+  env GOCACHE="$GO_CACHE" GOMODCACHE="$GO_MOD_CACHE" \
+    "$GO_BIN" build -o "$OBJECT_STORE_CORS_PROXY_BIN" ./tools/s3corsproxy
+  nohup "$OBJECT_STORE_CORS_PROXY_BIN" \
+    --listen "$OBJECT_STORE_CORS_PROXY_LISTEN" \
+    --upstream "$OBJECT_STORE_CORS_PROXY_UPSTREAM" \
+    --origin "$OBJECT_STORE_CORS_ORIGIN" \
+    >"$OBJECT_STORE_CORS_PROXY_LOG_FILE" 2>&1 &
+  printf '%s\n' "$!" >"$OBJECT_STORE_CORS_PROXY_PID_FILE"
+}
+
 wait_object_store() {
   local start_time="$SECONDS"
   local status="unknown"
   local health="unknown"
 
+  start_object_store_proxy
   while (( SECONDS - start_time < OBJECT_STORE_READY_TIMEOUT_SECONDS )); do
     if probe_object_store probe >/dev/null 2>&1; then
       return 0
@@ -131,11 +174,15 @@ wait_object_store() {
 
   echo "seaweedfs-s3 did not become ready after ${OBJECT_STORE_READY_TIMEOUT_SECONDS}s (state=${status} health=${health})" >&2
   probe_object_store probe >&2 || true
+  if [[ -f "$OBJECT_STORE_CORS_PROXY_LOG_FILE" ]]; then
+    cat "$OBJECT_STORE_CORS_PROXY_LOG_FILE" >&2 || true
+  fi
   compose logs --no-color --tail 120 seaweedfs-s3 >&2 || true
   return 1
 }
 
 init_object_store() {
+  compose up -d --remove-orphans seaweedfs-s3
   wait_object_store
 }
 
@@ -151,6 +198,7 @@ services_down() {
     return 0
   fi
 
+  stop_object_store_proxy
   compose down --remove-orphans
 }
 

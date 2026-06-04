@@ -882,7 +882,7 @@ browser_start_services() {
   fi
 
   OBJECT_STORE_CORS_ORIGIN="${PUBLIC_ORIGIN}" \
-  OBJECT_STORE_CORS_ALLOWED_ORIGINS="${PUBLIC_ORIGIN},http://localhost:5173,http://127.0.0.1:5173" \
+  OBJECT_STORE_CORS_ALLOWED_ORIGINS="${PUBLIC_ORIGIN}" \
     "${DEV_SERVICES_SCRIPT}" up >/dev/null
 }
 

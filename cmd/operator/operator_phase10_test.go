@@ -21,6 +21,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/app"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -430,8 +431,8 @@ func TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassAndMismatchEvidence(t *
 	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-object-store-migration-source")
 	adminEmail := "phase-f-migration-admin@example.test"
 	adminID := seedOperatorUser(t, sourceDB.DSN, adminEmail, true, true)
-	firstBlob := seedOperatorMigrationBlob(t, sourceDB.DSN, adminID, "objects/phase-f-a.bin", []byte("phase f migration object"))
-	zeroBlob := seedOperatorMigrationBlob(t, sourceDB.DSN, adminID, "objects/phase-f-zero.bin", []byte{})
+	firstBlob := seedOperatorMigrationBlob(t, sourceDB.DSN, adminID, []byte("phase f migration object"))
+	zeroBlob := seedOperatorMigrationBlob(t, sourceDB.DSN, adminID, []byte{})
 
 	sourceConfig := operatorManagedS3Config(t, sourceDB.DSN, "migration-source")
 	targetConfig := operatorManagedS3Config(t, sourceDB.DSN, "migration-target")
@@ -725,7 +726,7 @@ func mergeOperatorEnv(parts ...map[string]string) map[string]string {
 	return result
 }
 
-func seedOperatorMigrationBlob(t testing.TB, dsn string, actorID uuid.UUID, storageKey string, body []byte) operatorMigrationBlobFixture {
+func seedOperatorMigrationBlob(t testing.TB, dsn string, actorID uuid.UUID, body []byte) operatorMigrationBlobFixture {
 	t.Helper()
 
 	db, err := sql.Open("pgx", dsn)
@@ -737,6 +738,7 @@ func seedOperatorMigrationBlob(t testing.TB, dsn string, actorID uuid.UUID, stor
 	incidentID := uuid.New()
 	recordID := uuid.New()
 	blobID := uuid.New()
+	storageKey := blobref.MustObjectBlobStorageKey(incidentID, blobID)
 	sha := operatorSHA256Hex(body)
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO incidents (id, incident_key, incident_key_canonical, title, status, created_by_user_id, updated_by_user_id, created_at, updated_at)

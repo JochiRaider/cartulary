@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   copyFileSync,
   existsSync,
   mkdirSync,
-  readdirSync,
   readFileSync,
   statSync,
   writeFileSync,
@@ -46,6 +46,8 @@ const seaweedfsCompatibilityCaseIds = Object.freeze(
 );
 const migrationPassArtifactSubdir =
   "backend-process/phase-f-object-store-migration/pass";
+const phaseEBackupRestoreSubdir = "phase-e-backup-restore";
+const phaseFMigrationSubdir = "phase-f-object-store-migration";
 const coreStorageRefOwnerPath = "docs/spec/01_architecture_storage_and_view_contracts.md";
 const allowedClassifications = new Set([
   "sdk_only",
@@ -97,20 +99,6 @@ const allowedSdkImportPrefixes = Object.freeze([
   "internal/testutil/s3test/",
   "tools/objectstoreprobe/",
 ]);
-const retainedEvidencePaths = Object.freeze([
-  ".cartulary/test-results/20260603T204514Z-p691818/_shared/test-services/de5b40060835285b2dfb6796/service-scope.json",
-  ".cartulary/test-results/20260603T204514Z-p691818/_shared/test-services/de5b40060835285b2dfb6796/service-lease.json",
-  ".cartulary/test-results/20260604T040231Z-p1158198/backend-process/phase-e-backup-restore/object-store-backup-summary.json",
-  ".cartulary/test-results/20260604T040231Z-p1158198/backend-process/phase-e-backup-restore/restore-verification.json",
-  ".cartulary/test-results/20260604T051000Z-phase-f/backend-process/phase-f-object-store-migration/pass/migration-run.json",
-  ".cartulary/test-results/20260604T051000Z-phase-f/backend-process/phase-f-object-store-migration/pass/copy-ledger.json",
-  ".cartulary/test-results/20260604T051000Z-phase-f/backend-process/phase-f-object-store-migration/pass/validation.json",
-  ".cartulary/test-results/20260604T051000Z-phase-f/backend-process/phase-f-object-store-migration/pass/rollback-evidence.json",
-  ".cartulary/test-results/20260604T051000Z-phase-f/backend-process/phase-f-object-store-migration/mismatch/migration-run.json",
-  ".cartulary/test-results/20260604T051000Z-phase-f/backend-process/phase-f-object-store-migration/mismatch/copy-ledger.json",
-  ".cartulary/test-results/20260604T051000Z-phase-f/backend-process/phase-f-object-store-migration/mismatch/validation.json",
-  ".cartulary/test-results/20260604T051000Z-phase-f/backend-process/phase-f-object-store-migration/mismatch/rollback-evidence.json",
-]);
 const secretNeedles = Object.freeze([
   "seaweedfs-secret",
   "min" + "io-secret",
@@ -132,6 +120,19 @@ const publicLeakNeedles = Object.freeze([
   "AWS_ACCESS_KEY_ID",
   "CARTULARY_S3_SECRET_KEY",
   "CARTULARY_S3_ACCESS_KEY",
+]);
+const publicRawStorageFieldNames = new Set([
+  "bucket",
+  "source_bucket",
+  "target_bucket",
+  "s3_bucket",
+  "object_key",
+  "source_key",
+  "target_key",
+  "storage_ref",
+  "endpoint",
+  "source_endpoint",
+  "target_endpoint",
 ]);
 
 function repoPath(...segments) {
@@ -1028,6 +1029,28 @@ function refSHA(value) {
     : null;
 }
 
+function hashRedactionRef(redactionClass, value) {
+  if (typeof value !== "string" || value === "") {
+    return null;
+  }
+  return {
+    redacted: true,
+    redaction_class: redactionClass,
+    sha256: createHash("sha256").update(value, "utf8").digest("hex"),
+  };
+}
+
+function normalizeRedactionRef(redactionClass, value) {
+  if (value && typeof value === "object" && isSha256Hex(value.sha256)) {
+    return {
+      redacted: true,
+      redaction_class: value.redaction_class ?? redactionClass,
+      sha256: value.sha256,
+    };
+  }
+  return hashRedactionRef(redactionClass, value);
+}
+
 function buildMigrationPreservationEvidence({
   repoCommitValue = "test-commit",
   generatedAt = new Date().toISOString(),
@@ -1061,6 +1084,9 @@ function buildMigrationPreservationEvidence({
       schemaID: "cartulary.object_store_migration_run.v1",
       findings,
     });
+  const sourceBucketRef = normalizeRedactionRef("bucket", loadedValidation?.source_bucket);
+  const targetBucketRef = normalizeRedactionRef("bucket", loadedValidation?.target_bucket);
+  const bucketPreserved = refSHA(sourceBucketRef) !== null && refSHA(sourceBucketRef) === refSHA(targetBucketRef);
 
   if (loadedValidation) {
     if (loadedValidation.result !== "pass") {
@@ -1077,17 +1103,17 @@ function buildMigrationPreservationEvidence({
         check_id: "migration-backend-pair",
         severity: "blocking",
         path: validationPath ? displayPath(validationPath) : null,
-        message: "migration validation must prove MinIO S3 source to SeaweedFS S3 target",
+        message: "migration validation must prove the default legacy S3 source to SeaweedFS S3 target",
         source_backend: loadedValidation.source_backend ?? null,
         target_backend: loadedValidation.target_backend ?? null,
       });
     }
-    if (loadedValidation.source_bucket !== loadedValidation.target_bucket) {
+    if (!bucketPreserved) {
       findings.push({
         check_id: "migration-bucket-preservation",
         severity: "blocking",
         path: validationPath ? displayPath(validationPath) : null,
-        message: "migration validation source and target buckets differ",
+        message: "migration validation source and target buckets are not preserved",
       });
     }
     if (Array.isArray(loadedValidation.blocking_diagnostics) && loadedValidation.blocking_diagnostics.length > 0) {
@@ -1188,7 +1214,7 @@ function buildMigrationPreservationEvidence({
   }
 
   return {
-    schema_id: "cartulary.seaweedfs_migration_preservation_evidence.v1",
+    schema_id: "cartulary.seaweedfs_migration_preservation_evidence.v2",
     generated_at: generatedAt,
     repo_commit: repoCommitValue,
     migration_pass_dir: migrationPassDir ? displayPath(migrationPassDir) : null,
@@ -1200,8 +1226,9 @@ function buildMigrationPreservationEvidence({
     preservation_checks: {
       source_backend: loadedValidation?.source_backend ?? null,
       target_backend: loadedValidation?.target_backend ?? null,
-      source_bucket: loadedValidation?.source_bucket ?? null,
-      target_bucket: loadedValidation?.target_bucket ?? null,
+      source_bucket_ref: sourceBucketRef,
+      target_bucket_ref: targetBucketRef,
+      bucket_preserved: bucketPreserved,
       object_blob_count: loadedValidation?.object_blob_count ?? null,
       copy_ledger_object_count: loadedLedger?.object_count ?? null,
     },
@@ -1220,19 +1247,118 @@ function classifyArtifactBoundary(rel) {
   return "public_or_shareable";
 }
 
-function buildRedactionLeakageScan({ generatedAt, repoCommitValue, phaseArtifactPaths }) {
-  const paths = [...phaseArtifactPaths, ...retainedEvidencePaths].filter((entry, index, all) => all.indexOf(entry) === index);
+function backendProcessRootFromMigrationPassDir(migrationPassDir) {
+  if (!migrationPassDir) {
+    return null;
+  }
+  return path.dirname(path.dirname(inputPath(migrationPassDir)));
+}
+
+function currentBackendProcessArtifactPaths(migrationPassDir) {
+  const backendProcessRoot = backendProcessRootFromMigrationPassDir(migrationPassDir);
+  if (!backendProcessRoot) {
+    return [];
+  }
+  const phaseERoot = path.join(backendProcessRoot, phaseEBackupRestoreSubdir);
+  const phaseFRoot = path.join(backendProcessRoot, phaseFMigrationSubdir);
+  return [
+    path.join(phaseERoot, "object-store-backup-manifest.json"),
+    path.join(phaseERoot, "object-store-backup-summary.json"),
+    path.join(phaseERoot, "restore-verification.json"),
+    ...["pass", "mismatch"].flatMap((caseName) => {
+      const caseRoot = path.join(phaseFRoot, caseName);
+      return [
+        path.join(caseRoot, "migration-run.json"),
+        path.join(caseRoot, "copy-ledger.json"),
+        path.join(caseRoot, "validation.json"),
+        path.join(caseRoot, "rollback-evidence.json"),
+        path.join(caseRoot, "target-probe.json"),
+      ];
+    }),
+  ].map(displayPath);
+}
+
+function migrationPassDirHasRequiredArtifacts(candidate) {
+  if (!candidate) return false;
+  const abs = inputPath(candidate);
+  return ["validation.json", "copy-ledger.json", "migration-run.json"].every((name) =>
+    existsSync(path.join(abs, name)),
+  );
+}
+
+function redactionScanPaths({
+  phaseArtifactPaths = [],
+  compatibilityReportPath = null,
+  migrationPassDir = null,
+  requireBackendProcessArtifacts = false,
+}) {
+  const includeBackendProcessArtifacts =
+    migrationPassDir && (requireBackendProcessArtifacts || migrationPassDirHasRequiredArtifacts(migrationPassDir));
+  const paths = [
+    ...phaseArtifactPaths,
+    ...(compatibilityReportPath ? [compatibilityReportPath] : []),
+    ...(includeBackendProcessArtifacts ? currentBackendProcessArtifactPaths(migrationPassDir) : []),
+  ].map(displayPath);
+  return paths.filter((entry, index, all) => all.indexOf(entry) === index);
+}
+
+function findPublicRawStorageFieldFindings({ rel, value, trail = [] }) {
+  const findings = [];
+  if (Array.isArray(value)) {
+    value.forEach((child, index) => {
+      findings.push(...findPublicRawStorageFieldFindings({ rel, value: child, trail: [...trail, String(index)] }));
+    });
+    return findings;
+  }
+  if (!value || typeof value !== "object") {
+    return findings;
+  }
+  for (const [key, child] of Object.entries(value)) {
+    const normalizedKey = key.toLowerCase();
+    const jsonPath = [...trail, key].join(".") || "$";
+    if (
+      publicRawStorageFieldNames.has(normalizedKey) &&
+      typeof child === "string" &&
+      child.trim() !== ""
+    ) {
+      findings.push({
+        check_id: "public-raw-storage-field",
+        path: rel,
+        severity: "blocking",
+        message: "public/shareable artifact contains a raw object-store field",
+        json_path: jsonPath,
+      });
+    }
+    findings.push(...findPublicRawStorageFieldFindings({ rel, value: child, trail: [...trail, key] }));
+  }
+  return findings;
+}
+
+function buildRedactionLeakageScan({
+  generatedAt,
+  repoCommitValue,
+  phaseArtifactPaths,
+  compatibilityReportPath = null,
+  migrationPassDir = null,
+  requireBackendProcessArtifacts = false,
+}) {
+  const paths = redactionScanPaths({
+    phaseArtifactPaths,
+    compatibilityReportPath,
+    migrationPassDir,
+    requireBackendProcessArtifacts,
+  });
   const artifacts = [];
   const findings = [];
   for (const rel of paths) {
-    const abs = repoPath(rel);
+    const abs = inputPath(rel);
     if (!existsSync(abs)) {
       artifacts.push({ path: rel, boundary: "missing", result: "missing" });
       findings.push({
-        check_id: "retained-artifact-present",
+        check_id: "current-artifact-present",
         path: rel,
         severity: "blocking",
-        message: "required retained artifact path is missing",
+        message: "required current evidence artifact path is missing",
       });
       continue;
     }
@@ -1261,6 +1387,18 @@ function buildRedactionLeakageScan({ generatedAt, repoCommitValue, phaseArtifact
             marker: needle,
           });
         }
+      }
+    }
+    if (boundary !== "operator_private") {
+      try {
+        artifactFindings.push(
+          ...findPublicRawStorageFieldFindings({
+            rel,
+            value: JSON.parse(text),
+          }),
+        );
+      } catch {
+        // Non-JSON shareable artifacts still receive raw text scanning above.
       }
     }
     artifacts.push({
@@ -1348,59 +1486,19 @@ function buildReleaseGateSummary({
   };
 }
 
-function migrationPassDirHasRequiredArtifacts(candidate) {
-  if (!candidate) return false;
-  const abs = inputPath(candidate);
-  return ["validation.json", "copy-ledger.json", "migration-run.json"].every((name) =>
-    existsSync(path.join(abs, name)),
-  );
-}
-
-function backendProcessSummaryPassed(runRoot) {
-  const summaryPath = path.join(runRoot, "backend-process", "tool-run-summary.json");
-  if (!existsSync(summaryPath)) return false;
-  try {
-    const summary = JSON.parse(readFileSync(summaryPath, "utf8"));
-    return summary?.schema_id === "cartulary.tool_run_summary.v3" && summary?.status === "pass";
-  } catch {
-    return false;
-  }
-}
-
-function discoverLatestMigrationPassDir(resultsDir = process.env.CARTULARY_TEST_RESULTS_DIR ?? ".cartulary/test-results") {
-  const root = inputPath(resultsDir);
-  if (!existsSync(root)) return null;
-  const candidates = [];
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const runRoot = path.join(root, entry.name);
-    const passDir = path.join(runRoot, migrationPassArtifactSubdir);
-    if (!backendProcessSummaryPassed(runRoot) || !migrationPassDirHasRequiredArtifacts(passDir)) {
-      continue;
-    }
-    const validationStat = statSync(path.join(passDir, "validation.json"));
-    candidates.push({ passDir, mtimeMs: validationStat.mtimeMs });
-  }
-  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs || b.passDir.localeCompare(a.passDir));
-  return candidates[0]?.passDir ?? null;
-}
-
 function defaultMigrationPassDir() {
   const configured = process.env.SEAWEEDFS_MIGRATION_PASS_DIR ?? null;
-  if (configured && migrationPassDirHasRequiredArtifacts(configured)) {
+  if (configured) {
     return configured;
   }
   if (process.env.CARTULARY_TEST_RESULTS_DIR && process.env.CARTULARY_TEST_RUN_ID) {
-    const currentRunCandidate = path.join(
+    return path.join(
       process.env.CARTULARY_TEST_RESULTS_DIR,
       process.env.CARTULARY_TEST_RUN_ID,
       migrationPassArtifactSubdir,
     );
-    if (migrationPassDirHasRequiredArtifacts(currentRunCandidate)) {
-      return currentRunCandidate;
-    }
   }
-  return discoverLatestMigrationPassDir();
+  return null;
 }
 
 function parseArgs(argv) {
@@ -1478,6 +1576,7 @@ export function generatePhaseGEvidence({
   licensePath = path.join(defaultReleaseArtifactDir, "license-report.json"),
   compatibilityReportPath = path.join(outputDir, "object-store-compatibility-report.json"),
   migrationPassDir = null,
+  enforceReleaseGate = false,
   runId = defaultRunId(),
   now = new Date(),
 } = {}) {
@@ -1552,6 +1651,9 @@ export function generatePhaseGEvidence({
     generatedAt,
     repoCommitValue: commit,
     phaseArtifactPaths: Object.values(materialized.pathMap),
+    compatibilityReportPath,
+    migrationPassDir,
+    requireBackendProcessArtifacts: enforceReleaseGate,
   });
   const secondMaterialized = materializeArtifacts({
     outputDir,
@@ -1621,6 +1723,7 @@ function main() {
       licensePath: args.licensePath,
       compatibilityReportPath: args.compatibilityReportPath,
       migrationPassDir: args.migrationPassDir,
+      enforceReleaseGate: args.enforceReleaseGate,
       runId: args.runId ?? defaultRunId(),
     });
     const summary = result.artifacts.summary;

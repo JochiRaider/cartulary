@@ -201,6 +201,8 @@ The default active upload mode for SeaweedFS profiles is `direct_presigned_put`.
 
 If a deployment cannot make the direct upload target reachable from the browser under this table, it MUST fail startup. It MUST NOT silently fall back to application-mediated upload unless a later owner patch defines that upload mode, route behavior, probe behavior, and public response differences.
 
+For `local_dev`, the repo-defined equivalent endpoint is the loopback CORS-normalizing proxy started by `scripts/dev-services.sh` from `tools/s3corsproxy`. SeaweedFS S3 remains the backing service and is bound to a loopback-only upstream port; the browser-facing object-store endpoint is the proxy on the ordinary local object-store port. The proxy MUST preserve signed S3 request host semantics and MUST normalize only browser CORS response behavior to `cors_direct_put_v1`.
+
 ### 6.3 Direct-upload CORS policy
 
 When `upload_mode='direct_presigned_put'`, the S3 endpoint or same-origin reverse proxy used for direct PUT MUST satisfy `cors_direct_put_v1`.
@@ -681,7 +683,7 @@ The following artifact fields are forbidden in new or revised default artifacts:
 | `SWFS-COMP-008` | Presigned PUT | One upload target with 5-minute test expiry. | PUT before expiry succeeds; PUT after expiry fails; neither path attaches evidence without finalization. |
 | `SWFS-COMP-009` | Error classification | Missing object, denied credential, missing bucket, unreachable endpoint, integrity mismatch, and CORS rejection fixtures. | Each maps to the backend-neutral error registry or blocked owner error row. |
 | `SWFS-COMP-010` | No public listing primitive | Product route inventory and UI route registry. | No public API or workbook route exposes object prefix listing. |
-| `SWFS-COMP-011` | CORS preflight | Direct-upload browser origin equal to `application.public_origin`. | Browser preflight allows only the §6.3 direct-upload method/header set. |
+| `SWFS-COMP-011` | CORS preflight | Direct-upload browser origin equal to `application.public_origin`, `Origin: null`, and actual direct PUT response headers. | Browser preflight allows exactly the §6.3 direct-upload method/header set, wildcard and `Origin: null` are rejected, credentials are not enabled, and the direct PUT response exposes only `etag`. |
 | `SWFS-COMP-012` | Same-origin preview/download | Existing evidence preview and download flow. | Public evidence access uses same-origin handles only. |
 | `SWFS-COMP-013` | Probe cleanup classification | Forced cleanup failure under and outside probe prefix. | Outcomes classify exactly according to §9.6. |
 | `SWFS-COMP-014` | Canonical artifact serialization | Probe, backup, restore, and validation artifacts. | Duplicate JSON keys invalid; canonical digests stable. |
@@ -1023,6 +1025,12 @@ Migration validation artifacts MUST use canonical JSON:
 - duplicate JSON object keys invalid;
 - `artifact_sha256` computed with `artifact_sha256` omitted.
 
+### 14.8 Release-shareable migration preservation evidence
+
+The strict release gate MUST emit a redacted shareable migration-preservation summary with `schema_id='cartulary.seaweedfs_migration_preservation_evidence.v2'`. This summary is downstream of the operator-private migration run, copy ledger, and validation artifacts. It MUST NOT copy raw `source_bucket`, `target_bucket`, raw object keys, endpoints, or storage refs into release-shareable evidence.
+
+The v2 summary MUST include `source_backend`, `target_backend`, `source_bucket_ref`, `target_bucket_ref`, `bucket_preserved`, `object_blob_count`, `copy_ledger_object_count`, artifact references, findings, and `result`. `bucket_preserved=true` requires equal source and target bucket redaction hashes. Object-key preservation remains proven through copy-ledger source/target key redaction hashes.
+
 ## 15. Security and threat-model update
 
 The threat model MUST be updated before release because this migration materially changes the object-storage access pattern, deployment profile, backup/restore behavior, and migration workflow. Core 04 already requires threat-model updates before releases that change an object-storage access pattern or backup/restore mechanism.
@@ -1041,6 +1049,7 @@ Security acceptance for this migration requires all of the following:
 - no production release manifest exposes SeaweedFS admin, master, filer, volume, or WebDAV UI ports;
 - no production CORS rule uses wildcard origin for direct upload;
 - no retained harness, migration, backup, restore, or validation artifact contains raw secret values;
+- no release-shareable SeaweedFS evidence artifact contains raw bucket names, object keys, raw storage refs, or raw object-store endpoints;
 - no public preview/download response contains bucket names, object keys, raw storage refs, raw storage URLs, or long-lived object-store credentials;
 - no runtime product code calls SeaweedFS admin APIs;
 - no MinIO server artifact is present in release manifests except as a migration source fixture explicitly excluded from default runtime.
@@ -1149,7 +1158,7 @@ Every `SWFS-AC-*` row MUST be evaluated using this matrix. `TODO:repo-command-re
 | `SWFS-AC-015` | The SeaweedFS compatibility suite passes every `SWFS-COMP-*` case and contains no multipart or presigned-GET skip row. | `repo_or_external_fact_required` | none | `make seaweedfs-compatibility` | `cartulary.seaweedfs_s3_compatibility_report.v1` | every case pass; no forbidden skip | `blocks_phase` |
 | `SWFS-AC-016` | Each successful backup set against SeaweedFS includes a private manifest tied to the same backup set and consistency point as Postgres. | `blocked_until_owner_patch` | `SWFS-OWNER-BACKUP-001` | `TODO:backup-command` | `cartulary.object_store_backup_manifest.v1` | manifest valid; every object SHA-256 non-null | `blocks_release` |
 | `SWFS-AC-017` | Restoring the latest successful retained backup into fresh Postgres and fresh SeaweedFS rebuilds projections and preserves blob lifecycle consistency. | `blocked_until_owner_patch` | `SWFS-OWNER-BACKUP-001` | `TODO:restore-verification-command` | `cartulary.restore_verification.v1` | `result='pass'` | `blocks_release` |
-| `SWFS-AC-018` | Default MinIO-to-SeaweedFS migration preserves bucket name and object keys and does not mutate database `storage_ref` values. | `repo_or_external_fact_required` | none | `make backend-process` plus `make seaweedfs-release-gate` owner coverage | migration run, validation artifacts, and storage-ref owner coverage artifact | database refs unchanged; copy ledger target keys match source | `blocks_phase` |
+| `SWFS-AC-018` | Default MinIO-to-SeaweedFS migration preserves bucket name and object keys and does not mutate database `storage_ref` values. | `repo_or_external_fact_required` | none | `make backend-process` plus `make seaweedfs-release-gate` owner coverage | migration run, validation artifacts, redacted `cartulary.seaweedfs_migration_preservation_evidence.v2`, and storage-ref owner coverage artifact | database refs unchanged; copy ledger target key refs match source key refs; preservation summary has `bucket_preserved=true` | `blocks_phase` |
 | `SWFS-AC-019` | Migration validation emits `cartulary.object_store_migration_validation.v1` with `result='pass'` only when blocking arrays are empty and every preview sample passes. | `plan_local_closed` | none | `TODO:migration-validation-command` | `cartulary.object_store_migration_validation.v1` | result computation matches §14.5 | `blocks_phase` |
 | `SWFS-AC-020` | Any target-side object existing with a different size or SHA-256 than source blocks migration cutover. | `plan_local_closed` | none | `TODO:migration-target-mismatch-command` | copy ledger and validation artifact | mismatch produces blocking failure; no cutover | `blocks_phase` |
 | `SWFS-AC-021` | Threat model update includes every STRIDE row listed in §15 and names SeaweedFS direct upload, credentials, admin surfaces, backup/restore, and migration validation. | `blocked_until_owner_patch` | `SWFS-OWNER-THREAT-001` | threat-model diff or scanner document | not applicable | every row covered with control and verification hook | `blocks_release` |

@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
@@ -72,13 +73,16 @@ func TestSupportPhaseF_MigrationValidationCanonicalDigestDuplicateKeysAndResult(
 	source := newMigrationFilesystemStore(t)
 	target := newMigrationFilesystemStore(t)
 	body := []byte("validation object")
-	putMigrationObject(t, source, "objects/a.bin", body)
-	putMigrationObject(t, target, "objects/a.bin", body)
 	runID := uuid.MustParse("00000000-0000-0000-0000-000000130002")
+	objectBlobID := uuid.MustParse("00000000-0000-0000-0000-000000130003")
+	incidentID := uuid.MustParse("00000000-0000-0000-0000-000000130004")
+	key := migrationStorageKey(t, incidentID, objectBlobID)
+	putMigrationObject(t, source, key, body)
+	putMigrationObject(t, target, key, body)
 	objects := []recovery.ObjectStoreMigrationBlob{{
-		ObjectBlobID:       uuid.MustParse("00000000-0000-0000-0000-000000130003"),
-		IncidentID:         uuid.MustParse("00000000-0000-0000-0000-000000130004"),
-		StorageKey:         "objects/a.bin",
+		ObjectBlobID:       objectBlobID,
+		IncidentID:         incidentID,
+		StorageKey:         key,
 		EvidenceStorageRef: "object://00000000-0000-0000-0000-000000130003",
 		ByteSize:           int64(len(body)),
 	}}
@@ -166,15 +170,16 @@ func TestSupportPhaseF_CopyLedgerStatusesAndZeroByteObjects(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			source := newMigrationFilesystemStore(t)
 			target := newMigrationFilesystemStore(t)
-			key := "objects/" + tc.name + ".bin"
+			objectBlobID := uuid.MustParse("00000000-0000-0000-0000-000000130010")
+			objectBlobID = uuid.MustParse(objectBlobID.String()[:35] + string(rune('0'+index)))
+			incidentID := uuid.MustParse("00000000-0000-0000-0000-000000130020")
+			key := migrationStorageKey(t, incidentID, objectBlobID)
 			if tc.createSource {
 				putMigrationObject(t, source, key, tc.sourceBody)
 			}
 			if tc.createTarget {
 				putMigrationObject(t, target, key, tc.targetBody)
 			}
-			objectBlobID := uuid.MustParse("00000000-0000-0000-0000-000000130010")
-			objectBlobID = uuid.MustParse(objectBlobID.String()[:35] + string(rune('0'+index)))
 			ledger, ledgerBody, err := recovery.CopyObjectStoreMigrationObjects(ctx, recovery.ObjectStoreMigrationCopyParams{
 				RunID:         runID,
 				SourceBackend: recovery.ObjectStoreBackendMinIOS3,
@@ -185,7 +190,7 @@ func TestSupportPhaseF_CopyLedgerStatusesAndZeroByteObjects(t *testing.T) {
 				TargetStore:   target,
 				Objects: []recovery.ObjectStoreMigrationBlob{{
 					ObjectBlobID: objectBlobID,
-					IncidentID:   uuid.MustParse("00000000-0000-0000-0000-000000130020"),
+					IncidentID:   incidentID,
 					StorageKey:   key,
 					ByteSize:     int64(len(tc.sourceBody)),
 				}},
@@ -226,7 +231,7 @@ func TestSupportPhaseF_MigrationBlobReferencePreflight(t *testing.T) {
 		return recovery.ObjectStoreMigrationBlob{
 			ObjectBlobID:       objectBlobID,
 			IncidentID:         incidentID,
-			StorageKey:         "incidents/00000000-0000-0000-0000-000000130031/object-blobs/00000000-0000-0000-0000-000000130030",
+			StorageKey:         migrationStorageKey(t, incidentID, objectBlobID),
 			EvidenceStorageRef: "object://00000000-0000-0000-0000-000000130030",
 			ByteSize:           1,
 		}
@@ -252,6 +257,56 @@ func TestSupportPhaseF_MigrationBlobReferencePreflight(t *testing.T) {
 	externalRef[0].EvidenceStorageRef = "ticket://collect-legacy"
 	if err := recovery.ValidateObjectStoreMigrationBlobReferences(externalRef); err != nil {
 		t.Fatalf("external evidence storage_ref should remain migratable: %v", err)
+	}
+}
+
+func TestSupportPhaseF_MigrationBlobReferencePreflightRejectsInvalidKeysBeforeBackendCalls(t *testing.T) {
+	ctx := context.Background()
+	objectBlobID := uuid.MustParse("00000000-0000-0000-0000-000000130040")
+	incidentID := uuid.MustParse("00000000-0000-0000-0000-000000130041")
+	objects := []recovery.ObjectStoreMigrationBlob{{
+		ObjectBlobID:       objectBlobID,
+		IncidentID:         incidentID,
+		StorageKey:         "objects/not-canonical.bin",
+		EvidenceStorageRef: "object://00000000-0000-0000-0000-000000130040",
+		ByteSize:           4,
+	}}
+	source := &countingMigrationStore{}
+	target := &countingMigrationStore{}
+	_, _, copyErr := recovery.CopyObjectStoreMigrationObjects(ctx, recovery.ObjectStoreMigrationCopyParams{
+		RunID:         uuid.MustParse("00000000-0000-0000-0000-000000130042"),
+		SourceBackend: recovery.ObjectStoreBackendMinIOS3,
+		TargetBackend: recovery.ObjectStoreBackendSeaweedFSS3,
+		SourceBucket:  "private-bucket",
+		TargetBucket:  "private-bucket",
+		SourceStore:   source,
+		TargetStore:   target,
+		Objects:       objects,
+	})
+	if copyErr == nil || !strings.Contains(copyErr.Error(), "object_blob_storage_key_v1") {
+		t.Fatalf("invalid storage_key copy error got %v", copyErr)
+	}
+	if source.calls != 0 || target.calls != 0 {
+		t.Fatalf("copy preflight reached stores: source=%d target=%d", source.calls, target.calls)
+	}
+
+	_, _, validationErr := recovery.ValidateObjectStoreMigration(ctx, recovery.ObjectStoreMigrationValidationParams{
+		RunID:         uuid.MustParse("00000000-0000-0000-0000-000000130043"),
+		StartedAt:     time.Date(2026, 6, 4, 10, 0, 0, 0, time.UTC),
+		CompletedAt:   time.Date(2026, 6, 4, 10, 0, 1, 0, time.UTC),
+		SourceBackend: recovery.ObjectStoreBackendMinIOS3,
+		TargetBackend: recovery.ObjectStoreBackendSeaweedFSS3,
+		SourceBucket:  "private-bucket",
+		TargetBucket:  "private-bucket",
+		SourceStore:   source,
+		TargetStore:   target,
+		Objects:       objects,
+	})
+	if validationErr == nil || !strings.Contains(validationErr.Error(), "object_blob_storage_key_v1") {
+		t.Fatalf("invalid storage_key validation error got %v", validationErr)
+	}
+	if source.calls != 0 || target.calls != 0 {
+		t.Fatalf("validation preflight reached stores: source=%d target=%d", source.calls, target.calls)
 	}
 }
 
@@ -281,4 +336,56 @@ func ioReadAllAndClose(reader io.ReadCloser) ([]byte, error) {
 		return nil, readErr
 	}
 	return body, closeErr
+}
+
+func migrationStorageKey(t testing.TB, incidentID uuid.UUID, objectBlobID uuid.UUID) string {
+	t.Helper()
+	key, err := blobref.ObjectBlobStorageKey(incidentID, objectBlobID)
+	if err != nil {
+		t.Fatalf("build canonical storage key: %v", err)
+	}
+	return key
+}
+
+type countingMigrationStore struct {
+	calls int
+}
+
+func (s *countingMigrationStore) UploadTarget(context.Context, string, time.Time) (objectstore.UploadTarget, error) {
+	s.calls++
+	return objectstore.UploadTarget{}, nil
+}
+
+func (s *countingMigrationStore) CompleteUploadTarget(context.Context, string, io.Reader, string) error {
+	s.calls++
+	return nil
+}
+
+func (s *countingMigrationStore) PutObject(context.Context, string, io.Reader, int64, string) error {
+	s.calls++
+	return nil
+}
+
+func (s *countingMigrationStore) ReadObject(context.Context, string, objectstore.ReadOptions) (io.ReadCloser, objectstore.ObjectInfo, error) {
+	s.calls++
+	return io.NopCloser(bytes.NewReader(nil)), objectstore.ObjectInfo{}, nil
+}
+
+func (s *countingMigrationStore) StatObject(context.Context, string) (objectstore.ObjectInfo, error) {
+	s.calls++
+	return objectstore.ObjectInfo{}, nil
+}
+
+func (s *countingMigrationStore) ListObjects(context.Context, string) ([]objectstore.ObjectInfo, error) {
+	s.calls++
+	return nil, nil
+}
+
+func (s *countingMigrationStore) DeleteObject(context.Context, string) error {
+	s.calls++
+	return nil
+}
+
+func (s *countingMigrationStore) Close() error {
+	return nil
 }

@@ -740,6 +740,9 @@ fi
 if ! text_contains "$dev_services_body" 'compose up -d --remove-orphans postgres seaweedfs-s3'; then
   fail "services-up must start postgres and seaweedfs-s3"
 fi
+if ! text_contains "$dev_services_body" 'start_object_store_proxy'; then
+  fail "services-up must start the object-store CORS proxy"
+fi
 if ! text_contains "$dev_services_body" 'wait_postgres' || ! text_contains "$dev_services_body" 'wait_object_store'; then
   fail "services-up must wait for service readiness"
 fi
@@ -809,6 +812,9 @@ if ! text_contains "$object_store_reset_block" './scripts/dev-services.sh object
 fi
 if ! text_contains "$dev_services_body" 'require_destructive_confirm "object-store-reset"'; then
   fail "object-store-reset must require explicit destructive confirmation"
+fi
+if ! text_contains "$dev_services_body" './tools/s3corsproxy'; then
+  fail "object-store-reset must use the object-store CORS proxy helper"
 fi
 if ! text_contains "$dev_services_body" 'probe_object_store reset'; then
   fail "object-store-reset must delete only objects in the configured bucket through the object-store probe"

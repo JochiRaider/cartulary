@@ -11,6 +11,12 @@ run_stderr=""
 run_status=0
 
 cleanup() {
+  if [[ -f "$tmp_dir/runtime/seaweedfs-s3-cors-proxy.pid" ]]; then
+    pid="$(cat "$tmp_dir/runtime/seaweedfs-s3-cors-proxy.pid" 2>/dev/null || true)"
+    if [[ -n "${pid:-}" ]]; then
+      kill "$pid" >/dev/null 2>&1 || true
+    fi
+  fi
   rm -rf "$tmp_dir"
 }
 trap cleanup EXIT
@@ -73,6 +79,30 @@ cat >"$fake_bin/go" <<'FAKE_GO'
 set -euo pipefail
 
 printf '%s\n' "$*" >>"${FAKE_GO_LOG:?}"
+if [[ "${1:-}" == "build" ]]; then
+  output=""
+  shift
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      -o)
+        output="${2:-}"
+        shift 2
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+  if [[ -n "$output" ]]; then
+    mkdir -p "$(dirname "$output")"
+    cat >"$output" <<'FAKE_PROXY'
+#!/usr/bin/env bash
+trap 'exit 0' TERM INT
+while true; do sleep 60; done
+FAKE_PROXY
+    chmod +x "$output"
+  fi
+fi
 FAKE_GO
 
 chmod +x "$fake_bin/docker" "$fake_bin/go"
@@ -94,6 +124,7 @@ run_service() {
     PATH="$fake_bin:$PATH" \
       FAKE_DOCKER_LOG="$docker_log" \
       FAKE_GO_LOG="$go_log" \
+      CARTULARY_RUNTIME_DIR="$tmp_dir/runtime" \
       CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS=1 \
       CARTULARY_OBJECT_STORE_READY_TIMEOUT_SECONDS=1 \
       "$@"
@@ -207,6 +238,8 @@ reset_logs
 run_service object_store_reset_confirmed env CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset OBJECT_STORE_BUCKET=ct-test bash scripts/dev-services.sh object-store-reset
 assert_status 0
 assert_file_contains "$docker_log" "up -d --remove-orphans seaweedfs-s3" "object-store-reset starts seaweedfs-s3"
+assert_file_contains "$go_log" "build -o" "object-store-reset builds CORS proxy"
+assert_file_contains "$go_log" "./tools/s3corsproxy" "object-store-reset builds proxy helper"
 assert_file_contains "$go_log" "run ./tools/objectstoreprobe" "object-store-reset runs object-store probe"
 assert_file_contains "$go_log" "--mode reset" "object-store-reset selects reset mode"
 assert_file_contains "$go_log" "--bucket ct-test" "object-store-reset passes configured bucket"

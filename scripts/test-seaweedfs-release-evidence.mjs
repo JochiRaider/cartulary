@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import {
   buildDependencyBoundary,
   buildOccurrenceInventoryFromEntries,
   buildMigrationPreservationEvidence,
+  buildRedactionLeakageScan,
   buildReleaseManifestExposure,
   buildReleaseGateSummary,
   buildSeaweedFSCompatibilityEvidence,
@@ -315,6 +319,12 @@ const migration = buildMigrationPreservationEvidence({
   },
 });
 assert.equal(migration.result, "pass");
+assert.equal(migration.schema_id, "cartulary.seaweedfs_migration_preservation_evidence.v2");
+assert.equal(migration.preservation_checks.bucket_preserved, true);
+assert.equal(migration.preservation_checks.source_bucket, undefined);
+assert.equal(migration.preservation_checks.target_bucket, undefined);
+assert.equal(migration.preservation_checks.source_bucket_ref.redaction_class, "bucket");
+assert.match(migration.preservation_checks.source_bucket_ref.sha256, /^[a-f0-9]{64}$/);
 
 const missingMigration = buildMigrationPreservationEvidence({
   repoCommitValue: "abc123",
@@ -322,6 +332,52 @@ const missingMigration = buildMigrationPreservationEvidence({
   migrationPassDir: ".cartulary/test-results/missing/backend-process/phase-f-object-store-migration/pass",
 });
 assert.equal(missingMigration.result, "fail");
+
+const redactionMissingCurrent = buildRedactionLeakageScan({
+  generatedAt: "2026-06-04T00:00:00.000Z",
+  repoCommitValue: "abc123",
+  phaseArtifactPaths: [".cartulary/release-artifacts/seaweedfs/fixture/migration-preservation-evidence.json"],
+  compatibilityReportPath: ".cartulary/release-artifacts/seaweedfs/object-store-compatibility-report.json",
+  migrationPassDir: ".cartulary/test-results/fixture/backend-process/phase-f-object-store-migration/pass",
+  requireBackendProcessArtifacts: true,
+});
+assert.equal(redactionMissingCurrent.result, "fail");
+assert.equal(
+  redactionMissingCurrent.scanned_artifacts.some(
+    (artifact) => artifact.path === ".cartulary/release-artifacts/seaweedfs/object-store-compatibility-report.json",
+  ),
+  true,
+);
+assert.equal(
+  redactionMissingCurrent.scanned_artifacts.some((artifact) =>
+    artifact.path.endsWith("/backend-process/phase-e-backup-restore/object-store-backup-manifest.json"),
+  ),
+  true,
+);
+assert.equal(
+  redactionMissingCurrent.scanned_artifacts.some((artifact) =>
+    artifact.path.endsWith("/backend-process/phase-f-object-store-migration/mismatch/target-probe.json"),
+  ),
+  true,
+);
+
+const redactionFixtureDir = mkdtempSync(path.join(os.tmpdir(), "cartulary-redaction-fixture-"));
+try {
+  const rawPublicArtifact = path.join(redactionFixtureDir, "raw-public.json");
+  writeFileSync(rawPublicArtifact, JSON.stringify({ source_bucket: "fixture-bucket" }) + "\n");
+  const rawPublicScan = buildRedactionLeakageScan({
+    generatedAt: "2026-06-04T00:00:00.000Z",
+    repoCommitValue: "abc123",
+    phaseArtifactPaths: [rawPublicArtifact],
+  });
+  assert.equal(rawPublicScan.result, "fail");
+  assert.equal(
+    rawPublicScan.findings.some((finding) => finding.check_id === "public-raw-storage-field"),
+    true,
+  );
+} finally {
+  rmSync(redactionFixtureDir, { recursive: true, force: true });
+}
 
 const pathMap = {
   "occurrence-inventory.json": ".cartulary/release-artifacts/seaweedfs/fixture/occurrence-inventory.json",
