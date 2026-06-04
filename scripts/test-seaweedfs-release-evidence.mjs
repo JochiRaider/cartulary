@@ -235,19 +235,35 @@ function compatibilityReport(statusByCase = {}) {
   };
 }
 
+const currentResultsDir = ".cartulary/test-results";
+const currentRunID = "unit-current-run";
+const currentCompatibilityReportPath = `${currentResultsDir}/${currentRunID}/seaweedfs-compatibility/object-store-compatibility-report.json`;
+const passingCompatibilitySummary = {
+  schema_id: "cartulary.tool_run_summary.v3",
+  target: "seaweedfs-compatibility",
+  status: "pass",
+};
 const compatibility = buildSeaweedFSCompatibilityEvidence({
   repoCommitValue: "abc123",
   generatedAt: "2026-06-04T00:00:00.000Z",
-  reportPath: ".cartulary/release-artifacts/seaweedfs/object-store-compatibility-report.json",
+  reportPath: currentCompatibilityReportPath,
   report: compatibilityReport(),
+  requireCurrentRun: true,
+  currentResultsDir,
+  currentRunId: currentRunID,
+  targetSummary: passingCompatibilitySummary,
 });
 assert.equal(compatibility.result, "pass");
 
 const partialCompatibility = buildSeaweedFSCompatibilityEvidence({
   repoCommitValue: "abc123",
   generatedAt: "2026-06-04T00:00:00.000Z",
-  reportPath: ".cartulary/release-artifacts/seaweedfs/object-store-compatibility-report.json",
+  reportPath: currentCompatibilityReportPath,
   report: compatibilityReport({ "SWFS-COMP-007": "not_run" }),
+  requireCurrentRun: true,
+  currentResultsDir,
+  currentRunId: currentRunID,
+  targetSummary: passingCompatibilitySummary,
 });
 assert.equal(partialCompatibility.result, "fail");
 assert.equal(
@@ -255,16 +271,95 @@ assert.equal(
   true,
 );
 
-const staleCompatibility = buildSeaweedFSCompatibilityEvidence({
+const stableCompatibility = buildSeaweedFSCompatibilityEvidence({
+  repoCommitValue: "abc123",
+  generatedAt: "2026-06-04T00:00:00.000Z",
+  reportPath: ".cartulary/release-artifacts/seaweedfs/object-store-compatibility-report.json",
+  report: compatibilityReport(),
+  requireCurrentRun: true,
+  currentResultsDir,
+  currentRunId: currentRunID,
+  targetSummary: passingCompatibilitySummary,
+});
+assert.equal(stableCompatibility.result, "fail");
+assert.equal(
+  stableCompatibility.findings.some((finding) => finding.check_id === "compatibility-stable-report-source"),
+  true,
+);
+
+const servicesUpCompatibility = buildSeaweedFSCompatibilityEvidence({
   repoCommitValue: "abc123",
   generatedAt: "2026-06-04T00:00:00.000Z",
   reportPath:
     ".cartulary/test-results/20260603T224410Z-p820796/services-up/object-store-compatibility-report.json",
   report: compatibilityReport(),
+  requireCurrentRun: true,
+  currentResultsDir,
+  currentRunId: currentRunID,
+  targetSummary: passingCompatibilitySummary,
 });
-assert.equal(staleCompatibility.result, "fail");
+assert.equal(servicesUpCompatibility.result, "fail");
 assert.equal(
-  staleCompatibility.findings.some((finding) => finding.check_id === "compatibility-current-target-source"),
+  servicesUpCompatibility.findings.some((finding) => finding.check_id === "compatibility-services-up-source"),
+  true,
+);
+
+const missingSummaryCompatibility = buildSeaweedFSCompatibilityEvidence({
+  repoCommitValue: "abc123",
+  generatedAt: "2026-06-04T00:00:00.000Z",
+  reportPath:
+    ".cartulary/test-results/unit-current-run-missing-summary/seaweedfs-compatibility/object-store-compatibility-report.json",
+  report: compatibilityReport(),
+  requireCurrentRun: true,
+  currentResultsDir,
+  currentRunId: "unit-current-run-missing-summary",
+});
+assert.equal(missingSummaryCompatibility.result, "fail");
+assert.equal(
+  missingSummaryCompatibility.findings.some(
+    (finding) => finding.check_id === "compatibility-target-summary-present",
+  ),
+  true,
+);
+
+const failedSummaryCompatibility = buildSeaweedFSCompatibilityEvidence({
+  repoCommitValue: "abc123",
+  generatedAt: "2026-06-04T00:00:00.000Z",
+  reportPath: currentCompatibilityReportPath,
+  report: compatibilityReport(),
+  requireCurrentRun: true,
+  currentResultsDir,
+  currentRunId: currentRunID,
+  targetSummary: {
+    schema_id: "cartulary.tool_run_summary.v3",
+    target: "seaweedfs-compatibility",
+    status: "fail",
+  },
+});
+assert.equal(failedSummaryCompatibility.result, "fail");
+assert.equal(
+  failedSummaryCompatibility.findings.some(
+    (finding) => finding.check_id === "compatibility-target-summary-status",
+  ),
+  true,
+);
+
+const skippedPrerequisiteCompatibility = buildSeaweedFSCompatibilityEvidence({
+  repoCommitValue: "abc123",
+  generatedAt: "2026-06-04T00:00:00.000Z",
+  reportPath: currentCompatibilityReportPath,
+  report: compatibilityReport(),
+  requireCurrentRun: true,
+  currentResultsDir,
+  currentRunId: currentRunID,
+  targetSummary: passingCompatibilitySummary,
+  prerequisitesSkipped: true,
+});
+assert.equal(skippedPrerequisiteCompatibility.result, "fail");
+assert.equal(
+  skippedPrerequisiteCompatibility.findings.some(
+    (finding) => finding.check_id === "compatibility-current-run-prerequisites",
+  ),
   true,
 );
 
@@ -337,14 +432,14 @@ const redactionMissingCurrent = buildRedactionLeakageScan({
   generatedAt: "2026-06-04T00:00:00.000Z",
   repoCommitValue: "abc123",
   phaseArtifactPaths: [".cartulary/release-artifacts/seaweedfs/fixture/migration-preservation-evidence.json"],
-  compatibilityReportPath: ".cartulary/release-artifacts/seaweedfs/object-store-compatibility-report.json",
+  compatibilityReportPath: currentCompatibilityReportPath,
   migrationPassDir: ".cartulary/test-results/fixture/backend-process/phase-f-object-store-migration/pass",
   requireBackendProcessArtifacts: true,
 });
 assert.equal(redactionMissingCurrent.result, "fail");
 assert.equal(
   redactionMissingCurrent.scanned_artifacts.some(
-    (artifact) => artifact.path === ".cartulary/release-artifacts/seaweedfs/object-store-compatibility-report.json",
+    (artifact) => artifact.path === currentCompatibilityReportPath,
   ),
   true,
 );

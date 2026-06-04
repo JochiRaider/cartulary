@@ -969,7 +969,8 @@ export function resolveHarnessConfig(target, env = process.env, options = {}) {
   return prepareRetainedArtifactRunRoot(resolved, {
     allowExistingRunRoot:
       options.allowExistingRunRoot === true ||
-      env.CARTULARY_SUPPRESS_CHILD_SUCCESS === "1",
+      env.CARTULARY_SUPPRESS_CHILD_SUCCESS === "1" ||
+      env.CARTULARY_ALLOW_EXISTING_RUN_ROOT === "1",
     materializeGeneratedRunId: options.materializeGeneratedRunId === true,
   });
 }

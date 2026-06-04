@@ -31,6 +31,9 @@ const defaultClassificationPath =
   "tools/seaweedfs_migration_occurrence_classifications.json";
 const defaultReleaseArtifactDir = ".cartulary/release-artifacts";
 const phaseArtifactSubdir = "seaweedfs";
+const seaweedfsCompatibilityTarget = "seaweedfs-compatibility";
+const seaweedfsCompatibilityReportName = "object-store-compatibility-report.json";
+const targetSummaryName = "tool-run-summary.json";
 const releaseGateRows = Object.freeze([
   "SWFS-AC-001",
   "SWFS-AC-002",
@@ -915,11 +918,172 @@ function readArtifactJSON({ artifactPath, schemaID, findings }) {
   }
 }
 
+function defaultCompatibilityReportPath() {
+  if (process.env.SEAWEEDFS_COMPATIBILITY_REPORT) {
+    return process.env.SEAWEEDFS_COMPATIBILITY_REPORT;
+  }
+  if (process.env.CARTULARY_TEST_RESULTS_DIR && process.env.CARTULARY_TEST_RUN_ID) {
+    return path.join(
+      process.env.CARTULARY_TEST_RESULTS_DIR,
+      process.env.CARTULARY_TEST_RUN_ID,
+      seaweedfsCompatibilityTarget,
+      seaweedfsCompatibilityReportName,
+    );
+  }
+  return path.join(defaultReleaseArtifactDir, phaseArtifactSubdir, seaweedfsCompatibilityReportName);
+}
+
+function expectedCurrentCompatibilityReportPath({ currentResultsDir, currentRunId }) {
+  if (!currentResultsDir || !currentRunId) {
+    return null;
+  }
+  return path.join(
+    currentResultsDir,
+    currentRunId,
+    seaweedfsCompatibilityTarget,
+    seaweedfsCompatibilityReportName,
+  );
+}
+
+function sameResolvedPath(left, right) {
+  if (!left || !right) {
+    return false;
+  }
+  return path.resolve(inputPath(left)) === path.resolve(inputPath(right));
+}
+
+function parseTargetSummary({ summaryPath, findings }) {
+  if (!summaryPath) {
+    findings.push({
+      check_id: "compatibility-target-summary-path",
+      severity: "blocking",
+      message: "compatibility target summary path is required",
+    });
+    return null;
+  }
+  if (!existsSync(inputPath(summaryPath))) {
+    findings.push({
+      check_id: "compatibility-target-summary-present",
+      severity: "blocking",
+      path: displayPath(summaryPath),
+      message: "current seaweedfs-compatibility tool-run summary is missing",
+    });
+    return null;
+  }
+  try {
+    return JSON.parse(readFileSync(inputPath(summaryPath), "utf8"));
+  } catch (error) {
+    findings.push({
+      check_id: "compatibility-target-summary-parse",
+      severity: "blocking",
+      path: displayPath(summaryPath),
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+function validateCurrentCompatibilitySource({
+  findings,
+  reportPath,
+  targetSummary = null,
+  targetSummaryPath = null,
+  currentResultsDir = process.env.CARTULARY_TEST_RESULTS_DIR ?? null,
+  currentRunId = process.env.CARTULARY_TEST_RUN_ID ?? null,
+  prerequisitesSkipped = process.env.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES === "1",
+}) {
+  const displayReportPath = reportPath ? displayPath(reportPath) : null;
+  if (prerequisitesSkipped) {
+    findings.push({
+      check_id: "compatibility-current-run-prerequisites",
+      severity: "blocking",
+      path: displayReportPath,
+      message: "strict compatibility evidence requires running the current seaweedfs-compatibility prerequisite",
+    });
+  }
+  const expectedReportPath = expectedCurrentCompatibilityReportPath({
+    currentResultsDir,
+    currentRunId,
+  });
+  if (!expectedReportPath) {
+    findings.push({
+      check_id: "compatibility-current-run-context",
+      severity: "blocking",
+      path: displayReportPath,
+      message: "current compatibility evidence requires CARTULARY_TEST_RESULTS_DIR and CARTULARY_TEST_RUN_ID",
+    });
+  } else if (!sameResolvedPath(reportPath, expectedReportPath)) {
+    findings.push({
+      check_id: "compatibility-current-target-source",
+      severity: "blocking",
+      path: displayReportPath,
+      message: "compatibility evidence must come from the current seaweedfs-compatibility target run",
+      expected: displayPath(expectedReportPath),
+    });
+  }
+  if (displayReportPath?.includes("/services-up/")) {
+    findings.push({
+      check_id: "compatibility-services-up-source",
+      severity: "blocking",
+      path: displayReportPath,
+      message: "compatibility evidence must come from seaweedfs-compatibility, not retained services-up evidence",
+    });
+  }
+  if (
+    displayReportPath === path.join(defaultReleaseArtifactDir, phaseArtifactSubdir, seaweedfsCompatibilityReportName)
+  ) {
+    findings.push({
+      check_id: "compatibility-stable-report-source",
+      severity: "blocking",
+      path: displayReportPath,
+      message: "stable copied release-artifact compatibility reports are not strict release-gate evidence",
+    });
+  }
+
+  const summaryPath =
+    targetSummaryPath ??
+    (reportPath ? path.join(path.dirname(inputPath(reportPath)), targetSummaryName) : null);
+  const summary =
+    targetSummary ??
+    parseTargetSummary({
+      summaryPath,
+      findings,
+    });
+  if (!summary) {
+    return;
+  }
+  if (summary.target !== seaweedfsCompatibilityTarget) {
+    findings.push({
+      check_id: "compatibility-target-summary-identity",
+      severity: "blocking",
+      path: summaryPath ? displayPath(summaryPath) : null,
+      message: "current compatibility tool-run summary has the wrong target",
+      actual: summary.target ?? null,
+      expected: seaweedfsCompatibilityTarget,
+    });
+  }
+  if (summary.status !== "pass") {
+    findings.push({
+      check_id: "compatibility-target-summary-status",
+      severity: "blocking",
+      path: summaryPath ? displayPath(summaryPath) : null,
+      message: "current seaweedfs-compatibility tool-run summary is not pass",
+      actual: summary.status ?? null,
+    });
+  }
+}
+
 function buildSeaweedFSCompatibilityEvidence({
   repoCommitValue = "test-commit",
   generatedAt = new Date().toISOString(),
   reportPath = null,
   report = null,
+  requireCurrentRun = false,
+  currentResultsDir = process.env.CARTULARY_TEST_RESULTS_DIR ?? null,
+  currentRunId = process.env.CARTULARY_TEST_RUN_ID ?? null,
+  targetSummary = null,
+  targetSummaryPath = null,
+  prerequisitesSkipped = process.env.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES === "1",
 } = {}) {
   const findings = [];
   const loaded =
@@ -994,12 +1158,15 @@ function buildSeaweedFSCompatibilityEvidence({
       rows: forbiddenSkipRows,
     });
   }
-  if (displayReportPath?.includes("/services-up/object-store-compatibility-report.json")) {
-    findings.push({
-      check_id: "compatibility-current-target-source",
-      severity: "blocking",
-      path: displayReportPath,
-      message: "compatibility evidence must come from seaweedfs-compatibility, not retained services-up evidence",
+  if (requireCurrentRun) {
+    validateCurrentCompatibilitySource({
+      findings,
+      reportPath,
+      targetSummary,
+      targetSummaryPath,
+      currentResultsDir,
+      currentRunId,
+      prerequisitesSkipped,
     });
   }
   return {
@@ -1510,13 +1677,10 @@ function parseArgs(argv) {
       path.join(process.env.RELEASE_ARTIFACT_DIR ?? defaultReleaseArtifactDir, phaseArtifactSubdir),
     sbomPath: process.env.SBOM_ARTIFACT ?? path.join(defaultReleaseArtifactDir, "sbom.cyclonedx.json"),
     licensePath: process.env.LICENSE_REPORT_ARTIFACT ?? path.join(defaultReleaseArtifactDir, "license-report.json"),
-    compatibilityReportPath: process.env.SEAWEEDFS_COMPATIBILITY_REPORT ?? null,
+    compatibilityReportPath: defaultCompatibilityReportPath(),
     migrationPassDir: defaultMigrationPassDir(),
     runId: process.env.CARTULARY_SEAWEEDFS_RELEASE_RUN_ID ?? null,
   };
-  if (!args.compatibilityReportPath) {
-    args.compatibilityReportPath = path.join(args.outputDir, "object-store-compatibility-report.json");
-  }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--enforce-release-gate") {
@@ -1574,7 +1738,7 @@ export function generatePhaseGEvidence({
   outputDir = path.join(defaultReleaseArtifactDir, phaseArtifactSubdir),
   sbomPath = path.join(defaultReleaseArtifactDir, "sbom.cyclonedx.json"),
   licensePath = path.join(defaultReleaseArtifactDir, "license-report.json"),
-  compatibilityReportPath = path.join(outputDir, "object-store-compatibility-report.json"),
+  compatibilityReportPath = defaultCompatibilityReportPath(),
   migrationPassDir = null,
   enforceReleaseGate = false,
   runId = defaultRunId(),
@@ -1626,6 +1790,7 @@ export function generatePhaseGEvidence({
     repoCommitValue: commit,
     generatedAt,
     reportPath: compatibilityReportPath,
+    requireCurrentRun: true,
   });
   const migration = buildMigrationPreservationEvidence({
     repoCommitValue: commit,

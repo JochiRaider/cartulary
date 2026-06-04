@@ -2030,7 +2030,7 @@ function renderPrerequisitePrelude(recipe, entry = null) {
     return [];
   }
   return [
-    "\t$(Q)if [ \"$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}\" != \"1\" ]; then env CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory " +
+    "\t$(Q)if [ \"$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}\" != \"1\" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory " +
       `${(recipe.prerequisites ?? []).join(" ")}; fi`,
   ];
 }

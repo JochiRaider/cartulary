@@ -732,11 +732,11 @@
         },
         {
           "type": "step",
-          "target": "seaweedfs-compatibility"
-        },
-        {
-          "type": "step",
-          "target": "seaweedfs-release-gate"
+          "target": "seaweedfs-release-gate",
+          "produces_summary_targets": [
+            "seaweedfs-compatibility",
+            "seaweedfs-release-gate"
+          ]
         },
         {
           "type": "step",
@@ -936,9 +936,7 @@
       ]
     },
     "object-store-init": {
-      "prerequisites": [
-        "services-wait"
-      ],
+      "prerequisites": [],
       "type": "phase_command",
       "mode": "command",
       "env": {
@@ -2110,14 +2108,13 @@
       "command": [
         "$(GO)",
         "run",
-        "./tools/objectstoreprobe",
-        "--artifact",
-        "$(RELEASE_ARTIFACT_DIR)/seaweedfs/object-store-capability-probe.json"
+        "./tools/objectstoreprobe"
       ],
       "test_target": "self"
     },
     "seaweedfs-release-evidence": {
       "prerequisites": [
+        "seaweedfs-compatibility",
         "$(NODE_BIN)",
         "$(SBOM_ARTIFACT)",
         "$(LICENSE_REPORT_ARTIFACT)",
@@ -2132,17 +2129,22 @@
         "SBOM_ARTIFACT": "$(SBOM_ARTIFACT)",
         "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
         "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
-        "SEAWEEDFS_COMPATIBILITY_REPORT": "$(RELEASE_ARTIFACT_DIR)/seaweedfs/object-store-compatibility-report.json",
+        "SEAWEEDFS_COMPATIBILITY_REPORT": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json",
         "SEAWEEDFS_MIGRATION_PASS_DIR": "$(SEAWEEDFS_MIGRATION_PASS_DIR)"
       },
       "command": [
         "$(NODE_BIN)",
         "./scripts/seaweedfs-release-evidence.mjs"
       ],
+      "exports": {
+        "CARTULARY_ALLOW_EXISTING_RUN_ROOT": "1",
+        "CARTULARY_TEST_RUN_ID": "$(CARTULARY_TEST_RUN_ID)"
+      },
       "test_target": "self"
     },
     "seaweedfs-release-gate": {
       "prerequisites": [
+        "seaweedfs-compatibility",
         "$(NODE_BIN)",
         "$(SBOM_ARTIFACT)",
         "$(LICENSE_REPORT_ARTIFACT)",
@@ -2157,7 +2159,7 @@
         "SBOM_ARTIFACT": "$(SBOM_ARTIFACT)",
         "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
         "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
-        "SEAWEEDFS_COMPATIBILITY_REPORT": "$(RELEASE_ARTIFACT_DIR)/seaweedfs/object-store-compatibility-report.json",
+        "SEAWEEDFS_COMPATIBILITY_REPORT": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json",
         "SEAWEEDFS_MIGRATION_PASS_DIR": "$(SEAWEEDFS_MIGRATION_PASS_DIR)"
       },
       "command": [
@@ -2165,6 +2167,10 @@
         "./scripts/seaweedfs-release-evidence.mjs",
         "--enforce-release-gate"
       ],
+      "exports": {
+        "CARTULARY_ALLOW_EXISTING_RUN_ROOT": "1",
+        "CARTULARY_TEST_RUN_ID": "$(CARTULARY_TEST_RUN_ID)"
+      },
       "test_target": "self"
     },
     "build": {
@@ -3179,16 +3185,19 @@
           "artifact_policy": "tool_run_summary"
         },
         {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "lifecycle_machine": "object-store service lifecycle from Section 11"
+        },
+        {
           "class": "service_resource_mutation",
           "owner_section": "Section 11",
-          "ownership_mode": "local_or_scratch",
+          "ownership_mode": "local_dev",
           "resource_families": [
-            "scratch databases",
-            "object buckets or prefixes",
-            "fixture resources",
-            "runtime roots"
+            "object buckets or prefixes"
           ],
-          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+          "lifecycle_machine": "object-store bucket initialization lifecycle from Section 11"
         }
       ],
       "input_contract": {

@@ -799,6 +799,9 @@ fi
 if ! text_contains "$object_store_init_block" 'init-object-store'; then
   fail "object-store-init must delegate bucket creation to dev-services.sh"
 fi
+if text_contains "$object_store_init_block" 'services-wait'; then
+  fail "object-store-init must not depend on services-wait or Postgres readiness"
+fi
 
 object_store_reset_block="$(extract_target_block object-store-reset)"
 if ! text_contains "$object_store_reset_block" 'OBJECT_STORE_BUCKET="$(OBJECT_STORE_BUCKET)"'; then
