@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
@@ -417,6 +418,19 @@ func (i Importer) rewriteAndImportObjectBlobBytes(ctx context.Context, verified 
 	var buf bytes.Buffer
 	for _, row := range rows {
 		remapTopLevelUserFields(row, "object_blobs", actorUserID, attributions)
+		objectBlobText, ok := row["object_blob_id"].(string)
+		if !ok || objectBlobText == "" {
+			return nil, writtenKeys, &VerificationError{ReasonCode: "malformed_manifest"}
+		}
+		objectBlobID, err := uuid.Parse(objectBlobText)
+		if err != nil {
+			return nil, writtenKeys, &VerificationError{ReasonCode: "malformed_manifest"}
+		}
+		storageKey, err := blobref.ObjectBlobStorageKey(incidentID, objectBlobID)
+		if err != nil {
+			return nil, writtenKeys, &VerificationError{ReasonCode: "malformed_manifest"}
+		}
+		row["storage_key"] = storageKey
 		state, _ := row["upload_state"].(string)
 		if state != "available" {
 			line, err := canonicalJSONString(row)
@@ -437,8 +451,6 @@ func (i Importer) rewriteAndImportObjectBlobBytes(ctx context.Context, verified 
 		if hashHex(data) != sha {
 			return nil, writtenKeys, &VerificationError{ReasonCode: "blob_hash_mismatch"}
 		}
-		storageKey := "incident-bundles/imported/" + incidentID.String() + "/sha256/" + sha
-		row["storage_key"] = storageKey
 		contentType, _ := row["observed_content_type"].(string)
 		if contentType == "" {
 			contentType, _ = row["content_type_hint"].(string)

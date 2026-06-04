@@ -435,6 +435,36 @@ test("generated task surface and Make wrapper keep harness projection wiring", (
     taskSurfaceMake,
     /summary-target --target check-harness-smoke --child-target run-harness-smoke-fast --status pass/,
   );
+  const targetEntries = new Map(
+    taskSurface.targets.map((entry) => [entry.name, entry]),
+  );
+  const producedSummaryTargets = new Set(
+    Object.values(taskSurface.sequences ?? {}).flatMap((sequence) =>
+      (sequence.steps ?? []).flatMap(
+        (step) => step.produces_summary_targets ?? [],
+      ),
+    ),
+  );
+  for (const target of producedSummaryTargets) {
+    const recipe = taskSurface.make_recipes[target];
+    const entry = targetEntries.get(target);
+    if (
+      recipe?.mode !== "run_phase" ||
+      entry?.output_policy?.summary_schema !== "cartulary.tool_run_summary.v3"
+    ) {
+      continue;
+    }
+    assert.match(
+      taskSurfaceMake,
+      new RegExp(`RUN_RETAINED_TARGET_SUMMARY,${target},pass`),
+      `${target} run_phase recipe must retain a passing target summary`,
+    );
+    assert.match(
+      taskSurfaceMake,
+      new RegExp(`RUN_RETAINED_TARGET_SUMMARY,${target},fail`),
+      `${target} run_phase recipe must retain a failing target summary`,
+    );
+  }
 });
 
 test("harness NLSpec registry mirrors public target output classes and side effects", () => {

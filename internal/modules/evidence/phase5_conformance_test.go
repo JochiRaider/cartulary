@@ -37,6 +37,9 @@ func TestPhase5_ReasonCodeRegistryConformance_U_5_10(t *testing.T) {
 	if errorCodes["evidence_access_unavailable"] != 409 {
 		t.Fatalf("evidence_access_unavailable missing or wrong status: %#v", errorCodes["evidence_access_unavailable"])
 	}
+	if errorCodes["object_store_invalid_request"] != 500 {
+		t.Fatalf("object_store_invalid_request missing or wrong status: %#v", errorCodes["object_store_invalid_request"])
+	}
 
 	attachReasons := phase5ReasonCodes(registry, "evidence_attach_rejected")
 	wantAttachReasons := []string{
@@ -70,6 +73,15 @@ func TestPhase5_ReasonCodeRegistryConformance_U_5_10(t *testing.T) {
 	}
 	if !reflect.DeepEqual(accessReasons, wantAccessReasons) {
 		t.Fatalf("access reason registry got %v want %v", accessReasons, wantAccessReasons)
+	}
+
+	invalidObjectStoreReasons := phase5ReasonCodes(registry, "object_store_invalid_request")
+	wantInvalidObjectStoreReasons := []string{
+		"object_blob_storage_key_malformed",
+		"object_blob_storage_key_identity_mismatch",
+	}
+	if !reflect.DeepEqual(invalidObjectStoreReasons, wantInvalidObjectStoreReasons) {
+		t.Fatalf("object_store_invalid_request reason registry got %v want %v", invalidObjectStoreReasons, wantInvalidObjectStoreReasons)
 	}
 }
 

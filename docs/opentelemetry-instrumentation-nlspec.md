@@ -707,6 +707,7 @@ Every Core 01 §3.3.6.1 public `error.code` token MUST map to exactly one `cartu
 | `expired_or_consumed` | `handle_expired`, `handle_consumed` |
 | `policy_rejected` | `blob_create_rejected`, `evidence_attach_rejected`, `import_source_unsupported`, `import_source_rejected`, `release_render_failed`, `reference_pack_verification_failed`, `incident_bundle_export_rejected`, `incident_bundle_import_rejected` |
 | `dependency_unavailable` | `evidence_access_unavailable`, `object_store_unavailable`, `object_store_access_rejected` |
+| `invariant_violation` | `object_store_invalid_request` |
 
 **OTEL-REQ-143**
 The complete `cartulary.error_class` registry additionally includes the following dependency and runtime classes.
@@ -716,6 +717,7 @@ The complete `cartulary.error_class` registry additionally includes the followin
 | `timeout` | Dependency or exporter timeout. |
 | `serialization_conflict` | Database serialization conflict. |
 | `constraint_violation` | Safe data-integrity constraint class after redaction. |
+| `invariant_violation` | Server-side persisted metadata or internal state violates an owner-defined invariant before a backend dependency call is allowed. |
 | `exporter_transient` | Retryable exporter transport/status class. |
 | `exporter_permanent` | Non-retryable exporter rejection class. |
 | `redaction_rejected` | Telemetry item dropped because safety could not be proven. |

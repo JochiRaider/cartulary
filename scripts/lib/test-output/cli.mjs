@@ -2781,7 +2781,7 @@ function parseTargetSummaryArgs(args) {
   const [target, ...rest] = args;
   if (!target) {
     throw new Error(
-      "usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>] [--skipped-from-child <target>] [--skipped-from-scheduler <target>] [--skipped-after-failure <target,target>] [--failed-dependency <target>] [--quiet-success] [--quiet-failure] [--suppress-machine-output]",
+      "usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>] [--skipped-from-child <target>] [--skipped-from-scheduler <target>] [--skipped-after-failure <target,target>] [--failed-dependency <target>] [--quiet-success] [--quiet-failure] [--suppress-machine-output] [--preserve-existing-tool-summary]",
     );
   }
 
@@ -2790,6 +2790,7 @@ function parseTargetSummaryArgs(args) {
   let quietSuccess = false;
   let quietFailure = false;
   let suppressMachineOutput = false;
+  let preserveExistingToolSummary = false;
   let skippedAfterFailure = [];
   let skippedFromChildTargets = [];
   let skippedFromSchedulerTargets = [];
@@ -2812,6 +2813,10 @@ function parseTargetSummaryArgs(args) {
     }
     if (option === "--suppress-machine-output") {
       suppressMachineOutput = true;
+      continue;
+    }
+    if (option === "--preserve-existing-tool-summary") {
+      preserveExistingToolSummary = true;
       continue;
     }
     if (option === "--projection") {
@@ -2889,6 +2894,7 @@ function parseTargetSummaryArgs(args) {
     quietSuccess,
     quietFailure,
     suppressMachineOutput,
+    preserveExistingToolSummary,
   };
 }
 
@@ -3752,6 +3758,7 @@ function handleTargetSummary(args) {
     quietSuccess,
     quietFailure,
     suppressMachineOutput,
+    preserveExistingToolSummary,
   } = parseTargetSummaryArgs(args);
   const summary = summarizeTargetDir(target);
   const lifecycleSpans = lifecycleTimingSpans(target, summary.targetDir);
@@ -4088,10 +4095,16 @@ function handleTargetSummary(args) {
     targetSummary,
   );
   const targetToolSummaryFile = toolSummaryPath(summary.targetDir);
-  const targetToolSummaryRel = writeToolSummary(
-    targetToolSummaryFile,
-    targetToolSummary(targetSummary, relToRepo(targetToolSummaryFile)),
-  );
+  let targetToolSummaryRel = relToRepo(targetToolSummaryFile);
+  if (
+    !preserveExistingToolSummary ||
+    !existsSync(targetToolSummaryFile)
+  ) {
+    targetToolSummaryRel = writeToolSummary(
+      targetToolSummaryFile,
+      targetToolSummary(targetSummary, relToRepo(targetToolSummaryFile)),
+    );
+  }
   const shouldSuppressMachineOutput =
     suppressMachineOutput || suppressChildSuccess();
 

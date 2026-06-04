@@ -6,11 +6,13 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
@@ -95,7 +97,7 @@ func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(t *testing.T)
 		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
 		seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
-		linkSeededBlob(t, harness, incidentID, adminID, recordID, "available", "available", "phase-d/object-store-preview")
+		linkSeededBlobWithCanonicalStorageKey(t, harness, incidentID, adminID, recordID, "available", "available")
 
 		resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusServiceUnavailable, "object_store_access_rejected")
@@ -111,6 +113,72 @@ func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(t *testing.T)
 			"AWS_SECRET_ACCESS_KEY",
 			"secret",
 		})
+	})
+
+	t.Run("malformed persisted key fails before backend on handle issuance", func(t *testing.T) {
+		baseStore, err := objectstore.NewFilesystemStore(t.TempDir())
+		if err != nil {
+			t.Fatalf("create filesystem object store: %v", err)
+		}
+		recordingStore := &overrideObjectStore{Store: baseStore}
+		runtime := phase4test.StartRuntime(t)
+		harness := runtime.StartServerWithObjectStore(t, "phase-g-object-key-issue-invalid", recordingStore)
+		login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+			"client_txn_id": "txn-phase-g-object-key-issue-incident",
+			"incident_key":  "phase-g-object-key-issue",
+			"title":         "Phase G object key issue",
+		})
+		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+		recordID := uuid.New()
+		seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
+		attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, []byte("invalid key issue"), "txn-phase-g-object-key-issue-blob", "txn-phase-g-object-key-issue-attach")
+		objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
+		malformedKey := "objects/not-canonical"
+		updateBlobStorageKey(t, harness, objectBlobID, malformedKey)
+		recordingStore.resetCounts()
+
+		resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
+		body := requireObjectStoreInvalidRequestReason(t, resp, "object_blob_storage_key_malformed")
+		requireNoPublicEvidenceLeak(t, "malformed persisted key error", body, []string{malformedKey})
+		if statCalls, readCalls := recordingStore.counts(); statCalls != 0 || readCalls != 0 {
+			t.Fatalf("malformed storage key reached backend: stat=%d read=%d", statCalls, readCalls)
+		}
+	})
+
+	t.Run("identity-mismatched persisted key fails before backend on handle redemption", func(t *testing.T) {
+		baseStore, err := objectstore.NewFilesystemStore(t.TempDir())
+		if err != nil {
+			t.Fatalf("create filesystem object store: %v", err)
+		}
+		recordingStore := &overrideObjectStore{Store: baseStore}
+		runtime := phase4test.StartRuntime(t)
+		harness := runtime.StartServerWithObjectStore(t, "phase-g-object-key-redeem-invalid", recordingStore)
+		login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+			"client_txn_id": "txn-phase-g-object-key-redeem-incident",
+			"incident_key":  "phase-g-object-key-redeem",
+			"title":         "Phase G object key redeem",
+		})
+		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+		recordID := uuid.New()
+		seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
+		attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, []byte("invalid key redeem"), "txn-phase-g-object-key-redeem-blob", "txn-phase-g-object-key-redeem-attach")
+		objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
+		handle := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
+		mismatchedKey, err := blobref.ObjectBlobStorageKey(incidentID, uuid.New())
+		if err != nil {
+			t.Fatalf("mismatched storage key: %v", err)
+		}
+		updateBlobStorageKey(t, harness, objectBlobID, mismatchedKey)
+		recordingStore.resetCounts()
+
+		resp := phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, phase4test.WithCookies(login.SessionCookie))
+		body := requireObjectStoreInvalidRequestReason(t, resp, "object_blob_storage_key_identity_mismatch")
+		requireNoPublicEvidenceLeak(t, "identity-mismatched persisted key error", body, []string{mismatchedKey})
+		if statCalls, readCalls := recordingStore.counts(); statCalls != 0 || readCalls != 0 {
+			t.Fatalf("identity-mismatched storage key reached backend: stat=%d read=%d", statCalls, readCalls)
+		}
 	})
 }
 
@@ -195,6 +263,9 @@ type overrideObjectStore struct {
 	uploadTargetErr error
 	statErr         error
 	readErr         error
+	mu              sync.Mutex
+	statCalls       int
+	readCalls       int
 }
 
 func (s *overrideObjectStore) UploadTarget(ctx context.Context, key string, expiresAt time.Time) (objectstore.UploadTarget, error) {
@@ -205,6 +276,9 @@ func (s *overrideObjectStore) UploadTarget(ctx context.Context, key string, expi
 }
 
 func (s *overrideObjectStore) StatObject(ctx context.Context, key string) (objectstore.ObjectInfo, error) {
+	s.mu.Lock()
+	s.statCalls++
+	s.mu.Unlock()
 	if s.statErr != nil {
 		return objectstore.ObjectInfo{}, s.statErr
 	}
@@ -212,8 +286,35 @@ func (s *overrideObjectStore) StatObject(ctx context.Context, key string) (objec
 }
 
 func (s *overrideObjectStore) ReadObject(ctx context.Context, key string, options objectstore.ReadOptions) (io.ReadCloser, objectstore.ObjectInfo, error) {
+	s.mu.Lock()
+	s.readCalls++
+	s.mu.Unlock()
 	if s.readErr != nil {
 		return nil, objectstore.ObjectInfo{}, s.readErr
 	}
 	return s.Store.ReadObject(ctx, key, options)
+}
+
+func (s *overrideObjectStore) resetCounts() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.statCalls = 0
+	s.readCalls = 0
+}
+
+func (s *overrideObjectStore) counts() (int, int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.statCalls, s.readCalls
+}
+
+func requireObjectStoreInvalidRequestReason(t *testing.T, resp *http.Response, wantReasonCode string) map[string]any {
+	t.Helper()
+	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusInternalServerError, "object_store_invalid_request")
+	httptestx.RequireErrorDetail(t, body, "reason_code", wantReasonCode)
+	errorValue := body["error"].(map[string]any)
+	if retryable, ok := errorValue["retryable"].(bool); !ok || retryable {
+		t.Fatalf("object_store_invalid_request retryable got %#v want false", errorValue["retryable"])
+	}
+	return body
 }

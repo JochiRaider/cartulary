@@ -216,6 +216,10 @@ func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 	}
 	var observed *ObservedObject
 	if err == nil && blob.UploadState == "pending" {
+		if err := validatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
+			writeAPIError(w, r, objectStoreDependencyAPIError(err))
+			return
+		}
 		observed, err = s.observeUploadedObject(r.Context(), blob)
 		if err != nil {
 			if apiErr := objectStoreDependencyAPIError(err); apiErr != nil {
@@ -414,6 +418,10 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, evidenceAccessUnavailable(reasonCode))
 		return
 	}
+	if err := validatePersistedObjectBlobStorageKey(handle.StorageKey, handle.IncidentID, handle.ObjectBlobID); err != nil {
+		writeAPIError(w, r, objectStoreDependencyAPIError(err))
+		return
+	}
 	readOptions := objectstore.ReadOptions{}
 	status := http.StatusOK
 	contentRange := ""
@@ -458,6 +466,9 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) observeUploadedObject(ctx context.Context, blob BlobRecord) (*ObservedObject, error) {
+	if err := validatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
+		return nil, err
+	}
 	stat, err := s.headObject(ctx, blob.StorageKey, objectstore.PurposeProductUpload)
 	if err != nil {
 		return nil, err
@@ -481,6 +492,12 @@ func (s *Service) observeUploadedObject(ctx context.Context, blob BlobRecord) (*
 func (s *Service) verifyEvidenceObjectAvailable(ctx context.Context, access EvidenceAccessRecord) (string, *auth.APIError) {
 	if access.StorageKey == nil {
 		return "evidence_inconsistent", nil
+	}
+	if access.ObjectBlobID == nil {
+		return "evidence_inconsistent", nil
+	}
+	if err := validatePersistedObjectBlobStorageKey(*access.StorageKey, access.IncidentID, *access.ObjectBlobID); err != nil {
+		return "", objectStoreDependencyAPIError(err)
 	}
 	if _, err := s.headObject(ctx, *access.StorageKey, objectstore.PurposeProductRead); err != nil {
 		if apiErr := objectStoreDependencyAPIError(err); apiErr != nil {
@@ -668,7 +685,35 @@ func internalAPIError(err error) *auth.APIError {
 	return &auth.APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: err.Error(), Details: map[string]any{}}
 }
 
+const (
+	objectBlobStorageKeyMalformedReason        = "object_blob_storage_key_malformed"
+	objectBlobStorageKeyIdentityMismatchReason = "object_blob_storage_key_identity_mismatch"
+)
+
+type persistedObjectBlobStorageKeyError struct {
+	reasonCode string
+}
+
+func (e *persistedObjectBlobStorageKeyError) Error() string {
+	return "persisted object blob storage_key violates object_blob_storage_key_v1"
+}
+
+func validatePersistedObjectBlobStorageKey(key string, incidentID uuid.UUID, objectBlobID uuid.UUID) error {
+	parts, err := blobref.ParseObjectBlobStorageKey(key)
+	if err != nil {
+		return &persistedObjectBlobStorageKeyError{reasonCode: objectBlobStorageKeyMalformedReason}
+	}
+	if parts.IncidentID != incidentID || parts.ObjectBlobID != objectBlobID {
+		return &persistedObjectBlobStorageKeyError{reasonCode: objectBlobStorageKeyIdentityMismatchReason}
+	}
+	return nil
+}
+
 func objectStoreDependencyAPIError(err error) *auth.APIError {
+	var storageKeyErr *persistedObjectBlobStorageKeyError
+	if errors.As(err, &storageKeyErr) {
+		return objectStoreInvalidRequestAPIError(storageKeyErr.reasonCode)
+	}
 	adapterErr, ok := objectstore.AsAdapterError(err)
 	if !ok {
 		return nil
@@ -688,6 +733,16 @@ func objectStoreDependencyAPIError(err error) *auth.APIError {
 		}
 	default:
 		return nil
+	}
+}
+
+func objectStoreInvalidRequestAPIError(reasonCode string) *auth.APIError {
+	return &auth.APIError{
+		Status: http.StatusInternalServerError,
+		Code:   "object_store_invalid_request",
+		Details: map[string]any{
+			"reason_code": reasonCode,
+		},
 	}
 }
 

@@ -269,6 +269,11 @@
       "summary": "An object-store-backed route reached the object-store dependency, but credentials, policy, capability, or CORS behavior rejected the required operation."
     },
     {
+      "code": "object_store_invalid_request",
+      "http_status": 500,
+      "summary": "A server-side object-store-backed route reached persisted object-store metadata that violates the physical-key contract before a backend request was allowed."
+    },
+    {
       "code": "handle_not_found_or_revoked",
       "http_status": 404,
       "summary": "The opaque evidence handle token is unknown, revoked, or no longer available for redeem."
@@ -1147,6 +1152,19 @@
         {
           "code": "cors_rejected",
           "summary": "Browser upload-target use was rejected by object-store CORS policy or required CORS preflight behavior."
+        }
+      ]
+    },
+    {
+      "error_code": "object_store_invalid_request",
+      "reason_codes": [
+        {
+          "code": "object_blob_storage_key_malformed",
+          "summary": "The persisted physical object key does not parse as object_blob_storage_key_v1."
+        },
+        {
+          "code": "object_blob_storage_key_identity_mismatch",
+          "summary": "The persisted physical object key parses as object_blob_storage_key_v1 but does not match the authoritative evidence/blob identity."
         }
       ]
     },

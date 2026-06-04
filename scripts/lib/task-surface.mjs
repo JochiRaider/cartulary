@@ -1816,7 +1816,13 @@ export function renderTaskSurfaceMake(manifest) {
   );
   lines.push("RUN_PUBLIC_PREFLIGHT = $(RUN_HARNESS_PREFLIGHT) $(1)");
   lines.push(
-    "RUN_TARGET_SUMMARY = $(Q)env $(TASK_SURFACE_RUN_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) target-summary $(1) $(2)",
+    "RUN_TARGET_SUMMARY_COMMAND = env $(TASK_SURFACE_RUN_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) target-summary $(1) $(2) $(3)",
+  );
+  lines.push(
+    "RUN_TARGET_SUMMARY = $(Q)$(call RUN_TARGET_SUMMARY_COMMAND,$(1),$(2),)",
+  );
+  lines.push(
+    "RUN_RETAINED_TARGET_SUMMARY = CARTULARY_OUTPUT_MODE=quiet $(call RUN_TARGET_SUMMARY_COMMAND,$(1),$(2),--quiet-success --quiet-failure --suppress-machine-output --preserve-existing-tool-summary)",
   );
   lines.push("");
   for (const recipe of makeRecipeEntries(manifest)) {
@@ -1833,6 +1839,25 @@ function checkSchedulerOverrideEnvExpression() {
         `$(if $(filter undefined,$(origin ${name})),,${name}="$(${name})")`,
     )
     .join(" ");
+}
+
+function sequenceProducedSummaryTargets(manifest) {
+  const produced = new Set();
+  for (const sequence of Object.values(manifest.sequences ?? {})) {
+    for (const step of sequence.steps ?? []) {
+      for (const target of step.produces_summary_targets ?? []) {
+        produced.add(target);
+      }
+    }
+  }
+  return produced;
+}
+
+function shouldEmitRetainedTargetSummary(recipe, entry, manifest) {
+  if (entry?.output_policy?.summary_schema !== "cartulary.tool_run_summary.v3") {
+    return false;
+  }
+  return sequenceProducedSummaryTargets(manifest).has(recipe.target);
 }
 
 function renderMakeRecipe(recipe, manifest) {
@@ -1951,6 +1976,9 @@ function renderMakeRecipe(recipe, manifest) {
     ];
   }
   if (recipe.type === "phase_command") {
+    const emitsRetainedTargetSummary =
+      recipe.mode === "run_phase" &&
+      shouldEmitRetainedTargetSummary(recipe, entry, manifest);
     const lines = [
       ...prefix,
       header,
@@ -1958,7 +1986,7 @@ function renderMakeRecipe(recipe, manifest) {
       ...prerequisitePrelude,
       ...renderPhaseCommandRecipe(recipe, entry, manifest),
     ];
-    if (recipe.success_summary === true) {
+    if (recipe.success_summary === true && !emitsRetainedTargetSummary) {
       lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
     }
     return lines;
@@ -2148,6 +2176,11 @@ function renderPhaseCommandRecipe(recipe, entry = null, manifest = null) {
     }
     const runnerPrefix = runnerEnv.length > 0 ? `${runnerEnv.join(" ")} ` : "";
     const childPrefix = `${envCommandPrefixForTarget(entry, manifest, env)} `;
+    if (shouldEmitRetainedTargetSummary(recipe, entry, manifest)) {
+      return [
+        `\t$(Q)${runnerPrefix}$(RUN_PHASE_SCRIPT) "${recipe.phase_label}" -- ${childPrefix}${command}${argsSuffix}; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,${recipe.target},pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,${recipe.target},fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"`,
+      ];
+    }
     return [
       `\t$(Q)${runnerPrefix}$(RUN_PHASE_SCRIPT) "${recipe.phase_label}" -- ${childPrefix}${command}${argsSuffix}`,
     ];

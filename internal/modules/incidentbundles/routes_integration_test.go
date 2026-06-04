@@ -347,9 +347,9 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIn
 	if importedSHA != seededState.BlobSHA {
 		t.Fatalf("imported blob hash mismatch: got %s want %s", importedSHA, seededState.BlobSHA)
 	}
-	wantStoragePrefix := "incident-bundles/imported/" + incidentID + "/sha256/"
-	if !strings.HasPrefix(importedStorageKey, wantStoragePrefix) {
-		t.Fatalf("imported blob must use target-owned storage key, got %s want prefix %s", importedStorageKey, wantStoragePrefix)
+	wantStorageKey := "incidents/" + incidentID + "/object-blobs/" + seededState.ObjectBlobID
+	if importedStorageKey != wantStorageKey {
+		t.Fatalf("imported blob must use target-owned storage key, got %s want %s", importedStorageKey, wantStorageKey)
 	}
 	rc, _, err := targetHarness.Server.Runtime.ObjectStore.ReadObject(context.Background(), importedStorageKey, objectstore.ReadOptions{})
 	if err != nil {
@@ -1648,7 +1648,7 @@ func snapshotImportFailureState(t testing.TB, harness *phase2test.ServerHarness,
 		ImportedActorRows:       countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_imported_actors WHERE incident_id = $1`, incidentID),
 		ImportedAttributionRows: countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_imported_attributions WHERE incident_id = $1`, incidentID),
 		ExportRows:              countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_exports WHERE incident_id = $1`, incidentID),
-		ImportedObjectKeys:      objectKeysWithPrefix(t, harness.Server.Runtime.ObjectStore, "incident-bundles/imported/"+incidentID+"/"),
+		ImportedObjectKeys:      objectKeysWithPrefix(t, harness.Server.Runtime.ObjectStore, "incidents/"+incidentID+"/object-blobs/"),
 	}
 }
 

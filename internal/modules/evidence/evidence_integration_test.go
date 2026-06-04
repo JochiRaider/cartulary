@@ -18,6 +18,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
@@ -295,7 +296,7 @@ func TestEvidenceHandleIssuanceReportsRegisteredUnavailableReasons(t *testing.T)
 			name:       "missing backing object",
 			reasonCode: "blob_missing",
 			arrange: func(t *testing.T, recordID uuid.UUID) {
-				linkSeededBlob(t, harness, incidentID, adminID, recordID, "available", "available", "issue/missing-"+recordID.String())
+				linkSeededBlobWithCanonicalStorageKey(t, harness, incidentID, adminID, recordID, "available", "available")
 			},
 		},
 		{
@@ -372,7 +373,7 @@ func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.
 			name:       "missing backing object",
 			reasonCode: "blob_missing",
 			mutate: func(t *testing.T, recordID uuid.UUID, objectBlobID uuid.UUID) {
-				updateBlobStorageKey(t, harness, objectBlobID, "redeem/missing-"+recordID.String())
+				deleteBlobObject(t, harness, blobStorageKey(t, harness, objectBlobID))
 			},
 		},
 		{
@@ -430,11 +431,13 @@ func TestPhase4_DownloadHandleBlobMissingDoesNotConsumeHandle_I_4_HANDLE_01(t *t
 	downloadData := httptestx.RequireSuccessEnvelope(t, downloadResp, http.StatusOK)["data"].(map[string]any)
 	downloadURL := harness.Server.HTTP.URL + downloadData["href"].(string)
 
-	updateBlobStorageKey(t, harness, objectBlobID, "redeem/missing-"+recordID.String())
+	deleteBlobObject(t, harness, originalStorageKey)
 	missingResp := phase4test.DoJSON(t, http.MethodGet, downloadURL, nil, phase4test.WithCookies(login.SessionCookie))
 	requireEvidenceAccessUnavailableReason(t, missingResp, "blob_missing")
 
-	updateBlobStorageKey(t, harness, objectBlobID, originalStorageKey)
+	if err := harness.Server.Runtime.ObjectStore.PutObject(context.Background(), originalStorageKey, bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
+		t.Fatalf("restore blob object: %v", err)
+	}
 	downloadBody := redeemHandle(t, downloadURL, login)
 	if string(downloadBody) != string(payload) {
 		t.Fatalf("download body mismatch after no-byte failure: got %q", string(downloadBody))
@@ -534,6 +537,21 @@ func requireEvidenceAccessUnavailableReason(t *testing.T, resp *http.Response, w
 func linkSeededBlob(t *testing.T, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, uploadState string, evidenceLifecycle string, storageKey string) uuid.UUID {
 	t.Helper()
 	objectBlobID := uuid.New()
+	return linkSeededBlobWithIDAndStorageKey(t, harness, incidentID, actorID, recordID, uploadState, evidenceLifecycle, objectBlobID, storageKey)
+}
+
+func linkSeededBlobWithCanonicalStorageKey(t *testing.T, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, uploadState string, evidenceLifecycle string) uuid.UUID {
+	t.Helper()
+	objectBlobID := uuid.New()
+	storageKey, err := blobref.ObjectBlobStorageKey(incidentID, objectBlobID)
+	if err != nil {
+		t.Fatalf("canonical storage key: %v", err)
+	}
+	return linkSeededBlobWithIDAndStorageKey(t, harness, incidentID, actorID, recordID, uploadState, evidenceLifecycle, objectBlobID, storageKey)
+}
+
+func linkSeededBlobWithIDAndStorageKey(t *testing.T, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, uploadState string, evidenceLifecycle string, objectBlobID uuid.UUID, storageKey string) uuid.UUID {
+	t.Helper()
 	var terminalReason any
 	var failedMarker any
 	if uploadState == "failed" {
@@ -562,6 +580,13 @@ INSERT INTO object_blobs (
 	updateEvidenceBlobLink(t, harness, recordID, &objectBlobID)
 	updateEvidenceLifecycle(t, harness, recordID, evidenceLifecycle)
 	return objectBlobID
+}
+
+func deleteBlobObject(t *testing.T, harness *phase4test.ServerHarness, storageKey string) {
+	t.Helper()
+	if err := harness.Server.Runtime.ObjectStore.DeleteObject(context.Background(), storageKey); err != nil {
+		t.Fatalf("delete blob object: %v", err)
+	}
 }
 
 func updateEvidenceBlobLink(t *testing.T, harness *phase4test.ServerHarness, recordID uuid.UUID, objectBlobID *uuid.UUID) {

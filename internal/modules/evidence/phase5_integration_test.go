@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
@@ -542,7 +543,7 @@ DELETE FROM incident_memberships
 			updateBlobState(t, harness, objectBlobID, "failed")
 		}},
 		{name: "object missing", reasonCode: "blob_missing", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
-			updateBlobStorageKey(t, harness, objectBlobID, "phase5/i-03/missing-"+recordID.String())
+			deleteBlobObject(t, harness, blobStorageKey(t, harness, objectBlobID))
 		}},
 		{name: "metadata mismatch", reasonCode: "evidence_inconsistent", mutate: func(recordID uuid.UUID, objectBlobID uuid.UUID) {
 			updateBlobObservedMetadata(t, harness, objectBlobID, int64(999), "text/plain", "")
@@ -935,6 +936,10 @@ SELECT COUNT(*)
 func insertPhase5RouteBlob(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, uploadState string) uuid.UUID {
 	t.Helper()
 	objectBlobID := uuid.New()
+	storageKey, err := blobref.ObjectBlobStorageKey(incidentID, objectBlobID)
+	if err != nil {
+		t.Fatalf("phase5 route blob storage key: %v", err)
+	}
 	now := time.Now().UTC()
 	var finalizedAt any
 	var terminalReason any
@@ -958,7 +963,7 @@ INSERT INTO object_blobs (
     '0000000000000000000000000000000000000000000000000000000000000000',
     $6, $7, $8, $9, $10, $11, $12, $12
 )
-`, objectBlobID, incidentID, actorID, "phase5/route/"+objectBlobID.String(), uploadState,
+`, objectBlobID, incidentID, actorID, storageKey, uploadState,
 		now.Add(time.Hour), now.Add(24*time.Hour), finalizedAt, terminalReason, failedAt, nullableCleanupDue(uploadState, now), now); err != nil {
 		t.Fatalf("insert phase5 route blob: %v", err)
 	}
