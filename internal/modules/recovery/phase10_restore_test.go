@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"errors"
 	"testing"
 	"time"
 
@@ -15,8 +14,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
-func TestSupportPhase10_RestoreCandidateRejectsAmbiguousLatestBackupSet(t *testing.T) {
-	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-02-ambiguous")
+func TestSupportPhase10_RestoreCandidateUsesPhaseELatestTieBreakers(t *testing.T) {
+	db := pgtest.Start(t).BeginRollbackDBT(t, "phase10-u-10-02-latest-tiebreaker")
 	store := recovery.NewStore(db)
 	capture := newCaptureService(t, store)
 	ctx := context.Background()
@@ -34,17 +33,17 @@ func TestSupportPhase10_RestoreCandidateRejectsAmbiguousLatestBackupSet(t *testi
 			CreatedAt:          createdAt,
 			RetainedUntil:      createdAt.Add(31 * 24 * time.Hour),
 		})); err != nil {
-			t.Fatalf("capture ambiguous backup set: %v", err)
+			t.Fatalf("capture same-point backup set: %v", err)
 		}
 	}
 
-	if _, err := store.RestoreCandidateBackup(ctx, asOf); !errors.Is(err, recovery.ErrAmbiguousBackupSelection) {
-		t.Fatalf("ambiguous restore candidate error got %v want %v", err, recovery.ErrAmbiguousBackupSelection)
-	} else {
-		var ambiguousErr *recovery.AmbiguousBackupSelectionError
-		if !errors.As(err, &ambiguousErr) || !ambiguousErr.ConsistencyPointAt.Equal(consistencyPointAt) || len(ambiguousErr.BackupSetIDs) != 2 {
-			t.Fatalf("ambiguous restore candidate error must identify point and candidates, got %#v", err)
-		}
+	selected, err := store.RestoreCandidateBackup(ctx, asOf)
+	if err != nil {
+		t.Fatalf("select restore candidate: %v", err)
+	}
+	want := uuid.MustParse("00000000-0000-0000-0000-000000100204")
+	if selected.BackupSetID != want {
+		t.Fatalf("restore candidate got %s want highest backup_set_id tie-breaker %s", selected.BackupSetID, want)
 	}
 }
 

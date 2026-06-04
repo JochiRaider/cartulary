@@ -58,8 +58,9 @@ type RestoreStepObserver interface {
 }
 
 type RestoreResult struct {
-	BackupSet         BackupSet
-	ConsistencyReport RestoreConsistencyReport
+	BackupSet                 BackupSet
+	ConsistencyReport         RestoreConsistencyReport
+	ObjectStoreBackupManifest ObjectStoreBackupManifest
 }
 
 type RestoreConsistencyReport struct {
@@ -72,8 +73,9 @@ type RestoreConsistencyReport struct {
 }
 
 type selectedRestoreArtifacts struct {
-	PostgresSnapshot    PostgresSnapshotArtifact
-	ObjectStoreSnapshot ObjectStoreSnapshotArtifact
+	PostgresSnapshot          PostgresSnapshotArtifact
+	ObjectStoreSnapshot       ObjectStoreSnapshotArtifact
+	ObjectStoreBackupManifest ObjectStoreBackupManifest
 }
 
 func NewRestoreRunner(store *Store, storage BackupStorage) *RestoreRunner {
@@ -129,36 +131,41 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 	if err != nil {
 		return RestoreResult{}, err
 	}
+	partialResult := RestoreResult{
+		BackupSet:                 backupSet,
+		ObjectStoreBackupManifest: artifacts.ObjectStoreBackupManifest,
+	}
 
 	recordStep(target.Observer, RestoreStepPostgresRestore)
 	if err := restorePostgresSnapshot(ctx, target.Postgres, artifacts.PostgresSnapshot); err != nil {
-		return RestoreResult{}, err
+		return partialResult, err
 	}
 
 	recordStep(target.Observer, RestoreStepObjectStoreRestore)
 	if err := restoreObjectStoreSnapshot(ctx, target.ObjectStore, artifacts.ObjectStoreSnapshot); err != nil {
-		return RestoreResult{}, err
+		return partialResult, err
 	}
 
 	recordStep(target.Observer, RestoreStepProjectionRebuild)
 	if err := target.Projections.RebuildRestoreProjections(ctx); err != nil {
-		return RestoreResult{}, err
+		return partialResult, err
 	}
 
 	recordStep(target.Observer, RestoreStepConsistencyCheck)
 	report, err := verifyRestoredConsistency(ctx, target, artifacts)
 	if err != nil {
-		return RestoreResult{}, err
+		return partialResult, err
 	}
 	result := RestoreResult{
-		BackupSet:         backupSet,
-		ConsistencyReport: report,
+		BackupSet:                 backupSet,
+		ConsistencyReport:         report,
+		ObjectStoreBackupManifest: artifacts.ObjectStoreBackupManifest,
 	}
 
 	if target.Readiness != nil {
 		recordStep(target.Observer, RestoreStepReadiness)
 		if err := target.Readiness.MarkRestoreReady(ctx, result); err != nil {
-			return RestoreResult{}, err
+			return result, err
 		}
 	}
 	return result, nil
@@ -197,9 +204,44 @@ func (runner *RestoreRunner) loadSelectedRestoreArtifacts(ctx context.Context, b
 	if err != nil {
 		return selectedRestoreArtifacts{}, err
 	}
+	if manifest.ObjectStoreBackupManifestArtifact == nil {
+		return selectedRestoreArtifacts{}, fmt.Errorf("%w: selected backup is missing object-store backup manifest artifact", ErrInvalidBackupArtifact)
+	}
+	objectManifestBody, err := VerifyArtifactProof(ctx, runner.storage, *manifest.ObjectStoreBackupManifestArtifact)
+	if err != nil {
+		return selectedRestoreArtifacts{}, fmt.Errorf("verify selected object-store backup manifest artifact: %w", err)
+	}
+	objectManifest, err := DecodeObjectStoreBackupManifestArtifact(objectManifestBody)
+	if err != nil {
+		return selectedRestoreArtifacts{}, err
+	}
+	if err := ValidateObjectStoreBackupManifestForBackup(backupSet, objectManifest); err != nil {
+		return selectedRestoreArtifacts{}, err
+	}
+	if err := ValidateObjectStoreManifestAgainstSnapshot(objectManifest, objectSnapshot); err != nil {
+		return selectedRestoreArtifacts{}, err
+	}
+	if manifest.ObjectStoreBackupSummaryArtifact != nil {
+		summaryBody, err := VerifyArtifactProof(ctx, runner.storage, *manifest.ObjectStoreBackupSummaryArtifact)
+		if err != nil {
+			return selectedRestoreArtifacts{}, fmt.Errorf("verify selected object-store backup summary artifact: %w", err)
+		}
+		summary, err := DecodeObjectStoreBackupSummaryArtifact(summaryBody)
+		if err != nil {
+			return selectedRestoreArtifacts{}, err
+		}
+		if summary.BackupSetID != objectManifest.BackupSetID ||
+			!summary.ConsistencyPointAt.Equal(objectManifest.ConsistencyPointAt) ||
+			summary.ManifestSHA256 != objectManifest.ManifestSHA256 ||
+			summary.ObjectCount != objectManifest.ObjectCount ||
+			summary.TotalSizeBytes != objectManifest.TotalSizeBytes {
+			return selectedRestoreArtifacts{}, fmt.Errorf("%w: object-store backup summary does not match private manifest", ErrInvalidBackupArtifact)
+		}
+	}
 	return selectedRestoreArtifacts{
-		PostgresSnapshot:    postgresSnapshot,
-		ObjectStoreSnapshot: objectSnapshot,
+		PostgresSnapshot:          postgresSnapshot,
+		ObjectStoreSnapshot:       objectSnapshot,
+		ObjectStoreBackupManifest: objectManifest,
 	}, nil
 }
 
@@ -549,7 +591,7 @@ func verifyRestoredBlobHashes(ctx context.Context, target RestoreTarget, artifac
 		_, _ = digest.Write([]byte("object:" + item.Key + ":" + item.SHA256 + "\n"))
 	}
 
-	rowDigest, err := verifyRestoredBlobRows(ctx, target.Postgres, target.ObjectStore)
+	rowDigest, _, err := verifyRestoredBlobRowsDetailed(ctx, target.Postgres, target.ObjectStore)
 	if err != nil {
 		return "", 0, err
 	}
@@ -558,6 +600,11 @@ func verifyRestoredBlobHashes(ctx context.Context, target RestoreTarget, artifac
 }
 
 func verifyRestoredBlobRows(ctx context.Context, db postgres.DB, store objectstore.Store) (string, error) {
+	digest, _, err := verifyRestoredBlobRowsDetailed(ctx, db, store)
+	return digest, err
+}
+
+func verifyRestoredBlobRowsDetailed(ctx context.Context, db postgres.DB, store objectstore.Store) (string, int, error) {
 	rows, err := db.Query(ctx, `
 SELECT b.storage_key,
        b.byte_size,
@@ -572,11 +619,12 @@ SELECT b.storage_key,
  ORDER BY b.storage_key ASC, b.object_blob_id ASC
 `)
 	if err != nil {
-		return "", fmt.Errorf("list restored blob rows: %w", err)
+		return "", 0, fmt.Errorf("list restored blob rows: %w", err)
 	}
 	defer rows.Close()
 
 	digest := sha256.New()
+	count := 0
 	for rows.Next() {
 		var storageKey string
 		var byteSize int64
@@ -585,26 +633,26 @@ SELECT b.storage_key,
 		var observedSHA pgtype.Text
 		var blobHash pgtype.Text
 		if err := rows.Scan(&storageKey, &byteSize, &observedSize, &expectedSHA, &observedSHA, &blobHash); err != nil {
-			return "", fmt.Errorf("scan restored blob row: %w", err)
+			return "", count, fmt.Errorf("scan restored blob row: %w", err)
 		}
 		reader, _, err := store.ReadObject(ctx, storageKey, objectstore.ReadOptions{})
 		if err != nil {
-			return "", fmt.Errorf("read restored blob row object %s: %w", storageKey, err)
+			return "", count, fmt.Errorf("read restored blob row object %s: %w", storageKey, err)
 		}
 		body, readErr := io.ReadAll(reader)
 		closeErr := reader.Close()
 		if readErr != nil {
-			return "", fmt.Errorf("read restored blob row body %s: %w", storageKey, readErr)
+			return "", count, fmt.Errorf("read restored blob row body %s: %w", storageKey, readErr)
 		}
 		if closeErr != nil {
-			return "", fmt.Errorf("close restored blob row object %s: %w", storageKey, closeErr)
+			return "", count, fmt.Errorf("close restored blob row object %s: %w", storageKey, closeErr)
 		}
 		sha := sha256Hex(body)
 		if int64(len(body)) != byteSize {
-			return "", fmt.Errorf("%w: restored blob row byte_size mismatch for %s", ErrInvalidBackupArtifact, storageKey)
+			return "", count, fmt.Errorf("%w: restored blob row byte_size mismatch for %s", ErrInvalidBackupArtifact, storageKey)
 		}
 		if observedSize.Valid && observedSize.Int64 != int64(len(body)) {
-			return "", fmt.Errorf("%w: restored blob row observed_size mismatch for %s", ErrInvalidBackupArtifact, storageKey)
+			return "", count, fmt.Errorf("%w: restored blob row observed_size mismatch for %s", ErrInvalidBackupArtifact, storageKey)
 		}
 		for label, value := range map[string]pgtype.Text{
 			"expected_sha256_hex": expectedSHA,
@@ -615,15 +663,16 @@ SELECT b.storage_key,
 				continue
 			}
 			if !blobHashMatches(value.String, sha) {
-				return "", fmt.Errorf("%w: restored blob row %s mismatch for %s", ErrInvalidBackupArtifact, label, storageKey)
+				return "", count, fmt.Errorf("%w: restored blob row %s mismatch for %s", ErrInvalidBackupArtifact, label, storageKey)
 			}
 		}
 		_, _ = digest.Write([]byte(storageKey + ":" + sha + "\n"))
+		count++
 	}
 	if err := rows.Err(); err != nil {
-		return "", fmt.Errorf("iterate restored blob rows: %w", err)
+		return "", count, fmt.Errorf("iterate restored blob rows: %w", err)
 	}
-	return hex.EncodeToString(digest.Sum(nil)), nil
+	return hex.EncodeToString(digest.Sum(nil)), count, nil
 }
 
 func blobHashMatches(value string, sha string) bool {

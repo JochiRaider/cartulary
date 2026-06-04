@@ -3,19 +3,27 @@ package recovery_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
 func TestPhase10_I_10_01_RealBackingStorageMetadataPersistsAndLatestLookup(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase10-i-10-01-metadata")
+	runtimeHarness := phase4test.StartRuntime(t)
+	harness := runtimeHarness.StartServer(t, "phase10-i-10-01-metadata")
 	store := recovery.NewStore(harness.Server.Runtime.Postgres)
 	ctx := context.Background()
 	backupStorage, err := recovery.NewBackupStorageFromConfig(harness.Server.Runtime.Config, map[string]string{
@@ -26,15 +34,37 @@ func TestPhase10_I_10_01_RealBackingStorageMetadataPersistsAndLatestLookup(t *te
 	}
 	capture := recovery.NewCaptureService(store, backupStorage)
 
-	adminLogin, _ := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase10-i-10-01-incident",
 		"incident_key":  "phase10-i-10-01",
 		"title":         "Phase 10 I-10-01 Backup Metadata",
 	})
+	incidentID := uuid.MustParse(incident["incident_id"].(string))
 	objectKey := "phase10/i-10-01/" + incident["incident_id"].(string) + "/proof.txt"
-	if err := harness.Server.Runtime.ObjectStore.PutObject(ctx, objectKey, bytes.NewReader([]byte("phase10 backup proof")), int64(len("phase10 backup proof")), "text/plain"); err != nil {
+	objectPayload := []byte("phase10 backup proof")
+	sourceBucket := "phase10-i-10-01-source-" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	if err := runtimeHarness.S3.CreateBucket(ctx, sourceBucket); err != nil {
+		t.Fatalf("create source SeaweedFS bucket: %v", err)
+	}
+	sourceObjectStore := phase10S3StoreForBucket(t, harness, runtimeHarness, sourceBucket)
+	if err := sourceObjectStore.PutObject(ctx, objectKey, bytes.NewReader(objectPayload), int64(len(objectPayload)), "text/plain"); err != nil {
 		t.Fatalf("write object-store proof before capture: %v", err)
+	}
+	objectSHA := phase10SHA256Hex(objectPayload)
+	objectBlobID := uuid.MustParse("00000000-0000-0000-0000-000000101003")
+	if _, err := harness.Server.Runtime.Postgres.Exec(ctx, `
+INSERT INTO object_blobs (
+    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
+    byte_size, expected_sha256_hex, observed_size, observed_content_type, observed_sha256_hex,
+    target_expires_at, pending_expires_at, finalized_at, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, 'available',
+    $5, $6, $5, 'text/plain', $6,
+    $7, $7, $8, $8, $8
+)
+`, objectBlobID, incidentID, adminUserID, objectKey, int64(len(objectPayload)), objectSHA, asTime(t, "2026-05-22T13:00:00Z"), asTime(t, "2026-05-22T12:00:00Z")); err != nil {
+		t.Fatalf("insert source durable object blob row: %v", err)
 	}
 	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, harness.Server.Runtime.Postgres)
 	if err != nil {
@@ -43,16 +73,28 @@ func TestPhase10_I_10_01_RealBackingStorageMetadataPersistsAndLatestLookup(t *te
 	if !bytes.Contains(postgresArtifact, []byte("phase10-i-10-01")) {
 		t.Fatalf("postgres snapshot artifact does not contain seeded incident data: %s", postgresArtifact)
 	}
-	objectStoreArtifact, err := recovery.CaptureObjectStoreSnapshotArtifact(ctx, harness.Server.Runtime.ObjectStore, "phase10/i-10-01/")
+	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, harness.Server.Runtime.Postgres)
 	if err != nil {
-		t.Fatalf("capture object-store snapshot artifact: %v", err)
+		t.Fatalf("index source blob storage refs: %v", err)
 	}
 
 	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
 	olderCreatedAt := asOf.Add(-6 * time.Hour)
+	olderID := uuid.MustParse("00000000-0000-0000-0000-000000101001")
+	olderPoint := asOf.Add(-5 * time.Hour)
+	olderObjectArtifacts, err := recovery.CaptureSeaweedFSS3ObjectStoreBackupArtifacts(ctx, sourceObjectStore, recovery.ObjectStoreBackupCaptureParams{
+		BackupSetID:               olderID,
+		ConsistencyPointAt:        olderPoint,
+		Bucket:                    sourceBucket,
+		Prefix:                    "phase10/i-10-01/",
+		BlobObjectIDsByStorageRef: blobIndex,
+	})
+	if err != nil {
+		t.Fatalf("capture older SeaweedFS object-store backup artifacts: %v", err)
+	}
 	if _, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
-		BackupSetID:        uuid.MustParse("00000000-0000-0000-0000-000000101001"),
-		ConsistencyPointAt: asOf.Add(-5 * time.Hour),
+		BackupSetID:        olderID,
+		ConsistencyPointAt: olderPoint,
 		CreatedAt:          olderCreatedAt,
 		RetainedUntil:      olderCreatedAt.Add(31 * 24 * time.Hour),
 		PostgresArtifact: recovery.BackupArtifact{
@@ -60,18 +102,31 @@ func TestPhase10_I_10_01_RealBackingStorageMetadataPersistsAndLatestLookup(t *te
 			ContentType: "application/json",
 		},
 		ObjectStoreArtifact: recovery.BackupArtifact{
-			Body:        objectStoreArtifact,
+			Body:        olderObjectArtifacts.SnapshotBody,
 			ContentType: "application/json",
 		},
+		ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: olderObjectArtifacts.ManifestBody, ContentType: "application/json"},
+		ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: olderObjectArtifacts.SummaryBody, ContentType: "application/json"},
 	})); err != nil {
 		t.Fatalf("create older backup metadata: %v", err)
 	}
 
 	latestCreatedAt := asOf.Add(-2 * time.Hour)
 	latestID := uuid.MustParse("00000000-0000-0000-0000-000000101002")
+	latestPoint := asOf.Add(-time.Hour)
+	latestObjectArtifacts, err := recovery.CaptureSeaweedFSS3ObjectStoreBackupArtifacts(ctx, sourceObjectStore, recovery.ObjectStoreBackupCaptureParams{
+		BackupSetID:               latestID,
+		ConsistencyPointAt:        latestPoint,
+		Bucket:                    sourceBucket,
+		Prefix:                    "phase10/i-10-01/",
+		BlobObjectIDsByStorageRef: blobIndex,
+	})
+	if err != nil {
+		t.Fatalf("capture latest SeaweedFS object-store backup artifacts: %v", err)
+	}
 	latestCreated, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
 		BackupSetID:        latestID,
-		ConsistencyPointAt: asOf.Add(-time.Hour),
+		ConsistencyPointAt: latestPoint,
 		CreatedAt:          latestCreatedAt,
 		RetainedUntil:      latestCreatedAt.Add(31 * 24 * time.Hour),
 		PostgresArtifact: recovery.BackupArtifact{
@@ -79,15 +134,85 @@ func TestPhase10_I_10_01_RealBackingStorageMetadataPersistsAndLatestLookup(t *te
 			ContentType: "application/json",
 		},
 		ObjectStoreArtifact: recovery.BackupArtifact{
-			Body:        objectStoreArtifact,
+			Body:        latestObjectArtifacts.SnapshotBody,
 			ContentType: "application/json",
 		},
+		ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: latestObjectArtifacts.ManifestBody, ContentType: "application/json"},
+		ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: latestObjectArtifacts.SummaryBody, ContentType: "application/json"},
 	}))
 	if err != nil {
 		t.Fatalf("create latest backup metadata: %v", err)
 	}
+	decodedObjectManifest, err := recovery.DecodeObjectStoreBackupManifestArtifact(latestObjectArtifacts.ManifestBody)
+	if err != nil {
+		t.Fatalf("decode latest object-store backup manifest: %v", err)
+	}
+	if decodedObjectManifest.Bucket != sourceBucket ||
+		decodedObjectManifest.ObjectStoreBackend != recovery.ObjectStoreBackendSeaweedFSS3 ||
+		decodedObjectManifest.ObjectCount != 1 ||
+		decodedObjectManifest.Objects[0].ObjectBlobID != objectBlobID.String() ||
+		decodedObjectManifest.Objects[0].SHA256 != objectSHA {
+		t.Fatalf("latest SeaweedFS backup manifest does not prove the durable blob: %#v", decodedObjectManifest)
+	}
 
 	reopenedStore := recovery.NewStore(harness.Server.Runtime.Postgres)
+	targetDB := runtimeHarness.Postgres.PreparePackageDatabaseT(t, "phase10-i-10-01-service-backed-target")
+	targetPool, err := pgxpool.New(ctx, targetDB.DSN)
+	if err != nil {
+		t.Fatalf("open fresh target Postgres: %v", err)
+	}
+	t.Cleanup(targetPool.Close)
+	targetBucket := "phase10-i-10-01-target-" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	if err := runtimeHarness.S3.CreateBucket(ctx, targetBucket); err != nil {
+		t.Fatalf("create target SeaweedFS bucket: %v", err)
+	}
+	targetObjectStore := phase10S3StoreForBucket(t, harness, runtimeHarness, targetBucket)
+	if objects, err := targetObjectStore.ListObjects(ctx, ""); err != nil {
+		t.Fatalf("list fresh target SeaweedFS bucket: %v", err)
+	} else if len(objects) != 0 {
+		t.Fatalf("fresh target SeaweedFS bucket is not empty before restore: %#v", objects)
+	}
+	serviceBackedRestore, err := recovery.NewRestoreRunner(reopenedStore, backupStorage).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
+		Postgres:    targetPool,
+		ObjectStore: targetObjectStore,
+		Projections: projections.NewStore(targetPool),
+	}, asOf)
+	if err != nil {
+		t.Fatalf("restore latest retained backup into fresh SeaweedFS-backed target: %v", err)
+	}
+	if serviceBackedRestore.BackupSet.BackupSetID != latestID || serviceBackedRestore.ConsistencyReport.BlobCount != 1 {
+		t.Fatalf("service-backed restore selected wrong backup or missed blob lifecycle: %#v", serviceBackedRestore)
+	}
+	restoredObject, _, err := targetObjectStore.ReadObject(ctx, objectKey, objectstore.ReadOptions{})
+	if err != nil {
+		t.Fatalf("read restored SeaweedFS object: %v", err)
+	}
+	restoredBytes, readErr := io.ReadAll(restoredObject)
+	closeErr := restoredObject.Close()
+	if readErr != nil {
+		t.Fatalf("read restored SeaweedFS object body: %v", readErr)
+	}
+	if closeErr != nil {
+		t.Fatalf("close restored SeaweedFS object body: %v", closeErr)
+	}
+	if !bytes.Equal(restoredBytes, objectPayload) {
+		t.Fatalf("restored SeaweedFS object bytes changed: got %q want %q", restoredBytes, objectPayload)
+	}
+	var restoredBlobCount int
+	if err := targetPool.QueryRow(ctx, `
+SELECT count(*)
+  FROM object_blobs
+ WHERE object_blob_id = $1
+   AND storage_key = $2
+   AND upload_state = 'available'
+   AND observed_sha256_hex = $3
+`, objectBlobID, objectKey, objectSHA).Scan(&restoredBlobCount); err != nil {
+		t.Fatalf("query restored object blob row: %v", err)
+	}
+	if restoredBlobCount != 1 {
+		t.Fatalf("restored object blob lifecycle row count got %d want 1", restoredBlobCount)
+	}
+
 	reloaded, err := reopenedStore.GetBackupSet(ctx, latestID)
 	if err != nil {
 		t.Fatalf("reload committed latest backup metadata: %v", err)
@@ -121,7 +246,7 @@ func TestPhase10_I_10_01_RealBackingStorageMetadataPersistsAndLatestLookup(t *te
 		SHA256:    reloaded.ObjectStoreArtifactSHA256,
 		SizeBytes: reloaded.ObjectStoreArtifactSizeBytes,
 	})
-	if !bytes.Equal(reloadedObjectArtifact, objectStoreArtifact) {
+	if !bytes.Equal(reloadedObjectArtifact, latestObjectArtifacts.SnapshotBody) {
 		t.Fatalf("reloaded object-store artifact body changed")
 	}
 	manifestBody := requireStoredArtifactProof(t, backupStorage, recovery.BackupArtifactProof{
@@ -153,6 +278,38 @@ func TestPhase10_I_10_01_RealBackingStorageMetadataPersistsAndLatestLookup(t *te
 	if latest.BackupSetID != latestID {
 		t.Fatalf("latest lookup got %s want %s", latest.BackupSetID, latestID)
 	}
+}
+
+func phase10S3StoreForBucket(t testing.TB, harness *phase4test.ServerHarness, runtimeHarness *phase4test.RuntimeHarness, bucket string) objectstore.Store {
+	t.Helper()
+	const serviceRef = "object_primary"
+	cfg := harness.Server.Runtime.Config
+	cfg.Roots.ObjectStorage.BindingKind = "managed_service"
+	cfg.Roots.ObjectStorage.Path = ""
+	cfg.Roots.ObjectStorage.ServiceRef = serviceRef
+	env := runtimeHarness.S3.EnvForServiceRef(serviceRef, bucket)
+	store, err := objectstore.SetupWithEnv(context.Background(), cfg, env)
+	if err != nil {
+		t.Fatalf("open SeaweedFS object-store adapter for bucket %s: %v", bucket, err)
+	}
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
+	return store
+}
+
+func phase10SHA256Hex(body []byte) string {
+	sum := sha256.Sum256(body)
+	return hex.EncodeToString(sum[:])
+}
+
+func asTime(t testing.TB, value string) time.Time {
+	t.Helper()
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		t.Fatalf("parse time fixture %q: %v", value, err)
+	}
+	return parsed
 }
 
 func requireStoredArtifactProof(t *testing.T, storage recovery.BackupStorage, proof recovery.BackupArtifactProof) []byte {

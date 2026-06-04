@@ -558,9 +558,29 @@ func captureParams(params recovery.CaptureBackupSetParams) recovery.CaptureBacku
 	}
 	if params.ObjectStoreArtifact.Body == nil {
 		params.ObjectStoreArtifact = recovery.BackupArtifact{
-			Body:        []byte(`{"schema_id":"phase10.test.object_store_artifact.v1","restore":"object_store"}`),
+			Body:        []byte(`{"schema_id":"cartulary.object_store_snapshot_artifact.v2","objects":[]}`),
 			ContentType: "application/json",
 		}
+	}
+	if params.ObjectStoreBackupManifestArtifact.Body == nil && params.BackupSetID != uuid.Nil && !params.ConsistencyPointAt.IsZero() {
+		snapshot, err := recovery.DecodeObjectStoreSnapshotArtifact(params.ObjectStoreArtifact.Body)
+		if err != nil {
+			panic(err)
+		}
+		manifest, manifestBody, err := recovery.BuildSeaweedFSS3ObjectStoreBackupManifest(snapshot, recovery.ObjectStoreBackupManifestParams{
+			BackupSetID:        params.BackupSetID,
+			ConsistencyPointAt: params.ConsistencyPointAt,
+			Bucket:             "phase10-test-bucket",
+		})
+		if err != nil {
+			panic(err)
+		}
+		_, summaryBody, err := recovery.BuildObjectStoreBackupSummary(manifest)
+		if err != nil {
+			panic(err)
+		}
+		params.ObjectStoreBackupManifestArtifact = recovery.BackupArtifact{Body: manifestBody, ContentType: "application/json"}
+		params.ObjectStoreBackupSummaryArtifact = recovery.BackupArtifact{Body: summaryBody, ContentType: "application/json"}
 	}
 	return params
 }

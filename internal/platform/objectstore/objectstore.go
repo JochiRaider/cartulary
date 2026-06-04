@@ -252,13 +252,45 @@ func (s *S3Store) Get(ctx context.Context, request GetObjectRequest) (io.ReadClo
 			return nil, ObjectInfo{}, mapBackendError(operation, err)
 		}
 	}
-	object, err := runWithRetry(ctx, operation, objectReadTimeout, true, func(ctx context.Context) (*minio.Object, error) {
-		return s.client.GetObject(ctx, s.bucket, request.Key, opts)
-	})
+	object, cancel, err := s.getObjectStreamWithRetry(ctx, operation, request.Key, opts)
 	if err != nil {
 		return nil, ObjectInfo{}, err
 	}
-	return closeObservedStream(operation, request.Key, object), info, nil
+	return closeObservedStream(operation, request.Key, cancelOnCloseReadCloser{ReadCloser: object, cancel: cancel}), info, nil
+}
+
+func (s *S3Store) getObjectStreamWithRetry(ctx context.Context, operation Operation, key string, opts minio.GetObjectOptions) (*minio.Object, context.CancelFunc, error) {
+	attemptLimit := maxTotalAttempts
+	var lastErr error
+	for attempt := 1; attempt <= attemptLimit; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, mapBackendError(operation, err)
+		}
+		attemptCtx, cancel := context.WithTimeout(ctx, objectReadTimeout)
+		object, err := s.client.GetObject(attemptCtx, s.bucket, key, opts)
+		if err == nil {
+			return object, cancel, nil
+		}
+		cancel()
+		lastErr = mapBackendError(operation, err)
+		adapterErr, _ := AsAdapterError(lastErr)
+		if adapterErr == nil || !adapterErr.Retryable || attempt >= attemptLimit {
+			break
+		}
+		if retryBackoff > 0 {
+			timer := time.NewTimer(retryBackoff)
+			select {
+			case <-timer.C:
+			case <-ctx.Done():
+				timer.Stop()
+				return nil, nil, mapBackendError(operation, ctx.Err())
+			}
+		}
+	}
+	if adapterErr, ok := AsAdapterError(lastErr); ok && adapterErr.Retryable {
+		return nil, nil, adapterError(operation, ErrorCodeRetryExhausted, ReasonRetryExhausted, false, "retryable object-store operation exhausted attempts", lastErr)
+	}
+	return nil, nil, lastErr
 }
 
 func (s *S3Store) StatObject(ctx context.Context, key string) (ObjectInfo, error) {
@@ -686,6 +718,19 @@ func (s *FilesystemStore) Close() error {
 type readLimitCloser struct {
 	io.Reader
 	io.Closer
+}
+
+type cancelOnCloseReadCloser struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (reader cancelOnCloseReadCloser) Close() error {
+	err := reader.ReadCloser.Close()
+	if reader.cancel != nil {
+		reader.cancel()
+	}
+	return err
 }
 
 func resolveManagedServiceSettings(serviceRef string, env map[string]string) (Settings, error) {

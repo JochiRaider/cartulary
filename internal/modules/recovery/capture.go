@@ -66,6 +66,8 @@ type CaptureBackupSetParams struct {
 	ObjectStoreRestoreAnchorRetainedUntil time.Time
 	PostgresArtifact                      BackupArtifact
 	ObjectStoreArtifact                   BackupArtifact
+	ObjectStoreBackupManifestArtifact     BackupArtifact
+	ObjectStoreBackupSummaryArtifact      BackupArtifact
 }
 
 type BackupArtifactProof struct {
@@ -88,6 +90,8 @@ type BackupIntegrityManifest struct {
 	ObjectStoreRestoreAnchorRetainedUntil time.Time                    `json:"object_store_restore_anchor_retained_until"`
 	PostgresArtifact                      BackupArtifactProof          `json:"postgres_artifact"`
 	ObjectStoreArtifact                   BackupArtifactProof          `json:"object_store_artifact"`
+	ObjectStoreBackupManifestArtifact     *BackupArtifactProof         `json:"object_store_backup_manifest_artifact,omitempty"`
+	ObjectStoreBackupSummaryArtifact      *BackupArtifactProof         `json:"object_store_backup_summary_artifact,omitempty"`
 }
 
 type ObjectStoreSnapshotArtifact struct {
@@ -279,6 +283,22 @@ func (service *CaptureService) CaptureBackupSet(ctx context.Context, params Capt
 	if err != nil {
 		return BackupSet{}, fmt.Errorf("capture object-store backup artifact: %w", err)
 	}
+	var objectManifestProof *BackupArtifactProof
+	if len(params.ObjectStoreBackupManifestArtifact.Body) > 0 {
+		proof, err := service.storage.WriteArtifact(ctx, prefix+"/object-store-backup-manifest.json", params.ObjectStoreBackupManifestArtifact.Body, artifactContentType(params.ObjectStoreBackupManifestArtifact))
+		if err != nil {
+			return BackupSet{}, fmt.Errorf("capture object-store backup manifest artifact: %w", err)
+		}
+		objectManifestProof = &proof
+	}
+	var objectSummaryProof *BackupArtifactProof
+	if len(params.ObjectStoreBackupSummaryArtifact.Body) > 0 {
+		proof, err := service.storage.WriteArtifact(ctx, prefix+"/object-store-backup-summary.json", params.ObjectStoreBackupSummaryArtifact.Body, artifactContentType(params.ObjectStoreBackupSummaryArtifact))
+		if err != nil {
+			return BackupSet{}, fmt.Errorf("capture object-store backup summary artifact: %w", err)
+		}
+		objectSummaryProof = &proof
+	}
 
 	postgresAnchor := backupStorageAnchorScheme + postgresProof.Key
 	objectAnchor := backupStorageAnchorScheme + objectProof.Key
@@ -295,6 +315,8 @@ func (service *CaptureService) CaptureBackupSet(ctx context.Context, params Capt
 		ObjectStoreRestoreAnchorRetainedUntil: params.ObjectStoreRestoreAnchorRetainedUntil,
 		PostgresArtifact:                      postgresProof,
 		ObjectStoreArtifact:                   objectProof,
+		ObjectStoreBackupManifestArtifact:     objectManifestProof,
+		ObjectStoreBackupSummaryArtifact:      objectSummaryProof,
 	}
 	manifestBody, err := json.Marshal(manifest)
 	if err != nil {
@@ -334,7 +356,7 @@ func CaptureObjectStoreSnapshotArtifact(ctx context.Context, store objectstore.S
 	if store == nil {
 		return nil, fmt.Errorf("%w: object store is required", ErrInvalidBackupArtifact)
 	}
-	objects, err := store.ListObjects(ctx, prefix)
+	objects, err := listBackupManifestObjects(ctx, store, prefix)
 	if err != nil {
 		return nil, fmt.Errorf("list object store snapshot: %w", err)
 	}
@@ -343,7 +365,7 @@ func CaptureObjectStoreSnapshotArtifact(ctx context.Context, store objectstore.S
 	})
 	items := make([]ObjectStoreSnapshotItem, 0, len(objects))
 	for _, object := range objects {
-		reader, info, err := store.ReadObject(ctx, object.Key, objectstore.ReadOptions{})
+		reader, info, err := getBackupManifestObject(ctx, store, object.Key)
 		if err != nil {
 			return nil, fmt.Errorf("read object store snapshot object %s: %w", object.Key, err)
 		}

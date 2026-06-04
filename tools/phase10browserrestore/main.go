@@ -21,6 +21,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -157,16 +158,29 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("capture source postgres artifact: %w", err)
 	}
-	objectArtifact, err := recovery.CaptureObjectStoreSnapshotArtifact(ctx, sourceObjectStore, "")
+	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, sourcePool)
+	if err != nil {
+		return fmt.Errorf("index source blob storage refs: %w", err)
+	}
+	backupSetID := uuid.New()
+	objectArtifacts, err := recovery.CaptureSeaweedFSS3ObjectStoreBackupArtifacts(ctx, sourceObjectStore, recovery.ObjectStoreBackupCaptureParams{
+		BackupSetID:               backupSetID,
+		ConsistencyPointAt:        now,
+		Bucket:                    "phase10-browser-restore-source",
+		BlobObjectIDsByStorageRef: blobIndex,
+	})
 	if err != nil {
 		return fmt.Errorf("capture source object artifact: %w", err)
 	}
 	backupSet, err := recovery.NewCaptureService(sourceStore, backupStorage).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
-		ConsistencyPointAt:  now,
-		CreatedAt:           now,
-		RetainedUntil:       now.Add(recovery.MinimumRetentionDuration),
-		PostgresArtifact:    recovery.BackupArtifact{Body: postgresArtifact, ContentType: "application/json"},
-		ObjectStoreArtifact: recovery.BackupArtifact{Body: objectArtifact, ContentType: "application/json"},
+		BackupSetID:                       backupSetID,
+		ConsistencyPointAt:                now,
+		CreatedAt:                         now,
+		RetainedUntil:                     now.Add(recovery.MinimumRetentionDuration),
+		PostgresArtifact:                  recovery.BackupArtifact{Body: postgresArtifact, ContentType: "application/json"},
+		ObjectStoreArtifact:               recovery.BackupArtifact{Body: objectArtifacts.SnapshotBody, ContentType: "application/json"},
+		ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: objectArtifacts.ManifestBody, ContentType: "application/json"},
+		ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: objectArtifacts.SummaryBody, ContentType: "application/json"},
 	})
 	if err != nil {
 		return fmt.Errorf("capture retained backup set: %w", err)
@@ -487,8 +501,8 @@ func flagValue(name string) string {
 func sourceEnvironment(runtimeRoot string) (map[string]string, error) {
 	env := map[string]string{
 		"CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT":             "localhost:9000",
-		"CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID":        "minioadmin",
-		"CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY":    "minioadmin",
+		"CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID":        "cartulary-local",
+		"CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY":    "cartulary-local-secret",
 		"CARTULARY_S3_OBJECT_PRIMARY_SECURE":               "false",
 		"CARTULARY_S3_OBJECT_PRIMARY_BUCKET":               "cartulary",
 		"CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN":          "",

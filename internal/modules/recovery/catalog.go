@@ -53,52 +53,34 @@ func (catalog *BackupCatalog) RestoreCandidateBackupSelection(ctx context.Contex
 		return BackupCatalogSelection{}, err
 	}
 	sort.Slice(backupSets, func(i, j int) bool {
-		if backupSets[i].ConsistencyPointAt.Equal(backupSets[j].ConsistencyPointAt) {
-			return backupSets[i].BackupSetID.String() < backupSets[j].BackupSetID.String()
+		if !backupSets[i].ConsistencyPointAt.Equal(backupSets[j].ConsistencyPointAt) {
+			return backupSets[i].ConsistencyPointAt.After(backupSets[j].ConsistencyPointAt)
 		}
-		return backupSets[i].ConsistencyPointAt.After(backupSets[j].ConsistencyPointAt)
+		if !backupSets[i].CreatedAt.Equal(backupSets[j].CreatedAt) {
+			return backupSets[i].CreatedAt.After(backupSets[j].CreatedAt)
+		}
+		return backupSets[i].BackupSetID.String() > backupSets[j].BackupSetID.String()
 	})
 
 	diagnostics := make([]BackupDurabilityDiagnostic, 0)
-	for index := 0; index < len(backupSets); {
-		point := backupSets[index].ConsistencyPointAt
-		group := make([]BackupSet, 0, 1)
-		for index < len(backupSets) && backupSets[index].ConsistencyPointAt.Equal(point) {
-			candidate := backupSets[index]
-			if err := catalog.VerifyBackupSetDurability(ctx, candidate); err == nil {
-				group = append(group, candidate)
-			} else {
-				diagnostics = append(diagnostics, BackupDurabilityDiagnostic{
-					BackupSetID:        candidate.BackupSetID,
-					ConsistencyPointAt: candidate.ConsistencyPointAt,
-					Code:               backupDurabilityDiagnosticCode(err),
-				})
-			}
-			index++
-		}
-		if len(group) == 0 {
+	for _, candidate := range backupSets {
+		if err := catalog.VerifyBackupSetDurability(ctx, candidate); err != nil {
+			diagnostics = append(diagnostics, BackupDurabilityDiagnostic{
+				BackupSetID:        candidate.BackupSetID,
+				ConsistencyPointAt: candidate.ConsistencyPointAt,
+				Code:               backupDurabilityDiagnosticCode(err),
+			})
 			continue
 		}
-		if len(group) != 1 {
-			ids := make([]uuid.UUID, 0, len(group))
-			for _, candidate := range group {
-				ids = append(ids, candidate.BackupSetID)
-			}
-			return BackupCatalogSelection{}, &AmbiguousBackupSelectionError{
-				ConsistencyPointAt: point,
-				BackupSetIDs:       ids,
-			}
-		}
-		backupSet := group[0]
-		if backupSet.ConsistencyPointAt.Before(asOf.Add(-LatestSuccessfulBackupMaxAge)) {
+		if candidate.ConsistencyPointAt.Before(asOf.Add(-LatestSuccessfulBackupMaxAge)) {
 			return BackupCatalogSelection{}, &LatestSuccessfulBackupStaleError{
-				BackupSet: backupSet,
+				BackupSet: candidate,
 				AsOf:      asOf,
 				MaxAge:    LatestSuccessfulBackupMaxAge,
 			}
 		}
 		return BackupCatalogSelection{
-			BackupSet:             backupSet,
+			BackupSet:             candidate,
 			DurabilityDiagnostics: diagnostics,
 		}, nil
 	}
@@ -128,8 +110,39 @@ func (catalog *BackupCatalog) VerifyBackupSetDurability(ctx context.Context, bac
 	if _, err := VerifyArtifactProof(ctx, catalog.storage, manifest.PostgresArtifact); err != nil {
 		return fmt.Errorf("verify postgres backup artifact: %w", err)
 	}
-	if _, err := VerifyArtifactProof(ctx, catalog.storage, manifest.ObjectStoreArtifact); err != nil {
+	objectBody, err := VerifyArtifactProof(ctx, catalog.storage, manifest.ObjectStoreArtifact)
+	if err != nil {
 		return fmt.Errorf("verify object-store backup artifact: %w", err)
+	}
+	if manifest.ObjectStoreBackupManifestArtifact == nil {
+		return fmt.Errorf("%w: object-store backup manifest artifact is required", ErrInvalidBackupArtifact)
+	}
+	objectManifestBody, err := VerifyArtifactProof(ctx, catalog.storage, *manifest.ObjectStoreBackupManifestArtifact)
+	if err != nil {
+		return fmt.Errorf("verify object-store backup manifest artifact: %w", err)
+	}
+	objectManifest, err := DecodeObjectStoreBackupManifestArtifact(objectManifestBody)
+	if err != nil {
+		return err
+	}
+	if err := ValidateObjectStoreBackupManifestForBackup(backupSet, objectManifest); err != nil {
+		return err
+	}
+	objectSnapshot, err := DecodeObjectStoreSnapshotArtifact(objectBody)
+	if err != nil {
+		return err
+	}
+	if err := ValidateObjectStoreManifestAgainstSnapshot(objectManifest, objectSnapshot); err != nil {
+		return err
+	}
+	if manifest.ObjectStoreBackupSummaryArtifact != nil {
+		summaryBody, err := VerifyArtifactProof(ctx, catalog.storage, *manifest.ObjectStoreBackupSummaryArtifact)
+		if err != nil {
+			return fmt.Errorf("verify object-store backup summary artifact: %w", err)
+		}
+		if _, err := DecodeObjectStoreBackupSummaryArtifact(summaryBody); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -143,10 +156,13 @@ func (catalog *BackupCatalog) ListBackupsDueForRestoreVerification(ctx context.C
 		return nil, err
 	}
 	sort.Slice(backupSets, func(i, j int) bool {
-		if backupSets[i].ConsistencyPointAt.Equal(backupSets[j].ConsistencyPointAt) {
-			return backupSets[i].BackupSetID.String() < backupSets[j].BackupSetID.String()
+		if !backupSets[i].ConsistencyPointAt.Equal(backupSets[j].ConsistencyPointAt) {
+			return backupSets[i].ConsistencyPointAt.After(backupSets[j].ConsistencyPointAt)
 		}
-		return backupSets[i].ConsistencyPointAt.After(backupSets[j].ConsistencyPointAt)
+		if !backupSets[i].CreatedAt.Equal(backupSets[j].CreatedAt) {
+			return backupSets[i].CreatedAt.After(backupSets[j].CreatedAt)
+		}
+		return backupSets[i].BackupSetID.String() > backupSets[j].BackupSetID.String()
 	})
 	return backupSets, nil
 }

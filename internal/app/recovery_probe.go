@@ -27,7 +27,7 @@ func (probe RestoreVerificationWorkbookProbe) ProbeRestoredBackup(ctx context.Co
 	if err := probe.Postgres.QueryRow(ctx, `
 SELECT id
 FROM incidents
-ORDER BY created_at ASC, id ASC
+ORDER BY id::text ASC
 LIMIT 1
 `).Scan(&incidentID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -44,6 +44,8 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata(t *t
 	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
 	createdAt := asOf.Add(-2 * time.Hour)
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102001")
+	objectSnapshotBody := []byte(`{"schema_id":"cartulary.object_store_snapshot_artifact.v2","objects":[]}`)
+	objectManifestBody, objectSummaryBody := operatorPhaseEObjectArtifacts(t, backupSetID, asOf.Add(-time.Hour), "phase10-operator-inspection", objectSnapshotBody, nil)
 	pool, err := pgxpool.New(context.Background(), testDB.DSN)
 	if err != nil {
 		t.Fatalf("open pgx pool for operator fixture: %v", err)
@@ -60,9 +62,11 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata(t *t
 			ContentType: "application/json",
 		},
 		ObjectStoreArtifact: recovery.BackupArtifact{
-			Body:        []byte(`{"schema_id":"phase10.operator.object_store_artifact.v1"}`),
+			Body:        objectSnapshotBody,
 			ContentType: "application/json",
 		},
+		ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: objectManifestBody, ContentType: "application/json"},
+		ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: objectSummaryBody, ContentType: "application/json"},
 	}); err != nil {
 		t.Fatalf("seed backup metadata for operator inspection: %v", err)
 	}
@@ -172,6 +176,7 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup(t *testing.T
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
 	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102101")
+	objectManifestBody, objectSummaryBody := operatorPhaseEObjectArtifacts(t, backupSetID, asOf.Add(-time.Minute), "phase10-operator-restore", objectArtifact, nil)
 	if _, err := recovery.NewCaptureService(recovery.NewStore(sourcePool), backupStorage).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
 		BackupSetID:        backupSetID,
 		ConsistencyPointAt: asOf.Add(-time.Minute),
@@ -185,6 +190,8 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup(t *testing.T
 			Body:        objectArtifact,
 			ContentType: "application/json",
 		},
+		ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: objectManifestBody, ContentType: "application/json"},
+		ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: objectSummaryBody, ContentType: "application/json"},
 	}); err != nil {
 		t.Fatalf("capture restorable backup set: %v", err)
 	}
@@ -292,9 +299,11 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner(t *testin
 		uuid.MustParse("00000000-0000-0000-0000-000000102203"),
 		uuid.MustParse("00000000-0000-0000-0000-000000102204"),
 	} {
+		consistencyPointAt := asOf.Add(-time.Duration(index+1) * time.Minute)
+		objectManifestBody, objectSummaryBody := operatorPhaseEObjectArtifacts(t, backupSetID, consistencyPointAt, "phase10-operator-due", objectArtifact, nil)
 		backupSet, err := capture.CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
 			BackupSetID:        backupSetID,
-			ConsistencyPointAt: asOf.Add(-time.Duration(index+1) * time.Minute),
+			ConsistencyPointAt: consistencyPointAt,
 			CreatedAt:          asOf.Add(-time.Duration(index+2) * time.Minute),
 			RetainedUntil:      asOf.Add(31 * 24 * time.Hour),
 			PostgresArtifact:   recovery.BackupArtifact{Body: postgresArtifact, ContentType: "application/json"},
@@ -302,6 +311,8 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner(t *testin
 				Body:        objectArtifact,
 				ContentType: "application/json",
 			},
+			ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: objectManifestBody, ContentType: "application/json"},
+			ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: objectSummaryBody, ContentType: "application/json"},
 		})
 		if err != nil {
 			t.Fatalf("capture due backup set %d: %v", index, err)
@@ -408,7 +419,7 @@ func buildOperatorBinary(t testing.TB) string {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "make", "--no-print-directory", "build-operator", "OPERATOR_BIN="+bin)
 	cmd.Dir = repoRoot()
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append(operatorBuildEnv(),
 		"CARTULARY_TEST_RESULTS_DIR="+filepath.Join(t.TempDir(), "results"),
 		"CARTULARY_TEST_RUN_ID=operator-build",
 	)
@@ -418,6 +429,19 @@ func buildOperatorBinary(t testing.TB) string {
 		t.Fatalf("build operator binary: %v\nstderr=%s", err, stderr.String())
 	}
 	return bin
+}
+
+func operatorBuildEnv() []string {
+	env := make([]string, 0, len(os.Environ()))
+	for _, entry := range os.Environ() {
+		if strings.HasPrefix(entry, "PHASE=") ||
+			strings.HasPrefix(entry, "MAKEFLAGS=") ||
+			strings.HasPrefix(entry, "MFLAGS=") {
+			continue
+		}
+		env = append(env, entry)
+	}
+	return env
 }
 
 func runOperatorBinary(t testing.TB, bin string, env map[string]string, args ...string) (string, string, int) {
@@ -660,6 +684,28 @@ func requireOperatorArtifactProof(t testing.TB, payload map[string]any) {
 			t.Fatalf("operator payload missing positive size %s: %#v", field, payload)
 		}
 	}
+}
+
+func operatorPhaseEObjectArtifacts(t testing.TB, backupSetID uuid.UUID, consistencyPointAt time.Time, bucket string, objectSnapshotBody []byte, blobIndex map[string]uuid.UUID) ([]byte, []byte) {
+	t.Helper()
+	snapshot, err := recovery.DecodeObjectStoreSnapshotArtifact(objectSnapshotBody)
+	if err != nil {
+		t.Fatalf("decode operator object-store snapshot: %v", err)
+	}
+	manifest, manifestBody, err := recovery.BuildSeaweedFSS3ObjectStoreBackupManifest(snapshot, recovery.ObjectStoreBackupManifestParams{
+		BackupSetID:               backupSetID,
+		ConsistencyPointAt:        consistencyPointAt,
+		Bucket:                    bucket,
+		BlobObjectIDsByStorageRef: blobIndex,
+	})
+	if err != nil {
+		t.Fatalf("build operator object-store backup manifest: %v", err)
+	}
+	_, summaryBody, err := recovery.BuildObjectStoreBackupSummary(manifest)
+	if err != nil {
+		t.Fatalf("build operator object-store backup summary: %v", err)
+	}
+	return manifestBody, summaryBody
 }
 
 func operatorPayloadStringHasPrefix(payload map[string]any, field string, prefix string) bool {

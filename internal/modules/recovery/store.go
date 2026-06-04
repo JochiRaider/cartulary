@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -185,17 +186,15 @@ func (s *Store) GetBackupSet(ctx context.Context, backupSetID uuid.UUID) (Backup
 
 func (s *Store) LatestSuccessfulRetainedBackup(ctx context.Context, asOf time.Time) (BackupSet, error) {
 	asOf = normalizeAsOf(asOf)
-	row, err := sqlc.New(s.pool).GetLatestSuccessfulRetainedBackupSet(ctx, pgTimestamptz(asOf))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return BackupSet{}, ErrNoSuccessfulRetainedBackup
-	}
-	if err != nil {
-		return BackupSet{}, fmt.Errorf("get latest successful retained backup: %w", err)
-	}
-	backupSet, err := backupSetFromSQL(row)
+	backupSets, err := s.ListSuccessfulRetainedBackups(ctx, asOf)
 	if err != nil {
 		return BackupSet{}, err
 	}
+	if len(backupSets) == 0 {
+		return BackupSet{}, ErrNoSuccessfulRetainedBackup
+	}
+	sortBackupSetsForPhaseELatest(backupSets)
+	backupSet := backupSets[0]
 	if backupSet.ConsistencyPointAt.Before(asOf.Add(-LatestSuccessfulBackupMaxAge)) {
 		return BackupSet{}, &LatestSuccessfulBackupStaleError{
 			BackupSet: backupSet,
@@ -215,29 +214,8 @@ func (s *Store) RestoreCandidateBackup(ctx context.Context, asOf time.Time) (Bac
 	if len(backupSets) == 0 {
 		return BackupSet{}, ErrNoSuccessfulRetainedBackup
 	}
-	latestPoint := backupSets[0].ConsistencyPointAt
-	for _, backupSet := range backupSets[1:] {
-		if backupSet.ConsistencyPointAt.After(latestPoint) {
-			latestPoint = backupSet.ConsistencyPointAt
-		}
-	}
-	candidates := make([]BackupSet, 0, 1)
-	for _, backupSet := range backupSets {
-		if backupSet.ConsistencyPointAt.Equal(latestPoint) {
-			candidates = append(candidates, backupSet)
-		}
-	}
-	if len(candidates) != 1 {
-		ids := make([]uuid.UUID, 0, len(candidates))
-		for _, candidate := range candidates {
-			ids = append(ids, candidate.BackupSetID)
-		}
-		return BackupSet{}, &AmbiguousBackupSelectionError{
-			ConsistencyPointAt: latestPoint,
-			BackupSetIDs:       ids,
-		}
-	}
-	backupSet := candidates[0]
+	sortBackupSetsForPhaseELatest(backupSets)
+	backupSet := backupSets[0]
 	if backupSet.ConsistencyPointAt.Before(asOf.Add(-LatestSuccessfulBackupMaxAge)) {
 		return BackupSet{}, &LatestSuccessfulBackupStaleError{
 			BackupSet: backupSet,
@@ -262,6 +240,18 @@ func (s *Store) ListSuccessfulRetainedBackups(ctx context.Context, asOf time.Tim
 		backupSets = append(backupSets, backupSet)
 	}
 	return backupSets, nil
+}
+
+func sortBackupSetsForPhaseELatest(backupSets []BackupSet) {
+	sort.Slice(backupSets, func(i, j int) bool {
+		if !backupSets[i].ConsistencyPointAt.Equal(backupSets[j].ConsistencyPointAt) {
+			return backupSets[i].ConsistencyPointAt.After(backupSets[j].ConsistencyPointAt)
+		}
+		if !backupSets[i].CreatedAt.Equal(backupSets[j].CreatedAt) {
+			return backupSets[i].CreatedAt.After(backupSets[j].CreatedAt)
+		}
+		return backupSets[i].BackupSetID.String() > backupSets[j].BackupSetID.String()
+	})
 }
 
 func (s *Store) ListBackupsDueForRestoreVerification(ctx context.Context, asOf time.Time, verificationBasisSHA256 string) ([]BackupSet, error) {

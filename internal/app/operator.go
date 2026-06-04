@@ -99,13 +99,16 @@ type OperatorRestoreResult struct {
 }
 
 type OperatorRestoreVerificationResult struct {
-	SchemaID                 string                            `json:"schema_id"`
-	BackupSetID              string                            `json:"backup_set_id"`
-	RestoreVerificationRunID string                            `json:"restore_verification_run_id"`
-	VerificationState        string                            `json:"verification_state"`
-	VerificationBasisSHA256  string                            `json:"verification_basis_sha256"`
-	CompletedAt              time.Time                         `json:"completed_at"`
-	ConsistencyReport        recovery.RestoreConsistencyReport `json:"consistency_report"`
+	SchemaID                             string                            `json:"schema_id"`
+	BackupSetID                          string                            `json:"backup_set_id"`
+	RestoreVerificationRunID             string                            `json:"restore_verification_run_id"`
+	VerificationState                    string                            `json:"verification_state"`
+	VerificationBasisSHA256              string                            `json:"verification_basis_sha256"`
+	CompletedAt                          time.Time                         `json:"completed_at"`
+	ConsistencyReport                    recovery.RestoreConsistencyReport `json:"consistency_report"`
+	RestoreVerificationArtifactKey       string                            `json:"restore_verification_artifact_key,omitempty"`
+	RestoreVerificationArtifactSHA256    string                            `json:"restore_verification_artifact_sha256,omitempty"`
+	RestoreVerificationArtifactSizeBytes int64                             `json:"restore_verification_artifact_size_bytes,omitempty"`
 }
 
 type OperatorRestoreVerificationDueResult struct {
@@ -119,11 +122,14 @@ type OperatorRestoreVerificationDueResult struct {
 }
 
 type OperatorRestoreVerificationDueItem struct {
-	BackupSetID              string     `json:"backup_set_id"`
-	RestoreVerificationRunID string     `json:"restore_verification_run_id,omitempty"`
-	VerificationState        string     `json:"verification_state"`
-	CompletedAt              *time.Time `json:"completed_at,omitempty"`
-	FailureReason            string     `json:"failure_reason,omitempty"`
+	BackupSetID                          string     `json:"backup_set_id"`
+	RestoreVerificationRunID             string     `json:"restore_verification_run_id,omitempty"`
+	VerificationState                    string     `json:"verification_state"`
+	CompletedAt                          *time.Time `json:"completed_at,omitempty"`
+	FailureReason                        string     `json:"failure_reason,omitempty"`
+	RestoreVerificationArtifactKey       string     `json:"restore_verification_artifact_key,omitempty"`
+	RestoreVerificationArtifactSHA256    string     `json:"restore_verification_artifact_sha256,omitempty"`
+	RestoreVerificationArtifactSizeBytes int64      `json:"restore_verification_artifact_size_bytes,omitempty"`
 }
 
 func RunOperatorCLIContext(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
@@ -314,13 +320,16 @@ func (runner operatorRunner) runRestoreVerifyLatest(ctx context.Context, parsed 
 		return err
 	}
 	payload := OperatorRestoreVerificationResult{
-		SchemaID:                 OperatorRestoreVerificationSchemaID,
-		BackupSetID:              result.BackupSet.BackupSetID.String(),
-		RestoreVerificationRunID: result.Run.RestoreVerificationRunID.String(),
-		VerificationState:        string(result.Run.VerificationState),
-		VerificationBasisSHA256:  result.Run.VerificationBasisSHA256,
-		CompletedAt:              result.Run.CompletedAt,
-		ConsistencyReport:        result.Run.ConsistencyReport,
+		SchemaID:                             OperatorRestoreVerificationSchemaID,
+		BackupSetID:                          result.BackupSet.BackupSetID.String(),
+		RestoreVerificationRunID:             result.Run.RestoreVerificationRunID.String(),
+		VerificationState:                    string(result.Run.VerificationState),
+		VerificationBasisSHA256:              result.Run.VerificationBasisSHA256,
+		CompletedAt:                          result.Run.CompletedAt,
+		ConsistencyReport:                    result.Run.ConsistencyReport,
+		RestoreVerificationArtifactKey:       result.ArtifactProof.Key,
+		RestoreVerificationArtifactSHA256:    result.ArtifactProof.SHA256,
+		RestoreVerificationArtifactSizeBytes: result.ArtifactProof.SizeBytes,
 	}
 	return runner.encodeJSON(payload)
 }
@@ -393,6 +402,9 @@ func (runner operatorRunner) runRestoreVerifyDue(ctx context.Context, parsed ope
 			completedAt := result.Run.CompletedAt
 			item.CompletedAt = &completedAt
 			item.FailureReason = result.Run.FailureReason
+			item.RestoreVerificationArtifactKey = result.ArtifactProof.Key
+			item.RestoreVerificationArtifactSHA256 = result.ArtifactProof.SHA256
+			item.RestoreVerificationArtifactSizeBytes = result.ArtifactProof.SizeBytes
 		}
 		if verifyErr != nil {
 			summary.FailedCount++
