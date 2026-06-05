@@ -233,6 +233,25 @@ function loadFinalizeSummary(runDir, toolSummary) {
   return existsSync(file) ? { file, summary: readJSON(file) } : { file, summary: null };
 }
 
+function writeBrowserStartupDiagnostics(toolSummary) {
+  const configured = artifactPathByRole(toolSummary, "browser_startup_diagnostics");
+  if (!configured) {
+    return;
+  }
+  const file = absoluteArtifactPath(configured);
+  if (!existsSync(file)) {
+    process.stdout.write(`[BROWSER-STARTUP] missing artifacts=${configured}\n`);
+    return;
+  }
+  const summary = readJSON(file);
+  const failure = summary.failure_class
+    ? ` failure_class=${summary.failure_class} reason=${summary.failure_reason ?? "unknown_failure"}`
+    : "";
+  process.stdout.write(
+    `[BROWSER-STARTUP] status=${summary.status} phase=${summary.startup_phase} frontend_mode=${summary.frontend_mode} command_kind=${summary.frontend_command_kind}${failure} message=${summary.message ?? ""} artifacts=${configured}\n`,
+  );
+}
+
 function writeRunSummary(runDir, runSummary) {
   if (!runSummary) {
     process.stdout.write(`[RUN] missing artifacts=${relToRepo(runDir)}\n`);
@@ -268,6 +287,7 @@ function writeToolSummary(runDir, target, toolSummary) {
     `[TOOL] ${toolSummary.target} status=${toolSummary.status}${failureClassField(toolSummary)} exit_code=${toolSummary.exit_code} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${formatDuration(toolSummary.duration_ms ?? 0)} output_mode=${toolSummary.output_mode} summaries=${toolSummary.summary_artifacts?.length ?? 0} logs=${toolSummary.log_artifacts?.length ?? 0} artifacts=${toolSummary.run_root ?? relToRepo(runDir)}\n`,
   );
   writeFailureHeadline(toolSummary.target, toolSummary);
+  writeBrowserStartupDiagnostics(toolSummary);
 }
 
 function writeFinalizeSummary(runDir, toolSummary) {

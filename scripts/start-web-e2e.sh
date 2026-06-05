@@ -16,6 +16,9 @@ USE_REPO_ROOT_RUNTIME_ARTIFACTS_ENV="CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"
 TEST_SERVICE_FRONTEND_PORT_START=39000
 TEST_SERVICE_FRONTEND_PORT_END=39199
 TEST_SERVICE_FRONTEND_STAGE_WIDTH=100
+WEB_DIST_INDEX="${ROOT_DIR}/apps/web/dist/index.html"
+FRONTEND_MODE="preview"
+FRONTEND_COMMAND_KIND="vite-preview"
 
 KEEP_RUNTIME_ROOT=0
 TARGET_ARTIFACT_DIR=""
@@ -24,6 +27,7 @@ SERVER_LOG=""
 WEB_LOG=""
 STACK_ENV_FILE=""
 STACK_JSON_FILE=""
+STARTUP_DIAGNOSTIC_FILE=""
 PLAYWRIGHT_STATE_DIR=""
 TEST_ROUTE_TOKEN=""
 TEST_ROUTE_TOKEN_FILE=""
@@ -138,8 +142,9 @@ prepare_runtime_root() {
     WEB_LOG="${TARGET_ARTIFACT_DIR}/web.log"
     STACK_ENV_FILE="${TARGET_ARTIFACT_DIR}/stack.env"
     STACK_JSON_FILE="${TARGET_ARTIFACT_DIR}/stack.json"
+    STARTUP_DIAGNOSTIC_FILE="${TARGET_ARTIFACT_DIR}/startup-diagnostics.json"
     rm -rf "${RUNTIME_ROOT_BASE}"
-    rm -f "${SERVER_LOG}" "${WEB_LOG}" "${STACK_ENV_FILE}" "${STACK_JSON_FILE}"
+    rm -f "${SERVER_LOG}" "${WEB_LOG}" "${STACK_ENV_FILE}" "${STACK_JSON_FILE}" "${STARTUP_DIAGNOSTIC_FILE}"
     KEEP_RUNTIME_ROOT=1
   else
     RUNTIME_ROOT_BASE="$(mktemp -d /tmp/cartulary-web-e2e-runtime-XXXXXX)"
@@ -147,6 +152,7 @@ prepare_runtime_root() {
     WEB_LOG="/tmp/cartulary-e2e-web-$$.log"
     STACK_ENV_FILE="${RUNTIME_ROOT_BASE}/stack.env"
     STACK_JSON_FILE="${RUNTIME_ROOT_BASE}/stack.json"
+    STARTUP_DIAGNOSTIC_FILE="${RUNTIME_ROOT_BASE}/startup-diagnostics.json"
   fi
 
   PLAYWRIGHT_STATE_DIR="${RUNTIME_ROOT_BASE}/playwright-state"
@@ -168,6 +174,9 @@ prepare_runtime_root() {
   export CARTULARY_PLAYWRIGHT_STATE_DIR="${PLAYWRIGHT_STATE_DIR}"
   export CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}"
   export CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}"
+  export CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS="${STARTUP_DIAGNOSTIC_FILE}"
+  export CARTULARY_WEB_E2E_FRONTEND_MODE="${FRONTEND_MODE}"
+  export CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND="${FRONTEND_COMMAND_KIND}"
   export CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}"
   export CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}"
   export CARTULARY_WEB_E2E_DB="${E2E_DB}"
@@ -315,6 +324,9 @@ CARTULARY_WEB_E2E_FRONTEND_PORT=${FRONTEND_PORT}
 CARTULARY_WEB_E2E_RUNTIME_ROOT=${RUNTIME_ROOT_BASE}
 CARTULARY_WEB_E2E_SERVER_LOG=${SERVER_LOG}
 CARTULARY_WEB_E2E_WEB_LOG=${WEB_LOG}
+CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS=${STARTUP_DIAGNOSTIC_FILE}
+CARTULARY_WEB_E2E_FRONTEND_MODE=${FRONTEND_MODE}
+CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND=${FRONTEND_COMMAND_KIND}
 CARTULARY_TEST_ROUTE_TOKEN_FILE=${TEST_ROUTE_TOKEN_FILE}
 EOF
   chmod 600 "${STACK_ENV_FILE}" 2>/dev/null || true
@@ -327,6 +339,9 @@ EOF
   CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}" \
   CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}" \
   CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}" \
+  CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS="${STARTUP_DIAGNOSTIC_FILE}" \
+  CARTULARY_WEB_E2E_FRONTEND_MODE="${FRONTEND_MODE}" \
+  CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND="${FRONTEND_COMMAND_KIND}" \
   CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}" \
   CARTULARY_WEB_E2E_SERVER_PGID="${SERVER_PGID}" \
   CARTULARY_WEB_E2E_VITE_PGID="${VITE_PGID}" \
@@ -344,14 +359,17 @@ const fs = require("node:fs");
 const fixtureIdentity = resolveFixtureIdentity();
 
 const payload = {
-  schema_id: "cartulary.web_e2e_stack.v2",
+  schema_id: "cartulary.web_e2e_stack.v3",
   api_origin: process.env.CARTULARY_WEB_E2E_API_ORIGIN,
   public_origin: process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN,
   backend_port: Number.parseInt(process.env.CARTULARY_WEB_E2E_BACKEND_PORT ?? "", 10),
   frontend_port: Number.parseInt(process.env.CARTULARY_WEB_E2E_FRONTEND_PORT ?? "", 10),
+  frontend_mode: process.env.CARTULARY_WEB_E2E_FRONTEND_MODE,
+  frontend_command_kind: process.env.CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND,
   runtime_root: process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT,
   server_log: process.env.CARTULARY_WEB_E2E_SERVER_LOG,
   web_log: process.env.CARTULARY_WEB_E2E_WEB_LOG,
+  startup_diagnostics: stringOrUndefined(process.env.CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS),
   test_route_token_file: process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE,
   backend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_SERVER_PGID),
   frontend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_VITE_PGID),
@@ -419,6 +437,181 @@ for (const key of Object.keys(payload)) {
 fs.writeFileSync(process.env.CARTULARY_WEB_E2E_STACK_JSON_FILE, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
 fs.chmodSync(process.env.CARTULARY_WEB_E2E_STACK_JSON_FILE, 0o600);
 EOF
+}
+
+write_startup_diagnostics() {
+  local status="$1"
+  local phase="$2"
+  local failure_class="${3:-}"
+  local failure_reason="${4:-}"
+  local message="${5:-}"
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+
+  if [[ -z "${STARTUP_DIAGNOSTIC_FILE}" ]]; then
+    return 0
+  fi
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+
+  phase_secure_mkdir "$(dirname "${STARTUP_DIAGNOSTIC_FILE}")"
+  CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS="${STARTUP_DIAGNOSTIC_FILE}" \
+  CARTULARY_WEB_E2E_DIAGNOSTIC_STATUS="${status}" \
+  CARTULARY_WEB_E2E_DIAGNOSTIC_PHASE="${phase}" \
+  CARTULARY_WEB_E2E_DIAGNOSTIC_FAILURE_CLASS="${failure_class}" \
+  CARTULARY_WEB_E2E_DIAGNOSTIC_FAILURE_REASON="${failure_reason}" \
+  CARTULARY_WEB_E2E_DIAGNOSTIC_MESSAGE="${message}" \
+  CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
+  CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
+  CARTULARY_WEB_E2E_BACKEND_PORT="${BACKEND_PORT}" \
+  CARTULARY_WEB_E2E_FRONTEND_PORT="${FRONTEND_PORT}" \
+  CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}" \
+  CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}" \
+  CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}" \
+  CARTULARY_WEB_E2E_FRONTEND_MODE="${FRONTEND_MODE}" \
+  CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND="${FRONTEND_COMMAND_KIND}" \
+  CARTULARY_WEB_E2E_SERVER_PGID="${SERVER_PGID}" \
+  CARTULARY_WEB_E2E_VITE_PGID="${VITE_PGID}" \
+    "${node_bin}" <<'EOF'
+const fs = require("node:fs");
+const path = require("node:path");
+
+const outputPath = process.env.CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS;
+const message = stringOrUndefined(process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_MESSAGE);
+const logSample = readLogSample(process.env.CARTULARY_WEB_E2E_WEB_LOG);
+const combinedText = `${message ?? ""}\n${logSample ?? ""}`;
+const inotify = /ENOSPC|System limit for number of file watchers reached|inotify/i.test(combinedText)
+  ? collectInotifyDiagnostics()
+  : undefined;
+
+const payload = {
+  schema_id: "cartulary.browser_startup_diagnostics.v1",
+  generated_at: new Date().toISOString(),
+  target: stringOrUndefined(process.env.CARTULARY_TEST_TARGET),
+  status: process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_STATUS,
+  startup_phase: process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_PHASE,
+  frontend_mode: process.env.CARTULARY_WEB_E2E_FRONTEND_MODE,
+  frontend_command_kind: process.env.CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND,
+  api_origin: stringOrUndefined(process.env.CARTULARY_WEB_E2E_API_ORIGIN),
+  public_origin: stringOrUndefined(process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN),
+  backend_port: numberOrUndefined(process.env.CARTULARY_WEB_E2E_BACKEND_PORT),
+  frontend_port: numberOrUndefined(process.env.CARTULARY_WEB_E2E_FRONTEND_PORT),
+  backend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_SERVER_PGID),
+  frontend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_VITE_PGID),
+  runtime_root: stringOrUndefined(process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT),
+  failure_class: stringOrUndefined(process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_FAILURE_CLASS),
+  failure_reason: stringOrUndefined(process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_FAILURE_REASON),
+  message,
+  logs: {
+    backend: stringOrUndefined(process.env.CARTULARY_WEB_E2E_SERVER_LOG),
+    frontend: stringOrUndefined(process.env.CARTULARY_WEB_E2E_WEB_LOG),
+  },
+  inotify,
+};
+
+for (const key of Object.keys(payload)) {
+  if (payload[key] === undefined) {
+    delete payload[key];
+  }
+}
+if (payload.logs && Object.values(payload.logs).every((value) => value === undefined)) {
+  delete payload.logs;
+}
+
+fs.mkdirSync(path.dirname(outputPath), { recursive: true, mode: 0o700 });
+fs.writeFileSync(outputPath, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
+fs.chmodSync(outputPath, 0o600);
+
+function stringOrUndefined(value) {
+  const normalized = value?.trim() ?? "";
+  return normalized === "" ? undefined : normalized;
+}
+
+function numberOrUndefined(value) {
+  const normalized = value?.trim() ?? "";
+  if (normalized === "") {
+    return undefined;
+  }
+  const parsed = Number.parseInt(normalized, 10);
+  return Number.isInteger(parsed) ? parsed : undefined;
+}
+
+function readLogSample(file) {
+  if (!file || !fs.existsSync(file)) {
+    return undefined;
+  }
+  const text = fs.readFileSync(file, "utf8");
+  return text.split(/\r?\n/).slice(-40).join("\n");
+}
+
+function readIntFile(file) {
+  try {
+    const parsed = Number.parseInt(fs.readFileSync(file, "utf8").trim(), 10);
+    return Number.isInteger(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function collectInotifyDiagnostics() {
+  const diagnostics = {
+    platform: process.platform,
+    max_user_watches: readIntFile("/proc/sys/fs/inotify/max_user_watches"),
+    max_user_instances: readIntFile("/proc/sys/fs/inotify/max_user_instances"),
+    remediation:
+      "Raise fs.inotify.max_user_watches and fs.inotify.max_user_instances or stop stale watcher-heavy processes; the harness does not mutate host sysctl settings.",
+  };
+  if (process.platform !== "linux") {
+    return diagnostics;
+  }
+
+  let currentInstances = 0;
+  let currentWatches = 0;
+  try {
+    for (const pid of fs.readdirSync("/proc")) {
+      if (!/^\d+$/.test(pid)) {
+        continue;
+      }
+      const fdinfoDir = `/proc/${pid}/fdinfo`;
+      let fdinfos = [];
+      try {
+        fdinfos = fs.readdirSync(fdinfoDir);
+      } catch {
+        continue;
+      }
+      for (const fdinfo of fdinfos) {
+        let text = "";
+        try {
+          text = fs.readFileSync(`${fdinfoDir}/${fdinfo}`, "utf8");
+        } catch {
+          continue;
+        }
+        const matches = text.match(/^inotify\b/gm);
+        if (matches) {
+          currentInstances += 1;
+          currentWatches += matches.length;
+        }
+      }
+    }
+    diagnostics.current_instances = currentInstances;
+    diagnostics.current_watches = currentWatches;
+  } catch {
+    diagnostics.current_usage_available = false;
+  }
+  return diagnostics;
+}
+EOF
+}
+
+require_frontend_preview_artifacts() {
+  if [[ -f "${WEB_DIST_INDEX}" ]]; then
+    return 0
+  fi
+
+  local message="built frontend artifact missing at ${WEB_DIST_INDEX}; run make build-web before browser e2e"
+  echo "${message}" >&2
+  write_startup_diagnostics "fail" "frontend_artifact" "config" "configuration_error" "${message}" || true
+  return 2
 }
 
 using_test_services_stack() {
@@ -626,6 +819,9 @@ write_session_files() {
   CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}" \
   CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}" \
   CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}" \
+  CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS="${STARTUP_DIAGNOSTIC_FILE}" \
+  CARTULARY_WEB_E2E_FRONTEND_MODE="${FRONTEND_MODE}" \
+  CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND="${FRONTEND_COMMAND_KIND}" \
   CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}" \
   CARTULARY_WEB_E2E_SERVER_PGID="${SERVER_PGID}" \
   CARTULARY_WEB_E2E_VITE_PGID="${VITE_PGID}" \
@@ -646,6 +842,9 @@ const env = {
   CARTULARY_WEB_E2E_RUNTIME_ROOT: process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT,
   CARTULARY_WEB_E2E_SERVER_LOG: process.env.CARTULARY_WEB_E2E_SERVER_LOG,
   CARTULARY_WEB_E2E_WEB_LOG: process.env.CARTULARY_WEB_E2E_WEB_LOG,
+  CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS: process.env.CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS,
+  CARTULARY_WEB_E2E_FRONTEND_MODE: process.env.CARTULARY_WEB_E2E_FRONTEND_MODE,
+  CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND: process.env.CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND,
   CARTULARY_TEST_ROUTE_TOKEN_FILE: process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE,
 };
 const lease = {
@@ -656,6 +855,9 @@ const lease = {
   runtime_root: process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT,
   server_log: process.env.CARTULARY_WEB_E2E_SERVER_LOG,
   web_log: process.env.CARTULARY_WEB_E2E_WEB_LOG,
+  startup_diagnostics: process.env.CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS,
+  frontend_mode: process.env.CARTULARY_WEB_E2E_FRONTEND_MODE,
+  frontend_command_kind: process.env.CARTULARY_WEB_E2E_FRONTEND_COMMAND_KIND,
   server_pgid: process.env.CARTULARY_WEB_E2E_SERVER_PGID,
   vite_pgid: process.env.CARTULARY_WEB_E2E_VITE_PGID,
   keep_runtime_root: process.env.CARTULARY_WEB_E2E_KEEP_RUNTIME_ROOT === "1",
@@ -839,11 +1041,13 @@ wait_for_http() {
     fi
     if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
       echo "backend exited before ${name} readiness" >&2
+      write_startup_diagnostics "fail" "backend_readiness" "infra" "service_start_error" "backend exited before ${name} readiness" || true
       cat "${SERVER_LOG}" >&2 || true
       return 1
     fi
     if [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
       echo "frontend exited before ${name} readiness" >&2
+      write_startup_diagnostics "fail" "frontend_readiness" "infra" "service_start_error" "frontend exited before ${name} readiness" || true
       cat "${WEB_LOG}" >&2 || true
       return 1
     fi
@@ -854,6 +1058,7 @@ wait_for_http() {
   done
 
   echo "timed out waiting for ${name} at ${url}" >&2
+  write_startup_diagnostics "fail" "${name}_readiness" "infra" "service_readiness_timeout" "timed out waiting for ${name} at ${url}" || true
   cat "${SERVER_LOG}" >&2 || true
   cat "${WEB_LOG}" >&2 || true
   return 1
@@ -936,12 +1141,14 @@ browser_wait_backend_ready() {
     fi
     if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
       echo "backend exited before readiness" >&2
+      write_startup_diagnostics "fail" "backend_readiness" "infra" "service_start_error" "backend exited before readiness" || true
       cat "${SERVER_LOG}" >&2 || true
       return 1
     fi
     if port_owned_by_process_group "${BACKEND_PORT}" "${SERVER_PGID}" && identity_pid="$(probe_backend_identity 2>/dev/null)"; then
       if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
         echo "backend exited immediately after readiness identity probe" >&2
+        write_startup_diagnostics "fail" "backend_readiness" "infra" "service_start_error" "backend exited immediately after readiness identity probe" || true
         cat "${SERVER_LOG}" >&2 || true
         return 1
       fi
@@ -955,6 +1162,7 @@ browser_wait_backend_ready() {
   done
 
   echo "timed out waiting for backend owned-runtime identity at ${API_ORIGIN}/api/v1/test/runtime/identity" >&2
+  write_startup_diagnostics "fail" "backend_readiness" "infra" "service_readiness_timeout" "timed out waiting for backend owned-runtime identity at ${API_ORIGIN}/api/v1/test/runtime/identity" || true
   print_port_diagnostics "${BACKEND_PORT}" "backend"
   cat "${SERVER_LOG}" >&2 || true
   return 1
@@ -969,24 +1177,28 @@ browser_wait_frontend_ready() {
     fi
     if [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
       echo "frontend exited before readiness" >&2
+      write_startup_diagnostics "fail" "frontend_readiness" "infra" "service_start_error" "frontend exited before readiness" || true
       cat "${WEB_LOG}" >&2 || true
       return 1
     fi
     if port_owned_by_process_group "${FRONTEND_PORT}" "${VITE_PGID}" && curl -fsS "${PUBLIC_ORIGIN}" >/dev/null 2>&1; then
       if [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
         echo "frontend exited immediately after readiness probe" >&2
+        write_startup_diagnostics "fail" "frontend_readiness" "infra" "service_start_error" "frontend exited immediately after readiness probe" || true
         cat "${WEB_LOG}" >&2 || true
         return 1
       fi
       FRONTEND_OWNERSHIP_STATUS="pass"
       FRONTEND_READY_AT="$(phase_now_utc)"
       write_stack_metadata
+      write_startup_diagnostics "pass" "frontend_readiness" "" "" "frontend ready at ${PUBLIC_ORIGIN}" || true
       return 0
     fi
     sleep 0.5
   done
 
   echo "timed out waiting for frontend owned listener at ${PUBLIC_ORIGIN}" >&2
+  write_startup_diagnostics "fail" "frontend_readiness" "infra" "service_readiness_timeout" "timed out waiting for frontend owned listener at ${PUBLIC_ORIGIN}" || true
   print_port_diagnostics "${FRONTEND_PORT}" "frontend"
   cat "${WEB_LOG}" >&2 || true
   return 1
@@ -1073,6 +1285,7 @@ main() {
   CARTULARY_PHASE_TIMING_BUCKET=setup run_phase_command "browser-e2e allocate ports" resolve_owned_stack_ports
   CARTULARY_PHASE_TIMING_BUCKET=setup run_phase_command "browser-e2e prepare test route token" prepare_test_route_token
   run_timing_span "setup" "browser-e2e write stack metadata" write_stack_metadata
+  CARTULARY_PHASE_TIMING_BUCKET=frontend_startup run_phase_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts
 
   CARTULARY_PHASE_TIMING_BUCKET=service_wait run_phase_command "browser-e2e startup services" browser_start_services
   CARTULARY_PHASE_TIMING_BUCKET=migration run_phase_command "browser-e2e startup database" browser_prepare_database
@@ -1119,7 +1332,7 @@ main() {
     PATH="${NODE_RUNTIME_DIR}/bin:${PATH}" \
     CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
     CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
-    "${pnpm_bin}" --dir apps/web dev --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort
+    "${pnpm_bin}" --dir apps/web exec vite preview --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort
   write_stack_metadata
 
   CARTULARY_PHASE_TIMING_BUCKET=server_startup run_phase_command "browser-e2e startup backend ready" browser_wait_backend_ready

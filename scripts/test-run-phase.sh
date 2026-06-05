@@ -322,6 +322,48 @@ assert_equals "$(json_field "$short_failure_summary" "failures.0.failure_class")
 assert_matches "$(json_field "$short_failure_summary" "start_time")" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' "short failure millisecond start time"
 assert_matches "$(json_field "$short_failure_summary" "end_time")" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' "short failure millisecond end time"
 
+browser_start_failure_results="$(mktemp -d "$ROOT_DIR/tmp/browser-start-failure.XXXXXX")"
+cleanup_paths+=("$browser_start_failure_results")
+set +e
+browser_start_failure_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$browser_start_failure_results" \
+  CARTULARY_TEST_RUN_ID="browser-start-failure" \
+  CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
+    "$HELPER" "browser-e2e startup frontend ready" -- bash -lc 'echo "frontend exited before readiness" >&2; echo "Error: ENOSPC: System limit for number of file watchers reached, watch '\''/home/rook/code/cartulary/apps/web/vite.config.ts'\''" >&2; exit 1' \
+    2>&1
+)"
+browser_start_failure_status=$?
+set -e
+if [[ "$browser_start_failure_status" -ne 1 ]]; then
+  fail "browser start failure: expected exit status 1, got $browser_start_failure_status"
+fi
+assert_contains "$browser_start_failure_output" "failure_class=infra" "browser start phase failure class"
+assert_contains "$browser_start_failure_output" "reason=service_start_error" "browser start phase failure reason"
+browser_start_failure_phase_summary="$browser_start_failure_results/browser-start-failure/browser-e2e-webserver-backed/browser-e2e-startup-frontend-ready/phase-summary.json"
+assert_equals "$(json_field "$browser_start_failure_phase_summary" "failure_class")" "infra" "browser start phase summary class"
+assert_equals "$(json_field "$browser_start_failure_phase_summary" "failure_reason")" "service_start_error" "browser start phase summary reason"
+set +e
+browser_start_failure_target_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$browser_start_failure_results" \
+  CARTULARY_TEST_RUN_ID="browser-start-failure" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed fail \
+    2>&1
+)"
+browser_start_failure_target_status=$?
+set -e
+if [[ "$browser_start_failure_target_status" -ne 0 ]]; then
+  fail "browser start target summary writer: expected status 0, got $browser_start_failure_target_status"
+fi
+assert_contains "$browser_start_failure_target_output" "failure_class=infra" "browser start target failure class"
+assert_contains "$browser_start_failure_target_output" "reason=service_start_error" "browser start target failure reason"
+browser_start_failure_target_summary="$browser_start_failure_results/browser-start-failure/browser-e2e-webserver-backed/target-summary.json"
+browser_start_failure_tool_summary="$browser_start_failure_results/browser-start-failure/browser-e2e-webserver-backed/tool-run-summary.json"
+assert_equals "$(json_field "$browser_start_failure_tool_summary" "exit_code")" "3" "browser start tool summary exit code"
+assert_equals "$(json_field "$browser_start_failure_target_summary" "failure_class")" "infra" "browser start target summary class"
+assert_equals "$(json_field "$browser_start_failure_target_summary" "failure_reason")" "service_start_error" "browser start target summary reason"
+
 shell_progress_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-phase-progress-results.XXXXXX")"
 cleanup_paths+=("$shell_progress_failure_results")
 set +e

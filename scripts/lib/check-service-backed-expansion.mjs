@@ -17,6 +17,7 @@ const postgresResetResource = "postgres_reset";
 const postgresCloneResource = "postgres_clone";
 const buildServerTarget = "build-server";
 const buildMigrateTarget = "build-migrate";
+const buildWebTarget = "build-web";
 const testServiceImagesTarget = "test-service-images";
 const defaultSchedulerPriority = 0;
 
@@ -119,7 +120,9 @@ function serviceSessionNeeds(parentNeeds) {
 }
 
 function browserStageExtraNeeds(parentNeeds) {
-  return [buildServerTarget, buildMigrateTarget].filter((need) => parentNeeds.includes(need));
+  return [buildWebTarget, buildServerTarget, buildMigrateTarget].filter((need) =>
+    parentNeeds.includes(need),
+  );
 }
 
 function isRetainedBrowserStageResource(resource) {

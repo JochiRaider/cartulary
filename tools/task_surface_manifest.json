@@ -1714,6 +1714,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
+        "build-web",
         "build-server",
         "build-migrate",
         "$(TEST_SERVICES_BIN)",
@@ -1729,6 +1730,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
+        "build-web",
         "build-server",
         "build-migrate"
       ],
@@ -1742,6 +1744,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
+        "build-web",
         "build-server",
         "build-migrate"
       ],
@@ -1755,6 +1758,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
+        "build-web",
         "build-server",
         "build-migrate"
       ],
@@ -1768,6 +1772,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
+        "build-web",
         "build-server",
         "build-migrate"
       ],
@@ -1784,6 +1789,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
+        "build-web",
         "build-server",
         "build-migrate"
       ],
@@ -1797,6 +1803,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
+        "build-web",
         "build-server",
         "build-migrate",
         "$(TEST_SERVICES_BIN)",
@@ -1815,6 +1822,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
+        "build-web",
         "build-server",
         "build-migrate"
       ],
@@ -2034,6 +2042,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
+        "build-web",
         "build-server",
         "build-migrate",
         "test-service-images"
@@ -2175,6 +2184,7 @@
     },
     "build": {
       "prerequisites": [
+        "build-web",
         "build-server",
         "build-migrate",
         "build-operator"
@@ -2234,6 +2244,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
+        "build-web",
         "build-server",
         "build-migrate"
       ],
@@ -2247,6 +2258,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
+        "build-web",
         "build-server",
         "build-migrate"
       ],
@@ -9201,7 +9213,7 @@
       ],
       "target_class": "public",
       "default_inclusion_sets": [
-        "helper_only"
+        "check"
       ],
       "lifecycle_state": "public_active",
       "family_id": "builds",

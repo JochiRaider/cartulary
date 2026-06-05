@@ -399,6 +399,7 @@ export function failuresFromDossiers(dossiers = [], context = {}) {
     normalizeFailureRecord(
       {
         failure_class: classifyDossierFailure(dossier, context),
+        failure_reason: dossier.failure_reason ?? context.failure_reason,
         kind: dossier.kind ?? "failure",
         source: dossier.source ?? dossier.runner ?? context.runner ?? "",
         target: context.target ?? "",

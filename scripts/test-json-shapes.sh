@@ -836,6 +836,80 @@ write_valid_execution_topology_render_cache_record() {
 JSON
 }
 
+write_valid_web_e2e_stack() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.web_e2e_stack.v3",
+  "api_origin": "http://127.0.0.1:8080",
+  "public_origin": "http://127.0.0.1:4173",
+  "backend_port": 8080,
+  "frontend_port": 4173,
+  "frontend_mode": "preview",
+  "frontend_command_kind": "vite-preview",
+  "runtime_root": ".cartulary/test-results/run/browser/runtime-root",
+  "server_log": ".cartulary/test-results/run/browser/server.log",
+  "web_log": ".cartulary/test-results/run/browser/web.log",
+  "startup_diagnostics": ".cartulary/test-results/run/browser/startup-diagnostics.json",
+  "backend_process_group_id": 101,
+  "frontend_process_group_id": 102,
+  "backend_ready_at": "2026-01-01T00:00:00Z",
+  "frontend_ready_at": "2026-01-01T00:00:01Z",
+  "backend_identity": {
+    "schema_id": "cartulary.test.runtime_identity.v1",
+    "status": "pass",
+    "server_pid": 101
+  },
+  "frontend_ownership": {
+    "status": "pass"
+  },
+  "database": {
+    "logical_id": "cartulary_web_e2e_fixture",
+    "source": "standalone"
+  }
+}
+JSON
+}
+
+write_valid_browser_startup_diagnostics() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.browser_startup_diagnostics.v1",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "target": "browser-e2e-webserver-backed",
+  "status": "fail",
+  "startup_phase": "frontend_readiness",
+  "frontend_mode": "preview",
+  "frontend_command_kind": "vite-preview",
+  "api_origin": "http://127.0.0.1:8080",
+  "public_origin": "http://127.0.0.1:4173",
+  "backend_port": 8080,
+  "frontend_port": 4173,
+  "backend_process_group_id": 101,
+  "frontend_process_group_id": 102,
+  "runtime_root": ".cartulary/test-results/run/browser/runtime-root",
+  "failure_class": "infra",
+  "failure_reason": "service_start_error",
+  "message": "frontend exited before readiness",
+  "logs": {
+    "backend": ".cartulary/test-results/run/browser/server.log",
+    "frontend": ".cartulary/test-results/run/browser/web.log"
+  },
+  "inotify": {
+    "platform": "linux",
+    "max_user_watches": 8192,
+    "max_user_instances": 128,
+    "current_watches": 8192,
+    "current_instances": 128,
+    "remediation": "raise Linux inotify limits"
+  }
+}
+JSON
+}
+
 mutate_json_fixture() {
   local mutation="$1"
   local file="$2"
@@ -889,6 +963,12 @@ const mutations = {
   },
   "tool-run-summary-missing-schema-id": (fixture) => {
     delete fixture.schema_id;
+  },
+  "web-e2e-stack-wrong-frontend-mode": (fixture) => {
+    fixture.frontend_mode = "dev";
+  },
+  "browser-startup-diagnostics-unknown-key": (fixture) => {
+    fixture.legacy_key = true;
   },
   "agent-finalize-summary-bad-action-status": (fixture) => {
     fixture.actions[0].status = "done";
@@ -1405,6 +1485,26 @@ write_valid_tool_run_summary "$missing_schema_id"
 mutate_json_fixture tool-run-summary-missing-schema-id "$missing_schema_id"
 missing_schema_id_output="$(assert_fails "missing tool run schema_id" run_shape_check tool-run-summary "$missing_schema_id")"
 assert_contains "$missing_schema_id_output" "schema_id is required" "missing tool run schema_id"
+
+web_e2e_stack="$tmp_dir/web-e2e-stack.json"
+write_valid_web_e2e_stack "$web_e2e_stack"
+run_schema_validation cartulary.web_e2e_stack.v3 "$web_e2e_stack" >/dev/null
+
+bad_web_e2e_stack="$tmp_dir/web-e2e-stack-bad-mode.json"
+write_valid_web_e2e_stack "$bad_web_e2e_stack"
+mutate_json_fixture web-e2e-stack-wrong-frontend-mode "$bad_web_e2e_stack"
+bad_web_e2e_stack_output="$(assert_fails "web e2e stack rejects dev frontend mode" run_schema_validation cartulary.web_e2e_stack.v3 "$bad_web_e2e_stack")"
+assert_contains "$bad_web_e2e_stack_output" "must be equal to constant" "web e2e stack frontend mode"
+
+browser_startup_diagnostics="$tmp_dir/browser-startup-diagnostics.json"
+write_valid_browser_startup_diagnostics "$browser_startup_diagnostics"
+run_schema_validation cartulary.browser_startup_diagnostics.v1 "$browser_startup_diagnostics" >/dev/null
+
+bad_browser_startup_diagnostics="$tmp_dir/browser-startup-diagnostics-unknown-key.json"
+write_valid_browser_startup_diagnostics "$bad_browser_startup_diagnostics"
+mutate_json_fixture browser-startup-diagnostics-unknown-key "$bad_browser_startup_diagnostics"
+bad_browser_startup_output="$(assert_fails "browser startup diagnostics reject unknown key" run_schema_validation cartulary.browser_startup_diagnostics.v1 "$bad_browser_startup_diagnostics")"
+assert_contains "$bad_browser_startup_output" "must NOT have additional properties" "browser startup diagnostics unknown key"
 
 agent_finalize_summary="$tmp_dir/agent-finalize-summary.json"
 write_valid_agent_finalize_summary "$agent_finalize_summary"

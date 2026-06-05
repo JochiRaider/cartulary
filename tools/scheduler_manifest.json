@@ -192,6 +192,23 @@
           }
         },
         {
+          "target": "build-web",
+          "priority": 39500,
+          "weight_ms": 10000,
+          "needs": [
+            "check-frontend-install"
+          ],
+          "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 2
+          },
+          "make_jobs": "host_cpu",
+          "command": {
+            "type": "make_target",
+            "target": "build-web"
+          }
+        },
+        {
           "target": "build-migrate",
           "priority": 39000,
           "weight_ms": 10000,
@@ -281,6 +298,7 @@
           "weight_ms": 290598,
           "needs": [
             "service_session:check-service-backed",
+            "build-web",
             "build-server",
             "build-migrate"
           ],
@@ -378,6 +396,7 @@
           "weight_ms": 50865,
           "needs": [
             "service_session:check-service-backed",
+            "build-web",
             "build-server",
             "build-migrate"
           ],

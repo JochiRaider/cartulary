@@ -1929,6 +1929,7 @@
         "prerequisites": [
           "$(NODE_BIN)",
           "$(FRONTEND_INSTALL_STAMP)",
+          "build-web",
           "build-server",
           "build-migrate",
           "$(TEST_SERVICES_BIN)",
@@ -1944,6 +1945,7 @@
         "prerequisites": [
           "$(NODE_BIN)",
           "$(FRONTEND_INSTALL_STAMP)",
+          "build-web",
           "build-server",
           "build-migrate"
         ],
@@ -1957,6 +1959,7 @@
         "prerequisites": [
           "$(NODE_BIN)",
           "$(FRONTEND_INSTALL_STAMP)",
+          "build-web",
           "build-server",
           "build-migrate"
         ],
@@ -1970,6 +1973,7 @@
         "prerequisites": [
           "$(NODE_BIN)",
           "$(FRONTEND_INSTALL_STAMP)",
+          "build-web",
           "build-server",
           "build-migrate"
         ],
@@ -1983,6 +1987,7 @@
         "prerequisites": [
           "$(NODE_BIN)",
           "$(FRONTEND_INSTALL_STAMP)",
+          "build-web",
           "build-server",
           "build-migrate"
         ],
@@ -1999,6 +2004,7 @@
         "prerequisites": [
           "$(NODE_BIN)",
           "$(FRONTEND_INSTALL_STAMP)",
+          "build-web",
           "build-server",
           "build-migrate"
         ],
@@ -2012,6 +2018,7 @@
         "prerequisites": [
           "$(NODE_BIN)",
           "$(FRONTEND_INSTALL_STAMP)",
+          "build-web",
           "build-server",
           "build-migrate",
           "$(TEST_SERVICES_BIN)",
@@ -2030,6 +2037,7 @@
         "prerequisites": [
           "$(NODE_BIN)",
           "$(FRONTEND_INSTALL_STAMP)",
+          "build-web",
           "build-server",
           "build-migrate"
         ],
@@ -2249,6 +2257,7 @@
         "prerequisites": [
           "$(NODE_BIN)",
           "$(FRONTEND_INSTALL_STAMP)",
+          "build-web",
           "build-server",
           "build-migrate",
           "test-service-images"
@@ -2390,6 +2399,7 @@
       },
       "build": {
         "prerequisites": [
+          "build-web",
           "build-server",
           "build-migrate",
           "build-operator"
@@ -2449,6 +2459,7 @@
         "prerequisites": [
           "$(NODE_BIN)",
           "$(FRONTEND_INSTALL_STAMP)",
+          "build-web",
           "build-server",
           "build-migrate"
         ],
@@ -2462,6 +2473,7 @@
         "prerequisites": [
           "$(NODE_BIN)",
           "$(FRONTEND_INSTALL_STAMP)",
+          "build-web",
           "build-server",
           "build-migrate"
         ],
@@ -9143,6 +9155,7 @@
           ],
           "service_backed_schedule": "check-service-backed",
           "needs": [
+            "build-web",
             "build-server",
             "build-migrate",
             "test-service-images"
@@ -9795,6 +9808,17 @@
           "scripts/cache-artifact.sh",
           "scripts/build-web-artifact.sh"
         ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "build_readiness_frontend",
+          "priority_band": "build_readiness",
+          "order": 500,
+          "needs": [
+            "check-frontend-install"
+          ]
+        },
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -9826,7 +9850,7 @@
         ],
         "target_class": "public",
         "default_inclusion_sets": [
-          "helper_only"
+          "check"
         ],
         "lifecycle_state": "public_active",
         "family_id": "builds",
@@ -10485,6 +10509,13 @@
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        "build_readiness_frontend": {
+          "resource_claims": {
+            "host_cpu": 2,
+            "host_io": 2
           },
           "make_jobs": "host_cpu"
         },

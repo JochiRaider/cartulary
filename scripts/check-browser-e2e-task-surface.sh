@@ -57,6 +57,9 @@ require_browser_owned_stack_target_uses_built_binaries() {
   if ! text_contains "$block" 'build-server'; then
     fail "$target must depend on build-server"
   fi
+  if ! text_contains "$block" 'build-web'; then
+    fail "$target must depend on build-web"
+  fi
   if ! text_contains "$block" 'build-migrate'; then
     fail "$target must depend on build-migrate"
   fi
@@ -148,6 +151,9 @@ require_service_backed_schedule_target() {
   fi
   if ! text_contains "$block" 'build-server'; then
     fail "$target must prebuild server before service-backed scheduling"
+  fi
+  if ! text_contains "$block" 'build-web'; then
+    fail "$target must prebuild web assets before service-backed scheduling"
   fi
   if ! text_contains "$block" 'test-service-images'; then
     fail "$target must depend on test-service-images for direct runs"
@@ -521,6 +527,7 @@ for scheduled_target in \
   gosec-toolchain \
   shell-lint-toolchain \
   check-frontend-install \
+  build-web \
 	  build-server \
 	  build-migrate \
 	  testservices-build \
@@ -687,10 +694,11 @@ const statefulSession = sessionByGroup.get("default-check-stateful-isolated");
 for (const session of [sharedSession, statefulSession]) {
   if (
     !session.needs?.includes("service_session:check-service-backed") ||
+    !session.needs?.includes("build-web") ||
     !session.needs?.includes("build-server") ||
     !session.needs?.includes("build-migrate")
   ) {
-    throw new Error(`${session.label} browser stage session must depend on the service session, build-server, and build-migrate`);
+    throw new Error(`${session.label} browser stage session must depend on the service session, build-web, build-server, and build-migrate`);
   }
   if (
     Object.prototype.hasOwnProperty.call(session.retained_resource_claims ?? {}, "postgres") ||

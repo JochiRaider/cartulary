@@ -13,6 +13,7 @@ import { helperArtifactReferences } from "../artifact-discovery.mjs";
 import {
   artifactFailureRecord,
   classifyExecutionFailure,
+  classifyExecutionFailureReason,
   failureFieldsForJSON,
   failureHeadlineForSummary,
   failuresFromDossiers,
@@ -3368,6 +3369,7 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
     : null;
   const schedulerTiming = schedulerTimingFromSummary(schedulerSummary);
   const schedulerArtifacts = schedulerSummary?.artifacts ?? {};
+  const browserArtifacts = browserOwnedStackArtifacts(targetArtifactRoot);
   const serviceMetadata = serviceSharedMetadata(runRunRoot);
   const workUnits =
     targetSummary.kind === "aggregate"
@@ -3409,6 +3411,15 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
         ? artifactRef(
             "frontend_row_accounting",
             targetSummary.artifacts.frontend_row_accounting,
+          )
+        : null,
+      browserArtifacts.stackMetadata
+        ? artifactRef("browser_stack", browserArtifacts.stackMetadata)
+        : null,
+      browserArtifacts.startupDiagnostics
+        ? artifactRef(
+            "browser_startup_diagnostics",
+            browserArtifacts.startupDiagnostics,
           )
         : null,
       existsSync(runSummaryFile)
@@ -3527,6 +3538,18 @@ function serviceSharedSummaryArtifacts(runRunRoot) {
         })
         .filter(Boolean);
     });
+}
+
+function browserOwnedStackArtifacts(targetDir) {
+  const ownedStackDir = path.join(targetDir, "owned-stack");
+  const stackMetadata = path.join(ownedStackDir, "stack.json");
+  const startupDiagnostics = path.join(ownedStackDir, "startup-diagnostics.json");
+  return {
+    stackMetadata: existsSync(stackMetadata) ? relToRepo(stackMetadata) : "",
+    startupDiagnostics: existsSync(startupDiagnostics)
+      ? relToRepo(startupDiagnostics)
+      : "",
+  };
 }
 
 function statusFromBooleans(values) {
@@ -4030,6 +4053,21 @@ function handleTargetSummary(args) {
       totalsSection.artifacts.frontend_row_accounting = relToRepo(
         frontendRowAccountingPath,
       );
+    }
+  }
+  const browserArtifacts = browserOwnedStackArtifacts(summary.targetDir);
+  if (browserArtifacts.stackMetadata) {
+    ownSection.artifacts.browser_stack = browserArtifacts.stackMetadata;
+    if (totalsSection.artifacts && typeof totalsSection.artifacts === "object") {
+      totalsSection.artifacts.browser_stack = browserArtifacts.stackMetadata;
+    }
+  }
+  if (browserArtifacts.startupDiagnostics) {
+    ownSection.artifacts.browser_startup_diagnostics =
+      browserArtifacts.startupDiagnostics;
+    if (totalsSection.artifacts && typeof totalsSection.artifacts === "object") {
+      totalsSection.artifacts.browser_startup_diagnostics =
+        browserArtifacts.startupDiagnostics;
     }
   }
   const frontendAccountingFailures =
@@ -4992,6 +5030,69 @@ function finalizeShellPhase(context, stdoutLog, stderrLog, details) {
   return 1;
 }
 
+function classifyShellFailureDetails(context, stdoutLines, stderrLines, message) {
+  const text = [
+    context.target,
+    context.label,
+    context.command,
+    message,
+    ...stderrLines,
+    ...stdoutLines,
+  ]
+    .join("\n")
+    .toLowerCase();
+
+  if (
+    text.includes("built frontend artifact missing") ||
+    text.includes("run make build-web before browser e2e") ||
+    text.includes("repo-local pnpm was not found")
+  ) {
+    return { failure_class: "config", failure_reason: "configuration_error" };
+  }
+  if (
+    text.includes("port must differ") ||
+    text.includes("is already in use") ||
+    text.includes("failed to allocate an available") ||
+    text.includes("listener conflict")
+  ) {
+    return { failure_class: "infra", failure_reason: "resource_conflict" };
+  }
+  if (
+    text.includes("timed out waiting for frontend") ||
+    text.includes("timed out waiting for backend") ||
+    text.includes("timed out waiting for service") ||
+    text.includes("service readiness timeout")
+  ) {
+    return {
+      failure_class: "infra",
+      failure_reason: "service_readiness_timeout",
+    };
+  }
+  if (
+    text.includes("system limit for number of file watchers reached") ||
+    (text.includes("enospc") && text.includes("watch")) ||
+    text.includes("frontend exited before readiness") ||
+    text.includes("backend exited before readiness") ||
+    text.includes("exited immediately after readiness") ||
+    text.includes("exited unexpectedly during browser e2e supervision")
+  ) {
+    return { failure_class: "infra", failure_reason: "service_start_error" };
+  }
+
+  return {
+    failure_class: classifyExecutionFailure(
+      context.target,
+      context.label,
+      context.command,
+    ),
+    failure_reason: classifyExecutionFailureReason(
+      context.target,
+      context.label,
+      context.command,
+    ),
+  };
+}
+
 function handleShellPhase() {
   const context = createBasePhaseContext("shell");
   const stdoutLog = requiredEnv("CARTULARY_PHASE_STDOUT_LOG");
@@ -5023,6 +5124,12 @@ function handleShellPhase() {
     failureNote === ""
       ? messageBase
       : `${messageBase} | remediation: ${failureNote}`;
+  const failureDetails = classifyShellFailureDetails(
+    context,
+    stdoutLines,
+    stderrLines,
+    message,
+  );
   return finalizeShellPhase(context, stdoutLog, stderrLog, {
     status: "fail",
     phase: inferPhaseFromText(context.label),
@@ -5036,11 +5143,8 @@ function handleShellPhase() {
     inventory: [],
     dossiers: [
       {
-        failure_class: classifyExecutionFailure(
-          context.target,
-          context.label,
-          context.command,
-        ),
+        failure_class: failureDetails.failure_class,
+        failure_reason: failureDetails.failure_reason,
         coverage: "non_test",
         phase: inferPhaseFromText(context.label),
         id: "",

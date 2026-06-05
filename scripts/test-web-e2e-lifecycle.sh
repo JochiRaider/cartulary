@@ -135,6 +135,9 @@ assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" "OBJECT_STORE_CORS_ALL
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_PHASE_TIMING_BUCKET=migration run_phase_command "browser-e2e startup database"' "browser lifecycle migration timing bucket"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_timing_span "server_startup" "browser-e2e start backend process"' "browser lifecycle backend startup span"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_timing_span "frontend_startup" "browser-e2e start frontend process"' "browser lifecycle frontend startup span"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_phase_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts' "browser lifecycle validates built preview artifact"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'exec vite preview --host' "browser lifecycle uses vite preview"
+assert_file_not_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'apps/web dev --host' "browser lifecycle must not use vite dev server"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" '/api/v1/test/runtime/identity' "browser lifecycle backend identity readiness"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" '"Origin": requestOrigin' "browser lifecycle identity probe origin header"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" './tools/webstacklisten' "browser lifecycle inherited listener helper"
@@ -619,16 +622,18 @@ STACK_JSON_FILE="$tmp_dir/stack.json"
 RUNTIME_ROOT_BASE="$tmp_dir/runtime-root"
 SERVER_LOG="$tmp_dir/server.log"
 WEB_LOG="$tmp_dir/web.log"
+STARTUP_DIAGNOSTIC_FILE="$tmp_dir/startup-diagnostics.json"
 write_stack_metadata
 assert_file_contains "$STACK_ENV_FILE" "CARTULARY_WEB_E2E_API_ORIGIN=http://127.0.0.1:${dynamic_backend_port}" "stack env API origin"
 assert_file_contains "$STACK_ENV_FILE" "CARTULARY_WEB_E2E_PUBLIC_ORIGIN=http://127.0.0.1:${dynamic_frontend_port}" "stack env public origin"
-"${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" - "$STACK_JSON_FILE" "$dynamic_backend_port" "$dynamic_frontend_port" "$SERVER_LOG" "$WEB_LOG" <<'EOF'
+assert_file_contains "$STACK_ENV_FILE" "CARTULARY_WEB_E2E_FRONTEND_MODE=preview" "stack env frontend mode"
+"${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" - "$STACK_JSON_FILE" "$dynamic_backend_port" "$dynamic_frontend_port" "$SERVER_LOG" "$WEB_LOG" "$STARTUP_DIAGNOSTIC_FILE" <<'EOF'
 const fs = require("node:fs");
 
-const [path, backendPort, frontendPort, serverLog, webLog] = process.argv.slice(2);
+const [path, backendPort, frontendPort, serverLog, webLog, startupDiagnostics] = process.argv.slice(2);
 const payload = JSON.parse(fs.readFileSync(path, "utf8"));
 const failures = [];
-if (payload.schema_id !== "cartulary.web_e2e_stack.v2") {
+if (payload.schema_id !== "cartulary.web_e2e_stack.v3") {
   failures.push(`unexpected schema_id ${payload.schema_id}`);
 }
 if (payload.api_origin !== `http://127.0.0.1:${backendPort}`) {
@@ -643,17 +648,71 @@ if (payload.backend_port !== Number.parseInt(backendPort, 10)) {
 if (payload.frontend_port !== Number.parseInt(frontendPort, 10)) {
   failures.push(`unexpected frontend_port ${payload.frontend_port}`);
 }
+if (payload.frontend_mode !== "preview") {
+  failures.push(`unexpected frontend_mode ${payload.frontend_mode}`);
+}
+if (payload.frontend_command_kind !== "vite-preview") {
+  failures.push(`unexpected frontend_command_kind ${payload.frontend_command_kind}`);
+}
 if (payload.server_log !== serverLog) {
   failures.push(`unexpected server_log ${payload.server_log}`);
 }
 if (payload.web_log !== webLog) {
   failures.push(`unexpected web_log ${payload.web_log}`);
 }
+if (payload.startup_diagnostics !== startupDiagnostics) {
+  failures.push(`unexpected startup_diagnostics ${payload.startup_diagnostics}`);
+}
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
 EOF
+
+original_web_dist_index="$WEB_DIST_INDEX"
+WEB_DIST_INDEX="$tmp_dir/missing-dist/index.html"
+preview_artifact_stderr="$tmp_dir/preview-artifact.stderr"
+if require_frontend_preview_artifacts 2>"$preview_artifact_stderr"; then
+  fail "missing preview artifact preflight must fail"
+else
+  preview_artifact_status=$?
+  if [[ "$preview_artifact_status" -ne 2 ]]; then
+    fail "missing preview artifact preflight must return 2, got $preview_artifact_status"
+  fi
+fi
+assert_file_contains "$preview_artifact_stderr" "run make build-web before browser e2e" "missing preview artifact remediation"
+"${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" - "$STARTUP_DIAGNOSTIC_FILE" <<'EOF'
+const fs = require("node:fs");
+
+const payload = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const failures = [];
+if (payload.schema_id !== "cartulary.browser_startup_diagnostics.v1") {
+  failures.push(`unexpected diagnostic schema ${payload.schema_id}`);
+}
+if (payload.status !== "fail") {
+  failures.push(`unexpected diagnostic status ${payload.status}`);
+}
+if (payload.failure_class !== "config") {
+  failures.push(`unexpected diagnostic failure_class ${payload.failure_class}`);
+}
+if (payload.failure_reason !== "configuration_error") {
+  failures.push(`unexpected diagnostic failure_reason ${payload.failure_reason}`);
+}
+if (payload.frontend_mode !== "preview") {
+  failures.push(`unexpected diagnostic frontend_mode ${payload.frontend_mode}`);
+}
+if (payload.frontend_command_kind !== "vite-preview") {
+  failures.push(`unexpected diagnostic frontend_command_kind ${payload.frontend_command_kind}`);
+}
+if (failures.length > 0) {
+  console.error(failures.join("\n"));
+  process.exit(1);
+}
+EOF
+mkdir -p "$(dirname "$WEB_DIST_INDEX")"
+touch "$WEB_DIST_INDEX"
+require_frontend_preview_artifacts
+WEB_DIST_INDEX="$original_web_dist_index"
 
 identity_server="$tmp_dir/identity-server.mjs"
 cat >"$identity_server" <<'EOF'

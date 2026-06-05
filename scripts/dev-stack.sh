@@ -224,6 +224,14 @@ resolve_frontend_command() {
     return 1
   fi
 
+  if [[ "${CARTULARY_DEV_STACK_SKIP_INOTIFY_PREFLIGHT:-0}" != "1" ]]; then
+    local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+    if [[ ! -x "${node_bin}" ]]; then
+      node_bin="node"
+    fi
+    "${node_bin}" "${ROOT_DIR}/scripts/diagnose-inotify.mjs" --require-dev-watch-capacity || return $?
+  fi
+
   # shellcheck disable=SC2034
   frontend_command_ref=("${PNPM_BIN}" --dir apps/web dev --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort)
 }

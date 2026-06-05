@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fail=0
 
 print_missing() {
@@ -40,6 +41,12 @@ if [[ -n "$node_path" ]]; then
   fi
 else
   print_missing node "run make bootstrap-node-runtime"
+fi
+
+if [[ -n "$node_path" ]]; then
+  if ! "$node_path" "$ROOT_DIR/scripts/diagnose-inotify.mjs" --advisory; then
+    fail=1
+  fi
 fi
 
 pnpm_path=""

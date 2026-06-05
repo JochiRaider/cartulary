@@ -463,6 +463,7 @@ assert.deepEqual(
     ["shell-lint-toolchain", 49500],
     ["check-frontend-install", 49400],
     ["build-server", 40000],
+    ["build-web", 39500],
     ["build-migrate", 39000],
     ["testservices-build", 38050],
     ["test-service-images", 38000],
@@ -525,7 +526,7 @@ assert.equal(
 );
 assert.deepEqual(
   webserverStageSession?.needs,
-  ["service_session:check-service-backed", "build-server", "build-migrate"],
+  ["service_session:check-service-backed", "build-web", "build-server", "build-migrate"],
   "browser stage sessions must wait for service readiness and browser build artifacts",
 );
 const backendShard = expandedCheckSchedule.work_units.find(

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.browser_startup_diagnostics.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "generated_at",
+    "status",
+    "startup_phase",
+    "frontend_mode",
+    "frontend_command_kind"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.browser_startup_diagnostics.v1" },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "target": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["pass", "fail"] },
+    "startup_phase": { "type": "string", "minLength": 1 },
+    "frontend_mode": { "const": "preview" },
+    "frontend_command_kind": { "const": "vite-preview" },
+    "api_origin": { "type": "string", "minLength": 1 },
+    "public_origin": { "type": "string", "minLength": 1 },
+    "backend_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "frontend_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "backend_process_group_id": { "type": "integer", "minimum": 1 },
+    "frontend_process_group_id": { "type": "integer", "minimum": 1 },
+    "runtime_root": { "type": "string", "minLength": 1 },
+    "failure_class": { "enum": ["config", "infra"] },
+    "failure_reason": {
+      "enum": [
+        "configuration_error",
+        "resource_conflict",
+        "service_readiness_timeout",
+        "service_start_error"
+      ]
+    },
+    "message": { "type": "string", "minLength": 1 },
+    "logs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "backend": { "type": "string", "minLength": 1 },
+        "frontend": { "type": "string", "minLength": 1 }
+      }
+    },
+    "inotify": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "remediation"],
+      "properties": {
+        "platform": { "type": "string", "minLength": 1 },
+        "max_user_watches": { "type": "integer", "minimum": 0 },
+        "max_user_instances": { "type": "integer", "minimum": 0 },
+        "current_instances": { "type": "integer", "minimum": 0 },
+        "current_watches": { "type": "integer", "minimum": 0 },
+        "current_usage_available": { "type": "boolean" },
+        "remediation": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
