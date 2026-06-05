@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/incidentwstest"
@@ -109,8 +110,11 @@ func TestPhase5_ObjectUploadAttachWorkbookProjection_I_5_01(t *testing.T) {
 }
 
 func TestPhase5_AttachRouteContract_I_5_05(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase5-attach-route-contract")
+	runtime := phase4test.StartRuntime(t)
+	testDB := runtime.PrepareServerDatabase(t, "phase5-attach-route-contract")
+	harness := runtime.StartServerWithDatabase(t, "phase5-attach-route-contract", testDB)
 	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	objectStoreAdmin := phase4test.SeedLocalUserFlags(t, harness.DB, "phase5-object-store-admin@example.test", "Phase5 Object Store Admin", "Phase5ObjectStoreAdmin1!", false, true, true)
 	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-attach-route-incident",
 		"incident_key":  "phase5-attach-route",
@@ -219,7 +223,19 @@ func TestPhase5_AttachRouteContract_I_5_05(t *testing.T) {
 		}
 	})
 
-	t.Run("object-store dependency errors use owner public mapping", requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping)
+	t.Run("object-store dependency errors use owner public mapping", func(t *testing.T) {
+		requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(
+			t,
+			func(t testing.TB, prefix string, store objectstore.Store) *phase4test.ServerHarness {
+				return runtime.StartServerWithDatabaseAndObjectStore(t, prefix, testDB, store)
+			},
+			phase5ObjectStoreDependencyAdmin{
+				email:    objectStoreAdmin.Email,
+				password: "Phase5ObjectStoreAdmin1!",
+				userID:   objectStoreAdmin.ID,
+			},
+		)
+	})
 }
 
 func TestPhase5_AttachedEvidenceProjectionRebuild_I_5_06(t *testing.T) {

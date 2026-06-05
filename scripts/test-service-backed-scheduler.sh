@@ -2019,6 +2019,49 @@ assert_contains "$fixture_shape_output" "reason=fixture_error" "fixture shape fa
 assert_contains "$fixture_shape_output" "internal/app package database creates got 2, budget 0" "fixture shape failure package diagnostic"
 assert_not_contains "$fixture_shape_output" "package reset duration got" "fixture shape failure does not enforce reset duration"
 
+group_clone_shape_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-group-clone-shape.XXXXXX")"
+cleanup_paths+=("$group_clone_shape_dir")
+write_fake_make "$group_clone_shape_dir"
+group_clone_shape_manifest="${group_clone_shape_dir}/manifest.json"
+write_manifest "$group_clone_shape_manifest" test-fast-service-backed \
+  'make_target|backend-integration|10|"postgres": 1, "object_store": 1'
+group_clone_events_dir="${group_clone_shape_dir}/results/group-clone-shape-fail/_shared/test-services/suite/events"
+mkdir -p "$group_clone_events_dir"
+for index in $(seq 1 20); do
+  event_id="$(printf '%03d' "$index")"
+  cat >"${group_clone_events_dir}/${event_id}-postgres-db-created.json" <<JSON
+{
+  "type": "postgres-db-created",
+  "kind": "template-clone",
+  "timestamp": "2026-05-28T00:01:00Z",
+  "name": "group_clone_shape_${event_id}",
+  "details": {
+    "target": "backend-integration",
+    "fixture_policy": "group_clone",
+    "reuse_scope": "group-reused",
+    "caller_package": "internal/modules/evidence",
+    "caller_file": "internal/modules/evidence/phase5_objectstore_dependency_test.go",
+    "test_name": "SyntheticGroupCloneBudgetMiss/subcase_${event_id}",
+    "reuse_group": "internal/modules/evidence:SyntheticGroupCloneBudgetMiss:subcase_${event_id}"
+  }
+}
+JSON
+done
+set +e
+group_clone_shape_output="$(
+  FAKE_SCHEDULER_SLEEP=0.01 \
+    run_scheduler "$group_clone_shape_dir" "$group_clone_shape_manifest" test-fast-service-backed group-clone-shape-fail 2>&1
+)"
+group_clone_shape_status=$?
+set -e
+assert_equals "$group_clone_shape_status" "3" "postgres group clone fixture shape scheduler status"
+assert_contains "$group_clone_shape_output" "postgres-fixture-shape" "group clone fixture shape failure label"
+assert_contains "$group_clone_shape_output" "backend-integration exceeded postgres group clone budget" "group clone fixture shape over-budget diagnostic"
+assert_contains "$group_clone_shape_output" "actual_sources=" "group clone fixture shape actual sources"
+assert_contains "$group_clone_shape_output" "SyntheticGroupCloneBudgetMiss" "group clone fixture shape names actual test"
+assert_contains "$group_clone_shape_output" "planned_manifest_symbols=" "group clone fixture shape planned symbols"
+assert_contains "$group_clone_shape_output" "TestPhase5_AttachRouteContract_I_5_05" "group clone fixture shape names planned manifest symbol"
+
 fi
 
 failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-failure.XXXXXX")"

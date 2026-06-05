@@ -18,7 +18,17 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
-func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(t *testing.T) {
+type phase5ObjectStoreDependencyAdmin struct {
+	email    string
+	password string
+	userID   uuid.UUID
+}
+
+func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(
+	t *testing.T,
+	startServer func(testing.TB, string, objectstore.Store) *phase4test.ServerHarness,
+	admin phase5ObjectStoreDependencyAdmin,
+) {
 	t.Run("blob slot create maps endpoint outage before writing slot", func(t *testing.T) {
 		baseStore, err := objectstore.NewFilesystemStore(t.TempDir())
 		if err != nil {
@@ -35,9 +45,8 @@ func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(t *testing.T)
 			},
 		}
 
-		runtime := phase4test.StartRuntime(t)
-		harness := runtime.StartServerWithObjectStore(t, "phase-d-object-store-create-outage", failingStore)
-		login, _ := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		harness := startServer(t, "phase-d-object-store-create-outage", failingStore)
+		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
 		incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-phase-d-object-store-create-incident",
 			"incident_key":  "phase-d-object-store-create",
@@ -86,9 +95,8 @@ func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(t *testing.T)
 			},
 		}
 
-		runtime := phase4test.StartRuntime(t)
-		harness := runtime.StartServerWithObjectStore(t, "phase-d-object-store-preview-capability", failingStore)
-		login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		harness := startServer(t, "phase-d-object-store-preview-capability", failingStore)
+		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
 		incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-phase-d-object-store-preview-incident",
 			"incident_key":  "phase-d-object-store-preview",
@@ -96,8 +104,8 @@ func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(t *testing.T)
 		})
 		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
-		seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
-		linkSeededBlobWithCanonicalStorageKey(t, harness, incidentID, adminID, recordID, "available", "available")
+		seedEvidenceRecord(t, harness, incidentID, admin.userID, recordID)
+		linkSeededBlobWithCanonicalStorageKey(t, harness, incidentID, admin.userID, recordID, "available", "available")
 
 		resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusServiceUnavailable, "object_store_access_rejected")
@@ -121,9 +129,8 @@ func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(t *testing.T)
 			t.Fatalf("create filesystem object store: %v", err)
 		}
 		recordingStore := &overrideObjectStore{Store: baseStore}
-		runtime := phase4test.StartRuntime(t)
-		harness := runtime.StartServerWithObjectStore(t, "phase-g-object-key-issue-invalid", recordingStore)
-		login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		harness := startServer(t, "phase-g-object-key-issue-invalid", recordingStore)
+		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
 		incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-phase-g-object-key-issue-incident",
 			"incident_key":  "phase-g-object-key-issue",
@@ -131,7 +138,7 @@ func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(t *testing.T)
 		})
 		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
-		seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
+		seedEvidenceRecord(t, harness, incidentID, admin.userID, recordID)
 		attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, []byte("invalid key issue"), "txn-phase-g-object-key-issue-blob", "txn-phase-g-object-key-issue-attach")
 		objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
 		malformedKey := "objects/not-canonical"
@@ -152,9 +159,8 @@ func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(t *testing.T)
 			t.Fatalf("create filesystem object store: %v", err)
 		}
 		recordingStore := &overrideObjectStore{Store: baseStore}
-		runtime := phase4test.StartRuntime(t)
-		harness := runtime.StartServerWithObjectStore(t, "phase-g-object-key-redeem-invalid", recordingStore)
-		login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		harness := startServer(t, "phase-g-object-key-redeem-invalid", recordingStore)
+		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
 		incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-phase-g-object-key-redeem-incident",
 			"incident_key":  "phase-g-object-key-redeem",
@@ -162,7 +168,7 @@ func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(t *testing.T)
 		})
 		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
-		seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
+		seedEvidenceRecord(t, harness, incidentID, admin.userID, recordID)
 		attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, []byte("invalid key redeem"), "txn-phase-g-object-key-redeem-blob", "txn-phase-g-object-key-redeem-attach")
 		objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
 		handle := issueEvidenceHandle(t, harness, login, recordID, "download-handle")

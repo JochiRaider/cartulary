@@ -57,43 +57,41 @@ func StartRuntime(t testing.TB) *RuntimeHarness {
 func (h *RuntimeHarness) StartServer(t testing.TB, prefix string) *ServerHarness {
 	t.Helper()
 
-	testDB := h.Postgres.PreparePackageDatabaseT(t, prefix)
+	testDB := h.PrepareServerDatabase(t, prefix)
+	return h.StartServerWithDatabase(t, prefix, testDB)
+}
+
+func (h *RuntimeHarness) PrepareServerDatabase(t testing.TB, prefix string) *pgtest.TestDatabase {
+	t.Helper()
+
+	return h.Postgres.PreparePackageDatabaseT(t, prefix)
+}
+
+func (h *RuntimeHarness) StartServerWithDatabase(t testing.TB, prefix string, testDB *pgtest.TestDatabase) *ServerHarness {
+	t.Helper()
 
 	bucket := h.S3.PreparePackageBucketT(t, prefix)
 
-	env := testDB.Env()
+	env := serverDatabaseEnv(t, testDB)
 	for key, value := range h.S3.Env(bucket) {
 		env[key] = value
 	}
-	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
 
 	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env})
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open sql db: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
-
-	return &ServerHarness{
-		Server: server,
-		DB:     db,
-	}
+	return serverHarnessForDatabase(t, testDB, server)
 }
 
 func (h *RuntimeHarness) StartServerWithConfig(t testing.TB, prefix string, mutate func(*config.Config)) *ServerHarness {
 	t.Helper()
 
-	testDB := h.Postgres.PreparePackageDatabaseT(t, prefix)
+	testDB := h.PrepareServerDatabase(t, prefix)
 
 	bucket := h.S3.PreparePackageBucketT(t, prefix)
 
-	env := testDB.Env()
+	env := serverDatabaseEnv(t, testDB)
 	for key, value := range h.S3.Env(bucket) {
 		env[key] = value
 	}
-	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
 
 	tempRoots := configtest.SetupTempRoots(t)
 	for key, value := range tempRoots.Paths {
@@ -109,28 +107,38 @@ func (h *RuntimeHarness) StartServerWithConfig(t testing.TB, prefix string, muta
 	}
 
 	server := httptestx.StartServer(t, httptestx.ServerOptions{Config: cfg, Env: env})
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open sql db: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
-
-	return &ServerHarness{
-		Server: server,
-		DB:     db,
-	}
+	return serverHarnessForDatabase(t, testDB, server)
 }
 
 func (h *RuntimeHarness) StartServerWithObjectStore(t testing.TB, prefix string, store objectstore.Store) *ServerHarness {
 	t.Helper()
 
-	testDB := h.Postgres.PreparePackageDatabaseT(t, prefix)
+	testDB := h.PrepareServerDatabase(t, prefix)
+	return h.StartServerWithDatabaseAndObjectStore(t, prefix, testDB, store)
+}
+
+func (h *RuntimeHarness) StartServerWithDatabaseAndObjectStore(t testing.TB, prefix string, testDB *pgtest.TestDatabase, store objectstore.Store) *ServerHarness {
+	t.Helper()
+
+	env := serverDatabaseEnv(t, testDB)
+	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, ObjectStore: store})
+	return serverHarnessForDatabase(t, testDB, server)
+}
+
+func serverDatabaseEnv(t testing.TB, testDB *pgtest.TestDatabase) map[string]string {
+	t.Helper()
+
+	if testDB == nil {
+		t.Fatal("test database is required")
+	}
 	env := testDB.Env()
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
+	return env
+}
 
-	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, ObjectStore: store})
+func serverHarnessForDatabase(t testing.TB, testDB *pgtest.TestDatabase, server *httptestx.Server) *ServerHarness {
+	t.Helper()
+
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
 		t.Fatalf("open sql db: %v", err)

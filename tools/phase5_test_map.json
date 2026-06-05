@@ -556,7 +556,7 @@
           "max_group_clones": 1
         }
       },
-      "group_clone_reason": "Attach-route contract coverage starts one shared runtime for nested shape, authorization, failure, and replay cases; the row does not require separate per-test database identity.",
+      "group_clone_reason": "Attach-route contract coverage uses one parent-scoped Postgres database for nested shape, authorization, failure, replay, and object-store dependency cases; child HTTP runtimes may vary object-store adapters but must share the parent database rather than creating separate group clones.",
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
       "primary_evidence_owner": "I-5-05",

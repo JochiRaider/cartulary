@@ -118,6 +118,64 @@ function normalizePackage(value) {
     .replace(/^github\.com\/JochiRaider\/cartulary\//, "");
 }
 
+function fixtureSource(event) {
+  const details = event.details ?? {};
+  return {
+    topTest: topLevelTestName(details.test_name),
+    testName: details.test_name ?? "",
+    callerPackage: normalizePackage(details.caller_package ?? ""),
+    callerFile: details.caller_file ?? "",
+    reuseGroup: details.reuse_group ?? "",
+    count: 1,
+  };
+}
+
+function sourceDisplayValue(value) {
+  const text = String(value ?? "").trim();
+  return text === "" ? "(unknown)" : text.replaceAll(/\s+/gu, "_");
+}
+
+function sourceKey(source) {
+  return [
+    source.topTest,
+    source.testName,
+    source.callerPackage,
+    source.callerFile,
+    source.reuseGroup,
+  ].join("\u001f");
+}
+
+function summarizeSources(sources, limit = 5) {
+  if (sources.length === 0) {
+    return "none";
+  }
+  const grouped = new Map();
+  for (const source of sources) {
+    const key = sourceKey(source);
+    if (!grouped.has(key)) {
+      grouped.set(key, { ...source, count: 0 });
+    }
+    grouped.get(key).count += 1;
+  }
+  return [...grouped.values()]
+    .sort(
+      (left, right) =>
+        right.count - left.count ||
+        sourceDisplayValue(left.topTest).localeCompare(sourceDisplayValue(right.topTest)) ||
+        sourceDisplayValue(left.testName).localeCompare(sourceDisplayValue(right.testName)),
+    )
+    .slice(0, limit)
+    .map(
+      (source) =>
+        `top=${sourceDisplayValue(source.topTest)},test=${sourceDisplayValue(source.testName)},package=${sourceDisplayValue(source.callerPackage)},file=${sourceDisplayValue(source.callerFile)},reuse_group=${sourceDisplayValue(source.reuseGroup)},count=${source.count}`,
+    )
+    .join("; ");
+}
+
+function plannedSymbols(symbols) {
+  return symbols.size > 0 ? [...symbols].sort().join(",") : "none";
+}
+
 function emptyBudget() {
   return {
     templateClones: 0,
@@ -316,6 +374,9 @@ function actualStats(events, target) {
     unplannedTemplateClones: [],
     unplannedGroupClones: [],
     unplannedTransactions: [],
+    templateCloneSources: [],
+    groupCloneSources: [],
+    transactionSources: [],
   };
   stats.packageStats = new Map();
 
@@ -330,8 +391,10 @@ function actualStats(events, target) {
     if (event.type === "postgres-db-created" && event.kind === "template-clone") {
       if (reuseScope === "group-reused" || policy === "group_clone") {
         stats.groupClones += 1;
+        stats.groupCloneSources.push(fixtureSource(event));
       } else if (reuseScope === "per-test" && policy === "template_clone") {
         stats.templateClones += 1;
+        stats.templateCloneSources.push(fixtureSource(event));
       }
     }
     if (
@@ -382,6 +445,7 @@ function actualStats(events, target) {
     }
     if (event.type === "postgres-transaction") {
       stats.transactions += 1;
+      stats.transactionSources.push(fixtureSource(event));
     }
     if (
       event.type === "postgres-db-created" &&
@@ -411,6 +475,14 @@ function actualStats(events, target) {
 function failIfOver(target, name, actual, budget) {
   if (actual > budget) {
     throw new Error(`${target} exceeded postgres ${name} budget: got ${actual}, budget ${budget}`);
+  }
+}
+
+function failIfOverWithSources(target, name, actual, budget, sources, planned) {
+  if (actual > budget) {
+    throw new Error(
+      `${target} exceeded postgres ${name} budget: got ${actual}, budget ${budget}; actual_sources=${summarizeSources(sources)}; planned_manifest_symbols=${plannedSymbols(planned)}`,
+    );
   }
 }
 
@@ -471,11 +543,32 @@ function failIfPackageBudgetsOver(target, stats, budget) {
 function checkTarget(events, target) {
   const budget = plannedBudget(target);
   const stats = actualStats(events, target);
-  failIfOver(target, "template clone", stats.templateClones, budget.templateClones);
-  failIfOver(target, "group clone", stats.groupClones, budget.groupClones);
+  failIfOverWithSources(
+    target,
+    "template clone",
+    stats.templateClones,
+    budget.templateClones,
+    stats.templateCloneSources,
+    budget.templateCloneTests,
+  );
+  failIfOverWithSources(
+    target,
+    "group clone",
+    stats.groupClones,
+    budget.groupClones,
+    stats.groupCloneSources,
+    budget.groupCloneTests,
+  );
   failIfOver(target, "package database create", stats.packageResetCreates, budget.packageResetCreates);
   failIfOver(target, "package reset event", stats.packageResetEvents, budget.packageResetEvents);
-  failIfOver(target, "transaction", stats.transactions, budget.transactions);
+  failIfOverWithSources(
+    target,
+    "transaction",
+    stats.transactions,
+    budget.transactions,
+    stats.transactionSources,
+    budget.transactionTests,
+  );
   failIfMigrationScratchOver(target, stats, budget);
   failIfPackageBudgetsOver(target, stats, budget);
   if (stats.forbiddenPackageResets.length > 0) {
