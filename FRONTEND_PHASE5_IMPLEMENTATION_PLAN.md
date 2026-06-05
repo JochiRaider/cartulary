@@ -166,8 +166,8 @@ Design-direction row owners:
 
 | Done | Sprint | Primary validation | Blockers |
 | --- | --- | --- | --- |
-| [ ] | 1. Readiness, map, ledger, and FE-P4 handoff validation | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P5`; row-inventory checks; `make phase-ledger-drift`; `git diff --check` | FE-P5 must remain planned and blocked until direct row-owned evidence exists |
-| [ ] | 2. Mention chip state model for `FE-U-P5-01` | `make frontend-unit`; `make frontend-typecheck` | Does not close grid integration, public mutation E2E, visual readiness, accessibility readiness, or phase completion |
+| [x] | 1. Readiness, map, ledger, and FE-P4 handoff validation | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P5`; row-inventory checks; `make phase-ledger-drift`; `git diff --check` | FE-P5 must remain planned and blocked until direct row-owned evidence exists |
+| [x] | 2. Mention chip state model for `FE-U-P5-01` | `make frontend-unit`; `make frontend-typecheck` | Code-level model support is implemented; row promotion remains blocked until FE-P5 row accounting includes current `FE-U-P5-01` evidence |
 | [ ] | 3. Hosts, Identities, and Notes grid/provenance integration for `FE-I-P5-01` | `make frontend-unit`; `make browser-e2e-webserver-backed` | Frontend-only mocks or missing refresh/provenance row accounting block product closure |
 | [ ] | 4. Manual resolution, dismissal, auto-resolution disclosure, and undo E2E for `FE-E-P5-01` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | Must use public mutation routes and refreshed rows; browser helper evidence alone does not close the row |
 | [ ] | 5. Visual readiness for `FE-V-P5-01` | `make browser-e2e-visual` | `FE-VFIX-02` registry status alone does not close the row |
@@ -266,6 +266,15 @@ Owned rows: `FE-U-P5-01`.
 
 Non-owned rows: `FE-I-P5-01`, `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01`.
 
+Current implementation status as of 2026-06-05:
+
+- Code-level Sprint 2 model support is implemented in the Phase 4 workbook mention helpers and current workbook chip renderer.
+- Focused unit coverage was added under the future-map-friendly title `FE-U-P5-01 preserves closed mention chip states by stable identifiers and field keys`.
+- `make frontend-unit` passed with run root `.cartulary/test-results/20260605T201245Z-p498112`.
+- `make frontend-typecheck` passed with run root `.cartulary/test-results/20260605T201329Z-p500427`.
+- `frontend-unit/frontend-row-accounting.json` did not include `FE-U-P5-01` because current broad frontend-unit accounting still includes FE-P0 through FE-P4 maps only while FE-P5 remains planned/blocked.
+- No selector helper, generated contract, generated protocol, public route, grid integration, visual readiness, accessibility readiness, FE-P5 activation, or FE-P5 completion update was made by this sprint.
+
 Non-goals:
 
 - Do not claim public-route mutation behavior.
@@ -313,6 +322,7 @@ Evidence requirements:
 - `frontend-unit/frontend-row-accounting.json` must close `FE-U-P5-01` before row promotion.
 - Unit evidence must be current, row-owned, and mapped to the FE-P5 map digest at run time.
 - Unit evidence closes only `FE-U-P5-01`, not integration, browser E2E, visual, accessibility, or phase completion.
+- Current implementation evidence is code-level only until FE-P5 row accounting includes `FE-U-P5-01`.
 
 Blocker rules:
 
@@ -322,14 +332,20 @@ Blocker rules:
 
 Binary acceptance:
 
-- Current `make frontend-unit` row accounting closes `FE-U-P5-01`.
-- `make frontend-typecheck` passes or has a precise unrelated blocker.
+- Code-level Sprint 2 support is present when `make frontend-unit` passes the focused `FE-U-P5-01` unit coverage and `make frontend-typecheck` passes or has a precise unrelated blocker.
+- Row promotion remains blocked until current `make frontend-unit` row accounting closes `FE-U-P5-01`.
 - Evidence classes remain separated.
+
+Current blocker:
+
+- `BLOCKER: FE-U-P5-01 unit row accounting missing or stale; target=frontend-unit run_root=.cartulary/test-results/20260605T201245Z-p498112 minimum_follow_up=rerun after map and implementation are current.`
 
 Explicit non-claims:
 
 - Sprint 2 does not close public-route product behavior.
+- Sprint 2 does not close grid integration.
 - Sprint 2 does not close visual or accessibility readiness.
+- Sprint 2 does not activate FE-P5.
 - Sprint 2 does not complete FE-P5.
 
 ### Sprint 3: Hosts, Identities, And Notes Grid/Provenance Integration For `FE-I-P5-01`

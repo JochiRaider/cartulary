@@ -163,6 +163,7 @@ import {
   buildInspectorMentions,
   buildMentionPatchPayload,
   isRecordChangedMessage,
+  type MentionChipState,
   type RecordChangedPayload,
   readCollectionItems,
   shouldIgnoreSelfOriginatedRecordChange,
@@ -1027,10 +1028,26 @@ type DismissedMention = {
   resolvedRecordId: string | null;
   resolutionMethod: string | null;
   autoResolved: boolean;
+  displayText?: string;
+  priorTargetEntityRecordId?: string | null;
+  provenance?: string | null;
+  confidence?: number | null;
+  matchedAliasText?: string | null;
 };
 
 type InspectorMention = DismissedMention & {
   status: "unresolved" | "resolved" | "dismissed";
+  chipState: MentionChipState;
+  anchor: {
+    recordId: string;
+    fieldKey: RelationshipFieldKey;
+    itemRef: string;
+    entityMentionId: string | null;
+    targetEntityRecordId: string | null;
+  };
+  sourceKind: "entity_mention";
+  isActiveRelationshipValue: boolean;
+  priorTargetEntityRecordId: string | null;
   displayText: string;
   provenance: string | null;
   confidence: number | null;
@@ -2423,6 +2440,27 @@ function relationshipItemLabel(
   return item.displayText || item.rawText;
 }
 
+function mentionChipStateForItem(
+  item: CollectionItem | InspectorMention,
+): MentionChipState {
+  if ("chipState" in item) {
+    return item.chipState;
+  }
+  if (item.itemKind !== "resolved_ref") {
+    return "unresolved";
+  }
+  if (item.autoResolved) {
+    return "auto-resolved";
+  }
+  if (
+    item.resolutionMethod === "explicit_resolve_route" ||
+    item.provenance === "manual"
+  ) {
+    return "manual-resolution";
+  }
+  return "resolved";
+}
+
 function timelineRelationshipLabel(fieldKey: RelationshipFieldKey) {
   return fieldKey === "timeline.identity_refs" ? "Identities" : "Hosts";
 }
@@ -2553,12 +2591,13 @@ function RelationshipChip({
   selected?: boolean;
 }) {
   const label = relationshipItemLabel(item, entityIndex);
-  const isInspectorItem = "status" in item;
-  const isResolved = isInspectorItem
-    ? item.status === "resolved"
-    : item.itemKind === "resolved_ref";
-  const isDismissed = isInspectorItem ? item.status === "dismissed" : false;
-  const isAutoResolved = item.autoResolved;
+  const chipState = mentionChipStateForItem(item);
+  const isResolved =
+    chipState === "resolved" ||
+    chipState === "auto-resolved" ||
+    chipState === "manual-resolution";
+  const isDismissed = chipState === "dismissed";
+  const isAutoResolved = chipState === "auto-resolved";
   const chipStyle = {
     ...relationshipChipStyle,
     ...(isDismissed
@@ -2570,13 +2609,16 @@ function RelationshipChip({
         : unresolvedChipStyle),
     ...(selected ? selectedChipStyle : null),
   };
-  const labelPrefix = isDismissed
-    ? "Dismissed"
-    : isResolved
-      ? isAutoResolved
+  const labelPrefix =
+    chipState === "manual-resolution"
+      ? "Manual-resolution"
+      : chipState === "auto-resolved"
         ? "Auto-resolved"
-        : "Resolved"
-      : "Unresolved";
+        : chipState === "dismissed"
+          ? "Dismissed"
+          : chipState === "resolved"
+            ? "Resolved"
+            : "Unresolved";
 
   return onSelect ? (
     <button
@@ -2590,6 +2632,11 @@ function RelationshipChip({
       {isAutoResolved ? (
         <span data-density-role="narrow-metadata" style={chipMetaStyle}>
           Auto
+        </span>
+      ) : null}
+      {chipState === "manual-resolution" ? (
+        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
+          Manual
         </span>
       ) : null}
       {!isResolved && !isDismissed ? (
@@ -2609,6 +2656,11 @@ function RelationshipChip({
       {isAutoResolved ? (
         <span data-density-role="narrow-metadata" style={chipMetaStyle}>
           Auto
+        </span>
+      ) : null}
+      {chipState === "manual-resolution" ? (
+        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
+          Manual
         </span>
       ) : null}
     </span>
@@ -5824,6 +5876,14 @@ export function TimelineWorkbook({
                   resolvedRecordId: mention.resolvedRecordId,
                   resolutionMethod: mention.resolutionMethod,
                   autoResolved: mention.autoResolved,
+                  displayText: mention.displayText,
+                  priorTargetEntityRecordId:
+                    mention.anchor.targetEntityRecordId ??
+                    mention.priorTargetEntityRecordId ??
+                    mention.resolvedRecordId,
+                  provenance: mention.provenance,
+                  confidence: mention.confidence,
+                  matchedAliasText: mention.matchedAliasText,
                 },
               ],
             };
@@ -7607,6 +7667,23 @@ export function TimelineWorkbook({
                           resolutionMethod: activeItem.resolutionMethod,
                           autoResolved: activeItem.autoResolved,
                           status: "resolved",
+                          chipState: mentionChipStateForItem(activeItem),
+                          anchor: {
+                            recordId: row.recordId,
+                            fieldKey: notice.fieldKey,
+                            itemRef: activeItem.itemRef,
+                            entityMentionId: activeItem.itemRef.startsWith(
+                              "entity_mention:",
+                            )
+                              ? activeItem.itemRef.slice(
+                                  "entity_mention:".length,
+                                ) || null
+                              : null,
+                            targetEntityRecordId: activeItem.resolvedRecordId,
+                          },
+                          sourceKind: "entity_mention",
+                          isActiveRelationshipValue: true,
+                          priorTargetEntityRecordId: null,
                           displayText: activeItem.displayText,
                           provenance: activeItem.provenance,
                           confidence: activeItem.confidence,

@@ -4,6 +4,29 @@ export type RelationshipFieldKey =
   | "timeline.host_refs"
   | "timeline.identity_refs";
 
+export type MentionChipState =
+  | "unresolved"
+  | "resolved"
+  | "auto-resolved"
+  | "dismissed"
+  | "manual-resolution";
+
+export const mentionChipStates = [
+  "unresolved",
+  "resolved",
+  "auto-resolved",
+  "dismissed",
+  "manual-resolution",
+] as const satisfies readonly MentionChipState[];
+
+export type MentionChipAnchor = {
+  recordId: string;
+  fieldKey: RelationshipFieldKey;
+  itemRef: string;
+  entityMentionId: string | null;
+  targetEntityRecordId: string | null;
+};
+
 export type CollectionItem = {
   itemRef: string;
   entityType: "host" | "identity";
@@ -27,10 +50,20 @@ export type DismissedMention = {
   resolvedRecordId: string | null;
   resolutionMethod: string | null;
   autoResolved: boolean;
+  displayText?: string;
+  priorTargetEntityRecordId?: string | null;
+  provenance?: string | null;
+  confidence?: number | null;
+  matchedAliasText?: string | null;
 };
 
 export type InspectorMention = DismissedMention & {
   status: "unresolved" | "resolved" | "dismissed";
+  chipState: MentionChipState;
+  anchor: MentionChipAnchor;
+  sourceKind: "entity_mention";
+  isActiveRelationshipValue: boolean;
+  priorTargetEntityRecordId: string | null;
   displayText: string;
   provenance: string | null;
   confidence: number | null;
@@ -94,6 +127,104 @@ type MentionCollectionRowLike = {
 
 function safeEntityType(value: unknown): "host" | "identity" {
   return value === "identity" ? "identity" : "host";
+}
+
+function entityMentionIdFromItemRef(itemRef: string): string | null {
+  const prefix = "entity_mention:";
+  if (!itemRef.startsWith(prefix)) {
+    return null;
+  }
+  const mentionId = itemRef.slice(prefix.length);
+  return mentionId === "" ? null : mentionId;
+}
+
+function mentionChipAnchor({
+  fieldKey,
+  itemRef,
+  recordId,
+  targetEntityRecordId,
+}: {
+  fieldKey: RelationshipFieldKey;
+  itemRef: string;
+  recordId: string;
+  targetEntityRecordId: string | null;
+}): MentionChipAnchor {
+  return {
+    recordId,
+    fieldKey,
+    itemRef,
+    entityMentionId: entityMentionIdFromItemRef(itemRef),
+    targetEntityRecordId,
+  };
+}
+
+function mentionChipState({
+  autoResolved,
+  itemKind,
+  provenance,
+  resolutionMethod,
+  status,
+}: {
+  autoResolved: boolean;
+  itemKind: string;
+  provenance: string | null | undefined;
+  resolutionMethod: string | null;
+  status: "unresolved" | "resolved" | "dismissed";
+}): MentionChipState {
+  if (status === "dismissed") {
+    return "dismissed";
+  }
+  if (status === "unresolved" || itemKind !== "resolved_ref") {
+    return "unresolved";
+  }
+  if (autoResolved) {
+    return "auto-resolved";
+  }
+  if (resolutionMethod === "explicit_resolve_route" || provenance === "manual") {
+    return "manual-resolution";
+  }
+  return "resolved";
+}
+
+function activeInspectorMention(
+  rowRecordId: string,
+  fieldKey: RelationshipFieldKey,
+  item: CollectionItem,
+): InspectorMention {
+  const status = item.itemKind === "resolved_ref" ? "resolved" : "unresolved";
+  const targetEntityRecordId =
+    status === "resolved" ? item.resolvedRecordId : null;
+  return {
+    rowRecordId,
+    fieldKey,
+    entityType: item.entityType,
+    itemRef: item.itemRef,
+    rawText: item.rawText,
+    resolvedRecordId: targetEntityRecordId,
+    resolutionMethod: item.resolutionMethod,
+    autoResolved: item.autoResolved,
+    status,
+    chipState: mentionChipState({
+      autoResolved: item.autoResolved,
+      itemKind: item.itemKind,
+      provenance: item.provenance,
+      resolutionMethod: item.resolutionMethod,
+      status,
+    }),
+    anchor: mentionChipAnchor({
+      recordId: rowRecordId,
+      fieldKey,
+      itemRef: item.itemRef,
+      targetEntityRecordId,
+    }),
+    sourceKind: "entity_mention",
+    isActiveRelationshipValue: true,
+    priorTargetEntityRecordId: null,
+    displayText: item.displayText,
+    provenance: item.provenance,
+    confidence: item.confidence,
+    matchedAliasText: item.matchedAliasText,
+  };
 }
 
 export function isRecordChangedMessage(
@@ -227,44 +358,36 @@ export function buildInspectorMentions(
   }
 
   const activeMentions: InspectorMention[] = [
-    ...row.collectionValues.hostRefs.map<InspectorMention>((item) => ({
-      rowRecordId: row.recordId ?? "",
-      fieldKey: "timeline.host_refs",
-      entityType: item.entityType,
-      itemRef: item.itemRef,
-      rawText: item.rawText,
-      resolvedRecordId: item.resolvedRecordId,
-      resolutionMethod: item.resolutionMethod,
-      autoResolved: item.autoResolved,
-      status: item.itemKind === "resolved_ref" ? "resolved" : "unresolved",
-      displayText: item.displayText,
-      provenance: item.provenance,
-      confidence: item.confidence,
-      matchedAliasText: item.matchedAliasText,
-    })),
-    ...row.collectionValues.identityRefs.map<InspectorMention>((item) => ({
-      rowRecordId: row.recordId ?? "",
-      fieldKey: "timeline.identity_refs",
-      entityType: item.entityType,
-      itemRef: item.itemRef,
-      rawText: item.rawText,
-      resolvedRecordId: item.resolvedRecordId,
-      resolutionMethod: item.resolutionMethod,
-      autoResolved: item.autoResolved,
-      status: item.itemKind === "resolved_ref" ? "resolved" : "unresolved",
-      displayText: item.displayText,
-      provenance: item.provenance,
-      confidence: item.confidence,
-      matchedAliasText: item.matchedAliasText,
-    })),
+    ...row.collectionValues.hostRefs.map<InspectorMention>((item) =>
+      activeInspectorMention(row.recordId ?? "", "timeline.host_refs", item),
+    ),
+    ...row.collectionValues.identityRefs.map<InspectorMention>((item) =>
+      activeInspectorMention(
+        row.recordId ?? "",
+        "timeline.identity_refs",
+        item,
+      ),
+    ),
   ];
   const dismissed: InspectorMention[] = dismissedMentions.map((item) => ({
     ...item,
     status: "dismissed",
-    displayText: item.rawText,
-    provenance: null,
-    confidence: null,
-    matchedAliasText: null,
+    chipState: "dismissed",
+    anchor: mentionChipAnchor({
+      recordId: item.rowRecordId,
+      fieldKey: item.fieldKey,
+      itemRef: item.itemRef,
+      targetEntityRecordId: null,
+    }),
+    sourceKind: "entity_mention",
+    isActiveRelationshipValue: false,
+    priorTargetEntityRecordId:
+      item.priorTargetEntityRecordId ?? item.resolvedRecordId,
+    resolvedRecordId: null,
+    displayText: item.displayText ?? item.rawText,
+    provenance: item.provenance ?? null,
+    confidence: item.confidence ?? null,
+    matchedAliasText: item.matchedAliasText ?? null,
   }));
 
   return [...activeMentions, ...dismissed];
