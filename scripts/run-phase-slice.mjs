@@ -215,6 +215,21 @@ function runtimeEnv(context, extra = {}) {
   });
 }
 
+function frontendRowAccountingEnv(unit) {
+  const scope = unit.frontend_row_accounting_scope;
+  if (!scope) {
+    return {};
+  }
+  return {
+    CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE: scope.mode,
+    CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE:
+      scope.phase_namespace ?? "",
+    CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE: scope.phase ?? "",
+    CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS:
+      (scope.selected_row_ids ?? []).join(","),
+  };
+}
+
 function attachRuntime(plan, context, metadataDir) {
   const resourceLimits = resourceLimitsMap(plan);
   for (const unit of plan.work_units) {
@@ -262,6 +277,7 @@ function attachRuntime(plan, context, metadataDir) {
         env: runtimeEnv(context, {
           CARTULARY_TEST_TARGET: unit.target,
           CARTULARY_PHASE_SLICE_PHASE: plan.phase,
+          ...frontendRowAccountingEnv(unit),
         }),
       });
       continue;
@@ -273,6 +289,7 @@ function attachRuntime(plan, context, metadataDir) {
         env: runtimeEnv(context, {
           CARTULARY_TEST_TARGET: unit.target,
           CARTULARY_PHASE_SLICE_PHASE: plan.phase,
+          ...frontendRowAccountingEnv(unit),
         }),
       });
       continue;
@@ -284,6 +301,7 @@ function attachRuntime(plan, context, metadataDir) {
         env: runtimeEnv(context, {
           CARTULARY_TEST_TARGET: unit.target,
           CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES: "1",
+          ...frontendRowAccountingEnv(unit),
           MAKEFLAGS: "",
         }),
       });

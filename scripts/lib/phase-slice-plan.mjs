@@ -110,6 +110,17 @@ function serviceRequirementsForRows(rows) {
   return Array.from(requirements).sort(compareStrings);
 }
 
+function disabledFrontendRowAccountingScope(phase) {
+  return {
+    mode: "disabled",
+    invocation_kind: "base_phase_slice",
+    phase_namespace: "base",
+    phase,
+    selection_policy: "base_phase_no_frontend_rows",
+    selected_row_ids: [],
+  };
+}
+
 function claimStatusCounts(rows) {
   const counts = {
     implemented: 0,
@@ -373,6 +384,7 @@ function addFrontendUnit(plan, target, rows) {
     failureKeys: [target],
     weightMs: targetWeight(rows),
     resourceClaims: new Map([["process", 1]]),
+    frontend_row_accounting_scope: disabledFrontendRowAccountingScope(plan.phase),
     order: plan.nextOrder++,
   });
 }
@@ -405,6 +417,7 @@ function addBrowserUnit(plan, target, rows, stageByTarget) {
     failureKeys: [target],
     weightMs: targetWeight(rows),
     resourceClaims: claims,
+    frontend_row_accounting_scope: disabledFrontendRowAccountingScope(plan.phase),
     order: plan.nextOrder++,
   });
 }
@@ -594,6 +607,9 @@ export function printablePlan(plan) {
         target: unit.target,
         needs: unit.needs ?? [],
         resource_claims: unit.resource_claims ?? resourceLimitObject(unit.resourceClaims),
+        ...(unit.frontend_row_accounting_scope
+          ? { frontend_row_accounting_scope: unit.frontend_row_accounting_scope }
+          : {}),
       })),
   };
 }

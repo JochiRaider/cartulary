@@ -402,8 +402,11 @@ if (!artifactRel) {
 const artifact = JSON.parse(
   fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"),
 );
-if (artifact.schema_id !== "cartulary.frontend_row_accounting.v2") {
+if (artifact.schema_id !== "cartulary.frontend_row_accounting.v3") {
   throw new Error(`browser frontend row accounting artifact has wrong schema: ${artifact.schema_id}`);
+}
+if (accounting.accounting_scope?.mode !== "active_target") {
+  throw new Error(`browser broad target must use active target accounting scope: ${JSON.stringify(accounting.accounting_scope)}`);
 }
 if (JSON.stringify(artifact) !== JSON.stringify(accounting)) {
   throw new Error("browser frontend row accounting artifact must match compatibility extension");

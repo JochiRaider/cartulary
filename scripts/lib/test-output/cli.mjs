@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { createHash } from "node:crypto";
 import {
   existsSync,
   readdirSync,
@@ -28,6 +27,12 @@ import {
   normalizeFixtureSummary,
   summarizeFixtureActivities,
 } from "../fixture-reporting.mjs";
+import {
+  appendFrontendRowAccountingFailures,
+  frontendRowAccountingFailures,
+  frontendRowAccountingForTarget,
+  normalizeFrontendRowAccountingScope,
+} from "../frontend-row-accounting.mjs";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
@@ -2266,511 +2271,6 @@ function printInventory(targetSummary) {
   }
 }
 
-function frontendRowsForTarget(target) {
-  let registry;
-  try {
-    registry = loadFrontendPhaseRegistry(repoRoot);
-  } catch {
-    return [];
-  }
-  const rows = [];
-  for (const phase of registry.phases) {
-    const { manifest } = loadFrontendPhaseMap(repoRoot, phase.phase_id);
-    for (const row of manifest.rows) {
-      const targetRefs = row.targets.filter(
-        (targetRef) => targetRef.target_name === target,
-      );
-      const closingTargetRefs = targetRefs.filter(
-        (targetRef) =>
-          targetRef.required_for_closure ||
-          targetRef.frontend_row_accounting_required,
-      );
-      if (closingTargetRefs.length === 0) {
-        continue;
-      }
-      rows.push({
-        phase_id: phase.phase_id,
-        phase_status: phase.status,
-        row_rollup_state: phase.row_rollup_state,
-        row_id: row.id,
-        layer: row.layer,
-        evidence_class: row.evidence_class,
-        claim_status: row.claim_status,
-        claim: row.claim,
-        blockers: row.blockers,
-        required_for_closure: closingTargetRefs.some(
-          (targetRef) => targetRef.required_for_closure,
-        ),
-        scenario_titles: row.scenario_titles,
-      });
-    }
-  }
-  return rows;
-}
-
-function sha256RepoFile(relativePath) {
-  const absolute = path.join(repoRoot, relativePath);
-  if (!existsSync(absolute)) {
-    return "";
-  }
-  return createHash("sha256")
-    .update(readFileSync(absolute))
-    .digest("hex");
-}
-
-function collectVitestTitleObservations(reportFile) {
-  const byTitle = new Map();
-  if (!existsSync(reportFile)) {
-    return byTitle;
-  }
-  const report = JSON.parse(readFileSync(reportFile, "utf8"));
-  for (const fileResult of collectVitestFileResults(report)) {
-    const ownerPath = normalizeVitestOwnerPath(fileResult.name ?? "");
-    for (const assertion of fileResult.assertionResults ?? []) {
-      const title = assertion.title ?? "";
-      if (title === "") {
-        continue;
-      }
-      const observations = byTitle.get(title) ?? [];
-      observations.push({
-        file: ownerPath,
-        status: assertion.status ?? "unknown",
-      });
-      byTitle.set(title, observations);
-    }
-  }
-  return byTitle;
-}
-
-function collectPhaseSummaryRunnerFiles(targetDir) {
-  const runnerFiles = new Set();
-  if (!existsSync(targetDir)) {
-    return [];
-  }
-  const stack = [targetDir];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-        continue;
-      }
-      if (!entry.isFile() || entry.name !== "phase-summary.json") {
-        continue;
-      }
-      let summary;
-      try {
-        summary = JSON.parse(readFileSync(next, "utf8"));
-      } catch {
-        continue;
-      }
-      const runnerJSON = summary.artifacts?.runner_json;
-      if (typeof runnerJSON === "string" && runnerJSON.trim() !== "") {
-        runnerFiles.add(resolveArtifactPath(runnerJSON));
-      }
-    }
-  }
-  return [...runnerFiles].sort();
-}
-
-function phaseSummaryTitleObservationFile(value) {
-  const file = typeof value === "string" ? value : "";
-  if (file === "") {
-    return "";
-  }
-  return file.startsWith("apps/web/")
-    ? normalizePath(file)
-    : normalizePlaywrightFile(file);
-}
-
-function collectPhaseSummaryTitleObservations(targetDir) {
-  const byTitle = new Map();
-  if (!existsSync(targetDir)) {
-    return byTitle;
-  }
-  const stack = [targetDir];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-        continue;
-      }
-      if (!entry.isFile() || entry.name !== "phase-summary.json") {
-        continue;
-      }
-      let summary;
-      try {
-        summary = JSON.parse(readFileSync(next, "utf8"));
-      } catch {
-        continue;
-      }
-      for (const item of summary.inventory ?? []) {
-        const title = item.symbol_or_title ?? "";
-        if (title === "") {
-          continue;
-        }
-        const observations = byTitle.get(title) ?? [];
-        observations.push({
-          file: phaseSummaryTitleObservationFile(item.package_or_file),
-          status: "passed",
-        });
-        byTitle.set(title, observations);
-      }
-      for (const failure of summary.failures ?? []) {
-        const title = failure.symbol_or_title ?? "";
-        if (title === "") {
-          continue;
-        }
-        const observations = byTitle.get(title) ?? [];
-        observations.push({
-          file: phaseSummaryTitleObservationFile(failure.package_or_file),
-          status: "failed",
-        });
-        byTitle.set(title, observations);
-      }
-    }
-  }
-  return byTitle;
-}
-
-function normalizePlaywrightScenarioStatus(status) {
-  switch (status) {
-    case "passed":
-    case "flaky":
-      return "passed";
-    case "skipped":
-      return "skipped";
-    case "failed":
-    case "timedOut":
-    case "interrupted":
-      return "failed";
-    default:
-      return "unknown";
-  }
-}
-
-function playwrightSpecScenarioStatus(spec) {
-  const statuses = [];
-  for (const test of spec.tests ?? []) {
-    const results = test.results ?? [];
-    if (results.length === 0) {
-      const testStatus = normalizePlaywrightScenarioStatus(test.status ?? "");
-      if (testStatus !== "unknown") {
-        statuses.push(testStatus);
-      }
-      continue;
-    }
-    for (const result of results) {
-      statuses.push(normalizePlaywrightScenarioStatus(result.status ?? ""));
-    }
-  }
-  if (statuses.length === 0) {
-    return "unknown";
-  }
-  if (statuses.some((status) => status === "failed")) {
-    return "failed";
-  }
-  if (statuses.some((status) => status === "passed")) {
-    return "passed";
-  }
-  if (statuses.every((status) => status === "skipped")) {
-    return "skipped";
-  }
-  return "unknown";
-}
-
-function collectPlaywrightTitleObservations(reportFile) {
-  const byTitle = new Map();
-  if (!existsSync(reportFile)) {
-    return byTitle;
-  }
-  const parsed = JSON.parse(readFileSync(reportFile, "utf8"));
-  const reports = Array.isArray(parsed) ? parsed : [parsed];
-  for (const report of reports) {
-    for (const spec of flattenPlaywrightSuites(report.suites ?? [])) {
-      const title = spec.title ?? "";
-      if (title === "") {
-        continue;
-      }
-      const observations = byTitle.get(title) ?? [];
-      observations.push({
-        file: normalizePlaywrightFile(spec.file ?? ""),
-        status: playwrightSpecScenarioStatus(spec),
-      });
-      byTitle.set(title, observations);
-    }
-  }
-  return byTitle;
-}
-
-function mergeTitleObservations(target, source) {
-  for (const [title, observations] of source.entries()) {
-    target.set(title, [...(target.get(title) ?? []), ...observations]);
-  }
-}
-
-function collectPlaywrightTitleObservationsForTarget(targetDir) {
-  const byTitle = collectPhaseSummaryTitleObservations(targetDir);
-  for (const runnerFile of collectPhaseSummaryRunnerFiles(targetDir)) {
-    mergeTitleObservations(byTitle, collectPlaywrightTitleObservations(runnerFile));
-  }
-  return byTitle;
-}
-
-function frontendScenarioStatus(observations) {
-  if (!observations || observations.length === 0) {
-    return "missing";
-  }
-  if (observations.some((entry) => entry.status === "failed")) {
-    return "failed";
-  }
-  if (observations.some((entry) => entry.status === "passed")) {
-    return "passed";
-  }
-  if (observations.every((entry) => entry.status === "skipped")) {
-    return "skipped";
-  }
-  return "unknown";
-}
-
-function frontendRowClosureStatus(row, targetStatus) {
-  if (row.scenarios.length === 0) {
-    if (
-      row.claim_status === "implemented" &&
-      row.evidence_class === "implementation_support"
-    ) {
-      return targetStatus === "pass" ? "closed" : "blocked_by_target";
-    }
-    return "not_evaluable";
-  }
-  if (row.scenarios.some((scenario) => scenario.status === "failed")) {
-    return "failed";
-  }
-  if (
-    row.scenarios.some((scenario) =>
-      ["missing", "skipped", "unknown"].includes(scenario.status),
-    )
-  ) {
-    return "missing";
-  }
-  if (targetStatus !== "pass") {
-    return "blocked_by_target";
-  }
-  return "closed";
-}
-
-function frontendRowAccountingForTarget(target, targetStatus, targetDir) {
-  const frontendRows = frontendRowsForTarget(target);
-  if (frontendRows.length === 0) {
-    return null;
-  }
-  const registry = loadFrontendPhaseRegistry(repoRoot);
-  let titleObservations = new Map();
-  if (target === "frontend-unit") {
-    titleObservations = collectVitestTitleObservations(
-      path.join(targetDir, "raw", "frontend-unit", "runner.json"),
-    );
-  } else if (target.startsWith("browser-e2e")) {
-    titleObservations = collectPlaywrightTitleObservationsForTarget(targetDir);
-  }
-  const rows = frontendRows.map((row) => {
-    const scenarios = row.scenario_titles.map((title) => {
-      const observations = titleObservations.get(title) ?? [];
-      return {
-        title,
-        status: frontendScenarioStatus(observations),
-        files: [...new Set(observations.map((entry) => entry.file))].sort(),
-      };
-    });
-    const output = {
-      ...row,
-      target,
-      target_status: targetStatus,
-      scenarios,
-    };
-    return {
-      ...output,
-      closure_status: frontendRowClosureStatus(output, targetStatus),
-    };
-  });
-  const scenarioStatuses = rows.flatMap((row) =>
-    row.scenarios.map((scenario) => scenario.status),
-  );
-  const phaseMapRefs = [
-    ...new Set(
-      rows.map(
-        (row) =>
-          `tools/frontend_phase_maps/fe_p${row.phase_id.slice("FE-P".length)}_test_map.json`,
-      ),
-    ),
-  ].sort();
-  const scenarioResults = rows.flatMap((row) =>
-    row.scenarios.map((scenario) => ({
-      scenario_title: scenario.title,
-      status: scenario.status,
-      row_ids: [row.row_id],
-      artifact_refs: scenario.files,
-    })),
-  );
-  const rowResults = rows.map((row) => ({
-    row_id: row.row_id,
-    phase_id: row.phase_id,
-    evidence_class: row.evidence_class,
-    claim_status_at_run: row.claim_status,
-    target_mapping_status:
-      row.claim_status === "blocked" ? "blocked" : "mapped",
-    closure_status: frontendRowClosureStatusV2(row),
-    closing_scenario_titles: row.scenarios
-      .filter((scenario) => scenario.status === "passed")
-      .map((scenario) => scenario.title),
-    failure_reason: frontendRowFailureReason(row),
-  }));
-  return {
-    schema_id: frontendRowAccountingSchemaID,
-    target_name: target,
-    command_id: `cartulary.harness.command.${target.replaceAll("-", "_")}.v1`,
-    phase_namespace: "frontend",
-    registry_ref: "tools/frontend_phase_registry.json",
-    registry_digest: sha256RepoFile("tools/frontend_phase_registry.json"),
-    guide_ref: registry.guide_path,
-    guide_digest: sha256RepoFile(registry.guide_path),
-    phase_map_refs: phaseMapRefs,
-    phase_map_digests: phaseMapRefs.map((phaseMapRef) =>
-      sha256RepoFile(phaseMapRef),
-    ),
-    run_root: normalizePath(path.relative(repoRoot, targetDir)),
-    target_status: targetStatus,
-    scenario_results: scenarioResults,
-    row_results: rowResults,
-    rollup: {
-      implemented: rows.filter((row) => row.claim_status === "implemented")
-        .length,
-      blocked: rows.filter((row) => row.claim_status === "blocked").length,
-      missing: rowResults.filter((row) => row.closure_status === "not_closed")
-        .length,
-      stale: rowResults.filter((row) => row.closure_status === "stale").length,
-      not_applicable: rowResults.filter(
-        (row) => row.closure_status === "not_applicable",
-      ).length,
-      closed: rowResults.filter((row) => row.closure_status === "closed")
-        .length,
-      failed: rowResults.filter(
-        (row) =>
-          row.closure_status === "not_closed" &&
-          row.failure_reason !== "missing_required_scenario",
-      ).length,
-    },
-    target,
-    rows,
-    counts: {
-      rows: rows.length,
-      scenarios: scenarioStatuses.length,
-      closed_rows: rows.filter((row) => row.closure_status === "closed")
-        .length,
-      blocked_by_target_rows: rows.filter(
-        (row) => row.closure_status === "blocked_by_target",
-      ).length,
-      failed_rows: rows.filter((row) => row.closure_status === "failed")
-        .length,
-      missing_rows: rows.filter((row) => row.closure_status === "missing")
-        .length,
-      not_evaluable_rows: rows.filter(
-        (row) => row.closure_status === "not_evaluable",
-      ).length,
-      passed_scenarios: scenarioStatuses.filter((status) => status === "passed")
-        .length,
-      failed_scenarios: scenarioStatuses.filter((status) => status === "failed")
-        .length,
-      missing_scenarios: scenarioStatuses.filter(
-        (status) => status === "missing",
-      ).length,
-      skipped_scenarios: scenarioStatuses.filter(
-        (status) => status === "skipped",
-      ).length,
-      unknown_scenarios: scenarioStatuses.filter(
-        (status) => status === "unknown",
-      ).length,
-    },
-  };
-}
-
-function frontendRowClosureStatusV2(row) {
-  if (row.claim_status === "blocked") {
-    return "blocked";
-  }
-  if (row.claim_status === "stale") {
-    return "stale";
-  }
-  if (!row.required_for_closure) {
-    return "not_applicable";
-  }
-  if (row.closure_status === "closed") {
-    return "closed";
-  }
-  return "not_closed";
-}
-
-function frontendRowFailureReason(row) {
-  if (row.closure_status === "closed" || row.claim_status === "blocked") {
-    return "";
-  }
-  if (row.closure_status === "missing") {
-    return "missing_required_scenario";
-  }
-  if (row.closure_status === "failed") {
-    return "failed_required_scenario";
-  }
-  if (row.closure_status === "blocked_by_target") {
-    return "target_failed";
-  }
-  if (row.closure_status === "not_evaluable") {
-    return "row_not_evaluable";
-  }
-  return "unknown";
-}
-
-function frontendRowAccountingFailures(accounting) {
-  if (!accounting) {
-    return [];
-  }
-  return accounting.rows
-    .filter(
-      (row) =>
-        row.claim_status === "implemented" &&
-        (row.scenario_titles.length > 0 ||
-          row.evidence_class === "implementation_support") &&
-        row.closure_status !== "closed",
-    )
-    .map((row) => ({
-      failure_class: "harness",
-      failure_reason: "frontend_row_accounting",
-      kind: "failure",
-      source: "frontend-row-accounting",
-      target: accounting.target,
-      row_id: row.row_id,
-      message: `${row.row_id} implemented frontend row did not close: ${row.closure_status}`,
-    }));
-}
-
-function appendFrontendRowAccountingFailures(section, failures) {
-  if (failures.length === 0) {
-    return;
-  }
-  section.status = "fail";
-  section.counts = normalizeCounts(section.counts);
-  section.counts.failed += failures.length;
-  section.counts.non_test += failures.length;
-  section.counts.non_test_failed += failures.length;
-  const failureFields = failureFieldsForJSON(
-    [...(section.failures ?? []), ...failures],
-    section.counts,
-  );
-  Object.assign(section, failureFields);
-}
-
 function parseTargetList(value) {
   return value
     .split(",")
@@ -2782,12 +2282,16 @@ function parseTargetSummaryArgs(args) {
   const [target, ...rest] = args;
   if (!target) {
     throw new Error(
-      "usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>] [--skipped-from-child <target>] [--skipped-from-scheduler <target>] [--skipped-after-failure <target,target>] [--failed-dependency <target>] [--quiet-success] [--quiet-failure] [--suppress-machine-output] [--preserve-existing-tool-summary]",
+      "usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>] [--skipped-from-child <target>] [--skipped-from-scheduler <target>] [--skipped-after-failure <target,target>] [--failed-dependency <target>] [--frontend-row-accounting-scope <active_target|selected_rows|disabled>] [--frontend-row-accounting-phase-namespace <base|frontend>] [--frontend-row-accounting-phase <phaseN|FE-PN>] [--frontend-row-accounting-row-ids <ids>] [--quiet-success] [--quiet-failure] [--suppress-machine-output] [--preserve-existing-tool-summary]",
     );
   }
 
   let requestedStatus = "pass";
   let projectionTarget = "";
+  let frontendRowAccountingScope = "";
+  let frontendRowAccountingPhaseNamespace = "";
+  let frontendRowAccountingPhase = "";
+  let frontendRowAccountingRowIDs = "";
   let quietSuccess = false;
   let quietFailure = false;
   let suppressMachineOutput = false;
@@ -2825,6 +2329,31 @@ function parseTargetSummaryArgs(args) {
       if (projectionTarget === "") {
         throw new Error("--projection requires a target name");
       }
+      continue;
+    }
+    if (option === "--frontend-row-accounting-scope") {
+      frontendRowAccountingScope = remaining.shift() ?? "";
+      if (frontendRowAccountingScope === "") {
+        throw new Error("--frontend-row-accounting-scope requires a scope");
+      }
+      continue;
+    }
+    if (option === "--frontend-row-accounting-phase-namespace") {
+      frontendRowAccountingPhaseNamespace = remaining.shift() ?? "";
+      if (frontendRowAccountingPhaseNamespace === "") {
+        throw new Error("--frontend-row-accounting-phase-namespace requires a namespace");
+      }
+      continue;
+    }
+    if (option === "--frontend-row-accounting-phase") {
+      frontendRowAccountingPhase = remaining.shift() ?? "";
+      if (frontendRowAccountingPhase === "") {
+        throw new Error("--frontend-row-accounting-phase requires a phase");
+      }
+      continue;
+    }
+    if (option === "--frontend-row-accounting-row-ids") {
+      frontendRowAccountingRowIDs = remaining.shift() ?? "";
       continue;
     }
     if (option === "--skipped-after-failure") {
@@ -2892,6 +2421,12 @@ function parseTargetSummaryArgs(args) {
     skippedFromChildTargets,
     skippedFromSchedulerTargets,
     failedDependency,
+    frontendRowAccountingOptions: {
+      mode: frontendRowAccountingScope || undefined,
+      phaseNamespace: frontendRowAccountingPhaseNamespace || undefined,
+      phase: frontendRowAccountingPhase || undefined,
+      rowIDs: frontendRowAccountingRowIDs || undefined,
+    },
     quietSuccess,
     quietFailure,
     suppressMachineOutput,
@@ -3778,11 +3313,15 @@ function handleTargetSummary(args) {
     skippedFromChildTargets,
     skippedFromSchedulerTargets,
     failedDependency,
+    frontendRowAccountingOptions,
     quietSuccess,
     quietFailure,
     suppressMachineOutput,
     preserveExistingToolSummary,
   } = parseTargetSummaryArgs(args);
+  const frontendRowAccountingScope = normalizeFrontendRowAccountingScope(
+    frontendRowAccountingOptions,
+  );
   const summary = summarizeTargetDir(target);
   const lifecycleSpans = lifecycleTimingSpans(target, summary.targetDir);
   const timingFailures = timingFailuresFromSpans(lifecycleSpans);
@@ -4036,6 +3575,7 @@ function handleTargetSummary(args) {
     target,
     status.toLowerCase(),
     summary.targetDir,
+    { scope: frontendRowAccountingScope },
   );
   const frontendRowAccountingPath = frontendRowAccounting
     ? path.join(summary.targetDir, "frontend-row-accounting.json")
@@ -4077,10 +3617,12 @@ function handleTargetSummary(args) {
   appendFrontendRowAccountingFailures(
     ownSection,
     frontendAccountingFailures,
+    { normalizeCounts, failureFieldsForJSON },
   );
   appendFrontendRowAccountingFailures(
     totalsSection,
     frontendAccountingFailures,
+    { normalizeCounts, failureFieldsForJSON },
   );
   const finalStatus =
     frontendAccountingFailures.length > 0 ? "FAIL" : status;

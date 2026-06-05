@@ -48,6 +48,11 @@ function validFrontendPhaseName(value) {
   return /^FE-P(?:0|[1-9]\d*)$/.test(value);
 }
 
+function frontendPhaseNumber(value) {
+  const match = String(value).match(/^FE-P([0-9]+)$/);
+  return match ? Number.parseInt(match[1], 10) : Number.NaN;
+}
+
 function availableCPUCount() {
   if (typeof os.availableParallelism === "function") {
     return Math.max(1, os.availableParallelism());
@@ -105,7 +110,12 @@ function rowTargetEntries(rows, mode) {
       if (mode === "service_backed" && !isBrowserTarget(target)) {
         continue;
       }
-      entries.push({ row, target });
+      const frontendRowAccountingRequired =
+        rawTarget && typeof rawTarget === "object"
+          ? rawTarget.required_for_closure ||
+            rawTarget.frontend_row_accounting_required
+          : true;
+      entries.push({ row, target, frontendRowAccountingRequired });
     }
   }
   return entries;
@@ -165,19 +175,37 @@ function rowGroups(entries) {
     );
 }
 
-function childTargets(entries) {
+function selectedRowAccountingScope(phase, rowIDs) {
+  return {
+    mode: "selected_rows",
+    invocation_kind: "frontend_phase_slice",
+    phase_namespace: "frontend",
+    phase,
+    selection_policy: "frontend_rows_through_selected_phase",
+    selected_row_ids: uniqueSorted(rowIDs),
+  };
+}
+
+function childTargets(entries, phase) {
   const byTarget = new Map();
-  for (const { row, target } of entries) {
+  for (const { row, target, frontendRowAccountingRequired } of entries) {
     if (!byTarget.has(target)) {
-      byTarget.set(target, { target, ids: [] });
+      byTarget.set(target, { target, ids: [], accountingIDs: [] });
     }
     byTarget.get(target).ids.push(row.id);
+    if (frontendRowAccountingRequired) {
+      byTarget.get(target).accountingIDs.push(row.id);
+    }
   }
   return Array.from(byTarget.values())
     .map((entry) => ({
       target: entry.target,
       row_count: uniqueSorted(entry.ids).length,
       ids: uniqueSorted(entry.ids),
+      frontend_row_accounting_scope: selectedRowAccountingScope(
+        phase,
+        entry.accountingIDs,
+      ),
     }))
     .sort(
       (left, right) =>
@@ -246,6 +274,23 @@ function knownTaskTargets(root) {
   return targetEntryMap(manifest);
 }
 
+function rowsThroughSelectedActiveFrontendPhase(root, registry, selectedPhase) {
+  const selectedOrder = frontendPhaseNumber(selectedPhase);
+  const rows = [];
+  for (const entry of registry.phases) {
+    const order = frontendPhaseNumber(entry.phase_id);
+    if (!Number.isFinite(order) || order > selectedOrder) {
+      continue;
+    }
+    if (entry.status !== "active") {
+      continue;
+    }
+    const { manifest } = loadFrontendPhaseMap(root, entry.phase_id);
+    rows.push(...manifest.rows);
+  }
+  return rows;
+}
+
 export function buildFrontendPhaseSlicePlan(
   phase,
   { mode = "phase", root = repoRoot } = {},
@@ -266,9 +311,13 @@ export function buildFrontendPhaseSlicePlan(
       `planned/non-executable frontend phase ${phase}; frontend phase is ${registryEntry.status} and must be promoted to active before phase-slice execution`,
     );
   }
-  const { manifest } = loadFrontendPhaseMap(root, phase);
-  const entries = rowTargetEntries(manifest.rows, mode);
-  const children = childTargets(entries);
+  const selectedRows = rowsThroughSelectedActiveFrontendPhase(
+    root,
+    registry,
+    phase,
+  );
+  const entries = rowTargetEntries(selectedRows, mode);
+  const children = childTargets(entries, phase);
   const targetNames = children.map((entry) => entry.target);
   const taskTargets = knownTaskTargets(root);
   for (const target of targetNames) {
@@ -279,10 +328,10 @@ export function buildFrontendPhaseSlicePlan(
     }
   }
   const resourceLimits = resourceLimitsForTargets(targetNames);
-  const selectedRows = uniqueSorted(entries.map((entry) => entry.row.id)).map(
-    (id) => manifest.rows.find((row) => row.id === id),
+  const selectedExecutableRows = uniqueSorted(entries.map((entry) => entry.row.id)).map(
+    (id) => selectedRows.find((row) => row.id === id),
   ).filter(Boolean);
-  const claimCounts = claimStatusCounts(selectedRows);
+  const claimCounts = claimStatusCounts(selectedExecutableRows);
   const workUnits = children.map((child, index) =>
     serializeWorkUnit({
       id: child.target,
@@ -298,6 +347,7 @@ export function buildFrontendPhaseSlicePlan(
       failureKeys: [child.target],
       weightMs: targetWeight(child.row_count),
       resourceClaims: resourceClaimsForTarget(child.target),
+      frontend_row_accounting_scope: child.frontend_row_accounting_scope,
       order: index,
     }),
   );
@@ -341,9 +391,10 @@ export function printableFrontendPlan(plan) {
       id: unit.id,
       label: unit.label,
       kind: unit.kind,
-      target: unit.target,
-      needs: unit.needs ?? [],
-      resource_claims: unit.resource_claims,
-    })),
+        target: unit.target,
+        needs: unit.needs ?? [],
+        resource_claims: unit.resource_claims,
+        frontend_row_accounting_scope: unit.frontend_row_accounting_scope,
+      })),
   };
 }

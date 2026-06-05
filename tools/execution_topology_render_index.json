@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:ed8de8653ce145b0877ba2456e0f3c69e295a536048e920a683fdbb4c764c324",
+  "input_digest": "sha256:540a72d74d75cbcdf05470a6a56bb0edd0d681f82dcca49668a4221cd3511058",
   "inputs": [
     {
       "path": "scripts/lib/agent-finalize-action-cache.mjs",
@@ -82,12 +82,17 @@
     {
       "path": "scripts/lib/frontend-phase-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:d5a18a5248134eec106c88028f5575c73023ec54df115e696880b4e203bad7c5"
+      "hash": "sha256:f450d261b8e88ab5b777ba628d9c6238e129120368f0ff32260fc80ad3757de8"
     },
     {
       "path": "scripts/lib/frontend-phase-slice-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:561c142e27fde843ec489608edbe50c3193d696cf40df8f612d1475ae7d9dde7"
+      "hash": "sha256:4fd09ec101ab60427d1069148478c85836e88eaa980edd212e091a103802adbb"
+    },
+    {
+      "path": "scripts/lib/frontend-row-accounting.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:53c21e62e5cac601b913b51809688ede6350fa30f4e07945acd4a55e9f923812"
     },
     {
       "path": "scripts/lib/go-duration-artifacts.mjs",
@@ -157,7 +162,7 @@
     {
       "path": "scripts/lib/phase-slice-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:83104e626b7b04e7490857170f4fc7b871baa236f28f5b0f134d5531b621cf7a"
+      "hash": "sha256:decce6daf08125cbe13b9e80d5920a9d147f0b8c7abf65307e6f6020d2482203"
     },
     {
       "path": "scripts/lib/playwright-report.mjs",
@@ -287,12 +292,12 @@
     {
       "path": "scripts/lib/test-output/cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:a8bd257e0a0652d97057f8c42a9a7b1f473209ff56049c78056d61590de8a17f"
+      "hash": "sha256:5e7d67c19c4eea20e331adb1659dff649b165f8c21248ee5e66652572d95bb54"
     },
     {
       "path": "scripts/lib/test-output/context.mjs",
       "role": "renderer_source",
-      "hash": "sha256:a48557b31a5d733e951ce4535f562cd0290326dba9f3d45fdae56dfeb812a3d1"
+      "hash": "sha256:e8a3720a3e0aeb29a9ecfb4aa60d17309d6e34965e2c9361544c5052ca833284"
     },
     {
       "path": "scripts/lib/tool-output.mjs",

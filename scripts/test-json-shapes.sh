@@ -575,10 +575,20 @@ write_valid_frontend_row_accounting() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.frontend_row_accounting.v2",
+  "schema_id": "cartulary.frontend_row_accounting.v3",
   "target_name": "browser-e2e-webserver-backed",
   "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
   "phase_namespace": "frontend",
+  "accounting_scope": {
+    "mode": "selected_rows",
+    "invocation_kind": "frontend_phase_slice",
+    "phase_namespace": "frontend",
+    "phase": "FE-P2",
+    "selection_policy": "frontend_rows_through_selected_phase",
+    "selected_row_ids": [
+      "FE-B-P2-02"
+    ]
+  },
   "registry_ref": "tools/frontend_phase_registry.json",
   "registry_digest": "0000000000000000000000000000000000000000000000000000000000000000",
   "guide_ref": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
@@ -630,7 +640,7 @@ write_valid_frontend_row_accounting() {
   "rows": [
     {
       "phase_id": "FE-P2",
-      "phase_status": "planned",
+      "phase_status": "active",
       "row_rollup_state": "active_green",
       "row_id": "FE-B-P2-02",
       "layer": "browser_integration",
@@ -1000,6 +1010,9 @@ const mutations = {
   "frontend-row-accounting-invalid-scenario-status": (fixture) => {
     fixture.rows[0].scenarios[0].status = "pass";
   },
+  "frontend-row-accounting-invalid-scope": (fixture) => {
+    fixture.accounting_scope.mode = "phase";
+  },
   "scheduler-manifest-stale-schema": (fixture) => {
     fixture.schema_id = "cartulary.check_schedule.v12";
   },
@@ -1194,28 +1207,35 @@ assert_contains "$frontend_a11y_preflight_implemented_output" "must be equal to 
 frontend_row_accounting="$tmp_dir/frontend-row-accounting.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting"
 assert_passes "frontend row accounting validates exact schema" \
-  run_schema_validation cartulary.frontend_row_accounting.v2 "$frontend_row_accounting" >/dev/null
+  run_schema_validation cartulary.frontend_row_accounting.v3 "$frontend_row_accounting" >/dev/null
 
 frontend_row_accounting_unknown_key="$tmp_dir/frontend-row-accounting-unknown-key.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting_unknown_key"
 mutate_json_fixture frontend-row-accounting-unknown-key "$frontend_row_accounting_unknown_key"
 frontend_row_accounting_unknown_key_output="$(assert_fails "frontend row accounting rejects unknown row keys" \
-  run_schema_validation cartulary.frontend_row_accounting.v2 "$frontend_row_accounting_unknown_key")"
+  run_schema_validation cartulary.frontend_row_accounting.v3 "$frontend_row_accounting_unknown_key")"
 assert_contains "$frontend_row_accounting_unknown_key_output" "must NOT have additional properties" "frontend row accounting unknown key"
 
 frontend_row_accounting_bad_closure="$tmp_dir/frontend-row-accounting-bad-closure.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting_bad_closure"
 mutate_json_fixture frontend-row-accounting-invalid-closure "$frontend_row_accounting_bad_closure"
 frontend_row_accounting_bad_closure_output="$(assert_fails "frontend row accounting rejects invalid closure status" \
-  run_schema_validation cartulary.frontend_row_accounting.v2 "$frontend_row_accounting_bad_closure")"
+  run_schema_validation cartulary.frontend_row_accounting.v3 "$frontend_row_accounting_bad_closure")"
 assert_contains "$frontend_row_accounting_bad_closure_output" "must be equal to one of the allowed values" "frontend row accounting invalid closure"
 
 frontend_row_accounting_bad_scenario="$tmp_dir/frontend-row-accounting-bad-scenario.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting_bad_scenario"
 mutate_json_fixture frontend-row-accounting-invalid-scenario-status "$frontend_row_accounting_bad_scenario"
 frontend_row_accounting_bad_scenario_output="$(assert_fails "frontend row accounting rejects invalid scenario status" \
-  run_schema_validation cartulary.frontend_row_accounting.v2 "$frontend_row_accounting_bad_scenario")"
+  run_schema_validation cartulary.frontend_row_accounting.v3 "$frontend_row_accounting_bad_scenario")"
 assert_contains "$frontend_row_accounting_bad_scenario_output" "must be equal to one of the allowed values" "frontend row accounting invalid scenario"
+
+frontend_row_accounting_bad_scope="$tmp_dir/frontend-row-accounting-bad-scope.json"
+write_valid_frontend_row_accounting "$frontend_row_accounting_bad_scope"
+mutate_json_fixture frontend-row-accounting-invalid-scope "$frontend_row_accounting_bad_scope"
+frontend_row_accounting_bad_scope_output="$(assert_fails "frontend row accounting rejects invalid scope" \
+  run_schema_validation cartulary.frontend_row_accounting.v3 "$frontend_row_accounting_bad_scope")"
+assert_contains "$frontend_row_accounting_bad_scope_output" "must be equal to one of the allowed values" "frontend row accounting invalid scope"
 
 frontend_a11y_writer_missing="$tmp_dir/frontend-accessibility-summary-writer-missing.json"
 frontend_a11y_writer_missing_output="$(assert_fails "frontend accessibility summary writer rejects missing implemented evidence" \

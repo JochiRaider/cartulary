@@ -985,9 +985,7 @@ export async function openSystemSurfaceBySwitcher(
       await page.getByTestId(systemViewSwitcherTriggerTestId()).click();
       const menu = page.getByTestId(systemViewSwitcherMenuTestId());
       await expect(menu).toBeVisible();
-      const option = menu.locator(
-        `[data-view-schema-id="${viewSchemaId}"]`,
-      );
+      const option = menu.locator(`[data-view-schema-id="${viewSchemaId}"]`);
       await expect(option).toHaveCount(1);
       await option.click();
       await expect(

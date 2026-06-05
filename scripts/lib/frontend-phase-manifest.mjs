@@ -335,7 +335,7 @@ function frontendEvidenceFreshnessDigest(root, registry, entry) {
   const payload = {
     schema_id: frontendPhaseRegistrySchemaID,
     map_schema_id: frontendPhaseTestMapSchemaID,
-    row_accounting_schema_id: "cartulary.frontend_row_accounting.v2",
+    row_accounting_schema_id: "cartulary.frontend_row_accounting.v3",
     guide_digest: registry.guide_digest,
     manifest_digest: entry.manifest_digest,
     ledger_digest: entry.ledger_digest,
@@ -353,7 +353,7 @@ function frontendEvidenceFreshnessDigest(root, registry, entry) {
     ),
     row_accounting_schema_digest: sha256File(
       root,
-      "tools/schemas/cartulary.frontend_row_accounting.v2.schema.json",
+      "tools/schemas/cartulary.frontend_row_accounting.v3.schema.json",
     ),
   };
   return createHash("sha256")

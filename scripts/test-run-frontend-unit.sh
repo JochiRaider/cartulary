@@ -191,12 +191,10 @@ for (const [index, row] of manifestSupport.entries()) {
 }
 
 const frontendPhaseEntries = [];
-for (const name of fs.readdirSync(path.join(root, "tools", "frontend_phase_maps")).sort()) {
-  if (!/^fe_p\d+_test_map\.json$/.test(name)) {
-    continue;
-  }
+const frontendRegistry = JSON.parse(fs.readFileSync(path.join(root, "tools", "frontend_phase_registry.json"), "utf8"));
+for (const entry of (frontendRegistry.phases ?? []).filter((phase) => phase.status === "active")) {
   const frontendPhase = JSON.parse(
-    fs.readFileSync(path.join(root, "tools", "frontend_phase_maps", name), "utf8"),
+    fs.readFileSync(path.join(root, entry.manifest_path), "utf8"),
   );
   for (const row of frontendPhase.rows ?? []) {
     if (
@@ -345,12 +343,10 @@ for (const entry of (registry.phases ?? [])
     }
   }
 }
-for (const name of fs.readdirSync(path.join(root, "tools", "frontend_phase_maps")).sort()) {
-  if (!/^fe_p\d+_test_map\.json$/.test(name)) {
-    continue;
-  }
+const frontendRegistry = JSON.parse(fs.readFileSync(path.join(root, "tools", "frontend_phase_registry.json"), "utf8"));
+for (const entry of (frontendRegistry.phases ?? []).filter((phase) => phase.status === "active")) {
   const frontendPhase = JSON.parse(
-    fs.readFileSync(path.join(root, "tools", "frontend_phase_maps", name), "utf8"),
+    fs.readFileSync(path.join(root, entry.manifest_path), "utf8"),
   );
   for (const row of frontendPhase.rows ?? []) {
   if (
@@ -399,8 +395,11 @@ if (!artifactRel) {
 const artifact = JSON.parse(
   fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"),
 );
-if (artifact.schema_id !== "cartulary.frontend_row_accounting.v2") {
+if (artifact.schema_id !== "cartulary.frontend_row_accounting.v3") {
   throw new Error(`frontend row accounting artifact has wrong schema: ${artifact.schema_id}`);
+}
+if (accounting.accounting_scope?.mode !== "active_target") {
+  throw new Error(`frontend-unit broad target must use active target accounting scope: ${JSON.stringify(accounting.accounting_scope)}`);
 }
 if (JSON.stringify(artifact) !== JSON.stringify(accounting)) {
   throw new Error("frontend row accounting artifact must match compatibility extension");
@@ -430,6 +429,65 @@ if (!toolSummary.summary_artifacts?.some((entry) =>
   entry.role === "frontend_row_accounting" && entry.path === artifactRel
 )) {
   throw new Error("frontend-unit tool summary must reference frontend row accounting artifact");
+}
+EOF
+
+success_target_dir="${success_summary%/target-summary.json}"
+selected_scope_root="$tmp_dir/results-selected/selected/frontend-unit"
+mkdir -p "$selected_scope_root"
+cp -R "$success_target_dir/." "$selected_scope_root/"
+CARTULARY_OUTPUT_MODE=quiet \
+CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results-selected" \
+CARTULARY_TEST_RUN_ID="selected" \
+NODE_BIN="$runtime_dir/bin/node" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary frontend-unit pass \
+  --frontend-row-accounting-scope selected_rows \
+  --frontend-row-accounting-phase-namespace frontend \
+  --frontend-row-accounting-phase FE-P3 \
+  --frontend-row-accounting-row-ids FE-I-P1-01 >/dev/null
+selected_scope_summary="$selected_scope_root/target-summary.json"
+"${NODE:-node}" - "$selected_scope_summary" <<'EOF'
+const fs = require("node:fs");
+const [summaryPath] = process.argv.slice(2);
+const accounting = JSON.parse(fs.readFileSync(summaryPath, "utf8"))
+  .extensions?.["cartulary.frontend_row_accounting"];
+if (accounting.accounting_scope?.mode !== "selected_rows") {
+  throw new Error(`selected scope was not retained: ${JSON.stringify(accounting.accounting_scope)}`);
+}
+if (accounting.accounting_scope.phase !== "FE-P3") {
+  throw new Error("selected scope must retain frontend phase");
+}
+const rowIDs = (accounting.rows ?? []).map((row) => row.row_id);
+if (rowIDs.join(",") !== "FE-I-P1-01") {
+  throw new Error(`selected scope must emit only FE-I-P1-01, got ${rowIDs.join(",")}`);
+}
+EOF
+
+disabled_scope_root="$tmp_dir/results-disabled/disabled/frontend-unit"
+mkdir -p "$disabled_scope_root"
+cp -R "$success_target_dir/." "$disabled_scope_root/"
+CARTULARY_OUTPUT_MODE=quiet \
+CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results-disabled" \
+CARTULARY_TEST_RUN_ID="disabled" \
+NODE_BIN="$runtime_dir/bin/node" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary frontend-unit pass \
+  --frontend-row-accounting-scope disabled \
+  --frontend-row-accounting-phase-namespace base \
+  --frontend-row-accounting-phase phase9 >/dev/null
+disabled_scope_summary="$disabled_scope_root/target-summary.json"
+"${NODE:-node}" - "$disabled_scope_summary" <<'EOF'
+const fs = require("node:fs");
+const [summaryPath] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+const accounting = summary.extensions?.["cartulary.frontend_row_accounting"];
+if (summary.status !== "pass") {
+  throw new Error(`disabled scope target summary must pass, got ${summary.status}`);
+}
+if (accounting.accounting_scope?.mode !== "disabled") {
+  throw new Error(`disabled scope was not retained: ${JSON.stringify(accounting.accounting_scope)}`);
+}
+if ((accounting.rows ?? []).length !== 0) {
+  throw new Error(`disabled scope must emit zero rows, got ${accounting.rows.length}`);
 }
 EOF
 
@@ -496,7 +554,6 @@ if (!summary.failures?.some((failure) => failure.source === "frontend-row-accoun
   throw new Error("target summary must include a frontend-row-accounting failure");
 }
 EOF
-success_target_dir="${success_summary%/target-summary.json}"
 "${NODE:-node}" - "$success_target_dir" <<'EOF'
 const fs = require("node:fs");
 const path = require("node:path");
