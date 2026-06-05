@@ -1634,8 +1634,19 @@ function buildReleaseGateSummary({
   const blockingRows = claims
     .filter((claim) => claim.row !== "SWFS-AC-024" && claim.status !== "claimable")
     .map((claim) => claim.row);
-  add("SWFS-AC-024", blockingRows.length === 0 ? "claimable" : "blocked", "full release gate passes only when no release-blocking row remains unresolved", [
+  const aggregateChecks = [
+    {
+      check_id: "redaction-leakage-scan",
+      result: artifacts.redaction.result,
+      predicate: "redaction leakage scan passes for every release-gate artifact boundary",
+      evidence_paths: [artifactRef(pathMap, "redaction-leakage-scan.json")].filter(Boolean),
+    },
+  ];
+  const blockingChecks = aggregateChecks.filter((check) => check.result !== "pass");
+  const aggregateChecksPass = blockingChecks.length === 0;
+  add("SWFS-AC-024", blockingRows.length === 0 && aggregateChecksPass ? "claimable" : "blocked", "full release gate passes only when no release-blocking row or aggregate check remains unresolved", [
     artifactRef(pathMap, "release-gate-summary.json"),
+    artifactRef(pathMap, "redaction-leakage-scan.json"),
   ]);
   const phaseGRowsPass = releaseGateRows
     .filter((row) => row !== "SWFS-AC-024")
@@ -1644,12 +1655,13 @@ function buildReleaseGateSummary({
     schema_id: "cartulary.seaweedfs_release_gate_summary.v1",
     generated_at: generatedAt,
     repo_commit: repoCommitValue,
-    phase_g_result: phaseGRowsPass && artifacts.redaction.result === "pass" ? "pass" : "fail",
-    release_gate_result: blockingRows.length === 0 && phaseGRowsPass && artifacts.redaction.result === "pass" ? "pass" : "blocked",
+    phase_g_result: phaseGRowsPass && aggregateChecksPass ? "pass" : "fail",
+    release_gate_result: blockingRows.length === 0 && phaseGRowsPass && aggregateChecksPass ? "pass" : "blocked",
     blocking_rows: blockingRows,
+    blocking_checks: blockingChecks,
     claims,
     artifacts: pathMap,
-    result: phaseGRowsPass && artifacts.redaction.result === "pass" ? "pass" : "fail",
+    result: phaseGRowsPass && aggregateChecksPass ? "pass" : "fail",
   };
 }
 
@@ -1854,8 +1866,12 @@ export function generatePhaseGEvidence({
   pathMap["release-gate-summary.json"] = finalMaterialized.pathMap["release-gate-summary.json"];
   summary.artifacts = pathMap;
   for (const claim of summary.claims) {
-    if (claim.row === "SWFS-AC-024" && claim.evidence_paths.length === 0) {
-      claim.evidence_paths = [pathMap["release-gate-summary.json"]];
+    if (
+      claim.row === "SWFS-AC-024" &&
+      pathMap["release-gate-summary.json"] &&
+      !claim.evidence_paths.includes(pathMap["release-gate-summary.json"])
+    ) {
+      claim.evidence_paths = [pathMap["release-gate-summary.json"], ...claim.evidence_paths];
     }
   }
   writeJSON(repoPath(pathMap["release-gate-summary.json"]), summary);

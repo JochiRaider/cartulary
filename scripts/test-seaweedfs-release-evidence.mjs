@@ -483,8 +483,21 @@ const pathMap = {
   "storage-ref-owner-coverage.json": ".cartulary/release-artifacts/seaweedfs/fixture/storage-ref-owner-coverage.json",
   "seaweedfs-compatibility-evidence.json": ".cartulary/release-artifacts/seaweedfs/fixture/seaweedfs-compatibility-evidence.json",
   "migration-preservation-evidence.json": ".cartulary/release-artifacts/seaweedfs/fixture/migration-preservation-evidence.json",
+  "redaction-leakage-scan.json": ".cartulary/release-artifacts/seaweedfs/fixture/redaction-leakage-scan.json",
   "release-gate-summary.json": ".cartulary/release-artifacts/seaweedfs/fixture/release-gate-summary.json",
 };
+
+function assertSwfsAc024SummaryInvariant(summary) {
+  const claim = summary.claims.find((entry) => entry.row === "SWFS-AC-024");
+  assert.ok(claim);
+  const claimable = claim.status === "claimable";
+  const noBlockingRows = summary.blocking_rows.length === 0;
+  const noBlockingChecks = summary.blocking_checks.length === 0;
+  const aggregatePasses =
+    summary.phase_g_result === "pass" && summary.release_gate_result === "pass";
+  assert.equal(claimable, aggregatePasses && noBlockingRows && noBlockingChecks);
+}
+
 const passingSummary = buildReleaseGateSummary({
   generatedAt: "2026-06-04T00:00:00.000Z",
   repoCommitValue: "abc123",
@@ -503,8 +516,45 @@ const passingSummary = buildReleaseGateSummary({
 });
 assert.equal(passingSummary.release_gate_result, "pass");
 assert.deepEqual(passingSummary.blocking_rows, []);
+assert.deepEqual(passingSummary.blocking_checks, []);
 assert.equal(passingSummary.claims.find((claim) => claim.row === "SWFS-AC-015")?.status, "claimable");
 assert.equal(passingSummary.claims.find((claim) => claim.row === "SWFS-AC-018")?.status, "claimable");
+assert.equal(passingSummary.claims.find((claim) => claim.row === "SWFS-AC-024")?.status, "claimable");
+assert.equal(
+  passingSummary.claims
+    .find((claim) => claim.row === "SWFS-AC-024")
+    ?.evidence_paths.includes(pathMap["redaction-leakage-scan.json"]),
+  true,
+);
+assertSwfsAc024SummaryInvariant(passingSummary);
+
+const redactionBlockedSummary = buildReleaseGateSummary({
+  generatedAt: "2026-06-04T00:00:00.000Z",
+  repoCommitValue: "abc123",
+  pathMap,
+  artifacts: {
+    occurrence: { result: "pass" },
+    exposure: { result: "pass" },
+    dependency: { result: "pass" },
+    sbomLicense: { result: "pass" },
+    threat: { result: "pass" },
+    storageRefOwner,
+    compatibility,
+    migration,
+    redaction: { result: "fail" },
+  },
+});
+assert.equal(redactionBlockedSummary.phase_g_result, "fail");
+assert.equal(redactionBlockedSummary.release_gate_result, "blocked");
+assert.deepEqual(redactionBlockedSummary.blocking_rows, []);
+assert.equal(redactionBlockedSummary.blocking_checks.length, 1);
+assert.equal(redactionBlockedSummary.blocking_checks[0].check_id, "redaction-leakage-scan");
+assert.equal(redactionBlockedSummary.blocking_checks[0].result, "fail");
+assert.deepEqual(redactionBlockedSummary.blocking_checks[0].evidence_paths, [
+  pathMap["redaction-leakage-scan.json"],
+]);
+assert.equal(redactionBlockedSummary.claims.find((claim) => claim.row === "SWFS-AC-024")?.status, "blocked");
+assertSwfsAc024SummaryInvariant(redactionBlockedSummary);
 
 const blockedSummary = buildReleaseGateSummary({
   generatedAt: "2026-06-04T00:00:00.000Z",
@@ -524,3 +574,5 @@ const blockedSummary = buildReleaseGateSummary({
 });
 assert.equal(blockedSummary.release_gate_result, "blocked");
 assert.deepEqual(new Set(blockedSummary.blocking_rows), new Set(["SWFS-AC-015", "SWFS-AC-018"]));
+assert.deepEqual(blockedSummary.blocking_checks, []);
+assertSwfsAc024SummaryInvariant(blockedSummary);
