@@ -61,7 +61,12 @@ func TestPhase5_ObjectUploadAttachWorkbookProjection_I_5_01(t *testing.T) {
 		"sha256_hex":        fmt.Sprintf("%x", sum[:]),
 	}, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
-	putObject(t, createData["upload_target"].(map[string]any)["href"].(string), payload, "text/plain")
+	uploadTarget := createData["upload_target"].(map[string]any)
+	href, _ := uploadTarget["href"].(string)
+	if !strings.HasPrefix(href, "/api/v1/object-uploads/upl_") || strings.Contains(href, "://") {
+		t.Fatalf("create returned non-opaque same-origin upload target: %#v", uploadTarget)
+	}
+	putObject(t, harness.Server.HTTP.URL, href, payload, "text/plain")
 
 	attachBody := map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
@@ -107,6 +112,72 @@ func TestPhase5_ObjectUploadAttachWorkbookProjection_I_5_01(t *testing.T) {
 	if got := countEvidenceBlobLinks(t, harness, evidenceRecordID); got != 1 {
 		t.Fatalf("evidence row has duplicate or missing blob link: got %d want 1", got)
 	}
+}
+
+func TestPhase5_ObjectUploadCapabilityRoute_I_5_01A(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase5-object-upload-capability")
+	login, _ := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-phase5-upload-capability-incident",
+		"incident_key":  "phase5-upload-capability",
+		"title":         "Phase 5 upload capability",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	createSlot := func(t *testing.T, txn string) map[string]any {
+		t.Helper()
+		resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+			"incident_id":       incidentID.String(),
+			"client_txn_id":     txn,
+			"byte_size":         5,
+			"filename_hint":     "capability.txt",
+			"content_type_hint": "text/plain",
+		}, authOptions(login)...)
+		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+		target := data["upload_target"].(map[string]any)
+		href, _ := target["href"].(string)
+		if !strings.HasPrefix(href, "/api/v1/object-uploads/upl_") || strings.Contains(href, "://") {
+			t.Fatalf("upload target must be an opaque same-origin capability: %#v", target)
+		}
+		return data
+	}
+	putUpload := func(t *testing.T, href string, payload string) *http.Response {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPut, harness.Server.HTTP.URL+href, strings.NewReader(payload))
+		if err != nil {
+			t.Fatalf("create upload request: %v", err)
+		}
+		req.Header.Set("Content-Type", "text/plain")
+		return httptestx.Do(t, http.DefaultClient, req)
+	}
+
+	malformed := putUpload(t, "/api/v1/object-uploads/not-a-token", "hello")
+	httptestx.RequireErrorEnvelope(t, malformed, http.StatusNotFound, "object_upload_not_found_or_revoked")
+
+	undersizeData := createSlot(t, "txn-phase5-upload-capability-undersize")
+	undersizeTarget := undersizeData["upload_target"].(map[string]any)
+	undersizeResp := putUpload(t, undersizeTarget["href"].(string), "hell")
+	undersizeBody := httptestx.RequireErrorEnvelope(t, undersizeResp, http.StatusBadRequest, "object_upload_rejected")
+	httptestx.RequireErrorDetail(t, undersizeBody, "reason_code", "byte_size_mismatch")
+
+	oversizeData := createSlot(t, "txn-phase5-upload-capability-oversize")
+	oversizeTarget := oversizeData["upload_target"].(map[string]any)
+	oversizeResp := putUpload(t, oversizeTarget["href"].(string), "helloo")
+	oversizeBody := httptestx.RequireErrorEnvelope(t, oversizeResp, http.StatusRequestEntityTooLarge, "object_upload_rejected")
+	httptestx.RequireErrorDetail(t, oversizeBody, "reason_code", "byte_size_exceeds_contract")
+
+	wrongStateData := createSlot(t, "txn-phase5-upload-capability-wrong-state")
+	wrongStateBlobID := phase4test.MustUUID(t, wrongStateData["object_blob_id"].(string))
+	updateBlobState(t, harness, wrongStateBlobID, "available")
+	wrongStateTarget := wrongStateData["upload_target"].(map[string]any)
+	wrongStateResp := putUpload(t, wrongStateTarget["href"].(string), "hello")
+	wrongStateBody := httptestx.RequireErrorEnvelope(t, wrongStateResp, http.StatusConflict, "object_upload_rejected")
+	httptestx.RequireErrorDetail(t, wrongStateBody, "reason_code", "blob_not_pending")
+
+	successData := createSlot(t, "txn-phase5-upload-capability-success")
+	successTarget := successData["upload_target"].(map[string]any)
+	successResp := putUpload(t, successTarget["href"].(string), "hello")
+	httptestx.RequireStatus(t, successResp, http.StatusNoContent)
 }
 
 func TestPhase5_AttachRouteContract_I_5_05(t *testing.T) {
@@ -467,6 +538,15 @@ func TestPhase5_ExpiredSlotReplay_I_5_02(t *testing.T) {
 	if !replayedTarget.Before(replayAt) {
 		t.Fatalf("replayed target should remain expired: got %s replay_at %s", replayedTarget, replayAt)
 	}
+	replayedUploadTarget := replayData["upload_target"].(map[string]any)
+	replayedHref, _ := replayedUploadTarget["href"].(string)
+	expiredReq, err := http.NewRequest(http.MethodPut, harness.Server.HTTP.URL+replayedHref, strings.NewReader(strings.Repeat("x", 17)))
+	if err != nil {
+		t.Fatalf("create expired upload request: %v", err)
+	}
+	expiredReq.Header.Set("Content-Type", "text/plain")
+	expiredUpload := httptestx.Do(t, http.DefaultClient, expiredReq)
+	httptestx.RequireErrorEnvelope(t, expiredUpload, http.StatusGone, "object_upload_expired")
 
 	freshBody := map[string]any{
 		"incident_id":       incidentID.String(),
@@ -1199,7 +1279,7 @@ func attachUploadedBlobWithHints(t *testing.T, harness *phase4test.ServerHarness
 		"sha256_hex":        fmt.Sprintf("%x", sha256Sum(payload)),
 	}, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
-	putObject(t, createData["upload_target"].(map[string]any)["href"].(string), payload, uploadContentType)
+	putObject(t, harness.Server.HTTP.URL, createData["upload_target"].(map[string]any)["href"].(string), payload, uploadContentType)
 	attachResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,

@@ -740,13 +740,16 @@ type EvidenceHandleEnvelope = {
   };
 };
 
+type ObjectBlobUploadTarget = {
+  href: string;
+  method?: string | null;
+  headers?: Record<string, string> | null;
+};
+
 type ObjectBlobCreateEnvelope = {
   data: {
     object_blob_id: string;
-    upload_target: {
-      href: string;
-      method?: string | null;
-    };
+    upload_target: ObjectBlobUploadTarget;
   };
 };
 
@@ -2274,6 +2277,71 @@ function apiPath(base: string | undefined, path: string): string {
     return path;
   }
   return `${trimmedBase.replace(/\/$/, "")}${path}`;
+}
+
+async function uploadObjectBlobTarget(
+  apiBase: string | undefined,
+  uploadTarget: ObjectBlobUploadTarget,
+  file: File,
+): Promise<void> {
+  const uploadHref =
+    uploadTarget.href.startsWith("/") && apiBase
+      ? apiPath(apiBase, uploadTarget.href)
+      : uploadTarget.href;
+  const headers = new Headers(uploadTarget.headers ?? undefined);
+  let hasContentType = false;
+  headers.forEach((_value, key) => {
+    if (key.toLowerCase() === "content-type") {
+      hasContentType = true;
+    }
+  });
+  if (!hasContentType) {
+    headers.set("Content-Type", file.type || "application/octet-stream");
+  }
+  let lastStatus = 0;
+  let lastDetail = "";
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const upload = await fetch(uploadHref, {
+      method: uploadTarget.method ?? "PUT",
+      credentials: "omit",
+      headers,
+      body: file,
+    });
+    if (upload.ok) {
+      return;
+    }
+    lastStatus = upload.status;
+    lastDetail = await readUploadFailureDetail(upload);
+    if (attempt < 2 && isRetryableUploadFailure(upload.status, lastDetail)) {
+      await sleep(200 * (attempt + 1));
+      continue;
+    }
+    break;
+  }
+  throw new Error(
+    lastDetail === ""
+      ? `upload_failed_${lastStatus}`
+      : `upload_failed_${lastStatus}: ${lastDetail}`,
+  );
+}
+
+async function readUploadFailureDetail(response: Response): Promise<string> {
+  try {
+    return (await response.text()).replace(/\s+/g, " ").slice(0, 300);
+  } catch {
+    return "";
+  }
+}
+
+function isRetryableUploadFailure(status: number, detail: string): boolean {
+  if (status !== 503 && status !== 504) {
+    return false;
+  }
+  return detail === "" || detail.includes('"retryable":true');
+}
+
+function sleep(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
 function websocketPath(base: string | undefined, path: string): string {
@@ -6385,21 +6453,11 @@ export function TimelineWorkbook({
       const blobEnvelope = readEnvelope<ObjectBlobCreateEnvelope>(
         createBlob.payload,
       );
-      const uploadHref =
-        blobEnvelope.data.upload_target.href.startsWith("/") && apiBase
-          ? apiPath(apiBase, blobEnvelope.data.upload_target.href)
-          : blobEnvelope.data.upload_target.href;
-      const upload = await fetch(uploadHref, {
-        method: blobEnvelope.data.upload_target.method ?? "PUT",
-        credentials: "omit",
-        headers: {
-          "Content-Type": file.type || "application/octet-stream",
-        },
-        body: file,
-      });
-      if (!upload.ok) {
-        throw new Error(`upload_failed_${upload.status}`);
-      }
+      await uploadObjectBlobTarget(
+        apiBase,
+        blobEnvelope.data.upload_target,
+        file,
+      );
 
       const attach = await fetchJSON<EvidenceAttachBlobEnvelope>(
         apiPath(
@@ -9572,21 +9630,11 @@ function GenericWorkbookSurface({
         const blobEnvelope = readEnvelope<ObjectBlobCreateEnvelope>(
           createBlob.payload,
         );
-        const uploadHref =
-          blobEnvelope.data.upload_target.href.startsWith("/") && apiBase
-            ? apiPath(apiBase, blobEnvelope.data.upload_target.href)
-            : blobEnvelope.data.upload_target.href;
-        const upload = await fetch(uploadHref, {
-          method: blobEnvelope.data.upload_target.method ?? "PUT",
-          credentials: "omit",
-          headers: {
-            "Content-Type": file.type || "application/octet-stream",
-          },
-          body: file,
-        });
-        if (!upload.ok) {
-          throw new Error(`upload_failed_${upload.status}`);
-        }
+        await uploadObjectBlobTarget(
+          apiBase,
+          blobEnvelope.data.upload_target,
+          file,
+        );
         const attach = await fetchJSON<EvidenceAttachBlobEnvelope>(
           apiPath(
             apiBase,

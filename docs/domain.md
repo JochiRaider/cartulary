@@ -528,6 +528,8 @@ Evidence work has two linked but distinct state families: object-blob upload sta
 
 Binary evidence attachment uses a two-step upload and finalization flow. A pending or requested evidence record may exist without a blob when the owner route contract permits it. Upload hints such as filename and content type are advisory metadata, not authorization, storage-key, preview-allowlist, or release-posture authority.
 
+An upload target is an opaque capability for completing one pending blob upload. In the base profile it is an app-owned same-origin route, not a domain identifier, storage key, bucket reference, or object-store URL.
+
 ### 13.6 Task request workflow
 
 Task Requests model owned work. A task request is the correct domain object when work needs an accountable owner, lifecycle state, due or blocker tracking, queue visibility, handoff durability, or later reconstruction.

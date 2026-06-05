@@ -29,53 +29,66 @@ func requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(
 	startServer func(testing.TB, string, objectstore.Store) *phase4test.ServerHarness,
 	admin phase5ObjectStoreDependencyAdmin,
 ) {
-	t.Run("blob slot create maps endpoint outage before writing slot", func(t *testing.T) {
+	t.Run("object upload maps endpoint outage without exposing storage target", func(t *testing.T) {
 		baseStore, err := objectstore.NewFilesystemStore(t.TempDir())
 		if err != nil {
 			t.Fatalf("create filesystem object store: %v", err)
 		}
 		failingStore := &overrideObjectStore{
 			Store: baseStore,
-			uploadTargetErr: &objectstore.AdapterError{
+			putErr: &objectstore.AdapterError{
 				Code:      objectstore.ErrorCodeUnavailable,
 				Reason:    objectstore.ReasonEndpointUnreachable,
-				Operation: objectstore.OperationCreateUploadTarget,
+				Operation: objectstore.OperationPutObject,
 				Retryable: true,
 				Message:   "endpoint unreachable source.internal private-bucket incidents/raw/key CARTULARY_S3_SECRET_KEY=secret",
 			},
 		}
 
-		harness := startServer(t, "phase-d-object-store-create-outage", failingStore)
+		harness := startServer(t, "phase-d-object-store-upload-outage", failingStore)
 		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
 		incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
-			"client_txn_id": "txn-phase-d-object-store-create-incident",
-			"incident_key":  "phase-d-object-store-create",
-			"title":         "Phase D object-store create outage",
+			"client_txn_id": "txn-phase-d-object-store-upload-incident",
+			"incident_key":  "phase-d-object-store-upload",
+			"title":         "Phase D object-store upload outage",
 		})
 		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 
-		resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+		createResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 			"incident_id":       incidentID.String(),
-			"client_txn_id":     "txn-phase-d-object-store-create-blob",
+			"client_txn_id":     "txn-phase-d-object-store-upload-blob",
 			"byte_size":         4,
 			"filename_hint":     "outage.txt",
 			"content_type_hint": "text/plain",
 		}, authOptions(login)...)
+		createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
+		uploadTarget := createData["upload_target"].(map[string]any)
+		href, ok := uploadTarget["href"].(string)
+		if !ok || !strings.HasPrefix(href, "/api/v1/object-uploads/upl_") || strings.Contains(href, "://") {
+			t.Fatalf("blob create returned non-opaque upload target: %#v", uploadTarget)
+		}
+
+		req, err := http.NewRequest(http.MethodPut, harness.Server.HTTP.URL+href, strings.NewReader("fail"))
+		if err != nil {
+			t.Fatalf("create object upload request: %v", err)
+		}
+		req.Header.Set("Content-Type", "text/plain")
+		resp := httptestx.Do(t, http.DefaultClient, req)
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusServiceUnavailable, "object_store_unavailable")
 		errorValue := body["error"].(map[string]any)
 		if retryable, ok := errorValue["retryable"].(bool); !ok || !retryable {
 			t.Fatalf("object_store_unavailable retryable got %#v want true", errorValue["retryable"])
 		}
 		httptestx.RequireErrorDetail(t, body, "reason_code", "endpoint_unreachable")
-		requireNoPublicEvidenceLeak(t, "blob slot dependency error", body, []string{
+		requireNoPublicEvidenceLeak(t, "object upload dependency error", body, []string{
 			"source.internal",
 			"private-bucket",
 			"incidents/raw/key",
 			"CARTULARY_S3_SECRET_KEY",
 			"secret",
 		})
-		if got := countObjectBlobs(t, harness, incidentID); got != 0 {
-			t.Fatalf("object-store outage wrote blob slots: got %d want 0", got)
+		if got := countObjectBlobs(t, harness, incidentID); got != 1 {
+			t.Fatalf("app-mediated upload outage should retain the pending blob slot: got %d want 1", got)
 		}
 	})
 
@@ -267,6 +280,7 @@ func requireNoPublicEvidenceLeak(t testing.TB, label string, value any, forbidde
 type overrideObjectStore struct {
 	objectstore.Store
 	uploadTargetErr error
+	putErr          error
 	statErr         error
 	readErr         error
 	mu              sync.Mutex
@@ -279,6 +293,13 @@ func (s *overrideObjectStore) UploadTarget(ctx context.Context, key string, expi
 		return objectstore.UploadTarget{}, s.uploadTargetErr
 	}
 	return s.Store.UploadTarget(ctx, key, expiresAt)
+}
+
+func (s *overrideObjectStore) PutObject(ctx context.Context, key string, body io.Reader, size int64, contentType string) error {
+	if s.putErr != nil {
+		return s.putErr
+	}
+	return s.Store.PutObject(ctx, key, body, size, contentType)
 }
 
 func (s *overrideObjectStore) StatObject(ctx context.Context, key string) (objectstore.ObjectInfo, error) {

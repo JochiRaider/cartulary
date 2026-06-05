@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -44,7 +45,7 @@ func TestPhase5_EvidenceUploadAttachProjection_E_5_SMOKE_01_ProcessSmoke(t *test
 	}, withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie), withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value))
 	blobData := httptestx.RequireSuccessEnvelope(t, blobCreate, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := blobData["upload_target"].(map[string]any)
-	phase5PutObject(t, uploadTarget["href"].(string), payload, "text/plain")
+	phase5PutObject(t, server.BaseURL, uploadTarget["href"].(string), payload, "text/plain")
 
 	attach := phase1DoJSON(t, server, http.MethodPost, "/api/v1/evidence-records/"+evidenceRecordID+"/attach-blob", map[string]any{
 		"object_blob_id":   blobData["object_blob_id"],
@@ -115,8 +116,11 @@ func phase5RequireTimelineEvidenceCount(t testing.TB, server *processtest.Server
 	t.Fatalf("timeline row %s not found in query result", recordID)
 }
 
-func phase5PutObject(t testing.TB, href string, payload []byte, contentType string) {
+func phase5PutObject(t testing.TB, baseURL string, href string, payload []byte, contentType string) {
 	t.Helper()
+	if strings.HasPrefix(href, "/") {
+		href = baseURL + href
+	}
 	req, err := http.NewRequest(http.MethodPut, href, bytes.NewReader(payload))
 	if err != nil {
 		t.Fatalf("create upload request: %v", err)

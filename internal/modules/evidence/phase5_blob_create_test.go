@@ -169,8 +169,12 @@ func TestPhase5_ObjectBlobCreate_U_5_01(t *testing.T) {
 	requireCreateExpiry(t, createData, "target_expires_at", issuedAt.Add(60*time.Minute))
 	requireCreateExpiry(t, createData, "pending_expires_at", issuedAt.Add(24*time.Hour))
 	uploadTarget := createData["upload_target"].(map[string]any)
-	if uploadTarget["method"] != "PUT" || uploadTarget["href"] == "" {
+	href, _ := uploadTarget["href"].(string)
+	if uploadTarget["method"] != "PUT" || !strings.HasPrefix(href, "/api/v1/object-uploads/upl_") {
 		t.Fatalf("unexpected upload_target: %#v", uploadTarget)
+	}
+	if strings.Contains(href, "object-blobs/") || strings.Contains(href, "://") {
+		t.Fatalf("upload_target href should be an opaque same-origin capability: %#v", uploadTarget)
 	}
 	requireAcceptedContract(t, createData["accepted_contract"].(map[string]any), map[string]any{
 		"incident_id":       incidentID.String(),

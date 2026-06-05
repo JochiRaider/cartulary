@@ -54,6 +54,7 @@ test("E-5-01 attaches a screenshot to a selected Timeline row without leaving th
       "timeline.summary": "Selected row screenshot",
     },
   )) as unknown as ViewRow;
+  const objectUploadRoutes = collectObjectUploadRoutes(page);
 
   await openTimelineSurface(page, incidentId);
   await page.getByTestId(rowInspectButtonTestId(timelineRow.record_id)).click();
@@ -69,16 +70,18 @@ test("E-5-01 attaches a screenshot to a selected Timeline row without leaving th
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
   await expect
-    .poll(async () => {
-      const rows = (await queryViewRows(
-        page,
-        incidentId,
-        timelineViewSchemaId,
-      )) as unknown as ViewRow[];
-      return rows.find((row) => row.record_id === timelineRow.record_id)?.cells[
-        "timeline.evidence_count"
-      ]?.value;
-    })
+    .poll(
+      async () => {
+        const rows = (await queryViewRows(
+          page,
+          incidentId,
+          timelineViewSchemaId,
+        )) as unknown as ViewRow[];
+        return rows.find((row) => row.record_id === timelineRow.record_id)
+          ?.cells["timeline.evidence_count"]?.value;
+      },
+      { timeout: 30_000 },
+    )
     .toBe(1);
   await expect(
     page.getByTestId(
@@ -90,6 +93,7 @@ test("E-5-01 attaches a screenshot to a selected Timeline row without leaving th
       rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
     ),
   ).toHaveText("true");
+  expect(objectUploadRoutes.length).toBeGreaterThan(0);
 });
 
 test("E-5-02 persists a screenshot-only Timeline row through the two-step evidence path", async ({
@@ -100,6 +104,7 @@ test("E-5-02 persists a screenshot-only Timeline row through the two-step eviden
     uniqueIncidentKey("E5DRAFT"),
     "Phase 5 draft screenshot attach",
   );
+  const objectUploadRoutes = collectObjectUploadRoutes(page);
 
   await openTimelineSurface(page, incidentId);
   await page.getByTestId("timeline-evidence-file-draft").setInputFiles({
@@ -109,16 +114,19 @@ test("E-5-02 persists a screenshot-only Timeline row through the two-step eviden
   });
 
   await expect
-    .poll(async () => {
-      const rows = (await queryViewRows(
-        page,
-        incidentId,
-        timelineViewSchemaId,
-      )) as unknown as ViewRow[];
-      return rows.find(
-        (row) => row.cells["timeline.evidence_count"]?.value === 1,
-      );
-    })
+    .poll(
+      async () => {
+        const rows = (await queryViewRows(
+          page,
+          incidentId,
+          timelineViewSchemaId,
+        )) as unknown as ViewRow[];
+        return rows.find(
+          (row) => row.cells["timeline.evidence_count"]?.value === 1,
+        );
+      },
+      { timeout: 30_000 },
+    )
     .not.toBeUndefined();
 
   const rows = (await queryViewRows(
@@ -146,6 +154,7 @@ test("E-5-02 persists a screenshot-only Timeline row through the two-step eviden
   await expect(
     page.getByTestId(rowCellTestId(rowRecordId, "timeline.has_evidence")),
   ).toHaveText("true");
+  expect(objectUploadRoutes.length).toBeGreaterThan(0);
 });
 
 test("E-5-03 redeems inline-safe previews and shows explicit blocked-preview outcomes", async ({
@@ -595,6 +604,24 @@ function parsePhase5SocketPayload(
   };
 }
 
+function collectObjectUploadRoutes(page: Page): string[] {
+  const routes: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() !== "PUT") {
+      return;
+    }
+    const url = new URL(request.url());
+    if (url.pathname.startsWith("/api/v1/object-uploads/")) {
+      routes.push(url.pathname);
+    }
+  });
+  return routes;
+}
+
+function resolveUploadHref(href: string): string {
+  return href.startsWith("/") ? `${apiBase}${href}` : href;
+}
+
 async function createUploadedEvidence(
   page: Page,
   incidentId: string,
@@ -626,10 +653,13 @@ async function createUploadedEvidence(
       data: { object_blob_id: string; upload_target: { href: string } };
     }
   ).data;
-  const upload = await page.request.put(blobData.upload_target.href, {
-    data: options.body,
-    headers: { "Content-Type": options.contentType },
-  });
+  const upload = await page.request.put(
+    resolveUploadHref(blobData.upload_target.href),
+    {
+      data: options.body,
+      headers: { "Content-Type": options.contentType },
+    },
+  );
   expect(upload.ok()).toBeTruthy();
 
   const attach = await page.request.post(

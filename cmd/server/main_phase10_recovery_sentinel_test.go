@@ -484,7 +484,7 @@ func capturePhase10RestoreSource(t testing.TB, prefix string) phase10SourceBacku
 	}, withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie), withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value))
 	blobData := httptestx.RequireSuccessEnvelope(t, blobCreate, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := blobData["upload_target"].(map[string]any)
-	phase5PutObject(t, uploadTarget["href"].(string), payload, "text/plain")
+	phase5PutObject(t, server.BaseURL, uploadTarget["href"].(string), payload, "text/plain")
 
 	attach := phase1DoJSON(t, server, http.MethodPost, "/api/v1/evidence-records/"+evidenceRecordID+"/attach-blob", map[string]any{
 		"object_blob_id":   blobData["object_blob_id"],

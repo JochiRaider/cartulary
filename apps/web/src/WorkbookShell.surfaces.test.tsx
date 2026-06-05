@@ -227,6 +227,9 @@ describe("WorkbookShell surface selection", () => {
             upload_target: {
               href: "/api/v1/object-uploads/test-token",
               method: "PUT",
+              headers: {
+                "X-Upload-Contract": "phase5",
+              },
             },
           },
           201,
@@ -1061,6 +1064,15 @@ describe("WorkbookShell surface selection", () => {
         expect.objectContaining({ method: "PATCH" }),
       );
     });
+    const uploadCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/api/v1/object-uploads/test-token"),
+    );
+    expect(uploadCall).toBeDefined();
+    const uploadInit = uploadCall?.[1] as RequestInit;
+    expect(uploadInit.credentials).toBe("omit");
+    const uploadHeaders = uploadInit.headers as Headers;
+    expect(uploadHeaders.get("X-Upload-Contract")).toBe("phase5");
+    expect(uploadHeaders.get("Content-Type")).toBe("text/plain");
     expect(
       (await screen.findByTestId("timeline-inspector-message")).textContent,
     ).toBe("Evidence attached.");

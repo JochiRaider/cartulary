@@ -316,7 +316,7 @@ func attachUploadedBlobWithMetadata(t *testing.T, harness *phase4test.ServerHarn
 		"sha256_hex":        fmt.Sprintf("%x", sha256Sum(payload)),
 	}, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
-	putObject(t, createData["upload_target"].(map[string]any)["href"].(string), payload, contentType)
+	putObject(t, harness.Server.HTTP.URL, createData["upload_target"].(map[string]any)["href"].(string), payload, contentType)
 	attachResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,

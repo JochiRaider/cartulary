@@ -101,36 +101,17 @@ func (s *Service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 	}
 	targetExpiresAt := now.Add(60 * time.Minute)
 	pendingExpiresAt := now.Add(24 * time.Hour)
-	contentTypeHint := ""
-	if request.ContentTypeHint != nil {
-		contentTypeHint = *request.ContentTypeHint
-	}
-	sha256Hex := ""
-	if request.SHA256Hex != nil {
-		sha256Hex = *request.SHA256Hex
-	}
-	target, err := s.createUploadTarget(r.Context(), objectstore.UploadTargetRequest{
-		Key:         storageKey,
-		ByteSize:    request.ByteSize,
-		ContentType: contentTypeHint,
-		SHA256Hex:   sha256Hex,
-		ExpiresAt:   targetExpiresAt,
-		Purpose:     objectstore.PurposeProductUpload,
+	target, err := s.createObjectUploadTarget(objectUploadTokenClaims{
+		Version:           1,
+		ObjectBlobID:      objectBlobID,
+		IncidentID:        request.IncidentID,
+		StorageKey:        storageKey,
+		ByteSize:          request.ByteSize,
+		ExpiresAtUnixNano: targetExpiresAt.UnixNano(),
 	})
 	if err != nil {
-		if apiErr := objectStoreDependencyAPIError(err); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
 		writeAPIError(w, r, internalAPIError(err))
 		return
-	}
-	if strings.HasPrefix(target.Href, "/") {
-		scheme := "http"
-		if r.TLS != nil {
-			scheme = "https"
-		}
-		target.Href = scheme + "://" + r.Host + target.Href
 	}
 	result, err := s.store.CreateBlobSlot(r.Context(), BlobSlotParams{
 		ObjectBlobID: objectBlobID, IncidentID: request.IncidentID, ActorUserID: principal.User.ID,
@@ -167,10 +148,65 @@ func (s *Service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 	token := r.PathValue("upload_token")
-	contentType := r.Header.Get("Content-Type")
-	body := http.MaxBytesReader(w, r.Body, s.maxBlobBytes+1)
+	claims, err := decodeObjectUploadToken(s.keys, token)
+	if err != nil {
+		writeAPIError(w, r, objectUploadNotFoundOrRevoked())
+		return
+	}
+	now := s.now().UTC()
+	if !time.Unix(0, claims.ExpiresAtUnixNano).After(now) {
+		writeAPIError(w, r, objectUploadExpired("target_expired"))
+		return
+	}
+	blob, err := s.store.GetBlob(r.Context(), claims.ObjectBlobID)
+	if errors.Is(err, ErrBlobNotFound) {
+		writeAPIError(w, r, objectUploadNotFoundOrRevoked())
+		return
+	}
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if blob.IncidentID != claims.IncidentID || blob.StorageKey != claims.StorageKey || blob.ByteSize != claims.ByteSize {
+		writeAPIError(w, r, objectUploadRejected(http.StatusConflict, "upload_contract_mismatch", nil))
+		return
+	}
+	if err := validatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
+		writeAPIError(w, r, objectStoreDependencyAPIError(err))
+		return
+	}
+	if blob.UploadState != "pending" {
+		writeAPIError(w, r, objectUploadRejected(http.StatusConflict, "blob_not_pending", nil))
+		return
+	}
+	if !blob.TargetExpiresAt.After(now) || !blob.PendingExpiresAt.After(now) {
+		writeAPIError(w, r, objectUploadExpired("slot_expired"))
+		return
+	}
+	if r.ContentLength < 0 {
+		writeAPIError(w, r, objectUploadRejected(http.StatusLengthRequired, "content_length_required", nil))
+		return
+	}
+	if r.ContentLength != blob.ByteSize {
+		status := http.StatusBadRequest
+		reasonCode := "byte_size_mismatch"
+		if r.ContentLength > blob.ByteSize {
+			status = http.StatusRequestEntityTooLarge
+			reasonCode = "byte_size_exceeds_contract"
+		}
+		writeAPIError(w, r, objectUploadRejected(status, reasonCode, map[string]any{
+			"requested_byte_size":  r.ContentLength,
+			"contracted_byte_size": blob.ByteSize,
+		}))
+		return
+	}
+	contentType := strings.TrimSpace(r.Header.Get("Content-Type"))
+	if contentType == "" {
+		contentType = firstNonEmptyPtr(blob.ContentTypeHint, nil, "application/octet-stream")
+	}
+	body := http.MaxBytesReader(w, r.Body, blob.ByteSize)
 	defer body.Close()
-	if err := s.objectStore.CompleteUploadTarget(r.Context(), token, body, contentType); err != nil {
+	if err := s.putObject(r.Context(), blob.StorageKey, body, blob.ByteSize, contentType, objectstore.PurposeProductUpload); err != nil {
 		if apiErr := objectStoreDependencyAPIError(err); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -508,11 +544,30 @@ func (s *Service) verifyEvidenceObjectAvailable(ctx context.Context, access Evid
 	return "", nil
 }
 
-func (s *Service) createUploadTarget(ctx context.Context, request objectstore.UploadTargetRequest) (objectstore.UploadTarget, error) {
-	if typed, ok := s.objectStore.(objectstore.TypedStore); ok {
-		return typed.CreateUploadTarget(ctx, request)
+func (s *Service) createObjectUploadTarget(claims objectUploadTokenClaims) (objectstore.UploadTarget, error) {
+	token, err := encodeObjectUploadToken(s.keys, claims)
+	if err != nil {
+		return objectstore.UploadTarget{}, err
 	}
-	return s.objectStore.UploadTarget(ctx, request.Key, request.ExpiresAt)
+	return objectstore.UploadTarget{
+		Href:    "/api/v1/object-uploads/" + url.PathEscape(token),
+		Method:  "PUT",
+		Headers: map[string]string{},
+	}, nil
+}
+
+func (s *Service) putObject(ctx context.Context, key string, body io.Reader, size int64, contentType string, purpose objectstore.Purpose) error {
+	if typed, ok := s.objectStore.(objectstore.TypedStore); ok {
+		_, err := typed.Put(ctx, objectstore.PutObjectRequest{
+			Key:         key,
+			Body:        body,
+			Size:        size,
+			ContentType: contentType,
+			Purpose:     purpose,
+		})
+		return err
+	}
+	return s.objectStore.PutObject(ctx, key, body, size, contentType)
 }
 
 func (s *Service) headObject(ctx context.Context, key string, purpose objectstore.Purpose) (objectstore.ObjectInfo, error) {
@@ -755,6 +810,22 @@ func objectStoreUnavailableAPIError(reasonCode string, retryable bool) *auth.API
 			"reason_code": reasonCode,
 		},
 	}
+}
+
+func objectUploadNotFoundOrRevoked() *auth.APIError {
+	return &auth.APIError{Status: http.StatusNotFound, Code: "object_upload_not_found_or_revoked", Details: map[string]any{}}
+}
+
+func objectUploadExpired(reasonCode string) *auth.APIError {
+	return &auth.APIError{Status: http.StatusGone, Code: "object_upload_expired", Details: map[string]any{"reason_code": reasonCode}}
+}
+
+func objectUploadRejected(status int, reasonCode string, details map[string]any) *auth.APIError {
+	if details == nil {
+		details = map[string]any{}
+	}
+	details["reason_code"] = reasonCode
+	return &auth.APIError{Status: status, Code: "object_upload_rejected", Details: details}
 }
 
 func unavailableReason(adapterErr *objectstore.AdapterError) string {

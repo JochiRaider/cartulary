@@ -2671,6 +2671,111 @@
         }
       }
     },
+    "/api/v1/object-uploads/{upload_token}": {
+      "put": {
+        "tags": [
+          "evidence"
+        ],
+        "operationId": "uploadObjectBlobContent",
+        "summary": "Upload bytes to one app-owned object blob upload capability.",
+        "parameters": [
+          {
+            "name": "upload_token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Uploaded object blob content"
+          },
+          "400": {
+            "description": "Invalid object upload request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or revoked upload capability",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Upload capability conflicts with the current blob slot state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Expired upload capability",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "411": {
+            "description": "Content-Length required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Declared upload body exceeds the blob slot contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Object-store dependency unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/evidence-records/{record_id}/attach-blob": {
       "post": {
         "tags": [
@@ -3356,7 +3461,9 @@
         "additionalProperties": false,
         "properties": {
           "href": {
-            "type": "string"
+            "type": "string",
+            "description": "Opaque same-origin app-owned upload capability path in the base profile.",
+            "pattern": "^/api/v1/object-uploads/"
           },
           "method": {
             "const": "PUT"

@@ -128,7 +128,7 @@ UPDATE incident_memberships
 		t.Fatalf("expected normalized filename_hint, got %#v", accepted["filename_hint"])
 	}
 	uploadTarget := createData["upload_target"].(map[string]any)
-	putObject(t, uploadTarget["href"].(string), payload, "text/plain")
+	putObject(t, harness.Server.HTTP.URL, uploadTarget["href"].(string), payload, "text/plain")
 
 	replayResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
@@ -498,7 +498,7 @@ func attachUploadedBlob(t *testing.T, harness *phase4test.ServerHarness, login p
 	createResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := createData["upload_target"].(map[string]any)
-	putObject(t, uploadTarget["href"].(string), payload, "text/plain")
+	putObject(t, harness.Server.HTTP.URL, uploadTarget["href"].(string), payload, "text/plain")
 	attachResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,
@@ -686,8 +686,11 @@ VALUES ($1, $2, 'Evidence payload', 'received', 'pending', now())
 	}
 }
 
-func putObject(t *testing.T, href string, payload []byte, contentType string) {
+func putObject(t *testing.T, baseURL string, href string, payload []byte, contentType string) {
 	t.Helper()
+	if strings.HasPrefix(href, "/") {
+		href = baseURL + href
+	}
 	req, err := http.NewRequest(http.MethodPut, href, bytes.NewReader(payload))
 	if err != nil {
 		t.Fatalf("create object upload request: %v", err)

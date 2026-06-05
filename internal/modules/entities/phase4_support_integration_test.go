@@ -552,7 +552,7 @@ func (s *phase4SupportScenario) seedUploadedObjectBlob(t *testing.T, label strin
 		phase4test.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
 	)
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
-	putResp, err := http.DefaultClient.Do(mustPutRequest(t, data["upload_target"].(map[string]any)["href"].(string), payload))
+	putResp, err := http.DefaultClient.Do(mustPutRequest(t, s.harness.Server.HTTP.URL, data["upload_target"].(map[string]any)["href"].(string), payload))
 	if err != nil {
 		t.Fatalf("upload support object %s: %v", label, err)
 	}
@@ -582,9 +582,12 @@ func (s *phase4SupportScenario) attachSeededBlob(t *testing.T, objectBlobID stri
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
 
-func mustPutRequest(t testing.TB, url string, payload []byte) *http.Request {
+func mustPutRequest(t testing.TB, baseURL string, url string, payload []byte) *http.Request {
 	t.Helper()
 
+	if strings.HasPrefix(url, "/") {
+		url = baseURL + url
+	}
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(payload))
 	if err != nil {
 		t.Fatalf("create object upload request: %v", err)
