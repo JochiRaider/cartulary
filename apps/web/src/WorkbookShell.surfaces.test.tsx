@@ -38,6 +38,7 @@ import {
   WorkbookShell,
 } from "./WorkbookShell";
 import {
+  commLogViewSchemaId,
   evidenceViewSchemaId,
   indicatorsViewSchemaId,
   optionalStandardizedWorkbookSurfaceIds,
@@ -92,6 +93,9 @@ describe("WorkbookShell surface selection", () => {
         init: RequestInit | undefined,
       ) => Promise<Response> | Response | null)
     | null;
+  let startupResponseOverride:
+    | (() => Promise<Response> | Response | null)
+    | null;
   let recordPatchResponseOverride:
     | ((
         recordId: string,
@@ -113,6 +117,7 @@ describe("WorkbookShell surface selection", () => {
     genericRowsByView = {};
     savedViews = [];
     queryResponseOverride = null;
+    startupResponseOverride = null;
     recordPatchResponseOverride = null;
     startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
@@ -163,6 +168,10 @@ describe("WorkbookShell surface selection", () => {
         });
       }
       if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
+        const override = startupResponseOverride?.();
+        if (override) {
+          return override;
+        }
         return successEnvelope({
           incident_id: "incident-1",
           ...startupSelection,
@@ -418,6 +427,26 @@ describe("WorkbookShell surface selection", () => {
     expect(window.location.search).toContain(
       `view_schema_id=${encodeURIComponent(indicatorsViewSchemaId)}`,
     );
+
+    fireEvent.click(screen.getByTestId(systemViewSwitcherTriggerTestId()));
+    const commLogOption = screen.getByTestId(
+      systemViewSwitcherOptionTestId("coordination", commLogViewSchemaId),
+    );
+    fireEvent.mouseDown(commLogOption);
+    fireEvent.click(commLogOption);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining(`/views/${commLogViewSchemaId}/query`),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    expect(window.location.search).toContain(
+      `view_schema_id=${encodeURIComponent(commLogViewSchemaId)}`,
+    );
+    expect(
+      screen.getByTestId(gridShellTestId(commLogViewSchemaId)),
+    ).toBeTruthy();
   });
 
   it("uses backend startup selection for the initial workbook grid surface", async () => {
@@ -441,6 +470,58 @@ describe("WorkbookShell surface selection", () => {
       );
     });
     expect(window.location.search).toContain(
+      `view_schema_id=${encodeURIComponent(evidenceViewSchemaId)}`,
+    );
+  });
+
+  it("keeps a user-selected system view when a delayed startup response resolves", async () => {
+    const delayedStartup = deferred<Response>();
+    startupResponseOverride = () => delayedStartup.promise;
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/workbook-startup"),
+        expect.objectContaining({ credentials: "include" }),
+      );
+    });
+
+    fireEvent.click(screen.getByTestId(systemViewSwitcherTriggerTestId()));
+    fireEvent.click(
+      screen.getByTestId(
+        systemViewSwitcherOptionTestId("coordination", commLogViewSchemaId),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(window.location.search).toContain(
+        `view_schema_id=${encodeURIComponent(commLogViewSchemaId)}`,
+      );
+    });
+
+    delayedStartup.resolve(
+      successEnvelope({
+        incident_id: "incident-1",
+        selected_sheet_ref: { kind: "view_schema", id: evidenceViewSchemaId },
+        selected_view_schema_id: evidenceViewSchemaId,
+        selected_saved_view: null,
+        source: "default",
+        cleared_pointers: [],
+        home_sheet_ref: null,
+        default_sheet_ref: null,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(window.location.search).toContain(
+        `view_schema_id=${encodeURIComponent(commLogViewSchemaId)}`,
+      );
+      expect(
+        screen.getByTestId(gridShellTestId(commLogViewSchemaId)),
+      ).toBeTruthy();
+    });
+    expect(window.location.search).not.toContain(
       `view_schema_id=${encodeURIComponent(evidenceViewSchemaId)}`,
     );
   });

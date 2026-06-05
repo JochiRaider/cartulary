@@ -11376,6 +11376,8 @@ function SystemViewSwitcher({
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef<HTMLFieldSetElement | null>(null);
+  const blurCloseTimerRef = useRef<number | null>(null);
+  const deferredFocusTimerRef = useRef<number | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const optionRefs = useRef(new Map<string, HTMLButtonElement>());
   const activeSystemEntryIndex = systemViewSwitcherEntries.findIndex(
@@ -11386,37 +11388,89 @@ function SystemViewSwitcher({
       ? null
       : (systemViewSwitcherEntries[activeSystemEntryIndex] ?? null);
 
-  const focusOption = useCallback((index: number) => {
-    const entry = systemViewSwitcherEntries[index];
-    if (entry === undefined) {
-      return;
+  const clearBlurCloseTimer = useCallback(() => {
+    if (blurCloseTimerRef.current !== null) {
+      window.clearTimeout(blurCloseTimerRef.current);
+      blurCloseTimerRef.current = null;
     }
-    window.setTimeout(() => {
-      optionRefs.current
-        .get(entry.viewSchemaId)
-        ?.focus({ preventScroll: true });
-    }, 0);
   }, []);
 
+  const clearDeferredFocusTimer = useCallback(() => {
+    if (deferredFocusTimerRef.current !== null) {
+      window.clearTimeout(deferredFocusTimerRef.current);
+      deferredFocusTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(
+    () => () => {
+      clearBlurCloseTimer();
+      clearDeferredFocusTimer();
+    },
+    [clearBlurCloseTimer, clearDeferredFocusTimer],
+  );
+
+  const deferFocus = useCallback(
+    (focusTarget: () => HTMLElement | null) => {
+      clearDeferredFocusTimer();
+      deferredFocusTimerRef.current = window.setTimeout(() => {
+        deferredFocusTimerRef.current = null;
+        focusTarget()?.focus({ preventScroll: true });
+      }, 0);
+    },
+    [clearDeferredFocusTimer],
+  );
+
+  const focusOption = useCallback(
+    (index: number) => {
+      const entry = systemViewSwitcherEntries[index];
+      if (entry === undefined) {
+        return;
+      }
+      deferFocus(() => optionRefs.current.get(entry.viewSchemaId) ?? null);
+    },
+    [deferFocus],
+  );
+
+  const scheduleBlurClose = useCallback(() => {
+    clearBlurCloseTimer();
+    blurCloseTimerRef.current = window.setTimeout(() => {
+      blurCloseTimerRef.current = null;
+      const activeElement = document.activeElement;
+      if (
+        activeElement instanceof Node &&
+        containerRef.current?.contains(activeElement)
+      ) {
+        return;
+      }
+      setIsOpen(false);
+    }, 0);
+  }, [clearBlurCloseTimer]);
+
   const openMenu = useCallback(() => {
+    clearBlurCloseTimer();
     const nextIndex =
       activeSystemEntryIndex === -1 ? 0 : activeSystemEntryIndex;
     setActiveIndex(nextIndex);
     setIsOpen(true);
     focusOption(nextIndex);
-  }, [activeSystemEntryIndex, focusOption]);
+  }, [activeSystemEntryIndex, clearBlurCloseTimer, focusOption]);
 
   const closeMenu = useCallback(
     (options: { readonly restoreTriggerFocus: boolean }) => {
+      clearBlurCloseTimer();
+      clearDeferredFocusTimer();
       setIsOpen(false);
       if (options.restoreTriggerFocus) {
-        window.setTimeout(() => {
-          triggerRef.current?.focus({ preventScroll: true });
-        }, 0);
+        deferFocus(() => triggerRef.current);
       }
     },
-    [],
+    [clearBlurCloseTimer, clearDeferredFocusTimer, deferFocus],
   );
+
+  const handleInternalPointerDown = useCallback(() => {
+    clearBlurCloseTimer();
+  }, [clearBlurCloseTimer]);
 
   const moveOptionFocus = useCallback(
     (nextIndex: number) => {
@@ -11436,10 +11490,12 @@ function SystemViewSwitcher({
       if (viewSchemaId === "") {
         return;
       }
+      clearBlurCloseTimer();
+      clearDeferredFocusTimer();
       setIsOpen(false);
       onSelect(viewSchemaId);
     },
-    [onSelect],
+    [clearBlurCloseTimer, clearDeferredFocusTimer, onSelect],
   );
 
   const handleOptionKeyDown = useCallback(
@@ -11481,6 +11537,7 @@ function SystemViewSwitcher({
       aria-label="System view switcher"
       ref={containerRef}
       style={systemViewSwitcherStyle}
+      onPointerDownCapture={handleInternalPointerDown}
       onBlur={(event) => {
         const nextFocus = event.relatedTarget;
         if (
@@ -11489,7 +11546,7 @@ function SystemViewSwitcher({
         ) {
           return;
         }
-        setIsOpen(false);
+        scheduleBlurClose();
       }}
     >
       <button
@@ -11572,6 +11629,9 @@ function SystemViewSwitcher({
                     }}
                     tabIndex={optionIndex === activeIndex ? 0 : -1}
                     type="button"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                    }}
                     onClick={() => {
                       selectOption(entry.viewSchemaId);
                     }}
@@ -11685,6 +11745,7 @@ export function WorkbookShell({
   const [startupSheetRef, setStartupSheetRef] = useState<WorkbookSheetRef>(
     () => ({ kind: "view_schema", id: initialViewSchemaID }),
   );
+  const surfaceSelectionVersionRef = useRef(0);
   const [sheetReloadToken, setSheetReloadToken] = useState(0);
   const [pendingGridFocusSurface, setPendingGridFocusSurface] = useState<
     string | null
@@ -11748,6 +11809,7 @@ export function WorkbookShell({
       options: { readonly focusFirstGridTarget?: boolean } = {},
     ) => {
       const nextSurface = knownWorkbookViewSchemaId(viewSchemaID);
+      surfaceSelectionVersionRef.current += 1;
       setSurface(nextSurface);
       setStartupSheetRef({ kind: "view_schema", id: nextSurface });
       if (options.focusFirstGridTarget) {
@@ -11758,6 +11820,7 @@ export function WorkbookShell({
   );
   const selectSavedView = useCallback((savedView: SavedViewResource) => {
     const nextSurface = knownWorkbookViewSchemaId(savedView.view_schema_id);
+    surfaceSelectionVersionRef.current += 1;
     setSurface(nextSurface);
     setStartupSheetRef({
       kind: "saved_view",
@@ -12024,6 +12087,7 @@ export function WorkbookShell({
   useEffect(() => {
     let cancelled = false;
     const startupQuery = workbookStartupQueryFromURLParams(params);
+    const selectionVersionAtRequest = surfaceSelectionVersionRef.current;
     const loadStartup = async () => {
       const result = await fetchJSON<WorkbookStartupEnvelope>(
         apiPath(
@@ -12037,6 +12101,9 @@ export function WorkbookShell({
       const envelope = readEnvelope<WorkbookStartupEnvelope>(result.payload);
       const startup = normalizeWorkbookStartupSelection(envelope.data);
       if (!startup) {
+        return;
+      }
+      if (selectionVersionAtRequest !== surfaceSelectionVersionRef.current) {
         return;
       }
       const nextSurface = knownWorkbookViewSchemaId(

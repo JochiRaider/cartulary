@@ -19,12 +19,9 @@ import {
   gridScrollportSelector,
   gridShellTestId,
   rowCellTestId,
-  type SystemViewSwitcherGroupToken,
   saveStateTestId,
   surfaceTabTestId,
-  systemViewSwitcherGroupTestId,
   systemViewSwitcherMenuTestId,
-  systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   timelineMutationSubstrateReadyTestId,
   workbookShellReadyTestId,
@@ -36,6 +33,7 @@ import {
   apiBase,
   createIncident,
   createViewRow,
+  openSystemSurfaceBySwitcher,
   patchTimelineRecord,
   queryViewRows,
   uniqueIncidentKey,
@@ -89,24 +87,6 @@ const findingsViewSchemaId = "cartulary.view.findings.v1";
 const forensicKeywordsViewSchemaId = "cartulary.view.forensic_keywords.v1";
 const investigativeQueriesViewSchemaId =
   "cartulary.view.investigative_queries.v1";
-const systemViewSwitcherGroupByViewSchemaId = new Map<
-  string,
-  SystemViewSwitcherGroupToken
->([
-  [indicatorsViewSchemaId, "scope-assessment"],
-  [assessmentsViewSchemaId, "scope-assessment"],
-  [partiesViewSchemaId, "scope-assessment"],
-  [taskRequestsViewSchemaId, "coordination"],
-  [decisionsViewSchemaId, "coordination"],
-  [commLogViewSchemaId, "coordination"],
-  [handoffViewSchemaId, "coordination"],
-  [statusReviewViewSchemaId, "review-learning"],
-  [lessonViewSchemaId, "review-learning"],
-  [findingsViewSchemaId, "optional-artifact-surfaces"],
-  [investigativeQueriesViewSchemaId, "optional-artifact-surfaces"],
-  [forensicKeywordsViewSchemaId, "optional-artifact-surfaces"],
-]);
-
 async function disableWorkbookSockets(page: Page) {
   await page.addInitScript(() => {
     class Phase9ClosedWebSocket {
@@ -2133,7 +2113,7 @@ test("Phase 9 E-9-08 required registry identities stay canonical with optional a
     new RegExp(`view_schema_id=${encodeURIComponent(notesViewSchemaId)}`),
   );
 
-  await selectSystemViewBySwitcher(page, indicatorsViewSchemaId);
+  await openSystemSurfaceBySwitcher(page, indicatorsViewSchemaId);
   await expect(
     page.getByTestId(gridShellTestId(indicatorsViewSchemaId)),
   ).toBeVisible();
@@ -2146,7 +2126,7 @@ test("Phase 9 E-9-08 required registry identities stay canonical with optional a
     ),
   ).toHaveText("203.0.113.92");
 
-  await selectSystemViewBySwitcher(page, commLogViewSchemaId);
+  await openSystemSurfaceBySwitcher(page, commLogViewSchemaId);
   await expect(
     page.getByTestId(gridShellTestId(commLogViewSchemaId)),
   ).toBeVisible();
@@ -2317,20 +2297,6 @@ async function systemViewSelectorValues(page: Page) {
     );
   await page.keyboard.press("Escape");
   return values;
-}
-
-async function selectSystemViewBySwitcher(page: Page, viewSchemaId: string) {
-  const groupToken = systemViewSwitcherGroupByViewSchemaId.get(viewSchemaId);
-  if (groupToken === undefined) {
-    throw new Error(`Missing System views switcher group for ${viewSchemaId}`);
-  }
-  await page.getByTestId(systemViewSwitcherTriggerTestId()).click();
-  await expect(
-    page.getByTestId(systemViewSwitcherGroupTestId(groupToken)),
-  ).toBeVisible();
-  await page
-    .getByTestId(systemViewSwitcherOptionTestId(groupToken, viewSchemaId))
-    .click();
 }
 
 function collectionDisplayTexts(value: unknown): string[] {

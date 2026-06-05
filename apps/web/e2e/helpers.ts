@@ -9,8 +9,11 @@ import {
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
   rowCellTestId,
+  systemViewSwitcherMenuTestId,
+  systemViewSwitcherTriggerTestId,
   timelineRowVersionTestId,
   type WorkbookSurface,
+  workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import {
   type APIRequestContext,
@@ -970,6 +973,65 @@ export function gridDraftRows(page: Page, surface: WorkbookSurface) {
   return page
     .getByTestId(gridShellTestId(surface))
     .locator(gridDraftRowSelector());
+}
+
+export async function openSystemSurfaceBySwitcher(
+  page: Page,
+  viewSchemaId: WorkbookSurface,
+) {
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await page.getByTestId(systemViewSwitcherTriggerTestId()).click();
+      const menu = page.getByTestId(systemViewSwitcherMenuTestId());
+      await expect(menu).toBeVisible();
+      const option = menu.locator(
+        `[data-view-schema-id="${viewSchemaId}"]`,
+      );
+      await expect(option).toHaveCount(1);
+      await option.click();
+      await expect(
+        page.getByTestId(workbookShellReadyTestId()),
+      ).toHaveAttribute("data-active-view-schema-id", viewSchemaId);
+      await expect(page).toHaveURL(
+        new RegExp(`view_schema_id=${encodeURIComponent(viewSchemaId)}`),
+      );
+      await expect(
+        page.getByTestId(gridShellTestId(viewSchemaId)),
+      ).toBeVisible();
+      return;
+    } catch (error) {
+      lastError = error;
+      await page.keyboard.press("Escape").catch(() => {});
+      await page.waitForTimeout(100 * attempt);
+    }
+  }
+
+  const shell = page.getByTestId(workbookShellReadyTestId());
+  const menu = page.getByTestId(systemViewSwitcherMenuTestId());
+  const diagnostics = {
+    activeSurface: await shell
+      .getAttribute("data-active-view-schema-id")
+      .catch(() => null),
+    currentUrl: page.url(),
+    lastError:
+      lastError instanceof Error ? lastError.message : String(lastError),
+    menuOpen: (await menu.count().catch(() => 0)) > 0,
+    requestedViewSchemaId: viewSchemaId,
+    visibleOptionViewSchemaIds: await menu
+      .locator("[data-view-schema-id]")
+      .evaluateAll((options) =>
+        options
+          .map((option) => option.getAttribute("data-view-schema-id"))
+          .filter((value): value is string => value !== null),
+      )
+      .catch(() => []),
+  };
+  throw new Error(
+    `System view switcher did not open ${viewSchemaId}: ${JSON.stringify(
+      diagnostics,
+    )}`,
+  );
 }
 
 export function generateTotpCode(secretBase32: string) {

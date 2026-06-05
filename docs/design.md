@@ -716,6 +716,8 @@ Design contract. The shell-exposure registry for this design revision is exhaust
 
 Design contract. Required system views MUST NOT be command-palette-only. All required system views MUST be reachable by keyboard and pointer from the shell.
 
+Design contract. For required system views, keyboard and pointer reachability means selection completes to the requested active workbook surface and renders that surface's grid. A visible menu option alone does not satisfy reachability.
+
 Design contract. If a standardized optional surface is not implemented, it MUST NOT appear in the switcher. If a required surface is unavailable because of implementation defect or load failure, the UI MUST show an error state for that surface instead of silently removing it from the shell.
 
 Design contract. Saved views MUST appear under the active surface's view selector. A saved view MUST NOT replace canonical system-view identity or create a new primary tab by default.
@@ -1573,7 +1575,7 @@ Design contract. This `design.md` is ready to guide design implementation only w
 | --- | --- | --- | --- | --- |
 | `D-AC-020` | §7.2 | Surface-registry audit | The shell-exposure registry contains all fourteen required base-profile surfaces exactly once. | Required surface missing or duplicated. |
 | `D-AC-021` | §7.2 | Surface-registry audit | The shell-exposure registry contains the three standardized optional workbook surfaces exactly once with omission semantics. | Optional surface missing, duplicated, or lacks omission behavior. |
-| `D-AC-022` | §7.2 | Keyboard and pointer fixture | Required system views are reachable by keyboard and pointer from the shell. | Required system view requires command palette or hidden route. |
+| `D-AC-022` | §7.2 | Keyboard and pointer fixture | Required system views are reachable by keyboard and pointer from the shell, and selection completes to the requested active surface grid. | Required system view requires command palette, hidden route, or a visible option that does not complete surface activation. |
 | `D-AC-023` | §7.4 | Responsive algorithm validation | Each viewport width and height combination falls into exactly one responsive band. | Overlap or gap exists. |
 | `D-AC-024` | §7.5 | Responsive fixture | Responsive overflow selects the same rendered location, truncation, popover, and accessible label for each declared viewport. | Same viewport permits divergent layouts. |
 | `D-AC-025` | §7.4 | Below-minimum fixture | Below-minimum behavior is explicitly non-conformant or degraded with safe navigation preserved. | Below-minimum viewport claims design conformance or loses safe navigation. |
