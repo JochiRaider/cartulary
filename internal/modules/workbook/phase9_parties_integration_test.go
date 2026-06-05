@@ -219,6 +219,70 @@ func TestPhase9_PartyLinkHelperFieldsPreserveTextIndependently_I_9_03(t *testing
 		}
 	}
 
+	refOnlyTaskData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.task_requests.v1", map[string]any{
+		"client_txn_id":             "txn-phase9-i-9-03-task-ref-only",
+		"task.title":                "Party requester ref-only task",
+		"task.task_kind":            "request",
+		"task.requester_party_text": "Requester raw text for ref-only clear",
+	})
+	refOnlyTaskRow := refOnlyTaskData["row"].(map[string]any)
+	refOnlyTaskID := phase4test.MustUUID(t, refOnlyTaskRow["record_id"].(string))
+	linkedRefOnlyRequester := requireWorkbookPatch(t, harness, adminLogin, refOnlyTaskID, map[string]any{
+		"view_schema_id":   "cartulary.view.task_requests.v1",
+		"base_row_version": refOnlyTaskRow["row_version"],
+		"client_txn_id":    "txn-phase9-i-9-03-link-ref-only-requester",
+		"changes": []map[string]any{
+			{"field_key": "task.requester_party_id", "value": partyID.String()},
+		},
+	})["row"].(map[string]any)
+	requireCellValue(t, linkedRefOnlyRequester, "task.requester_party_text", "Requester raw text for ref-only clear")
+	requireCellValue(t, linkedRefOnlyRequester, "task.requester_party_id", partyID.String())
+
+	clearedRefOnlyText := requireWorkbookPatch(t, harness, adminLogin, refOnlyTaskID, map[string]any{
+		"view_schema_id":   "cartulary.view.task_requests.v1",
+		"base_row_version": linkedRefOnlyRequester["row_version"],
+		"client_txn_id":    "txn-phase9-i-9-03-clear-ref-only-requester-text",
+		"changes": []map[string]any{
+			{"field_key": "task.requester_party_text", "value": nil},
+		},
+	})["row"].(map[string]any)
+	requireCellValue(t, clearedRefOnlyText, "task.requester_party_text", nil)
+	requireCellValue(t, clearedRefOnlyText, "task.requester_party_id", partyID.String())
+
+	beforeTaskClearBothChangeSets := phase9PartiesQueryCount(t, harness, `SELECT count(*) FROM change_sets WHERE incident_id = $1`, incidentID)
+	beforeTaskClearBothMutations := phase9PartiesQueryCount(t, harness, `SELECT count(*) FROM change_set_mutations WHERE target_id = $1`, refOnlyTaskID.String())
+	beforeTaskClearBothRevisions := phase9PartiesQueryCount(t, harness, `SELECT count(*) FROM record_revisions WHERE record_id = $1`, refOnlyTaskID)
+	beforeTaskClearBothVersion := rowVersionNumber(t, clearedRefOnlyText)
+	clearedRefOnlyBoth := requireWorkbookPatch(t, harness, adminLogin, refOnlyTaskID, map[string]any{
+		"view_schema_id":   "cartulary.view.task_requests.v1",
+		"base_row_version": clearedRefOnlyText["row_version"],
+		"client_txn_id":    "txn-phase9-i-9-03-clear-ref-only-requester-both",
+		"changes": []map[string]any{
+			{"field_key": "task.requester_party_text", "value": nil},
+			{"field_key": "task.requester_party_id", "value": nil},
+		},
+	})["row"].(map[string]any)
+	requireCellValue(t, clearedRefOnlyBoth, "task.requester_party_text", nil)
+	requireCellValue(t, clearedRefOnlyBoth, "task.requester_party_id", nil)
+	if got, want := rowVersionNumber(t, clearedRefOnlyBoth), beforeTaskClearBothVersion+1; got != want {
+		t.Fatalf("task requester clear both should commit one atomic row version: got %d want %d", got, want)
+	}
+	if got, want := phase9PartiesQueryCount(t, harness, `SELECT count(*) FROM change_sets WHERE incident_id = $1`, incidentID), beforeTaskClearBothChangeSets+1; got != want {
+		t.Fatalf("task requester clear both change set count: got %d want %d", got, want)
+	}
+	if got, want := phase9PartiesQueryCount(t, harness, `SELECT count(*) FROM change_set_mutations WHERE target_id = $1`, refOnlyTaskID.String()), beforeTaskClearBothMutations+1; got != want {
+		t.Fatalf("task requester clear both mutation count: got %d want %d", got, want)
+	}
+	if got, want := phase9PartiesQueryCount(t, harness, `SELECT count(*) FROM record_revisions WHERE record_id = $1`, refOnlyTaskID), beforeTaskClearBothRevisions+1; got != want {
+		t.Fatalf("task requester clear both revision count: got %d want %d", got, want)
+	}
+	queriedRefOnlyTask := queryWorkbookRow(t, harness, adminLogin, incidentID, "cartulary.view.task_requests.v1", refOnlyTaskID)
+	requireCellValue(t, queriedRefOnlyTask, "task.requester_party_text", nil)
+	requireCellValue(t, queriedRefOnlyTask, "task.requester_party_id", nil)
+	if got, want := rowVersionNumber(t, queriedRefOnlyTask), rowVersionNumber(t, clearedRefOnlyBoth); got != want {
+		t.Fatalf("task requester clear both query row version: got %d want %d", got, want)
+	}
+
 	beforeReferencedDeleteRevisions := partyRecordRevisionCount(t, harness, partyID)
 	referencedDelete := deleteRecordViaWorkbookRoute(t, harness, adminLogin, partyID, map[string]any{
 		"base_row_version": 1,
@@ -376,6 +440,15 @@ func rowVersionNumber(t testing.TB, row map[string]any) int {
 		t.Fatalf("unexpected row_version type %T", value)
 		return 0
 	}
+}
+
+func phase9PartiesQueryCount(t testing.TB, harness *phase4test.ServerHarness, query string, args ...any) int {
+	t.Helper()
+	var count int
+	if err := harness.DB.QueryRowContext(context.Background(), query, args...).Scan(&count); err != nil {
+		t.Fatalf("query count: %v", err)
+	}
+	return count
 }
 
 func deleteRecordViaWorkbookRoute(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, recordID uuid.UUID, body map[string]any) *http.Response {

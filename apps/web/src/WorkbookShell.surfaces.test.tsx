@@ -2,6 +2,7 @@ import {
   dataTestIdSelector,
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
+  genericEditRecordSelectTestId,
   gridFilterApplyTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
@@ -30,7 +31,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "./fetchMockTestSupport";
-import { successEnvelope } from "./timelineWorkbookTestSupport";
+import { errorEnvelope, successEnvelope } from "./timelineWorkbookTestSupport";
 import {
   buildGenericCreatePayload,
   buildGenericPatchChange,
@@ -38,12 +39,12 @@ import {
 } from "./WorkbookShell";
 import {
   evidenceViewSchemaId,
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
   indicatorsViewSchemaId,
   optionalStandardizedWorkbookSurfaceIds,
+  partiesViewSchemaId,
   requiredBuiltInWorkbookSurfaceIds,
   statusReviewViewSchemaId,
+  taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./workbookSurfaceRegistry";
 
@@ -91,6 +92,12 @@ describe("WorkbookShell surface selection", () => {
         init: RequestInit | undefined,
       ) => Promise<Response> | Response | null)
     | null;
+  let recordPatchResponseOverride:
+    | ((
+        recordId: string,
+        init: RequestInit | undefined,
+      ) => Promise<Response> | Response | null)
+    | null;
   let startupSelection: {
     selected_sheet_ref: { kind: "saved_view" | "view_schema"; id: string };
     selected_view_schema_id: string;
@@ -106,6 +113,7 @@ describe("WorkbookShell surface selection", () => {
     genericRowsByView = {};
     savedViews = [];
     queryResponseOverride = null;
+    recordPatchResponseOverride = null;
     startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
       selected_view_schema_id: timelineViewSchemaId,
@@ -230,6 +238,20 @@ describe("WorkbookShell surface selection", () => {
           row_version: 2,
         });
       }
+      if (method === "PATCH" && url.includes("/api/v1/records/")) {
+        const recordPatchMatch = url.match(
+          /\/api\/v1\/records\/([^/?]+)(?:\?.*)?$/,
+        );
+        if (recordPatchMatch) {
+          const override = recordPatchResponseOverride?.(
+            recordPatchMatch[1] ?? "",
+            init,
+          );
+          if (override) {
+            return override;
+          }
+        }
+      }
       if (method === "PATCH" && url.endsWith("/api/v1/records/timeline-1")) {
         const row = timelineRow("timeline-1", 2, "Selected row", 1);
         timelineRows = [row];
@@ -239,30 +261,25 @@ describe("WorkbookShell surface selection", () => {
           row,
         });
       }
-      for (const viewSchemaId of [
-        timelineViewSchemaId,
-        hostsViewSchemaId,
-        identitiesViewSchemaId,
-        evidenceViewSchemaId,
-        indicatorsViewSchemaId,
-        statusReviewViewSchemaId,
-      ]) {
-        if (url.includes(`/views/${viewSchemaId}/query`)) {
-          const override = queryResponseOverride?.(viewSchemaId, init);
-          if (override) {
-            return override;
-          }
-          return successEnvelope({
-            incident_id: "incident-1",
-            view_schema_id: viewSchemaId,
-            rows:
-              viewSchemaId === evidenceViewSchemaId
-                ? evidenceRows
-                : viewSchemaId === timelineViewSchemaId
-                  ? timelineRows
-                  : (genericRowsByView[viewSchemaId] ?? []),
-          });
+      const viewQueryMatch = url.match(
+        /\/api\/v1\/incidents\/incident-1\/views\/([^/]+)\/query(?:\?.*)?$/,
+      );
+      if (viewQueryMatch) {
+        const viewSchemaId = decodeURIComponent(viewQueryMatch[1] ?? "");
+        const override = queryResponseOverride?.(viewSchemaId, init);
+        if (override) {
+          return override;
         }
+        return successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: viewSchemaId,
+          rows:
+            viewSchemaId === evidenceViewSchemaId
+              ? evidenceRows
+              : viewSchemaId === timelineViewSchemaId
+                ? timelineRows
+                : (genericRowsByView[viewSchemaId] ?? []),
+        });
       }
       return successEnvelope({});
     });
@@ -697,6 +714,165 @@ describe("WorkbookShell surface selection", () => {
     expect(currentRecordIds(evidenceViewSchemaId)).toEqual(["evidence-newer"]);
   });
 
+  it("keeps party-link mutations syncing until workbook and references refresh", async () => {
+    const linkedTask = taskRequestRow(
+      "task-1",
+      4,
+      "Task requester link",
+      "Requester raw",
+      "party-1",
+    );
+    const clearedTask = taskRequestRow(
+      "task-1",
+      5,
+      "Task requester link",
+      "Requester raw",
+      null,
+    );
+    startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: taskRequestsViewSchemaId },
+      selected_view_schema_id: taskRequestsViewSchemaId,
+      selected_saved_view: null,
+      source: "explicit",
+    };
+    genericRowsByView[taskRequestsViewSchemaId] = [linkedTask];
+    genericRowsByView[partiesViewSchemaId] = [
+      partyRow("party-1", "Requester Party"),
+    ];
+    const patchResponse = deferred<Response>();
+    const refreshResponse = deferred<Response>();
+    let patchAccepted = false;
+    let refreshStarted = false;
+    let clearPatchBody: Record<string, unknown> | null = null;
+    recordPatchResponseOverride = (recordId, init) => {
+      if (recordId !== "task-1") {
+        return null;
+      }
+      clearPatchBody = JSON.parse(String(init?.body ?? "{}")) as Record<
+        string,
+        unknown
+      >;
+      return patchResponse.promise;
+    };
+    queryResponseOverride = (viewSchemaId) => {
+      if (
+        viewSchemaId === taskRequestsViewSchemaId &&
+        patchAccepted &&
+        !refreshStarted
+      ) {
+        refreshStarted = true;
+        return refreshResponse.promise;
+      }
+      return null;
+    };
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    fireEvent.change(
+      await screen.findByTestId(
+        genericEditRecordSelectTestId(taskRequestsViewSchemaId),
+      ),
+      { target: { value: "task-1" } },
+    );
+    const clearButton = await screen.findByTestId("party-link-clear-link");
+    fireEvent.click(clearButton);
+
+    await waitFor(() => {
+      expect(clearPatchBody).toMatchObject({
+        view_schema_id: taskRequestsViewSchemaId,
+        base_row_version: 4,
+        changes: [{ field_key: "task.requester_party_id", value: null }],
+      });
+    });
+    expect(screen.getByTestId("generic-mutation-state").textContent).toBe(
+      "Syncing",
+    );
+    expect((clearButton as HTMLButtonElement).disabled).toBe(true);
+
+    patchAccepted = true;
+    genericRowsByView[taskRequestsViewSchemaId] = [clearedTask];
+    patchResponse.resolve(
+      successEnvelope({
+        view_schema_id: taskRequestsViewSchemaId,
+        change_set_id: "change-task-clear-link",
+        row: clearedTask,
+      }),
+    );
+    await waitFor(() => {
+      expect(refreshStarted).toBe(true);
+    });
+    expect(screen.getByTestId("generic-mutation-state").textContent).toBe(
+      "Syncing",
+    );
+    expect((clearButton as HTMLButtonElement).disabled).toBe(true);
+
+    refreshResponse.resolve(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: taskRequestsViewSchemaId,
+        rows: [clearedTask],
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("generic-mutation-state").textContent).toBe(
+        "Saved",
+      );
+    });
+    expect((clearButton as HTMLButtonElement).disabled).toBe(false);
+    expect(currentRecordIds(taskRequestsViewSchemaId)).toEqual(["task-1"]);
+  });
+
+  it("keeps failed generic party-link mutations in Conflict", async () => {
+    startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: taskRequestsViewSchemaId },
+      selected_view_schema_id: taskRequestsViewSchemaId,
+      selected_saved_view: null,
+      source: "explicit",
+    };
+    genericRowsByView[taskRequestsViewSchemaId] = [
+      taskRequestRow(
+        "task-1",
+        4,
+        "Task requester conflict",
+        "Requester raw",
+        "party-1",
+      ),
+    ];
+    let clearPatchBody: Record<string, unknown> | null = null;
+    recordPatchResponseOverride = (recordId, init) => {
+      if (recordId !== "task-1") {
+        return null;
+      }
+      clearPatchBody = JSON.parse(String(init?.body ?? "{}")) as Record<
+        string,
+        unknown
+      >;
+      return errorEnvelope("row_version_conflict", 409);
+    };
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    fireEvent.change(
+      await screen.findByTestId(
+        genericEditRecordSelectTestId(taskRequestsViewSchemaId),
+      ),
+      { target: { value: "task-1" } },
+    );
+    fireEvent.click(await screen.findByTestId("party-link-clear-link"));
+
+    await waitFor(() => {
+      expect(clearPatchBody).toMatchObject({
+        view_schema_id: taskRequestsViewSchemaId,
+        base_row_version: 4,
+        changes: [{ field_key: "task.requester_party_id", value: null }],
+      });
+      expect(screen.getByTestId("generic-mutation-state").textContent).toBe(
+        "Conflict",
+      );
+    });
+  });
+
   it("Phase 4 U-4-WB-03 issues opaque evidence preview and download handles from the evidence surface", async () => {
     evidenceRows = [
       {
@@ -936,6 +1112,49 @@ function statusReviewRow(
       "status_review.timestamp_day": { value: "2026-04-24" },
       "status_review.next_report_day": { value: null },
       "status_review.edited_at": { value: "2026-04-24T15:00:00.000Z" },
+    },
+  };
+}
+
+function taskRequestRow(
+  recordId: string,
+  rowVersion: number,
+  title: string,
+  requesterText: string | null,
+  requesterPartyId: string | null,
+) {
+  return {
+    record_id: recordId,
+    row_version: rowVersion,
+    cells: {
+      "task.title": { value: title },
+      "task.task_kind": { value: "request" },
+      "task.status": { value: "open" },
+      "task.requester_party_text": { value: requesterText },
+      "task.requester_party_id": { value: requesterPartyId },
+      "task.owner_user_id": { value: null },
+      "task.decision_record_id": { value: null },
+      "task.due_at": { value: null },
+      "task.priority": { value: "normal" },
+      "task.external_ticket_ref": { value: null },
+      "task.blocked_reason": { value: null },
+      "task.edited_at": { value: "2026-04-24T15:00:00.000Z" },
+    },
+  };
+}
+
+function partyRow(recordId: string, displayName: string) {
+  return {
+    record_id: recordId,
+    row_version: 1,
+    cells: {
+      "party.display_name": { value: displayName },
+      "party.party_kind": { value: "person" },
+      "party.primary_email": { value: null },
+      "party.primary_phone": { value: null },
+      "party.external_ref": { value: null },
+      "party.notes": { value: null },
+      "party.edited_at": { value: "2026-04-24T15:00:00.000Z" },
     },
   };
 }

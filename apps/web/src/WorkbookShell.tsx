@@ -9755,6 +9755,22 @@ function GenericWorkbookSurface({
       ? genericCollectionItems(selectedEditRow, selectedEditField.fieldKey)
       : [];
 
+  const completeGenericMutation = async <TEnvelope,>(payload: unknown) => {
+    const envelope = readEnvelope<TEnvelope>(payload);
+    try {
+      await onRefresh();
+      await refreshReferenceOptions();
+    } catch (error) {
+      setMutationState("Conflict");
+      setMutationError(
+        error instanceof Error ? error.message : "Workbook refresh failed.",
+      );
+      return envelope;
+    }
+    setMutationState("Saved");
+    return envelope;
+  };
+
   useEffect(() => {
     if (selectedEditField?.writeKind !== "action_payload") {
       setEditCollectionMode("add");
@@ -9806,9 +9822,7 @@ function GenericWorkbookSurface({
     }
     setCreateDraft(initialGenericCreateDraft(contract, currentUserId));
     setLinkedNoteSourceRecordId("");
-    setMutationState("Saved");
-    await onRefresh();
-    await refreshReferenceOptions();
+    await completeGenericMutation<ViewMutationEnvelope>(result.payload);
   };
 
   const submitEdit = async () => {
@@ -9847,9 +9861,7 @@ function GenericWorkbookSurface({
       return;
     }
     setEditValue("");
-    setMutationState("Saved");
-    await onRefresh();
-    await refreshReferenceOptions();
+    await completeGenericMutation<ViewMutationEnvelope>(result.payload);
   };
 
   const submitPartyLinkPatch = async (
@@ -9879,9 +9891,7 @@ function GenericWorkbookSurface({
       setMutationError(parseMutationError(result.payload));
       return false;
     }
-    setMutationState("Saved");
-    await onRefresh();
-    await refreshReferenceOptions();
+    await completeGenericMutation<ViewMutationEnvelope>(result.payload);
     return true;
   };
 
@@ -10018,12 +10028,10 @@ function GenericWorkbookSurface({
       setMutationError(parseMutationError(result.payload));
       return;
     }
-    setMutationState("Saved");
     if (taskLifecycleStatus !== "blocked") {
       setTaskLifecycleBlockedReason("");
     }
-    await onRefresh();
-    await refreshReferenceOptions();
+    await completeGenericMutation<ViewMutationEnvelope>(result.payload);
   };
 
   const submitDecisionSupersede = async () => {
@@ -10063,9 +10071,7 @@ function GenericWorkbookSurface({
       return;
     }
     setDecisionSupersedeReason("");
-    setMutationState("Saved");
-    await onRefresh();
-    await refreshReferenceOptions();
+    await completeGenericMutation<DecisionSupersedeEnvelope>(result.payload);
   };
 
   return (

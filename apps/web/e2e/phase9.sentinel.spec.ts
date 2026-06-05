@@ -40,6 +40,7 @@ import {
   queryViewRows,
   uniqueIncidentKey,
   uniqueTxn,
+  type ViewApiRow,
 } from "./helpers";
 import {
   assessmentsViewSchemaId,
@@ -519,6 +520,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     "party.display_name",
     typedCollectorText,
   );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
   await assertEvidenceContextStable();
 
   rows = await queryViewRows(page, incidentId, evidenceViewSchemaId);
@@ -536,10 +538,23 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
   await page
     .getByTestId("party-link-existing-party")
     .selectOption(existingParty.record_id as string);
-  await page.getByTestId("party-link-link-existing").click();
+  refreshedEvidence = await applyPartyPatchAndWait(page, {
+    incidentId,
+    viewSchemaId: evidenceViewSchemaId,
+    recordId: evidence.record_id as string,
+    clickTestId: "party-link-link-existing",
+    changes: [
+      {
+        field_key: "evidence.source_party_id",
+        value: existingParty.record_id,
+      },
+    ],
+    expectedCells: {
+      "evidence.source_party_text": "Browser Source Raw",
+      "evidence.source_party_id": existingParty.record_id,
+    },
+  });
   await assertEvidenceContextStable();
-  rows = await queryViewRows(page, incidentId, evidenceViewSchemaId);
-  refreshedEvidence = rows.find((row) => row.record_id === evidence.record_id);
   expect(refreshedEvidence?.cells["evidence.source_party_text"]?.value).toBe(
     "Browser Source Raw",
   );
@@ -547,10 +562,18 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     existingParty.record_id,
   );
 
-  await page.getByTestId("party-link-clear-link").click();
+  refreshedEvidence = await applyPartyPatchAndWait(page, {
+    incidentId,
+    viewSchemaId: evidenceViewSchemaId,
+    recordId: evidence.record_id as string,
+    clickTestId: "party-link-clear-link",
+    changes: [{ field_key: "evidence.source_party_id", value: null }],
+    expectedCells: {
+      "evidence.source_party_text": "Browser Source Raw",
+      "evidence.source_party_id": null,
+    },
+  });
   await assertEvidenceContextStable();
-  rows = await queryViewRows(page, incidentId, evidenceViewSchemaId);
-  refreshedEvidence = rows.find((row) => row.record_id === evidence.record_id);
   expect(refreshedEvidence?.cells["evidence.source_party_text"]?.value).toBe(
     "Browser Source Raw",
   );
@@ -561,12 +584,35 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
   await page
     .getByTestId("party-link-existing-party")
     .selectOption(existingParty.record_id as string);
-  await page.getByTestId("party-link-link-existing").click();
+  refreshedEvidence = await applyPartyPatchAndWait(page, {
+    incidentId,
+    viewSchemaId: evidenceViewSchemaId,
+    recordId: evidence.record_id as string,
+    clickTestId: "party-link-link-existing",
+    changes: [
+      {
+        field_key: "evidence.source_party_id",
+        value: existingParty.record_id,
+      },
+    ],
+    expectedCells: {
+      "evidence.source_party_text": "Browser Source Raw",
+      "evidence.source_party_id": existingParty.record_id,
+    },
+  });
   await assertEvidenceContextStable();
-  await page.getByTestId("party-link-clear-text").click();
+  refreshedEvidence = await applyPartyPatchAndWait(page, {
+    incidentId,
+    viewSchemaId: evidenceViewSchemaId,
+    recordId: evidence.record_id as string,
+    clickTestId: "party-link-clear-text",
+    changes: [{ field_key: "evidence.source_party_text", value: null }],
+    expectedCells: {
+      "evidence.source_party_text": null,
+      "evidence.source_party_id": existingParty.record_id,
+    },
+  });
   await assertEvidenceContextStable();
-  rows = await queryViewRows(page, incidentId, evidenceViewSchemaId);
-  refreshedEvidence = rows.find((row) => row.record_id === evidence.record_id);
   expect(
     refreshedEvidence?.cells["evidence.source_party_text"]?.value,
   ).toBeNull();
@@ -577,29 +623,21 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
   await page
     .getByTestId("party-link-existing-party")
     .selectOption(existingParty.record_id as string);
-  const clearBothPatchRequests: Request[] = [];
-  const captureClearBothPatch = (request: Request) => {
-    if (
-      request.method() === "PATCH" &&
-      request.url().endsWith(`/api/v1/records/${evidence.record_id}`)
-    ) {
-      clearBothPatchRequests.push(request);
-    }
-  };
-  page.on("request", captureClearBothPatch);
-  await page.getByTestId("party-link-clear-both").click();
-  await assertEvidenceContextStable();
-  page.off("request", captureClearBothPatch);
-  expect(clearBothPatchRequests).toHaveLength(1);
-  expect(clearBothPatchRequests[0]?.postDataJSON()).toMatchObject({
-    view_schema_id: evidenceViewSchemaId,
+  refreshedEvidence = await applyPartyPatchAndWait(page, {
+    incidentId,
+    viewSchemaId: evidenceViewSchemaId,
+    recordId: evidence.record_id as string,
+    clickTestId: "party-link-clear-both",
     changes: [
       { field_key: "evidence.source_party_text", value: null },
       { field_key: "evidence.source_party_id", value: null },
     ],
+    expectedCells: {
+      "evidence.source_party_text": null,
+      "evidence.source_party_id": null,
+    },
   });
-  rows = await queryViewRows(page, incidentId, evidenceViewSchemaId);
-  refreshedEvidence = rows.find((row) => row.record_id === evidence.record_id);
+  await assertEvidenceContextStable();
   expect(
     refreshedEvidence?.cells["evidence.source_party_text"]?.value,
   ).toBeNull();
@@ -679,6 +717,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     "party.display_name",
     typedRequesterText,
   );
+  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
   await assertTaskContextStable();
   rows = await queryViewRows(page, incidentId, taskRequestsViewSchemaId);
   refreshedTask = rows.find((row) => row.record_id === task.record_id);
@@ -692,10 +731,23 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
   await page
     .getByTestId("party-link-existing-party")
     .selectOption(existingParty.record_id as string);
-  await page.getByTestId("party-link-link-existing").click();
+  refreshedTask = await applyPartyPatchAndWait(page, {
+    incidentId,
+    viewSchemaId: taskRequestsViewSchemaId,
+    recordId: task.record_id as string,
+    clickTestId: "party-link-link-existing",
+    changes: [
+      {
+        field_key: "task.requester_party_id",
+        value: existingParty.record_id,
+      },
+    ],
+    expectedCells: {
+      "task.requester_party_text": typedRequesterText,
+      "task.requester_party_id": existingParty.record_id,
+    },
+  });
   await assertTaskContextStable();
-  rows = await queryViewRows(page, incidentId, taskRequestsViewSchemaId);
-  refreshedTask = rows.find((row) => row.record_id === task.record_id);
   expect(refreshedTask?.cells["task.requester_party_text"]?.value).toBe(
     typedRequesterText,
   );
@@ -703,10 +755,18 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     existingParty.record_id,
   );
 
-  await page.getByTestId("party-link-clear-link").click();
+  refreshedTask = await applyPartyPatchAndWait(page, {
+    incidentId,
+    viewSchemaId: taskRequestsViewSchemaId,
+    recordId: task.record_id as string,
+    clickTestId: "party-link-clear-link",
+    changes: [{ field_key: "task.requester_party_id", value: null }],
+    expectedCells: {
+      "task.requester_party_text": typedRequesterText,
+      "task.requester_party_id": null,
+    },
+  });
   await assertTaskContextStable();
-  rows = await queryViewRows(page, incidentId, taskRequestsViewSchemaId);
-  refreshedTask = rows.find((row) => row.record_id === task.record_id);
   expect(refreshedTask?.cells["task.requester_party_text"]?.value).toBe(
     typedRequesterText,
   );
@@ -715,12 +775,35 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
   await page
     .getByTestId("party-link-existing-party")
     .selectOption(existingParty.record_id as string);
-  await page.getByTestId("party-link-link-existing").click();
+  refreshedTask = await applyPartyPatchAndWait(page, {
+    incidentId,
+    viewSchemaId: taskRequestsViewSchemaId,
+    recordId: task.record_id as string,
+    clickTestId: "party-link-link-existing",
+    changes: [
+      {
+        field_key: "task.requester_party_id",
+        value: existingParty.record_id,
+      },
+    ],
+    expectedCells: {
+      "task.requester_party_text": typedRequesterText,
+      "task.requester_party_id": existingParty.record_id,
+    },
+  });
   await assertTaskContextStable();
-  await page.getByTestId("party-link-clear-text").click();
+  refreshedTask = await applyPartyPatchAndWait(page, {
+    incidentId,
+    viewSchemaId: taskRequestsViewSchemaId,
+    recordId: task.record_id as string,
+    clickTestId: "party-link-clear-text",
+    changes: [{ field_key: "task.requester_party_text", value: null }],
+    expectedCells: {
+      "task.requester_party_text": null,
+      "task.requester_party_id": existingParty.record_id,
+    },
+  });
   await assertTaskContextStable();
-  rows = await queryViewRows(page, incidentId, taskRequestsViewSchemaId);
-  refreshedTask = rows.find((row) => row.record_id === task.record_id);
   expect(refreshedTask?.cells["task.requester_party_text"]?.value).toBeNull();
   expect(refreshedTask?.cells["task.requester_party_id"]?.value).toBe(
     existingParty.record_id,
@@ -729,29 +812,21 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
   await page
     .getByTestId("party-link-existing-party")
     .selectOption(existingParty.record_id as string);
-  const taskClearBothPatchRequests: Request[] = [];
-  const captureTaskClearBothPatch = (request: Request) => {
-    if (
-      request.method() === "PATCH" &&
-      request.url().endsWith(`/api/v1/records/${task.record_id}`)
-    ) {
-      taskClearBothPatchRequests.push(request);
-    }
-  };
-  page.on("request", captureTaskClearBothPatch);
-  await page.getByTestId("party-link-clear-both").click();
-  await assertTaskContextStable();
-  page.off("request", captureTaskClearBothPatch);
-  expect(taskClearBothPatchRequests).toHaveLength(1);
-  expect(taskClearBothPatchRequests[0]?.postDataJSON()).toMatchObject({
-    view_schema_id: taskRequestsViewSchemaId,
+  refreshedTask = await applyPartyPatchAndWait(page, {
+    incidentId,
+    viewSchemaId: taskRequestsViewSchemaId,
+    recordId: task.record_id as string,
+    clickTestId: "party-link-clear-both",
     changes: [
       { field_key: "task.requester_party_text", value: null },
       { field_key: "task.requester_party_id", value: null },
     ],
+    expectedCells: {
+      "task.requester_party_text": null,
+      "task.requester_party_id": null,
+    },
   });
-  rows = await queryViewRows(page, incidentId, taskRequestsViewSchemaId);
-  refreshedTask = rows.find((row) => row.record_id === task.record_id);
+  await assertTaskContextStable();
   expect(refreshedTask?.cells["task.requester_party_text"]?.value).toBeNull();
   expect(refreshedTask?.cells["task.requester_party_id"]?.value).toBeNull();
 
@@ -2089,6 +2164,114 @@ test("Phase 9 E-9-08 required registry identities stay canonical with optional a
     expect(optionValues).toContain(viewSchemaId);
   }
 });
+
+type PartyPatchChange = {
+  field_key: string;
+  value: unknown;
+};
+
+type PartyPatchExpectation = {
+  changes: PartyPatchChange[];
+  clickTestId: string;
+  expectedCells: Record<string, unknown>;
+  incidentId: string;
+  recordId: string;
+  viewSchemaId: string;
+};
+
+// RCA note: retained run 20260605T002603Z-p3350228 first failed after
+// Clear party link at the task requester assertion. The trace showed the
+// direct-write PATCH with base_row_version 4 and value null was still pending,
+// so party-link assertions wait for request body, response row, and query
+// round-trip evidence before reading workbook cells.
+async function applyPartyPatchAndWait(
+  page: Page,
+  expectation: PartyPatchExpectation,
+): Promise<ViewApiRow> {
+  const isTargetPatchRequest = (request: Request) =>
+    request.method() === "PATCH" &&
+    request.url().endsWith(`/api/v1/records/${expectation.recordId}`);
+  const patchRequests: Request[] = [];
+  const capturePatchRequest = (request: Request) => {
+    if (isTargetPatchRequest(request)) {
+      patchRequests.push(request);
+    }
+  };
+  page.on("request", capturePatchRequest);
+  try {
+    const [response] = await Promise.all([
+      page.waitForResponse((candidate) =>
+        isTargetPatchRequest(candidate.request()),
+      ),
+      page.getByTestId(expectation.clickTestId).click(),
+    ]);
+
+    expect(patchRequests).toHaveLength(1);
+    expect(patchRequests[0]?.postDataJSON()).toMatchObject({
+      view_schema_id: expectation.viewSchemaId,
+      changes: expectation.changes,
+    });
+    expect(response.ok()).toBeTruthy();
+    const body = (await response.json()) as { data: { row: ViewApiRow } };
+    expectPartyPatchCells(body.data.row, expectation.expectedCells);
+    const row = await waitForAuthoritativeViewRowCells(
+      page,
+      expectation.incidentId,
+      expectation.viewSchemaId,
+      expectation.recordId,
+      expectation.expectedCells,
+    );
+    await expect(page.getByTestId("generic-mutation-state")).toHaveText(
+      "Saved",
+    );
+    return row;
+  } finally {
+    page.off("request", capturePatchRequest);
+  }
+}
+
+async function waitForAuthoritativeViewRowCells(
+  page: Page,
+  incidentId: string,
+  viewSchemaId: string,
+  recordId: string,
+  expectedCells: Record<string, unknown>,
+): Promise<ViewApiRow> {
+  let matched: ViewApiRow | null = null;
+  await expect
+    .poll(
+      async () => {
+        const rows = await queryViewRows(page, incidentId, viewSchemaId);
+        matched = rows.find((row) => row.record_id === recordId) ?? null;
+        if (matched === null) {
+          return null;
+        }
+        return Object.fromEntries(
+          Object.keys(expectedCells).map((fieldKey) => [
+            fieldKey,
+            matched?.cells[fieldKey]?.value,
+          ]),
+        );
+      },
+      {
+        message: `${viewSchemaId} row ${recordId} should round-trip party fields`,
+      },
+    )
+    .toEqual(expectedCells);
+  if (matched === null) {
+    throw new Error(`missing ${viewSchemaId} row ${recordId}`);
+  }
+  return matched;
+}
+
+function expectPartyPatchCells(
+  row: ViewApiRow,
+  expectedCells: Record<string, unknown>,
+) {
+  for (const [fieldKey, expected] of Object.entries(expectedCells)) {
+    expect(row.cells[fieldKey]?.value).toEqual(expected);
+  }
+}
 
 async function fetchPublicViewSchemaIds(page: Page) {
   const response = await page.request.get(`${apiBase}/api/v1/view-schemas`);
