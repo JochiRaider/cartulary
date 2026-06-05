@@ -1567,12 +1567,12 @@ function toolSummary(target, durationMs) {
     );
   }
   if (forbiddenVisual) {
-    start("check-service-backed:browser-e2e-visual:visual-smoke", 0, {
+    start("check-service-backed:browser-e2e-visual:visual", 0, {
       work_unit_type: "browser_group",
       aggregate_target: "browser-e2e-visual",
     });
     finish(
-      "check-service-backed:browser-e2e-visual:visual-smoke",
+      "check-service-backed:browser-e2e-visual:visual",
       36000,
       36000,
     );
@@ -1676,7 +1676,7 @@ warm_visual_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-summary-tim
 warm_visual_status=$?
 set -e
 assert_equals "$warm_visual_status" "1" "warm check visual-in-default fixture status"
-assert_contains "$warm_visual_output" "default warm check includes explicit browser evidence unit check-service-backed:browser-e2e-visual:visual-smoke" "warm check visual-in-default fixture output"
+assert_contains "$warm_visual_output" "default warm check includes explicit browser evidence unit check-service-backed:browser-e2e-visual:visual" "warm check visual-in-default fixture output"
 mkdir -p "${summary_timing_dir}/critical/linked/check" "${summary_timing_dir}/critical/unlinked/check"
 cat >"${summary_timing_dir}/critical/linked/check/scheduler-events.jsonl" <<'JSONL'
 {"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"scheduler-start","seq":1,"monotonic_ms":0,"emitted_at":"2026-01-01T00:00:00.000Z"}

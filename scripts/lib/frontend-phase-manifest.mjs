@@ -1188,13 +1188,26 @@ export function frontendScenarioTitlesForTarget(
   root,
   target,
   layer = "",
+  options = {},
 ) {
   const normalizedTarget = target.startsWith("make ") ? target : `make ${target}`;
   const registry = loadFrontendPhaseRegistry(root);
+  const selectedRowIDs =
+    options.rowIDs === undefined || options.rowIDs === null
+      ? null
+      : new Set(
+          (Array.isArray(options.rowIDs)
+            ? options.rowIDs
+            : String(options.rowIDs).split(",")
+          ).map((rowID) => String(rowID).trim()).filter(Boolean),
+        );
   const titles = [];
   for (const phase of registry.phases) {
     const { manifest } = loadFrontendPhaseMap(root, phase.phase_id);
     for (const row of manifest.rows) {
+      if (selectedRowIDs && !selectedRowIDs.has(row.id)) {
+        continue;
+      }
       if (layer && row.layer !== layer) {
         continue;
       }
@@ -1211,8 +1224,8 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export function frontendPlaywrightGrepForTarget(root, target, layer = "") {
-  const titles = frontendScenarioTitlesForTarget(root, target, layer);
+export function frontendPlaywrightGrepForTarget(root, target, layer = "", options = {}) {
+  const titles = frontendScenarioTitlesForTarget(root, target, layer, options);
   if (titles.length === 0) {
     return "";
   }
@@ -1230,15 +1243,31 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       console.log(entry.phase_id);
     }
   } else if (command === "playwright-grep") {
-    const target = process.argv[3] ?? "";
-    const layer = process.argv[4] ?? "";
-    if (!target) {
+    const args = process.argv.slice(3);
+    const target = args.shift() ?? "";
+    let layer = "";
+    let rowIDs = null;
+    if (args[0] && args[0] !== "--row-ids") {
+      layer = args.shift();
+    }
+    while (args.length > 0) {
+      const arg = args.shift();
+      if (arg === "--row-ids") {
+        rowIDs = args.shift() ?? "";
+        continue;
+      }
       console.error(
-        "usage: frontend-phase-manifest.mjs playwright-grep <target> [layer]",
+        "usage: frontend-phase-manifest.mjs playwright-grep <target> [layer] [--row-ids <ids>]",
       );
       process.exit(2);
     }
-    console.log(frontendPlaywrightGrepForTarget(root, target, layer));
+    if (!target) {
+      console.error(
+        "usage: frontend-phase-manifest.mjs playwright-grep <target> [layer] [--row-ids <ids>]",
+      );
+      process.exit(2);
+    }
+    console.log(frontendPlaywrightGrepForTarget(root, target, layer, { rowIDs }));
   } else {
     console.error(
       "usage: frontend-phase-manifest.mjs validate|phases|playwright-grep <target> [layer]",

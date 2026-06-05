@@ -137,6 +137,15 @@ for (const target of [
   assert.ok(targets(phase4Service).has(target), `phase4 service-backed slice must include ${target}`);
 }
 
+const phase5Service = plan("phase5", "service-backed");
+const phase5VisualUnit = phase5Service.work_units.find((unit) => unit.target === "browser-e2e-visual");
+assert.ok(phase5VisualUnit, "service-backed phase5 slice must include browser visual work");
+assert.equal(phase5VisualUnit.browserStage, "visual", "service-backed phase5 visual work must use the visual stage");
+assert.ok(phase5VisualUnit.resource_claims.browser_stage_visual >= 1, "service-backed phase5 visual work must claim visual stage lane");
+assert.ok(!("browser_stage_visual_smoke" in phase5VisualUnit.resource_claims), "service-backed phase5 visual work must not claim visual-smoke stage lane");
+assert.ok(phase5Service.resource_limits.browser_stage_visual >= 1, "service-backed phase5 must declare visual stage capacity");
+assert.ok(!("browser_stage_visual_smoke" in phase5Service.resource_limits), "service-backed phase5 must not declare visual-smoke capacity");
+
 const phase3 = plan("phase3", "phase");
 const frontendGroups = phase3.row_groups.filter((group) => group.target === "frontend-unit");
 assert.equal(frontendGroups.length, 1, "phase3 must have one frontend-unit row group");

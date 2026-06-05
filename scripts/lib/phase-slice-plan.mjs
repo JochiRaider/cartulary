@@ -40,7 +40,16 @@ function validPhaseName(value) {
   return /^phase[0-9]+$/.test(value);
 }
 
-function resolveBrowserStageByTarget(root = repoRoot) {
+const preferredBrowserStageByDependency = new Map([
+  ["browser_functional", "webserver-backed"],
+  ["browser_stateful", "stateful"],
+  ["browser_measurement", "measurement"],
+  ["browser_visual", "visual"],
+  ["browser_a11y", "a11y"],
+  ["browser_a11y_preflight", "a11y-preflight"],
+]);
+
+function resolveBrowserStagesByTarget(root = repoRoot) {
   const topology = loadExecutionTopology({
     manifestPath: path.join(root, "tools", "execution_topology_manifest.json"),
   });
@@ -48,10 +57,51 @@ function resolveBrowserStageByTarget(root = repoRoot) {
   const byTarget = new Map();
   for (const stage of stages.values()) {
     if (!byTarget.has(stage.target)) {
-      byTarget.set(stage.target, stage);
+      byTarget.set(stage.target, []);
     }
+    byTarget.get(stage.target).push(stage);
   }
   return byTarget;
+}
+
+function browserStageDependencies(stage) {
+  return uniqueSorted(
+    stage.groups
+      .filter((group) => group.coverage !== "raw")
+      .map((group) => group.executionDependency)
+      .filter(Boolean),
+  );
+}
+
+function resolveBrowserStageForRows(target, rows, stageByTarget) {
+  const candidates = stageByTarget.get(target) ?? [];
+  if (candidates.length === 0) {
+    throw new Error(`phase slice browser target ${target} is not a browser batch stage target`);
+  }
+  if (candidates.length === 1) {
+    return candidates[0];
+  }
+
+  const dependencies = executionDependenciesForTarget(rows, target);
+  const preferredNames = uniqueSorted(
+    dependencies.map((dependency) => preferredBrowserStageByDependency.get(dependency)),
+  );
+  const preferredCandidates = candidates.filter((stage) => preferredNames.includes(stage.name));
+  if (preferredCandidates.length === 1) {
+    return preferredCandidates[0];
+  }
+
+  const matchingCandidates = candidates.filter((stage) => {
+    const stageDependencies = new Set(browserStageDependencies(stage));
+    return dependencies.every((dependency) => stageDependencies.has(dependency));
+  });
+  if (matchingCandidates.length === 1) {
+    return matchingCandidates[0];
+  }
+
+  throw new Error(
+    `phase slice browser target ${target} matches multiple browser batch stages; declare an explicit dependency-to-stage selector`,
+  );
 }
 
 function phaseRows(phase, mode, root = repoRoot, taskSurfaceManifest = null) {
@@ -390,10 +440,7 @@ function addFrontendUnit(plan, target, rows) {
 }
 
 function addBrowserUnit(plan, target, rows, stageByTarget) {
-  const stage = stageByTarget.get(target);
-  if (!stage) {
-    throw new Error(`phase slice browser target ${target} is not a browser batch stage target`);
-  }
+  const stage = resolveBrowserStageForRows(target, rows, stageByTarget);
   const claims = new Map([
     ["postgres", 1],
     ["object_store", 1],
@@ -522,7 +569,7 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
     }
     rowsByTarget.get(row.target).push(row);
   }
-  const stageByTarget = resolveBrowserStageByTarget(root);
+  const stageByTarget = resolveBrowserStagesByTarget(root);
   const orderedTargets = Array.from(rowsByTarget.keys()).sort((left, right) => {
     const leftDeps = executionDependenciesForTarget(rows, left);
     const rightDeps = executionDependenciesForTarget(rows, right);

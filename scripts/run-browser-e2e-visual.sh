@@ -13,11 +13,19 @@ status=0
   "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test ||
   status=1
 
-frontend_grep="$(
-  NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
-    "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/scripts/lib/frontend-phase-manifest.mjs" \
-      playwright-grep browser-e2e-visual visual
-)"
+frontend_grep=""
+frontend_scope="${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}"
+if [[ "$frontend_scope" != "disabled" ]]; then
+  frontend_grep_args=(playwright-grep browser-e2e-visual visual)
+  if [[ "$frontend_scope" == "selected_rows" ]]; then
+    frontend_grep_args+=(--row-ids "${CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS:-}")
+  fi
+  frontend_grep="$(
+    NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
+      "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/scripts/lib/frontend-phase-manifest.mjs" \
+        "${frontend_grep_args[@]}"
+  )"
+fi
 
 if [[ -n "$frontend_grep" ]]; then
   "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" \

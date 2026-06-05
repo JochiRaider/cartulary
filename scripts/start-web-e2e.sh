@@ -48,6 +48,7 @@ child_command=()
 SERVER_PGID=""
 VITE_PGID=""
 CHILD_PGID=""
+PORT_LEASE_DIRS=()
 cleanup_done=0
 SESSION_MODE="wrap"
 SESSION_ENV_FILE=""
@@ -215,14 +216,132 @@ validate_port_number() {
   fi
 }
 
+port_lease_root() {
+  printf '%s\n' "${CARTULARY_WEB_E2E_PORT_LEASE_ROOT:-${ROOT_DIR}/.cartulary/web-e2e-port-leases}"
+}
+
+port_lease_dir() {
+  local port="$1"
+  printf '%s/port-%s\n' "$(port_lease_root)" "${port}"
+}
+
+release_port_lease_dir() {
+  local lease_dir="$1"
+  local lease_pid=""
+
+  if [[ ! -d "${lease_dir}" ]]; then
+    return 0
+  fi
+
+  if [[ -f "${lease_dir}/pid" ]]; then
+    IFS= read -r lease_pid <"${lease_dir}/pid" || true
+  fi
+  if [[ "${lease_pid}" == "$$" ]]; then
+    rm -rf "${lease_dir}"
+  fi
+}
+
+release_port_leases() {
+  local lease_dir
+  local status=0
+
+  for lease_dir in "${PORT_LEASE_DIRS[@]}"; do
+    release_port_lease_dir "${lease_dir}" || status=$?
+  done
+  PORT_LEASE_DIRS=()
+  return "${status}"
+}
+
+remove_stale_port_lease() {
+  local lease_dir="$1"
+  local lease_pid=""
+
+  for _ in $(seq 1 10); do
+    if [[ -f "${lease_dir}/pid" ]]; then
+      break
+    fi
+    sleep 0.05
+  done
+  if [[ -f "${lease_dir}/pid" ]]; then
+    IFS= read -r lease_pid <"${lease_dir}/pid" || true
+  fi
+  if [[ -z "${lease_pid}" ]]; then
+    return 1
+  fi
+  if [[ -n "${lease_pid}" && "${lease_pid}" =~ ^[0-9]+$ ]] && kill -0 "${lease_pid}" 2>/dev/null; then
+    return 1
+  fi
+
+  rm -rf "${lease_dir}"
+}
+
+reserve_port_lease() {
+  local port="$1"
+  local name="$2"
+  local lease_root
+  local lease_dir
+
+  lease_root="$(port_lease_root)"
+  lease_dir="$(port_lease_dir "${port}")"
+  phase_secure_mkdir "${lease_root}"
+
+  if ! mkdir "${lease_dir}" 2>/dev/null; then
+    remove_stale_port_lease "${lease_dir}" || return 1
+    mkdir "${lease_dir}" 2>/dev/null || return 1
+  fi
+  chmod 700 "${lease_dir}" 2>/dev/null || true
+  printf '%s\n' "$$" >"${lease_dir}/pid"
+  {
+    printf 'name=%s\n' "${name}"
+    printf 'port=%s\n' "${port}"
+    printf 'target=%s\n' "${CARTULARY_TEST_TARGET:-}"
+    printf 'created_at=%s\n' "$(phase_now_utc)"
+  } >"${lease_dir}/metadata"
+  PORT_LEASE_DIRS+=("${lease_dir}")
+}
+
+claim_available_port() {
+  local outvar="$1"
+  local name="$2"
+  local candidate="$3"
+  local configured="$4"
+  local -n port_ref="$outvar"
+  local lease_dir
+
+  if port_in_use "${candidate}"; then
+    if [[ "${configured}" == "1" ]]; then
+      echo "${name} port ${candidate} is already in use; choose another CARTULARY_WEB_E2E_*_PORT override" >&2
+      ss -ltnp "sport = :${candidate}" >&2 || true
+    fi
+    return 1
+  fi
+  if ! reserve_port_lease "${candidate}" "${name}"; then
+    if [[ "${configured}" == "1" ]]; then
+      echo "${name} port ${candidate} is reserved by another browser e2e startup; choose another CARTULARY_WEB_E2E_*_PORT override" >&2
+    fi
+    return 1
+  fi
+  if port_in_use "${candidate}"; then
+    lease_dir="$(port_lease_dir "${candidate}")"
+    release_port_lease_dir "${lease_dir}" || true
+    if [[ "${configured}" == "1" ]]; then
+      echo "${name} port ${candidate} became unavailable during browser e2e port allocation; choose another CARTULARY_WEB_E2E_*_PORT override" >&2
+      ss -ltnp "sport = :${candidate}" >&2 || true
+    fi
+    return 1
+  fi
+
+  # shellcheck disable=SC2034
+  port_ref="${candidate}"
+}
+
 allocate_available_port() {
   local outvar="$1"
   local name="$2"
   local configured_port="$3"
   local excluded_port="${4:-}"
-  local -n port_ref="$outvar"
 
-  port_ref=""
+  printf -v "$outvar" '%s' ""
 
   if [[ -n "${configured_port}" ]]; then
     validate_port_number "${configured_port}" "${name}" || return $?
@@ -236,13 +355,7 @@ allocate_available_port() {
       echo "${name} port ${configured_port} must differ from the other browser e2e stack port" >&2
       return 1
     fi
-    if port_in_use "${configured_port}"; then
-      echo "${name} port ${configured_port} is already in use; choose another CARTULARY_WEB_E2E_*_PORT override" >&2
-      ss -ltnp "sport = :${configured_port}" >&2 || true
-      return 1
-    fi
-    # shellcheck disable=SC2034
-    port_ref="${configured_port}"
+    claim_available_port "$outvar" "${name}" "${configured_port}" "1" || return $?
     return 0
   fi
 
@@ -261,9 +374,7 @@ allocate_available_port() {
       if [[ -n "${excluded_port}" && "${candidate}" == "${excluded_port}" ]]; then
         continue
       fi
-      if ! port_in_use "${candidate}"; then
-        # shellcheck disable=SC2034
-        port_ref="${candidate}"
+      if claim_available_port "$outvar" "${name}" "${candidate}" "0"; then
         return 0
       fi
     done
@@ -284,9 +395,7 @@ allocate_available_port() {
     if [[ -n "${excluded_port}" && "${candidate}" == "${excluded_port}" ]]; then
       continue
     fi
-    if ! port_in_use "${candidate}"; then
-      # shellcheck disable=SC2034
-      port_ref="${candidate}"
+    if claim_available_port "$outvar" "${name}" "${candidate}" "0"; then
       return 0
     fi
   done
@@ -740,6 +849,7 @@ cleanup() {
   fi
   stop_owned_process_group "${VITE_PGID:-}" "${FRONTEND_PORT:-4173}" "frontend" || cleanup_status=$?
   stop_owned_process_group "${SERVER_PGID:-}" "${BACKEND_PORT:-8080}" "backend" || cleanup_status=$?
+  release_port_leases || cleanup_status=$?
 
   step_end_time="$(phase_now_utc)"
   step_end_ms="$(phase_now_monotonic_ms)"
@@ -1342,6 +1452,7 @@ main() {
     run_timing_span "setup" "browser-e2e write session lease" write_session_files
     release_process_group_monitor "${SERVER_PGID}"
     release_process_group_monitor "${VITE_PGID}"
+    release_port_leases || true
     trap - EXIT
     return 0
   fi

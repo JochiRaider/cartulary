@@ -8439,7 +8439,6 @@
           "scripts/run-browser-e2e-batch.sh",
           "scripts/lib/browser-batch-manifest.mjs",
           "scripts/run-browser-e2e-visual.sh",
-          "scripts/run-browser-e2e-visual-smoke.sh",
           "scripts/start-web-e2e.sh"
         ],
         "output_policy": {
@@ -10856,20 +10855,6 @@
             "kind": "a11y_preflight",
             "coverage": "supplemental",
             "execution_dependency": "browser_a11y_preflight",
-            "workers": "1"
-          }
-        ]
-      },
-      {
-        "name": "visual-smoke",
-        "target": "browser-e2e-visual",
-        "groups": [
-          {
-            "name": "visual-smoke",
-            "target": "browser-e2e-visual",
-            "kind": "visual_smoke",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_visual",
             "workers": "1"
           }
         ]

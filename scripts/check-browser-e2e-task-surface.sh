@@ -27,7 +27,6 @@ web_package_json="$repo_root/apps/web/package.json"
 stateful_script="$repo_root/scripts/run-browser-e2e-stateful.sh"
 measurement_script="$repo_root/scripts/run-browser-e2e-measurement.sh"
 visual_script="$repo_root/scripts/run-browser-e2e-visual.sh"
-visual_smoke_script="$repo_root/scripts/run-browser-e2e-visual-smoke.sh"
 resettable_script="$repo_root/scripts/run-browser-e2e-resettable.sh"
 reset_script="$repo_root/scripts/reset-web-e2e-stack.sh"
 webserver_backed_script="$repo_root/scripts/run-browser-e2e-webserver-backed.sh"
@@ -885,9 +884,6 @@ fi
 if ! [[ -f "$visual_script" ]]; then
   fail "missing scripts/run-browser-e2e-visual.sh"
 fi
-if ! [[ -x "$visual_smoke_script" ]]; then
-  fail "missing executable scripts/run-browser-e2e-visual-smoke.sh"
-fi
 if ! [[ -f "$resettable_script" ]]; then
   fail "missing scripts/run-browser-e2e-resettable.sh"
 fi
@@ -960,19 +956,6 @@ if (!(visual.schedule_tags ?? []).includes("service_backed_full")) {
 if ((visual.schedule_tags ?? []).includes("service_backed_check")) {
   throw new Error("visual full stage must not be tagged service_backed_check");
 }
-const visualSmoke = byName.get("visual-smoke");
-if (!visualSmoke) {
-  throw new Error("missing visual-smoke stage");
-}
-if ((visualSmoke.schedule_tags ?? []).includes("service_backed_check")) {
-  throw new Error("visual-smoke must not be tagged service_backed_check");
-}
-if ((visualSmoke.schedule_tags ?? []).includes("service_backed_full")) {
-  throw new Error("visual-smoke must not be tagged service_backed_full");
-}
-if ((visualSmoke.groups ?? []).some((group) => group.kind !== "visual_smoke")) {
-  throw new Error("visual-smoke must use visual_smoke groups");
-}
 const measurement = byName.get("measurement");
 if (!measurement) {
   throw new Error("missing measurement stage");
@@ -989,6 +972,20 @@ if ((measurement.scheduler_needs ?? []).length !== 0) {
 const isolated = byName.get("isolated");
 if (!isolated || (isolated.schedule_tags ?? []).length > 0 || (isolated.scheduler_needs ?? []).length > 0) {
   throw new Error("isolated aggregate must remain unscheduled direct-run aggregation");
+}
+EOF
+"$node_bin" - "$browser_batch_manifest" "$browser_batch_script" <<'EOF' || fail "browser E2E batch runner must route every generated group kind"
+const fs = require("node:fs");
+const [manifestFile, batchScript] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+const script = fs.readFileSync(batchScript, "utf8");
+const routedKinds = new Set([...script.matchAll(/^\s{4}([A-Za-z0-9_-]+)\)/gm)].map((match) => match[1]));
+for (const stage of manifest.stages ?? []) {
+  for (const group of stage.groups ?? []) {
+    if (!routedKinds.has(group.kind)) {
+      throw new Error(`browser group kind ${group.kind} from stage ${stage.name} has no batch runner route`);
+    }
+  }
 }
 EOF
 if ! grep -Fq '"kind": "duration_balanced_specs"' "$browser_batch_manifest"; then
@@ -1231,6 +1228,25 @@ if ! grep -Fq 'browser_visual' "$visual_script"; then
 fi
 if ! grep -Fq 'run-browser-e2e-manifest-dependency.sh' "$visual_script"; then
   fail "scripts/run-browser-e2e-visual.sh must use manifest-derived phase discovery"
+fi
+if ! grep -Fq 'CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE' "$visual_script"; then
+  fail "scripts/run-browser-e2e-visual.sh must honor frontend row-accounting scope"
+fi
+if ! grep -Fq -- '--row-ids' "$visual_script"; then
+  fail "scripts/run-browser-e2e-visual.sh must constrain frontend visual readiness to selected rows"
+fi
+if ! grep -Fq 'CARTULARY_WEB_E2E_PORT_LEASE_ROOT' "$start_web_e2e_script"; then
+  fail "scripts/start-web-e2e.sh must expose a repo-local browser E2E port lease root"
+fi
+if ! grep -Fq 'reserve_port_lease' "$start_web_e2e_script"; then
+  fail "scripts/start-web-e2e.sh must reserve ports during browser E2E allocation"
+fi
+if ! grep -Fq 'release_port_leases' "$start_web_e2e_script"; then
+  fail "scripts/start-web-e2e.sh must release browser E2E port reservations during cleanup"
+fi
+selected_visual_grep="$("$node_bin" "$repo_root/scripts/lib/frontend-phase-manifest.mjs" playwright-grep browser-e2e-visual visual --row-ids FE-V-P5-01)"
+if [[ "$selected_visual_grep" != *"FE-V-P5-01"* || "$selected_visual_grep" == *"FE-V-P3-01"* ]]; then
+  fail "frontend visual readiness grep must filter by selected row IDs"
 fi
 assert_manifest_owned_files_not_raw_selected \
   "browser visual execution" \

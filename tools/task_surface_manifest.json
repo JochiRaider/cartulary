@@ -7911,7 +7911,6 @@
         "scripts/run-browser-e2e-batch.sh",
         "scripts/lib/browser-batch-manifest.mjs",
         "scripts/run-browser-e2e-visual.sh",
-        "scripts/run-browser-e2e-visual-smoke.sh",
         "scripts/start-web-e2e.sh"
       ],
       "output_policy": {

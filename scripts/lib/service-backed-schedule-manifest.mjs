@@ -59,7 +59,6 @@ const browserGroupKinds = new Set([
   "stateful",
   "measurement",
   "visual",
-  "visual_smoke",
   "a11y",
   "a11y_preflight",
 ]);

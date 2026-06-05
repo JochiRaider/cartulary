@@ -1115,7 +1115,6 @@ function attachRuntime(
           ["a11y", "run-browser-e2e-a11y.sh"],
           ["a11y_preflight", "run-browser-e2e-a11y-preflight.sh"],
           ["visual", "run-browser-e2e-visual.sh"],
-          ["visual_smoke", "run-browser-e2e-visual-smoke.sh"],
         ]);
         const script = scriptsByKind.get(group.kind);
         if (!script) {
