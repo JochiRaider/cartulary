@@ -4,6 +4,7 @@ import {
   surfaceTabTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
+import { requireViewContract } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
@@ -31,43 +32,17 @@ import {
 const exactScenarioTitle =
   "FE-I-P5-01 Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh.";
 
-const hostVisibleFields = [
-  "host.display_name",
-  "host.hostname",
-  "host.aliases",
-  "host.host_state",
-  "host.linked_event_count",
-  "host.evidence_count",
-  "host.location",
-  "host.os_platform",
-  "host.business_owner",
-  "host.criticality",
-  "host.containment_status",
-  "host.edited_at",
-] as const;
-
-const identityVisibleFields = [
-  "identity.display_name",
-  "identity.upn",
-  "identity.email",
-  "identity.sam_account_name",
-  "identity.aliases",
-  "identity.identity_state",
-  "identity.linked_event_count",
-  "identity.evidence_count",
-  "identity.privilege_level",
-  "identity.mfa_state",
-  "identity.reset_status",
-  "identity.edited_at",
-] as const;
-
-const noteVisibleFields = [
-  "note.title",
-  "note.body",
-  "note.tags",
-  "note.linked_record_count",
-  "note.updated_at",
-] as const;
+const hostsContract = requireViewContract(hostsViewSchemaId);
+const identitiesContract = requireViewContract(identitiesViewSchemaId);
+const notesContract = requireViewContract(notesViewSchemaId);
+const hostVisibleFields = hostsContract.defaultVisibleFields;
+const identityVisibleFields = identitiesContract.defaultVisibleFields;
+const noteVisibleFields = notesContract.defaultVisibleFields;
+const hostAllFieldKeys = hostsContract.fields.map((field) => field.fieldKey);
+const identityAllFieldKeys = identitiesContract.fields.map(
+  (field) => field.fieldKey,
+);
+const noteAllFieldKeys = notesContract.fields.map((field) => field.fieldKey);
 
 function visibleHeaderFieldKeys(page: Page, viewSchemaId: string) {
   return page
@@ -104,7 +79,11 @@ function mentionFingerprint(row: ViewRow, fieldKey: string, rawText: string) {
   };
 }
 
-function resolvedRefPayload(rawText: string, resolvedRecordId: string) {
+function mixedRefPayload(
+  rawText: string,
+  resolvedRecordId: string,
+  unresolvedRawText: string,
+) {
   return {
     kind: "collection_actions_v1",
     actions: [
@@ -112,6 +91,10 @@ function resolvedRefPayload(rawText: string, resolvedRecordId: string) {
         op: "add_resolved_ref",
         raw_text: rawText,
         resolved_record_id: resolvedRecordId,
+      },
+      {
+        op: "add_token",
+        raw_text: unresolvedRawText,
       },
     ],
   };
@@ -168,13 +151,15 @@ test(exactScenarioTitle, async ({ page }) => {
   const timeline = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("feip501-timeline"),
     "timeline.summary": "FE-I-P5 Gateway login by analyst",
-    [hostRefsFieldKey]: resolvedRefPayload(
+    [hostRefsFieldKey]: mixedRefPayload(
       " FEIP501 Gateway ",
       host.record_id,
+      "FEIP501 Unresolved Host",
     ),
-    [identityRefsFieldKey]: resolvedRefPayload(
+    [identityRefsFieldKey]: mixedRefPayload(
       " FEIP501 Analyst ",
       identity.record_id,
+      "FEIP501 Unresolved Identity",
     ),
   })) as ViewRow;
 
@@ -193,20 +178,12 @@ test(exactScenarioTitle, async ({ page }) => {
     incidentId,
     notesViewSchemaId,
   )) as ViewRow[];
-  assertFullCells(findRow(hostRowsBefore, host.record_id), [
-    ...hostVisibleFields,
-    "host.aad_device_id",
-    "host.fqdn",
-  ]);
-  assertFullCells(findRow(identityRowsBefore, identity.record_id), [
-    ...identityVisibleFields,
-    "identity.aad_object_id",
-    "identity.sid",
-  ]);
-  assertFullCells(findRow(noteRowsBefore, note.record_id), [
-    ...noteVisibleFields,
-    "note.created_by_user_id",
-  ]);
+  assertFullCells(findRow(hostRowsBefore, host.record_id), hostAllFieldKeys);
+  assertFullCells(
+    findRow(identityRowsBefore, identity.record_id),
+    identityAllFieldKeys,
+  );
+  assertFullCells(findRow(noteRowsBefore, note.record_id), noteAllFieldKeys);
 
   const timelineRowsBefore = (await queryViewRows(
     page,
@@ -224,8 +201,22 @@ test(exactScenarioTitle, async ({ page }) => {
     identityRefsFieldKey,
     " FEIP501 Analyst ",
   );
+  const unresolvedHostMentionBefore = mentionFingerprint(
+    timelineBefore,
+    hostRefsFieldKey,
+    "FEIP501 Unresolved Host",
+  );
+  const unresolvedIdentityMentionBefore = mentionFingerprint(
+    timelineBefore,
+    identityRefsFieldKey,
+    "FEIP501 Unresolved Identity",
+  );
   expect(hostMentionBefore.resolved_record_id).toBe(host.record_id);
   expect(identityMentionBefore.resolved_record_id).toBe(identity.record_id);
+  expect(unresolvedHostMentionBefore.resolved_record_id ?? null).toBeNull();
+  expect(unresolvedHostMentionBefore.item_kind).toBe("unresolved_mention");
+  expect(unresolvedIdentityMentionBefore.resolved_record_id ?? null).toBeNull();
+  expect(unresolvedIdentityMentionBefore.item_kind).toBe("unresolved_mention");
 
   await page.goto(
     `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
@@ -344,8 +335,22 @@ test(exactScenarioTitle, async ({ page }) => {
   expect(
     mentionFingerprint(
       timelineAfter,
+      hostRefsFieldKey,
+      "FEIP501 Unresolved Host",
+    ),
+  ).toEqual(unresolvedHostMentionBefore);
+  expect(
+    mentionFingerprint(
+      timelineAfter,
       identityRefsFieldKey,
       " FEIP501 Analyst ",
     ),
   ).toEqual(identityMentionBefore);
+  expect(
+    mentionFingerprint(
+      timelineAfter,
+      identityRefsFieldKey,
+      "FEIP501 Unresolved Identity",
+    ),
+  ).toEqual(unresolvedIdentityMentionBefore);
 });

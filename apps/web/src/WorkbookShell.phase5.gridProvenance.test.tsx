@@ -205,6 +205,19 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
                 confidence: 100,
                 matched_alias_text: "VPN Gateway",
               },
+              {
+                item_ref: "entity_mention:host-unresolved-1",
+                entity_type: "host",
+                item_kind: "unresolved_mention",
+                display_text: "Unmatched Host",
+                raw_text: "Unmatched Host",
+                resolved_record_id: null,
+                resolution_method: null,
+                auto_resolved: false,
+                provenance: null,
+                confidence: null,
+                matched_alias_text: null,
+              },
             ],
           },
           "timeline.identity_refs": {
@@ -223,6 +236,19 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
                 provenance: "manual",
                 confidence: 87,
                 matched_alias_text: "Analyst Alex",
+              },
+              {
+                item_ref: "entity_mention:identity-unresolved-1",
+                entity_type: "identity",
+                item_kind: "unresolved_mention",
+                display_text: "Unmatched Identity",
+                raw_text: "Unmatched Identity",
+                resolved_record_id: null,
+                resolution_method: null,
+                auto_resolved: false,
+                provenance: null,
+                confidence: null,
+                matched_alias_text: null,
               },
             ],
           },
@@ -414,10 +440,32 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       screen.getByTestId(rowCellTestId("note-1", "note.tags")).textContent,
     ).toContain("provenance");
 
-    const beforeHostMention = readCollectionItems(
+    const beforeHostMentions = readCollectionItems(
       rowsByView[timelineViewSchemaId]![0]!,
       "timeline.host_refs",
-    )[0];
+    );
+    const beforeIdentityMentions = readCollectionItems(
+      rowsByView[timelineViewSchemaId]![0]!,
+      "timeline.identity_refs",
+    );
+    const beforeHostMention = beforeHostMentions.find(
+      (item) => item.rawText === " vpn   gateway ",
+    );
+    const beforeUnresolvedHostMention = beforeHostMentions.find(
+      (item) => item.rawText === "Unmatched Host",
+    );
+    const beforeUnresolvedIdentityMention = beforeIdentityMentions.find(
+      (item) => item.rawText === "Unmatched Identity",
+    );
+    expect(beforeHostMention).toBeDefined();
+    expect(beforeUnresolvedHostMention).toMatchObject({
+      itemKind: "unresolved_mention",
+      resolvedRecordId: null,
+    });
+    expect(beforeUnresolvedIdentityMention).toMatchObject({
+      itemKind: "unresolved_mention",
+      resolvedRecordId: null,
+    });
     fireEvent.change(
       screen.getByTestId(genericEditRecordSelectTestId(notesViewSchemaId)),
       { target: { value: "note-1" } },
@@ -437,10 +485,27 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       ).toBe("Edited note body");
     });
 
-    const afterHostMention = readCollectionItems(
+    const afterHostMentions = readCollectionItems(
       rowsByView[timelineViewSchemaId]![0]!,
       "timeline.host_refs",
-    )[0];
+    );
+    const afterIdentityMentions = readCollectionItems(
+      rowsByView[timelineViewSchemaId]![0]!,
+      "timeline.identity_refs",
+    );
+    const afterHostMention = afterHostMentions.find(
+      (item) => item.rawText === " vpn   gateway ",
+    );
+    const afterUnresolvedHostMention = afterHostMentions.find(
+      (item) => item.rawText === "Unmatched Host",
+    );
+    const afterUnresolvedIdentityMention = afterIdentityMentions.find(
+      (item) => item.rawText === "Unmatched Identity",
+    );
     expect(afterHostMention).toEqual(beforeHostMention);
+    expect(afterUnresolvedHostMention).toEqual(beforeUnresolvedHostMention);
+    expect(afterUnresolvedIdentityMention).toEqual(
+      beforeUnresolvedIdentityMention,
+    );
   });
 });
