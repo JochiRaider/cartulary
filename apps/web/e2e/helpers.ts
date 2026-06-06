@@ -978,52 +978,85 @@ export function gridDraftRows(page: Page, surface: WorkbookSurface) {
 export async function openSystemSurfaceBySwitcher(
   page: Page,
   viewSchemaId: WorkbookSurface,
-  options: { attempts?: number; timeoutMs?: number } = {},
+  options: {
+    actionTimeoutMs?: number;
+    attempts?: number;
+    totalTimeoutMs?: number;
+  } = {},
 ) {
   const attempts = options.attempts ?? 3;
-  const timeoutMs = options.timeoutMs ?? 5000;
+  const actionTimeoutMs = options.actionTimeoutMs ?? 2500;
+  const totalTimeoutMs = options.totalTimeoutMs ?? 8000;
+  const startedAt = Date.now();
+  const deadline = startedAt + totalTimeoutMs;
   let lastError: unknown = null;
+
+  const nextOperationTimeout = () => {
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) {
+      throw new Error(
+        `system view switcher deadline expired after ${totalTimeoutMs}ms`,
+      );
+    }
+    return Math.min(actionTimeoutMs, remainingMs);
+  };
+
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       await page
         .getByTestId(systemViewSwitcherTriggerTestId())
-        .click({ timeout: timeoutMs });
+        .click({ timeout: nextOperationTimeout() });
       const menu = page.getByTestId(systemViewSwitcherMenuTestId());
-      await expect(menu).toBeVisible({ timeout: timeoutMs });
+      await expect(menu).toBeVisible({ timeout: nextOperationTimeout() });
       const option = menu.locator(`[data-view-schema-id="${viewSchemaId}"]`);
-      await expect(option).toHaveCount(1, { timeout: timeoutMs });
-      await option.click({ timeout: timeoutMs });
+      await expect(option).toHaveCount(1, {
+        timeout: nextOperationTimeout(),
+      });
+      await option.click({ timeout: nextOperationTimeout() });
       await expect(
         page.getByTestId(workbookShellReadyTestId()),
       ).toHaveAttribute("data-active-view-schema-id", viewSchemaId, {
-        timeout: timeoutMs,
+        timeout: nextOperationTimeout(),
       });
       await expect(page).toHaveURL(
         new RegExp(`view_schema_id=${encodeURIComponent(viewSchemaId)}`),
-        { timeout: timeoutMs },
+        { timeout: nextOperationTimeout() },
       );
       await expect(
         page.getByTestId(gridShellTestId(viewSchemaId)),
-      ).toBeVisible({ timeout: timeoutMs });
+      ).toBeVisible({ timeout: nextOperationTimeout() });
       return;
     } catch (error) {
       lastError = error;
       await page.keyboard.press("Escape").catch(() => {});
-      await page.waitForTimeout(100 * attempt).catch(() => {});
+      const remainingMs = deadline - Date.now();
+      if (attempt >= attempts || remainingMs <= 0) {
+        break;
+      }
+      await page
+        .waitForTimeout(Math.min(100 * attempt, remainingMs))
+        .catch(() => {});
     }
   }
 
   const shell = page.getByTestId(workbookShellReadyTestId());
+  const trigger = page.getByTestId(systemViewSwitcherTriggerTestId());
   const menu = page.getByTestId(systemViewSwitcherMenuTestId());
   const diagnostics = {
+    actionTimeoutMs,
     activeSurface: await shell
       .getAttribute("data-active-view-schema-id")
       .catch(() => null),
     currentUrl: page.url(),
+    elapsedMs: Date.now() - startedAt,
     lastError:
       lastError instanceof Error ? lastError.message : String(lastError),
-    menuOpen: (await menu.count().catch(() => 0)) > 0,
+    menuAttached: (await menu.count().catch(() => 0)) > 0,
+    menuVisible: await menu.isVisible().catch(() => false),
     requestedViewSchemaId: viewSchemaId,
+    totalTimeoutMs,
+    triggerEnabled: await trigger.isEnabled().catch(() => false),
+    triggerVisible: await trigger.isVisible().catch(() => false),
     visibleOptionViewSchemaIds: await menu
       .locator("[data-view-schema-id]")
       .evaluateAll((options) =>
