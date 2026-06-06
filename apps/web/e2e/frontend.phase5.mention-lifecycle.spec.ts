@@ -11,7 +11,7 @@ import {
   relationshipItemsTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Response } from "@playwright/test";
+import type { Page, Response, Route } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
@@ -53,17 +53,12 @@ test(exactScenarioTitle, async ({ page }) => {
       "host.hostname": "feep501-manual-target.example.test",
     },
   )) as ViewRow;
-  const autoTarget = (await createViewRow(
-    page,
-    incidentId,
-    hostsViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("feep501-auto-target"),
-      "host.display_name": "FE-E-P5 Auto Target",
-      "host.hostname": "feep501-auto-target.example.test",
-      "host.aliases": collectionActionsPayload(["FEEP501 Auto Alias"]),
-    },
-  )) as ViewRow;
+  const autoTarget = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("feep501-auto-target"),
+    "host.display_name": "FE-E-P5 Auto Target",
+    "host.hostname": "feep501-auto-target.example.test",
+    "host.aliases": collectionActionsPayload(["FEEP501 Auto Alias"]),
+  })) as ViewRow;
   const correctionTarget = (await createViewRow(
     page,
     incidentId,
@@ -129,9 +124,7 @@ test(exactScenarioTitle, async ({ page }) => {
     .selectOption(manualTarget.record_id);
   await page.getByTestId(mentionResolveExistingButtonTestId()).click();
   const manualResolveResponse = await manualResolveResponsePromise;
-  const manualResolveEnvelope = await readMentionAction(
-    manualResolveResponse,
-  );
+  const manualResolveEnvelope = await readMentionAction(manualResolveResponse);
   const manualResolveBody = readMentionActionRequest(manualResolveResponse);
   expect(manualResolveBody).toMatchObject({
     base_mention_row_version: manualMention.mention_row_version,
@@ -186,7 +179,9 @@ test(exactScenarioTitle, async ({ page }) => {
     "dismissed",
   );
   await expect(
-    page.getByTestId(relationshipItemsTestId(manualRow.record_id, hostRefsFieldKey)),
+    page.getByTestId(
+      relationshipItemsTestId(manualRow.record_id, hostRefsFieldKey),
+    ),
   ).toContainText("No items");
   await expect(
     page
@@ -218,7 +213,9 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   await expect(
     page
-      .getByTestId(relationshipItemsTestId(manualRow.record_id, hostRefsFieldKey))
+      .getByTestId(
+        relationshipItemsTestId(manualRow.record_id, hostRefsFieldKey),
+      )
       .getByLabel(`Unresolved ${manualRawText}`),
   ).toBeVisible();
   const manualRestoredRow = await refreshedTimelineRow(
@@ -254,11 +251,32 @@ test(exactScenarioTitle, async ({ page }) => {
   await expect(autoCorrectionNotice).toContainText("FE-E-P5 Auto Target");
   await expect(autoCorrectionNotice).toContainText("FEEP501 Auto Alias");
   await autoCorrectionNotice
-    .getByTestId(autoResolutionReviewButtonTestId(String(autoCorrectionItem.item_ref)))
+    .getByTestId(
+      autoResolutionReviewButtonTestId(String(autoCorrectionItem.item_ref)),
+    )
     .click();
   await expect(page.getByTestId("timeline-inspector")).toContainText(
     autoRawText,
   );
+  await expect(autoCorrectionNotice).toBeVisible();
+
+  const removeFailedCorrectionRoute = await routeFailedMentionActionOnce(
+    page,
+    autoCorrectionItem.item_ref,
+    "feep501-auto-correction-conflict",
+  );
+  const failedCorrectionResponsePromise = waitForMentionAction(
+    page,
+    autoCorrectionItem.item_ref,
+  );
+  await page
+    .getByTestId(mentionResolveTargetSelectTestId())
+    .selectOption(correctionTarget.record_id);
+  await page.getByTestId(mentionResolveExistingButtonTestId()).click();
+  const failedCorrectionResponse = await failedCorrectionResponsePromise;
+  expect(failedCorrectionResponse.ok()).toBeFalsy();
+  await expect(autoCorrectionNotice).toBeVisible();
+  await removeFailedCorrectionRoute();
 
   const correctionResponsePromise = waitForMentionAction(
     page,
@@ -284,6 +302,7 @@ test(exactScenarioTitle, async ({ page }) => {
   await expect(page.getByTestId("timeline-inspector")).toContainText(
     autoRawText,
   );
+  await expect(autoCorrectionNotice).toHaveCount(0);
   const autoCorrectedRow = await refreshedTimelineRow(
     page,
     incidentId,
@@ -314,10 +333,24 @@ test(exactScenarioTitle, async ({ page }) => {
     autoResolutionNoticeTestId(String(autoUndoItem.item_ref)),
   );
   await expect(autoUndoNotice).toContainText("FE-E-P5 Auto Target");
-  const undoResponsePromise = waitForMentionAction(
+  const removeFailedUndoRoute = await routeFailedMentionActionOnce(
+    page,
+    autoUndoItem.item_ref,
+    "feep501-auto-undo-conflict",
+  );
+  const failedUndoResponsePromise = waitForMentionAction(
     page,
     autoUndoItem.item_ref,
   );
+  await autoUndoNotice
+    .getByTestId(autoResolutionUndoButtonTestId(String(autoUndoItem.item_ref)))
+    .click();
+  const failedUndoResponse = await failedUndoResponsePromise;
+  expect(failedUndoResponse.ok()).toBeFalsy();
+  await expect(autoUndoNotice).toBeVisible();
+  await removeFailedUndoRoute();
+
+  const undoResponsePromise = waitForMentionAction(page, autoUndoItem.item_ref);
   await autoUndoNotice
     .getByTestId(autoResolutionUndoButtonTestId(String(autoUndoItem.item_ref)))
     .click();
@@ -329,9 +362,8 @@ test(exactScenarioTitle, async ({ page }) => {
     action: "revert_to_unresolved",
   });
   expect(undoBody).not.toHaveProperty("resolved_record_id");
-  expect(undoEnvelope.data.entity_mention.resolution_status).toBe(
-    "unresolved",
-  );
+  expect(undoEnvelope.data.entity_mention.resolution_status).toBe("unresolved");
+  await expect(autoUndoNotice).toHaveCount(0);
   const autoUndoRefreshedRow = await refreshedTimelineRow(
     page,
     incidentId,
@@ -345,7 +377,9 @@ test(exactScenarioTitle, async ({ page }) => {
   expect(autoUndoRefreshedItem.resolved_record_id).toBeUndefined();
   await expect(
     page
-      .getByTestId(relationshipItemsTestId(autoUndoRow.record_id, hostRefsFieldKey))
+      .getByTestId(
+        relationshipItemsTestId(autoUndoRow.record_id, hostRefsFieldKey),
+      )
       .getByLabel(`Unresolved ${autoRawText}`),
   ).toBeVisible();
 });
@@ -367,14 +401,49 @@ type MentionActionEnvelope = {
   };
 };
 
+async function routeFailedMentionActionOnce(
+  page: Page,
+  itemRef: unknown,
+  requestId: string,
+) {
+  const mentionId = entityMentionIdFromItemRef(itemRef);
+  const routePattern = `**/api/v1/entity-mentions/${mentionId}/resolve`;
+  let handled = false;
+  const routeHandler = async (route: Route) => {
+    if (handled || route.request().method().toUpperCase() !== "POST") {
+      await route.fallback();
+      return;
+    }
+    handled = true;
+    await route.fulfill({
+      status: 409,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: {
+          status: 409,
+          code: "row_version_conflict",
+          message: "row version conflict",
+          request_id: requestId,
+          retryable: false,
+          details: {
+            reason_code: "stale_row_version",
+          },
+        },
+      }),
+    });
+  };
+  await page.route(routePattern, routeHandler);
+  return async () => {
+    await page.unroute(routePattern, routeHandler);
+  };
+}
+
 function waitForMentionAction(page: Page, itemRef: unknown) {
   const mentionId = entityMentionIdFromItemRef(itemRef);
   return page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
-      response
-        .url()
-        .endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
+      response.url().endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
   );
 }
 

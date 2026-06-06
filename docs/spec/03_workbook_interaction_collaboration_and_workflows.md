@@ -1641,6 +1641,8 @@ When auto-resolution occurs, the current sheet MUST show an immediate non-modal 
 - the matched alias text,
 - direct `Undo`,
 - direct `Review`.
+
+The disclosure lifecycle is bound to the current auto-resolved mention state. Activating `Review` MUST NOT by itself dismiss the disclosure. The disclosure MUST remain visible until the user successfully corrects the target, successfully reverts the mention to unresolved state, or a refreshed row proves that the same source-bound mention is no longer an auto-resolved resolved reference.
 Profiles: base
 Verified by: AC-006, AC-188, AC-189, AC-190, AC-205, AC-231
 

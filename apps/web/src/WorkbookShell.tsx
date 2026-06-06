@@ -130,16 +130,16 @@ import { flushSync } from "react-dom";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { WorkbookGridControls } from "./WorkbookGridControls";
 import {
-  normalizeWorkbookViewRows,
-  workbookContractColumns,
-} from "./workbookContractRows";
-import {
   captureViewportAnchor,
   computeRestoredViewportScroll,
   isRectFullyVisibleWithinContainer,
   type ScrollPosition,
   type ViewportSnapshot,
 } from "./workbookContinuity";
+import {
+  normalizeWorkbookViewRows,
+  workbookContractColumns,
+} from "./workbookContractRows";
 import { mapWorkbookKeyboardCommand } from "./workbookKeyboard";
 import {
   type AutoResolutionNotice,
@@ -282,6 +282,24 @@ type WorkbookRow = {
   pendingSignature: string | null;
   rawRow: TimelineApiRow | null;
 };
+
+function rowStillHasAutoResolvedNotice(
+  row: WorkbookRow,
+  notice: AutoResolutionNotice,
+) {
+  if (row.recordId !== notice.rowRecordId) {
+    return false;
+  }
+  const item = [
+    ...row.collectionValues.hostRefs,
+    ...row.collectionValues.identityRefs,
+  ].find((candidate) => candidate.itemRef === notice.itemRef);
+  return (
+    item?.itemKind === "resolved_ref" &&
+    item.autoResolved &&
+    item.resolvedRecordId !== null
+  );
+}
 
 type TimelineWorkbookProps = {
   incidentId: string;
@@ -3032,6 +3050,25 @@ export function TimelineWorkbook({
     rowsRef.current = rows;
   }, [rows]);
 
+  const pruneAutoResolutionNoticesForRows = useCallback(
+    (committedRows: readonly WorkbookRow[]) => {
+      if (committedRows.length < 1) {
+        return;
+      }
+      setAutoResolutionNotices((current) =>
+        current.filter((notice) => {
+          const row = committedRows.find(
+            (candidate) => candidate.recordId === notice.rowRecordId,
+          );
+          return (
+            row === undefined || rowStillHasAutoResolvedNotice(row, notice)
+          );
+        }),
+      );
+    },
+    [],
+  );
+
   const setConflictQueueState = useCallback(
     (
       updater: (
@@ -3911,6 +3948,7 @@ export function TimelineWorkbook({
         setDismissedMentionsByRow((current) =>
           pruneDismissedMentions(current, committed),
         );
+        pruneAutoResolutionNoticesForRows([committed]);
       }
       if (options.detectAutoResolution !== false) {
         const notices = buildAutoResolutionNotices(previousRow, committed);
@@ -3962,6 +4000,7 @@ export function TimelineWorkbook({
       acceptCommittedTimelineRow,
       advanceViewportContinuity,
       nextDraftIndex,
+      pruneAutoResolutionNoticesForRows,
       resolveInputElement,
       selectedRowId,
     ],
@@ -4174,6 +4213,7 @@ export function TimelineWorkbook({
         }
         return next;
       });
+      pruneAutoResolutionNoticesForRows(committedRows);
       publishSaveStatePresentation(pendingQueueRef.current);
       hasLoadedRowsRef.current = true;
       setLoadError(null);
@@ -4184,6 +4224,7 @@ export function TimelineWorkbook({
       advanceViewportContinuity,
       acceptCommittedTimelineRows,
       clearViewportContinuity,
+      pruneAutoResolutionNoticesForRows,
       publishSaveStatePresentation,
       freshTimelineRowsForQueryResult,
       nextDraftIndex,
@@ -7813,9 +7854,6 @@ export function TimelineWorkbook({
                         "revert_to_unresolved",
                       );
                     }
-                    setAutoResolutionNotices((current) =>
-                      current.filter((item) => item.itemRef !== notice.itemRef),
-                    );
                   }}
                 >
                   Undo
@@ -7826,9 +7864,6 @@ export function TimelineWorkbook({
                   type="button"
                   onClick={() => {
                     handleSelectMention(notice.rowRecordId, notice.itemRef);
-                    setAutoResolutionNotices((current) =>
-                      current.filter((item) => item.itemRef !== notice.itemRef),
-                    );
                   }}
                 >
                   Review
@@ -8770,7 +8805,8 @@ function EntityWorkbookSurface({
       setEditValue("");
       return;
     }
-    const value = selectedEditRow.rawRow.cells[selectedEditField.fieldKey]?.value;
+    const value =
+      selectedEditRow.rawRow.cells[selectedEditField.fieldKey]?.value;
     setEditValue(value === null || value === undefined ? "" : String(value));
   }, [selectedEditField, selectedEditRow]);
 
@@ -8991,9 +9027,7 @@ function EntityWorkbookSurface({
                   Update
                 </button>
               </div>
-              {mutationError ? (
-                <p style={bodyStyle}>{mutationError}</p>
-              ) : null}
+              {mutationError ? <p style={bodyStyle}>{mutationError}</p> : null}
             </section>
           ) : null}
           <GridViewport
