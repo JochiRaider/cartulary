@@ -4,7 +4,7 @@
 
 `FE-P6: Evidence Lifecycle` is a frontend planning and verification phase for evidence lifecycle user experience, route usage, selectors, and evidence-specific frontend readiness. This document is an execution roadmap, progress marker, validation guide, blocker register, and FE-P7 handoff aid. It is not product behavior authority and does not close, promote, or unblock any FE-P6 row.
 
-Current repository state shows FE-P6 is planned, inactive for phase execution, and all five FE-P6 rows are blocked. The implementation path must keep product-conformance, design-direction, support, and claim-publication evidence separate. Generated ledgers and retained artifacts are downstream status aids only.
+Current repository state shows FE-P6 is planned, inactive for phase execution, and all five FE-P6 rows are blocked. Sprint 1 readiness validation completed on 2026-06-06 with the binary recommendation `ready with blockers`: source validation, target discovery, FE-P5 dependency validation, and ledger drift passed, but no FE-P6 row was promoted or closed. The implementation path must keep product-conformance, design-direction, support, and claim-publication evidence separate. Generated ledgers and retained artifacts are downstream status aids only.
 
 The phase focuses on evidence counts, evidence states, attach flow, preview and download handle flow, same-origin handle redemption, current authorization behavior, public success and error envelopes, and prevention of raw object storage details in browser-facing access handles.
 
@@ -238,7 +238,7 @@ Generated protocol files, generated selector outputs, generated ledgers, generat
 
 ## Sprint Checklist
 
-- [ ] Sprint 1: Validate guide, map, ledger, registry, fixture, retained evidence, target availability, and FE-P5 handoff; record all FE-P6 rows as blocked.
+- [x] Sprint 1: Validate guide, map, ledger, registry, fixture, retained evidence, target availability, and FE-P5 handoff; record all FE-P6 rows as blocked.
 - [ ] Sprint 2: Implement evidence lifecycle view-model vocabulary and count-display coverage for `FE-U-P6-01`.
 - [ ] Sprint 3: Implement attach flow, generated protocol and public error envelope handling, stable selectors, and raw-handle prevention for `FE-I-P6-01`.
 - [ ] Sprint 4: Implement public-route browser E2E for attach, preview, download, blocked preview, and current authorization denial for `FE-E-P6-01`.
@@ -264,6 +264,48 @@ Tasks:
 - Confirm latest `FE-A11Y-P6-01` preflight evidence is blocked-row smoke only.
 
 Exit: readiness notes identify row status, owner references, required direct evidence, and exact blockers. No row is promoted during readiness.
+
+Sprint 1 close-out, 2026-06-06:
+
+- Binary recommendation: `ready with blockers` for Sprint 2 implementation work. This is not FE-P6 completion, row closure, registry activation, Core 05 readiness, or claim-publication readiness.
+- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P6` passed and reported `status=planned`, `row_rollup_state=no_rows_implemented`, dependency set `FE-P0` through `FE-P5`, five blocked rows, and whole-phase execution unavailable while planned.
+- `make explain-target TARGET=<target> DETAIL=summary` passed for every validation target referenced by this plan: `frontend-typecheck`, `frontend-unit`, `browser-e2e-webserver-backed`, `browser-e2e-stateful`, `browser-e2e-support`, `frontend-import-boundary-check`, `browser-e2e-visual`, `browser-e2e-a11y-preflight`, `browser-e2e-a11y`, `generated-artifact-policy-check`, `generate-drift`, `phase-ledgers`, `phase-ledger-drift`, `phase-schedule-drift`, `json-shape-check`, `agent-finalize`, and `check`.
+- `make phase-ledger-drift` passed with run root `.cartulary/test-results/20260606T232930Z-p1968618`.
+- `git diff --check` passed with no output.
+- `tools/frontend_phase_registry.json` still records `FE-P6` as `planned`, `no_rows_implemented`, with activation blocker `frontend_phase_not_active`.
+- `tools/frontend_phase_registry.json` still records `FE-P0` through `FE-P5` as `active` and `active_green`, with no activation blockers.
+- FE-P5 handoff validation passed as dependency context only: the FE-P5 map has all five rows implemented with no blockers, the FE-P5 ledger is generated from the FE-P5 map, and the FE-P5 handoff says `FE-P5 phase complete`.
+- The frontend guide, FE-P6 map, and FE-P6 generated ledger all enumerate exactly `FE-U-P6-01`, `FE-I-P6-01`, `FE-E-P6-01`, `FE-V-P6-01`, and `FE-A11Y-P6-01`.
+- FE-P6 owner source paths exist. Product row `REQ-*` IDs and Core AC IDs resolve in the cited Core/spec corpus; design/support AC IDs resolve in `docs/design.md` or `docs/guides/`.
+- `docs/testing/frontend_phase_coverage_ledgers/fe_p6_coverage_ledger.md` remains a generated downstream ledger and is not closure evidence. No FE-P6 ledger hand edit was detected by `git diff -- docs/testing/frontend_phase_coverage_ledgers/fe_p6_coverage_ledger.md`, and ledger drift passed.
+- `tools/frontend_visual_fixture_registry.json` contains a single `FE-VFIX-05` fixture with title `Evidence affordance`, status `current`, owner phase `FE-P6`, and owner row `FE-V-P6-01`. Registry status and golden filenames remain non-closure evidence.
+- Latest retained target artifacts from 2026-06-06 for `frontend-unit`, `browser-e2e-webserver-backed`, `browser-e2e-stateful`, and `browser-e2e-visual` passed but did not include FE-P6 row results. Older FE-P6 retained row-accounting artifacts are stale or blocked-context only and must not close rows.
+- Latest retained `browser-e2e-a11y-preflight` summary `.cartulary/test-results/20260606T164059Z-p1264123/browser-e2e-a11y-preflight/accessibility-preflight/frontend-accessibility-preflight-summary.json` passed and listed `FE-A11Y-P6-01`, but the row remains blocked and `required_for_closure=false`. This is blocked-row smoke only.
+- Latest retained broad `make check` artifact exists and passed, but broad `make check` remains repository-gate context only and cannot close FE-P6 rows.
+
+Sprint 1 row inventory and blocker status:
+
+| Row | Evidence class | Claim status | Target mapping | Sprint 1 blocker |
+| --- | --- | --- | --- | --- |
+| `FE-U-P6-01` | `product_conformance` | `blocked` | `make frontend-unit` | `frontend_phase_row_not_implemented` |
+| `FE-I-P6-01` | `product_conformance` | `blocked` | `make frontend-unit`; `make browser-e2e-webserver-backed` | `frontend_phase_row_not_implemented` |
+| `FE-E-P6-01` | `product_conformance` | `blocked` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | `frontend_phase_row_not_implemented` |
+| `FE-V-P6-01` | `design_direction` | `blocked` | `make browser-e2e-visual` | `visual_fixture_not_recaptured_for_frontend_row` |
+| `FE-A11Y-P6-01` | `design_direction` | `blocked` | `make browser-e2e-a11y-preflight` | `frontend_phase_row_not_implemented`; preflight-only evidence is not closure |
+
+Sprint 1 exact blockers:
+
+`BLOCKER: FE-P6 row remains blocked; row=FE-U-P6-01 target=frontend-unit reason=frontend_phase_row_not_implemented minimum_follow_up=implement current row-owned evidence lifecycle view-model and count-display unit coverage.`
+
+`BLOCKER: FE-P6 row remains blocked; row=FE-I-P6-01 target=frontend-unit,browser-e2e-webserver-backed reason=frontend_phase_row_not_implemented minimum_follow_up=implement attach flow, generated protocol/public envelope handling, stable selectors, and raw-handle prevention evidence.`
+
+`BLOCKER: FE-P6 row remains blocked; row=FE-E-P6-01 target=browser-e2e-webserver-backed,browser-e2e-stateful reason=frontend_phase_row_not_implemented minimum_follow_up=collect server-backed public /api/v1 same-origin preview/download handle and authorization-denial evidence.`
+
+`BLOCKER: FE-P6 row remains blocked; row=FE-V-P6-01 target=browser-e2e-visual reason=visual_fixture_not_recaptured_for_frontend_row minimum_follow_up=recapture row-owned FE-VFIX-05 visual readiness evidence; do not use registry status or golden filename alone.`
+
+`BLOCKER: FE-P6 row remains blocked; row=FE-A11Y-P6-01 target=browser-e2e-a11y-preflight reason=frontend_phase_row_not_implemented minimum_follow_up=map and run implemented-row accessibility evidence if row is promoted.`
+
+`BLOCKER: FE-P6 accessibility evidence is preflight-only; row=FE-A11Y-P6-01 minimum_follow_up=map and run implemented-row accessibility target if row is promoted.`
 
 ### Sprint 2: Unit
 
