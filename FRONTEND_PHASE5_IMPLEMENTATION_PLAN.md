@@ -10,11 +10,12 @@ Current FE-P5 facts from local inspection:
 
 - `tools/frontend_phase_registry.json` lists FE-P5 as `status="planned"`, `row_rollup_state="partially_implemented"`, with activation blocker `reason_code="frontend_phase_not_active"`.
 - `tools/frontend_phase_maps/fe_p5_test_map.json` contains exactly five FE-P5 rows: `FE-U-P5-01`, `FE-I-P5-01`, `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01`.
-- `FE-U-P5-01` and `FE-I-P5-01` currently have `claim_status="implemented"` and close from current mapped row accounting. `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01` remain `claim_status="blocked"`.
+- `FE-U-P5-01`, `FE-I-P5-01`, and `FE-E-P5-01` currently have `claim_status="implemented"` and close from current mapped row accounting. `FE-V-P5-01` and `FE-A11Y-P5-01` remain `claim_status="blocked"`.
 - `make phase-slice PHASE_NAMESPACE=frontend PHASE=FE-P5` remains non-executable while FE-P5 is planned; run root `.cartulary/test-results/20260606T003210Z-p53310` reported `planned/non-executable frontend phase FE-P5`.
-- `make frontend-unit` passed with run root `.cartulary/test-results/20260606T014148Z-p175992`; `frontend-unit/frontend-row-accounting.json` closes both `FE-U-P5-01` and `FE-I-P5-01` under their exact mapped scenario titles.
-- `make browser-e2e-webserver-backed` passed with run root `.cartulary/test-results/20260606T014210Z-p177598`; `browser-e2e-webserver-backed/frontend-row-accounting.json` closes `FE-I-P5-01` under exact scenario title `FE-I-P5-01 Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh.`
-- `make phase-ledger-drift` passed with run root `.cartulary/test-results/20260606T014814Z-p193366`.
+- `make frontend-unit` passed with run root `.cartulary/test-results/20260606T051531Z-p544526`; `frontend-unit/frontend-row-accounting.json` closes `FE-U-P5-01` and `FE-I-P5-01` under their exact mapped scenario titles.
+- `make browser-e2e-webserver-backed` passed with run root `.cartulary/test-results/20260606T051553Z-p546409`; `browser-e2e-webserver-backed/frontend-row-accounting.json` closes `FE-I-P5-01` and `FE-E-P5-01`.
+- `make browser-e2e-stateful` passed with run root `.cartulary/test-results/20260606T052133Z-p562362`; `browser-e2e-stateful/frontend-row-accounting.json` closes `FE-E-P5-01` under exact scenario title `FE-E-P5-01 Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows.`
+- `make phase-ledger-drift` passed with run root `.cartulary/test-results/20260606T052728Z-p575187`.
 
 ## Authority Model
 
@@ -55,7 +56,7 @@ FE-P5 map and ledger status:
 - `tools/frontend_phase_maps/fe_p5_test_map.json` exists with `schema_id="cartulary.frontend_phase_test_map.v3"`, `schema_version=3`, `phase_namespace="frontend"`, and `phase_id="FE-P5"`.
 - `docs/testing/frontend_phase_coverage_ledgers/fe_p5_coverage_ledger.md` exists and states it is generated from the FE-P5 map.
 - The FE-P5 generated ledger is a rendered companion only; map metadata is the source of truth.
-- `make phase-ledger-drift` passed during planning. Any later map, registry, guide, or generated-ledger edit must rerun the appropriate generator and drift checks.
+- `make phase-ledger-drift` passed after Sprint 4 map promotion. Any later map, registry, guide, or generated-ledger edit must rerun the appropriate generator and drift checks.
 
 FE-P5 visual fixture status:
 
@@ -143,13 +144,13 @@ Out of scope for FE-P5:
 
 ## Row Inventory
 
-The FE-P5 row inventory is derived from the current frontend guide, FE-P5 map, and generated ledger. `FE-U-P5-01` and `FE-I-P5-01` are implemented and closed by current mapped row accounting; the remaining FE-P5 rows are blocked.
+The FE-P5 row inventory is derived from the current frontend guide, FE-P5 map, and generated ledger. `FE-U-P5-01`, `FE-I-P5-01`, and `FE-E-P5-01` are implemented and closed by current mapped row accounting; the remaining FE-P5 design-direction rows are blocked.
 
 | Row | Layer | Evidence class | Current claim status | Mapped targets | Scenario title status |
 | --- | --- | --- | --- | --- | --- |
 | `FE-U-P5-01` | `unit` | `product_conformance` | `implemented` | `make frontend-unit` | `FE-U-P5-01 preserves closed mention chip states by stable identifiers and field keys` |
 | `FE-I-P5-01` | `integration` | `product_conformance` | `implemented` | `make frontend-unit`; `make browser-e2e-webserver-backed` | `FE-I-P5-01 Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh.` |
-| `FE-E-P5-01` | `e2e` | `product_conformance` | `blocked` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | `FE-E-P5-01 Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows.` |
+| `FE-E-P5-01` | `e2e` | `product_conformance` | `implemented` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | `FE-E-P5-01 Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows.` |
 | `FE-V-P5-01` | `visual` | `design_direction` | `blocked` | `make browser-e2e-visual` | `FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution state fixtures.` |
 | `FE-A11Y-P5-01` | `accessibility` | `design_direction` | `blocked` | `make browser-e2e-a11y-preflight` | `FE-A11Y-P5-01 Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction.` |
 
@@ -170,8 +171,8 @@ Design-direction row owners:
 | --- | --- | --- | --- |
 | [x] | 1. Readiness, map, ledger, and FE-P4 handoff validation | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P5`; row-inventory checks; `make phase-ledger-drift`; `git diff --check` | FE-P5 must remain planned until all five rows have direct row-owned evidence |
 | [x] | 2. Mention chip state model for `FE-U-P5-01` | `make frontend-unit`; `make frontend-typecheck` | Complete for the unit row only; FE-P5 remains planned until the other four rows close |
-| [x] | 3. Hosts, Identities, and Notes grid/provenance integration for `FE-I-P5-01` | `make frontend-unit`; `make browser-e2e-webserver-backed`; `make frontend-typecheck`; `make frontend-import-boundary-check`; `make json-shape-check`; `make phase-ledger-drift` | Complete for the integration row only; FE-P5 remains planned until `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01` close |
-| [ ] | 4. Manual resolution, dismissal, auto-resolution disclosure, and undo E2E for `FE-E-P5-01` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | Must use public mutation routes and refreshed rows; browser helper evidence alone does not close the row |
+| [x] | 3. Hosts, Identities, and Notes grid/provenance integration for `FE-I-P5-01` | `make frontend-unit`; `make browser-e2e-webserver-backed`; `make frontend-typecheck`; `make frontend-import-boundary-check`; `make json-shape-check`; `make phase-ledger-drift` | Complete for the integration row only; Sprint 4 now closes `FE-E-P5-01`; FE-P5 remains planned until `FE-V-P5-01` and `FE-A11Y-P5-01` close |
+| [x] | 4. Manual resolution, dismissal, auto-resolution disclosure, and undo E2E for `FE-E-P5-01` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; `make frontend-typecheck`; `make frontend-unit`; `make phase-ledgers`; `make phase-ledger-drift` | Complete for the product E2E row only; FE-P5 remains planned until `FE-V-P5-01` and `FE-A11Y-P5-01` close |
 | [ ] | 5. Visual readiness for `FE-V-P5-01` | `make browser-e2e-visual` | `FE-VFIX-02` registry status alone does not close the row |
 | [ ] | 6. Accessibility readiness for `FE-A11Y-P5-01` | `make browser-e2e-a11y-preflight` for blocked smoke; `make browser-e2e-a11y` only after implemented-row mapping | Preflight smoke does not close implemented accessibility readiness |
 | [ ] | 7. Closure, drift, final validation, and FE-P6 handoff | Row-owned targets plus `make frontend-import-boundary-check`, drift checks, `make agent-finalize`, and `make check` when required | Any blocked/stale row, stale generated ledger, missing row accounting, or collapsed evidence class blocks full FE-P5 completion |
@@ -184,7 +185,7 @@ Objective: prove FE-P5 planning metadata is traceable before FE-P5 behavior work
 
 Owned rows: none. This sprint supports all FE-P5 rows.
 
-Non-owned rows: `FE-I-P5-01`, `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01` remain blocked until their owning sprint collects direct current row-owned evidence.
+Non-owned rows at Sprint 1 scope: `FE-I-P5-01`, `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01`; each requires owning-sprint evidence before closure.
 
 Non-goals:
 
@@ -251,7 +252,7 @@ Blocker rules:
 Binary acceptance:
 
 - FE-P5 row inventory, registry status, generated ledger status, FE-P4 dependency context, and fixture identity are recorded.
-- FE-P5 remains planned. `FE-U-P5-01` is implemented; all other FE-P5 rows remain blocked.
+- At Sprint 1 close-out, FE-P5 remained planned, `FE-U-P5-01` was implemented, and the other FE-P5 rows still required owning-sprint evidence before closure.
 - No generated artifact is hand-edited.
 
 Explicit non-claims:
@@ -268,7 +269,7 @@ Owned rows: `FE-U-P5-01`.
 
 Non-owned rows: `FE-I-P5-01`, `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01`.
 
-Current implementation status as of 2026-06-06:
+Sprint 2 close-out status before Sprint 3:
 
 - Sprint 2 model support is implemented in `apps/web/src/workbookMentionChips.ts` and consumed by the workbook shell renderer.
 - The row-owned unit coverage lives in `apps/web/src/WorkbookShell.phase5.mentionChips.test.ts` under the exact mapped title `FE-U-P5-01 preserves closed mention chip states by stable identifiers and field keys`.
@@ -339,7 +340,7 @@ Binary acceptance:
 
 Current blocker status:
 
-- No current `FE-U-P5-01` blocker remains. The remaining FE-P5 blockers are `FE-I-P5-01`, `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01`.
+- No current `FE-U-P5-01` blocker remains. At Sprint 2 close-out, `FE-I-P5-01`, `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01` still required owning-sprint evidence; after Sprint 4, the remaining FE-P5 blockers are `FE-V-P5-01` and `FE-A11Y-P5-01`.
 
 Explicit non-claims:
 
@@ -357,7 +358,7 @@ Owned rows: `FE-I-P5-01`.
 
 Non-owned rows: `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01`. `FE-U-P5-01` may be dependency evidence only if Sprint 2 has current row closure.
 
-Current implementation status as of 2026-06-06:
+Sprint 3 close-out status before Sprint 4:
 
 - Sprint 3 contract row and column support is implemented in `apps/web/src/workbookContractRows.ts`.
 - `apps/web/src/WorkbookShell.tsx` renders Hosts, Identities, and Notes grid columns from the applicable `cartulary.view.*.v1` contracts instead of handwritten Phase 4-era entity column lists.
@@ -368,10 +369,10 @@ Current implementation status as of 2026-06-06:
 - Mention/entity provenance preservation uses the FE-U-P5-01 `apps/web/src/workbookMentionChips.ts` model as dependency context. Sprint 3 did not move FE-P5 behavior into Phase 4 helper surfaces.
 - Unit coverage lives in `apps/web/src/WorkbookShell.phase5.gridProvenance.test.tsx` under exact mapped title `FE-I-P5-01 Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh.`
 - Browser-backed product-conformance coverage lives in `apps/web/e2e/frontend.phase5.grid-provenance.spec.ts` under the same exact mapped title and seeds/queries/edits through public browser-facing routes.
-- `tools/frontend_phase_maps/fe_p5_test_map.json` promotes only `FE-I-P5-01` to `claim_status="implemented"`, clears its blockers, sets `closure_scope="scenario"`, and makes both `frontend-unit` and `browser-e2e-webserver-backed` required for closure with scenario-title row accounting.
-- `tools/frontend_phase_registry.json` keeps `FE-P5` at `status="planned"` and `row_rollup_state="partially_implemented"`; only FE-P5 freshness digests changed after map and ledger refresh.
+- During Sprint 3, `tools/frontend_phase_maps/fe_p5_test_map.json` promoted only `FE-I-P5-01` to `claim_status="implemented"`, cleared its blockers, set `closure_scope="scenario"`, and made both `frontend-unit` and `browser-e2e-webserver-backed` required for closure with scenario-title row accounting. Sprint 4 map status for `FE-E-P5-01` is recorded below.
+- `tools/frontend_phase_registry.json` kept `FE-P5` at `status="planned"` and `row_rollup_state="partially_implemented"` after Sprint 3 and still does after Sprint 4.
 - `docs/testing/frontend_phase_coverage_ledgers/fe_p5_coverage_ledger.md` was regenerated through `make phase-ledgers`; it is downstream evidence routing text only, not a row owner.
-- `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01` remain blocked. FE-P5 is not activated.
+- Sprint 3 did not close `FE-E-P5-01`, `FE-V-P5-01`, or `FE-A11Y-P5-01`; Sprint 4 status for `FE-E-P5-01` is recorded below. FE-P5 is not activated.
 
 Non-goals:
 
@@ -424,8 +425,8 @@ Evidence requirements:
 - `FE-I-P5-01` must close in both mapped targets when required by the promoted map state.
 - Browser row accounting must include the exact scenario title from the FE-P5 map.
 - Public route evidence must use current server-managed data and refreshed rows.
-- Current `frontend-unit/frontend-row-accounting.json` at `.cartulary/test-results/20260606T014148Z-p175992/frontend-unit/frontend-row-accounting.json` closes `FE-I-P5-01`.
-- Current `browser-e2e-webserver-backed/frontend-row-accounting.json` at `.cartulary/test-results/20260606T014210Z-p177598/browser-e2e-webserver-backed/frontend-row-accounting.json` closes `FE-I-P5-01`.
+- Current `frontend-unit/frontend-row-accounting.json` at `.cartulary/test-results/20260606T051531Z-p544526/frontend-unit/frontend-row-accounting.json` closes `FE-I-P5-01`.
+- Current `browser-e2e-webserver-backed/frontend-row-accounting.json` at `.cartulary/test-results/20260606T051553Z-p546409/browser-e2e-webserver-backed/frontend-row-accounting.json` closes `FE-I-P5-01`.
 
 Blocker rules:
 
@@ -440,7 +441,7 @@ Binary acceptance:
 - Grid integration does not collapse product-conformance evidence with visual or accessibility evidence.
 - No direct RDG import boundary regression exists.
 - `FE-I-P5-01` has no remaining row blocker in `tools/frontend_phase_maps/fe_p5_test_map.json`.
-- `FE-P5` remains planned and partially implemented because `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01` are still blocked.
+- Sprint 3 left `FE-P5` planned and partially implemented; after Sprint 4, full phase completion remains blocked by `FE-V-P5-01` and `FE-A11Y-P5-01`.
 
 Explicit non-claims:
 
@@ -453,6 +454,20 @@ Objective: verify manual mention resolution, dismissal, auto-resolution disclosu
 Owned rows: `FE-E-P5-01`.
 
 Non-owned rows: `FE-V-P5-01` and `FE-A11Y-P5-01`. Earlier product rows may be dependency context only if closed from current evidence.
+
+Current implementation status as of 2026-06-06:
+
+- Timeline relationship-item projections expose mention concurrency metadata as `mention_row_version`; the frontend mention chip model reads it as `mentionRowVersion`.
+- Inspector explicit mention actions for resolving to an existing target, dismissing, reverting from dismissed/resolved state, correcting a resolved target, and undoing an auto-resolved target call `POST /api/v1/entity-mentions/{entity_mention_id}/resolve`.
+- Mention-route request payloads use `base_mention_row_version`, `client_txn_id`, `action`, and `resolved_record_id` only for `resolve_item`. Create-from-mention remains on the existing record PATCH path because the mention-scoped route does not create entities.
+- Rows refresh after each successful public mention mutation through the existing row loader. Dismissed mentions remain inspectable in the inspector response and refreshed row state, but do not contribute to active relationship values as if resolved.
+- Resolved-state correction reuses the existing target select/action control, excluding create-from-mention in resolved state.
+- Auto-resolved and manually resolved chips remain visibly distinguishable, with auto-resolution disclosure preserved until correction or revert.
+- Browser-backed coverage lives in `apps/web/e2e/frontend.phase5.mention-lifecycle.spec.ts` under exact mapped title `FE-E-P5-01 Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows.`
+- Existing Phase 4 mention and auto-resolution browser tests plus frontend support/unit mocks were updated to expect mention-route responses and refreshed row queries where inspector actions now use the mention route.
+- Sprint 4 promotes only `FE-E-P5-01` in `tools/frontend_phase_maps/fe_p5_test_map.json`, clearing its row blockers, setting `closure_scope="scenario"`, and requiring both browser targets for closure.
+- `docs/testing/frontend_phase_coverage_ledgers/fe_p5_coverage_ledger.md` was regenerated through `make phase-ledgers`; it remains downstream generated evidence-routing text only.
+- `tools/frontend_phase_registry.json` keeps `FE-P5` at `status="planned"` and `row_rollup_state="partially_implemented"`. `FE-V-P5-01` and `FE-A11Y-P5-01` remain blocked.
 
 Non-goals:
 
@@ -496,6 +511,8 @@ Validation commands:
 - `make browser-e2e-stateful`
 - `make frontend-unit` when shared model logic changes
 - `make frontend-typecheck`
+- `make phase-ledgers` after the FE-P5 map promotion
+- `make phase-ledger-drift`
 - `make browser-e2e-support` when helpers/selectors change
 
 Evidence requirements:
@@ -504,6 +521,8 @@ Evidence requirements:
 - Scenario title must exactly match the FE-P5 map.
 - Product row evidence must prove mutation through public routes and refreshed rows.
 - Error and conflict cases must use public envelopes where exercised.
+- Current `browser-e2e-webserver-backed/frontend-row-accounting.json` at `.cartulary/test-results/20260606T051553Z-p546409/browser-e2e-webserver-backed/frontend-row-accounting.json` closes `FE-E-P5-01`.
+- Current `browser-e2e-stateful/frontend-row-accounting.json` at `.cartulary/test-results/20260606T052133Z-p562362/browser-e2e-stateful/frontend-row-accounting.json` closes `FE-E-P5-01`.
 
 Blocker rules:
 
@@ -517,6 +536,10 @@ Binary acceptance:
 - `FE-E-P5-01` closes in `browser-e2e-webserver-backed` and `browser-e2e-stateful` from current row-owned evidence.
 - Product-flow handoff wording remains separate from visual and accessibility readiness.
 - No Core 05 publication claim is made.
+
+Current blocker status:
+
+- No current `FE-E-P5-01` blocker remains. The remaining FE-P5 blockers are `FE-V-P5-01` and `FE-A11Y-P5-01`.
 
 Explicit non-claims:
 
@@ -788,17 +811,18 @@ Plan-only creation validation:
 - For this document-only creation, the smallest required validation set is `git diff --check` and `make phase-ledger-drift`.
 - Do not run `make phase-ledgers`, `make generated-artifact-policy-check`, `make generate-drift`, `make json-shape-check`, or `make phase-schedule-drift` solely for this authored plan unless a schema-shaped file, authored phase map, registry, schedule input, generated ledger, or generated artifact is changed.
 
-Current remediation validation:
+Current remediation validation after Sprint 4:
 
 | Command | Status | Run root | Notes |
 | --- | --- | --- | --- |
-| `make phase-ledgers` | pass | `.cartulary/test-results/20260606T014015Z-p173918` | Regenerated the FE-P5 generated ledger after the `FE-I-P5-01` map promotion. |
-| `make frontend-unit` | pass | `.cartulary/test-results/20260606T014148Z-p175992` | `FE-U-P5-01` and `FE-I-P5-01` closed in `frontend-unit/frontend-row-accounting.json`; `FE-I-P5-01` used exact mapped scenario title. |
-| `make frontend-typecheck` | pass | `.cartulary/test-results/20260606T014800Z-p192605` | TypeScript check passed after Sprint 3 frontend changes. |
+| `make phase-ledgers` | pass | `.cartulary/test-results/20260606T050047Z-p506298` | Regenerated the FE-P5 generated ledger after the `FE-E-P5-01` map promotion. |
+| `make frontend-unit` | pass | `.cartulary/test-results/20260606T051531Z-p544526` | `FE-U-P5-01` and `FE-I-P5-01` closed in `frontend-unit/frontend-row-accounting.json`; Sprint 4 support/unit mocks passed after mention-route refresh updates. |
+| `make frontend-typecheck` | pass | `.cartulary/test-results/20260606T051531Z-p544506` | TypeScript check passed after Sprint 4 frontend changes. |
 | `make frontend-import-boundary-check` | pass | `.cartulary/test-results/20260606T014800Z-p192596` | No FE-P5 direct `react-data-grid` boundary regression. |
-| `make browser-e2e-webserver-backed` | pass | `.cartulary/test-results/20260606T014210Z-p177598` | 67 tests passed; `FE-I-P5-01` closed in browser row accounting with public route edit and refresh evidence. |
+| `make browser-e2e-webserver-backed` | pass | `.cartulary/test-results/20260606T051553Z-p546409` | 68 tests passed; `FE-I-P5-01` and `FE-E-P5-01` closed in browser row accounting with public route mutation and refresh evidence. |
+| `make browser-e2e-stateful` | pass | `.cartulary/test-results/20260606T052133Z-p562362` | 5 tests passed; `FE-E-P5-01` closed in stateful browser row accounting under exact mapped scenario title. |
 | `make json-shape-check` | pass | `.cartulary/test-results/20260606T014132Z-p175649` | FE-P5 map, registry freshness digests, and schema-shaped metadata are current. |
-| `make phase-ledger-drift` | pass | `.cartulary/test-results/20260606T014814Z-p193366` | Generated frontend phase ledger matches the FE-P5 map. |
+| `make phase-ledger-drift` | pass | `.cartulary/test-results/20260606T052728Z-p575187` | Generated frontend phase ledger matches the FE-P5 map after Sprint 4. |
 | `make build-server` | pass | `.cartulary/test-results/20260606T014916Z-p194386` | Backend Host/Identity direct PATCH bridge compiles. |
 | `make phase-schedules` | pass | `.cartulary/test-results/20260606T003136Z-p52257` | Regenerated topology render index after row-accounting source change. |
 | `make phase-schedule-drift` | pass | `.cartulary/test-results/20260606T003149Z-p52552` | Schedule outputs are current. |
@@ -807,6 +831,8 @@ Current remediation validation:
 | `make lint-biome` | pass | `.cartulary/test-results/20260606T003337Z-p55749` | Passed after `make format-frontend`. |
 | `make phase-slice PHASE_NAMESPACE=frontend PHASE=FE-P5` | expected fail | `.cartulary/test-results/20260606T003210Z-p53310` | Confirmed planned FE-P5 remains non-executable by phase-slice. |
 | `make agent-finalize` | pass | `.cartulary/test-results/20260606T015054Z-p199483` | Finalizer reported generated outputs unchanged; retained-run maintenance was skipped because `RESULTS_DIR` was unset. |
+| `make browser-e2e-support` | skipped | n/a | Not required for Sprint 4 because no shared E2E helper or selector contract changed. |
+| `make frontend-import-boundary-check` after Sprint 4 | skipped | n/a | Package boundaries were not touched; direct `react-data-grid` import grep outside `/packages/grid-adapter` returned no matches. |
 
 ## Evidence Requirements
 
@@ -898,6 +924,11 @@ FE-P5 product-flow closure is allowed when:
 - Product evidence uses Core-owned behavior and public `/api/v1/` browser-facing evidence wherever routes, mutations, refresh, or persistence are claimed.
 - Product closure text uses `FE-P5 product mention/entity flow closed; FE-P5 phase completion blocked by <row/blocker>` when either design-direction row remains blocked.
 
+Current product-flow status after Sprint 4:
+
+- `FE-P5 product mention/entity flow closed; FE-P5 phase completion blocked by FE-V-P5-01 and FE-A11Y-P5-01.`
+- This product-flow handoff is narrower than visual readiness, accessibility readiness, registry activation, full FE-P5 phase completion, and Core 05 claim-publication readiness.
+
 FE-P5 visual readiness is allowed when:
 
 - `FE-V-P5-01` closes from current `make browser-e2e-visual` row-owned evidence.
@@ -937,16 +968,17 @@ If FE-P5 product mention/entity flow closes before full phase completion, use th
 
 `FE-P5 product mention/entity flow closed; FE-P5 phase completion blocked by <row/blocker>.`
 
-Current FE-P6 handoff status after Sprint 3:
+Current FE-P6 handoff status after Sprint 4:
 
 - Hosts, Identities, and Notes contract-derived grid rendering is implemented and row-closed by `FE-I-P5-01`.
 - Mention chip state modeling is implemented and row-closed by `FE-U-P5-01`.
 - Mention/entity provenance preservation through Host, Identity, and Note edit plus refresh is implemented and row-closed by `FE-I-P5-01`.
-- Manual resolution, dismissal, auto-resolution disclosure, and undo remain blocked under `FE-E-P5-01`.
+- Manual resolution, dismissal, auto-resolution disclosure, correction, and undo/revert through public mention mutation routes and refreshed rows are implemented and row-closed by `FE-E-P5-01`.
+- Public product-flow mutation evidence uses `POST /api/v1/entity-mentions/{entity_mention_id}/resolve` for resolve-to-existing, dismiss, correction, and revert/undo, with refreshed rows preserving raw mention inspectability.
 - Visual readiness remains blocked under `FE-V-P5-01`.
 - Accessibility readiness remains blocked under `FE-A11Y-P5-01`.
-- FE-P5 product mention/entity flow is not closed yet because `FE-E-P5-01` remains blocked.
-- FE-P5 phase completion is not closed because three FE-P5 rows remain blocked and FE-P5 remains `planned`.
+- `FE-P5 product mention/entity flow closed; FE-P5 phase completion blocked by FE-V-P5-01 and FE-A11Y-P5-01.`
+- FE-P5 phase completion is not closed because two FE-P5 design-direction rows remain blocked and FE-P5 remains `planned`.
 
 FE-P6 handoff must include:
 
