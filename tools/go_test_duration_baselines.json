@@ -327,7 +327,7 @@
     "github.com/JochiRaider/cartulary/internal/platform/objectstore::TestSupportPhase0_ManagedServiceObjectStoreBinding": 30,
     "github.com/JochiRaider/cartulary/internal/platform/postgres::TestPhase0_SchemaBootstrap_I_0_01": 2670
   },
-  "updated_at": "2026-06-06T18:28:04.161Z",
+  "updated_at": "2026-06-06T22:28:25.401Z",
   "fixture_overheads_by_package": {
     "backend-integration-support::github.com/JochiRaider/cartulary/internal/modules/auth": 2350,
     "backend-integration-support::github.com/JochiRaider/cartulary/internal/modules/collaboration": 126,
