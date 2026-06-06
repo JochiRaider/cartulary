@@ -319,6 +319,24 @@ CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" plan --phase phase2 --baseline-file "$tmp_dir/baseline.json" --max-shards 3 >"$tmp_dir/phase2-plan.json"
 assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "phase")" "phase2" "phase-filtered plan records selected phase"
 
+CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+  "$node_cmd" "$PLANNER" plan --frontend-row-ids FE-I-P5-01 --baseline-file "$tmp_dir/baseline.json" --max-shards 3 >"$tmp_dir/frontend-row-plan.json"
+assert_equals "$(json_field "$tmp_dir/frontend-row-plan.json" "entry_count")" "1" "frontend selected-row plan keeps only selected row"
+assert_equals "$(json_field "$tmp_dir/frontend-row-plan.json" "entries.0.id")" "FE-I-P5-01" "frontend selected-row plan records FE row id"
+assert_equals "$(json_field "$tmp_dir/frontend-row-plan.json" "entries.0.file")" "apps/web/e2e/frontend.phase5.grid-provenance.spec.ts" "frontend selected-row plan records FE row file"
+assert_equals "$(json_field "$tmp_dir/frontend-row-plan.json" "shards.0.entries.0.id")" "FE-I-P5-01" "frontend selected-row shard records FE row id"
+set +e
+unknown_frontend_row_output="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+    "$node_cmd" "$PLANNER" plan --frontend-row-ids FE-I-P99-01 --baseline-file "$tmp_dir/baseline.json" --max-shards 3 2>&1
+)"
+unknown_frontend_row_status=$?
+set -e
+if [[ "$unknown_frontend_row_status" -eq 0 ]]; then
+  fail "frontend selected-row browser planning should reject unknown row ids"
+fi
+assert_contains "$unknown_frontend_row_output" "selected frontend browser row id(s) not found: FE-I-P99-01" "frontend selected-row browser planning unknown id"
+
 stale_metadata_baseline="$tmp_dir/browser-stale-metadata-plan.json"
 cp "$tmp_dir/baseline.json" "$stale_metadata_baseline"
 "$node_cmd" - "$stale_metadata_baseline" <<'EOF'

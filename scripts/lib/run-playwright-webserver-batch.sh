@@ -80,6 +80,8 @@ support_stderr_log="${batch_dir}/support-stderr.log"
 output_dir="${batch_dir}/playwright-output"
 shard_plan="${batch_dir}/functional-shards.json"
 phase_filter="${CARTULARY_PHASE_SLICE_PHASE:-}"
+frontend_row_accounting_scope="${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}"
+frontend_row_ids="${CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS:-}"
 
 resolve_functional_shard_limit() {
   local configured="${BROWSER_E2E_FUNCTIONAL_SHARDS:-auto}"
@@ -118,6 +120,13 @@ if [[ "$mode" != "support" ]]; then
   shard_plan_command=("$node_bin" "$shard_plan_script" plan --max-shards "$functional_shard_limit")
   if [[ -n "$phase_filter" ]]; then
     shard_plan_command+=(--phase "$phase_filter")
+  fi
+  if [[ "$frontend_row_accounting_scope" == "selected_rows" ]]; then
+    if [[ -z "$frontend_row_ids" ]]; then
+      echo "selected frontend row accounting requires CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS" >&2
+      exit 2
+    fi
+    shard_plan_command+=(--frontend-row-ids "$frontend_row_ids")
   fi
   "${shard_plan_command[@]}" >"$shard_plan"
 else
@@ -196,6 +205,8 @@ if [[ -n "$phase_filter" ]]; then
   else
     support_phases=()
   fi
+elif [[ "$frontend_row_accounting_scope" == "selected_rows" ]]; then
+  support_phases=()
 else
   mapfile -t support_phases < <(
     "$node_bin" "$manifest_script" playwright-phases supplemental browser_support 2>/dev/null || true
@@ -443,10 +454,31 @@ emit_playwright_manifest_slice() {
   local phase_dir
   local selection_report
   local helper_status
+  local phase_helper="playwright-manifest-phase"
 
   phase_dir="$(prepare_phase_artifact_dir "$label")"
   selection_report="${phase_dir}/manifest-selected-tests.json"
-  "$node_bin" "$manifest_script" playwright-selection-report "$phase" authoritative browser_functional >"$selection_report"
+  if [[ "$frontend_row_accounting_scope" == "selected_rows" ]]; then
+    selection_report="${phase_dir}/frontend-selected-tests.json"
+    "$node_bin" - "$shard_plan" "$phase" "$selected_ids" "$frontend_row_ids" <<'EOF' >"$selection_report"
+const fs = require("node:fs");
+const [planPath, phase, selectedIdsRaw, requestedIdsRaw] = process.argv.slice(2);
+const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
+const selectedIds = new Set(selectedIdsRaw.split(/\r?\n/u).filter(Boolean));
+const entries = (plan.entries ?? []).filter((entry) => selectedIds.has(entry.id));
+process.stdout.write(`${JSON.stringify({
+  schema_id: "cartulary.frontend_selected_playwright_rows.v1",
+  phase_namespace: "frontend",
+  base_phase: phase,
+  requested_row_ids: requestedIdsRaw.split(",").map((entry) => entry.trim()).filter(Boolean),
+  selected_row_ids: [...selectedIds].sort(),
+  entries,
+}, null, 2)}\n`);
+EOF
+    phase_helper="playwright-phase"
+  else
+    "$node_bin" "$manifest_script" playwright-selection-report "$phase" authoritative browser_functional >"$selection_report"
+  fi
 
   set +e
   CARTULARY_REPORT_SLICE=1 \
@@ -472,7 +504,7 @@ emit_playwright_manifest_slice() {
   CARTULARY_MANIFEST_COVERAGE=authoritative \
   CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=browser_functional \
   CARTULARY_MANIFEST_SELECTED_IDS="$selected_ids" \
-    NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" playwright-manifest-phase
+    NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" "$phase_helper"
   helper_status=$?
   set -e
   return "$helper_status"

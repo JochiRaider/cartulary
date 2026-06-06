@@ -183,9 +183,6 @@ function frontendRowsForTarget(target, scope) {
   const selectedPhaseNumber = phaseNumber(scope.phase);
   for (const phase of registry.phases) {
     if (scope.mode === "selected_rows") {
-      if (phase.status !== "active") {
-        continue;
-      }
       const currentPhaseNumber = phaseNumber(phase.phase_id);
       if (
         !Number.isFinite(currentPhaseNumber) ||

@@ -48,6 +48,23 @@ function validFrontendPhaseName(value) {
   return /^FE-P(?:0|[1-9]\d*)$/.test(value);
 }
 
+const frontendRowIDPattern =
+  /^FE-(?:U|I|B|E|V|A11Y|S)-P(?:0|[1-9][0-9]*)-[0-9]{2}$/;
+
+function parseSelectedRowIDs(value) {
+  const rowIDs = uniqueSorted(
+    (Array.isArray(value) ? value : String(value ?? "").split(","))
+      .map((item) => String(item).trim())
+      .filter(Boolean),
+  );
+  for (const rowID of rowIDs) {
+    if (!frontendRowIDPattern.test(rowID)) {
+      throw new Error(`invalid selected frontend row id ${rowID}`);
+    }
+  }
+  return rowIDs;
+}
+
 function frontendPhaseNumber(value) {
   const match = String(value).match(/^FE-P([0-9]+)$/);
   return match ? Number.parseInt(match[1], 10) : Number.NaN;
@@ -291,9 +308,40 @@ function rowsThroughSelectedActiveFrontendPhase(root, registry, selectedPhase) {
   return rows;
 }
 
+function selectedFrontendRows(root, registry, selectedPhase, selectedRowIDs) {
+  const selectedOrder = frontendPhaseNumber(selectedPhase);
+  const selectedIDSet = new Set(selectedRowIDs);
+  const found = new Map();
+  for (const entry of registry.phases) {
+    const order = frontendPhaseNumber(entry.phase_id);
+    if (!Number.isFinite(order) || order > selectedOrder) {
+      continue;
+    }
+    const { manifest } = loadFrontendPhaseMap(root, entry.phase_id);
+    for (const row of manifest.rows) {
+      if (!selectedIDSet.has(row.id)) {
+        continue;
+      }
+      if (!["implemented", "stale"].includes(row.claim_status)) {
+        throw new Error(
+          `selected frontend row ${row.id} is ${row.claim_status} and is not executable`,
+        );
+      }
+      found.set(row.id, row);
+    }
+  }
+  const missing = selectedRowIDs.filter((rowID) => !found.has(rowID));
+  if (missing.length > 0) {
+    throw new Error(
+      `selected frontend row id(s) not found through ${selectedPhase}: ${missing.join(",")}`,
+    );
+  }
+  return selectedRowIDs.map((rowID) => found.get(rowID));
+}
+
 export function buildFrontendPhaseSlicePlan(
   phase,
-  { mode = "phase", root = repoRoot } = {},
+  { mode = "phase", root = repoRoot, rowIDs = "" } = {},
 ) {
   if (!validFrontendPhaseName(phase)) {
     throw new Error(`invalid frontend phase ${phase}; expected FE-P<N>`);
@@ -306,16 +354,16 @@ export function buildFrontendPhaseSlicePlan(
   if (!registryEntry) {
     throw new Error(`unknown frontend phase ${phase}; expected FE-P0 through FE-P11`);
   }
-  if (registryEntry.status !== "active") {
+  const selectedRowIDs = parseSelectedRowIDs(rowIDs);
+  if (registryEntry.status !== "active" && selectedRowIDs.length === 0) {
     throw new FrontendPhaseNotExecutableError(
       `planned/non-executable frontend phase ${phase}; frontend phase is ${registryEntry.status} and must be promoted to active before phase-slice execution`,
     );
   }
-  const selectedRows = rowsThroughSelectedActiveFrontendPhase(
-    root,
-    registry,
-    phase,
-  );
+  const selectedRows =
+    selectedRowIDs.length > 0
+      ? selectedFrontendRows(root, registry, phase, selectedRowIDs)
+      : rowsThroughSelectedActiveFrontendPhase(root, registry, phase);
   const entries = rowTargetEntries(selectedRows, mode);
   const children = childTargets(entries, phase);
   const targetNames = children.map((entry) => entry.target);
@@ -357,6 +405,7 @@ export function buildFrontendPhaseSlicePlan(
     phase_namespace: "frontend",
     target: mode === "service_backed" ? "service-backed-slice" : "phase-slice",
     phase,
+    selected_row_ids: selectedRowIDs,
     mode,
     service_backed_only: mode === "service_backed",
     no_op: workUnits.length === 0,
@@ -379,6 +428,7 @@ export function printableFrontendPlan(plan) {
     phase_namespace: plan.phase_namespace,
     target: plan.target,
     phase: plan.phase,
+    selected_row_ids: plan.selected_row_ids,
     mode: plan.mode,
     no_op: plan.no_op,
     phase_claim_status: plan.phase_claim_status,

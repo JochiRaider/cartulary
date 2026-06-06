@@ -539,6 +539,76 @@ if [[ -e "$phase_filter_root/browser-e2e-support-phase2-supplemental/phase-summa
   fail "phase-filtered browser batch must not emit phase2 support summary"
 fi
 
+selected_frontend_invocations="$tmp_dir/batch-selected-frontend-row-invocations.log"
+selected_frontend_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+  CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
+  CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE=selected_rows \
+  CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE=frontend \
+  CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE=FE-P5 \
+  CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS=FE-I-P5-01 \
+  CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+  CARTULARY_TEST_RUN_ID="batch-selected-frontend-row" \
+  BROWSER_E2E_FUNCTIONAL_SHARDS=3 \
+  NODE_BIN="${NODE:-node}" \
+  FAKE_PLAYWRIGHT_INVOCATIONS="$selected_frontend_invocations" \
+    "$HELPER" webserver-backed -- "$fake_playwright"
+)"
+assert_empty "$selected_frontend_output" "playwright webserver selected frontend row success"
+selected_frontend_log="$(cat "$selected_frontend_invocations")"
+assert_contains "$selected_frontend_log" "project=functional" "selected frontend row functional invocation"
+assert_contains "$selected_frontend_log" "frontend.phase5.grid-provenance.spec.ts" "selected frontend row functional file"
+assert_contains "$selected_frontend_log" "selected_ids=FE-I-P5-01" "selected frontend row manifest ids"
+assert_not_contains "$selected_frontend_log" "project=support" "selected frontend row omits broad support project"
+selected_frontend_root="$tmp_dir/results/batch-selected-frontend-row/browser-e2e-webserver-backed"
+selected_frontend_phase_summary="$selected_frontend_root/browser-e2e-functional-phase5-authoritative/phase-summary.json"
+assert_equals "$(json_field "$selected_frontend_phase_summary" "status")" "pass" "selected frontend row phase summary status"
+assert_equals "$(json_field "$selected_frontend_phase_summary" "inventory.0.id")" "FE-I-P5-01" "selected frontend row phase summary inventory"
+if [[ -e "$selected_frontend_root/browser-e2e-support-phase2-supplemental/phase-summary.json" ]]; then
+  fail "selected frontend row browser batch must not emit unrelated support summaries"
+fi
+CARTULARY_OUTPUT_MODE=quiet \
+CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+CARTULARY_TEST_RUN_ID="batch-selected-frontend-row" \
+CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
+CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE=selected_rows \
+CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE=frontend \
+CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE=FE-P5 \
+CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS=FE-I-P5-01 \
+NODE_BIN="${NODE:-node}" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed pass >/dev/null
+selected_frontend_target_summary="$selected_frontend_root/target-summary.json"
+"${NODE:-node}" - "$selected_frontend_target_summary" <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+
+const [summaryPath] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+if (summary.status !== "pass") {
+  throw new Error(`selected frontend row target summary must pass, got ${summary.status}`);
+}
+const artifactRel = summary.artifacts?.frontend_row_accounting;
+if (!artifactRel) {
+  throw new Error("selected frontend row target summary must reference frontend row accounting");
+}
+const accounting = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"));
+if (accounting.accounting_scope?.mode !== "selected_rows") {
+  throw new Error(`expected selected_rows accounting scope, got ${JSON.stringify(accounting.accounting_scope)}`);
+}
+const rowIDs = (accounting.rows ?? []).map((row) => row.row_id);
+if (rowIDs.length !== 1 || rowIDs[0] !== "FE-I-P5-01") {
+  throw new Error(`expected only FE-I-P5-01 accounting row, got ${JSON.stringify(rowIDs)}`);
+}
+const row = accounting.rows[0];
+if (row.closure_status !== "closed") {
+  throw new Error(`FE-I-P5-01 should close from selected browser run: ${JSON.stringify(row)}`);
+}
+if (row.scenarios?.[0]?.status !== "passed") {
+  throw new Error(`FE-I-P5-01 scenario should pass: ${JSON.stringify(row.scenarios)}`);
+}
+NODE
+
 set +e
 support_failure_output="$(
   CARTULARY_OUTPUT_MODE=quiet \

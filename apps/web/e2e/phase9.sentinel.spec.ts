@@ -2074,7 +2074,7 @@ test("Phase 9 E-9-08 required registry identities stay canonical with optional a
     uniqueIncidentKey("E908"),
     "Phase 9 E-9-08 registry identities",
   );
-  await expectOptionalStandardizedSurfacesExposed(page);
+  await expectRequiredAndOptionalRegistryExposed(page);
   await createViewRow(page, incidentId, notesViewSchemaId, {
     client_txn_id: uniqueTxn("e908-note"),
     "note.title": "Phase 9 registry note",
@@ -2113,7 +2113,28 @@ test("Phase 9 E-9-08 required registry identities stay canonical with optional a
     new RegExp(`view_schema_id=${encodeURIComponent(notesViewSchemaId)}`),
   );
 
-  await openSystemSurfaceBySwitcher(page, indicatorsViewSchemaId);
+  const optionValues = await systemViewSelectorValues(page);
+  for (const viewSchemaId of [
+    assessmentsViewSchemaId,
+    commLogViewSchemaId,
+    decisionsViewSchemaId,
+    indicatorsViewSchemaId,
+    handoffViewSchemaId,
+    lessonViewSchemaId,
+    partiesViewSchemaId,
+    statusReviewViewSchemaId,
+    taskRequestsViewSchemaId,
+  ]) {
+    expect(optionValues).toContain(viewSchemaId);
+  }
+  for (const viewSchemaId of optionalStandardizedSurfaceIds) {
+    expect(optionValues).toContain(viewSchemaId);
+  }
+
+  await openSystemSurfaceBySwitcher(page, indicatorsViewSchemaId, {
+    attempts: 2,
+    timeoutMs: 4000,
+  });
   await expect(
     page.getByTestId(gridShellTestId(indicatorsViewSchemaId)),
   ).toBeVisible();
@@ -2126,7 +2147,11 @@ test("Phase 9 E-9-08 required registry identities stay canonical with optional a
     ),
   ).toHaveText("203.0.113.92");
 
-  await openSystemSurfaceBySwitcher(page, commLogViewSchemaId);
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      commLogViewSchemaId,
+    )}`,
+  );
   await expect(
     page.getByTestId(gridShellTestId(commLogViewSchemaId)),
   ).toBeVisible();
@@ -2139,10 +2164,17 @@ test("Phase 9 E-9-08 required registry identities stay canonical with optional a
     ),
   ).toHaveText("Phase 9 registry coordination");
 
-  const optionValues = await systemViewSelectorValues(page);
-  for (const viewSchemaId of optionalStandardizedSurfaceIds) {
-    expect(optionValues).toContain(viewSchemaId);
-  }
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      findingsViewSchemaId,
+    )}`,
+  );
+  await expect(
+    page.getByTestId(gridShellTestId(findingsViewSchemaId)),
+  ).toBeVisible();
+  await expect(page).toHaveURL(
+    new RegExp(`view_schema_id=${encodeURIComponent(findingsViewSchemaId)}`),
+  );
 });
 
 type PartyPatchChange = {
@@ -2285,8 +2317,34 @@ async function expectOptionalStandardizedSurfacesExposed(page: Page) {
   expect(hypotheses.status()).toBe(404);
 }
 
+async function expectRequiredAndOptionalRegistryExposed(page: Page) {
+  const ids = await fetchPublicViewSchemaIds(page);
+  expect(ids).toEqual(
+    [...requiredBaseViewSchemaIds, ...optionalStandardizedSurfaceIds].sort(),
+  );
+  for (const viewSchemaId of [
+    ...requiredBaseViewSchemaIds,
+    ...optionalStandardizedSurfaceIds,
+  ]) {
+    const member = await page.request.get(
+      `${apiBase}/api/v1/view-schemas/${viewSchemaId}`,
+    );
+    expect(member.ok()).toBeTruthy();
+    const body = (await member.json()) as {
+      data: { view_schema_id: string; fields: Array<{ field_key: string }> };
+    };
+    expect(body.data.view_schema_id).toBe(viewSchemaId);
+    expect(body.data.fields.length).toBeGreaterThan(0);
+  }
+  const hypotheses = await page.request.get(
+    `${apiBase}/api/v1/view-schemas/cartulary.view.hypotheses.v1`,
+  );
+  expect(hypotheses.status()).toBe(404);
+}
+
 async function systemViewSelectorValues(page: Page) {
   await page.getByTestId(systemViewSwitcherTriggerTestId()).click();
+  await expect(page.getByTestId(systemViewSwitcherMenuTestId())).toBeVisible();
   const values = await page
     .getByTestId(systemViewSwitcherMenuTestId())
     .locator("[data-view-schema-id]")

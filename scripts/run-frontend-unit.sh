@@ -31,6 +31,22 @@ if [[ -n "${VITEST_FLAGS_STRING}" ]]; then
   vitest_flag_parts=(${VITEST_FLAGS_STRING})
   command+=("${vitest_flag_parts[@]}")
 fi
+if [[ "${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}" == "selected_rows" ]]; then
+  frontend_row_ids="${CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS:-}"
+  if [[ -z "${frontend_row_ids}" ]]; then
+    echo "selected frontend row accounting requires CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS" >&2
+    exit 2
+  fi
+  frontend_grep="$(
+    "${NODE_HELPER}" "${ROOT_DIR}/scripts/lib/frontend-phase-manifest.mjs" \
+      title-grep frontend-unit --row-ids "${frontend_row_ids}"
+  )"
+  if [[ -z "${frontend_grep}" ]]; then
+    echo "no frontend-unit scenarios found for selected frontend rows: ${frontend_row_ids}" >&2
+    exit 2
+  fi
+  command+=("-t" "${frontend_grep}")
+fi
 command+=(--maxWorkers="${VITEST_MAX_WORKERS}")
 
 if [[ -n "${CARTULARY_PHASE_SLICE_PHASE:-}" ]]; then
@@ -94,6 +110,22 @@ unset CARTULARY_PHASE_COUNTING_MODE || true
 if [[ ! -f "${run_report}" ]]; then
   emit_target_summary fail || true
   exit "${status:-1}"
+fi
+
+if [[ "${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}" == "selected_rows" ]]; then
+  if [[ "${status}" -eq 0 && "${run_status}" -eq 0 ]]; then
+    emit_target_summary pass
+    exit 0
+  fi
+  selected_exit_status="${status}"
+  if [[ "${selected_exit_status}" -eq 0 ]]; then
+    selected_exit_status="${run_status}"
+  fi
+  if [[ "${selected_exit_status}" -eq 0 ]]; then
+    selected_exit_status=1
+  fi
+  emit_target_summary fail || true
+  exit "${selected_exit_status}"
 fi
 
 export CARTULARY_PHASE_ACCOUNTING_MODE=derived

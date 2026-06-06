@@ -978,30 +978,38 @@ export function gridDraftRows(page: Page, surface: WorkbookSurface) {
 export async function openSystemSurfaceBySwitcher(
   page: Page,
   viewSchemaId: WorkbookSurface,
+  options: { attempts?: number; timeoutMs?: number } = {},
 ) {
+  const attempts = options.attempts ?? 3;
+  const timeoutMs = options.timeoutMs ?? 5000;
   let lastError: unknown = null;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      await page.getByTestId(systemViewSwitcherTriggerTestId()).click();
+      await page
+        .getByTestId(systemViewSwitcherTriggerTestId())
+        .click({ timeout: timeoutMs });
       const menu = page.getByTestId(systemViewSwitcherMenuTestId());
-      await expect(menu).toBeVisible();
+      await expect(menu).toBeVisible({ timeout: timeoutMs });
       const option = menu.locator(`[data-view-schema-id="${viewSchemaId}"]`);
-      await expect(option).toHaveCount(1);
-      await option.click();
+      await expect(option).toHaveCount(1, { timeout: timeoutMs });
+      await option.click({ timeout: timeoutMs });
       await expect(
         page.getByTestId(workbookShellReadyTestId()),
-      ).toHaveAttribute("data-active-view-schema-id", viewSchemaId);
+      ).toHaveAttribute("data-active-view-schema-id", viewSchemaId, {
+        timeout: timeoutMs,
+      });
       await expect(page).toHaveURL(
         new RegExp(`view_schema_id=${encodeURIComponent(viewSchemaId)}`),
+        { timeout: timeoutMs },
       );
       await expect(
         page.getByTestId(gridShellTestId(viewSchemaId)),
-      ).toBeVisible();
+      ).toBeVisible({ timeout: timeoutMs });
       return;
     } catch (error) {
       lastError = error;
       await page.keyboard.press("Escape").catch(() => {});
-      await page.waitForTimeout(100 * attempt);
+      await page.waitForTimeout(100 * attempt).catch(() => {});
     }
   }
 

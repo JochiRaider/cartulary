@@ -38,13 +38,13 @@ const schedulerSummarySchemaID = "cartulary.phase_slice_scheduler_summary.v3";
 
 function usage() {
   process.stderr.write(
-    "usage: run-phase-slice.mjs --phase <phaseN|FE-PN> --mode <phase|service-backed> [--phase-namespace <base|frontend>] [--inside-service-wrapper]\n",
+    "usage: run-phase-slice.mjs --phase <phaseN|FE-PN> --mode <phase|service-backed> [--phase-namespace <base|frontend>] [--rows <row-id,...>] [--inside-service-wrapper]\n",
   );
   process.exit(2);
 }
 
 function parseArgs(argv) {
-  const options = { phase: "", mode: "", phaseNamespace: "base", insideServiceWrapper: false, json: false };
+  const options = { phase: "", mode: "", phaseNamespace: "base", rows: "", insideServiceWrapper: false, json: false };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--phase") {
@@ -59,6 +59,11 @@ function parseArgs(argv) {
     }
     if (arg === "--phase-namespace") {
       options.phaseNamespace = argv[index + 1] ?? "";
+      index += 1;
+      continue;
+    }
+    if (arg === "--rows") {
+      options.rows = argv[index + 1] ?? "";
       index += 1;
       continue;
     }
@@ -178,8 +183,11 @@ function reexecInsideServiceWrapper(context, options) {
     options.mode,
     "--phase-namespace",
     options.phaseNamespace,
-    "--inside-service-wrapper",
   ];
+  if (options.rows) {
+    args.push("--rows", options.rows);
+  }
+  args.push("--inside-service-wrapper");
   return runWithContext(context.testServicesBin, args, {
     env: runnerEnv(context, {
       CARTULARY_TEST_SERVICES_BIN: context.testServicesBin,
@@ -402,6 +410,7 @@ async function main() {
     const plan = buildFrontendPhaseSlicePlan(options.phase, {
       mode,
       root: repoRoot,
+      rowIDs: options.rows,
     });
 
     if (options.json || process.env.JSON === "1") {

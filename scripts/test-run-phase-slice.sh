@@ -39,7 +39,7 @@ function plan(phase, mode) {
   return JSON.parse(result.stdout);
 }
 
-function frontendPlan(phase, mode) {
+function frontendPlan(phase, mode, extraArgs = []) {
   const result = run([
     "--phase",
     phase,
@@ -47,6 +47,7 @@ function frontendPlan(phase, mode) {
     "frontend",
     "--mode",
     mode,
+    ...extraArgs,
     "--json",
   ]);
   return JSON.parse(result.stdout);
@@ -237,6 +238,28 @@ const plannedFrontend = run([
 ], {}, { allowFailure: true });
 assert.equal(plannedFrontend.status, 2, "planned frontend phases must fail as bounded non-executable usage");
 assert.match(plannedFrontend.stderr, /planned\/non-executable frontend phase FE-P5/);
+
+const selectedFeP5 = frontendPlan("FE-P5", "phase", ["--rows", "FE-I-P5-01"]);
+assert.equal(selectedFeP5.phase, "FE-P5");
+assert.deepEqual(selectedFeP5.selected_row_ids, ["FE-I-P5-01"]);
+assert.deepEqual(targets(selectedFeP5), new Set(["browser-e2e-webserver-backed", "frontend-unit"]));
+for (const unit of selectedFeP5.work_units) {
+  assert.deepEqual(
+    unit.frontend_row_accounting_scope?.selected_row_ids,
+    ["FE-I-P5-01"],
+    `${unit.target} selected row accounting must stay scoped to FE-I-P5-01`,
+  );
+}
+
+const selectedFeP5Service = frontendPlan("FE-P5", "service-backed", ["--rows", "FE-I-P5-01"]);
+assert.equal(selectedFeP5Service.target, "service-backed-slice");
+assert.deepEqual(selectedFeP5Service.selected_row_ids, ["FE-I-P5-01"]);
+assert.deepEqual(targets(selectedFeP5Service), new Set(["browser-e2e-webserver-backed"]));
+assert.deepEqual(
+  selectedFeP5Service.work_units[0]?.frontend_row_accounting_scope?.selected_row_ids,
+  ["FE-I-P5-01"],
+  "selected FE-P5 service-backed slice must keep browser row accounting scoped",
+);
 
 const tempRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-phase-slice-test-"));
 try {

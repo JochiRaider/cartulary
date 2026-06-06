@@ -4842,6 +4842,7 @@
         "backing_scripts": [
           "scripts/run-phase-slice.mjs",
           "scripts/lib/phase-slice-plan.mjs",
+          "scripts/lib/frontend-phase-slice-plan.mjs",
           "scripts/lib/task-guidance.mjs"
         ],
         "output_policy": {
@@ -4952,6 +4953,23 @@
               "child_forwarding": "argv"
             },
             {
+              "name": "ROWS",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "frontend_row_ids",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
               "name": "JSON",
               "binding": "make_variable",
               "allowed_sources": [
@@ -4976,6 +4994,7 @@
         "backing_scripts": [
           "scripts/run-phase-slice.mjs",
           "scripts/lib/phase-slice-plan.mjs",
+          "scripts/lib/frontend-phase-slice-plan.mjs",
           "scripts/lib/task-guidance.mjs"
         ],
         "output_policy": {
@@ -5079,6 +5098,23 @@
               "required": false,
               "type": "phase_namespace",
               "default": "base",
+              "empty_string": "omitted",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "argv"
+            },
+            {
+              "name": "ROWS",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "frontend_row_ids",
+              "default": null,
               "empty_string": "omitted",
               "normalization": "trim",
               "invalid_reason": "usage_error",

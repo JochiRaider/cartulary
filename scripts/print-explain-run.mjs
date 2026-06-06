@@ -194,6 +194,12 @@ function writeFailureHeadline(label, summary) {
   }
 }
 
+function failureLabels(summary) {
+  return (summary?.failures ?? [])
+    .map((failure) => failure.label || failure.row_id || failure.target || "")
+    .filter(Boolean);
+}
+
 function loadRunSummary(runDir) {
   const file = path.join(runDir, "run-summary.json");
   return existsSync(file) ? readJSON(file) : null;
@@ -329,6 +335,35 @@ function writeTargetSummary(runDir, targetSummary) {
     `[TARGET] ${targetSummary.target} status=${targetSummary.status}${failureClassField(targetSummary)} kind=${targetSummary.kind ?? "leaf"} tests=${c.tests ?? 0} failed=${c.failed ?? 0} ${coverageCounts(totals)} duration=${duration(totals)}${childFields} artifacts=${targetSummary.own?.artifacts?.dir ?? relToRepo(path.join(runDir, targetSummary.target))}\n`,
   );
   writeFailureHeadline(targetSummary.target, targetSummary);
+  writeFrontendRowAccountingDigest(targetSummary);
+}
+
+function writeFrontendRowAccountingDigest(targetSummary) {
+  const configured =
+    targetSummary.artifacts?.frontend_row_accounting ??
+    targetSummary.own?.artifacts?.frontend_row_accounting ??
+    "";
+  if (!configured) {
+    return;
+  }
+  const file = absoluteArtifactPath(configured);
+  if (!existsSync(file)) {
+    process.stdout.write(
+      `[FRONTEND-ROWS] missing target=${targetSummary.target} artifacts=${configured}\n`,
+    );
+    return;
+  }
+  const accounting = readJSON(file);
+  const blockers = failureLabels(targetSummary).join(";") || "none";
+  for (const row of accounting.row_results ?? []) {
+    const passed = row.closing_scenario_titles ?? [];
+    if (row.failure_reason !== "target_failed" || passed.length === 0) {
+      continue;
+    }
+    process.stdout.write(
+      `[FRONTEND-ROW-BLOCKED] target=${targetSummary.target} row=${row.row_id} phase=${row.phase_id} closure=${row.closure_status} reason=${row.failure_reason} passed_scenarios=${passed.length} blocker=${blockers} artifacts=${configured}\n`,
+    );
+  }
 }
 
 function writeSchedulerSummary(summary) {

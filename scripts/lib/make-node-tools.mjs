@@ -128,31 +128,33 @@ export const makeNodeTools = {
     },
   },
   "phase-slice": {
-    inputs: ["PHASE", "PHASE_NAMESPACE", "JSON"],
+    inputs: ["PHASE", "PHASE_NAMESPACE", "ROWS", "JSON"],
     runtimeEnv: phaseSliceRuntimeEnv,
     script: "./scripts/run-phase-slice.mjs",
-    usage: "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend]",
+    usage: "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<frontend-row-id,...>]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
-        throw new UsageError("PHASE is required", "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend]");
+        throw new UsageError("PHASE is required", "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<frontend-row-id,...>]");
       }
       const args = ["--phase", value(env, "PHASE"), "--mode", "phase"];
       optionalFlag(args, env, "PHASE_NAMESPACE", "--phase-namespace");
+      optionalFlag(args, env, "ROWS", "--rows");
       jsonFlag(args, env);
       return args;
     },
   },
   "service-backed-slice": {
-    inputs: ["PHASE", "PHASE_NAMESPACE", "JSON"],
+    inputs: ["PHASE", "PHASE_NAMESPACE", "ROWS", "JSON"],
     runtimeEnv: phaseSliceRuntimeEnv,
     script: "./scripts/run-phase-slice.mjs",
-    usage: "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend]",
+    usage: "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<frontend-row-id,...>]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
-        throw new UsageError("PHASE is required", "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend]");
+        throw new UsageError("PHASE is required", "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<frontend-row-id,...>]");
       }
       const args = ["--phase", value(env, "PHASE"), "--mode", "service-backed"];
       optionalFlag(args, env, "PHASE_NAMESPACE", "--phase-namespace");
+      optionalFlag(args, env, "ROWS", "--rows");
       jsonFlag(args, env);
       return args;
     },

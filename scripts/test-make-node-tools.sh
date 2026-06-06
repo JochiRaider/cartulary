@@ -115,6 +115,7 @@ const expectedMakeEnvVars = {
   "phase-slice": [
     "PHASE",
     "PHASE_NAMESPACE",
+    "ROWS",
     "JSON",
     "MAKE",
     "TEST_OUTPUT_SCRIPT",
@@ -172,6 +173,7 @@ const expectedMakeEnvVars = {
   "service-backed-slice": [
     "PHASE",
     "PHASE_NAMESPACE",
+    "ROWS",
     "JSON",
     "MAKE",
     "TEST_OUTPUT_SCRIPT",
@@ -281,11 +283,31 @@ assertArgs("phase-slice", { PHASE: "FE-P3", PHASE_NAMESPACE: "frontend" }, [
   "--phase-namespace",
   "frontend",
 ]);
+assertArgs("phase-slice", { PHASE: "FE-P5", PHASE_NAMESPACE: "frontend", ROWS: "FE-I-P5-01" }, [
+  "--phase",
+  "FE-P5",
+  "--mode",
+  "phase",
+  "--phase-namespace",
+  "frontend",
+  "--rows",
+  "FE-I-P5-01",
+]);
 assertArgs("service-backed-slice", { PHASE: "phase4" }, [
   "--phase",
   "phase4",
   "--mode",
   "service-backed",
+]);
+assertArgs("service-backed-slice", { PHASE: "FE-P5", PHASE_NAMESPACE: "frontend", ROWS: "FE-I-P5-01" }, [
+  "--phase",
+  "FE-P5",
+  "--mode",
+  "service-backed",
+  "--phase-namespace",
+  "frontend",
+  "--rows",
+  "FE-I-P5-01",
 ]);
 assertArgs("explain-target", { TARGET: "backend-store" }, [
   "--target",
@@ -481,6 +503,7 @@ const phaseSliceChildEnv = buildMakeNodeToolChildEnv("phase-slice", {
   CARTULARY_TEST_RUN_ID: "run-a",
   MAKE: "make",
   PHASE: "phase4",
+  ROWS: "FE-I-P5-01",
   TARGET: "backend-store",
   TEST_OUTPUT_SCRIPT: "/tmp/test-output.mjs",
 });
@@ -494,6 +517,7 @@ assert(
   "phase-slice child env must keep CARTULARY_TEST_RUN_ID",
 );
 assert(!("PHASE" in phaseSliceChildEnv), "phase-slice child env must not expose PHASE after args are built");
+assert(!("ROWS" in phaseSliceChildEnv), "phase-slice child env must not expose ROWS after args are built");
 assert(!("TARGET" in phaseSliceChildEnv), "phase-slice child env must not expose unrelated TARGET");
 EOF
 

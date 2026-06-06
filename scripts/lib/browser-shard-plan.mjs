@@ -38,7 +38,7 @@ function usage() {
   process.stderr.write(
     [
       "usage:",
-      "  browser-shard-plan.mjs plan [--baseline-file <path>] [--min-shards <n>] [--max-shards <n>]",
+      "  browser-shard-plan.mjs plan [--baseline-file <path>] [--min-shards <n>] [--max-shards <n>] [--frontend-row-ids <ids>]",
       "  browser-shard-plan.mjs merge-reports <output-report> <input-report...>",
       "  browser-shard-plan.mjs update-baselines [--baseline-file <path>] <results-dir>",
       "  browser-shard-plan.mjs check-baseline-drift [--baseline-file <path>] <results-dir>",
@@ -256,14 +256,24 @@ function isPlaywrightSupportFile(file) {
   return file.includes(".support.");
 }
 
+function parseFrontendRowIDs(value) {
+  return new Set(
+    String(value ?? "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean),
+  );
+}
+
 function frontendBrowserReadinessEntries(
   root,
-  { baseEntries, phase = "" } = {},
+  { baseEntries, phase = "", frontendRowIDs = new Set() } = {},
 ) {
   const baseTitles = new Set(
     baseEntries.flatMap((entry) => entry.titles ?? [entry.title]),
   );
   const seenTitles = new Set();
+  const knownSelectedIDs = new Set();
   const entries = [];
   const registry = loadFrontendPhaseRegistry(root);
   for (const frontendPhase of registry.phases) {
@@ -273,6 +283,12 @@ function frontendBrowserReadinessEntries(
     }
     const { manifest } = loadFrontendPhaseMap(root, frontendPhase.phase_id);
     for (const row of manifest.rows) {
+      if (frontendRowIDs.size > 0) {
+        if (!frontendRowIDs.has(row.id)) {
+          continue;
+        }
+        knownSelectedIDs.add(row.id);
+      }
       if (
         row.claim_status !== "implemented" ||
         !row.targets.some(
@@ -304,6 +320,16 @@ function frontendBrowserReadinessEntries(
           frontend_phase: frontendPhase.phase_id,
         });
       }
+    }
+  }
+  if (frontendRowIDs.size > 0) {
+    const unknown = [...frontendRowIDs]
+      .filter((rowID) => !knownSelectedIDs.has(rowID))
+      .sort((left, right) => left.localeCompare(right));
+    if (unknown.length > 0) {
+      throw new Error(
+        `selected frontend browser row id(s) not found: ${unknown.join(",")}`,
+      );
     }
   }
   return entries.sort(compareEntries);
@@ -382,23 +408,27 @@ export function createPlan({
   minShards = 1,
   maxShards,
   phase = "",
+  frontendRowIDs = new Set(),
 }) {
   const activeEntries = browserFunctionalEntries(repoRoot);
   const frontendEntries = frontendBrowserReadinessEntries(repoRoot, {
-    baseEntries: activeEntries,
+    baseEntries: frontendRowIDs.size > 0 ? [] : activeEntries,
     phase,
+    frontendRowIDs,
   });
   const baseline = readBaseline(baselineFile, activeEntries);
   const entries = collectEntryRows(repoRoot, baseline, {
     phase,
     frontendEntries,
-  });
+  }).filter((entry) => frontendRowIDs.size === 0 || frontendRowIDs.has(entry.id));
   if (entries.length === 0) {
-    throw new Error(
-      phase
-        ? `no authoritative browser_functional Playwright rows found for ${phase}`
-        : "no authoritative browser_functional Playwright rows found",
-    );
+    let message = phase
+      ? `no authoritative browser_functional Playwright rows found for ${phase}`
+      : "no authoritative browser_functional Playwright rows found";
+    if (frontendRowIDs.size > 0) {
+      message = `no browser_functional Playwright rows found for selected frontend row id(s): ${[...frontendRowIDs].sort().join(",")}`;
+    }
+    throw new Error(message);
   }
   const shardCount = planShardCount(entries, {
     minShards,
@@ -490,6 +520,7 @@ function parsePlanArgs(argv) {
     maxShards: 1,
     minShards: 1,
     phase: "",
+    frontendRowIDs: new Set(),
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -521,6 +552,14 @@ function parsePlanArgs(argv) {
       options.phase = argv[index + 1] ?? "";
       index += 1;
       if (!/^phase[0-9]+$/.test(options.phase)) {
+        usage();
+      }
+      continue;
+    }
+    if (arg === "--frontend-row-ids") {
+      options.frontendRowIDs = parseFrontendRowIDs(argv[index + 1] ?? "");
+      index += 1;
+      if (options.frontendRowIDs.size === 0) {
         usage();
       }
       continue;

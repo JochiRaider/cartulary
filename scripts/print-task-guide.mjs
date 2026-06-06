@@ -6,7 +6,10 @@ import {
   knownRoles,
   taskGuide,
 } from "./lib/task-guidance.mjs";
-import { loadFrontendPhaseRegistry } from "./lib/frontend-phase-manifest.mjs";
+import {
+  loadFrontendPhaseMap,
+  loadFrontendPhaseRegistry,
+} from "./lib/frontend-phase-manifest.mjs";
 import { phaseSliceExecutionMap } from "./lib/task-execution-map.mjs";
 
 process.stdout.on("error", (error) => {
@@ -159,6 +162,17 @@ function main() {
     if (!phase) {
       throw new Error("unknown frontend phase; expected FE-P0 through FE-P11");
     }
+    const { manifest } = loadFrontendPhaseMap(process.cwd(), phase.phase_id);
+    const executableRows = manifest.rows.filter((row) =>
+      ["implemented", "stale"].includes(row.claim_status),
+    );
+    const browserRows = executableRows.filter((row) =>
+      row.targets.some((target) =>
+        String(target.target_name ?? target).startsWith("browser-e2e"),
+      ),
+    );
+    const sampleRows = executableRows.map((row) => row.id).slice(0, 3).join(",");
+    const sampleBrowserRows = browserRows.map((row) => row.id).slice(0, 3).join(",");
     const guide = {
       schema_id: "cartulary.frontend_task_guide.v1",
       role: options.role || "feature-dev",
@@ -175,6 +189,12 @@ function main() {
             ]
           : [
               `make explain-phase PHASE_NAMESPACE=frontend PHASE=${phase.phase_id}`,
+              ...(sampleRows
+                ? [`make phase-slice PHASE_NAMESPACE=frontend PHASE=${phase.phase_id} ROWS=${sampleRows}`]
+                : []),
+              ...(sampleBrowserRows
+                ? [`make service-backed-slice PHASE_NAMESPACE=frontend PHASE=${phase.phase_id} ROWS=${sampleBrowserRows}`]
+                : []),
               "make phase-ledger-drift",
             ],
     };
@@ -192,6 +212,15 @@ function main() {
         `  make phase-slice PHASE_NAMESPACE=frontend PHASE=${phase.phase_id} | run active frontend phase row targets`,
         `  make service-backed-slice PHASE_NAMESPACE=frontend PHASE=${phase.phase_id} | run active browser-backed frontend row targets`,
       );
+    } else if (sampleRows) {
+      lines.push(
+        `  make phase-slice PHASE_NAMESPACE=frontend PHASE=${phase.phase_id} ROWS=${sampleRows} | run selected implemented frontend rows`,
+      );
+      if (sampleBrowserRows) {
+        lines.push(
+          `  make service-backed-slice PHASE_NAMESPACE=frontend PHASE=${phase.phase_id} ROWS=${sampleBrowserRows} | run selected browser-backed frontend rows`,
+        );
+      }
     }
     lines.push(
       `  make explain-phase PHASE_NAMESPACE=frontend PHASE=${phase.phase_id} | inspect frontend phase rows`,

@@ -1232,6 +1232,17 @@ export function frontendPlaywrightGrepForTarget(root, target, layer = "", option
   return `(?:${titles.map(escapeRegExp).join("|")})`;
 }
 
+export function frontendExactTitleGrepForTarget(root, target, layer = "", options = {}) {
+  const titles = frontendScenarioTitlesForTarget(root, target, layer, options);
+  if (titles.length === 0) {
+    return "";
+  }
+  if (titles.length === 1) {
+    return `${escapeRegExp(titles[0])}$`;
+  }
+  return `(?:${titles.map(escapeRegExp).join("|")})$`;
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const command = process.argv[2] ?? "";
   const root = process.cwd();
@@ -1242,7 +1253,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     for (const entry of loadFrontendPhaseRegistry(root).phases) {
       console.log(entry.phase_id);
     }
-  } else if (command === "playwright-grep") {
+  } else if (command === "playwright-grep" || command === "title-grep") {
     const args = process.argv.slice(3);
     const target = args.shift() ?? "";
     let layer = "";
@@ -1257,20 +1268,24 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         continue;
       }
       console.error(
-        "usage: frontend-phase-manifest.mjs playwright-grep <target> [layer] [--row-ids <ids>]",
+        "usage: frontend-phase-manifest.mjs playwright-grep|title-grep <target> [layer] [--row-ids <ids>]",
       );
       process.exit(2);
     }
     if (!target) {
       console.error(
-        "usage: frontend-phase-manifest.mjs playwright-grep <target> [layer] [--row-ids <ids>]",
+        "usage: frontend-phase-manifest.mjs playwright-grep|title-grep <target> [layer] [--row-ids <ids>]",
       );
       process.exit(2);
     }
-    console.log(frontendPlaywrightGrepForTarget(root, target, layer, { rowIDs }));
+    console.log(
+      command === "title-grep"
+        ? frontendExactTitleGrepForTarget(root, target, layer, { rowIDs })
+        : frontendPlaywrightGrepForTarget(root, target, layer, { rowIDs }),
+    );
   } else {
     console.error(
-      "usage: frontend-phase-manifest.mjs validate|phases|playwright-grep <target> [layer]",
+      "usage: frontend-phase-manifest.mjs validate|phases|playwright-grep|title-grep <target> [layer]",
     );
     process.exit(2);
   }
