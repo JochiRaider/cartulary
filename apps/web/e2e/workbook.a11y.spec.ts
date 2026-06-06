@@ -2,6 +2,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pasteGridMatrix } from "@cartulary/test-utils";
 import {
+  autoResolutionNoticeTestId,
+  autoResolutionUndoButtonTestId,
   currentIncidentRoleTestId,
   dataTestIdSelector,
   gridFilterApplyTestId,
@@ -12,6 +14,11 @@ import {
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
   landingIncidentCardTestId,
+  mentionDismissButtonTestId,
+  mentionItemTestId,
+  mentionResolveExistingButtonTestId,
+  mentionResolveTargetSelectTestId,
+  mentionRestoreUnresolvedButtonTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   phase1AccountTestId,
@@ -20,6 +27,8 @@ import {
   phase1ErrorCodeTestId,
   phase1ErrorSummaryTestIds,
   phase1LandingTestId,
+  relationshipChipTestId,
+  relationshipItemsTestId,
   rowCellTestId,
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
@@ -65,6 +74,15 @@ import {
 } from "./helpers";
 import { Phase1Page } from "./phase1Page";
 import {
+  addRelationshipTokenViaUI,
+  collectionActionsPayload,
+  collectionItems,
+  hostRefsFieldKey,
+  hostsViewSchemaId,
+  openTimelineInspector,
+  requireItemByRawText,
+} from "./phase4Helpers";
+import {
   installPatchTransportFailureController,
   successfulPatchCalls,
 } from "./phase6Harness";
@@ -76,7 +94,9 @@ type IncidentMembershipRecord = {
 };
 
 type ViewRow = {
+  cells: Record<string, { value: unknown }>;
   record_id: string;
+  row_version: number;
 };
 
 declare const phase1A11yAppLocalTestIdBrand: unique symbol;
@@ -94,6 +114,9 @@ const p3AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
 const p4AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P4-01",
 ) as [string];
+const p5AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
+  "FE-A11Y-P5-01",
+) as [string];
 
 if (p2AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
@@ -110,6 +133,11 @@ if (p4AccessibilityScenarioTitles.length !== 1) {
     `FE-A11Y-P4-01 must declare exactly 1 scenario; found ${p4AccessibilityScenarioTitles.length}`,
   );
 }
+if (p5AccessibilityScenarioTitles.length !== 1) {
+  throw new Error(
+    `FE-A11Y-P5-01 must declare exactly 1 scenario; found ${p5AccessibilityScenarioTitles.length}`,
+  );
+}
 
 const phase1A11yAppLocalSelectors = Object.freeze({
   incidentPatchButton: {
@@ -123,6 +151,19 @@ const phase1A11yAppLocalSelectors = Object.freeze({
 
 const keyboardSentinelId = "a11y-keyboard-sentinel";
 const contrastThreshold = 4.5;
+
+function resolvedRefPayload(rawText: string, resolvedRecordId: string) {
+  return {
+    kind: "collection_actions_v1",
+    actions: [
+      {
+        op: "add_resolved_ref",
+        raw_text: rawText,
+        resolved_record_id: resolvedRecordId,
+      },
+    ],
+  };
+}
 
 const privateDiagnosticPatterns = [
   /bootstrap[_ -]?token/i,
@@ -1061,6 +1102,248 @@ test.describe("FE-P4 accessibility readiness", () => {
       rowInspectButtonTestId(editRow.record_id),
       pendingQueueNoticeTestId(),
       saveStateTestId(),
+    ]);
+  });
+});
+
+test.describe("FE-P5 accessibility readiness", () => {
+  test(p5AccessibilityScenarioTitles[0], async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("A11YP5"),
+      "FE-A11Y-P5-01 mention states",
+    );
+    const resolvedTarget = (await createViewRow(
+      page,
+      incidentId,
+      hostsViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p5-resolved-target"),
+        "host.display_name": "FE-A11Y-P5 Resolved Target",
+        "host.hostname": "fe-a11y-p5-resolved-target.example.test",
+      },
+    )) as ViewRow;
+    const manualTarget = (await createViewRow(
+      page,
+      incidentId,
+      hostsViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p5-manual-target"),
+        "host.display_name": "FE-A11Y-P5 Manual Target",
+        "host.hostname": "fe-a11y-p5-manual-target.example.test",
+      },
+    )) as ViewRow;
+    await createViewRow(page, incidentId, hostsViewSchemaId, {
+      client_txn_id: uniqueTxn("fe-a11y-p5-auto-target"),
+      "host.display_name": "FE-A11Y-P5 Auto Target",
+      "host.hostname": "fe-a11y-p5-auto-target.example.test",
+      "host.aliases": collectionActionsPayload(["FEA11YP5 Auto Alias"]),
+    });
+
+    const unresolvedRawText = "FEA11YP5 Unresolved?";
+    const resolvedRawText = "FEA11YP5 Resolved Raw";
+    const manualRawText = "FEA11YP5 Manual Raw";
+    const autoRawText = "FEA11YP5 Auto Alias";
+    const dismissedRawText = "FEA11YP5 Dismissed Raw";
+    const unresolvedRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p5-unresolved-row"),
+        "timeline.occurred_at": "2026-06-06T16:00:00Z",
+        "timeline.summary": "FE-A11Y-P5 unresolved chip",
+        [hostRefsFieldKey]: collectionActionsPayload([unresolvedRawText]),
+      },
+    )) as ViewRow;
+    const resolvedRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p5-resolved-row"),
+        "timeline.occurred_at": "2026-06-06T16:05:00Z",
+        "timeline.summary": "FE-A11Y-P5 resolved chip",
+        [hostRefsFieldKey]: resolvedRefPayload(
+          resolvedRawText,
+          resolvedTarget.record_id,
+        ),
+      },
+    )) as ViewRow;
+    const manualRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p5-manual-row"),
+        "timeline.occurred_at": "2026-06-06T16:10:00Z",
+        "timeline.summary": "FE-A11Y-P5 manual chip",
+        [hostRefsFieldKey]: collectionActionsPayload([manualRawText]),
+      },
+    )) as ViewRow;
+    const autoRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p5-auto-row"),
+        "timeline.occurred_at": "2026-06-06T16:15:00Z",
+        "timeline.summary": "FE-A11Y-P5 auto chip",
+      },
+    )) as ViewRow;
+    const dismissedRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p5-dismissed-row"),
+        "timeline.occurred_at": "2026-06-06T16:20:00Z",
+        "timeline.summary": "FE-A11Y-P5 dismissed chip",
+        [hostRefsFieldKey]: collectionActionsPayload([dismissedRawText]),
+      },
+    )) as ViewRow;
+    const unresolvedMention = requireItemByRawText(
+      collectionItems(unresolvedRow, hostRefsFieldKey),
+      unresolvedRawText,
+    );
+    const resolvedMention = requireItemByRawText(
+      collectionItems(resolvedRow, hostRefsFieldKey),
+      resolvedRawText,
+    );
+    const manualMention = requireItemByRawText(
+      collectionItems(manualRow, hostRefsFieldKey),
+      manualRawText,
+    );
+    const dismissedMention = requireItemByRawText(
+      collectionItems(dismissedRow, hostRefsFieldKey),
+      dismissedRawText,
+    );
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+
+    const unresolvedChip = page
+      .getByTestId(
+        relationshipItemsTestId(unresolvedRow.record_id, hostRefsFieldKey),
+      )
+      .getByTestId(relationshipChipTestId(String(unresolvedMention.item_ref)));
+    await expect(unresolvedChip).toHaveAttribute(
+      "aria-label",
+      `Unresolved ${unresolvedRawText}`,
+    );
+    await expect(unresolvedChip).toContainText("Unresolved");
+    await expectVisibleFocus(unresolvedChip);
+
+    const resolvedChip = page
+      .getByTestId(
+        relationshipItemsTestId(resolvedRow.record_id, hostRefsFieldKey),
+      )
+      .getByTestId(relationshipChipTestId(String(resolvedMention.item_ref)));
+    await expect(resolvedChip).toHaveAttribute(
+      "aria-label",
+      /^Resolved FE-A11Y-P5 Resolved Target$/u,
+    );
+    await expect(resolvedChip).toContainText("Resolved");
+    await expectVisibleFocus(resolvedChip);
+
+    await openTimelineInspector(page, manualRow.record_id);
+    const manualMentionItem = page.getByTestId(
+      mentionItemTestId(String(manualMention.item_ref)),
+    );
+    await expectVisibleFocus(manualMentionItem);
+    await manualMentionItem.click();
+    const resolveSelect = page.getByTestId(mentionResolveTargetSelectTestId());
+    await expectVisibleFocus(resolveSelect);
+    await resolveSelect.selectOption(manualTarget.record_id);
+    const resolveButton = page.getByTestId(
+      mentionResolveExistingButtonTestId(),
+    );
+    await expectVisibleFocus(resolveButton);
+    await resolveButton.click();
+
+    const manualChip = page
+      .getByTestId(
+        relationshipItemsTestId(manualRow.record_id, hostRefsFieldKey),
+      )
+      .getByTestId(relationshipChipTestId(String(manualMention.item_ref)));
+    await expect(manualChip).toHaveAttribute(
+      "aria-label",
+      /^Resolved .*manual resolution/u,
+    );
+    await expect(manualChip).toContainText("Manual");
+    await expectVisibleFocus(manualChip);
+    await expectVisibleFocus(page.getByTestId(mentionDismissButtonTestId()));
+    await expectVisibleFocus(
+      page.getByTestId(mentionRestoreUnresolvedButtonTestId()),
+    );
+
+    const autoEnvelope = await addRelationshipTokenViaUI(
+      page,
+      autoRow.record_id,
+      "hostRefs",
+      autoRawText,
+    );
+    const autoItem = requireItemByRawText(
+      collectionItems(autoEnvelope.data.row, hostRefsFieldKey),
+      autoRawText,
+    );
+    const autoChip = page
+      .getByTestId(relationshipItemsTestId(autoRow.record_id, hostRefsFieldKey))
+      .getByTestId(relationshipChipTestId(String(autoItem.item_ref)));
+    await expect(autoChip).toHaveAttribute(
+      "aria-label",
+      /^Auto-resolved .*matched/u,
+    );
+    await expect(autoChip).toContainText("Auto");
+    await expectVisibleFocus(autoChip);
+    const autoNotice = page.getByTestId(
+      autoResolutionNoticeTestId(String(autoItem.item_ref)),
+    );
+    await expect(autoNotice).toContainText("FE-A11Y-P5 Auto Target");
+    await expectVisibleFocus(
+      autoNotice.getByTestId(
+        autoResolutionUndoButtonTestId(String(autoItem.item_ref)),
+      ),
+    );
+
+    await openTimelineInspector(page, dismissedRow.record_id);
+    await page
+      .getByTestId(mentionItemTestId(String(dismissedMention.item_ref)))
+      .click();
+    await page
+      .getByTestId(mentionResolveTargetSelectTestId())
+      .selectOption(manualTarget.record_id);
+    await page.getByTestId(mentionResolveExistingButtonTestId()).click();
+    await page.getByTestId(mentionDismissButtonTestId()).click();
+    const dismissedMentionItem = page.getByTestId(
+      mentionItemTestId(String(dismissedMention.item_ref)),
+    );
+    await expect(
+      dismissedMentionItem.getByLabel(`Dismissed ${dismissedRawText}`),
+    ).toBeVisible();
+    await expect(dismissedMentionItem).toContainText("Dismissed");
+    await expectVisibleFocus(dismissedMentionItem);
+    await expectVisibleFocus(
+      page.getByTestId(mentionRestoreUnresolvedButtonTestId()),
+    );
+
+    await expectTabOrderIncludes(page, [
+      rowInspectButtonTestId(unresolvedRow.record_id),
+      rowInspectButtonTestId(resolvedRow.record_id),
+      rowInspectButtonTestId(manualRow.record_id),
+      rowInspectButtonTestId(autoRow.record_id),
+      rowInspectButtonTestId(dismissedRow.record_id),
+    ]);
+    await expectAllInteractiveControlsNamed(page);
+    await expectNoFocusTrap(page);
+    await expectAndRecordContrast(page, [
+      relationshipChipTestId(String(unresolvedMention.item_ref)),
+      relationshipChipTestId(String(resolvedMention.item_ref)),
+      relationshipChipTestId(String(manualMention.item_ref)),
+      relationshipChipTestId(String(autoItem.item_ref)),
+      mentionItemTestId(String(dismissedMention.item_ref)),
+      mentionRestoreUnresolvedButtonTestId(),
     ]);
   });
 });

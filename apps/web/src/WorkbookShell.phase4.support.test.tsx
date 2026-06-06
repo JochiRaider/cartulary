@@ -580,7 +580,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
           .getByTestId(
             relationshipItemsTestId("record-1", "timeline.host_refs"),
           )
-          .querySelector('[aria-label="Resolved WS-023"]'),
+          .querySelector('[aria-label^="Resolved WS-023"]'),
       ).toBeTruthy();
     });
   });
@@ -1361,7 +1361,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     expect(
       screen.getByTestId(mentionRestoreUnresolvedButtonTestId()),
     ).toBeTruthy();
-    expect(screen.getByText("Dismissed")).toBeTruthy();
+    expect(screen.getAllByText("Dismissed").length).toBeGreaterThanOrEqual(2);
 
     const restoreScroll = setTimelineGridScroll(360, 90);
     fireEvent.click(screen.getByTestId(mentionRestoreUnresolvedButtonTestId()));

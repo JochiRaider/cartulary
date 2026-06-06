@@ -33,7 +33,7 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 | Fixture ID | Fixture title | Intended phase | Required surface state | Required scroll normalization | Status |
 | --- | --- | --- | --- | --- | --- |
 | `FE-VFIX-01` | Default Timeline workbook shell | `FE-P2` | App-owned workbook shell root with top bar, compact view bar, compact Timeline grid, row gutter, header affordances, row-context inspector, status strip, Core 01 default Timeline fields, selected row context, focused Summary cell, and no admin/control card stack above the active grid. | Top-left outer and grid scroll; viewport `1440x900` unless the fixture row states otherwise. | `current` |
-| `FE-VFIX-02` | Unresolved and resolved entity state | `FE-P5` | Entity evidence or request state renders both unresolved and resolved variants. | Named row anchor; dynamic identifiers masked. | `missing` |
+| `FE-VFIX-02` | Mention chip state matrix | `FE-P5` | Timeline relationship chips and inspector mention state render unresolved, resolved, auto-resolved, dismissed, and manual-resolution variants together. | Top-left grid scroll; incident and generated record identifiers masked. | `current` |
 | `FE-VFIX-03` | Same-field conflict | `FE-P7` | Conflict strip or resolver shows same-field conflict state and recovery affordance. | Top-left grid scroll or conflict row anchor. | `current` |
 | `FE-VFIX-04` | Row-gutter presence | `FE-P7` | Row gutter or presence marker is visible and anchored to the intended row. | Presence row anchor; dynamic actor labels masked where needed. | `current` |
 | `FE-VFIX-05` | Evidence affordance | `FE-P6` | Evidence badge, access control state, or blocked preview affordance is visible. | Evidence row anchor; preview dynamic values masked. | `current` |
@@ -100,6 +100,18 @@ design-direction evidence only; it does not create product conformance or Core
 | Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
 | --- | --- | --- | --- | --- | --- | --- |
 | `FE-V-P4-01` | `tools/frontend_phase_maps/fe_p4_test_map.json` | `FE-VFIX-08`, `FE-VFIX-12`, `FE-VFIX-15` | Deterministic workbook incident with one Timeline row, held transport failure for pending replay, and a fresh zero-row Timeline incident for the empty query state. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation. | Grid/status captures, snapshots `fe-v-p4-01-active-edit-cell`, `fe-v-p4-01-pending-replay-status`, and `fe-v-p4-01-empty-timeline-query`. |
+
+### Current FE-P5 visual readiness fixture citation map
+
+The FE-P5 visual readiness fixture uses deterministic app-owned Timeline
+workbook state. It captures the unresolved token chip, direct resolved chip,
+manual-resolution chip, auto-resolved chip, and dismissed mention inspector
+state in one first-viewport fixture. This map is design-direction evidence
+only; it does not create product conformance or Core 05 publication evidence.
+
+| Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
+| --- | --- | --- | --- | --- | --- | --- |
+| `FE-V-P5-01` | `tools/frontend_phase_maps/fe_p5_test_map.json` | `FE-VFIX-02` | Deterministic workbook incident with Timeline rows for unresolved, resolved, manual-resolution, auto-resolved, and dismissed mention states. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation. | Fixed viewport capture, snapshot `fe-v-p5-01-mention-chip-states`. |
 
 ### Current exposed-theme fixture citation map
 

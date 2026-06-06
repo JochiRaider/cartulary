@@ -2501,10 +2501,7 @@ function mentionChipStateForItem(
   if (item.autoResolved) {
     return "auto-resolved";
   }
-  if (
-    item.resolutionMethod === "explicit_resolve_route" ||
-    item.provenance === "manual"
-  ) {
+  if (item.resolutionMethod === "explicit_resolve_route") {
     return "manual-resolution";
   }
   return "resolved";
@@ -2668,11 +2665,19 @@ function RelationshipChip({
           : chipState === "resolved"
             ? "Resolved"
             : "Unresolved";
+  const stateDetail =
+    chipState === "manual-resolution"
+      ? "; manual resolution"
+      : chipState === "auto-resolved" && item.matchedAliasText
+        ? `; matched ${item.matchedAliasText}`
+        : "";
+  const accessibleLabel = `${labelPrefix} ${label}${stateDetail}`;
 
   return onSelect ? (
     <button
-      aria-label={`${labelPrefix} ${label}`}
+      aria-label={accessibleLabel}
       data-testid={relationshipChipTestId(item.itemRef)}
+      tabIndex={0}
       style={chipStyle}
       type="button"
       onClick={onSelect}
@@ -2688,15 +2693,25 @@ function RelationshipChip({
           Manual
         </span>
       ) : null}
+      {chipState === "resolved" ? (
+        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
+          Resolved
+        </span>
+      ) : null}
       {!isResolved && !isDismissed ? (
         <span data-density-role="narrow-metadata" style={chipMetaStyle}>
-          Mention
+          Unresolved
+        </span>
+      ) : null}
+      {isDismissed ? (
+        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
+          Dismissed
         </span>
       ) : null}
     </button>
   ) : (
     <span
-      aria-label={`${labelPrefix} ${label}`}
+      aria-label={accessibleLabel}
       data-testid={relationshipChipTestId(item.itemRef)}
       role="note"
       style={chipStyle}
@@ -2710,6 +2725,21 @@ function RelationshipChip({
       {chipState === "manual-resolution" ? (
         <span data-density-role="narrow-metadata" style={chipMetaStyle}>
           Manual
+        </span>
+      ) : null}
+      {chipState === "resolved" ? (
+        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
+          Resolved
+        </span>
+      ) : null}
+      {!isResolved && !isDismissed ? (
+        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
+          Unresolved
+        </span>
+      ) : null}
+      {isDismissed ? (
+        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
+          Dismissed
         </span>
       ) : null}
     </span>
@@ -8248,6 +8278,7 @@ export function TimelineWorkbook({
                               <button
                                 key={item.itemRef}
                                 data-testid={mentionItemTestId(item.itemRef)}
+                                tabIndex={0}
                                 style={{
                                   ...mentionListButtonStyle,
                                   ...(selectedMention?.itemRef === item.itemRef
@@ -13701,13 +13732,16 @@ const groupLabelStyle = {
 const mentionListButtonStyle = {
   border: "none",
   background: "transparent",
+  color: "var(--ct-colors-ink)",
   padding: 0,
   textAlign: "left" as const,
   cursor: "pointer",
 };
 
 const mentionListButtonSelectedStyle = {
-  outline: "none",
+  boxShadow: "0 0 0 2px var(--ct-colors-accent)",
+  outline: "2px solid transparent",
+  outlineOffset: "2px",
 };
 
 const detailListStyle = {

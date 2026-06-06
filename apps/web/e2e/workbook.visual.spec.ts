@@ -22,8 +22,13 @@ import {
   gridSortHeaderTestId,
   incidentControlsPanelTestId,
   incidentMembershipListTestId,
+  mentionDismissButtonTestId,
+  mentionItemTestId,
+  mentionResolveExistingButtonTestId,
+  mentionResolveTargetSelectTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
+  relationshipChipTestId,
   relationshipItemsTestId,
   rowCellTestId,
   rowInspectButtonTestId,
@@ -56,9 +61,12 @@ import {
 import {
   addRelationshipTokenViaUI,
   collectionActionsPayload,
+  collectionItems,
   evidenceViewSchemaId,
   hostRefsFieldKey,
   hostsViewSchemaId,
+  openTimelineInspector,
+  requireItemByRawText,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./phase4Helpers";
@@ -109,6 +117,19 @@ function tagActionsPayload(tagNames: string[]) {
       op: "add_tag",
       tag_name: tagName,
     })),
+  };
+}
+
+function resolvedRefPayload(rawText: string, resolvedRecordId: string) {
+  return {
+    kind: "collection_actions_v1",
+    actions: [
+      {
+        op: "add_resolved_ref",
+        raw_text: rawText,
+        resolved_record_id: resolvedRecordId,
+      },
+    ],
   };
 }
 
@@ -697,6 +718,196 @@ test.describe("FE-P4 visual readiness", () => {
   });
 });
 
+test.describe("FE-P5 workbook visual readiness", () => {
+  test("FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution state fixtures.", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("FEVP501"),
+      "FE-P5 visual mention chip states",
+    );
+    const resolvedTarget = (await createViewRow(
+      page,
+      incidentId,
+      hostsViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fevp501-resolved-target"),
+        "host.display_name": "FE-V-P5 Resolved Target",
+        "host.hostname": "fevp501-resolved-target.example.test",
+      },
+    )) as ViewRow;
+    const manualTarget = (await createViewRow(
+      page,
+      incidentId,
+      hostsViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fevp501-manual-target"),
+        "host.display_name": "FE-V-P5 Manual Target",
+        "host.hostname": "fevp501-manual-target.example.test",
+      },
+    )) as ViewRow;
+    await createViewRow(page, incidentId, hostsViewSchemaId, {
+      client_txn_id: uniqueTxn("fevp501-auto-target"),
+      "host.display_name": "FE-V-P5 Auto Target",
+      "host.hostname": "fevp501-auto-target.example.test",
+      "host.aliases": collectionActionsPayload(["FEVP501 Auto Alias"]),
+    });
+
+    const unresolvedRawText = "FEVP501 Unresolved?";
+    const resolvedRawText = "FEVP501 Resolved Raw";
+    const manualRawText = "FEVP501 Manual Raw";
+    const autoRawText = "FEVP501 Auto Alias";
+    const dismissedRawText = "FEVP501 Dismissed Raw";
+    const unresolvedRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fevp501-unresolved-row"),
+        "timeline.occurred_at": "2026-06-06T15:00:00Z",
+        "timeline.summary": "FE-V-P5 unresolved chip state",
+        [hostRefsFieldKey]: collectionActionsPayload([unresolvedRawText]),
+      },
+    )) as ViewRow;
+    const resolvedRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fevp501-resolved-row"),
+        "timeline.occurred_at": "2026-06-06T15:05:00Z",
+        "timeline.summary": "FE-V-P5 resolved chip state",
+        [hostRefsFieldKey]: resolvedRefPayload(
+          resolvedRawText,
+          resolvedTarget.record_id,
+        ),
+      },
+    )) as ViewRow;
+    const manualRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fevp501-manual-row"),
+        "timeline.occurred_at": "2026-06-06T15:10:00Z",
+        "timeline.summary": "FE-V-P5 manual chip state",
+        [hostRefsFieldKey]: collectionActionsPayload([manualRawText]),
+      },
+    )) as ViewRow;
+    const autoRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fevp501-auto-row"),
+        "timeline.occurred_at": "2026-06-06T15:15:00Z",
+        "timeline.summary": "FE-V-P5 auto chip state",
+      },
+    )) as ViewRow;
+    const dismissedRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fevp501-dismissed-row"),
+        "timeline.occurred_at": "2026-06-06T15:20:00Z",
+        "timeline.summary": "FE-V-P5 dismissed chip state",
+        [hostRefsFieldKey]: collectionActionsPayload([dismissedRawText]),
+      },
+    )) as ViewRow;
+    const resolvedMention = requireItemByRawText(
+      collectionItems(resolvedRow, hostRefsFieldKey),
+      resolvedRawText,
+    );
+    const manualMention = requireItemByRawText(
+      collectionItems(manualRow, hostRefsFieldKey),
+      manualRawText,
+    );
+    const dismissedMention = requireItemByRawText(
+      collectionItems(dismissedRow, hostRefsFieldKey),
+      dismissedRawText,
+    );
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await maskIncidentIdentity(page, incidentId);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+
+    await expect(
+      page
+        .getByTestId(
+          relationshipItemsTestId(unresolvedRow.record_id, hostRefsFieldKey),
+        )
+        .getByLabel(`Unresolved ${unresolvedRawText}`),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByTestId(
+          relationshipItemsTestId(resolvedRow.record_id, hostRefsFieldKey),
+        )
+        .getByTestId(relationshipChipTestId(String(resolvedMention.item_ref))),
+    ).toContainText("FE-V-P5 Resolved Target");
+
+    await openTimelineInspector(page, manualRow.record_id);
+    await page
+      .getByTestId(mentionItemTestId(String(manualMention.item_ref)))
+      .click();
+    await page
+      .getByTestId(mentionResolveTargetSelectTestId())
+      .selectOption(manualTarget.record_id);
+    await page.getByTestId(mentionResolveExistingButtonTestId()).click();
+    await expect(
+      page
+        .getByTestId(
+          relationshipItemsTestId(manualRow.record_id, hostRefsFieldKey),
+        )
+        .getByTestId(relationshipChipTestId(String(manualMention.item_ref))),
+    ).toContainText("Manual");
+
+    const autoEnvelope = await addRelationshipTokenViaUI(
+      page,
+      autoRow.record_id,
+      "hostRefs",
+      autoRawText,
+    );
+    const autoItem = requireItemByRawText(
+      collectionItems(autoEnvelope.data.row, hostRefsFieldKey),
+      autoRawText,
+    );
+    await expect(
+      page
+        .getByTestId(
+          relationshipItemsTestId(autoRow.record_id, hostRefsFieldKey),
+        )
+        .getByTestId(relationshipChipTestId(String(autoItem.item_ref))),
+    ).toContainText("Auto");
+
+    await openTimelineInspector(page, dismissedRow.record_id);
+    await page
+      .getByTestId(mentionItemTestId(String(dismissedMention.item_ref)))
+      .click();
+    await page
+      .getByTestId(mentionResolveTargetSelectTestId())
+      .selectOption(manualTarget.record_id);
+    await page.getByTestId(mentionResolveExistingButtonTestId()).click();
+    await page.getByTestId(mentionDismissButtonTestId()).click();
+    await expect(
+      page
+        .getByTestId(mentionItemTestId(String(dismissedMention.item_ref)))
+        .getByLabel(`Dismissed ${dismissedRawText}`),
+    ).toBeVisible();
+
+    await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+      scroll: { top: 0, left: "left" },
+    });
+    await assertViewportVisualRegression(
+      page,
+      "fe-v-p5-01-mention-chip-states",
+    );
+  });
+});
+
 test.describe("Phase 4 workbook visual evidence", () => {
   test("V-4-GRID-01 captures Timeline unresolved and resolved mention chips in the workbook grid", async ({
     page,
@@ -707,11 +918,11 @@ test.describe("Phase 4 workbook visual evidence", () => {
       uniqueIncidentKey("V4GRID01"),
       "Phase 4 visual mention chips",
     );
-    await createViewRow(page, incidentId, hostsViewSchemaId, {
+    const hostRow = (await createViewRow(page, incidentId, hostsViewSchemaId, {
       client_txn_id: uniqueTxn("V4GRID01-HOST"),
       "host.display_name": "WS-023",
       "host.hostname": "ws-023.visual.example.test",
-    });
+    })) as ViewRow;
     const unresolvedRow = (await createViewRow(
       page,
       incidentId,
@@ -729,6 +940,7 @@ test.describe("Phase 4 workbook visual evidence", () => {
       {
         client_txn_id: uniqueTxn("V4GRID01-RESOLVED"),
         "timeline.summary": "Resolved mention visual row",
+        [hostRefsFieldKey]: resolvedRefPayload("WS-023", hostRow.record_id),
       },
     )) as ViewRow;
 
@@ -741,18 +953,12 @@ test.describe("Phase 4 workbook visual evidence", () => {
         )
         .getByLabel("Unresolved WS-023?"),
     ).toBeVisible();
-    await addRelationshipTokenViaUI(
-      page,
-      resolvedRow.record_id,
-      "hostRefs",
-      "WS-023",
-    );
     await expect(
       page
         .getByTestId(
           relationshipItemsTestId(resolvedRow.record_id, hostRefsFieldKey),
         )
-        .getByLabel("Resolved WS-023"),
+        .getByLabel(/^Resolved WS-023$/u),
     ).toBeVisible();
 
     await assertWorkbookGridVisualRegression(

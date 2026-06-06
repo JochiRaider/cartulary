@@ -50,18 +50,20 @@
     },
     {
       "fixture_id": "FE-VFIX-02",
-      "fixture_title": "Unresolved and resolved entity state",
-      "status": "missing",
+      "fixture_title": "Mention chip state matrix",
+      "status": "current",
       "owner_phase_ids": [
         "FE-P5"
       ],
       "owner_row_ids": [
         "FE-V-P5-01"
       ],
-      "playwright_scenario_title": "",
-      "golden_filename": "",
-      "golden_artifacts": [],
-      "seed_id": "",
+      "playwright_scenario_title": "FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution state fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p5-01-mention-chip-states-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p5-01-mention-chip-states-linux.png"
+      ],
+      "seed_id": "fe-vfix-02-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
@@ -73,15 +75,15 @@
       },
       "focus_state": {
         "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
+        "description": "Dismissed mention item is selected in the inspector; grid chip states remain visible in the viewport."
       },
       "editor_state": {
         "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
+        "description": "No active cell editor; relationship token inputs remain visible but unfocused before capture."
       },
       "inspector_state": {
         "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
+        "description": "Timeline inspector shows the dismissed mention state and restore control for the dismissed row."
       },
       "dynamic_masks": [
         "incident identifiers",
@@ -89,7 +91,7 @@
         "clock-derived labels when visible"
       ],
       "no_dynamic_regions": false,
-      "blocked_reason": "FE-V-P5-01 remains blocked because the current visual scenario and golden do not recapture unresolved, resolved, auto-resolved, dismissed, and manual-resolution chip states together.",
+      "blocked_reason": "",
       "replacement_fixture_id": ""
     },
     {

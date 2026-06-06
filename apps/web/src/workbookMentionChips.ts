@@ -128,7 +128,6 @@ function mentionChipAnchor({
 function mentionChipState({
   autoResolved,
   itemKind,
-  provenance,
   resolutionMethod,
   status,
 }: {
@@ -147,10 +146,7 @@ function mentionChipState({
   if (autoResolved) {
     return "auto-resolved";
   }
-  if (
-    resolutionMethod === "explicit_resolve_route" ||
-    provenance === "manual"
-  ) {
+  if (resolutionMethod === "explicit_resolve_route") {
     return "manual-resolution";
   }
   return "resolved";

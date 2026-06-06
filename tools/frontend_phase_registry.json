@@ -23,8 +23,8 @@
       "depends_on": [],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "f2f4cc12eae88e9651b9656e1daa227bebb5e8d8f5c64af7f7926b9bf701a36d",
-      "manifest_digest": "dd0217c3e00f7727f6bab6d1756afe823d65214b95b7da0045c06f29410a97f7",
+      "evidence_freshness_digest": "14e15c6483e38b264c164f96e1bd9e2b0d5816e23c9dd032f1ce8a643418fa99",
+      "manifest_digest": "1059ea9dfa098529538d4f4c38bde82a48724ccb66d3317ec6c03bbabb3892a9",
       "ledger_digest": "279b40af49d438019cc6678cbc2ef92426c0eb70e919cd9a5c5b4b9778df2a30"
     },
     {
@@ -49,8 +49,8 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "07623c1109a67912e3b65e3ec7d0bb041a62aedbe513dd1a7d8fa9a7693a285c",
-      "manifest_digest": "8cb368674d57a960001bd7760e31e5063f2d4e21303a15d3bbab4168452b4f5e",
+      "evidence_freshness_digest": "f95a30a327cff4ddf2b70a4b9c38af59655da7c682150f9c0cd763a7ca451a24",
+      "manifest_digest": "655c0252665b6c27f79ce943d6d322316bd35d6784f33d101d08d0470d10ba1b",
       "ledger_digest": "b605fb463feccf4372c81ed4aa6acfb82e20b054366c45591b62ac36ddeadeb6"
     },
     {
@@ -76,8 +76,8 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "860e357857653838c9d57c5c1a209f14d6f4c5af4aa8667bf56c88988fb494e8",
-      "manifest_digest": "444f4c4746a925c4bd0a939e976a3b3528c1af99822f20db9ee0fcec866be577",
+      "evidence_freshness_digest": "2f8857d4f4b59090360ef441dcac09c32e0c4342b0613c670e1345f5155b6de9",
+      "manifest_digest": "521bcee297495ec42d67172db8606b41c27dcbbdc0800b60ce747080830e44e7",
       "ledger_digest": "5a51d68b0dff875fb790154e04335bd9c1dda979fe713406adb5afdc32373950"
     },
     {
@@ -104,8 +104,8 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "40248a3b24a0fc4fa7e2d50c2b40f132037daee48cbd1bb07609f626e13d50a6",
-      "manifest_digest": "1c2d0bec72c36ee76e4d62f9ee1be1a6670c0503dcfbb4fb278c928c93376b7d",
+      "evidence_freshness_digest": "eb0766189c372b12bb96305b9468ceee75ea5b2a4e201001e06f9e6c1b29644a",
+      "manifest_digest": "e3ec3193cfaa6a4c56a31090e202b3393654325417a6dc00839a1c1480a49bf7",
       "ledger_digest": "9c2bfa0d8549fb9d5c55b874dae1f3df2035683f12129322d9c242a13d4930d7"
     },
     {
@@ -133,13 +133,13 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "a12f565416b001a2a5933de92c04a4270fd76e20af4275c3a47e37efc53afd1b",
-      "manifest_digest": "735e7a2c5457e27ee544c7891abb303f2290bab1b991c74409292651e0cfff84",
+      "evidence_freshness_digest": "36fb981512bb135a337a7970431ff7f6586a3293861c0484e7c04a84a42056b1",
+      "manifest_digest": "feed308e9354ccf6f094b7e379c357f3f969751f517ad6b0e8649bb29b5e1349",
       "ledger_digest": "afef608db7f600e9d8fdb07c370039cd9e1ba816b636f29efaeaabc70f0251f7"
     },
     {
       "phase_id": "FE-P5",
-      "status": "planned",
+      "status": "active",
       "manifest_path": "tools/frontend_phase_maps/fe_p5_test_map.json",
       "ledger_path": "docs/testing/frontend_phase_coverage_ledgers/fe_p5_coverage_ledger.md",
       "owner_refs": [
@@ -161,18 +161,11 @@
         "FE-P3",
         "FE-P4"
       ],
-      "row_rollup_state": "partially_implemented",
-      "activation_blockers": [
-        {
-          "blocker_id": "FE-P5-ACTIVATION-BLOCKER-01",
-          "reason_code": "frontend_phase_not_active",
-          "description": "Frontend phase is not active until direct row evidence and freshness validation are promoted together.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ],
-      "evidence_freshness_digest": "f08831ce2773daad46bc1b92ce00dec3b2562de5ea34a1b9fbc9d0eb6dd399e0",
-      "manifest_digest": "166b30feb64f59480d02ef276c6fead13e15c0422c1589211240ae8b38704174",
-      "ledger_digest": "366727432f00b3f4885a99f2ada30522eb6dbb4509b098fb813bd5d90bd56a33"
+      "row_rollup_state": "active_green",
+      "activation_blockers": [],
+      "evidence_freshness_digest": "b8ddc777526dceb15bbb6b06d5f40cda1da2a8bfa8907a3314ea043151f8ea21",
+      "manifest_digest": "ec71ebd7c7be36aafd6d8b32c21ed739d3d6b77b8c298cda5c00f539bd7306e2",
+      "ledger_digest": "49a75ebe5e6b97b2a736407e89158111cb6c57358dfc315e4b4dbcd40b740aab"
     },
     {
       "phase_id": "FE-P6",
@@ -208,8 +201,8 @@
           "resolution_owner": "frontend_phase_owner"
         }
       ],
-      "evidence_freshness_digest": "9e5bea20ea5e6d4d9670661160fc8040f68ed6a84f453151c98a75fccbe16dcd",
-      "manifest_digest": "4e1541b549179f736ab26db5094ba03467551aac357a8de4d7a6cf32e9b59447",
+      "evidence_freshness_digest": "aa6212e114d624b502f03bd224c24fe1f83943d2fd7b7a543b8f9c0c138df34f",
+      "manifest_digest": "b046cfca3edf5fb1a773a7b3e0eb2001977fa42764728bb33dcf5873bd904d36",
       "ledger_digest": "ac80524fed543c24a177bdce0c7824d90288811be11f25f5cc5104748d8e7be3"
     },
     {
@@ -247,8 +240,8 @@
           "resolution_owner": "frontend_phase_owner"
         }
       ],
-      "evidence_freshness_digest": "a5a1f091d95502f91934739447e18eeeefcb3d26119e87258f3402bc6e0b568e",
-      "manifest_digest": "9443c1d4689b089c9d3684fceb26f60af8b11928e59755068e255498f6187b9f",
+      "evidence_freshness_digest": "a261e3d3e35f7babddf5bf83bd7def25f2e566d55e2970d926a5152ed0a37b36",
+      "manifest_digest": "dc7033bcc736b3e8df170a95eb60a503f1b2c8ea7d7389e5268244a0a88ac5d0",
       "ledger_digest": "3a8afdfc9dc119088ba3a04888b04d2feb68641267926a4565e8d03efb8aa4d3"
     },
     {
@@ -287,8 +280,8 @@
           "resolution_owner": "frontend_phase_owner"
         }
       ],
-      "evidence_freshness_digest": "3406c88c41009316f3c3636fcbda8b02f44f8d169d0cb6b65bae52ca4411d822",
-      "manifest_digest": "1c178ddc9baddefc244a92c97d536f9966fc88af1814d5bca240472b2cfdfc03",
+      "evidence_freshness_digest": "7c3b6605c0a9900e706a35f791a52d691bf90648831e39107d4e675d670e2f3c",
+      "manifest_digest": "e745575f4c30037d68baf778c7317c8b4e83f72c6953ee12744f0b6f54a0618a",
       "ledger_digest": "d18408e2b4dec27fe959f4338077c61cc5473e83f99eb5e1d6c2612404fbe8e1"
     },
     {
@@ -328,8 +321,8 @@
           "resolution_owner": "frontend_phase_owner"
         }
       ],
-      "evidence_freshness_digest": "bac8a5ed73c49ecd72ff49af679e1d58bf439d03c4589e0a9ed78159263e4e1e",
-      "manifest_digest": "76f8becd4b42ee26f072b3e36818c9d3e549cb9693b589589001b7fbb221363d",
+      "evidence_freshness_digest": "b2fd92e31cb9ccfdcb3efa1da932896936a8b70bf6efd4b0e26c7dc092540941",
+      "manifest_digest": "ee06845c1830aab0e01618ca024a105076f76cf81f46c9cda2e28d1fd0a085c2",
       "ledger_digest": "ccab8974ebfff0e80eacf106b6bf9d4ef10afc7daae824b2d73c520fae116e6e"
     },
     {
@@ -370,8 +363,8 @@
           "resolution_owner": "frontend_phase_owner"
         }
       ],
-      "evidence_freshness_digest": "0455ebf0da06627cf9682491ad5c952dd2e41d231e7ea3910cb87286e99fcb70",
-      "manifest_digest": "c67c777a6f94e42d577a5243d7590d1892b9880e1c37b4a7b2430beea9bd7f41",
+      "evidence_freshness_digest": "1c6f59fd0fdaea4675134e6229080b6c0716362b993a10390e9e8a09042444da",
+      "manifest_digest": "3d289d60f62c23a772ca683a19805ce5fc267ac92d3718831cca0726a7908ddc",
       "ledger_digest": "de0ee90808402ff463b5dbdcbc34f0f04fb2e3d2230f215886956c3a20d5ecb5"
     },
     {
@@ -413,11 +406,11 @@
           "resolution_owner": "frontend_phase_owner"
         }
       ],
-      "evidence_freshness_digest": "758c47c71dbb474c6c5074668834086efdaa30249d86d9f115ab49a97715a113",
-      "manifest_digest": "ad745f3362d59acb71f925c48f38f33b7642b72388b66cd28fb42913846b563e",
+      "evidence_freshness_digest": "16435c7d1c823d418f0b056874792d3606f558e38571ae6ef542b311182bbb40",
+      "manifest_digest": "c273248b094842bb63eadce281b5066ba7c02757c39c5e122241a69accb0203d",
       "ledger_digest": "1baa338199c4ed706fbb4dc6ca5b42652a657283ce06a6719d8e082cd1486313"
     }
   ],
   "schema_version": 2,
-  "guide_digest": "abdbede4f7f75a45a0a54e689763af29adfb38d1653946f924d13264b0c6e585"
+  "guide_digest": "04b175f502b51ffb461889e831006e785860e4419a7e1e668415527796545faf"
 }
