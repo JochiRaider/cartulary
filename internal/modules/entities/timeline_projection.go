@@ -67,6 +67,7 @@ type projectedMentionItem struct {
 	SourceFieldKey   string
 	RawText          string
 	ResolutionStatus string
+	RowVersion       int64
 	ResolvedRecordID *uuid.UUID
 	ResolutionMethod *string
 }
@@ -167,7 +168,7 @@ func hydrateTimelineCollections(ctx context.Context, querier mentionQueryer, rec
 		return nil
 	}
 	rows, err := querier.Query(ctx, `
-SELECT entity_mention_id, entity_type, source_field_key, raw_text, resolution_status, resolved_record_id, resolution_method, ordinal
+SELECT entity_mention_id, entity_type, source_field_key, raw_text, resolution_status, row_version, resolved_record_id, resolution_method, ordinal
   FROM entity_mentions
  WHERE source_record_id = $1
    AND resolution_status IN ('unresolved', 'resolved')
@@ -185,11 +186,12 @@ SELECT entity_mention_id, entity_type, source_field_key, raw_text, resolution_st
 			sourceFieldKey   string
 			rawText          string
 			resolutionStatus string
+			rowVersion       int64
 			resolvedRecordID pgtype.UUID
 			resolutionMethod pgtype.Text
 			ordinal          int
 		)
-		if err := rows.Scan(&mentionID, &entityType, &sourceFieldKey, &rawText, &resolutionStatus, &resolvedRecordID, &resolutionMethod, &ordinal); err != nil {
+		if err := rows.Scan(&mentionID, &entityType, &sourceFieldKey, &rawText, &resolutionStatus, &rowVersion, &resolvedRecordID, &resolutionMethod, &ordinal); err != nil {
 			rows.Close()
 			return fmt.Errorf("scan timeline mention collection row: %w", err)
 		}
@@ -199,6 +201,7 @@ SELECT entity_mention_id, entity_type, source_field_key, raw_text, resolution_st
 			SourceFieldKey:   sourceFieldKey,
 			RawText:          rawText,
 			ResolutionStatus: resolutionStatus,
+			RowVersion:       rowVersion,
 		}
 		if resolvedRecordID.Valid {
 			resolved := uuid.Must(uuid.FromBytes(resolvedRecordID.Bytes[:]))
@@ -221,10 +224,11 @@ SELECT entity_mention_id, entity_type, source_field_key, raw_text, resolution_st
 	hasUnresolved := false
 	for _, mention := range mentions {
 		item := map[string]any{
-			"item_ref":     "entity_mention:" + mention.MentionID.String(),
-			"entity_type":  mention.EntityType,
-			"display_text": mention.RawText,
-			"raw_text":     mention.RawText,
+			"item_ref":            "entity_mention:" + mention.MentionID.String(),
+			"entity_type":         mention.EntityType,
+			"display_text":        mention.RawText,
+			"raw_text":            mention.RawText,
+			"mention_row_version": mention.RowVersion,
 		}
 		if mention.ResolutionStatus == "resolved" && mention.ResolvedRecordID != nil {
 			item["item_kind"] = "resolved_ref"

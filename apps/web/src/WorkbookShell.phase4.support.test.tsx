@@ -42,7 +42,10 @@ import {
   buildInspectorMentions,
   readCollectionItems,
 } from "./workbookMentionChips";
-import { buildMentionPatchPayload } from "./workbookShellPhase4";
+import {
+  buildMentionActionPayload,
+  buildMentionPatchPayload,
+} from "./workbookShellPhase4";
 
 // Support-only mocked component coverage for Phase 4 workbook helpers.
 // This file is not authoritative Phase 4 evidence.
@@ -65,6 +68,7 @@ describe("Support Phase 4 workbook helpers", () => {
                   display_text: "VPN Gateway",
                   raw_text: " vpn   gateway ",
                   resolved_record_id: "host-1",
+                  mention_row_version: 11,
                   resolution_method: "auto_match",
                   auto_resolved: true,
                   provenance: "auto_match",
@@ -78,6 +82,7 @@ describe("Support Phase 4 workbook helpers", () => {
                   display_text: "WS-023",
                   raw_text: "WS-023",
                   resolved_record_id: "host-2",
+                  mention_row_version: 12,
                   resolution_method: "explicit_resolve_route",
                   auto_resolved: false,
                   provenance: "manual",
@@ -99,6 +104,7 @@ describe("Support Phase 4 workbook helpers", () => {
         displayText: "VPN Gateway",
         rawText: " vpn   gateway ",
         resolvedRecordId: "host-1",
+        mentionRowVersion: 11,
         resolutionMethod: "auto_match",
         autoResolved: true,
         provenance: "auto_match",
@@ -112,6 +118,7 @@ describe("Support Phase 4 workbook helpers", () => {
         displayText: "WS-023",
         rawText: "WS-023",
         resolvedRecordId: "host-2",
+        mentionRowVersion: 12,
         resolutionMethod: "explicit_resolve_route",
         autoResolved: false,
         provenance: "manual",
@@ -121,14 +128,13 @@ describe("Support Phase 4 workbook helpers", () => {
     ]);
   });
 
-  it("builds resolve, dismiss, and revert mention payloads from the same internal contract", () => {
+  it("builds create-from-mention patch payloads and mention route action payloads", () => {
     expect(
       buildMentionPatchPayload(
         { rowVersion: 7 },
         { itemRef: "mention-host-auto", fieldKey: "timeline.host_refs" },
         "resolve_item",
         "timeline-client-7",
-        "host-1",
       ),
     ).toEqual({
       view_schema_id: timelineViewSchemaId,
@@ -143,7 +149,6 @@ describe("Support Phase 4 workbook helpers", () => {
               {
                 op: "resolve_item",
                 item_ref: "mention-host-auto",
-                resolved_record_id: "host-1",
               },
             ],
           },
@@ -151,57 +156,47 @@ describe("Support Phase 4 workbook helpers", () => {
       ],
     });
     expect(
-      buildMentionPatchPayload(
-        { rowVersion: 7 },
-        { itemRef: "mention-host-auto", fieldKey: "timeline.host_refs" },
-        "dismiss_item",
+      buildMentionActionPayload(
+        { mentionRowVersion: 13 },
+        "resolve_item",
         "timeline-client-8",
+        "host-1",
       ),
     ).toEqual({
-      view_schema_id: timelineViewSchemaId,
-      base_row_version: 7,
+      base_mention_row_version: 13,
       client_txn_id: "timeline-client-8",
-      changes: [
-        {
-          field_key: "timeline.host_refs",
-          action_payload: {
-            kind: "collection_actions_v1",
-            actions: [
-              {
-                op: "dismiss_item",
-                item_ref: "mention-host-auto",
-              },
-            ],
-          },
-        },
-      ],
+      action: "resolve_item",
+      resolved_record_id: "host-1",
     });
     expect(
-      buildMentionPatchPayload(
-        { rowVersion: 7 },
-        { itemRef: "mention-host-auto", fieldKey: "timeline.host_refs" },
-        "revert_to_unresolved",
+      buildMentionActionPayload(
+        { mentionRowVersion: 14 },
+        "dismiss_item",
         "timeline-client-9",
       ),
     ).toEqual({
-      view_schema_id: timelineViewSchemaId,
-      base_row_version: 7,
+      base_mention_row_version: 14,
       client_txn_id: "timeline-client-9",
-      changes: [
-        {
-          field_key: "timeline.host_refs",
-          action_payload: {
-            kind: "collection_actions_v1",
-            actions: [
-              {
-                op: "revert_to_unresolved",
-                item_ref: "mention-host-auto",
-              },
-            ],
-          },
-        },
-      ],
+      action: "dismiss_item",
     });
+    expect(
+      buildMentionActionPayload(
+        { mentionRowVersion: 15 },
+        "revert_to_unresolved",
+        "timeline-client-10",
+      ),
+    ).toEqual({
+      base_mention_row_version: 15,
+      client_txn_id: "timeline-client-10",
+      action: "revert_to_unresolved",
+    });
+    expect(
+      buildMentionActionPayload(
+        { mentionRowVersion: null },
+        "revert_to_unresolved",
+        "timeline-client-11",
+      ),
+    ).toBeNull();
   });
 
   it("builds inspector mentions and auto-resolution notices from row deltas", () => {
@@ -217,6 +212,7 @@ describe("Support Phase 4 workbook helpers", () => {
             displayText: "Alex Analyst",
             rawText: "alex.analyst@example.test",
             resolvedRecordId: "identity-1",
+            mentionRowVersion: 21,
             resolutionMethod: "explicit_resolve_route",
             autoResolved: false,
             provenance: "manual",
@@ -237,6 +233,7 @@ describe("Support Phase 4 workbook helpers", () => {
             displayText: "VPN Gateway",
             rawText: " vpn   gateway ",
             resolvedRecordId: "host-1",
+            mentionRowVersion: 22,
             resolutionMethod: "auto_match",
             autoResolved: true,
             provenance: "auto_match",
@@ -269,6 +266,7 @@ describe("Support Phase 4 workbook helpers", () => {
           itemRef: "mention-host-dismissed",
           rawText: "WS-023",
           resolvedRecordId: "host-2",
+          mentionRowVersion: 23,
           resolutionMethod: "explicit_resolve_route",
           autoResolved: false,
         },
@@ -281,6 +279,7 @@ describe("Support Phase 4 workbook helpers", () => {
         itemRef: "mention-host-auto",
         rawText: " vpn   gateway ",
         resolvedRecordId: "host-1",
+        mentionRowVersion: 22,
         resolutionMethod: "auto_match",
         autoResolved: true,
         status: "resolved",
@@ -307,6 +306,7 @@ describe("Support Phase 4 workbook helpers", () => {
         itemRef: "mention-identity-manual",
         rawText: "alex.analyst@example.test",
         resolvedRecordId: "identity-1",
+        mentionRowVersion: 21,
         resolutionMethod: "explicit_resolve_route",
         autoResolved: false,
         status: "resolved",
@@ -333,6 +333,7 @@ describe("Support Phase 4 workbook helpers", () => {
         itemRef: "mention-host-dismissed",
         rawText: "WS-023",
         resolvedRecordId: null,
+        mentionRowVersion: 23,
         resolutionMethod: "explicit_resolve_route",
         autoResolved: false,
         status: "dismissed",
@@ -477,7 +478,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
             captureState: "reviewed",
             hostRefs: [
               unresolvedItem({
-                itemRef: "host-unresolved",
+                itemRef: "entity_mention:11111111-1111-4111-8111-000000000401",
                 entityType: "host",
                 rawText: "WS-023?",
               }),
@@ -488,16 +489,38 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        view_schema_id: timelineViewSchemaId,
+        incident_id: "incident-1",
+        entity_mention: {
+          entity_mention_id: "11111111-1111-4111-8111-000000000401",
+          source_record_id: "record-1",
+          source_field_key: "timeline.host_refs",
+          entity_type: "host",
+          raw_text: "WS-023?",
+          resolution_status: "resolved",
+          resolved_record_id: "host-1",
+          row_version: 2,
+          resolution_method: "explicit_resolve_route",
+        },
+        source_record: {
+          record_id: "record-1",
+          row_version: 2,
+        },
         change_set_id: "change-set-resolve",
-        row: timelineRow({
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
           recordId: "record-1",
           rowVersion: 2,
           summary: "Alpha",
           captureState: "reviewed",
           hostRefs: [
             resolvedItem({
-              itemRef: "host-unresolved",
+              itemRef: "entity_mention:11111111-1111-4111-8111-000000000401",
               entityType: "host",
               rawText: "WS-023?",
               displayText: "WS-023",
@@ -506,9 +529,11 @@ describe("Support Phase 4 TimelineWorkbook", () => {
               autoResolved: false,
               provenance: "manual",
               confidence: null,
+              mentionRowVersion: 2,
             }),
           ],
-        }),
+          }),
+        ],
       }),
     );
 
@@ -524,7 +549,11 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     fireEvent.click(
       await screen.findByTestId(rowInspectButtonTestId("record-1")),
     );
-    fireEvent.click(screen.getByTestId(mentionItemTestId("host-unresolved")));
+    fireEvent.click(
+      screen.getByTestId(
+        mentionItemTestId("entity_mention:11111111-1111-4111-8111-000000000401"),
+      ),
+    );
     const preservedScroll = setTimelineGridScroll(240, 140);
     fireEvent.change(screen.getByTestId(mentionResolveTargetSelectTestId()), {
       target: { value: "host-1" },
@@ -532,14 +561,26 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     fireEvent.click(screen.getByTestId(mentionResolveExistingButtonTestId()));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
     });
     await expectTimelineFocusAndScroll("record-1", preservedScroll);
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
+      "/api/v1/entity-mentions/11111111-1111-4111-8111-000000000401/resolve",
+    );
+    expect(extractTimelineJSONBody(fetchMock, 1)).toMatchObject({
+      base_mention_row_version: 1,
+      action: "resolve_item",
+      resolved_record_id: "host-1",
+    });
+    await waitFor(() => {
       expect(
         screen
-          .getByTestId(relationshipItemsTestId("record-1", "timeline.host_refs"))
+          .getByTestId(
+            relationshipItemsTestId("record-1", "timeline.host_refs"),
+          )
           .querySelector('[aria-label="Resolved WS-023"]'),
       ).toBeTruthy();
+    });
   });
 
   it("preserves continuity through create-from-mention entity refresh rerenders", async () => {
@@ -758,6 +799,8 @@ describe("Support Phase 4 TimelineWorkbook", () => {
   });
 
   it("sends auto-resolution Undo with the current post-resolution row version", async () => {
+    const mentionItemRef =
+      "entity_mention:11111111-1111-4111-8111-000000000404";
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -783,7 +826,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
           captureState: "reviewed",
           hostRefs: [
             resolvedItem({
-              itemRef: "mention-host-auto",
+              itemRef: mentionItemRef,
               entityType: "host",
               rawText: " vpn   gateway ",
               displayText: "Gateway node",
@@ -799,21 +842,45 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        view_schema_id: timelineViewSchemaId,
+        incident_id: "incident-1",
+        entity_mention: {
+          entity_mention_id: "11111111-1111-4111-8111-000000000404",
+          source_record_id: "record-1",
+          source_field_key: "timeline.host_refs",
+          entity_type: "host",
+          raw_text: " vpn   gateway ",
+          resolution_status: "unresolved",
+          resolved_record_id: null,
+          row_version: 2,
+          resolution_method: null,
+        },
+        source_record: {
+          record_id: "record-1",
+          row_version: 3,
+        },
         change_set_id: "change-set-auto-undo",
-        row: timelineRow({
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
           recordId: "record-1",
           rowVersion: 3,
           summary: "Alpha",
           captureState: "reviewed",
           hostRefs: [
             unresolvedItem({
-              itemRef: "mention-host-auto",
+              itemRef: mentionItemRef,
               entityType: "host",
               rawText: " vpn   gateway ",
+              mentionRowVersion: 2,
             }),
           ],
-        }),
+          }),
+        ],
       }),
     );
 
@@ -830,36 +897,24 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     fireEvent.keyDown(relationshipInput, { key: "Enter" });
 
     const notice = await screen.findByTestId(
-      autoResolutionNoticeTestId("mention-host-auto"),
+      autoResolutionNoticeTestId(mentionItemRef),
     );
     fireEvent.click(
-      within(notice).getByTestId(
-        autoResolutionUndoButtonTestId("mention-host-auto"),
-      ),
+      within(notice).getByTestId(autoResolutionUndoButtonTestId(mentionItemRef)),
     );
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenCalledTimes(4);
     });
     expect(
-      screen.queryByTestId(autoResolutionNoticeTestId("mention-host-auto")),
+      screen.queryByTestId(autoResolutionNoticeTestId(mentionItemRef)),
     ).toBeNull();
+    expect(String(fetchMock.mock.calls[2]?.[0])).toContain(
+      "/api/v1/entity-mentions/11111111-1111-4111-8111-000000000404/resolve",
+    );
     expect(extractTimelineJSONBody(fetchMock, 2)).toMatchObject({
-      base_row_version: 2,
-      changes: [
-        {
-          field_key: "timeline.host_refs",
-          action_payload: {
-            kind: "collection_actions_v1",
-            actions: [
-              {
-                op: "revert_to_unresolved",
-                item_ref: "mention-host-auto",
-              },
-            ],
-          },
-        },
-      ],
+      base_mention_row_version: 1,
+      action: "revert_to_unresolved",
     });
   });
 
@@ -1195,6 +1250,8 @@ describe("Support Phase 4 TimelineWorkbook", () => {
   });
 
   it("renders a dismissed mention restore action after the dismiss flow completes", async () => {
+    const mentionId = "11111111-1111-4111-8111-000000000402";
+    const mentionItemRef = `entity_mention:${mentionId}`;
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -1207,7 +1264,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
             captureState: "reviewed",
             hostRefs: [
               resolvedItem({
-                itemRef: "mention-host-resolved",
+                itemRef: mentionItemRef,
                 entityType: "host",
                 rawText: "WS-023",
                 displayText: "WS-023",
@@ -1223,35 +1280,62 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       }),
     );
     fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-dismiss",
-        row: timelineRow({
-          recordId: "record-1",
-          rowVersion: 2,
-          summary: "Alpha",
-          captureState: "reviewed",
-          hostRefs: [],
-        }),
+      mentionActionEnvelope({
+        actionStatus: "dismissed",
+        mentionId,
+        rawText: "WS-023",
+        resolvedRecordId: null,
+        sourceRowVersion: 2,
+        mentionRowVersion: 2,
+        resolutionMethod: "explicit_resolve_route",
       }),
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
+        incident_id: "incident-1",
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-restore",
-        row: timelineRow({
-          recordId: "record-1",
-          rowVersion: 3,
-          summary: "Alpha",
-          captureState: "reviewed",
-          hostRefs: [
-            unresolvedItem({
-              itemRef: "mention-host-resolved",
-              entityType: "host",
-              rawText: "WS-023",
-            }),
-          ],
-        }),
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 2,
+            summary: "Alpha",
+            captureState: "reviewed",
+            hostRefs: [],
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      mentionActionEnvelope({
+        actionStatus: "unresolved",
+        mentionId,
+        rawText: "WS-023",
+        resolvedRecordId: null,
+        sourceRowVersion: 3,
+        mentionRowVersion: 3,
+        resolutionMethod: null,
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 3,
+            summary: "Alpha",
+            captureState: "reviewed",
+            hostRefs: [
+              unresolvedItem({
+                itemRef: mentionItemRef,
+                entityType: "host",
+                rawText: "WS-023",
+                mentionRowVersion: 3,
+              }),
+            ],
+          }),
+        ],
       }),
     );
 
@@ -1267,7 +1351,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     fireEvent.click(screen.getByTestId(mentionDismissButtonTestId()));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
     });
     await expectTimelineFocusAndScroll("record-1", dismissScroll);
     expect(
@@ -1279,17 +1363,23 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     fireEvent.click(screen.getByTestId(mentionRestoreUnresolvedButtonTestId()));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenCalledTimes(5);
     });
     await expectTimelineFocusAndScroll("record-1", restoreScroll);
-    expect(
-      screen
-        .getByTestId(relationshipItemsTestId("record-1", "timeline.host_refs"))
-        .querySelector('[aria-label="Unresolved WS-023"]'),
-    ).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        screen
+          .getByTestId(
+            relationshipItemsTestId("record-1", "timeline.host_refs"),
+          )
+          .querySelector('[aria-label="Unresolved WS-023"]'),
+      ).toBeTruthy();
+    });
   });
 
   it("reveals a vertically clipped inspect action through dismiss and restore continuity", async () => {
+    const mentionId = "11111111-1111-4111-8111-000000000403";
+    const mentionItemRef = `entity_mention:${mentionId}`;
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -1302,7 +1392,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
             captureState: "reviewed",
             hostRefs: [
               resolvedItem({
-                itemRef: "mention-host-resolved",
+                itemRef: mentionItemRef,
                 entityType: "host",
                 rawText: "WS-023",
                 displayText: "WS-023",
@@ -1318,35 +1408,62 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       }),
     );
     fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-dismiss",
-        row: timelineRow({
-          recordId: "record-1",
-          rowVersion: 2,
-          summary: "Alpha",
-          captureState: "reviewed",
-          hostRefs: [],
-        }),
+      mentionActionEnvelope({
+        actionStatus: "dismissed",
+        mentionId,
+        rawText: "WS-023",
+        resolvedRecordId: null,
+        sourceRowVersion: 2,
+        mentionRowVersion: 2,
+        resolutionMethod: "explicit_resolve_route",
       }),
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
+        incident_id: "incident-1",
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-restore",
-        row: timelineRow({
-          recordId: "record-1",
-          rowVersion: 3,
-          summary: "Alpha",
-          captureState: "reviewed",
-          hostRefs: [
-            unresolvedItem({
-              itemRef: "mention-host-resolved",
-              entityType: "host",
-              rawText: "WS-023",
-            }),
-          ],
-        }),
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 2,
+            summary: "Alpha",
+            captureState: "reviewed",
+            hostRefs: [],
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      mentionActionEnvelope({
+        actionStatus: "unresolved",
+        mentionId,
+        rawText: "WS-023",
+        resolvedRecordId: null,
+        sourceRowVersion: 3,
+        mentionRowVersion: 3,
+        resolutionMethod: null,
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 3,
+            summary: "Alpha",
+            captureState: "reviewed",
+            hostRefs: [
+              unresolvedItem({
+                itemRef: mentionItemRef,
+                entityType: "host",
+                rawText: "WS-023",
+                mentionRowVersion: 3,
+              }),
+            ],
+          }),
+        ],
       }),
     );
 
@@ -1376,7 +1493,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     fireEvent.click(screen.getByTestId(mentionDismissButtonTestId()));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
     });
     await expectTimelineFocusAndScroll("record-1", dismissScroll, {
       expectedTop: 350,
@@ -1391,17 +1508,21 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     fireEvent.click(screen.getByTestId(mentionRestoreUnresolvedButtonTestId()));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenCalledTimes(5);
     });
     await expectTimelineFocusAndScroll("record-1", restoreScroll, {
       expectedTop: 350,
       requireVisibleWithinGrid: true,
     });
-    expect(
-      screen
-        .getByTestId(relationshipItemsTestId("record-1", "timeline.host_refs"))
-        .querySelector('[aria-label="Unresolved WS-023"]'),
-    ).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        screen
+          .getByTestId(
+            relationshipItemsTestId("record-1", "timeline.host_refs"),
+          )
+          .querySelector('[aria-label="Unresolved WS-023"]'),
+      ).toBeTruthy();
+    });
   });
 
   it("suppresses self-originated websocket invalidations and reloads for external ones", async () => {
@@ -1511,6 +1632,7 @@ function resolvedItem({
   rawText,
   displayText,
   resolvedRecordId,
+  mentionRowVersion = 1,
   resolutionMethod,
   autoResolved,
   provenance,
@@ -1522,6 +1644,7 @@ function resolvedItem({
   rawText: string;
   displayText: string;
   resolvedRecordId: string;
+  mentionRowVersion?: number;
   resolutionMethod: string;
   autoResolved: boolean;
   provenance: string;
@@ -1535,6 +1658,7 @@ function resolvedItem({
     display_text: displayText,
     raw_text: rawText,
     resolved_record_id: resolvedRecordId,
+    mention_row_version: mentionRowVersion,
     resolution_method: resolutionMethod,
     auto_resolved: autoResolved,
     provenance,
@@ -1543,14 +1667,54 @@ function resolvedItem({
   };
 }
 
+function mentionActionEnvelope({
+  actionStatus,
+  mentionId,
+  rawText,
+  resolvedRecordId,
+  sourceRowVersion,
+  mentionRowVersion,
+  resolutionMethod,
+}: {
+  actionStatus: "dismissed" | "resolved" | "unresolved";
+  mentionId: string;
+  rawText: string;
+  resolvedRecordId: string | null;
+  sourceRowVersion: number;
+  mentionRowVersion: number;
+  resolutionMethod: string | null;
+}) {
+  return successEnvelope({
+    incident_id: "incident-1",
+    entity_mention: {
+      entity_mention_id: mentionId,
+      source_record_id: "record-1",
+      source_field_key: "timeline.host_refs",
+      entity_type: "host",
+      raw_text: rawText,
+      resolution_status: actionStatus,
+      resolved_record_id: resolvedRecordId,
+      row_version: mentionRowVersion,
+      resolution_method: resolutionMethod,
+    },
+    source_record: {
+      record_id: "record-1",
+      row_version: sourceRowVersion,
+    },
+    change_set_id: `change-set-${actionStatus}`,
+  });
+}
+
 function unresolvedItem({
   itemRef,
   entityType,
   rawText,
+  mentionRowVersion = 1,
 }: {
   itemRef: string;
   entityType: "host" | "identity";
   rawText: string;
+  mentionRowVersion?: number;
 }) {
   return {
     item_ref: itemRef,
@@ -1558,6 +1722,7 @@ function unresolvedItem({
     item_kind: "unresolved_mention",
     display_text: rawText,
     raw_text: rawText,
+    mention_row_version: mentionRowVersion,
   };
 }
 

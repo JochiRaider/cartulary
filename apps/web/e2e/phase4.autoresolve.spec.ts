@@ -1,4 +1,5 @@
 import { scrollGridToBottom } from "@cartulary/test-utils";
+import type { Page, Response } from "@playwright/test";
 import {
   autoResolutionNoticeFamilySelector,
   autoResolutionNoticeTestId,
@@ -142,15 +143,16 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
   await expectTimelineContinuity(page, eligibleRow.record_id, autoScroll);
 
   const undoScroll = await scrollGridToBottom(page, timelineViewSchemaId);
-  const undoResponsePromise = waitForTimelinePatch(page, eligibleRow.record_id);
+  const undoResponsePromise = waitForMentionAction(
+    page,
+    eligibleItem.item_ref,
+  );
   await autoNotice
     .getByTestId(autoResolutionUndoButtonTestId(String(eligibleItem.item_ref)))
     .click();
-  const undoEnvelope = await readTimelineMutation(await undoResponsePromise);
-  const undoneItem = requireItemByRawText(
-    collectionItems(undoEnvelope.data.row, hostRefsFieldKey),
-    " vpn   gateway ",
-  );
+  const undoResponse = await undoResponsePromise;
+  const undoEnvelope = await readMentionAction(undoResponse);
+  const undoBody = readMentionActionRequest(undoResponse);
 
   await expect(autoNotice).toHaveCount(0);
   await expect(eligibleRowItems.getByTestId(eligibleChipId)).not.toContainText(
@@ -160,6 +162,14 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     page.getByTestId(rowInspectButtonTestId(eligibleRow.record_id)),
   ).toBeFocused();
   await expectTimelineContinuity(page, eligibleRow.record_id, undoScroll);
+  expect(undoBody).toMatchObject({
+    base_mention_row_version: eligibleItem.mention_row_version,
+    action: "revert_to_unresolved",
+  });
+  expect(undoBody).not.toHaveProperty("resolved_record_id");
+  expect(undoEnvelope.data.entity_mention.resolution_status).toBe(
+    "unresolved",
+  );
 
   const suppressedTokens = [
     "WS-023",
@@ -216,8 +226,6 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
   expect(String(eligibleItem.provenance)).toBe("auto_match");
   expect(eligibleItem.confidence).toBe(100);
   expect(String(eligibleItem.matched_alias_text)).toBe("VPN Gateway");
-  expect(String(undoneItem.item_kind)).toBe("unresolved_mention");
-  expect(undoneItem.resolved_record_id).toBeUndefined();
   expect(String(eligibleItemAfterUndo.item_kind)).toBe("unresolved_mention");
   expect(eligibleItemAfterUndo.resolved_record_id).toBeUndefined();
 
@@ -230,3 +238,40 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     expect(item.matched_alias_text).toBeUndefined();
   }
 });
+
+type MentionActionEnvelope = {
+  data: {
+    entity_mention: {
+      resolution_status: string;
+    };
+  };
+};
+
+function waitForMentionAction(page: Page, itemRef: unknown) {
+  const mentionId = entityMentionIdFromItemRef(itemRef);
+  return page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
+  );
+}
+
+async function readMentionAction(response: Response) {
+  expect(response.ok()).toBeTruthy();
+  return (await response.json()) as MentionActionEnvelope;
+}
+
+function readMentionActionRequest(response: Response) {
+  return JSON.parse(response.request().postData() ?? "{}") as Record<
+    string,
+    unknown
+  >;
+}
+
+function entityMentionIdFromItemRef(itemRef: unknown) {
+  const value = String(itemRef);
+  expect(value.startsWith("entity_mention:")).toBe(true);
+  return value.slice("entity_mention:".length);
+}

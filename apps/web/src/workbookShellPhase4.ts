@@ -35,6 +35,15 @@ type MentionPatchMentionLike = {
   fieldKey: RelationshipFieldKey;
 };
 
+type MentionActionMentionLike = {
+  mentionRowVersion: number | null;
+};
+
+export type MentionResolutionAction =
+  | "resolve_item"
+  | "dismiss_item"
+  | "revert_to_unresolved";
+
 export function isRecordChangedMessage(
   message: unknown,
 ): message is { type: "record_changed"; payload: RecordChangedPayload } {
@@ -69,7 +78,7 @@ export function shouldIgnoreSelfOriginatedRecordChange(
 export function buildMentionPatchPayload(
   row: MentionPatchRowLike,
   mention: MentionPatchMentionLike,
-  action: "resolve_item" | "dismiss_item" | "revert_to_unresolved",
+  action: MentionResolutionAction,
   clientTxnId: string,
   resolvedRecordId?: string,
 ) {
@@ -98,4 +107,24 @@ export function buildMentionPatchPayload(
       },
     ],
   };
+}
+
+export function buildMentionActionPayload(
+  mention: MentionActionMentionLike,
+  action: MentionResolutionAction,
+  clientTxnId: string,
+  resolvedRecordId?: string,
+) {
+  if (mention.mentionRowVersion === null) {
+    return null;
+  }
+  const body: Record<string, string | number> = {
+    base_mention_row_version: mention.mentionRowVersion,
+    client_txn_id: clientTxnId,
+    action,
+  };
+  if (action === "resolve_item" && resolvedRecordId !== undefined) {
+    body.resolved_record_id = resolvedRecordId;
+  }
+  return body;
 }

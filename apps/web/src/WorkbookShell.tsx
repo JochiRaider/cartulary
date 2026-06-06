@@ -174,8 +174,10 @@ import {
   type WorkbookQueryState,
 } from "./workbookQuery";
 import {
+  buildMentionActionPayload,
   buildMentionPatchPayload,
   isRecordChangedMessage,
+  type MentionResolutionAction,
   type RecordChangedPayload,
   shouldIgnoreSelfOriginatedRecordChange,
 } from "./workbookShellPhase4";
@@ -372,6 +374,28 @@ type TimelineMutationEnvelope = {
     view_schema_id: string;
     change_set_id?: string;
     row: unknown;
+  };
+};
+
+type MentionActionEnvelope = {
+  data: {
+    incident_id: string;
+    entity_mention: {
+      entity_mention_id: string;
+      source_record_id: string;
+      source_field_key: string;
+      entity_type: "host" | "identity" | string;
+      raw_text: string;
+      resolution_status: "unresolved" | "resolved" | "dismissed" | string;
+      resolved_record_id: string | null;
+      row_version: number;
+      resolution_method: string | null;
+    };
+    source_record: {
+      record_id: string;
+      row_version: number;
+    };
+    change_set_id: string;
   };
 };
 
@@ -5798,7 +5822,7 @@ export function TimelineWorkbook({
 
   function submitMentionAction(
     mention: InspectorMention,
-    action: "resolve_item" | "dismiss_item" | "revert_to_unresolved",
+    action: MentionResolutionAction,
     resolvedRecordId?: string,
   ) {
     const snapshot = rowsRef.current.find(
@@ -5834,26 +5858,103 @@ export function TimelineWorkbook({
           return;
         }
         const currentRow = idleRecord.row;
-        const payload =
-          currentRow === null
-            ? null
-            : buildMentionPatchPayload(
-                currentRow,
-                mention,
-                action,
-                clientTxnId,
-                resolvedRecordId,
-              );
-        if (currentRow === null || payload === null) {
+        if (action === "resolve_item" && resolvedRecordId === undefined) {
+          const payload = buildMentionPatchPayload(
+            currentRow,
+            mention,
+            action,
+            clientTxnId,
+            resolvedRecordId,
+          );
+          if (payload === null) {
+            clearViewportContinuity(viewportContinuityToken);
+            finishSave("Conflict");
+            return;
+          }
+          trackPendingSocketTxn(clientTxnId);
+          const result = await fetchJSON<TimelineMutationEnvelope>(
+            apiPath(apiBase, `/api/v1/records/${recordId}`),
+            {
+              method: "PATCH",
+              body: JSON.stringify(payload),
+            },
+          );
+          if (!result.ok) {
+            resolvePendingSocketTxn(clientTxnId);
+            clearViewportContinuity(viewportContinuityToken);
+            setInspectorMessage(parseErrorMessage(result.payload));
+            finishSave("Conflict");
+            return;
+          }
+
+          const envelope = readEnvelope<TimelineMutationEnvelope>(
+            result.payload,
+          );
+          applyRowMutation(currentRow.key, envelope, {
+            detectAutoResolution: false,
+            viewportContinuityToken,
+          });
+          finishSave("Saved");
+          try {
+            await onRefreshEntities?.();
+          } finally {
+            settleViewportContinuityFollowup(viewportContinuityToken);
+          }
+          return;
+        }
+
+        const activeItem = [
+          ...currentRow.collectionValues.hostRefs,
+          ...currentRow.collectionValues.identityRefs,
+        ].find((item) => item.itemRef === mention.itemRef);
+        const currentMention =
+          activeItem === undefined
+            ? mention
+            : {
+                ...mention,
+                entityType: activeItem.entityType,
+                rawText: activeItem.rawText,
+                resolvedRecordId: activeItem.resolvedRecordId,
+                mentionRowVersion: activeItem.mentionRowVersion,
+                resolutionMethod: activeItem.resolutionMethod,
+                autoResolved: activeItem.autoResolved,
+                displayText: activeItem.displayText,
+                provenance: activeItem.provenance,
+                confidence: activeItem.confidence,
+                matchedAliasText: activeItem.matchedAliasText,
+                anchor: {
+                  ...mention.anchor,
+                  targetEntityRecordId: activeItem.resolvedRecordId,
+                },
+              };
+        const mentionID =
+          currentMention.anchor.entityMentionId ??
+          (currentMention.itemRef.startsWith("entity_mention:")
+            ? currentMention.itemRef.slice("entity_mention:".length) || null
+            : null);
+        if (mentionID === null) {
           clearViewportContinuity(viewportContinuityToken);
+          setInspectorMessage("Missing entity mention identifier.");
+          finishSave("Conflict");
+          return;
+        }
+        const payload = buildMentionActionPayload(
+          currentMention,
+          action,
+          clientTxnId,
+          resolvedRecordId,
+        );
+        if (payload === null) {
+          clearViewportContinuity(viewportContinuityToken);
+          setInspectorMessage("Missing mention row version.");
           finishSave("Conflict");
           return;
         }
         trackPendingSocketTxn(clientTxnId);
-        const result = await fetchJSON<TimelineMutationEnvelope>(
-          apiPath(apiBase, `/api/v1/records/${recordId}`),
+        const result = await fetchJSON<MentionActionEnvelope>(
+          apiPath(apiBase, `/api/v1/entity-mentions/${mentionID}/resolve`),
           {
-            method: "PATCH",
+            method: "POST",
             body: JSON.stringify(payload),
           },
         );
@@ -5865,6 +5966,8 @@ export function TimelineWorkbook({
           return;
         }
 
+        const envelope = readEnvelope<MentionActionEnvelope>(result.payload);
+        const entityMention = envelope.data.entity_mention;
         if (action === "dismiss_item") {
           setDismissedMentionsByRow((current) => {
             const rowMentions = current[recordId] ?? [];
@@ -5872,25 +5975,34 @@ export function TimelineWorkbook({
               ...current,
               [recordId]: [
                 ...rowMentions.filter(
-                  (item) => item.itemRef !== mention.itemRef,
+                  (item) => item.itemRef !== currentMention.itemRef,
                 ),
                 {
                   rowRecordId: recordId,
-                  fieldKey: mention.fieldKey,
-                  entityType: mention.entityType,
-                  itemRef: mention.itemRef,
-                  rawText: mention.rawText,
-                  resolvedRecordId: mention.resolvedRecordId,
-                  resolutionMethod: mention.resolutionMethod,
-                  autoResolved: mention.autoResolved,
-                  displayText: mention.displayText,
+                  fieldKey:
+                    entityMention.source_field_key === "timeline.identity_refs"
+                      ? "timeline.identity_refs"
+                      : currentMention.fieldKey,
+                  entityType:
+                    entityMention.entity_type === "identity"
+                      ? "identity"
+                      : currentMention.entityType,
+                  itemRef: currentMention.itemRef,
+                  rawText: entityMention.raw_text || currentMention.rawText,
+                  resolvedRecordId: currentMention.resolvedRecordId,
+                  mentionRowVersion: entityMention.row_version,
+                  resolutionMethod:
+                    entityMention.resolution_method ??
+                    currentMention.resolutionMethod,
+                  autoResolved: currentMention.autoResolved,
+                  displayText: currentMention.displayText,
                   priorTargetEntityRecordId:
-                    mention.anchor.targetEntityRecordId ??
-                    mention.priorTargetEntityRecordId ??
-                    mention.resolvedRecordId,
-                  provenance: mention.provenance,
-                  confidence: mention.confidence,
-                  matchedAliasText: mention.matchedAliasText,
+                    currentMention.anchor.targetEntityRecordId ??
+                    currentMention.priorTargetEntityRecordId ??
+                    currentMention.resolvedRecordId,
+                  provenance: currentMention.provenance,
+                  confidence: currentMention.confidence,
+                  matchedAliasText: currentMention.matchedAliasText,
                 },
               ],
             };
@@ -5899,7 +6011,7 @@ export function TimelineWorkbook({
         if (action === "revert_to_unresolved") {
           setDismissedMentionsByRow((current) => {
             const rowMentions = (current[recordId] ?? []).filter(
-              (item) => item.itemRef !== mention.itemRef,
+              (item) => item.itemRef !== currentMention.itemRef,
             );
             if (rowMentions.length < 1) {
               const next = { ...current };
@@ -5913,19 +6025,20 @@ export function TimelineWorkbook({
           });
         }
 
-        const envelope = readEnvelope<TimelineMutationEnvelope>(result.payload);
-        applyRowMutation(currentRow.key, envelope, {
-          detectAutoResolution: false,
+        await loadRowsRef.current({
+          showLoading: false,
           viewportContinuityToken,
         });
+        const restoreMentionActionFocus = () => {
+          resolveViewportContinuityElement({
+            kind: "row-inspect",
+            recordId,
+          })?.focus({ preventScroll: true });
+        };
+        restoreMentionActionFocus();
+        window.requestAnimationFrame(restoreMentionActionFocus);
+        window.setTimeout(restoreMentionActionFocus, 0);
         finishSave("Saved");
-        if (action === "resolve_item" && resolvedRecordId === undefined) {
-          try {
-            await onRefreshEntities?.();
-          } finally {
-            settleViewportContinuityFollowup(viewportContinuityToken);
-          }
-        }
       });
   }
 
@@ -7671,6 +7784,7 @@ export function TimelineWorkbook({
                           itemRef: activeItem.itemRef,
                           rawText: activeItem.rawText,
                           resolvedRecordId: activeItem.resolvedRecordId,
+                          mentionRowVersion: activeItem.mentionRowVersion,
                           resolutionMethod: activeItem.resolutionMethod,
                           autoResolved: activeItem.autoResolved,
                           status: "resolved",
@@ -8237,37 +8351,89 @@ export function TimelineWorkbook({
                     ) : null}
 
                     {selectedMention.status === "resolved" ? (
-                      <div style={inlineButtonRowStyle}>
+                      <div style={inspectorActionStackStyle}>
                         {canManageMentions ? (
-                          <button
-                            data-testid={mentionDismissButtonTestId()}
-                            style={secondaryActionButtonStyle}
-                            type="button"
-                            onClick={() => {
-                              submitMentionAction(
-                                selectedMention,
-                                "dismiss_item",
-                              );
-                            }}
-                          >
-                            Dismiss
-                          </button>
+                          <label style={labelStyle}>
+                            Correct target
+                            <select
+                              data-testid={mentionResolveTargetSelectTestId()}
+                              style={selectStyle}
+                              value={selectedResolveTargetId}
+                              onChange={(event) => {
+                                const value = event.target.value;
+                                setSelectedResolveTargetId(value);
+                                if (value !== "") {
+                                  setInspectorMessage(`Selected ${value}`);
+                                }
+                              }}
+                            >
+                              <option value="">Select target</option>
+                              {(selectedMention.entityType === "host"
+                                ? hostEntities
+                                : identityEntities
+                              ).map((entity) => (
+                                <option
+                                  key={entity.recordId}
+                                  value={entity.recordId}
+                                >
+                                  {entity.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
                         ) : null}
-                        {canManageMentions ? (
-                          <button
-                            data-testid={mentionRestoreUnresolvedButtonTestId()}
-                            style={secondaryActionButtonStyle}
-                            type="button"
-                            onClick={() => {
-                              submitMentionAction(
-                                selectedMention,
-                                "revert_to_unresolved",
-                              );
-                            }}
-                          >
-                            Revert to unresolved
-                          </button>
-                        ) : null}
+                        <div style={inlineButtonRowStyle}>
+                          {canManageMentions ? (
+                            <button
+                              data-testid={mentionResolveExistingButtonTestId()}
+                              style={secondaryActionButtonStyle}
+                              type="button"
+                              onClick={() => {
+                                if (selectedResolveTargetId === "") {
+                                  setInspectorMessage("Select a target first.");
+                                  return;
+                                }
+                                submitMentionAction(
+                                  selectedMention,
+                                  "resolve_item",
+                                  selectedResolveTargetId,
+                                );
+                              }}
+                            >
+                              Correct target
+                            </button>
+                          ) : null}
+                          {canManageMentions ? (
+                            <button
+                              data-testid={mentionDismissButtonTestId()}
+                              style={secondaryActionButtonStyle}
+                              type="button"
+                              onClick={() => {
+                                submitMentionAction(
+                                  selectedMention,
+                                  "dismiss_item",
+                                );
+                              }}
+                            >
+                              Dismiss
+                            </button>
+                          ) : null}
+                          {canManageMentions ? (
+                            <button
+                              data-testid={mentionRestoreUnresolvedButtonTestId()}
+                              style={secondaryActionButtonStyle}
+                              type="button"
+                              onClick={() => {
+                                submitMentionAction(
+                                  selectedMention,
+                                  "revert_to_unresolved",
+                                );
+                              }}
+                            >
+                              Revert to unresolved
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
                     ) : null}
 

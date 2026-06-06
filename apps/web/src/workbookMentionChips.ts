@@ -32,6 +32,7 @@ export type CollectionItem = {
   displayText: string;
   rawText: string;
   resolvedRecordId: string | null;
+  mentionRowVersion: number | null;
   resolutionMethod: string | null;
   autoResolved: boolean;
   provenance: string | null;
@@ -46,6 +47,7 @@ export type DismissedMention = {
   itemRef: string;
   rawText: string;
   resolvedRecordId: string | null;
+  mentionRowVersion: number | null;
   resolutionMethod: string | null;
   autoResolved: boolean;
   displayText?: string;
@@ -169,6 +171,7 @@ function activeInspectorMention(
     itemRef: item.itemRef,
     rawText: item.rawText,
     resolvedRecordId: targetEntityRecordId,
+    mentionRowVersion: item.mentionRowVersion,
     resolutionMethod: item.resolutionMethod,
     autoResolved: item.autoResolved,
     status,
@@ -215,6 +218,7 @@ export function readCollectionItems(
       }
       const object = item as Record<string, unknown>;
       const confidenceValue = object.confidence;
+      const mentionRowVersion = object.mention_row_version;
       return {
         itemRef:
           typeof object.item_ref === "string" ? object.item_ref : "unknown",
@@ -234,6 +238,8 @@ export function readCollectionItems(
           typeof object.resolved_record_id === "string"
             ? object.resolved_record_id
             : null,
+        mentionRowVersion:
+          typeof mentionRowVersion === "number" ? mentionRowVersion : null,
         resolutionMethod:
           typeof object.resolution_method === "string"
             ? object.resolution_method
@@ -287,6 +293,7 @@ export function buildInspectorMentions(
     priorTargetEntityRecordId:
       item.priorTargetEntityRecordId ?? item.resolvedRecordId,
     resolvedRecordId: null,
+    mentionRowVersion: item.mentionRowVersion,
     displayText: item.displayText ?? item.rawText,
     provenance: item.provenance ?? null,
     confidence: item.confidence ?? null,

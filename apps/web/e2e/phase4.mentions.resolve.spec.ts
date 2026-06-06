@@ -1,4 +1,5 @@
 import { scrollGridToBottom } from "@cartulary/test-utils";
+import type { Page, Response } from "@playwright/test";
 import {
   mentionCreateEntityButtonTestId,
   mentionItemTestId,
@@ -135,18 +136,17 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
 
   const resolveScroll = await scrollGridToBottom(page, timelineViewSchemaId);
   await expectNoPendingQueueAuthPause(page, "before resolving host mention");
-  const resolveResponsePromise = waitForTimelinePatch(page, mainRow.record_id);
+  const resolveResponsePromise = waitForMentionAction(
+    page,
+    hostMention.item_ref,
+  );
   await page
     .getByTestId(mentionResolveTargetSelectTestId())
     .selectOption(existingHost.record_id);
   await page.getByTestId(mentionResolveExistingButtonTestId()).click();
-  const resolveEnvelope = await readTimelineMutation(
-    await resolveResponsePromise,
-  );
-  const resolvedHostItem = requireItemByRawText(
-    collectionItems(resolveEnvelope.data.row, hostRefsFieldKey),
-    "WS-023?",
-  );
+  const resolveResponse = await resolveResponsePromise;
+  const resolveEnvelope = await readMentionAction(resolveResponse);
+  const resolveBody = readMentionActionRequest(resolveResponse);
 
   await expect(
     page
@@ -213,8 +213,13 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
   );
 
   expect(identitiesBefore).toHaveLength(0);
-  expect(String(resolvedHostItem.item_kind)).toBe("resolved_ref");
-  expect(String(resolvedHostItem.resolved_record_id)).toBe(
+  expect(resolveBody).toMatchObject({
+    base_mention_row_version: hostMention.mention_row_version,
+    action: "resolve_item",
+    resolved_record_id: existingHost.record_id,
+  });
+  expect(typeof resolveBody.client_txn_id).toBe("string");
+  expect(resolveEnvelope.data.entity_mention.resolved_record_id).toBe(
     existingHost.record_id,
   );
   expect(String(mainHostAfter.item_kind)).toBe("resolved_ref");
@@ -229,3 +234,40 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
   expect(siblingHostAfter.resolved_record_id).toBeUndefined();
   expect(createdIdentityRow.record_id).toBe(createdIdentityRecordId);
 });
+
+type MentionActionEnvelope = {
+  data: {
+    entity_mention: {
+      resolved_record_id: string | null;
+    };
+  };
+};
+
+function waitForMentionAction(page: Page, itemRef: unknown) {
+  const mentionId = entityMentionIdFromItemRef(itemRef);
+  return page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
+  );
+}
+
+async function readMentionAction(response: Response) {
+  expect(response.ok()).toBeTruthy();
+  return (await response.json()) as MentionActionEnvelope;
+}
+
+function readMentionActionRequest(response: Response) {
+  return JSON.parse(response.request().postData() ?? "{}") as Record<
+    string,
+    unknown
+  >;
+}
+
+function entityMentionIdFromItemRef(itemRef: unknown) {
+  const value = String(itemRef);
+  expect(value.startsWith("entity_mention:")).toBe(true);
+  return value.slice("entity_mention:".length);
+}

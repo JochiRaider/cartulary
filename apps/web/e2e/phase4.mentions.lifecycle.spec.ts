@@ -1,4 +1,5 @@
 import { scrollGridToBottom } from "@cartulary/test-utils";
+import type { Page, Response } from "@playwright/test";
 import {
   mentionDismissButtonTestId,
   mentionItemTestId,
@@ -25,12 +26,10 @@ import {
   hostRefsFieldKey,
   hostsViewSchemaId,
   openTimelineInspector,
-  readTimelineMutation,
   requireItemByRawText,
   timelineFixtureOccurredAt,
   timelineViewSchemaId,
   type ViewRow,
-  waitForTimelinePatch,
 } from "./phase4Helpers";
 
 test("E-4-02 dismisses and ordinarily restores a mention without relinking", async ({
@@ -101,6 +100,11 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
     incidentId,
     timelineViewSchemaId,
   )) as ViewRow[];
+  const rowBeforeDismiss = findRow(initialTimelineRows, row.record_id);
+  const mentionBeforeDismiss = requireItemByRawText(
+    collectionItems(rowBeforeDismiss, hostRefsFieldKey),
+    "WS-023?",
+  );
   const rowIndexBeforeDismiss = initialTimelineRows.findIndex(
     (candidate) => candidate.record_id === row.record_id,
   );
@@ -115,11 +119,14 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
 
   const dismissScroll = await scrollGridToBottom(page, timelineViewSchemaId);
   expect(dismissScroll.top).toBeGreaterThan(0);
-  const dismissResponsePromise = waitForTimelinePatch(page, row.record_id);
-  await page.getByTestId(mentionDismissButtonTestId()).click();
-  const dismissEnvelope = await readTimelineMutation(
-    await dismissResponsePromise,
+  const dismissResponsePromise = waitForMentionAction(
+    page,
+    seededMention.item_ref,
   );
+  await page.getByTestId(mentionDismissButtonTestId()).click();
+  const dismissResponse = await dismissResponsePromise;
+  const dismissEnvelope = await readMentionAction(dismissResponse);
+  const dismissBody = readMentionActionRequest(dismissResponse);
 
   await expect(
     page.getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey)),
@@ -132,28 +139,32 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
   await expectTimelineContinuity(page, row.record_id, dismissScroll, {
     requireExactVerticalScroll: false,
   });
+  expect(dismissBody).toMatchObject({
+    base_mention_row_version: mentionBeforeDismiss.mention_row_version,
+    action: "dismiss_item",
+  });
+  expect(dismissBody).not.toHaveProperty("resolved_record_id");
+  expect(dismissEnvelope.data.entity_mention.resolution_status).toBe(
+    "dismissed",
+  );
+  const rowsAfterDismiss = (await queryViewRows(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  )) as ViewRow[];
   expect(
-    collectionItems(dismissEnvelope.data.row, hostRefsFieldKey),
+    collectionItems(findRow(rowsAfterDismiss, row.record_id), hostRefsFieldKey),
   ).toHaveLength(0);
 
   const restoreScroll = await scrollGridToBottom(page, timelineViewSchemaId);
-  const restoreResponsePromise = waitForTimelinePatch(page, row.record_id);
+  const restoreResponsePromise = waitForMentionAction(
+    page,
+    seededMention.item_ref,
+  );
   await page.getByTestId(mentionRestoreUnresolvedButtonTestId()).click();
   const restoreResponse = await restoreResponsePromise;
-  const restoreEnvelope = await readTimelineMutation(restoreResponse);
-  const restoreBody = JSON.parse(
-    restoreResponse.request().postData() ?? "{}",
-  ) as {
-    changes: Array<{
-      action_payload: {
-        actions: Array<{ item_ref: string }>;
-      };
-    }>;
-  };
-  const restoredItem = requireItemByRawText(
-    collectionItems(restoreEnvelope.data.row, hostRefsFieldKey),
-    "WS-023?",
-  );
+  const restoreEnvelope = await readMentionAction(restoreResponse);
+  const restoreBody = readMentionActionRequest(restoreResponse);
 
   await expect(
     page
@@ -168,8 +179,14 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
   await expectTimelineContinuity(page, row.record_id, restoreScroll, {
     requireExactVerticalScroll: false,
   });
-  expect(restoreBody.changes[0]?.action_payload.actions[0]?.item_ref).toBe(
-    seededMention.item_ref,
+  expect(restoreBody).toMatchObject({
+    base_mention_row_version:
+      dismissEnvelope.data.entity_mention.row_version,
+    action: "revert_to_unresolved",
+  });
+  expect(restoreBody).not.toHaveProperty("resolved_record_id");
+  expect(restoreEnvelope.data.entity_mention.resolution_status).toBe(
+    "unresolved",
   );
 
   const timelineRows = (await queryViewRows(
@@ -183,8 +200,44 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
     "WS-023?",
   );
 
-  expect(String(restoredItem.item_kind)).toBe("unresolved_mention");
-  expect(restoredItem.resolved_record_id).toBeUndefined();
   expect(String(restoredRowItem.item_kind)).toBe("unresolved_mention");
   expect(restoredRowItem.resolved_record_id).toBeUndefined();
 });
+
+type MentionActionEnvelope = {
+  data: {
+    entity_mention: {
+      resolution_status: string;
+      row_version: number;
+    };
+  };
+};
+
+function waitForMentionAction(page: Page, itemRef: unknown) {
+  const mentionId = entityMentionIdFromItemRef(itemRef);
+  return page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
+  );
+}
+
+async function readMentionAction(response: Response) {
+  expect(response.ok()).toBeTruthy();
+  return (await response.json()) as MentionActionEnvelope;
+}
+
+function readMentionActionRequest(response: Response) {
+  return JSON.parse(response.request().postData() ?? "{}") as Record<
+    string,
+    unknown
+  >;
+}
+
+function entityMentionIdFromItemRef(itemRef: unknown) {
+  const value = String(itemRef);
+  expect(value.startsWith("entity_mention:")).toBe(true);
+  return value.slice("entity_mention:".length);
+}
