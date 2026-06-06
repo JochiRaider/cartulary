@@ -3,7 +3,7 @@
   "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P5",
-  "guide_digest": "c410a282b341d43669d8adf60a3a963d2aa522f5b792acdce2d21393c3f2972d",
+  "guide_digest": "e34a0a0ca0315c0b7004380d5fb339c4cccf6f9b4f7ddb225b118ccf55d59ae1",
   "rows": [
     {
       "id": "FE-U-P5-01",
@@ -65,23 +65,24 @@
           "target_name": "frontend-unit",
           "command_id": "cartulary.harness.command.frontend_unit.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
-          "scenario_title_required": false
+          "scenario_title_required": true
         }
       ],
-      "scenario_titles": [],
-      "claim_status": "blocked",
+      "scenario_titles": [
+        "FE-U-P5-01 preserves closed mention chip states by stable identifiers and field keys"
+      ],
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify mention chip view models preserve unresolved, resolved, auto-resolved, dismissed, and manual-resolution state by stable identifiers and field keys.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
       "default_check_required": false,
-      "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-U-P5-01",
@@ -89,14 +90,7 @@
       "evidence_delta": "full evidence is retained outside default check",
       "warm_local_cost_class": "low",
       "phase_id": "FE-P5",
-      "blockers": [
-        {
-          "blocker_id": "FE-U-P5-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-I-P5-01",
@@ -453,6 +447,19 @@
           "ac_ids": [],
           "role": "design_owner",
           "resolution_status": "resolved"
+        },
+        {
+          "source_key": "design_md",
+          "path": "docs/design.md",
+          "section_ref": "Design Sections 14 and 18.6",
+          "heading_text": "Accessibility contract; Accessibility criteria",
+          "req_ids": [],
+          "ac_ids": [
+            "D-AC-050",
+            "D-AC-051"
+          ],
+          "role": "design_owner",
+          "resolution_status": "resolved"
         }
       ],
       "core_req_ids": [],
@@ -462,8 +469,8 @@
         "R2-AC-044",
         "R2-AC-080",
         "R2-AC-086",
-        "D-AC-009",
-        "D-AC-012"
+        "D-AC-050",
+        "D-AC-051"
       ],
       "targets": [
         {

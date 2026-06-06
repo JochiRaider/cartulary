@@ -8,12 +8,12 @@ This plan is not product behavior authority. It does not amend Core requirements
 
 Current FE-P5 facts from local inspection:
 
-- `tools/frontend_phase_registry.json` lists FE-P5 as `status="planned"`, `row_rollup_state="no_rows_implemented"`, with activation blocker `reason_code="frontend_phase_not_active"`.
+- `tools/frontend_phase_registry.json` lists FE-P5 as `status="planned"`, `row_rollup_state="partially_implemented"`, with activation blocker `reason_code="frontend_phase_not_active"`.
 - `tools/frontend_phase_maps/fe_p5_test_map.json` contains exactly five FE-P5 rows: `FE-U-P5-01`, `FE-I-P5-01`, `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01`.
-- All five FE-P5 rows currently have `claim_status="blocked"`.
-- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P5` reports FE-P5 as planned, explainable, and not executable.
-- `make phase-ledger-drift` passed during planning with run root `.cartulary/test-results/20260605T174355Z-p395959` and summary `phase-ledger-drift/tool-run-summary.json`.
-- `git diff --check` passed before this file was created.
+- `FE-U-P5-01` currently has `claim_status="implemented"` and closes from current `make frontend-unit` row accounting. `FE-I-P5-01`, `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01` remain `claim_status="blocked"`.
+- `make phase-slice PHASE_NAMESPACE=frontend PHASE=FE-P5` remains non-executable while FE-P5 is planned; run root `.cartulary/test-results/20260606T003210Z-p53310` reported `planned/non-executable frontend phase FE-P5`.
+- `make frontend-unit` passed with run root `.cartulary/test-results/20260606T003348Z-p56180`; `frontend-unit/frontend-row-accounting.json` has `FE-U-P5-01` in `row_results` with `claim_status_at_run="implemented"`, `closure_status="closed"`, and scenario `FE-U-P5-01 preserves closed mention chip states by stable identifiers and field keys`.
+- `make phase-ledger-drift` passed with run root `.cartulary/test-results/20260606T003122Z-p51105`.
 
 ## Authority Model
 
@@ -37,7 +37,7 @@ Supporting-source boundaries:
 
 ## Current Repo Status
 
-Frontend phase registry status at planning time:
+Frontend phase registry status after this remediation:
 
 | Phase | Status | Row rollup state | Activation blocker |
 | --- | --- | --- | --- |
@@ -46,7 +46,7 @@ Frontend phase registry status at planning time:
 | `FE-P2` | `active` | `active_green` | none |
 | `FE-P3` | `active` | `active_green` | none |
 | `FE-P4` | `active` | `active_green` | none |
-| `FE-P5` | `planned` | `no_rows_implemented` | `frontend_phase_not_active` |
+| `FE-P5` | `planned` | `partially_implemented` | `frontend_phase_not_active` |
 | `FE-P6` | `planned` | `no_rows_implemented` | `frontend_phase_not_active` |
 
 FE-P5 map and ledger status:
@@ -59,12 +59,13 @@ FE-P5 map and ledger status:
 FE-P5 visual fixture status:
 
 - `tools/frontend_visual_fixture_registry.json` maps `FE-VFIX-02` to `FE-P5` and `FE-V-P5-01`.
-- `FE-VFIX-02` has title `Unresolved and resolved entity state`, status `current`, Playwright scenario title `V-4-GRID-01 captures mention chips for unresolved, resolved, auto-resolved, dismissed, and manual-resolution states`, and golden filename `apps/web/e2e/workbook.visual.spec.ts-snapshots/v-4-grid-01-mention-chips-linux.png`.
+- `FE-VFIX-02` has title `Unresolved and resolved entity state` and status `missing`.
+- The prior registry `current` state was downgraded because the retained visual scenario/golden does not currently recapture unresolved, resolved, auto-resolved, dismissed, and manual-resolution states together under `FE-V-P5-01` row accounting.
 - Registry status and golden-file presence are not row closure evidence. `FE-V-P5-01` remains blocked until the mapped visual target produces current row-owned frontend row accounting.
 
-Known source-validation caution:
+Known source-validation status:
 
-- `FE-A11Y-P5-01` references `D-AC-009` and `D-AC-012`. Local inspection found `D-AC-012` in `docs/design.md`, and found many references to `D-AC-009`, but did not find a defining `D-AC-009` acceptance row in `docs/design.md`. Before accessibility readiness closure, revalidate that ID or record the blocker template in this plan.
+- The FE-P5 accessibility owner ambiguity was resolved by removing stale `D-AC-009`/`D-AC-012` FE-P5 owner claims and mapping `FE-A11Y-P5-01` to `docs/design.md` accessibility criteria `D-AC-050` and `D-AC-051`. Other frontend phases may still reference older design IDs and are outside this FE-P5 remediation.
 
 ## Source Limits
 
@@ -141,11 +142,11 @@ Out of scope for FE-P5:
 
 ## Row Inventory
 
-The FE-P5 row inventory is derived from the current frontend guide, FE-P5 map, and generated ledger. All rows are currently blocked.
+The FE-P5 row inventory is derived from the current frontend guide, FE-P5 map, and generated ledger. `FE-U-P5-01` is implemented and closed by current unit row accounting; the remaining FE-P5 rows are blocked.
 
 | Row | Layer | Evidence class | Current claim status | Mapped targets | Scenario title status |
 | --- | --- | --- | --- | --- | --- |
-| `FE-U-P5-01` | `unit` | `product_conformance` | `blocked` | `make frontend-unit` | none required in current map |
+| `FE-U-P5-01` | `unit` | `product_conformance` | `implemented` | `make frontend-unit` | `FE-U-P5-01 preserves closed mention chip states by stable identifiers and field keys` |
 | `FE-I-P5-01` | `integration` | `product_conformance` | `blocked` | `make frontend-unit`; `make browser-e2e-webserver-backed` | `FE-I-P5-01 Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh.` |
 | `FE-E-P5-01` | `e2e` | `product_conformance` | `blocked` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | `FE-E-P5-01 Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows.` |
 | `FE-V-P5-01` | `visual` | `design_direction` | `blocked` | `make browser-e2e-visual` | `FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution state fixtures.` |
@@ -166,8 +167,8 @@ Design-direction row owners:
 
 | Done | Sprint | Primary validation | Blockers |
 | --- | --- | --- | --- |
-| [x] | 1. Readiness, map, ledger, and FE-P4 handoff validation | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P5`; row-inventory checks; `make phase-ledger-drift`; `git diff --check` | FE-P5 must remain planned and blocked until direct row-owned evidence exists |
-| [x] | 2. Mention chip state model for `FE-U-P5-01` | `make frontend-unit`; `make frontend-typecheck` | Code-level model support is implemented; row promotion remains blocked until FE-P5 row accounting includes current `FE-U-P5-01` evidence |
+| [x] | 1. Readiness, map, ledger, and FE-P4 handoff validation | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P5`; row-inventory checks; `make phase-ledger-drift`; `git diff --check` | FE-P5 must remain planned until all five rows have direct row-owned evidence |
+| [x] | 2. Mention chip state model for `FE-U-P5-01` | `make frontend-unit`; `make frontend-typecheck` | Complete for the unit row only; FE-P5 remains planned until the other four rows close |
 | [ ] | 3. Hosts, Identities, and Notes grid/provenance integration for `FE-I-P5-01` | `make frontend-unit`; `make browser-e2e-webserver-backed` | Frontend-only mocks or missing refresh/provenance row accounting block product closure |
 | [ ] | 4. Manual resolution, dismissal, auto-resolution disclosure, and undo E2E for `FE-E-P5-01` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | Must use public mutation routes and refreshed rows; browser helper evidence alone does not close the row |
 | [ ] | 5. Visual readiness for `FE-V-P5-01` | `make browser-e2e-visual` | `FE-VFIX-02` registry status alone does not close the row |
@@ -182,7 +183,7 @@ Objective: prove FE-P5 planning metadata is traceable before FE-P5 behavior work
 
 Owned rows: none. This sprint supports all FE-P5 rows.
 
-Non-owned rows: all FE-P5 rows remain blocked until their owning sprint collects direct current row-owned evidence.
+Non-owned rows: `FE-I-P5-01`, `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01` remain blocked until their owning sprint collects direct current row-owned evidence.
 
 Non-goals:
 
@@ -213,17 +214,17 @@ Test-first sequence:
 
 - Run `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P5`.
 - Validate the FE-P5 registry tuple with `jq -e`.
-- Validate FE-P5 row inventory, duplicate count, and blocked claim statuses with `jq -e`.
+- Validate FE-P5 row inventory, duplicate count, implemented `FE-U-P5-01` status, and remaining blocked claim statuses with `jq -e`.
 - Run `make phase-ledger-drift`.
 - Run `git diff --check` after creating or updating this plan.
 
 Implementation tasks:
 
-- Record exact current FE-P5 registry status, map path, ledger path, dependency status, and activation blocker.
+- Record exact current FE-P5 registry status, row rollup state, map path, ledger path, dependency status, and activation blocker.
 - Record exact row inventory and targets from the FE-P5 map.
 - Record FE-P4 handoff inputs as context only.
 - Record `FE-VFIX-02` fixture metadata as registry metadata only.
-- Record the `D-AC-009` acceptance-ID ambiguity as a closure validation blocker until revalidated.
+- Record the corrected FE-P5 accessibility design IDs and keep unresolved legacy design IDs out of FE-P5 closure criteria.
 
 Validation commands:
 
@@ -244,12 +245,12 @@ Blocker rules:
 - `BLOCKER: FE-P5 registry tuple is not frontend-namespace traceable; expected namespace/path/dependency tuple does not match registry.`
 - `BLOCKER: FE-P5 generated ledger is stale relative to map; rerun generator only after confirming the authored map is the intended source.`
 - `BLOCKER: FE-P4 handoff validation missing or stale for FE-P5 dependency; minimum_follow_up=<rerun exact dependency check or record owner-accepted rationale>.`
-- `BLOCKER: FE-P5 design acceptance ID unresolved; row=FE-A11Y-P5-01 id=D-AC-009 minimum_follow_up=<locate defining owner row or update map through owner-approved correction>.`
+- `BLOCKER: FE-P5 design acceptance mapping stale; row=FE-A11Y-P5-01 expected=D-AC-050,D-AC-051 actual=<ids> minimum_follow_up=<owner-approved map correction>.`
 
 Binary acceptance:
 
 - FE-P5 row inventory, registry status, generated ledger status, FE-P4 dependency context, and fixture identity are recorded.
-- All FE-P5 rows remain blocked.
+- FE-P5 remains planned. `FE-U-P5-01` is implemented; all other FE-P5 rows remain blocked.
 - No generated artifact is hand-edited.
 
 Explicit non-claims:
@@ -266,13 +267,13 @@ Owned rows: `FE-U-P5-01`.
 
 Non-owned rows: `FE-I-P5-01`, `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01`.
 
-Current implementation status as of 2026-06-05:
+Current implementation status as of 2026-06-06:
 
-- Code-level Sprint 2 model support is implemented in the Phase 4 workbook mention helpers and current workbook chip renderer.
-- Focused unit coverage was added under the future-map-friendly title `FE-U-P5-01 preserves closed mention chip states by stable identifiers and field keys`.
-- `make frontend-unit` passed with run root `.cartulary/test-results/20260605T201245Z-p498112`.
-- `make frontend-typecheck` passed with run root `.cartulary/test-results/20260605T201329Z-p500427`.
-- `frontend-unit/frontend-row-accounting.json` did not include `FE-U-P5-01` because current broad frontend-unit accounting still includes FE-P0 through FE-P4 maps only while FE-P5 remains planned/blocked.
+- Sprint 2 model support is implemented in `apps/web/src/workbookMentionChips.ts` and consumed by the workbook shell renderer.
+- The row-owned unit coverage lives in `apps/web/src/WorkbookShell.phase5.mentionChips.test.ts` under the exact mapped title `FE-U-P5-01 preserves closed mention chip states by stable identifiers and field keys`.
+- `make frontend-unit` passed with run root `.cartulary/test-results/20260606T003348Z-p56180`.
+- `frontend-unit/frontend-row-accounting.json` includes `FE-U-P5-01` as the only planned FE-P5 row in active-target accounting; its `row_results` entry has `claim_status_at_run="implemented"` and `closure_status="closed"`.
+- `make frontend-typecheck` passed with run root `.cartulary/test-results/20260606T003348Z-p56185`.
 - No selector helper, generated contract, generated protocol, public route, grid integration, visual readiness, accessibility readiness, FE-P5 activation, or FE-P5 completion update was made by this sprint.
 
 Non-goals:
@@ -322,7 +323,7 @@ Evidence requirements:
 - `frontend-unit/frontend-row-accounting.json` must close `FE-U-P5-01` before row promotion.
 - Unit evidence must be current, row-owned, and mapped to the FE-P5 map digest at run time.
 - Unit evidence closes only `FE-U-P5-01`, not integration, browser E2E, visual, accessibility, or phase completion.
-- Current implementation evidence is code-level only until FE-P5 row accounting includes `FE-U-P5-01`.
+- Current implementation evidence is row-owned unit evidence for `FE-U-P5-01` only.
 
 Blocker rules:
 
@@ -332,13 +333,12 @@ Blocker rules:
 
 Binary acceptance:
 
-- Code-level Sprint 2 support is present when `make frontend-unit` passes the focused `FE-U-P5-01` unit coverage and `make frontend-typecheck` passes or has a precise unrelated blocker.
-- Row promotion remains blocked until current `make frontend-unit` row accounting closes `FE-U-P5-01`.
+- Sprint 2 is complete when `make frontend-unit` passes the focused `FE-U-P5-01` unit coverage, `make frontend-typecheck` passes, and current `frontend-unit/frontend-row-accounting.json` closes `FE-U-P5-01`.
 - Evidence classes remain separated.
 
-Current blocker:
+Current blocker status:
 
-- `BLOCKER: FE-U-P5-01 unit row accounting missing or stale; target=frontend-unit run_root=.cartulary/test-results/20260605T201245Z-p498112 minimum_follow_up=rerun after map and implementation are current.`
+- No current `FE-U-P5-01` blocker remains. The remaining FE-P5 blockers are `FE-I-P5-01`, `FE-E-P5-01`, `FE-V-P5-01`, and `FE-A11Y-P5-01`.
 
 Explicit non-claims:
 
@@ -516,7 +516,7 @@ Source constraints:
 
 - UI/UX guide Section 10.3 owns design direction for unresolved, resolved, auto-resolved, dismissed, and manual resolution chip presentation.
 - Visual golden guide owns maintenance procedure.
-- `FE-VFIX-02` is the current fixture registry identity for `FE-V-P5-01`, but it is not closure evidence by itself.
+- `FE-VFIX-02` is the fixture registry identity for `FE-V-P5-01`, but its status is currently `missing` and it is not closure evidence by itself.
 
 Inspection checklist:
 
@@ -553,6 +553,7 @@ Blocker rules:
 
 - `BLOCKER: FE-P5 visual fixture identity missing or ambiguous; row=FE-V-P5-01 expected=FE-VFIX-02 actual=<fixture_ids> minimum_follow_up=<registry or map correction>.`
 - `BLOCKER: FE-V-P5-01 visual fixture not recaptured for frontend row; target=browser-e2e-visual minimum_follow_up=rerun mapped visual scenario with current row accounting.`
+- `BLOCKER: FE-V-P5-01 visual fixture registry remains missing; fixture=FE-VFIX-02 minimum_follow_up=recapture all five chip states through the mapped visual scenario and refresh the golden through the visual golden guide.`
 - `BLOCKER: FE-V-P5-01 closure attempted from snapshot filename or registry current status; minimum_follow_up=collect direct row-owned visual evidence.`
 
 Binary acceptance:
@@ -586,14 +587,14 @@ Source constraints:
 - Current FE-P5 map targets `make browser-e2e-a11y-preflight`, which is blocked-row smoke only.
 - Implemented accessibility readiness must move through owner-approved map changes to `make browser-e2e-a11y` and the normalized `cartulary.frontend_accessibility_summary.v2` artifact.
 - Accessibility evidence remains `design_direction`.
-- `D-AC-009` must be revalidated or precisely blocked before closure.
+- FE-P5 accessibility design references are mapped to `D-AC-050` and `D-AC-051`; do not reintroduce unresolved `D-AC-009` as a FE-P5 closure dependency.
 
 Inspection checklist:
 
 - Inspect `docs/testing-harness-nlspec.md` accessibility summary and preflight summary rules.
 - Inspect the current FE-P5 map target for `FE-A11Y-P5-01`.
 - Inspect UI/UX guide Sections 10.3, 10.5, and 14.
-- Inspect `docs/design.md` acceptance IDs, including the `D-AC-009` ambiguity.
+- Inspect `docs/design.md` accessibility criteria `D-AC-050` and `D-AC-051`.
 
 Test-first sequence:
 
@@ -626,7 +627,6 @@ Blocker rules:
 
 - `BLOCKER: FE-P5 accessibility summary missing, stale, or not mapped to FE-A11Y-P5-01; target=browser-e2e-a11y minimum_follow_up=rerun implemented-row accessibility target after map promotion.`
 - `BLOCKER: FE-A11Y-P5-01 remains mapped only to browser-e2e-a11y-preflight; preflight smoke cannot close implemented accessibility readiness.`
-- `BLOCKER: FE-A11Y-P5-01 design acceptance ID unresolved; id=D-AC-009 minimum_follow_up=<locate defining design acceptance row or owner-approved map correction>.`
 - `BLOCKER: FE-A11Y-P5-01 chip states distinguished by color only; minimum_follow_up=add visible/accessibility state markers.`
 
 Binary acceptance:
@@ -764,6 +764,24 @@ Plan-only creation validation:
 - For this document-only creation, the smallest required validation set is `git diff --check` and `make phase-ledger-drift`.
 - Do not run `make phase-ledgers`, `make generated-artifact-policy-check`, `make generate-drift`, `make json-shape-check`, or `make phase-schedule-drift` solely for this authored plan unless a schema-shaped file, authored phase map, registry, schedule input, generated ledger, or generated artifact is changed.
 
+Current remediation validation:
+
+| Command | Status | Run root | Notes |
+| --- | --- | --- | --- |
+| `make phase-ledgers` | pass | `.cartulary/test-results/20260606T002932Z-p48056` | Regenerated FE-P5 ledger after map and registry changes. |
+| `make frontend-unit` | pass | `.cartulary/test-results/20260606T003348Z-p56180` | `FE-U-P5-01` closed in `frontend-unit/frontend-row-accounting.json`; no planned blocked rows were included. |
+| `make frontend-typecheck` | pass | `.cartulary/test-results/20260606T003348Z-p56185` | Post-format typecheck. |
+| `make frontend-import-boundary-check` | pass | `.cartulary/test-results/20260606T003424Z-p58267` | Post-import-organization boundary check. |
+| `make phase-ledger-drift` | pass | `.cartulary/test-results/20260606T003122Z-p51105` | Generated ledger matches maps. |
+| `make phase-schedules` | pass | `.cartulary/test-results/20260606T003136Z-p52257` | Regenerated topology render index after row-accounting source change. |
+| `make phase-schedule-drift` | pass | `.cartulary/test-results/20260606T003149Z-p52552` | Schedule outputs are current. |
+| `make json-shape-check` | pass | `.cartulary/test-results/20260606T003149Z-p52535` | Schema-shaped metadata and freshness are current. |
+| `make harness-contract` | pass | `.cartulary/test-results/20260606T003158Z-p52941` | Harness contract smoke passed after accounting-scope changes. |
+| `make lint-scripts` | pass | `.cartulary/test-results/20260606T003304Z-p54088` | Shell/script lint passed. |
+| `make lint-biome` | pass | `.cartulary/test-results/20260606T003337Z-p55749` | Passed after `make format-frontend`. |
+| `make phase-slice PHASE_NAMESPACE=frontend PHASE=FE-P5` | expected fail | `.cartulary/test-results/20260606T003210Z-p53310` | Confirmed planned FE-P5 remains non-executable by phase-slice. |
+| `make agent-finalize` | pass | `.cartulary/test-results/20260606T003707Z-p60450` | Finalizer reported generated outputs unchanged and no retained `RESULTS_DIR` reuse. |
+
 ## Evidence Requirements
 
 Every FE-P5 closure record must include:
@@ -818,7 +836,7 @@ Required blocker templates:
 - `BLOCKER: FE-P5 direct react-data-grid import outside /packages/grid-adapter; path=<path> minimum_follow_up=route grid usage through adapter and rerun frontend-import-boundary-check.`
 - `BLOCKER: FE-P4 handoff validation missing or stale; minimum_follow_up=<rerun dependency validation or record owner-accepted rationale>.`
 - `BLOCKER: FE-P5 earlier-phase dependency evidence stale; phase=<FE-P0..FE-P4> target=<target> minimum_follow_up=<rerun regression or record accepted owner rationale>.`
-- `BLOCKER: FE-A11Y-P5-01 design acceptance ID unresolved; id=D-AC-009 minimum_follow_up=<locate defining design acceptance row or owner-approved map correction>.`
+- `BLOCKER: FE-A11Y-P5-01 design acceptance mapping stale; expected=D-AC-050,D-AC-051 actual=<ids> minimum_follow_up=<owner-approved map correction>.`
 
 ## Strict Non-Claims
 
@@ -864,7 +882,7 @@ FE-P5 accessibility readiness is allowed when:
 
 - `FE-A11Y-P5-01` closes from implemented-row `make browser-e2e-a11y` evidence and `cartulary.frontend_accessibility_summary.v2`.
 - Blocked-row preflight smoke is not used as closure evidence.
-- The `D-AC-009` ambiguity is resolved or the row remains blocked.
+- The row remains mapped to resolved design references such as `D-AC-050` and `D-AC-051`, or any replacement owner references are updated through the FE-P5 map.
 - Accessibility readiness remains design-direction only.
 
 Full FE-P5 phase completion is allowed only when:

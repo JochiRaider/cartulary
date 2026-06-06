@@ -138,6 +138,17 @@ import {
 } from "./workbookContinuity";
 import { mapWorkbookKeyboardCommand } from "./workbookKeyboard";
 import {
+  type AutoResolutionNotice,
+  buildAutoResolutionNotices,
+  buildInspectorMentions,
+  type CollectionItem,
+  type DismissedMention,
+  type InspectorMention,
+  type MentionChipState,
+  type RelationshipFieldKey,
+  readCollectionItems,
+} from "./workbookMentionChips";
+import {
   buildStableMutationSignature,
   deriveWorkbookSaveState,
   type PendingReplayUnitInput,
@@ -159,13 +170,9 @@ import {
   type WorkbookQueryState,
 } from "./workbookQuery";
 import {
-  buildAutoResolutionNotices,
-  buildInspectorMentions,
   buildMentionPatchPayload,
   isRecordChangedMessage,
-  type MentionChipState,
   type RecordChangedPayload,
-  readCollectionItems,
   shouldIgnoreSelfOriginatedRecordChange,
 } from "./workbookShellPhase4";
 import {
@@ -224,7 +231,6 @@ type EditableField =
   | "timeline.summary"
   | "timeline.details"
   | "timeline.source_text";
-type RelationshipFieldKey = "timeline.host_refs" | "timeline.identity_refs";
 type RelationshipDraftKey = "hostRefs" | "identityRefs";
 type CollectionFieldKey = RelationshipFieldKey | "timeline.tags";
 type CollectionDraftKey = RelationshipDraftKey | "tags";
@@ -244,20 +250,6 @@ type CollectionDrafts = {
   hostRefs: string;
   identityRefs: string;
   tags: string;
-};
-
-type CollectionItem = {
-  itemRef: string;
-  entityType: "host" | "identity";
-  itemKind: "resolved_ref" | "unresolved_mention" | string;
-  displayText: string;
-  rawText: string;
-  resolvedRecordId: string | null;
-  resolutionMethod: string | null;
-  autoResolved: boolean;
-  provenance: string | null;
-  confidence: number | null;
-  matchedAliasText: string | null;
 };
 
 type TagCollectionItem = {
@@ -1017,51 +1009,6 @@ type ViewportContinuityRequest = {
   followupSettled: boolean;
   baselineHostEntities: EntityRow[];
   baselineIdentityEntities: EntityRow[];
-};
-
-type DismissedMention = {
-  rowRecordId: string;
-  fieldKey: RelationshipFieldKey;
-  entityType: "host" | "identity";
-  itemRef: string;
-  rawText: string;
-  resolvedRecordId: string | null;
-  resolutionMethod: string | null;
-  autoResolved: boolean;
-  displayText?: string;
-  priorTargetEntityRecordId?: string | null;
-  provenance?: string | null;
-  confidence?: number | null;
-  matchedAliasText?: string | null;
-};
-
-type InspectorMention = DismissedMention & {
-  status: "unresolved" | "resolved" | "dismissed";
-  chipState: MentionChipState;
-  anchor: {
-    recordId: string;
-    fieldKey: RelationshipFieldKey;
-    itemRef: string;
-    entityMentionId: string | null;
-    targetEntityRecordId: string | null;
-  };
-  sourceKind: "entity_mention";
-  isActiveRelationshipValue: boolean;
-  priorTargetEntityRecordId: string | null;
-  displayText: string;
-  provenance: string | null;
-  confidence: number | null;
-  matchedAliasText: string | null;
-};
-
-type AutoResolutionNotice = {
-  itemRef: string;
-  rowRecordId: string;
-  fieldKey: RelationshipFieldKey;
-  entityType: "host" | "identity";
-  rawText: string;
-  resolvedRecordId: string;
-  matchedAliasText: string | null;
 };
 
 type LoadRowsOptions = {

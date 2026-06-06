@@ -205,11 +205,23 @@ if (project === "functional") {
   const frontendRegistry = JSON.parse(
     fs.readFileSync(path.join(root, "tools", "frontend_phase_registry.json"), "utf8"),
   );
-  for (const frontendPhase of (frontendRegistry.phases ?? []).filter((entry) => entry.status === "active")) {
+  function rowIsInActiveTargetScope(phase, row) {
+    if (phase.status === "active") {
+      return true;
+    }
+    if (phase.status !== "planned") {
+      return false;
+    }
+    return row.claim_status === "implemented" || row.claim_status === "stale";
+  }
+  for (const frontendPhase of (frontendRegistry.phases ?? [])) {
     const frontendManifest = JSON.parse(
       fs.readFileSync(path.join(root, frontendPhase.manifest_path), "utf8"),
     );
     for (const row of frontendManifest.rows ?? []) {
+      if (!rowIsInActiveTargetScope(frontendPhase, row)) {
+        continue;
+      }
       if (
         row.claim_status !== "implemented" ||
         !(row.targets ?? []).some((target) => target.target_name === "browser-e2e-webserver-backed")
@@ -412,6 +424,13 @@ if (JSON.stringify(artifact) !== JSON.stringify(accounting)) {
   throw new Error("browser frontend row accounting artifact must match compatibility extension");
 }
 const byID = new Map((accounting.rows ?? []).map((row) => [row.row_id, row]));
+const plannedNonAccountable = (accounting.rows ?? []).filter((row) =>
+  row.phase_status === "planned" &&
+  ["blocked", "not_implemented", "retired"].includes(row.claim_status)
+);
+if (plannedNonAccountable.length > 0) {
+  throw new Error(`browser active target accounting must exclude planned blocked/not-implemented rows: ${JSON.stringify(plannedNonAccountable)}`);
+}
 const fee = byID.get("FE-E-P1-01");
 if (!fee || fee.closure_status !== "closed") {
   throw new Error(`FE-E-P1-01 must be closed in browser row accounting: ${JSON.stringify(fee)}`);

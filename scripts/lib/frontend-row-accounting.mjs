@@ -150,6 +150,16 @@ function phaseNumber(phaseID) {
   return match ? Number.parseInt(match[1], 10) : Number.NaN;
 }
 
+function rowIsInActiveTargetScope(phase, row) {
+  if (phase.status === "active") {
+    return true;
+  }
+  if (phase.status !== "planned") {
+    return false;
+  }
+  return row.claim_status === "implemented" || row.claim_status === "stale";
+}
+
 function frontendRowsForTarget(target, scope) {
   if (scope.mode === "disabled") {
     return { rows: [], phaseMapRefs: [], explicitScope: true };
@@ -172,9 +182,6 @@ function frontendRowsForTarget(target, scope) {
   const mappedSelectedIDs = new Set();
   const selectedPhaseNumber = phaseNumber(scope.phase);
   for (const phase of registry.phases) {
-    if (scope.mode === "active_target" && phase.status !== "active") {
-      continue;
-    }
     if (scope.mode === "selected_rows") {
       if (phase.status !== "active") {
         continue;
@@ -190,6 +197,9 @@ function frontendRowsForTarget(target, scope) {
 
     const { manifest } = loadFrontendPhaseMap(repoRoot, phase.phase_id);
     for (const row of manifest.rows) {
+      if (scope.mode === "active_target" && !rowIsInActiveTargetScope(phase, row)) {
+        continue;
+      }
       if (scope.mode === "selected_rows") {
         if (selectedIDs.has(row.id)) {
           knownSelectedIDs.add(row.id);
