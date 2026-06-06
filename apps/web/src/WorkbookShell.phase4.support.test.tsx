@@ -535,11 +535,11 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
     await expectTimelineFocusAndScroll("record-1", preservedScroll);
-    expect(
-      screen
-        .getByTestId(relationshipItemsTestId("record-1", "timeline.host_refs"))
-        .querySelector('[aria-label="Manual-resolution WS-023"]'),
-    ).toBeTruthy();
+      expect(
+        screen
+          .getByTestId(relationshipItemsTestId("record-1", "timeline.host_refs"))
+          .querySelector('[aria-label="Resolved WS-023"]'),
+      ).toBeTruthy();
   });
 
   it("preserves continuity through create-from-mention entity refresh rerenders", async () => {

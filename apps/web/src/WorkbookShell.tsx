@@ -130,6 +130,10 @@ import { flushSync } from "react-dom";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { WorkbookGridControls } from "./WorkbookGridControls";
 import {
+  normalizeWorkbookViewRows,
+  workbookContractColumns,
+} from "./workbookContractRows";
+import {
   captureViewportAnchor,
   computeRestoredViewportScroll,
   isRectFullyVisibleWithinContainer,
@@ -1199,6 +1203,54 @@ function timelineColumnWidth(fieldKey: string): number {
   }
 }
 
+function entityContractColumnWidth(field: ViewFieldContract): number {
+  switch (field.fieldKey) {
+    case "host.display_name":
+    case "identity.display_name":
+      return 240;
+    case "host.hostname":
+    case "identity.upn":
+    case "identity.email":
+    case "identity.sam_account_name":
+      return 260;
+    case "host.aliases":
+    case "identity.aliases":
+      return 320;
+    case "host.linked_event_count":
+    case "identity.linked_event_count":
+    case "host.evidence_count":
+    case "identity.evidence_count":
+      return 140;
+    case "host.edited_at":
+    case "identity.edited_at":
+      return 180;
+    case "host.host_state":
+    case "identity.identity_state":
+    case "identity.mfa_state":
+    case "identity.reset_status":
+      return 150;
+    default:
+      return 200;
+  }
+}
+
+function genericContractColumnWidth(field: ViewFieldContract): number {
+  if (field.fieldKey.endsWith(".body") || field.fieldKey.endsWith(".summary")) {
+    return 320;
+  }
+  if (
+    field.fieldKey.endsWith(".edited_at") ||
+    field.fieldKey.endsWith(".updated_at") ||
+    field.fieldKey.endsWith(".timestamp_utc")
+  ) {
+    return 180;
+  }
+  if (field.readKind === "collection") {
+    return 260;
+  }
+  return field.defaultHidden ? 160 : 220;
+}
+
 const mergeIdentifierFields: Record<
   EntityRow["entityType"],
   Array<{ key: string; label: string }>
@@ -1672,7 +1724,15 @@ function entityRowFromApi(
           return null;
         }
         const object = item as Record<string, unknown>;
-        return typeof object.raw_text === "string" ? object.raw_text : null;
+        if (typeof object.raw_text === "string") {
+          return object.raw_text;
+        }
+        if (typeof object.alias_text === "string") {
+          return object.alias_text;
+        }
+        return typeof object.display_text === "string"
+          ? object.display_text
+          : null;
       })
       .filter((value): value is string => value !== null);
   })();
@@ -2558,7 +2618,7 @@ function RelationshipChip({
   };
   const labelPrefix =
     chipState === "manual-resolution"
-      ? "Manual-resolution"
+      ? "Resolved"
       : chipState === "auto-resolved"
         ? "Auto-resolved"
         : chipState === "dismissed"
@@ -8364,6 +8424,11 @@ function EntityWorkbookSurface({
   const [mergeCandidateId, setMergeCandidateId] = useState<string>("");
   const [mergeReason, setMergeReason] = useState("Merge duplicate entity");
   const [mergeMessage, setMergeMessage] = useState<string | null>(null);
+  const [editRecordId, setEditRecordId] = useState("");
+  const [editFieldKey, setEditFieldKey] = useState("");
+  const [editValue, setEditValue] = useState("");
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [mutationState, setMutationState] = useState<SaveState>("Saved");
   const [timelinePreviewRows, setTimelinePreviewRows] = useState<WorkbookRow[]>(
     [],
   );
@@ -8375,6 +8440,14 @@ function EntityWorkbookSurface({
   const survivorLabel = selectedEntity?.label ?? "Select a record";
   const contract = entityType === "host" ? hostsContract : identitiesContract;
   const surface: WorkbookSurface = contract.viewSchemaId;
+  const editableEntityFields = useMemo(
+    () => contract.fields.filter((field) => field.writeKind === "direct_value"),
+    [contract],
+  );
+  const entityReferenceOptions = useMemo(
+    () => emptyGenericReferenceOptions(),
+    [],
+  );
   const loserEntity =
     rows.find((row) => row.recordId === mergeCandidateId) ?? null;
   const mergePlan =
@@ -8382,75 +8455,13 @@ function EntityWorkbookSurface({
       ? buildMergePlan(selectedEntity, loserEntity)
       : null;
   const entityAnchorColumns = useMemo<readonly GridColumn<EntityRow>[]>(
-    () => [
-      {
-        fieldKey:
-          entityType === "host" ? "host.display_name" : "identity.display_name",
-        headerTestId: gridSortHeaderTestId(
-          surface,
-          entityType === "host" ? "host.display_name" : "identity.display_name",
-        ),
-        label:
-          contract.fieldMap[
-            entityType === "host"
-              ? "host.display_name"
-              : "identity.display_name"
-          ]?.label ?? "Name",
-        width: 240,
-        renderCell: () => null,
-        sortableFieldKey:
-          entityType === "host" ? "host.display_name" : "identity.display_name",
-      },
-      {
-        fieldKey: entityType === "host" ? "host.hostname" : "identity.upn",
-        headerTestId: gridSortHeaderTestId(
-          surface,
-          entityType === "host" ? "host.hostname" : "identity.upn",
-        ),
-        label:
-          contract.fieldMap[
-            entityType === "host" ? "host.hostname" : "identity.upn"
-          ]?.label ?? "Primary",
-        width: 260,
-        renderCell: () => null,
-        sortableFieldKey:
-          entityType === "host" ? "host.hostname" : "identity.upn",
-      },
-      {
-        fieldKey: entityType === "host" ? "host.aliases" : "identity.aliases",
-        label:
-          contract.fieldMap[
-            entityType === "host" ? "host.aliases" : "identity.aliases"
-          ]?.label ?? "Aliases",
-        width: 320,
-        renderCell: () => null,
-      },
-      {
-        fieldKey:
-          entityType === "host" ? "host.host_state" : "identity.identity_state",
-        headerTestId: gridSortHeaderTestId(
-          surface,
-          entityType === "host" ? "host.host_state" : "identity.identity_state",
-        ),
-        label:
-          contract.fieldMap[
-            entityType === "host"
-              ? "host.host_state"
-              : "identity.identity_state"
-          ]?.label ?? "State",
-        width: 140,
-        renderCell: () => null,
-        sortableFieldKey:
-          entityType === "host" ? "host.host_state" : "identity.identity_state",
-      },
-      {
-        fieldKey: "row_version",
-        label: "Version",
-        width: 96,
-        renderCell: () => null,
-      },
-    ],
-    [contract.fieldMap, entityType, surface],
+    () =>
+      workbookContractColumns<EntityRow>({
+        contract,
+        surface,
+        widthForField: entityContractColumnWidth,
+      }),
+    [contract, surface],
   );
   const entityGridRows: readonly GridRow<EntityRow>[] = rows.map((row) => ({
     key: row.recordId,
@@ -8573,6 +8584,12 @@ function EntityWorkbookSurface({
       </button>
     ),
   };
+  const selectedEditRow =
+    rows.find((row) => row.recordId === editRecordId) ?? null;
+  const selectedEditField =
+    editableEntityFields.find((field) => field.fieldKey === editFieldKey) ??
+    editableEntityFields[0] ??
+    null;
 
   useEffect(() => {
     if (selectedEntity) {
@@ -8581,6 +8598,51 @@ function EntityWorkbookSurface({
     }
     setSelectedRecordId(null);
   }, [selectedEntity]);
+
+  useEffect(() => {
+    if (selectedEditRow === null || selectedEditField === null) {
+      setEditValue("");
+      return;
+    }
+    const value = selectedEditRow.rawRow.cells[selectedEditField.fieldKey]?.value;
+    setEditValue(value === null || value === undefined ? "" : String(value));
+  }, [selectedEditField, selectedEditRow]);
+
+  async function submitEntityEdit() {
+    if (selectedEditRow === null || selectedEditField === null) {
+      setMutationError("invalid_mutation_payload");
+      return;
+    }
+    const change = buildGenericPatchChange(selectedEditField, editValue);
+    if (change === null) {
+      setMutationError(
+        "Provide a value, or leave clearable fields empty to clear them.",
+      );
+      return;
+    }
+    setMutationState("Syncing");
+    setMutationError(null);
+    const result = await fetchJSON<ViewMutationEnvelope>(
+      apiPath(apiBase, `/api/v1/records/${selectedEditRow.recordId}`),
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          view_schema_id: contract.viewSchemaId,
+          base_row_version: selectedEditRow.rowVersion,
+          client_txn_id: `entity-patch-${contract.viewSchemaId}-${Date.now()}`,
+          changes: [change],
+        }),
+      },
+    );
+    if (!result.ok) {
+      setMutationState("Conflict");
+      setMutationError(parseMutationError(result.payload));
+      return;
+    }
+    await onRefreshEntities();
+    setSelectedRecordId(selectedEditRow.recordId);
+    setMutationState("Saved");
+  }
 
   const loadTimelinePreview = useCallback(
     async (recordId: string) => {
@@ -8679,6 +8741,9 @@ function EntityWorkbookSurface({
           </h1>
           <p style={bodyStyle}>Incident {incidentId}</p>
         </div>
+        <div style={roleBadgeStyle} data-testid="generic-mutation-state">
+          {mutationState}
+        </div>
       </header>
       <WorkbookFocusAnchorStatus anchor={entityFocus.anchor} />
 
@@ -8701,6 +8766,70 @@ function EntityWorkbookSurface({
               surface={surface}
             />
           </WorkbookShellSlotRegion>
+          {editableEntityFields.length > 0 && rows.length > 0 ? (
+            <section style={genericMutationPanelStyle}>
+              <div style={genericEditRowStyle}>
+                <select
+                  data-testid={genericEditRecordSelectTestId(
+                    contract.viewSchemaId,
+                  )}
+                  style={selectStyle}
+                  value={editRecordId}
+                  onChange={(event) => {
+                    setEditRecordId(event.target.value);
+                  }}
+                >
+                  <option value="">Row</option>
+                  {rows.map((row) => (
+                    <option key={row.recordId} value={row.recordId}>
+                      {genericRowLabel(contract, row.rawRow)}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  data-testid={genericEditFieldSelectTestId(
+                    contract.viewSchemaId,
+                  )}
+                  style={selectStyle}
+                  value={editFieldKey}
+                  onChange={(event) => {
+                    setEditFieldKey(event.target.value);
+                  }}
+                >
+                  <option value="">Field</option>
+                  {editableEntityFields.map((field) => (
+                    <option key={field.fieldKey} value={field.fieldKey}>
+                      {field.label}
+                    </option>
+                  ))}
+                </select>
+                {selectedEditField ? (
+                  <GenericMutationControl
+                    collectionMode="add"
+                    field={selectedEditField}
+                    referenceOptions={entityReferenceOptions}
+                    testId={genericEditValueTestId(contract.viewSchemaId)}
+                    value={editValue}
+                    onChange={setEditValue}
+                  />
+                ) : null}
+                <button
+                  data-testid={genericEditSubmitTestId(contract.viewSchemaId)}
+                  disabled={mutationState === "Syncing"}
+                  style={actionButtonStyle}
+                  type="button"
+                  onClick={() => {
+                    void submitEntityEdit();
+                  }}
+                >
+                  Update
+                </button>
+              </div>
+              {mutationError ? (
+                <p style={bodyStyle}>{mutationError}</p>
+              ) : null}
+            </section>
+          ) : null}
           <GridViewport
             style={gridShellStyle}
             testId={gridShellTestId(surface)}
@@ -9690,16 +9819,15 @@ function GenericWorkbookSurface({
     [apiBase, incidentId, onRefresh, setEvidenceMessage],
   );
 
-  const anchorColumns: readonly GridColumn<EntityApiRow>[] = visibleFields(
-    contract,
-  ).map((field) => ({
-    fieldKey: field.fieldKey,
-    headerTestId: gridSortHeaderTestId(surface, field.fieldKey),
-    label: field.label,
-    width: field.defaultHidden ? 160 : 220,
-    renderCell: () => null,
-    sortableFieldKey: resolveHeaderSortFieldKey(contract, field.fieldKey),
-  }));
+  const anchorColumns = useMemo<readonly GridColumn<EntityApiRow>[]>(
+    () =>
+      workbookContractColumns<EntityApiRow>({
+        contract,
+        surface,
+        widthForField: genericContractColumnWidth,
+      }),
+    [contract, surface],
+  );
   const gridRows: readonly GridRow<EntityApiRow>[] = rows.map((row) => ({
     key: row.record_id,
     recordId: row.record_id,
@@ -10815,10 +10943,37 @@ function genericCellLabel(value: unknown): string {
   if (typeof value === "object" && value !== null && "items" in value) {
     const items = (value as { items?: unknown }).items;
     if (Array.isArray(items)) {
-      return `${items.length} item${items.length === 1 ? "" : "s"}`;
+      const labels = collectionItemLabels(items);
+      if (labels.length > 0) {
+        return labels.join(", ");
+      }
+      return "None";
     }
   }
   return JSON.stringify(value);
+}
+
+function collectionItemLabels(items: readonly unknown[]): string[] {
+  return items.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return [];
+    }
+    const raw = item as Record<string, unknown>;
+    const candidates = [
+      raw.display_text,
+      raw.alias_text,
+      raw.tag_name,
+      raw.raw_text,
+      raw.linked_record_id,
+      raw.record_id,
+      raw.item_ref,
+    ];
+    const label = candidates.find(
+      (value): value is string =>
+        typeof value === "string" && value.trim() !== "",
+    );
+    return label === undefined ? [] : [label];
+  });
 }
 
 export function buildGenericCreatePayload(
@@ -11955,7 +12110,16 @@ export function WorkbookShell({
         throw new Error(parseErrorMessage(result.payload));
       }
       const envelope = readEnvelope<ViewQueryEnvelope>(result.payload);
-      return envelope.data.rows.map((row) => entityRowFromApi(row, entityType));
+      if (envelope.data.view_schema_id !== viewSchemaId) {
+        throw new Error(
+          `Entity surface load returned ${envelope.data.view_schema_id} for ${viewSchemaId}.`,
+        );
+      }
+      return normalizeWorkbookViewRows(
+        contract,
+        envelope.data.rows,
+        `${viewSchemaId} query response`,
+      ).map((row) => entityRowFromApi(row, entityType));
     },
     [apiBase, incidentId],
   );
@@ -12120,7 +12284,15 @@ export function WorkbookShell({
           `Surface load returned ${envelope.data.view_schema_id} for ${requestedSurface}.`,
         );
       }
-      setGenericRows(envelope.data.rows);
+      setGenericRows(
+        requestedSurface === notesViewSchemaId
+          ? normalizeWorkbookViewRows(
+              activeContract,
+              envelope.data.rows,
+              `${requestedSurface} query response`,
+            )
+          : envelope.data.rows,
+      );
     } catch (error) {
       if (!request.isCurrent() || isAbortError(error)) {
         return;

@@ -516,11 +516,20 @@ function hostRow(options: { displayName?: string; recordId?: string } = {}) {
     cells: {
       "host.display_name": { value: displayName },
       "host.hostname": { value: `${recordId}.example.test` },
-      "host.host_state": { value: "canonical" },
+      "host.aad_device_id": { value: null },
+      "host.fqdn": { value: `${recordId}.example.test` },
       "host.aliases": {
         value: { kind: "collection_value_v1", ordered: false, items: [] },
       },
+      "host.host_state": { value: "canonical" },
       "host.linked_event_count": { value: 0 },
+      "host.evidence_count": { value: 0 },
+      "host.location": { value: null },
+      "host.os_platform": { value: null },
+      "host.business_owner": { value: null },
+      "host.criticality": { value: null },
+      "host.containment_status": { value: null },
+      "host.edited_at": { value: "2026-04-24T12:00:00.000Z" },
     },
   };
 }

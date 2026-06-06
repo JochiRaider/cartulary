@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -456,7 +457,82 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 	if len(request.Changes) == 0 {
 		return MutationResult{}, mutationValidationError("changes", "empty_changes")
 	}
+	if request.ViewSchemaID == entities.HostsViewSchemaID || request.ViewSchemaID == entities.IdentitiesViewSchemaID {
+		entityRequest, err := entityPatchRequestFromWorkbook(request)
+		if err != nil {
+			return MutationResult{}, err
+		}
+		result, err := s.entityStore.PatchEntityRow(ctx, actor, recordID, entityRequest, requestHash, requestID, now, workbookPatchRouteKey)
+		var entityConflict *entities.RowVersionConflictError
+		switch {
+		case errors.As(err, &entityConflict):
+			return MutationResult{}, &RowVersionConflictError{
+				RecordID:          entityConflict.RecordID,
+				BaseRowVersion:    entityConflict.BaseRowVersion,
+				CurrentRowVersion: entityConflict.CurrentRowVersion,
+			}
+		case errors.Is(err, entities.ErrNoEffectivePatchChange):
+			return MutationResult{}, mutationValidationError("changes", "no_effective_change")
+		case err != nil:
+			return MutationResult{}, err
+		}
+		return MutationResult{
+			Payload:          result.Payload,
+			StatusCode:       result.StatusCode,
+			Replayed:         result.Replayed,
+			IncidentID:       result.IncidentID,
+			RecordID:         result.RecordID,
+			ChangeSetID:      result.ChangeSetID,
+			ClientTxnID:      result.ClientTxnID,
+			RowVersion:       result.RowVersion,
+			ViewSchemaID:     request.ViewSchemaID,
+			ChangedFieldKeys: result.ChangedFieldKeys,
+		}, nil
+	}
 	return s.applyWorkbookPatch(ctx, actor, recordID, request, requestHash, requestID, now, workbookPatchRouteKey)
+}
+
+func entityPatchRequestFromWorkbook(request PatchRequest) (entities.PatchRequest, error) {
+	changes := make([]entities.PatchChange, 0, len(request.Changes))
+	for _, change := range request.Changes {
+		if !isEntityDirectPatchField(request.ViewSchemaID, change.FieldKey) {
+			return entities.PatchRequest{}, mutationValidationError("field_key", "unsupported_field_key")
+		}
+		if change.Collection != nil || change.Value == nil || change.Value.Kind != "text" || change.Value.Text == nil {
+			return entities.PatchRequest{}, mutationValidationError(change.FieldKey, "invalid_value")
+		}
+		changes = append(changes, entities.PatchChange{
+			FieldKey: change.FieldKey,
+			Value:    *change.Value.Text,
+		})
+	}
+	return entities.PatchRequest{
+		ViewSchemaID:   request.ViewSchemaID,
+		BaseRowVersion: request.BaseRowVersion,
+		ClientTxnID:    request.ClientTxnID,
+		Changes:        changes,
+	}, nil
+}
+
+func isEntityDirectPatchField(viewSchemaID string, fieldKey string) bool {
+	switch viewSchemaID {
+	case entities.HostsViewSchemaID:
+		switch fieldKey {
+		case "host.display_name", "host.hostname", "host.aad_device_id", "host.fqdn":
+			return true
+		default:
+			return false
+		}
+	case entities.IdentitiesViewSchemaID:
+		switch fieldKey {
+		case "identity.display_name", "identity.aad_object_id", "identity.sid", "identity.upn", "identity.email", "identity.sam_account_name":
+			return true
+		default:
+			return false
+		}
+	default:
+		return false
+	}
 }
 
 func (s *Store) applyWorkbookPatch(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time, routeKey string) (MutationResult, error) {
