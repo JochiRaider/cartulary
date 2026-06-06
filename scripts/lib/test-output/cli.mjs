@@ -951,7 +951,7 @@ function firstActionableLine(lines) {
 }
 
 function firstKnownToolDiagnosticLine(lines) {
-  return firstShellCheckDiagnosticLine(lines);
+  return firstShellCheckDiagnosticLine(lines) || firstBiomeDiagnosticLine(lines);
 }
 
 function firstShellCheckDiagnosticLine(lines) {
@@ -984,6 +984,29 @@ function firstShellCheckDiagnosticLine(lines) {
     );
     if (gccDiagnosticMatch) {
       return `ShellCheck ${gccDiagnosticMatch[4]} at ${gccDiagnosticMatch[1]}:${gccDiagnosticMatch[2]}: ${gccDiagnosticMatch[3]}`;
+    }
+  }
+
+  return "";
+}
+
+function firstBiomeDiagnosticLine(lines) {
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (line === "") {
+      continue;
+    }
+
+    const ruleDiagnosticMatch = line.match(
+      /^(.+?):([0-9]+):([0-9]+)\s+((?:assist|lint)\/[A-Za-z0-9/_-]+)\b/u,
+    );
+    if (ruleDiagnosticMatch) {
+      return `Biome ${ruleDiagnosticMatch[4]} at ${ruleDiagnosticMatch[1]}:${ruleDiagnosticMatch[2]}:${ruleDiagnosticMatch[3]}`;
+    }
+
+    const formatDiagnosticMatch = line.match(/^(.+?)\s+format\s+━/u);
+    if (formatDiagnosticMatch) {
+      return `Biome format at ${formatDiagnosticMatch[1]}`;
     }
   }
 
@@ -4620,6 +4643,12 @@ function classifyShellFailureDetails(context, stdoutLines, stderrLines, message)
   ) {
     return { failure_class: "infra", failure_reason: "service_start_error" };
   }
+  if (isBiomeShellFailure(context, text)) {
+    return {
+      failure_class: "harness",
+      failure_reason: "tool_diagnostic_failure",
+    };
+  }
 
   return {
     failure_class: classifyExecutionFailure(
@@ -4633,6 +4662,30 @@ function classifyShellFailureDetails(context, stdoutLines, stderrLines, message)
       context.command,
     ),
   };
+}
+
+function isBiomeShellFailure(context, text) {
+  const commandContext = [
+    context.target,
+    context.label,
+    context.command,
+  ]
+    .join("\n")
+    .toLowerCase();
+  if (
+    !commandContext.includes("lint-biome") &&
+    !commandContext.includes("run-frontend-biome.sh") &&
+    !commandContext.includes("biome")
+  ) {
+    return false;
+  }
+  return (
+    /\b(?:assist|lint)\/[a-z0-9/_-]+/u.test(text) ||
+    /\breporter\/(?:format|violations)\b/u.test(text) ||
+    text.includes("formatter would have printed") ||
+    text.includes("some warnings were emitted while running checks") ||
+    /\bfound [0-9]+ (?:errors?|warnings?)\b/u.test(text)
+  );
 }
 
 function handleShellPhase() {

@@ -1022,9 +1022,9 @@ export async function openSystemSurfaceBySwitcher(
         new RegExp(`view_schema_id=${encodeURIComponent(viewSchemaId)}`),
         { timeout: nextOperationTimeout() },
       );
-      await expect(
-        page.getByTestId(gridShellTestId(viewSchemaId)),
-      ).toBeVisible({ timeout: nextOperationTimeout() });
+      await expect(page.getByTestId(gridShellTestId(viewSchemaId))).toBeVisible(
+        { timeout: nextOperationTimeout() },
+      );
       return;
     } catch (error) {
       lastError = error;

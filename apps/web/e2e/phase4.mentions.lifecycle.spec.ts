@@ -1,5 +1,4 @@
 import { scrollGridToBottom } from "@cartulary/test-utils";
-import type { Page, Response } from "@playwright/test";
 import {
   mentionDismissButtonTestId,
   mentionItemTestId,
@@ -7,6 +6,7 @@ import {
   relationshipItemsTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
+import type { Page, Response } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
@@ -180,8 +180,7 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
     requireExactVerticalScroll: false,
   });
   expect(restoreBody).toMatchObject({
-    base_mention_row_version:
-      dismissEnvelope.data.entity_mention.row_version,
+    base_mention_row_version: dismissEnvelope.data.entity_mention.row_version,
     action: "revert_to_unresolved",
   });
   expect(restoreBody).not.toHaveProperty("resolved_record_id");
@@ -218,9 +217,7 @@ function waitForMentionAction(page: Page, itemRef: unknown) {
   return page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
-      response
-        .url()
-        .endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
+      response.url().endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
   );
 }
 

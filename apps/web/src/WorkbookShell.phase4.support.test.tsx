@@ -514,24 +514,24 @@ describe("Support Phase 4 TimelineWorkbook", () => {
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-          recordId: "record-1",
-          rowVersion: 2,
-          summary: "Alpha",
-          captureState: "reviewed",
-          hostRefs: [
-            resolvedItem({
-              itemRef: "entity_mention:11111111-1111-4111-8111-000000000401",
-              entityType: "host",
-              rawText: "WS-023?",
-              displayText: "WS-023",
-              resolvedRecordId: "host-1",
-              resolutionMethod: "explicit_resolve_route",
-              autoResolved: false,
-              provenance: "manual",
-              confidence: null,
-              mentionRowVersion: 2,
-            }),
-          ],
+            recordId: "record-1",
+            rowVersion: 2,
+            summary: "Alpha",
+            captureState: "reviewed",
+            hostRefs: [
+              resolvedItem({
+                itemRef: "entity_mention:11111111-1111-4111-8111-000000000401",
+                entityType: "host",
+                rawText: "WS-023?",
+                displayText: "WS-023",
+                resolvedRecordId: "host-1",
+                resolutionMethod: "explicit_resolve_route",
+                autoResolved: false,
+                provenance: "manual",
+                confidence: null,
+                mentionRowVersion: 2,
+              }),
+            ],
           }),
         ],
       }),
@@ -551,7 +551,9 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
     fireEvent.click(
       screen.getByTestId(
-        mentionItemTestId("entity_mention:11111111-1111-4111-8111-000000000401"),
+        mentionItemTestId(
+          "entity_mention:11111111-1111-4111-8111-000000000401",
+        ),
       ),
     );
     const preservedScroll = setTimelineGridScroll(240, 140);
@@ -867,18 +869,18 @@ describe("Support Phase 4 TimelineWorkbook", () => {
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-          recordId: "record-1",
-          rowVersion: 3,
-          summary: "Alpha",
-          captureState: "reviewed",
-          hostRefs: [
-            unresolvedItem({
-              itemRef: mentionItemRef,
-              entityType: "host",
-              rawText: " vpn   gateway ",
-              mentionRowVersion: 2,
-            }),
-          ],
+            recordId: "record-1",
+            rowVersion: 3,
+            summary: "Alpha",
+            captureState: "reviewed",
+            hostRefs: [
+              unresolvedItem({
+                itemRef: mentionItemRef,
+                entityType: "host",
+                rawText: " vpn   gateway ",
+                mentionRowVersion: 2,
+              }),
+            ],
           }),
         ],
       }),
@@ -900,7 +902,9 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       autoResolutionNoticeTestId(mentionItemRef),
     );
     fireEvent.click(
-      within(notice).getByTestId(autoResolutionUndoButtonTestId(mentionItemRef)),
+      within(notice).getByTestId(
+        autoResolutionUndoButtonTestId(mentionItemRef),
+      ),
     );
 
     await waitFor(() => {

@@ -1,5 +1,4 @@
 import { scrollGridToBottom } from "@cartulary/test-utils";
-import type { Page, Response } from "@playwright/test";
 import {
   autoResolutionNoticeFamilySelector,
   autoResolutionNoticeTestId,
@@ -11,6 +10,7 @@ import {
   timelineCollectionInputTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
+import type { Page, Response } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
@@ -143,10 +143,7 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
   await expectTimelineContinuity(page, eligibleRow.record_id, autoScroll);
 
   const undoScroll = await scrollGridToBottom(page, timelineViewSchemaId);
-  const undoResponsePromise = waitForMentionAction(
-    page,
-    eligibleItem.item_ref,
-  );
+  const undoResponsePromise = waitForMentionAction(page, eligibleItem.item_ref);
   await autoNotice
     .getByTestId(autoResolutionUndoButtonTestId(String(eligibleItem.item_ref)))
     .click();
@@ -167,9 +164,7 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     action: "revert_to_unresolved",
   });
   expect(undoBody).not.toHaveProperty("resolved_record_id");
-  expect(undoEnvelope.data.entity_mention.resolution_status).toBe(
-    "unresolved",
-  );
+  expect(undoEnvelope.data.entity_mention.resolution_status).toBe("unresolved");
 
   const suppressedTokens = [
     "WS-023",
@@ -252,9 +247,7 @@ function waitForMentionAction(page: Page, itemRef: unknown) {
   return page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
-      response
-        .url()
-        .endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
+      response.url().endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
   );
 }
 

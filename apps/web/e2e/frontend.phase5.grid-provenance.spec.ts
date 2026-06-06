@@ -148,20 +148,25 @@ test(exactScenarioTitle, async ({ page }) => {
     "note.title": "FE-I-P5 Note",
     "note.body": "Initial provenance note",
   })) as ViewRow;
-  const timeline = (await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("feip501-timeline"),
-    "timeline.summary": "FE-I-P5 Gateway login by analyst",
-    [hostRefsFieldKey]: mixedRefPayload(
-      " FEIP501 Gateway ",
-      host.record_id,
-      "FEIP501 Unresolved Host",
-    ),
-    [identityRefsFieldKey]: mixedRefPayload(
-      " FEIP501 Analyst ",
-      identity.record_id,
-      "FEIP501 Unresolved Identity",
-    ),
-  })) as ViewRow;
+  const timeline = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("feip501-timeline"),
+      "timeline.summary": "FE-I-P5 Gateway login by analyst",
+      [hostRefsFieldKey]: mixedRefPayload(
+        " FEIP501 Gateway ",
+        host.record_id,
+        "FEIP501 Unresolved Host",
+      ),
+      [identityRefsFieldKey]: mixedRefPayload(
+        " FEIP501 Analyst ",
+        identity.record_id,
+        "FEIP501 Unresolved Identity",
+      ),
+    },
+  )) as ViewRow;
 
   const hostRowsBefore = (await queryViewRows(
     page,

@@ -403,6 +403,29 @@ assert_contains "$shellcheck_stdout_failure_output" "message=$shellcheck_message
 shellcheck_stdout_failure_summary="$shellcheck_stdout_failure_results/shellcheck-stdout-failure/adhoc/shellcheck-stdout-failure/phase-summary.json"
 assert_equals "$(json_field "$shellcheck_stdout_failure_summary" "dossiers.0.message")" "$shellcheck_message" "shellcheck stdout failure summary message"
 
+biome_diagnostic_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-phase-biome-results.XXXXXX")"
+cleanup_paths+=("$biome_diagnostic_failure_results")
+set +e
+biome_diagnostic_failure_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$biome_diagnostic_failure_results" \
+  CARTULARY_TEST_RUN_ID="biome-diagnostic-failure" \
+  CARTULARY_TEST_TARGET="lint-biome" \
+    "$HELPER" "lint biome" -- bash -lc 'printf "%s\n" "apps/web/src/example.ts:12:8 lint/style/noNonNullAssertion ━━━━━━━━━━" "  ! Forbidden non-null assertion."; exit 1' \
+    2>&1
+)"
+biome_diagnostic_failure_status=$?
+set -e
+if [[ "$biome_diagnostic_failure_status" -ne 1 ]]; then
+  fail "biome diagnostic failure: expected exit status 1, got $biome_diagnostic_failure_status"
+fi
+biome_message="Biome lint/style/noNonNullAssertion at apps/web/src/example.ts:12:8"
+assert_contains "$biome_diagnostic_failure_output" "reason=tool_diagnostic_failure" "biome diagnostic failure reason"
+assert_contains "$biome_diagnostic_failure_output" "$biome_message" "biome diagnostic failure message"
+biome_diagnostic_failure_summary="$biome_diagnostic_failure_results/biome-diagnostic-failure/lint-biome/lint-biome/phase-summary.json"
+assert_equals "$(json_field "$biome_diagnostic_failure_summary" "failure_reason")" "tool_diagnostic_failure" "biome diagnostic summary reason"
+assert_equals "$(json_field "$biome_diagnostic_failure_summary" "dossiers.0.message")" "$biome_message" "biome diagnostic summary message"
+
 single_span_results="$(mktemp -d "$ROOT_DIR/tmp/single-span-duration.XXXXXX")"
 cleanup_paths+=("$single_span_results")
 single_span_phase_dir="$single_span_results/single-span/short-target/short-phase"
@@ -1556,6 +1579,19 @@ assert_contains "$go_pkg_setup_output" "phase=phase1" "run-go-phase package setu
 assert_contains "$go_pkg_setup_output" "symbol_or_title=(package setup)" "run-go-phase package setup title"
 assert_contains "$go_pkg_setup_output" "message=start shared process harnesses: package setup failed" "run-go-phase package setup message"
 
+declare -A go_manifest_repo_map_digests=()
+for synthetic_manifest in \
+  "$ROOT_DIR/tools/phase9_test_map.json" \
+  "$ROOT_DIR/tools/phase10_test_map.json" \
+  "$ROOT_DIR/tools/phase11_test_map.json"
+do
+  if [[ -e "$synthetic_manifest" ]]; then
+    go_manifest_repo_map_digests["$synthetic_manifest"]="$(sha256sum "$synthetic_manifest" | awk '{print $1}')"
+  else
+    go_manifest_repo_map_digests["$synthetic_manifest"]="__absent__"
+  fi
+done
+
 go_manifest_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-manifest-phase-smoke.XXXXXX")"
 go_manifest_root="$(mktemp -d "$ROOT_DIR/tmp/run-go-manifest-phase-manifests.XXXXXX")"
 go_manifest_tools="$go_manifest_root/tools"
@@ -1622,6 +1658,15 @@ cat >"$go_manifest_tools/phase9_test_map.json" <<EOF
     {
       "id": "U-9-01",
       "coverage": "authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "backend_unit::${go_manifest_rel#./}/run_go_manifest_phase_smoke_test.go::TestPhase9_RunGoManifest_U_9_01",
+      "duplicate_of": "none",
+      "evidence_delta": "synthetic run-go manifest smoke evidence",
+      "warm_local_cost_class": "low",
       "runner": "go_test",
       "package": "$go_manifest_rel",
       "file": "${go_manifest_rel#./}/run_go_manifest_phase_smoke_test.go",
@@ -1656,6 +1701,15 @@ cat >"$go_manifest_tools/phase10_test_map.json" <<EOF
     {
       "id": "U-10-01",
       "coverage": "authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "backend_unit::${go_manifest_rel#./}/run_go_manifest_phase_smoke_test.go::TestPhase10_RunGoManifest_U_10_01",
+      "duplicate_of": "none",
+      "evidence_delta": "synthetic run-go manifest skip smoke evidence",
+      "warm_local_cost_class": "low",
       "runner": "go_test",
       "package": "$go_manifest_rel",
       "file": "${go_manifest_rel#./}/run_go_manifest_phase_smoke_test.go",
@@ -1950,6 +2004,15 @@ cat >"$go_manifest_tools/phase11_test_map.json" <<EOF
     {
       "id": "U-11-01",
       "coverage": "authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "backend_unit::${go_manifest_pkg_setup_rel#./}/run_go_manifest_phase_package_setup_test.go::TestPhase11_RunGoManifestPackageSetup_U_11_01",
+      "duplicate_of": "none",
+      "evidence_delta": "synthetic run-go manifest package setup smoke evidence",
+      "warm_local_cost_class": "low",
       "runner": "go_test",
       "package": "$go_manifest_pkg_setup_rel",
       "file": "${go_manifest_pkg_setup_rel#./}/run_go_manifest_phase_package_setup_test.go",
@@ -2026,7 +2089,18 @@ for synthetic_manifest in \
   "$ROOT_DIR/tools/phase10_test_map.json" \
   "$ROOT_DIR/tools/phase11_test_map.json"
 do
-  if [[ -e "$synthetic_manifest" ]]; then
-    fail "run-go-manifest-phase smoke must not write synthetic manifests into repo tools/: $synthetic_manifest"
+  original_digest="${go_manifest_repo_map_digests["$synthetic_manifest"]}"
+  if [[ "$original_digest" == "__absent__" ]]; then
+    if [[ -e "$synthetic_manifest" ]]; then
+      fail "run-go-manifest-phase smoke must not create synthetic manifests in repo tools/: $synthetic_manifest"
+    fi
+    continue
+  fi
+  if [[ ! -e "$synthetic_manifest" ]]; then
+    fail "run-go-manifest-phase smoke must not remove repo manifest: $synthetic_manifest"
+  fi
+  current_digest="$(sha256sum "$synthetic_manifest" | awk '{print $1}')"
+  if [[ "$current_digest" != "$original_digest" ]]; then
+    fail "run-go-manifest-phase smoke must not mutate repo manifest: $synthetic_manifest"
   fi
 done

@@ -13,7 +13,13 @@ import {
   type ViewContract,
   type ViewFieldContract,
 } from "@cartulary/view-contracts";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { successEnvelope } from "./timelineWorkbookTestSupport";
 import { WorkbookShell } from "./WorkbookShell";
@@ -114,6 +120,14 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
   let fetchMock: ReturnType<typeof vi.fn>;
   let rowsByView: Record<string, ViewApiRow[]>;
   let patchRequests: Array<{ body: unknown; recordId: string }>;
+
+  function requireFirstViewRow(viewSchemaId: string): ViewApiRow {
+    const row = rowsByView[viewSchemaId]?.[0];
+    if (!row) {
+      throw new Error(`test fixture missing first row for ${viewSchemaId}`);
+    }
+    return row;
+  }
 
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
@@ -361,9 +375,11 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
   });
 
   it(exactScenarioTitle, async () => {
+    const hostFixtureRow = requireFirstViewRow(hostsViewSchemaId);
+    const identityFixtureRow = requireFirstViewRow(identitiesViewSchemaId);
     const malformedHost = {
-      ...rowsByView[hostsViewSchemaId]![0]!,
-      cells: { ...rowsByView[hostsViewSchemaId]![0]!.cells },
+      ...hostFixtureRow,
+      cells: { ...hostFixtureRow.cells },
     };
     delete malformedHost.cells["host.edited_at"];
     expect(() =>
@@ -373,9 +389,9 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       normalizeViewRowV1(
         identitiesContract,
         {
-          ...rowsByView[identitiesViewSchemaId]![0]!,
+          ...identityFixtureRow,
           cells: {
-            ...rowsByView[identitiesViewSchemaId]![0]!.cells,
+            ...identityFixtureRow.cells,
             row_version: { value: 4 },
           },
         },
@@ -407,7 +423,9 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       screen.getByTestId(genericEditValueTestId(hostsViewSchemaId)),
       { target: { value: "Gateway Host Edited" } },
     );
-    fireEvent.click(screen.getByTestId(genericEditSubmitTestId(hostsViewSchemaId)));
+    fireEvent.click(
+      screen.getByTestId(genericEditSubmitTestId(hostsViewSchemaId)),
+    );
     await waitFor(() => {
       expect(
         screen.getByTestId(rowCellTestId("host-1", "host.display_name"))
@@ -428,11 +446,15 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       },
     });
 
-    fireEvent.click(screen.getByTestId(surfaceTabTestId(identitiesViewSchemaId)));
+    fireEvent.click(
+      screen.getByTestId(surfaceTabTestId(identitiesViewSchemaId)),
+    );
     expect(headerFieldKeys(identitiesViewSchemaId)).toEqual(
       identitiesContract.defaultVisibleFields,
     );
-    expect(headerFieldKeys(identitiesViewSchemaId)).not.toContain("row_version");
+    expect(headerFieldKeys(identitiesViewSchemaId)).not.toContain(
+      "row_version",
+    );
     expect(
       screen.getByTestId(rowCellTestId("identity-1", "identity.aliases"))
         .textContent,
@@ -486,12 +508,13 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       screen.getByTestId(rowCellTestId("note-1", "note.tags")).textContent,
     ).toContain("provenance");
 
+    const timelineFixtureRow = requireFirstViewRow(timelineViewSchemaId);
     const beforeHostMentions = readCollectionItems(
-      rowsByView[timelineViewSchemaId]![0]!,
+      timelineFixtureRow,
       "timeline.host_refs",
     );
     const beforeIdentityMentions = readCollectionItems(
-      rowsByView[timelineViewSchemaId]![0]!,
+      timelineFixtureRow,
       "timeline.identity_refs",
     );
     const beforeHostMention = beforeHostMentions.find(
@@ -524,7 +547,9 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       screen.getByTestId(genericEditValueTestId(notesViewSchemaId)),
       { target: { value: "Edited note body" } },
     );
-    fireEvent.click(screen.getByTestId(genericEditSubmitTestId(notesViewSchemaId)));
+    fireEvent.click(
+      screen.getByTestId(genericEditSubmitTestId(notesViewSchemaId)),
+    );
     await waitFor(() => {
       expect(
         screen.getByTestId(rowCellTestId("note-1", "note.body")).textContent,
@@ -543,11 +568,11 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
     });
 
     const afterHostMentions = readCollectionItems(
-      rowsByView[timelineViewSchemaId]![0]!,
+      timelineFixtureRow,
       "timeline.host_refs",
     );
     const afterIdentityMentions = readCollectionItems(
-      rowsByView[timelineViewSchemaId]![0]!,
+      timelineFixtureRow,
       "timeline.identity_refs",
     );
     const afterHostMention = afterHostMentions.find(

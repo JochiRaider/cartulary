@@ -180,7 +180,6 @@ set -euo pipefail
 
 echo "$*" >>"${FAKE_MAKE_LOG}"
 
-target="${@: -1}"
 if [[ -n "${CARTULARY_TEST_RESULTS_DIR:-}" && -n "${CARTULARY_TEST_RUN_ID:-}" ]]; then
   write_summary() {
     local summary_target="$1"
@@ -215,29 +214,45 @@ if [[ -n "${CARTULARY_TEST_RESULTS_DIR:-}" && -n "${CARTULARY_TEST_RUN_ID:-}" ]]
 }
 JSON
   }
-  case "${target}" in
-    test-local)
-      write_summary backend-unit
-      write_summary frontend-typecheck
-      write_summary frontend-unit
-      ;;
-    test-fast-service-backed)
-      write_summary backend-integration
-      write_summary backend-integration-support
-      write_summary backend-store
-      write_summary backend-process
-      write_summary test-fast-service-backed
-      ;;
-    check)
-      write_summary check
-      ;;
-    run-harness-smoke-extended)
-      write_summary run-harness-smoke-extended
-      ;;
-    *)
-      write_summary "${target}"
-      ;;
-  esac
+  targets=()
+  for arg in "$@"; do
+    case "${arg}" in
+      -*|*=*) ;;
+      *) targets+=("${arg}") ;;
+    esac
+  done
+  if [[ "${#targets[@]}" -eq 0 ]]; then
+    targets=("${@: -1}")
+  fi
+  for target in "${targets[@]}"; do
+    case "${target}" in
+      test-local)
+        write_summary backend-unit
+        write_summary frontend-typecheck
+        write_summary frontend-unit
+        ;;
+      test-fast-service-backed)
+        write_summary backend-integration
+        write_summary backend-integration-support
+        write_summary backend-store
+        write_summary backend-process
+        write_summary test-fast-service-backed
+        ;;
+      check)
+        write_summary check
+        ;;
+      run-harness-smoke-extended)
+        write_summary run-harness-smoke-extended
+        ;;
+      seaweedfs-release-gate)
+        write_summary seaweedfs-compatibility
+        write_summary seaweedfs-release-gate
+        ;;
+      *)
+        write_summary "${target}"
+        ;;
+    esac
+  done
 fi
 EOF
   chmod +x "${dir}/fake-make"
@@ -712,6 +727,7 @@ import {
 } from "./scripts/lib/harness-contract.mjs";
 import {
   classifyExecutionFailure,
+  classifyExecutionFailureReason,
   publicExitCodeForFailure,
   publicExitCodeForFailures,
   publicExitCodeForSummary,
@@ -729,6 +745,7 @@ assert.equal(resolveOutputMode({ CI_VERBOSE: "1" }, "backend-unit"), "ci");
 assert.equal(resolveOutputMode({ CI: "1" }, "backend-unit"), "ci");
 assert.equal(resolveOutputMode({}, "ci"), "ci");
 assert.equal(classifyExecutionFailure("deployable-shape"), "artifact");
+assert.equal(classifyExecutionFailureReason("lint-biome"), "unknown_failure");
 
 assert.throws(
   () => resolveOutputMode({ CARTULARY_OUTPUT_MODE: "bogus" }, "backend-unit"),
@@ -749,6 +766,7 @@ assert.equal(publicExitCodeForFailure({ failure_reason: "configuration_error" })
 assert.equal(publicExitCodeForFailure({ failure_reason: "fixture_error" }), 3);
 assert.equal(publicExitCodeForFailure({ failure_reason: "resource_conflict" }), 4);
 assert.equal(publicExitCodeForFailure({ failure_reason: "test_assertion_failure" }), 10);
+assert.equal(publicExitCodeForFailure({ failure_reason: "tool_diagnostic_failure" }), 1);
 assert.equal(publicExitCodeForFailure({ failure_reason: "artifact_error" }), 11);
 assert.equal(publicExitCodeForFailure({ failure_reason: "cleanup_error" }), 12);
 assert.equal(publicExitCodeForFailure({ failure_reason: "duration_baseline_drift" }), 13);

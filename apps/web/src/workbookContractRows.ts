@@ -1,14 +1,12 @@
-import {
-  type GridColumn,
-} from "@cartulary/grid-adapter";
+import type { GridColumn } from "@cartulary/grid-adapter";
 import {
   gridSortHeaderTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 import {
+  type NormalizedViewRowV1,
   normalizeViewRowV1,
   resolveHeaderSortFieldKey,
-  type NormalizedViewRowV1,
   type ViewContract,
   type ViewFieldContract,
   visibleFields,

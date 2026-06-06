@@ -264,6 +264,7 @@ const toolRunFailureReasons = new Set([
   "resource_conflict",
   "test_assertion_failure",
   "child_target_failure",
+  "tool_diagnostic_failure",
   "scheduler_accounting_error",
   "artifact_error",
   "cleanup_error",

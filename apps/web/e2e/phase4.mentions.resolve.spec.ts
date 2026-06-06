@@ -1,5 +1,4 @@
 import { scrollGridToBottom } from "@cartulary/test-utils";
-import type { Page, Response } from "@playwright/test";
 import {
   mentionCreateEntityButtonTestId,
   mentionItemTestId,
@@ -9,6 +8,7 @@ import {
   rowCellTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
+import type { Page, Response } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
@@ -248,9 +248,7 @@ function waitForMentionAction(page: Page, itemRef: unknown) {
   return page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
-      response
-        .url()
-        .endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
+      response.url().endsWith(`/api/v1/entity-mentions/${mentionId}/resolve`),
   );
 }
 
