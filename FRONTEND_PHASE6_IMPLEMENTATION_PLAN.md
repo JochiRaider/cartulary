@@ -239,7 +239,7 @@ Generated protocol files, generated selector outputs, generated ledgers, generat
 ## Sprint Checklist
 
 - [x] Sprint 1: Validate guide, map, ledger, registry, fixture, retained evidence, target availability, and FE-P5 handoff; record all FE-P6 rows as blocked.
-- [ ] Sprint 2: Implement evidence lifecycle view-model vocabulary and count-display coverage for `FE-U-P6-01`.
+- [x] Sprint 2: Implement evidence lifecycle view-model vocabulary and count-display coverage for `FE-U-P6-01`.
 - [ ] Sprint 3: Implement attach flow, generated protocol and public error envelope handling, stable selectors, and raw-handle prevention for `FE-I-P6-01`.
 - [ ] Sprint 4: Implement public-route browser E2E for attach, preview, download, blocked preview, and current authorization denial for `FE-E-P6-01`.
 - [ ] Sprint 5: Implement visual readiness for `FE-V-P6-01` tied to `FE-VFIX-05`, keeping design evidence separate.
@@ -326,6 +326,24 @@ Validation:
 - `make frontend-import-boundary-check` if shared imports changed
 
 Exit: `FE-U-P6-01` can be considered for promotion only if row accounting and current mapped unit evidence directly own the row.
+
+Sprint 2 close-out, 2026-06-06:
+
+- Binary recommendation: `ready for row-accounting promotion review` for `FE-U-P6-01` only. This is not FE-P6 completion, row closure, registry activation, Core 05 readiness, public-route conformance, visual readiness, accessibility readiness, or claim-publication readiness.
+- Implemented authored app-local evidence lifecycle view-model vocabulary in `apps/web/src/evidenceLifecycleViewModel.ts`, including separate `EvidenceRecordLifecycleState`, `ObjectBlobUploadState`, `EvidenceLifecycleViewStateKey`, and `EvidenceCountDisplayStateKey` vocabularies.
+- Added stable helper surfaces: `buildEvidenceLifecycleViewModel`, `buildEvidenceCountDisplayViewModel`, and `summarizeEvidenceLifecycleCounts`.
+- Updated `apps/web/src/WorkbookShell.tsx` to consume the new helpers for Evidence-surface access controls and Timeline evidence count display, while preserving existing stable selector builders and adding reusable `data-evidence-state-key` and `data-evidence-count-state` attributes.
+- Added `apps/web/src/evidenceLifecycleViewModel.test.ts` with current row-named unit scenarios for `FE-U-P6-01`: requested/pending upload/available/preview-blocked distinctions, failed/blocked/inconsistent/public-error rendering inputs, count contribution behavior, and count-display projection consistency.
+- `make frontend-typecheck` passed.
+- `make frontend-unit` passed with run root `.cartulary/test-results/20260606T235108Z-p1989003`; the target summary and residual phase summary include the new `FE-U-P6-01` unit scenario titles.
+- `git diff --check` passed with no output.
+- `make frontend-import-boundary-check` was skipped because no shared package imports, selector package boundaries, or package-boundary rules changed.
+- Generated-artifact, contract, map, registry, ledger, backend, visual, accessibility, and browser artifacts were not touched; no generator or drift target was required for Sprint 2.
+- Fresh `frontend-row-accounting.json` for the Sprint 2 `frontend-unit` run still contains no `FE-P6` row result because `tools/frontend_phase_maps/fe_p6_test_map.json` keeps `FE-U-P6-01` at `claim_status=blocked` with `required_for_closure=false`. This is expected and must not be interpreted as closure evidence.
+
+Sprint 2 remaining blocker:
+
+`BLOCKER: FE-P6 row remains blocked pending owner promotion; row=FE-U-P6-01 target=frontend-unit reason=frontend_phase_row_not_promoted minimum_follow_up=frontend phase owner reviews current Sprint 2 unit evidence, updates row accounting/phase-map status through the supported workflow if accepted, and regenerates/drift-checks downstream ledger artifacts as required.`
 
 ### Sprint 3: Integration
 

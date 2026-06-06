@@ -137,6 +137,10 @@ import {
   type ViewportSnapshot,
 } from "./workbookContinuity";
 import {
+  buildEvidenceCountDisplayViewModel,
+  buildEvidenceLifecycleViewModel,
+} from "./evidenceLifecycleViewModel";
+import {
   normalizeWorkbookViewRows,
   workbookContractColumns,
 } from "./workbookContractRows";
@@ -7123,14 +7127,18 @@ export function TimelineWorkbook({
               return renderTimelineCollectionInput(row, binding);
             }
             if (binding.fieldKey === "timeline.evidence_count") {
-              const count = stringifyGridValue(
-                readCellValue(row.rawRow, binding.fieldKey),
-              );
-              const hasEvidence = Boolean(
-                readCellValue(row.rawRow, "timeline.has_evidence"),
-              );
+              const countDisplay = buildEvidenceCountDisplayViewModel({
+                projectedCount: readCellValue(row.rawRow, binding.fieldKey),
+                projectedHasEvidence: readCellValue(
+                  row.rawRow,
+                  "timeline.has_evidence",
+                ),
+              });
               return (
-                <span style={timelineEvidenceCellStyle}>
+                <span
+                  data-evidence-count-state={countDisplay.stateKey}
+                  style={timelineEvidenceCellStyle}
+                >
                   <span
                     data-testid={
                       row.recordId === null
@@ -7138,7 +7146,7 @@ export function TimelineWorkbook({
                         : rowCellTestId(row.recordId, binding.fieldKey)
                     }
                   >
-                    {count === "" ? "0" : count}
+                    {countDisplay.displayCount}
                   </span>
                   {row.recordId === null ? null : (
                     <span
@@ -7147,17 +7155,17 @@ export function TimelineWorkbook({
                         "timeline.has_evidence",
                       )}
                       style={
-                        hasEvidence
+                        countDisplay.hasEvidence
                           ? timelineEvidenceFlagOnStyle
                           : timelineEvidenceFlagOffStyle
                       }
                       title={
-                        hasEvidence
+                        countDisplay.hasEvidence
                           ? "Timeline row has evidence"
                           : "Timeline row has no evidence"
                       }
                     >
-                      {String(hasEvidence)}
+                      {String(countDisplay.hasEvidence)}
                     </span>
                   )}
                 </span>
@@ -7382,12 +7390,14 @@ export function TimelineWorkbook({
       row.recordId === null
         ? timelineDraftEvidenceFileInputTestId()
         : timelineEvidenceFileInputTestId(row.recordId);
-    const evidenceCount = stringifyGridValue(
-      readCellValue(row.rawRow, "timeline.evidence_count"),
-    );
+    const countDisplay = buildEvidenceCountDisplayViewModel({
+      projectedCount: readCellValue(row.rawRow, "timeline.evidence_count"),
+      projectedHasEvidence: readCellValue(row.rawRow, "timeline.has_evidence"),
+    });
     return (
       <section
         data-testid={timelineInspectorSectionTestId("evidence")}
+        data-evidence-count-state={countDisplay.stateKey}
         style={inspectorSectionStyle}
         aria-label="Timeline evidence attachment"
         onDragOver={(event) => {
@@ -7413,8 +7423,7 @@ export function TimelineWorkbook({
           <h3 style={sectionTitleStyle}>Evidence</h3>
           {row.recordId !== null ? (
             <p style={bodyStyle}>
-              Attached evidence count:{" "}
-              {evidenceCount === "" ? "0" : evidenceCount}
+              Attached evidence count: {countDisplay.displayCount}
             </p>
           ) : null}
           <label style={labelStyle}>
@@ -10098,24 +10107,22 @@ function GenericWorkbookSurface({
       label: "Access",
       width: 208,
       renderCell: ({ data: row }) => {
-        const uploadState = stringifyGridValue(
-          row.cells["evidence.upload_state"]?.value,
-        );
-        const lifecycleState = stringifyGridValue(
-          row.cells["evidence.lifecycle_state"]?.value,
-        );
-        const canAccess =
-          uploadState === "available" &&
-          (lifecycleState === "available" || lifecycleState === "released");
+        const evidenceAccess = buildEvidenceLifecycleViewModel({
+          evidenceLifecycleState: row.cells["evidence.lifecycle_state"]?.value,
+          objectBlobUploadState: row.cells["evidence.upload_state"]?.value,
+        });
         const message =
           evidenceMessageByRecordID[row.record_id] ??
-          (canAccess ? null : `Blocked: ${uploadState || "no blob"}`);
+          evidenceAccess.message;
         return (
-          <div style={actionStackStyle}>
+          <div
+            data-evidence-state-key={evidenceAccess.stateKey}
+            style={actionStackStyle}
+          >
             <div style={inlineButtonRowStyle}>
               <button
                 data-testid={evidencePreviewButtonTestId(row.record_id)}
-                disabled={!canAccess}
+                disabled={!evidenceAccess.canPreview}
                 style={actionButtonStyle}
                 type="button"
                 onClick={() => {
@@ -10126,7 +10133,7 @@ function GenericWorkbookSurface({
               </button>
               <button
                 data-testid={evidenceDownloadButtonTestId(row.record_id)}
-                disabled={!canAccess}
+                disabled={!evidenceAccess.canDownload}
                 style={actionButtonStyle}
                 type="button"
                 onClick={() => {
