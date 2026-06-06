@@ -113,11 +113,11 @@ function queryRowsForView(
 describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   let rowsByView: Record<string, ViewApiRow[]>;
-  let patchBodies: unknown[];
+  let patchRequests: Array<{ body: unknown; recordId: string }>;
 
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
-    patchBodies = [];
+    patchRequests = [];
     rowsByView = {
       [hostsViewSchemaId]: [
         fullViewRow(hostsContract, "host-1", 3, {
@@ -328,7 +328,7 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
           changes?: Array<{ field_key?: string; value?: unknown }>;
           view_schema_id?: string;
         };
-        patchBodies.push(body);
+        patchRequests.push({ body, recordId });
         const rows = rowsByView[body.view_schema_id ?? ""] ?? [];
         const row = rows.find((candidate) => candidate.record_id === recordId);
         const change = body.changes?.[0];
@@ -414,10 +414,18 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
           .textContent,
       ).toBe("Gateway Host Edited");
     });
-    expect(patchBodies[0]).toMatchObject({
-      view_schema_id: hostsViewSchemaId,
-      base_row_version: 3,
-      changes: [{ field_key: "host.display_name", value: "Gateway Host Edited" }],
+    expect(patchRequests[0]).toMatchObject({
+      recordId: "host-1",
+      body: {
+        view_schema_id: hostsViewSchemaId,
+        base_row_version: 3,
+        client_txn_id: expect.stringMatching(
+          /^entity-patch-cartulary\.view\.hosts\.v1-\d+$/u,
+        ),
+        changes: [
+          { field_key: "host.display_name", value: "Gateway Host Edited" },
+        ],
+      },
     });
 
     fireEvent.click(screen.getByTestId(surfaceTabTestId(identitiesViewSchemaId)));
@@ -429,6 +437,44 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       screen.getByTestId(rowCellTestId("identity-1", "identity.aliases"))
         .textContent,
     ).toContain("Analyst Alex");
+
+    fireEvent.change(
+      screen.getByTestId(genericEditRecordSelectTestId(identitiesViewSchemaId)),
+      { target: { value: "identity-1" } },
+    );
+    fireEvent.change(
+      screen.getByTestId(genericEditFieldSelectTestId(identitiesViewSchemaId)),
+      { target: { value: "identity.display_name" } },
+    );
+    fireEvent.change(
+      screen.getByTestId(genericEditValueTestId(identitiesViewSchemaId)),
+      { target: { value: "Alex Analyst Edited" } },
+    );
+    fireEvent.click(
+      screen.getByTestId(genericEditSubmitTestId(identitiesViewSchemaId)),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(rowCellTestId("identity-1", "identity.display_name"))
+          .textContent,
+      ).toBe("Alex Analyst Edited");
+    });
+    expect(patchRequests[1]).toMatchObject({
+      recordId: "identity-1",
+      body: {
+        view_schema_id: identitiesViewSchemaId,
+        base_row_version: 4,
+        client_txn_id: expect.stringMatching(
+          /^entity-patch-cartulary\.view\.identities\.v1-\d+$/u,
+        ),
+        changes: [
+          {
+            field_key: "identity.display_name",
+            value: "Alex Analyst Edited",
+          },
+        ],
+      },
+    });
 
     fireEvent.click(screen.getByTestId(surfaceTabTestId(notesViewSchemaId)));
     await screen.findByTestId(rowCellTestId("note-1", "note.title"));
@@ -483,6 +529,17 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       expect(
         screen.getByTestId(rowCellTestId("note-1", "note.body")).textContent,
       ).toBe("Edited note body");
+    });
+    expect(patchRequests[2]).toMatchObject({
+      recordId: "note-1",
+      body: {
+        view_schema_id: notesViewSchemaId,
+        base_row_version: 5,
+        client_txn_id: expect.stringMatching(
+          /^generic-patch-cartulary\.view\.notes\.v1-\d+$/u,
+        ),
+        changes: [{ field_key: "note.body", value: "Edited note body" }],
+      },
     });
 
     const afterHostMentions = readCollectionItems(

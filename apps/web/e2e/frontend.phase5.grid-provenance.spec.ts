@@ -247,6 +247,9 @@ test(exactScenarioTitle, async ({ page }) => {
       },
     ],
   });
+  expect(String(hostPatch.client_txn_id)).toMatch(
+    /^entity-patch-cartulary\.view\.hosts\.v1-\d+$/u,
+  );
   await expect(
     page.getByTestId(rowCellTestId(host.record_id, "host.display_name")),
   ).toHaveText("FE-I-P5 Gateway edited");
@@ -275,6 +278,9 @@ test(exactScenarioTitle, async ({ page }) => {
       },
     ],
   });
+  expect(String(identityPatch.client_txn_id)).toMatch(
+    /^entity-patch-cartulary\.view\.identities\.v1-\d+$/u,
+  );
   await expect(
     page.getByTestId(
       rowCellTestId(identity.record_id, "identity.display_name"),
@@ -302,6 +308,9 @@ test(exactScenarioTitle, async ({ page }) => {
       },
     ],
   });
+  expect(String(notePatch.client_txn_id)).toMatch(
+    /^generic-patch-cartulary\.view\.notes\.v1-\d+$/u,
+  );
   await expect(
     page.getByTestId(rowCellTestId(note.record_id, "note.body")),
   ).toHaveText("Edited provenance note");

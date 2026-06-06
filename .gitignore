@@ -3,7 +3,7 @@
 .cache/
 .vscode/
 tmp/
-.cartulary/runtime/*
+.cartulary/runtime/
 
 # Dependencies
 /node_modules
@@ -102,6 +102,5 @@ migrate
 internal/platform/httpapi/webassets/dist/*
 !internal/platform/httpapi/webassets/dist/.keep
 operator
-
 
 
