@@ -329,21 +329,21 @@ Exit: `FE-U-P6-01` can be considered for promotion only if row accounting and cu
 
 Sprint 2 close-out, 2026-06-06:
 
-- Binary recommendation: `ready for row-accounting promotion review` for `FE-U-P6-01` only. This is not FE-P6 completion, row closure, registry activation, Core 05 readiness, public-route conformance, visual readiness, accessibility readiness, or claim-publication readiness.
+- Binary result: `FE-U-P6-01` is promoted to row-accounting-owned unit evidence and closed by current mapped `frontend-unit` scenarios. This is not FE-P6 completion, registry activation, Core 05 readiness, public-route conformance, visual readiness, accessibility readiness, or claim-publication readiness.
 - Implemented authored app-local evidence lifecycle view-model vocabulary in `apps/web/src/evidenceLifecycleViewModel.ts`, including separate `EvidenceRecordLifecycleState`, `ObjectBlobUploadState`, `EvidenceLifecycleViewStateKey`, and `EvidenceCountDisplayStateKey` vocabularies.
 - Added stable helper surfaces: `buildEvidenceLifecycleViewModel`, `buildEvidenceCountDisplayViewModel`, and `summarizeEvidenceLifecycleCounts`.
 - Updated `apps/web/src/WorkbookShell.tsx` to consume the new helpers for Evidence-surface access controls and Timeline evidence count display, while preserving existing stable selector builders and adding reusable `data-evidence-state-key` and `data-evidence-count-state` attributes.
 - Added `apps/web/src/evidenceLifecycleViewModel.test.ts` with current row-named unit scenarios for `FE-U-P6-01`: requested/pending upload/available/preview-blocked distinctions, failed/blocked/inconsistent/public-error rendering inputs, count contribution behavior, and count-display projection consistency.
-- `make frontend-typecheck` passed.
-- `make frontend-unit` passed with run root `.cartulary/test-results/20260606T235108Z-p1989003`; the target summary and residual phase summary include the new `FE-U-P6-01` unit scenario titles.
-- `git diff --check` passed with no output.
+- Promoted `FE-U-P6-01` in `tools/frontend_phase_maps/fe_p6_test_map.json` to `claim_status=implemented`, required scenario-backed `frontend-unit` closure, and the four exact Vitest scenario titles.
+- Regenerated `docs/testing/frontend_phase_coverage_ledgers/fe_p6_coverage_ledger.md` through `make phase-ledgers`; `tools/frontend_phase_registry.json` now keeps `FE-P6` planned with activation blockers while moving `row_rollup_state` to `partially_implemented`.
+- Fresh `make frontend-unit` passed with run root `.cartulary/test-results/20260607T001424Z-p2011519`; `frontend-unit/frontend-row-accounting.json` records `FE-U-P6-01` with `claim_status_at_run=implemented`, `target_mapping_status=mapped`, and `closure_status=closed`.
+- `make json-shape-check`, `make phase-ledger-drift`, and `make phase-schedule-drift` passed after promotion; schedule regeneration was not required.
+- `make frontend-typecheck` was skipped for the promotion because no typed frontend source changed.
 - `make frontend-import-boundary-check` was skipped because no shared package imports, selector package boundaries, or package-boundary rules changed.
-- Generated-artifact, contract, map, registry, ledger, backend, visual, accessibility, and browser artifacts were not touched; no generator or drift target was required for Sprint 2.
-- Fresh `frontend-row-accounting.json` for the Sprint 2 `frontend-unit` run still contains no `FE-P6` row result because `tools/frontend_phase_maps/fe_p6_test_map.json` keeps `FE-U-P6-01` at `claim_status=blocked` with `required_for_closure=false`. This is expected and must not be interpreted as closure evidence.
 
-Sprint 2 remaining blocker:
+Sprint 2 promotion result:
 
-`BLOCKER: FE-P6 row remains blocked pending owner promotion; row=FE-U-P6-01 target=frontend-unit reason=frontend_phase_row_not_promoted minimum_follow_up=frontend phase owner reviews current Sprint 2 unit evidence, updates row accounting/phase-map status through the supported workflow if accepted, and regenerates/drift-checks downstream ledger artifacts as required.`
+`CLOSED: FE-U-P6-01 unit row is promoted and closed by current mapped unit evidence. Remaining FE-P6 blockers are FE-I-P6-01, FE-E-P6-01, FE-V-P6-01, and FE-A11Y-P6-01.`
 
 ### Sprint 3: Integration
 

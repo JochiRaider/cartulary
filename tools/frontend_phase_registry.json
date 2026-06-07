@@ -192,7 +192,7 @@
         "FE-P4",
         "FE-P5"
       ],
-      "row_rollup_state": "no_rows_implemented",
+      "row_rollup_state": "partially_implemented",
       "activation_blockers": [
         {
           "blocker_id": "FE-P6-ACTIVATION-BLOCKER-01",
@@ -201,9 +201,9 @@
           "resolution_owner": "frontend_phase_owner"
         }
       ],
-      "evidence_freshness_digest": "aa6212e114d624b502f03bd224c24fe1f83943d2fd7b7a543b8f9c0c138df34f",
-      "manifest_digest": "b046cfca3edf5fb1a773a7b3e0eb2001977fa42764728bb33dcf5873bd904d36",
-      "ledger_digest": "ac80524fed543c24a177bdce0c7824d90288811be11f25f5cc5104748d8e7be3"
+      "evidence_freshness_digest": "b1e5afd2326fbc17f7201137fa367bf3e4b3a589910fc0c59f6eaafe8146ca93",
+      "manifest_digest": "3ffca96a5c3e1530838e5636c701b59cb818b4185f2a9a50065f7c0eb9f28580",
+      "ledger_digest": "6f8eb17e954d7041e74094b5f24c4d7536194153f6d53df17c2f425cf0180e9c"
     },
     {
       "phase_id": "FE-P7",
