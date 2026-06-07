@@ -4,7 +4,7 @@
 
 `FE-P6: Evidence Lifecycle` is a frontend planning and verification phase for evidence lifecycle user experience, route usage, selectors, and evidence-specific frontend readiness. This document is an execution roadmap, progress marker, validation guide, blocker register, and FE-P7 handoff aid. It is not product behavior authority and does not close, promote, or unblock any FE-P6 row.
 
-Current repository state shows FE-P6 is planned, inactive for phase execution, and all five FE-P6 rows are blocked. Sprint 1 readiness validation completed on 2026-06-06 with the binary recommendation `ready with blockers`: source validation, target discovery, FE-P5 dependency validation, and ledger drift passed, but no FE-P6 row was promoted or closed. The implementation path must keep product-conformance, design-direction, support, and claim-publication evidence separate. Generated ledgers and retained artifacts are downstream status aids only.
+Current repository state shows FE-P6 is planned, inactive for whole-phase execution, and partially implemented. Sprint 1 readiness validation completed on 2026-06-06 with the binary recommendation `ready with blockers`. Sprint 2 promoted and closed `FE-U-P6-01` from current mapped unit evidence. Sprint 3 row-owned evidence audit completed on 2026-06-07 with the binary recommendation `promote FE-I-P6-01`; remaining FE-P6 blockers are `FE-E-P6-01`, `FE-V-P6-01`, and `FE-A11Y-P6-01`. The implementation path must keep product-conformance, design-direction, support, and claim-publication evidence separate. Generated ledgers and retained artifacts are downstream status aids only.
 
 The phase focuses on evidence counts, evidence states, attach flow, preview and download handle flow, same-origin handle redemption, current authorization behavior, public success and error envelopes, and prevention of raw object storage details in browser-facing access handles.
 
@@ -26,7 +26,7 @@ If a live source, map, owner reference, guide, or retained artifact conflicts wi
 
 ## Current Repo Status
 
-The following live inputs were inspected before this plan was authored:
+The following live inputs were inspected before this plan was authored and during Sprint close-outs:
 
 - `tools/frontend_phase_registry.json`
 - `tools/frontend_phase_maps/fe_p6_test_map.json`
@@ -56,8 +56,8 @@ The following live inputs were inspected before this plan was authored:
 Verified current status:
 
 - `tools/frontend_phase_registry.json` marks `FE-P0` through `FE-P5` as `active` and `active_green`.
-- `tools/frontend_phase_registry.json` marks `FE-P6` as `planned` with `no_rows_implemented` and blocker `frontend_phase_not_active`.
-- `tools/frontend_phase_maps/fe_p6_test_map.json` contains exactly five FE-P6 rows, all with `claim_status` set to `blocked`.
+- `tools/frontend_phase_registry.json` marks `FE-P6` as `planned` with `row_rollup_state=partially_implemented` and activation blocker `frontend_phase_not_active`.
+- `tools/frontend_phase_maps/fe_p6_test_map.json` contains exactly five FE-P6 rows. `FE-U-P6-01` and `FE-I-P6-01` have `claim_status=implemented`; `FE-E-P6-01`, `FE-V-P6-01`, and `FE-A11Y-P6-01` remain blocked.
 - `docs/testing/frontend_phase_coverage_ledgers/fe_p6_coverage_ledger.md` is generated from the FE-P6 map and must remain downstream only.
 - `tools/frontend_visual_fixture_registry.json` contains `FE-VFIX-05`, title `Evidence affordance`, status `current`, owner row `FE-V-P6-01`. Registry status is not row closure evidence.
 - Existing evidence code and legacy tests exist in `apps/web`, `packages/protocol-ts`, `packages/ui-contracts`, and E2E, visual, and accessibility files.
@@ -156,12 +156,12 @@ FE-P6 is not responsible for:
 
 ## Row Inventory
 
-Every current FE-P6 row is blocked. The table records the live map status and the direct evidence needed before any promotion can be considered.
+Current FE-P6 row status is partially implemented. The table records the live map status, closure posture, and direct evidence still needed before remaining promotions can be considered.
 
 | Row | Status | Evidence | Targets | Owner references | Scenario expectation | Blocker | Direct evidence requirement |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `FE-U-P6-01` | `blocked` | `product_conformance` | `make frontend-unit` | Core 01 Sections 3.3.8 and 3.3.9; Core 02 Section 13; Core 03 Sections 8 and 16; Core 04 Sections 3, 5, and 6 | none currently | `frontend_phase_row_not_implemented` | current unit row-owned evidence for evidence state view models, evidence counts, requested, pending upload, available, preview blocked, failed, inconsistent, and count-display states |
-| `FE-I-P6-01` | `blocked` | `product_conformance` | `make frontend-unit`; `make browser-e2e-webserver-backed` | Core 01 Sections 3.3.8 and 3.3.9; Core 02 Section 13; Core 03 Sections 8 and 16; Core 04 Sections 3, 5, and 6; generated protocol and selector contracts | `FE-I-P6-01 Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.` | `frontend_phase_row_not_implemented` | generated protocol/public envelope/selector evidence, attach flow evidence, public error rendering, and absence of raw object URLs, raw paths, raw object keys, bucket names, backend paths, or storage identifiers |
+| `FE-U-P6-01` | `implemented`; closed by Sprint 2 mapped unit evidence | `product_conformance` | `make frontend-unit` | Core 01 Sections 3.3.8 and 3.3.9; Core 02 Section 13; Core 03 Sections 8 and 16; Core 04 Sections 3, 5, and 6 | Sprint 2 row-owned unit scenarios | none | current unit row-owned evidence for evidence state view models, evidence counts, requested, pending upload, available, preview blocked, failed, inconsistent, and count-display states |
+| `FE-I-P6-01` | `implemented`; promoted by Sprint 3 row-owned evidence audit | `product_conformance` | `make frontend-unit`; `make browser-e2e-webserver-backed` | Core 01 Sections 3.3.8 and 3.3.9; Core 02 Section 13; Core 03 Sections 8 and 16; Core 04 Sections 3, 5, and 6; generated protocol and selector contracts | `FE-I-P6-01 Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.` | none | current generated protocol/public envelope/selector evidence, attach flow evidence, public error rendering, and absence of raw object URLs, raw paths, raw object keys, bucket names, backend paths, or storage identifiers |
 | `FE-E-P6-01` | `blocked` | `product_conformance` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | Core 01 Sections 3.3.8 and 3.3.9; Core 02 Section 13; Core 03 Sections 8 and 16; Core 04 Sections 3, 5, and 6 | `FE-E-P6-01 Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles.` | `frontend_phase_row_not_implemented` | public `/api/v1` same-origin handle redemption, attach/preview/download evidence, blocked preview evidence, current authorization denial, server-managed session behavior, stable identifiers, and public envelopes |
 | `FE-V-P6-01` | `blocked` | `design_direction` | `make browser-e2e-visual` | UI/UX design guide evidence affordance direction; `docs/design.md`; visual golden maintenance guide; `FE-VFIX-05` fixture identity | `FE-V-P6-01 Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.` | `visual_fixture_not_recaptured_for_frontend_row` | row-owned visual accounting tied to `FE-VFIX-05`, not fixture registry status or visual golden filename alone |
 | `FE-A11Y-P6-01` | `blocked` | `design_direction` | `make browser-e2e-a11y-preflight` | UI/UX design guide accessibility direction; `docs/design.md`; frontend accessibility harness mechanics | `FE-A11Y-P6-01 Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions.` | `frontend_phase_row_not_implemented` | preflight smoke only unless row is promoted or remapped to implemented accessibility target; closure requires mapped row-owned accessibility evidence |
@@ -240,7 +240,7 @@ Generated protocol files, generated selector outputs, generated ledgers, generat
 
 - [x] Sprint 1: Validate guide, map, ledger, registry, fixture, retained evidence, target availability, and FE-P5 handoff; record all FE-P6 rows as blocked.
 - [x] Sprint 2: Implement evidence lifecycle view-model vocabulary and count-display coverage for `FE-U-P6-01`.
-- [ ] Sprint 3: Implement attach flow, generated protocol and public error envelope handling, stable selectors, and raw-handle prevention for `FE-I-P6-01`.
+- [x] Sprint 3: Implement attach flow, generated protocol and public error envelope handling, stable selectors, and raw-handle prevention for `FE-I-P6-01`.
 - [ ] Sprint 4: Implement public-route browser E2E for attach, preview, download, blocked preview, and current authorization denial for `FE-E-P6-01`.
 - [ ] Sprint 5: Implement visual readiness for `FE-V-P6-01` tied to `FE-VFIX-05`, keeping design evidence separate.
 - [ ] Sprint 6: Implement accessibility readiness for `FE-A11Y-P6-01`, treating preflight as blocked smoke unless the row is promoted or remapped.
@@ -367,6 +367,29 @@ Validation:
 - `make generated-artifact-policy-check` and `make generate-drift` when generated or contract surfaces are touched
 
 Exit: `FE-I-P6-01` can be considered for promotion only from direct current mapped evidence with the exact FE-I-P6 scenario expectation and raw-handle prevention checks.
+
+Sprint 3 close-out, 2026-06-07:
+
+- Binary result: `FE-I-P6-01` is promoted by current row-owned evidence from mapped `frontend-unit` and `browser-e2e-webserver-backed` targets. This is not full FE-P6 completion, registry activation, Core 05 readiness, `FE-E-P6-01` same-origin authorization-denial closure, visual readiness, accessibility readiness, or claim-publication readiness.
+- `apps/web/src/WorkbookShell.tsx` consumes the `@cartulary/protocol-ts` facade for evidence object-blob create, attach, preview-handle, and download-handle request/envelope typing. The attach and handle request bodies use `satisfies ObjectBlobCreateRequest`, `satisfies EvidenceAttachBlobRequest`, and `satisfies EvidenceHandleIssueRequest`.
+- `packages/protocol-ts/src/index.ts` exposes authored facade types for `ObjectBlobCreateRequest`, `ObjectBlobCreateEnvelope`, `EvidenceAttachBlobRequest`, `EvidenceAttachBlobEnvelope`, `EvidenceHandleIssueRequest`, `EvidenceHandleEnvelope`, and `ErrorEnvelope`; `packages/protocol-ts/src/index.test.ts` anchors those facade names to generated OpenAPI schema names.
+- `apps/web/src/WorkbookShell.tsx` renders evidence public error output through `evidencePublicErrorMessage`, filtering raw evidence storage details from public text before display and falling back to safe public code, reason, status, or generic text.
+- Evidence preview and download handles are accepted only as same-origin `/api/v1/evidence-handles/...` paths through `resolvePublicEvidenceHandleHref`; raw URLs or backend/storage-looking values are rejected before reaching iframe or download anchors.
+- Evidence attach, blocked, failed, inconsistent, preview, download, access-message, and preview-frame controls use stable selectors from `packages/ui-contracts`, including `evidenceAttachFileInputTestId`, `evidencePreviewButtonTestId`, `evidenceDownloadButtonTestId`, `evidenceAccessMessageTestId`, and `evidencePreviewFrameTestId`.
+- `apps/web/src/WorkbookShell.surfaces.test.tsx` provides frontend view-state coverage for attach, blocked, failed, inconsistent, raw-handle rejection, public-error rendering, preview, and download controls. Its frontend-only mocks are support/view-state evidence only and are not used as public-route closure by themselves.
+- `apps/web/e2e/phase6.evidence-integration.spec.ts` provides server-backed browser evidence for the mapped FE-I scenario through public `/api/v1/object-blobs`, `/api/v1/object-uploads/...`, `/api/v1/evidence-records/{record_id}/attach-blob`, `/api/v1/evidence-records/{record_id}/preview-handle`, `/api/v1/evidence-records/{record_id}/download-handle`, and `/api/v1/evidence-handles/...` routes.
+- Raw-handle prevention checks covered raw object URLs, raw paths, raw object keys, object-store keys, bucket names, backend paths, storage backend identifiers, and object-store implementation details across rendered body text, access messages, preview frame source, download URL, public handle envelope hrefs, and observed evidence-route request URLs.
+- Fresh `make frontend-unit` passed with run root `.cartulary/test-results/20260607T012408Z-p2130739`; `frontend-unit/frontend-row-accounting.json` records `FE-I-P6-01` with `claim_status=implemented`, `target_mapping_status=mapped`, `closure_status=closed`, and the exact mapped FE-I scenario.
+- Fresh `make browser-e2e-webserver-backed` passed with run root `.cartulary/test-results/20260607T012432Z-p2133593`; `browser-e2e-webserver-backed/frontend-row-accounting.json` records `FE-I-P6-01` with `claim_status=implemented`, `target_mapping_status=mapped`, `closure_status=closed`, and the exact mapped FE-I scenario.
+- Fresh `make browser-e2e-support` passed with run root `.cartulary/test-results/20260607T013022Z-p2153888`; this is support-only helper/selector evidence and is not product-conformance closure evidence.
+- Fresh `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260607T012408Z-p2130738`.
+- Fresh `make generated-artifact-policy-check` passed with run root `.cartulary/test-results/20260607T012408Z-p2130754`.
+- Fresh `make generate-drift` passed with run root `.cartulary/test-results/20260607T012408Z-p2130784`; no generated artifact was regenerated for Sprint 3 audit closure.
+- `make agent-finalize` was skipped for the Sprint 3 audit because it can mutate phase ledgers and schedules and the audit was constrained to avoid product code, generated files, phase maps, ledgers, selectors, tests, and documentation edits unless stale generated artifacts were found. Retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+
+Sprint 3 promotion result:
+
+`CLOSED: FE-I-P6-01 integration row is promoted and closed by current mapped unit and server-backed browser evidence. Remaining FE-P6 blockers are FE-E-P6-01, FE-V-P6-01, and FE-A11Y-P6-01.`
 
 ### Sprint 4: Browser E2E
 
