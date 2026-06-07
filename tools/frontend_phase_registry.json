@@ -201,9 +201,9 @@
           "resolution_owner": "frontend_phase_owner"
         }
       ],
-      "evidence_freshness_digest": "f90b80a690c97c9974ad46a8876e5b4a0f9822f9c9edc542b12f3ff5bc8e7347",
-      "manifest_digest": "8243d616d3ef1291037703513ce513ae772b6cae60e22ccca42f1d720bd613dd",
-      "ledger_digest": "a0fb5a807696ecaca3acd213188b8d0a87ace12dfaac4ad8e65a9c0665bac7bc"
+      "evidence_freshness_digest": "64e59bd092a52c785bfa84661c95f4459bce0f6064fa71fe381a4e77115af381",
+      "manifest_digest": "b27927b23b5a92bd9b9192b3158e85fb767844da3ecb4d05db29a88b3de1aa75",
+      "ledger_digest": "7e5de12d3a8744770bc8b18f9acd7bc14d0c262ce85b17942b84f9f60ae8187c"
     },
     {
       "phase_id": "FE-P7",
