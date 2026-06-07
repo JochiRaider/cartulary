@@ -392,6 +392,24 @@ test("task-surface validation rejects fast harness smoke drift", () => {
   );
 });
 
+test("task-surface validation rejects Node-backed wrappers without Node readiness", () => {
+  const { taskSurface, browserBatch, serviceBacked } = renderedArtifacts();
+  for (const target of ["check", "check-harness-smoke"]) {
+    const invalid = structuredClone(taskSurface);
+    invalid.make_recipes[target].prerequisites = [];
+    assert.match(
+      collectTaskSurfaceManifestErrors(invalid, {
+        browserBatchManifest: browserBatch,
+        serviceBackedScheduleManifest: serviceBacked,
+      }).join("\n"),
+      new RegExp(
+        `make_recipes\\.${target}\\.prerequisites must include \\$\\(NODE_BIN\\)`,
+      ),
+      `${target} must require explicit Node readiness`,
+    );
+  }
+});
+
 test("full harness tier composes fast, extended, lifecycle, and full-only diagnostics", () => {
   const manifest = readJSON("tools/task_surface_manifest.json");
   const fullOnlyChecks = new Set(["harness-smoke-tool-output-real-targets"]);
@@ -418,6 +436,32 @@ test("generated task surface and Make wrapper keep harness projection wiring", (
       serviceBackedScheduleManifest: serviceBacked,
     }),
     [],
+  );
+  assert.deepEqual(taskSurface.make_recipes.check?.prerequisites, [
+    "$(NODE_BIN)",
+  ]);
+  assert.deepEqual(
+    taskSurface.make_recipes["check-harness-smoke"]?.prerequisites,
+    ["$(NODE_BIN)"],
+  );
+  const checkBlock = targetRecipeBlock(taskSurfaceMake, "check").join("\n");
+  const preflightIndex = checkBlock.indexOf(
+    "$(HARNESS_CONTRACT_SCRIPT) preflight check",
+  );
+  const prerequisiteIndex = checkBlock.indexOf(
+    "$(MAKE) --silent --no-print-directory $(NODE_BIN); fi",
+  );
+  const schedulerIndex = checkBlock.indexOf(
+    "$(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT)",
+  );
+  assert.ok(preflightIndex >= 0, "check must render public preflight");
+  assert.ok(
+    prerequisiteIndex > preflightIndex,
+    "check must bootstrap Node after preflight",
+  );
+  assert.ok(
+    schedulerIndex > prerequisiteIndex,
+    "check must launch the scheduler after Node bootstrap",
   );
   assert.equal(
     taskSurface.make_recipes["check-harness-smoke"]?.child_target,

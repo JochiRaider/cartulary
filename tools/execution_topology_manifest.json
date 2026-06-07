@@ -2232,7 +2232,9 @@
       },
       "check": {
         "type": "check_schedule",
-        "prerequisites": [],
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
         "target": "check",
         "schedule_manifest": "tools/scheduler_manifest.json",
         "manifest_variable": "SCHEDULER_MANIFEST"
@@ -2244,7 +2246,9 @@
         "type": "alias"
       },
       "check-harness-smoke": {
-        "prerequisites": [],
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
         "type": "summary_target",
         "child_target": "run-harness-smoke-fast",
         "status": "pass",

@@ -1164,6 +1164,13 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
       );
       continue;
     }
+    if (
+      recipeRequiresNodeRuntime(recipe) &&
+      Array.isArray(recipe.prerequisites) &&
+      !recipe.prerequisites.includes("$(NODE_BIN)")
+    ) {
+      errors.push(`${label}.prerequisites must include $(NODE_BIN)`);
+    }
     if (recipe.test_target !== undefined && recipe.test_target !== "self") {
       errors.push(`${label}.test_target must be self when present`);
     }
@@ -1201,6 +1208,29 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
 }
 
 function validateAliasRecipe() {}
+
+function recipeRequiresNodeRuntime(recipe) {
+  if (
+    [
+      "browser_batch",
+      "check_schedule",
+      "go_target",
+      "make_node_tool",
+      "service_backed_schedule",
+      "service_backed_target",
+      "summary_target",
+    ].includes(recipe.type)
+  ) {
+    return true;
+  }
+  if (recipe.type !== "phase_command") {
+    return false;
+  }
+  if (recipe.mode === "node") {
+    return true;
+  }
+  return (recipe.command ?? []).includes("$(NODE_BIN)");
+}
 
 function validateCleanupRecipe({ errors, recipe, label }) {
   if (!["clean", "distclean"].includes(recipe.scope)) {

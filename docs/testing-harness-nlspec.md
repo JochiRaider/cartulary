@@ -386,6 +386,8 @@ Every Make-owned public wrapper that is not `interactive_raw` MUST execute this 
 
 A target MAY skip a step only when its output class or target row explicitly declares that the step does not apply. A skipped step MUST NOT be implemented as an implicit child-command side effect.
 
+When a public Make wrapper recipe directly invokes repo-owned Node tooling before delegating to child or scheduled work, the wrapper MUST make pinned repo-local Node readiness an explicit precondition before semantic behavior begins. The current Make binding satisfies this with a `$(NODE_BIN)` prerequisite rendered from owner inputs. If the pinned Node runtime cannot be resolved, installed, or executed, the wrapper MUST fail before semantic work with `failure_class=config`, `failure_reason=configuration_error`, and public exit code `2`; it MUST NOT surface a raw shell or `env` executable-not-found failure as the public target result.
+
 ### 4.6 Public Target Lifecycle
 
 A target has one of these public-lifecycle states:
@@ -1094,7 +1096,7 @@ Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-022
 Check-scheduler dependency declarations MUST account for readiness work once, at the scheduler layer. A scheduled work unit whose actual child path requires frontend dependencies MUST depend on `check-frontend-install`; a scheduled work unit whose actual child path requires a build artifact or service image MUST depend on the scheduler-modeled readiness unit that produces that artifact or image. A scheduled work unit whose selected behavior does not require installed frontend packages MUST NOT depend directly or indirectly on `FRONTEND_INSTALL_STAMP`. The default fast `check-harness-smoke` path MUST require only the Node runtime and harness source inputs needed by the selected fast smoke checks.
 Verified by: TH-HARNESS-AC-006
 
-The public `check` wrapper MUST NOT run substantial frontend install, build, service-image, or browser readiness work outside scheduler accounting. It MAY perform only minimal runner bootstrap needed to start the scheduler process and fail-fast configuration validation that does not provision dependencies or build artifacts. Frontend install, backend build, migration build, service-image build, service-image warmup, and browser readiness that are required by default `check` work MUST appear as scheduler-visible units in retained scheduler summaries.
+The public `check` wrapper MUST NOT run substantial frontend install, build, service-image, or browser readiness work outside scheduler accounting. It MAY perform only minimal runner bootstrap needed to start the scheduler process, including pinned repo-local Node readiness for `run-check-schedule.mjs`, plus fail-fast configuration validation that does not provision dependencies or build artifacts. Frontend install, backend build, migration build, service-image build, service-image warmup, and browser readiness that are required by default `check` work MUST appear as scheduler-visible units in retained scheduler summaries.
 
 ### 10.1 Scheduler Manifest Fields
 
