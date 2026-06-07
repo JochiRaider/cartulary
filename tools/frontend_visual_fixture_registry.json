@@ -197,32 +197,33 @@
       "owner_row_ids": [
         "FE-V-P6-01"
       ],
-      "playwright_scenario_title": "V-4-GRID-02 captures evidence affordance and access controls",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-4-grid-02-evidence-access-linux.png",
+      "playwright_scenario_title": "FE-V-P6-01 Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p6-01-evidence-affordance-states-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-4-grid-02-evidence-access-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p6-01-evidence-affordance-states-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p6-01-timeline-evidence-count-linux.png"
       ],
-      "seed_id": "fe-vfix-05-deterministic-seed",
+      "seed_id": "fe-vfix-05-fe-v-p6-01-deterministic-seed",
       "viewport_css_px": "1440x900",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
       "theme_id": "dark_graphite",
       "density_id": "default",
       "scroll_normalization": {
-        "kind": "top_left",
-        "anchor": "workbook-grid"
+        "kind": "fixture_specific",
+        "description": "Evidence grid scroll normalizes to the right-edge actions column with fixture-only native file-input dimension normalization for the affordance states crop; Timeline grid uses the named timeline evidence-actions row anchor."
       },
       "focus_state": {
         "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
+        "description": "Preview and download actions are exercised, then focus is blurred before screenshot capture."
       },
       "editor_state": {
         "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
+        "description": "No inline editor is active; uploaded Evidence and Timeline attachment state are committed before capture."
       },
       "inspector_state": {
         "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
+        "description": "Timeline inspector is open only for the evidence-count capture; Evidence affordance capture uses the Evidence grid action column."
       },
       "dynamic_masks": [
         "incident identifiers",

@@ -4,7 +4,7 @@
 
 `FE-P6: Evidence Lifecycle` is a frontend planning and verification phase for evidence lifecycle user experience, route usage, selectors, and evidence-specific frontend readiness. This document is an execution roadmap, progress marker, validation guide, blocker register, and FE-P7 handoff aid. It is not product behavior authority; row promotion and closure come from authored maps, mapped target evidence, and row-accounting artifacts.
 
-Current repository state shows FE-P6 is planned, inactive for whole-phase execution, and partially implemented. Sprint 1 readiness validation completed on 2026-06-06 with the binary recommendation `ready with blockers`. Sprint 2 promoted and closed `FE-U-P6-01` from current mapped unit evidence. Sprint 3 row-owned evidence audit completed on 2026-06-07 with the binary recommendation `promote FE-I-P6-01`. Sprint 4 promoted and closed `FE-E-P6-01` from current mapped browser E2E evidence through public same-origin evidence handles, and the Sprint 4 row-owned audit completed on 2026-06-07 with the binary recommendation `PROMOTE FE-E-P6-01`. Remaining FE-P6 blockers are `FE-V-P6-01` and `FE-A11Y-P6-01`. The implementation path must keep product-conformance, design-direction, support, and claim-publication evidence separate. Generated ledgers and retained artifacts are downstream status aids only.
+Current repository state shows FE-P6 is planned, inactive for whole-phase execution, and partially implemented. Sprint 1 readiness validation completed on 2026-06-06 with the binary recommendation `ready with blockers`. Sprint 2 promoted and closed `FE-U-P6-01` from current mapped unit evidence. Sprint 3 row-owned evidence audit completed on 2026-06-07 with the binary recommendation `promote FE-I-P6-01`. Sprint 4 promoted and closed `FE-E-P6-01` from current mapped browser E2E evidence through public same-origin evidence handles, and the Sprint 4 row-owned audit completed on 2026-06-07 with the binary recommendation `PROMOTE FE-E-P6-01`. Sprint 5 promoted and closed `FE-V-P6-01` from current row-owned visual evidence tied to `FE-VFIX-05`, and the Sprint 5 row-owned audit completed on 2026-06-07 with the binary recommendation `PROMOTE FE-V-P6-01`. The remaining FE-P6 blocker is `FE-A11Y-P6-01`. The implementation path must keep product-conformance, design-direction, support, and claim-publication evidence separate. Generated ledgers and retained artifacts are downstream status aids only.
 
 The phase focuses on evidence counts, evidence states, attach flow, preview and download handle flow, same-origin handle redemption, current authorization behavior, public success and error envelopes, and prevention of raw object storage details in browser-facing access handles.
 
@@ -57,9 +57,9 @@ Verified current status:
 
 - `tools/frontend_phase_registry.json` marks `FE-P0` through `FE-P5` as `active` and `active_green`.
 - `tools/frontend_phase_registry.json` marks `FE-P6` as `planned` with `row_rollup_state=partially_implemented` and activation blocker `frontend_phase_not_active`.
-- `tools/frontend_phase_maps/fe_p6_test_map.json` contains exactly five FE-P6 rows. `FE-U-P6-01`, `FE-I-P6-01`, and `FE-E-P6-01` have `claim_status=implemented`; `FE-V-P6-01` and `FE-A11Y-P6-01` remain blocked.
+- `tools/frontend_phase_maps/fe_p6_test_map.json` contains exactly five FE-P6 rows. `FE-U-P6-01`, `FE-I-P6-01`, `FE-E-P6-01`, and `FE-V-P6-01` have `claim_status=implemented`; `FE-A11Y-P6-01` remains blocked.
 - `docs/testing/frontend_phase_coverage_ledgers/fe_p6_coverage_ledger.md` is generated from the FE-P6 map and must remain downstream only.
-- `tools/frontend_visual_fixture_registry.json` contains `FE-VFIX-05`, title `Evidence affordance`, status `current`, owner row `FE-V-P6-01`. Registry status is not row closure evidence.
+- `tools/frontend_visual_fixture_registry.json` contains a single `FE-VFIX-05`, title `Evidence affordance`, status `current`, owner phase `FE-P6`, and owner row `FE-V-P6-01`. Its scenario title and two FE-P6 golden artifacts now align with `FE-V-P6-01`; registry status and golden filenames remain non-closure evidence without current row accounting.
 - Existing evidence code and legacy tests exist in `apps/web`, `packages/protocol-ts`, `packages/ui-contracts`, and E2E, visual, and accessibility files.
 - Existing legacy scenario titles do not close FE-P6 rows. FE-P6 closure requires direct current row-owned evidence with the mapped FE-P6 row and scenario-title expectations.
 - Latest accessibility preflight retained evidence lists `FE-A11Y-P6-01` as blocked-row smoke with `required_for_closure=false`. It cannot close FE-P6 accessibility readiness.
@@ -163,7 +163,7 @@ Current FE-P6 row status is partially implemented. The table records the live ma
 | `FE-U-P6-01` | `implemented`; closed by Sprint 2 mapped unit evidence | `product_conformance` | `make frontend-unit` | Core 01 Sections 3.3.8 and 3.3.9; Core 02 Section 13; Core 03 Sections 8 and 16; Core 04 Sections 3, 5, and 6 | Sprint 2 row-owned unit scenarios | none | current unit row-owned evidence for evidence state view models, evidence counts, requested, pending upload, available, preview blocked, failed, inconsistent, and count-display states |
 | `FE-I-P6-01` | `implemented`; promoted by Sprint 3 row-owned evidence audit | `product_conformance` | `make frontend-unit`; `make browser-e2e-webserver-backed` | Core 01 Sections 3.3.8 and 3.3.9; Core 02 Section 13; Core 03 Sections 8 and 16; Core 04 Sections 3, 5, and 6; generated protocol and selector contracts | `FE-I-P6-01 Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.` | none | current generated protocol/public envelope/selector evidence, attach flow evidence, public error rendering, and absence of raw object URLs, raw paths, raw object keys, bucket names, backend paths, or storage identifiers |
 | `FE-E-P6-01` | `implemented`; closed by Sprint 4 mapped browser E2E evidence | `product_conformance` | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | Core 01 Sections 3.3.8 and 3.3.9; Core 02 Section 13; Core 03 Sections 8 and 16; Core 04 Sections 3, 5, and 6 | `FE-E-P6-01 Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles.` | none | current public `/api/v1` same-origin handle evidence for attach, preview, download, blocked preview, current authorization denial, server-managed session behavior, stable identifiers, public envelopes, and raw-handle negative checks |
-| `FE-V-P6-01` | `blocked` | `design_direction` | `make browser-e2e-visual` | UI/UX design guide evidence affordance direction; `docs/design.md`; visual golden maintenance guide; `FE-VFIX-05` fixture identity | `FE-V-P6-01 Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.` | `visual_fixture_not_recaptured_for_frontend_row` | row-owned visual accounting tied to `FE-VFIX-05`, not fixture registry status or visual golden filename alone |
+| `FE-V-P6-01` | `implemented`; closed by Sprint 5 mapped visual evidence | `design_direction` | `make browser-e2e-visual` | UI/UX design guide evidence affordance direction; `docs/design.md`; visual golden maintenance guide; `FE-VFIX-05` fixture identity | `FE-V-P6-01 Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.` | none | current row-owned visual accounting tied to `FE-VFIX-05`, with evidence count, access affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures |
 | `FE-A11Y-P6-01` | `blocked` | `design_direction` | `make browser-e2e-a11y-preflight` | UI/UX design guide accessibility direction; `docs/design.md`; frontend accessibility harness mechanics | `FE-A11Y-P6-01 Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions.` | `frontend_phase_row_not_implemented` | preflight smoke only unless row is promoted or remapped to implemented accessibility target; closure requires mapped row-owned accessibility evidence |
 
 Owner note: Core 01 Sections 3.3.8 and 3.3.9 cover object blob and evidence handle public route behavior. Core 01 Section 16 covers blob and evidence handle schema and error semantics. Core 02 Section 13 covers evidence lifecycle state. Core 03 Sections 8 and 16 cover workbook and evidence surface behavior. Core 04 Sections 3, 5, and 6 cover authorization, trust, and raw storage exposure prevention. UI/design/visual guides apply only to design readiness rows.
@@ -242,7 +242,7 @@ Generated protocol files, generated selector outputs, generated ledgers, generat
 - [x] Sprint 2: Implement evidence lifecycle view-model vocabulary and count-display coverage for `FE-U-P6-01`.
 - [x] Sprint 3: Implement attach flow, generated protocol and public error envelope handling, stable selectors, and raw-handle prevention for `FE-I-P6-01`.
 - [x] Sprint 4: Implement public-route browser E2E for attach, preview, download, blocked preview, and current authorization denial for `FE-E-P6-01`.
-- [ ] Sprint 5: Implement visual readiness for `FE-V-P6-01` tied to `FE-VFIX-05`, keeping design evidence separate.
+- [x] Sprint 5: Implement visual readiness for `FE-V-P6-01` tied to `FE-VFIX-05`, keeping design evidence separate.
 - [ ] Sprint 6: Implement accessibility readiness for `FE-A11Y-P6-01`, treating preflight as blocked smoke unless the row is promoted or remapped.
 - [ ] Sprint 7: Run closure, drift, final validation, dependency verification for FE-P0 through FE-P5, and FE-P7 handoff.
 
@@ -473,6 +473,24 @@ Validation:
 
 Exit: `FE-V-P6-01` can be considered for design-readiness promotion only from row-owned visual accounting tied to `FE-VFIX-05`; fixture registry `current` and golden files alone are insufficient.
 
+Sprint 5 close-out, 2026-06-07:
+
+- Binary recommendation and accepted result: `PROMOTE FE-V-P6-01`.
+- `FE-V-P6-01` is promoted to `claim_status=implemented` in `tools/frontend_phase_maps/fe_p6_test_map.json`, with `evidence_class=design_direction`, `claim_publication_intent=none`, `closure_scope=scenario`, `required_for_closure=true`, no Core IDs, and no blockers.
+- `FE-VFIX-05` remains the single visual fixture owned by `FE-P6` and `FE-V-P6-01`. It now points to the exact mapped FE-P6 scenario title and the two row-owned FE-P6 visual goldens: `fe-v-p6-01-evidence-affordance-states-linux.png` and `fe-v-p6-01-timeline-evidence-count-linux.png`.
+- The FE-P6 visual scenario in `apps/web/e2e/workbook.visual.spec.ts` uses real workbook Evidence and Timeline UI. It exercises requested, pending, quarantined/blocked, available preview, available download, unsupported preview, failed-handle, inconsistent-handle, and Timeline evidence-count states.
+- The failed-handle and inconsistent-handle states are induced through the token-guarded public-error fault route for deterministic `blob_failed` and `evidence_inconsistent` handle messages. This remains visual readiness and does not create product-conformance or Core 05 claim-publication evidence.
+- Visual golden maintenance was followed for recapture. `docs/guides/cartulary_visual_golden_maintenance.md` now records the FE-P6 fixture seed, viewport, masks, screenshot scopes, and golden names. A separate current-profile visual maintenance citation records the required `V-5-GRID-01` managed-object golden refresh that was needed for the canonical visual target.
+- `docs/testing/frontend_phase_coverage_ledgers/fe_p6_coverage_ledger.md` was regenerated through `make phase-ledgers`; `tools/frontend_phase_registry.json` digests were refreshed while FE-P6 remained `planned` and `partially_implemented` because `FE-A11Y-P6-01` remains blocked.
+- Fresh `make browser-e2e-visual` passed with run root `.cartulary/test-results/20260607T153029Z-p2765006`. `browser-e2e-visual/frontend-row-accounting.json` records `FE-V-P6-01` with `claim_status_at_run=implemented`, `evidence_class=design_direction`, `target_mapping_status=mapped`, `closure_status=closed`, and the exact mapped FE-V scenario title.
+- The same row-accounting artifact records the FE-V-P6 scenario result as `status=passed`, row IDs `["FE-V-P6-01"]`, and artifact ref `apps/web/e2e/workbook.visual.spec.ts`. Its rollup records `closed=6` and `counts.closed_rows=6` for the visual target accounting scope.
+- Fresh validation passed after Sprint 5 edits: `make phase-ledgers`, `make json-shape-check`, `make phase-ledger-drift`, `make browser-e2e-visual`, and `env -u RESULTS_DIR make agent-finalize`. Retained-run maintenance was skipped by `agent-finalize` because `RESULTS_DIR` was unset.
+- `FE-V-P6-01` remains design-direction evidence only. It does not close product conformance, accessibility readiness, FE-P6 activation, Core 05 claim-publication readiness, or broad repository readiness.
+
+Sprint 5 promotion result:
+
+`CLOSED: FE-V-P6-01 visual row is promoted and closed by current mapped visual evidence tied to FE-VFIX-05. Remaining FE-P6 blocker is FE-A11Y-P6-01.`
+
 ### Sprint 6: Accessibility
 
 Goal: create accessibility readiness evidence for `FE-A11Y-P6-01` without confusing preflight smoke with closure.
@@ -588,7 +606,7 @@ Product row requirements:
 
 Design row requirements:
 
-- `FE-V-P6-01` needs row-owned visual accounting tied to `FE-VFIX-05`; registry status and golden filenames are not enough.
+- `FE-V-P6-01` has Sprint 5 row-owned visual accounting tied to `FE-VFIX-05`; registry status and golden filenames alone remain insufficient.
 - `FE-A11Y-P6-01` needs mapped row-owned accessibility evidence if promoted; preflight smoke alone is not enough.
 - Visual and accessibility readiness remain design-direction evidence only.
 

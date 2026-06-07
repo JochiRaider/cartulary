@@ -36,7 +36,7 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 | `FE-VFIX-02` | Mention chip state matrix | `FE-P5` | Timeline relationship chips and inspector mention state render unresolved, resolved, auto-resolved, dismissed, and manual-resolution variants together. | Top-left grid scroll; incident and generated record identifiers masked. | `current` |
 | `FE-VFIX-03` | Same-field conflict | `FE-P7` | Conflict strip or resolver shows same-field conflict state and recovery affordance. | Top-left grid scroll or conflict row anchor. | `current` |
 | `FE-VFIX-04` | Row-gutter presence | `FE-P7` | Row gutter or presence marker is visible and anchored to the intended row. | Presence row anchor; dynamic actor labels masked where needed. | `current` |
-| `FE-VFIX-05` | Evidence affordance | `FE-P6` | Evidence badge, access control state, or blocked preview affordance is visible. | Evidence row anchor; preview dynamic values masked. | `current` |
+| `FE-VFIX-05` | Evidence affordance | `FE-P6` | Evidence count, access-control affordance, available, requested, pending, blocked, failed-handle, inconsistent-handle, unsupported-preview, and download-handle states are visible. | Evidence grid right-edge actions column; Timeline evidence-actions row anchor; incident and generated record identifiers masked. | `current` |
 | `FE-VFIX-06` | Grouped result | `FE-P8` | Grouped grid result or group header row is visible. | Group row anchor; scroll top normalized before capture. | `current` |
 | `FE-VFIX-07` | Task Requests or Decisions | `FE-P10` | Task Requests or Decisions view state is visible with representative rows. | Top-left or named task row anchor. | `current` |
 | `FE-VFIX-08` | Save-state strip | `FE-P4`, `FE-P7` | Saved, syncing, conflict, or recovered save-state strip is isolated for comparison. | Strip-level crop; grid scroll irrelevant unless row context is included. | `current` |
@@ -79,6 +79,18 @@ screenshot scopes.
 | `V-6-GRID-02` | `tools/phase6_test_map.json` | `FE-VFIX-03`, `FE-VFIX-08` | Fixed viewport shell. |
 | `V-6-GRID-03` | `tools/phase6_test_map.json` | `FE-VFIX-03`, `FE-VFIX-08` | Fixed viewport shell and named status-strip slot. |
 
+### Current Evidence managed-object refresh citation map
+
+The Evidence managed-object refresh accepts the current object-blob storage
+label shown after an attached Evidence row reaches the available lifecycle
+state. This map is current-profile visual maintenance for the authoritative
+`V-*` row only; FE-P6 readiness is owned separately by `FE-VFIX-05` and
+`FE-V-P6-01`.
+
+| Affected row | Owner map | Related fixture IDs | Screenshot scope |
+| --- | --- | --- | --- |
+| `V-5-GRID-01` | `tools/phase5_test_map.json` | None currently claimed. | Grid shell, snapshot `v-5-grid-01-available-evidence`. |
+
 ### Current FE-P3 grid-adapter fixture citation map
 
 The FE-P3 grid-adapter fixture uses deterministic test-only DOM inside an
@@ -112,6 +124,16 @@ only; it does not create product conformance or Core 05 publication evidence.
 | Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
 | --- | --- | --- | --- | --- | --- | --- |
 | `FE-V-P5-01` | `tools/frontend_phase_maps/fe_p5_test_map.json` | `FE-VFIX-02` | Deterministic workbook incident with Timeline rows for unresolved, resolved, manual-resolution, auto-resolved, and dismissed mention states. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation. | Fixed viewport capture, snapshot `fe-v-p5-01-mention-chip-states`. |
+
+### Current FE-P6 visual readiness fixture citation map
+
+The FE-P6 visual readiness fixture uses deterministic app-owned Evidence and
+Timeline workbook state. It is design-direction evidence only and keeps Core 05
+claim-publication evidence out of scope.
+
+| Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
+| --- | --- | --- | --- | --- | --- | --- |
+| `FE-V-P6-01` | `tools/frontend_phase_maps/fe_p6_test_map.json` | `FE-VFIX-05` | Deterministic workbook incident with requested, pending, quarantined, available-preview, available-download, unsupported-preview, failed-handle, and inconsistent-handle Evidence rows, plus one Timeline row with an attached PNG evidence count. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation; native file-input dimensions are normalized only for the FE-P6 actions-column screenshot crop. | Evidence grid right-edge actions-column capture, snapshot `fe-v-p6-01-evidence-affordance-states`; Timeline row evidence-actions anchor capture, snapshot `fe-v-p6-01-timeline-evidence-count`. |
 
 ### Current exposed-theme fixture citation map
 

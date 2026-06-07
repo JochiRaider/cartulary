@@ -12,7 +12,9 @@ import {
   dataTestIdSelector,
   evidenceAccessMessageTestId,
   evidenceAttachFileInputTestId,
+  evidenceDownloadButtonTestId,
   evidencePreviewButtonTestId,
+  evidencePreviewFrameTestId,
   gridActionsHeaderTestId,
   gridGroupRowTestId,
   gridRowGutterTestId,
@@ -48,12 +50,15 @@ import {
 import type { Locator, Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import {
+  apiBase,
   createIncident,
   createIncidentMemberUser,
   createViewRow,
+  csrfHeaders,
   gridSavedRows,
   holdBrowserApiRequest,
   queryViewRows,
+  testRouteHeaders,
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
@@ -1003,7 +1008,7 @@ test.describe("Phase 4 workbook visual evidence", () => {
     ).toBeVisible();
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(evidenceRow.record_id)),
-    ).toContainText("Blocked");
+    ).toContainText("Requested");
 
     await assertWorkbookGridVisualRegression(
       page,
@@ -1156,7 +1161,7 @@ test.describe("Phase 5 workbook visual evidence", () => {
     await maskIncidentIdentity(page, incidentId);
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(blocked.record_id)),
-    ).toContainText("Blocked");
+    ).toContainText("Requested");
     await assertWorkbookGridVisualRegression(
       page,
       "v-5-grid-02-blocked-preview",
@@ -1203,6 +1208,257 @@ test.describe("Phase 5 workbook visual evidence", () => {
     await assertWorkbookGridVisualRegression(
       page,
       "v-5-grid-02-timeline-evidence-badge",
+      timelineViewSchemaId,
+      {
+        anchor: {
+          kind: "timelineEvidenceActions",
+          rowId: timelineRow.record_id,
+          top: 0,
+        },
+        maxDiffPixels: 8_000,
+        testInfo,
+      },
+    );
+  });
+});
+
+test.describe("FE-P6 visual readiness", () => {
+  test("FE-V-P6-01 Capture evidence count, affordance, available, requested, pending, blocked, failed, inconsistent, preview, and download-handle state fixtures.", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("FEVP601"),
+      "FE-P6 visual evidence affordance",
+    );
+    const requested = await createVisualEvidenceRow(page, incidentId, {
+      lifecycleState: "requested",
+      requestedAt: "2026-05-01T10:00:00Z",
+      storageRef: "case://fe-p6/requested",
+      title: "01 requested evidence",
+      txnPrefix: "FEVP601-REQUESTED",
+    });
+    const pending = await createVisualEvidenceRow(page, incidentId, {
+      lifecycleState: "pending_receipt",
+      requestedAt: "2026-05-01T10:05:00Z",
+      storageRef: "case://fe-p6/pending",
+      title: "02 pending evidence",
+      txnPrefix: "FEVP601-PENDING",
+    });
+    const blocked = await createVisualEvidenceRow(page, incidentId, {
+      lifecycleState: "quarantined",
+      requestedAt: "2026-05-01T10:10:00Z",
+      storageRef: "case://fe-p6/quarantined",
+      title: "03 quarantined evidence",
+      txnPrefix: "FEVP601-BLOCKED",
+    });
+    const availablePreview = await createUploadedVisualEvidence(
+      page,
+      incidentId,
+      {
+        body: Buffer.from("FE-V-P6 preview visual evidence\n", "utf8"),
+        contentType: "text/plain",
+        filename: "fe-v-p6-preview.txt",
+        requestedAt: "2026-05-01T10:15:00Z",
+        title: "04 available preview evidence",
+        txnPrefix: "FEVP601-PREVIEW",
+      },
+    );
+    const downloadHandle = await createUploadedVisualEvidence(
+      page,
+      incidentId,
+      {
+        body: Buffer.from("FE-V-P6 download handle visual evidence\n", "utf8"),
+        contentType: "text/plain",
+        filename: "fe-v-p6-download-handle.txt",
+        requestedAt: "2026-05-01T10:20:00Z",
+        title: "05 download handle evidence",
+        txnPrefix: "FEVP601-DOWNLOAD",
+      },
+    );
+    const previewBlocked = await createUploadedVisualEvidence(
+      page,
+      incidentId,
+      {
+        body: Buffer.from(
+          "<!doctype html><title>FE-V-P6 unsupported preview</title>",
+          "utf8",
+        ),
+        contentType: "text/html",
+        filename: "fe-v-p6-preview-blocked.html",
+        requestedAt: "2026-05-01T10:25:00Z",
+        title: "06 preview blocked evidence",
+        txnPrefix: "FEVP601-PREVIEW-BLOCKED",
+      },
+    );
+    const failedHandle = await createUploadedVisualEvidence(page, incidentId, {
+      body: Buffer.from("FE-V-P6 failed handle visual evidence\n", "utf8"),
+      contentType: "text/plain",
+      filename: "fe-v-p6-failed-handle.txt",
+      requestedAt: "2026-05-01T10:30:00Z",
+      title: "07 failed handle evidence",
+      txnPrefix: "FEVP601-FAILED",
+    });
+    const inconsistentHandle = await createUploadedVisualEvidence(
+      page,
+      incidentId,
+      {
+        body: Buffer.from(
+          "FE-V-P6 inconsistent handle visual evidence\n",
+          "utf8",
+        ),
+        contentType: "text/plain",
+        filename: "fe-v-p6-inconsistent-handle.txt",
+        requestedAt: "2026-05-01T10:35:00Z",
+        title: "08 inconsistent handle evidence",
+        txnPrefix: "FEVP601-INCONSISTENT",
+      },
+    );
+    const timelineRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("FEVP601-TIMELINE"),
+        "timeline.occurred_at": "2026-05-01T11:00:00Z",
+        "timeline.summary": "FE-P6 timeline evidence count",
+      },
+    )) as ViewRow;
+
+    await page.goto(
+      `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+        evidenceViewSchemaId,
+      )}`,
+    );
+    await maskIncidentIdentity(page, incidentId);
+    await expect(
+      page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+    ).toBeVisible();
+    await expectVisualEvidenceState(page, requested.record_id, "requested");
+    await expectVisualEvidenceState(page, pending.record_id, "pending_upload");
+    await expectVisualEvidenceState(page, blocked.record_id, "blocked");
+    await expectVisualEvidenceState(
+      page,
+      availablePreview.record_id,
+      "available",
+    );
+    await expectVisualEvidenceState(page, downloadHandle.record_id, "available");
+    await expectVisualEvidenceState(
+      page,
+      previewBlocked.record_id,
+      "available",
+    );
+    await expectVisualEvidenceState(page, failedHandle.record_id, "available");
+    await expectVisualEvidenceState(
+      page,
+      inconsistentHandle.record_id,
+      "available",
+    );
+
+    await page
+      .getByTestId(evidencePreviewButtonTestId(availablePreview.record_id))
+      .click();
+    await expect(
+      page.getByTestId(evidencePreviewFrameTestId(availablePreview.record_id)),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(evidenceAccessMessageTestId(availablePreview.record_id)),
+    ).toHaveText("Preview loaded inline.");
+    await page
+      .getByTestId("evidence-preview-panel")
+      .getByRole("button", { name: "Close" })
+      .click();
+
+    const downloadPromise = page.waitForEvent("download");
+    await page
+      .getByTestId(evidenceDownloadButtonTestId(downloadHandle.record_id))
+      .click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("fe-v-p6-download-handle.txt");
+    await expect(
+      page.getByTestId(evidenceAccessMessageTestId(downloadHandle.record_id)),
+    ).toHaveText("Download handle issued.");
+
+    await page
+      .getByTestId(evidencePreviewButtonTestId(previewBlocked.record_id))
+      .click();
+    await expect(
+      page.getByTestId(evidenceAccessMessageTestId(previewBlocked.record_id)),
+    ).toContainText("evidence_access_unavailable: unsupported_preview");
+
+    await armVisualPublicErrorFault(page, {
+      path: `/api/v1/evidence-records/${failedHandle.record_id}/preview-handle`,
+      reasonCode: "blob_failed",
+    });
+    await page
+      .getByTestId(evidencePreviewButtonTestId(failedHandle.record_id))
+      .click();
+    await expect(
+      page.getByTestId(evidenceAccessMessageTestId(failedHandle.record_id)),
+    ).toContainText("evidence_access_unavailable: blob_failed");
+
+    await armVisualPublicErrorFault(page, {
+      path: `/api/v1/evidence-records/${inconsistentHandle.record_id}/preview-handle`,
+      reasonCode: "evidence_inconsistent",
+    });
+    await page
+      .getByTestId(evidencePreviewButtonTestId(inconsistentHandle.record_id))
+      .click();
+    await expect(
+      page.getByTestId(
+        evidenceAccessMessageTestId(inconsistentHandle.record_id),
+      ),
+    ).toContainText("evidence_access_unavailable: evidence_inconsistent");
+
+    await assertEvidenceAccessVisualRegression(
+      page,
+      "fe-v-p6-01-evidence-affordance-states",
+    );
+
+    await page.goto(
+      `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+        timelineViewSchemaId,
+      )}`,
+    );
+    await maskIncidentIdentity(page, incidentId);
+    await expect(
+      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await page
+      .getByTestId(rowInspectButtonTestId(timelineRow.record_id))
+      .click();
+    await expect(
+      page.getByTestId(timelineInspectorSectionTestId("evidence")),
+    ).toContainText("Evidence");
+    await page
+      .getByTestId(timelineEvidenceFileInputTestId(timelineRow.record_id))
+      .setInputFiles({
+        buffer: tinyPNG(),
+        mimeType: "image/png",
+        name: "fe-v-p6-timeline-evidence.png",
+      });
+    await expect(
+      page.getByTestId(
+        rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
+      ),
+    ).toHaveText("1");
+    await expect(
+      page.getByTestId(
+        rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
+      ),
+    ).toHaveText("true");
+    await expect(page.getByTestId("timeline-inspector")).toContainText(
+      timelineRow.record_id,
+    );
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
+    await assertWorkbookGridVisualRegression(
+      page,
+      "fe-v-p6-01-timeline-evidence-count",
       timelineViewSchemaId,
       {
         anchor: {
@@ -1528,6 +1784,211 @@ test.describe("FE-P11 visual readiness", () => {
     );
   });
 });
+
+type VisualEvidenceRowStateKey =
+  | "available"
+  | "blocked"
+  | "pending_upload"
+  | "requested";
+
+type VisualEvidenceUploadOptions = {
+  body: Buffer;
+  contentType: string;
+  filename: string;
+  requestedAt: string;
+  title: string;
+  txnPrefix: string;
+};
+
+async function createVisualEvidenceRow(
+  page: Page,
+  incidentId: string,
+  options: {
+    lifecycleState: string;
+    requestedAt: string;
+    storageRef: string;
+    title: string;
+    txnPrefix: string;
+  },
+): Promise<ViewRow> {
+  return (await createViewRow(page, incidentId, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn(options.txnPrefix),
+    "evidence.collector_party_text": "FE-P6 visual fixture",
+    "evidence.lifecycle_state": options.lifecycleState,
+    "evidence.requested_at": options.requestedAt,
+    "evidence.storage_ref": options.storageRef,
+    "evidence.title": options.title,
+  })) as ViewRow;
+}
+
+async function createUploadedVisualEvidence(
+  page: Page,
+  incidentId: string,
+  options: VisualEvidenceUploadOptions,
+): Promise<ViewRow> {
+  const row = (await createViewRow(page, incidentId, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn(`${options.txnPrefix}-ROW`),
+    "evidence.collector_party_text": "FE-P6 visual fixture",
+    "evidence.requested_at": options.requestedAt,
+    "evidence.title": options.title,
+  })) as ViewRow;
+  const createBlob = await page.request.post(`${apiBase}/api/v1/object-blobs`, {
+    headers: await csrfHeaders(page),
+    data: {
+      byte_size: options.body.byteLength,
+      client_txn_id: uniqueTxn(`${options.txnPrefix}-BLOB`),
+      content_type_hint: options.contentType,
+      filename_hint: options.filename,
+      incident_id: incidentId,
+    },
+  });
+  expect(createBlob.ok()).toBeTruthy();
+  const blobEnvelope = (await createBlob.json()) as {
+    data: {
+      object_blob_id: string;
+      upload_target: {
+        href: string;
+        method?: string;
+      };
+    };
+  };
+  expect(blobEnvelope.data.upload_target.method ?? "PUT").toBe("PUT");
+
+  const upload = await page.request.put(
+    resolveVisualAPIHref(blobEnvelope.data.upload_target.href),
+    {
+      data: options.body,
+      headers: { "Content-Type": options.contentType },
+    },
+  );
+  expect(upload.ok()).toBeTruthy();
+
+  const attach = await page.request.post(
+    `${apiBase}/api/v1/evidence-records/${row.record_id}/attach-blob`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        base_row_version: row.row_version,
+        client_txn_id: uniqueTxn(`${options.txnPrefix}-ATTACH`),
+        object_blob_id: blobEnvelope.data.object_blob_id,
+      },
+    },
+  );
+  expect(attach.ok()).toBeTruthy();
+  return waitForVisualEvidenceState(page, incidentId, row.record_id, {
+    lifecycleState: "available",
+    uploadState: "available",
+  });
+}
+
+async function waitForVisualEvidenceState(
+  page: Page,
+  incidentId: string,
+  recordId: string,
+  state: { lifecycleState: string; uploadState: string },
+): Promise<ViewRow> {
+  let matchingRow: ViewRow | null = null;
+  await expect
+    .poll(
+      async () => {
+        const rows = (await queryViewRows(
+          page,
+          incidentId,
+          evidenceViewSchemaId,
+        )) as ViewRow[];
+        matchingRow =
+          rows.find((candidate) => candidate.record_id === recordId) ?? null;
+        return {
+          lifecycleState: visualCellValue(
+            matchingRow?.cells["evidence.lifecycle_state"],
+          ),
+          uploadState: visualCellValue(
+            matchingRow?.cells["evidence.upload_state"],
+          ),
+        };
+      },
+      { timeout: 30_000 },
+    )
+    .toEqual(state);
+  if (matchingRow === null) {
+    throw new Error(`Missing evidence row ${recordId}`);
+  }
+  return matchingRow;
+}
+
+async function expectVisualEvidenceState(
+  page: Page,
+  recordId: string,
+  stateKey: VisualEvidenceRowStateKey,
+) {
+  await expect(visualEvidenceStateContainer(page, recordId)).toHaveAttribute(
+    "data-evidence-state-key",
+    stateKey,
+  );
+  if (stateKey === "available") {
+    await expect(
+      page.getByTestId(evidencePreviewButtonTestId(recordId)),
+    ).toBeEnabled();
+    await expect(
+      page.getByTestId(evidenceDownloadButtonTestId(recordId)),
+    ).toBeEnabled();
+    return;
+  }
+  await expect(
+    page.getByTestId(evidenceAccessMessageTestId(recordId)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(evidencePreviewButtonTestId(recordId)),
+  ).toBeDisabled();
+  await expect(
+    page.getByTestId(evidenceDownloadButtonTestId(recordId)),
+  ).toBeDisabled();
+}
+
+function visualEvidenceStateContainer(page: Page, recordId: string): Locator {
+  return page
+    .getByTestId(evidencePreviewButtonTestId(recordId))
+    .locator("xpath=ancestor::*[@data-evidence-state-key][1]");
+}
+
+async function armVisualPublicErrorFault(
+  page: Page,
+  options: {
+    path: string;
+    reasonCode: "blob_failed" | "evidence_inconsistent";
+  },
+) {
+  const response = await page.request.post(
+    `${apiBase}/api/v1/test/runtime/public-error-faults`,
+    {
+      headers: testRouteHeaders(),
+      data: {
+        code: "evidence_access_unavailable",
+        consume_once: true,
+        details: {
+          reason_code: options.reasonCode,
+        },
+        message: "Evidence access failed for FE-P6 visual fixture.",
+        method: "POST",
+        path: options.path,
+        retryable: false,
+        status: 409,
+      },
+    },
+  );
+  expect(response.status()).toBe(201);
+}
+
+function resolveVisualAPIHref(href: string): string {
+  return href.startsWith("/") ? `${apiBase}${href}` : href;
+}
+
+function visualCellValue(cell: unknown): unknown {
+  if (cell !== null && typeof cell === "object" && "value" in cell) {
+    return (cell as { value: unknown }).value;
+  }
+  return cell;
+}
 
 async function assertVisualRegression(
   page: Page,
@@ -2122,6 +2583,92 @@ async function assertWorkbookGridVisualRegression(
     }
     throw error;
   }
+}
+
+async function assertEvidenceAccessVisualRegression(page: Page, name: string) {
+  try {
+    await installFeP6EvidenceAccessVisualStyle(page);
+    await prepareVisualRegressionState(page);
+    await setWorkbookGridScroll(page, evidenceViewSchemaId, {
+      top: 0,
+      left: "left",
+    });
+    await page
+      .getByTestId(gridActionsHeaderTestId(evidenceViewSchemaId))
+      .scrollIntoViewIfNeeded();
+    await waitForVisualLayoutFrame(page);
+    await expect(
+      page.getByTestId(gridActionsHeaderTestId(evidenceViewSchemaId)),
+    ).toBeVisible();
+    await assertVisualRegression(
+      page,
+      name,
+      page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+    );
+  } catch (error) {
+    try {
+      await attachWorkbookGridVisualDiagnostics(
+        page,
+        name,
+        evidenceViewSchemaId,
+        { scroll: { top: 0, left: "left" } },
+      );
+    } catch {
+      // Preserve the assertion failure when the page is already torn down.
+    }
+    throw error;
+  }
+}
+
+async function installFeP6EvidenceAccessVisualStyle(page: Page) {
+  await page.evaluate((gridTestId) => {
+    const styleId = "fe-p6-evidence-access-visual-style";
+    document.getElementById(styleId)?.remove();
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = `
+      [data-testid='${gridTestId}'] .cartulary-grid {
+        grid-auto-rows: minmax(4.35rem, auto) !important;
+      }
+
+      [data-testid='${gridTestId}'] [data-grid-field-key='__cartulary_actions__'] {
+        min-block-size: 4.35rem !important;
+        overflow: hidden !important;
+      }
+
+      [data-testid='${gridTestId}'] [data-evidence-state-key] {
+        align-content: start !important;
+        gap: 0.12rem !important;
+      }
+
+      [data-testid='${gridTestId}'] [data-evidence-state-key] button {
+        padding: 0.22rem 0.38rem !important;
+        font-size: 0.72rem !important;
+        line-height: 1.05 !important;
+      }
+
+      [data-testid='${gridTestId}'] [data-evidence-state-key] label {
+        gap: 0 !important;
+        font-size: 0.66rem !important;
+        line-height: 1.05 !important;
+      }
+
+      [data-testid='${gridTestId}'] [data-evidence-state-key] input[type='file'] {
+        block-size: 1px !important;
+        inline-size: 1px !important;
+        opacity: 0 !important;
+        position: absolute !important;
+      }
+
+      [data-testid='${gridTestId}'] [data-evidence-state-key] [data-testid^='evidence-access-message-'] {
+        display: block !important;
+        font-size: 0.62rem !important;
+        line-height: 1.05 !important;
+        overflow-wrap: anywhere !important;
+      }
+    `;
+    document.head.append(style);
+  }, gridShellTestId(evidenceViewSchemaId));
 }
 
 async function prepareVisualRegressionState(page: Page) {
