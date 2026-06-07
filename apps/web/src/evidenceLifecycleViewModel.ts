@@ -210,9 +210,7 @@ export function buildEvidenceLifecycleViewModel(
 export function buildEvidenceCountDisplayViewModel(
   input: EvidenceCountDisplayViewModelInput,
 ): EvidenceCountDisplayViewModel {
-  const normalizedCount = normalizeProjectedEvidenceCount(
-    input.projectedCount,
-  );
+  const normalizedCount = normalizeProjectedEvidenceCount(input.projectedCount);
   const normalizedHasEvidence = normalizeProjectedHasEvidence(
     input.projectedHasEvidence,
   );
@@ -459,7 +457,7 @@ function normalizeEvidencePublicError(
   const message =
     typeof value.message === "string" && value.message.trim() !== ""
       ? value.message
-      : code ?? "Evidence access failed.";
+      : (code ?? "Evidence access failed.");
   return {
     code,
     message,

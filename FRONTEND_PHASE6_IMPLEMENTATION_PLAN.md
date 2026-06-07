@@ -829,3 +829,107 @@ Handoff non-claims:
 - FE-P7 cannot inherit FE-P6 generated ledger text as owner evidence.
 - FE-P7 cannot inherit FE-P6 visual or accessibility readiness as product conformance.
 - FE-P7 cannot inherit FE-P6 public evidence handle behavior for new surfaces without direct mapped evidence.
+
+## Sprint 7 Closeout
+
+Sprint 7 activated `FE-P6` only after fresh row-owned evidence, drift checks, dependency checks, and retained-run finalization passed. Final registry state:
+
+- `FE-P6`: `status="active"`, `row_rollup_state="active_green"`, `activation_blockers=[]`.
+- `FE-P6` digests after regeneration: `ledger_digest="3e7f20969edcc04919e81e41aa689b7d6b140cb1f95a756b0be7d61c221d617a"` and `evidence_freshness_digest="bfed9552629be2ee436a977a99d7beaf32f925e590bda9f33545f2fc67b8f004"`.
+- `FE-P0` through `FE-P5`: `active/active_green` with no activation blockers.
+- `FE-P7`: still `planned/no_rows_implemented`; its registry blocker remains `frontend_phase_not_active`.
+
+Activation was justified from `cartulary.frontend_row_accounting.v3` artifacts only. Generated ledgers, broad `make check`, visual filenames, fixture registry status, support-only targets, and scenario titles alone were not used as row closure evidence.
+
+### Accepted Evidence
+
+Product conformance:
+
+- `FE-U-P6-01`: closed by `.cartulary/test-results/20260607T183324Z-p3150835/frontend-unit/frontend-row-accounting.json`.
+- `FE-I-P6-01`: closed by `.cartulary/test-results/20260607T183324Z-p3150835/frontend-unit/frontend-row-accounting.json` and `.cartulary/test-results/20260607T183324Z-p3150835/browser-e2e-webserver-backed/frontend-row-accounting.json`.
+- `FE-E-P6-01`: closed by `.cartulary/test-results/20260607T183324Z-p3150835/browser-e2e-webserver-backed/frontend-row-accounting.json` and `.cartulary/test-results/20260607T183324Z-p3150835/browser-e2e-stateful/frontend-row-accounting.json`.
+
+Visual readiness:
+
+- `FE-V-P6-01`: closed as design-direction evidence by `.cartulary/test-results/20260607T175905Z-p2973141/browser-e2e-visual/frontend-row-accounting.json`.
+- `FE-VFIX-05` is uniquely owned by `FE-P6` / `FE-V-P6-01` in `tools/frontend_visual_fixture_registry.json`.
+
+Accessibility readiness:
+
+- `FE-A11Y-P6-01`: closed as design-direction evidence by `.cartulary/test-results/20260607T180443Z-p2986830/browser-e2e-a11y/frontend-row-accounting.json`.
+- Accessibility artifact: `.cartulary/test-results/20260607T180443Z-p2986830/browser-e2e-a11y/accessibility/frontend-accessibility-summary.json`, `schema_id="cartulary.frontend_accessibility_summary.v2"`, `status="pass"`, `violations=0`.
+- `browser-e2e-a11y-preflight` passed in `.cartulary/test-results/20260607T181024Z-p3000172`, but remains FE-P7 diagnostic evidence only.
+
+Implementation support:
+
+- `make frontend-typecheck`, `make frontend-unit`, `make frontend-import-boundary-check`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-support`, `make browser-e2e-visual`, and `make browser-e2e-a11y` passed.
+- Drift and shape checks passed: `make phase-map-check`, `make json-shape-check`, `make generated-artifact-policy-check`, `make generate-drift`, `make phase-ledger-drift`, and `make phase-schedule-drift`.
+- Retained full run passed: `.cartulary/test-results/20260607T183324Z-p3150835`, `make check`, `144/144` work units, `761` tests, `failed=0`, `missing=0`.
+- Retained-run finalizer passed: `.cartulary/test-results/20260607T184052Z-p3212967`, `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260607T183324Z-p3150835`.
+- `make explain-run RESULTS_DIR=.cartulary/test-results/20260607T183324Z-p3150835` passed and recorded the successful retained run.
+
+Claim-publication boundary:
+
+- Every `FE-P6` row has `claim_publication_intent="none"`.
+- Core 05 remains inactive for FE-P6. `make benchmark-claim-check` was not required.
+
+### Blockers And Staleness
+
+Unresolved FE-P6 blockers: none.
+
+Resolved Sprint 7 blockers:
+
+- Initial activated `make frontend-unit` exposed a selector-policy contradiction: FE-P6 evidence selectors could no longer remain app-local. Resolution: promoted `evidencePreviewPanelTestId()` to `@cartulary/ui-contracts`, removed the evidence selector app-local allowlist, and replaced remaining raw evidence test-id literals.
+- Initial `make check` failed at `lint-biome`. Resolution: ran `make format`, then `make lint-biome` passed.
+- Initial retained-run `agent-finalize` rejected `.cartulary/test-results/20260607T182447Z-p3080432` because `build-server` exceeded the warm-readiness threshold by `253ms`. Resolution: discarded that retained root for finalization, warmed `build-server`, reran `make check`, and finalized against `.cartulary/test-results/20260607T183324Z-p3150835`.
+
+Stale or missing accepted FE-P6 artifacts: none. Earlier Sprint 2-6 artifacts remain historical context unless their registry, map, and guide digests match the final activated state.
+
+### Rerun Commands
+
+- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P6`
+- `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P7`
+- `make task-guide ROLE=phase-author PHASE_NAMESPACE=frontend PHASE=FE-P6`
+- `make phase-ledgers`
+- `make phase-schedules`
+- `make frontend-typecheck`
+- `make frontend-unit`
+- `make frontend-import-boundary-check`
+- `make browser-e2e-webserver-backed`
+- `make browser-e2e-stateful`
+- `make browser-e2e-support`
+- `make browser-e2e-visual`
+- `make browser-e2e-a11y`
+- `make browser-e2e-a11y-preflight`
+- `make phase-map-check`
+- `make json-shape-check`
+- `make generated-artifact-policy-check`
+- `make generate-drift`
+- `make phase-ledger-drift`
+- `make phase-schedule-drift`
+- `env -u RESULTS_DIR make agent-finalize`
+- `make check`
+- `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260607T183324Z-p3150835`
+- `make explain-run RESULTS_DIR=.cartulary/test-results/20260607T183324Z-p3150835`
+- `git diff --check`
+
+## Sprint 7 FE-P7 Handoff
+
+FE-P7 may rely on exactly these next-row assumptions:
+
+- `FE-P0` through `FE-P6` are `active/active_green` with no activation blockers after Sprint 7.
+- `FE-P6` product behavior is closed only for the mapped FE-P6 evidence rows listed above.
+- FE-P6 visual readiness and accessibility readiness are design-direction evidence only.
+- FE-P6 evidence-handle behavior cannot be inherited for new FE-P7 surfaces without direct FE-P7 mapped evidence.
+- Generated ledgers and schedules are current implementation-support artifacts, not product-conformance evidence.
+
+FE-P7 must collect its own row-owned evidence for:
+
+- `FE-U-P7-01`: WebSocket row update, reset, invalidate, stale-row requery request, authorization close, and session revocation states.
+- `FE-U-P7-02`: same-field conflict anchors, conflict queue, and resolver state keyed by `record_id`, `field_key`, and `base_row_version`.
+- `FE-I-P7-01`: conflict resolver actions, public mutations, row refresh, focus retention, and pending queue ordering.
+- `FE-E-P7-01`: multi-client live updates, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through `/ws/v1/` and `/api/v1/`.
+- `FE-V-P7-01`: same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures.
+- `FE-A11Y-P7-01`: conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communication by accessible name/state rather than color alone.
+
+FE-P7 unresolved blockers remain the blockers already recorded in `tools/frontend_phase_maps/fe_p7_test_map.json` and `tools/frontend_phase_registry.json`: rows are not implemented, `FE-V-P7-01` has not recaptured its visual fixture, and the phase is not active. No Sprint 7 FE-P6 artifact resolves those FE-P7 blockers.

@@ -228,16 +228,11 @@ test("FE-E-P6-01 Verify evidence attach, preview, download, blocked preview, and
     "FE-E-P6-01 evidence handles",
   );
   const safeBody = "FE-E-P6 safe preview body";
-  const safeRow = (await createViewRow(
-    page,
-    incidentId,
-    evidenceViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("fee-p6-safe-evidence"),
-      "evidence.title": "FE-E-P6 safe evidence",
-      "evidence.collector_party_text": "Browser evidence",
-    },
-  )) as unknown as ViewRow;
+  const safeRow = (await createViewRow(page, incidentId, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn("fee-p6-safe-evidence"),
+    "evidence.title": "FE-E-P6 safe evidence",
+    "evidence.collector_party_text": "Browser evidence",
+  })) as unknown as ViewRow;
   const blockedRow = await createUploadedEvidence(page, incidentId, {
     title: "FE-E-P6 blocked preview evidence",
     filename: "fe-e-p6-blocked.html",
@@ -507,11 +502,7 @@ test("FE-E-P6-01 Verify evidence attach, preview, download, blocked preview, and
         "u",
       ),
     );
-    expectPublicErrorEnvelope(
-      issuanceDenied,
-      404,
-      "evidence_record_not_found",
-    );
+    expectPublicErrorEnvelope(issuanceDenied, 404, "evidence_record_not_found");
     await expectActiveEvidenceSurface(memberPage, memberWorkbookURL);
     await expectNoRawStorageDetails(memberPage, [
       currentAuthHref,
@@ -569,10 +560,7 @@ async function openEvidenceSurface(page: Page, incidentId: string) {
 async function expectStableEvidenceControls(page: Page, recordId: string) {
   await expectStableEvidenceActionControls(page, recordId);
   const testId = evidenceAccessMessageTestId(recordId);
-  await expect(page.getByTestId(testId)).toHaveAttribute(
-    "data-testid",
-    testId,
-  );
+  await expect(page.getByTestId(testId)).toHaveAttribute("data-testid", testId);
 }
 
 async function expectStableEvidenceActionControls(
@@ -611,7 +599,8 @@ async function waitForEvidenceState(
         return {
           lifecycleState:
             matchingRow?.cells["evidence.lifecycle_state"]?.value ?? null,
-          uploadState: matchingRow?.cells["evidence.upload_state"]?.value ?? null,
+          uploadState:
+            matchingRow?.cells["evidence.upload_state"]?.value ?? null,
         };
       },
       { timeout: 30_000 },
@@ -676,14 +665,10 @@ function collectEvidenceRouteRequests(page: Page) {
       expectPublicErrorEnvelopePayload(envelope, status, code);
       return envelope;
     },
-    requirePost: (
-      predicate: (request: Request) => boolean,
-      label: string,
-    ) => requireObservedRequest(seenRequests, "POST", predicate, label),
-    requirePut: (
-      predicate: (request: Request) => boolean,
-      label: string,
-    ) => requireObservedRequest(seenRequests, "PUT", predicate, label),
+    requirePost: (predicate: (request: Request) => boolean, label: string) =>
+      requireObservedRequest(seenRequests, "POST", predicate, label),
+    requirePut: (predicate: (request: Request) => boolean, label: string) =>
+      requireObservedRequest(seenRequests, "PUT", predicate, label),
     requests: () => [...seenRequests],
   };
 }

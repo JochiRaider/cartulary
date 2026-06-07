@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   type ContractArtifact,
-  evidenceProtocolSchemaNames,
+  type ErrorEnvelope,
   type EvidenceAttachBlobEnvelope,
   type EvidenceAttachBlobRequest,
   type EvidenceHandleEnvelope,
   type EvidenceHandleIssueRequest,
-  type ErrorEnvelope,
   type ExtensionRegistryContract,
+  evidenceProtocolSchemaNames,
   getContractArtifact,
   getErrorRegistryContract,
   getExtensionProfile,

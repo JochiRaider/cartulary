@@ -931,6 +931,10 @@ export function evidencePreviewFrameTestId(recordId: string): string {
   return `evidence-preview-frame-${requireRecordId(recordId)}`;
 }
 
+export function evidencePreviewPanelTestId(): string {
+  return "evidence-preview-panel";
+}
+
 export function genericCreateFieldTestId(fieldKey: string): string {
   return `generic-create-field-${requireFieldKey(fieldKey)}`;
 }

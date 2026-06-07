@@ -281,7 +281,9 @@ describe("WorkbookShell surface selection", () => {
         });
         evidenceRows = [
           row,
-          ...evidenceRows.filter((candidate) => candidate.record_id !== recordId),
+          ...evidenceRows.filter(
+            (candidate) => candidate.record_id !== recordId,
+          ),
         ];
         return successEnvelope({
           view_schema_id: evidenceViewSchemaId,
@@ -1043,7 +1045,9 @@ describe("WorkbookShell surface selection", () => {
       expect.objectContaining({ method: "POST", body: "{}" }),
     );
 
-    fireEvent.click(screen.getByTestId("evidence-download-evidence-1"));
+    fireEvent.click(
+      screen.getByTestId(evidenceDownloadButtonTestId("evidence-1")),
+    );
 
     await waitFor(() => {
       expect(anchorClick).toHaveBeenCalled();
@@ -1087,10 +1091,8 @@ describe("WorkbookShell surface selection", () => {
       preview:
         "https://minio.internal/cartulary-evidence-bucket/object_blob_storage_key_v1",
     };
-    handleErrorByRecordID["evidence-public-error"] =
-      rawStorageErrorEnvelope();
-    attachErrorByRecordID["evidence-public-error"] =
-      rawStorageErrorEnvelope();
+    handleErrorByRecordID["evidence-public-error"] = rawStorageErrorEnvelope();
+    attachErrorByRecordID["evidence-public-error"] = rawStorageErrorEnvelope();
     const anchorClick = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => undefined);
@@ -1112,9 +1114,9 @@ describe("WorkbookShell surface selection", () => {
       const attachInput = await screen.findByTestId(
         evidenceAttachFileInputTestId(recordId),
       );
-      expect(
-        attachInput.getAttribute("data-testid"),
-      ).toBe(evidenceAttachFileInputTestId(recordId));
+      expect(attachInput.getAttribute("data-testid")).toBe(
+        evidenceAttachFileInputTestId(recordId),
+      );
       expect(
         screen
           .getByTestId(evidencePreviewButtonTestId(recordId))
@@ -1182,15 +1184,15 @@ describe("WorkbookShell surface selection", () => {
       String(input).endsWith("/api/v1/object-blobs"),
     );
     expect(createBlobCall).toBeDefined();
-    expect(JSON.parse(String((createBlobCall?.[1] as RequestInit).body))).toEqual(
-      {
-        incident_id: "incident-1",
-        client_txn_id: expect.stringMatching(/^evidence-blob-/u),
-        byte_size: 18,
-        filename_hint: "safe-evidence.txt",
-        content_type_hint: "text/plain",
-      },
-    );
+    expect(
+      JSON.parse(String((createBlobCall?.[1] as RequestInit).body)),
+    ).toEqual({
+      incident_id: "incident-1",
+      client_txn_id: expect.stringMatching(/^evidence-blob-/u),
+      byte_size: 18,
+      filename_hint: "safe-evidence.txt",
+      content_type_hint: "text/plain",
+    });
     const attachCall = fetchMock.mock.calls.find(([input]) =>
       String(input).endsWith(
         "/api/v1/evidence-records/evidence-attach/attach-blob",
@@ -1204,7 +1206,9 @@ describe("WorkbookShell surface selection", () => {
     });
 
     fireEvent.change(
-      screen.getByTestId(evidenceAttachFileInputTestId("evidence-public-error")),
+      screen.getByTestId(
+        evidenceAttachFileInputTestId("evidence-public-error"),
+      ),
       {
         target: {
           files: [
@@ -1469,7 +1473,8 @@ function rawStorageErrorEnvelope(): Response {
           raw_object_url:
             "https://minio.internal/cartulary-evidence-bucket/object_blob_storage_key_v1",
           raw_object_ref: "object://object-blob-storage-ref",
-          raw_path: "/var/lib/cartulary/object-blobs/object_blob_storage_key_v1",
+          raw_path:
+            "/var/lib/cartulary/object-blobs/object_blob_storage_key_v1",
           raw_object_key: "object_blob_storage_key_v1",
           bucket_name: "cartulary-evidence-bucket",
           backend_path: "/var/lib/cartulary/object-blobs",

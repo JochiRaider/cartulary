@@ -22,6 +22,7 @@ import {
   evidenceDownloadButtonTestId,
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
+  evidencePreviewPanelTestId,
   extensionProfileRowTestId,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
@@ -583,6 +584,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(evidencePreviewFrameTestId("evidence-1")).toBe(
       "evidence-preview-frame-evidence-1",
     );
+    expect(evidencePreviewPanelTestId()).toBe("evidence-preview-panel");
     expect(genericCreateFieldTestId("note.title")).toBe(
       "generic-create-field-note.title",
     );

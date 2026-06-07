@@ -15,6 +15,7 @@ import {
   evidenceDownloadButtonTestId,
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
+  evidencePreviewPanelTestId,
   gridActionsHeaderTestId,
   gridGroupRowTestId,
   gridRowGutterTestId,
@@ -1343,7 +1344,11 @@ test.describe("FE-P6 visual readiness", () => {
       availablePreview.record_id,
       "available",
     );
-    await expectVisualEvidenceState(page, downloadHandle.record_id, "available");
+    await expectVisualEvidenceState(
+      page,
+      downloadHandle.record_id,
+      "available",
+    );
     await expectVisualEvidenceState(
       page,
       previewBlocked.record_id,
@@ -1366,7 +1371,7 @@ test.describe("FE-P6 visual readiness", () => {
       page.getByTestId(evidenceAccessMessageTestId(availablePreview.record_id)),
     ).toHaveText("Preview loaded inline.");
     await page
-      .getByTestId("evidence-preview-panel")
+      .getByTestId(evidencePreviewPanelTestId())
       .getByRole("button", { name: "Close" })
       .click();
 
@@ -2660,7 +2665,7 @@ async function installFeP6EvidenceAccessVisualStyle(page: Page) {
         position: absolute !important;
       }
 
-      [data-testid='${gridTestId}'] [data-evidence-state-key] [data-testid^='evidence-access-message-'] {
+      [data-testid='${gridTestId}'] [data-evidence-state-key] > span {
         display: block !important;
         font-size: 0.62rem !important;
         line-height: 1.05 !important;

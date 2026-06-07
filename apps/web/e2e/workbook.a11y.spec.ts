@@ -11,6 +11,7 @@ import {
   evidenceDownloadButtonTestId,
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
+  evidencePreviewPanelTestId,
   gridFilterApplyTestId,
   gridFilterFieldTestId,
   gridGroupingSelectTestId,
@@ -1625,33 +1626,25 @@ test.describe("FE-P6 accessibility readiness", () => {
         txnPrefix: "fe-a11y-p6-preview",
       },
     );
-    const downloadHandle = await createUploadedA11yEvidence(
-      page,
-      incidentId,
-      {
-        body: Buffer.from("FE-A11Y-P6 download evidence\n", "utf8"),
-        contentType: "text/plain",
-        filename: "fe-a11y-p6-download.txt",
-        requestedAt: "2026-06-07T10:20:00Z",
-        title: "05 download handle evidence",
-        txnPrefix: "fe-a11y-p6-download",
-      },
-    );
-    const previewBlocked = await createUploadedA11yEvidence(
-      page,
-      incidentId,
-      {
-        body: Buffer.from(
-          "<!doctype html><title>FE-A11Y-P6 unsupported preview</title>",
-          "utf8",
-        ),
-        contentType: "text/html",
-        filename: "fe-a11y-p6-preview-blocked.html",
-        requestedAt: "2026-06-07T10:25:00Z",
-        title: "06 preview blocked evidence",
-        txnPrefix: "fe-a11y-p6-preview-blocked",
-      },
-    );
+    const downloadHandle = await createUploadedA11yEvidence(page, incidentId, {
+      body: Buffer.from("FE-A11Y-P6 download evidence\n", "utf8"),
+      contentType: "text/plain",
+      filename: "fe-a11y-p6-download.txt",
+      requestedAt: "2026-06-07T10:20:00Z",
+      title: "05 download handle evidence",
+      txnPrefix: "fe-a11y-p6-download",
+    });
+    const previewBlocked = await createUploadedA11yEvidence(page, incidentId, {
+      body: Buffer.from(
+        "<!doctype html><title>FE-A11Y-P6 unsupported preview</title>",
+        "utf8",
+      ),
+      contentType: "text/html",
+      filename: "fe-a11y-p6-preview-blocked.html",
+      requestedAt: "2026-06-07T10:25:00Z",
+      title: "06 preview blocked evidence",
+      txnPrefix: "fe-a11y-p6-preview-blocked",
+    });
     const failedHandle = await createUploadedA11yEvidence(page, incidentId, {
       body: Buffer.from("FE-A11Y-P6 failed handle evidence\n", "utf8"),
       contentType: "text/plain",
@@ -1700,14 +1693,16 @@ test.describe("FE-P6 accessibility readiness", () => {
       availablePreview.record_id,
       "available",
     );
-	    const previewButton = page.getByTestId(
-	      evidencePreviewButtonTestId(availablePreview.record_id),
-	    );
-	    await expectVisibleFocus(
-	      page.getByTestId(evidenceDownloadButtonTestId(availablePreview.record_id)),
-	    );
-	    await expectVisibleFocus(previewButton);
-	    await previewButton.click();
+    const previewButton = page.getByTestId(
+      evidencePreviewButtonTestId(availablePreview.record_id),
+    );
+    await expectVisibleFocus(
+      page.getByTestId(
+        evidenceDownloadButtonTestId(availablePreview.record_id),
+      ),
+    );
+    await expectVisibleFocus(previewButton);
+    await previewButton.click();
     await expect(
       page.getByTestId(evidencePreviewFrameTestId(availablePreview.record_id)),
     ).toBeVisible();
@@ -1721,7 +1716,7 @@ test.describe("FE-P6 accessibility readiness", () => {
       page.getByTestId(evidenceAccessMessageTestId(availablePreview.record_id)),
     ).toHaveText("Preview loaded inline.");
     await page
-      .getByTestId("evidence-preview-panel")
+      .getByTestId(evidencePreviewPanelTestId())
       .getByRole("button", { name: "Close" })
       .click();
 
@@ -1730,13 +1725,13 @@ test.describe("FE-P6 accessibility readiness", () => {
       downloadHandle.record_id,
       "available",
     );
-	    const downloadButton = page.getByTestId(
-	      evidenceDownloadButtonTestId(downloadHandle.record_id),
-	    );
-	    await expectVisibleFocus(
-	      page.getByTestId(evidencePreviewButtonTestId(downloadHandle.record_id)),
-	    );
-	    await expectVisibleFocus(downloadButton);
+    const downloadButton = page.getByTestId(
+      evidenceDownloadButtonTestId(downloadHandle.record_id),
+    );
+    await expectVisibleFocus(
+      page.getByTestId(evidencePreviewButtonTestId(downloadHandle.record_id)),
+    );
+    await expectVisibleFocus(downloadButton);
     const downloadPromise = page.waitForEvent("download");
     await downloadButton.click();
     const download = await downloadPromise;
@@ -1748,19 +1743,19 @@ test.describe("FE-P6 accessibility readiness", () => {
       page.getByTestId(evidenceAccessMessageTestId(downloadHandle.record_id)),
     ).toHaveText("Download handle issued.");
 
-	    await expectEvidenceAccessState(
-	      page,
-	      previewBlocked.record_id,
-	      "available",
-	    );
-	    const unsupportedPreviewButton = page.getByTestId(
-	      evidencePreviewButtonTestId(previewBlocked.record_id),
-	    );
-	    await expectVisibleFocus(unsupportedPreviewButton);
-	    await expectVisibleFocus(
-	      page.getByTestId(evidenceDownloadButtonTestId(previewBlocked.record_id)),
-	    );
-	    await unsupportedPreviewButton.click();
+    await expectEvidenceAccessState(
+      page,
+      previewBlocked.record_id,
+      "available",
+    );
+    const unsupportedPreviewButton = page.getByTestId(
+      evidencePreviewButtonTestId(previewBlocked.record_id),
+    );
+    await expectVisibleFocus(unsupportedPreviewButton);
+    await expectVisibleFocus(
+      page.getByTestId(evidenceDownloadButtonTestId(previewBlocked.record_id)),
+    );
+    await unsupportedPreviewButton.click();
     const previewBlockedMessage = page.getByTestId(
       evidenceAccessMessageTestId(previewBlocked.record_id),
     );
@@ -1802,7 +1797,7 @@ test.describe("FE-P6 accessibility readiness", () => {
     );
     await expectNoPrivateDiagnostics(inconsistentMessage);
 
-	    await expectAllInteractiveControlsNamed(page);
+    await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
     await expectAndRecordContrast(page, [
       evidenceAccessMessageTestId(requested.record_id),

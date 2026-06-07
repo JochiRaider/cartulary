@@ -123,14 +123,6 @@ const appLocalSelectorOwnership = [
     scope: "apps/web coordination generic mutation controls",
   },
   {
-    owner: "apps/web evidence fixtures",
-    pattern:
-      /^evidence-(?:preview-panel$|preview-evidence-1$|download-evidence-1$)/u,
-    reason:
-      "These retained evidence literals are fixed existing fixtures; variable evidence selectors are builder-owned.",
-    scope: "apps/web evidence surface tests and visual fixtures",
-  },
-  {
     owner: "apps/web test-local mocks",
     pattern: /^mock-/u,
     reason:
