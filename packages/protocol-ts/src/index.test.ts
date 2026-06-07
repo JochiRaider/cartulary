@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   type ContractArtifact,
+  evidenceProtocolSchemaNames,
+  type EvidenceAttachBlobEnvelope,
+  type EvidenceAttachBlobRequest,
+  type EvidenceHandleEnvelope,
+  type EvidenceHandleIssueRequest,
+  type ErrorEnvelope,
   type ExtensionRegistryContract,
   getContractArtifact,
   getErrorRegistryContract,
@@ -13,6 +19,9 @@ import {
   listContractArtifactFamilies,
   listExtensionProfiles,
   listViewSchemaRegistryEntries,
+  type ObjectBlobCreateEnvelope,
+  type ObjectBlobCreateRequest,
+  type ObjectBlobUploadTarget,
   parseContractArtifact,
   requireContractArtifact,
   requireExtensionProfile,
@@ -151,5 +160,118 @@ describe("@cartulary/protocol-ts facade", () => {
     expect(() => requireExtensionProfile("missing_profile")).toThrow(
       "missing extension profile for missing_profile",
     );
+  });
+
+  it("anchors evidence protocol facade types to generated OpenAPI schema names", () => {
+    const openAPI = parseContractArtifact<{
+      components: { schemas: Record<string, unknown> };
+    }>("contracts/openapi/cartulary.openapi.yaml");
+
+    expect(Object.values(evidenceProtocolSchemaNames)).toEqual([
+      "EnvelopeMeta",
+      "ErrorEnvelope",
+      "EvidenceAttachBlobEnvelope",
+      "EvidenceAttachBlobRequest",
+      "EvidenceHandleEnvelope",
+      "EvidenceHandleIssueRequest",
+      "ObjectBlobCreateEnvelope",
+      "ObjectBlobCreateRequest",
+      "ObjectBlobUploadTarget",
+    ]);
+    for (const schemaName of Object.values(evidenceProtocolSchemaNames)) {
+      expect(openAPI.components.schemas[schemaName]).toBeDefined();
+    }
+
+    const createRequest = {
+      incident_id: "incident-1",
+      client_txn_id: "txn-create-blob",
+      byte_size: 42,
+      filename_hint: "evidence.txt",
+      content_type_hint: "text/plain",
+      sha256_hex: null,
+    } satisfies ObjectBlobCreateRequest;
+    const uploadTarget = {
+      href: "/api/v1/object-uploads/upload-token",
+      method: "PUT",
+      expires_at: "2026-06-07T12:00:00Z",
+      headers: { "X-Upload-Contract": "generated-protocol" },
+    } satisfies ObjectBlobUploadTarget;
+    const createEnvelope = {
+      data: {
+        accepted_contract: {
+          byte_size: 42,
+          content_type_hint: "text/plain",
+          filename_hint: "evidence.txt",
+          incident_id: "incident-1",
+          sha256_hex: null,
+        },
+        incident_id: "incident-1",
+        object_blob_id: "object-blob-1",
+        pending_expires_at: "2026-06-07T12:00:00Z",
+        target_expires_at: "2026-06-07T12:00:00Z",
+        upload_state: "pending",
+        upload_target: uploadTarget,
+      },
+      meta: { request_id: "req-create-blob" },
+    } satisfies ObjectBlobCreateEnvelope;
+    const attachRequest = {
+      object_blob_id: createEnvelope.data.object_blob_id,
+      base_row_version: 1,
+      client_txn_id: "txn-attach-blob",
+    } satisfies EvidenceAttachBlobRequest;
+    const attachEnvelope = {
+      data: {
+        change_set_id: "change-1",
+        object_blob_id: attachRequest.object_blob_id,
+        row: {
+          record_id: "evidence-1",
+          row_version: 2,
+          cells: {},
+        },
+        view_schema_id: "cartulary.view.evidence.v1",
+      },
+      meta: { request_id: "req-attach-blob" },
+    } satisfies EvidenceAttachBlobEnvelope;
+    const handleRequest = {} satisfies EvidenceHandleIssueRequest;
+    const handleEnvelope = {
+      data: {
+        content_type: "text/plain",
+        disposition: "inline",
+        evidence_lifecycle_state: "available",
+        expires_at: "2026-06-07T12:00:00Z",
+        filename: "evidence.txt",
+        handle_kind: "preview",
+        href: "/api/v1/evidence-handles/preview-token",
+        incident_id: "incident-1",
+        media_class: "text",
+        method: "GET",
+        object_blob_id: "object-blob-1",
+        preview_kind: "text_inline",
+        record_id: "evidence-1",
+        sha256: null,
+        single_use: true,
+        size_bytes: 42,
+        upload_state: "available",
+      },
+      meta: { request_id: "req-handle" },
+    } satisfies EvidenceHandleEnvelope;
+    const errorEnvelope = {
+      error: {
+        status: 409,
+        code: "evidence_attach_rejected",
+        message: "Evidence attach was rejected.",
+        request_id: "req-error",
+        retryable: false,
+        details: { reason_code: "blob_failed" },
+      },
+    } satisfies ErrorEnvelope;
+
+    expect(createRequest.byte_size).toBe(42);
+    expect(attachEnvelope.data.row.row_version).toBe(2);
+    expect(handleRequest).toEqual({});
+    expect(handleEnvelope.data.href).toBe(
+      "/api/v1/evidence-handles/preview-token",
+    );
+    expect(errorEnvelope.error.details.reason_code).toBe("blob_failed");
   });
 });

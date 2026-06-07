@@ -1,5 +1,8 @@
 import {
   dataTestIdSelector,
+  evidenceAccessMessageTestId,
+  evidenceAttachFileInputTestId,
+  evidenceDownloadButtonTestId,
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
   genericEditRecordSelectTestId,
@@ -102,6 +105,12 @@ describe("WorkbookShell surface selection", () => {
         init: RequestInit | undefined,
       ) => Promise<Response> | Response | null)
     | null;
+  let attachErrorByRecordID: Record<string, Response>;
+  let handleErrorByRecordID: Record<string, Response>;
+  let handleHrefByRecordID: Record<
+    string,
+    { download?: string; preview?: string }
+  >;
   let startupSelection: {
     selected_sheet_ref: { kind: "saved_view" | "view_schema"; id: string };
     selected_view_schema_id: string;
@@ -119,6 +128,9 @@ describe("WorkbookShell surface selection", () => {
     queryResponseOverride = null;
     startupResponseOverride = null;
     recordPatchResponseOverride = null;
+    attachErrorByRecordID = {};
+    handleErrorByRecordID = {};
+    handleHrefByRecordID = {};
     startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
       selected_view_schema_id: timelineViewSchemaId,
@@ -188,20 +200,24 @@ describe("WorkbookShell surface selection", () => {
           saved_views: savedViews,
         });
       }
-      if (url.endsWith("/api/v1/evidence-records/evidence-1/preview-handle")) {
+      const evidenceHandleMatch = url.match(
+        /\/api\/v1\/evidence-records\/([^/]+)\/(preview|download)-handle$/,
+      );
+      if (evidenceHandleMatch) {
+        const recordId = decodeURIComponent(evidenceHandleMatch[1] ?? "");
+        const kind = evidenceHandleMatch[2] as "download" | "preview";
+        const error = handleErrorByRecordID[recordId];
+        if (error) {
+          return error;
+        }
+        const href =
+          handleHrefByRecordID[recordId]?.[kind] ??
+          `/api/v1/evidence-handles/${kind}-token`;
         return successEnvelope({
-          href: "/api/v1/evidence-handles/preview-token",
+          href,
           method: "GET",
           filename: "evidence.txt",
-          preview_kind: "text_inline",
-          content_type: "text/plain",
-        });
-      }
-      if (url.endsWith("/api/v1/evidence-records/evidence-1/download-handle")) {
-        return successEnvelope({
-          href: "/api/v1/evidence-handles/download-token",
-          method: "GET",
-          filename: "evidence.txt",
+          ...(kind === "preview" ? { preview_kind: "text_inline" } : {}),
           content_type: "text/plain",
         });
       }
@@ -248,6 +264,30 @@ describe("WorkbookShell surface selection", () => {
         return successEnvelope({
           record_id: "evidence-created",
           row_version: 2,
+        });
+      }
+      const attachMatch = url.match(
+        /\/api\/v1\/evidence-records\/([^/]+)\/attach-blob$/,
+      );
+      if (method === "POST" && attachMatch) {
+        const recordId = decodeURIComponent(attachMatch[1] ?? "");
+        const error = attachErrorByRecordID[recordId];
+        if (error) {
+          return error;
+        }
+        const row = evidenceStateRow(recordId, 2, "Attached evidence", {
+          lifecycleState: "available",
+          uploadState: "available",
+        });
+        evidenceRows = [
+          row,
+          ...evidenceRows.filter((candidate) => candidate.record_id !== recordId),
+        ];
+        return successEnvelope({
+          view_schema_id: evidenceViewSchemaId,
+          change_set_id: "change-evidence-attach",
+          row,
+          object_blob_id: "blob-created",
         });
       }
       if (method === "PATCH" && url.includes("/api/v1/records/")) {
@@ -1016,6 +1056,213 @@ describe("WorkbookShell surface selection", () => {
     );
   });
 
+  it("FE-I-P6-01 Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.", async () => {
+    evidenceRows = [
+      evidenceStateRow("evidence-attach", 4, "Attach target", {
+        lifecycleState: "available",
+        uploadState: "available",
+      }),
+      evidenceStateRow("evidence-blocked", 5, "Blocked target", {
+        lifecycleState: "quarantined",
+        uploadState: "available",
+      }),
+      evidenceStateRow("evidence-failed", 6, "Failed target", {
+        lifecycleState: "available",
+        uploadState: "failed",
+      }),
+      evidenceStateRow("evidence-inconsistent", 7, "Inconsistent target", {
+        lifecycleState: "available",
+        uploadState: "storage-backend-mismatch",
+      }),
+      evidenceStateRow("evidence-raw-handle", 8, "Raw handle target", {
+        lifecycleState: "available",
+        uploadState: "available",
+      }),
+      evidenceStateRow("evidence-public-error", 9, "Public error target", {
+        lifecycleState: "available",
+        uploadState: "available",
+      }),
+    ];
+    handleHrefByRecordID["evidence-raw-handle"] = {
+      preview:
+        "https://minio.internal/cartulary-evidence-bucket/object_blob_storage_key_v1",
+    };
+    handleErrorByRecordID["evidence-public-error"] =
+      rawStorageErrorEnvelope();
+    attachErrorByRecordID["evidence-public-error"] =
+      rawStorageErrorEnvelope();
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    fireEvent.click(
+      await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),
+    );
+
+    for (const recordId of [
+      "evidence-attach",
+      "evidence-blocked",
+      "evidence-failed",
+      "evidence-inconsistent",
+      "evidence-raw-handle",
+      "evidence-public-error",
+    ]) {
+      const attachInput = await screen.findByTestId(
+        evidenceAttachFileInputTestId(recordId),
+      );
+      expect(
+        attachInput.getAttribute("data-testid"),
+      ).toBe(evidenceAttachFileInputTestId(recordId));
+      expect(
+        screen
+          .getByTestId(evidencePreviewButtonTestId(recordId))
+          .getAttribute("data-testid"),
+      ).toBe(evidencePreviewButtonTestId(recordId));
+      expect(
+        screen
+          .getByTestId(evidenceDownloadButtonTestId(recordId))
+          .getAttribute("data-testid"),
+      ).toBe(evidenceDownloadButtonTestId(recordId));
+    }
+    expect(
+      (
+        screen.getByTestId(
+          evidencePreviewButtonTestId("evidence-blocked"),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      (
+        screen.getByTestId(
+          evidenceDownloadButtonTestId("evidence-failed"),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      (
+        screen.getByTestId(
+          evidencePreviewButtonTestId("evidence-inconsistent"),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      screen.getByTestId(evidenceAccessMessageTestId("evidence-blocked"))
+        .textContent,
+    ).toContain("Blocked:");
+    expect(
+      screen.getByTestId(evidenceAccessMessageTestId("evidence-failed"))
+        .textContent,
+    ).toContain("Failed:");
+    expect(
+      screen.getByTestId(evidenceAccessMessageTestId("evidence-inconsistent"))
+        .textContent,
+    ).toContain("Inconsistent:");
+
+    fireEvent.change(
+      screen.getByTestId(evidenceAttachFileInputTestId("evidence-attach")),
+      {
+        target: {
+          files: [
+            new File(["safe evidence body"], "safe-evidence.txt", {
+              type: "text/plain",
+            }),
+          ],
+        },
+      },
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(evidenceAccessMessageTestId("evidence-attach"))
+          .textContent,
+      ).toBe("Evidence attached.");
+    });
+    const createBlobCall = fetchMock.mock.calls.find(([input]) =>
+      String(input).endsWith("/api/v1/object-blobs"),
+    );
+    expect(createBlobCall).toBeDefined();
+    expect(JSON.parse(String((createBlobCall?.[1] as RequestInit).body))).toEqual(
+      {
+        incident_id: "incident-1",
+        client_txn_id: expect.stringMatching(/^evidence-blob-/u),
+        byte_size: 18,
+        filename_hint: "safe-evidence.txt",
+        content_type_hint: "text/plain",
+      },
+    );
+    const attachCall = fetchMock.mock.calls.find(([input]) =>
+      String(input).endsWith(
+        "/api/v1/evidence-records/evidence-attach/attach-blob",
+      ),
+    );
+    expect(attachCall).toBeDefined();
+    expect(JSON.parse(String((attachCall?.[1] as RequestInit).body))).toEqual({
+      object_blob_id: "blob-created",
+      base_row_version: 4,
+      client_txn_id: expect.stringMatching(/^evidence-attach-/u),
+    });
+
+    fireEvent.change(
+      screen.getByTestId(evidenceAttachFileInputTestId("evidence-public-error")),
+      {
+        target: {
+          files: [
+            new File(["unsafe evidence body"], "unsafe-evidence.txt", {
+              type: "text/plain",
+            }),
+          ],
+        },
+      },
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(evidenceAccessMessageTestId("evidence-public-error"))
+          .textContent,
+      ).toBe("Conflict.");
+    });
+
+    fireEvent.click(
+      screen.getByTestId(evidencePreviewButtonTestId("evidence-raw-handle")),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(evidenceAccessMessageTestId("evidence-raw-handle"))
+          .textContent,
+      ).toBe("Evidence handle is unavailable.");
+    });
+    expect(
+      screen.queryByTestId(evidencePreviewFrameTestId("evidence-raw-handle")),
+    ).toBeNull();
+
+    fireEvent.click(
+      screen.getByTestId(evidencePreviewButtonTestId("evidence-public-error")),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(evidenceAccessMessageTestId("evidence-public-error"))
+          .textContent,
+      ).toBe("Conflict.");
+    });
+
+    fireEvent.click(
+      screen.getByTestId(evidencePreviewButtonTestId("evidence-attach")),
+    );
+    const frame = await screen.findByTestId(
+      evidencePreviewFrameTestId("evidence-attach"),
+    );
+    expect(frame.getAttribute("src")).toBe(
+      "/api/v1/evidence-handles/preview-token",
+    );
+    fireEvent.click(
+      screen.getByTestId(evidenceDownloadButtonTestId("evidence-attach")),
+    );
+    await waitFor(() => {
+      expect(anchorClick).toHaveBeenCalled();
+    });
+    expectNoRawStorageDetails(document.body);
+  });
+
   it("Phase 5 E-5-01 orchestrates selected Timeline evidence attachment inline", async () => {
     timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
 
@@ -1177,6 +1424,72 @@ function evidenceRow(recordId: string, rowVersion: number, title: string) {
       "evidence.edited_at": { value: null },
     },
   };
+}
+
+function evidenceStateRow(
+  recordId: string,
+  rowVersion: number,
+  title: string,
+  state: { lifecycleState: string; uploadState: string },
+) {
+  const row = evidenceRow(recordId, rowVersion, title);
+  return {
+    ...row,
+    cells: {
+      ...row.cells,
+      "evidence.lifecycle_state": { value: state.lifecycleState },
+      "evidence.upload_state": { value: state.uploadState },
+    },
+  };
+}
+
+const rawStorageLeakSentinels = [
+  "https://minio.internal",
+  "object://object-blob-storage-ref",
+  "cartulary-evidence-bucket",
+  "object_blob_storage_key_v1",
+  "/var/lib/cartulary/object-blobs",
+  "seaweedfs",
+  "s3_backend",
+  "object-store implementation",
+] as const;
+
+function rawStorageErrorEnvelope(): Response {
+  return new Response(
+    JSON.stringify({
+      error: {
+        status: 409,
+        code: "object_store_unavailable",
+        message:
+          "https://minio.internal/cartulary-evidence-bucket object_blob_storage_key_v1 /var/lib/cartulary/object-blobs seaweedfs s3_backend object-store implementation",
+        request_id: "req-raw-storage",
+        retryable: false,
+        details: {
+          reason_code: "object_blob_storage_key_malformed",
+          raw_object_url:
+            "https://minio.internal/cartulary-evidence-bucket/object_blob_storage_key_v1",
+          raw_object_ref: "object://object-blob-storage-ref",
+          raw_path: "/var/lib/cartulary/object-blobs/object_blob_storage_key_v1",
+          raw_object_key: "object_blob_storage_key_v1",
+          bucket_name: "cartulary-evidence-bucket",
+          backend_path: "/var/lib/cartulary/object-blobs",
+          storage_backend: "s3_backend",
+          object_store_detail: "seaweedfs object-store implementation",
+        },
+      },
+    }),
+    {
+      headers: { "Content-Type": "application/json" },
+      status: 409,
+    },
+  );
+}
+
+function expectNoRawStorageDetails(root: ParentNode) {
+  const text = root.textContent ?? "";
+  for (const sentinel of rawStorageLeakSentinels) {
+    expect(text).not.toContain(sentinel);
+  }
 }
 
 function statusReviewRow(

@@ -189,33 +189,32 @@
           "target_name": "frontend-unit",
           "command_id": "cartulary.harness.command.frontend_unit.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
-          "scenario_title_required": false
+          "scenario_title_required": true
         },
         {
           "target_name": "browser-e2e-webserver-backed",
           "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
-          "scenario_title_required": false
+          "scenario_title_required": true
         }
       ],
       "scenario_titles": [
         "FE-I-P6-01 Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
       "default_check_required": false,
-      "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-I-P6-01",
@@ -223,14 +222,7 @@
       "evidence_delta": "full evidence is retained outside default check",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P6",
-      "blockers": [
-        {
-          "blocker_id": "FE-I-P6-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-E-P6-01",

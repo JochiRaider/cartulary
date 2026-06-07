@@ -61,6 +61,126 @@ export type ExtensionRegistryContract = {
   readonly profiles: readonly ExtensionProfileEntry[];
 };
 
+export const evidenceProtocolSchemaNames = Object.freeze({
+  envelopeMeta: "EnvelopeMeta",
+  errorEnvelope: "ErrorEnvelope",
+  evidenceAttachBlobEnvelope: "EvidenceAttachBlobEnvelope",
+  evidenceAttachBlobRequest: "EvidenceAttachBlobRequest",
+  evidenceHandleEnvelope: "EvidenceHandleEnvelope",
+  evidenceHandleIssueRequest: "EvidenceHandleIssueRequest",
+  objectBlobCreateEnvelope: "ObjectBlobCreateEnvelope",
+  objectBlobCreateRequest: "ObjectBlobCreateRequest",
+  objectBlobUploadTarget: "ObjectBlobUploadTarget",
+} as const);
+
+export type EnvelopeMeta = {
+  readonly request_id: string;
+  readonly paging?: unknown;
+};
+
+export type ErrorEnvelope = {
+  readonly error: {
+    readonly code: string;
+    readonly conflict?: Record<string, unknown>;
+    readonly details: Record<string, unknown>;
+    readonly message: string;
+    readonly request_id: string;
+    readonly retryable: boolean;
+    readonly status: number;
+  };
+};
+
+export type ViewCell = {
+  readonly value?: unknown;
+  readonly [key: string]: unknown;
+};
+
+export type ViewRow = {
+  readonly cells: Record<string, ViewCell>;
+  readonly record_id: string;
+  readonly row_version: number;
+  readonly [key: string]: unknown;
+};
+
+export type ViewMutationData = {
+  readonly change_set_id: string;
+  readonly row: ViewRow;
+  readonly view_schema_id: string;
+};
+
+export type ObjectBlobCreateRequest = {
+  readonly byte_size: number;
+  readonly client_txn_id: string;
+  readonly content_type_hint?: string | null;
+  readonly filename_hint?: string | null;
+  readonly incident_id: string;
+  readonly sha256_hex?: string | null;
+};
+
+export type ObjectBlobUploadTarget = {
+  readonly expires_at: string;
+  readonly headers: Record<string, string>;
+  readonly href: string;
+  readonly method: "PUT";
+};
+
+export type ObjectBlobCreateEnvelope = {
+  readonly data: {
+    readonly accepted_contract: {
+      readonly byte_size: number;
+      readonly content_type_hint: string | null;
+      readonly filename_hint: string | null;
+      readonly incident_id: string;
+      readonly sha256_hex: string | null;
+    };
+    readonly incident_id: string;
+    readonly object_blob_id: string;
+    readonly pending_expires_at: string;
+    readonly target_expires_at: string;
+    readonly upload_state: "pending";
+    readonly upload_target: ObjectBlobUploadTarget;
+  };
+  readonly meta: EnvelopeMeta;
+};
+
+export type EvidenceAttachBlobRequest = {
+  readonly base_row_version: number;
+  readonly client_txn_id: string;
+  readonly object_blob_id: string;
+};
+
+export type EvidenceAttachBlobEnvelope = {
+  readonly data: ViewMutationData & {
+    readonly object_blob_id: string;
+  };
+  readonly meta: EnvelopeMeta;
+};
+
+export type EvidenceHandleIssueRequest = Record<string, never>;
+
+export type EvidenceHandleEnvelope = {
+  readonly data: {
+    readonly content_type: string;
+    readonly disposition: "inline" | "attachment";
+    readonly evidence_lifecycle_state: string;
+    readonly expires_at: string;
+    readonly filename: string;
+    readonly handle_kind: "preview" | "download";
+    readonly href: string;
+    readonly incident_id: string;
+    readonly media_class: string;
+    readonly method: "GET";
+    readonly object_blob_id: string;
+    readonly preview_kind?: string;
+    readonly record_id: string;
+    readonly sha256: string | null;
+    readonly single_use: boolean;
+    readonly size_bytes: number;
+    readonly upload_state: string;
+  };
+  readonly meta: EnvelopeMeta;
+};
+
 const openAPIArtifactList = Object.freeze([...openAPIArtifacts]);
 const wsArtifactList = Object.freeze([...wsArtifacts]);
 const viewSchemaArtifactList = Object.freeze([...viewSchemaArtifacts]);

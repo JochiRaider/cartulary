@@ -11,6 +11,16 @@ import {
   reconcileRecordRows,
   resolveGridPasteTargets,
 } from "@cartulary/grid-adapter";
+import type {
+  ErrorEnvelope,
+  EvidenceAttachBlobEnvelope,
+  EvidenceAttachBlobRequest,
+  EvidenceHandleEnvelope,
+  EvidenceHandleIssueRequest,
+  ObjectBlobCreateEnvelope,
+  ObjectBlobCreateRequest,
+  ObjectBlobUploadTarget,
+} from "@cartulary/protocol-ts";
 import {
   assessmentCreatePanelTestId,
   autoResolutionNoticeTestId,
@@ -128,6 +138,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
+import { publicErrorStatusText } from "./publicError";
 import { WorkbookGridControls } from "./WorkbookGridControls";
 import {
   captureViewportAnchor,
@@ -770,36 +781,6 @@ type MergeEnvelope = {
         suggestion_only_count: number;
       }>;
     };
-  };
-};
-
-type EvidenceHandleEnvelope = {
-  data: {
-    href: string;
-    method: "GET";
-    filename: string;
-    preview_kind?: string | null;
-    content_type?: string | null;
-  };
-};
-
-type ObjectBlobUploadTarget = {
-  href: string;
-  method?: string | null;
-  headers?: Record<string, string> | null;
-};
-
-type ObjectBlobCreateEnvelope = {
-  data: {
-    object_blob_id: string;
-    upload_target: ObjectBlobUploadTarget;
-  };
-};
-
-type EvidenceAttachBlobEnvelope = {
-  data: {
-    record_id: string;
-    row_version: number;
   };
 };
 
@@ -2622,6 +2603,102 @@ function parseErrorMessage(payload: unknown) {
     return error.message;
   }
   return "Request failed.";
+}
+
+const rawEvidenceStorageDetailPatterns = [
+  /\bhttps?:\/\//iu,
+  /\bs3:\/\//iu,
+  /\bobject:\/\//iu,
+  /\bminio\b/iu,
+  /\bseaweedfs?\b/iu,
+  /\bbucket(?:\b|_)/iu,
+  /\bobject[-_ ]?store(?:\b|_)/iu,
+  /\bstorage[-_ ]?backend(?:\b|_)/iu,
+  /\b(?:storage|object)[-_ ]?key(?:\b|_)/iu,
+  /\bobject[-_ ]?blob[-_ ]?storage[-_ ]?key(?:\b|_)/iu,
+  /\/(?:home|var|tmp|usr|app|workspace|data|mnt|srv)\//iu,
+  /\b(?:local|filesystem|s3|gcs|azure)[-_ ]?backend\b/iu,
+] as const;
+
+function containsRawEvidenceStorageDetail(value: string): boolean {
+  return rawEvidenceStorageDetailPatterns.some((pattern) =>
+    pattern.test(value),
+  );
+}
+
+function safeEvidencePublicText(value: unknown): string | null {
+  if (
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    typeof value !== "boolean"
+  ) {
+    return null;
+  }
+  const text = String(value).trim();
+  if (
+    text === "" ||
+    text.length > 240 ||
+    containsRawEvidenceStorageDetail(text)
+  ) {
+    return null;
+  }
+  return text;
+}
+
+function evidencePublicError(payload: unknown): ErrorEnvelope["error"] | null {
+  if (!payload || typeof payload !== "object" || !("error" in payload)) {
+    return null;
+  }
+  const error = payload.error;
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+  return error as ErrorEnvelope["error"];
+}
+
+function evidencePublicErrorMessage(
+  payload: unknown,
+  fallback = "Evidence request failed.",
+): string {
+  const error = evidencePublicError(payload);
+  if (error === null) {
+    return fallback;
+  }
+  const reason =
+    error.details && typeof error.details === "object"
+      ? safeEvidencePublicText(error.details.reason_code)
+      : null;
+  const code = safeEvidencePublicText(error.code);
+  if (code !== null && reason !== null) {
+    return `${code}: ${reason}`;
+  }
+  if (reason !== null) {
+    return reason;
+  }
+  const message = safeEvidencePublicText(error.message);
+  if (message !== null) {
+    return message;
+  }
+  if (code !== null) {
+    return code;
+  }
+  const statusText = safeEvidencePublicText(
+    publicErrorStatusText({ status: error.status }, error.status),
+  );
+  return statusText ?? fallback;
+}
+
+function resolvePublicEvidenceHandleHref(href: string): string | null {
+  const trimmed = href.trim();
+  if (
+    containsRawEvidenceStorageDetail(trimmed) ||
+    !/^\/api\/v1\/evidence-handles\/[A-Za-z0-9._~!$&'()*+,;=:@%-]+(?:\?[A-Za-z0-9._~!$&'()*+,;=:@%/?-]*)?$/u.test(
+      trimmed,
+    )
+  ) {
+    return null;
+  }
+  return trimmed;
 }
 
 function formatHistoryTimestamp(value: string): string {
@@ -6682,28 +6759,29 @@ export function TimelineWorkbook({
         },
       );
       if (!createEvidence.ok) {
-        throw new Error(parseErrorMessage(createEvidence.payload));
+        throw new Error(evidencePublicErrorMessage(createEvidence.payload));
       }
       const evidenceEnvelope = readEnvelope<ViewMutationEnvelope>(
         createEvidence.payload,
       );
       const evidenceRecord = evidenceEnvelope.data.row;
 
+      const createBlobRequest = {
+        incident_id: incidentId,
+        client_txn_id: nextClientTxnId(),
+        byte_size: file.size,
+        filename_hint: file.name || null,
+        content_type_hint: file.type || null,
+      } satisfies ObjectBlobCreateRequest;
       const createBlob = await fetchJSON<ObjectBlobCreateEnvelope>(
         apiPath(apiBase, "/api/v1/object-blobs"),
         {
           method: "POST",
-          body: JSON.stringify({
-            incident_id: incidentId,
-            client_txn_id: nextClientTxnId(),
-            byte_size: file.size,
-            filename_hint: file.name || null,
-            content_type_hint: file.type || null,
-          }),
+          body: JSON.stringify(createBlobRequest),
         },
       );
       if (!createBlob.ok) {
-        throw new Error(parseErrorMessage(createBlob.payload));
+        throw new Error(evidencePublicErrorMessage(createBlob.payload));
       }
       const blobEnvelope = readEnvelope<ObjectBlobCreateEnvelope>(
         createBlob.payload,
@@ -6714,6 +6792,11 @@ export function TimelineWorkbook({
         file,
       );
 
+      const attachRequest = {
+        object_blob_id: blobEnvelope.data.object_blob_id,
+        base_row_version: evidenceRecord.row_version,
+        client_txn_id: nextClientTxnId(),
+      } satisfies EvidenceAttachBlobRequest;
       const attach = await fetchJSON<EvidenceAttachBlobEnvelope>(
         apiPath(
           apiBase,
@@ -6721,15 +6804,11 @@ export function TimelineWorkbook({
         ),
         {
           method: "POST",
-          body: JSON.stringify({
-            object_blob_id: blobEnvelope.data.object_blob_id,
-            base_row_version: evidenceRecord.row_version,
-            client_txn_id: nextClientTxnId(),
-          }),
+          body: JSON.stringify(attachRequest),
         },
       );
       if (!attach.ok) {
-        throw new Error(parseErrorMessage(attach.payload));
+        throw new Error(evidencePublicErrorMessage(attach.payload));
       }
       return evidenceRecord.record_id;
     },
@@ -9954,22 +10033,27 @@ function GenericWorkbookSurface({
   const issueEvidenceHandle = useCallback(
     async (row: EntityApiRow, kind: "preview" | "download") => {
       setEvidenceMessage(row.record_id, null);
+      const handleRequest = {} satisfies EvidenceHandleIssueRequest;
       const result = await fetchJSON<EvidenceHandleEnvelope>(
         apiPath(
           apiBase,
           `/api/v1/evidence-records/${row.record_id}/${kind}-handle`,
         ),
-        { method: "POST", body: JSON.stringify({}) },
+        { method: "POST", body: JSON.stringify(handleRequest) },
       );
       if (!result.ok) {
-        setEvidenceMessage(row.record_id, parseErrorMessage(result.payload));
+        setEvidenceMessage(
+          row.record_id,
+          evidencePublicErrorMessage(result.payload, "Evidence access failed."),
+        );
         return;
       }
       const envelope = readEnvelope<EvidenceHandleEnvelope>(result.payload);
-      const href =
-        envelope.data.href.startsWith("/") && apiBase
-          ? apiPath(apiBase, envelope.data.href)
-          : envelope.data.href;
+      const href = resolvePublicEvidenceHandleHref(envelope.data.href);
+      if (href === null) {
+        setEvidenceMessage(row.record_id, "Evidence handle is unavailable.");
+        return;
+      }
       if (kind === "preview") {
         setEvidencePreview({
           href,
@@ -10004,21 +10088,22 @@ function GenericWorkbookSurface({
       setEvidenceMessage(row.record_id, "Uploading evidence.");
       setMutationState("Syncing");
       try {
+        const createBlobRequest = {
+          incident_id: incidentId,
+          client_txn_id: `evidence-blob-${Date.now()}`,
+          byte_size: file.size,
+          filename_hint: file.name || null,
+          content_type_hint: file.type || null,
+        } satisfies ObjectBlobCreateRequest;
         const createBlob = await fetchJSON<ObjectBlobCreateEnvelope>(
           apiPath(apiBase, "/api/v1/object-blobs"),
           {
             method: "POST",
-            body: JSON.stringify({
-              incident_id: incidentId,
-              client_txn_id: `evidence-blob-${Date.now()}`,
-              byte_size: file.size,
-              filename_hint: file.name || null,
-              content_type_hint: file.type || null,
-            }),
+            body: JSON.stringify(createBlobRequest),
           },
         );
         if (!createBlob.ok) {
-          throw new Error(parseErrorMessage(createBlob.payload));
+          throw new Error(evidencePublicErrorMessage(createBlob.payload));
         }
         const blobEnvelope = readEnvelope<ObjectBlobCreateEnvelope>(
           createBlob.payload,
@@ -10028,6 +10113,11 @@ function GenericWorkbookSurface({
           blobEnvelope.data.upload_target,
           file,
         );
+        const attachRequest = {
+          object_blob_id: blobEnvelope.data.object_blob_id,
+          base_row_version: row.row_version,
+          client_txn_id: `evidence-attach-${Date.now()}`,
+        } satisfies EvidenceAttachBlobRequest;
         const attach = await fetchJSON<EvidenceAttachBlobEnvelope>(
           apiPath(
             apiBase,
@@ -10035,15 +10125,11 @@ function GenericWorkbookSurface({
           ),
           {
             method: "POST",
-            body: JSON.stringify({
-              object_blob_id: blobEnvelope.data.object_blob_id,
-              base_row_version: row.row_version,
-              client_txn_id: `evidence-attach-${Date.now()}`,
-            }),
+            body: JSON.stringify(attachRequest),
           },
         );
         if (!attach.ok) {
-          throw new Error(parseErrorMessage(attach.payload));
+          throw new Error(evidencePublicErrorMessage(attach.payload));
         }
         setEvidenceMessage(row.record_id, "Evidence attached.");
         setMutationState("Saved");
@@ -10077,7 +10163,7 @@ function GenericWorkbookSurface({
   const genericFocus = useWorkbookGridFocus({
     columns: anchorColumns,
     getGroupLabel: (row, fieldKey) =>
-      genericCellLabel(row.cells[fieldKey]?.value),
+      genericCellLabelForField(surface, fieldKey, row.cells[fieldKey]?.value),
     groupBy: queryState.groupBy,
     rows: gridRows,
     surface,
@@ -10091,7 +10177,11 @@ function GenericWorkbookSurface({
           focus={genericFocus}
           recordId={row.record_id}
         >
-          {genericCellLabel(row.cells[field.fieldKey]?.value)}
+          {genericCellLabelForField(
+            surface,
+            field.fieldKey,
+            row.cells[field.fieldKey]?.value,
+          )}
         </FocusableWorkbookCell>
       ),
     }),
@@ -11189,6 +11279,22 @@ function genericCellLabel(value: unknown): string {
     }
   }
   return JSON.stringify(value);
+}
+
+function genericCellLabelForField(
+  surface: WorkbookSurface,
+  fieldKey: string,
+  value: unknown,
+): string {
+  if (
+    surface === evidenceViewSchemaId &&
+    fieldKey === "evidence.storage_ref" &&
+    typeof value === "string" &&
+    /^object:\/\/[0-9a-f-]+$/iu.test(value.trim())
+  ) {
+    return "Managed object";
+  }
+  return genericCellLabel(value);
 }
 
 function collectionItemLabels(items: readonly unknown[]): string[] {
