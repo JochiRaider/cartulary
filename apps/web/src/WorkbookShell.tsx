@@ -150,6 +150,7 @@ import {
 import {
   buildEvidenceCountDisplayViewModel,
   buildEvidenceLifecycleViewModel,
+  type EvidenceLifecycleViewModel,
 } from "./evidenceLifecycleViewModel";
 import {
   normalizeWorkbookViewRows,
@@ -2686,6 +2687,26 @@ function evidencePublicErrorMessage(
     publicErrorStatusText({ status: error.status }, error.status),
   );
   return statusText ?? fallback;
+}
+
+function evidenceAccessMessageLiveRegion(
+  message: string,
+  evidenceAccess: EvidenceLifecycleViewModel,
+): { ariaLive: "assertive" | "polite"; role: "alert" | "status" } {
+  const normalized = message.toLowerCase();
+  const isBlockingMessage =
+    evidenceAccess.messageTone === "danger" ||
+    evidenceAccess.stateKey === "blocked" ||
+    evidenceAccess.stateKey === "failed" ||
+    evidenceAccess.stateKey === "inconsistent" ||
+    evidenceAccess.stateKey === "preview_blocked" ||
+    evidenceAccess.stateKey === "public_error" ||
+    /\b(?:blob_failed|evidence_access_unavailable|failed|inconsistent|quarantined|unavailable|unsupported_preview)\b/u.test(
+      normalized,
+    );
+  return isBlockingMessage
+    ? { ariaLive: "assertive", role: "alert" }
+    : { ariaLive: "polite", role: "status" };
 }
 
 function resolvePublicEvidenceHandleHref(href: string): string | null {
@@ -10204,6 +10225,10 @@ function GenericWorkbookSurface({
         const message =
           evidenceMessageByRecordID[row.record_id] ??
           evidenceAccess.message;
+        const messageLiveRegion =
+          message === null
+            ? null
+            : evidenceAccessMessageLiveRegion(message, evidenceAccess);
         return (
           <div
             data-evidence-state-key={evidenceAccess.stateKey}
@@ -10251,7 +10276,9 @@ function GenericWorkbookSurface({
             </label>
             {message ? (
               <span
+                aria-live={messageLiveRegion?.ariaLive}
                 data-testid={evidenceAccessMessageTestId(row.record_id)}
+                role={messageLiveRegion?.role}
                 style={evidenceAccessMessageStyle}
               >
                 {message}
@@ -11073,22 +11100,24 @@ function GenericMutationControl({
   testId,
   value,
   onChange,
-}: {
-  collectionItems?: Array<{ itemRef: string; displayText: string }>;
-  collectionMode: GenericCollectionMode;
-  field: ViewFieldContract;
+	}: {
+	  collectionItems?: Array<{ itemRef: string; displayText: string }>;
+	  collectionMode: GenericCollectionMode;
+	  field: ViewFieldContract;
   id?: string;
   referenceOptions: GenericReferenceOptions;
   testId: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  if (field.writeKind === "action_payload") {
-    if (collectionMode === "remove") {
-      return (
-        <select
-          data-testid={testId}
-          id={id}
+	  value: string;
+	  onChange: (value: string) => void;
+	}) {
+	  const controlLabel = `${field.label} value`;
+	  if (field.writeKind === "action_payload") {
+	    if (collectionMode === "remove") {
+	      return (
+	        <select
+	          aria-label={controlLabel}
+	          data-testid={testId}
+	          id={id}
           multiple
           size={Math.min(Math.max(collectionItems.length, 2), 6)}
           style={selectStyle}
@@ -11111,11 +11140,12 @@ function GenericMutationControl({
     }
 
     const options = referenceOptionsForField(field, referenceOptions);
-    if (genericFieldUsesReferenceOptions(field)) {
-      return (
-        <select
-          data-testid={testId}
-          id={id}
+	    if (genericFieldUsesReferenceOptions(field)) {
+	      return (
+	        <select
+	          aria-label={controlLabel}
+	          data-testid={testId}
+	          id={id}
           multiple
           size={Math.min(Math.max(options.length, 2), 6)}
           style={selectStyle}
@@ -11137,10 +11167,11 @@ function GenericMutationControl({
       );
     }
 
-    return (
-      <textarea
-        data-testid={testId}
-        id={id}
+	    return (
+	      <textarea
+	        aria-label={controlLabel}
+	        data-testid={testId}
+	        id={id}
         rows={3}
         style={textareaStyle}
         value={value}
@@ -11152,11 +11183,12 @@ function GenericMutationControl({
   }
 
   const referenceChoices = referenceOptionsForField(field, referenceOptions);
-  if (genericFieldUsesReferenceOptions(field)) {
-    return (
-      <select
-        data-testid={testId}
-        id={id}
+	  if (genericFieldUsesReferenceOptions(field)) {
+	    return (
+	      <select
+	        aria-label={controlLabel}
+	        data-testid={testId}
+	        id={id}
         style={selectStyle}
         value={value}
         onChange={(event) => {
@@ -11173,11 +11205,12 @@ function GenericMutationControl({
     );
   }
 
-  if (field.enumValues && field.enumValues.length > 0) {
-    return (
-      <select
-        data-testid={testId}
-        id={id}
+	  if (field.enumValues && field.enumValues.length > 0) {
+	    return (
+	      <select
+	        aria-label={controlLabel}
+	        data-testid={testId}
+	        id={id}
         style={selectStyle}
         value={value}
         onChange={(event) => {
@@ -11194,11 +11227,12 @@ function GenericMutationControl({
     );
   }
 
-  if (field.readKind === "boolean") {
-    return (
-      <input
-        data-testid={testId}
-        id={id}
+	  if (field.readKind === "boolean") {
+	    return (
+	      <input
+	        aria-label={controlLabel}
+	        data-testid={testId}
+	        id={id}
         style={inputStyle}
         type="checkbox"
         checked={value === "true"}
@@ -11209,11 +11243,12 @@ function GenericMutationControl({
     );
   }
 
-  if (field.readKind === "number") {
-    return (
-      <input
-        data-testid={testId}
-        id={id}
+	  if (field.readKind === "number") {
+	    return (
+	      <input
+	        aria-label={controlLabel}
+	        data-testid={testId}
+	        id={id}
         style={inputStyle}
         type="number"
         value={value}
@@ -11224,11 +11259,12 @@ function GenericMutationControl({
     );
   }
 
-  if (isMultilineGenericField(field)) {
-    return (
-      <textarea
-        data-testid={testId}
-        id={id}
+	  if (isMultilineGenericField(field)) {
+	    return (
+	      <textarea
+	        aria-label={controlLabel}
+	        data-testid={testId}
+	        id={id}
         rows={3}
         style={textareaStyle}
         value={value}
@@ -11239,10 +11275,11 @@ function GenericMutationControl({
     );
   }
 
-  return (
-    <input
-      data-testid={testId}
-      id={id}
+	  return (
+	    <input
+	      aria-label={controlLabel}
+	      data-testid={testId}
+	      id={id}
       placeholder={
         field.directScalarContractId === "timestamp_instant_v1"
           ? "RFC3339 timestamp"

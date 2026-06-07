@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pasteGridMatrix } from "@cartulary/test-utils";
@@ -6,10 +7,15 @@ import {
   autoResolutionUndoButtonTestId,
   currentIncidentRoleTestId,
   dataTestIdSelector,
+  evidenceAccessMessageTestId,
+  evidenceDownloadButtonTestId,
+  evidencePreviewButtonTestId,
+  evidencePreviewFrameTestId,
   gridFilterApplyTestId,
   gridFilterFieldTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
+  gridShellTestId,
   gridSortHeaderTestId,
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
@@ -64,10 +70,13 @@ import {
   createIncident,
   createIncidentMembership,
   createViewRow,
+  csrfHeaders,
   enrollTotpViaBootstrap,
   generateTotpCode,
+  queryViewRows,
   safeUnroute,
   sessionCookieName,
+  testRouteHeaders,
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
@@ -77,6 +86,7 @@ import {
   addRelationshipTokenViaUI,
   collectionActionsPayload,
   collectionItems,
+  evidenceViewSchemaId,
   hostRefsFieldKey,
   hostsViewSchemaId,
   openTimelineInspector,
@@ -117,6 +127,9 @@ const p4AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
 const p5AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P5-01",
 ) as [string];
+const p6AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
+  "FE-A11Y-P6-01",
+) as [string];
 
 if (p2AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
@@ -136,6 +149,11 @@ if (p4AccessibilityScenarioTitles.length !== 1) {
 if (p5AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
     `FE-A11Y-P5-01 must declare exactly 1 scenario; found ${p5AccessibilityScenarioTitles.length}`,
+  );
+}
+if (p6AccessibilityScenarioTitles.length !== 1) {
+  throw new Error(
+    `FE-A11Y-P6-01 must declare exactly 1 scenario; found ${p6AccessibilityScenarioTitles.length}`,
   );
 }
 
@@ -655,6 +673,224 @@ async function deleteIncidentMembership(
     },
   );
   expect(response.status()).toBe(204);
+}
+
+type EvidenceA11yRowStateKey =
+  | "available"
+  | "blocked"
+  | "pending_upload"
+  | "requested";
+
+type EvidenceA11yUploadOptions = {
+  body: Buffer;
+  contentType: string;
+  filename: string;
+  requestedAt: string;
+  title: string;
+  txnPrefix: string;
+};
+
+async function createA11yEvidenceRow(
+  page: Page,
+  incidentId: string,
+  options: {
+    lifecycleState: string;
+    requestedAt: string;
+    storageRef: string;
+    title: string;
+    txnPrefix: string;
+  },
+): Promise<ViewRow> {
+  return (await createViewRow(page, incidentId, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn(options.txnPrefix),
+    "evidence.collector_party_text": "FE-P6 accessibility fixture",
+    "evidence.lifecycle_state": options.lifecycleState,
+    "evidence.requested_at": options.requestedAt,
+    "evidence.storage_ref": options.storageRef,
+    "evidence.title": options.title,
+  })) as ViewRow;
+}
+
+async function createUploadedA11yEvidence(
+  page: Page,
+  incidentId: string,
+  options: EvidenceA11yUploadOptions,
+): Promise<ViewRow> {
+  const row = (await createViewRow(page, incidentId, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn(`${options.txnPrefix}-row`),
+    "evidence.collector_party_text": "FE-P6 accessibility fixture",
+    "evidence.requested_at": options.requestedAt,
+    "evidence.title": options.title,
+  })) as ViewRow;
+  const createBlob = await page.request.post(`${apiBase}/api/v1/object-blobs`, {
+    headers: await csrfHeaders(page),
+    data: {
+      byte_size: options.body.byteLength,
+      client_txn_id: uniqueTxn(`${options.txnPrefix}-blob`),
+      content_type_hint: options.contentType,
+      filename_hint: options.filename,
+      incident_id: incidentId,
+    },
+  });
+  expect(createBlob.ok()).toBeTruthy();
+  const blobEnvelope = (await createBlob.json()) as {
+    data: {
+      object_blob_id: string;
+      upload_target: {
+        href: string;
+        method?: string;
+      };
+    };
+  };
+  expect(blobEnvelope.data.upload_target.method ?? "PUT").toBe("PUT");
+
+  const upload = await page.request.put(
+    resolveA11yAPIHref(blobEnvelope.data.upload_target.href),
+    {
+      data: options.body,
+      headers: { "Content-Type": options.contentType },
+    },
+  );
+  expect(upload.ok()).toBeTruthy();
+
+  const attach = await page.request.post(
+    `${apiBase}/api/v1/evidence-records/${row.record_id}/attach-blob`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        base_row_version: row.row_version,
+        client_txn_id: uniqueTxn(`${options.txnPrefix}-attach`),
+        object_blob_id: blobEnvelope.data.object_blob_id,
+      },
+    },
+  );
+  expect(attach.ok()).toBeTruthy();
+  return waitForA11yEvidenceState(page, incidentId, row.record_id, {
+    lifecycleState: "available",
+    uploadState: "available",
+  });
+}
+
+async function waitForA11yEvidenceState(
+  page: Page,
+  incidentId: string,
+  recordId: string,
+  state: { lifecycleState: string; uploadState: string },
+): Promise<ViewRow> {
+  let matchingRow: ViewRow | null = null;
+  await expect
+    .poll(
+      async () => {
+        const rows = (await queryViewRows(
+          page,
+          incidentId,
+          evidenceViewSchemaId,
+        )) as ViewRow[];
+        matchingRow =
+          rows.find((candidate) => candidate.record_id === recordId) ?? null;
+        return {
+          lifecycleState: a11yCellValue(
+            matchingRow?.cells["evidence.lifecycle_state"],
+          ),
+          uploadState: a11yCellValue(
+            matchingRow?.cells["evidence.upload_state"],
+          ),
+        };
+      },
+      { timeout: 30_000 },
+    )
+    .toEqual(state);
+  if (matchingRow === null) {
+    throw new Error(`missing evidence row ${recordId}`);
+  }
+  return matchingRow;
+}
+
+async function expectEvidenceAccessState(
+  page: Page,
+  recordId: string,
+  stateKey: EvidenceA11yRowStateKey,
+  options: {
+    liveRole?: "alert" | "status";
+    messageText?: RegExp | string;
+  } = {},
+) {
+  await expect(evidenceAccessStateContainer(page, recordId)).toHaveAttribute(
+    "data-evidence-state-key",
+    stateKey,
+  );
+  const previewButton = page.getByTestId(evidencePreviewButtonTestId(recordId));
+  const downloadButton = page.getByTestId(
+    evidenceDownloadButtonTestId(recordId),
+  );
+  await expect(previewButton).toHaveText("Preview");
+  await expect(downloadButton).toHaveText("Download");
+  if (stateKey === "available") {
+    await expect(previewButton).toBeEnabled();
+    await expect(downloadButton).toBeEnabled();
+  } else {
+    await expect(previewButton).toBeDisabled();
+    await expect(downloadButton).toBeDisabled();
+  }
+  if (options.messageText !== undefined || options.liveRole !== undefined) {
+    const message = page.getByTestId(evidenceAccessMessageTestId(recordId));
+    await expect(message).toBeVisible();
+    if (options.messageText !== undefined) {
+      await expect(message).toContainText(options.messageText);
+    }
+    if (options.liveRole !== undefined) {
+      await expect(message).toHaveAttribute("role", options.liveRole);
+      await expect(message).toHaveAttribute(
+        "aria-live",
+        options.liveRole === "alert" ? "assertive" : "polite",
+      );
+    }
+  }
+}
+
+function evidenceAccessStateContainer(page: Page, recordId: string): Locator {
+  return page
+    .getByTestId(evidencePreviewButtonTestId(recordId))
+    .locator("xpath=ancestor::*[@data-evidence-state-key][1]");
+}
+
+async function armA11yPublicErrorFault(
+  page: Page,
+  options: {
+    path: string;
+    reasonCode: "blob_failed" | "evidence_inconsistent";
+  },
+) {
+  const response = await page.request.post(
+    `${apiBase}/api/v1/test/runtime/public-error-faults`,
+    {
+      headers: testRouteHeaders(),
+      data: {
+        code: "evidence_access_unavailable",
+        consume_once: true,
+        details: {
+          reason_code: options.reasonCode,
+        },
+        message: "Evidence access failed for FE-P6 accessibility fixture.",
+        method: "POST",
+        path: options.path,
+        retryable: false,
+        status: 409,
+      },
+    },
+  );
+  expect(response.status()).toBe(201);
+}
+
+function resolveA11yAPIHref(href: string): string {
+  return href.startsWith("/") ? `${apiBase}${href}` : href;
+}
+
+function a11yCellValue(cell: unknown): unknown {
+  if (cell !== null && typeof cell === "object" && "value" in cell) {
+    return (cell as { value: unknown }).value;
+  }
+  return cell;
 }
 
 async function holdSinglePublicAPIResponse(
@@ -1344,6 +1580,241 @@ test.describe("FE-P5 accessibility readiness", () => {
       relationshipChipTestId(String(autoItem.item_ref)),
       mentionItemTestId(String(dismissedMention.item_ref)),
       mentionRestoreUnresolvedButtonTestId(),
+    ]);
+  });
+});
+
+test.describe("FE-P6 accessibility readiness", () => {
+  test(p6AccessibilityScenarioTitles[0], async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("A11YP6"),
+      "FE-A11Y-P6-01 evidence access",
+    );
+    const requested = await createA11yEvidenceRow(page, incidentId, {
+      lifecycleState: "requested",
+      requestedAt: "2026-06-07T10:00:00Z",
+      storageRef: "case://fe-a11y-p6/requested",
+      title: "01 requested evidence",
+      txnPrefix: "fe-a11y-p6-requested",
+    });
+    const pending = await createA11yEvidenceRow(page, incidentId, {
+      lifecycleState: "pending_receipt",
+      requestedAt: "2026-06-07T10:05:00Z",
+      storageRef: "case://fe-a11y-p6/pending",
+      title: "02 pending evidence",
+      txnPrefix: "fe-a11y-p6-pending",
+    });
+    const blocked = await createA11yEvidenceRow(page, incidentId, {
+      lifecycleState: "quarantined",
+      requestedAt: "2026-06-07T10:10:00Z",
+      storageRef: "case://fe-a11y-p6/quarantined",
+      title: "03 quarantined evidence",
+      txnPrefix: "fe-a11y-p6-blocked",
+    });
+    const availablePreview = await createUploadedA11yEvidence(
+      page,
+      incidentId,
+      {
+        body: Buffer.from("FE-A11Y-P6 preview evidence\n", "utf8"),
+        contentType: "text/plain",
+        filename: "fe-a11y-p6-preview.txt",
+        requestedAt: "2026-06-07T10:15:00Z",
+        title: "04 available preview evidence",
+        txnPrefix: "fe-a11y-p6-preview",
+      },
+    );
+    const downloadHandle = await createUploadedA11yEvidence(
+      page,
+      incidentId,
+      {
+        body: Buffer.from("FE-A11Y-P6 download evidence\n", "utf8"),
+        contentType: "text/plain",
+        filename: "fe-a11y-p6-download.txt",
+        requestedAt: "2026-06-07T10:20:00Z",
+        title: "05 download handle evidence",
+        txnPrefix: "fe-a11y-p6-download",
+      },
+    );
+    const previewBlocked = await createUploadedA11yEvidence(
+      page,
+      incidentId,
+      {
+        body: Buffer.from(
+          "<!doctype html><title>FE-A11Y-P6 unsupported preview</title>",
+          "utf8",
+        ),
+        contentType: "text/html",
+        filename: "fe-a11y-p6-preview-blocked.html",
+        requestedAt: "2026-06-07T10:25:00Z",
+        title: "06 preview blocked evidence",
+        txnPrefix: "fe-a11y-p6-preview-blocked",
+      },
+    );
+    const failedHandle = await createUploadedA11yEvidence(page, incidentId, {
+      body: Buffer.from("FE-A11Y-P6 failed handle evidence\n", "utf8"),
+      contentType: "text/plain",
+      filename: "fe-a11y-p6-failed.txt",
+      requestedAt: "2026-06-07T10:30:00Z",
+      title: "07 failed handle evidence",
+      txnPrefix: "fe-a11y-p6-failed",
+    });
+    const inconsistentHandle = await createUploadedA11yEvidence(
+      page,
+      incidentId,
+      {
+        body: Buffer.from("FE-A11Y-P6 inconsistent handle evidence\n", "utf8"),
+        contentType: "text/plain",
+        filename: "fe-a11y-p6-inconsistent.txt",
+        requestedAt: "2026-06-07T10:35:00Z",
+        title: "08 inconsistent handle evidence",
+        txnPrefix: "fe-a11y-p6-inconsistent",
+      },
+    );
+
+    await page.goto(
+      `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+        evidenceViewSchemaId,
+      )}`,
+    );
+    await expect(
+      page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+    ).toBeVisible();
+
+    await expectEvidenceAccessState(page, requested.record_id, "requested", {
+      liveRole: "status",
+      messageText: /^Requested:/u,
+    });
+    await expectEvidenceAccessState(page, pending.record_id, "pending_upload", {
+      liveRole: "status",
+      messageText: /pending/u,
+    });
+    await expectEvidenceAccessState(page, blocked.record_id, "blocked", {
+      liveRole: "alert",
+      messageText: /^Blocked:/u,
+    });
+
+    await expectEvidenceAccessState(
+      page,
+      availablePreview.record_id,
+      "available",
+    );
+	    const previewButton = page.getByTestId(
+	      evidencePreviewButtonTestId(availablePreview.record_id),
+	    );
+	    await expectVisibleFocus(
+	      page.getByTestId(evidenceDownloadButtonTestId(availablePreview.record_id)),
+	    );
+	    await expectVisibleFocus(previewButton);
+	    await previewButton.click();
+    await expect(
+      page.getByTestId(evidencePreviewFrameTestId(availablePreview.record_id)),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(evidencePreviewFrameTestId(availablePreview.record_id)),
+    ).toHaveAttribute("title", /Evidence preview/u);
+    await expect(
+      page.getByTestId(evidenceAccessMessageTestId(availablePreview.record_id)),
+    ).toHaveAttribute("role", "status");
+    await expect(
+      page.getByTestId(evidenceAccessMessageTestId(availablePreview.record_id)),
+    ).toHaveText("Preview loaded inline.");
+    await page
+      .getByTestId("evidence-preview-panel")
+      .getByRole("button", { name: "Close" })
+      .click();
+
+    await expectEvidenceAccessState(
+      page,
+      downloadHandle.record_id,
+      "available",
+    );
+	    const downloadButton = page.getByTestId(
+	      evidenceDownloadButtonTestId(downloadHandle.record_id),
+	    );
+	    await expectVisibleFocus(
+	      page.getByTestId(evidencePreviewButtonTestId(downloadHandle.record_id)),
+	    );
+	    await expectVisibleFocus(downloadButton);
+    const downloadPromise = page.waitForEvent("download");
+    await downloadButton.click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("fe-a11y-p6-download.txt");
+    await expect(
+      page.getByTestId(evidenceAccessMessageTestId(downloadHandle.record_id)),
+    ).toHaveAttribute("role", "status");
+    await expect(
+      page.getByTestId(evidenceAccessMessageTestId(downloadHandle.record_id)),
+    ).toHaveText("Download handle issued.");
+
+	    await expectEvidenceAccessState(
+	      page,
+	      previewBlocked.record_id,
+	      "available",
+	    );
+	    const unsupportedPreviewButton = page.getByTestId(
+	      evidencePreviewButtonTestId(previewBlocked.record_id),
+	    );
+	    await expectVisibleFocus(unsupportedPreviewButton);
+	    await expectVisibleFocus(
+	      page.getByTestId(evidenceDownloadButtonTestId(previewBlocked.record_id)),
+	    );
+	    await unsupportedPreviewButton.click();
+    const previewBlockedMessage = page.getByTestId(
+      evidenceAccessMessageTestId(previewBlocked.record_id),
+    );
+    await expect(previewBlockedMessage).toHaveAttribute("role", "alert");
+    await expect(previewBlockedMessage).toContainText(
+      "evidence_access_unavailable: unsupported_preview",
+    );
+    await expectNoPrivateDiagnostics(previewBlockedMessage);
+
+    await armA11yPublicErrorFault(page, {
+      path: `/api/v1/evidence-records/${failedHandle.record_id}/preview-handle`,
+      reasonCode: "blob_failed",
+    });
+    await page
+      .getByTestId(evidencePreviewButtonTestId(failedHandle.record_id))
+      .click();
+    const failedMessage = page.getByTestId(
+      evidenceAccessMessageTestId(failedHandle.record_id),
+    );
+    await expect(failedMessage).toHaveAttribute("role", "alert");
+    await expect(failedMessage).toContainText(
+      "evidence_access_unavailable: blob_failed",
+    );
+    await expectNoPrivateDiagnostics(failedMessage);
+
+    await armA11yPublicErrorFault(page, {
+      path: `/api/v1/evidence-records/${inconsistentHandle.record_id}/preview-handle`,
+      reasonCode: "evidence_inconsistent",
+    });
+    await page
+      .getByTestId(evidencePreviewButtonTestId(inconsistentHandle.record_id))
+      .click();
+    const inconsistentMessage = page.getByTestId(
+      evidenceAccessMessageTestId(inconsistentHandle.record_id),
+    );
+    await expect(inconsistentMessage).toHaveAttribute("role", "alert");
+    await expect(inconsistentMessage).toContainText(
+      "evidence_access_unavailable: evidence_inconsistent",
+    );
+    await expectNoPrivateDiagnostics(inconsistentMessage);
+
+	    await expectAllInteractiveControlsNamed(page);
+    await expectNoFocusTrap(page);
+    await expectAndRecordContrast(page, [
+      evidenceAccessMessageTestId(requested.record_id),
+      evidenceAccessMessageTestId(pending.record_id),
+      evidenceAccessMessageTestId(blocked.record_id),
+      evidencePreviewButtonTestId(availablePreview.record_id),
+      evidenceDownloadButtonTestId(downloadHandle.record_id),
+      evidenceAccessMessageTestId(availablePreview.record_id),
+      evidenceAccessMessageTestId(downloadHandle.record_id),
+      evidenceAccessMessageTestId(previewBlocked.record_id),
+      evidenceAccessMessageTestId(failedHandle.record_id),
+      evidenceAccessMessageTestId(inconsistentHandle.record_id),
     ]);
   });
 });

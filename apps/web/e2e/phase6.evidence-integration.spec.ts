@@ -871,12 +871,15 @@ async function fetchPublicJSONFromPage(
       headers["Content-Type"] = "application/json";
       headers["X-CSRF-Token"] = decodeURIComponent(csrfCookie);
     }
-    const response = await fetch(href, {
-      body: data === undefined ? undefined : JSON.stringify(data),
+    const requestInit: RequestInit = {
       credentials: "same-origin",
       headers,
       method,
-    });
+    };
+    if (data !== undefined) {
+      requestInit.body = JSON.stringify(data);
+    }
+    const response = await fetch(href, requestInit);
     const bodyText = await response.text();
     let json: unknown = null;
     try {
