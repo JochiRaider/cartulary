@@ -5454,6 +5454,14 @@ export function TimelineWorkbook({
       ) {
         return;
       }
+      const visibleEdit =
+        binding === undefined
+          ? undefined
+          : {
+              rowKey: effectiveRowKey,
+              fieldKey: binding.fieldKey,
+              value: snapshot.values[focusField],
+            };
       const viewportContinuityToken = beginViewportContinuity(
         options.preserveInputFocus
           ? {
@@ -5516,6 +5524,7 @@ export function TimelineWorkbook({
         enqueueOrder: pendingReplayOrderRef.current,
         operationClass: "hot_path",
         status: "queued",
+        ...(visibleEdit === undefined ? {} : { visibleEdit }),
         rowSnapshot: snapshot,
         continueOnFreshDraft: options.continueOnFreshDraft,
         detectAutoResolution: false,
@@ -5646,6 +5655,11 @@ export function TimelineWorkbook({
         enqueueOrder: pendingReplayOrderRef.current,
         operationClass: "hot_path",
         status: "queued",
+        visibleEdit: {
+          rowKey,
+          fieldKey,
+          value: draftValue,
+        },
         rowSnapshot: effectiveSnapshot,
         continueOnFreshDraft: snapshot.recordId === null,
         detectAutoResolution: true,

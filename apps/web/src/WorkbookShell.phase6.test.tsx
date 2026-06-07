@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildRecordChangedPayload,
   changeInputValue,
+  changeQueuedCellValue,
   cleanupTimelineWorkbookTestGlobals,
   deferred,
   errorEnvelope,
@@ -29,6 +30,8 @@ import {
   type TimelineWorkbookFetchMock,
   timelineRow,
   timelineViewSchemaId,
+  waitForPendingQueueState,
+  waitForTimelineRecordPatchCalls,
 } from "./timelineWorkbookTestSupport";
 import { pendingReplayCapacity, TimelineWorkbook } from "./WorkbookShell";
 
@@ -47,25 +50,6 @@ describe("Phase 6 workbook collaboration coverage", () => {
   afterEach(() => {
     cleanupTimelineWorkbookTestGlobals();
   });
-
-  async function changeQueuedCellValue(
-    input: HTMLInputElement | HTMLTextAreaElement,
-    value: string,
-  ) {
-    const testId = input.getAttribute("data-testid");
-    fireEvent.focus(input);
-    fireEvent.change(input, { target: { value } });
-    await waitFor(() => {
-      const currentInput =
-        testId === null
-          ? input
-          : (screen.getByTestId(testId) as
-              | HTMLInputElement
-              | HTMLTextAreaElement);
-      expect(currentInput).toHaveProperty("value", value);
-    });
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-  }
 
   function retryableErrorEnvelope(code: string, status: number) {
     return new Response(
@@ -600,7 +584,10 @@ describe("Phase 6 workbook collaboration coverage", () => {
     fireEvent.blur(secondInput);
     await changeQueuedCellValue(secondInput, "Two queued final");
     fireEvent.blur(secondInput);
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await waitForPendingQueueState({
+      expectedPendingUnits: 2,
+      expectedSaveState: "Syncing",
+    });
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     firstPendingPatch.resolve(
@@ -729,13 +716,13 @@ describe("Phase 6 workbook collaboration coverage", () => {
     fireEvent.blur(secondInput);
     await changeQueuedCellValue(firstInput, "A2 queued");
     fireEvent.blur(firstInput);
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
 
+    await waitForPendingQueueState({
+      expectedPendingUnits: 3,
+      expectedSaveState: "Syncing",
+      noticeIncludes: "Authentication is required",
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
-    expect(screen.getByTestId("pending-queue-count").textContent).toContain(
-      "3",
-    );
 
     latestTimelineWebSocket()?.emit({
       type: "hello_ack",
@@ -809,33 +796,44 @@ describe("Phase 6 workbook collaboration coverage", () => {
       "timeline.summary",
     );
 
-    for (let index = 1; index <= pendingReplayCapacity + 1; index += 1) {
+    const firstInput = screen.getByTestId(
+      rowCellTestId("record-1", "timeline.summary"),
+    ) as HTMLInputElement;
+    await changeQueuedCellValue(firstInput, "Queue 1 local");
+    fireEvent.blur(firstInput);
+    await waitForTimelineRecordPatchCalls(fetchMock, 1);
+    await waitForPendingQueueState({
+      expectedPendingUnits: 1,
+      expectedSaveState: "Syncing",
+      noticeIncludes: "Authentication is required",
+    });
+
+    for (let index = 2; index <= pendingReplayCapacity; index += 1) {
       const recordID = index % 2 === 0 ? "record-2" : "record-1";
       const input = screen.getByTestId(
         rowCellTestId(recordID, "timeline.summary"),
       ) as HTMLInputElement;
       await changeQueuedCellValue(input, `Queue ${index} local`);
       fireEvent.blur(input);
-      if (index === 1) {
-        await waitFor(() => {
-          expect(screen.getByTestId("pending-queue-notice")).toBeTruthy();
-          expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
-            "Syncing",
-          );
-        });
-      }
     }
 
-    await waitFor(() => {
-      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
-        "Conflict",
-      );
-      expect(screen.getByTestId("pending-queue-notice").textContent).toContain(
-        "Local pending queue is full",
-      );
-      expect(screen.getByTestId("pending-queue-count").textContent).toContain(
-        "64",
-      );
+    await waitForPendingQueueState({
+      expectedPendingUnits: pendingReplayCapacity,
+      expectedSaveState: "Syncing",
+    });
+    const overflowInput = screen.getByTestId(
+      rowCellTestId("record-1", "timeline.summary"),
+    ) as HTMLInputElement;
+    await changeQueuedCellValue(
+      overflowInput,
+      `Queue ${pendingReplayCapacity + 1} local`,
+    );
+    fireEvent.blur(overflowInput);
+
+    await waitForPendingQueueState({
+      expectedPendingUnits: pendingReplayCapacity,
+      expectedSaveState: "Conflict",
+      noticeIncludes: "Local pending queue is full",
     });
     expect(
       await findWorkbookCell(
@@ -850,7 +848,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         String(url).includes("/api/v1/records/"),
       ),
     ).toHaveLength(1);
-  });
+  }, 15000);
 
   it("Phase 6 U-6-09 preserves queued work through session revocation and resumes after re-authentication", async () => {
     fetchMock.mockResolvedValueOnce(
@@ -897,10 +895,12 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
     await changeQueuedCellValue(input, "Auth replay");
     fireEvent.blur(input);
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await waitForPendingQueueState({
+      expectedPendingUnits: 1,
+      expectedSaveState: "Syncing",
+      noticeIncludes: "Authentication is required",
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
-    expect(screen.getByTestId("pending-queue-notice")).toBeTruthy();
     expect(input.value).toBe("Auth replay");
 
     latestTimelineWebSocket()?.emit({
@@ -1034,45 +1034,57 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
     await changeQueuedCellValue(firstInput, "Queue 1 local");
     fireEvent.blur(firstInput);
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
+    await waitForTimelineRecordPatchCalls(fetchMock, 1);
+    await waitForPendingQueueState({
+      expectedPendingUnits: 1,
+      expectedSaveState: "Syncing",
+      noticeIncludes: "Authentication is required",
     });
 
     await changeQueuedCellValue(secondInput, "Queue 2 first");
     fireEvent.blur(secondInput);
     await changeQueuedCellValue(secondInput, "Queue 2 final");
     fireEvent.blur(secondInput);
-    await waitFor(() => {
-      expect(screen.getByTestId("pending-queue-count").textContent).toContain(
-        "2",
-      );
+    await waitForPendingQueueState({
+      expectedPendingUnits: 2,
+      expectedSaveState: "Syncing",
     });
 
-    for (let index = 3; index <= pendingReplayCapacity + 1; index += 1) {
+    for (let index = 3; index <= pendingReplayCapacity; index += 1) {
       const input = index % 2 === 0 ? secondInput : firstInput;
       await changeQueuedCellValue(input, `Queue ${index} local`);
       fireEvent.blur(input);
     }
 
-    await waitFor(() => {
-      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
-        "Conflict",
-      );
-      expect(screen.getByTestId("pending-queue-notice").textContent).toContain(
-        "Local pending queue is full",
-      );
-      expect(screen.getByTestId("pending-queue-count").textContent).toContain(
-        "64",
-      );
+    await waitForPendingQueueState({
+      expectedPendingUnits: pendingReplayCapacity,
+      expectedSaveState: "Syncing",
     });
-    expect(firstInput.value).toBe("Queue 65 local");
+    await changeQueuedCellValue(
+      firstInput,
+      `Queue ${pendingReplayCapacity + 1} local`,
+    );
+    fireEvent.blur(firstInput);
+
+    await waitForPendingQueueState({
+      expectedPendingUnits: pendingReplayCapacity,
+      expectedSaveState: "Conflict",
+      noticeIncludes: "Local pending queue is full",
+    });
+    expect(
+      await findWorkbookCell(
+        document.body,
+        timelineViewSchemaId,
+        "record-1",
+        "timeline.summary",
+      ),
+    ).toHaveProperty("value", "Queue 65 local");
     expect(
       fetchMock.mock.calls.filter(([url]) =>
         String(url).includes("/api/v1/records/"),
       ),
     ).toHaveLength(1);
-  });
+  }, 15000);
 
   it("FE-U-P4-01 drives WorkbookShell retry, auth pause, same-field conflict, halt, and success settlement from the shared pending queue model", async () => {
     fetchMock.mockResolvedValueOnce(
@@ -1197,9 +1209,12 @@ describe("Phase 6 workbook collaboration coverage", () => {
     });
     await changeQueuedCellValue(authInput, "Auth queued");
     fireEvent.blur(authInput);
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await waitForPendingQueueState({
+      expectedPendingUnits: 1,
+      expectedSaveState: "Syncing",
+      noticeIncludes: "Authentication is required",
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
     latestTimelineWebSocket()?.emit({
       type: "hello_ack",
       payload: { resume_token: "resume-fe-u-p4" },

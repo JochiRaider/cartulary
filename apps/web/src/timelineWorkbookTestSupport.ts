@@ -3,7 +3,10 @@ import {
   gridFilterFieldTestId,
   gridSavedRowsSelector,
   gridShellTestId,
+  pendingQueueCountTestId,
+  pendingQueueNoticeTestId,
   rowCellTestId,
+  saveStateTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 import {
@@ -595,6 +598,155 @@ export async function changeInputValue(
     },
   );
   await new Promise((resolve) => window.setTimeout(resolve, 0));
+}
+
+function controlledInputValueDiagnostic(
+  input: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+  testId: string | null,
+) {
+  const currentInput =
+    testId === null
+      ? input
+      : (screen.queryByTestId(testId) as
+          | HTMLInputElement
+          | HTMLTextAreaElement
+          | null);
+  const actual = currentInput?.value ?? "(missing)";
+  return [
+    "controlled_input_replacement_mismatch",
+    `test_id=${testId ?? "(none)"}`,
+    `expected=${JSON.stringify(value)}`,
+    `actual=${JSON.stringify(actual)}`,
+  ].join(" ");
+}
+
+export async function changeQueuedCellValue(
+  input: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+) {
+  const testId = input.getAttribute("data-testid");
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value } });
+  await waitFor(
+    () => {
+      const currentInput =
+        testId === null
+          ? input
+          : (screen.getByTestId(testId) as
+              | HTMLInputElement
+              | HTMLTextAreaElement);
+      if (currentInput.value !== value) {
+        throw new Error(
+          `Expected controlled input value ${value}, got ${currentInput.value}.`,
+        );
+      }
+    },
+    {
+      onTimeout: (error) =>
+        new Error(
+          `${error.message}\n${controlledInputValueDiagnostic(
+            input,
+            value,
+            testId,
+          )}`,
+        ),
+      timeout: workbookAsyncTimeoutMs,
+    },
+  );
+}
+
+function pendingQueueDiagnostic(options: {
+  expectedPendingUnits?: number;
+  expectedSaveState?: "Conflict" | "Saved" | "Syncing";
+  noticeIncludes?: string;
+}) {
+  const saveState =
+    screen.queryByTestId(saveStateTestId())?.textContent ?? "(missing)";
+  const notice =
+    screen.queryByTestId(pendingQueueNoticeTestId())?.textContent ??
+    "(missing)";
+  const count =
+    screen.queryByTestId(pendingQueueCountTestId())?.textContent ?? "(missing)";
+  return [
+    "Expected pending queue state.",
+    `expected_save_state=${options.expectedSaveState ?? "(any)"}`,
+    `expected_pending_units=${options.expectedPendingUnits ?? "(any)"}`,
+    `expected_notice=${JSON.stringify(options.noticeIncludes ?? "(any)")}`,
+    `actual_save_state=${JSON.stringify(saveState)}`,
+    `actual_count=${JSON.stringify(count)}`,
+    `actual_notice=${JSON.stringify(notice)}`,
+  ].join(" ");
+}
+
+export async function waitForPendingQueueState(options: {
+  expectedPendingUnits?: number;
+  expectedSaveState?: "Conflict" | "Saved" | "Syncing";
+  noticeIncludes?: string;
+}) {
+  await waitFor(
+    () => {
+      if (options.expectedSaveState !== undefined) {
+        expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+          options.expectedSaveState,
+        );
+      }
+      if (options.noticeIncludes !== undefined) {
+        expect(
+          screen.getByTestId(pendingQueueNoticeTestId()).textContent,
+        ).toContain(options.noticeIncludes);
+      }
+      if (options.expectedPendingUnits !== undefined) {
+        expect(
+          screen.getByTestId(pendingQueueCountTestId()).textContent,
+        ).toContain(String(options.expectedPendingUnits));
+      }
+    },
+    {
+      onTimeout: (error) =>
+        new Error(`${error.message}\n${pendingQueueDiagnostic(options)}`),
+      timeout: workbookAsyncTimeoutMs,
+    },
+  );
+}
+
+function timelineRecordPatchCalls(fetchSpy: TimelineWorkbookFetchMock) {
+  return fetchSpy.mock.calls.filter(([url, init]) => {
+    const method =
+      init && typeof init === "object" && "method" in init
+        ? String((init as { method?: unknown }).method ?? "")
+        : "";
+    return String(url).includes("/api/v1/records/") && method === "PATCH";
+  });
+}
+
+export async function waitForTimelineRecordPatchCalls(
+  fetchSpy: TimelineWorkbookFetchMock,
+  expectedCount: number,
+) {
+  await waitFor(
+    () => {
+      expect(timelineRecordPatchCalls(fetchSpy)).toHaveLength(expectedCount);
+    },
+    {
+      onTimeout: (error) => {
+        const calls = fetchSpy.mock.calls
+          .map(([url, init], index) => {
+            const method =
+              init && typeof init === "object" && "method" in init
+                ? String((init as { method?: unknown }).method ?? "")
+                : "(none)";
+            return `${index}:${method}:${String(url)}`;
+          })
+          .join(" | ");
+        return new Error(
+          `${error.message}\nExpected ${expectedCount} Timeline record PATCH calls. ` +
+            `Actual=${timelineRecordPatchCalls(fetchSpy).length}. Calls=${calls}`,
+        );
+      },
+      timeout: workbookAsyncTimeoutMs,
+    },
+  );
 }
 
 export function setInputValueWithoutEvent(

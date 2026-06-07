@@ -5789,7 +5789,22 @@ function firstVitestAppFrame(message) {
   return `${match[1]}:${match[2]}`;
 }
 
-function vitestDiagnosticTags(message) {
+function normalizeFailureMessages(failureMessage, failureMessages = []) {
+  const messages = Array.isArray(failureMessages)
+    ? failureMessages.filter((entry) => typeof entry === "string")
+    : [];
+  if (messages.length > 0) {
+    return messages;
+  }
+  return typeof failureMessage === "string" && failureMessage !== ""
+    ? [failureMessage]
+    : [];
+}
+
+function vitestDiagnosticTags(messageOrMessages) {
+  const message = Array.isArray(messageOrMessages)
+    ? messageOrMessages.join("\n")
+    : String(messageOrMessages ?? "");
   const tags = [];
   if (message.includes("STACK_TRACE_ERROR")) {
     tags.push("vitest_stack_trace_error");
@@ -5811,16 +5826,27 @@ function vitestDiagnosticTags(message) {
 
 function summarizeVitestFailureMessage({
   fallback,
-  failureMessage,
+  failureMessage = "",
+  failureMessages = [],
   ownerPath,
   title,
 }) {
-  const firstLine = failureMessage.split("\n")[0]?.trim() ?? "";
-  if (firstLine && firstLine !== "Error: STACK_TRACE_ERROR") {
-    return firstLine;
+  const messages = normalizeFailureMessages(failureMessage, failureMessages);
+  for (const message of messages) {
+    for (const line of message.split("\n")) {
+      const trimmed = line.trim();
+      if (
+        trimmed &&
+        trimmed !== "Error: STACK_TRACE_ERROR" &&
+        !trimmed.startsWith("at ")
+      ) {
+        return trimmed;
+      }
+    }
   }
-  if (failureMessage.includes("STACK_TRACE_ERROR")) {
-    const appFrame = firstVitestAppFrame(failureMessage);
+  const combinedMessage = messages.join("\n");
+  if (combinedMessage.includes("STACK_TRACE_ERROR")) {
+    const appFrame = firstVitestAppFrame(combinedMessage);
     return [
       "Vitest reporter emitted STACK_TRACE_ERROR before preserving the assertion message",
       `file=${ownerPath || "(unknown)"}`,
@@ -5907,9 +5933,10 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
       }
       counts.failed += 1;
       addCoverageFailureCount(counts, classification.coverage);
-      const failureMessage = Array.isArray(assertion.failureMessages)
-        ? (assertion.failureMessages[0] ?? "")
-        : "";
+      const failureMessages = Array.isArray(assertion.failureMessages)
+        ? assertion.failureMessages
+        : [];
+      const failureMessage = failureMessages[0] ?? "";
       dossiers.push({
         coverage: classification.coverage,
         phase: classification.phase,
@@ -5920,10 +5947,11 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
         message: summarizeVitestFailureMessage({
           fallback: `${assertion.title ?? "vitest assertion"} failed`,
           failureMessage,
+          failureMessages,
           ownerPath: classification.owner,
           title: assertion.title ?? "(missing title)",
         }),
-        diagnostic_tags: vitestDiagnosticTags(failureMessage),
+        diagnostic_tags: vitestDiagnosticTags(failureMessages),
         reproduce: renderVitestReproduceCommand(
           classification.owner,
           (assertion.title ?? "").trim(),

@@ -105,6 +105,12 @@ JSON
 {"numTotalTestSuites":1,"numPassedTestSuites":1,"numFailedTestSuites":0,"numPendingTestSuites":0,"numTotalTests":1,"numPassedTests":1,"numFailedTests":0,"numPendingTests":0,"numTodoTests":0,"success":true,"testResults":[{"assertionResults":[{"ancestorTitles":["Phase 3 Timeline workbook autosave coverage"],"fullName":"Phase 3 Timeline workbook autosave coverage wrong title","status":"passed","title":"Phase 3 support wrong title","failureMessages":[],"meta":{},"tags":[]}],"status":"passed","message":"","name":"/home/askahn/code/cartulary/apps/web/src/WorkbookShell.phase3.autosave.test.tsx"}]}
 JSON
     ;;
+  stack_trace_error)
+    cat >"$output_file" <<'JSON'
+{"numTotalTestSuites":3,"numPassedTestSuites":2,"numFailedTestSuites":1,"numPendingTestSuites":0,"numTotalTests":6,"numPassedTests":5,"numFailedTests":1,"numPendingTests":0,"numTodoTests":0,"success":false,"testResults":[{"assertionResults":[{"ancestorTitles":["Phase 3 Timeline workbook autosave coverage"],"fullName":"Phase 3 Timeline workbook autosave coverage Phase 3 U-3-05 autosaves on Enter, Tab, blur, and paste completion without a Save button and keeps exact save-state labels","status":"failed","title":"Phase 3 U-3-05 autosaves on Enter, Tab, blur, and paste completion without a Save button and keeps exact save-state labels","failureMessages":["Error: STACK_TRACE_ERROR\n    at /home/askahn/code/cartulary/apps/web/src/WorkbookShell.phase3.autosave.test.tsx:169:5","AssertionError: expected \"Saved\" to be \"Syncing\"\n    at /home/askahn/code/cartulary/apps/web/src/WorkbookShell.phase3.autosave.test.tsx:169:5"],"meta":{},"tags":[]}],"status":"failed","message":"","name":"/home/askahn/code/cartulary/apps/web/src/WorkbookShell.phase3.autosave.test.tsx"},{"assertionResults":[{"ancestorTitles":["Phase 3 Timeline workbook payload coverage"],"fullName":"Phase 3 Timeline workbook payload coverage Phase 3 U-3-12 builds zero-field Timeline create payloads only for explicit blank-row creation","status":"passed","title":"Phase 3 U-3-12 builds zero-field Timeline create payloads only for explicit blank-row creation","failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Phase 3 Timeline workbook payload coverage"],"fullName":"Phase 3 Timeline workbook payload coverage Phase 3 U-3-13 creates an explicit blank Timeline row with only client_txn_id and suppresses duplicate pending submits","status":"passed","title":"Phase 3 U-3-13 creates an explicit blank Timeline row with only client_txn_id and suppresses duplicate pending submits","failureMessages":[],"meta":{},"tags":[]}],"status":"passed","message":"","name":"/home/askahn/code/cartulary/apps/web/src/WorkbookShell.phase3.payload.test.tsx"},{"assertionResults":[{"ancestorTitles":["Phase 3 Timeline workbook grid coverage"],"fullName":"Phase 3 Timeline workbook grid coverage Phase 3 U-3-GRID-01 binds Timeline grid columns from the active view_schema and commits writable cells by field_key","status":"passed","title":"Phase 3 U-3-GRID-01 binds Timeline grid columns from the active view_schema and commits writable cells by field_key","failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Phase 3 Timeline workbook grid coverage"],"fullName":"Phase 3 Timeline workbook grid coverage Phase 3 U-3-GRID-02 binds saved rows by record_id and row_version instead of visible row index","status":"passed","title":"Phase 3 U-3-GRID-02 binds saved rows by record_id and row_version instead of visible row index","failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Phase 3 Timeline workbook grid coverage"],"fullName":"Phase 3 Timeline workbook grid coverage Phase 3 U-3-GRID-03 keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key","status":"passed","title":"Phase 3 U-3-GRID-03 keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key","failureMessages":[],"meta":{},"tags":[]}],"status":"passed","message":"","name":"/home/askahn/code/cartulary/apps/web/src/WorkbookShell.phase3.grid.test.tsx"}]}
+JSON
+    exit_status=1
+    ;;
   suite_load_failure)
     cat >"$output_file" <<'JSON'
 {"numTotalTestSuites":1,"numPassedTestSuites":0,"numFailedTestSuites":1,"numPendingTestSuites":0,"numTotalTests":0,"numPassedTests":0,"numFailedTests":0,"numPendingTests":0,"numTodoTests":0,"success":false,"testResults":[{"assertionResults":[],"status":"failed","message":"ReferenceError: window is not defined","name":"/home/askahn/code/cartulary/apps/web/src/WorkbookShell.phase3.autosave.test.tsx"}]}
@@ -151,6 +157,33 @@ if [[ "$mismatch_status" -eq 0 ]]; then
 fi
 assert_contains "$mismatch_output" "manifest mismatch: vitest manifest mismatch" "vitest manifest mismatch label"
 assert_contains "$mismatch_output" "missing_ids=U-3-05,U-3-12,U-3-13,U-3-GRID-01,U-3-GRID-02,U-3-GRID-03" "vitest manifest missing id"
+
+stack_trace_results="$tmp_dir/results-stack-trace"
+set +e
+stack_trace_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$stack_trace_results" \
+  CARTULARY_TEST_RUN_ID="stack-trace" \
+  NODE_BIN="${NODE:-node}" \
+  FAKE_VITEST_MODE=stack_trace_error \
+    "$HELPER" "vitest manifest stack trace" phase3 authoritative frontend_unit -- "$fake_vitest" \
+    2>&1
+)"
+stack_trace_status=$?
+set -e
+
+if [[ "$stack_trace_status" -eq 0 ]]; then
+  fail "vitest manifest stack trace: expected non-zero exit status"
+fi
+assert_contains "$stack_trace_output" "failure: vitest manifest stack trace" "vitest manifest stack trace label"
+assert_contains "$stack_trace_output" "symbol_or_title=Phase 3 U-3-05 autosaves on Enter, Tab, blur, and paste completion without a Save button and keeps exact save-state labels" "vitest manifest stack trace title"
+assert_contains "$stack_trace_output" "message=AssertionError: expected \"Saved\" to be \"Syncing\"" "vitest manifest stack trace assertion message"
+assert_contains "$stack_trace_output" "diagnostic_tags=vitest_stack_trace_error" "vitest manifest stack trace diagnostic tag"
+stack_trace_summary="$stack_trace_results/stack-trace/adhoc/vitest-manifest-stack-trace/phase-summary.json"
+assert_equals "$(json_field "$stack_trace_summary" "failure_class")" "product" "vitest manifest stack trace failure class"
+assert_equals "$(json_field "$stack_trace_summary" "failure_reason")" "test_assertion_failure" "vitest manifest stack trace failure reason"
+assert_equals "$(json_field "$stack_trace_summary" "dossiers.0.diagnostic_tags.0")" "vitest_stack_trace_error" "vitest manifest stack trace summary tag"
+assert_contains "$(json_field "$stack_trace_summary" "dossiers.0.raw")" "runner.json" "vitest manifest stack trace raw artifact"
 
 suite_load_results="$tmp_dir/results"
 set +e

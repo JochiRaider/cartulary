@@ -1070,6 +1070,8 @@ Verified by: TH-HARNESS-AC-014
 Harness setup, readiness, fixture, artifact, scheduler, timeout, and cleanup failures MUST NOT use `failure_class=product`. A failing assertion after successful harness setup MUST be classified with `failure_class=product` and `failure_reason=test_assertion_failure`.
 
 Vitest and Playwright per-test timeouts after the test runner has reached product execution are product test failures and MUST be classified as `failure_class=product` with `failure_reason=test_assertion_failure`. Harness-owned watchdogs, command deadlines, lock deadlines, service readiness deadlines, and cleanup deadlines remain operational failures and MUST use `failure_reason=timeout_failure` or `failure_reason=service_readiness_timeout` according to the failure-reason table.
+
+Vitest assertion summaries that contain reporter stack-formatting markers such as `STACK_TRACE_ERROR` MUST preserve actionable assertion context when the runner report provides it. The retained diagnostic MUST keep the assertion title, owner path, raw runner-report reference, reproduce command, and a diagnostic tag such as `vitest_stack_trace_error`; the stack-formatting marker MUST NOT replace an available assertion message as the primary human diagnostic.
 Verified by: TH-HARNESS-AC-013, TH-HARNESS-AC-014
 
 **TH-HARNESS-REQ-303**

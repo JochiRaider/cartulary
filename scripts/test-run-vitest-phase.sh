@@ -111,6 +111,12 @@ JSON
 JSON
     exit_status=1
     ;;
+  stack_trace_error)
+    cat >"$output_file" <<'JSON'
+{"numTotalTestSuites":1,"numPassedTestSuites":0,"numFailedTestSuites":1,"numPendingTestSuites":0,"numTotalTests":1,"numPassedTests":0,"numFailedTests":1,"numPendingTests":0,"numTodoTests":0,"success":false,"testResults":[{"assertionResults":[{"ancestorTitles":[],"fullName":"raw stack trace assertion","status":"failed","title":"raw stack trace assertion","failureMessages":["Error: STACK_TRACE_ERROR\n    at /home/askahn/code/cartulary/apps/web/src/raw-stack.test.ts:7:3","AssertionError: expected \"Syncing\" to be \"Conflict\"\n    at /home/askahn/code/cartulary/apps/web/src/raw-stack.test.ts:7:3"],"meta":{},"tags":[]}],"status":"failed","message":"","name":"/home/askahn/code/cartulary/apps/web/src/raw-stack.test.ts"}]}
+JSON
+    exit_status=1
+    ;;
   suite_load_failure)
     cat >"$output_file" <<'JSON'
 {"numTotalTestSuites":1,"numPassedTestSuites":0,"numFailedTestSuites":1,"numPendingTestSuites":0,"numTotalTests":0,"numPassedTests":0,"numFailedTests":0,"numPendingTests":0,"numTodoTests":0,"success":false,"testResults":[{"assertionResults":[],"status":"failed","message":"ReferenceError: window is not defined","name":"/home/askahn/code/cartulary/apps/web/src/raw-suite-load.test.ts"}]}
@@ -176,6 +182,33 @@ if [[ "$package_failure_status" -eq 0 ]]; then
 fi
 assert_contains "$package_failure_output" "package_or_file=packages/test-utils/src/index.test.ts" "vitest raw package failure owner"
 assert_contains "$package_failure_output" "reproduce=pnpm --dir apps/web exec vitest run ../../packages/test-utils/src/index.test.ts -t 'raw package failure$'" "vitest raw package failure reproduce"
+
+stack_trace_results="$tmp_dir/results-stack-trace"
+set +e
+stack_trace_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$stack_trace_results" \
+  CARTULARY_TEST_RUN_ID="stack-trace" \
+  NODE_BIN="${NODE:-node}" \
+  FAKE_VITEST_MODE=stack_trace_error \
+    "$HELPER" "vitest raw stack trace" -- "$fake_vitest" \
+    2>&1
+)"
+stack_trace_status=$?
+set -e
+
+if [[ "$stack_trace_status" -eq 0 ]]; then
+  fail "vitest raw stack trace: expected non-zero exit status"
+fi
+assert_contains "$stack_trace_output" "failure: vitest raw stack trace" "vitest raw stack trace label"
+assert_contains "$stack_trace_output" "symbol_or_title=raw stack trace assertion" "vitest raw stack trace title"
+assert_contains "$stack_trace_output" "message=AssertionError: expected \"Syncing\" to be \"Conflict\"" "vitest raw stack trace assertion message"
+assert_contains "$stack_trace_output" "diagnostic_tags=vitest_stack_trace_error" "vitest raw stack trace diagnostic tag"
+stack_trace_summary="$stack_trace_results/stack-trace/adhoc/vitest-raw-stack-trace/phase-summary.json"
+assert_equals "$(json_field "$stack_trace_summary" "failure_class")" "product" "vitest raw stack trace failure class"
+assert_equals "$(json_field "$stack_trace_summary" "failure_reason")" "test_assertion_failure" "vitest raw stack trace failure reason"
+assert_equals "$(json_field "$stack_trace_summary" "dossiers.0.diagnostic_tags.0")" "vitest_stack_trace_error" "vitest raw stack trace summary tag"
+assert_contains "$(json_field "$stack_trace_summary" "dossiers.0.raw")" "runner.json" "vitest raw stack trace raw artifact"
 
 suite_load_results="$tmp_dir/results"
 set +e
