@@ -432,6 +432,11 @@ test("check scheduler restores node packages before run-phase validation", () =>
   const schedule = checkSchedule.schedules.find(
     (entry) => entry.target === "check",
   );
+  assert.deepEqual(
+    taskSurface.make_recipes.check.prerequisites,
+    ["$(NODE_BIN)"],
+    "check wrapper must only bootstrap the scheduler Node runtime",
+  );
   const checkFrontendInstall = schedule.work_units.find(
     (unit) => unit.target === "check-frontend-install",
   );
@@ -440,6 +445,14 @@ test("check scheduler restores node packages before run-phase validation", () =>
   );
   const jsonShapeCheck = schedule.work_units.find(
     (unit) => unit.target === "json-shape-check",
+  );
+  assert.deepEqual(
+    schedule.work_units
+      .filter((unit) => (unit.needs ?? []).length === 0)
+      .map((unit) => unit.target)
+      .sort(),
+    ["check-frontend-install"],
+    "check-frontend-install must be the only dependency-free check unit",
   );
   assert.ok(
     checkFrontendInstall,
@@ -460,7 +473,12 @@ test("check scheduler restores node packages before run-phase validation", () =>
     (jsonShapeCheck.needs ?? []).includes("check-frontend-install"),
     "json-shape-check must wait for installed node package dependencies",
   );
-  for (const target of ["toolchain-drift", "json-shape-check"]) {
+  for (const target of [
+    "harness-contract",
+    "harness-contract-tests",
+    "toolchain-drift",
+    "json-shape-check",
+  ]) {
     assert.ok(
       taskSurface.make_recipes[target].prerequisites.includes(
         "$(FRONTEND_INSTALL_STAMP)",
@@ -468,6 +486,26 @@ test("check scheduler restores node packages before run-phase validation", () =>
       `${target} direct wrapper must bootstrap installed node package dependencies`,
     );
   }
+});
+
+test("check scheduler defers own schema validation until package readiness", () => {
+  const schedulerScript = readFileSync(
+    path.join(repoRoot, "scripts/run-check-schedule.mjs"),
+    "utf8",
+  );
+  const schedulerEngine = readFileSync(
+    path.join(repoRoot, "scripts/lib/scheduler/engine.mjs"),
+    "utf8",
+  );
+  assert.match(
+    schedulerScript,
+    /schemaValidationEnabled:\s*!deferSchemaValidationForPackageReadiness/u,
+  );
+  assert.match(
+    schedulerScript,
+    /context\.reporter\.setSchemaValidationEnabled\(true\)/u,
+  );
+  assert.match(schedulerEngine, /deferredSchemaRecords/u);
 });
 
 test("generated task surface and Make wrapper keep harness projection wiring", () => {

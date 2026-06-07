@@ -373,6 +373,31 @@ class SchedulerReporter {
     this.maxRunningWorkUnits = 0;
     this.maxRunningGroups = 0;
     this.maxActiveResourceClaims = new Map();
+    this.schemaValidationEnabled = schedule.schemaValidationEnabled !== false;
+    this.deferredSchemaRecords = [];
+  }
+
+  setSchemaValidationEnabled(enabled = true) {
+    if (!enabled) {
+      this.schemaValidationEnabled = false;
+      return;
+    }
+    if (this.schemaValidationEnabled) {
+      return;
+    }
+    this.schemaValidationEnabled = true;
+    for (const record of this.deferredSchemaRecords) {
+      validateSchemaSync(record.schemaID, record.value);
+    }
+    this.deferredSchemaRecords = [];
+  }
+
+  validateSchemaRecord(schemaID, value) {
+    if (!this.schemaValidationEnabled) {
+      this.deferredSchemaRecords.push({ schemaID, value });
+      return;
+    }
+    validateSchemaSync(schemaID, value);
   }
 
   startLifecycle(state) {
@@ -947,6 +972,7 @@ class SchedulerReporter {
       ...baseSummary,
       ...extra,
     };
+    this.setSchemaValidationEnabled(true);
     validateSchemaSync(schedulerSummary.schema_id, schedulerSummary);
     await writeFile(this.summaryPath, prettyJSONString(schedulerSummary));
     await writeFile(
@@ -1009,7 +1035,7 @@ class SchedulerReporter {
       base.running_finalizers = runningFinalizerCount(state.running);
     }
     const record = { ...base, ...detail };
-    validateSchemaSync(record.schema_id, record);
+    this.validateSchemaRecord(record.schema_id, record);
     this.events.write(compactJSONString(record));
     return record;
   }

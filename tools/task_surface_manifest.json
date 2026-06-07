@@ -1634,7 +1634,8 @@
     "harness-contract-tests": {
       "type": "phase_command",
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
       ],
       "mode": "run_phase",
       "phase_label": "harness-contract-tests",
@@ -1648,7 +1649,8 @@
     "harness-contract": {
       "type": "phase_command",
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
       ],
       "mode": "run_phase",
       "phase_label": "harness-contract",

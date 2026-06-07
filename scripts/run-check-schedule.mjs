@@ -68,6 +68,7 @@ const schedulerOwnedEnvNames = new Set([
   "CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT",
 ]);
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
+const packageReadinessTarget = "check-frontend-install";
 const schedulerReadinessTargets = new Set([
   "toolchain-drift",
   "codegen-toolchain",
@@ -75,7 +76,7 @@ const schedulerReadinessTargets = new Set([
   "govulncheck-toolchain",
   "gosec-toolchain",
   "shell-lint-toolchain",
-  "check-frontend-install",
+  packageReadinessTarget,
   "build-server",
   "build-migrate",
   "testservices-build",
@@ -1022,6 +1023,32 @@ function attachRuntime(
   const countedWorkUnitCount = schedule.workUnits.filter(
     (unit) => unit.countInTotal !== false,
   ).length;
+  const deferSchemaValidationForPackageReadiness = schedule.workUnits.some(
+    (unit) =>
+      unit.target === packageReadinessTarget && (unit.needs ?? []).length === 0,
+  );
+  let runStartEmitted = false;
+  const emitRunStart = async () => {
+    if (runStartEmitted) {
+      return;
+    }
+    runStartEmitted = true;
+    const capacityDisplay =
+      schedule.resourceLimits.get("host_cpu") ??
+      Math.max(...schedule.resourceLimits.values());
+    await runLifecycle(repoRoot, testOutputScript, [
+      "run-start",
+      schedule.target,
+      "--steps",
+      String(countedWorkUnitCount),
+      "--summary-targets",
+      String(summaryTargets.length),
+      "--helper-units",
+      String(helperUnitNames.length),
+      "--jobs",
+      String(capacityDisplay),
+    ]);
+  };
   for (const unit of schedule.workUnits) {
     unit.startDetail = unit.nestedScheduler
       ? { nested_scheduler: nestedSchedulerDetail(unit) }
@@ -1322,12 +1349,21 @@ function attachRuntime(
     resourceScheduler: "check",
     stopOnFirstFailure: true,
     summaryTotalWallTime: true,
+    schemaValidationEnabled: !deferSchemaValidationForPackageReadiness,
     progressExtras: nestedProgress.progressExtras,
     countCompletedUnit: (unit, result) =>
       unit.countInTotal !== false && result.status === 0,
     shouldReplayLog: ({ result, reporter }) =>
       result.status !== 0 || reporter.verbose,
     afterUnitFinish: async (context) => {
+      if (
+        deferSchemaValidationForPackageReadiness &&
+        context.unit.target === packageReadinessTarget &&
+        context.result.status === 0
+      ) {
+        context.reporter.setSchemaValidationEnabled(true);
+        await emitRunStart();
+      }
       await refreshNestedSchedulerTargetSummary(context);
       await recordServiceChildLifecycle(context.unit, "child_finished");
     },
@@ -1453,21 +1489,10 @@ function attachRuntime(
       }),
     }),
     beforeRun: async () => {
-      const capacityDisplay =
-        schedule.resourceLimits.get("host_cpu") ??
-        Math.max(...schedule.resourceLimits.values());
-      await runLifecycle(repoRoot, testOutputScript, [
-        "run-start",
-        schedule.target,
-        "--steps",
-        String(countedWorkUnitCount),
-        "--summary-targets",
-        String(summaryTargets.length),
-        "--helper-units",
-        String(helperUnitNames.length),
-        "--jobs",
-        String(capacityDisplay),
-      ]);
+      if (deferSchemaValidationForPackageReadiness) {
+        return;
+      }
+      await emitRunStart();
     },
     nestedSchedulerLimits: () =>
       schedule.workUnits

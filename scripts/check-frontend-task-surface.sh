@@ -150,8 +150,11 @@ if (JSON.stringify(frontendUnit?.env ?? {}) !== JSON.stringify({ VITEST_MAX_WORK
 if (JSON.stringify(frontendUnit?.resource_claims ?? {}) !== JSON.stringify({ host_cpu: 2 })) {
   throw new Error("scheduled frontend-unit must claim exactly host_cpu=2");
 }
-if ((unitByTarget.get("check-frontend-install")?.needs ?? []).join(",") !== "toolchain-drift") {
-  throw new Error("check-frontend-install must depend on toolchain-drift");
+if ((unitByTarget.get("check-frontend-install")?.needs ?? []).length !== 0) {
+  throw new Error("check-frontend-install must be the first check readiness unit");
+}
+if (!((unitByTarget.get("toolchain-drift")?.needs ?? []).includes("check-frontend-install"))) {
+  throw new Error("toolchain-drift must depend on check-frontend-install");
 }
 EOF
 assert_target_exists phase-ledgers "Makefile must define phase-ledgers"
