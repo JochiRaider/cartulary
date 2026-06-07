@@ -16,6 +16,7 @@ USE_REPO_ROOT_RUNTIME_ARTIFACTS_ENV="CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"
 TEST_SERVICE_FRONTEND_PORT_START=39000
 TEST_SERVICE_FRONTEND_PORT_END=39199
 TEST_SERVICE_FRONTEND_STAGE_WIDTH=100
+TEST_SERVICE_FRONTEND_PREVIEW_RETRY_LIMIT=5
 WEB_DIST_INDEX="${ROOT_DIR}/apps/web/dist/index.html"
 FRONTEND_MODE="preview"
 FRONTEND_COMMAND_KIND="vite-preview"
@@ -49,6 +50,7 @@ SERVER_PGID=""
 VITE_PGID=""
 CHILD_PGID=""
 PORT_LEASE_DIRS=()
+FRONTEND_PORT_CONFIGURED=0
 cleanup_done=0
 SESSION_MODE="wrap"
 SESSION_ENV_FILE=""
@@ -300,6 +302,94 @@ reserve_port_lease() {
   PORT_LEASE_DIRS+=("${lease_dir}")
 }
 
+release_port_lease_for_port() {
+  local port="$1"
+  local lease_dir
+
+  lease_dir="$(port_lease_dir "${port}")"
+  release_port_lease_dir "${lease_dir}" || true
+  local next_leases=()
+  local existing
+  for existing in "${PORT_LEASE_DIRS[@]}"; do
+    if [[ "${existing}" != "${lease_dir}" ]]; then
+      next_leases+=("${existing}")
+    fi
+  done
+  PORT_LEASE_DIRS=("${next_leases[@]}")
+}
+
+browser_stage_name() {
+  local stage="${CARTULARY_BROWSER_STAGE:-}"
+
+  if [[ -n "${stage}" ]]; then
+    printf '%s\n' "${stage}"
+    return 0
+  fi
+
+  case "${CARTULARY_TEST_TARGET:-}" in
+    browser-e2e-stateful)
+      printf '%s\n' "stateful"
+      ;;
+    *)
+      printf '%s\n' "webserver-backed"
+      ;;
+  esac
+}
+
+service_frontend_port_window() {
+  local stage
+  local offset=0
+  local range_start
+  local range_end
+
+  stage="$(browser_stage_name)"
+  case "${stage}" in
+    stateful)
+      offset="${TEST_SERVICE_FRONTEND_STAGE_WIDTH}"
+      ;;
+    *)
+      offset=0
+      ;;
+  esac
+
+  range_start=$((TEST_SERVICE_FRONTEND_PORT_START + offset))
+  range_end=$((range_start + TEST_SERVICE_FRONTEND_STAGE_WIDTH - 1))
+  if (( range_end > TEST_SERVICE_FRONTEND_PORT_END )); then
+    range_end="${TEST_SERVICE_FRONTEND_PORT_END}"
+  fi
+
+  printf '%s %s\n' "${range_start}" "${range_end}"
+}
+
+rotated_service_frontend_candidates() {
+  local range_start="$1"
+  local range_end="$2"
+  local span
+  local seed_text
+  local seed
+  local offset
+  local candidate
+  local i
+
+  span=$((range_end - range_start + 1))
+  if (( span <= 0 )); then
+    return 0
+  fi
+
+  seed_text="${CARTULARY_BROWSER_SESSION_GROUP:-}:${CARTULARY_BROWSER_STAGE:-}:"
+  seed_text+="${CARTULARY_TEST_RUN_ID:-}:${CARTULARY_TEST_TARGET:-}:$$"
+  seed="$(printf '%s' "${seed_text}" | cksum | awk '{print $1}')"
+  if [[ ! "${seed}" =~ ^[0-9]+$ ]]; then
+    seed=0
+  fi
+  offset=$((seed % span))
+
+  for i in $(seq 0 $((span - 1))); do
+    candidate=$((range_start + ((offset + i) % span)))
+    printf '%s\n' "${candidate}"
+  done
+}
+
 claim_available_port() {
   local outvar="$1"
   local name="$2"
@@ -346,8 +436,11 @@ allocate_available_port() {
   if [[ -n "${configured_port}" ]]; then
     validate_port_number "${configured_port}" "${name}" || return $?
     if [[ "${name}" == "frontend" ]] && using_test_services_stack; then
-      if (( configured_port < TEST_SERVICE_FRONTEND_PORT_START || configured_port > TEST_SERVICE_FRONTEND_PORT_END )); then
-        echo "frontend port ${configured_port} must be in service-backed browser CORS range ${TEST_SERVICE_FRONTEND_PORT_START}-${TEST_SERVICE_FRONTEND_PORT_END}" >&2
+      local configured_range_start
+      local configured_range_end
+      read -r configured_range_start configured_range_end < <(service_frontend_port_window)
+      if (( configured_port < configured_range_start || configured_port > configured_range_end )); then
+        echo "frontend port ${configured_port} must be in service-backed browser $(browser_stage_name) CORS range ${configured_range_start}-${configured_range_end}" >&2
         return 1
       fi
     fi
@@ -361,16 +454,10 @@ allocate_available_port() {
 
   if [[ "${name}" == "frontend" ]] && using_test_services_stack; then
     local candidate
-    local range_start="${TEST_SERVICE_FRONTEND_PORT_START}"
-    local range_end="${TEST_SERVICE_FRONTEND_PORT_END}"
-    if [[ "${CARTULARY_TEST_TARGET:-}" == *"stateful"* ]]; then
-      range_start=$((TEST_SERVICE_FRONTEND_PORT_START + TEST_SERVICE_FRONTEND_STAGE_WIDTH))
-    fi
-    range_end=$((range_start + TEST_SERVICE_FRONTEND_STAGE_WIDTH - 1))
-    if (( range_end > TEST_SERVICE_FRONTEND_PORT_END )); then
-      range_end="${TEST_SERVICE_FRONTEND_PORT_END}"
-    fi
-    for candidate in $(seq "${range_start}" "${range_end}"); do
+    local range_start
+    local range_end
+    read -r range_start range_end < <(service_frontend_port_window)
+    for candidate in $(rotated_service_frontend_candidates "${range_start}" "${range_end}"); do
       if [[ -n "${excluded_port}" && "${candidate}" == "${excluded_port}" ]]; then
         continue
       fi
@@ -405,7 +492,11 @@ allocate_available_port() {
 }
 
 resolve_owned_stack_ports() {
+  FRONTEND_PORT_CONFIGURED=0
   allocate_available_port BACKEND_PORT "backend" "${CARTULARY_WEB_E2E_BACKEND_PORT:-}" "" || return $?
+  if [[ -n "${CARTULARY_WEB_E2E_FRONTEND_PORT:-}" ]]; then
+    FRONTEND_PORT_CONFIGURED=1
+  fi
   allocate_available_port FRONTEND_PORT "frontend" "${CARTULARY_WEB_E2E_FRONTEND_PORT:-}" "${BACKEND_PORT}" || return $?
 
   if [[ "${BACKEND_PORT}" == "${FRONTEND_PORT}" ]]; then
@@ -587,11 +678,17 @@ const path = require("node:path");
 
 const outputPath = process.env.CARTULARY_WEB_E2E_STARTUP_DIAGNOSTICS;
 const message = stringOrUndefined(process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_MESSAGE);
-const logSample = readLogSample(process.env.CARTULARY_WEB_E2E_WEB_LOG);
-const combinedText = `${message ?? ""}\n${logSample ?? ""}`;
+const backendLogSample = readLogSample(process.env.CARTULARY_WEB_E2E_SERVER_LOG);
+const frontendLogSample = readLogSample(process.env.CARTULARY_WEB_E2E_WEB_LOG);
+const combinedText = `${message ?? ""}\n${backendLogSample ?? ""}\n${frontendLogSample ?? ""}`;
 const inotify = /ENOSPC|System limit for number of file watchers reached|inotify/i.test(combinedText)
   ? collectInotifyDiagnostics()
   : undefined;
+const normalizedFailure = normalizeFailure(
+  process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_FAILURE_CLASS,
+  process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_FAILURE_REASON,
+  combinedText,
+);
 
 const payload = {
   schema_id: "cartulary.browser_startup_diagnostics.v1",
@@ -608,8 +705,8 @@ const payload = {
   backend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_SERVER_PGID),
   frontend_process_group_id: numberOrUndefined(process.env.CARTULARY_WEB_E2E_VITE_PGID),
   runtime_root: stringOrUndefined(process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT),
-  failure_class: stringOrUndefined(process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_FAILURE_CLASS),
-  failure_reason: stringOrUndefined(process.env.CARTULARY_WEB_E2E_DIAGNOSTIC_FAILURE_REASON),
+  failure_class: normalizedFailure.failure_class,
+  failure_reason: normalizedFailure.failure_reason,
   message,
   logs: {
     backend: stringOrUndefined(process.env.CARTULARY_WEB_E2E_SERVER_LOG),
@@ -651,6 +748,28 @@ function readLogSample(file) {
   }
   const text = fs.readFileSync(file, "utf8");
   return text.split(/\r?\n/).slice(-40).join("\n");
+}
+
+function normalizeFailure(failureClass, failureReason, text) {
+  const inputClass = stringOrUndefined(failureClass);
+  const inputReason = stringOrUndefined(failureReason);
+  if (!inputClass && !inputReason) {
+    return {};
+  }
+  if (isResourceConflict(text)) {
+    return {
+      failure_class: "infra",
+      failure_reason: "resource_conflict",
+    };
+  }
+  return {
+    failure_class: inputClass,
+    failure_reason: inputReason,
+  };
+}
+
+function isResourceConflict(text) {
+  return /(?:port .* is already in use|is already in use|strictPort|eaddrinuse|address already in use|listener conflict|failed to allocate an available|port must differ)/i.test(text);
 }
 
 function readIntFile(file) {
@@ -1203,7 +1322,6 @@ browser_start_services() {
 
 browser_prepare_database() {
   assert_port_free "${BACKEND_PORT}" "backend"
-  assert_port_free "${FRONTEND_PORT}" "frontend"
   cd "${ROOT_DIR}"
 
   if using_test_services_stack; then
@@ -1314,6 +1432,121 @@ browser_wait_frontend_ready() {
   return 1
 }
 
+startup_diagnostic_failure_reason() {
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+
+  if [[ -z "${STARTUP_DIAGNOSTIC_FILE}" || ! -f "${STARTUP_DIAGNOSTIC_FILE}" ]]; then
+    return 1
+  fi
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+
+  "${node_bin}" - "${STARTUP_DIAGNOSTIC_FILE}" <<'EOF'
+const fs = require("node:fs");
+
+try {
+  const payload = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+  if (payload && typeof payload.failure_reason === "string") {
+    process.stdout.write(`${payload.failure_reason}\n`);
+    process.exit(0);
+  }
+} catch {
+}
+process.exit(1);
+EOF
+}
+
+frontend_resource_conflict_retry_allowed() {
+  local reason=""
+
+  if ! using_test_services_stack; then
+    return 1
+  fi
+  if [[ "${FRONTEND_PORT_CONFIGURED}" -eq 1 ]]; then
+    return 1
+  fi
+  reason="$(startup_diagnostic_failure_reason 2>/dev/null || true)"
+  [[ "${reason}" == "resource_conflict" ]]
+}
+
+start_frontend_preview_process() {
+  local pnpm_bin="$1"
+
+  run_timing_span "frontend_startup" "browser-e2e start frontend process" \
+  start_process_group VITE_PGID "${WEB_LOG}" \
+    env \
+    COREPACK_HOME="${NODE_RUNTIME_DIR}/corepack" \
+    PATH="${NODE_RUNTIME_DIR}/bin:${PATH}" \
+    CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
+    CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
+    "${pnpm_bin}" --dir apps/web exec vite preview --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort
+  write_stack_metadata
+}
+
+retry_frontend_preview_port() {
+  local previous_port="${FRONTEND_PORT}"
+
+  if [[ -n "${VITE_PGID:-}" ]]; then
+    stop_process_group "${VITE_PGID}" || true
+    VITE_PGID=""
+  fi
+  allocate_available_port FRONTEND_PORT "frontend" "" "${BACKEND_PORT}" || return $?
+  release_port_lease_for_port "${previous_port}"
+  PUBLIC_ORIGIN="http://127.0.0.1:${FRONTEND_PORT}"
+  export CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}"
+  export CARTULARY_WEB_E2E_FRONTEND_PORT="${FRONTEND_PORT}"
+  WEB_LOG="${TARGET_ARTIFACT_DIR:-${RUNTIME_ROOT_BASE}}/web-${FRONTEND_PORT}.log"
+  export CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}"
+  echo "frontend port ${previous_port} hit a resource conflict; retrying with ${FRONTEND_PORT}" >&2
+  write_stack_metadata
+}
+
+start_frontend_preview_ready_with_retry() {
+  local pnpm_bin="$1"
+  local attempt
+  local max_attempts=1
+
+  if using_test_services_stack && [[ "${FRONTEND_PORT_CONFIGURED}" -ne 1 ]]; then
+    max_attempts="${TEST_SERVICE_FRONTEND_PREVIEW_RETRY_LIMIT}"
+  fi
+
+  for attempt in $(seq 1 "${max_attempts}"); do
+    start_frontend_preview_process "${pnpm_bin}"
+    if browser_wait_frontend_ready; then
+      return 0
+    fi
+    if (( attempt >= max_attempts )) || ! frontend_resource_conflict_retry_allowed; then
+      return 1
+    fi
+    retry_frontend_preview_port || return $?
+  done
+
+  return 1
+}
+
+browser_verify_frontend_ready() {
+  if [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
+    echo "frontend exited before backend-ready verification" >&2
+    write_startup_diagnostics "fail" "frontend_readiness" "infra" "service_start_error" "frontend exited before backend-ready verification" || true
+    cat "${WEB_LOG}" >&2 || true
+    return 1
+  fi
+  if port_owned_by_process_group "${FRONTEND_PORT}" "${VITE_PGID}" && curl -fsS "${PUBLIC_ORIGIN}" >/dev/null 2>&1; then
+    FRONTEND_OWNERSHIP_STATUS="pass"
+    FRONTEND_READY_AT="${FRONTEND_READY_AT:-$(phase_now_utc)}"
+    write_stack_metadata
+    write_startup_diagnostics "pass" "frontend_readiness" "" "" "frontend ready at ${PUBLIC_ORIGIN}" || true
+    return 0
+  fi
+
+  echo "frontend owned listener was not ready during backend-ready verification at ${PUBLIC_ORIGIN}" >&2
+  write_startup_diagnostics "fail" "frontend_readiness" "infra" "service_readiness_timeout" "frontend owned listener was not ready during backend-ready verification at ${PUBLIC_ORIGIN}" || true
+  print_port_diagnostics "${FRONTEND_PORT}" "frontend"
+  cat "${WEB_LOG}" >&2 || true
+  return 1
+}
+
 wait_for_process_status() {
   local group_id="$1"
   local status=0
@@ -1396,6 +1629,7 @@ main() {
   CARTULARY_PHASE_TIMING_BUCKET=setup run_phase_command "browser-e2e prepare test route token" prepare_test_route_token
   run_timing_span "setup" "browser-e2e write stack metadata" write_stack_metadata
   CARTULARY_PHASE_TIMING_BUCKET=frontend_startup run_phase_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts
+  CARTULARY_PHASE_TIMING_BUCKET=frontend_startup run_phase_command "browser-e2e startup frontend ready" start_frontend_preview_ready_with_retry "${pnpm_bin}"
 
   CARTULARY_PHASE_TIMING_BUCKET=service_wait run_phase_command "browser-e2e startup services" browser_start_services
   CARTULARY_PHASE_TIMING_BUCKET=migration run_phase_command "browser-e2e startup database" browser_prepare_database
@@ -1435,18 +1669,8 @@ main() {
     "${backend_listen_command[@]}"
   write_stack_metadata
 
-  run_timing_span "frontend_startup" "browser-e2e start frontend process" \
-  start_process_group VITE_PGID "${WEB_LOG}" \
-    env \
-    COREPACK_HOME="${NODE_RUNTIME_DIR}/corepack" \
-    PATH="${NODE_RUNTIME_DIR}/bin:${PATH}" \
-    CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
-    CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
-    "${pnpm_bin}" --dir apps/web exec vite preview --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort
-  write_stack_metadata
-
   CARTULARY_PHASE_TIMING_BUCKET=server_startup run_phase_command "browser-e2e startup backend ready" browser_wait_backend_ready
-  CARTULARY_PHASE_TIMING_BUCKET=frontend_startup run_phase_command "browser-e2e startup frontend ready" browser_wait_frontend_ready
+  CARTULARY_PHASE_TIMING_BUCKET=frontend_startup run_phase_command "browser-e2e verify frontend ready" browser_verify_frontend_ready
 
   if [[ "${SESSION_MODE}" == "start" ]]; then
     run_timing_span "setup" "browser-e2e write session lease" write_session_files

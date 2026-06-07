@@ -1520,6 +1520,20 @@ browser_startup_diagnostics="$tmp_dir/browser-startup-diagnostics.json"
 write_valid_browser_startup_diagnostics "$browser_startup_diagnostics"
 run_schema_validation cartulary.browser_startup_diagnostics.v1 "$browser_startup_diagnostics" >/dev/null
 
+browser_startup_resource_conflict="$tmp_dir/browser-startup-diagnostics-resource-conflict.json"
+write_valid_browser_startup_diagnostics "$browser_startup_resource_conflict"
+"$NODE_BIN" - "$browser_startup_resource_conflict" <<'JS'
+const fs = require("node:fs");
+
+const file = process.argv[2];
+const payload = JSON.parse(fs.readFileSync(file, "utf8"));
+payload.failure_reason = "resource_conflict";
+payload.message = "Port 4173 is already in use";
+delete payload.inotify;
+fs.writeFileSync(file, `${JSON.stringify(payload, null, 2)}\n`);
+JS
+run_schema_validation cartulary.browser_startup_diagnostics.v1 "$browser_startup_resource_conflict" >/dev/null
+
 bad_browser_startup_diagnostics="$tmp_dir/browser-startup-diagnostics-unknown-key.json"
 write_valid_browser_startup_diagnostics "$bad_browser_startup_diagnostics"
 mutate_json_fixture browser-startup-diagnostics-unknown-key "$bad_browser_startup_diagnostics"

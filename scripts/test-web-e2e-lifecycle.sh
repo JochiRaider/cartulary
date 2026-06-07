@@ -12,6 +12,9 @@ cleanup_test_paths() {
   for pgid in "${cleanup_pgroups[@]}"; do
     stop_process_group "$pgid" >/dev/null 2>&1 || true
   done
+  if declare -F release_port_leases >/dev/null 2>&1; then
+    release_port_leases >/dev/null 2>&1 || true
+  fi
   for path in "${cleanup_paths[@]}"; do
     rm -rf "$path"
   done
@@ -136,8 +139,12 @@ assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_PHASE_TIMIN
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_timing_span "server_startup" "browser-e2e start backend process"' "browser lifecycle backend startup span"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_timing_span "frontend_startup" "browser-e2e start frontend process"' "browser lifecycle frontend startup span"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_phase_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts' "browser lifecycle validates built preview artifact"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_phase_command "browser-e2e startup frontend ready" start_frontend_preview_ready_with_retry' "browser lifecycle proves frontend before backend startup"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_phase_command "browser-e2e verify frontend ready" browser_verify_frontend_ready' "browser lifecycle rechecks frontend after backend readiness"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'exec vite preview --host' "browser lifecycle uses vite preview"
 assert_file_not_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'apps/web dev --host' "browser lifecycle must not use vite dev server"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_BROWSER_STAGE' "browser lifecycle uses scheduler browser stage for port windows"
+assert_file_not_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_TEST_TARGET:-}" == *"stateful"*' "browser lifecycle must not use target substring matching for stateful ports"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" '/api/v1/test/runtime/identity' "browser lifecycle backend identity readiness"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" '"Origin": requestOrigin' "browser lifecycle identity probe origin header"
 assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" './tools/webstacklisten' "browser lifecycle inherited listener helper"
@@ -616,6 +623,29 @@ CARTULARY_WEB_E2E_FRONTEND_PORT="$dynamic_frontend_port"
 resolve_owned_stack_ports
 assert_equals "$BACKEND_PORT" "$dynamic_backend_port" "explicit browser e2e backend port override"
 assert_equals "$FRONTEND_PORT" "$dynamic_frontend_port" "explicit browser e2e frontend port override"
+release_port_leases
+unset CARTULARY_WEB_E2E_BACKEND_PORT
+unset CARTULARY_WEB_E2E_FRONTEND_PORT
+
+CARTULARY_TEST_SERVICES_ACTIVE=1
+CARTULARY_BROWSER_STAGE=stateful
+CARTULARY_TEST_TARGET=browser-e2e-webserver-backed
+resolve_owned_stack_ports
+if (( FRONTEND_PORT < 39100 || FRONTEND_PORT > 39199 )); then
+  fail "stateful browser stage must allocate frontend port from 39100-39199, got ${FRONTEND_PORT}"
+fi
+release_port_leases
+
+CARTULARY_BROWSER_STAGE=webserver-backed
+CARTULARY_TEST_TARGET=browser-e2e-stateful
+resolve_owned_stack_ports
+if (( FRONTEND_PORT < 39000 || FRONTEND_PORT > 39099 )); then
+  fail "webserver-backed browser stage must allocate frontend port from 39000-39099, got ${FRONTEND_PORT}"
+fi
+release_port_leases
+unset CARTULARY_TEST_SERVICES_ACTIVE
+unset CARTULARY_BROWSER_STAGE
+unset CARTULARY_TEST_TARGET
 
 STACK_ENV_FILE="$tmp_dir/stack.env"
 STACK_JSON_FILE="$tmp_dir/stack.json"
@@ -713,6 +743,153 @@ mkdir -p "$(dirname "$WEB_DIST_INDEX")"
 touch "$WEB_DIST_INDEX"
 require_frontend_preview_artifacts
 WEB_DIST_INDEX="$original_web_dist_index"
+
+fake_pnpm="$tmp_dir/fake-pnpm"
+cat >"$fake_pnpm" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+port=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --port)
+      port="${2:-}"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+if [[ -z "$port" ]]; then
+  echo "fake pnpm expected --port" >&2
+  exit 2
+fi
+
+attempt_file="${FAKE_PREVIEW_ATTEMPT_FILE:?}"
+port_file="${FAKE_PREVIEW_PORT_FILE:?}"
+mode="${FAKE_PREVIEW_MODE:-retry_once}"
+attempt=1
+if [[ -f "$attempt_file" ]]; then
+  attempt="$(( $(tr -d '\n' <"$attempt_file") + 1 ))"
+fi
+printf '%s\n' "$attempt" >"$attempt_file"
+printf '%s\n' "$port" >>"$port_file"
+
+if [[ "$mode" == "always_conflict" || "$attempt" -eq 1 ]]; then
+  echo "Error: Port ${port} is already in use" >&2
+  exit 1
+fi
+
+exec "${NODE_BIN:-node}" - "$port" <<'JS'
+const http = require("node:http");
+const port = Number.parseInt(process.argv[2], 10);
+const server = http.createServer((_request, response) => {
+  response.writeHead(200, { "content-type": "text/plain" });
+  response.end("ready\n");
+});
+server.listen(port, "127.0.0.1");
+JS
+EOF
+chmod +x "$fake_pnpm"
+
+retry_stack_dir="$tmp_dir/retry-owned-stack"
+mkdir -p "$retry_stack_dir"
+TARGET_ARTIFACT_DIR="$retry_stack_dir"
+RUNTIME_ROOT_BASE="$retry_stack_dir/runtime-root"
+SERVER_LOG="$retry_stack_dir/server.log"
+WEB_LOG="$retry_stack_dir/web.log"
+STACK_ENV_FILE="$retry_stack_dir/stack.env"
+STACK_JSON_FILE="$retry_stack_dir/stack.json"
+STARTUP_DIAGNOSTIC_FILE="$retry_stack_dir/startup-diagnostics.json"
+PLAYWRIGHT_STATE_DIR="$retry_stack_dir/playwright-state"
+mkdir -p "$RUNTIME_ROOT_BASE" "$PLAYWRIGHT_STATE_DIR"
+CARTULARY_TEST_SERVICES_ACTIVE=1
+CARTULARY_BROWSER_STAGE=stateful
+CARTULARY_TEST_TARGET=browser-e2e-stateful
+resolve_owned_stack_ports
+retry_first_port="$FRONTEND_PORT"
+FAKE_PREVIEW_ATTEMPT_FILE="$tmp_dir/fake-preview-retry-attempt"
+FAKE_PREVIEW_PORT_FILE="$tmp_dir/fake-preview-retry-ports"
+export FAKE_PREVIEW_ATTEMPT_FILE FAKE_PREVIEW_PORT_FILE
+start_frontend_preview_ready_with_retry "$fake_pnpm"
+retry_attempts="$(tr -d '\n' <"$FAKE_PREVIEW_ATTEMPT_FILE")"
+assert_equals "$retry_attempts" "2" "auto-selected frontend strict-port conflict retries once"
+retry_final_port="$(tail -n 1 "$FAKE_PREVIEW_PORT_FILE")"
+if [[ "$retry_final_port" == "$retry_first_port" ]]; then
+  fail "auto-selected frontend retry must choose a different port"
+fi
+"${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" - "$STARTUP_DIAGNOSTIC_FILE" "$retry_final_port" <<'EOF'
+const fs = require("node:fs");
+
+const [diagnosticFile, finalPort] = process.argv.slice(2);
+const payload = JSON.parse(fs.readFileSync(diagnosticFile, "utf8"));
+const failures = [];
+if (payload.status !== "pass") {
+  failures.push(`unexpected retry diagnostic status ${payload.status}`);
+}
+if (payload.failure_reason !== undefined) {
+  failures.push(`retry success diagnostic must not retain failure_reason ${payload.failure_reason}`);
+}
+if (payload.frontend_port !== Number.parseInt(finalPort, 10)) {
+  failures.push(`unexpected retry diagnostic frontend_port ${payload.frontend_port}`);
+}
+if (failures.length > 0) {
+  console.error(failures.join("\n"));
+  process.exit(1);
+}
+EOF
+stop_process_group "$VITE_PGID" || true
+VITE_PGID=""
+release_port_leases
+
+rm -f "$FAKE_PREVIEW_ATTEMPT_FILE" "$FAKE_PREVIEW_PORT_FILE"
+resolve_owned_stack_ports
+explicit_retry_backend_port="$BACKEND_PORT"
+explicit_retry_frontend_port="$FRONTEND_PORT"
+release_port_leases
+CARTULARY_WEB_E2E_BACKEND_PORT="$explicit_retry_backend_port"
+CARTULARY_WEB_E2E_FRONTEND_PORT="$explicit_retry_frontend_port"
+resolve_owned_stack_ports
+FAKE_PREVIEW_ATTEMPT_FILE="$tmp_dir/fake-preview-explicit-attempt"
+FAKE_PREVIEW_PORT_FILE="$tmp_dir/fake-preview-explicit-ports"
+FAKE_PREVIEW_MODE=always_conflict
+export FAKE_PREVIEW_ATTEMPT_FILE FAKE_PREVIEW_PORT_FILE FAKE_PREVIEW_MODE
+if start_frontend_preview_ready_with_retry "$fake_pnpm" >/dev/null 2>&1; then
+  fail "explicit frontend strict-port conflict must not retry to success"
+fi
+explicit_attempts="$(tr -d '\n' <"$FAKE_PREVIEW_ATTEMPT_FILE")"
+assert_equals "$explicit_attempts" "1" "explicit frontend strict-port conflict must not retry"
+"${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" - "$STARTUP_DIAGNOSTIC_FILE" <<'EOF'
+const fs = require("node:fs");
+
+const payload = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const failures = [];
+if (payload.status !== "fail") {
+  failures.push(`unexpected explicit diagnostic status ${payload.status}`);
+}
+if (payload.failure_class !== "infra") {
+  failures.push(`unexpected explicit diagnostic class ${payload.failure_class}`);
+}
+if (payload.failure_reason !== "resource_conflict") {
+  failures.push(`unexpected explicit diagnostic reason ${payload.failure_reason}`);
+}
+if (failures.length > 0) {
+  console.error(failures.join("\n"));
+  process.exit(1);
+}
+EOF
+stop_process_group "${VITE_PGID:-}" || true
+VITE_PGID=""
+release_port_leases
+unset CARTULARY_TEST_SERVICES_ACTIVE
+unset CARTULARY_BROWSER_STAGE
+unset CARTULARY_TEST_TARGET
+unset CARTULARY_WEB_E2E_BACKEND_PORT
+unset CARTULARY_WEB_E2E_FRONTEND_PORT
+unset FAKE_PREVIEW_ATTEMPT_FILE
+unset FAKE_PREVIEW_PORT_FILE
+unset FAKE_PREVIEW_MODE
 
 identity_server="$tmp_dir/identity-server.mjs"
 cat >"$identity_server" <<'EOF'

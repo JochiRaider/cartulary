@@ -1244,6 +1244,12 @@ fi
 if ! grep -Fq 'release_port_leases' "$start_web_e2e_script"; then
   fail "scripts/start-web-e2e.sh must release browser E2E port reservations during cleanup"
 fi
+if ! grep -Fq 'browser_stage_name' "$start_web_e2e_script" || ! grep -Fq 'CARTULARY_BROWSER_STAGE' "$start_web_e2e_script"; then
+  fail "scripts/start-web-e2e.sh must select service-backed browser frontend port windows from browser stage metadata"
+fi
+if grep -Fq 'CARTULARY_TEST_TARGET:-}" == *"stateful"*' "$start_web_e2e_script"; then
+  fail "scripts/start-web-e2e.sh must not select stateful frontend port windows by target substring"
+fi
 selected_visual_grep="$("$node_bin" "$repo_root/scripts/lib/frontend-phase-manifest.mjs" playwright-grep browser-e2e-visual visual --row-ids FE-V-P5-01)"
 if [[ "$selected_visual_grep" != *"FE-V-P5-01"* || "$selected_visual_grep" == *"FE-V-P3-01"* ]]; then
   fail "frontend visual readiness grep must filter by selected row IDs"

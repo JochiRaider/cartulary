@@ -364,6 +364,93 @@ assert_equals "$(json_field "$browser_start_failure_tool_summary" "exit_code")" 
 assert_equals "$(json_field "$browser_start_failure_target_summary" "failure_class")" "infra" "browser start target summary class"
 assert_equals "$(json_field "$browser_start_failure_target_summary" "failure_reason")" "service_start_error" "browser start target summary reason"
 
+browser_resource_conflict_results="$(mktemp -d "$ROOT_DIR/tmp/browser-resource-conflict.XXXXXX")"
+cleanup_paths+=("$browser_resource_conflict_results")
+browser_resource_conflict_owned_stack="$browser_resource_conflict_results/browser-resource-conflict/browser-e2e-webserver-backed/owned-stack"
+mkdir -p "$browser_resource_conflict_owned_stack"
+cat >"$browser_resource_conflict_owned_stack/startup-diagnostics.json" <<'JSON'
+{
+  "schema_id": "cartulary.browser_startup_diagnostics.v1",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "target": "browser-e2e-webserver-backed",
+  "status": "fail",
+  "startup_phase": "frontend_readiness",
+  "frontend_mode": "preview",
+  "frontend_command_kind": "vite-preview",
+  "api_origin": "http://127.0.0.1:39080",
+  "public_origin": "http://127.0.0.1:39000",
+  "backend_port": 39080,
+  "frontend_port": 39000,
+  "failure_class": "infra",
+  "failure_reason": "resource_conflict",
+  "message": "Port 39000 is already in use",
+  "logs": {
+    "frontend": ".cartulary/test-results/run/browser-e2e-webserver-backed/owned-stack/web.log"
+  }
+}
+JSON
+set +e
+browser_resource_conflict_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$browser_resource_conflict_results" \
+  CARTULARY_TEST_RUN_ID="browser-resource-conflict" \
+  CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
+    "$HELPER" "browser-e2e startup frontend ready" -- bash -lc 'echo "frontend exited before readiness" >&2; exit 1' \
+    2>&1
+)"
+browser_resource_conflict_status=$?
+set -e
+if [[ "$browser_resource_conflict_status" -ne 1 ]]; then
+  fail "browser resource conflict: expected exit status 1, got $browser_resource_conflict_status"
+fi
+assert_contains "$browser_resource_conflict_output" "failure_class=infra" "browser resource conflict phase failure class"
+assert_contains "$browser_resource_conflict_output" "reason=resource_conflict" "browser resource conflict phase failure reason"
+browser_resource_conflict_phase_summary="$browser_resource_conflict_results/browser-resource-conflict/browser-e2e-webserver-backed/browser-e2e-startup-frontend-ready/phase-summary.json"
+assert_equals "$(json_field "$browser_resource_conflict_phase_summary" "failure_class")" "infra" "browser resource conflict phase summary class"
+assert_equals "$(json_field "$browser_resource_conflict_phase_summary" "failure_reason")" "resource_conflict" "browser resource conflict phase summary reason"
+set +e
+browser_resource_conflict_target_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$browser_resource_conflict_results" \
+  CARTULARY_TEST_RUN_ID="browser-resource-conflict" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed fail \
+    2>&1
+)"
+browser_resource_conflict_target_status=$?
+set -e
+if [[ "$browser_resource_conflict_target_status" -ne 0 ]]; then
+  fail "browser resource conflict target summary writer: expected status 0, got $browser_resource_conflict_target_status"
+fi
+assert_contains "$browser_resource_conflict_target_output" "failure_class=infra" "browser resource conflict target failure class"
+assert_contains "$browser_resource_conflict_target_output" "reason=resource_conflict" "browser resource conflict target failure reason"
+browser_resource_conflict_target_summary="$browser_resource_conflict_results/browser-resource-conflict/browser-e2e-webserver-backed/target-summary.json"
+browser_resource_conflict_tool_summary="$browser_resource_conflict_results/browser-resource-conflict/browser-e2e-webserver-backed/tool-run-summary.json"
+assert_equals "$(json_field "$browser_resource_conflict_tool_summary" "exit_code")" "4" "browser resource conflict tool summary exit code"
+assert_equals "$(json_field "$browser_resource_conflict_target_summary" "failure_class")" "infra" "browser resource conflict target summary class"
+assert_equals "$(json_field "$browser_resource_conflict_target_summary" "failure_reason")" "resource_conflict" "browser resource conflict target summary reason"
+
+listener_conflict_results="$(mktemp -d "$ROOT_DIR/tmp/listener-conflict.XXXXXX")"
+cleanup_paths+=("$listener_conflict_results")
+set +e
+listener_conflict_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$listener_conflict_results" \
+  CARTULARY_TEST_RUN_ID="listener-conflict" \
+  CARTULARY_TEST_TARGET="browser-e2e-stateful" \
+    "$HELPER" "browser-e2e startup services" -- bash -lc 'echo "listen tcp 127.0.0.1:8333: bind: address already in use" >&2; exit 1' \
+    2>&1
+)"
+listener_conflict_status=$?
+set -e
+if [[ "$listener_conflict_status" -ne 1 ]]; then
+  fail "listener conflict: expected exit status 1, got $listener_conflict_status"
+fi
+assert_contains "$listener_conflict_output" "failure_class=infra" "listener conflict phase failure class"
+assert_contains "$listener_conflict_output" "reason=resource_conflict" "listener conflict phase failure reason"
+listener_conflict_phase_summary="$listener_conflict_results/listener-conflict/browser-e2e-stateful/browser-e2e-startup-services/phase-summary.json"
+assert_equals "$(json_field "$listener_conflict_phase_summary" "failure_class")" "infra" "listener conflict phase summary class"
+assert_equals "$(json_field "$listener_conflict_phase_summary" "failure_reason")" "resource_conflict" "listener conflict phase summary reason"
+
 shell_progress_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-phase-progress-results.XXXXXX")"
 cleanup_paths+=("$shell_progress_failure_results")
 set +e

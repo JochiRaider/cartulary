@@ -4595,7 +4595,40 @@ function finalizeShellPhase(context, stdoutLog, stderrLog, details) {
   return 1;
 }
 
+function browserStartupDiagnosticFailureDetails(context) {
+  const startupDiagnostics = path.join(
+    path.dirname(context.phaseDir),
+    "owned-stack",
+    "startup-diagnostics.json",
+  );
+  if (!existsSync(startupDiagnostics)) {
+    return null;
+  }
+  try {
+    const payload = JSON.parse(readFileSync(startupDiagnostics, "utf8"));
+    if (
+      payload?.schema_id !== "cartulary.browser_startup_diagnostics.v1" ||
+      payload?.status !== "fail" ||
+      typeof payload?.failure_class !== "string" ||
+      typeof payload?.failure_reason !== "string"
+    ) {
+      return null;
+    }
+    return {
+      failure_class: payload.failure_class,
+      failure_reason: payload.failure_reason,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function classifyShellFailureDetails(context, stdoutLines, stderrLines, message) {
+  const startupDiagnostic = browserStartupDiagnosticFailureDetails(context);
+  if (startupDiagnostic) {
+    return startupDiagnostic;
+  }
+
   const text = [
     context.target,
     context.label,
@@ -4617,6 +4650,8 @@ function classifyShellFailureDetails(context, stdoutLines, stderrLines, message)
   if (
     text.includes("port must differ") ||
     text.includes("is already in use") ||
+    text.includes("address already in use") ||
+    text.includes("eaddrinuse") ||
     text.includes("failed to allocate an available") ||
     text.includes("listener conflict")
   ) {
