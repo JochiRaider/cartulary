@@ -41,7 +41,24 @@ The handoff MUST NOT own telemetry behavior, deployment-configuration mechanics,
 | Benchmark publication | Core 05 | Prevent telemetry evidence from being represented as claim-bearing benchmark evidence. | Use telemetry captures as Core 05 publication evidence without Core 05 predicates. | Stop and report publication-boundary conflict. |
 | Live-repo facts | Live repository inspection plus implementation-plan source-limit rules | Require inspection before asserting packages, targets, files, schemas, or conventions exist. | Treat uploaded-corpus assumptions as live facts. | Use permitted `TODO(repo-adoption)` only under §6; otherwise stop. |
 
-## 3. Source Limits and Run Posture
+## 3. Boundary-Completeness Revision Model
+
+This handoff uses the following closed boundary-gap states. A goal runner MUST NOT introduce any other gap state in ledger rows, handoff updates, conformance-status material, or final readiness summaries.
+
+| Gap state | Meaning | Allowed final handoff completion? | Required handling |
+| --- | --- | ---: | --- |
+| `owner_closed` | The controlling owner document defines the value, rule, interface, or predicate exactly enough for implementation and verification. | Yes | Import the owner section or requirement ID and verify the owner value without restating it as handoff-owned behavior. |
+| `repo_materialization_required` | The owner requirement is closed, but the live repository fact, generated artifact, manifest, fixture, target, or schema has not yet been inspected or created. | No | Inspect or materialize the repo artifact; until then, use only the permitted `TODO(repo-adoption)` form in §7. |
+| `owner_closure_required` | The controlling owner document does not yet define the value, rule, interface, or predicate needed for deterministic implementation. | No | Stop at the affected phase, report the exact owner gap, and do not choose, infer, normalize, default, or encode a provisional owner value as final behavior. |
+| `handoff_local_closed` | The gap concerns only goal-run mechanics owned by this handoff, such as ledger fields, prompt content, stop conditions, status reporting, or acceptance mapping. | Yes | Apply the handoff rule exactly and keep it out of telemetry behavior, deployment-configuration behavior, product behavior, and harness mechanics. |
+
+A row with state `owner_closure_required` blocks `adopted_conformant`, `otel_release_ready`, final handoff completion, release-readiness evidence, and any final conformance claim. A row with state `repo_materialization_required` blocks final handoff completion until the materialized repo artifact exists and no longer carries a blocking `TODO(repo-adoption)`.
+
+This handoff MAY define the required shape of an owner-closure payload when the shape is needed to prevent implementation drift. Omission behavior: if the owner document has not supplied that payload, the goal runner MUST stop and report the missing payload; it MUST NOT fill the owner value in this handoff or in implementation code.
+
+The words or phrases `appropriate`, `preferred`, `when known`, `according to selected SDK convention`, `equivalent`, `representative`, and `as needed` are invalid in a final closure rule unless the same sentence, paragraph, or table row supplies a binary predicate that makes the allowed latitude testable. Imported owner text that still contains one of those terms remains owner-governed; this handoff records the resulting closure requirement as a boundary gap rather than interpreting the term locally.
+
+## 4. Source Limits and Run Posture
 
 The implementation plan was written from the uploaded specification corpus rather than live repository inspection. A goal run MUST inspect the live repository before asserting that any package, Make target, schema, file, directory, or convention already exists.[^3]
 
@@ -49,21 +66,21 @@ The current telemetry NLSpec is adopted and current. It governs only telemetry g
 
 The implementation MUST keep telemetry inside the existing modular monolith. It MUST NOT add a telemetry sidecar, required Collector deployable, monitoring-vendor dependency, Prometheus service, browser telemetry service, or additional Cartulary deployable.[^5]
 
-## 4. Pasteable Pursue Goal Prompt
+## 5. Pasteable Pursue Goal Prompt
 
 Use this when the handoff document itself is available in the repository.
 
 ```text
-Execute docs/handoffs/opentelemetry-goal-handoff.md as the active Cartulary OpenTelemetry implementation handoff. Read opentelemetry-implementation-plan.md, opentelemetry-instrumentation-nlspec.md, testing-harness-nlspec.md, Core 00-05, docs/domain.md, and relevant repo-control files before editing. Preserve authority boundaries: the adopted OTel NLSpec owns telemetry behavior, Core 00-04 own product conformance, Core 05 owns publication, the harness NLSpec owns Make/harness mechanics, and the implementation plan owns sequencing, artifacts, phase gates, and acceptance mapping. Use the Decision Reconciliation Registry, not a blanket OTEL-DQ rule. Treat OTEL-DQ-007, OTEL-DQ-008, OTEL-DQ-009, OTEL-DQ-010, residual OTEL-DQ-011, and OTEL-DQ-012 as blockers unless the owner docs have been revised to close them. Do not invent owner values in the handoff or implementation. Inspect the live repo before asserting package, target, file, schema, or convention facts. Use TODO(repo-adoption): ... only under the handoff TODO semantics. Implement phases in dependency order unless an earlier phase is already fully satisfied. Keep telemetry inside the modular monolith; do not add a sidecar, required Collector, vendor dependency, browser exporter, product workflow, case-data authority, or default network export. Run the narrowest relevant Make target after each slice and record changed files, owner imports, evidence, failures, blockers, decision status, and next action. Final done is unavailable while any decision registry row is owner_blocking, partially_owner_resolved, or owner_drift_conflict. If owner specs conflict, stop and report the exact conflict; do not pick a side.
+Execute docs/handoffs/opentelemetry-goal-handoff.md as the active Cartulary OpenTelemetry implementation handoff. Read opentelemetry-implementation-plan.md, opentelemetry-instrumentation-nlspec.md, testing-harness-nlspec.md, Core 00-05, docs/domain.md, and relevant repo-control files before editing. Preserve authority boundaries: the adopted OTel NLSpec owns telemetry behavior, Core 00-04 own product conformance, Core 05 owns publication, the harness NLSpec owns Make/harness mechanics, and the implementation plan owns sequencing, artifacts, phase gates, and acceptance mapping. Use both the Decision Reconciliation Registry and the Handoff Boundary Gap Registry; do not use a blanket OTEL-DQ rule. Treat OTEL-DQ-007, OTEL-DQ-008, OTEL-DQ-009, OTEL-DQ-010, residual OTEL-DQ-011, OTEL-DQ-012, and every HANDOFF-GAP-* row with state owner_closure_required or repo_materialization_required as blockers unless the owner docs or repo-control artifacts have closed them. Do not invent owner values in the handoff or implementation. Inspect the live repo before asserting package, target, file, schema, or convention facts. Use TODO(repo-adoption): ... only under the handoff TODO semantics. Implement phases in dependency order unless an earlier phase is already fully satisfied. Keep telemetry inside the modular monolith; do not add a sidecar, required Collector, vendor dependency, browser exporter, product workflow, case-data authority, or default network export. Run the narrowest relevant Make target after each slice and record changed files, owner imports, evidence, failures, blockers, decision status, gap status, and next action. Final done is unavailable while any decision registry row is owner_blocking, partially_owner_resolved, or owner_drift_conflict, or while any HANDOFF-GAP-* row is owner_closure_required or repo_materialization_required. If owner specs conflict, stop and report the exact conflict; do not pick a side.
 ```
 
 Use this shorter prompt when the handoff file is outside the repository and must be attached or pasted separately.
 
 ```text
-Execute the attached OpenTelemetry goal handoff and opentelemetry-implementation-plan.md. Treat the adopted OTel NLSpec as telemetry behavior authority, Core 00-04 as product authority, Core 05 as publication-only authority, and the harness NLSpec as Make/harness authority. Use the handoff Decision Reconciliation Registry, not a blanket OTEL-DQ rule. Treat OTEL-DQ-007, OTEL-DQ-008, OTEL-DQ-009, OTEL-DQ-010, residual OTEL-DQ-011, and OTEL-DQ-012 as blockers unless owner docs close them. Do not invent owner values. Inspect live repo facts before claiming them. Final done is unavailable while any decision registry row is owner_blocking, partially_owner_resolved, or owner_drift_conflict, or while any blocking TODO(repo-adoption) remains.
+Execute the attached OpenTelemetry goal handoff and opentelemetry-implementation-plan.md. Treat the adopted OTel NLSpec as telemetry behavior authority, Core 00-04 as product authority, Core 05 as publication-only authority, and the harness NLSpec as Make/harness authority. Use both the Decision Reconciliation Registry and Handoff Boundary Gap Registry; do not use a blanket OTEL-DQ rule. Treat OTEL-DQ-007, OTEL-DQ-008, OTEL-DQ-009, OTEL-DQ-010, residual OTEL-DQ-011, OTEL-DQ-012, and any HANDOFF-GAP-* row with state owner_closure_required or repo_materialization_required as blockers unless owner docs or repo-control artifacts close them. Do not invent owner values. Inspect live repo facts before claiming them. Final done is unavailable while any decision registry row is owner_blocking, partially_owner_resolved, or owner_drift_conflict, while any HANDOFF-GAP-* row is unresolved, or while any blocking TODO(repo-adoption) remains.
 ```
 
-## 5. Non-Negotiable Constraints
+## 6. Non-Negotiable Constraints
 
 - The run MUST NOT treat telemetry output as product state, audit state, case data, history, projection state, evidence state, workflow state, or benchmark evidence.
 - The run MUST NOT add user-facing row-edit rituals, approval gates, or capture friction.
@@ -72,18 +89,18 @@ Execute the attached OpenTelemetry goal handoff and opentelemetry-implementation
 - Browser packages MUST NOT include OpenTelemetry exporters, vendor telemetry SDKs, Collector clients, session replay SDKs, or third-party analytics initialization in the current profile.[^7]
 - Partial implementation may exist only as implementation-in-progress. Omission behavior: before a phase gate passes, the goal run remains `adopted_incomplete`, network export remains unavailable except as harness-owned explicit test behavior, and no conformance claim or `otel_release_ready` state is permitted.[^8]
 
-## 6. TODO(repo-adoption) and Omission Semantics
+## 7. TODO(repo-adoption) and Omission Semantics
 
 A `TODO(repo-adoption): <specific missing value>` is permitted only for one of these cases:
 
 - a missing live-repo fact that the implementation plan permits as a repo-adoption placeholder; or
-- an owner-blocked decision named in the Decision Reconciliation Registry.
+- an owner-blocked decision named in the Decision Reconciliation Registry or Handoff Boundary Gap Registry.
 
-Every `TODO(repo-adoption)` in a conformance-visible artifact is blocking unless the Decision Reconciliation Registry explicitly gives that row `handoff execution status='repo_materialized'` and the TODO has been removed from final evidence. Non-blocking TODOs may appear only in transient execution notes. They MUST NOT appear in conformance-visible artifacts, acceptance mappings, final evidence, release-readiness manifests, or final handoff status.
+Every `TODO(repo-adoption)` in a conformance-visible artifact is blocking unless the Decision Reconciliation Registry or Handoff Boundary Gap Registry explicitly gives the corresponding row state `repo_materialized`, `owner_closed`, or `handoff_local_closed`, and the TODO has been removed from final evidence. Non-blocking TODOs may appear only in transient execution notes. They MUST NOT appear in conformance-visible artifacts, acceptance mappings, final evidence, release-readiness manifests, or final handoff status.
 
 Missing implementation before phase completion means `adopted_incomplete`. It MUST NOT permit network export by default, conformance claims, or `otel_release_ready`. If a phase needs an owner value that is absent, the goal runner MUST stop at that phase and report the exact owner blocker. It MUST NOT choose a value, infer a default, or encode a provisional value as final conformance behavior.
 
-## 7. Phase Execution Ledger
+## 8. Phase Execution Ledger
 
 Use one ledger row per slice. Keep the current row short enough to paste into a status update.
 
@@ -98,6 +115,7 @@ Use one ledger row per slice. Keep the current row short enough to paste into a 
 | `artifact_refs` | Retained run root, summary JSON, raw capture path, normalized golden path, or manifest path. |
 | `blocking_todos` | Exact blocking `TODO(repo-adoption)` values remaining, or `none`. |
 | `decision_status` | Decision Reconciliation Registry rows changed, blocked, or repo-materialized. |
+| `gap_status` | Handoff Boundary Gap Registry rows changed, blocked, owner-closed, repo-materialized, or handoff-local-closed. |
 | `owner_blockers` | Exact owner section or decision row preventing progress, or `none`. |
 | `acceptance_ids` | `OIP-AC-*` and `OTEL-AC-*` rows exercised by the slice. |
 | `next_action` | One concrete next action or `handoff complete`. |
