@@ -427,6 +427,49 @@ test("full harness tier composes fast, extended, lifecycle, and full-only diagno
   }
 });
 
+test("check scheduler restores node packages before run-phase validation", () => {
+  const { checkSchedule, taskSurface } = renderedArtifacts();
+  const schedule = checkSchedule.schedules.find(
+    (entry) => entry.target === "check",
+  );
+  const checkFrontendInstall = schedule.work_units.find(
+    (unit) => unit.target === "check-frontend-install",
+  );
+  const toolchainDrift = schedule.work_units.find(
+    (unit) => unit.target === "toolchain-drift",
+  );
+  const jsonShapeCheck = schedule.work_units.find(
+    (unit) => unit.target === "json-shape-check",
+  );
+  assert.ok(
+    checkFrontendInstall,
+    "check schedule must include check-frontend-install",
+  );
+  assert.deepEqual(
+    checkFrontendInstall.needs ?? [],
+    [],
+    "check-frontend-install must be able to run before run-phase children",
+  );
+  assert.ok(toolchainDrift, "check schedule must include toolchain-drift");
+  assert.ok(
+    (toolchainDrift.needs ?? []).includes("check-frontend-install"),
+    "toolchain-drift must wait for installed node package dependencies",
+  );
+  assert.ok(jsonShapeCheck, "check schedule must include json-shape-check");
+  assert.ok(
+    (jsonShapeCheck.needs ?? []).includes("check-frontend-install"),
+    "json-shape-check must wait for installed node package dependencies",
+  );
+  for (const target of ["toolchain-drift", "json-shape-check"]) {
+    assert.ok(
+      taskSurface.make_recipes[target].prerequisites.includes(
+        "$(FRONTEND_INSTALL_STAMP)",
+      ),
+      `${target} direct wrapper must bootstrap installed node package dependencies`,
+    );
+  }
+});
+
 test("generated task surface and Make wrapper keep harness projection wiring", () => {
   const { taskSurface, browserBatch, serviceBacked, taskSurfaceMake } =
     renderedArtifacts();

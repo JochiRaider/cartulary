@@ -62,7 +62,9 @@
           "target": "toolchain-drift",
           "priority": 50000,
           "weight_ms": 10000,
-          "needs": [],
+          "needs": [
+            "check-frontend-install"
+          ],
           "resource_claims": {
             "host_cpu": 1
           },
@@ -161,9 +163,7 @@
           "target": "check-frontend-install",
           "priority": 49400,
           "weight_ms": 10000,
-          "needs": [
-            "toolchain-drift"
-          ],
+          "needs": [],
           "resource_claims": {
             "host_cpu": 1,
             "host_io": 1
@@ -5455,7 +5455,8 @@
           "priority": 12925,
           "weight_ms": 10000,
           "needs": [
-            "toolchain-drift"
+            "toolchain-drift",
+            "check-frontend-install"
           ],
           "resource_claims": {
             "host_cpu": 1,

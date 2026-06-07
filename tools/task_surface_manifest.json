@@ -1084,7 +1084,8 @@
     },
     "json-shape-check": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
       ],
       "type": "phase_command",
       "mode": "run_phase",
@@ -1097,7 +1098,8 @@
     },
     "toolchain-drift": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
       ],
       "type": "phase_command",
       "mode": "command",

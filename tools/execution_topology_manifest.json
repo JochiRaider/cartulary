@@ -1299,7 +1299,8 @@
       },
       "json-shape-check": {
         "prerequisites": [
-          "$(NODE_BIN)"
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
         ],
         "type": "phase_command",
         "mode": "run_phase",
@@ -1312,7 +1313,8 @@
       },
       "toolchain-drift": {
         "prerequisites": [
-          "$(NODE_BIN)"
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
         ],
         "type": "phase_command",
         "mode": "command",
@@ -3912,7 +3914,8 @@
           "priority_band": "static_validation",
           "order": 75,
           "needs": [
-            "toolchain-drift"
+            "toolchain-drift",
+            "check-frontend-install"
           ]
         },
         "output_policy": {
@@ -3991,7 +3994,9 @@
             "check"
           ],
           "profile": "setup_cpu",
-          "needs": [],
+          "needs": [
+            "check-frontend-install"
+          ],
           "priority_band": "setup",
           "order": 0
         },
@@ -9142,9 +9147,7 @@
             "check"
           ],
           "profile": "setup_cpu_io",
-          "needs": [
-            "toolchain-drift"
-          ],
+          "needs": [],
           "priority_band": "setup",
           "order": 600
         },
