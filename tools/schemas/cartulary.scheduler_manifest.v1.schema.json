@@ -81,6 +81,7 @@
         "failure_keys": { "$ref": "#/$defs/string_array" },
         "running_dependency_keys": { "$ref": "#/$defs/string_array" },
         "produces_summary_targets": { "$ref": "#/$defs/string_array" },
+        "make_prerequisite_policy": { "enum": ["run", "skip"] },
         "resource_claims": { "$ref": "#/$defs/claims" },
         "retained_resource_claims": { "$ref": "#/$defs/claims" },
         "release_retained_resource_claims": { "$ref": "#/$defs/claims" },

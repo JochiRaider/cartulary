@@ -33,6 +33,7 @@ const validParallelismModes = new Set(["none", "package", "process"]);
 const validBrowserCoverage = new Set(["authoritative", "supplemental", "raw"]);
 const serviceRequirementsRequiringCheckServiceStack = new Set(["postgres", "object_store", "browser_stack"]);
 const checkScheduleProfileKeys = new Set(["resource_claims", "make_jobs"]);
+const checkScheduleMakePrerequisitePolicies = new Set(["run", "skip"]);
 const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
 const checkScheduleOwnedEnvNames = new Set([
   "CARTULARY_TEST_TARGET",
@@ -49,6 +50,7 @@ const checkScheduleTargetKeys = new Set([
   "priority_band",
   "order",
   "produces_summary_targets",
+  "make_prerequisite_policy",
   "service_backed_schedule",
   "env",
 ]);
@@ -515,6 +517,13 @@ function normalizeCheckScheduleMetadata(entry, label, scheduleTargets) {
       `${label}.check_schedule.produces_summary_targets must include owning target ${ownerTarget}`,
     );
   }
+  const makePrerequisitePolicy =
+    raw.make_prerequisite_policy === undefined
+      ? "skip"
+      : requireString(raw.make_prerequisite_policy, `${label}.check_schedule.make_prerequisite_policy`);
+  if (!checkScheduleMakePrerequisitePolicies.has(makePrerequisitePolicy)) {
+    throw new Error(`${label}.check_schedule.make_prerequisite_policy must be one of run, skip`);
+  }
   return {
     schedules,
     profile: requireString(raw.profile, `${label}.check_schedule.profile`),
@@ -523,6 +532,7 @@ function normalizeCheckScheduleMetadata(entry, label, scheduleTargets) {
     priorityBand: requireString(raw.priority_band, `${label}.check_schedule.priority_band`),
     order: requireNonNegativeInteger(raw.order, `${label}.check_schedule.order`),
     producesSummaryTargets,
+    makePrerequisitePolicy,
     serviceBackedSchedule: raw.service_backed_schedule === undefined
       ? null
       : requireString(raw.service_backed_schedule, `${label}.check_schedule.service_backed_schedule`),
@@ -641,6 +651,7 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
         ...(metadata.producesSummaryTargets.length > 0
           ? { produces_summary_targets: clone(metadata.producesSummaryTargets) }
           : {}),
+        make_prerequisite_policy: metadata.makePrerequisitePolicy,
         resource_claims: clone(profile.resourceClaims),
         make_jobs: normalizeCheckMakeJobs(profile.makeJobs, `${target}.check_schedule profile ${profile.name}`, claims),
         command: { type: "make_target", target },

@@ -1027,6 +1027,9 @@ const mutations = {
       "not-safe": "1",
     };
   },
+  "check-schedule-invalid-make-prerequisite-policy": (fixture) => {
+    fixture.schedules[0].work_units[0].make_prerequisite_policy = "maybe";
+  },
   "check-schedule-browser-worker-overlap": (fixture) => {
     fixture.schedules[0].work_units = [
       {
@@ -1406,6 +1409,12 @@ write_valid_check_schedule "$invalid_check_env"
 mutate_json_fixture check-schedule-invalid-env-name "$invalid_check_env"
 invalid_check_env_output="$(assert_fails "invalid scheduler env name" run_shape_check scheduler-manifest "$invalid_check_env")"
 assert_contains "$invalid_check_env_output" "env key has invalid value" "invalid check schedule env name"
+
+invalid_check_make_prerequisite_policy="$tmp_dir/check_schedule_invalid_make_prerequisite_policy.json"
+write_valid_check_schedule "$invalid_check_make_prerequisite_policy"
+mutate_json_fixture check-schedule-invalid-make-prerequisite-policy "$invalid_check_make_prerequisite_policy"
+invalid_check_make_prerequisite_policy_output="$(assert_fails "invalid scheduler make prerequisite policy" run_shape_check scheduler-manifest "$invalid_check_make_prerequisite_policy")"
+assert_contains "$invalid_check_make_prerequisite_policy_output" "make_prerequisite_policy must be one of" "invalid scheduler make prerequisite policy"
 
 browser_worker_overlap="$tmp_dir/check_schedule_browser_worker_overlap.json"
 write_valid_check_schedule "$browser_worker_overlap"

@@ -3603,6 +3603,7 @@
             "check"
           ],
           "profile": "setup_cpu_io",
+          "make_prerequisite_policy": "run",
           "needs": [
             "toolchain-drift"
           ],
@@ -3622,6 +3623,7 @@
             "check"
           ],
           "profile": "setup_cpu_io",
+          "make_prerequisite_policy": "run",
           "needs": [
             "toolchain-drift"
           ],
@@ -3641,6 +3643,7 @@
             "check"
           ],
           "profile": "setup_cpu_io",
+          "make_prerequisite_policy": "run",
           "needs": [
             "toolchain-drift"
           ],
@@ -3660,6 +3663,7 @@
             "check"
           ],
           "profile": "setup_cpu_io",
+          "make_prerequisite_policy": "run",
           "needs": [
             "toolchain-drift"
           ],
@@ -3685,6 +3689,7 @@
             "check"
           ],
           "profile": "setup_cpu_io",
+          "make_prerequisite_policy": "run",
           "needs": [
             "toolchain-drift"
           ],
@@ -3997,6 +4002,7 @@
             "check"
           ],
           "profile": "setup_cpu",
+          "make_prerequisite_policy": "run",
           "needs": [
             "check-frontend-install"
           ],
@@ -5480,13 +5486,15 @@
             "check"
           ],
           "profile": "after_setup_cpu_io",
+          "make_prerequisite_policy": "skip",
           "priority_band": "static_validation",
           "order": 60,
           "produces_summary_targets": [
             "otel-conformance"
           ],
           "needs": [
-            "toolchain-drift"
+            "toolchain-drift",
+            "build-web"
           ]
         },
         "output_policy": {
@@ -7291,6 +7299,7 @@
             "check"
           ],
           "profile": "build_readiness_go_binary",
+          "make_prerequisite_policy": "run",
           "priority_band": "build_readiness",
           "order": 1950,
           "needs": [
@@ -7310,6 +7319,7 @@
             "check"
           ],
           "profile": "build_readiness_service_images",
+          "make_prerequisite_policy": "run",
           "priority_band": "build_readiness",
           "order": 2000,
           "needs": [
@@ -9150,6 +9160,7 @@
             "check"
           ],
           "profile": "setup_cpu_io",
+          "make_prerequisite_policy": "run",
           "needs": [],
           "priority_band": "setup",
           "order": 600
@@ -9647,10 +9658,11 @@
             "check"
           ],
           "profile": "build_readiness_server",
+          "make_prerequisite_policy": "run",
           "priority_band": "build_readiness",
           "order": 0,
           "needs": [
-            "check-frontend-install"
+            "build-web"
           ]
         },
         "output_policy": {
@@ -9721,6 +9733,7 @@
             "check"
           ],
           "profile": "build_readiness_go_binary",
+          "make_prerequisite_policy": "run",
           "priority_band": "build_readiness",
           "order": 1000,
           "needs": [
@@ -9858,6 +9871,7 @@
             "check"
           ],
           "profile": "build_readiness_frontend",
+          "make_prerequisite_policy": "run",
           "priority_band": "build_readiness",
           "order": 500,
           "needs": [

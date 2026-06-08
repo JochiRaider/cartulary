@@ -179,6 +179,7 @@ const schedulerWorkUnitKeys = new Set([
   "retained_resource_claims",
   "release_retained_resource_claims",
   "make_jobs",
+  "make_prerequisite_policy",
   "env",
   "service_session",
   "browser_stage",
@@ -766,6 +767,13 @@ function validateSchedulerManifestShape(file) {
       }
       if (unit.priority !== undefined) {
         requireInteger(unit.priority, `${unitLabel}.priority`, { min: 0 });
+      }
+      if (unit.make_prerequisite_policy !== undefined) {
+        requireEnum(
+          unit.make_prerequisite_policy,
+          `${unitLabel}.make_prerequisite_policy`,
+          new Set(["run", "skip"]),
+        );
       }
       if (unit.env !== undefined) {
         for (const name of Object.keys(

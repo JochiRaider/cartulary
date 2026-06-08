@@ -69,19 +69,6 @@ const schedulerOwnedEnvNames = new Set([
 ]);
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 const packageReadinessTarget = "check-frontend-install";
-const schedulerReadinessTargets = new Set([
-  "toolchain-drift",
-  "codegen-toolchain",
-  "go-lint-toolchain",
-  "govulncheck-toolchain",
-  "gosec-toolchain",
-  "shell-lint-toolchain",
-  packageReadinessTarget,
-  "build-server",
-  "build-migrate",
-  "testservices-build",
-  "test-service-images",
-]);
 
 function usage() {
   process.stderr.write(
@@ -200,6 +187,16 @@ function normalizeUnitEnv(value, label) {
   return Object.fromEntries(
     entries.sort(([left], [right]) => left.localeCompare(right)),
   );
+}
+
+function normalizeMakePrerequisitePolicy(value, label) {
+  if (value === undefined) {
+    return "skip";
+  }
+  if (value !== "run" && value !== "skip") {
+    throw new Error(`${label} make_prerequisite_policy must be one of run, skip`);
+  }
+  return value;
 }
 
 function normalizeNestedScheduler(value, label, unitTarget, resourceClaims) {
@@ -496,6 +493,10 @@ function _findSchedule(manifest, target, overrides) {
         claims,
       ),
       env: normalizeUnitEnv(unit.env, `${label} ${unitTarget}`),
+      makePrerequisitePolicy: normalizeMakePrerequisitePolicy(
+        unit.make_prerequisite_policy,
+        `${label} ${unitTarget}`,
+      ),
       nestedScheduler,
       serviceSession: unit.service_session ?? null,
       browserStage:
@@ -1328,15 +1329,17 @@ function attachRuntime(
         `-j${unit.makeJobs}`,
         unit.target,
       ];
-      const env = makeChildEnv({
+      const childEnv = {
         ...nestedSchedulerEnv(unit),
         ...unit.env,
         CARTULARY_TEST_TARGET: unit.target,
         CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-        ...(schedulerReadinessTargets.has(unit.target)
-          ? {}
-          : { CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES: "1" }),
-      });
+      };
+      delete childEnv.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES;
+      if (unit.makePrerequisitePolicy === "skip") {
+        childEnv.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES = "1";
+      }
+      const env = makeChildEnv(childEnv);
       return { command: makeBin, args, env };
     };
   }

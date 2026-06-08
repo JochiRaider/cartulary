@@ -63,7 +63,7 @@
     "counts": { "$ref": "#/$defs/counts" },
     "phase_accounting": { "$ref": "#/$defs/phase_accounting" },
     "failure_class": {
-      "enum": [null, "product", "config", "infra", "harness", "artifact", "timing", "interrupted", "unknown"]
+      "enum": [null, "product", "security", "config", "infra", "harness", "artifact", "timing", "interrupted", "unknown"]
     },
     "failure_reason": {
       "enum": [
@@ -76,6 +76,7 @@
         "fixture_error",
         "resource_conflict",
         "test_assertion_failure",
+        "security_finding",
         "child_target_failure",
         "tool_diagnostic_failure",
         "scheduler_accounting_error",

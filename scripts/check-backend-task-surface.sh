@@ -673,7 +673,7 @@ assert_check_needs toolchain-drift ""
 for scheduled_target in codegen-toolchain go-lint-toolchain govulncheck-toolchain gosec-toolchain shell-lint-toolchain check-frontend-install; do
   assert_check_needs "$scheduled_target" "toolchain-drift"
 done
-assert_check_needs build-server "check-frontend-install"
+assert_check_needs build-server "build-web"
 assert_check_needs build-migrate "toolchain-drift"
 assert_check_needs testservices-build "toolchain-drift"
 assert_check_needs test-service-images "testservices-build"

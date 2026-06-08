@@ -14,6 +14,7 @@ import {
 
 export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v1";
 const envNamePattern = /^[A-Z][A-Z0-9_]*$/;
+const makePrerequisitePolicies = new Set(["run", "skip"]);
 const commandTypes = new Set([
   "make_target",
   "service_session_start",
@@ -226,6 +227,16 @@ function normalizeMakeJobs(value, label, resourceClaims, scheduler) {
   return value;
 }
 
+function normalizeMakePrerequisitePolicy(value, label) {
+  if (value === undefined) {
+    return "skip";
+  }
+  if (typeof value !== "string" || !makePrerequisitePolicies.has(value)) {
+    throw new Error(`${label} make_prerequisite_policy must be one of run, skip`);
+  }
+  return value;
+}
+
 function normalizeWorkUnit(unit, index, scheduleLabel, scheduler, resourceLimits) {
   const label = `${scheduleLabel} work_units ${index + 1}`;
   if (!unit || typeof unit !== "object" || Array.isArray(unit)) {
@@ -283,6 +294,10 @@ function normalizeWorkUnit(unit, index, scheduleLabel, scheduler, resourceLimits
       scheduler,
     ),
     makeJobs: normalizeMakeJobs(unit.make_jobs, `${label} ${target}`, claims, scheduler),
+    makePrerequisitePolicy: normalizeMakePrerequisitePolicy(
+      unit.make_prerequisite_policy,
+      `${label} ${target}`,
+    ),
     env: normalizeEnv(unit.env, `${label} ${target}`),
     commandSpec: normalizeCommand(unit.command, `${label} ${target}`),
     serviceSession: unit.service_session && typeof unit.service_session === "object" && !Array.isArray(unit.service_session)

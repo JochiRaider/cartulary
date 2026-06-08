@@ -16,7 +16,7 @@ case "$SUITE" in
     ;;
 esac
 
-unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS LINT_SHELL_STRICT
+unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS LINT_SHELL_STRICT CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES
 
 cleanup() {
   local path
@@ -537,6 +537,7 @@ fi
 printf 'envflags %s MAKEFLAGS=%s MFLAGS=%s\n' "$target" "${MAKEFLAGS-}" "${MFLAGS-}" >>"$event_log"
 printf 'test-target %s %s\n' "$target" "${CARTULARY_TEST_TARGET:-}" >>"$event_log"
 printf 'strict-env %s %s\n' "$target" "${LINT_SHELL_STRICT:-unset}" >>"$event_log"
+printf 'skip-prereq %s %s\n' "$target" "${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-unset}" >>"$event_log"
 
 change_active() {
   local delta="$1"
@@ -783,6 +784,11 @@ run_scheduler() {
   local run_id="$3"
   shift 3
   local normalized_manifest="${manifest}.normalized"
+  local scheduler_skip_env=()
+
+  if [[ -n "${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES+x}" ]]; then
+    scheduler_skip_env+=("CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES}")
+  fi
 
   "$NODE_BIN" - "$manifest" "$normalized_manifest" <<'EOF'
 const fs = require("node:fs");
@@ -877,6 +883,7 @@ EOF
   CARTULARY_SERVICE_BACKED_GO_IO_LIMIT="${CARTULARY_SERVICE_BACKED_GO_IO_LIMIT:-}" \
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT="${CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT:-}" \
   CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT="${CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT:-}" \
+  "${scheduler_skip_env[@]}" \
   CARTULARY_TEST_RESULTS_DIR="${dir}/results" \
   CARTULARY_TEST_RUN_ID="$run_id" \
     "$NODE_BIN" "$SCRIPT" --target check --manifest "$normalized_manifest" "$@"
@@ -2613,6 +2620,35 @@ makeflags_events="$(cat "${makeflags_dir}/events.log")"
 assert_not_contains "$makeflags_events" "jobserver" "check child make env strips inherited jobserver tokens"
 assert_not_contains "$makeflags_events" "MFLAGS=-j" "check child make env strips inherited mflags jobs"
 assert_contains "$makeflags_events" "MAKEFLAGS=--trace" "check child make env preserves non-jobserver make flags"
+
+skip_policy_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-skip-policy.XXXXXX")"
+cleanup_paths+=("$skip_policy_dir")
+write_fake_make "$skip_policy_dir"
+skip_policy_manifest="${skip_policy_dir}/manifest.json"
+cat >"$skip_policy_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "host_cpu": 1 },
+      "work_units": [
+        { "target": "run-unit", "weight_ms": 2, "needs": [], "make_prerequisite_policy": "run", "produces_summary_targets": ["run-unit"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "skip-unit", "weight_ms": 1, "needs": ["run-unit"], "make_prerequisite_policy": "skip", "produces_summary_targets": ["skip-unit"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+      ]
+    }
+  ]
+}
+JSON
+skip_policy_output="$(
+  CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=1 \
+    run_scheduler "$skip_policy_dir" "$skip_policy_manifest" skip-policy --resource-limit host_cpu=1 2>&1
+)"
+assert_contains "$skip_policy_output" "[RESULT] target=check status=pass" "make prerequisite policy fixture passes"
+skip_policy_events="$(cat "${skip_policy_dir}/events.log")"
+assert_contains "$skip_policy_events" "skip-prereq run-unit unset" "run policy clears inherited prerequisite skip flag"
+assert_contains "$skip_policy_events" "skip-prereq skip-unit 1" "skip policy injects prerequisite skip flag"
+unset CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES
 
 failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-failure.XXXXXX")"
 cleanup_paths+=("$failure_dir")

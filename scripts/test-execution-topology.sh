@@ -473,6 +473,41 @@ assert.ok(
   checkSchedule.work_units.every((unit) => unit.local_input_stamp === undefined),
   "check schedule must not render retired local_input_stamp metadata",
 );
+assert.ok(
+  checkSchedule.work_units.every((unit) => ["run", "skip"].includes(unit.make_prerequisite_policy)),
+  "check schedule must render explicit make prerequisite policy values",
+);
+const checkUnitByTarget = new Map(checkSchedule.work_units.map((unit) => [unit.target, unit]));
+assert.deepEqual(
+  checkUnitByTarget.get("build-server")?.needs,
+  ["build-web"],
+  "scheduled build-server must depend on build-web as its embedded web asset producer",
+);
+assert.equal(
+  checkUnitByTarget.get("build-server")?.make_prerequisite_policy,
+  "run",
+  "scheduled build-server must run its Make prerequisites to prove the server binary",
+);
+assert.deepEqual(
+  checkUnitByTarget.get("build-web")?.needs,
+  ["check-frontend-install"],
+  "scheduled build-web must depend on frontend install readiness",
+);
+assert.equal(
+  checkUnitByTarget.get("build-web")?.make_prerequisite_policy,
+  "run",
+  "scheduled build-web must run its Make prerequisites to produce apps/web/dist",
+);
+assert.deepEqual(
+  checkUnitByTarget.get("otel-conformance")?.needs,
+  ["toolchain-drift", "build-web"],
+  "scheduled otel-conformance must wait for toolchain drift and the built web bundle",
+);
+assert.equal(
+  checkUnitByTarget.get("otel-conformance")?.make_prerequisite_policy,
+  "skip",
+  "scheduled otel-conformance must rely on scheduler-modeled build-web readiness",
+);
 assert.deepEqual(
   checkSchedule.work_units.find((unit) => unit.target === "lint-shell")?.env,
   { LINT_SHELL_STRICT: "1" },
@@ -865,6 +900,22 @@ assert.throws(
   "topology validation must reject scheduler-owned check work-unit env",
 );
 
+const invalidMakePrerequisitePolicyTopology = topologyFixture();
+invalidMakePrerequisitePolicyTopology.task_surface.targets.find(
+  (target) => target.name === "backend-unit",
+).check_schedule.make_prerequisite_policy = "sometimes";
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture(
+        "invalid-make-prerequisite-policy-topology.json",
+        invalidMakePrerequisitePolicyTopology,
+      ),
+    }),
+  /backend-unit\.check_schedule\.make_prerequisite_policy must be one of run, skip/,
+  "topology validation must reject unknown check work-unit make prerequisite policies",
+);
+
 const futureCheckTargetTopology = topologyFixture();
 futureCheckTargetTopology.task_surface.targets.push({
   name: "future-phase-check-leaf",
@@ -886,5 +937,10 @@ const futureCheckSchedule = renderCheckScheduleManifest(
 assert.ok(
   futureCheckSchedule.work_units.some((unit) => unit.target === "future-phase-check-leaf"),
   "new check-scheduled targets must be included through metadata without adding flat work units",
+);
+assert.equal(
+  futureCheckSchedule.work_units.find((unit) => unit.target === "future-phase-check-leaf")?.make_prerequisite_policy,
+  "skip",
+  "omitted check_schedule make prerequisite policy must normalize to skip for fixture compatibility",
 );
 EOF
