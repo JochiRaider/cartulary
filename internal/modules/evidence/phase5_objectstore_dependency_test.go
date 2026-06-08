@@ -288,6 +288,9 @@ type overrideObjectStore struct {
 	readCalls       int
 }
 
+var _ objectstore.Store = (*overrideObjectStore)(nil)
+var _ objectstore.TypedStore = (*overrideObjectStore)(nil)
+
 func (s *overrideObjectStore) UploadTarget(ctx context.Context, key string, expiresAt time.Time) (objectstore.UploadTarget, error) {
 	if s.uploadTargetErr != nil {
 		return objectstore.UploadTarget{}, s.uploadTargetErr
@@ -320,6 +323,85 @@ func (s *overrideObjectStore) ReadObject(ctx context.Context, key string, option
 		return nil, objectstore.ObjectInfo{}, s.readErr
 	}
 	return s.Store.ReadObject(ctx, key, options)
+}
+
+func (s *overrideObjectStore) CreateUploadTarget(ctx context.Context, request objectstore.UploadTargetRequest) (objectstore.UploadTarget, error) {
+	if s.uploadTargetErr != nil {
+		return objectstore.UploadTarget{}, s.uploadTargetErr
+	}
+	if typed, ok := s.Store.(objectstore.TypedStore); ok {
+		return typed.CreateUploadTarget(ctx, request)
+	}
+	return s.Store.UploadTarget(ctx, request.Key, request.ExpiresAt)
+}
+
+func (s *overrideObjectStore) Put(ctx context.Context, request objectstore.PutObjectRequest) (objectstore.PutObjectResult, error) {
+	if s.putErr != nil {
+		return objectstore.PutObjectResult{}, s.putErr
+	}
+	if typed, ok := s.Store.(objectstore.TypedStore); ok {
+		return typed.Put(ctx, request)
+	}
+	if err := s.Store.PutObject(ctx, request.Key, request.Body, request.Size, request.ContentType); err != nil {
+		return objectstore.PutObjectResult{}, err
+	}
+	return objectstore.PutObjectResult{SizeBytes: request.Size, ContentType: request.ContentType, Metadata: request.Metadata}, nil
+}
+
+func (s *overrideObjectStore) Head(ctx context.Context, request objectstore.HeadObjectRequest) (objectstore.ObjectInfo, error) {
+	s.mu.Lock()
+	s.statCalls++
+	s.mu.Unlock()
+	if s.statErr != nil {
+		return objectstore.ObjectInfo{}, s.statErr
+	}
+	if typed, ok := s.Store.(objectstore.TypedStore); ok {
+		return typed.Head(ctx, request)
+	}
+	return s.Store.StatObject(ctx, request.Key)
+}
+
+func (s *overrideObjectStore) Get(ctx context.Context, request objectstore.GetObjectRequest) (io.ReadCloser, objectstore.ObjectInfo, error) {
+	s.mu.Lock()
+	s.readCalls++
+	s.mu.Unlock()
+	if s.readErr != nil {
+		return nil, objectstore.ObjectInfo{}, s.readErr
+	}
+	if typed, ok := s.Store.(objectstore.TypedStore); ok {
+		return typed.Get(ctx, request)
+	}
+	return s.Store.ReadObject(ctx, request.Key, objectstore.ReadOptions{RangeStart: request.RangeStart, RangeEnd: request.RangeEnd})
+}
+
+func (s *overrideObjectStore) ListPrefix(ctx context.Context, request objectstore.ListPrefixRequest) (objectstore.ListPrefixResult, error) {
+	if typed, ok := s.Store.(objectstore.TypedStore); ok {
+		return typed.ListPrefix(ctx, request)
+	}
+	objects, err := s.Store.ListObjects(ctx, request.Prefix)
+	if err != nil {
+		return objectstore.ListPrefixResult{}, err
+	}
+	return objectstore.ListPrefixResult{Objects: objects}, nil
+}
+
+func (s *overrideObjectStore) Delete(ctx context.Context, request objectstore.DeleteObjectRequest) error {
+	if typed, ok := s.Store.(objectstore.TypedStore); ok {
+		return typed.Delete(ctx, request)
+	}
+	return s.Store.DeleteObject(ctx, request.Key)
+}
+
+func (s *overrideObjectStore) EnsureBucketForDevTest(ctx context.Context, request objectstore.EnsureBucketRequest) (objectstore.EnsureBucketResult, error) {
+	if typed, ok := s.Store.(objectstore.TypedStore); ok {
+		return typed.EnsureBucketForDevTest(ctx, request)
+	}
+	return objectstore.EnsureBucketResult{}, &objectstore.AdapterError{
+		Code:      objectstore.ErrorCodeInvalidRequest,
+		Reason:    objectstore.ReasonInvalidRequest,
+		Operation: objectstore.OperationEnsureBucketForDevTest,
+		Message:   "typed object-store operation unavailable on override store",
+	}
 }
 
 func (s *overrideObjectStore) resetCounts() {
