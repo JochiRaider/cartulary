@@ -1960,7 +1960,7 @@
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
         "GOVULNCHECK_BIN": "$(GOVULNCHECK_BIN)",
         "GOVULNCHECK_DB": "$(GOVULNCHECK_DB)",
-        "GOVULNCHECK_FLAGS": "-test",
+        "GOVULNCHECK_FLAGS": "-test -json",
         "GOVULNCHECK_PATTERNS": "./cmd/... ./internal/... ./db/... ./tools/..."
       },
       "command": [

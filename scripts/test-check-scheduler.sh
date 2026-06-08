@@ -631,13 +631,57 @@ write_failure_summary() {
   },
   "failure_class": "product",
   "failure_reason": "test_assertion_failure",
-  "failure_classes": { "product": 1, "config": 0, "infra": 0, "harness": 1, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
-  "failure_reasons": { "usage_error": 0, "configuration_error": 0, "preflight_error": 0, "service_start_error": 0, "service_readiness_timeout": 0, "fixture_error": 0, "resource_conflict": 0, "test_assertion_failure": 1, "child_target_failure": 0, "tool_diagnostic_failure": 0, "scheduler_accounting_error": 0, "artifact_error": 0, "cleanup_error": 0, "duration_baseline_drift": 0, "timeout_failure": 0, "cancelled_or_interrupted": 0, "unknown_failure": 1 },
+  "failure_classes": { "product": 1, "security": 0, "config": 0, "infra": 0, "harness": 1, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
+  "failure_reasons": { "usage_error": 0, "configuration_error": 0, "preflight_error": 0, "service_start_error": 0, "service_readiness_timeout": 0, "fixture_error": 0, "resource_conflict": 0, "test_assertion_failure": 1, "security_finding": 0, "child_target_failure": 0, "tool_diagnostic_failure": 0, "scheduler_accounting_error": 0, "artifact_error": 0, "cleanup_error": 0, "duration_baseline_drift": 0, "timeout_failure": 0, "cancelled_or_interrupted": 0, "unknown_failure": 1 },
   "failures": [
     { "failure_class": "harness", "failure_reason": "unknown_failure", "kind": "failure", "source": "shell", "target": "${target}", "runner": "shell", "label": "(shell command)", "message": "command exited with status 1", "artifact": ".cartulary/test-results/${CARTULARY_TEST_RUN_ID}/${target}/${target}/stderr.log" },
     { "failure_class": "product", "failure_reason": "test_assertion_failure", "kind": "failure", "source": "vitest", "target": "${target}", "runner": "vitest", "label": "synthetic runner assertion", "message": "synthetic product failure", "artifact": ".cartulary/test-results/${CARTULARY_TEST_RUN_ID}/${target}/raw/runner.json" }
   ],
   "failure_headline": "vitest synthetic runner assertion: synthetic product failure"
+}
+JSON
+}
+
+write_security_failure_summary() {
+  if [[ -z "${CARTULARY_TEST_RESULTS_DIR:-}" || -z "${CARTULARY_TEST_RUN_ID:-}" ]]; then
+    return 0
+  fi
+  mkdir -p "${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}"
+  cat >"${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}/target-summary.json" <<JSON
+{
+  "target": "${target}",
+  "status": "fail",
+  "start_time": "2026-01-01T00:00:00Z",
+  "end_time": "2026-01-01T00:00:01Z",
+  "executed_duration_ms": 1,
+  "logical_duration_ms": 1,
+  "reused_duration_ms": 0,
+  "derived_duration_ms": 0,
+  "wall_duration_ms": 1,
+  "critical_path_wall_duration_ms": 1,
+  "teardown_duration_ms": 0,
+  "counts": {
+    "phases": 1,
+    "tests": 0,
+    "failed": 1,
+    "authoritative": 0,
+    "support": 0,
+    "unmapped": 0,
+    "non_test": 1,
+    "authoritative_failed": 0,
+    "support_failed": 0,
+    "unmapped_failed": 0,
+    "non_test_failed": 1,
+    "packages": 0
+  },
+  "failure_class": "security",
+  "failure_reason": "security_finding",
+  "failure_classes": { "product": 0, "security": 1, "config": 0, "infra": 0, "harness": 0, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
+  "failure_reasons": { "usage_error": 0, "configuration_error": 0, "preflight_error": 0, "service_start_error": 0, "service_readiness_timeout": 0, "fixture_error": 0, "resource_conflict": 0, "test_assertion_failure": 0, "security_finding": 1, "child_target_failure": 0, "tool_diagnostic_failure": 0, "scheduler_accounting_error": 0, "artifact_error": 0, "cleanup_error": 0, "duration_baseline_drift": 0, "timeout_failure": 0, "cancelled_or_interrupted": 0, "unknown_failure": 0 },
+  "failures": [
+    { "failure_class": "security", "failure_reason": "security_finding", "kind": "failure", "source": "govulncheck", "target": "${target}", "runner": "shell", "label": "go-vulncheck", "message": "GO-2099-0001 reachable", "artifact": ".cartulary/test-results/${CARTULARY_TEST_RUN_ID}/${target}/${target}/govulncheck-findings.json" }
+  ],
+  "failure_headline": "govulncheck go-vulncheck: GO-2099-0001 reachable"
 }
 JSON
 }
@@ -715,6 +759,9 @@ write_nested_scheduler_progress
 sleep "$sleep_duration"
 if [[ "${FAKE_FAIL_TARGET:-}" == "$target" ]]; then
   echo "fake failure for $target" >&2
+  if [[ "${FAKE_SECURITY_FAIL_WITH_SUMMARY_TARGET:-}" == "$target" ]]; then
+    write_security_failure_summary
+  fi
   if [[ "${FAKE_FAIL_WITH_SUMMARY_TARGET:-}" == "$target" ]]; then
     write_failure_summary
   fi
@@ -2732,6 +2779,50 @@ assert_equals "$(json_field "$classified_failure_target_summary" "failure_reason
 assert_equals "$(json_field "$classified_failure_target_summary" "failure_headline")" "product reason=test_assertion_failure failure: synthetic product failure" "classified target summary headline"
 assert_equals "$(json_field "$classified_failure_tool_summary" "failure_class")" "product" "classified tool summary class"
 assert_equals "$(json_field "$classified_failure_tool_summary" "failure_reason")" "test_assertion_failure" "classified tool summary reason"
+
+security_failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-security-failure.XXXXXX")"
+cleanup_paths+=("$security_failure_dir")
+write_fake_make "$security_failure_dir"
+security_failure_manifest="${security_failure_dir}/manifest.json"
+cat >"$security_failure_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "host_cpu": 2 },
+      "work_units": [
+        { "target": "alpha", "weight_ms": 30, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "go-vulncheck", "weight_ms": 20, "needs": [], "produces_summary_targets": ["go-vulncheck"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "browser-e2e", "weight_ms": 10, "needs": ["go-vulncheck"], "produces_summary_targets": ["browser-e2e"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+      ]
+    }
+  ]
+}
+JSON
+set +e
+security_failure_output="$(
+  FAKE_FAIL_TARGET=go-vulncheck \
+    FAKE_SECURITY_FAIL_WITH_SUMMARY_TARGET=go-vulncheck \
+    FAKE_SLEEP_ALPHA=0.08 \
+    FAKE_SLEEP_GO_VULNCHECK=0.01 \
+    run_scheduler "$security_failure_dir" "$security_failure_manifest" security-failure --resource-limit host_cpu=2 2>&1
+)"
+security_failure_status=$?
+set -e
+assert_equals "$security_failure_status" "1" "security child failure exit status"
+assert_contains "$security_failure_output" "[SUMMARY] target=check status=fail failure_class=security reason=security_finding" "security child scheduler output"
+assert_contains "$security_failure_output" "failed=go-vulncheck" "security child failed work unit"
+security_failure_scheduler_summary="${security_failure_dir}/results/security-failure/check/scheduler-summary.json"
+security_failure_target_summary="${security_failure_dir}/results/security-failure/check/target-summary.json"
+security_failure_tool_summary="${security_failure_dir}/results/security-failure/check/tool-run-summary.json"
+assert_equals "$(json_field "$security_failure_scheduler_summary" "failure_class")" "security" "security scheduler summary class"
+assert_equals "$(json_field "$security_failure_scheduler_summary" "failure_reason")" "security_finding" "security scheduler summary reason"
+assert_equals "$(json_field "$security_failure_scheduler_summary" "failed_work_unit")" "go-vulncheck" "security scheduler failed work unit"
+assert_equals "$(json_field "$security_failure_target_summary" "failure_class")" "security" "security target summary class"
+assert_equals "$(json_field "$security_failure_target_summary" "failure_reason")" "security_finding" "security target summary reason"
+assert_equals "$(json_field "$security_failure_tool_summary" "failure_class")" "security" "security tool summary class"
+assert_equals "$(json_field "$security_failure_tool_summary" "failure_reason")" "security_finding" "security tool summary reason"
 
 service_skip_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-service-skip.XXXXXX")"
 cleanup_paths+=("$service_skip_dir")

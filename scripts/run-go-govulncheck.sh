@@ -6,13 +6,30 @@ GO_BIN="${GO:-go}"
 GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
 GOVULNCHECK_BIN="${GOVULNCHECK_BIN:-$ROOT_DIR/tmp/toolbin/govulncheck-v1.3.0}"
-GOVULNCHECK_FLAGS="${GOVULNCHECK_FLAGS:--test}"
+GOVULNCHECK_FLAGS="${GOVULNCHECK_FLAGS:--test -json}"
 GOVULNCHECK_PATTERNS="${GOVULNCHECK_PATTERNS:-./cmd/... ./internal/... ./db/... ./tools/...}"
 GOVULNCHECK_DB="${GOVULNCHECK_DB:-}"
+NODE_BIN="${NODE_BIN:-}"
 
 # shellcheck source=scripts/lib/generated-artifacts.sh
 # shellcheck disable=SC1091
 source "$ROOT_DIR/scripts/lib/generated-artifacts.sh"
+
+resolve_node_bin() {
+  if [[ -n "$NODE_BIN" && -x "$NODE_BIN" ]]; then
+    printf '%s\n' "$NODE_BIN"
+    return 0
+  fi
+  if [[ -x "$ROOT_DIR/tmp/node-runtime/bin/node" ]]; then
+    printf '%s\n' "$ROOT_DIR/tmp/node-runtime/bin/node"
+    return 0
+  fi
+  if command -v node >/dev/null 2>&1; then
+    command -v node
+    return 0
+  fi
+  return 1
+}
 
 if [[ "$GO_BIN" != */* ]] && command -v "$GO_BIN" >/dev/null 2>&1; then
   GO_BIN="$(command -v "$GO_BIN")"
@@ -65,7 +82,59 @@ if [[ "${#packages[@]}" -eq 0 ]]; then
   exit 1
 fi
 
+tmp_dir=""
+if [[ -n "${CARTULARY_PHASE_ARTIFACT_DIR:-}" ]]; then
+  mkdir -p "$CARTULARY_PHASE_ARTIFACT_DIR"
+  raw_output="$CARTULARY_PHASE_ARTIFACT_DIR/govulncheck-output.jsonstream"
+  findings_output="$CARTULARY_PHASE_ARTIFACT_DIR/govulncheck-findings.json"
+else
+  tmp_dir="$(mktemp -d)"
+  raw_output="$tmp_dir/govulncheck-output.jsonstream"
+  findings_output="$tmp_dir/govulncheck-findings.json"
+fi
+
+trap 'if [[ -n "$tmp_dir" ]]; then rm -rf "$tmp_dir"; fi' EXIT
+
+set +e
 env GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
   PATH="$(dirname "$GO_BIN"):$PATH" \
-  "$GOVULNCHECK_BIN" "${args[@]}" "${packages[@]}"
+  "$GOVULNCHECK_BIN" "${args[@]}" "${packages[@]}" >"$raw_output"
+scan_status=$?
+set -e
+
+cat "$raw_output"
+
+node_bin="$(resolve_node_bin || true)"
+if [[ -z "$node_bin" ]]; then
+  echo "go-vulncheck requires node to parse Govulncheck JSON findings" >&2
+  if [[ "$scan_status" -ne 0 ]]; then
+    exit "$scan_status"
+  fi
+  exit 1
+fi
+
+set +e
+"$node_bin" "$ROOT_DIR/scripts/lib/govulncheck-findings.mjs" \
+  --input "$raw_output" \
+  --output "$findings_output"
+findings_status=$?
+set -e
+
+case "$findings_status" in
+  0)
+    if [[ "$scan_status" -ne 0 ]]; then
+      exit "$scan_status"
+    fi
+    exit 0
+    ;;
+  1)
+    exit 1
+    ;;
+  *)
+    if [[ "$scan_status" -ne 0 ]]; then
+      exit "$scan_status"
+    fi
+    exit 1
+    ;;
+esac

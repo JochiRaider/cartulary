@@ -101,8 +101,75 @@ govulncheck_args_log="$scratch/govulncheck-args.log"
 govulncheck_env_log="$scratch/govulncheck-env.log"
 cat >"$fake_govulncheck" <<'EOF'
 #!/usr/bin/env bash
+set -euo pipefail
 printf '%s\n' "$@" >"${FAKE_GOVULNCHECK_ARGS_LOG:?}"
 printf 'GOCACHE=%s\nGOMODCACHE=%s\nPATH=%s\n' "${GOCACHE:-}" "${GOMODCACHE:-}" "${PATH:-}" >"${FAKE_GOVULNCHECK_ENV_LOG:?}"
+cat <<'JSON'
+{
+  "config": {
+    "protocol_version": "v1.0.0",
+    "scanner_name": "govulncheck",
+    "scanner_version": "v1.3.0",
+    "scan_level": "symbol",
+    "scan_mode": "source"
+  }
+}
+JSON
+if [[ "${FAKE_GOVULNCHECK_MODE:-pass}" == "malformed" ]]; then
+  printf '%s\n' 'not-json'
+  exit 0
+fi
+if [[ "${FAKE_GOVULNCHECK_MODE:-pass}" == "blocking" ]]; then
+  cat <<'JSON'
+{
+  "osv": {
+    "id": "GO-2099-0001",
+    "aliases": ["CVE-2099-0001"],
+    "summary": "synthetic reachable vulnerability",
+    "affected": [
+      {
+        "package": {
+          "name": "example.com/vulnerable",
+          "ecosystem": "Go"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "1.2.3"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+{
+  "finding": {
+    "osv": "GO-2099-0001",
+    "fixed_version": "v1.2.3",
+    "trace": [
+      {
+        "module": "example.com/vulnerable",
+        "version": "v1.2.2",
+        "package": "example.com/vulnerable",
+        "function": "Explode",
+        "position": {
+          "filename": "vulnerable.go",
+          "line": 7,
+          "column": 11
+        }
+      }
+    ]
+  }
+}
+JSON
+fi
 EOF
 chmod +x "$fake_govulncheck"
 
@@ -143,3 +210,47 @@ env_output="$(cat "$govulncheck_env_log")"
 assert_contains "$env_output" "GOCACHE=$scratch/go-cache" "govulncheck GOCACHE"
 assert_contains "$env_output" "GOMODCACHE=$scratch/go-mod-cache" "govulncheck GOMODCACHE"
 assert_contains "$env_output" "PATH=$scratch:" "govulncheck PATH includes GO directory"
+
+phase_artifact_dir="$scratch/phase-artifacts"
+status=0
+output="$(
+  GO="$fake_go" \
+    GO_CACHE_DIR="$scratch/go-cache" \
+    GO_MOD_CACHE_DIR="$scratch/go-mod-cache" \
+    GOVULNCHECK_BIN="$fake_govulncheck" \
+    GOVULNCHECK_FLAGS="-test -json" \
+    CARTULARY_PHASE_ARTIFACT_DIR="$phase_artifact_dir" \
+    FAKE_GO_LIST_ARGS_LOG="$go_list_args_log" \
+    FAKE_GOVULNCHECK_ARGS_LOG="$govulncheck_args_log" \
+    FAKE_GOVULNCHECK_ENV_LOG="$govulncheck_env_log" \
+    FAKE_GOVULNCHECK_MODE="blocking" \
+    "$SCRIPT" 2>&1
+)" || status=$?
+if [[ "$status" -eq 0 ]]; then
+  fail "blocking Govulncheck finding: expected wrapper failure"
+fi
+assert_contains "$output" "GO-2099-0001" "blocking Govulncheck raw output"
+findings_json="$(cat "$phase_artifact_dir/govulncheck-findings.json")"
+assert_contains "$findings_json" '"schema_id": "cartulary.govulncheck_findings.v1"' "Govulncheck findings schema"
+assert_contains "$findings_json" '"blocking_count": 1' "Govulncheck blocking count"
+assert_contains "$findings_json" '"reachability": "symbol"' "Govulncheck symbol reachability"
+
+malformed_artifact_dir="$scratch/malformed-phase-artifacts"
+status=0
+output="$(
+  GO="$fake_go" \
+    GO_CACHE_DIR="$scratch/go-cache" \
+    GO_MOD_CACHE_DIR="$scratch/go-mod-cache" \
+    GOVULNCHECK_BIN="$fake_govulncheck" \
+    GOVULNCHECK_FLAGS="-test -json" \
+    CARTULARY_PHASE_ARTIFACT_DIR="$malformed_artifact_dir" \
+    FAKE_GO_LIST_ARGS_LOG="$go_list_args_log" \
+    FAKE_GOVULNCHECK_ARGS_LOG="$govulncheck_args_log" \
+    FAKE_GOVULNCHECK_ENV_LOG="$govulncheck_env_log" \
+    FAKE_GOVULNCHECK_MODE="malformed" \
+    "$SCRIPT" 2>&1
+)" || status=$?
+if [[ "$status" -eq 0 ]]; then
+  fail "malformed Govulncheck JSON: expected wrapper failure"
+fi
+assert_contains "$output" "govulncheck JSON parse failed" "malformed Govulncheck diagnostic"

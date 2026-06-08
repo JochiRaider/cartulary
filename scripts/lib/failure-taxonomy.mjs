@@ -1,5 +1,6 @@
 export const failureClassOrder = [
   "product",
+  "security",
   "config",
   "infra",
   "harness",
@@ -18,6 +19,7 @@ export const failureReasonOrder = [
   "fixture_error",
   "resource_conflict",
   "test_assertion_failure",
+  "security_finding",
   "child_target_failure",
   "tool_diagnostic_failure",
   "scheduler_accounting_error",
@@ -63,6 +65,7 @@ const reasonClassMap = new Map([
   ["fixture_error", "harness"],
   ["resource_conflict", "infra"],
   ["test_assertion_failure", "product"],
+  ["security_finding", "security"],
   ["child_target_failure", "harness"],
   ["tool_diagnostic_failure", "harness"],
   ["scheduler_accounting_error", "harness"],
@@ -77,6 +80,7 @@ const reasonClassMap = new Map([
 
 const classDefaultReasonMap = new Map([
   ["product", "test_assertion_failure"],
+  ["security", "security_finding"],
   ["config", "configuration_error"],
   ["infra", "preflight_error"],
   ["harness", "unknown_failure"],
@@ -95,6 +99,7 @@ const reasonPublicExitCodeMap = new Map([
   ["fixture_error", 3],
   ["resource_conflict", 4],
   ["test_assertion_failure", 10],
+  ["security_finding", 1],
   ["tool_diagnostic_failure", 1],
   ["scheduler_accounting_error", 11],
   ["frontend_row_accounting", 11],

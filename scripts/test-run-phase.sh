@@ -536,6 +536,79 @@ biome_diagnostic_failure_summary="$biome_diagnostic_failure_results/biome-diagno
 assert_equals "$(json_field "$biome_diagnostic_failure_summary" "failure_reason")" "tool_diagnostic_failure" "biome diagnostic summary reason"
 assert_equals "$(json_field "$biome_diagnostic_failure_summary" "dossiers.0.message")" "$biome_message" "biome diagnostic summary message"
 
+govulncheck_security_results="$(mktemp -d "$ROOT_DIR/tmp/run-phase-govulncheck-results.XXXXXX")"
+cleanup_paths+=("$govulncheck_security_results")
+govulncheck_security_script="$govulncheck_security_results/fake-govulncheck-phase.sh"
+cat >"$govulncheck_security_script" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+cat >"$CARTULARY_PHASE_ARTIFACT_DIR/govulncheck-findings.json" <<'JSON'
+{
+  "schema_id": "cartulary.govulncheck_findings.v1",
+  "tool": "govulncheck",
+  "status": "fail",
+  "counts": {
+    "finding_count": 1,
+    "blocking_count": 1
+  },
+  "blocking_vulnerability_ids": ["GO-2099-0001"],
+  "findings": [
+    {
+      "id": "GO-2099-0001",
+      "reachability": "symbol",
+      "blocking": true
+    }
+  ]
+}
+JSON
+printf '%s\n' '=== Symbol Results ==='
+exit 1
+EOF
+chmod +x "$govulncheck_security_script"
+set +e
+govulncheck_security_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$govulncheck_security_results" \
+  CARTULARY_TEST_RUN_ID="govulncheck-security-failure" \
+  CARTULARY_TEST_TARGET="go-vulncheck" \
+    "$HELPER" "go-vulncheck" -- "$govulncheck_security_script" \
+    2>&1
+)"
+govulncheck_security_status=$?
+set -e
+assert_equals "$govulncheck_security_status" "1" "Govulncheck security phase status"
+govulncheck_message="govulncheck found 1 symbol-reachable vulnerabilities: GO-2099-0001"
+assert_contains "$govulncheck_security_output" "reason=security_finding" "Govulncheck security failure reason"
+assert_contains "$govulncheck_security_output" "$govulncheck_message" "Govulncheck security failure message"
+govulncheck_security_summary="$govulncheck_security_results/govulncheck-security-failure/go-vulncheck/go-vulncheck/phase-summary.json"
+govulncheck_security_tool_summary="$govulncheck_security_results/govulncheck-security-failure/go-vulncheck/go-vulncheck/tool-run-summary.json"
+assert_equals "$(json_field "$govulncheck_security_summary" "failure_class")" "security" "Govulncheck security summary class"
+assert_equals "$(json_field "$govulncheck_security_summary" "failure_reason")" "security_finding" "Govulncheck security summary reason"
+assert_equals "$(json_field "$govulncheck_security_summary" "failure_classes.security")" "1" "Govulncheck security class count"
+assert_equals "$(json_field "$govulncheck_security_summary" "failure_reasons.security_finding")" "1" "Govulncheck security reason count"
+assert_equals "$(json_field "$govulncheck_security_summary" "dossiers.0.message")" "$govulncheck_message" "Govulncheck security dossier message"
+assert_equals "$(json_field "$govulncheck_security_tool_summary" "extensions.cartulary.security.govulncheck.blocking_count")" "1" "Govulncheck security extension blocking count"
+
+gosec_security_results="$(mktemp -d "$ROOT_DIR/tmp/run-phase-gosec-results.XXXXXX")"
+cleanup_paths+=("$gosec_security_results")
+set +e
+gosec_security_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$gosec_security_results" \
+  CARTULARY_TEST_RUN_ID="gosec-security-failure" \
+  CARTULARY_TEST_TARGET="go-gosec-targeted" \
+    "$HELPER" "go-gosec-targeted" -- bash -lc 'printf "%s\n" "G304: Potential file inclusion via variable"; exit 1' \
+    2>&1
+)"
+gosec_security_status=$?
+set -e
+assert_equals "$gosec_security_status" "1" "Gosec security phase status"
+assert_contains "$gosec_security_output" "reason=security_finding" "Gosec security failure reason"
+gosec_security_summary="$gosec_security_results/gosec-security-failure/go-gosec-targeted/go-gosec-targeted/phase-summary.json"
+assert_equals "$(json_field "$gosec_security_summary" "failure_class")" "security" "Gosec security summary class"
+assert_equals "$(json_field "$gosec_security_summary" "failure_reason")" "security_finding" "Gosec security summary reason"
+
 single_span_results="$(mktemp -d "$ROOT_DIR/tmp/single-span-duration.XXXXXX")"
 cleanup_paths+=("$single_span_results")
 single_span_phase_dir="$single_span_results/single-span/short-target/short-phase"
@@ -575,7 +648,7 @@ cat >"$single_span_phase_dir/phase-summary.json" <<'JSON'
     "non_test_failed": 0
   },
   "failure_class": null,
-  "failure_classes": { "product": 0, "config": 0, "infra": 0, "harness": 0, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
+  "failure_classes": { "product": 0, "security": 0, "config": 0, "infra": 0, "harness": 0, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
   "failures": [],
   "failure_headline": "",
   "owners": [],
@@ -659,7 +732,7 @@ cat >"$infra_phase_dir/phase-summary.json" <<'JSON'
     "packages": 1
   },
   "failure_class": null,
-  "failure_classes": { "product": 0, "config": 0, "infra": 0, "harness": 0, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
+  "failure_classes": { "product": 0, "security": 0, "config": 0, "infra": 0, "harness": 0, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
   "failures": [],
   "failure_headline": "",
   "owners": [],
@@ -1362,7 +1435,7 @@ cat >"$skipped_child_run/failed-backend/target-summary.json" <<'JSON'
   "accounting_modes": { "actual": 1, "reused": 0, "derived": 0 },
   "counts": { "phases": 1, "tests": 1, "failed": 1, "authoritative": 1, "support": 0, "unmapped": 0, "non_test": 0, "authoritative_failed": 1, "support_failed": 0, "unmapped_failed": 0, "non_test_failed": 0, "packages": 1 },
   "failure_class": "product",
-  "failure_classes": { "product": 1, "config": 0, "infra": 0, "harness": 0, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
+  "failure_classes": { "product": 1, "security": 0, "config": 0, "infra": 0, "harness": 0, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
   "failures": [{ "failure_class": "product", "kind": "test", "target": "failed-backend", "message": "reported test failure" }],
   "failure_headline": "test: reported test failure",
   "artifacts": { "dir": ".cartulary/test-results/skipped-child/failed-backend" }

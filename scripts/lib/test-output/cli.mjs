@@ -1165,6 +1165,11 @@ function writePhaseArtifacts(context, details) {
     )
       ? path.join(context.phaseDir, "security-profiles.jsonl")
       : "",
+    govulncheck_findings: existsSync(
+      path.join(context.phaseDir, "govulncheck-findings.json"),
+    )
+      ? path.join(context.phaseDir, "govulncheck-findings.json")
+      : "",
     playwright_timing: playwrightTimingPath,
   })) {
     if (!value) {
@@ -1309,6 +1314,9 @@ function writePhaseArtifacts(context, details) {
   const securityProfilesPath = artifacts.security_profiles
     ? resolveArtifactPath(artifacts.security_profiles)
     : "";
+  const govulncheckFindingsPath = artifacts.govulncheck_findings
+    ? resolveArtifactPath(artifacts.govulncheck_findings)
+    : "";
   const shellcheckFilesChecked =
     shellcheckInventoryPath && existsSync(shellcheckInventoryPath)
       ? readFileSync(shellcheckInventoryPath, "utf8")
@@ -1321,6 +1329,23 @@ function writePhaseArtifacts(context, details) {
           .split(/\r?\n/u)
           .filter(Boolean).length
       : null;
+  const govulncheckFindings =
+    govulncheckFindingsPath && existsSync(govulncheckFindingsPath)
+      ? readJsonIfExists(govulncheckFindingsPath)
+      : null;
+  const securityExtension = {};
+  if (securityProfileCount !== null) {
+    securityExtension.profile_count = securityProfileCount;
+  }
+  if (govulncheckFindings) {
+    securityExtension.govulncheck = {
+      status: govulncheckFindings.status ?? "",
+      finding_count: govulncheckFindings.counts?.finding_count ?? 0,
+      blocking_count: govulncheckFindings.counts?.blocking_count ?? 0,
+      blocking_vulnerability_ids:
+        govulncheckFindings.blocking_vulnerability_ids ?? [],
+    };
+  }
   const toolSummary = buildToolRunSummary({
     target: context.target,
     command:
@@ -1373,6 +1398,13 @@ function writePhaseArtifacts(context, details) {
       artifacts.security_profiles
         ? artifactRef("security_profiles", artifacts.security_profiles, "jsonl")
         : null,
+      artifacts.govulncheck_findings
+        ? artifactRef(
+            "govulncheck_findings",
+            artifacts.govulncheck_findings,
+            "json",
+          )
+        : null,
     ],
     logArtifacts: Object.entries(artifacts)
       .filter(([key]) => key.endsWith("_log"))
@@ -1396,8 +1428,8 @@ function writePhaseArtifacts(context, details) {
       ...(shellcheckFilesChecked !== null
         ? { "cartulary.lint_shell": { files_checked: shellcheckFilesChecked } }
         : {}),
-      ...(securityProfileCount !== null
-        ? { "cartulary.security": { profile_count: securityProfileCount } }
+      ...(Object.keys(securityExtension).length > 0
+        ? { "cartulary.security": securityExtension }
         : {}),
     },
   });
@@ -4702,6 +4734,12 @@ function classifyShellFailureDetails(context, stdoutLines, stderrLines, message)
   ) {
     return { failure_class: "infra", failure_reason: "service_start_error" };
   }
+  if (isSecurityScannerFindingFailure(context, text)) {
+    return {
+      failure_class: "security",
+      failure_reason: "security_finding",
+    };
+  }
   if (isToolDiagnosticShellFailure(context, text)) {
     return {
       failure_class: "harness",
@@ -4723,8 +4761,87 @@ function classifyShellFailureDetails(context, stdoutLines, stderrLines, message)
   };
 }
 
+function firstStructuredToolFailureLine(context) {
+  return govulncheckFailureLine(context);
+}
+
+function isSecurityScannerFindingFailure(context, text) {
+  return isGovulncheckSecurityFinding(context) || isGosecSecurityFinding(context, text);
+}
+
+function govulncheckFindingsPath(context) {
+  const commandContext = [context.target, context.label, context.command]
+    .join("\n")
+    .toLowerCase();
+  if (
+    !commandContext.includes("go-vulncheck") &&
+    !commandContext.includes("govulncheck")
+  ) {
+    return "";
+  }
+  return path.join(context.phaseDir, "govulncheck-findings.json");
+}
+
+function readGovulncheckFindings(context) {
+  const file = govulncheckFindingsPath(context);
+  if (!file || !existsSync(file)) {
+    return null;
+  }
+  const findings = readJsonIfExists(file);
+  if (findings?.schema_id !== "cartulary.govulncheck_findings.v1") {
+    return null;
+  }
+  return findings;
+}
+
+function govulncheckFailureLine(context) {
+  const findings = readGovulncheckFindings(context);
+  const blockingCount = findings?.counts?.blocking_count ?? 0;
+  if (blockingCount <= 0) {
+    return "";
+  }
+  const ids = (findings.blocking_vulnerability_ids ?? []).slice(0, 5);
+  const suffix = ids.length > 0 ? `: ${ids.join(",")}` : "";
+  return `govulncheck found ${blockingCount} symbol-reachable vulnerabilities${suffix}`;
+}
+
+function isGovulncheckSecurityFinding(context) {
+  const findings = readGovulncheckFindings(context);
+  return (findings?.counts?.blocking_count ?? 0) > 0;
+}
+
+function isGosecSecurityFinding(context, text) {
+  const commandContext = [context.target, context.label, context.command]
+    .join("\n")
+    .toLowerCase();
+  if (
+    !commandContext.includes("go-gosec-targeted") &&
+    !commandContext.includes("gosec")
+  ) {
+    return false;
+  }
+  return /\bg[0-9]{3}\b/u.test(text) || /\bissues?:\s*[1-9][0-9]*\b/u.test(text);
+}
+
 function isToolDiagnosticShellFailure(context, text) {
-  return isShellCheckShellFailure(context, text) || isBiomeShellFailure(context, text);
+  return (
+    isShellCheckShellFailure(context, text) ||
+    isBiomeShellFailure(context, text) ||
+    isGovulncheckToolDiagnosticFailure(context, text)
+  );
+}
+
+function isGovulncheckToolDiagnosticFailure(context, text) {
+  const commandContext = [context.target, context.label, context.command]
+    .join("\n")
+    .toLowerCase();
+  if (
+    !commandContext.includes("go-vulncheck") &&
+    !commandContext.includes("govulncheck")
+  ) {
+    return false;
+  }
+  return text.includes("govulncheck json parse failed");
 }
 
 function isShellCheckShellFailure(context, text) {
@@ -4792,9 +4909,11 @@ function handleShellPhase() {
 
   const stderrLines = splitLogLines(stderrLog);
   const stdoutLines = splitLogLines(stdoutLog);
+  const structuredFailureLine = firstStructuredToolFailureLine(context);
   const messageBase =
     firstKnownToolDiagnosticLine(stderrLines) ||
     firstKnownToolDiagnosticLine(stdoutLines) ||
+    structuredFailureLine ||
     firstActionableLine(stderrLines) ||
     firstActionableLine(stdoutLines) ||
     `command exited with status ${context.exitStatus}`;
