@@ -290,7 +290,13 @@
       "coverage": "authoritative",
       "runner": "vitest",
       "file": "apps/web/src/WorkbookShell.phase3.autosave.test.tsx",
-      "title": "Phase 3 U-3-05 autosaves on Enter, Tab, blur, and paste completion without a Save button and keeps exact save-state labels",
+      "titles": [
+        "Phase 3 U-3-05 autosaves Enter without a Save button and keeps exact save-state labels",
+        "Phase 3 U-3-05 autosaves Tab without a Save button and keeps exact save-state labels",
+        "Phase 3 U-3-05 autosaves blur without a Save button and keeps exact save-state labels",
+        "Phase 3 U-3-05 autosaves paste completion without a Save button and keeps exact save-state labels",
+        "Phase 3 U-3-05 reports Conflict after autosave failure and preserves local editor value"
+      ],
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
       "claim": "The workbook component proves autosave commits on Enter, Tab, blur, and paste completion without a Save button, with exact `Syncing`, `Saved`, and `Conflict` labels.",

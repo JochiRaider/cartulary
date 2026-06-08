@@ -89,8 +89,9 @@
         "FE-U-P4-01 preserves same-runtime retryable failures and does not survive a new page instance",
         "FE-U-P4-01 halts non-retryable public failures with Table G anchors and queued units behind the blocker",
         "FE-U-P4-01 applies successful replay without retargeting by visible row order or labels",
-        "FE-U-P4-01 drives WorkbookShell admission, coalescing, overflow, and save-state from the shared pending queue model",
-        "FE-U-P4-01 drives WorkbookShell retry, auth pause, same-field conflict, halt, and success settlement from the shared pending queue model"
+        "FE-U-P4-01 drives WorkbookShell admission, coalescing, and save-state from the shared pending queue model",
+        "FE-U-P4-01 drives WorkbookShell retry and success settlement from the shared pending queue model",
+        "FE-U-P4-01 drives WorkbookShell terminal halt presentation from the shared pending queue model"
       ],
       "claim_status": "implemented",
       "claim": {

@@ -284,6 +284,10 @@ const workbookAsyncTimeoutMs = positiveIntegerEnv(
   3000,
 );
 
+export async function flushWorkbookAsync() {
+  await new Promise((resolve) => window.setTimeout(resolve, 0));
+}
+
 function workbookGridScope(
   container: HTMLElement,
   surface: WorkbookSurface,
@@ -571,7 +575,7 @@ export async function typeInputValue(
       throw new Error(`Expected input value ${value}, got ${input.value}.`);
     }
   });
-  await new Promise((resolve) => window.setTimeout(resolve, 0));
+  await flushWorkbookAsync();
 }
 
 export async function changeInputValue(
@@ -597,7 +601,7 @@ export async function changeInputValue(
       timeout: workbookAsyncTimeoutMs,
     },
   );
-  await new Promise((resolve) => window.setTimeout(resolve, 0));
+  await flushWorkbookAsync();
 }
 
 function controlledInputValueDiagnostic(

@@ -23,7 +23,7 @@ func SafeAttributes(attrs ...attribute.KeyValue) []attribute.KeyValue {
 
 func safeAttribute(attr attribute.KeyValue) bool {
 	key := string(attr.Key)
-	if key == "" || attr.Value.Type() == attribute.INVALID {
+	if key == "" || attr.Value.Type() == attribute.EMPTY {
 		return false
 	}
 	switch key {

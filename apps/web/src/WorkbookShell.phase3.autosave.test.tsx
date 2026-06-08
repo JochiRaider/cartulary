@@ -5,13 +5,7 @@ import {
   saveStateTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   changeInputValue,
@@ -20,6 +14,7 @@ import {
   errorEnvelope,
   extractTimelineJSONBody,
   extractTimelinePatchBody,
+  flushWorkbookAsync,
   installTimelineWorkbookTestGlobals,
   setInputValueWithoutEvent,
   successEnvelope,
@@ -50,7 +45,87 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     cleanupTimelineWorkbookTestGlobals();
   });
 
-  it("Phase 3 U-3-05 autosaves on Enter, Tab, blur, and paste completion without a Save button and keeps exact save-state labels", async () => {
+  function mockInitialTimelineRow(summary = "Alpha") {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary,
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+  }
+
+  function mockSummaryPatchResponse(summary: string, rowVersion = 2) {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: `change-set-${rowVersion}`,
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion,
+          summary,
+          captureState: "enriched",
+        }),
+      }),
+    );
+  }
+
+  function mockSourceTextPatchResponse(sourceText: string, rowVersion = 2) {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: `change-set-${rowVersion}`,
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion,
+          summary: "Alpha",
+          sourceText,
+          captureState: "enriched",
+        }),
+      }),
+    );
+  }
+
+  async function renderSingleTimelineRow() {
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    expect((await screen.findByTestId(saveStateTestId())).textContent).toBe(
+      "Saved",
+    );
+    expect(screen.queryByRole("button", { name: /^save$/i })).toBeNull();
+    return (await screen.findByTestId(
+      rowCellTestId("record-1", "timeline.summary"),
+    )) as HTMLInputElement;
+  }
+
+  async function expectSavedRowVersion(rowVersion: number) {
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe(String(rowVersion));
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
+    });
+  }
+
+  function expectTimelinePatch(
+    callIndex: number,
+    options: { baseRowVersion: number; fieldKey: string; value: string },
+  ) {
+    const body = extractTimelinePatchBody(fetchMock, callIndex);
+    expect(body.base_row_version).toBe(options.baseRowVersion);
+    expect(body.changes[0]).toEqual({
+      field_key: options.fieldKey,
+      value: options.value,
+    });
+  }
+
+  it("Phase 3 U-3-05 autosaves Enter without a Save button and keeps exact save-state labels", async () => {
     const draftRow = createDraftRow(1);
     draftRow.values.summary = "First timeline fact";
 
@@ -97,134 +172,55 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     expect(continuedRows[1]?.recordId).toBeNull();
     expect(continuedRows[1]?.values.summary).toBe("");
 
-    const pendingBlurPatch = deferred<Response>();
-
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "incident-1",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "record-1",
-            rowVersion: 1,
-            summary: "Alpha",
-            captureState: "rough",
-          }),
-        ],
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-2",
-        row: timelineRow({
-          recordId: "record-1",
-          rowVersion: 2,
-          summary: "Updated via enter",
-          captureState: "enriched",
-        }),
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-3",
-        row: timelineRow({
-          recordId: "record-1",
-          rowVersion: 3,
-          summary: "Updated via tab",
-          captureState: "enriched",
-        }),
-      }),
-    );
-    fetchMock.mockReturnValueOnce(pendingBlurPatch.promise);
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-4",
-        row: timelineRow({
-          recordId: "record-1",
-          rowVersion: 4,
-          summary: "Updated via blur",
-          captureState: "enriched",
-        }),
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-5",
-        row: timelineRow({
-          recordId: "record-1",
-          rowVersion: 4,
-          summary: "Updated via blur",
-          sourceText: "Pasted transcript",
-          captureState: "enriched",
-        }),
-      }),
-    );
-
-    render(<TimelineWorkbook incidentId="incident-1" />);
-
-    expect((await screen.findByTestId(saveStateTestId())).textContent).toBe(
-      "Saved",
-    );
-    expect(screen.queryByRole("button", { name: /^save$/i })).toBeNull();
-
-    const summaryInput = (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.summary"),
-    )) as HTMLInputElement;
+    mockInitialTimelineRow();
+    mockSummaryPatchResponse("Updated via enter");
+    const summaryInput = await renderSingleTimelineRow();
     await changeInputValue(summaryInput, "Updated via enter");
     fireEvent.keyDown(summaryInput, { key: "Enter" });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    expect(extractTimelinePatchBody(fetchMock, 1).base_row_version).toBe(1);
-    expect(extractTimelinePatchBody(fetchMock, 1).changes[0]).toEqual({
-      field_key: "timeline.summary",
+    expectTimelinePatch(1, {
+      baseRowVersion: 1,
+      fieldKey: "timeline.summary",
       value: "Updated via enter",
     });
-    await waitFor(() => {
-      expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
-      ).toBe("2");
-      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
-    });
+    await expectSavedRowVersion(2);
+  });
 
-    const tabInput = (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.summary"),
-    )) as HTMLInputElement;
+  it("Phase 3 U-3-05 autosaves Tab without a Save button and keeps exact save-state labels", async () => {
+    mockInitialTimelineRow();
+    mockSummaryPatchResponse("Updated via tab");
+    const tabInput = await renderSingleTimelineRow();
     await changeInputValue(tabInput, "Updated via tab");
     fireEvent.keyDown(tabInput, { key: "Tab" });
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    expect(extractTimelinePatchBody(fetchMock, 2).base_row_version).toBe(2);
-    expect(extractTimelinePatchBody(fetchMock, 2).changes[0]).toEqual({
-      field_key: "timeline.summary",
+    expectTimelinePatch(1, {
+      baseRowVersion: 1,
+      fieldKey: "timeline.summary",
       value: "Updated via tab",
     });
-    await waitFor(() => {
-      expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
-      ).toBe("3");
-      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
-    });
+    await expectSavedRowVersion(2);
+  });
 
-    const blurInput = (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.summary"),
-    )) as HTMLInputElement;
+  it("Phase 3 U-3-05 autosaves blur without a Save button and keeps exact save-state labels", async () => {
+    const pendingBlurPatch = deferred<Response>();
+    mockInitialTimelineRow();
+    fetchMock.mockReturnValueOnce(pendingBlurPatch.promise);
+    const blurInput = await renderSingleTimelineRow();
     await changeInputValue(blurInput, "Updated via blur");
     fireEvent.blur(blurInput);
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(4);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    expect(extractTimelinePatchBody(fetchMock, 3).base_row_version).toBe(3);
-    expect(extractTimelinePatchBody(fetchMock, 3).changes[0]).toEqual({
-      field_key: "timeline.summary",
+    expectTimelinePatch(1, {
+      baseRowVersion: 1,
+      fieldKey: "timeline.summary",
       value: "Updated via blur",
     });
     await waitFor(() => {
@@ -237,19 +233,19 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
         change_set_id: "change-set-4",
         row: timelineRow({
           recordId: "record-1",
-          rowVersion: 4,
+          rowVersion: 2,
           summary: "Updated via blur",
           captureState: "enriched",
         }),
       }),
     );
-    await waitFor(() => {
-      expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
-      ).toBe("4");
-      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
-    });
+    await expectSavedRowVersion(2);
+  });
 
+  it("Phase 3 U-3-05 autosaves paste completion without a Save button and keeps exact save-state labels", async () => {
+    mockInitialTimelineRow();
+    mockSourceTextPatchResponse("Pasted transcript");
+    await renderSingleTimelineRow();
     fireEvent.click(
       await screen.findByTestId(rowInspectButtonTestId("record-1")),
     );
@@ -260,22 +256,17 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     fireEvent.paste(sourceText);
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(5);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    expect(extractTimelinePatchBody(fetchMock, 4).base_row_version).toBe(4);
-    expect(extractTimelinePatchBody(fetchMock, 4).changes[0]).toEqual({
-      field_key: "timeline.source_text",
+    expectTimelinePatch(1, {
+      baseRowVersion: 1,
+      fieldKey: "timeline.source_text",
       value: "Pasted transcript",
     });
-    await waitFor(() => {
-      expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
-      ).toBe("4");
-      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
-    });
+    await expectSavedRowVersion(2);
+  });
 
-    cleanup();
-    fetchMock.mockReset();
+  it("Phase 3 U-3-05 reports Conflict after autosave failure and preserves local editor value", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -687,7 +678,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       target: { value: "record-2" },
     });
     fireEvent.click(await screen.findByTestId("row-record-1-supersede"));
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await flushWorkbookAsync();
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     pendingDetailsPatch.resolve(
@@ -900,7 +891,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     });
 
     fireEvent.blur(summaryInput);
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await flushWorkbookAsync();
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     pendingPatch.resolve(
@@ -922,7 +913,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       ).toBe("2");
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await flushWorkbookAsync();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -982,7 +973,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     await changeInputValue(summaryInput, "Second pending summary");
     fireEvent.blur(summaryInput);
 
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await flushWorkbookAsync();
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     firstPendingPatch.resolve(

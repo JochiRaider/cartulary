@@ -50,6 +50,7 @@ func TestSafeAttributesOmitsForbiddenValueFamiliesBeforeRecording(t *testing.T) 
 
 func TestSafeAttributesOmitNullEquivalentAndUnknownCartularyKeys(t *testing.T) {
 	attrs := SafeAttributes(
+		attribute.KeyValue{Key: "cartulary.result"},
 		attribute.String("cartulary.result", ""),
 		attribute.String("cartulary.raw_user_id", "user-1"),
 		attribute.String("cartulary.result", "null"),
@@ -193,7 +194,7 @@ func TestResourceIdentityFailsWhenResourceAttributeLeavesRegistry(t *testing.T) 
 func attributesByName(attrs []attribute.KeyValue) map[string]string {
 	result := make(map[string]string, len(attrs))
 	for _, attr := range attrs {
-		result[string(attr.Key)] = attr.Value.Emit()
+		result[string(attr.Key)] = attr.Value.String()
 	}
 	return result
 }

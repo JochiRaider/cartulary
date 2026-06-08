@@ -133,9 +133,9 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "708eeb29a55513aba3ed1f396ed9c70af2fb915ab7f900af34d286709fea3486",
-      "manifest_digest": "3e68b0fc8844d46107b51b469b41315553568a79bf1908380288c7ddab919c09",
-      "ledger_digest": "afef608db7f600e9d8fdb07c370039cd9e1ba816b636f29efaeaabc70f0251f7"
+      "evidence_freshness_digest": "9e853b4e971e66aefd67e036bcadf4aa2efb4a8971273adec20b07525fc463b8",
+      "manifest_digest": "eec8e73c7058e01c4800da081628ff133fe8b4438299244a4fde632f86f655ef",
+      "ledger_digest": "c22b02babfcb893b1de430b6070313d7a508c622221458a765f35dfadaf1b8ac"
     },
     {
       "phase_id": "FE-P5",
