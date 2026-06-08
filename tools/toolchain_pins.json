@@ -1,0 +1,19 @@
+{
+  "schema_id": "cartulary.toolchain_pins.v1",
+  "module_path": "github.com/JochiRaider/cartulary",
+  "go_version": "1.26",
+  "go_toolchain": "go1.26.4",
+  "node_version": "24.15.0",
+  "pnpm_version": "10.33.0",
+  "tools": {
+    "sqlc": "github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0",
+    "goose": "github.com/pressly/goose/v3/cmd/goose@v3.27.0",
+    "staticcheck": "honnef.co/go/tools/cmd/staticcheck@v0.7.0",
+    "govulncheck": "golang.org/x/vuln/cmd/govulncheck@v1.3.0",
+    "gosec": "github.com/securego/gosec/v2/cmd/gosec@v2.26.1",
+    "cyclonedx_gomod": "github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0",
+    "syft": "github.com/anchore/syft/cmd/syft@v1.44.0"
+  },
+  "shellcheck_version": "0.11.0",
+  "testcontainers_go_version": "v0.42.0"
+}

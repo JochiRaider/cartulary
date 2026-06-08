@@ -145,15 +145,17 @@ JSON
 
 write_empty_baseline "$tmp_dir/make-baseline.json"
 make_update_output="$(
-  RESULTS_DIR="$results_dir" \
-  GO_TEST_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
-  PRUNE_OBSERVED_PACKAGES=1 \
+  env -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID \
+    RESULTS_DIR="$results_dir" \
+    GO_TEST_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
+    PRUNE_OBSERVED_PACKAGES=1 \
     "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" go-test-duration-baselines 2>&1
 )"
 assert_contains "$make_update_output" "[RESULT] target=go-test-duration-baselines status=pass" "make baseline update summary"
 assert_contains "$(tool_logs_from_result "$make_update_output")" "skipped contaminated Go shard timing artifacts" "make contaminated refresh skip output"
-RESULTS_DIR="$results_dir" \
-GO_TEST_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
+env -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID \
+  RESULTS_DIR="$results_dir" \
+  GO_TEST_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
   "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" go-test-duration-baseline-drift >/dev/null 2>/dev/null
 
 "$NODE_BIN" - "$tmp_dir/baseline.json" <<'EOF'
@@ -219,9 +221,10 @@ fs.writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
 EOF
 
 allowed_output="$(
-  RESULTS_DIR="$results_dir" \
-  GO_TEST_DURATION_BASELINE="$tmp_dir/allowed-command-overhead.json" \
-  ALLOW_COMMAND_OVERHEAD_DECREASE=1 \
+  env -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID \
+    RESULTS_DIR="$results_dir" \
+    GO_TEST_DURATION_BASELINE="$tmp_dir/allowed-command-overhead.json" \
+    ALLOW_COMMAND_OVERHEAD_DECREASE=1 \
     "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" go-test-duration-baselines 2>&1
 )"
 assert_contains "$allowed_output" "[RESULT] target=go-test-duration-baselines status=pass" "allowed command overhead update summary"

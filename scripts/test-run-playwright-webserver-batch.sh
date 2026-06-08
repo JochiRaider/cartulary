@@ -151,6 +151,38 @@ function fakeResult(status, extra = {}) {
   };
 }
 
+function playwrightSourceFiles() {
+  const e2eRoot = path.join(root, "apps", "web", "e2e");
+  const files = [];
+  const stack = [e2eRoot];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+        continue;
+      }
+      if (entry.isFile() && entry.name.endsWith(".spec.ts")) {
+        files.push(path.relative(path.join(root, "apps", "web", "e2e"), next).replaceAll("\\", "/"));
+      }
+    }
+  }
+  return files.sort();
+}
+
+const playwrightFiles = playwrightSourceFiles();
+
+function findPlaywrightFileForTitle(title) {
+  for (const file of playwrightFiles) {
+    const source = fs.readFileSync(path.join(root, "apps", "web", "e2e", file), "utf8");
+    if (source.includes(title)) {
+      return file;
+    }
+  }
+  return "";
+}
+
 if (project === "functional") {
   const registry = JSON.parse(fs.readFileSync(path.join(root, "tools", "phase_registry.json"), "utf8"));
   if (registry.schema_id !== "cartulary.phase_registry.v1") {
@@ -229,9 +261,19 @@ if (project === "functional") {
         continue;
       }
       for (const title of (row.scenario_titles ?? []).filter((candidate) => functionalGrep.test(candidate))) {
+        const file = findPlaywrightFileForTitle(title);
+        if (file === "") {
+          throw new Error(`implemented frontend browser row ${row.id} has no Playwright test title: ${title}`);
+        }
+        if (file.includes(".support.")) {
+          continue;
+        }
+        if (functionalFiles.size > 0 && !functionalFiles.has(file)) {
+          continue;
+        }
         specs.push({
           title,
-          file: "frontend-phase-readiness.spec.ts",
+          file,
           tests: [{ results: [fakeResult("passed")] }],
         });
       }
@@ -366,14 +408,28 @@ phase1_timing="$success_root/browser-e2e-functional-phase1-authoritative/playwri
 phase4_timing="$success_root/browser-e2e-functional-phase4-authoritative/playwright-timing.json"
 assert_equals "$(json_field "$phase1_timing" "source")" "playwright_result_timestamps" "phase1 timing source"
 assert_equals "$(json_field "$phase1_timing" "phase")" "phase1" "phase1 timing phase"
-assert_equals "$(json_field "$phase4_timing" "files.0.file")" "apps/web/e2e/phase4.autoresolve.spec.ts" "phase4 timing first file"
-assert_equals "$(json_field "$phase4_timing" "files.1.file")" "apps/web/e2e/phase4.mentions.lifecycle.spec.ts" "phase4 timing second file"
-assert_equals "$(json_field "$phase4_timing" "files.2.file")" "apps/web/e2e/phase4.mentions.resolve.spec.ts" "phase4 timing third file"
-assert_equals "$(json_field "$phase4_timing" "files.3.file")" "apps/web/e2e/phase4.merge.spec.ts" "phase4 timing fourth file"
-assert_equals "$(json_field "$phase4_timing" "files.4.file")" "apps/web/e2e/phase4.workbook.assessments.spec.ts" "phase4 timing fifth file"
-assert_equals "$(json_field "$phase4_timing" "files.5.file")" "apps/web/e2e/phase4.workbook.generic.spec.ts" "phase4 timing sixth file"
-assert_equals "$(json_field "$phase4_timing" "entries.0.id")" "E-4-01" "phase4 timing first entry"
-assert_equals "$(json_field "$phase4_timing" "entries.5.id")" "E-4-06" "phase4 timing sixth entry"
+"${NODE:-node}" - "$phase4_timing" <<'NODE'
+const fs = require("node:fs");
+const [timingPath] = process.argv.slice(2);
+const timing = JSON.parse(fs.readFileSync(timingPath, "utf8"));
+const files = new Set((timing.files ?? []).map((entry) => entry.file));
+for (const file of [
+  "apps/web/e2e/frontend.phase4.public-route.spec.ts",
+  "apps/web/e2e/frontend.phase4.timeline-query.spec.ts",
+  "apps/web/e2e/phase4.mentions.resolve.spec.ts",
+  "apps/web/e2e/phase4.workbook.generic.spec.ts",
+]) {
+  if (!files.has(file)) {
+    throw new Error(`phase4 timing must include ${file}`);
+  }
+}
+const ids = new Set((timing.entries ?? []).map((entry) => entry.id));
+for (const id of ["E-4-01", "E-4-06", "FE-E-P4-01", "FE-I-P4-01"]) {
+  if (!ids.has(id)) {
+    throw new Error(`phase4 timing must include row ${id}`);
+  }
+}
+NODE
 NODE_BIN="${NODE:-node}" CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" CARTULARY_TEST_RUN_ID="batch-success" \
   "$ROOT_DIR/scripts/lib/test-output.sh" target-summary adhoc pass >/dev/null
 success_target_summary="$success_root/target-summary.json"

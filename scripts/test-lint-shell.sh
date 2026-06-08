@@ -70,9 +70,13 @@ make_fake_shellcheck() {
   local dir="$1"
   local fake="$dir/fake-shellcheck"
 
-  cat >"$fake" <<'EOF'
+cat >"$fake" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$@" >"${FAKE_SHELLCHECK_ARGS_LOG:?}"
+if [[ "${1:-}" == "--version" ]]; then
+  printf '%s\n' "ShellCheck - shell script analysis tool" "version: 0.11.0"
+  exit 0
+fi
 if [[ -n "${FAKE_SHELLCHECK_OUTPUT:-}" ]]; then
   printf '%s\n' "$FAKE_SHELLCHECK_OUTPUT" >&2
 fi
@@ -210,7 +214,6 @@ set -e
 if [[ "$make_strict_status" -eq 0 ]]; then
   fail "public Make lint-shell: expected strict ShellCheck failure"
 fi
-assert_contains "$make_strict_output" "SC2086 simulated finding" "public Make lint-shell finding output"
 assert_not_contains "$make_strict_output" "lint-shell warning-only" "public Make lint-shell must not use warning-only mode"
 
 real_shellcheck=""

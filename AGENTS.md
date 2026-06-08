@@ -34,6 +34,7 @@
 ## Commands
 
 - Run repository commands from the repository root through public Make targets. Direct `go`, `pnpm`, Vitest, Playwright, Biome, and raw script commands are developer conveniences unless a Make-owned wrapper invokes them.
+- Canonical repo-control pin values live in `tools/toolchain_pins.json`; mirrored toolchain text is checked by `make toolchain-drift`.
 - Pinned bootstrap tools: `github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0`, `github.com/pressly/goose/v3/cmd/goose@v3.27.0`, `honnef.co/go/tools/cmd/staticcheck@v0.7.0`, `golang.org/x/vuln/cmd/govulncheck@v1.3.0`, `github.com/securego/gosec/v2/cmd/gosec@v2.26.1`, `github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0`, `github.com/anchore/syft/cmd/syft@v1.44.0`, ShellCheck `0.11.0`, and `github.com/testcontainers/testcontainers-go v0.42.0`.
 - Use `make help` for the compact task surface and `make help-all` for the current public target inventory. Do not copy target lists into new docs when a pointer is sufficient.
 - Use `make task-guide ROLE=<role> PHASE=phaseN` to choose narrow verification by role and phase. Useful roles include `local-dev`, `feature-dev`, `phase-author`, `ci-investigator`, and `release`.

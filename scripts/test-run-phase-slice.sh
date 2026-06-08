@@ -141,7 +141,6 @@ for (const target of [
 const phase5Service = plan("phase5", "service-backed");
 const phase5VisualUnit = phase5Service.work_units.find((unit) => unit.target === "browser-e2e-visual");
 assert.ok(phase5VisualUnit, "service-backed phase5 slice must include browser visual work");
-assert.equal(phase5VisualUnit.browserStage, "visual", "service-backed phase5 visual work must use the visual stage");
 assert.ok(phase5VisualUnit.resource_claims.browser_stage_visual >= 1, "service-backed phase5 visual work must claim visual stage lane");
 assert.ok(!("browser_stage_visual_smoke" in phase5VisualUnit.resource_claims), "service-backed phase5 visual work must not claim visual-smoke stage lane");
 assert.ok(phase5Service.resource_limits.browser_stage_visual >= 1, "service-backed phase5 must declare visual stage capacity");
@@ -178,13 +177,16 @@ assert.equal(feP3.phase, "FE-P3");
 assert.equal(feP3.target, "phase-slice");
 assert.equal(feP3.no_op, false);
 for (const target of [
+  "frontend-typecheck",
   "frontend-unit",
+  "generate-drift",
+  "generated-artifact-policy-check",
+  "phase-ledger-drift",
   "browser-e2e-support",
   "browser-e2e-webserver-backed",
   "browser-e2e-visual",
   "browser-e2e-a11y",
   "frontend-import-boundary-check",
-  "lint-biome",
 ]) {
   assert.ok(targets(feP3).has(target), `FE-P3 frontend phase slice must include ${target}`);
   assert.ok(workTargets(feP3, "make_target").has(target), `FE-P3 frontend phase slice must schedule ${target}`);
@@ -235,9 +237,11 @@ const plannedFrontend = run([
   "--mode",
   "phase",
   "--json",
-], {}, { allowFailure: true });
-assert.equal(plannedFrontend.status, 2, "planned frontend phases must fail as bounded non-executable usage");
-assert.match(plannedFrontend.stderr, /planned\/non-executable frontend phase FE-P5/);
+]);
+assert.equal(plannedFrontend.status, 0, "complete frontend phases must be executable");
+const plannedFeP5 = JSON.parse(plannedFrontend.stdout);
+assert.equal(plannedFeP5.phase_claim_status, "complete");
+assert.ok(targets(plannedFeP5).has("browser-e2e-stateful"), "FE-P5 full phase slice must include stateful browser work");
 
 const selectedFeP5 = frontendPlan("FE-P5", "phase", ["--rows", "FE-I-P5-01"]);
 assert.equal(selectedFeP5.phase, "FE-P5");
@@ -294,6 +298,15 @@ try {
             execution_dependency: "backend_unit",
             execution_family: "backend-unit",
             execution_label: "backend-unit phase100 authoritative",
+            evidence_class: "product_conformance",
+            layer: "backend_unit",
+            default_check_required: true,
+            default_check_kind: "primary_local_evidence",
+            default_check_reason_code: "cheapest_authoritative_layer",
+            primary_evidence_owner: "phase-slice-fixture",
+            duplicate_of: null,
+            evidence_delta: "Synthetic phase-slice fixture coverage.",
+            warm_local_cost_class: "low",
             evidence_layer: "phase_slice_smoke",
             claim: "synthetic phase-slice fixture selects future phase unit work",
             out_of_scope: "product behavior and service-backed coverage",

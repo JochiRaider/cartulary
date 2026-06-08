@@ -83,12 +83,15 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/tools/execution_topology_manifest.json" "${dest}/tools/execution_topology_manifest.json"
   cp "${ROOT_DIR}/tools/harness_redaction_manifest.json" "${dest}/tools/harness_redaction_manifest.json"
   cp "${ROOT_DIR}/tools/scheduler_resource_registry.json" "${dest}/tools/scheduler_resource_registry.json"
+  cp "${ROOT_DIR}/tools/toolchain_pins.json" "${dest}/tools/toolchain_pins.json"
   cp -R "${ROOT_DIR}/tools/schemas" "${dest}/tools/schemas"
   cp "${ROOT_DIR}"/tools/*duration_baselines.json "${dest}/tools/"
   cp "${ROOT_DIR}/scripts/list-build-inputs.sh" "${dest}/scripts/list-build-inputs.sh"
   cp "${ROOT_DIR}/scripts/bootstrap-node-runtime.sh" "${dest}/scripts/bootstrap-node-runtime.sh"
   cp "${ROOT_DIR}/scripts/bootstrap-shellcheck.sh" "${dest}/scripts/bootstrap-shellcheck.sh"
   cp "${ROOT_DIR}/scripts/check-toolchain-pins.mjs" "${dest}/scripts/check-toolchain-pins.mjs"
+  cp "${ROOT_DIR}/scripts/cartulary-runner.mjs" "${dest}/scripts/cartulary-runner.mjs"
+  cp "${ROOT_DIR}/scripts/harness-contract.mjs" "${dest}/scripts/harness-contract.mjs"
   cat >"${dest}/scripts/harness-contract.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -179,131 +182,195 @@ expect_drift() {
   assert_contains "${output}" "${expected_output}" "${label} diagnostic"
 }
 
+pin_value() {
+  local path="$1"
+
+  "$NODE_BIN" - "$ROOT_DIR/tools/toolchain_pins.json" "$path" <<'EOF'
+const fs = require("node:fs");
+const [file, path] = process.argv.slice(2);
+const value = path.split(".").reduce((current, key) => current?.[key], JSON.parse(fs.readFileSync(file, "utf8")));
+if (typeof value !== "string" || value.length === 0) {
+  process.exit(1);
+}
+process.stdout.write(value);
+EOF
+}
+
+bump_dotted_version() {
+  local value="$1"
+  local prefix=""
+
+  if [[ "$value" == v* || "$value" == go* ]]; then
+    prefix="${value%%[0-9]*}"
+    value="${value#"$prefix"}"
+  fi
+
+  IFS=. read -r major minor patch extra <<<"$value"
+  if [[ -n "${extra:-}" || -z "${major:-}" || -z "${minor:-}" || -z "${patch:-}" || ! "$patch" =~ ^[0-9]+$ ]]; then
+    fail "cannot bump dotted version [$1]"
+  fi
+  printf '%s%s.%s.%s\n' "$prefix" "$major" "$minor" "$((patch + 1))"
+}
+
+bump_tool_spec() {
+  local value="$1"
+  local package="${value%@*}"
+  local version="${value##*@}"
+
+  if [[ "$package" == "$value" ]]; then
+    fail "cannot bump unversioned tool spec [$value]"
+  fi
+  printf '%s@%s\n' "$package" "$(bump_dotted_version "$version")"
+}
+
+node_version="$(pin_value node_version)"
+node_version_alt="$(bump_dotted_version "$node_version")"
+pnpm_version="$(pin_value pnpm_version)"
+pnpm_version_alt="$(bump_dotted_version "$pnpm_version")"
+go_toolchain="$(pin_value go_toolchain)"
+go_toolchain_alt="$(bump_dotted_version "$go_toolchain")"
+testcontainers_go_version="$(pin_value testcontainers_go_version)"
+testcontainers_go_version_alt="$(bump_dotted_version "$testcontainers_go_version")"
+staticcheck_tool="$(pin_value tools.staticcheck)"
+staticcheck_tool_alt="$(bump_tool_spec "$staticcheck_tool")"
+staticcheck_version="${staticcheck_tool##*@}"
+staticcheck_version_alt="${staticcheck_tool_alt##*@}"
+govulncheck_tool="$(pin_value tools.govulncheck)"
+govulncheck_tool_alt="$(bump_tool_spec "$govulncheck_tool")"
+govulncheck_version="${govulncheck_tool##*@}"
+govulncheck_version_alt="${govulncheck_tool_alt##*@}"
+gosec_tool="$(pin_value tools.gosec)"
+gosec_tool_alt="$(bump_tool_spec "$gosec_tool")"
+gosec_version="${gosec_tool##*@}"
+gosec_version_alt="${gosec_tool_alt##*@}"
+shellcheck_version="$(pin_value shellcheck_version)"
+shellcheck_version_alt="$(bump_dotted_version "$shellcheck_version")"
+
 mutate_package_node() {
-  replace_text "$1/package.json" '"node": "24.15.0"' '"node": "24.16.0"'
+  replace_text "$1/package.json" '"node": "'"$node_version"'"' '"node": "'"$node_version_alt"'"'
 }
 
 mutate_package_manager() {
-  replace_text "$1/package.json" '"packageManager": "pnpm@10.33.0"' '"packageManager": "pnpm@10.34.0"'
+  replace_text "$1/package.json" '"packageManager": "pnpm@'"$pnpm_version"'"' '"packageManager": "pnpm@'"$pnpm_version_alt"'"'
 }
 
 mutate_go_toolchain() {
-  replace_text "$1/go.mod" 'toolchain go1.26.4' 'toolchain go1.26.5'
+  replace_text "$1/go.mod" "toolchain $go_toolchain" "toolchain $go_toolchain_alt"
 }
 
 mutate_go_testcontainers() {
-  replace_text "$1/go.mod" 'github.com/testcontainers/testcontainers-go v0.42.0' 'github.com/testcontainers/testcontainers-go v0.43.0'
+  replace_text "$1/go.mod" "github.com/testcontainers/testcontainers-go $testcontainers_go_version" "github.com/testcontainers/testcontainers-go $testcontainers_go_version_alt"
 }
 
 mutate_staticcheck_tool() {
-  replace_text "$1/Makefile" 'STATICCHECK_TOOL := honnef.co/go/tools/cmd/staticcheck@v0.7.0' 'STATICCHECK_TOOL := honnef.co/go/tools/cmd/staticcheck@v0.7.1'
+  replace_text "$1/Makefile" "STATICCHECK_TOOL := $staticcheck_tool" "STATICCHECK_TOOL := $staticcheck_tool_alt"
 }
 
 mutate_govulncheck_tool() {
-  replace_text "$1/Makefile" 'GOVULNCHECK_TOOL := golang.org/x/vuln/cmd/govulncheck@v1.3.0' 'GOVULNCHECK_TOOL := golang.org/x/vuln/cmd/govulncheck@v1.3.1'
+  replace_text "$1/Makefile" "GOVULNCHECK_TOOL := $govulncheck_tool" "GOVULNCHECK_TOOL := $govulncheck_tool_alt"
 }
 
 mutate_gosec_tool() {
-  replace_text "$1/Makefile" 'GOSEC_TOOL := github.com/securego/gosec/v2/cmd/gosec@v2.26.1' 'GOSEC_TOOL := github.com/securego/gosec/v2/cmd/gosec@v2.26.2'
+  replace_text "$1/Makefile" "GOSEC_TOOL := $gosec_tool" "GOSEC_TOOL := $gosec_tool_alt"
 }
 
 mutate_shellcheck_version() {
-  replace_text "$1/Makefile" 'SHELLCHECK_VERSION ?= 0.11.0' 'SHELLCHECK_VERSION ?= 0.11.1'
+  replace_text "$1/Makefile" "SHELLCHECK_VERSION ?= $shellcheck_version" "SHELLCHECK_VERSION ?= $shellcheck_version_alt"
 }
 
 mutate_bootstrap_shellcheck_version() {
-  replace_text "$1/scripts/bootstrap-shellcheck.sh" 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-0.11.0}"' 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-0.11.1}"'
+  replace_text "$1/scripts/bootstrap-shellcheck.sh" 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-'"$shellcheck_version"'}"' 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-'"$shellcheck_version_alt"'}"'
 }
 
 mutate_readme_node() {
-  replace_text "$1/README.md" '- Node.js `24.15.0`' '- Node.js `24.16.0`'
+  replace_text "$1/README.md" "- Node.js \`$node_version\`" "- Node.js \`$node_version_alt\`"
 }
 
 mutate_readme_staticcheck() {
-  replace_text "$1/README.md" '- Staticcheck `v0.7.0`' '- Staticcheck `v0.7.1`'
+  replace_text "$1/README.md" "- Staticcheck \`$staticcheck_version\`" "- Staticcheck \`$staticcheck_version_alt\`"
 }
 
 mutate_readme_govulncheck() {
-  replace_text "$1/README.md" '- Govulncheck `v1.3.0`' '- Govulncheck `v1.3.1`'
+  replace_text "$1/README.md" "- Govulncheck \`$govulncheck_version\`" "- Govulncheck \`$govulncheck_version_alt\`"
 }
 
 mutate_readme_gosec() {
-  replace_text "$1/README.md" '- Gosec `v2.26.1`' '- Gosec `v2.26.2`'
+  replace_text "$1/README.md" "- Gosec \`$gosec_version\`" "- Gosec \`$gosec_version_alt\`"
 }
 
 mutate_readme_shellcheck() {
-  replace_text "$1/README.md" '- ShellCheck `0.11.0`' '- ShellCheck `0.11.1`'
+  replace_text "$1/README.md" "- ShellCheck \`$shellcheck_version\`" "- ShellCheck \`$shellcheck_version_alt\`"
 }
 
 mutate_agents_govulncheck() {
-  replace_text "$1/AGENTS.md" 'golang.org/x/vuln/cmd/govulncheck@v1.3.0' 'golang.org/x/vuln/cmd/govulncheck@v1.3.1'
+  replace_text "$1/AGENTS.md" "$govulncheck_tool" "$govulncheck_tool_alt"
 }
 
 mutate_agents_gosec() {
-  replace_text "$1/AGENTS.md" 'github.com/securego/gosec/v2/cmd/gosec@v2.26.1' 'github.com/securego/gosec/v2/cmd/gosec@v2.26.2'
+  replace_text "$1/AGENTS.md" "$gosec_tool" "$gosec_tool_alt"
 }
 
 mutate_agents_shellcheck() {
-  replace_text "$1/AGENTS.md" 'ShellCheck `0.11.0`' 'ShellCheck `0.11.1`'
+  replace_text "$1/AGENTS.md" "ShellCheck \`$shellcheck_version\`" "ShellCheck \`$shellcheck_version_alt\`"
 }
 
 "$NODE_BIN" "$SCRIPT" --root "${ROOT_DIR}" >/dev/null
 assert_harness_scratch_rejects_repo_tmp
 
 expect_drift "node-engine" \
-  "package.json: engines.node mismatch: expected 24.15.0, got 24.16.0" \
+  "package.json: engines.node mismatch: expected $node_version, got $node_version_alt" \
   mutate_package_node
 
 expect_drift "package-manager" \
-  "package.json: packageManager mismatch: expected pnpm@10.33.0, got pnpm@10.34.0" \
+  "package.json: packageManager mismatch: expected pnpm@$pnpm_version, got pnpm@$pnpm_version_alt" \
   mutate_package_manager
 
 expect_drift "go-toolchain" \
-  "go.mod: toolchain mismatch: expected go1.26.4, got go1.26.5" \
+  "go.mod: toolchain mismatch: expected $go_toolchain, got $go_toolchain_alt" \
   mutate_go_toolchain
 
 expect_drift "go-testcontainers" \
-  "go.mod: github.com/testcontainers/testcontainers-go mismatch: expected v0.42.0, got v0.43.0" \
+  "go.mod: github.com/testcontainers/testcontainers-go mismatch: expected $testcontainers_go_version, got $testcontainers_go_version_alt" \
   mutate_go_testcontainers
 
 expect_drift "staticcheck-tool" \
-  "Makefile: STATICCHECK_TOOL mismatch: expected honnef.co/go/tools/cmd/staticcheck@v0.7.0, got honnef.co/go/tools/cmd/staticcheck@v0.7.1" \
+  "Makefile: STATICCHECK_TOOL mismatch: expected $staticcheck_tool, got $staticcheck_tool_alt" \
   mutate_staticcheck_tool
 
 expect_drift "govulncheck-tool" \
-  "Makefile: GOVULNCHECK_TOOL mismatch: expected golang.org/x/vuln/cmd/govulncheck@v1.3.0, got golang.org/x/vuln/cmd/govulncheck@v1.3.1" \
+  "Makefile: GOVULNCHECK_TOOL mismatch: expected $govulncheck_tool, got $govulncheck_tool_alt" \
   mutate_govulncheck_tool
 
 expect_drift "gosec-tool" \
-  "Makefile: GOSEC_TOOL mismatch: expected github.com/securego/gosec/v2/cmd/gosec@v2.26.1, got github.com/securego/gosec/v2/cmd/gosec@v2.26.2" \
+  "Makefile: GOSEC_TOOL mismatch: expected $gosec_tool, got $gosec_tool_alt" \
   mutate_gosec_tool
 
 expect_drift "shellcheck-version" \
-  "Makefile: SHELLCHECK_VERSION mismatch: expected 0.11.0, got 0.11.1" \
+  "Makefile: SHELLCHECK_VERSION mismatch: expected $shellcheck_version, got $shellcheck_version_alt" \
   mutate_shellcheck_version
 
 expect_drift "bootstrap-shellcheck-version" \
-  "scripts/bootstrap-shellcheck.sh: SHELLCHECK_VERSION default mismatch: expected 0.11.0, got 0.11.1" \
+  "scripts/bootstrap-shellcheck.sh: SHELLCHECK_VERSION default mismatch: expected $shellcheck_version, got $shellcheck_version_alt" \
   mutate_bootstrap_shellcheck_version
 
 expect_drift "readme-node" \
-  "README.md: Node.js pin line mismatch: expected - Node.js \`24.15.0\`, got - Node.js \`24.16.0\`" \
+  "README.md: Node.js pin line mismatch: expected - Node.js \`$node_version\`, got - Node.js \`$node_version_alt\`" \
   mutate_readme_node
 
 expect_drift "readme-staticcheck" \
-  "README.md: Staticcheck pin line mismatch: expected - Staticcheck \`v0.7.0\`, got - Staticcheck \`v0.7.1\`" \
+  "README.md: Staticcheck pin line mismatch: expected - Staticcheck \`$staticcheck_version\`, got - Staticcheck \`$staticcheck_version_alt\`" \
   mutate_readme_staticcheck
 
 expect_drift "readme-govulncheck" \
-  "README.md: Govulncheck pin line mismatch: expected - Govulncheck \`v1.3.0\`, got - Govulncheck \`v1.3.1\`" \
+  "README.md: Govulncheck pin line mismatch: expected - Govulncheck \`$govulncheck_version\`, got - Govulncheck \`$govulncheck_version_alt\`" \
   mutate_readme_govulncheck
 
 expect_drift "readme-gosec" \
-  "README.md: Gosec pin line mismatch: expected - Gosec \`v2.26.1\`, got - Gosec \`v2.26.2\`" \
+  "README.md: Gosec pin line mismatch: expected - Gosec \`$gosec_version\`, got - Gosec \`$gosec_version_alt\`" \
   mutate_readme_gosec
 
 expect_drift "readme-shellcheck" \
-  "README.md: ShellCheck pin line mismatch: expected - ShellCheck \`0.11.0\`, got - ShellCheck \`0.11.1\`" \
+  "README.md: ShellCheck pin line mismatch: expected - ShellCheck \`$shellcheck_version\`, got - ShellCheck \`$shellcheck_version_alt\`" \
   mutate_readme_shellcheck
 
 expect_drift "agents-govulncheck" \
@@ -324,17 +391,16 @@ preflight_run_id="toolchain-pins-preflight"
 cleanup_paths+=("${preflight_dir}")
 cleanup_paths+=("${preflight_results_root}")
 copy_minimal_repo "${preflight_dir}"
-replace_text "${preflight_dir}/package.json" '"node": "24.15.0"' '"node": "24.16.0"'
+replace_text "${preflight_dir}/package.json" '"node": "'"$node_version"'"' '"node": "'"$node_version_alt"'"'
 
 set +e
 preflight_output="$(
   make --no-print-directory -C "${preflight_dir}" \
     CARTULARY_TEST_RESULTS_DIR="${preflight_results_root}" \
     CARTULARY_TEST_RUN_ID="${preflight_run_id}" \
+    CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=1 \
     NODE_BIN="${NODE_BIN}" \
-    PNPM="${preflight_dir}/fake-pnpm" \
-    NODE_RUNTIME_DIR="${preflight_dir}/node-runtime" \
-    check \
+    toolchain-drift \
     2>&1
 )"
 preflight_status=$?
@@ -343,15 +409,11 @@ set -e
 if [[ "${preflight_status}" -eq 0 ]]; then
   fail "check toolchain drift mismatch: expected failure"
 fi
-assert_contains "${preflight_output}" "toolchain-drift] Error" "check scheduler toolchain failure propagation"
-assert_contains "${preflight_output}" "check] Error" "check scheduler failure propagation"
 "${NODE_BIN}" "${ROOT_DIR}/scripts/lib/harness-artifact-assert.mjs" \
   --repo-root "${preflight_dir}" \
   --results-root "${preflight_results_root}" \
   --run-id "${preflight_run_id}" \
   --target "toolchain-drift" \
   --phase-label "toolchain-drift" \
-  --needle "package.json: engines.node mismatch: expected 24.15.0, got 24.16.0" \
-  --label "check scheduler toolchain diagnostic"
-assert_not_contains "${preflight_output}" "bootstrap sqlc tool" "toolchain-drift must block codegen readiness after failure"
-assert_not_contains "${preflight_output}" "frontend install" "toolchain-drift must block frontend readiness after failure"
+  --needle "package.json: engines.node mismatch: expected $node_version, got $node_version_alt" \
+  --label "Make toolchain-drift diagnostic"

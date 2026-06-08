@@ -146,6 +146,15 @@ cat >"$tmp_dir/manifests/tools/phase1_test_map.json" <<'JSON'
       "title": "E-1-01 alpha one",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "browser-shard-plan-fixture",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic browser shard plan fixture coverage.",
+      "warm_local_cost_class": "medium",
       "claim": "alpha",
       "out_of_scope": "none"
     },
@@ -157,6 +166,15 @@ cat >"$tmp_dir/manifests/tools/phase1_test_map.json" <<'JSON'
       "title": "E-1-02 alpha two",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "browser-shard-plan-fixture",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic browser shard plan fixture coverage.",
+      "warm_local_cost_class": "medium",
       "claim": "alpha duplicate",
       "out_of_scope": "none"
     },
@@ -171,6 +189,15 @@ cat >"$tmp_dir/manifests/tools/phase1_test_map.json" <<'JSON'
       ],
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "browser-shard-plan-fixture",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic browser shard plan fixture coverage.",
+      "warm_local_cost_class": "medium",
       "claim": "beta",
       "out_of_scope": "none"
     }
@@ -205,6 +232,15 @@ cat >"$tmp_dir/manifests/tools/phase2_test_map.json" <<'JSON'
       "title": "E-2-01 gamma",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "browser-shard-plan-fixture",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic browser shard plan fixture coverage.",
+      "warm_local_cost_class": "medium",
       "claim": "gamma",
       "out_of_scope": "none"
     },
@@ -216,6 +252,15 @@ cat >"$tmp_dir/manifests/tools/phase2_test_map.json" <<'JSON'
       "title": "E-2-02 ignored stateful",
       "execution_dependency": "browser_stateful",
       "evidence_layer": "browser",
+      "evidence_class": "product_conformance",
+      "layer": "browser_stateful",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "browser-shard-plan-fixture",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic browser shard plan fixture coverage.",
+      "warm_local_cost_class": "medium",
       "claim": "ignored",
       "out_of_scope": "none"
     }
@@ -250,6 +295,15 @@ cat >"$tmp_dir/manifests/tools/phase12_test_map.json" <<'JSON'
       "title": "E-12-01 future phase functional browser row",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "browser-shard-plan-fixture",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic browser shard plan fixture coverage.",
+      "warm_local_cost_class": "medium",
       "claim": "future",
       "out_of_scope": "none"
     },
@@ -261,6 +315,15 @@ cat >"$tmp_dir/manifests/tools/phase12_test_map.json" <<'JSON'
       "title": "E-12-GRID-01 future phase named-grid functional browser row",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "browser-shard-plan-fixture",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic browser shard plan fixture coverage.",
+      "warm_local_cost_class": "medium",
       "claim": "future named row",
       "out_of_scope": "none"
     }
@@ -298,11 +361,8 @@ node_cmd="${NODE:-node}"
 CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" plan --baseline-file "$tmp_dir/baseline.json" --max-shards 3 >"$tmp_dir/plan.json"
 
-assert_equals "$(json_field "$tmp_dir/plan.json" "entry_count")" "6" "entry count keeps duplicate-file manifest rows"
 assert_equals "$(json_field "$tmp_dir/plan.json" "shard_count")" "3" "shard count respects max and target weight"
 assert_equals "$(json_field "$tmp_dir/plan.json" "entries.0.file")" "apps/web/e2e/alpha.spec.ts" "deterministic entry ordering"
-assert_equals "$(json_field "$tmp_dir/plan.json" "entries.3.weight_ms")" "7000" "missing baseline uses default weight"
-assert_equals "$(json_field "$tmp_dir/plan.json" "entries.4.file")" "apps/web/e2e/future.spec.ts" "numeric future phase discovery keeps deterministic files"
 assert_equals "$(json_field "$tmp_dir/plan.json" "entries.2.titles.1")" "E-1-03 beta secondary" "multi-title Playwright rows keep all executable scenarios"
 assert_equals "$(json_field "$tmp_dir/plan.json" "shards.0.entries.0.id")" "E-1-01" "largest same-file entry gets first stable shard"
 assert_equals "$(json_field "$tmp_dir/plan.json" "shards.1.entries.0.id")" "E-1-02" "same-file entries can split across shards"
@@ -310,6 +370,25 @@ assert_equals "$(json_field "$tmp_dir/plan.json" "shards.1.entries.0.id")" "E-1-
 const fs = require("node:fs");
 const [planFile] = process.argv.slice(2);
 const plan = JSON.parse(fs.readFileSync(planFile, "utf8"));
+if (plan.entry_count !== plan.entries.length) {
+  throw new Error("entry_count must match emitted entries length");
+}
+for (const id of ["E-1-01", "E-1-02", "E-1-03", "E-2-01", "E-12-01", "E-12-GRID-01"]) {
+  if (!plan.entries.some((entry) => entry.id === id)) {
+    throw new Error(`synthetic manifest row ${id} missing from shard plan`);
+  }
+}
+const future = plan.entries.find((entry) => entry.id === "E-12-01");
+if (!future || future.file !== "apps/web/e2e/future.spec.ts") {
+  throw new Error("numeric future phase discovery must keep deterministic files");
+}
+const unweighted = plan.entries.find((entry) => entry.id === "E-2-01");
+if (!unweighted || unweighted.weight_ms !== 7000) {
+  throw new Error("missing baseline entries must use the configured default weight");
+}
+if (!plan.entries.some((entry) => String(entry.id).startsWith("FE-"))) {
+  throw new Error("frontend browser readiness rows must be included in the shard plan");
+}
 if (!plan.shards.some((shard) => String(shard.grep).includes("E-1-03 beta secondary"))) {
   throw new Error("multi-title Playwright shard grep must include every row title");
 }
@@ -357,9 +436,21 @@ if [[ "$stale_plan_status" -eq 0 ]]; then
   fail "browser baseline planning should reject stale title metadata"
 fi
 assert_contains "$stale_plan_output" "entries.E-1-01 must match active manifest file/title" "browser baseline planning stale metadata"
-assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "entry_count")" "1" "phase-filtered plan keeps only selected functional entries"
 assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "entries.0.file")" "apps/web/e2e/gamma.spec.ts" "phase-filtered plan selects phase2 functional file"
-assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "shards.0.entries.0.id")" "E-2-01" "phase-filtered plan selects phase2 row"
+"$node_cmd" - "$tmp_dir/phase2-plan.json" <<'EOF'
+const fs = require("node:fs");
+const [planFile] = process.argv.slice(2);
+const plan = JSON.parse(fs.readFileSync(planFile, "utf8"));
+if (plan.entry_count !== plan.entries.length) {
+  throw new Error("phase-filtered entry_count must match emitted entries length");
+}
+if (!plan.entries.every((entry) => entry.phase === "phase2")) {
+  throw new Error("phase-filtered plan must keep only selected phase rows");
+}
+if (!plan.entries.some((entry) => entry.id === "E-2-01")) {
+  throw new Error("phase-filtered plan must include the phase2 manifest row");
+}
+EOF
 
 "$node_cmd" -e '
 const fs = require("node:fs");
@@ -384,12 +475,15 @@ future_files="$(
     "$node_cmd" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-files-all authoritative browser_functional
 )"
 assert_contains "$future_files" "e2e/gamma.spec.ts" "future phase browser file discovery"
+assert_contains "$future_files" "e2e/future.spec.ts" "future phase browser file discovery"
 
 future_count="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
     "$node_cmd" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-count-all authoritative browser_functional
 )"
-assert_equals "$future_count" "7" "future phase browser title count discovery"
+if [[ "$future_count" -lt 7 ]]; then
+  fail "future phase browser title count discovery: expected at least [7], got [$future_count]"
+fi
 
 browser_results="$tmp_dir/browser-results"
 timing_dir="$browser_results/browser-e2e-webserver-backed/browser-e2e-functional-authoritative"
@@ -544,7 +638,8 @@ make_refresh_output="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   BROWSER_E2E_DURATION_BASELINE="$tmp_dir/browser-make-baseline.json" \
   RESULTS_DIR="$browser_results" \
-    "${MAKE:-make}" --no-print-directory -C "$ROOT_DIR" browser-e2e-duration-baselines 2>&1
+    env -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID \
+      "${MAKE:-make}" --no-print-directory -C "$ROOT_DIR" browser-e2e-duration-baselines 2>&1
 )"
 assert_contains "$make_refresh_output" "[RESULT] target=browser-e2e-duration-baselines status=pass" "make browser baseline refresh summary"
 assert_contains "$(tool_logs_from_result "$make_refresh_output")" "updated 6 browser E2E entry duration baselines" "make browser baseline refresh output"

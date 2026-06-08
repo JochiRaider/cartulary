@@ -1,22 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-const expected = {
-  modulePath: "github.com/JochiRaider/cartulary",
-  goVersion: "1.26",
-  goToolchain: "go1.26.4",
-  nodeVersion: "24.15.0",
-  pnpmVersion: "10.33.0",
-  sqlcTool: "github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0",
-  gooseTool: "github.com/pressly/goose/v3/cmd/goose@v3.27.0",
-  staticcheckTool: "honnef.co/go/tools/cmd/staticcheck@v0.7.0",
-  govulncheckTool: "golang.org/x/vuln/cmd/govulncheck@v1.3.0",
-  gosecTool: "github.com/securego/gosec/v2/cmd/gosec@v2.26.1",
-  cyclonedxGomodTool: "github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0",
-  syftTool: "github.com/anchore/syft/cmd/syft@v1.44.0",
-  shellcheckVersion: "0.11.0",
-  testcontainersGoVersion: "v0.42.0",
-};
+const toolchainPinsSchemaID = "cartulary.toolchain_pins.v1";
 
 function usage() {
   process.stderr.write("usage: check-toolchain-pins.mjs [--root <path>]\n");
@@ -46,6 +31,51 @@ function readRepoFile(root, relativePath) {
   return readFileSync(path.join(root, relativePath), "utf8");
 }
 
+function requireString(record, field, file) {
+  const value = record?.[field];
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`${file}: ${field} must be a non-empty string`);
+  }
+  return value;
+}
+
+function requireObject(record, field, file) {
+  const value = record?.[field];
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${file}: ${field} must be an object`);
+  }
+  return value;
+}
+
+function loadExpected(root) {
+  const file = "tools/toolchain_pins.json";
+  const pins = JSON.parse(readRepoFile(root, file));
+  if (pins.schema_id !== toolchainPinsSchemaID) {
+    throw new Error(`${file}: schema_id must be ${toolchainPinsSchemaID}`);
+  }
+  const tools = requireObject(pins, "tools", file);
+  return {
+    modulePath: requireString(pins, "module_path", file),
+    goVersion: requireString(pins, "go_version", file),
+    goToolchain: requireString(pins, "go_toolchain", file),
+    nodeVersion: requireString(pins, "node_version", file),
+    pnpmVersion: requireString(pins, "pnpm_version", file),
+    sqlcTool: requireString(tools, "sqlc", file),
+    gooseTool: requireString(tools, "goose", file),
+    staticcheckTool: requireString(tools, "staticcheck", file),
+    govulncheckTool: requireString(tools, "govulncheck", file),
+    gosecTool: requireString(tools, "gosec", file),
+    cyclonedxGomodTool: requireString(tools, "cyclonedx_gomod", file),
+    syftTool: requireString(tools, "syft", file),
+    shellcheckVersion: requireString(pins, "shellcheck_version", file),
+    testcontainersGoVersion: requireString(
+      pins,
+      "testcontainers_go_version",
+      file,
+    ),
+  };
+}
+
 function reportMismatch(mismatches, file, field, expectedValue, actualValue) {
   mismatches.push({
     file,
@@ -71,7 +101,7 @@ function checkEqual(mismatches, file, field, expectedValue, actualValue) {
   }
 }
 
-function checkMakefile(root, mismatches) {
+function checkMakefile(root, mismatches, expected) {
   const file = "Makefile";
   const makefile = readRepoFile(root, file);
   checkEqual(
@@ -153,7 +183,7 @@ function checkMakefile(root, mismatches) {
   );
 }
 
-function checkPackageJson(root, mismatches) {
+function checkPackageJson(root, mismatches, expected) {
   const file = "package.json";
   const packageJson = JSON.parse(readRepoFile(root, file));
   checkEqual(
@@ -172,7 +202,7 @@ function checkPackageJson(root, mismatches) {
   );
 }
 
-function checkGoMod(root, mismatches) {
+function checkGoMod(root, mismatches, expected) {
   const file = "go.mod";
   const goMod = readRepoFile(root, file);
   checkEqual(
@@ -212,7 +242,7 @@ function checkGoMod(root, mismatches) {
   );
 }
 
-function checkBootstrapNodeRuntime(root, mismatches) {
+function checkBootstrapNodeRuntime(root, mismatches, expected) {
   const file = "scripts/bootstrap-node-runtime.sh";
   const script = readRepoFile(root, file);
   checkEqual(
@@ -224,7 +254,7 @@ function checkBootstrapNodeRuntime(root, mismatches) {
   );
 }
 
-function checkBootstrapShellcheck(root, mismatches) {
+function checkBootstrapShellcheck(root, mismatches, expected) {
   const file = "scripts/bootstrap-shellcheck.sh";
   const script = readRepoFile(root, file);
   checkEqual(
@@ -236,7 +266,7 @@ function checkBootstrapShellcheck(root, mismatches) {
   );
 }
 
-function checkReadme(root, mismatches) {
+function checkReadme(root, mismatches, expected) {
   const file = "README.md";
   const readme = readRepoFile(root, file);
   const goLine = `- Go \`${expected.goVersion}\` with toolchain \`${expected.goToolchain}\``;
@@ -297,7 +327,7 @@ function checkReadme(root, mismatches) {
   );
 }
 
-function checkAgents(root, mismatches) {
+function checkAgents(root, mismatches, expected) {
   const file = "AGENTS.md";
   const agents = readRepoFile(root, file);
   const pinnedToolsLine = `- Pinned bootstrap tools: \`${expected.sqlcTool}\`, \`${expected.gooseTool}\`, \`${expected.staticcheckTool}\`, \`${expected.govulncheckTool}\`, \`${expected.gosecTool}\`, \`${expected.cyclonedxGomodTool}\`, \`${expected.syftTool}\`, ShellCheck \`${expected.shellcheckVersion}\`, and \`github.com/testcontainers/testcontainers-go ${expected.testcontainersGoVersion}\`.`;
@@ -312,15 +342,16 @@ function checkAgents(root, mismatches) {
 
 function main() {
   const root = parseArgs(process.argv.slice(2));
+  const expected = loadExpected(root);
   const mismatches = [];
 
-  checkMakefile(root, mismatches);
-  checkPackageJson(root, mismatches);
-  checkGoMod(root, mismatches);
-  checkBootstrapNodeRuntime(root, mismatches);
-  checkBootstrapShellcheck(root, mismatches);
-  checkReadme(root, mismatches);
-  checkAgents(root, mismatches);
+  checkMakefile(root, mismatches, expected);
+  checkPackageJson(root, mismatches, expected);
+  checkGoMod(root, mismatches, expected);
+  checkBootstrapNodeRuntime(root, mismatches, expected);
+  checkBootstrapShellcheck(root, mismatches, expected);
+  checkReadme(root, mismatches, expected);
+  checkAgents(root, mismatches, expected);
 
   if (mismatches.length > 0) {
     for (const mismatch of mismatches) {

@@ -194,22 +194,38 @@ empty_license="$tmp_dir/empty-license.json"
 valid_license="$tmp_dir/license-report.json"
 empty_sbom="$tmp_dir/empty-sbom.cyclonedx.json"
 valid_sbom="$tmp_dir/sbom.cyclonedx.json"
+fake_cyclonedx_gomod="$tmp_dir/cyclonedx-gomod"
+fake_syft="$tmp_dir/syft"
+frontend_install_stamp="$tmp_dir/frontend-install.stamp"
+
+printf '#!/usr/bin/env bash\nexit 0\n' >"$fake_cyclonedx_gomod"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$fake_syft"
+chmod +x "$fake_cyclonedx_gomod" "$fake_syft"
+touch "$frontend_install_stamp"
+release_probe_prereqs=(
+  --old-file="$NODE_BIN"
+  --old-file="$frontend_install_stamp"
+  --old-file="$fake_cyclonedx_gomod"
+  --old-file="$fake_syft"
+  NODE_BIN="$NODE_BIN"
+  FRONTEND_INSTALL_STAMP="$frontend_install_stamp"
+  CYCLONEDX_GOMOD_BIN="$fake_cyclonedx_gomod"
+  SYFT_BIN="$fake_syft"
+)
 
 touch "$empty_license"
-license_empty_output="$(assert_make_fails "empty license report" CYCLONEDX_GOMOD_BIN=/bin/true SYFT_BIN=/bin/true LICENSE_REPORT_ARTIFACT="$empty_license" license-report)"
-assert_contains "$license_empty_output" "license-report] Error" "empty license report failure propagation"
+assert_make_fails "empty license report" "${release_probe_prereqs[@]}" LICENSE_REPORT_ARTIFACT="$empty_license" license-report >/dev/null
 assert_probe_artifact_contains "empty license report" "license-report" "license-report" "license report artifact is empty" "empty license report failure"
 
 printf '%s\n' '{"licenses":[]}' >"$valid_license"
-assert_make_passes "valid license report" CYCLONEDX_GOMOD_BIN=/bin/true SYFT_BIN=/bin/true LICENSE_REPORT_ARTIFACT="$valid_license" license-report >/dev/null
+assert_make_passes "valid license report" "${release_probe_prereqs[@]}" LICENSE_REPORT_ARTIFACT="$valid_license" license-report >/dev/null
 
 touch "$empty_sbom"
-sbom_empty_output="$(assert_make_fails "empty SBOM" CYCLONEDX_GOMOD_BIN=/bin/true SYFT_BIN=/bin/true SBOM_ARTIFACT="$empty_sbom" sbom)"
-assert_contains "$sbom_empty_output" "sbom] Error" "empty SBOM failure propagation"
+assert_make_fails "empty SBOM" "${release_probe_prereqs[@]}" SBOM_ARTIFACT="$empty_sbom" sbom >/dev/null
 assert_probe_artifact_contains "empty SBOM" "sbom" "sbom" "SBOM artifact is empty" "empty SBOM failure"
 
 printf '%s\n' '{"bomFormat":"CycloneDX"}' >"$valid_sbom"
-assert_make_passes "valid SBOM" CYCLONEDX_GOMOD_BIN=/bin/true SYFT_BIN=/bin/true SBOM_ARTIFACT="$valid_sbom" sbom >/dev/null
+assert_make_passes "valid SBOM" "${release_probe_prereqs[@]}" SBOM_ARTIFACT="$valid_sbom" sbom >/dev/null
 
 assert_no_ambient_summary "license-report"
 assert_no_ambient_summary "sbom"

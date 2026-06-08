@@ -166,7 +166,15 @@ run_case() {
 }
 
 run_case pass 0 0 0
-expected_children="backend-integration,backend-integration-support,backend-process,backend-store,browser-e2e-measurement,browser-e2e-stateful,browser-e2e-visual,browser-e2e-webserver-backed"
+expected_children="$(
+  "$node_bin" --input-type=module - "$ROOT_DIR/tools/scheduler_manifest.json" <<'EOF'
+import { loadSummaryTopologyContext, serviceBackedScheduleChildren } from "./scripts/lib/summary-topology.mjs";
+
+const [schedulerManifestPath] = process.argv.slice(2);
+const topologyContext = loadSummaryTopologyContext({ schedulerManifestPath });
+process.stdout.write(serviceBackedScheduleChildren(topologyContext, "test-service-backed").join(","));
+EOF
+)"
 assert_contains "$(cat "$tmp_dir/pass.log")" "summary args=target-summary test-service-backed pass --children $expected_children" "pass summary"
 
 run_case scheduler-fail 7 0 1

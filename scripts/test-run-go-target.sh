@@ -145,6 +145,7 @@ assert_not_contains "$explicit_quiet_verbose_output" "== run-go-target verbose s
 assert_not_contains "$explicit_quiet_verbose_output" "support verbose line" "explicit quiet suppresses verbose go human output"
 
 verbose_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
   VERBOSE=1 \
     "$GO_PHASE_HELPER" "run-go-target verbose smoke" '^(TestSupportPhase4Integration_VerboseSmoke)$' -- "$go_bin" test "$verbose_go_rel" \
     2>&1
@@ -815,6 +816,23 @@ EOF
 manifest_smoke_rel="./${manifest_smoke_dir#"$ROOT_DIR"/}"
 manifest_smoke_file="${manifest_smoke_rel#./}/support_manifest_smoke_test.go"
 
+support_go_metadata_json() {
+  local layer="$1"
+  local owner="$2"
+
+  cat <<EOF
+      "evidence_class": "implementation_support",
+      "layer": "$layer",
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "$owner",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic run-go-target support manifest fixture coverage.",
+      "warm_local_cost_class": "low"
+EOF
+}
+
 cat >"$manifest_smoke_tools/phase20_test_map.json" <<EOF
 {
   "schema_id": "cartulary.phase_test_map.v2",
@@ -839,7 +857,8 @@ cat >"$manifest_smoke_tools/phase20_test_map.json" <<EOF
       "symbol": "TestSupportPhase20Unit_Registered",
       "selection_pattern": "TestSupportPhase20Unit_",
       "execution_family": "backend-unit-core",
-      "execution_label": "Backend unit core"
+      "execution_label": "Backend unit core",
+$(support_go_metadata_json "backend_unit" "TestSupportPhase20Unit_Registered")
     }
   ],
   "unit": [
@@ -853,6 +872,15 @@ cat >"$manifest_smoke_tools/phase20_test_map.json" <<EOF
       "execution_dependency": "backend_unit",
       "execution_family": "backend-unit-core",
       "execution_label": "Backend unit core",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "run-go-target-support-manifest-fixture",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic run-go-target support manifest fixture coverage.",
+      "warm_local_cost_class": "low",
       "evidence_layer": "smoke",
       "claim": "synthetic support manifest smoke",
       "out_of_scope": "synthetic support manifest smoke"
@@ -888,7 +916,8 @@ cat >"$manifest_smoke_tools/phase21_test_map.json" <<EOF
       "symbol": "TestSupportPhase21Unit_Missing",
       "selection_pattern": "TestSupportPhase21Unit_",
       "execution_family": "backend-unit-core",
-      "execution_label": "Backend unit core"
+      "execution_label": "Backend unit core",
+$(support_go_metadata_json "backend_unit" "TestSupportPhase21Unit_Missing")
     }
   ],
   "unit": [
@@ -902,6 +931,15 @@ cat >"$manifest_smoke_tools/phase21_test_map.json" <<EOF
       "execution_dependency": "backend_unit",
       "execution_family": "backend-unit-core",
       "execution_label": "Backend unit core",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "run-go-target-support-manifest-fixture",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic run-go-target support manifest fixture coverage.",
+      "warm_local_cost_class": "low",
       "evidence_layer": "smoke",
       "claim": "synthetic missing support symbol smoke",
       "out_of_scope": "synthetic missing support symbol smoke"
@@ -947,7 +985,8 @@ cat >"$manifest_smoke_tools/phase22_test_map.json" <<EOF
       "symbol": "TestSupportPhase22Unit_Registered",
       "selection_pattern": "TestSupportPhase22Unit_",
       "execution_family": "backend-process",
-      "execution_label": "Backend process"
+      "execution_label": "Backend process",
+$(support_go_metadata_json "backend_process" "TestSupportPhase22Unit_Registered")
     }
   ],
   "unit": [
@@ -961,6 +1000,15 @@ cat >"$manifest_smoke_tools/phase22_test_map.json" <<EOF
       "execution_dependency": "backend_unit",
       "execution_family": "backend-unit-core",
       "execution_label": "Backend unit core",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "run-go-target-support-manifest-fixture",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic run-go-target support manifest fixture coverage.",
+      "warm_local_cost_class": "low",
       "evidence_layer": "smoke",
       "claim": "synthetic invalid support target smoke",
       "out_of_scope": "synthetic invalid support target smoke"
@@ -1006,7 +1054,8 @@ cat >"$manifest_smoke_tools/phase23_test_map.json" <<EOF
       "symbol": "TestSupportPhase23Unit_Registered",
       "selection_pattern": "TestSupportPhase23Integration_",
       "execution_family": "backend-unit-core",
-      "execution_label": "Backend unit core"
+      "execution_label": "Backend unit core",
+$(support_go_metadata_json "backend_unit" "TestSupportPhase23Unit_Registered")
     }
   ],
   "unit": [
@@ -1020,6 +1069,15 @@ cat >"$manifest_smoke_tools/phase23_test_map.json" <<EOF
       "execution_dependency": "backend_unit",
       "execution_family": "backend-unit-core",
       "execution_label": "Backend unit core",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "run-go-target-support-manifest-fixture",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic run-go-target support manifest fixture coverage.",
+      "warm_local_cost_class": "low",
       "evidence_layer": "smoke",
       "claim": "synthetic support selection mismatch smoke",
       "out_of_scope": "synthetic support selection mismatch smoke"
@@ -1065,7 +1123,8 @@ cat >"$manifest_smoke_tools/phase24_test_map.json" <<EOF
       "symbol": "TestSupportPhase24Unit_Registered",
       "selection_pattern": "TestSupportPhase24Unit_",
       "execution_family": "backend-unit-core",
-      "execution_label": "Backend unit core"
+      "execution_label": "Backend unit core",
+$(support_go_metadata_json "backend_unit" "TestSupportPhase24Unit_Registered")
     }
   ],
   "unit": [
@@ -1079,6 +1138,15 @@ cat >"$manifest_smoke_tools/phase24_test_map.json" <<EOF
       "execution_dependency": "backend_unit",
       "execution_family": "backend-unit-core",
       "execution_label": "Backend unit core",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "run-go-target-support-manifest-fixture",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic run-go-target support manifest fixture coverage.",
+      "warm_local_cost_class": "low",
       "evidence_layer": "smoke",
       "claim": "synthetic support package mismatch smoke",
       "out_of_scope": "synthetic support package mismatch smoke"

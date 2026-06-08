@@ -437,8 +437,8 @@ if (plannedNonAccountable.length > 0) {
   throw new Error(`active target accounting must exclude planned blocked/not-implemented rows: ${JSON.stringify(plannedNonAccountable)}`);
 }
 const feu5 = byID.get("FE-U-P5-01");
-if (!feu5 || feu5.phase_status !== "planned" || feu5.closure_status !== "closed") {
-  throw new Error(`implemented planned FE-U-P5-01 must be closed in success accounting: ${JSON.stringify(feu5)}`);
+if (!feu5 || feu5.closure_status !== "closed") {
+  throw new Error(`implemented FE-U-P5-01 must be closed in success accounting: ${JSON.stringify(feu5)}`);
 }
 const fei = byID.get("FE-I-P1-01");
 if (!fei || fei.closure_status !== "closed") {

@@ -590,6 +590,11 @@ function validateRetainedRun(resultsDir, actionID) {
     "check",
     "tool-run-summary.json",
   );
+  const serviceBackedMarkers = [
+    path.join(resolved, "check-service-backed", "tool-run-summary.json"),
+    path.join(resolved, "check-service-backed", "target-summary.json"),
+    path.join(resolved, "check-service-backed", "scheduler-summary.json"),
+  ];
   const checkSchedulerSummary = path.join(
     resolved,
     "check",
@@ -597,6 +602,16 @@ function validateRetainedRun(resultsDir, actionID) {
   );
   const checkEvents = path.join(resolved, "check", "scheduler-events.jsonl");
   if (!existsSync(checkToolSummary)) {
+    if (serviceBackedMarkers.some((file) => existsSync(file))) {
+      return {
+        ok: false,
+        failure: preflightFailure(
+          actionID,
+          `${relToRepo(resolved)} contains check-service-backed artifacts but no ${relToRepo(checkToolSummary)}; RESULTS_DIR is a partial service-backed run root and must be a successful full warm make check retained run root`,
+          "config",
+        ),
+      };
+    }
     return {
       ok: false,
       failure: preflightFailure(

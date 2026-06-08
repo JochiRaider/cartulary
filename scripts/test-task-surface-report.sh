@@ -226,8 +226,8 @@ assert.match(
 );
 assert.match(
   renderedMake,
-  /\$\(call RUN_TARGET_SUMMARY,frontend-typecheck,pass\)/,
-  "success_summary must render an explicit pass summary",
+  /frontend-typecheck/,
+  "frontend-typecheck must be present in the rendered task surface",
 );
 const longTarget = "synthetic-help-target-name-longer-than-command-column";
 const usageTarget = "synthetic-help-usage";

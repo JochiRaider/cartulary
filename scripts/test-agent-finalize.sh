@@ -418,7 +418,7 @@ assert_invalid_results_dir \
   "$service_backed_only_dir" \
   "config" \
   "configuration_error" \
-  "must be a successful full warm make check retained run root"
+  "partial service-backed run root"
 
 failed_retained_dir="$TMP_DIR/failed-retained"
 write_retained_run "$failed_retained_dir"

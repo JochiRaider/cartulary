@@ -103,6 +103,15 @@ JSON
       "symbol": "TestPhase5_Create_U_5_01",
       "execution_dependency": "backend_unit",
       "evidence_layer": "unit",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "phase-test-names-fixture",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic phase test names fixture coverage.",
+      "warm_local_cost_class": "low",
       "claim": "future unit evidence",
       "out_of_scope": "none"
     }
@@ -117,6 +126,15 @@ JSON
       "symbol": "TestPhase5_Process_E_5_SMOKE_01_ProcessSmoke",
       "execution_dependency": "backend_process",
       "evidence_layer": "process_smoke",
+      "evidence_class": "implementation_support",
+      "layer": "backend_process",
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "E-5-SMOKE-01",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy",
       "claim": "future process smoke",
       "out_of_scope": "authoritative browser evidence"
     }

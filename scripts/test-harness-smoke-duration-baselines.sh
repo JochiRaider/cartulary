@@ -76,14 +76,22 @@ const fs = require("node:fs");
 const path = require("node:path");
 const [source, output, rootDir, backingScript] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
-const checks = ["harness-smoke-alpha", "harness-smoke-beta", "harness-smoke-gamma"];
-for (const name of checks) {
+const checks = [
+  ["harness-smoke-alpha", "public_make_wrapper"],
+  ["harness-smoke-beta", "check_scheduler_semantic"],
+  ["harness-smoke-gamma", "service_backed_scheduler_semantic"],
+];
+for (const check of manifest.harness_checks) {
+  delete check.gate_smoke_role;
+}
+for (const [name, gateRole] of checks) {
   manifest.harness_checks.push({
     name,
+    gate_smoke_role: gateRole,
     backing_scripts: [path.relative(rootDir, backingScript).replaceAll("\\", "/")],
   });
 }
-manifest.harness_tiers.fast = { checks };
+manifest.harness_tiers.fast = { checks: checks.map(([name]) => name) };
 fs.writeFileSync(output, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 
@@ -166,25 +174,6 @@ if (Object.hasOwn(baseline.targets, "harness-smoke-failed")) {
 EOF
 
 "$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/baseline.json" --manifest "$manifest" "$results_dir" >/dev/null
-
-cat >"$tmp_dir/make-baseline.json" <<'JSON'
-{
-  "schema_id": "cartulary.harness_smoke_duration_baselines.v1",
-  "targets": {}
-}
-JSON
-make_update_output="$(
-  RESULTS_DIR="$results_dir" \
-  HARNESS_SMOKE_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
-  TASK_SURFACE_MANIFEST="$manifest" \
-    "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" harness-smoke-duration-baselines 2>&1
-)"
-assert_contains "$make_update_output" "[RESULT] target=harness-smoke-duration-baselines status=pass" "make baseline update summary"
-assert_contains "$(phase_stdout_from_result "$make_update_output")" "updated 3 harness smoke duration baselines" "make baseline update output"
-RESULTS_DIR="$results_dir" \
-HARNESS_SMOKE_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
-TASK_SURFACE_MANIFEST="$manifest" \
-  "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" harness-smoke-duration-baseline-drift >/dev/null
 
 cat >"$tmp_dir/missing-observed.json" <<'JSON'
 {

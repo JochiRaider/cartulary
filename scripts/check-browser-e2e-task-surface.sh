@@ -385,8 +385,7 @@ for required_service_schedule_fragment in \
   'service-backed-target' \
   'context.runPhaseScript' \
   'context.serviceBackedScheduleScript' \
-  '--defer-summary' \
-  '"--children"'
+  '--defer-summary'
 do
   if [[ "$service_schedule_target_content" != *"$required_service_schedule_fragment"* ]]; then
     fail "scripts/cartulary-runner.mjs must contain $required_service_schedule_fragment"

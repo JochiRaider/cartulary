@@ -475,7 +475,11 @@ assert_not_contains "${manifest_content}" "\"summary_profiles\"" "manifest copie
 assert_not_contains "${manifest_content}" "\"summary_projection\"" "manifest copied summary projections"
 env NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" --input-type=module - "${ROOT_DIR}/tools/task_surface_manifest.json" "${ROOT_DIR}/tools/scheduler_manifest.json" "${ROOT_DIR}/tools/browser_e2e_batch_manifest.json" <<'EOF'
 import fs from "node:fs";
-import { loadSummaryTopologyContext, resolveSummaryGroups } from "./scripts/lib/summary-topology.mjs";
+import {
+  loadSummaryTopologyContext,
+  resolveSummaryGroups,
+  serviceBackedScheduleChildren,
+} from "./scripts/lib/summary-topology.mjs";
 import { loadBrowserBatchStages } from "./scripts/lib/browser-batch-manifest.mjs";
 
 const [manifestFile, serviceManifest, browserManifest] = process.argv.slice(2);
@@ -512,6 +516,15 @@ const expectedBrowser = [
 if (JSON.stringify(browser?.summaryTargets) !== JSON.stringify(expectedBrowser)) {
   throw new Error("test browser summary group must derive browser leaves from schedules");
 }
+for (const target of ["test-service-backed", "test-fast-service-backed", "check-service-backed"]) {
+  const children = serviceBackedScheduleChildren(context, target);
+  if (children.length === 0) {
+    throw new Error(`${target} must derive target-summary children from the service-backed schedule`);
+  }
+  if (target === "check-service-backed" && children.includes("browser-e2e-measurement")) {
+    throw new Error("check-service-backed target-summary children must exclude measurement browser evidence");
+  }
+}
 const testFastTargets = manifest.sequences["test-fast"].steps.flatMap((step) => step.produces_summary_targets ?? []);
 for (const target of ["backend-unit", "frontend-typecheck", "frontend-unit", "test-fast-service-backed"]) {
   if (!testFastTargets.includes(target)) {
@@ -545,7 +558,6 @@ assert_not_contains "${manifest_content}" "harness-smoke-run-go-target-fast" "re
 assert_contains "${test_service_backed_block}" 'service-backed-target --target test-service-backed --phase-label "test service-backed" --service-wrapper test-services' "test service-backed scheduler invocation"
 assert_contains "${test_fast_service_backed_block}" 'service-backed-target --target test-fast-service-backed --phase-label "test-fast service-backed" --service-wrapper test-services' "test-fast service-backed scheduler invocation"
 assert_contains "${check_service_backed_block}" 'service-backed-target --target check-service-backed --phase-label "check service-backed" --service-wrapper test-services' "check service-backed scheduler invocation"
-assert_contains "${service_schedule_target_content}" '"--children"' "service-backed runner summary children"
 assert_not_contains "${test_service_backed_block}" "--jobs" "test service-backed fixed scheduler jobs"
 assert_not_contains "${test_fast_service_backed_block}" "--jobs" "test-fast service-backed fixed scheduler jobs"
 assert_not_contains "${check_service_backed_block}" "--jobs" "check service-backed fixed scheduler jobs"

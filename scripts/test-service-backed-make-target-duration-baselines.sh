@@ -205,16 +205,18 @@ cat >"$tmp_dir/make-baseline.json" <<'JSON'
 }
 JSON
 make_update_output="$(
-  RESULTS_DIR="$results_dir" \
-  SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
+  env -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID \
+    RESULTS_DIR="$results_dir" \
+    SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
     "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" service-backed-make-target-duration-baselines 2>&1
 )"
 assert_contains "$make_update_output" "[RESULT] target=service-backed-make-target-duration-baselines status=pass" "make baseline update summary"
 assert_contains "$(phase_stdout_from_result "$make_update_output")" "updated 4 scheduler work-unit duration baselines" "make baseline update output"
-RESULTS_DIR="$results_dir" \
-SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
-EXECUTION_TOPOLOGY_MANIFEST="$tmp_dir/topology.json" \
-SCHEDULER_MANIFEST="$tmp_dir/schedule.json" \
+env -u CARTULARY_TEST_RESULTS_DIR -u CARTULARY_TEST_RUN_ID \
+  RESULTS_DIR="$results_dir" \
+  SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
+  EXECUTION_TOPOLOGY_MANIFEST="$tmp_dir/topology.json" \
+  SCHEDULER_MANIFEST="$tmp_dir/schedule.json" \
   "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" service-backed-make-target-duration-baseline-drift >/dev/null
 
 cat >"$tmp_dir/tolerated-underplanned.json" <<'JSON'
