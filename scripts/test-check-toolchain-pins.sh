@@ -392,22 +392,21 @@ cleanup_paths+=("${preflight_dir}")
 cleanup_paths+=("${preflight_results_root}")
 copy_minimal_repo "${preflight_dir}"
 replace_text "${preflight_dir}/package.json" '"node": "'"$node_version"'"' '"node": "'"$node_version_alt"'"'
+preflight_log="${preflight_dir}/toolchain-drift-preflight.log"
 
 set +e
-preflight_output="$(
-  make --no-print-directory -C "${preflight_dir}" \
-    CARTULARY_TEST_RESULTS_DIR="${preflight_results_root}" \
-    CARTULARY_TEST_RUN_ID="${preflight_run_id}" \
-    CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=1 \
-    NODE_BIN="${NODE_BIN}" \
-    toolchain-drift \
-    2>&1
-)"
+make --no-print-directory -C "${preflight_dir}" \
+  CARTULARY_TEST_RESULTS_DIR="${preflight_results_root}" \
+  CARTULARY_TEST_RUN_ID="${preflight_run_id}" \
+  CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=1 \
+  NODE_BIN="${NODE_BIN}" \
+  toolchain-drift \
+  >"${preflight_log}" 2>&1
 preflight_status=$?
 set -e
 
 if [[ "${preflight_status}" -eq 0 ]]; then
-  fail "check toolchain drift mismatch: expected failure"
+  fail "check toolchain drift mismatch: expected failure; see ${preflight_log}"
 fi
 "${NODE_BIN}" "${ROOT_DIR}/scripts/lib/harness-artifact-assert.mjs" \
   --repo-root "${preflight_dir}" \

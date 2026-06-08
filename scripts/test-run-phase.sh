@@ -490,6 +490,29 @@ assert_contains "$shellcheck_stdout_failure_output" "message=$shellcheck_message
 shellcheck_stdout_failure_summary="$shellcheck_stdout_failure_results/shellcheck-stdout-failure/adhoc/shellcheck-stdout-failure/phase-summary.json"
 assert_equals "$(json_field "$shellcheck_stdout_failure_summary" "dossiers.0.message")" "$shellcheck_message" "shellcheck stdout failure summary message"
 
+shellcheck_diagnostic_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-phase-shellcheck-diagnostic-results.XXXXXX")"
+cleanup_paths+=("$shellcheck_diagnostic_failure_results")
+set +e
+shellcheck_diagnostic_failure_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$shellcheck_diagnostic_failure_results" \
+  CARTULARY_TEST_RUN_ID="shellcheck-diagnostic-failure" \
+  CARTULARY_TEST_TARGET="lint-shell" \
+    "$HELPER" "lint shell" -- bash -lc 'printf "%s\n" "In scripts/example.sh line 5:" "unused_var=1" "^-- SC2034 (warning): unused_var appears unused. Verify use (or export if used externally)."; exit 1' \
+    2>&1
+)"
+shellcheck_diagnostic_failure_status=$?
+set -e
+if [[ "$shellcheck_diagnostic_failure_status" -ne 1 ]]; then
+  fail "shellcheck diagnostic failure: expected exit status 1, got $shellcheck_diagnostic_failure_status"
+fi
+shellcheck_diagnostic_message="ShellCheck SC2034 at scripts/example.sh:5: unused_var appears unused. Verify use (or export if used externally)."
+assert_contains "$shellcheck_diagnostic_failure_output" "reason=tool_diagnostic_failure" "shellcheck diagnostic failure reason"
+assert_contains "$shellcheck_diagnostic_failure_output" "$shellcheck_diagnostic_message" "shellcheck diagnostic failure message"
+shellcheck_diagnostic_failure_summary="$shellcheck_diagnostic_failure_results/shellcheck-diagnostic-failure/lint-shell/lint-shell/phase-summary.json"
+assert_equals "$(json_field "$shellcheck_diagnostic_failure_summary" "failure_reason")" "tool_diagnostic_failure" "shellcheck diagnostic summary reason"
+assert_equals "$(json_field "$shellcheck_diagnostic_failure_summary" "dossiers.0.message")" "$shellcheck_diagnostic_message" "shellcheck diagnostic summary message"
+
 biome_diagnostic_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-phase-biome-results.XXXXXX")"
 cleanup_paths+=("$biome_diagnostic_failure_results")
 set +e

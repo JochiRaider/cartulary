@@ -1027,7 +1027,7 @@ Failure classification uses two layers:
 | `resource_conflict`           | `infra`       | Logical resource, port, lock, DB/bucket name, or host conflict     |                                                 `4` |
 | `test_assertion_failure`      | `product`     | Test runner assertion fails after harness setup                    |                                                `10` |
 | `child_target_failure`        | `harness`     | Aggregate child exits nonzero                                      |                         normalized child class exit |
-| `tool_diagnostic_failure`     | `harness`     | Static-analysis, formatter, linter, or tool diagnostic failure after setup |                                         `1` |
+| `tool_diagnostic_failure`     | `harness`     | ShellCheck/Biome-style static-analysis, formatter, linter, or tool diagnostic failure after setup |                         `1` |
 | `scheduler_accounting_error`  | `harness`     | Manifest, summary, timing, event, or accounting mismatch           |                                                `11` |
 | `frontend_row_accounting`     | `harness`     | Implemented frontend row mapped to a target is missing, stale, failed, or otherwise not closed by required row-accounting evidence |                    `11` |
 | `artifact_error`              | `artifact`    | Required artifact missing, invalid, unredacted, or schema-invalid  |                                                `11` |

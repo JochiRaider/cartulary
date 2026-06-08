@@ -4702,7 +4702,7 @@ function classifyShellFailureDetails(context, stdoutLines, stderrLines, message)
   ) {
     return { failure_class: "infra", failure_reason: "service_start_error" };
   }
-  if (isBiomeShellFailure(context, text)) {
+  if (isToolDiagnosticShellFailure(context, text)) {
     return {
       failure_class: "harness",
       failure_reason: "tool_diagnostic_failure",
@@ -4721,6 +4721,31 @@ function classifyShellFailureDetails(context, stdoutLines, stderrLines, message)
       context.command,
     ),
   };
+}
+
+function isToolDiagnosticShellFailure(context, text) {
+  return isShellCheckShellFailure(context, text) || isBiomeShellFailure(context, text);
+}
+
+function isShellCheckShellFailure(context, text) {
+  const commandContext = [
+    context.target,
+    context.label,
+    context.command,
+  ]
+    .join("\n")
+    .toLowerCase();
+  if (
+    !commandContext.includes("lint-shell") &&
+    !commandContext.includes("run-shellcheck.sh") &&
+    !commandContext.includes("shellcheck")
+  ) {
+    return false;
+  }
+  return (
+    /\bsc[0-9]{4}\s+\((?:error|warning|info|style)\):/u.test(text) ||
+    /\[[ ]*sc[0-9]{4}[ ]*\]/u.test(text)
+  );
 }
 
 function isBiomeShellFailure(context, text) {
