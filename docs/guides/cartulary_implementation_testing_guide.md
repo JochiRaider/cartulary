@@ -28,6 +28,8 @@ This guide also resolves one dependency error from the prior version: reviewer-f
 
 Visual golden refreshes follow `docs/guides/cartulary_visual_golden_maintenance.md`. That guide is implementation support only; it does not move visual snapshot refresh authority into the Core 00-04 product contract or current harness conformance profile.
 
+Browser E2E tests that query backend state after a UI mutation must wait for the mutation boundary before querying. Prefer a route-specific `page.waitForResponse()` started before the click for the expected mutating route, or wait for the workbook save state that is set only after the route response and required refresh complete. URL, focus, scroll, and visibility assertions are context-continuity checks; they are not persistence barriers.
+
 Runner summaries use the following accounting buckets. `authoritative` is phase completion evidence with owned IDs. `support` is phase-owned support evidence. `raw` is an explicitly declared raw aggregate suite, owned through `tools/execution_topology_manifest.json`. `tooling_support` is helper, harness, config, or runner-support coverage. `unowned_regression` is intentional product regression coverage that has not been promoted into a phase-owned row. `unmapped` is reserved for unexpected executed tests that need an ownership decision. Non-phase classifications belong in `tools/test_accounting_classification.json`; do not add filename heuristics when a manifest rule can express the ownership.
 
 ### 1.1.1 Service-backed fixture modes

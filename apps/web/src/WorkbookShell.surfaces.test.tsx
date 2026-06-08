@@ -1679,6 +1679,32 @@ describe("generic workbook mutation payloads", () => {
     });
     expect(
       buildGenericPatchChange(
+        requireField(commLog, "comm_log.audience_party_ids"),
+        "party_ref:party-1",
+        "remove",
+      ),
+    ).toEqual({
+      field_key: "comm_log.audience_party_ids",
+      action_payload: {
+        kind: "collection_actions_v1",
+        actions: [{ op: "remove_party_ref", item_ref: "party_ref:party-1" }],
+      },
+    });
+    expect(
+      buildGenericPatchChange(
+        requireField(commLog, "comm_log.attendee_party_ids"),
+        "party_ref:party-2",
+        "remove",
+      ),
+    ).toEqual({
+      field_key: "comm_log.attendee_party_ids",
+      action_payload: {
+        kind: "collection_actions_v1",
+        actions: [{ op: "remove_party_ref", item_ref: "party_ref:party-2" }],
+      },
+    });
+    expect(
+      buildGenericPatchChange(
         requireField(decisions, "decision.support_refs"),
         "record-1",
       ),

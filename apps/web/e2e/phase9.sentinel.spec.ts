@@ -11,7 +11,6 @@ import {
   genericEditActionSelectTestId,
   genericEditFieldSelectTestId,
   genericEditRecordSelectTestId,
-  genericEditSubmitTestId,
   genericEditValueTestId,
   gridFilterChipTestId,
   gridGroupingSelectTestId,
@@ -57,6 +56,7 @@ import {
   notesViewSchemaId,
   partiesViewSchemaId,
   statusReviewViewSchemaId,
+  submitGenericEditAndWait,
   taskRequestsViewSchemaId,
   waitForViewRowByCell,
 } from "./phase4Helpers";
@@ -861,9 +861,11 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     await page
       .getByTestId(genericEditValueTestId(commLogViewSchemaId))
       .selectOption(existingParty.record_id as string);
-    await page
-      .getByTestId(genericEditSubmitTestId(commLogViewSchemaId))
-      .click();
+    await submitGenericEditAndWait(
+      page,
+      commLogViewSchemaId,
+      commLog.record_id as string,
+    );
     await assertCommContextStable();
 
     rows = await queryViewRows(page, incidentId, commLogViewSchemaId);
@@ -881,9 +883,11 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     await page
       .getByTestId(genericEditValueTestId(commLogViewSchemaId))
       .selectOption(`party_ref:${existingParty.record_id}`);
-    await page
-      .getByTestId(genericEditSubmitTestId(commLogViewSchemaId))
-      .click();
+    await submitGenericEditAndWait(
+      page,
+      commLogViewSchemaId,
+      commLog.record_id as string,
+    );
     await assertCommContextStable();
 
     rows = await queryViewRows(page, incidentId, commLogViewSchemaId);
@@ -1204,9 +1208,11 @@ test("Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows s
   await page
     .getByTestId(genericEditValueTestId(decisionsViewSchemaId))
     .selectOption(support.record_id as string);
-  await page
-    .getByTestId(genericEditSubmitTestId(decisionsViewSchemaId))
-    .click();
+  await submitGenericEditAndWait(
+    page,
+    decisionsViewSchemaId,
+    supersedingDecision.record_id as string,
+  );
   await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
   decisionRows = await queryViewRows(page, incidentId, decisionsViewSchemaId);
   const affectedDecision = decisionRows.find(
@@ -2396,7 +2402,7 @@ async function editPhase9GenericCell(
     } else {
       await input.uncheck();
     }
-    await page.getByTestId(genericEditSubmitTestId(viewSchemaId)).click();
+    await submitGenericEditAndWait(page, viewSchemaId, recordId);
     return;
   }
   if (tagName === "SELECT") {
@@ -2411,7 +2417,7 @@ async function editPhase9GenericCell(
   } else {
     await input.fill(Array.isArray(value) ? value.join("\n") : value);
   }
-  await page.getByTestId(genericEditSubmitTestId(viewSchemaId)).click();
+  await submitGenericEditAndWait(page, viewSchemaId, recordId);
 }
 
 async function waitForPhase9GenericOption(

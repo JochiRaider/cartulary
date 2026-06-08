@@ -601,5 +601,28 @@ export async function editGenericCell(
   } else {
     await input.fill(Array.isArray(value) ? value.join("\n") : value);
   }
+  await submitGenericEditAndWait(page, viewSchemaId, recordId);
+}
+
+export function waitForRecordPatch(
+  page: Page,
+  recordId: string,
+): Promise<Response> {
+  return page.waitForResponse(
+    (response) =>
+      response.request().method() === "PATCH" &&
+      response.url().endsWith(`/api/v1/records/${recordId}`),
+  );
+}
+
+export async function submitGenericEditAndWait(
+  page: Page,
+  viewSchemaId: string,
+  recordId: string,
+): Promise<Response> {
+  const patchResponse = waitForRecordPatch(page, recordId);
   await page.getByTestId(genericEditSubmitTestId(viewSchemaId)).click();
+  const response = await patchResponse;
+  expect(response.ok()).toBeTruthy();
+  return response;
 }
