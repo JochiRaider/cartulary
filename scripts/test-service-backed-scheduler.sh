@@ -945,11 +945,29 @@ case "${1:-}" in
 
     target="$2"
     metadata_dir="$3"
+    shift 3
+    shards=("$@")
     aggregate_dir="${metadata_dir}/aggregate-reports/${target}/fake-aggregate"
     status=0
     summary_status=pass
+    shard_list="${shards[*]:-}"
 
-    log_event "start finalize ${target}"
+    log_event "start finalize ${target} shards=${shard_list}"
+    if [[ -n "${FAKE_GO_EXPECT_FINALIZE_TARGET:-}" && "${FAKE_GO_EXPECT_FINALIZE_TARGET}" == "$target" ]]; then
+      actual_shards="$(IFS=,; printf '%s' "${shards[*]}")"
+      if [[ "$actual_shards" != "${FAKE_GO_EXPECT_FINALIZE_SHARDS:-}" ]]; then
+        echo "finalize shards for ${target} got [${actual_shards}] want [${FAKE_GO_EXPECT_FINALIZE_SHARDS:-}]" >&2
+        exit 8
+      fi
+    fi
+    if [[ -n "${FAKE_GO_FORBID_FINALIZE_SHARD:-}" ]]; then
+      for shard in "${shards[@]}"; do
+        if [[ "$shard" == "${FAKE_GO_FORBID_FINALIZE_SHARD}" ]]; then
+          echo "forbidden finalize shard ${shard} for ${target}" >&2
+          exit 8
+        fi
+      done
+    fi
     sleep "$(sleep_for FAKE_GO_SLEEP_FINALIZE "$target" 0.05)"
     mkdir -p "$aggregate_dir"
     printf 'fake aggregate for %s\n' "$target" >"${aggregate_dir}/artifact.txt"
@@ -1027,7 +1045,7 @@ write_manifest() {
     local first=1
     local source
 	    for source in "$@"; do
-	      IFS='|' read -r type name weight claims class browser_stage needs <<<"$source"
+	      IFS='|' read -r type name weight claims class browser_stage needs go_shard_mode <<<"$source"
 	      class="${class:-backend}"
       if [[ "$first" -eq 0 ]]; then
         printf ',\n'
@@ -1081,6 +1099,9 @@ write_manifest() {
       else
         printf '      { "type": "go_shards", "class": "%s", "target": "%s", "resource_claims": {%s}' \
           "$class" "$name" "$claims"
+        if [[ "${go_shard_mode:-}" == "default_check" ]]; then
+          printf ', "default_check_required": true'
+        fi
         if [[ -n "${needs:-}" ]]; then
           printf ', "needs": ['
           local first_need=1
@@ -1189,6 +1210,9 @@ run_scheduler() {
   FAKE_GO_FAIL_SHARD_STATUS="${FAKE_GO_FAIL_SHARD_STATUS:-}" \
   FAKE_GO_FAIL_FINALIZER_TARGET="${FAKE_GO_FAIL_FINALIZER_TARGET:-}" \
   FAKE_GO_FINALIZER_FAILURE_STATUS="${FAKE_GO_FINALIZER_FAILURE_STATUS:-}" \
+  FAKE_GO_EXPECT_FINALIZE_TARGET="${FAKE_GO_EXPECT_FINALIZE_TARGET:-}" \
+  FAKE_GO_EXPECT_FINALIZE_SHARDS="${FAKE_GO_EXPECT_FINALIZE_SHARDS:-}" \
+  FAKE_GO_FORBID_FINALIZE_SHARD="${FAKE_GO_FORBID_FINALIZE_SHARD:-}" \
   VERBOSE="${VERBOSE:-}" \
   CI_VERBOSE="${CI_VERBOSE:-}" \
   CARTULARY_OUTPUT_MODE="${CARTULARY_OUTPUT_MODE:-}" \
@@ -2151,6 +2175,46 @@ if (!timing.log_file || timing.log_file.startsWith("/")) {
   throw new Error(`finalizer log path must be repo-relative, got ${timing.log_file}`);
 }
 EOF
+
+selected_shard_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-selected-shards.XXXXXX")"
+cleanup_paths+=("$selected_shard_dir")
+write_fake_make "$selected_shard_dir"
+write_fake_go_target_runner "$selected_shard_dir"
+selected_shard_manifest="${selected_shard_dir}/manifest.json"
+write_manifest "$selected_shard_manifest" test-fast-service-backed \
+  'go_shards|backend-integration|0|"postgres": 1, "object_store": 1, "go_cpu": 1, "go_io": 1|backend|||default_check'
+selected_shards="$(
+  "$NODE_BIN" - "$selected_shard_manifest" <<'EOF'
+const fs = require("node:fs");
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+const unit = manifest.schedules[0].work_units.find(
+  (candidate) =>
+    candidate.command?.type === "go_shard_finalize" &&
+    candidate.command?.target === "backend-integration",
+);
+if (!unit) {
+  throw new Error("missing backend-integration go_shard_finalize unit");
+}
+if (!Array.isArray(unit.shard_names) || unit.shard_names.length === 0) {
+  throw new Error("backend-integration finalizer selected no shard_names");
+}
+if (unit.shard_names.includes("backend-integration-testutil-shard-01")) {
+  throw new Error("default-check shard selection must omit backend-integration-testutil-shard-01");
+}
+process.stdout.write(unit.shard_names.join(","));
+EOF
+)"
+selected_shard_output="$(
+  FAKE_SCHEDULER_SLEEP=0.01 \
+  FAKE_GO_EXPECT_FINALIZE_TARGET=backend-integration \
+  FAKE_GO_EXPECT_FINALIZE_SHARDS="$selected_shards" \
+  FAKE_GO_FORBID_FINALIZE_SHARD=backend-integration-testutil-shard-01 \
+    run_scheduler "$selected_shard_dir" "$selected_shard_manifest" test-fast-service-backed selected-shards 2>&1
+)"
+assert_contains "$selected_shard_output" "[SUMMARY] target=test-fast-service-backed status=pass" "selected shard scheduler pass"
+assert_contains "$(cat "${selected_shard_dir}/make.log")" "start finalize backend-integration shards=${selected_shards//,/ }" "selected shard finalizer argv"
+assert_not_contains "$(cat "${selected_shard_dir}/make.log")" "backend-integration-testutil-shard-01" "selected shard finalizer omits testutil shard"
 
 defer_summary_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-defer-summary.XXXXXX")"
 cleanup_paths+=("$defer_summary_dir")

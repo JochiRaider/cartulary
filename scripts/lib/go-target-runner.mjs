@@ -22,6 +22,10 @@ import {
 } from "./go-target-aggregate.mjs";
 import { collectGoShardPlan } from "./go-shard-plan.mjs";
 import {
+  createFailureClassCounts,
+  createFailureReasonCounts,
+} from "./failure-taxonomy.mjs";
+import {
   resolveOutputMode as resolveHarnessOutputMode,
   resolveRetainedArtifactIdentity,
   createSecureWriteStream,
@@ -30,6 +34,7 @@ import {
   secureWriteFile,
   targetPolicy,
 } from "./harness-contract.mjs";
+import { testCoverageBuckets } from "./test-output/context.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "./target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -78,6 +83,21 @@ function captureFinish(started) {
 
 function resolvePath(repoRoot, value) {
   return path.isAbsolute(value) ? value : path.join(repoRoot, value);
+}
+
+function relToRepo(ctx, value) {
+  if (!value) {
+    return "";
+  }
+  const normalized = String(value).replaceAll("\\", "/");
+  if (!path.isAbsolute(value)) {
+    return normalized;
+  }
+  const relative = path.relative(ctx.repoRoot, value).replaceAll("\\", "/");
+  if (!relative.startsWith("../") && relative !== "..") {
+    return relative;
+  }
+  return normalized;
 }
 
 function resolveNodeBin(repoRoot, env) {
@@ -624,6 +644,120 @@ function writeTargetTimingSpan(ctx, bucket, label, window, status) {
       duration_ms: window.durationMs,
       status,
     })}\n`,
+  );
+}
+
+function createNonTestFailureCounts() {
+  const counts = {
+    tests: 0,
+    failed: 1,
+    non_test: 1,
+    non_test_failed: 1,
+    packages: 0,
+  };
+  for (const coverage of testCoverageBuckets) {
+    counts[coverage] = 0;
+    counts[`${coverage}_failed`] = 0;
+  }
+  return counts;
+}
+
+function finalizerErrorClassification(error) {
+  const message = String(error?.message ?? error ?? "");
+  if (message.startsWith("unknown scheduled shard ")) {
+    return {
+      failureClass: "harness",
+      failureReason: "scheduler_accounting_error",
+    };
+  }
+  return {
+    failureClass: "artifact",
+    failureReason: "artifact_error",
+  };
+}
+
+function writeFinalizerFailurePhase(
+  ctx,
+  {
+    target,
+    label,
+    commandArgs,
+    window,
+    exitStatus = 1,
+    error,
+    metadataDir,
+    aggregateReportDir = "",
+    shardNames = [],
+  },
+) {
+  if (!ctx.testTarget) {
+    return;
+  }
+  const { failureClass, failureReason } = finalizerErrorClassification(error);
+  const phaseDir = preparePhaseArtifactDir(ctx, label);
+  const counts = createNonTestFailureCounts();
+  const failureClasses = createFailureClassCounts();
+  failureClasses[failureClass] = 1;
+  const failureReasons = createFailureReasonCounts();
+  failureReasons[failureReason] = 1;
+  const artifacts = {
+    metadata_dir: relToRepo(ctx, metadataDir),
+  };
+  if (aggregateReportDir) {
+    artifacts.aggregate_report_dir = relToRepo(ctx, aggregateReportDir);
+  }
+  const message = String(error?.message ?? error ?? "go shard finalizer failed");
+  const failure = {
+    failure_class: failureClass,
+    failure_reason: failureReason,
+    kind: failureClass === "artifact" ? "artifact" : "failure",
+    source: "go-shard-finalizer",
+    target,
+    label,
+    message,
+    artifact: artifacts.aggregate_report_dir || artifacts.metadata_dir,
+    shard_names: shardNames,
+  };
+  secureWriteFile(
+    path.join(phaseDir, "phase-summary.json"),
+    `${JSON.stringify(
+      {
+        schema_id: "cartulary.test_phase_summary.v3",
+        label,
+        target: ctx.testTarget,
+        runner: "go-shard-finalizer",
+        status: "fail",
+        phase: "go-shard-finalize",
+        command: renderCommand(commandArgs),
+        start_time: window.startTime,
+        end_time: window.endTime,
+        accounting_mode: "actual",
+        executed_duration_ms: window.durationMs,
+        logical_duration_ms: window.durationMs,
+        reused_duration_ms: 0,
+        derived_duration_ms: 0,
+        wall_duration_ms: window.durationMs,
+        critical_path_wall_duration_ms: window.durationMs,
+        teardown_duration_ms: 0,
+        timing_bucket: "report_collation",
+        exit_status: exitStatus,
+        counting_mode: "counted",
+        artifacts,
+        counts,
+        failure_class: failureClass,
+        failure_reason: failureReason,
+        failure_classes: failureClasses,
+        failure_reasons: failureReasons,
+        failures: [failure],
+        failure_headline: `${failureClass} reason=${failureReason} ${message}`,
+        owners: [],
+        inventory: [],
+        dossiers: [],
+        manifest_mismatch: null,
+      },
+      null,
+      2,
+    )}\n`,
   );
 }
 
@@ -1310,11 +1444,38 @@ export async function finalizeScheduledShards(
   const aggregateReports = [];
   const selectedShardSet =
     selectedShardNames.length > 0 ? new Set(selectedShardNames) : null;
+  const finalizerCommandArgs = [
+    "run-go-target.mjs",
+    "finalize-shards",
+    target,
+    metadataDir,
+    ...selectedShardNames,
+  ];
   if (selectedShardSet) {
+    const validationStarted = captureStart();
     const knownShards = new Set(targetShards(ctx, target).map((shard) => shard.name));
     for (const shardName of selectedShardSet) {
       if (!knownShards.has(shardName)) {
-        throw new Error(`unknown scheduled shard ${shardName} for ${target}`);
+        const error = new Error(`unknown scheduled shard ${shardName} for ${target}`);
+        const validationWindow = captureFinish(validationStarted);
+        writeTargetTimingSpan(
+          ctx,
+          "report_collation",
+          `validate ${target}:selected-shards`,
+          validationWindow,
+          "fail",
+        );
+        writeFinalizerFailurePhase(ctx, {
+          target,
+          label: `validate ${target}:selected-shards`,
+          commandArgs: finalizerCommandArgs,
+          window: validationWindow,
+          error,
+          metadataDir,
+          shardNames: selectedShardNames,
+        });
+        process.stderr.write(`${error.message}\n`);
+        return await finishTarget(ctx, 1);
       }
     }
   }
@@ -1327,6 +1488,8 @@ export async function finalizeScheduledShards(
     }
     const aggregateStarted = captureStart();
     let report = null;
+    const aggregateRoot = path.join(metadataDir, "aggregate-reports", target);
+    const aggregateReportDir = path.join(aggregateRoot, aggregate.name);
     try {
       report = createAggregateReport(
         ctx,
@@ -1353,6 +1516,16 @@ export async function finalizeScheduledShards(
         aggregateWindow,
         "fail",
       );
+      writeFinalizerFailurePhase(ctx, {
+        target,
+        label: `collate ${target}:${aggregate.name}`,
+        commandArgs: finalizerCommandArgs,
+        window: aggregateWindow,
+        error,
+        metadataDir,
+        aggregateReportDir,
+        shardNames,
+      });
       process.stderr.write(`${error.message}\n`);
       status = 1;
       continue;

@@ -702,6 +702,41 @@ test("service-backed Go shard units are executable by their declared targets", (
   }
 });
 
+test("Go shard finalizers declare exactly their selected shard needs", () => {
+  const schedulerManifest = readJSON("tools/scheduler_manifest.json");
+  for (const schedule of schedulerManifest.schedules ?? []) {
+    const completionKeys = new Set(
+      (schedule.work_units ?? []).flatMap((unit) => unit.completion_keys ?? [unit.id]),
+    );
+    for (const unit of schedule.work_units ?? []) {
+      if (unit.command?.type !== "go_shard_finalize") {
+        continue;
+      }
+      assert.ok(
+        Array.isArray(unit.shard_names) && unit.shard_names.length > 0,
+        `${schedule.target} ${unit.id} must declare selected shard_names`,
+      );
+      const expectedNeeds = unit.shard_names.map((shardName) => `go_shard:${shardName}`);
+      for (const expectedNeed of expectedNeeds) {
+        assert.ok(
+          (unit.needs ?? []).includes(expectedNeed),
+          `${schedule.target} ${unit.id} missing selected shard need ${expectedNeed}`,
+        );
+        assert.ok(
+          completionKeys.has(expectedNeed),
+          `${schedule.target} ${unit.id} selected shard need ${expectedNeed} has no producer`,
+        );
+      }
+      for (const need of (unit.needs ?? []).filter((entry) => entry.startsWith("go_shard:"))) {
+        assert.ok(
+          expectedNeeds.includes(need),
+          `${schedule.target} ${unit.id} has shard need ${need} outside shard_names`,
+        );
+      }
+    }
+  }
+});
+
 function targetRecipeBlock(renderedMake, target) {
   const lines = renderedMake.split("\n");
   const headerPattern = new RegExp(`^${target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:`);

@@ -643,6 +643,34 @@ assert_contains "$parallel_capture_output" "status=0" "parallel capture status"
 assert_contains "$parallel_capture_output" "usage=reused" "parallel capture reused complete report"
 assert_contains "$parallel_capture_output" "invalid shard job count" "parallel capture invalid jobs marker"
 
+missing_metadata_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-missing-metadata.XXXXXX")"
+cleanup_paths+=("$missing_metadata_results")
+missing_metadata_dir="$missing_metadata_results/metadata"
+mkdir -p "$missing_metadata_dir"
+missing_metadata_shard="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-store | head -n 1)"
+set +e
+missing_metadata_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
+  CARTULARY_TEST_RESULTS_DIR="$missing_metadata_results/results" \
+  CARTULARY_TEST_RUN_ID="missing-metadata" \
+  CARTULARY_TEST_TARGET="backend-store" \
+  NODE_BIN="$node_bin" \
+    "$node_bin" "$GO_TARGET_HELPER" finalize-shards backend-store "$missing_metadata_dir" "$missing_metadata_shard" \
+    2>&1
+)"
+missing_metadata_status=$?
+set -e
+assert_equals "$missing_metadata_status" "1" "missing metadata finalizer status"
+assert_contains "$missing_metadata_output" "missing shared report metadata for ${missing_metadata_shard}" "missing metadata diagnostic"
+assert_contains "$missing_metadata_output" "failure_class=artifact" "missing metadata target failure class output"
+missing_metadata_summary="$missing_metadata_results/results/missing-metadata/backend-store/target-summary.json"
+assert_equals "$(json_field "$missing_metadata_summary" "failure_class")" "artifact" "missing metadata target failure class"
+assert_equals "$(json_field "$missing_metadata_summary" "failure_reason")" "artifact_error" "missing metadata target failure reason"
+assert_equals "$(json_field "$missing_metadata_summary" "failure_classes.artifact")" "1" "missing metadata artifact count"
+assert_equals "$(json_field "$missing_metadata_summary" "own.timing_failures.length")" "0" "missing metadata does not infer timing failure"
+assert_equals "$(json_field "$missing_metadata_summary" "failures.0.source")" "go-shard-finalizer" "missing metadata structured failure source"
+assert_contains "$(json_field "$missing_metadata_summary" "failures.0.message")" "missing shared report metadata" "missing metadata structured failure message"
+
 backend_unit_aggregates="$("$node_bin" "$ROOT_DIR/scripts/lib/target-plan.mjs" list-aggregates backend-unit)"
 assert_contains "$backend_unit_aggregates" "backend-unit-core" "backend-unit core aggregate"
 assert_contains "$backend_unit_aggregates" "backend-unit-auth" "backend-unit auth aggregate"

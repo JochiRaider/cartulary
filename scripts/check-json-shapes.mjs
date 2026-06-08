@@ -738,6 +738,32 @@ function validateSchedulerManifestShape(file) {
       requirePositiveInteger(unit.weight_ms, `${unitLabel}.weight_ms`);
       const command = requireObject(unit.command, `${unitLabel}.command`);
       validateSchedulerCommandShape(command, `${unitLabel}.command`);
+      if (unit.shard_names !== undefined) {
+        requireStringArray(unit.shard_names, `${unitLabel}.shard_names`);
+      }
+      if (command.type === "go_shard_finalize") {
+        const shardNames = requireStringArray(
+          unit.shard_names,
+          `${unitLabel}.shard_names`,
+          { nonEmpty: true },
+        );
+        const expectedNeeds = shardNames.map((shardName) => `go_shard:${shardName}`);
+        const needs = requireStringArray(unit.needs ?? [], `${unitLabel}.needs`);
+        for (const expectedNeed of expectedNeeds) {
+          if (!needs.includes(expectedNeed)) {
+            throw new Error(
+              `${unitLabel}.shard_names must match needs; missing ${expectedNeed}`,
+            );
+          }
+        }
+        for (const need of needs.filter((entry) => entry.startsWith("go_shard:"))) {
+          if (!expectedNeeds.includes(need)) {
+            throw new Error(
+              `${unitLabel}.needs includes ${need} not declared by shard_names`,
+            );
+          }
+        }
+      }
       if (unit.priority !== undefined) {
         requireInteger(unit.priority, `${unitLabel}.priority`, { min: 0 });
       }

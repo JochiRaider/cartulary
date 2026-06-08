@@ -387,6 +387,41 @@ function validateRetainedClaimReleases(units, scheduleLabel) {
   }
 }
 
+function validateGoShardFinalizers(units, scheduleLabel) {
+  const completionKeys = new Set(units.flatMap((unit) => unit.completionKeys));
+  for (const unit of units) {
+    if (unit.commandSpec.type !== "go_shard_finalize") {
+      continue;
+    }
+    if (unit.shardNames.length === 0) {
+      throw new Error(
+        `${scheduleLabel} ${unit.id} go_shard_finalize must declare shard_names[]`,
+      );
+    }
+    const expectedNeeds = unit.shardNames.map((shardName) => `go_shard:${shardName}`);
+    const missingNeeds = expectedNeeds.filter((need) => !unit.needs.includes(need));
+    if (missingNeeds.length > 0) {
+      throw new Error(
+        `${scheduleLabel} ${unit.id} go_shard_finalize shard_names must match needs[]; missing ${missingNeeds[0]}`,
+      );
+    }
+    const extraShardNeeds = unit.needs.filter(
+      (need) => need.startsWith("go_shard:") && !expectedNeeds.includes(need),
+    );
+    if (extraShardNeeds.length > 0) {
+      throw new Error(
+        `${scheduleLabel} ${unit.id} go_shard_finalize needs[] contains shard not declared in shard_names[]: ${extraShardNeeds[0]}`,
+      );
+    }
+    const missingProducers = expectedNeeds.filter((need) => !completionKeys.has(need));
+    if (missingProducers.length > 0) {
+      throw new Error(
+        `${scheduleLabel} ${unit.id} go_shard_finalize references unproduced shard completion key ${missingProducers[0]}`,
+      );
+    }
+  }
+}
+
 function parseWorkerEnvInteger(value, label, { min }) {
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error(`${label} must be declared`);
@@ -504,6 +539,7 @@ export function normalizeSchedulerSchedule(manifest, target, {
     normalizeWorkUnit(unit, index, scheduleLabel, schedulerKind, resolvedLimits.resourceLimits),
   );
   validateWorkUnitDependencyGraph(units, scheduleLabel);
+  validateGoShardFinalizers(units, scheduleLabel);
   validateRetainedClaimReleases(units, scheduleLabel);
   validateBrowserWorkerSlotRanges(units, scheduleLabel, target);
   const sortedUnits = units.sort(

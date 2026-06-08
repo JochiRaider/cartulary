@@ -1089,6 +1089,75 @@ const mutations = {
   "check-schedule-command-wrong-field-type": (fixture) => {
     fixture.schedules[0].work_units[0].command.target = 123;
   },
+  "check-schedule-finalizer-missing-shard-names": (fixture) => {
+    fixture.schedules[0].work_units = [
+      {
+        id: "backend-store-shard-01",
+        kind: "go_shard",
+        target: "backend-store",
+        shard: "backend-store-shard-01",
+        weight_ms: 1,
+        needs: [],
+        completion_keys: ["go_shard:backend-store-shard-01"],
+        resource_claims: {},
+        command: {
+          type: "go_shard",
+          target: "backend-store",
+          shard: "backend-store-shard-01",
+          service_target: "check-service-backed",
+        },
+      },
+      {
+        id: "finalize:backend-store",
+        kind: "aggregate_finalize",
+        target: "backend-store",
+        aggregate_target: "backend-store",
+        weight_ms: 1,
+        needs: ["go_shard:backend-store-shard-01"],
+        resource_claims: {},
+        command: {
+          type: "go_shard_finalize",
+          target: "backend-store",
+          service_target: "check-service-backed",
+        },
+      },
+    ];
+  },
+  "check-schedule-finalizer-shard-name-mismatch": (fixture) => {
+    fixture.schedules[0].work_units = [
+      {
+        id: "backend-store-shard-01",
+        kind: "go_shard",
+        target: "backend-store",
+        shard: "backend-store-shard-01",
+        weight_ms: 1,
+        needs: [],
+        completion_keys: ["go_shard:backend-store-shard-01"],
+        resource_claims: {},
+        command: {
+          type: "go_shard",
+          target: "backend-store",
+          shard: "backend-store-shard-01",
+          service_target: "check-service-backed",
+        },
+      },
+      {
+        id: "finalize:backend-store",
+        kind: "aggregate_finalize",
+        target: "backend-store",
+        aggregate_target: "backend-store",
+        weight_ms: 1,
+        needs: ["go_shard:backend-store-shard-01"],
+        shard_names: ["backend-store-shard-02"],
+        resource_claims: {},
+        command: {
+          type: "go_shard_finalize",
+          target: "backend-store",
+          service_target: "check-service-backed",
+        },
+      },
+    ];
+  },
   "service-backed-unknown-source-key": (fixture) => {
     fixture.schedules[0].work_units[0].legacy_key = true;
   },

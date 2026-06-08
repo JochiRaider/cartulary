@@ -247,7 +247,13 @@ function attachRuntime(plan, context, metadataDir) {
       unit.resourceClaims = new Map();
       unit.command = () => ({
         command: context.nodeBin,
-        args: [context.runnerScript, "finalize-shards", unit.aggregateTarget, metadataDir],
+        args: [
+          context.runnerScript,
+          "finalize-shards",
+          unit.aggregateTarget,
+          metadataDir,
+          ...unit.shardNames,
+        ],
         env: runtimeEnv(context, {
           CARTULARY_TEST_TARGET: unit.aggregateTarget,
           CARTULARY_GO_TARGET_PHASE: plan.phase,

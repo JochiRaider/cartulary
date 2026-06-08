@@ -1832,6 +1832,29 @@ function timingFailureReference(span) {
   };
 }
 
+function causalTimingFailureSpan(span) {
+  const source = String(span?.source ?? "").toLowerCase();
+  const bucket = String(span?.bucket ?? "").toLowerCase();
+  const label = String(span?.label ?? "").toLowerCase();
+  if (source === "target" && (bucket === "test_command" || bucket === "report_collation")) {
+    return false;
+  }
+  if (source === "test_services") {
+    return true;
+  }
+  if (bucket === "teardown" && (label.includes("cleanup") || label.includes("janitor") || label.includes("leak"))) {
+    return true;
+  }
+  return (
+    label.includes("timeout") ||
+    label.includes("deadline") ||
+    label.includes("watchdog") ||
+    label.includes("lock") ||
+    label.includes("duration-baseline-drift") ||
+    label.includes("scheduler-summary-timing-drift")
+  );
+}
+
 function retryScheduledStartupAttempt(span) {
   return (
     span?.startup_attempt === true &&
@@ -1846,6 +1869,7 @@ function timingFailuresFromSpans(spans) {
       (span) =>
         timingStatusFailed(span.status) && !retryScheduledStartupAttempt(span),
     )
+    .filter(causalTimingFailureSpan)
     .map(timingFailureReference);
 }
 

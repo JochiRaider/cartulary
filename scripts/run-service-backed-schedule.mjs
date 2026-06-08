@@ -1202,7 +1202,12 @@ function attachRuntime(
     }
     unit.command = () => ({
       command: goTargetRunner,
-      args: ["finalize-shards", unit.aggregateTarget, metadataDir],
+      args: [
+        "finalize-shards",
+        unit.aggregateTarget,
+        metadataDir,
+        ...unit.shardNames,
+      ],
       env: {
         ...process.env,
         CARTULARY_TEST_TARGET: unit.aggregateTarget,
