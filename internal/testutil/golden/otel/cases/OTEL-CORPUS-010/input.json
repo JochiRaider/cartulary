@@ -1,0 +1,39 @@
+{
+  "schema_id": "cartulary.otel_corpus_input.v1",
+  "case_id": "OTEL-CORPUS-010",
+  "title": "Postgres dependency",
+  "status": "adopted_conformant",
+  "owner_requirement": "Success, timeout, unavailable, serialization conflict, and constraint-violation cases emit only allowed database attributes and safe error classes.",
+  "postgres_dependency_assertions": {
+    "span_families": ["postgres_dependency"],
+    "span_names": ["cartulary.postgres.operation"],
+    "span_kinds": ["client"],
+    "metrics": ["cartulary.postgres.operation.duration"],
+    "required_attributes": ["db.system.name", "cartulary.operation", "cartulary.result"],
+    "db_system_name": "postgresql",
+    "safe_error_classes": [
+      "timeout",
+      "dependency_unavailable",
+      "serialization_conflict",
+      "constraint_violation",
+      "internal_error"
+    ],
+    "forbidden_values_absent": [
+      "db.statement",
+      "db.query.text",
+      "db.query.summary",
+      "db.namespace",
+      "db.collection.name",
+      "server.address",
+      "server.port",
+      "projection_table_name",
+      "bind_values"
+    ],
+    "evidence": [
+      "internal/platform/postgres/telemetry_test.go::TestTelemetryDBPreservesDBBehaviorNoSDK",
+      "internal/platform/postgres/telemetry_test.go::TestPostgresErrorClass",
+      "internal/platform/telemetry/registry_test.go::TestSpanRegistryClosed",
+      "internal/platform/telemetry/registry_test.go::TestMetricRegistryClosed"
+    ]
+  }
+}

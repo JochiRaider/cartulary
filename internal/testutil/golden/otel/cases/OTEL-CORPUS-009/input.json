@@ -1,0 +1,30 @@
+{
+  "schema_id": "cartulary.otel_corpus_input.v1",
+  "case_id": "OTEL-CORPUS-009",
+  "title": "Background jobs",
+  "status": "adopted_conformant",
+  "owner_requirement": "Enqueue, run success, user-requested cancellation, failure, timeout, and terminal-state metrics match the span status and metric registries.",
+  "job_signal_assertions": {
+    "span_families": ["job_enqueue", "job_run"],
+    "span_names": ["cartulary.jobs.enqueue", "cartulary.jobs.run"],
+    "span_kinds": ["internal"],
+    "metrics": ["cartulary.jobs.active", "cartulary.jobs.duration"],
+    "active_job_kinds": ["incident", "deployment", "unknown"],
+    "terminal_results": ["success", "canceled", "failed"],
+    "terminal_statuses": ["succeeded", "canceled", "failed", "expired"],
+    "forbidden_values_absent": [
+      "job_id",
+      "incident_id",
+      "artifact_path",
+      "evidence_id",
+      "request.body"
+    ],
+    "evidence": [
+      "internal/platform/jobs/telemetry_test.go::TestJobTelemetryVocabularyHelpers",
+      "internal/platform/jobs/telemetry_test.go::TestSafeJobTelemetryToken",
+      "internal/platform/jobs/telemetry_test.go::TestJobTelemetryNoSDK",
+      "internal/platform/telemetry/registry_test.go::TestSpanRegistryClosed",
+      "internal/platform/telemetry/registry_test.go::TestMetricRegistryClosed"
+    ]
+  }
+}

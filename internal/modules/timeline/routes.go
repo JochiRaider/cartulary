@@ -70,10 +70,10 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &Service{
-		store:         NewStore(deps.Postgres),
-		entityStore:   entities.NewStore(deps.Postgres),
-		incidentStore: incidents.NewStore(deps.Postgres),
-		authStore:     authn.NewStore(deps.Postgres),
+		store:         NewStore(deps.PostgresHandle()),
+		entityStore:   entities.NewStore(deps.PostgresHandle()),
+		incidentStore: incidents.NewStore(deps.PostgresHandle()),
+		authStore:     authn.NewStore(deps.PostgresHandle()),
 		hub:           deps.WSHub,
 		keys:          keys,
 		now:           now,

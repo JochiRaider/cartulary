@@ -806,7 +806,8 @@
     },
     "otel-conformance": {
       "prerequisites": [
-        "$(NODE_BIN)"
+        "$(NODE_BIN)",
+        "build-web"
       ],
       "type": "phase_command",
       "mode": "run_phase",

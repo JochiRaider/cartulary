@@ -2,12 +2,16 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	pathpkg "path"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"unicode/utf8"
 
+	"github.com/google/uuid"
 	"golang.org/x/sys/unix"
 )
 
@@ -39,6 +43,46 @@ func ValidateForStartup(cfg Config) (Config, error) {
 	}
 
 	return normalized, nil
+}
+
+func ResolveTelemetrySecretReferences(cfg Config, env map[string]string) error {
+	_, err := ResolveTelemetryExporterHeaders(cfg, env)
+	if err != nil {
+		return err
+	}
+	if !cfg.Telemetry.Attribute.HMACSecretRef.Empty() {
+		diagnostics := make([]Diagnostic, 0)
+		validateTelemetrySecretRef(cfg.Telemetry.Attribute.HMACSecretRef, "telemetry.attribute.hmac_secret_ref", &diagnostics)
+		if len(diagnostics) == 0 {
+			_, _ = validateResolvedTelemetrySecret(cfg.Telemetry.Attribute.HMACSecretRef, "telemetry.attribute.hmac_secret_ref", env, &diagnostics)
+		}
+		if len(diagnostics) > 0 {
+			return newDiagnosticsError(diagnostics)
+		}
+	}
+	return nil
+}
+
+func ResolveTelemetryExporterHeaders(cfg Config, env map[string]string) (map[string]string, error) {
+	diagnostics := make([]Diagnostic, 0)
+	headerBlockBytes := 0
+	resolved := make(map[string]string, len(cfg.Telemetry.Exporter.Headers))
+	for name, ref := range cfg.Telemetry.Exporter.Headers {
+		validateTelemetrySecretRef(ref, "telemetry.exporter.headers."+name, &diagnostics)
+		if len(diagnostics) == 0 {
+			if value, ok := validateResolvedTelemetrySecret(ref, "telemetry.exporter.headers."+name, env, &diagnostics); ok {
+				headerBlockBytes += len(strings.ToLower(name)) + len(": ") + len(value)
+				resolved[strings.ToLower(name)] = value
+			}
+		}
+	}
+	if len(diagnostics) == 0 && headerBlockBytes > 8192 {
+		appendTelemetryDiagnostic(&diagnostics, "telemetry.exporter.headers", "configured telemetry exporter header block must be at most 8192 bytes")
+	}
+	if len(diagnostics) > 0 {
+		return nil, newDiagnosticsError(diagnostics)
+	}
+	return resolved, nil
 }
 
 func validateConfigStructure(cfg *Config, presence configPresence) []Diagnostic {
@@ -84,6 +128,7 @@ func validateConfigStructure(cfg *Config, presence configPresence) []Diagnostic 
 	validateRootBinding(&cfg.Roots.ExportOutputs, "roots.export_outputs", cfg.DeploymentProfile, false, false, &diagnostics)
 	validateBootstrapManifestPath(&cfg.Bootstrap, presence, &diagnostics)
 	validateLimitRegistry(cfg.Limits, &diagnostics)
+	validateTelemetryConfig(&cfg.Telemetry, presence, &diagnostics)
 
 	if len(diagnostics) > 0 {
 		return diagnostics
@@ -308,7 +353,72 @@ func applyDefaultLimitValues(cfg *Config, presence configPresence) {
 	applyDefaultInt64(&cfg.Limits.Previews.MaxTextInlineBytes, DefaultPreviewMaxTextInlineBytes, presence, "limits", "previews", "max_text_inline_bytes")
 }
 
+func applyDefaultTelemetryValues(cfg *TelemetryConfig, presence configPresence) {
+	applyDefaultBool(&cfg.Enabled, true, presence, "telemetry", "enabled")
+	applyDefaultString(&cfg.Exporter.Kind, "none", presence, "telemetry", "exporter", "kind")
+	applyDefaultString(&cfg.Exporter.Compression, "none", presence, "telemetry", "exporter", "compression")
+	applyDefaultBool(&cfg.Exporter.Retry.Enabled, true, presence, "telemetry", "exporter", "retry", "enabled")
+	applyDefaultInt64(&cfg.Exporter.Retry.MaxElapsedMS, 30000, presence, "telemetry", "exporter", "retry", "max_elapsed_ms")
+	applyDefaultInt64(&cfg.Exporter.Retry.InitialIntervalMS, 100, presence, "telemetry", "exporter", "retry", "initial_interval_ms")
+	applyDefaultInt64(&cfg.Exporter.Retry.MaxIntervalMS, 5000, presence, "telemetry", "exporter", "retry", "max_interval_ms")
+	applyDefaultFloat64(&cfg.Exporter.Retry.Multiplier, 2.0, presence, "telemetry", "exporter", "retry", "multiplier")
+	applyDefaultBool(&cfg.Traces.Enabled, true, presence, "telemetry", "traces", "enabled")
+	applyDefaultFloat64(&cfg.Traces.SampleRatio, 0.10, presence, "telemetry", "traces", "sample_ratio")
+	applyDefaultString(&cfg.Traces.SamplerProfile, "auto", presence, "telemetry", "traces", "sampler_profile")
+	applyDefaultBool(&cfg.Metrics.Enabled, true, presence, "telemetry", "metrics", "enabled")
+	applyDefaultString(&cfg.Metrics.TemporalityProfile, "cartulary.metrics.temporality.cumulative.v1", presence, "telemetry", "metrics", "temporality_profile")
+	applyDefaultInt64(&cfg.Logs.BodyMaxChars, 2048, presence, "telemetry", "logs", "body_max_chars")
+	applyDefaultInt64(&cfg.Processor.MaxQueueSize, 2048, presence, "telemetry", "processor", "max_queue_size")
+	applyDefaultInt64(&cfg.Processor.MaxExportBatchSize, 512, presence, "telemetry", "processor", "max_export_batch_size")
+	applyDefaultInt64(&cfg.Processor.Traces.ScheduleDelayMS, 5000, presence, "telemetry", "processor", "traces", "schedule_delay_ms")
+	applyDefaultInt64(&cfg.Processor.Metrics.ScheduleDelayMS, 60000, presence, "telemetry", "processor", "metrics", "schedule_delay_ms")
+	applyDefaultInt64(&cfg.Processor.Logs.ScheduleDelayMS, 1000, presence, "telemetry", "processor", "logs", "schedule_delay_ms")
+	applyDefaultInt64(&cfg.Processor.ExportTimeoutMS, 2000, presence, "telemetry", "processor", "export_timeout_ms")
+	applyDefaultString(&cfg.Processor.OverflowPolicy, "drop_new", presence, "telemetry", "processor", "overflow_policy")
+	applyDefaultInt64(&cfg.Shutdown.FlushTimeoutMS, 5000, presence, "telemetry", "shutdown", "flush_timeout_ms")
+	applyDefaultBool(&cfg.SelfDiagnostics.Enabled, true, presence, "telemetry", "self_diagnostics", "enabled")
+	applyDefaultString(&cfg.SelfDiagnostics.RecursionGuard, "drop_telemetry_about_telemetry", presence, "telemetry", "self_diagnostics", "recursion_guard")
+	applyDefaultString(&cfg.Resource.ServiceName, "cartulary.app", presence, "telemetry", "resource", "service_name")
+	applyDefaultString(&cfg.Resource.ServiceNamespace, "cartulary", presence, "telemetry", "resource", "service_namespace")
+	applyDefaultString(&cfg.Resource.ServiceVersion, "0.0.0+unknown", presence, "telemetry", "resource", "service_version")
+	if cfg.Resource.ServiceInstanceID == "" && !presence.isDefined("telemetry", "resource", "service_instance_id") {
+		cfg.Resource.ServiceInstanceID = uuid.NewString()
+	}
+	applyDefaultString(&cfg.Attribute.IncidentCorrelation, "none", presence, "telemetry", "attribute", "incident_correlation")
+
+	switch cfg.Exporter.Kind {
+	case "otlp_http":
+		applyDefaultString(&cfg.Exporter.Protocol, "http/protobuf", presence, "telemetry", "exporter", "protocol")
+	case "otlp_grpc":
+		applyDefaultString(&cfg.Exporter.Protocol, "grpc", presence, "telemetry", "exporter", "protocol")
+	}
+	if cfg.Exporter.Headers == nil {
+		cfg.Exporter.Headers = map[string]SecretRef{}
+	}
+}
+
 func applyDefaultInt64(target *int64, defaultValue int64, presence configPresence, path ...string) {
+	if *target != 0 || presence.isDefined(path...) {
+		return
+	}
+	*target = defaultValue
+}
+
+func applyDefaultBool(target *bool, defaultValue bool, presence configPresence, path ...string) {
+	if *target || presence.isDefined(path...) {
+		return
+	}
+	*target = defaultValue
+}
+
+func applyDefaultString(target *string, defaultValue string, presence configPresence, path ...string) {
+	if *target != "" || presence.isDefined(path...) {
+		return
+	}
+	*target = defaultValue
+}
+
+func applyDefaultFloat64(target *float64, defaultValue float64, presence configPresence, path ...string) {
 	if *target != 0 || presence.isDefined(path...) {
 		return
 	}
@@ -346,6 +456,271 @@ func validateLimitValue(value int64, path string, min int64, max int64, diagnost
 			Message:    fmt.Sprintf("value must be at most %d", max),
 		})
 	}
+}
+
+func validateTelemetryConfig(cfg *TelemetryConfig, presence configPresence, diagnostics *[]Diagnostic) {
+	applyDefaultTelemetryValues(cfg, presence)
+
+	validateTelemetryEnum(cfg.Exporter.Kind, "telemetry.exporter.kind", []string{"none", "otlp_http", "otlp_grpc"}, diagnostics)
+	validateTelemetryEnum(cfg.Exporter.Compression, "telemetry.exporter.compression", []string{"none", "gzip"}, diagnostics)
+	validateTelemetryBoolFalse(cfg.OTelEnvPassthrough, "telemetry.otel_env_passthrough", diagnostics)
+	validateTelemetryBoolFalse(cfg.Traces.AcceptRemoteContext, "telemetry.traces.accept_remote_context", diagnostics)
+	validateTelemetryBoolFalse(cfg.Metrics.Exemplars.Enabled, "telemetry.metrics.exemplars.enabled", diagnostics)
+	validateTelemetryEnum(cfg.Metrics.TemporalityProfile, "telemetry.metrics.temporality_profile", []string{"cartulary.metrics.temporality.cumulative.v1"}, diagnostics)
+	validateTelemetryEnum(cfg.Processor.OverflowPolicy, "telemetry.processor.overflow_policy", []string{"drop_new"}, diagnostics)
+	validateTelemetryEnum(cfg.SelfDiagnostics.RecursionGuard, "telemetry.self_diagnostics.recursion_guard", []string{"drop_telemetry_about_telemetry"}, diagnostics)
+	validateTelemetryEnum(cfg.Attribute.IncidentCorrelation, "telemetry.attribute.incident_correlation", []string{"none", "hmac_64bit"}, diagnostics)
+	validateTelemetryEnum(cfg.Traces.SamplerProfile, "telemetry.traces.sampler_profile", []string{"auto", "cartulary.sampler.always_on.v1", "cartulary.sampler.always_off.v1", "cartulary.sampler.traceidratio_compat.v1"}, diagnostics)
+	validateTelemetryFloat(cfg.Traces.SampleRatio, "telemetry.traces.sample_ratio", 0, 1, diagnostics)
+	validateTelemetryFloat(cfg.Exporter.Retry.Multiplier, "telemetry.exporter.retry.multiplier", 1, 5, diagnostics)
+	validateTelemetryInt(cfg.Exporter.Retry.MaxElapsedMS, "telemetry.exporter.retry.max_elapsed_ms", 0, 300000, diagnostics)
+	validateTelemetryInt(cfg.Exporter.Retry.InitialIntervalMS, "telemetry.exporter.retry.initial_interval_ms", 50, 30000, diagnostics)
+	validateTelemetryInt(cfg.Exporter.Retry.MaxIntervalMS, "telemetry.exporter.retry.max_interval_ms", 100, 60000, diagnostics)
+	validateTelemetryInt(cfg.Logs.BodyMaxChars, "telemetry.logs.body_max_chars", 0, 8192, diagnostics)
+	validateTelemetryInt(cfg.Processor.MaxQueueSize, "telemetry.processor.max_queue_size", 1, 65536, diagnostics)
+	validateTelemetryInt(cfg.Processor.MaxExportBatchSize, "telemetry.processor.max_export_batch_size", 1, cfg.Processor.MaxQueueSize, diagnostics)
+	validateTelemetryInt(cfg.Processor.Traces.ScheduleDelayMS, "telemetry.processor.traces.schedule_delay_ms", 100, 300000, diagnostics)
+	validateTelemetryInt(cfg.Processor.Metrics.ScheduleDelayMS, "telemetry.processor.metrics.schedule_delay_ms", 100, 300000, diagnostics)
+	validateTelemetryInt(cfg.Processor.Logs.ScheduleDelayMS, "telemetry.processor.logs.schedule_delay_ms", 100, 300000, diagnostics)
+	validateTelemetryInt(cfg.Processor.ExportTimeoutMS, "telemetry.processor.export_timeout_ms", 100, 10000, diagnostics)
+	validateTelemetryInt(cfg.Shutdown.FlushTimeoutMS, "telemetry.shutdown.flush_timeout_ms", 100, 30000, diagnostics)
+	validateTelemetryToken(cfg.Resource.ServiceName, "telemetry.resource.service_name", diagnostics)
+	validateTelemetryToken(cfg.Resource.ServiceNamespace, "telemetry.resource.service_namespace", diagnostics)
+	validateTelemetryVersion(cfg.Resource.ServiceVersion, diagnostics)
+	validateTelemetryOptionalToken(cfg.Resource.DeploymentEnvironmentName, "telemetry.resource.deployment_environment_name", diagnostics)
+	validateTelemetryInstanceID(cfg.Resource.ServiceInstanceID, presence, diagnostics)
+	validateTelemetryHeaders(cfg.Exporter.Headers, diagnostics)
+	if !cfg.Attribute.HMACSecretRef.Empty() {
+		validateTelemetrySecretRef(cfg.Attribute.HMACSecretRef, "telemetry.attribute.hmac_secret_ref", diagnostics)
+	}
+
+	endpointConfigured := cfg.Exporter.Endpoint != ""
+	endpointDefined := presence.isDefined("telemetry", "exporter", "endpoint")
+	switch cfg.Exporter.Kind {
+	case "none":
+		if endpointConfigured {
+			appendTelemetryDiagnostic(diagnostics, "telemetry.exporter.endpoint", "endpoint must be omitted when telemetry.exporter.kind is none")
+		}
+		if cfg.Exporter.Protocol != "" || presence.isDefined("telemetry", "exporter", "protocol") {
+			appendTelemetryDiagnostic(diagnostics, "telemetry.exporter.protocol", "protocol must be derived only when telemetry export is enabled")
+		}
+	case "otlp_http":
+		if !endpointConfigured {
+			appendTelemetryDiagnostic(diagnostics, "telemetry.exporter.endpoint", "endpoint is required when telemetry.exporter.kind is otlp_http")
+		} else {
+			validateOTLPHTTPEndpoint(cfg.Exporter.Endpoint, "telemetry.exporter.endpoint", diagnostics)
+		}
+		if cfg.Exporter.Protocol != "http/protobuf" {
+			appendTelemetryDiagnostic(diagnostics, "telemetry.exporter.protocol", "otlp_http requires protocol http/protobuf")
+		}
+	case "otlp_grpc":
+		if !endpointConfigured {
+			appendTelemetryDiagnostic(diagnostics, "telemetry.exporter.endpoint", "endpoint is required when telemetry.exporter.kind is otlp_grpc")
+		} else {
+			validateOTLPGRPCEndpoint(cfg.Exporter.Endpoint, "telemetry.exporter.endpoint", diagnostics)
+		}
+		if cfg.Exporter.Protocol != "grpc" {
+			appendTelemetryDiagnostic(diagnostics, "telemetry.exporter.protocol", "otlp_grpc requires protocol grpc")
+		}
+	}
+	if endpointDefined && cfg.Exporter.Endpoint == "" {
+		appendTelemetryDiagnostic(diagnostics, "telemetry.exporter.endpoint", "endpoint must not be empty")
+	}
+	if cfg.Exporter.Retry.MaxIntervalMS < cfg.Exporter.Retry.InitialIntervalMS {
+		appendTelemetryDiagnostic(diagnostics, "telemetry.exporter.retry.max_interval_ms", "max_interval_ms must be greater than or equal to initial_interval_ms")
+	}
+	if cfg.Processor.MaxExportBatchSize > cfg.Processor.MaxQueueSize {
+		appendTelemetryDiagnostic(diagnostics, "telemetry.processor.max_export_batch_size", "max_export_batch_size must be less than or equal to max_queue_size")
+	}
+	validateSamplerConsistency(cfg.Traces.SamplerProfile, cfg.Traces.SampleRatio, diagnostics)
+	if cfg.Attribute.IncidentCorrelation == "hmac_64bit" && cfg.Attribute.HMACSecretRef.Empty() {
+		appendTelemetryDiagnostic(diagnostics, "telemetry.attribute.hmac_secret_ref", "hmac_secret_ref is required when incident correlation is hmac_64bit")
+	}
+}
+
+func validateTelemetryEnum(value string, path string, allowed []string, diagnostics *[]Diagnostic) {
+	for _, candidate := range allowed {
+		if value == candidate {
+			return
+		}
+	}
+	appendTelemetryDiagnostic(diagnostics, path, "value is outside the adopted telemetry enum")
+}
+
+func validateTelemetryBoolFalse(value bool, path string, diagnostics *[]Diagnostic) {
+	if value {
+		appendTelemetryDiagnostic(diagnostics, path, "value must be false in the adopted telemetry profile")
+	}
+}
+
+func validateTelemetryInt(value int64, path string, min int64, max int64, diagnostics *[]Diagnostic) {
+	if value < min {
+		appendTelemetryDiagnostic(diagnostics, path, fmt.Sprintf("value must be at least %d", min))
+		return
+	}
+	if value > max {
+		appendTelemetryDiagnostic(diagnostics, path, fmt.Sprintf("value must be at most %d", max))
+	}
+}
+
+func validateTelemetryFloat(value float64, path string, min float64, max float64, diagnostics *[]Diagnostic) {
+	if value < min || value > max {
+		appendTelemetryDiagnostic(diagnostics, path, fmt.Sprintf("value must be between %.2f and %.2f", min, max))
+	}
+}
+
+func validateTelemetryToken(value string, path string, diagnostics *[]Diagnostic) {
+	if !isValidTelemetryToken(value) {
+		appendTelemetryDiagnostic(diagnostics, path, "value must be 1..128 ASCII letters, digits, '.', '_', or '-'")
+	}
+}
+
+func validateTelemetryOptionalToken(value string, path string, diagnostics *[]Diagnostic) {
+	if value == "" {
+		return
+	}
+	validateTelemetryToken(value, path, diagnostics)
+}
+
+func validateTelemetryVersion(value string, diagnostics *[]Diagnostic) {
+	if value == "0.0.0+unknown" {
+		return
+	}
+	if len(value) > 128 || !semverPattern.MatchString(value) {
+		appendTelemetryDiagnostic(diagnostics, "telemetry.resource.service_version", "service_version must be SemVer 2.0.0 or 0.0.0+unknown")
+	}
+}
+
+func validateTelemetryInstanceID(value string, presence configPresence, diagnostics *[]Diagnostic) {
+	if value == "" {
+		if presence.isDefined("telemetry", "resource", "service_instance_id") {
+			appendTelemetryDiagnostic(diagnostics, "telemetry.resource.service_instance_id", "service_instance_id must be a canonical lowercase UUID v4 when configured")
+		}
+		return
+	}
+	parsed, err := uuid.Parse(value)
+	if err != nil || parsed.Version() != 4 || value != strings.ToLower(parsed.String()) || parsed == uuid.Nil {
+		appendTelemetryDiagnostic(diagnostics, "telemetry.resource.service_instance_id", "service_instance_id must be a canonical lowercase non-nil UUID v4")
+	}
+}
+
+func validateTelemetryHeaders(headers map[string]SecretRef, diagnostics *[]Diagnostic) {
+	if len(headers) > 16 {
+		appendTelemetryDiagnostic(diagnostics, "telemetry.exporter.headers", "at most 16 telemetry exporter headers are allowed")
+	}
+	seen := make(map[string]string)
+	for name, ref := range headers {
+		canonicalName := strings.ToLower(name)
+		path := "telemetry.exporter.headers." + name
+		if !isValidTelemetryHeaderName(name) {
+			appendTelemetryDiagnostic(diagnostics, path, "telemetry exporter header name is invalid")
+		}
+		if _, forbidden := protocolOwnedTelemetryHeaders[canonicalName]; forbidden {
+			appendTelemetryDiagnostic(diagnostics, path, "telemetry exporter header must not override a protocol-owned header")
+		}
+		if previous, exists := seen[canonicalName]; exists && previous != name {
+			appendTelemetryDiagnostic(diagnostics, path, "telemetry exporter header duplicates another header after lowercase canonicalization")
+		}
+		seen[canonicalName] = name
+		validateTelemetrySecretRef(ref, path, diagnostics)
+	}
+}
+
+func validateTelemetrySecretRef(ref SecretRef, path string, diagnostics *[]Diagnostic) {
+	if ref.Kind != "env" || !isValidSecretRefName(ref.Name) {
+		appendTelemetryDiagnostic(diagnostics, path, "telemetry secret references must use secret_ref_v1 kind env and a safe name")
+	}
+}
+
+func validateResolvedTelemetrySecret(ref SecretRef, path string, env map[string]string, diagnostics *[]Diagnostic) (string, bool) {
+	value, ok := lookupEnv(env, secretRefEnvName(ref.Name))
+	if !ok || value == "" || !isValidResolvedTelemetrySecret(value) {
+		appendTelemetryDiagnostic(diagnostics, path, "telemetry secret reference could not be resolved to a safe value")
+		return "", false
+	}
+	return value, true
+}
+
+func validateSamplerConsistency(profile string, ratio float64, diagnostics *[]Diagnostic) {
+	switch profile {
+	case "cartulary.sampler.always_off.v1":
+		if ratio != 0 {
+			appendTelemetryDiagnostic(diagnostics, "telemetry.traces.sampler_profile", "always_off sampler requires sample_ratio 0.0")
+		}
+	case "cartulary.sampler.always_on.v1":
+		if ratio != 1 {
+			appendTelemetryDiagnostic(diagnostics, "telemetry.traces.sampler_profile", "always_on sampler requires sample_ratio 1.0")
+		}
+	case "cartulary.sampler.traceidratio_compat.v1":
+		if ratio <= 0 || ratio >= 1 {
+			appendTelemetryDiagnostic(diagnostics, "telemetry.traces.sampler_profile", "traceidratio sampler requires 0.0 < sample_ratio < 1.0")
+		}
+	}
+}
+
+func validateOTLPHTTPEndpoint(raw string, path string, diagnostics *[]Diagnostic) {
+	parsed, err := url.Parse(raw)
+	if err != nil || !validTelemetryEndpointBase(parsed) || parsed.Path == "" && strings.HasSuffix(raw, "//") {
+		appendTelemetryDiagnostic(diagnostics, path, "OTLP/HTTP endpoint must be an absolute http(s) URL with explicit port and no userinfo, query, or fragment")
+		return
+	}
+	if parsed.Path != "" && parsed.Path != "/" {
+		if strings.Contains(parsed.EscapedPath(), "%") || strings.Contains(parsed.Path, "//") {
+			appendTelemetryDiagnostic(diagnostics, path, "OTLP/HTTP endpoint path must not contain encoded or duplicate slash segments")
+			return
+		}
+		for _, segment := range strings.Split(strings.Trim(parsed.Path, "/"), "/") {
+			if segment == "" || segment == "." || segment == ".." || !telemetryPathSegmentPattern.MatchString(segment) {
+				appendTelemetryDiagnostic(diagnostics, path, "OTLP/HTTP endpoint path contains an unsupported segment")
+				return
+			}
+		}
+	}
+}
+
+func validateOTLPGRPCEndpoint(raw string, path string, diagnostics *[]Diagnostic) {
+	parsed, err := url.Parse(raw)
+	if err != nil || !validTelemetryEndpointBase(parsed) {
+		appendTelemetryDiagnostic(diagnostics, path, "OTLP/gRPC endpoint must be an absolute http(s) URL with explicit port and no userinfo, query, fragment, or path")
+		return
+	}
+	if parsed.Path != "" && parsed.Path != "/" {
+		appendTelemetryDiagnostic(diagnostics, path, "OTLP/gRPC endpoint must not include a non-root path")
+	}
+}
+
+func validTelemetryEndpointBase(parsed *url.URL) bool {
+	if parsed == nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return false
+	}
+	host := parsed.Hostname()
+	port := parsed.Port()
+	if host == "" || port == "" {
+		return false
+	}
+	if strings.ContainsAny(host, "\t\n\r ") || strings.Contains(host, "%") {
+		return false
+	}
+	if strings.Contains(host, ":") {
+		return net.ParseIP(host) != nil
+	}
+	if strings.Contains(strings.ToLower(host), "xn--") {
+		return false
+	}
+	for _, r := range host {
+		if r > 127 {
+			return false
+		}
+	}
+	return telemetryEndpointHostPattern.MatchString(host)
+}
+
+func appendTelemetryDiagnostic(diagnostics *[]Diagnostic, path string, message string) {
+	*diagnostics = append(*diagnostics, Diagnostic{
+		Path:       path,
+		ReasonCode: "invalid_telemetry_config",
+		Message:    message,
+	})
 }
 
 func detectFilesystemRootOverlap(roots []filesystemRoot) []Diagnostic {
@@ -585,4 +960,87 @@ func isValidDeploymentProfile(profile string) bool {
 	default:
 		return false
 	}
+}
+
+var (
+	telemetryTokenPattern        = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
+	telemetryHeaderNamePattern   = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}$`)
+	telemetryEndpointHostPattern = regexp.MustCompile(`^[A-Za-z0-9.-]+$`)
+	telemetryPathSegmentPattern  = regexp.MustCompile(`^[A-Za-z0-9._~-]{1,64}$`)
+	secretRefNamePattern         = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`)
+	semverPattern                = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$`)
+)
+
+var protocolOwnedTelemetryHeaders = map[string]struct{}{
+	"host":              {},
+	"content-type":      {},
+	"content-length":    {},
+	"transfer-encoding": {},
+	"connection":        {},
+	"te":                {},
+	"user-agent":        {},
+	"traceparent":       {},
+	"tracestate":        {},
+	"baggage":           {},
+}
+
+func isValidTelemetryToken(value string) bool {
+	return telemetryTokenPattern.MatchString(value)
+}
+
+func isValidTelemetryHeaderName(value string) bool {
+	return telemetryHeaderNamePattern.MatchString(value)
+}
+
+func isValidSecretRefName(value string) bool {
+	if !secretRefNamePattern.MatchString(value) {
+		return false
+	}
+	return normalizedSecretRefSuffix(value) != ""
+}
+
+func secretRefEnvName(name string) string {
+	return "CARTULARY_SECRET_" + normalizedSecretRefSuffix(name)
+}
+
+func normalizedSecretRefSuffix(name string) string {
+	var builder strings.Builder
+	previousUnderscore := false
+	for _, r := range name {
+		var next rune
+		switch {
+		case r >= 'a' && r <= 'z':
+			next = r - ('a' - 'A')
+		case r >= 'A' && r <= 'Z':
+			next = r
+		case r >= '0' && r <= '9':
+			next = r
+		default:
+			next = '_'
+		}
+		if next == '_' {
+			if builder.Len() == 0 || previousUnderscore {
+				previousUnderscore = true
+				continue
+			}
+			previousUnderscore = true
+			builder.WriteRune(next)
+			continue
+		}
+		previousUnderscore = false
+		builder.WriteRune(next)
+	}
+	return strings.Trim(builder.String(), "_")
+}
+
+func isValidResolvedTelemetrySecret(value string) bool {
+	if value == "" || strings.TrimSpace(value) != value || !utf8.ValidString(value) || len(value) > 4096 {
+		return false
+	}
+	for _, r := range value {
+		if r == '\n' || r == '\r' || r == '\x00' || r == 0x7f || r < 0x20 || r > 0x7e {
+			return false
+		}
+	}
+	return true
 }

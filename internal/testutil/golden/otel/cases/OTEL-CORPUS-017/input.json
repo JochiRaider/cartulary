@@ -1,0 +1,35 @@
+{
+  "schema_id": "cartulary.otel_corpus_input.v1",
+  "case_id": "OTEL-CORPUS-017",
+  "title": "Product-boundary runtime invariance",
+  "status": "adopted_conformant",
+  "owner_requirement": "HTTP request, workbook query, workbook mutation, WebSocket send, evidence access, and background-job transition outputs and committed state match the no-export baseline under exporter failure modes.",
+  "runtime_invariance_matrix": {
+    "surfaces": [
+      "http_request",
+      "workbook_query",
+      "workbook_mutation",
+      "websocket_send",
+      "evidence_access",
+      "background_job_transition"
+    ],
+    "failure_modes": [
+      "exporter_failure",
+      "exporter_timeout",
+      "queue_overflow",
+      "redaction_rejection"
+    ],
+    "scenario_count": 24,
+    "product_response": "match_no_export_baseline",
+    "committed_state": "match_no_export_baseline",
+    "product_hot_path_blocking": false,
+    "startup_failures_excluded": [
+      "invalid_telemetry_config",
+      "sdk_provider_construction_failure"
+    ],
+    "allowed_telemetry_effect": "bounded_local_diagnostics_and_self_metrics_only",
+    "evidence": [
+      "internal/platform/telemetry/exporter_test.go::TestRuntimeInvarianceMatrixMatchesNoExportBaseline"
+    ]
+  }
+}

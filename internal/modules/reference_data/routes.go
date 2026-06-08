@@ -68,7 +68,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	}
 	return &Service{
 		store:       NewStore(deps.Postgres),
-		authStore:   authn.NewStore(deps.Postgres),
+		authStore:   authn.NewStore(deps.PostgresHandle()),
 		jobManager:  deps.Jobs,
 		jobRunner:   deps.JobRunner,
 		hub:         deps.WSHub,

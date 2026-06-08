@@ -1,0 +1,64 @@
+{
+  "schema_id": "cartulary.otel_corpus_input.v1",
+  "case_id": "OTEL-CORPUS-012",
+  "title": "Resource identity",
+  "status": "adopted_conformant",
+  "owner_requirement": "Exported telemetry contains closed resource attributes, empty Resource schema_url, detector suppression, conflicting schema URL rejection, UUID v4 instance IDs, and exact profile claims.",
+  "resource_identity_assertions": {
+    "schema_url": "",
+    "allowed_attributes": [
+      "service.name",
+      "service.namespace",
+      "service.version",
+      "service.instance.id",
+      "deployment.environment.name",
+      "cartulary.deployment.profile",
+      "cartulary.profile.claims"
+    ],
+    "optional_deployment_environment": {
+      "omitted_when_null": true,
+      "allowed_values": ["development", "test", "staging", "production", "custom-token"]
+    },
+    "detector_suppression": {
+      "resource_detectors_invoked": false,
+      "forbidden_prefixes": [
+        "host.",
+        "process.",
+        "os.",
+        "container.",
+        "k8s.",
+        "cloud.",
+        "faas.",
+        "browser.",
+        "device."
+      ],
+      "otel_resource_attributes_merged": false,
+      "otel_service_name_merged": false,
+      "otel_entities_merged": false
+    },
+    "conflicting_schema_url": {
+      "non_empty_schema_url_rejected_before_provider_activation": true
+    },
+    "profile_claims": {
+      "base_only": "base",
+      "duplicate_and_sorted": "base,import,incident_portability,reference_pack,snapshot_reporting",
+      "separator": ",",
+      "spaces": false,
+      "arrays": false
+    },
+    "evidence": [
+      "internal/platform/telemetry/resource_test.go::TestResourceIdentityClosedRegistry",
+      "internal/platform/telemetry/resource_test.go::TestResourceIdentityOmitsOptionalNullDeploymentEnvironment",
+      "internal/platform/telemetry/resource_test.go::TestExternalResourceContributionRejectsSchemaURLAndDetectorAttributes",
+      "internal/platform/telemetry/resource_test.go::TestResourceInstanceIDOpacityPredicate"
+    ]
+  },
+  "instance_id_assertions": {
+    "field": "service.instance.id",
+    "default_generator_predicate": "canonical_lowercase_non_nil_uuid_v4_per_process_start",
+    "normalization_placeholder": "SERVICE_INSTANCE_ID_1",
+    "configured_accepts": ["10000000-0000-4000-8000-000000000001"],
+    "configured_rejects": ["arbitrary_string", "nil_uuid", "non_v4_uuid", "uppercase_uuid"],
+    "provenance_invariant": "Operators must not encode host, user, incident, customer, path, object-store, or process identity; Cartulary enforces only the structural UUID-v4 predicate."
+  }
+}

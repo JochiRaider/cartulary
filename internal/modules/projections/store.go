@@ -107,7 +107,10 @@ SET incident_id = EXCLUDED.incident_id,
 	return nil
 }
 
-func (s *Store) RebuildIncidentTimeline(ctx context.Context, incidentID uuid.UUID) error {
+func (s *Store) RebuildIncidentTimeline(ctx context.Context, incidentID uuid.UUID) (err error) {
+	ctx, finishTelemetry := s.startProjectionSpan(ctx, timelineViewSchemaID)
+	defer func() { finishTelemetry(err) }()
+
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("begin timeline projection rebuild: %w", err)

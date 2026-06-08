@@ -18,6 +18,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
@@ -27,6 +29,7 @@ type DependencySet struct {
 	Config            config.Config
 	Env               map[string]string
 	Postgres          *pgxpool.Pool
+	PostgresDB        postgres.DB
 	ObjectStore       objectstore.Store
 	Jobs              *jobs.Manager
 	JobRunner         *jobs.Runner
@@ -34,6 +37,13 @@ type DependencySet struct {
 	CursorCodec       *pagination.Codec
 	PublicErrorFaults PublicErrorFaultStore
 	Now               func() time.Time
+}
+
+func (deps DependencySet) PostgresHandle() postgres.DB {
+	if deps.PostgresDB != nil {
+		return deps.PostgresDB
+	}
+	return deps.Postgres
 }
 
 type RouteRegistrar func(*http.ServeMux, DependencySet) error
@@ -146,6 +156,9 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	handler := http.Handler(mux)
 	if option.Dependencies.PublicErrorFaults != nil {
 		handler = withPublicErrorFaults(handler, option.Dependencies.PublicErrorFaults)
+	}
+	if option.Dependencies.Config.Telemetry.Enabled {
+		handler = telemetry.HTTPMiddleware(handler, option.Dependencies.Config.Telemetry.Resource.ServiceVersion)
 	}
 
 	return withRequestID(handler, option.RequestIDSequence), nil

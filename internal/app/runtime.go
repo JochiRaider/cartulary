@@ -32,6 +32,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
@@ -60,6 +61,7 @@ type Runtime struct {
 	Jobs        *jobs.Manager
 	JobRunner   *jobs.Runner
 	WSHub       *platformws.Hub
+	Telemetry   *telemetry.Runtime
 }
 
 func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runtime, error) {
@@ -68,8 +70,14 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		return nil, err
 	}
 
+	telemetryRuntime, err := telemetry.Bootstrap(ctx, normalizedCfg, options.Env, telemetry.WithClaimedExtensionProfiles(claimedExtensionProfileIDs()))
+	if err != nil {
+		return nil, err
+	}
+
 	runtime := &Runtime{
-		Config: normalizedCfg,
+		Config:    normalizedCfg,
+		Telemetry: telemetryRuntime,
 	}
 	now := options.Now
 	if now == nil {
@@ -87,7 +95,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 
 	if options.ObjectStore != nil {
-		runtime.ObjectStore = options.ObjectStore
+		runtime.ObjectStore = instrumentedObjectStore(normalizedCfg, options.ObjectStore)
 	} else {
 		client, err := setupObjectStore(ctx, normalizedCfg, options.Env)
 		if err != nil {
@@ -106,11 +114,13 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		return nil, fmt.Errorf("seed minimum disconnected reference packs: %w", err)
 	}
 	runtime.Jobs = newJobsManager()
+	runtime.Jobs.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
 	runtime.JobRunner = jobs.NewRunner()
 	hub := newWSHub()
 	runtime.WSHub = hub
 	runtime.Jobs.Configure(runtime.Postgres, now)
 	runtime.Jobs.ConfigureProgressHub(hub)
+	hub.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
 
 	httpOptions := options.HTTP
 	testRuntimeDeps := httpOptions.Dependencies
@@ -126,6 +136,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		Config:            normalizedCfg,
 		Env:               options.Env,
 		Postgres:          runtime.Postgres,
+		PostgresDB:        instrumentedPostgres(normalizedCfg, runtime.Postgres),
 		ObjectStore:       runtime.ObjectStore,
 		Jobs:              runtime.Jobs,
 		JobRunner:         runtime.JobRunner,
@@ -145,6 +156,31 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	return runtime, nil
 }
 
+func instrumentedPostgres(cfg config.Config, pool *pgxpool.Pool) postgres.DB {
+	if pool == nil || !cfg.Telemetry.Enabled {
+		return pool
+	}
+	return postgres.InstrumentDB(pool, cfg.Telemetry.Resource.ServiceVersion)
+}
+
+func instrumentedObjectStore(cfg config.Config, store objectstore.Store) objectstore.Store {
+	if store == nil || !cfg.Telemetry.Enabled {
+		return store
+	}
+	return objectstore.InstrumentStore(store, cfg.Telemetry.Resource.ServiceVersion)
+}
+
+func claimedExtensionProfileIDs() []string {
+	profiles := httpapi.CurrentExtensionProfiles()
+	claimed := make([]string, 0, len(profiles))
+	for _, profile := range profiles {
+		if profile.Claimed {
+			claimed = append(claimed, profile.ProfileID)
+		}
+	}
+	return claimed
+}
+
 func (r *Runtime) Close() {
 	if r == nil {
 		return
@@ -156,6 +192,11 @@ func (r *Runtime) Close() {
 	}
 	if r.ObjectStore != nil {
 		_ = r.ObjectStore.Close()
+	}
+	if r.Telemetry != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(r.Config.Telemetry.Shutdown.FlushTimeoutMS)*time.Millisecond)
+		_ = r.Telemetry.Shutdown(ctx)
+		cancel()
 	}
 	if r.Postgres != nil {
 		r.Postgres.Close()

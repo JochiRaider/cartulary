@@ -1,0 +1,143 @@
+{
+  "schema_id": "cartulary.otel_import_boundary.v1",
+  "ordinary_go_source_roots": [
+    "cmd",
+    "internal/app",
+    "internal/modules",
+    "internal/platform"
+  ],
+  "ordinary_go_test_support_roots": [
+    "internal/testutil"
+  ],
+  "telemetry_bootstrap_roots": [
+    "internal/platform/telemetry"
+  ],
+  "hostile_fixture_roots": [],
+  "allowed_ordinary_otel_imports": [
+    "go.opentelemetry.io/otel",
+    "go.opentelemetry.io/otel/attribute",
+    "go.opentelemetry.io/otel/codes",
+    "go.opentelemetry.io/otel/metric",
+    "go.opentelemetry.io/otel/metric/noop",
+    "go.opentelemetry.io/otel/trace",
+    "go.opentelemetry.io/otel/trace/noop"
+  ],
+  "forbidden_ordinary_otel_import_prefixes": [
+    "go.opentelemetry.io/auto/",
+    "go.opentelemetry.io/contrib/instrumentation/",
+    "go.opentelemetry.io/otel/exporters/",
+    "go.opentelemetry.io/otel/log",
+    "go.opentelemetry.io/otel/sdk"
+  ],
+  "telemetry_bootstrap_import_notes": [
+    {
+      "package_prefix": "go.opentelemetry.io/otel/sdk",
+      "allowed_root": "internal/platform/telemetry",
+      "runtime_boundary_effect": "SDK, processor, sampler, metric, log, and resource imports are bootstrap-owned and forbidden in ordinary Cartulary code."
+    },
+    {
+      "package_prefix": "go.opentelemetry.io/otel/exporters/",
+      "allowed_root": "internal/platform/telemetry",
+      "runtime_boundary_effect": "OTLP exporter imports are bootstrap-owned and require explicit telemetry configuration before any network export is active."
+    }
+  ],
+  "allowed_cartulary_telemetry_accessor_import": "github.com/JochiRaider/cartulary/internal/platform/telemetry",
+  "browser_package_manifest_roots": [
+    "apps",
+    "packages"
+  ],
+  "forbidden_browser_package_patterns": [
+    "@opentelemetry/",
+    "datadog",
+    "honeycomb",
+    "newrelic",
+    "prometheus",
+    "sentry",
+    "session-replay",
+    "splunk"
+  ],
+  "browser_source_roots": [
+    "apps/web/src",
+    "packages"
+  ],
+  "browser_runtime_source_roots": [
+    "apps/web/src",
+    "packages/grid-adapter/src",
+    "packages/protocol-ts/src",
+    "packages/ui-contracts/src",
+    "packages/view-contracts/src"
+  ],
+  "browser_built_bundle_roots": [
+    "apps/web/dist"
+  ],
+  "browser_text_bundle_extensions": [
+    ".css",
+    ".html",
+    ".js",
+    ".json"
+  ],
+  "browser_source_exclude_suffixes": [
+    ".test.ts",
+    ".test.tsx",
+    ".spec.ts",
+    ".spec.tsx"
+  ],
+  "browser_runtime_probe": {
+    "make_target": "frontend-unit",
+    "evidence": "apps/web/src/otelBoundary.test.ts::OpenTelemetry browser boundary",
+    "state_sources": ["localStorage", "sessionStorage", "DOM attribute", "URL parameter", "globalThis"],
+    "forbidden_effects": ["telemetry_export_global", "remote_telemetry_request", "browser_config_authority"]
+  },
+  "non_transfer_absence_rules": [
+    "required_collector_deployment",
+    "collector_side_privacy_enforcement",
+    "baggage_correlation",
+    "environment_autoconfiguration",
+    "declarative_plugin_providers",
+    "default_otlp_localhost_export",
+    "per_signal_exporters_endpoints",
+    "prometheus_scrape_exporter",
+    "zipkin_export",
+    "jaeger_native_export",
+    "vendor_native_export",
+    "sql_commenter_propagation",
+    "resource_detectors",
+    "resource_schema_url_merge",
+    "s3_semantic_attributes",
+    "exemplars",
+    "metric_bind_bypass",
+    "logrecord_event_name",
+    "logs_api_exception_parameter",
+    "log_to_span_bridge",
+    "probability_sampler"
+  ],
+  "forbidden_browser_runtime_patterns": [
+    { "id": "otel_namespace", "pattern": "@opentelemetry/" },
+    { "id": "opentelemetry_text", "pattern": "opentelemetry" },
+    { "id": "otlp_text", "pattern": "otlp" },
+    { "id": "telemetry_config_authority", "pattern": "telemetry" },
+    { "id": "datadog", "pattern": "datadog" },
+    { "id": "honeycomb", "pattern": "honeycomb" },
+    { "id": "newrelic", "pattern": "newrelic" },
+    { "id": "prometheus", "pattern": "prometheus" },
+    { "id": "sentry", "pattern": "sentry" },
+    { "id": "session_replay_kebab", "pattern": "session-replay" },
+    { "id": "session_replay_camel", "pattern": "sessionReplay" },
+    { "id": "splunk", "pattern": "splunk" },
+    { "id": "jaeger", "pattern": "jaeger" },
+    { "id": "zipkin", "pattern": "zipkin" },
+    { "id": "analytics_init", "pattern": "analytics(" }
+  ],
+  "observed_module_graph_notes": [
+    {
+      "package": "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp",
+      "source": "github.com/testcontainers/testcontainers-go -> github.com/moby/moby/client",
+      "runtime_boundary_effect": "test support transitive module graph only; no authored Cartulary runtime import"
+    },
+    {
+      "package": "go.opentelemetry.io/auto/sdk",
+      "source": "github.com/testcontainers/testcontainers-go -> github.com/moby/moby/client -> otelhttp",
+      "runtime_boundary_effect": "test support transitive module graph only; no authored Cartulary runtime import"
+    }
+  ]
+}

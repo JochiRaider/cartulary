@@ -30,13 +30,14 @@ import (
 )
 
 type Service struct {
-	store         *Store
-	incidentStore *incidents.Store
-	authStore     *authn.Store
-	hub           *platformws.Hub
-	cursorCodec   *pagination.Codec
-	keys          authn.MasterKeys
-	now           func() time.Time
+	store          *Store
+	incidentStore  *incidents.Store
+	authStore      *authn.Store
+	hub            *platformws.Hub
+	cursorCodec    *pagination.Codec
+	keys           authn.MasterKeys
+	now            func() time.Time
+	serviceVersion string
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -327,13 +328,14 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
-		store:         NewStore(deps.Postgres),
-		incidentStore: incidents.NewStore(deps.Postgres),
-		authStore:     authn.NewStore(deps.Postgres),
-		hub:           deps.WSHub,
-		cursorCodec:   cursorCodec,
-		keys:          keys,
-		now:           now,
+		store:          NewStore(deps.PostgresHandle()),
+		incidentStore:  incidents.NewStore(deps.PostgresHandle()),
+		authStore:      authn.NewStore(deps.PostgresHandle()),
+		hub:            deps.WSHub,
+		cursorCodec:    cursorCodec,
+		keys:           keys,
+		now:            now,
+		serviceVersion: deps.Config.Telemetry.Resource.ServiceVersion,
 	}, nil
 }
 
@@ -359,9 +361,19 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
+	ctx, finishTelemetry := s.startWorkbookQuery(r.Context(), viewSchemaID)
+	r = r.WithContext(ctx)
+	telemetryResult := "failed"
+	telemetryErrorCode := ""
+	telemetryRowCount := -1
+	defer func() {
+		finishTelemetry(telemetryResult, telemetryErrorCode, telemetryRowCount)
+	}()
 	scope, scopeErr := workbookQueryScope(incidentID, viewSchemaID, query.Meta)
 	if scopeErr != nil {
-		writeAPIError(w, r, internalAPIError(scopeErr))
+		apiErr := internalAPIError(scopeErr)
+		telemetryResult, telemetryErrorCode = workbookAPIErrorTelemetry(apiErr)
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	binding, cursor, reasonCode := s.cursorCodec.ResolveViewQuery(
@@ -371,37 +383,51 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 		scope,
 	)
 	if reasonCode != "" {
-		writeAPIError(w, r, invalidViewQuery("", reasonCode))
+		apiErr := invalidViewQuery("", reasonCode)
+		telemetryResult, telemetryErrorCode = workbookAPIErrorTelemetry(apiErr)
+		writeAPIError(w, r, apiErr)
 		return
 	}
 
 	resources, err := s.store.QueryRows(r.Context(), incidentID, viewSchemaID, query.Meta)
 	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		apiErr := internalAPIError(err)
+		telemetryResult, telemetryErrorCode = workbookAPIErrorTelemetry(apiErr)
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	rows, nextCursor, err := pageWorkbookResources(binding, cursor, query.Meta, resources)
 	switch {
 	case errors.Is(err, pagination.ErrInvalidCursorToken):
-		writeAPIError(w, r, invalidViewQuery("", pagination.ReasonInvalidCursorToken))
+		apiErr := invalidViewQuery("", pagination.ReasonInvalidCursorToken)
+		telemetryResult, telemetryErrorCode = workbookAPIErrorTelemetry(apiErr)
+		writeAPIError(w, r, apiErr)
 		return
 	case err != nil:
-		writeAPIError(w, r, internalAPIError(err))
+		apiErr := internalAPIError(err)
+		telemetryResult, telemetryErrorCode = workbookAPIErrorTelemetry(apiErr)
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+		apiErr := internalAPIError(err)
+		telemetryResult, telemetryErrorCode = workbookAPIErrorTelemetry(apiErr)
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	var nextToken *string
 	if nextCursor != nil {
 		token, err := s.cursorCodec.Encode(*nextCursor)
 		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
+			apiErr := internalAPIError(err)
+			telemetryResult, telemetryErrorCode = workbookAPIErrorTelemetry(apiErr)
+			writeAPIError(w, r, apiErr)
 			return
 		}
 		nextToken = &token
 	}
+	telemetryResult = "success"
+	telemetryRowCount = len(rows)
 	_ = httpapi.WriteSuccessWithMeta(w, r, http.StatusOK, map[string]any{
 		"incident_id":    incidentID.String(),
 		"view_schema_id": viewSchemaID,
@@ -444,7 +470,10 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.CreateWorkbookRow(r.Context(), principal.User, incidentID, request, CreateRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	ctx, finishTelemetry := s.startWorkbookMutation(r.Context(), request.ViewSchemaID, "create")
+	result, err := s.store.CreateWorkbookRow(ctx, principal.User, incidentID, request, CreateRequestHash(request), httpapi.RequestIDFromContext(ctx), s.now())
+	telemetryResult, telemetryErrorCode := workbookMutationErrorTelemetry(err, request.ClientTxnID)
+	finishTelemetry(telemetryResult, telemetryErrorCode)
 	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
 }
 
@@ -486,7 +515,10 @@ func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.PatchWorkbookRow(r.Context(), principal.User, recordID, request, PatchRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	ctx, finishTelemetry := s.startWorkbookMutation(r.Context(), request.ViewSchemaID, "patch")
+	result, err := s.store.PatchWorkbookRow(ctx, principal.User, recordID, request, PatchRequestHash(request), httpapi.RequestIDFromContext(ctx), s.now())
+	telemetryResult, telemetryErrorCode := workbookMutationErrorTelemetry(err, request.ClientTxnID)
+	finishTelemetry(telemetryResult, telemetryErrorCode)
 	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
 }
 

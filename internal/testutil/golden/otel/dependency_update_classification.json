@@ -1,0 +1,18 @@
+{
+  "schema_id": "cartulary.otel_dependency_update_classification.v1",
+  "status": "adopted_conformant",
+  "corpus_manifest": "internal/testutil/golden/otel/corpus_manifest.json",
+  "change_classes": [
+    { "class": "registry_equivalent", "nlspec_revision_required": false, "merge_behavior": "may_merge_when_existing_acceptance_passes" },
+    { "class": "additive_non_breaking", "nlspec_revision_required": true, "merge_behavior": "requires_nlspec_revision_and_added_acceptance" },
+    { "class": "privacy_tightening", "nlspec_revision_required": true, "merge_behavior": "requires_nlspec_revision_and_absence_coverage" },
+    { "class": "breaking_shape_change", "nlspec_revision_required": true, "merge_behavior": "requires_nlspec_revision_and_updated_acceptance" }
+  ],
+  "latest_update": {
+    "classification": "registry_equivalent",
+    "corpus_manifest": "internal/testutil/golden/otel/corpus_manifest.json",
+    "comparison_schema": "cartulary.otel_corpus_comparison.v1",
+    "nlspec_revision_required": false,
+    "reason": "Current in-tree telemetry adoption comparison normalizes harness-retained raw captures to the committed corpus without shape, resource, retry, non-transfer, sampler, or forbidden-value changes."
+  }
+}

@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -97,16 +98,19 @@ func RawPayload(payload any) json.RawMessage {
 }
 
 type Hub struct {
-	mu                sync.Mutex
-	sessions          map[uuid.UUID]map[chan string]struct{}
-	incidentSessions  map[incidentSessionKey]map[chan string]struct{}
-	recordChanges     []RecordChange
-	recordSubscribers map[chan RecordChange]struct{}
-	incidentStreams   map[uuid.UUID]map[chan Message]struct{}
-	replay            map[uuid.UUID][]replayEntry
-	highWater         map[uuid.UUID]int64
-	resumeTokens      map[string]ResumeToken
-	presences         map[uuid.UUID]map[string]PresenceRecord
+	mu                    sync.Mutex
+	sessions              map[uuid.UUID]map[chan string]struct{}
+	incidentSessions      map[incidentSessionKey]map[chan string]struct{}
+	recordChanges         []RecordChange
+	recordSubscribers     map[chan RecordChange]struct{}
+	incidentStreams       map[uuid.UUID]map[chan Message]struct{}
+	replay                map[uuid.UUID][]replayEntry
+	highWater             map[uuid.UUID]int64
+	resumeTokens          map[string]ResumeToken
+	presences             map[uuid.UUID]map[string]PresenceRecord
+	serviceVersion        string
+	activeConnections     atomic.Int64
+	activeGaugeRegistered bool
 }
 
 type RecordChange struct {
@@ -214,6 +218,8 @@ func (h *Hub) PublishRecordChange(change RecordChange) {
 	if h == nil {
 		return
 	}
+	finishTelemetry := h.startEventSend("record_changed")
+	defer finishTelemetry("success", "")
 
 	now := time.Now().UTC()
 	h.mu.Lock()
@@ -254,8 +260,11 @@ func (h *Hub) PublishJobProgress(incidentID uuid.UUID, payload JobProgressPayloa
 		return nil
 	}
 	if err := ValidateIncidentJobProgressPayload(incidentID, payload); err != nil {
+		h.recordEventSend("job_progress", "rejected", "")
 		return err
 	}
+	finishTelemetry := h.startEventSend("job_progress")
+	defer finishTelemetry("success", "")
 
 	now := time.Now().UTC()
 	h.mu.Lock()
@@ -491,6 +500,8 @@ func (h *Hub) BroadcastPresenceDelta(incidentID uuid.UUID, kind string, presence
 	if h == nil {
 		return
 	}
+	finishTelemetry := h.startEventSend("presence_delta")
+	defer finishTelemetry("success", "")
 	message := EphemeralMessage(incidentID, "presence_delta", map[string]any{
 		"delta_kind": kind,
 		"presence":   presence,
@@ -522,6 +533,27 @@ func (h *Hub) RegisterIncidentSession(incidentID uuid.UUID, sessionID uuid.UUID)
 		}
 		h.mu.Unlock()
 	}
+}
+
+func (h *Hub) TrackActiveConnection() func() {
+	if h == nil {
+		return func() {}
+	}
+	h.activeConnections.Add(1)
+	return func() {
+		h.activeConnections.Add(-1)
+	}
+}
+
+func (h *Hub) ActiveConnections() int64 {
+	if h == nil {
+		return 0
+	}
+	count := h.activeConnections.Load()
+	if count < 0 {
+		return 0
+	}
+	return count
 }
 
 func (h *Hub) RevokeIncidentSession(incidentID uuid.UUID, sessionID uuid.UUID, reasonCode string) {

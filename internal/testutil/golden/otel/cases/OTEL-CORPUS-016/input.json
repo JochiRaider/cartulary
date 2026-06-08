@@ -1,0 +1,120 @@
+{
+  "schema_id": "cartulary.otel_corpus_input.v1",
+  "case_id": "OTEL-CORPUS-016",
+  "title": "Exporter",
+  "status": "adopted_conformant",
+  "owner_requirement": "Export disabled, OTLP HTTP URL construction, OTLP gRPC target/security, secret_ref_v1 headers, User-Agent grammar, retry, timeout, and shutdown match the exporter profile.",
+  "retry_classification_matrix": {
+    "pinned_exporter_version_source": "contracts/otel/otel_source_snapshot.v1.json",
+    "http_transient": [429, 502, 503, 504],
+    "http_permanent": [400, 401, 403, 404, 422],
+    "grpc_transient": [
+      "CANCELLED",
+      "DEADLINE_EXCEEDED",
+      "RESOURCE_EXHAUSTED_WITH_RETRY_INFO",
+      "ABORTED",
+      "OUT_OF_RANGE",
+      "UNAVAILABLE",
+      "DATA_LOSS"
+    ],
+    "grpc_permanent": [
+      "RESOURCE_EXHAUSTED_WITHOUT_RETRY_INFO",
+      "INVALID_ARGUMENT",
+      "UNAUTHENTICATED",
+      "PERMISSION_DENIED",
+      "NOT_FOUND",
+      "UNIMPLEMENTED"
+    ],
+    "retry_envelope": "full_jitter_bounds_only",
+    "permanent_drop_reason": "exporter_permanent_discard"
+  },
+  "exporter_runtime_assertions": {
+    "export_disabled_default": true,
+    "otlp_http_paths": {
+      "traces": "/v1/traces",
+      "metrics": "/v1/metrics",
+      "logs": "/v1/logs",
+      "per_signal_endpoint_divergence": false
+    },
+    "otlp_grpc": {
+      "one_configured_target": true,
+      "per_signal_endpoint_divergence": false,
+      "https_selects_tls": true,
+      "http_selects_insecure": true
+    },
+    "header_policy": {
+      "configured_source": "telemetry.exporter.headers.secret_ref_v1",
+      "protocol_required_headers": ["content-type", "user-agent"],
+      "configured_values_redacted_in_diagnostics": true,
+      "secret_values_absent_from_retained_artifacts": true,
+      "otel_environment_headers_ignored": true
+    },
+    "user_agent": {
+      "grammar": "Cartulary/<SERVICE_VERSION> OTel-OTLP-Exporter-go/<EXPORTER_VERSION>",
+      "forbidden_extra_segments": false,
+      "forbidden_values": false,
+      "pinned_exporter_version_source": "contracts/otel/otel_source_snapshot.v1.json"
+    },
+    "timeout": {
+      "attempt_timeout_key": "telemetry.processor.export_timeout_ms",
+      "transient_only_when_transport_transient": true,
+      "product_hot_path_blocking": false
+    },
+    "queue_overflow": {
+      "policy": "drop_new",
+      "retains_queued_items": true,
+      "drops_new_item": true,
+      "product_hot_path_blocking": false,
+      "drop_metric": {
+        "name": "cartulary.telemetry.item.dropped",
+        "drop_reason": "queue_full",
+        "records_when_non_recursive": true,
+        "records_when_recursive": false
+      },
+      "queue_depth_metric": "cartulary.telemetry.queue.depth"
+    },
+    "export_failure_metric": {
+      "name": "cartulary.telemetry.export.failure",
+      "attributes": [
+        "cartulary.signal_kind",
+        "cartulary.telemetry.exporter_kind",
+        "cartulary.error_class"
+      ],
+      "records_when_non_recursive": true,
+      "records_when_recursive": false
+    },
+    "shutdown": {
+      "flush_timeout_key": "telemetry.shutdown.flush_timeout_ms",
+      "continues_after_timeout": true,
+      "shutdown_calls_per_active_provider": 1,
+      "repeated_shutdown_idempotent": true,
+      "drop_metric": {
+        "name": "cartulary.telemetry.item.dropped",
+        "drop_reason": "shutdown_timeout",
+        "records_when_non_recursive": true,
+        "records_when_recursive": false
+      }
+    },
+    "self_diagnostics": {
+      "bounded": true,
+      "recursive_item_dropped": true,
+      "drop_metric_when_possible": {
+        "name": "cartulary.telemetry.item.dropped",
+        "drop_reason": "recursion_guard"
+      }
+    },
+    "evidence": [
+      "internal/platform/telemetry/bootstrap_test.go::TestBootstrapNoSDKExportDisabled",
+      "internal/platform/telemetry/exporter_test.go::TestBuildOTLPHTTPURLs",
+      "internal/platform/telemetry/exporter_test.go::TestBuildOTLPGRPCTarget",
+      "internal/platform/telemetry/exporter_test.go::TestBuildExporterRequestHeadersRedactsConfiguredSecrets",
+      "internal/platform/telemetry/exporter_test.go::TestExporterUserAgentGrammar",
+      "internal/platform/telemetry/exporter_test.go::TestOTLPStatusRetryClassification",
+      "internal/platform/telemetry/exporter_test.go::TestPlanRetryEnvelope",
+      "internal/platform/telemetry/exporter_test.go::TestPlanExporterAttemptTimeoutClassification",
+      "internal/platform/telemetry/exporter_test.go::TestOfferProcessorQueueDropNewOverflow",
+      "internal/platform/telemetry/exporter_test.go::TestPlanShutdownTimeoutAndIdempotence",
+      "internal/platform/telemetry/exporter_test.go::TestPlanSelfDiagnosticRecursionGuard"
+    ]
+  }
+}

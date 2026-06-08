@@ -1,0 +1,49 @@
+{
+  "schema_id": "cartulary.otel_corpus_input.v1",
+  "case_id": "OTEL-CORPUS-008",
+  "title": "WebSocket collaboration",
+  "status": "adopted_conformant",
+  "owner_requirement": "Connect, authorize, subscribe, event-send, replay, close, overflow, and unauthorized-subscribe paths emit only registered safe telemetry.",
+  "websocket_signal_assertions": {
+    "span_families": ["websocket_lifecycle", "websocket_event_send"],
+    "span_names": [
+      "cartulary.collaboration.websocket",
+      "cartulary.collaboration.event_send"
+    ],
+    "span_kinds": ["internal"],
+    "metrics": [
+      "cartulary.collaboration.connections.active",
+      "cartulary.collaboration.events.sent"
+    ],
+    "safe_lifecycle_operations": ["connect"],
+    "safe_event_types": [
+      "record_changed",
+      "job_progress",
+      "presence_delta",
+      "presence_snapshot",
+      "hello_ack",
+      "resume_result",
+      "ping",
+      "session_revoked",
+      "error",
+      "other"
+    ],
+    "safe_results": ["success", "rejected", "conflict", "canceled", "failed", "timeout", "dropped"],
+    "forbidden_values_absent": [
+      "connection_id",
+      "user_id",
+      "incident_id",
+      "payload",
+      "record_id"
+    ],
+    "evidence": [
+      "internal/modules/collaboration/telemetry_test.go::TestWebSocketLifecycleTelemetryClassifiesPublicErrors",
+      "internal/modules/collaboration/telemetry_test.go::TestWebSocketLifecycleTelemetryClosesVocabulary",
+      "internal/platform/ws/telemetry_test.go::TestWebSocketTelemetrySafeVocabulary",
+      "internal/platform/ws/telemetry_test.go::TestWebSocketEventSendTelemetryNoSDK",
+      "internal/platform/ws/telemetry_test.go::TestActiveConnectionTelemetryGaugeNoSDK",
+      "internal/platform/telemetry/registry_test.go::TestSpanRegistryClosed",
+      "internal/platform/telemetry/registry_test.go::TestMetricRegistryClosed"
+    ]
+  }
+}

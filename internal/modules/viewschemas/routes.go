@@ -52,7 +52,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
-		authStore:   authn.NewStore(deps.Postgres),
+		authStore:   authn.NewStore(deps.PostgresHandle()),
 		keys:        keys,
 		cursorCodec: cursorCodec,
 		now:         now,

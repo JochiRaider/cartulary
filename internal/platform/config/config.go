@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -63,6 +64,7 @@ type Config struct {
 	Roots             RootBindings      `toml:"roots"`
 	Bootstrap         BootstrapConfig   `toml:"bootstrap"`
 	Limits            LimitConfig       `toml:"limits"`
+	Telemetry         TelemetryConfig   `toml:"telemetry"`
 }
 
 type ApplicationConfig struct {
@@ -126,6 +128,104 @@ type IncidentBundleLimits struct {
 type PreviewLimits struct {
 	MaxPreviewablePayloadBytes int64 `toml:"max_previewable_payload_bytes"`
 	MaxTextInlineBytes         int64 `toml:"max_text_inline_bytes"`
+}
+
+type TelemetryConfig struct {
+	Enabled            bool                           `toml:"enabled"`
+	OTelEnvPassthrough bool                           `toml:"otel_env_passthrough"`
+	Exporter           TelemetryExporterConfig        `toml:"exporter"`
+	Traces             TelemetryTracesConfig          `toml:"traces"`
+	Metrics            TelemetryMetricsConfig         `toml:"metrics"`
+	Logs               TelemetryLogsConfig            `toml:"logs"`
+	Processor          TelemetryProcessorConfig       `toml:"processor"`
+	Shutdown           TelemetryShutdownConfig        `toml:"shutdown"`
+	SelfDiagnostics    TelemetrySelfDiagnosticsConfig `toml:"self_diagnostics"`
+	Resource           TelemetryResourceConfig        `toml:"resource"`
+	Attribute          TelemetryAttributeConfig       `toml:"attribute"`
+}
+
+type TelemetryExporterConfig struct {
+	Kind        string                       `toml:"kind"`
+	Endpoint    string                       `toml:"endpoint"`
+	Protocol    string                       `toml:"protocol"`
+	Compression string                       `toml:"compression"`
+	Headers     map[string]SecretRef         `toml:"headers"`
+	Retry       TelemetryExporterRetryConfig `toml:"retry"`
+}
+
+type TelemetryExporterRetryConfig struct {
+	Enabled           bool    `toml:"enabled"`
+	MaxElapsedMS      int64   `toml:"max_elapsed_ms"`
+	InitialIntervalMS int64   `toml:"initial_interval_ms"`
+	MaxIntervalMS     int64   `toml:"max_interval_ms"`
+	Multiplier        float64 `toml:"multiplier"`
+}
+
+type TelemetryTracesConfig struct {
+	Enabled             bool    `toml:"enabled"`
+	SampleRatio         float64 `toml:"sample_ratio"`
+	SamplerProfile      string  `toml:"sampler_profile"`
+	AcceptRemoteContext bool    `toml:"accept_remote_context"`
+}
+
+type TelemetryMetricsConfig struct {
+	Enabled            bool                    `toml:"enabled"`
+	TemporalityProfile string                  `toml:"temporality_profile"`
+	Exemplars          TelemetryExemplarConfig `toml:"exemplars"`
+}
+
+type TelemetryExemplarConfig struct {
+	Enabled bool `toml:"enabled"`
+}
+
+type TelemetryLogsConfig struct {
+	BridgeEnabled bool  `toml:"bridge_enabled"`
+	BodyMaxChars  int64 `toml:"body_max_chars"`
+}
+
+type TelemetryProcessorConfig struct {
+	MaxQueueSize       int64                          `toml:"max_queue_size"`
+	MaxExportBatchSize int64                          `toml:"max_export_batch_size"`
+	Traces             TelemetryProcessorSignalConfig `toml:"traces"`
+	Metrics            TelemetryProcessorSignalConfig `toml:"metrics"`
+	Logs               TelemetryProcessorSignalConfig `toml:"logs"`
+	ExportTimeoutMS    int64                          `toml:"export_timeout_ms"`
+	OverflowPolicy     string                         `toml:"overflow_policy"`
+}
+
+type TelemetryProcessorSignalConfig struct {
+	ScheduleDelayMS int64 `toml:"schedule_delay_ms"`
+}
+
+type TelemetryShutdownConfig struct {
+	FlushTimeoutMS int64 `toml:"flush_timeout_ms"`
+}
+
+type TelemetrySelfDiagnosticsConfig struct {
+	Enabled        bool   `toml:"enabled"`
+	RecursionGuard string `toml:"recursion_guard"`
+}
+
+type TelemetryResourceConfig struct {
+	ServiceName               string `toml:"service_name"`
+	ServiceNamespace          string `toml:"service_namespace"`
+	ServiceVersion            string `toml:"service_version"`
+	ServiceInstanceID         string `toml:"service_instance_id"`
+	DeploymentEnvironmentName string `toml:"deployment_environment_name"`
+}
+
+type TelemetryAttributeConfig struct {
+	IncidentCorrelation string    `toml:"incident_correlation"`
+	HMACSecretRef       SecretRef `toml:"hmac_secret_ref"`
+}
+
+type SecretRef struct {
+	Kind string `toml:"kind"`
+	Name string `toml:"name"`
+}
+
+func (r SecretRef) Empty() bool {
+	return r.Kind == "" && r.Name == ""
 }
 
 type configPresence struct {
@@ -284,6 +384,9 @@ func loadFromOptions(options LoadOptions) (Config, error) {
 
 func applyOverlay(cfg *Config, envKey string, raw string) *Diagnostic {
 	segments := overlaySegments(envKey)
+	if len(segments) > 0 && segments[0] == "telemetry" {
+		return applyTelemetryOverlay(cfg, segments, raw)
+	}
 
 	value := reflect.ValueOf(cfg).Elem()
 	for _, segment := range segments[:len(segments)-1] {
@@ -338,9 +441,135 @@ func assignOverlayValue(field reflect.Value, raw string) (string, error) {
 		}
 		field.SetBool(value)
 		return "", nil
+	case reflect.Float32, reflect.Float64:
+		value, err := strconv.ParseFloat(raw, field.Type().Bits())
+		if err != nil {
+			return "type_mismatch", fmt.Errorf("parse decimal overlay: %w", err)
+		}
+		field.SetFloat(value)
+		return "", nil
 	default:
 		return "type_mismatch", fmt.Errorf("unsupported overlay target kind %s", field.Kind())
 	}
+}
+
+func applyTelemetryOverlay(cfg *Config, segments []string, raw string) *Diagnostic {
+	path := strings.Join(segments, ".")
+	if raw == "" {
+		return nil
+	}
+	if raw == "null" {
+		return telemetryDiagnostic(path, "explicit null is not accepted in server-side environment bindings")
+	}
+	if path == "telemetry.exporter.headers" {
+		headers, diagnostic := parseTelemetryHeaderOverlay(raw, path)
+		if diagnostic != nil {
+			return diagnostic
+		}
+		cfg.Telemetry.Exporter.Headers = headers
+		return nil
+	}
+	if path == "telemetry.attribute.hmac_secret_ref" {
+		if !isValidSecretRefName(raw) {
+			return telemetryDiagnostic(path, "telemetry secret reference name is invalid")
+		}
+		cfg.Telemetry.Attribute.HMACSecretRef = SecretRef{Kind: "env", Name: raw}
+		return nil
+	}
+
+	value := reflect.ValueOf(cfg).Elem()
+	for _, segment := range segments[:len(segments)-1] {
+		field, ok := findTaggedField(value, segment)
+		if !ok {
+			return &Diagnostic{
+				Path:       path,
+				ReasonCode: "unknown_key",
+				Message:    fmt.Sprintf("unknown overlay path segment %q", segment),
+			}
+		}
+		value = field
+	}
+
+	field, ok := findTaggedField(value, segments[len(segments)-1])
+	if !ok {
+		return &Diagnostic{
+			Path:       path,
+			ReasonCode: "unknown_key",
+			Message:    fmt.Sprintf("unknown overlay target %q", segments[len(segments)-1]),
+		}
+	}
+	if field.Kind() == reflect.Int || field.Kind() == reflect.Int8 || field.Kind() == reflect.Int16 || field.Kind() == reflect.Int32 || field.Kind() == reflect.Int64 {
+		if !asciiDigits(raw) {
+			return telemetryDiagnostic(path, "telemetry integer overlay must use unsigned base-10 ASCII digits")
+		}
+	}
+	if field.Kind() == reflect.Float32 || field.Kind() == reflect.Float64 {
+		if !validTelemetryDecimalToken(raw) {
+			return telemetryDiagnostic(path, "telemetry decimal overlay must be finite decimal notation")
+		}
+	}
+
+	reasonCode, err := assignOverlayValue(field, raw)
+	if err != nil {
+		if reasonCode == "unknown_key" {
+			return &Diagnostic{Path: path, ReasonCode: reasonCode, Message: err.Error()}
+		}
+		return telemetryDiagnostic(path, err.Error())
+	}
+	return nil
+}
+
+func parseTelemetryHeaderOverlay(raw string, path string) (map[string]SecretRef, *Diagnostic) {
+	headers := make(map[string]SecretRef)
+	seen := make(map[string]struct{})
+	for _, pair := range strings.Split(raw, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			return nil, telemetryDiagnostic(path, "telemetry exporter header overlay contains an empty pair")
+		}
+		name, refName, ok := strings.Cut(pair, "=")
+		if !ok {
+			return nil, telemetryDiagnostic(path, "telemetry exporter header overlay must use key=secret_ref_name pairs")
+		}
+		name = strings.TrimSpace(name)
+		refName = strings.TrimSpace(refName)
+		canonicalName := strings.ToLower(name)
+		if !isValidTelemetryHeaderName(name) || !isValidSecretRefName(refName) {
+			return nil, telemetryDiagnostic(path, "telemetry exporter header overlay contains an invalid header or secret reference")
+		}
+		if _, exists := seen[canonicalName]; exists {
+			return nil, telemetryDiagnostic(path, "telemetry exporter header overlay contains a duplicate header")
+		}
+		seen[canonicalName] = struct{}{}
+		headers[canonicalName] = SecretRef{Kind: "env", Name: refName}
+	}
+	return headers, nil
+}
+
+func telemetryDiagnostic(path string, message string) *Diagnostic {
+	return &Diagnostic{
+		Path:       path,
+		ReasonCode: "invalid_telemetry_config",
+		Message:    message,
+	}
+}
+
+var telemetryDecimalPattern = regexp.MustCompile(`^[0-9]+(\.[0-9]+)?$`)
+
+func asciiDigits(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func validTelemetryDecimalToken(value string) bool {
+	return telemetryDecimalPattern.MatchString(value)
 }
 
 func findTaggedField(value reflect.Value, segment string) (reflect.Value, bool) {
@@ -387,6 +616,12 @@ func sortedOverlayKeys(env map[string]string) []string {
 func newConfigPresence(md toml.MetaData, env map[string]string) configPresence {
 	overlayPaths := make(map[string]struct{})
 	for _, key := range sortedOverlayKeys(env) {
+		if strings.TrimPrefix(key, overlayPrefix) == "" {
+			continue
+		}
+		if strings.HasPrefix(key, overlayPrefix+"TELEMETRY__") && lookupEnvValue(env, key) == "" {
+			continue
+		}
 		overlayPaths[strings.Join(overlaySegments(key), ".")] = struct{}{}
 	}
 

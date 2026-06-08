@@ -91,9 +91,23 @@ func SetupWithEnv(ctx context.Context, cfg config.Config, env map[string]string)
 
 	switch settings.BindingKind {
 	case "filesystem_root":
-		return NewFilesystemStore(settings.RootPath)
+		store, err := NewFilesystemStore(settings.RootPath)
+		if err != nil {
+			return nil, err
+		}
+		if cfg.Telemetry.Enabled {
+			return InstrumentStore(store, cfg.Telemetry.Resource.ServiceVersion), nil
+		}
+		return store, nil
 	case "managed_service":
-		return newS3Store(ctx, settings)
+		store, err := newS3Store(ctx, settings)
+		if err != nil {
+			return nil, err
+		}
+		if cfg.Telemetry.Enabled {
+			return InstrumentStore(store, cfg.Telemetry.Resource.ServiceVersion), nil
+		}
+		return store, nil
 	default:
 		return nil, fmt.Errorf("setup object store: unsupported binding_kind %q", settings.BindingKind)
 	}

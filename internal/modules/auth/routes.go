@@ -125,7 +125,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	}
 
 	return &Service{
-		store:       authn.NewStore(deps.Postgres),
+		store:       authn.NewStore(deps.PostgresHandle()),
 		hub:         deps.WSHub,
 		keys:        keys,
 		cursorCodec: cursorCodec,

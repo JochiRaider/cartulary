@@ -1,0 +1,60 @@
+{
+  "schema_id": "cartulary.otel_error_class_registry.v1",
+  "owner": "docs/opentelemetry-instrumentation-nlspec.md#8.5.1",
+  "public_error_code_owner": "docs/spec/01_architecture_storage_and_view_contracts.md#3.3.6.1",
+  "public_error_classes": [
+    {
+      "error_class": "request_invalid",
+      "error_codes": ["invalid_view_query", "invalid_pagination_request", "invalid_mutation_payload", "invalid_evidence_handle_request", "invalid_blob_create_request", "invalid_incident_create", "invalid_incident_patch", "invalid_rollback_request", "invalid_auth_request", "invalid_enterprise_auth_request", "invalid_import_request", "invalid_snapshot_request", "invalid_release_request", "invalid_reference_pack_request", "invalid_incident_bundle_request"]
+    },
+    {
+      "error_class": "authentication",
+      "error_codes": ["invalid_credentials", "mfa_required", "mfa_setup_required", "credential_bootstrap_rejected", "invalid_current_password", "invalid_second_factor", "totp_setup_not_pending", "enterprise_auth_transaction_rejected", "provider_response_rejected", "provider_identity_rejected"]
+    },
+    {
+      "error_class": "capability_unavailable",
+      "error_codes": ["extension_profile_not_claimed", "auth_provider_not_found", "auth_provider_disabled"]
+    },
+    {
+      "error_class": "concurrency_conflict",
+      "error_codes": ["client_txn_conflict", "row_version_conflict", "incident_key_conflict", "incident_version_conflict", "same_field_conflict", "user_version_conflict", "membership_version_conflict", "auth_binding_conflict"]
+    },
+    {
+      "error_class": "lifecycle_conflict",
+      "error_codes": ["job_cancel_rejected", "illegal_transition", "record_deleted_use_restore", "record_already_deleted", "record_delete_blocked", "record_not_deleted", "record_locked", "rollback_precondition_failed", "last_deployment_admin", "user_inactive", "membership_exists_use_patch", "last_incident_admin", "merge_precondition_failed", "import_state_conflict", "import_apply_blocked", "release_state_conflict", "release_approval_rejected", "reference_pack_state_conflict", "reference_pack_activation_rejected"]
+    },
+    {
+      "error_class": "not_found",
+      "error_codes": ["entity_mention_not_found", "resolved_record_not_found", "rollback_target_not_found", "evidence_record_not_found", "handle_not_found_or_revoked", "job_not_found", "auth_binding_not_found", "user_not_found", "membership_not_found", "import_session_not_found", "import_unit_not_found", "snapshot_not_found", "release_not_found", "reference_pack_not_found", "incident_bundle_not_found"]
+    },
+    {
+      "error_class": "expired_or_consumed",
+      "error_codes": ["handle_expired", "handle_consumed"]
+    },
+    {
+      "error_class": "policy_rejected",
+      "error_codes": ["blob_create_rejected", "evidence_attach_rejected", "import_source_unsupported", "import_source_rejected", "release_render_failed", "reference_pack_verification_failed", "incident_bundle_export_rejected", "incident_bundle_import_rejected"]
+    },
+    {
+      "error_class": "dependency_unavailable",
+      "error_codes": ["evidence_access_unavailable", "object_store_unavailable", "object_store_access_rejected"]
+    },
+    {
+      "error_class": "invariant_violation",
+      "error_codes": ["object_store_invalid_request"]
+    }
+  ],
+  "additional_error_classes": [
+    { "error_class": "timeout", "scope": "Dependency or exporter timeout." },
+    { "error_class": "serialization_conflict", "scope": "Database serialization conflict." },
+    { "error_class": "constraint_violation", "scope": "Safe data-integrity constraint class after redaction." },
+    { "error_class": "invariant_violation", "scope": "Server-side persisted metadata or internal state violates an owner-defined invariant before a backend dependency call is allowed." },
+    { "error_class": "exporter_transient", "scope": "Retryable exporter transport/status class." },
+    { "error_class": "exporter_permanent", "scope": "Non-retryable exporter rejection class." },
+    { "error_class": "redaction_rejected", "scope": "Telemetry item dropped because safety could not be proven." },
+    { "error_class": "queue_full", "scope": "Telemetry processor overflow class when class is needed rather than cartulary.drop_reason." },
+    { "error_class": "shutdown_timeout", "scope": "Telemetry flush exceeded shutdown budget." },
+    { "error_class": "recursion_guard", "scope": "Telemetry-about-telemetry recursion prevented." },
+    { "error_class": "internal_error", "scope": "Safe non-detail class for internal failures." }
+  ]
+}

@@ -8,7 +8,10 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) RebuildIncidentHosts(ctx context.Context, incidentID uuid.UUID) error {
+func (s *Store) RebuildIncidentHosts(ctx context.Context, incidentID uuid.UUID) (err error) {
+	ctx, finishTelemetry := s.startProjectionSpan(ctx, hostsViewSchemaID)
+	defer func() { finishTelemetry(err) }()
+
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("begin host projection rebuild: %w", err)
@@ -89,7 +92,10 @@ SELECT
 	return nil
 }
 
-func (s *Store) RebuildIncidentIdentities(ctx context.Context, incidentID uuid.UUID) error {
+func (s *Store) RebuildIncidentIdentities(ctx context.Context, incidentID uuid.UUID) (err error) {
+	ctx, finishTelemetry := s.startProjectionSpan(ctx, identitiesViewSchemaID)
+	defer func() { finishTelemetry(err) }()
+
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("begin identity projection rebuild: %w", err)
@@ -170,7 +176,10 @@ SELECT
 	return nil
 }
 
-func (s *Store) RebuildIncidentIndicators(ctx context.Context, incidentID uuid.UUID) error {
+func (s *Store) RebuildIncidentIndicators(ctx context.Context, incidentID uuid.UUID) (err error) {
+	ctx, finishTelemetry := s.startProjectionSpan(ctx, indicatorsViewSchemaID)
+	defer func() { finishTelemetry(err) }()
+
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("begin indicator projection rebuild: %w", err)

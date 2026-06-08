@@ -62,8 +62,8 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
-		store:       NewStore(deps.Postgres),
-		authStore:   authn.NewStore(deps.Postgres),
+		store:       NewStore(deps.PostgresHandle()),
+		authStore:   authn.NewStore(deps.PostgresHandle()),
 		hub:         deps.WSHub,
 		keys:        keys,
 		cursorCodec: cursorCodec,

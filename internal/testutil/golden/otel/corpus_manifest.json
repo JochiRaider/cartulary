@@ -1,0 +1,42 @@
+{
+  "schema_id": "cartulary.otel_corpus_manifest.v1",
+  "corpus_revision": "otel-adoption-bootstrap.v1",
+  "status": "adopted_conformant",
+  "normalized_golden_root": "internal/testutil/golden/otel",
+  "raw_capture_policy": {
+    "retained_root": "harness_run_root/otel-conformance/raw",
+    "forbidden_committed_root": "internal/testutil/golden/otel"
+  },
+  "canonical_normalization": {
+    "service_version_token": "SERVICE_VERSION",
+    "scope_version_token": "SCOPE_VERSION",
+    "resource_schema_url": "",
+    "sort_object_keys": true,
+    "canonical_numbers": true
+  },
+  "dependency_update_gate": {
+    "manifest": "internal/testutil/golden/otel/dependency_update_classification.json",
+    "allowed_without_nlspec_revision": ["registry_equivalent"],
+    "requires_nlspec_revision": ["additive_non_breaking", "privacy_tightening", "breaking_shape_change"]
+  },
+  "cases": [
+    { "case_id": "OTEL-CORPUS-001", "title": "No-SDK mode", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-001/input.json", "normalized_traces": "cases/OTEL-CORPUS-001/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-001/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-001/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-002", "title": "Source baseline", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-002/input.json", "normalized_traces": "cases/OTEL-CORPUS-002/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-002/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-002/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-003", "title": "Cartulary environment binding parser", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-003/input.json", "normalized_traces": "cases/OTEL-CORPUS-003/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-003/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-003/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-004", "title": "Hostile environment", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-004/input.json", "normalized_traces": "cases/OTEL-CORPUS-004/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-004/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-004/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-005", "title": "Hostile declarative configuration", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-005/input.json", "normalized_traces": "cases/OTEL-CORPUS-005/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-005/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-005/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-006", "title": "HTTP route shape", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-006/input.json", "normalized_traces": "cases/OTEL-CORPUS-006/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-006/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-006/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-007", "title": "Workbook query and mutation", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-007/input.json", "normalized_traces": "cases/OTEL-CORPUS-007/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-007/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-007/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-008", "title": "WebSocket collaboration", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-008/input.json", "normalized_traces": "cases/OTEL-CORPUS-008/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-008/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-008/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-009", "title": "Background jobs", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-009/input.json", "normalized_traces": "cases/OTEL-CORPUS-009/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-009/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-009/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-010", "title": "Postgres dependency", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-010/input.json", "normalized_traces": "cases/OTEL-CORPUS-010/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-010/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-010/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-011", "title": "Object storage", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-011/input.json", "normalized_traces": "cases/OTEL-CORPUS-011/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-011/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-011/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-012", "title": "Resource identity", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-012/input.json", "normalized_traces": "cases/OTEL-CORPUS-012/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-012/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-012/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-013", "title": "Attribute boundary", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-013/input.json", "normalized_traces": "cases/OTEL-CORPUS-013/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-013/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-013/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-014", "title": "Logs", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-014/input.json", "normalized_traces": "cases/OTEL-CORPUS-014/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-014/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-014/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-015", "title": "Metrics", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-015/input.json", "normalized_traces": "cases/OTEL-CORPUS-015/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-015/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-015/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-016", "title": "Exporter", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-016/input.json", "normalized_traces": "cases/OTEL-CORPUS-016/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-016/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-016/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-017", "title": "Product-boundary runtime invariance", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-017/input.json", "normalized_traces": "cases/OTEL-CORPUS-017/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-017/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-017/normalized_logs.json" },
+    { "case_id": "OTEL-CORPUS-018", "title": "Redaction", "status": "adopted_conformant", "input": "cases/OTEL-CORPUS-018/input.json", "normalized_traces": "cases/OTEL-CORPUS-018/normalized_traces.json", "normalized_metrics": "cases/OTEL-CORPUS-018/normalized_metrics.json", "normalized_logs": "cases/OTEL-CORPUS-018/normalized_logs.json" }
+  ]
+}

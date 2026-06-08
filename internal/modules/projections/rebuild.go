@@ -9,7 +9,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func (s *Store) RebuildRestoreProjections(ctx context.Context) error {
+func (s *Store) RebuildRestoreProjections(ctx context.Context) (err error) {
+	ctx, finishTelemetry := s.startProjectionSpan(ctx, "unknown")
+	defer func() { finishTelemetry(err) }()
+
 	if s == nil || s.pool == nil {
 		return fmt.Errorf("rebuild restore projections: projection store is required")
 	}

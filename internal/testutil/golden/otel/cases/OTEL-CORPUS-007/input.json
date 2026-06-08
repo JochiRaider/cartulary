@@ -1,0 +1,43 @@
+{
+  "schema_id": "cartulary.otel_corpus_input.v1",
+  "case_id": "OTEL-CORPUS-007",
+  "title": "Workbook query and mutation",
+  "status": "adopted_conformant",
+  "owner_requirement": "Query, create, patch, conflict, projection update, and row-refresh telemetry appears with registered names and safe attributes only.",
+  "workbook_signal_assertions": {
+    "span_families": ["workbook_query", "workbook_mutation", "workbook_projection"],
+    "span_names": [
+      "cartulary.workbook.query",
+      "cartulary.workbook.mutation",
+      "cartulary.workbook.projection"
+    ],
+    "span_kinds": ["internal"],
+    "metrics": [
+      "cartulary.workbook.query.duration",
+      "cartulary.workbook.mutation.duration",
+      "cartulary.workbook.rows.returned"
+    ],
+    "safe_operations": ["query", "create", "patch", "rebuild"],
+    "row_bucket_fixture_values": [0, 1, 5, 6, 500, 501],
+    "forbidden_values_absent": [
+      "saved_view_id",
+      "filters",
+      "search_text",
+      "row.values",
+      "projection_table_name",
+      "record_id",
+      "row_version",
+      "client_txn_id",
+      "field_values"
+    ],
+    "evidence": [
+      "internal/modules/workbook/telemetry_test.go::TestWorkbookTelemetrySafeMappings",
+      "internal/modules/workbook/telemetry_test.go::TestWorkbookAPIErrorTelemetry",
+      "internal/modules/workbook/telemetry_test.go::TestWorkbookTelemetryNoSDK",
+      "internal/modules/projections/telemetry_test.go::TestProjectionTelemetrySafeVocabulary",
+      "internal/modules/projections/telemetry_test.go::TestProjectionTelemetryNoSDK",
+      "internal/platform/telemetry/registry_test.go::TestSpanRegistryClosed",
+      "internal/platform/telemetry/registry_test.go::TestMetricRegistryClosed"
+    ]
+  }
+}

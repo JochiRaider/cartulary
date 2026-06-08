@@ -48,9 +48,11 @@ var (
 )
 
 type Manager struct {
-	pool *pgxpool.Pool
-	now  func() time.Time
-	hub  *platformws.Hub
+	pool                  *pgxpool.Pool
+	now                   func() time.Time
+	hub                   *platformws.Hub
+	serviceVersion        string
+	activeGaugeRegistered bool
 }
 
 type Scope struct {
@@ -141,17 +143,28 @@ func (m *Manager) Configure(pool *pgxpool.Pool, now func() time.Time) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	m.now = now
+	m.registerActiveGauge()
 }
 
 func (m *Manager) ConfigureProgressHub(hub *platformws.Hub) {
 	m.hub = hub
 }
 
+func (m *Manager) ConfigureTelemetry(serviceVersion string) {
+	if m == nil {
+		return
+	}
+	m.serviceVersion = serviceVersion
+	m.registerActiveGauge()
+}
+
 func (m *Manager) Create(ctx context.Context, params CreateParams) (Resource, error) {
 	if err := m.ensureConfigured(); err != nil {
 		return Resource{}, err
 	}
+	ctx, span := m.startJobSpan(ctx, "cartulary.jobs.enqueue", jobKindFromScope(params.Scope), "enqueue")
 	resource, err := CreateQueuedTx(ctx, m.pool, params, m.now().UTC())
+	m.finishJobSpan(span, "enqueue", jobKindFromScope(params.Scope), "", resultForJobError(err), err)
 	if err != nil {
 		return Resource{}, err
 	}
@@ -318,10 +331,12 @@ func (m *Manager) completeTerminal(ctx context.Context, params TransitionParams,
 	if err := m.ensureConfigured(); err != nil {
 		return Resource{}, err
 	}
+	ctx, span := m.startJobSpan(ctx, "cartulary.jobs.run", "unknown", "run")
 	now := m.now().UTC()
 	retainedUntil := now.Add(7 * 24 * time.Hour)
 	resultJSON, errorJSON, err := marshalSummaries(params.ResultSummary, params.ErrorSummary, status)
 	if err != nil {
+		m.finishJobSpan(span, "run", "unknown", "", "failed", err)
 		return Resource{}, err
 	}
 	record, err := scanJob(m.pool.QueryRow(ctx, `
@@ -344,11 +359,17 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
           finished_at, retained_until, result_summary_json, error_summary_json, message
 `, params.JobID, status, now, retainedUntil, params.Progress.Completed, params.Progress.Total, resultJSON, errorJSON, params.Message))
 	if errors.Is(err, pgx.ErrNoRows) {
+		m.finishJobSpan(span, "run", "unknown", "", "failed", ErrInvalidTransition)
 		return Resource{}, ErrInvalidTransition
 	}
 	if err != nil {
+		m.finishJobSpan(span, "run", "unknown", "", "failed", err)
 		return Resource{}, err
 	}
+	result := resultForTerminalStatus(record.Status)
+	jobKind := jobKindFromScope(record.Scope)
+	m.finishJobSpan(span, "run", jobKind, record.Status, result, nil)
+	m.recordJobDuration(ctx, record, jobKind, result)
 	m.PublishProgress(record)
 	return record, nil
 }

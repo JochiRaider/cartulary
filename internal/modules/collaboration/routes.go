@@ -29,12 +29,13 @@ const (
 )
 
 type Service struct {
-	incidentStore *incidents.Store
-	authStore     *authn.Store
-	hub           *platformws.Hub
-	keys          authn.MasterKeys
-	publicOrigin  string
-	now           func() time.Time
+	incidentStore  *incidents.Store
+	authStore      *authn.Store
+	hub            *platformws.Hub
+	keys           authn.MasterKeys
+	publicOrigin   string
+	serviceVersion string
+	now            func() time.Time
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -58,35 +59,48 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &Service{
-		incidentStore: incidents.NewStore(deps.Postgres),
-		authStore:     authn.NewStore(deps.Postgres),
-		hub:           deps.WSHub,
-		keys:          keys,
-		publicOrigin:  deps.Config.Application.PublicOrigin,
-		now:           now,
+		incidentStore:  incidents.NewStore(deps.PostgresHandle()),
+		authStore:      authn.NewStore(deps.PostgresHandle()),
+		hub:            deps.WSHub,
+		keys:           keys,
+		publicOrigin:   deps.Config.Application.PublicOrigin,
+		serviceVersion: deps.Config.Telemetry.Resource.ServiceVersion,
+		now:            now,
 	}, nil
 }
 
 func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
+	ctx, finishLifecycle := s.startWebSocketLifecycle(r.Context(), "connect")
+	lifecycleResult := "failed"
+	lifecycleErrorCode := ""
+	defer func() {
+		finishLifecycle(lifecycleResult, lifecycleErrorCode)
+	}()
+
 	if platformws.RejectUntrustedBrowserOrigin(w, r, s.publicOrigin) {
+		lifecycleResult = "rejected"
 		return
 	}
 	incidentID, ok := pathUUID(w, r, "incident_id")
 	if !ok {
+		lifecycleResult = "rejected"
 		return
 	}
 	principal, apiErr := s.authenticateSessionRequest(r)
 	if apiErr != nil {
+		lifecycleResult, lifecycleErrorCode = webSocketLifecycleResultForAPIError(apiErr)
 		writeAPIError(w, r, apiErr)
 		return
 	}
 	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+		lifecycleResult, lifecycleErrorCode = webSocketLifecycleResultForAPIError(apiErr)
 		writeAPIError(w, r, apiErr)
 		return
 	}
 
 	conn, err := platformws.Accept(w, r, s.publicOrigin)
 	if err != nil {
+		lifecycleResult = "failed"
 		return
 	}
 	closed := false
@@ -101,12 +115,17 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 	incidentRevocations, unregisterIncident := s.hub.RegisterIncidentSession(incidentID, principal.Session.ID)
 	defer unregisterIncident()
 
-	ctx, cancel := context.WithCancel(r.Context())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	connectionID := uuid.New()
 	first, err := readFirstMessage(ctx, conn)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			lifecycleResult = "timeout"
+		} else {
+			lifecycleResult = "rejected"
+		}
 		_ = conn.Close(websocket.StatusPolicyViolation, invalidFirstMessage)
 		closed = true
 		return
@@ -114,6 +133,8 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 
 	handshake, err := s.establishSession(ctx, conn, incidentID, principal, connectionID, first)
 	if err != nil {
+		lifecycleResult = "rejected"
+		lifecycleErrorCode = "invalid_websocket_handshake"
 		_ = writeThenClose(ctx, conn, platformws.EphemeralMessage(incidentID, "error", map[string]any{
 			"code":      "invalid_websocket_handshake",
 			"message":   err.Error(),
@@ -122,6 +143,9 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 		closed = true
 		return
 	}
+	lifecycleResult = "success"
+	untrackConnection := s.hub.TrackActiveConnection()
+	defer untrackConnection()
 
 	messages, unsubscribe := s.hub.SubscribeIncident(incidentID, defaultSocketBuffer)
 	defer unsubscribe()
@@ -139,25 +163,30 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case <-ctx.Done():
+			lifecycleResult = "canceled"
 			return
 		case reasonCode := <-sessionRevocations:
+			lifecycleResult = "canceled"
 			if s.writeSessionRevoked(ctx, conn, incidentID, reasonCode) {
 				closed = true
 			}
 			return
 		case reasonCode := <-incidentRevocations:
+			lifecycleResult = "canceled"
 			if s.writeSessionRevoked(ctx, conn, incidentID, reasonCode) {
 				closed = true
 			}
 			return
 		case message := <-messages:
 			if writeMessage(ctx, conn, message) != nil {
+				lifecycleResult = "failed"
 				return
 			}
 			lastSent = s.now()
 		case message := <-incoming:
 			lastInbound = s.now()
 			if !s.handleClientMessage(ctx, conn, incidentID, connectionID, principal, handshake.ClientInstanceID, message) {
+				lifecycleResult = "rejected"
 				return
 			}
 		case <-readErrors:
@@ -165,6 +194,7 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 		case <-ticker.C:
 			now := s.now()
 			if !principal.Session.SessionExpiresAt.After(now) {
+				lifecycleResult = "canceled"
 				_ = s.authStore.RevokeSession(context.Background(), principal.Session.ID, "session_expired", now)
 				s.hub.RevokeSession(principal.Session.ID, "session_expired")
 				if s.writeSessionRevoked(ctx, conn, incidentID, "session_expired") {
@@ -173,12 +203,14 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if now.Sub(lastInbound) > platformws.HeartbeatTimeout {
+				lifecycleResult = "timeout"
 				_ = conn.Close(websocket.StatusPolicyViolation, heartbeatCloseReason)
 				closed = true
 				return
 			}
 			if now.Sub(lastSent) >= platformws.HeartbeatInterval {
 				if writeMessage(ctx, conn, platformws.EphemeralMessage(incidentID, "ping", map[string]any{}, now)) != nil {
+					lifecycleResult = "failed"
 					return
 				}
 				lastSent = now

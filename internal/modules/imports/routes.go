@@ -72,11 +72,11 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	}
 	return &Service{
 		store:         NewStore(deps.Postgres),
-		incidentStore: incidents.NewStore(deps.Postgres),
-		authStore:     authn.NewStore(deps.Postgres),
+		incidentStore: incidents.NewStore(deps.PostgresHandle()),
+		authStore:     authn.NewStore(deps.PostgresHandle()),
 		jobManager:    deps.Jobs,
-		timelineStore: timeline.NewStore(deps.Postgres),
-		workbookStore: workbook.NewStore(deps.Postgres),
+		timelineStore: timeline.NewStore(deps.PostgresHandle()),
+		workbookStore: workbook.NewStore(deps.PostgresHandle()),
 		hub:           deps.WSHub,
 		keys:          keys,
 		cursorCodec:   cursorCodec,

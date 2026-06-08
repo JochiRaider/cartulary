@@ -8,12 +8,15 @@
   "semconv_commit_sha": "e018fe6f91862f5ed63c082f87697cddac596784",
   "semconv_model_digest_algorithm": "semconv_model_digest_v1",
   "semconv_model_digest": "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632",
+  "sampler_profile_review_after": "2027-01-01",
+  "sampler_profile_current_fractional": "cartulary.sampler.traceidratio_compat.v1",
+  "probability_sampler_status": "not_adopted_development",
   "semconv_generated_constants": {
     "source_kind": "repo_codegen",
     "generator_name": "cartulary-otel-conformance-contract",
     "generator_version": "1.0.0",
     "generator_source_ref": "scripts/check-otel-conformance.mjs",
-    "generator_source_sha": "93c972673b2bcd84ef2f32aef1ede25020ced208",
+    "generator_source_sha": "69c09b59ac935ebfe8a5a8b66de5a55137f733e7",
     "input_model_digest": "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632",
     "output_package_or_path": "contracts/otel/semantic_conventions_constants.v1.json"
   },
@@ -44,33 +47,59 @@
     },
     {
       "package_family": "SDK",
-      "status": "absent",
-      "absence_source": "go.mod"
+      "status": "present",
+      "language": "go",
+      "package_path": "go.opentelemetry.io/otel/sdk",
+      "version": "v1.41.0",
+      "module_or_lockfile_source": "go.mod"
     },
     {
       "package_family": "Trace SDK",
-      "status": "absent",
-      "absence_source": "go.mod"
+      "status": "present",
+      "language": "go",
+      "package_path": "go.opentelemetry.io/otel/sdk/trace",
+      "version": "v1.41.0",
+      "module_or_lockfile_source": "go.mod"
     },
     {
       "package_family": "Metrics SDK",
-      "status": "absent",
-      "absence_source": "go.mod"
+      "status": "present",
+      "language": "go",
+      "package_path": "go.opentelemetry.io/otel/sdk/metric",
+      "version": "v1.41.0",
+      "module_or_lockfile_source": "go.mod"
     },
     {
       "package_family": "Logs SDK or bridge",
-      "status": "absent",
-      "absence_source": "go.mod"
+      "status": "present",
+      "language": "go",
+      "package_path": "go.opentelemetry.io/otel/sdk/log",
+      "version": "v0.17.0",
+      "module_or_lockfile_source": "go.mod"
     },
     {
       "package_family": "OTLP HTTP exporters",
-      "status": "absent",
-      "absence_source": "go.mod"
+      "status": "present",
+      "language": "go",
+      "package_paths": [
+        "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp",
+        "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp",
+        "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
+      ],
+      "versions": ["v1.41.0", "v1.41.0", "v0.17.0"],
+      "module_or_lockfile_source": "go.mod"
     },
     {
       "package_family": "OTLP gRPC exporters",
-      "status": "absent",
-      "absence_source": "go.mod"
+      "status": "present",
+      "language": "go",
+      "package_paths": [
+        "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc",
+        "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc",
+        "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
+      ],
+      "versions": ["v1.41.0", "v1.41.0", "v0.17.0"],
+      "module_or_lockfile_source": "go.mod"
     },
     {
       "package_family": "Semantic-convention constants",

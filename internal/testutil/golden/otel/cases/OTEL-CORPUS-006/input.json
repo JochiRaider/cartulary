@@ -1,0 +1,42 @@
+{
+  "schema_id": "cartulary.otel_corpus_input.v1",
+  "case_id": "OTEL-CORPUS-006",
+  "title": "HTTP route shape",
+  "status": "adopted_conformant",
+  "owner_requirement": "Route-template spans and metrics appear without raw paths, query strings, headers, cookies, user agents, client IPs, bodies, route parameters, or stable IDs.",
+  "http_route_shape_assertions": {
+    "span_families": ["http_server"],
+    "span_names": ["<HTTP_METHOD> <route_template>"],
+    "span_kinds": ["server"],
+    "metrics": ["cartulary.http.server.request.duration"],
+    "required_attributes": [
+      "http.request.method",
+      "http.route",
+      "http.response.status_code",
+      "cartulary.route_family",
+      "cartulary.result"
+    ],
+    "route_template_only": true,
+    "remote_context_accepted": false,
+    "forbidden_values_absent": [
+      "url.full",
+      "url.path",
+      "url.query",
+      "http.request.header.*",
+      "http.response.header.*",
+      "cookie",
+      "user_agent",
+      "client.ip",
+      "request.body",
+      "response.body",
+      "route_parameter",
+      "stable_id"
+    ],
+    "evidence": [
+      "internal/platform/telemetry/accessors_test.go::TestHTTPMiddlewareNoSDK",
+      "internal/platform/telemetry/privacy_test.go::TestSafeAttributesOmitsForbiddenValueFamiliesBeforeRecording",
+      "internal/platform/telemetry/registry_test.go::TestSpanRegistryClosed",
+      "internal/platform/telemetry/registry_test.go::TestMetricRegistryClosed"
+    ]
+  }
+}
