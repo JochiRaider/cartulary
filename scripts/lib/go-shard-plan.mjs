@@ -12,8 +12,8 @@ import { collectTargetPlanRows } from "./target-plan.mjs";
 const cpuHeavyShardWeightMs = 12_000;
 const ioHeavyFixturePolicies = new Set(["group_clone", "migration_scratch"]);
 const cloneHeavyFixturePolicies = new Set(["template_clone"]);
-const shardTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
-const executionTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
+const shardTargets = new Set(["backend-store", "backend-integration", "backend-integration-support", "backend-process"]);
+const executionTargets = new Set(["backend-store", "backend-integration", "backend-integration-support", "backend-process"]);
 
 function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
@@ -179,10 +179,12 @@ function buildExecutionItems(root, { phase = "", defaultCheckOnly = false } = {}
       continue;
     }
     if (
-      (row.target === "backend-integration" || row.target === "backend-store") &&
-      row.coverage === "authoritative"
+      ((row.target === "backend-integration" || row.target === "backend-store") &&
+        row.coverage === "authoritative") ||
+      (row.target === "backend-process" && row.coverage !== "raw" && row.support_only !== true)
     ) {
       addAggregate(aggregates, row, "manifest");
+      const itemKind = row.coverage === "authoritative" ? "authoritative" : "support";
       for (const symbol of row.symbols) {
         const importPath = toGoImportPath(modulePath, row.package);
         const key = testBaselineKey(importPath, symbol);
@@ -193,7 +195,7 @@ function buildExecutionItems(root, { phase = "", defaultCheckOnly = false } = {}
         executableItems.push({
           target: row.target,
           aggregate_name: row.execution_family,
-          kind: "authoritative",
+          kind: itemKind,
           id: row.id,
           packages: rowPackages(row),
           regex: "",
@@ -203,6 +205,7 @@ function buildExecutionItems(root, { phase = "", defaultCheckOnly = false } = {}
           weight_ms: weightMs,
           weight_source: baselines.tests.has(key) ? "baseline" : "default",
           baseline_key: key,
+          runtime_binaries: row.runtime_binaries ?? [],
           shard_isolation: row.shard_isolation === true,
           postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
           postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
@@ -232,6 +235,7 @@ function buildExecutionItems(root, { phase = "", defaultCheckOnly = false } = {}
           weight_ms: weightMs,
           weight_source: baselines.tests.has(key) ? "baseline" : "default",
           baseline_key: key,
+          runtime_binaries: row.runtime_binaries ?? [],
           shard_isolation: row.shard_isolation === true,
           postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
           postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
@@ -382,6 +386,9 @@ function targetOwnsShard(target, shard) {
   if (target === "backend-store") {
     return shard.items.some((item) => item.kind === "authoritative");
   }
+  if (target === "backend-process") {
+    return shard.items.some((item) => item.target === "backend-process");
+  }
   return false;
 }
 
@@ -394,8 +401,8 @@ function publicAggregateTargetForMode(mode) {
 }
 
 function publicAggregateTarget(aggregate) {
-  if (aggregate.target === "backend-store") {
-    return "backend-store";
+  if (aggregate.target === "backend-store" || aggregate.target === "backend-process") {
+    return aggregate.target;
   }
   return publicAggregateTargetForMode(aggregate.mode);
 }
@@ -506,6 +513,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
             weight_source: item.weight_source,
             baseline_key: item.baseline_key,
             legacy_baseline_key: item.legacy_baseline_key ?? "",
+            runtime_binaries: item.runtime_binaries ?? [],
             shard_isolation: item.shard_isolation,
             postgres_fixture_policy: item.postgres_fixture_policy,
             postgres_fixture_budget: item.postgres_fixture_budget,
@@ -530,7 +538,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
       }
       if (
         (aggregate.mode === "raw" && shard.has_raw) ||
-        (aggregate.mode === "manifest" && shard.has_authoritative) ||
+        (aggregate.mode === "manifest" && (shard.has_authoritative || shard.has_support)) ||
         (aggregate.mode === "support" && shard.has_support)
       ) {
         aggregate.shards.add(shard.name);

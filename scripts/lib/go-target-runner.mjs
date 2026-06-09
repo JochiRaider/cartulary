@@ -417,6 +417,49 @@ function rowsForAggregate(ctx, target, family) {
   return rows;
 }
 
+function rowPackages(row) {
+  if (row.package) {
+    return [row.package];
+  }
+  return [...(row.packages ?? [])];
+}
+
+function rowMatchesShardItems(row, items) {
+  const rowIDs = new Set(
+    items.map((item) => String(item.id ?? "").split(":")[0]),
+  );
+  if (rowIDs.has(row.id)) {
+    return true;
+  }
+  if (row.coverage === "raw") {
+    const packages = new Set(items.flatMap((item) => item.packages ?? []));
+    return rowPackages(row).some((pkg) => packages.has(pkg));
+  }
+  const symbols = new Set(
+    items
+      .map((item) => item.symbol ?? "")
+      .filter((symbol) => symbol !== ""),
+  );
+  return (row.symbols ?? []).some((symbol) => symbols.has(symbol));
+}
+
+function rowsForScheduledAggregate(ctx, target, aggregateName, shardNames) {
+  const rows = rowsForAggregate(ctx, target, aggregateName);
+  if (shardNames.length === 0) {
+    return rows;
+  }
+  const selectedItems = shardNames.flatMap(
+    (shardName) => findShard(ctx, target, shardName).items ?? [],
+  );
+  const filtered = rows.filter((row) => rowMatchesShardItems(row, selectedItems));
+  if (filtered.length === 0) {
+    throw new Error(
+      `scheduled shards for ${target}:${aggregateName} matched zero manifest rows`,
+    );
+  }
+  return filtered;
+}
+
 function aggregateNames(ctx, target) {
   return Array.from(
     new Set(
@@ -438,6 +481,9 @@ function targetOwnsShard(target, shard) {
   }
   if (target === "backend-store") {
     return shard.items.some((item) => item.kind === "authoritative");
+  }
+  if (target === "backend-process") {
+    return shard.items.some((item) => item.target === "backend-process");
   }
   return false;
 }
@@ -1500,6 +1546,7 @@ async function emitGoManifestPhase(
   executionDependency,
   executionFamily,
   packages,
+  selectedIDs = [],
 ) {
   return await emitReportPhaseSummary(
     ctx,
@@ -1514,6 +1561,9 @@ async function emitGoManifestPhase(
       CARTULARY_MANIFEST_EXECUTION_DEPENDENCY: executionDependency,
       CARTULARY_EXECUTION_FAMILY: executionFamily,
       CARTULARY_GO_PACKAGE_PATTERNS: packagePatternsEnv(packages),
+      ...(selectedIDs.length > 0
+        ? { CARTULARY_MANIFEST_SELECTED_IDS: selectedIDs.join("\n") }
+        : {}),
     },
   );
 }
@@ -1524,10 +1574,11 @@ export async function emitExecutionFamily(
   family,
   usage,
   reportDir,
+  rows = null,
 ) {
   let status = 0;
   const emissions = collectAggregateEmissions(
-    rowsForAggregate(ctx, target, family),
+    rows ?? rowsForAggregate(ctx, target, family),
   );
   for (const [index, emission] of emissions.entries()) {
     const emissionUsage = index === 0 ? usage : "derived";
@@ -1544,6 +1595,7 @@ export async function emitExecutionFamily(
         emission.execution_dependency,
         family,
         emission.packages,
+        emission.ids ?? [],
       );
     } else if (emission.mode === "support") {
       result = await emitGoRawPhase(
@@ -1654,9 +1706,11 @@ export async function finalizeScheduledShards(
     }
     const aggregateStarted = captureStart();
     let report = null;
+    let rows = null;
     const aggregateRoot = path.join(metadataDir, "aggregate-reports", target);
     const aggregateReportDir = path.join(aggregateRoot, aggregate.name);
     try {
+      rows = rowsForScheduledAggregate(ctx, target, aggregate.name, shardNames);
       report = createAggregateReport(
         ctx,
         metadataDir,
@@ -1696,13 +1750,13 @@ export async function finalizeScheduledShards(
       status = 1;
       continue;
     }
-    aggregateReports.push({ aggregate, report });
+    aggregateReports.push({ aggregate, report, rows });
   }
   if (status === 0) {
     const emitStatuses = await runBounded(
       aggregateReports,
       resolveFinalizerEmitJobs(ctx, aggregateReports.length),
-      async ({ aggregate, report }) => {
+      async ({ aggregate, report, rows }) => {
         let emitStatus = 0;
         const emitStarted = captureStart();
         try {
@@ -1712,6 +1766,7 @@ export async function finalizeScheduledShards(
             aggregate.name,
             report.usage,
             report.reportDir,
+            rows,
           );
         } catch (error) {
           process.stderr.write(`${error.message}\n`);
@@ -1875,7 +1930,7 @@ export async function runGoTargetCLI(argv, options = {}) {
           return 2;
         }
         ctx.invocation = captureStart();
-        return await runUnshardedTarget(ctx, "backend-process");
+        return await runShardedTarget(ctx, "backend-process");
       default:
         process.stderr.write(`${usage()}\n`);
         return 2;

@@ -455,6 +455,28 @@ function runtimeBinaryEnv(profile, ids) {
   return env;
 }
 
+function runtimeBinaryRecords(profile, ids) {
+  const registry = runtimeBinaryRegistry(profile);
+  return ids.map((id) => {
+    const entry = registry.get(id);
+    if (!entry) {
+      throw new Error(`runtime binary ${id} is missing from runtime_binaries registry`);
+    }
+    return cloneObject(entry);
+  });
+}
+
+function goShardResourceClaims(profile, target) {
+  const claims = {
+    ...cloneObject(profile.defaults.go_shards_resource_claims),
+  };
+  const byTarget = profile.defaults.go_shards_resource_claims_by_target ?? {};
+  if (byTarget[target]) {
+    Object.assign(claims, cloneObject(byTarget[target]));
+  }
+  return claims;
+}
+
 function orderedServiceBackedBackendTargets(scheduleProfile) {
   const selector = backendSelector(scheduleProfile);
   const targetsWithRows = new Set(
@@ -497,21 +519,19 @@ function backendSource(profile, timing, scheduleProfile, target, priorities, { d
     throw new Error(`backend target ${target} is not service-backed`);
   }
   const runtimeBinaries = runtimeBinariesForBackendTarget(scheduleProfile, target);
-  const runtimeNeeds = runtimeBinaryNeeds(profile, runtimeBinaries);
-  const runtimeEnv = runtimeBinaryEnv(profile, runtimeBinaries);
   if (descriptor.sharding === "go_shards") {
     return {
       type: "go_shards",
       class: "backend",
       target,
-      needs: runtimeNeeds,
-      ...(runtimeBinaries.length > 0 ? { runtime_binaries: runtimeBinaries } : {}),
-      ...(Object.keys(runtimeEnv).length > 0 ? { env: runtimeEnv } : {}),
+      ...(runtimeBinaries.length > 0 ? { runtime_binary_records: runtimeBinaryRecords(profile, runtimeBinaries) } : {}),
       priority: priorities.backendCriticalPath,
-      resource_claims: cloneObject(profile.defaults.go_shards_resource_claims),
+      resource_claims: goShardResourceClaims(profile, target),
       default_check_required: defaultCheckOnly,
     };
   }
+  const runtimeNeeds = runtimeBinaryNeeds(profile, runtimeBinaries);
+  const runtimeEnv = runtimeBinaryEnv(profile, runtimeBinaries);
   const claims = requireObject(
     profile.defaults.backend_make_target_resource_claims,
     "defaults.backend_make_target_resource_claims",

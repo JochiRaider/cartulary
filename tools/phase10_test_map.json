@@ -370,7 +370,8 @@
         "TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata",
         "TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup",
         "TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner",
-        "TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassAndMismatchEvidence"
+        "TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassEvidence",
+        "TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsMismatchEvidence"
       ],
       "execution_dependency": "backend_process",
       "evidence_layer": "backend_process",

@@ -74,8 +74,13 @@ export function mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost = fa
   return resourceClaimsObject(Object.fromEntries(claims.entries()));
 }
 
-function checkClaimsForShard(sourceClaims, shard) {
-  const claims = new Map(Object.entries(mapServiceBackedClaimsToCheckClaims(sourceClaims)));
+function serviceScheduleProcessLimit(serviceSchedule) {
+  const limit = serviceSchedule?.resource_limits?.process;
+  return Number.isInteger(limit) && limit > 0 ? limit : 1;
+}
+
+function checkClaimsForShard(source, shard, runtime, processLimit) {
+  const claims = new Map(Object.entries(mapServiceBackedClaimsToCheckClaims(source.resource_claims)));
   switch (shard.scheduler_profile) {
     case "cpu_heavy":
       addClaim(claims, hostCPUResource, 2);
@@ -104,6 +109,9 @@ function checkClaimsForShard(sourceClaims, shard) {
       addClaim(claims, hostIOResource, 1);
       break;
   }
+  if (source.target === "backend-process" && runtime.runtimeBinaries.includes("operator")) {
+    claims.set("process", processLimit);
+  }
   return resourceClaimsObject(Object.fromEntries(claims.entries()));
 }
 
@@ -113,6 +121,66 @@ function shardCompletionKey(shardName) {
 
 function sourceNeeds(source, serviceSessionKey, extraNeeds = []) {
   return [serviceSessionKey, ...extraNeeds, ...(source.needs ?? [])];
+}
+
+function sortedUnique(values) {
+  return Array.from(new Set(values.filter((value) => value !== ""))).sort((left, right) =>
+    String(left).localeCompare(String(right)),
+  );
+}
+
+function runtimeBinaryIDsForShard(shard) {
+  return sortedUnique((shard.items ?? []).flatMap((item) => item.runtime_binaries ?? []));
+}
+
+function runtimeBinaryRegistry(source) {
+  return new Map((source.runtime_binary_records ?? []).map((entry) => [entry.id, entry]));
+}
+
+function runtimeBinaryEnvForIDs(source, ids) {
+  const registry = runtimeBinaryRegistry(source);
+  const env = {};
+  for (const id of ids) {
+    const entry = registry.get(id);
+    if (!entry) {
+      throw new Error(`${source.target} shard runtime binary ${id} is missing from runtime_binary_records`);
+    }
+    if (id !== "operator") {
+      throw new Error(`${source.target} shard runtime binary ${id} is missing default output path wiring`);
+    }
+    env[entry.consumer_env] = "operator";
+  }
+  return env;
+}
+
+function runtimeBinaryNeedsForIDs(source, ids) {
+  const registry = runtimeBinaryRegistry(source);
+  return ids.map((id) => {
+    const entry = registry.get(id);
+    if (!entry) {
+      throw new Error(`${source.target} shard runtime binary ${id} is missing from runtime_binary_records`);
+    }
+    return entry.producer_target;
+  });
+}
+
+function mergeEnv(...parts) {
+  const entries = new Map();
+  for (const part of parts) {
+    for (const [name, value] of Object.entries(part ?? {})) {
+      entries.set(name, value);
+    }
+  }
+  return Object.fromEntries([...entries.entries()].sort(([left], [right]) => left.localeCompare(right)));
+}
+
+function shardRuntimeConfig(source, shard) {
+  const runtimeBinaries = runtimeBinaryIDsForShard(shard);
+  return {
+    runtimeBinaries,
+    needs: runtimeBinaryNeedsForIDs(source, runtimeBinaries),
+    env: runtimeBinaryEnvForIDs(source, runtimeBinaries),
+  };
 }
 
 function serviceSessionNeeds(parentNeeds) {
@@ -268,6 +336,7 @@ export function expandServiceBackedScheduleForCheck({
   const parentNeeds = [...(parentUnit.needs ?? [])];
   const serviceNeeds = serviceSessionNeeds(parentNeeds);
   const serviceCompletePriority = priority(serviceSchedule.service_complete_priority);
+  const processLimit = serviceScheduleProcessLimit(serviceSchedule);
   const sessionInfos = browserSessionInfos(serviceSchedule.work_unit_sources ?? [], {
     serviceSessionKey,
     parentNeeds,
@@ -459,6 +528,8 @@ export function expandServiceBackedScheduleForCheck({
       order: sourceIndex,
     });
     for (const shard of shards) {
+      const runtime = shardRuntimeConfig(source, shard);
+      const env = mergeEnv(source.env, runtime.env);
       expanded.push({
         id: `${scheduleTarget}:${source.target}:${shard.name}`,
         kind: "go_shard",
@@ -467,16 +538,16 @@ export function expandServiceBackedScheduleForCheck({
         aggregate_target: source.target,
         priority: priority(source.priority),
         weight_ms: shard.weight_ms,
-        needs: sourceNeeds(source, serviceSessionKey),
-        ...(source.env ? { env: clone(source.env) } : {}),
-        ...(source.runtime_binaries ? { runtime_binaries: clone(source.runtime_binaries) } : {}),
+        needs: sourceNeeds(source, serviceSessionKey, runtime.needs),
+        ...(Object.keys(env).length > 0 ? { env } : {}),
+        ...(runtime.runtimeBinaries.length > 0 ? { runtime_binaries: runtime.runtimeBinaries } : {}),
         completion_keys: [shardCompletionKey(shard.name)],
         failure_keys: [shardCompletionKey(shard.name)],
         running_dependency_keys: [source.target],
         complete_on_failure: true,
         shard: shard.name,
         scheduler_profile: shard.scheduler_profile,
-        resource_claims: checkClaimsForShard(source.resource_claims, shard),
+        resource_claims: checkClaimsForShard(source, shard, runtime, processLimit),
         service_session: {
           target: scheduleTarget,
         },
@@ -598,16 +669,65 @@ function schedulerClaimsForShard(shard) {
   }
 }
 
-function mergeClaims(left, right) {
+function mergeClaims(left, ...claimObjects) {
   const claims = new Map(Object.entries(left ?? {}));
-  for (const [resource, amount] of Object.entries(right ?? {})) {
-    addClaim(claims, resource, amount);
+  for (const claimObject of claimObjects) {
+    for (const [resource, amount] of Object.entries(claimObject ?? {})) {
+      addClaim(claims, resource, amount);
+    }
   }
   return resourceClaimsObject(Object.fromEntries(claims.entries()));
 }
 
+function directOperatorProcessLaneClaims(source, runtime, serviceSchedule) {
+  if (source.target !== "backend-process" || !runtime.runtimeBinaries.includes("operator")) {
+    return {};
+  }
+  const limit = serviceScheduleProcessLimit(serviceSchedule);
+  const current = source.resource_claims?.process ?? 0;
+  if (current === "limit") {
+    return {};
+  }
+  if (!Number.isInteger(current) || current < 0) {
+    throw new Error(`${source.target} process resource claim must be a non-negative integer`);
+  }
+  const additional = Math.max(0, limit - current);
+  return additional > 0 ? { process: additional } : {};
+}
+
 function directRetainedBrowserStageClaims(rawClaims) {
   return retainedBrowserStageClaimsFromEntries(Object.entries(rawClaims ?? {}));
+}
+
+function directRuntimeProducerClaims() {
+  return {
+    [goCPUResource]: 1,
+    [goIOResource]: 1,
+  };
+}
+
+function addDirectRuntimeProducerUnits(unitsByTarget, runtime, source, sourceIndex) {
+  for (const target of runtime.needs) {
+    if (unitsByTarget.has(target)) {
+      continue;
+    }
+    unitsByTarget.set(target, {
+      id: target,
+      kind: "make_target",
+      class: "backend",
+      target,
+      label: target,
+      aggregate_target: target,
+      priority: priority(source.priority),
+      weight_ms: 1,
+      needs: [],
+      completion_keys: [target],
+      failure_keys: [target],
+      resource_claims: directRuntimeProducerClaims(),
+      command: command("make_target", { target }),
+      order: sourceIndex - 0.5,
+    });
+  }
 }
 
 function directBrowserSessionInfos(sources) {
@@ -663,6 +783,7 @@ export function expandServiceBackedSchedule({
   const counted = [];
   const aggregate = [];
   const shardWorkByName = new Map();
+  const runtimeProducerUnitsByTarget = new Map();
   const sessionInfos = directBrowserSessionInfos(serviceSchedule.work_unit_sources ?? []);
   const browserWorkerSlotPlan = browserGroupWorkerSlotPlan(serviceSchedule.work_unit_sources ?? []);
 
@@ -818,6 +939,9 @@ export function expandServiceBackedSchedule({
       if (shardWorkByName.has(shard.name)) {
         continue;
       }
+      const runtime = shardRuntimeConfig(source, shard);
+      addDirectRuntimeProducerUnits(runtimeProducerUnitsByTarget, runtime, source, sourceIndex);
+      const env = mergeEnv(source.env, runtime.env);
       const unit = {
         id: `${source.target}:${shard.name}`,
         kind: "go_shard",
@@ -827,14 +951,20 @@ export function expandServiceBackedSchedule({
         aggregate_target: source.target,
         priority: priority(source.priority),
         weight_ms: shard.weight_ms,
-        needs: source.needs ?? [],
+        needs: sortedUnique([...(source.needs ?? []), ...runtime.needs]),
         completion_keys: [shardCompletionKey(shard.name)],
         failure_keys: [shardCompletionKey(shard.name)],
         running_dependency_keys: [source.target],
         complete_on_failure: true,
         shard: shard.name,
         scheduler_profile: shard.scheduler_profile,
-        resource_claims: mergeClaims(source.resource_claims, schedulerClaimsForShard(shard)),
+        resource_claims: mergeClaims(
+          source.resource_claims,
+          schedulerClaimsForShard(shard),
+          directOperatorProcessLaneClaims(source, runtime, serviceSchedule),
+        ),
+        ...(Object.keys(env).length > 0 ? { env } : {}),
+        ...(runtime.runtimeBinaries.length > 0 ? { runtime_binaries: runtime.runtimeBinaries } : {}),
         command: command("go_shard", {
           target: source.target,
           shard: shard.name,
@@ -881,6 +1011,7 @@ export function expandServiceBackedSchedule({
   }
 
   const workUnits = [
+    ...[...runtimeProducerUnitsByTarget.values()],
     ...counted.sort(
       (left, right) =>
         (right.priority ?? 0) - (left.priority ?? 0) ||

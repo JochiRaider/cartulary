@@ -314,9 +314,6 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 		if err == nil {
 			return nil
 		}
-		if isNonRetryableObjectStoreReadinessError(err) {
-			return &objectStoreReadinessError{LastErr: err}
-		}
 
 		lastErr = err
 		select {

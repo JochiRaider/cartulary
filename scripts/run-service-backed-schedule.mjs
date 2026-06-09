@@ -72,6 +72,7 @@ const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 const validSourceTypes = new Set(["go_shards", "make_target", "browser_stage"]);
 const validSourceClasses = new Set(["backend", "browser"]);
 const sourceEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
+const runtimeProducerTargets = new Set(["build-operator"]);
 const validBrowserGroupKinds = new Set([
   "functional_shard",
   "support",
@@ -211,6 +212,9 @@ function validateNormalizedServiceBackedSchedule(schedule, browserStages) {
         label,
         browserStages,
       );
+      continue;
+    }
+    if (unit.kind === "make_target" && runtimeProducerTargets.has(unit.target)) {
       continue;
     }
     validateBackendTarget(
@@ -366,6 +370,44 @@ function normalizeSourceEnv(value, label) {
   return Object.fromEntries(entries.sort(([left], [right]) => left.localeCompare(right)));
 }
 
+function normalizeRuntimeBinaryRecords(value, label) {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+  const records = [];
+  const seen = new Set();
+  for (const [index, raw] of value.entries()) {
+    const recordLabel = `${label}[${index + 1}]`;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      throw new Error(`${recordLabel} must be an object`);
+    }
+    const id = typeof raw.id === "string" ? raw.id.trim() : "";
+    const producerTarget = typeof raw.producer_target === "string" ? raw.producer_target.trim() : "";
+    const consumerEnv = typeof raw.consumer_env === "string" ? raw.consumer_env.trim() : "";
+    if (id === "" || producerTarget === "" || consumerEnv === "") {
+      throw new Error(`${recordLabel} must declare id, producer_target, and consumer_env`);
+    }
+    if (!sourceEnvNamePattern.test(consumerEnv)) {
+      throw new Error(`${recordLabel}.consumer_env must be a safe environment variable name`);
+    }
+    if (seen.has(id)) {
+      throw new Error(`${label} contains duplicate runtime binary ${id}`);
+    }
+    seen.add(id);
+    records.push({
+      id,
+      producerTarget,
+      producer_target: producerTarget,
+      consumerEnv,
+      consumer_env: consumerEnv,
+    });
+  }
+  return records;
+}
+
 function validateSource(
   scheduleTarget,
   source,
@@ -413,6 +455,10 @@ function validateSource(
   const needs = normalizeNeeds(source.needs, `${label} ${target}`);
   const env = normalizeSourceEnv(source.env, `${label} ${target}`);
   const runtimeBinaries = normalizeStringArray(source.runtime_binaries, `${label} ${target}.runtime_binaries`);
+  const runtimeBinaryRecords = normalizeRuntimeBinaryRecords(
+    source.runtime_binary_records,
+    `${label} ${target}.runtime_binary_records`,
+  );
   if (source.class === "backend") {
     validateBackendTarget(scheduleTarget, target, label);
   } else {
@@ -439,6 +485,7 @@ function validateSource(
       needs,
       env,
       runtimeBinaries,
+      runtimeBinaryRecords,
       priority: source.priority ?? 0,
       resourceClaims,
       rawResourceClaims: source.resource_claims,
@@ -637,16 +684,91 @@ function schedulerClaimsForShard(shard, resourceLimits) {
   }
 }
 
-function mergeResourceClaims(baseClaims, extraClaims) {
+function mergeResourceClaims(baseClaims, ...extraClaimsList) {
   const merged = cloneResourceClaims(baseClaims);
-  for (const [resource, amount] of extraClaims.entries()) {
-    merged.set(resource, (merged.get(resource) ?? 0) + amount);
+  for (const extraClaims of extraClaimsList) {
+    for (const [resource, amount] of extraClaims.entries()) {
+      merged.set(resource, (merged.get(resource) ?? 0) + amount);
+    }
   }
   return merged;
 }
 
+function runtimeProcessLaneClaims(source, runtime, resourceLimits) {
+  if (source.target !== "backend-process" || !runtime.runtimeBinaries.includes("operator")) {
+    return new Map();
+  }
+  const limit = resourceLimits.get("process");
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new Error(`${source.target} operator shards require resource_limits.process`);
+  }
+  const existing = source.resourceClaims.get("process") ?? 0;
+  const additional = Math.max(0, limit - existing);
+  return additional > 0 ? new Map([["process", additional]]) : new Map();
+}
+
 function shardCompletionKey(shardName) {
   return `go_shard:${shardName}`;
+}
+
+function sortedUnique(values) {
+  return Array.from(new Set(values.filter((value) => value !== ""))).sort((left, right) =>
+    String(left).localeCompare(String(right)),
+  );
+}
+
+function runtimeBinaryIDsForShard(shard) {
+  return sortedUnique((shard.items ?? []).flatMap((item) => item.runtime_binaries ?? []));
+}
+
+function runtimeBinaryRegistry(source) {
+  return new Map((source.runtimeBinaryRecords ?? []).map((entry) => [entry.id, entry]));
+}
+
+function runtimeBinaryEnvForIDs(source, ids) {
+  const registry = runtimeBinaryRegistry(source);
+  const env = {};
+  for (const id of ids) {
+    const entry = registry.get(id);
+    if (!entry) {
+      throw new Error(`${source.target} shard runtime binary ${id} is missing from runtime_binary_records`);
+    }
+    if (id !== "operator") {
+      throw new Error(`${source.target} shard runtime binary ${id} is missing default output path wiring`);
+    }
+    env[entry.consumerEnv] = "operator";
+  }
+  return env;
+}
+
+function runtimeBinaryNeedsForIDs(source, ids) {
+  const registry = runtimeBinaryRegistry(source);
+  return ids.map((id) => {
+    const entry = registry.get(id);
+    if (!entry) {
+      throw new Error(`${source.target} shard runtime binary ${id} is missing from runtime_binary_records`);
+    }
+    return entry.producerTarget;
+  });
+}
+
+function mergeEnv(...parts) {
+  const entries = new Map();
+  for (const part of parts) {
+    for (const [name, value] of Object.entries(part ?? {})) {
+      entries.set(name, value);
+    }
+  }
+  return Object.fromEntries([...entries.entries()].sort(([left], [right]) => left.localeCompare(right)));
+}
+
+function shardRuntimeConfig(source, shard) {
+  const runtimeBinaries = runtimeBinaryIDsForShard(shard);
+  return {
+    runtimeBinaries,
+    needs: runtimeBinaryNeedsForIDs(source, runtimeBinaries),
+    env: runtimeBinaryEnvForIDs(source, runtimeBinaries),
+  };
 }
 
 function retainedBrowserStageClaims(resourceClaims) {
@@ -786,6 +908,8 @@ function _expandSchedule(schedule) {
       if (shardWorkByName.has(shard.name)) {
         continue;
       }
+      const runtime = shardRuntimeConfig(source, shard);
+      const env = mergeEnv(source.env, runtime.env);
       const unit = {
         id: `${source.target}:${shard.name}`,
         label: `${source.target}/${shard.name}`,
@@ -796,9 +920,9 @@ function _expandSchedule(schedule) {
         aggregateTarget: source.target,
         group: source.target,
         needs: [...source.needs],
-        env: source.env,
-        runtimeBinaries: source.runtimeBinaries,
-        runtime_binaries: source.runtimeBinaries,
+        env,
+        runtimeBinaries: runtime.runtimeBinaries,
+        runtime_binaries: runtime.runtimeBinaries,
         completionKeys: [shardCompletionKey(shard.name)],
         failureKeys: [shardCompletionKey(shard.name)],
         runningDependencyKeys: [source.target],
@@ -810,6 +934,7 @@ function _expandSchedule(schedule) {
         resourceClaims: mergeResourceClaims(
           source.resourceClaims,
           schedulerClaimsForShard(shard, schedule.resourceLimits),
+          runtimeProcessLaneClaims(source, runtime, schedule.resourceLimits),
         ),
         order: source.order,
       };

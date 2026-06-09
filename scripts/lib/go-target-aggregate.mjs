@@ -146,11 +146,13 @@ export function collectAggregateEmissions(rows) {
         execution_family: row.execution_family,
         support_target: row.support_only ? row.execution_dependency : "",
         regex: row.raw_selector ?? "",
+        ids: new Set(),
         packages: new Set(),
         symbols: [],
       });
     }
     const group = groups.get(key);
+    group.ids.add(row.id);
     for (const pkg of rowPackages(row)) {
       group.packages.add(pkg);
     }
@@ -163,6 +165,7 @@ export function collectAggregateEmissions(rows) {
     return {
       ...group,
       regex: group.mode === "support" ? exactRegex(symbols) : group.regex,
+      ids: Array.from(group.ids).sort(compareStrings),
       packages: Array.from(group.packages).sort(compareStrings),
       symbols,
     };

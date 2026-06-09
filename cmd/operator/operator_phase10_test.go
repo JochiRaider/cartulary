@@ -410,83 +410,27 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner(t *testin
 	}
 }
 
-func TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassAndMismatchEvidence(t *testing.T) {
-	ctx := context.Background()
-	sourceHarness, err := s3test.StartOwnedWithLabels(ctx, map[string]string{"cartulary.fixture": "phase-f-migration-source"})
-	if err != nil {
-		t.Fatalf("start source S3 fixture: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = sourceHarness.Close(context.Background())
-	})
-	targetHarness, err := s3test.StartOwnedWithLabels(ctx, map[string]string{"cartulary.fixture": "phase-f-migration-target"})
-	if err != nil {
-		t.Fatalf("start target S3 fixture: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = targetHarness.Close(context.Background())
-	})
-
-	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-object-store-migration-source")
-	adminEmail := "phase-f-migration-admin@example.test"
-	adminID := seedOperatorUser(t, sourceDB.DSN, adminEmail, true, true)
-	firstBlob := seedOperatorMigrationBlob(t, sourceDB.DSN, adminID, []byte("phase f migration object"))
-	zeroBlob := seedOperatorMigrationBlob(t, sourceDB.DSN, adminID, []byte{})
-
-	sourceConfig := operatorManagedS3Config(t, sourceDB.DSN, "migration-source")
-	targetConfig := operatorManagedS3Config(t, sourceDB.DSN, "migration-target")
-	sourceCfg := loadOperatorConfig(t, sourceConfig.path)
-	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
-	sourcePool, err := pgxpool.New(ctx, sourceDB.DSN)
-	if err != nil {
-		t.Fatalf("open source pgx pool: %v", err)
-	}
-	t.Cleanup(sourcePool.Close)
-
-	operatorBin := buildOperatorBinary(t)
+func TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassEvidence(t *testing.T) {
+	fixture := newOperatorMigrationFixture(t, "pass")
 	passBucket := "phase-f-migration-pass"
-	mismatchBucket := "phase-f-migration-mismatch"
-	for _, bucket := range []string{passBucket, mismatchBucket} {
-		if err := sourceHarness.CreateBucket(ctx, bucket); err != nil {
-			t.Fatalf("create source bucket %s: %v", bucket, err)
-		}
-		if err := targetHarness.CreateBucket(ctx, bucket); err != nil {
-			t.Fatalf("create target bucket %s: %v", bucket, err)
-		}
-		for _, blob := range []operatorMigrationBlobFixture{firstBlob, zeroBlob} {
-			if _, err := sourceHarness.RoundTrip(ctx, bucket, blob.storageKey, blob.body); err != nil {
-				t.Fatalf("seed source object %s/%s: %v", bucket, blob.storageKey, err)
-			}
-		}
-	}
-	if _, err := targetHarness.RoundTrip(ctx, mismatchBucket, firstBlob.storageKey, []byte("target-side mismatch")); err != nil {
-		t.Fatalf("seed mismatch target object: %v", err)
-	}
+	fixture.seedMigrationBucket(t, passBucket)
 
-	asOf := time.Date(2026, 6, 4, 12, 0, 0, 0, time.UTC)
 	passBackupID := uuid.MustParse("00000000-0000-0000-0000-000000130101")
-	mismatchBackupID := uuid.MustParse("00000000-0000-0000-0000-000000130102")
-	passEnv := operatorMigrationS3Env(sourceHarness, targetHarness, passBucket)
-	mismatchEnv := operatorMigrationS3Env(sourceHarness, targetHarness, mismatchBucket)
-	captureOperatorMigrationBackup(t, ctx, sourceCfg, passEnv, sourcePool, backupStorage, passBackupID, asOf.Add(-2*time.Minute), passBucket, map[string]uuid.UUID{
-		firstBlob.storageKey: firstBlob.objectBlobID,
-		zeroBlob.storageKey:  zeroBlob.objectBlobID,
-	})
-	proofPath := writeOperatorMigrationQuiescenceProof(t)
-	beforeRefs := loadOperatorMigrationEvidenceRefs(t, sourceDB.DSN)
+	passEnv := operatorMigrationS3Env(fixture.sourceHarness, fixture.targetHarness, passBucket)
+	captureOperatorMigrationBackup(t, fixture.ctx, fixture.sourceCfg, passEnv, fixture.sourcePool, fixture.backupStorage, passBackupID, fixture.asOf.Add(-2*time.Minute), passBucket, fixture.blobIndex())
+	beforeRefs := loadOperatorMigrationEvidenceRefs(t, fixture.sourceDSN)
 
 	passArtifacts := operatorPhaseFArtifactsDir(t, "pass")
-	passStdout, passStderr, passExit := runOperatorBinary(t, operatorBin, mergeOperatorEnv(operatorRecoveryEnv(), passEnv),
+	passStdout, passStderr, passExit := runOperatorBinaryWithTimeout(t, 45*time.Second, fixture.operatorBin, mergeOperatorEnv(operatorRecoveryEnv(), passEnv),
 		"object-store-migration", "run",
-		"-source-config", sourceConfig.path,
-		"-target-config", targetConfig.path,
-		"-deployment-admin-email", adminEmail,
+		"-source-config", fixture.sourceConfig.path,
+		"-target-config", fixture.targetConfig.path,
+		"-deployment-admin-email", fixture.adminEmail,
 		"-confirm-backup-set-id", passBackupID.String(),
-		"-quiescence-proof", proofPath,
+		"-quiescence-proof", fixture.proofPath,
 		"-artifacts-dir", passArtifacts,
 		"-run-id", "00000000-0000-0000-0000-000000130111",
-		"-as-of", asOf.Add(-90*time.Second).Format(time.RFC3339Nano),
+		"-as-of", fixture.asOf.Add(-90*time.Second).Format(time.RFC3339Nano),
 	)
 	if passExit != 0 {
 		t.Fatalf("operator migration pass failed: exit=%d stdout=%s stderr=%s", passExit, passStdout, passStderr)
@@ -496,19 +440,19 @@ func TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassAndMismatchEvidence(t *
 		t.Fatalf("unexpected pass migration payload: %#v", passPayload)
 	}
 	requireOperatorMigrationArtifactsPass(t, passPayload, true)
-	afterRefs := loadOperatorMigrationEvidenceRefs(t, sourceDB.DSN)
+	afterRefs := loadOperatorMigrationEvidenceRefs(t, fixture.sourceDSN)
 	if !sameStringMap(beforeRefs, afterRefs) {
 		t.Fatalf("migration mutated DB evidence storage_ref values: before=%#v after=%#v", beforeRefs, afterRefs)
 	}
-	targetStore, err := objectstore.SetupWithEnv(ctx, loadOperatorConfig(t, targetConfig.path), passEnv)
+	targetStore, err := objectstore.SetupWithEnv(fixture.ctx, loadOperatorConfig(t, fixture.targetConfig.path), passEnv)
 	if err != nil {
 		t.Fatalf("open pass target store: %v", err)
 	}
 	t.Cleanup(func() {
 		_ = targetStore.Close()
 	})
-	for _, blob := range []operatorMigrationBlobFixture{firstBlob, zeroBlob} {
-		reader, _, err := targetStore.ReadObject(ctx, blob.storageKey, objectstore.ReadOptions{})
+	for _, blob := range fixture.blobs() {
+		reader, _, err := targetStore.ReadObject(fixture.ctx, blob.storageKey, objectstore.ReadOptions{})
 		if err != nil {
 			t.Fatalf("read migrated target object %s: %v", blob.storageKey, err)
 		}
@@ -520,22 +464,30 @@ func TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassAndMismatchEvidence(t *
 			t.Fatalf("target object bytes changed for %s: got %q want %q", blob.storageKey, got, blob.body)
 		}
 	}
+}
 
-	captureOperatorMigrationBackup(t, ctx, sourceCfg, mismatchEnv, sourcePool, backupStorage, mismatchBackupID, asOf.Add(-time.Minute), mismatchBucket, map[string]uuid.UUID{
-		firstBlob.storageKey: firstBlob.objectBlobID,
-		zeroBlob.storageKey:  zeroBlob.objectBlobID,
-	})
+func TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsMismatchEvidence(t *testing.T) {
+	fixture := newOperatorMigrationFixture(t, "mismatch")
+	mismatchBucket := "phase-f-migration-mismatch"
+	fixture.seedMigrationBucket(t, mismatchBucket)
+	if _, err := fixture.targetHarness.RoundTrip(fixture.ctx, mismatchBucket, fixture.firstBlob.storageKey, []byte("target-side mismatch")); err != nil {
+		t.Fatalf("seed mismatch target object: %v", err)
+	}
+
+	mismatchBackupID := uuid.MustParse("00000000-0000-0000-0000-000000130102")
+	mismatchEnv := operatorMigrationS3Env(fixture.sourceHarness, fixture.targetHarness, mismatchBucket)
+	captureOperatorMigrationBackup(t, fixture.ctx, fixture.sourceCfg, mismatchEnv, fixture.sourcePool, fixture.backupStorage, mismatchBackupID, fixture.asOf.Add(-time.Minute), mismatchBucket, fixture.blobIndex())
 	mismatchArtifacts := operatorPhaseFArtifactsDir(t, "mismatch")
-	mismatchStdout, mismatchStderr, mismatchExit := runOperatorBinary(t, operatorBin, mergeOperatorEnv(operatorRecoveryEnv(), mismatchEnv),
+	mismatchStdout, mismatchStderr, mismatchExit := runOperatorBinaryWithTimeout(t, 45*time.Second, fixture.operatorBin, mergeOperatorEnv(operatorRecoveryEnv(), mismatchEnv),
 		"object-store-migration", "run",
-		"-source-config", sourceConfig.path,
-		"-target-config", targetConfig.path,
-		"-deployment-admin-email", adminEmail,
+		"-source-config", fixture.sourceConfig.path,
+		"-target-config", fixture.targetConfig.path,
+		"-deployment-admin-email", fixture.adminEmail,
 		"-confirm-backup-set-id", mismatchBackupID.String(),
-		"-quiescence-proof", proofPath,
+		"-quiescence-proof", fixture.proofPath,
 		"-artifacts-dir", mismatchArtifacts,
 		"-run-id", "00000000-0000-0000-0000-000000130112",
-		"-as-of", asOf.Format(time.RFC3339Nano),
+		"-as-of", fixture.asOf.Format(time.RFC3339Nano),
 	)
 	if mismatchExit == 0 {
 		t.Fatalf("operator migration mismatch unexpectedly succeeded")
@@ -564,6 +516,103 @@ type operatorMigrationBlobFixture struct {
 	storageRef   string
 	body         []byte
 	sha256       string
+}
+
+type operatorMigrationFixture struct {
+	ctx           context.Context
+	sourceHarness *s3test.Harness
+	targetHarness *s3test.Harness
+	sourceDSN     string
+	adminEmail    string
+	firstBlob     operatorMigrationBlobFixture
+	zeroBlob      operatorMigrationBlobFixture
+	sourceConfig  operatorExplicitConfigFixture
+	targetConfig  operatorExplicitConfigFixture
+	sourceCfg     config.Config
+	sourcePool    *pgxpool.Pool
+	backupStorage recovery.BackupStorage
+	operatorBin   string
+	asOf          time.Time
+	proofPath     string
+}
+
+func newOperatorMigrationFixture(t testing.TB, name string) operatorMigrationFixture {
+	t.Helper()
+
+	ctx := context.Background()
+	sourceHarness, err := s3test.StartOwnedWithLabels(ctx, map[string]string{"cartulary.fixture": "phase-f-migration-source-" + name})
+	if err != nil {
+		t.Fatalf("start source S3 fixture: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = sourceHarness.Close(context.Background())
+	})
+	targetHarness, err := s3test.StartOwnedWithLabels(ctx, map[string]string{"cartulary.fixture": "phase-f-migration-target-" + name})
+	if err != nil {
+		t.Fatalf("start target S3 fixture: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = targetHarness.Close(context.Background())
+	})
+
+	postgresHarness := pgtest.Start(t)
+	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-object-store-migration-"+name)
+	adminEmail := "phase-f-migration-admin@example.test"
+	adminID := seedOperatorUser(t, sourceDB.DSN, adminEmail, true, true)
+	firstBlob := seedOperatorMigrationBlob(t, sourceDB.DSN, adminID, []byte("phase f migration object"))
+	zeroBlob := seedOperatorMigrationBlob(t, sourceDB.DSN, adminID, []byte{})
+
+	sourceConfig := operatorManagedS3Config(t, sourceDB.DSN, "migration-source")
+	targetConfig := operatorManagedS3Config(t, sourceDB.DSN, "migration-target")
+	sourcePool, err := pgxpool.New(ctx, sourceDB.DSN)
+	if err != nil {
+		t.Fatalf("open source pgx pool: %v", err)
+	}
+	t.Cleanup(sourcePool.Close)
+
+	return operatorMigrationFixture{
+		ctx:           ctx,
+		sourceHarness: sourceHarness,
+		targetHarness: targetHarness,
+		sourceDSN:     sourceDB.DSN,
+		adminEmail:    adminEmail,
+		firstBlob:     firstBlob,
+		zeroBlob:      zeroBlob,
+		sourceConfig:  sourceConfig,
+		targetConfig:  targetConfig,
+		sourceCfg:     loadOperatorConfig(t, sourceConfig.path),
+		sourcePool:    sourcePool,
+		backupStorage: newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot),
+		operatorBin:   buildOperatorBinary(t),
+		asOf:          time.Date(2026, 6, 4, 12, 0, 0, 0, time.UTC),
+		proofPath:     writeOperatorMigrationQuiescenceProof(t),
+	}
+}
+
+func (fixture operatorMigrationFixture) blobs() []operatorMigrationBlobFixture {
+	return []operatorMigrationBlobFixture{fixture.firstBlob, fixture.zeroBlob}
+}
+
+func (fixture operatorMigrationFixture) blobIndex() map[string]uuid.UUID {
+	return map[string]uuid.UUID{
+		fixture.firstBlob.storageKey: fixture.firstBlob.objectBlobID,
+		fixture.zeroBlob.storageKey:  fixture.zeroBlob.objectBlobID,
+	}
+}
+
+func (fixture operatorMigrationFixture) seedMigrationBucket(t testing.TB, bucket string) {
+	t.Helper()
+	if err := fixture.sourceHarness.CreateBucket(fixture.ctx, bucket); err != nil {
+		t.Fatalf("create source bucket %s: %v", bucket, err)
+	}
+	if err := fixture.targetHarness.CreateBucket(fixture.ctx, bucket); err != nil {
+		t.Fatalf("create target bucket %s: %v", bucket, err)
+	}
+	for _, blob := range fixture.blobs() {
+		if _, err := fixture.sourceHarness.RoundTrip(fixture.ctx, bucket, blob.storageKey, blob.body); err != nil {
+			t.Fatalf("seed source object %s/%s: %v", bucket, blob.storageKey, err)
+		}
+	}
 }
 
 func buildOperatorBinary(t testing.TB) string {
@@ -629,7 +678,13 @@ func operatorBuildEnv() []string {
 func runOperatorBinary(t testing.TB, bin string, env map[string]string, args ...string) (string, string, int) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	return runOperatorBinaryWithTimeout(t, 15*time.Second, bin, env, args...)
+}
+
+func runOperatorBinaryWithTimeout(t testing.TB, timeout time.Duration, bin string, env map[string]string, args ...string) (string, string, int) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = repoRoot()

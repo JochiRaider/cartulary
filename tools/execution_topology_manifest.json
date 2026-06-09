@@ -177,7 +177,7 @@
         "check_service_backed_safe": true,
         "check_isolated_safe": false,
         "canonical_authoritative": true,
-        "sharding": "none",
+        "sharding": "go_shards",
         "go_test_parallelism": "process",
         "execution_dependencies": [
           "backend_process"
@@ -2279,7 +2279,6 @@
           "build-web",
           "build-server",
           "build-migrate",
-          "build-operator",
           "test-service-images"
         ],
         "phase_label": "check service-backed",
@@ -9225,6 +9224,7 @@
             "build-web",
             "build-server",
             "build-migrate",
+            "build-operator",
             "test-service-images"
           ]
         },
@@ -9814,6 +9814,18 @@
           "scripts/cache-artifact.sh",
           "scripts/build-go-artifact.sh"
         ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "build_readiness_go_binary",
+          "make_prerequisite_policy": "run",
+          "priority_band": "build_readiness",
+          "order": 1500,
+          "needs": [
+            "toolchain-drift"
+          ]
+        },
         "output_policy": {
           "output_class": "summary_with_artifacts",
           "artifact_policy": "tool_run_summary",
@@ -9845,7 +9857,7 @@
         ],
         "target_class": "public",
         "default_inclusion_sets": [
-          "helper_only"
+          "check"
         ],
         "lifecycle_state": "public_active",
         "family_id": "builds",
@@ -10737,6 +10749,11 @@
       "go_shards_resource_claims": {
         "postgres": 1,
         "object_store": 1
+      },
+      "go_shards_resource_claims_by_target": {
+        "backend-process": {
+          "process": 1
+        }
       },
       "make_target_duration_baseline": "service_backed_make_target_duration_baselines.json",
       "browser_functional_sharding": {

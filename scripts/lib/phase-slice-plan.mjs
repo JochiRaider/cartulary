@@ -341,6 +341,21 @@ function mergeClaims(...claimMaps) {
   return merged;
 }
 
+function runtimeBinariesForShard(shard) {
+  return uniqueSorted((shard.items ?? []).flatMap((item) => item.runtime_binaries ?? []));
+}
+
+function backendProcessClaimsForShard(target, runtimeBinaries, resourceLimits) {
+  if (target !== "backend-process") {
+    return new Map();
+  }
+  if (!resourceLimits.has("process")) {
+    throw new Error("backend-process Go shards require resource_limits.process");
+  }
+  const processLimit = resourceLimits.get("process");
+  return new Map([["process", runtimeBinaries.includes("operator") ? processLimit : 1]]);
+}
+
 function shardCompletionKey(shardName) {
   return `go_shard:${shardName}`;
 }
@@ -402,7 +417,7 @@ function addGoUnits(plan, target, rows) {
     order: plan.nextOrder++,
   });
   for (const shard of shards) {
-    const runtimeBinaries = runtimeBinariesForRows(rows);
+    const runtimeBinaries = runtimeBinariesForShard(shard);
     plan.workUnits.push({
       id: `${target}:${shard.name}`,
       label: `${target}/${shard.name}`,
@@ -420,7 +435,11 @@ function addGoUnits(plan, target, rows) {
       shard: shard.name,
       schedulerProfile: shard.scheduler_profile,
       weightMs: shard.weight_ms,
-      resourceClaims: mergeClaims(sourceClaims, schedulerClaimsForShard(shard, plan.resourceLimits)),
+      resourceClaims: mergeClaims(
+        sourceClaims,
+        schedulerClaimsForShard(shard, plan.resourceLimits),
+        backendProcessClaimsForShard(target, runtimeBinaries, plan.resourceLimits),
+      ),
       runtime_binaries: runtimeBinaries,
       order: plan.nextOrder++,
     });
