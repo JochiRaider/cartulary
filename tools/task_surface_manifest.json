@@ -1363,6 +1363,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "build-server",
+        "build-operator",
         "$(TEST_SERVICES_BIN)",
         "test-service-images"
       ],
@@ -1370,7 +1371,8 @@
         "Phase 0 process evidence is part of the developer gate and must never be direct-run only."
       ],
       "env": {
-        "CARTULARY_SERVER_BIN": "$(SERVER_BIN)"
+        "CARTULARY_SERVER_BIN": "$(SERVER_BIN)",
+        "CARTULARY_OPERATOR_BIN": "$(OPERATOR_BIN)"
       },
       "test_target": "self"
     },
@@ -2054,6 +2056,7 @@
         "build-web",
         "build-server",
         "build-migrate",
+        "build-operator",
         "test-service-images"
       ],
       "phase_label": "check service-backed",
@@ -2307,7 +2310,7 @@
       ],
       "target_class": "public",
       "default_inclusion_sets": [
-        "helper_only"
+        "check"
       ],
       "lifecycle_state": "public_active",
       "family_id": "help_discovery",
@@ -9217,7 +9220,25 @@
       "input_contract": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
-        "inputs": []
+        "inputs": [
+          {
+            "name": "OPERATOR_BIN",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": "$(CURDIR)/operator",
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "configuration_error",
+            "summary_emission": "source_and_value",
+            "child_forwarding": "none"
+          }
+        ]
       }
     },
     {

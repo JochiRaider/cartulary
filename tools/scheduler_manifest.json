@@ -1089,7 +1089,14 @@
           "priority": 35000,
           "weight_ms": 10000,
           "needs": [
-            "service_session:check-service-backed"
+            "service_session:check-service-backed",
+            "build-operator"
+          ],
+          "env": {
+            "CARTULARY_OPERATOR_BIN": "operator"
+          },
+          "runtime_binaries": [
+            "operator"
           ],
           "completion_keys": [
             "backend-process"
@@ -6520,7 +6527,9 @@
           "aggregate_target": "backend-process",
           "priority": 35000,
           "weight_ms": 10000,
-          "needs": [],
+          "needs": [
+            "build-operator"
+          ],
           "completion_keys": [
             "backend-process"
           ],
@@ -11071,7 +11080,9 @@
           "aggregate_target": "backend-process",
           "priority": 35000,
           "weight_ms": 10000,
-          "needs": [],
+          "needs": [
+            "build-operator"
+          ],
           "completion_keys": [
             "backend-process"
           ],
@@ -15961,7 +15972,9 @@
           "aggregate_target": "backend-process",
           "priority": 35000,
           "weight_ms": 10000,
-          "needs": [],
+          "needs": [
+            "build-operator"
+          ],
           "completion_keys": [
             "backend-process"
           ],

@@ -299,6 +299,12 @@ function compareBackendTargets(left, right) {
   );
 }
 
+function uniqueSorted(values) {
+  return Array.from(new Set(values.filter(Boolean))).sort((left, right) =>
+    String(left).localeCompare(String(right)),
+  );
+}
+
 function backendSelector(scheduleProfile) {
   const selector = scheduleProfile.selectors?.backend ?? {};
   if (!selector || typeof selector !== "object" || Array.isArray(selector)) {
@@ -394,6 +400,61 @@ function browserSessionGroupByStage(groups) {
   return byStage;
 }
 
+function runtimeBinaryRegistry(profile) {
+  return new Map((profile.runtime_binaries ?? []).map((entry) => [entry.id, entry]));
+}
+
+function runtimeBinariesForBackendTarget(scheduleProfile, target) {
+  const selector = backendSelector(scheduleProfile);
+  return uniqueSorted(
+    collectTargetPlanRows(repoRoot)
+      .filter((row) => {
+        if (row.target !== target || row.runner_family !== "go_test") {
+          return false;
+        }
+        if (selector.serviceBacked && row.service_backed !== true) {
+          return false;
+        }
+        if (selector.checkServiceBackedSafe && row.check_service_backed_safe !== true) {
+          return false;
+        }
+        if (selector.defaultCheckRequired && row.default_check_required !== true) {
+          return false;
+        }
+        return true;
+      })
+      .flatMap((row) => row.runtime_binaries ?? []),
+  );
+}
+
+function runtimeBinaryNeeds(profile, ids) {
+  const registry = runtimeBinaryRegistry(profile);
+  return uniqueSorted(ids.map((id) => {
+    const entry = registry.get(id);
+    if (!entry) {
+      throw new Error(`runtime binary ${id} is missing from runtime_binaries registry`);
+    }
+    return entry.producer_target;
+  }));
+}
+
+function runtimeBinaryEnv(profile, ids) {
+  const registry = runtimeBinaryRegistry(profile);
+  const env = {};
+  for (const id of ids) {
+    const entry = registry.get(id);
+    if (!entry) {
+      throw new Error(`runtime binary ${id} is missing from runtime_binaries registry`);
+    }
+    if (id === "operator") {
+      env[entry.consumer_env] = "operator";
+      continue;
+    }
+    throw new Error(`runtime binary ${id} is missing default output path wiring`);
+  }
+  return env;
+}
+
 function orderedServiceBackedBackendTargets(scheduleProfile) {
   const selector = backendSelector(scheduleProfile);
   const targetsWithRows = new Set(
@@ -426,7 +487,8 @@ function orderedServiceBackedBackendTargets(scheduleProfile) {
     .sort(compareBackendTargets);
 }
 
-function backendSource(profile, timing, scheduleTarget, target, priorities, { defaultCheckOnly = false } = {}) {
+function backendSource(profile, timing, scheduleProfile, target, priorities, { defaultCheckOnly = false } = {}) {
+  const scheduleTarget = scheduleProfile.target;
   const descriptor = findTargetDescriptor(target, repoRoot);
   if (!descriptor) {
     throw new Error(`unknown backend target ${target}`);
@@ -434,11 +496,17 @@ function backendSource(profile, timing, scheduleTarget, target, priorities, { de
   if (!descriptor.serviceBacked) {
     throw new Error(`backend target ${target} is not service-backed`);
   }
+  const runtimeBinaries = runtimeBinariesForBackendTarget(scheduleProfile, target);
+  const runtimeNeeds = runtimeBinaryNeeds(profile, runtimeBinaries);
+  const runtimeEnv = runtimeBinaryEnv(profile, runtimeBinaries);
   if (descriptor.sharding === "go_shards") {
     return {
       type: "go_shards",
       class: "backend",
       target,
+      needs: runtimeNeeds,
+      ...(runtimeBinaries.length > 0 ? { runtime_binaries: runtimeBinaries } : {}),
+      ...(Object.keys(runtimeEnv).length > 0 ? { env: runtimeEnv } : {}),
       priority: priorities.backendCriticalPath,
       resource_claims: cloneObject(profile.defaults.go_shards_resource_claims),
       default_check_required: defaultCheckOnly,
@@ -455,6 +523,9 @@ function backendSource(profile, timing, scheduleTarget, target, priorities, { de
     type: "make_target",
     class: "backend",
     target,
+    needs: runtimeNeeds,
+    ...(runtimeBinaries.length > 0 ? { runtime_binaries: runtimeBinaries } : {}),
+    ...(Object.keys(runtimeEnv).length > 0 ? { env: runtimeEnv } : {}),
     priority: priorities.backendCriticalPath,
     weight_ms: makeTargetWeight(timing, scheduleTarget, target),
     resource_claims: cloneObject(claims[target]),
@@ -747,7 +818,7 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   const backend = backendSelector(scheduleProfile);
   const sources = [];
   for (const backendTarget of orderedServiceBackedBackendTargets(scheduleProfile)) {
-    sources.push(backendSource(profile, timing, target, backendTarget, priorities, {
+    sources.push(backendSource(profile, timing, scheduleProfile, backendTarget, priorities, {
       defaultCheckOnly: backend.defaultCheckRequired,
     }));
   }

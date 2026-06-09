@@ -78,6 +78,7 @@ const snakeIDPattern = /^[a-z][a-z0-9_]*$/;
 const topologyTopLevelKeys = new Set([
   "schema_id",
   "generated_outputs",
+  "runtime_binaries",
   "execution_dependencies",
   "go_targets",
   "task_surface",
@@ -181,6 +182,7 @@ const schedulerWorkUnitKeys = new Set([
   "make_jobs",
   "make_prerequisite_policy",
   "env",
+  "runtime_binaries",
   "service_session",
   "browser_stage",
   "browser_session_group",
@@ -783,6 +785,11 @@ function validateSchedulerManifestShape(file) {
             pattern: /^[A-Z][A-Z0-9_]*$/,
           });
         }
+      }
+      if (unit.runtime_binaries !== undefined) {
+        requireStringArray(unit.runtime_binaries, `${unitLabel}.runtime_binaries`, {
+          nonEmpty: true,
+        });
       }
     });
     validateSchedulerBrowserWorkerSlots(schedule.work_units, label);

@@ -160,6 +160,10 @@ function serviceRequirementsForRows(rows) {
   return Array.from(requirements).sort(compareStrings);
 }
 
+function runtimeBinariesForRows(rows) {
+  return uniqueSorted(rows.flatMap((row) => row.runtime_binaries ?? []));
+}
+
 function disabledFrontendRowAccountingScope(phase) {
   return {
     mode: "disabled",
@@ -348,6 +352,7 @@ function addGoUnits(plan, target, rows) {
   }
 
   if (descriptor.sharding !== "go_shards") {
+    const runtimeBinaries = runtimeBinariesForRows(rows);
     plan.workUnits.push({
       id: target,
       label: target,
@@ -362,6 +367,7 @@ function addGoUnits(plan, target, rows) {
       failureKeys: [target],
       weightMs: targetWeight(rows),
       resourceClaims: new Map([[goCPUResource, 1], [goIOResource, 1]]),
+      runtime_binaries: runtimeBinaries,
       order: plan.nextOrder++,
     });
     return;
@@ -396,6 +402,7 @@ function addGoUnits(plan, target, rows) {
     order: plan.nextOrder++,
   });
   for (const shard of shards) {
+    const runtimeBinaries = runtimeBinariesForRows(rows);
     plan.workUnits.push({
       id: `${target}:${shard.name}`,
       label: `${target}/${shard.name}`,
@@ -414,6 +421,7 @@ function addGoUnits(plan, target, rows) {
       schedulerProfile: shard.scheduler_profile,
       weightMs: shard.weight_ms,
       resourceClaims: mergeClaims(sourceClaims, schedulerClaimsForShard(shard, plan.resourceLimits)),
+      runtime_binaries: runtimeBinaries,
       order: plan.nextOrder++,
     });
   }
@@ -550,6 +558,7 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
     row_groups: rowGroups(rows),
     child_targets: childTargetsForRows(runnableRows, phase, mode, root, taskSurfaceManifest),
     child_target_names: [],
+    runtime_binaries: runtimeBinariesForRows(runnableRows),
     service_requirements: serviceRequirementsForRows(runnableRows),
     resourceLimits,
     browserStages: new Set(),
@@ -617,6 +626,7 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
     service_requirements: plan.service_requirements,
     child_targets: plan.child_targets,
     child_target_names: plan.child_target_names,
+    runtime_binaries: plan.runtime_binaries,
     resource_limits: resourceLimitObject(resourceLimits),
     work_units: plan.workUnits.map(serializeWorkUnit),
     total_work_units: counted.length,
@@ -643,6 +653,7 @@ export function printablePlan(plan) {
     claim_status_counts: plan.claim_status_counts,
     child_targets: plan.child_target_names,
     row_groups: plan.row_groups,
+    runtime_binaries: plan.runtime_binaries ?? [],
     service_requirements: plan.service_requirements,
     resource_limits: plan.resource_limits,
     work_units: plan.work_units
@@ -654,6 +665,7 @@ export function printablePlan(plan) {
         target: unit.target,
         needs: unit.needs ?? [],
         resource_claims: unit.resource_claims ?? resourceLimitObject(unit.resourceClaims),
+        ...(unit.runtime_binaries?.length > 0 ? { runtime_binaries: unit.runtime_binaries } : {}),
         ...(unit.frontend_row_accounting_scope
           ? { frontend_row_accounting_scope: unit.frontend_row_accounting_scope }
           : {}),

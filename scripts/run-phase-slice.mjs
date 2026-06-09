@@ -137,12 +137,16 @@ function setupTargets(plan) {
   const hasBrowser = classes.has("browser");
   const hasFrontend = classes.has("frontend");
   const hasBackendProcess = plan.work_units.some((unit) => unit.target === "backend-process");
+  const runtimeBinaries = new Set(plan.runtime_binaries ?? []);
 
   if (hasFrontend || hasBrowser) {
     targets.push("frontend-install");
   }
   if (hasBackendProcess || hasBrowser) {
     targets.push("build-server");
+  }
+  if (runtimeBinaries.has("operator")) {
+    targets.push("build-operator");
   }
   if (hasBrowser) {
     targets.push("build-migrate");
@@ -163,11 +167,31 @@ function runSetup(context, plan) {
   return 0;
 }
 
+function operatorBinaryPath() {
+  return process.env.CARTULARY_OPERATOR_BIN || process.env.OPERATOR_BIN || path.join(repoRoot, "operator");
+}
+
+function runtimeBinaryEnvForIDs(ids = []) {
+  const env = {};
+  if (ids.includes("operator")) {
+    env.CARTULARY_OPERATOR_BIN = operatorBinaryPath();
+  }
+  return env;
+}
+
+function runtimeBinaryEnvForPlan(plan) {
+  return runtimeBinaryEnvForIDs(plan.runtime_binaries ?? []);
+}
+
+function runtimeBinaryEnvForUnit(unit) {
+  return runtimeBinaryEnvForIDs(unit.runtime_binaries ?? []);
+}
+
 function needsServiceWrapper(plan) {
   return plan.service_requirements.includes("postgres") || plan.service_requirements.includes("object_store");
 }
 
-function reexecInsideServiceWrapper(context, options) {
+function reexecInsideServiceWrapper(context, options, plan) {
   if (!context.testServicesBin) {
     process.stderr.write("TEST_SERVICES_BIN is required for service-backed phase slices\n");
     return 2;
@@ -191,6 +215,7 @@ function reexecInsideServiceWrapper(context, options) {
   return runWithContext(context.testServicesBin, args, {
     env: runnerEnv(context, {
       CARTULARY_TEST_SERVICES_BIN: context.testServicesBin,
+      ...runtimeBinaryEnvForPlan(plan),
     }),
   });
 }
@@ -269,6 +294,7 @@ function attachRuntime(plan, context, metadataDir) {
         env: runtimeEnv(context, {
           CARTULARY_TEST_TARGET: unit.target,
           CARTULARY_GO_TARGET_PHASE: plan.phase,
+          ...runtimeBinaryEnvForUnit(unit),
         }),
       });
       continue;
@@ -280,6 +306,7 @@ function attachRuntime(plan, context, metadataDir) {
         env: runtimeEnv(context, {
           CARTULARY_TEST_TARGET: unit.target,
           CARTULARY_GO_TARGET_PHASE: plan.phase,
+          ...runtimeBinaryEnvForUnit(unit),
         }),
       });
       continue;
@@ -436,7 +463,7 @@ async function main() {
         return targetPublicExitCode(context, plan.target, summaryStatus === 0 ? setupStatus : summaryStatus);
       }
       if (needsServiceWrapper(plan)) {
-        return reexecInsideServiceWrapper(context, options);
+        return reexecInsideServiceWrapper(context, options, plan);
       }
     }
 
@@ -464,7 +491,7 @@ async function main() {
       return targetPublicExitCode(context, plan.target, summaryStatus === 0 ? setupStatus : summaryStatus);
     }
     if (needsServiceWrapper(plan)) {
-      return reexecInsideServiceWrapper(context, options);
+      return reexecInsideServiceWrapper(context, options, plan);
     }
   }
 

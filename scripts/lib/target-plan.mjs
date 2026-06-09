@@ -119,6 +119,7 @@ function manifestRows(phase, descriptor, entry) {
     file: entry.file,
     package: entry.package,
     symbols: goEntrySymbols(entry),
+    runtime_binaries: [...(entry.runtime_binaries ?? [])],
     shard_isolation: entry.shard_isolation === true,
     evidence_layer: entry.evidence_layer,
     fixture_policy: {
@@ -157,6 +158,7 @@ function supportRows(phase, descriptor, entry) {
     file: entry.file,
     package: entry.package,
     symbols: [symbol],
+    runtime_binaries: [...(entry.runtime_binaries ?? [])],
     shard_isolation: entry.shard_isolation === true,
     evidence_layer: "support",
     fixture_policy: {
@@ -189,6 +191,7 @@ function rawRows(config, aggregate) {
     file: "",
     package: "",
     symbols: [],
+    runtime_binaries: [],
     shard_isolation: false,
     evidence_layer: "raw",
     label: aggregate.executionLabel,

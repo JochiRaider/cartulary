@@ -154,6 +154,7 @@ export const phaseManifestEntryKeys = new Set([
   "out_of_scope",
   "execution_family",
   "execution_label",
+  "runtime_binaries",
   "fixture_policy",
   "fixture_budget",
   "fixture_refs",
@@ -177,6 +178,7 @@ export const supportGoEntryKeys = new Set([
   "selection_pattern",
   "execution_family",
   "execution_label",
+  "runtime_binaries",
   "evidence_class",
   "layer",
   "default_check_required",
@@ -326,6 +328,11 @@ export function validatePhaseManifestShape(manifest, label) {
           nonEmpty: true,
         });
       }
+      if (entry.runtime_binaries !== undefined) {
+        requireStringArray(entry.runtime_binaries, `${entryLabel}.runtime_binaries`, {
+          nonEmpty: true,
+        });
+      }
       if (entry.claim_status !== undefined) {
         requireEnum(entry.claim_status, `${entryLabel}.claim_status`, validClaimStatuses);
       }
@@ -366,6 +373,11 @@ export function validatePhaseManifestShape(manifest, label) {
     );
     if (entry.default_check_reason !== undefined) {
       requireString(entry.default_check_reason, `${entryLabel}.default_check_reason`);
+    }
+    if (entry.runtime_binaries !== undefined) {
+      requireStringArray(entry.runtime_binaries, `${entryLabel}.runtime_binaries`, {
+        nonEmpty: true,
+      });
     }
     requireString(entry.section, `${entryLabel}.section`);
     requireString(entry.package, `${entryLabel}.package`);

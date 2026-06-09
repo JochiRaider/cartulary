@@ -569,6 +569,10 @@ type operatorMigrationBlobFixture struct {
 func buildOperatorBinary(t testing.TB) string {
 	t.Helper()
 
+	if bin, ok := injectedOperatorBinary(t); ok {
+		return bin
+	}
+
 	bin := filepath.Join(t.TempDir(), "cartulary-operator")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -584,6 +588,29 @@ func buildOperatorBinary(t testing.TB) string {
 		t.Fatalf("build operator binary: %v\nstderr=%s", err, stderr.String())
 	}
 	return bin
+}
+
+func injectedOperatorBinary(t testing.TB) (string, bool) {
+	t.Helper()
+
+	bin := strings.TrimSpace(os.Getenv("CARTULARY_OPERATOR_BIN"))
+	if bin == "" {
+		return "", false
+	}
+	if !filepath.IsAbs(bin) {
+		bin = filepath.Join(repoRoot(), bin)
+	}
+	info, err := os.Stat(bin)
+	if err != nil {
+		t.Fatalf("CARTULARY_OPERATOR_BIN is not usable: %v", err)
+	}
+	if info.IsDir() {
+		t.Fatalf("CARTULARY_OPERATOR_BIN must be a file, got directory: %s", bin)
+	}
+	if runtime.GOOS != "windows" && info.Mode()&0o111 == 0 {
+		t.Fatalf("CARTULARY_OPERATOR_BIN is not executable: %s", bin)
+	}
+	return bin, true
 }
 
 func operatorBuildEnv() []string {

@@ -71,6 +71,7 @@ const postgresCloneResource = "postgres_clone";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 const validSourceTypes = new Set(["go_shards", "make_target", "browser_stage"]);
 const validSourceClasses = new Set(["backend", "browser"]);
+const sourceEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
 const validBrowserGroupKinds = new Set([
   "functional_shard",
   "support",
@@ -318,6 +319,53 @@ function validateBrowserGroup(
   };
 }
 
+function normalizeStringArray(value, label) {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+  const result = [];
+  const seen = new Set();
+  for (const [index, raw] of value.entries()) {
+    if (typeof raw !== "string" || raw.trim() === "") {
+      throw new Error(`${label}[${index + 1}] must be a non-empty string`);
+    }
+    const item = raw.trim();
+    if (seen.has(item)) {
+      throw new Error(`${label} contains duplicate ${item}`);
+    }
+    seen.add(item);
+    result.push(item);
+  }
+  return result;
+}
+
+function normalizeSourceEnv(value, label) {
+  if (value === undefined) {
+    return {};
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label}.env must be an object`);
+  }
+  const entries = [];
+  for (const [name, rawValue] of Object.entries(value)) {
+    const envName = String(name).trim();
+    if (!sourceEnvNamePattern.test(envName)) {
+      throw new Error(`${label}.env.${name} must be a safe environment variable name`);
+    }
+    if (typeof rawValue !== "string") {
+      throw new Error(`${label}.env.${envName} must be a string`);
+    }
+    if (rawValue.includes("\0") || rawValue.includes("\n") || rawValue.includes("\r")) {
+      throw new Error(`${label}.env.${envName} must be a single-line string`);
+    }
+    entries.push([envName, rawValue]);
+  }
+  return Object.fromEntries(entries.sort(([left], [right]) => left.localeCompare(right)));
+}
+
 function validateSource(
   scheduleTarget,
   source,
@@ -363,6 +411,8 @@ function validateSource(
     resourceLimits,
   );
   const needs = normalizeNeeds(source.needs, `${label} ${target}`);
+  const env = normalizeSourceEnv(source.env, `${label} ${target}`);
+  const runtimeBinaries = normalizeStringArray(source.runtime_binaries, `${label} ${target}.runtime_binaries`);
   if (source.class === "backend") {
     validateBackendTarget(scheduleTarget, target, label);
   } else {
@@ -387,6 +437,8 @@ function validateSource(
       class: source.class,
       target,
       needs,
+      env,
+      runtimeBinaries,
       priority: source.priority ?? 0,
       resourceClaims,
       rawResourceClaims: source.resource_claims,
@@ -422,6 +474,8 @@ function validateSource(
       target,
       browserStage: source.browser_stage.trim(),
       needs,
+      env,
+      runtimeBinaries,
       priority: source.priority ?? 0,
       weightMs: source.weight_ms,
       resourceClaims,
@@ -439,6 +493,8 @@ function validateSource(
     class: source.class,
     target,
     needs,
+    env,
+    runtimeBinaries,
     priority: source.priority ?? 0,
     weightMs: source.weight_ms,
     resourceClaims,
@@ -686,6 +742,9 @@ function _expandSchedule(schedule) {
         aggregateTarget: source.target,
         group: source.target,
         needs: [...source.needs],
+        env: source.env,
+        runtimeBinaries: source.runtimeBinaries,
+        runtime_binaries: source.runtimeBinaries,
         completionKeys: [source.target],
         failureKeys: [source.target],
         weightMs: source.weightMs,
@@ -737,6 +796,9 @@ function _expandSchedule(schedule) {
         aggregateTarget: source.target,
         group: source.target,
         needs: [...source.needs],
+        env: source.env,
+        runtimeBinaries: source.runtimeBinaries,
+        runtime_binaries: source.runtimeBinaries,
         completionKeys: [shardCompletionKey(shard.name)],
         failureKeys: [shardCompletionKey(shard.name)],
         runningDependencyKeys: [source.target],
@@ -1002,6 +1064,7 @@ function attachRuntime(
         ],
         env: {
           ...makeChildEnv(process.env),
+          ...unit.env,
           CARTULARY_TEST_TARGET: unit.target,
           CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
         },
@@ -1194,6 +1257,7 @@ function attachRuntime(
         args: ["capture-shard", unit.target, unit.shard, metadataDir],
         env: {
           ...process.env,
+          ...unit.env,
           CARTULARY_TEST_TARGET: unit.target,
           CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
         },

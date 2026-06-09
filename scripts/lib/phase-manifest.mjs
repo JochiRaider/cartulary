@@ -78,6 +78,7 @@ const emptyGoSelectionExceptionKeys = new Set([
   "package_patterns",
 ]);
 const postgresFixturePolicyTemplateClone = "template_clone";
+const validRuntimeBinaries = new Set(["operator"]);
 const postgresFixturePolicyPackageReset = "package_reset";
 const postgresFixturePolicyMigrationScratch = "migration_scratch";
 const postgresFixturePolicyTransaction = "transaction";
@@ -255,6 +256,32 @@ function validateExecutionFamily(entry, label) {
   if (typeof entry.execution_label !== "string" || entry.execution_label.trim() === "") {
     throw new Error(`${label} must declare execution_label`);
   }
+}
+
+function runtimeBinaries(entry, label) {
+  if (entry.runtime_binaries === undefined) {
+    return [];
+  }
+  if (!Array.isArray(entry.runtime_binaries) || entry.runtime_binaries.length === 0) {
+    throw new Error(`${label} runtime_binaries must be a non-empty string array when present`);
+  }
+  const seen = new Set();
+  const result = [];
+  for (const [index, raw] of entry.runtime_binaries.entries()) {
+    if (typeof raw !== "string" || raw.trim() === "") {
+      throw new Error(`${label} runtime_binaries[${index + 1}] must be a non-empty string`);
+    }
+    const id = raw.trim();
+    if (!validRuntimeBinaries.has(id)) {
+      throw new Error(`${label} runtime_binaries[${index + 1}] has unknown runtime binary ${id}`);
+    }
+    if (seen.has(id)) {
+      throw new Error(`${label} runtime_binaries contains duplicate ${id}`);
+    }
+    seen.add(id);
+    result.push(id);
+  }
+  return result;
 }
 
 function validateEvidencePlacement(entry, label) {
@@ -1147,6 +1174,7 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
           throw new Error(`manifest entry ${entry.id} must declare symbol or symbols[], not title metadata`);
         }
         validateExecutionFamily(entry, `manifest entry ${entry.id}`);
+        runtimeBinaries(entry, `manifest entry ${entry.id}`);
         goEntrySymbols(entry);
         const postgresFixturePolicy = effectiveGoEntryPostgresFixturePolicy(entry);
         if (
@@ -1186,7 +1214,13 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
           throw new Error(`manifest entry ${entry.id} must declare a repo-relative Go package owner`);
         }
       } else {
+        if (entry.runtime_binaries !== undefined) {
+          throw new Error(`manifest entry ${entry.id} runtime_binaries are valid only for runner=go_test`);
+        }
         throw new Error(`manifest entry ${entry.id} must declare runner=go_test|playwright|vitest`);
+      }
+      if (entry.runner !== "go_test" && entry.runtime_binaries !== undefined) {
+        throw new Error(`manifest entry ${entry.id} runtime_binaries are valid only for runner=go_test`);
       }
       if (typeof entry.file !== "string" || entry.file.trim() === "") {
         throw new Error(`manifest entry ${entry.id} must declare a file`);
@@ -1244,6 +1278,7 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
     }
     const symbols = supportGoEntrySymbols(entry);
     validateExecutionFamily(entry, supportGoEntryLabel(entry));
+    runtimeBinaries(entry, supportGoEntryLabel(entry));
     const postgresFixturePolicy = effectiveSupportGoEntryPostgresFixturePolicy(entry);
     if (serviceBackedSupportTargets.has(entry.target) && postgresFixturePolicy === "") {
       throw new Error(

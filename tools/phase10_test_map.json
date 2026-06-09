@@ -379,6 +379,9 @@
       "out_of_scope": "This evidence does not implement browser-visible restore recovery, public backup, restore, or migration APIs, arbitrary timestamp restore, or SWFS-OWNER-STORAGEREF-001 resolution.",
       "execution_family": "backend-process-phase10-operator-inspection",
       "execution_label": "backend-process phase10 deployment-local operator inspection evidence",
+      "runtime_binaries": [
+        "operator"
+      ],
       "evidence_class": "product_conformance",
       "layer": "backend_process",
       "default_check_required": true,

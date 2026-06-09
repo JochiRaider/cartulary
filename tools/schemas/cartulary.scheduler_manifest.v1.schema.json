@@ -95,6 +95,7 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
+        "runtime_binaries": { "$ref": "#/$defs/string_array" },
         "service_session": { "type": "object" },
         "browser_stage": { "type": "string", "minLength": 1 },
         "browser_session_group": { "type": "string", "minLength": 1 },

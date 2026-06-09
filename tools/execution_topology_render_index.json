@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:9628d63760773ce09d916b3f95da08020408b015f582b85ecc881a986a2168e4",
+  "input_digest": "sha256:55c25c116bb53ca83e22e765120e82154e5c5124c314d02e47da6757b2ef479a",
   "inputs": [
     {
       "path": "scripts/lib/agent-finalize-action-cache.mjs",
@@ -42,7 +42,7 @@
     {
       "path": "scripts/lib/check-service-backed-expansion.mjs",
       "role": "renderer_source",
-      "hash": "sha256:829c337e47492c0e7e0c412f0dc22897ba89dc2d617dce24621879af11489f4c"
+      "hash": "sha256:9a0e2b2c4004b7d584b891e27a938952aeb5a238b750f0d9b81c9f5d5f5a3f50"
     },
     {
       "path": "scripts/lib/design-tokens.mjs",
@@ -67,7 +67,7 @@
     {
       "path": "scripts/lib/execution-topology.mjs",
       "role": "renderer_source",
-      "hash": "sha256:aa96e6e9d310d454bdc3033e3513cdec68e563c345f89db61cd10dc8aaa7d5b0"
+      "hash": "sha256:69b21c06ce51304922b6edee97e0ccff4d359f4fb31e91701127f760eca06530"
     },
     {
       "path": "scripts/lib/failure-taxonomy.mjs",
@@ -117,7 +117,7 @@
     {
       "path": "scripts/lib/go-target-runner.mjs",
       "role": "renderer_source",
-      "hash": "sha256:62ee79399b1d16167619482aa7e4d1b7b8cf7485db940c8920372664fda02663"
+      "hash": "sha256:ed7061e0b39e8b420ccc02648a87c710584b06565515e0e4f7c2b5aab5997b2d"
     },
     {
       "path": "scripts/lib/govulncheck-findings.mjs",
@@ -132,7 +132,7 @@
     {
       "path": "scripts/lib/harness-contract.mjs",
       "role": "renderer_source",
-      "hash": "sha256:2201a2bd930c4991b5ed675f2ac30a18582a286b0c04aa9a4e49efd2a30db48a"
+      "hash": "sha256:4f709018ebf2c41e968e8b14715fdb8ee9cd387e07e020c29c11ecac25e5e767"
     },
     {
       "path": "scripts/lib/json-shape.mjs",
@@ -152,12 +152,12 @@
     {
       "path": "scripts/lib/phase-manifest-shape.mjs",
       "role": "renderer_source",
-      "hash": "sha256:d85101ae7cdaa818fb9a6bfe56f3aeda449566b8860a13e6327256effc7f32de"
+      "hash": "sha256:c25ee2eb85006e3e9eaae9a1bac393583891a82e434456c32796d28b409a4f3f"
     },
     {
       "path": "scripts/lib/phase-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ba7e843e8da97adf68308aad7692ffc63f10974c9e09cdac58dd6ed0a67ab6d0"
+      "hash": "sha256:9aedeeaed77943bb343e8930cad50c1e9a0e3dba2fe6d539617edbb10207c6f8"
     },
     {
       "path": "scripts/lib/phase-registry.mjs",
@@ -167,7 +167,7 @@
     {
       "path": "scripts/lib/phase-slice-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:772c049c5b2f3b5192ed85121051c853a78e54c340634ce350accca82c066366"
+      "hash": "sha256:a19bdaa89c926694f7f2303b9eebaf820f49b2c395ff67bdd16bd7f0eb76e1c9"
     },
     {
       "path": "scripts/lib/playwright-report.mjs",
@@ -192,7 +192,7 @@
     {
       "path": "scripts/lib/scheduler-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:cc4176b18799eab5b435d047a04e7902475a0af0fae7b49baaa09492cf539490"
+      "hash": "sha256:89b0b948879bef24390a8e0eda28797dba81a8c640824b6f9bede7f12333231a"
     },
     {
       "path": "scripts/lib/scheduler-reporting.mjs",
@@ -272,12 +272,12 @@
     {
       "path": "scripts/lib/target-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:572c550fc5634f9dbf8e36767a512f5454f9e045967f275b0ede5922bde4caed"
+      "hash": "sha256:06050a17fff7e3044410de06df63e965fb9fb1c77ccac2f10e4e73b0ae72090e"
     },
     {
       "path": "scripts/lib/task-execution-map.mjs",
       "role": "renderer_source",
-      "hash": "sha256:2bda5160150b52fd4f0ae04656dc31d39293d155043c4b749175cbc157b02970"
+      "hash": "sha256:0ebed9ba1c916a1d3e9029e25be4a412d138257c5f2927bc8f992ade20722cea"
     },
     {
       "path": "scripts/lib/task-guidance.mjs",
@@ -287,7 +287,7 @@
     {
       "path": "scripts/lib/task-surface.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7a89e0d809b19b374968f0a561476697d9e92c2807d507a18cfa4b9380473428"
+      "hash": "sha256:a157caa71f0e8003ece876000827f35b5f835493a8a7de99696ab4570ecbfed4"
     },
     {
       "path": "scripts/lib/test-output.mjs",
@@ -317,7 +317,7 @@
     {
       "path": "scripts/render-service-backed-schedule-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:2405c96e6251e356ab13f87bae70d2b9d83456a59b04fdecb97edb6ea48b1375"
+      "hash": "sha256:df3fda4d1a6f680cf72b57f8051db3e74cf3772f27f865500747cd196ad5206d"
     },
     {
       "path": "tools/browser_e2e_duration_baselines.json",
@@ -327,7 +327,7 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:e5c934127bbdb1c751b4ceb30beaeb92f3e77cedd2ff686980d1b82c1f1d5c55"
+      "hash": "sha256:81b39d7a21f086251184476456f3dee7be089c1de16e75a061141f65e9c51582"
     },
     {
       "path": "tools/go_test_duration_baselines.json",
@@ -357,7 +357,7 @@
     {
       "path": "tools/phase10_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:017f01b8228f3c20ad42cdcdaad843054b0bc4c1e95d7bf42293b2ca82dae110"
+      "hash": "sha256:4420421d1405a4ab7228b3e687c769d204e0d229c5751ace3b972bc574b42615"
     },
     {
       "path": "tools/phase11_test_map.json",
@@ -417,8 +417,8 @@
   ],
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:9e2e3e4c3bda8d6dc867ac0f1d43f5676f18e343a20ab0094f79be79602742e0",
-    "tools/scheduler_manifest.json": "sha256:7b469196b42dfb18ed8da5a066aa9ffd78eb9a39cdd6bba351784efad5c7e3e3",
-    "tools/task_surface_manifest.json": "sha256:0887d218a3523182a0d5b9cf40739878989cfb55761787f8e6e4eff9aa7cdcc8",
-    "tools/task_surface.generated.mk": "sha256:04883e158a4ba3ec3f298f37719a2bf9bb1314445da9df18d33ed3b398a77ea6"
+    "tools/scheduler_manifest.json": "sha256:96f585f3753737370c36fab0e01a3ad9928e72280d9547a7981e82175361d232",
+    "tools/task_surface_manifest.json": "sha256:b5dbe239013c69753fb1d33a4491dcce9ed98cbef861bd4ff5bdd1b5e18b12cf",
+    "tools/task_surface.generated.mk": "sha256:e45ef7d2c78b367a4bb44ef6e7eac756e5e52311f5cafa969f8ca841da2e9b43"
   }
 }

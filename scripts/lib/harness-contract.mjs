@@ -132,6 +132,7 @@ const optionalPathVariables = Object.freeze([
   "CARTULARY_COMPOSE_FILE",
   "CARTULARY_SERVER_BIN",
   "CARTULARY_MIGRATE_BIN",
+  "CARTULARY_OPERATOR_BIN",
 ]);
 const versionVariables = Object.freeze([
   "NODE_VERSION",
@@ -186,6 +187,7 @@ const serviceAttachGroups = Object.freeze([
   },
 ]);
 const restrictedInternalMakeVariables = Object.freeze([
+  "CARTULARY_OPERATOR_BIN",
   "CARTULARY_EXECUTION_TOPOLOGY_MANIFEST",
   "CARTULARY_TASK_SURFACE_MANIFEST",
   "EXECUTION_TOPOLOGY_MANIFEST",
@@ -271,6 +273,69 @@ function validatePathToken(name, value) {
   if (normalized.includes("\0")) {
     throw new HarnessConfigError(`${name} must not contain NUL`);
   }
+  return normalized;
+}
+
+function pathSegments(value) {
+  return value.split(/[\\/]+/u).filter((segment) => segment.length > 0);
+}
+
+function isProtectedRepoPath(resolved) {
+  const normalized = path.resolve(resolved);
+  for (const identity of protectedCleanupIdentities) {
+    const protectedPath = path.resolve(repoRoot, identity);
+    if (normalized === protectedPath || normalized.startsWith(`${protectedPath}${path.sep}`)) {
+      return identity;
+    }
+  }
+  return "";
+}
+
+function assertNoSymlinkAncestor(resolved, name) {
+  let current = path.resolve(resolved);
+  while (current !== path.dirname(current)) {
+    if (existsSync(current)) {
+      const info = lstatSync(current);
+      if (info.isSymbolicLink()) {
+        throw new HarnessConfigError(`${name} must not resolve through a symlink`);
+      }
+    }
+    current = path.dirname(current);
+  }
+}
+
+function validateBuildOutputPathToken(name, value) {
+  const normalized = validatePathToken(name, value);
+  if (path.sep === "/" && normalized.includes("\\")) {
+    throw new HarnessConfigError(`${name} must not contain backslash on POSIX`);
+  }
+  const segments = pathSegments(normalized);
+  if (
+    normalized === "/" ||
+    normalized === "." ||
+    normalized === ".." ||
+    segments.includes(".") ||
+    segments.includes("..")
+  ) {
+    throw new HarnessConfigError(`${name} must be a concrete build output path`);
+  }
+  const resolved = path.isAbsolute(normalized)
+    ? path.resolve(normalized)
+    : path.resolve(repoRoot, normalized);
+  const protectedIdentity = isProtectedRepoPath(resolved);
+  if (protectedIdentity) {
+    throw new HarnessConfigError(`${name} must not write under protected repo root ${protectedIdentity}`);
+  }
+  if (existsSync(resolved)) {
+    const info = lstatSync(resolved);
+    if (info.isSymbolicLink()) {
+      throw new HarnessConfigError(`${name} must not be a symlink`);
+    }
+    if (!info.isFile()) {
+      throw new HarnessConfigError(`${name} must be absent or a regular file`);
+    }
+  }
+  assertNoSymlinkAncestor(path.dirname(resolved), name);
   return normalized;
 }
 
@@ -772,6 +837,9 @@ function validateTargetInputValue(name, value, input, manifest) {
   }
   if (input.type === "result_selector" || input.type === "path") {
     try {
+      if (name === "OPERATOR_BIN") {
+        return validateBuildOutputPathToken(name, value);
+      }
       return validatePathToken(name, value);
     } catch (error) {
       if (error instanceof HarnessConfigError) {

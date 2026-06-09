@@ -407,6 +407,8 @@ export function expandServiceBackedScheduleForCheck({
         priority: priority(source.priority),
         weight_ms: source.weight_ms,
         needs: sourceNeeds(source, serviceSessionKey),
+        ...(source.env ? { env: clone(source.env) } : {}),
+        ...(source.runtime_binaries ? { runtime_binaries: clone(source.runtime_binaries) } : {}),
         completion_keys: [source.target],
         failure_keys: [source.target],
         resource_claims: mapServiceBackedClaimsToCheckClaims(source.resource_claims, {
@@ -466,6 +468,8 @@ export function expandServiceBackedScheduleForCheck({
         priority: priority(source.priority),
         weight_ms: shard.weight_ms,
         needs: sourceNeeds(source, serviceSessionKey),
+        ...(source.env ? { env: clone(source.env) } : {}),
+        ...(source.runtime_binaries ? { runtime_binaries: clone(source.runtime_binaries) } : {}),
         completion_keys: [shardCompletionKey(shard.name)],
         failure_keys: [shardCompletionKey(shard.name)],
         running_dependency_keys: [source.target],

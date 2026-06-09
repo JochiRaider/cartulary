@@ -32,6 +32,12 @@ const validShardModes = new Set(["none", "go_shards"]);
 const validParallelismModes = new Set(["none", "package", "process"]);
 const validBrowserCoverage = new Set(["authoritative", "supplemental", "raw"]);
 const serviceRequirementsRequiringCheckServiceStack = new Set(["postgres", "object_store", "browser_stack"]);
+const runtimeBinaryKeys = new Set([
+  "id",
+  "producer_target",
+  "output_make_variable",
+  "consumer_env",
+]);
 const checkScheduleProfileKeys = new Set(["resource_claims", "make_jobs"]);
 const checkScheduleMakePrerequisitePolicies = new Set(["run", "skip"]);
 const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
@@ -209,6 +215,49 @@ function normalizeExecutionDependencies(topology) {
     dependencies.push(dependency);
   }
   return { dependencies, byID };
+}
+
+function normalizeRuntimeBinaries(topology, taskTargets) {
+  if (topology.runtime_binaries === undefined) {
+    return [];
+  }
+  const binaries = [];
+  const seen = new Set();
+  for (const [index, raw] of requireArray(topology.runtime_binaries, "runtime_binaries").entries()) {
+    const label = `runtime_binaries[${index + 1}]`;
+    const entry = requireObject(raw, label);
+    validateAllowedKeys(entry, runtimeBinaryKeys, label);
+    const id = requireString(entry.id, `${label}.id`);
+    if (!/^[a-z][a-z0-9_-]*$/.test(id)) {
+      throw new Error(`${label}.id must be a lowercase identifier`);
+    }
+    if (seen.has(id)) {
+      throw new Error(`duplicate runtime binary ${id}`);
+    }
+    seen.add(id);
+    const producerTarget = requireString(entry.producer_target, `${label}.producer_target`);
+    if (!taskTargets.has(producerTarget)) {
+      throw new Error(`${label}.producer_target ${producerTarget} is missing from task_surface.targets`);
+    }
+    const outputMakeVariable = requireString(entry.output_make_variable, `${label}.output_make_variable`);
+    if (!/^[A-Z][A-Z0-9_]*$/.test(outputMakeVariable)) {
+      throw new Error(`${label}.output_make_variable must be a Make variable name`);
+    }
+    const consumerEnv = requireString(entry.consumer_env, `${label}.consumer_env`);
+    if (!/^[A-Z][A-Z0-9_]*$/.test(consumerEnv)) {
+      throw new Error(`${label}.consumer_env must be an environment variable name`);
+    }
+    binaries.push({
+      id,
+      producerTarget,
+      outputMakeVariable,
+      consumerEnv,
+      producer_target: producerTarget,
+      output_make_variable: outputMakeVariable,
+      consumer_env: consumerEnv,
+    });
+  }
+  return binaries;
 }
 
 function normalizeGoTargets(topology, dependencyByID) {
@@ -755,6 +804,7 @@ function normalizeTopology(raw, root, manifestPath) {
   const taskTargetEntries = targetEntriesFromTaskSurface(raw);
   const { dependencies, byID: dependencyByID } = normalizeExecutionDependencies(raw);
   validateExecutionDependencyTargets(dependencies, taskTargets);
+  const runtimeBinaries = normalizeRuntimeBinaries(raw, taskTargets);
   const goTargets = normalizeGoTargets(raw, dependencyByID);
   validateBrowserBatch(raw, dependencyByID, taskTargets);
   const checkSchedules = renderCheckSchedulesFromTopology(raw, taskTargets, taskTargetEntries);
@@ -766,6 +816,7 @@ function normalizeTopology(raw, root, manifestPath) {
     generatedOutputs: clone(raw.generated_outputs),
     executionDependencies: dependencies,
     executionDependencyByID: dependencyByID,
+    runtimeBinaries,
     goTargets,
     taskSurface: clone(raw.task_surface),
     checkScheduleProfile: clone(raw.check_schedules),
@@ -876,7 +927,10 @@ export function renderCheckScheduleManifest(topology, options = {}) {
 }
 
 export function renderServiceBackedScheduleProfile(topology) {
-  return clone(topology.serviceBackedSchedules);
+  return {
+    ...clone(topology.serviceBackedSchedules),
+    runtime_binaries: clone(topology.runtimeBinaries ?? []),
+  };
 }
 
 export function executionDependencyMetadata(root = repoRoot) {

@@ -136,6 +136,7 @@ const validInputChildForwarding = new Set([
   "argv_and_runtime_env",
 ]);
 export const restrictedInternalMakeVariables = Object.freeze([
+  "CARTULARY_OPERATOR_BIN",
   "CARTULARY_EXECUTION_TOPOLOGY_MANIFEST",
   "CARTULARY_TASK_SURFACE_MANIFEST",
   "EXECUTION_TOPOLOGY_MANIFEST",

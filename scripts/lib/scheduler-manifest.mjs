@@ -299,6 +299,10 @@ function normalizeWorkUnit(unit, index, scheduleLabel, scheduler, resourceLimits
       `${label} ${target}`,
     ),
     env: normalizeEnv(unit.env, `${label} ${target}`),
+    runtimeBinaries: normalizeStringList(
+      unit.runtime_binaries,
+      `${label} ${target} runtime_binaries`,
+    ),
     commandSpec: normalizeCommand(unit.command, `${label} ${target}`),
     serviceSession: unit.service_session && typeof unit.service_session === "object" && !Array.isArray(unit.service_session)
       ? JSON.parse(JSON.stringify(unit.service_session))

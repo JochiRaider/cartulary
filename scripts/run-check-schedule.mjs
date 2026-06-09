@@ -1269,6 +1269,7 @@ function attachRuntime(
         args: ["capture-shard", unit.target, unit.shard, files.metadataDir],
         env: {
           ...(await serviceEnvFor(serviceSessionTarget(unit))),
+          ...unit.env,
           CARTULARY_TEST_TARGET: unit.target,
           CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
         },
