@@ -437,6 +437,7 @@ const expectedCheckWorkUnitPriorities = [
   ["build-server", 40000],
   ["build-web", 39500],
   ["build-migrate", 39000],
+  ["build-operator", 38500],
   ["testservices-build", 38050],
   ["test-service-images", 38000],
   ["check-service-backed", 37000],

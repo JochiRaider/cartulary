@@ -7,6 +7,8 @@ TEST_OUTPUT_SCRIPT="${ROOT_DIR}/scripts/lib/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 SUITE="${1:-all}"
+# shellcheck source=scripts/lib/harness-scratch.sh
+source "${ROOT_DIR}/scripts/lib/harness-scratch.sh"
 
 case "$SUITE" in
   all | smoke | fast | matrix) ;;
@@ -123,13 +125,20 @@ const [summaryFile, eventsFile, progressFile, expectedStatus, expectedBlocked, e
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
 const progressLog = fs.readFileSync(progressFile, "utf8");
-const resolveArtifact = (artifactPath) => path.resolve(repoRoot, artifactPath);
+const summaryDir = path.dirname(summaryFile);
+const resolveArtifact = (artifactPath) =>
+  path.isAbsolute(artifactPath)
+    ? artifactPath
+    : path.resolve(repoRoot, artifactPath);
 const assertRepoRelativeArtifact = (artifactPath, label) => {
   if (!artifactPath || typeof artifactPath !== "string") {
     throw new Error(`${label} must be a non-empty string`);
   }
   if (path.isAbsolute(artifactPath)) {
-    throw new Error(`${label} must be repo-relative, got ${artifactPath}`);
+    const relativeToSummary = path.relative(summaryDir, artifactPath);
+    if (relativeToSummary.startsWith("..") || path.isAbsolute(relativeToSummary)) {
+      throw new Error(`${label} absolute path must stay under the retained scheduler directory, got ${artifactPath}`);
+    }
   }
 };
 if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v9") {
@@ -1232,9 +1241,7 @@ run_scheduler() {
 }
 
 if [[ "$SUITE" == "smoke" ]]; then
-smoke_parent="${CARTULARY_HARNESS_SCRATCH_ROOT:-${ROOT_DIR}/.cartulary/tmp}"
-mkdir -p "$smoke_parent"
-smoke_dir="$(mktemp -d "${smoke_parent%/}/service-backed-scheduler-smoke.XXXXXX")"
+smoke_dir="$(cartulary_harness_mktemp_dir "service-backed-scheduler-smoke.XXXXXX")"
 cleanup_paths+=("$smoke_dir")
 write_fake_make "$smoke_dir"
 smoke_manifest="${smoke_dir}/manifest.json"

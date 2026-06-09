@@ -6059,15 +6059,21 @@ function summarizeVitestFailureMessage({
       .filter(Boolean)
       .join("; ");
   }
-  return firstLine || fallback;
+  return fallback;
 }
 
-function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
+function summarizeVitestRun(
+  reportFile,
+  phaseLabel,
+  selection = null,
+  rawFiles = [reportFile],
+) {
   const report = JSON.parse(readFileSync(reportFile, "utf8"));
   const owners = new Set();
   const inventory = [];
   const dossiers = [];
   const counts = createCounts();
+  const rawArtifacts = renderRawList(rawFiles) || relToRepo(reportFile);
 
   for (const fileResult of collectVitestFileResults(report)) {
     const ownerPath = normalizeVitestOwnerPath(fileResult.name ?? "");
@@ -6103,7 +6109,7 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
         }),
         diagnostic_tags: vitestDiagnosticTags(failureMessage),
         reproduce: renderVitestReproduceCommand(classification.owner),
-        raw: relToRepo(reportFile),
+        raw: rawArtifacts,
       });
       continue;
     }
@@ -6159,7 +6165,7 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
           classification.owner,
           (assertion.title ?? "").trim(),
         ),
-        raw: relToRepo(reportFile),
+        raw: rawArtifacts,
       });
     }
   }
@@ -6178,7 +6184,7 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
       symbol_or_title: "(vitest selection)",
       message: "phase matched zero tests",
       reproduce: requiredEnv("CARTULARY_PHASE_COMMAND"),
-      raw: relToRepo(reportFile),
+      raw: rawArtifacts,
     });
     counts.failed += 1;
     addCoverageFailureCount(counts, "unmapped");
@@ -6281,6 +6287,7 @@ function handleVitestPhase({ manifestAware }) {
     reportFile,
     context.label,
     createVitestSelection({ manifestAware }),
+    [reportFile, stdoutLog, stderrLog],
   );
   const selectedSlicePassed =
     summary.dossiers.length === 0 &&

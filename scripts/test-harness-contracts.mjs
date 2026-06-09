@@ -347,6 +347,60 @@ test("fast harness smoke is role-complete and intentionally small", () => {
   );
 });
 
+test("fast harness smoke scratch fixtures stay outside the repository", () => {
+  const manifest = readJSON("tools/task_surface_manifest.json");
+  const checksByName = new Map(
+    manifest.harness_checks.map((check) => [check.name, check]),
+  );
+  const fastShellScripts = new Set(
+    manifest.harness_tiers.fast.checks.flatMap((name) =>
+      (checksByName.get(name)?.backing_scripts ?? []).filter((script) =>
+        script.endsWith(".sh"),
+      ),
+    ),
+  );
+  const requiredScratchHelpers = new Map([
+    [
+      "scripts/test-public-make-wrapper-smoke.sh",
+      ["cartulary_harness_mktemp_dir \"public-make-wrapper.XXXXXX\""],
+    ],
+    [
+      "scripts/test-check-scheduler.sh",
+      [
+        "cartulary_harness_mktemp_dir \"check-scheduler-smoke.XXXXXX\"",
+        "cartulary_harness_mktemp_dir \"check-scheduler-smoke-service-timing.XXXXXX\"",
+      ],
+    ],
+    [
+      "scripts/test-service-backed-scheduler.sh",
+      [
+        "cartulary_harness_mktemp_dir \"service-backed-scheduler-smoke.XXXXXX\"",
+      ],
+    ],
+  ]);
+  for (const script of fastShellScripts) {
+    const content = readFileSync(path.join(repoRoot, script), "utf8");
+    assert.match(
+      content,
+      /scripts\/lib\/harness-scratch\.sh|lib\/harness-scratch\.sh/,
+      `${script} must source harness-scratch.sh for fast smoke scratch`,
+    );
+    for (const required of requiredScratchHelpers.get(script) ?? []) {
+      assert.ok(content.includes(required), `${script} missing ${required}`);
+    }
+    assert.doesNotMatch(
+      content,
+      /mktemp -d "\$\{?ROOT_DIR\}?\/(?:tmp|\.cartulary\/tmp)\/(?:public-make-wrapper|check-scheduler-smoke|check-scheduler-smoke-service-timing|service-backed-scheduler-smoke)\.XXXXXX"/,
+      `${script} must not create fast smoke fixtures with raw mktemp templates`,
+    );
+    assert.doesNotMatch(
+      content,
+      /CARTULARY_HARNESS_SCRATCH_ROOT:-\$\{ROOT_DIR\}\/\.cartulary\/tmp/,
+      `${script} must not default harness scratch inside the repository`,
+    );
+  }
+});
+
 test("dev service lifecycle guards are mutation-safe", () => {
   const result = spawnSync("bash", ["./scripts/test-dev-services-lifecycle.sh"], {
     cwd: repoRoot,

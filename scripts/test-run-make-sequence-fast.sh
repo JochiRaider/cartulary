@@ -232,6 +232,7 @@ JSON
         write_summary frontend-unit
         ;;
       test-fast-service-backed)
+        write_summary build-operator
         write_summary backend-integration
         write_summary backend-integration-support
         write_summary backend-store
@@ -618,9 +619,11 @@ assert_contains "${invalid_suppress_output}" "unknown run-summary option --suppr
 
 env NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" <<'EOF'
 const fs = require("node:fs");
+const path = require("node:path");
 
 const [manifestPath] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const repoRoot = path.dirname(path.dirname(manifestPath));
 const { fast, extended, lifecycle, full } = manifest.harness_tiers;
 
 function fail(message) {
@@ -647,6 +650,38 @@ const expectedFast = [
 ];
 if (JSON.stringify(fast.checks) !== JSON.stringify(expectedFast)) {
   fail(`fast harness tier must be the check-gate smoke set, got ${fast.checks.join(",")}`);
+}
+
+const checksByName = new Map(manifest.harness_checks.map((check) => [check.name, check]));
+const requiredScratchHelpers = new Map([
+  ["scripts/test-public-make-wrapper-smoke.sh", ["cartulary_harness_mktemp_dir \"public-make-wrapper.XXXXXX\""]],
+  ["scripts/test-check-scheduler.sh", [
+    "cartulary_harness_mktemp_dir \"check-scheduler-smoke.XXXXXX\"",
+    "cartulary_harness_mktemp_dir \"check-scheduler-smoke-service-timing.XXXXXX\"",
+  ]],
+  ["scripts/test-service-backed-scheduler.sh", ["cartulary_harness_mktemp_dir \"service-backed-scheduler-smoke.XXXXXX\""]],
+]);
+for (const check of fast.checks) {
+  for (const script of checksByName.get(check)?.backing_scripts ?? []) {
+    if (!script.endsWith(".sh")) {
+      continue;
+    }
+    const content = fs.readFileSync(path.join(repoRoot, script), "utf8");
+    if (!content.includes("harness-scratch.sh")) {
+      fail(`${script} must source harness-scratch.sh for fast smoke scratch`);
+    }
+    for (const required of requiredScratchHelpers.get(script) ?? []) {
+      if (!content.includes(required)) {
+        fail(`${script} missing ${required}`);
+      }
+    }
+    if (/mktemp -d "\$\{?ROOT_DIR\}?\/(?:tmp|\.cartulary\/tmp)\/(?:public-make-wrapper|check-scheduler-smoke|check-scheduler-smoke-service-timing|service-backed-scheduler-smoke)\.XXXXXX"/.test(content)) {
+      fail(`${script} must not create fast smoke fixtures with raw repo-local mktemp`);
+    }
+    if (/CARTULARY_HARNESS_SCRATCH_ROOT:-\$\{ROOT_DIR\}\/\.cartulary\/tmp/.test(content)) {
+      fail(`${script} must not default harness scratch inside the repository`);
+    }
+  }
 }
 
 const tierMembership = new Map();

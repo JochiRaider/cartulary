@@ -655,4 +655,14 @@ if (!String(dossier.message).includes("first_app_frame=apps/web/src/WorkbookShel
 if (!(dossier.diagnostic_tags ?? []).includes("vitest_stack_trace_error")) {
   throw new Error("stack failure summary must include vitest_stack_trace_error diagnostic tag");
 }
+const raw = String(dossier.raw ?? "");
+for (const required of ["runner.json", "stdout.log", "stderr.log"]) {
+  if (!raw.includes(required)) {
+    throw new Error(`stack failure summary raw artifacts missing ${required}: ${raw}`);
+  }
+}
+const reproduce = String(dossier.reproduce ?? "");
+if (!reproduce.startsWith("pnpm --dir apps/web exec vitest run ") || !reproduce.includes(" -t '")) {
+  throw new Error(`stack failure summary must include focused reproduce command: ${reproduce}`);
+}
 EOF

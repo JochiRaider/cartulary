@@ -7,6 +7,8 @@ TEST_OUTPUT_SCRIPT="${ROOT_DIR}/scripts/lib/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 SUITE="${1:-all}"
+# shellcheck source=scripts/lib/harness-scratch.sh
+source "${ROOT_DIR}/scripts/lib/harness-scratch.sh"
 
 case "$SUITE" in
   all | smoke) ;;
@@ -121,13 +123,20 @@ const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
 const pressure = JSON.parse(fs.readFileSync(pressureFile, "utf8"));
 const progressLog = fs.readFileSync(progressFile, "utf8");
-const resolveArtifact = (artifactPath) => path.resolve(repoRoot, artifactPath);
+const summaryDir = path.dirname(summaryFile);
+const resolveArtifact = (artifactPath) =>
+  path.isAbsolute(artifactPath)
+    ? artifactPath
+    : path.resolve(repoRoot, artifactPath);
 const assertRepoRelativeArtifact = (artifactPath, label) => {
   if (!artifactPath || typeof artifactPath !== "string") {
     throw new Error(`${label} must be a non-empty string`);
   }
   if (path.isAbsolute(artifactPath)) {
-    throw new Error(`${label} must be repo-relative, got ${artifactPath}`);
+    const relativeToSummary = path.relative(summaryDir, artifactPath);
+    if (relativeToSummary.startsWith("..") || path.isAbsolute(relativeToSummary)) {
+      throw new Error(`${label} absolute path must stay under the retained scheduler directory, got ${artifactPath}`);
+    }
   }
   if (artifactPath.includes("cartulary-check-schedule-")) {
     throw new Error(`${label} must not point at obsolete temp scheduler logs, got ${artifactPath}`);
@@ -890,7 +899,7 @@ EOF
 }
 
 if [[ "$SUITE" == "smoke" ]]; then
-smoke_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-smoke.XXXXXX")"
+smoke_dir="$(cartulary_harness_mktemp_dir "check-scheduler-smoke.XXXXXX")"
 cleanup_paths+=("$smoke_dir")
 write_fake_make "$smoke_dir"
 smoke_manifest="${smoke_dir}/manifest.json"
@@ -929,7 +938,7 @@ assert_contains "$smoke_output" "[SUMMARY] target=check status=pass work_units=3
 assert_not_contains "$smoke_output" "[STEP] check" "smoke output hides per-unit steps"
 assert_check_scheduler_artifacts "$smoke_dir" smoke check pass - 3 finish
 
-smoke_service_timing_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-smoke-service-timing.XXXXXX")"
+smoke_service_timing_dir="$(cartulary_harness_mktemp_dir "check-scheduler-smoke-service-timing.XXXXXX")"
 cleanup_paths+=("$smoke_service_timing_dir")
 write_fake_make "$smoke_service_timing_dir"
 cat >"${smoke_service_timing_dir}/fake-test-services" <<'EOF'

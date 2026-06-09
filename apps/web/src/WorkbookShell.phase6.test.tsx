@@ -5,13 +5,7 @@ import {
   saveStateTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildRecordChangedPayload,
@@ -20,13 +14,15 @@ import {
   cleanupTimelineWorkbookTestGlobals,
   deferred,
   errorEnvelope,
-  extractTimelineJSONBody,
-  extractTimelinePatchBody,
+  extractTimelineConflictResolutionBody,
+  extractTimelineRecordPatchBody,
   findWorkbookCell,
   installTimelineWorkbookTestGlobals,
   latestTimelineWebSocket,
+  routeTimelineWorkbookFetchMock,
   successEnvelope,
   type TimelineWorkbookFetchMock,
+  timelineRecordPatchCallURLs,
   timelineRow,
   timelineViewSchemaId,
   waitForPendingQueueState,
@@ -317,7 +313,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     });
   });
 
-  it("Phase 6 resolver actions submit explicit outcomes and apply returned row state", async () => {
+  it("Phase 6 resolver keep-saved action submits an explicit outcome and applies returned row state", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -377,14 +373,14 @@ describe("Phase 6 workbook collaboration coverage", () => {
       expect(screen.queryByTestId("conflict-resolver")).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
-    expect(extractTimelineJSONBody(fetchMock, 2)).toEqual({
+    expect(extractTimelineConflictResolutionBody(fetchMock, 0)).toEqual({
       conflict_token: "conflict-token-keep",
       resolution_kind: "keep_saved",
       client_txn_id: expect.any(String),
     });
+  });
 
-    cleanup();
-    fetchMock.mockReset();
+  it("Phase 6 resolver use-unsaved action submits an explicit outcome and applies returned row state", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -427,15 +423,15 @@ describe("Phase 6 workbook collaboration coverage", () => {
     );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    const secondInput = (await findWorkbookCell(
+    const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
       "record-1",
       "timeline.summary",
     )) as HTMLInputElement;
-    fireEvent.focus(secondInput);
-    await changeInputValue(secondInput, "Use local");
-    fireEvent.blur(secondInput);
+    fireEvent.focus(input);
+    await changeInputValue(input, "Use local");
+    fireEvent.blur(input);
     await screen.findByTestId("conflict-resolver");
     fireEvent.click(screen.getByTestId("conflict-use-unsaved"));
 
@@ -446,15 +442,15 @@ describe("Phase 6 workbook collaboration coverage", () => {
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("5");
     });
-    expect(extractTimelineJSONBody(fetchMock, 2)).toEqual({
+    expect(extractTimelineConflictResolutionBody(fetchMock, 0)).toEqual({
       conflict_token: "conflict-token-use",
       resolution_kind: "use_unsaved",
       client_txn_id: expect.any(String),
       resolved_value: "Use local",
     });
+  });
 
-    cleanup();
-    fetchMock.mockReset();
+  it("Phase 6 resolver merged-value action submits an explicit outcome and applies returned row state", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -497,15 +493,15 @@ describe("Phase 6 workbook collaboration coverage", () => {
     );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
-    const mergedInput = (await findWorkbookCell(
+    const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
       "record-1",
       "timeline.summary",
     )) as HTMLInputElement;
-    fireEvent.focus(mergedInput);
-    await changeInputValue(mergedInput, "Merge local");
-    fireEvent.blur(mergedInput);
+    fireEvent.focus(input);
+    await changeInputValue(input, "Merge local");
+    fireEvent.blur(input);
     await screen.findByTestId("conflict-resolver");
     expect(screen.getByTestId("conflict-merged-value")).toHaveProperty(
       "value",
@@ -523,7 +519,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
       ).toBe("8");
     });
-    expect(extractTimelineJSONBody(fetchMock, 2)).toEqual({
+    expect(extractTimelineConflictResolutionBody(fetchMock, 0)).toEqual({
       conflict_token: "conflict-token-merged",
       resolution_kind: "merged_value",
       client_txn_id: expect.any(String),
@@ -574,8 +570,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
     await changeQueuedCellValue(firstInput, "One in flight");
     fireEvent.blur(firstInput);
+    await waitForTimelineRecordPatchCalls(fetchMock, 1);
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
     });
 
@@ -587,7 +583,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       expectedPendingUnits: 2,
       expectedSaveState: "Syncing",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(timelineRecordPatchCallURLs(fetchMock)).toHaveLength(1);
 
     firstPendingPatch.resolve(
       successEnvelope({
@@ -602,10 +598,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
       }),
     );
 
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
-    });
-    expect(extractTimelinePatchBody(fetchMock, 2).changes).toEqual([
+    await waitForTimelineRecordPatchCalls(fetchMock, 2);
+    expect(extractTimelineRecordPatchBody(fetchMock, 1).changes).toEqual([
       {
         field_key: "timeline.summary",
         value: "Two queued final",
@@ -631,7 +625,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
   });
 
   it("Phase 6 U-6-09 does not coalesce non-contiguous same-record pending patches", async () => {
-    fetchMock.mockResolvedValueOnce(
+    const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockRowQueryOnce(
       successEnvelope({
         incident_id: "incident-1",
         view_schema_id: timelineViewSchemaId,
@@ -651,7 +646,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         ],
       }),
     );
-    fetchMock.mockResolvedValueOnce(
+    routedFetch.mockRecordPatchOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
         change_set_id: "change-set-a1",
@@ -663,7 +658,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         }),
       }),
     );
-    fetchMock.mockResolvedValueOnce(
+    routedFetch.mockRecordPatchOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
         change_set_id: "change-set-b1",
@@ -675,7 +670,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         }),
       }),
     );
-    fetchMock.mockResolvedValueOnce(
+    routedFetch.mockRecordPatchOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
         change_set_id: "change-set-a2",
@@ -721,7 +716,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       expectedSaveState: "Syncing",
       noticeIncludes: "Authentication is required",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([]);
 
     latestTimelineWebSocket()?.emit({
       type: "hello_ack",
@@ -731,31 +726,26 @@ describe("Phase 6 workbook collaboration coverage", () => {
     });
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(4);
+      expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([
+        "/api/v1/records/record-1",
+        "/api/v1/records/record-2",
+        "/api/v1/records/record-1",
+      ]);
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
-      "/api/v1/records/record-1",
-    );
-    expect(String(fetchMock.mock.calls[2]?.[0])).toContain(
-      "/api/v1/records/record-2",
-    );
-    expect(String(fetchMock.mock.calls[3]?.[0])).toContain(
-      "/api/v1/records/record-1",
-    );
-    expect(extractTimelinePatchBody(fetchMock, 1).changes).toEqual([
+    expect(extractTimelineRecordPatchBody(fetchMock, 0).changes).toEqual([
       {
         field_key: "timeline.summary",
         value: "A1 queued",
       },
     ]);
-    expect(extractTimelinePatchBody(fetchMock, 2).changes).toEqual([
+    expect(extractTimelineRecordPatchBody(fetchMock, 1).changes).toEqual([
       {
         field_key: "timeline.summary",
         value: "B1 queued",
       },
     ]);
-    expect(extractTimelinePatchBody(fetchMock, 3).changes).toEqual([
+    expect(extractTimelineRecordPatchBody(fetchMock, 2).changes).toEqual([
       {
         field_key: "timeline.summary",
         value: "A2 queued",
@@ -768,7 +758,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
   });
 
   it("Phase 6 U-6-09 preserves queued work through session revocation and resumes after re-authentication", async () => {
-    fetchMock.mockResolvedValueOnce(
+    const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockRowQueryOnce(
       successEnvelope({
         incident_id: "incident-1",
         view_schema_id: timelineViewSchemaId,
@@ -782,7 +773,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         ],
       }),
     );
-    fetchMock.mockResolvedValueOnce(
+    routedFetch.mockRecordPatchOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
         change_set_id: "change-set-auth",
@@ -817,7 +808,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       expectedSaveState: "Syncing",
       noticeIncludes: "Authentication is required",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([]);
     expect(input.value).toBe("Auth replay");
 
     latestTimelineWebSocket()?.emit({
@@ -827,10 +818,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
       },
     });
 
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-    });
-    expect(extractTimelinePatchBody(fetchMock, 1).changes).toEqual([
+    await waitForTimelineRecordPatchCalls(fetchMock, 1);
+    expect(extractTimelineRecordPatchBody(fetchMock, 0).changes).toEqual([
       {
         field_key: "timeline.summary",
         value: "Auth replay",
@@ -881,7 +870,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
     await changeQueuedCellValue(firstInput, "Conflict local");
     fireEvent.blur(firstInput);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitForTimelineRecordPatchCalls(fetchMock, 1);
     await changeQueuedCellValue(secondInput, "Still queued");
     fireEvent.blur(secondInput);
 
@@ -908,11 +897,12 @@ describe("Phase 6 workbook collaboration coverage", () => {
         "1",
       );
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(timelineRecordPatchCallURLs(fetchMock)).toHaveLength(1);
   });
 
   it("FE-U-P4-01 drives WorkbookShell admission, coalescing, and save-state from the shared pending queue model", async () => {
-    fetchMock.mockResolvedValueOnce(
+    const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockRowQueryOnce(
       successEnvelope({
         incident_id: "incident-1",
         view_schema_id: timelineViewSchemaId,
@@ -932,7 +922,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         ],
       }),
     );
-    fetchMock.mockResolvedValueOnce(errorEnvelope("session_required", 401));
+    routedFetch.mockRecordPatchOnce(errorEnvelope("session_required", 401));
 
     render(<TimelineWorkbook incidentId="incident-1" />);
     const firstInput = (await findWorkbookCell(
@@ -965,11 +955,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       expectedPendingUnits: 2,
       expectedSaveState: "Syncing",
     });
-    expect(
-      fetchMock.mock.calls.filter(([url]) =>
-        String(url).includes("/api/v1/records/"),
-      ),
-    ).toHaveLength(1);
+    expect(timelineRecordPatchCallURLs(fetchMock)).toHaveLength(1);
     expect(secondInput.value).toBe("Queue 2 final");
   });
 
@@ -1037,22 +1023,18 @@ describe("Phase 6 workbook collaboration coverage", () => {
     )) as HTMLInputElement;
     await changeQueuedCellValue(retryFirstInput, "Retry head");
     fireEvent.blur(retryFirstInput);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitForTimelineRecordPatchCalls(fetchMock, 1);
     await changeQueuedCellValue(retrySecondInput, "Retry behind");
     fireEvent.blur(retrySecondInput);
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(4);
+      expect(timelineRecordPatchCallURLs(fetchMock)).toHaveLength(3);
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
+    expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([
       "/api/v1/records/record-1",
-    );
-    expect(String(fetchMock.mock.calls[2]?.[0])).toContain(
       "/api/v1/records/record-1",
-    );
-    expect(String(fetchMock.mock.calls[3]?.[0])).toContain(
       "/api/v1/records/record-2",
-    );
+    ]);
   });
 
   it("FE-U-P4-01 drives WorkbookShell terminal halt presentation from the shared pending queue model", async () => {

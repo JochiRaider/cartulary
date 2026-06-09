@@ -141,7 +141,7 @@ Verified by: TH-HARNESS-AC-020
 **TH-HARNESS-REQ-053**
 The default `check-harness-smoke` gate MUST remain a small semantic smoke surface rather than a broad harness regression suite. Its fast tier MUST contain exactly one check for each gate role: public Make/wrapper projection, check-scheduler semantics, and service-backed scheduler semantics. Broader field-shape, topology-rendering, and sequence-detail checks MUST live in owner-aligned validation such as `json-shape-check`, generated drift checks, the explicit `harness-contract` extended target, or non-default diagnostic smoke tiers. The `harness-contract` target MUST be selected by CI and release gates, not by default local `check`.
 
-Fast smoke fixtures that need repo-relative scratch artifacts MUST use hidden repo-local scratch such as `.cartulary/tmp` rather than Go-visible package-tree paths such as `tmp/`, so concurrent `go list ./...` cannot observe transient non-package directories.
+Fast smoke fixtures that create disposable repo-shaped files, directories, fake Make surfaces, manifests, or child-run workspaces MUST create them through `scripts/lib/harness-scratch.sh` outside the repository checkout. `CARTULARY_HARNESS_SCRATCH_ROOT` MAY redirect that scratch root only when it still resolves outside the repository. Repo-local `tmp/` remains reserved for durable tool caches, retained run artifacts, and operator-inspectable local outputs; fast smoke fixtures MUST NOT place transient package-shaped or source-shaped scratch trees there, so concurrent source traversal such as `go list ./...` cannot observe disappearing non-package directories.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-006
 
 **TH-HARNESS-REQ-054**
@@ -1330,6 +1330,8 @@ exit with selected primary failure
 ```
 
 Finalizer failure becomes primary only when no earlier non-finalizer failure exists.
+
+Work units skipped because `stop_on_first_failure` has selected a primary failed work unit, or because their dependencies include a failed key, are propagation records. They MUST be retained in scheduler and target summaries with their skipped reason and failed dependency, but they MUST NOT be reported as additional root failures.
 
 Dependencies outrank priority: a work unit is not ready until its dependencies are satisfied. Priority affects only ready work and MUST NOT preempt work that is already running.
 

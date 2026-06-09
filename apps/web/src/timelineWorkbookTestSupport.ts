@@ -29,6 +29,27 @@ type WebSocketLike = {
 };
 
 export type TimelineWorkbookFetchMock = ReturnType<typeof vi.fn>;
+type TimelineFetchResponse = Response | Promise<Response>;
+type TimelineRouteName =
+  | "authSession"
+  | "conflictResolution"
+  | "recordPatch"
+  | "rowQuery"
+  | "fallback";
+
+type TimelineRoutedFetchQueues = Record<
+  TimelineRouteName,
+  TimelineFetchResponse[]
+>;
+
+export type TimelineWorkbookRouteFetch = {
+  mockAuthSessionOnce: (response: TimelineFetchResponse) => void;
+  mockConflictResolutionOnce: (response: TimelineFetchResponse) => void;
+  mockRecordPatchOnce: (response: TimelineFetchResponse) => void;
+  mockRowQueryOnce: (response: TimelineFetchResponse) => void;
+  mockFallbackOnce: (response: TimelineFetchResponse) => void;
+};
+
 export type TimelineWebSocketMock = {
   close: () => void;
   emit: (message: Record<string, unknown>) => void;
@@ -131,6 +152,99 @@ export function installTimelineWorkbookTestGlobals(): TimelineWorkbookFetchMock 
     } as unknown as typeof WebSocket,
   );
   return fetchMock;
+}
+
+function fetchMethod(init: RequestInit | undefined) {
+  return String(init?.method ?? "GET").toUpperCase();
+}
+
+function fetchURLText(input: RequestInfo | URL) {
+  return input instanceof Request ? input.url : String(input);
+}
+
+function timelineFetchRoute(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+): TimelineRouteName {
+  const url = fetchURLText(input);
+  const method = fetchMethod(init);
+  if (method === "GET" && url.endsWith("/api/v1/auth/session")) {
+    return "authSession";
+  }
+  if (
+    method === "POST" &&
+    url.includes("/api/v1/incidents/") &&
+    url.includes(`/views/${timelineViewSchemaId}/query`)
+  ) {
+    return "rowQuery";
+  }
+  if (
+    method === "POST" &&
+    url.includes("/api/v1/records/") &&
+    url.includes("/conflicts/") &&
+    url.endsWith("/resolve")
+  ) {
+    return "conflictResolution";
+  }
+  if (method === "PATCH" && url.includes("/api/v1/records/")) {
+    return "recordPatch";
+  }
+  return "fallback";
+}
+
+function queuedResponseDiagnostic(queues: TimelineRoutedFetchQueues) {
+  return Object.entries(queues)
+    .map(([name, queue]) => `${name}=${queue.length}`)
+    .join(" ");
+}
+
+export function routeTimelineWorkbookFetchMock(
+  fetchMock: TimelineWorkbookFetchMock,
+): TimelineWorkbookRouteFetch {
+  const queues: TimelineRoutedFetchQueues = {
+    authSession: [],
+    conflictResolution: [],
+    recordPatch: [],
+    rowQuery: [],
+    fallback: [],
+  };
+
+  fetchMock.mockImplementation(
+    (input: RequestInfo | URL, init?: RequestInit) => {
+      const route = timelineFetchRoute(input, init);
+      const response = queues[route].shift();
+      if (response !== undefined) {
+        return response;
+      }
+      if (route === "authSession") {
+        return errorEnvelope("session_required", 401);
+      }
+      const method = fetchMethod(init);
+      throw new Error(
+        `missing routed Timeline workbook fetch response route=${route} method=${method} url=${fetchURLText(
+          input,
+        )} queues=${queuedResponseDiagnostic(queues)}`,
+      );
+    },
+  );
+
+  return {
+    mockAuthSessionOnce: (response) => {
+      queues.authSession.push(response);
+    },
+    mockConflictResolutionOnce: (response) => {
+      queues.conflictResolution.push(response);
+    },
+    mockRecordPatchOnce: (response) => {
+      queues.recordPatch.push(response);
+    },
+    mockRowQueryOnce: (response) => {
+      queues.rowQuery.push(response);
+    },
+    mockFallbackOnce: (response) => {
+      queues.fallback.push(response);
+    },
+  };
 }
 
 export function cleanupTimelineWorkbookTestGlobals() {
@@ -714,13 +828,41 @@ export async function waitForPendingQueueState(options: {
   );
 }
 
-function timelineRecordPatchCalls(fetchSpy: TimelineWorkbookFetchMock) {
+export function timelineRecordPatchCalls(fetchSpy: TimelineWorkbookFetchMock) {
   return fetchSpy.mock.calls.filter(([url, init]) => {
     const method =
       init && typeof init === "object" && "method" in init
-        ? String((init as { method?: unknown }).method ?? "")
-        : "";
-    return String(url).includes("/api/v1/records/") && method === "PATCH";
+        ? String((init as { method?: unknown }).method ?? "GET").toUpperCase()
+        : "GET";
+    return (
+      fetchURLText(url as RequestInfo | URL).includes("/api/v1/records/") &&
+      method === "PATCH"
+    );
+  });
+}
+
+function timelineConflictResolutionCalls(fetchSpy: TimelineWorkbookFetchMock) {
+  return fetchSpy.mock.calls.filter(([url, init]) => {
+    const method =
+      init && typeof init === "object" && "method" in init
+        ? String((init as { method?: unknown }).method ?? "GET").toUpperCase()
+        : "GET";
+    const urlText = fetchURLText(url as RequestInfo | URL);
+    return (
+      method === "POST" &&
+      urlText.includes("/api/v1/records/") &&
+      urlText.includes("/conflicts/") &&
+      urlText.endsWith("/resolve")
+    );
+  });
+}
+
+export function timelineRecordPatchCallURLs(
+  fetchSpy: TimelineWorkbookFetchMock,
+) {
+  return timelineRecordPatchCalls(fetchSpy).map(([url]) => {
+    const urlText = fetchURLText(url as RequestInfo | URL);
+    return new URL(urlText, "http://cartulary.test").pathname;
   });
 }
 
@@ -773,6 +915,47 @@ export function extractTimelinePatchBody(
     base_row_version: number;
     changes: Array<{ field_key: string; value: string | null }>;
   }>(fetchSpy, index, `timeline request body at index ${index}`);
+}
+
+export function extractTimelineRecordPatchBody(
+  fetchSpy: TimelineWorkbookFetchMock,
+  index: number,
+) {
+  const call = timelineRecordPatchCalls(fetchSpy)[index];
+  if (!call) {
+    throw new Error(
+      `missing Timeline record PATCH request at index ${index}; found ${
+        timelineRecordPatchCalls(fetchSpy).length
+      }`,
+    );
+  }
+  return requireJSONBodyAt<{
+    base_row_version: number;
+    changes: Array<{ field_key: string; value: string | null }>;
+  }>(
+    { mock: { calls: [call] } },
+    0,
+    `timeline record PATCH request at index ${index}`,
+  );
+}
+
+export function extractTimelineConflictResolutionBody(
+  fetchSpy: TimelineWorkbookFetchMock,
+  index: number,
+) {
+  const call = timelineConflictResolutionCalls(fetchSpy)[index];
+  if (!call) {
+    throw new Error(
+      `missing Timeline conflict resolution request at index ${index}; found ${
+        timelineConflictResolutionCalls(fetchSpy).length
+      }`,
+    );
+  }
+  return requireJSONBodyAt<Record<string, unknown>>(
+    { mock: { calls: [call] } },
+    0,
+    `timeline conflict resolution request at index ${index}`,
+  );
 }
 
 export function extractTimelineJSONBody(

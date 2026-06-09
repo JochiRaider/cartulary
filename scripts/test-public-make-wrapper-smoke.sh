@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib/harness-scratch.sh
+source "${ROOT_DIR}/scripts/lib/harness-scratch.sh"
 
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS
 
@@ -52,7 +54,7 @@ run_make_capture() {
   printf '%s' "${status}"
 }
 
-tmp_dir="$(mktemp -d "${ROOT_DIR}/tmp/public-make-wrapper.XXXXXX")"
+tmp_dir="$(cartulary_harness_mktemp_dir "public-make-wrapper.XXXXXX")"
 trap 'rm -rf "${tmp_dir}"' EXIT
 
 success_stdout="${tmp_dir}/target-plan.stdout"
