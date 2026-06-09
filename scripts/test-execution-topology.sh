@@ -588,6 +588,39 @@ assert.deepEqual(
   ["service_session:check-service-backed"],
   "backend service-backed shards must depend only on the ready service session",
 );
+const expectedPhase10OperatorShards = [
+  "backend-process-phase10-operator-inspection-scn-001",
+  "backend-process-phase10-operator-inspection-scn-002",
+  "backend-process-phase10-operator-inspection-scn-003",
+  "backend-process-phase10-operator-inspection-scn-004-mismatch",
+  "backend-process-phase10-operator-inspection-scn-004-pass",
+];
+const phase10OperatorUnits = expandedCheckSchedule.work_units
+  .filter(
+    (unit) =>
+      unit.kind === "go_shard" &&
+      unit.target === "backend-process" &&
+      unit.shard?.startsWith("backend-process-phase10-operator-inspection-scn-"),
+  )
+  .sort((left, right) => left.shard.localeCompare(right.shard));
+assert.deepEqual(
+  phase10OperatorUnits.map((unit) => unit.shard),
+  expectedPhase10OperatorShards,
+  "phase10 E-10-01 operator evidence must expand to stable scenario-named shards",
+);
+for (const unit of phase10OperatorUnits) {
+  assert.deepEqual(
+    unit.needs,
+    ["service_session:check-service-backed", "build-operator"],
+    `${unit.shard} must depend only on service readiness and its operator runtime producer`,
+  );
+  assert.deepEqual(unit.runtime_binaries, ["operator"], `${unit.shard} must declare the operator runtime`);
+  assert.equal(
+    unit.resource_claims?.process,
+    1,
+    `${unit.shard} must not claim the full process lane merely because it consumes operator`,
+  );
+}
 assert.deepEqual(
   webserverStageSession?.retained_resource_claims,
   {

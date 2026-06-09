@@ -97,6 +97,21 @@ cmp -s "$json_a" "$json_b" || fail "target-plan JSON must be deterministic acros
 if ! "$NODE_HELPER" - "$json_a" <<'EOF'
 const fs = require("node:fs");
 const rows = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const phase10Operator = rows.find((row) => row.manifest_phase === "phase10" && row.id === "E-10-01");
+const expectedScenarioSymbols = {
+  "SCN-001": "TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata",
+  "SCN-002": "TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup",
+  "SCN-003": "TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner",
+  "SCN-004-PASS": "TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassEvidence",
+  "SCN-004-MISMATCH": "TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsMismatchEvidence",
+};
+if (
+  !phase10Operator ||
+  phase10Operator.primary_evidence_owner !== "E-10-01" ||
+  JSON.stringify(phase10Operator.scenario_symbols) !== JSON.stringify(expectedScenarioSymbols)
+) {
+  process.exit(1);
+}
 const storeRows = rows.filter((row) => row.target === "backend-store");
 const validPolicies = new Set(["template_clone", "package_reset", "migration_scratch", "transaction", "group_clone"]);
 if (storeRows.length === 0 || !storeRows.every((row) => validPolicies.has(row.fixture_policy?.postgres))) {
@@ -195,6 +210,43 @@ if (!plan.shards.every((shard) => !(shard.has_authoritative && shard.has_support
 EOF
 then
   fail "backend-integration go shard plan must be weighted, policy-bearing, split heavy aggregates, and keep authoritative/support shards separate"
+fi
+
+backend_process_shard_json="$tmp_dir/go-shard-plan-backend-process.json"
+"$NODE_HELPER" "$SHARD_PLAN_SCRIPT" --json --target backend-process >"$backend_process_shard_json"
+if ! "$NODE_HELPER" - "$backend_process_shard_json" <<'EOF'
+const fs = require("node:fs");
+const plan = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const phase10OperatorShards = plan.shards
+  .filter((shard) => shard.aggregate_name === "backend-process-phase10-operator-inspection")
+  .sort((left, right) => left.name.localeCompare(right.name));
+const expected = [
+  ["backend-process-phase10-operator-inspection-scn-001", "SCN-001", "^TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata$"],
+  ["backend-process-phase10-operator-inspection-scn-002", "SCN-002", "^TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup$"],
+  ["backend-process-phase10-operator-inspection-scn-003", "SCN-003", "^TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner$"],
+  ["backend-process-phase10-operator-inspection-scn-004-mismatch", "SCN-004-MISMATCH", "^TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsMismatchEvidence$"],
+  ["backend-process-phase10-operator-inspection-scn-004-pass", "SCN-004-PASS", "^TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassEvidence$"],
+];
+if (phase10OperatorShards.length !== expected.length) {
+  process.exit(1);
+}
+for (let index = 0; index < expected.length; index += 1) {
+  const [name, scenarioID, regex] = expected[index];
+  const shard = phase10OperatorShards[index];
+  if (
+    shard.name !== name ||
+    shard.scenario_id !== scenarioID ||
+    shard.regex !== regex ||
+    shard.item_count !== 1 ||
+    shard.items?.[0]?.scenario_id !== scenarioID ||
+    shard.items?.[0]?.primary_evidence_owner !== "E-10-01"
+  ) {
+    process.exit(1);
+  }
+}
+EOF
+then
+  fail "backend-process go shard plan must expose phase10 E-10-01 as exact scenario-scoped shards"
 fi
 
 backend_store_shard_json="$tmp_dir/go-shard-plan-backend-store.json"

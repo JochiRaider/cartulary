@@ -248,10 +248,10 @@ function validateRuntimeBinaries(ctx, rows, reportDir) {
 }
 
 function runtimeRowsForExecution(ctx, target, familyOrShard) {
-  if (!familyOrShard.includes("-shard-")) {
+  const shard = findShardOrNull(ctx, target, familyOrShard);
+  if (!shard) {
     return rowsForAggregate(ctx, target, familyOrShard);
   }
-  const shard = findShard(ctx, target, familyOrShard);
   const rowIDs = new Set(
     (shard.items ?? []).map((item) => String(item.id ?? "").split(":")[0]),
   );
@@ -508,13 +508,19 @@ function targetAggregates(ctx, target) {
 }
 
 function findShard(ctx, target, name) {
-  const shard = targetShards(ctx, target).find(
-    (candidate) => candidate.name === name,
-  );
+  const shard = findShardOrNull(ctx, target, name);
   if (!shard) {
     throw new Error(`unknown shard ${name} for ${target}`);
   }
   return shard;
+}
+
+function findShardOrNull(ctx, target, name) {
+  return (
+    targetShards(ctx, target).find(
+      (candidate) => candidate.name === name,
+    ) ?? null
+  );
 }
 
 function fixturePolicyAssignmentsForShard(shard, mode) {
@@ -593,7 +599,7 @@ function shardSpec(ctx, target, name) {
 }
 
 function resolveExecutionFamilySpec(ctx, target, familyOrShard) {
-  if (familyOrShard.includes("-shard-")) {
+  if (findShardOrNull(ctx, target, familyOrShard)) {
     return shardSpec(ctx, target, familyOrShard);
   }
   return aggregateSpec(ctx, target, familyOrShard);
@@ -604,8 +610,8 @@ function resolveExecutionFamilyPostgresFixturePolicy(
   target,
   familyOrShard,
 ) {
-  if (familyOrShard.includes("-shard-")) {
-    const shard = findShard(ctx, target, familyOrShard);
+  const shard = findShardOrNull(ctx, target, familyOrShard);
+  if (shard) {
     return {
       tests: fixturePolicyAssignmentsForShard(shard, "tests").join(","),
       packages: fixturePolicyAssignmentsForShard(shard, "packages").join(","),
@@ -1125,14 +1131,7 @@ export function releaseSharedReportLock(sharedDir) {
 }
 
 function isCrossTargetSharedReport(ctx, target, sharedName) {
-  if (!sharedName.includes("-shard-")) {
-    return false;
-  }
-  try {
-    return findShard(ctx, target, sharedName).shared_across_targets === true;
-  } catch {
-    return false;
-  }
+  return findShardOrNull(ctx, target, sharedName)?.shared_across_targets === true;
 }
 
 async function writeCrossTargetSharedExecutionMetadata(

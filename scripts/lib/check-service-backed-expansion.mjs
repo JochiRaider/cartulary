@@ -74,12 +74,7 @@ export function mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost = fa
   return resourceClaimsObject(Object.fromEntries(claims.entries()));
 }
 
-function serviceScheduleProcessLimit(serviceSchedule) {
-  const limit = serviceSchedule?.resource_limits?.process;
-  return Number.isInteger(limit) && limit > 0 ? limit : 1;
-}
-
-function checkClaimsForShard(source, shard, runtime, processLimit) {
+function checkClaimsForShard(source, shard) {
   const claims = new Map(Object.entries(mapServiceBackedClaimsToCheckClaims(source.resource_claims)));
   switch (shard.scheduler_profile) {
     case "cpu_heavy":
@@ -108,9 +103,6 @@ function checkClaimsForShard(source, shard, runtime, processLimit) {
       addClaim(claims, hostCPUResource, 1);
       addClaim(claims, hostIOResource, 1);
       break;
-  }
-  if (source.target === "backend-process" && runtime.runtimeBinaries.includes("operator")) {
-    claims.set("process", processLimit);
   }
   return resourceClaimsObject(Object.fromEntries(claims.entries()));
 }
@@ -336,7 +328,6 @@ export function expandServiceBackedScheduleForCheck({
   const parentNeeds = [...(parentUnit.needs ?? [])];
   const serviceNeeds = serviceSessionNeeds(parentNeeds);
   const serviceCompletePriority = priority(serviceSchedule.service_complete_priority);
-  const processLimit = serviceScheduleProcessLimit(serviceSchedule);
   const sessionInfos = browserSessionInfos(serviceSchedule.work_unit_sources ?? [], {
     serviceSessionKey,
     parentNeeds,
@@ -547,7 +538,7 @@ export function expandServiceBackedScheduleForCheck({
         complete_on_failure: true,
         shard: shard.name,
         scheduler_profile: shard.scheduler_profile,
-        resource_claims: checkClaimsForShard(source, shard, runtime, processLimit),
+        resource_claims: checkClaimsForShard(source, shard),
         service_session: {
           target: scheduleTarget,
         },
@@ -677,22 +668,6 @@ function mergeClaims(left, ...claimObjects) {
     }
   }
   return resourceClaimsObject(Object.fromEntries(claims.entries()));
-}
-
-function directOperatorProcessLaneClaims(source, runtime, serviceSchedule) {
-  if (source.target !== "backend-process" || !runtime.runtimeBinaries.includes("operator")) {
-    return {};
-  }
-  const limit = serviceScheduleProcessLimit(serviceSchedule);
-  const current = source.resource_claims?.process ?? 0;
-  if (current === "limit") {
-    return {};
-  }
-  if (!Number.isInteger(current) || current < 0) {
-    throw new Error(`${source.target} process resource claim must be a non-negative integer`);
-  }
-  const additional = Math.max(0, limit - current);
-  return additional > 0 ? { process: additional } : {};
 }
 
 function directRetainedBrowserStageClaims(rawClaims) {
@@ -961,7 +936,6 @@ export function expandServiceBackedSchedule({
         resource_claims: mergeClaims(
           source.resource_claims,
           schedulerClaimsForShard(shard),
-          directOperatorProcessLaneClaims(source, runtime, serviceSchedule),
         ),
         ...(Object.keys(env).length > 0 ? { env } : {}),
         ...(runtime.runtimeBinaries.length > 0 ? { runtime_binaries: runtime.runtimeBinaries } : {}),

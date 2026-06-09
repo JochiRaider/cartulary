@@ -17,6 +17,7 @@ import {
   effectiveGoEntryPostgresFixturePolicy,
   effectiveSupportGoEntryPostgresFixtureBudget,
   effectiveSupportGoEntryPostgresFixturePolicy,
+  goEntryScenarioSymbols,
   goEntrySymbols,
   loadManifest,
   phaseManifestNames,
@@ -99,6 +100,7 @@ function requireExecutionFamily(entry, label) {
 
 function manifestRows(phase, descriptor, entry) {
   const family = requireExecutionFamily(entry, `manifest entry ${entry.id}`);
+  const scenarioSymbols = goEntryScenarioSymbols(entry);
   return {
     ...rowBase(descriptor),
     id: entry.id,
@@ -109,6 +111,7 @@ function manifestRows(phase, descriptor, entry) {
     evidence_class: entry.evidence_class,
     layer: entry.layer,
     default_check_required: entry.default_check_required,
+    primary_evidence_owner: entry.primary_evidence_owner,
     ...(entry.default_check_reason ? { default_check_reason: entry.default_check_reason } : {}),
     execution_family: family.family,
     execution_label: family.label,
@@ -119,6 +122,7 @@ function manifestRows(phase, descriptor, entry) {
     file: entry.file,
     package: entry.package,
     symbols: goEntrySymbols(entry),
+    ...(Object.keys(scenarioSymbols).length > 0 ? { scenario_symbols: scenarioSymbols } : {}),
     runtime_binaries: [...(entry.runtime_binaries ?? [])],
     shard_isolation: entry.shard_isolation === true,
     evidence_layer: entry.evidence_layer,
@@ -148,6 +152,7 @@ function supportRows(phase, descriptor, entry) {
     evidence_class: entry.evidence_class,
     layer: entry.layer,
     default_check_required: entry.default_check_required,
+    primary_evidence_owner: entry.primary_evidence_owner,
     ...(entry.default_check_reason ? { default_check_reason: entry.default_check_reason } : {}),
     execution_family: family.family,
     execution_label: family.label,

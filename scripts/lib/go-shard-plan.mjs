@@ -115,6 +115,15 @@ function addAggregate(aggregates, row, mode) {
   return aggregate;
 }
 
+function scenarioIDForSymbol(row, symbol) {
+  for (const [scenarioID, scenarioSymbol] of Object.entries(row.scenario_symbols ?? {})) {
+    if (scenarioSymbol === symbol) {
+      return scenarioID;
+    }
+  }
+  return "";
+}
+
 function normalizePostgresFixturePolicy(value) {
   return value === "template_clone" ||
     value === "package_reset" ||
@@ -188,6 +197,7 @@ function buildExecutionItems(root, { phase = "", defaultCheckOnly = false } = {}
       for (const symbol of row.symbols) {
         const importPath = toGoImportPath(modulePath, row.package);
         const key = testBaselineKey(importPath, symbol);
+        const scenarioID = scenarioIDForSymbol(row, symbol);
         const weightMs = normalizePositiveInteger(
           baselines.tests.get(key),
           baselines.defaultItemWeightMs,
@@ -197,9 +207,11 @@ function buildExecutionItems(root, { phase = "", defaultCheckOnly = false } = {}
           aggregate_name: row.execution_family,
           kind: itemKind,
           id: row.id,
+          primary_evidence_owner: row.primary_evidence_owner ?? "",
           packages: rowPackages(row),
           regex: "",
           symbol,
+          scenario_id: scenarioID,
           import_path: importPath,
           package_import_paths: rowPackageImportPaths(modulePath, row),
           weight_ms: weightMs,
@@ -218,6 +230,7 @@ function buildExecutionItems(root, { phase = "", defaultCheckOnly = false } = {}
       for (const symbol of row.symbols) {
         const importPath = toGoImportPath(modulePath, row.package);
         const key = testBaselineKey(importPath, symbol);
+        const scenarioID = scenarioIDForSymbol(row, symbol);
         const weightMs = normalizePositiveInteger(
           baselines.tests.get(key),
           baselines.defaultItemWeightMs,
@@ -227,9 +240,11 @@ function buildExecutionItems(root, { phase = "", defaultCheckOnly = false } = {}
           aggregate_name: row.execution_family,
           kind: "support",
           id: row.id,
+          primary_evidence_owner: row.primary_evidence_owner ?? "",
           packages: rowPackages(row),
           regex: "",
           symbol,
+          scenario_id: scenarioID,
           import_path: importPath,
           package_import_paths: rowPackageImportPaths(modulePath, row),
           weight_ms: weightMs,
@@ -280,6 +295,16 @@ function packShardLane(aggregateName, items, targetMs, baselines) {
   );
   const bins = [];
   for (const item of sorted) {
+    if (item.scenario_id) {
+      const scenarioItems = [item];
+      bins.push({
+        aggregateName,
+        items: scenarioItems,
+        weight_ms: shardWeightMs(scenarioItems, baselines),
+        scenario_id: item.scenario_id,
+      });
+      continue;
+    }
     if (item.shard_isolation) {
       const isolatedItems = [item];
       bins.push({ aggregateName, items: isolatedItems, weight_ms: shardWeightMs(isolatedItems, baselines), isolated: true });
@@ -407,8 +432,15 @@ function publicAggregateTarget(aggregate) {
   return publicAggregateTargetForMode(aggregate.mode);
 }
 
-function shardName(aggregateName, index, phase = "") {
+function scenarioShardSuffix(scenarioID) {
+  return scenarioID.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function shardName(aggregateName, index, phase = "", bin = {}) {
   const phasePrefix = phase ? `${phase}-` : "";
+  if (bin.scenario_id) {
+    return `${phasePrefix}${aggregateName}-${scenarioShardSuffix(bin.scenario_id)}`;
+  }
   return `${phasePrefix}${aggregateName}-shard-${String(index + 1).padStart(2, "0")}`;
 }
 
@@ -486,9 +518,10 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
         }
       }
       shards.push({
-        name: shardName(aggregateName, index, phase),
+        name: shardName(aggregateName, index, phase, bin),
         target: targets.size === 1 ? Array.from(targets)[0] : Array.from(targets).sort(compareStrings).join(","),
         aggregate_name: aggregateName,
+        ...(bin.scenario_id ? { scenario_id: bin.scenario_id } : {}),
         shard_target_ms: targetMs,
         scheduler_profile: schedulerProfileForShard(bin.items, bin.weight_ms),
         regex: hasRaw ? unionRegex(rawRegexes) : exactRegex(symbols.sort(compareStrings)),
@@ -505,7 +538,9 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
             kind: item.kind,
             target: item.target,
             id: item.id,
+            primary_evidence_owner: item.primary_evidence_owner ?? "",
             symbol: item.symbol,
+            scenario_id: item.scenario_id ?? "",
             import_path: item.import_path,
             package_import_paths: item.package_import_paths,
             packages: item.packages,

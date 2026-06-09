@@ -345,15 +345,14 @@ function runtimeBinariesForShard(shard) {
   return uniqueSorted((shard.items ?? []).flatMap((item) => item.runtime_binaries ?? []));
 }
 
-function backendProcessClaimsForShard(target, runtimeBinaries, resourceLimits) {
+function backendProcessClaimsForShard(target, _runtimeBinaries, resourceLimits) {
   if (target !== "backend-process") {
     return new Map();
   }
   if (!resourceLimits.has("process")) {
     throw new Error("backend-process Go shards require resource_limits.process");
   }
-  const processLimit = resourceLimits.get("process");
-  return new Map([["process", runtimeBinaries.includes("operator") ? processLimit : 1]]);
+  return new Map([["process", 1]]);
 }
 
 function shardCompletionKey(shardName) {

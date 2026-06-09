@@ -8,8 +8,6 @@ import {
 import { collectGoShardPlan } from "./go-shard-plan.mjs";
 import { loadServiceFixtureActivities } from "./fixture-reporting.mjs";
 
-const shardNamePattern = /-shard-\d+$/;
-
 export function normalizePositiveInteger(value, fallback = 0) {
   if (Number.isInteger(value) && value > 0) {
     return value;
@@ -100,6 +98,7 @@ function shardMetadata(root) {
       : "";
     byShard.set(shard.name, {
       target: shard.target,
+      aggregateName: shard.aggregate_name,
       rawAggregateName: shard.has_raw ? shard.aggregate_name : "",
       rawAggregateKey,
     });
@@ -114,8 +113,8 @@ function shardMetadata(root) {
   return { byShard, rawAggregateKeyByAggregate, targetByTestKey };
 }
 
-function aggregateNameForShard(shardName) {
-  return shardName.replace(shardNamePattern, "");
+function legacyAggregateNameForShard(shardName) {
+  return shardName.replace(/-shard-\d+$/, "");
 }
 
 function observedTests(topLevelEvents) {
@@ -302,7 +301,7 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
     const shardName = path.basename(dir);
     return (
       path.basename(path.dirname(dir)) === "_shared" &&
-      shardNamePattern.test(shardName) &&
+      (metadata.byShard.has(shardName) || shardName.includes("-shard-") || shardName.includes("-scn-")) &&
       existsSync(path.join(dir, "runner.jsonl"))
     );
   });
@@ -314,13 +313,13 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
       continue;
     }
     const durationMs = normalizePositiveInteger(readIntegerFile(path.join(dir, "duration_ms.txt"), 0), 1);
-    const aggregateName = aggregateNameForShard(shardName);
+    let shardMetadataEntry = metadata.byShard.get(shardName);
+    const aggregateName = shardMetadataEntry?.aggregateName ?? legacyAggregateNameForShard(shardName);
     const events = readRunnerEvents(path.join(dir, "runner.jsonl"));
     const topLevelEvents = topLevelTestEvents(events);
     const packageEvents = packagePassEvents(events);
     const observedTestEntries = observedTests(topLevelEvents);
     const contamination = timingContamination(path.join(dir, "stderr.log"));
-    let shardMetadataEntry = metadata.byShard.get(shardName);
     if (!shardMetadataEntry) {
       const observedTargets = new Set();
       for (const observedTest of observedTestEntries) {

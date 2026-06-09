@@ -135,6 +135,7 @@ export const phaseManifestEntryKeys = new Set([
   "file",
   "symbol",
   "symbols",
+  "scenario_symbols",
   "title",
   "titles",
   "execution_dependency",

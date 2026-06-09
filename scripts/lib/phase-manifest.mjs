@@ -118,6 +118,7 @@ const supportTargetSections = new Map([
   ["backend_unit", "unit"],
   ["backend_integration_support", "integration"],
 ]);
+const goScenarioIDPattern = /^SCN-[0-9]{3}(?:-[A-Z0-9]+)*$/;
 
 export function goEntrySymbols(entry) {
   if (entry.symbol !== undefined && entry.symbols !== undefined) {
@@ -138,6 +139,44 @@ export function goEntrySymbols(entry) {
     throw new Error(`manifest entry ${entry.id} is missing a non-empty symbol`);
   }
   return [entry.symbol];
+}
+
+export function goEntryScenarioSymbols(entry) {
+  if (entry.scenario_symbols === undefined) {
+    return {};
+  }
+  const label = `manifest entry ${entry.id}`;
+  if (
+    !entry.scenario_symbols ||
+    typeof entry.scenario_symbols !== "object" ||
+    Array.isArray(entry.scenario_symbols)
+  ) {
+    throw new Error(`${label} scenario_symbols must be an object mapping scenario IDs to Go symbols`);
+  }
+  const symbols = goEntrySymbols(entry);
+  const allowedSymbols = new Set(symbols);
+  const seenSymbols = new Set();
+  const result = {};
+  for (const [scenarioID, symbol] of Object.entries(entry.scenario_symbols)) {
+    if (!goScenarioIDPattern.test(scenarioID)) {
+      throw new Error(`${label} scenario_symbols contains invalid scenario id ${scenarioID}`);
+    }
+    if (typeof symbol !== "string" || symbol.trim() === "") {
+      throw new Error(`${label} scenario_symbols.${scenarioID} must be a non-empty Go symbol`);
+    }
+    if (!allowedSymbols.has(symbol)) {
+      throw new Error(`${label} scenario_symbols.${scenarioID} references undeclared symbol ${symbol}`);
+    }
+    if (seenSymbols.has(symbol)) {
+      throw new Error(`${label} scenario_symbols contains duplicate symbol ${symbol}`);
+    }
+    seenSymbols.add(symbol);
+    result[scenarioID] = symbol;
+  }
+  if (seenSymbols.size !== symbols.length) {
+    throw new Error(`${label} scenario_symbols must cover every declared Go symbol`);
+  }
+  return result;
 }
 
 export function vitestEntryTitles(entry) {
@@ -1176,6 +1215,7 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
         validateExecutionFamily(entry, `manifest entry ${entry.id}`);
         runtimeBinaries(entry, `manifest entry ${entry.id}`);
         goEntrySymbols(entry);
+        goEntryScenarioSymbols(entry);
         const postgresFixturePolicy = effectiveGoEntryPostgresFixturePolicy(entry);
         if (
           typeof entry.execution_dependency === "string" &&

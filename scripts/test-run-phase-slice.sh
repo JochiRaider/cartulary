@@ -170,6 +170,30 @@ for (const target of ["frontend-unit", "browser-e2e-webserver-backed"]) {
   assert.equal(unit.frontend_row_accounting_scope?.phase, "phase9", `phase9 ${target} FE row accounting must retain phase`);
 }
 
+const phase10 = plan("phase10", "phase");
+const phase10OperatorShards = phase10.work_units
+  .filter(
+    (unit) =>
+      unit.target === "backend-process" &&
+      unit.id?.startsWith("backend-process:phase10-backend-process-phase10-operator-inspection-scn-"),
+  )
+  .sort((left, right) => left.id.localeCompare(right.id));
+assert.deepEqual(
+  phase10OperatorShards.map((unit) => unit.id.replace(/^backend-process:/, "")),
+  [
+    "phase10-backend-process-phase10-operator-inspection-scn-001",
+    "phase10-backend-process-phase10-operator-inspection-scn-002",
+    "phase10-backend-process-phase10-operator-inspection-scn-003",
+    "phase10-backend-process-phase10-operator-inspection-scn-004-mismatch",
+    "phase10-backend-process-phase10-operator-inspection-scn-004-pass",
+  ],
+  "phase10 slice must expose E-10-01 operator evidence as stable scenario shards",
+);
+for (const unit of phase10OperatorShards) {
+  assert.deepEqual(unit.runtime_binaries, ["operator"], `${unit.id} must consume the operator runtime`);
+  assert.equal(unit.resource_claims?.process, 1, `${unit.id} must claim one process slot`);
+}
+
 const feP3 = frontendPlan("FE-P3", "phase");
 assert.equal(feP3.schema_id, "cartulary.phase_slice_plan.v1");
 assert.equal(feP3.phase_namespace, "frontend");
