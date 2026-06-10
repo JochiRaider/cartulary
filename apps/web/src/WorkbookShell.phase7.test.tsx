@@ -1,4 +1,5 @@
 import {
+  conflictMarkerTestId,
   rowHistoryActionTestId,
   rowHistoryDeleteButtonTestId,
   rowHistoryItemTestId,
@@ -6,6 +7,8 @@ import {
   rowHistoryOpenButtonTestId,
   rowHistoryPanelTestId,
   rowHistoryRestoreButtonTestId,
+  rowCellTestId,
+  saveStateTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -16,7 +19,10 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
+  errorEnvelope,
+  extractTimelineConflictResolutionBody,
   extractTimelineJSONBody,
   findWorkbookCell,
   installTimelineWorkbookTestGlobals,
@@ -25,6 +31,7 @@ import {
   type TimelineWorkbookFetchMock,
   timelineRow,
   timelineViewSchemaId,
+  waitForVisibleGridRowRecordIds,
   visibleGridRowRecordIds,
 } from "./timelineWorkbookTestSupport";
 import {
@@ -599,5 +606,239 @@ describe("Phase 7 workbook history support coverage", () => {
         "timeline.summary",
       ),
     ).toBeTruthy();
+  });
+
+  it("FE-U-P7-02 keeps resolver state anchored to stable row and field identities across refresh and reorder", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "record-1",
+              rowVersion: 1,
+              summary: "Record one base",
+              captureState: "rough",
+            }),
+            timelineRow({
+              recordId: "record-2",
+              rowVersion: 1,
+              summary: "Record two base",
+              captureState: "rough",
+            }),
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        errorEnvelope("same_field_conflict", 409, {
+          conflict_token: "conflict-token-anchor-ui",
+          record_id: "record-1",
+          field_key: "timeline.summary",
+          conflict_resolution_class: "text_compare_merge",
+          base_row_version: 1,
+          current_row_version: 2,
+          base_value: "Record one base",
+          server_value: "Record one server conflict",
+          client_value: "Record one local draft",
+          suggested_merged_value: "Record one merged suggestion",
+        }),
+      )
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "record-2",
+              rowVersion: 3,
+              summary: "Record two moved first",
+              captureState: "rough",
+            }),
+            timelineRow({
+              recordId: "record-1",
+              rowVersion: 2,
+              summary: "Record one refreshed",
+              captureState: "rough",
+            }),
+          ],
+        }),
+      );
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    await waitForVisibleGridRowRecordIds(container, ["record-1", "record-2"]);
+    const input = (await findWorkbookCell(
+      container,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    )) as HTMLInputElement;
+    fireEvent.focus(input);
+    await changeInputValue(input, "Record one local draft");
+    fireEvent.blur(input);
+
+    const resolver = await screen.findByTestId("conflict-resolver");
+    expect(resolver.getAttribute("data-conflict-record-id")).toBe("record-1");
+    expect(resolver.getAttribute("data-conflict-field-key")).toBe(
+      "timeline.summary",
+    );
+    expect(resolver.getAttribute("data-conflict-base-row-version")).toBe("1");
+    expect(resolver.getAttribute("data-conflict-current-row-version")).toBe(
+      "2",
+    );
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
+
+    latestTimelineWebSocket()?.emit({
+      type: "record_changed",
+      stream_seq: 1,
+      payload: {
+        record_id: "record-2",
+        row_version: 3,
+        change_set_id: "change-set-reorder",
+        client_txn_id: "remote-reorder",
+        actor_user_id: actorUserId,
+        changed_field_keys: ["timeline.summary"],
+        affected_views: [
+          {
+            view_schema_id: timelineViewSchemaId,
+            change_kind: "invalidate",
+          },
+        ],
+      },
+    });
+
+    await waitForVisibleGridRowRecordIds(container, ["record-2", "record-1"]);
+    expect(
+      screen
+        .getByTestId("conflict-resolver")
+        .getAttribute("data-conflict-record-id"),
+    ).toBe("record-1");
+    expect(
+      screen
+        .getByTestId("conflict-resolver")
+        .getAttribute("data-conflict-base-row-version"),
+    ).toBe("1");
+    expect(screen.getByTestId("conflict-local-value")).toHaveProperty(
+      "value",
+      "Record one local draft",
+    );
+    expect(
+      screen.getByTestId(conflictMarkerTestId("record-1", "timeline.summary")),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("conflict-close"));
+    await waitFor(() => {
+      expect(screen.queryByTestId("conflict-resolver")).toBeNull();
+      expect(document.activeElement).toBe(
+        screen.getByTestId(rowCellTestId("record-1", "timeline.summary")),
+      );
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+        "Conflict",
+      );
+    });
+  });
+
+  it("FE-U-P7-02 preserves resolver draft and focus when a stale conflict token refreshes the same anchor", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "record-1",
+              rowVersion: 4,
+              summary: "Stale token base",
+              captureState: "rough",
+            }),
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        errorEnvelope("same_field_conflict", 409, {
+          conflict_token: "conflict-token-stale-original",
+          record_id: "record-1",
+          field_key: "timeline.summary",
+          conflict_resolution_class: "text_compare_merge",
+          base_row_version: 4,
+          current_row_version: 5,
+          base_value: "Stale token base",
+          server_value: "Original server",
+          client_value: "Original local",
+          suggested_merged_value: "Original suggested",
+        }),
+      )
+      .mockResolvedValueOnce(
+        errorEnvelope("same_field_conflict", 409, {
+          conflict_token: "conflict-token-stale-refresh",
+          record_id: "record-1",
+          field_key: "timeline.summary",
+          conflict_resolution_class: "text_compare_merge",
+          base_row_version: 5,
+          current_row_version: 6,
+          base_value: "Original server",
+          server_value: "Fresh server",
+          client_value: "Analyst merged draft",
+          suggested_merged_value: "Fresh server suggested",
+        }),
+      );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    const input = (await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    )) as HTMLInputElement;
+    fireEvent.focus(input);
+    await changeInputValue(input, "Original local");
+    fireEvent.blur(input);
+
+    await screen.findByTestId("conflict-resolver");
+    fireEvent.change(screen.getByTestId("conflict-merged-value"), {
+      target: { value: "Analyst merged draft" },
+    });
+    fireEvent.click(screen.getByTestId("conflict-use-merged"));
+
+    await waitFor(() => {
+      expect(
+        screen
+          .getByTestId("conflict-resolver")
+          .getAttribute("data-conflict-base-row-version"),
+      ).toBe("5");
+      expect(
+        screen
+          .getByTestId("conflict-resolver")
+          .getAttribute("data-conflict-current-row-version"),
+      ).toBe("6");
+      expect(screen.getByTestId("conflict-server-value")).toHaveProperty(
+        "value",
+        "Fresh server",
+      );
+      expect(screen.getByTestId("conflict-local-value")).toHaveProperty(
+        "value",
+        "Analyst merged draft",
+      );
+      expect(screen.getByTestId("conflict-merged-value")).toHaveProperty(
+        "value",
+        "Analyst merged draft",
+      );
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+        "Conflict",
+      );
+    });
+    expect(extractTimelineConflictResolutionBody(fetchMock, 0)).toMatchObject({
+      conflict_token: "conflict-token-stale-original",
+      resolution_kind: "merged_value",
+      resolved_value: "Analyst merged draft",
+    });
+
+    fireEvent.click(screen.getByTestId("conflict-close"));
+    await waitFor(() => {
+      expect(screen.queryByTestId("conflict-resolver")).toBeNull();
+      expect(document.activeElement).toBe(
+        screen.getByTestId(rowCellTestId("record-1", "timeline.summary")),
+      );
+    });
   });
 });

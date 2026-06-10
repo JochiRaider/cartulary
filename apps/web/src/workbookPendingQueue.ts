@@ -185,6 +185,18 @@ export type WorkbookSaveStateConflictAnchor = {
   current_row_version?: number;
 };
 
+export function sameFieldConflictQueueKey(
+  anchor: Pick<WorkbookSaveStateConflictAnchor, "field_key" | "record_id">,
+): string {
+  return `${anchor.record_id}:${anchor.field_key}`;
+}
+
+export function workbookSaveStateConflictAnchorIdentity(
+  anchor: WorkbookSaveStateConflictAnchor,
+): string {
+  return `${anchor.record_id}\u0000${anchor.field_key}\u0000${anchor.base_row_version}`;
+}
+
 export type WorkbookSaveStateDerivationInput = {
   queuedCount: number;
   inFlightCount: number;
@@ -792,19 +804,13 @@ function normalizeSaveStateConflictAnchors(
   return (value ?? []).map((anchor) => cloneSaveStateConflictAnchor(anchor));
 }
 
-function conflictAnchorIdentity(
-  anchor: WorkbookSaveStateConflictAnchor,
-): string {
-  return `${anchor.record_id}\u0000${anchor.field_key}\u0000${anchor.base_row_version}`;
-}
-
 function dedupeSaveStateConflictAnchors(
   value: readonly WorkbookSaveStateConflictAnchor[],
 ): WorkbookSaveStateConflictAnchor[] {
   const seen = new Set<string>();
   const output: WorkbookSaveStateConflictAnchor[] = [];
   for (const anchor of value) {
-    const identity = conflictAnchorIdentity(anchor);
+    const identity = workbookSaveStateConflictAnchorIdentity(anchor);
     if (seen.has(identity)) {
       continue;
     }
@@ -979,7 +985,7 @@ function sameFieldConflictAnchor(
     return null;
   }
   return {
-    key: `${conflict.record_id}:${conflict.field_key}`,
+    key: sameFieldConflictQueueKey(conflict),
     conflict_token: conflict.conflict_token,
     record_id: conflict.record_id,
     field_key: conflict.field_key,

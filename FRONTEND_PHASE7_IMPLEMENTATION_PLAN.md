@@ -4,11 +4,11 @@
 
 FE-P7 covers live collaboration and conflicts in the frontend: WebSocket stream handling, event reducers, presence anchoring, live row updates, reset and invalidate handling, stale-row requery, same-field conflicts, and resolver behavior.
 
-Current repository status: FE-P7 is `planned`, `row_rollup_state=no_rows_implemented`, and blocked for row and phase closure. The frontend registry reports `FE-P7-ACTIVATION-BLOCKER-01` with reason `frontend_phase_not_active`; the FE-P7 map reports every FE-P7 row as `claim_status=blocked`. The generated FE-P7 coverage ledger is current to the map and `make phase-ledger-drift` passed during this inspection.
+Current repository status after Sprint 3: FE-P7 is still `planned`, with `row_rollup_state=partially_implemented`. The frontend registry still reports `FE-P7-ACTIVATION-BLOCKER-01` with reason `frontend_phase_not_active`. The FE-P7 map now marks `FE-U-P7-01` and `FE-U-P7-02` as `claim_status=implemented`; `FE-I-P7-01`, `FE-E-P7-01`, `FE-V-P7-01`, and `FE-A11Y-P7-01` remain `claim_status=blocked`.
 
-Execution eligibility: `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P7` says planned frontend phases are explainable but not executable as phases. Individual targets exist, but current rows are not closure-eligible because the map marks them blocked and their targets are not required for closure yet.
+Execution eligibility: `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P7` says planned frontend phases are explainable but not executable as phases. Individual targets exist; `FE-U-P7-01` and `FE-U-P7-02` are now closure-eligible through mapped `frontend-unit` row accounting, while the remaining FE-P7 rows stay blocked until their mapped evidence is added and promoted.
 
-Phase state: FE-P7 is planned and blocked for closure. It is not active. It is not treated as stale after the successful phase-ledger drift check, but it has no current direct FE-P7 row-owned evidence roots.
+Phase state: FE-P7 is planned and blocked for phase closure. It is not active. Sprint 3 added direct FE-P7 row-owned unit evidence for `FE-U-P7-02`; the phase remains partially implemented until the remaining integration, E2E, visual, and accessibility rows are promoted with current mapped evidence.
 
 This document is an execution roadmap, progress marker, validation guide, blocker register, and FE-P8 handoff aid. It is not product behavior authority, row-closure authority, registry authority, or evidence authority. Row promotion and closure come only from authored maps, mapped target evidence, current row-accounting artifacts, and applicable owner references.
 
@@ -74,15 +74,15 @@ Frontend phase registry status for FE-P0 through FE-P7:
 | FE-P4 | `active` | `active_green` | none |
 | FE-P5 | `active` | `active_green` | none |
 | FE-P6 | `active` | `active_green` | none |
-| FE-P7 | `planned` | `no_rows_implemented` | `FE-P7-ACTIVATION-BLOCKER-01`, reason `frontend_phase_not_active` |
+| FE-P7 | `planned` | `partially_implemented` | `FE-P7-ACTIVATION-BLOCKER-01`, reason `frontend_phase_not_active` |
 
 FE-P7 registry detail:
 
 - `status`: `planned`
-- `row_rollup_state`: `no_rows_implemented`
-- `evidence_freshness_digest`: `63e18f46b12e86912786867dc3afbd81133261ae13e7db40f3f4a50d794a93a6`
-- `manifest_digest`: `ae9224fbbb8af587f1a73bb8e1b0a612f77de43407a1feb98b9c39e3879cd6cd`
-- `ledger_digest`: `3a8afdfc9dc119088ba3a04888b04d2feb68641267926a4565e8d03efb8aa4d3`
+- `row_rollup_state`: `partially_implemented`
+- `evidence_freshness_digest`: `25a655bb2aa3a103da632d1e32e863d3bed5ecfe7f8a434efbdf20908e86f406`
+- `manifest_digest`: `ad2a10947ba46ac936afa526a93bc88b92f39bfc0f753b466b33979712c3bf08`
+- `ledger_digest`: `b8d017baa0c19394d7bda8a36fd80cc13b30f4ea61f0a54dea6b37c9d43d8c26`
 - Activation blocker: `FE-P7-ACTIVATION-BLOCKER-01`, `frontend_phase_not_active`, "Frontend phase is not active until direct row evidence and freshness validation are promoted together."
 - Dependencies: FE-P0 through FE-P6.
 
@@ -90,8 +90,8 @@ FE-P7 map inventory and current `claim_status`:
 
 | Row | Layer | Evidence class | Targets | Current `claim_status` |
 | --- | --- | --- | --- | --- |
-| `FE-U-P7-01` | unit | `product_conformance` | `frontend-unit` | `blocked` |
-| `FE-U-P7-02` | unit | `product_conformance` | `frontend-unit` | `blocked` |
+| `FE-U-P7-01` | unit | `product_conformance` | `frontend-unit` | `implemented` |
+| `FE-U-P7-02` | unit | `product_conformance` | `frontend-unit` | `implemented` |
 | `FE-I-P7-01` | integration | `product_conformance` | `frontend-unit`, `browser-e2e-webserver-backed` | `blocked` |
 | `FE-E-P7-01` | e2e | `product_conformance` | `browser-e2e-stateful`, `browser-e2e-webserver-backed` | `blocked` |
 | `FE-V-P7-01` | visual | `design_direction` | `browser-e2e-visual` | `blocked` |
@@ -101,9 +101,9 @@ Generated FE-P7 coverage ledger status:
 
 - Ledger path: `docs/testing/frontend_phase_coverage_ledgers/fe_p7_coverage_ledger.md`
 - Generated status: `planned`
-- Generated rollup: `no_rows_implemented`
-- Rows: same six FE-P7 rows as the live map, all `blocked`
-- Drift status: `make phase-ledger-drift` passed with run root `.cartulary/test-results/20260607T215728Z-p3866530`
+- Generated rollup: `partially_implemented`
+- Rows: same six FE-P7 rows as the live map; `FE-U-P7-01` and `FE-U-P7-02` are `implemented`, and the remaining four rows are `blocked`
+- Drift status: `make phase-ledger-drift` passed with run root `.cartulary/test-results/20260610T011103Z-p21255`
 - Closure limit: the ledger is downstream and cannot close rows by itself.
 
 FE-P7 visual fixture IDs from the live visual fixture registry:
@@ -116,7 +116,9 @@ FE-P7 visual fixture IDs from the live visual fixture registry:
 
 Retained current evidence roots that may be relevant:
 
-- No direct FE-P7 row-owned evidence roots were found by searching `.cartulary/test-results` for FE-P7 row IDs.
+- Direct FE-P7 unit row evidence now exists at `.cartulary/test-results/20260610T011247Z-p26742/frontend-unit/frontend-row-accounting.json`; row accounting reports `FE-U-P7-01` and `FE-U-P7-02` as mapped and closed.
+- Direct selected-row Sprint 3 evidence for `FE-U-P7-02` exists at `.cartulary/test-results/20260610T011235Z-p25289/frontend-unit/frontend-row-accounting.json`.
+- Sprint 3 supporting typecheck evidence exists at `.cartulary/test-results/20260610T011235Z-p25267/frontend-typecheck/tool-run-summary.json`.
 - Latest target artifacts reported by `make explain-target` include `.cartulary/test-results/20260607T212136Z-p3783644` for `frontend-unit`, `browser-e2e-stateful`, `browser-e2e-webserver-backed`, `check`, `generate-drift`, `generated-artifact-policy-check`, `json-shape-check`, `phase-ledger-drift`, `frontend-typecheck`, and `frontend-import-boundary-check`. These are retained context only unless row ownership, freshness, target mapping, and scenario expectations are current and directly applicable.
 - `browser-e2e-a11y` and `browser-e2e-a11y-preflight` reported no latest artifact.
 - FE-P6 handoff roots are listed in the FE-P6 handoff section as dependency context only.
@@ -265,8 +267,8 @@ Expected implementation domains:
 
 | Row ID | Layer | Evidence class | Owner sections | Exact REQ IDs | Exact AC IDs | Repository target or TODO | Current `claim_status` | Expected closure evidence | Blockers | Non-claims |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `FE-U-P7-01` | unit | product conformance | `docs/spec/01_architecture_storage_and_view_contracts.md#Core 01 Section 3.3.10`; `docs/spec/04_security_deployment_and_conformance.md#Core 04 Sections 2 and 5` | `REQ-01-250`, `REQ-01-253`, `REQ-04-001`, `REQ-04-017`, `REQ-04-052`, `REQ-04-053`, `REQ-04-110` | `AC-129`, `AC-131`, `AC-136`, `AC-156`, `AC-163`, `AC-231`, `AC-232`, `AC-233`, `AC-234`, `AC-298`, `AC-334`, `AC-342` | `make frontend-unit`; TODO add/promote row-owned unit evidence | `blocked` | `frontend-row-accounting.json` for `frontend-unit` with `FE-U-P7-01`, current map/registry digests, WebSocket reducer cases for row update, reset, invalidate, stale-row requery, authorization close, and session revocation | `FE-U-P7-01-BLOCKER-01: frontend_phase_row_not_implemented` | Does not claim public route behavior, design readiness, or Core 05 publication. |
-| `FE-U-P7-02` | unit | product conformance | `docs/spec/03_workbook_interaction_collaboration_and_workflows.md#Core 03 Sections 3.1, 3.3.5, 3.3.6, 4.2, and 4.4` | `REQ-03-033`, `REQ-03-084` | `AC-009`, `AC-013`, `AC-037`, `AC-042`, `AC-047`, `AC-126`, `AC-163`, `AC-203`, `AC-204`, `AC-226`, `AC-231`, `AC-381` | `make frontend-unit`; TODO add/promote row-owned unit evidence | `blocked` | `frontend-row-accounting.json` for `frontend-unit` with `FE-U-P7-02`, current digests, same-field conflict anchors, queue, resolver state, and `record_id + field_key + base_row_version` identity assertions | `FE-U-P7-02-BLOCKER-01: frontend_phase_row_not_implemented` | Does not claim public resolver integration, visual readiness, or Core 05 publication. |
+| `FE-U-P7-01` | unit | product conformance | `docs/spec/01_architecture_storage_and_view_contracts.md#Core 01 Section 3.3.10`; `docs/spec/04_security_deployment_and_conformance.md#Core 04 Sections 2 and 5` | `REQ-01-250`, `REQ-01-253`, `REQ-04-001`, `REQ-04-017`, `REQ-04-052`, `REQ-04-053`, `REQ-04-110` | `AC-129`, `AC-131`, `AC-136`, `AC-156`, `AC-163`, `AC-231`, `AC-232`, `AC-233`, `AC-234`, `AC-298`, `AC-334`, `AC-342` | `make frontend-unit` | `implemented` | `.cartulary/test-results/20260610T011247Z-p26742/frontend-unit/frontend-row-accounting.json` closes reducer cases for row update, reset, invalidate, stale-row requery, authorization close, session revocation, duplicate sequence, and sequence gap | none | Unit evidence only; does not claim public route behavior, design readiness, or Core 05 publication. |
+| `FE-U-P7-02` | unit | product conformance | `docs/spec/03_workbook_interaction_collaboration_and_workflows.md#Core 03 Sections 3.1, 3.3.5, 3.3.6, 4.2, and 4.4` | `REQ-03-033`, `REQ-03-084` | `AC-009`, `AC-013`, `AC-037`, `AC-042`, `AC-047`, `AC-126`, `AC-163`, `AC-203`, `AC-204`, `AC-226`, `AC-231`, `AC-381` | `make frontend-unit` | `implemented` | `.cartulary/test-results/20260610T011247Z-p26742/frontend-unit/frontend-row-accounting.json` closes same-field conflict anchors, queue identity, resolver state, stale-token recovery, save-state conflict anchors, focus preservation, and `record_id + field_key + base_row_version` identity assertions | none | Unit evidence only; does not claim public resolver integration, browser E2E, visual readiness, accessibility readiness, or Core 05 publication. |
 | `FE-I-P7-01` | integration | product conformance | `docs/spec/01_architecture_storage_and_view_contracts.md#Core 01 Section 3.3.6`; `docs/spec/03_workbook_interaction_collaboration_and_workflows.md#Core 03 Sections 3.1, 3.3.5, 3.3.6, 4.2, and 4.4` | `REQ-01-057`, `REQ-01-070`, `REQ-03-033`, `REQ-03-084` | `AC-009`, `AC-013`, `AC-037`, `AC-042`, `AC-047`, `AC-124`, `AC-127`, `AC-181`, `AC-183`, `AC-188`, `AC-190`, `AC-200`, `AC-218`, `AC-221`, `AC-231`, `AC-299`, `AC-381` | `make frontend-unit`; `make browser-e2e-webserver-backed`; TODO add/promote row-owned integration scenario | `blocked` | Row accounting for `FE-I-P7-01` proving conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering | `FE-I-P7-01-BLOCKER-01: frontend_phase_row_not_implemented` | Does not claim multi-client E2E closure, visual readiness, or Core 05 publication. |
 | `FE-E-P7-01` | e2e | product conformance | `docs/spec/01_architecture_storage_and_view_contracts.md#Core 01 Sections 3.3.6 and 3.3.10`; `docs/spec/03_workbook_interaction_collaboration_and_workflows.md#Core 03 Sections 3.1, 3.3.5, 3.3.6, 4.2, and 4.4` | `REQ-01-057`, `REQ-01-070`, `REQ-01-250`, `REQ-01-253`, `REQ-03-033`, `REQ-03-084` | `AC-009`, `AC-013`, `AC-037`, `AC-042`, `AC-047`, `AC-124`, `AC-129`, `AC-131`, `AC-136`, `AC-156`, `AC-163`, `AC-181`, `AC-183`, `AC-188`, `AC-190`, `AC-200`, `AC-218`, `AC-221`, `AC-233`, `AC-299`, `AC-381` | `make browser-e2e-stateful`; `make browser-e2e-webserver-backed`; TODO add/promote row-owned multi-client scenario | `blocked` | Row accounting for `FE-E-P7-01` proving multi-client live row update, presence anchoring, reset/invalidate, stale-row requery, and same-field resolver through `/ws/v1/` and `/api/v1/` | `FE-E-P7-01-BLOCKER-01: frontend_phase_row_not_implemented` | Does not claim visual/a11y readiness or Core 05 publication. |
 | `FE-V-P7-01` | visual | design direction | `docs/guides/cartulary-ui-ux-design-guide.md#UI/UX guide Sections 8, 10.4, 10.5, 13`; `docs/guides/cartulary_visual_golden_maintenance.md#visual golden guide Sections 2, 3, 5` | none | `R2-AC-023`, `R2-AC-026`, `R2-AC-045`, `R2-AC-050`, `R2-AC-073`, `R2-AC-079` | `make browser-e2e-visual`; fixture IDs `FE-VFIX-03`, `FE-VFIX-04`, `FE-VFIX-08`; TODO recapture/promote FE-P7 row-owned visual accounting | `blocked` | Row accounting for `FE-V-P7-01` plus visual artifacts for same-field conflict, row-gutter presence, presence hints, conflict resolver, reset/invalidate notice, and save-state conflict fixtures | `FE-V-P7-01-BLOCKER-01: visual_fixture_not_recaptured_for_frontend_row` | Design-direction only; does not claim product conformance or Core 05 publication. |
@@ -435,6 +437,64 @@ Binary Sprint 1 outcome: `pass with blockers`. Readiness and drift baseline are 
 - Non-claims: unit state coverage does not prove public mutation submission.
 - Binary completion criteria: pass if row-owned unit evidence proves stable conflict identity and the live map promotes the row; fail otherwise.
 
+#### Sprint 3 Closeout: Conflict Anchoring And Resolver State
+
+Sprint 3 completed the `FE-U-P7-02` unit row. It did not activate FE-P7, close public resolver integration, add browser E2E evidence, add visual/a11y evidence, change backend routes, change database schema, change generated protocol roots, or activate Core 05 publication evidence.
+
+Current Sprint 3 state:
+
+- `FE-U-P7-02` is `claim_status=implemented` in `tools/frontend_phase_maps/fe_p7_test_map.json`.
+- `FE-U-P7-02` target `frontend-unit` is `required_for_closure=true`, `frontend_row_accounting_required=true`, and `scenario_title_required=true`.
+- The generated FE-P7 coverage ledger reflects `FE-U-P7-02` as implemented.
+- `tools/frontend_phase_registry.json` remains `status=planned`, `row_rollup_state=partially_implemented`, with `FE-P7-ACTIVATION-BLOCKER-01` still active.
+
+Sprint 3 implementation changes:
+
+- `apps/web/src/workbookPendingQueue.ts` now exposes `sameFieldConflictQueueKey()` for the Core 03 queue key `record_id:field_key` and `workbookSaveStateConflictAnchorIdentity()` for the resolver/save-state anchor identity `record_id + field_key + base_row_version`.
+- `apps/web/src/WorkbookShell.tsx` now stores an explicit `WorkbookSaveStateConflictAnchor` on `LocalConflictState`, derives save-state conflict anchors from that explicit state, preserves merged draft state during stale same-field conflict refresh, and exposes non-visible resolver anchor attributes for row-owned unit evidence.
+- `apps/web/src/workbookPendingQueue.test.ts` adds pure queue/save-state evidence proving same-field conflicts leave pending replay, block later replay until cleared, reject visible-order identity, and count anchors by `record_id + field_key + base_row_version`.
+- `apps/web/src/WorkbookShell.phase7.test.tsx` adds resolver evidence for refresh/reorder anchoring, stale conflict-token recovery, focus return, conflict marker identity, and save-state `Conflict` persistence.
+- `tools/frontend_phase_maps/fe_p7_test_map.json`, `docs/testing/frontend_phase_coverage_ledgers/fe_p7_coverage_ledger.md`, and `tools/frontend_phase_registry.json` were updated through the owner map plus `make phase-ledgers`/digest refresh path.
+
+Sprint 3 row-owned scenario titles:
+
+- `FE-U-P7-02 keeps same-field conflict queue identity separate from pending replay and visible order`
+- `FE-U-P7-02 derives save-state conflict anchors from record_id field_key and base_row_version`
+- `FE-U-P7-02 keeps resolver state anchored to stable row and field identities across refresh and reorder`
+- `FE-U-P7-02 preserves resolver draft and focus when a stale conflict token refreshes the same anchor`
+
+Sprint 3 validation evidence:
+
+| Command | Result | Evidence |
+| --- | --- | --- |
+| `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P7` | pass | FE-P7 remains planned; `FE-U-P7-01` and `FE-U-P7-02` are implemented; remaining rows are blocked. |
+| `make explain-target TARGET=frontend-unit DETAIL=summary` | pass | Target exists and remains the mapped Sprint 3 target. |
+| `make generate` | pass | `.cartulary/test-results/20260610T010905Z-p15278` |
+| `make phase-ledgers` | pass | `.cartulary/test-results/20260610T011019Z-p20550` |
+| `make phase-slice PHASE_NAMESPACE=frontend PHASE=FE-P7 ROWS=FE-U-P7-02` | pass | `.cartulary/test-results/20260610T011235Z-p25289`; selected row accounting closed `FE-U-P7-02`. |
+| `make frontend-unit` | pass | `.cartulary/test-results/20260610T011247Z-p26742`; full row accounting closed `FE-U-P7-01` and `FE-U-P7-02`. |
+| `make frontend-typecheck` | pass | `.cartulary/test-results/20260610T011235Z-p25267` |
+| `make generated-artifact-policy-check` | pass | `.cartulary/test-results/20260610T011111Z-p21861` |
+| `make json-shape-check` | pass | `.cartulary/test-results/20260610T011102Z-p21199` |
+| `make generate-drift` | pass | `.cartulary/test-results/20260610T011111Z-p21860` |
+| `make phase-ledger-drift` | pass | `.cartulary/test-results/20260610T011103Z-p21255` |
+| `make agent-finalize` | pass | `.cartulary/test-results/20260610T011303Z-p28234`; retained-run maintenance skipped because `RESULTS_DIR` was unset. |
+| `git diff --check` | pass | No whitespace errors. |
+
+Resolved Sprint 3 blocker:
+
+- `FE-U-P7-02-BLOCKER-01: frontend_phase_row_not_implemented` is resolved by the implemented map row, four exact row-owned unit scenarios, selected-row accounting, full `frontend-unit` accounting, generated ledger refresh, registry digest refresh, and passing drift checks.
+
+Remaining Sprint 3 non-claims and blockers:
+
+- `FE-P7` is still planned and phase-blocked by `FE-P7-ACTIVATION-BLOCKER-01`.
+- `FE-I-P7-01`, `FE-E-P7-01`, `FE-V-P7-01`, and `FE-A11Y-P7-01` remain blocked and must not be inferred from Sprint 3 unit success.
+- Public resolver mutation integration remains Sprint 4 scope.
+- Multi-client public `/ws/v1/` and `/api/v1/` E2E remains Sprint 5 scope.
+- Visual readiness and accessibility readiness remain design-direction rows and are not product-conformance or Core 05 evidence.
+
+Binary Sprint 3 outcome: `pass with remaining phase blockers`. `FE-U-P7-02` is closed as a row; FE-P7 remains partially implemented.
+
 ### Sprint 4: Resolver Integration
 
 - Goal: Implement and validate `FE-I-P7-01`.
@@ -585,14 +645,12 @@ Current blocker register:
 
 | Affected row | Affected source | Exact observed condition | Why closure is blocked | Minimum follow-up | Prevents |
 | --- | --- | --- | --- | --- | --- |
-| Phase `FE-P7` | `tools/frontend_phase_registry.json` | `status=planned`, `row_rollup_state=no_rows_implemented`, `FE-P7-ACTIVATION-BLOCKER-01` | Phase is not active and no direct row evidence has been promoted | Implement rows, update owner map inputs, run row targets, run drift/finalization checks | Phase closure |
-| `FE-U-P7-01` | `tools/frontend_phase_maps/fe_p7_test_map.json` | `claim_status=blocked`, `frontend_phase_row_not_implemented` | Direct unit reducer evidence is absent | Add/promote row-owned `frontend-unit` evidence and row accounting | Row closure |
-| `FE-U-P7-02` | `tools/frontend_phase_maps/fe_p7_test_map.json` | `claim_status=blocked`, `frontend_phase_row_not_implemented` | Direct conflict anchor/reducer evidence is absent | Add/promote row-owned `frontend-unit` evidence and row accounting | Row closure |
+| Phase `FE-P7` | `tools/frontend_phase_registry.json` | `status=planned`, `row_rollup_state=partially_implemented`, `FE-P7-ACTIVATION-BLOCKER-01` | Phase is not active and only the two unit rows have been promoted | Implement remaining blocked rows, update owner map inputs, run row targets, run drift/finalization checks | Phase closure |
 | `FE-I-P7-01` | `tools/frontend_phase_maps/fe_p7_test_map.json` | `claim_status=blocked`, `frontend_phase_row_not_implemented` | Resolver integration evidence is absent | Add/promote row-owned `frontend-unit` and `browser-e2e-webserver-backed` evidence | Row closure |
 | `FE-E-P7-01` | `tools/frontend_phase_maps/fe_p7_test_map.json` | `claim_status=blocked`, `frontend_phase_row_not_implemented` | Multi-client public-route evidence is absent | Add/promote row-owned stateful and webserver-backed evidence through `/ws/v1/` and `/api/v1/` | Row closure and phase closure |
 | `FE-V-P7-01` | `tools/frontend_phase_maps/fe_p7_test_map.json`; visual fixture registry | `claim_status=blocked`, `visual_fixture_not_recaptured_for_frontend_row`; registry has current FE-P7 fixture IDs but V-6/FE-P4 scenario names | Visual fixtures/goldens are context only without FE-P7 row accounting | Recapture or promote FE-P7 visual artifacts, run `browser-e2e-visual`, verify row accounting | Visual row closure |
 | `FE-A11Y-P7-01` | `tools/frontend_phase_maps/fe_p7_test_map.json`; `apps/web/e2e/workbook.a11y-preflight.spec.ts` | `claim_status=blocked`; live target is `browser-e2e-a11y-preflight`; target explanation says phase coverage none | Blocked-row smoke cannot close implemented accessibility row unless map/guide allow it | Resolve map/guide target, run mapped accessibility target, capture row accounting and summary/preflight artifacts | Accessibility row closure |
-| All rows | `.cartulary/test-results` | No direct FE-P7 row-owned evidence roots found | No current row accounting proves FE-P7 behavior | Run mapped targets after implementation and inspect `frontend-row-accounting.json` | Row closure |
+| Remaining unclosed rows | `.cartulary/test-results` | Current direct row-owned evidence exists only for `FE-U-P7-01` and `FE-U-P7-02` | Integration, E2E, visual, and accessibility rows still lack current row-owned closure evidence | Run mapped targets after implementation and inspect `frontend-row-accounting.json` | Remaining row closure |
 | Claim-publication boundary | Core 05 | No explicit Core 05 claim-bearing metadata found | Publication evidence is inactive | Add Core 05 metadata only if claim publication is intentionally in scope | Publication claims only |
 
 ## Strict Non-Claims
@@ -623,16 +681,16 @@ This plan does not claim:
 
 Current FE-P8 handoff baseline at plan creation:
 
-- Final FE-P7 registry status: not final. Current status is `planned`, `no_rows_implemented`.
-- Final FE-P7 row inventory: not final. Current inventory is the six rows listed above, all `blocked`.
-- Direct evidence roots for closed FE-P7 rows: none found.
+- Final FE-P7 registry status: not final. Current status is `planned`, `partially_implemented`.
+- Final FE-P7 row inventory: not final. Current inventory is the six rows listed above; `FE-U-P7-01` and `FE-U-P7-02` are `implemented`, while `FE-I-P7-01`, `FE-E-P7-01`, `FE-V-P7-01`, and `FE-A11Y-P7-01` remain `blocked`.
+- Direct evidence roots for closed FE-P7 rows: `.cartulary/test-results/20260610T011247Z-p26742/frontend-unit/frontend-row-accounting.json` closes `FE-U-P7-01` and `FE-U-P7-02`; `.cartulary/test-results/20260610T011235Z-p25289/frontend-unit/frontend-row-accounting.json` is selected-row Sprint 3 evidence for `FE-U-P7-02`.
 - Exact blockers for unclosed FE-P7 rows: see blocker register.
-- WebSocket and public-route evidence status: existing Phase 6-era helpers and scenarios provide context, but no current FE-P7 row-owned evidence root exists.
-- Conflict resolver evidence status: existing app code and Phase 6-era scenarios provide context, but no current FE-P7 row-owned evidence root exists.
+- WebSocket and public-route evidence status: `FE-U-P7-01` unit reducer evidence is current; public-route integration and E2E evidence remains blocked for `FE-I-P7-01` and `FE-E-P7-01`.
+- Conflict resolver evidence status: `FE-U-P7-02` unit resolver-state and conflict-anchor evidence is current; public resolver mutation integration remains blocked for `FE-I-P7-01`.
 - Presence anchoring status: existing selectors/helpers and V-6 scenarios provide context, but no FE-P7 closure.
 - Visual readiness status and fixture IDs: live registry has `FE-VFIX-03`, `FE-VFIX-04`, and `FE-VFIX-08` as current FE-P7-relevant fixtures; row `FE-V-P7-01` remains blocked until FE-P7 row-owned visual accounting exists.
 - Accessibility readiness status: live target is `browser-e2e-a11y-preflight`; `FE-A11Y-P7-01` remains blocked and preflight closure authority must be resolved before any claim.
-- FE-P0 through FE-P7 dependency state: FE-P0 through FE-P6 are `active_green`; FE-P7 is planned/blocked.
-- Drift and finalization command outcomes: `make phase-ledger-drift` passed for plan creation with `.cartulary/test-results/20260607T215728Z-p3866530`; full FE-P7 finalization has not run.
-- Owner-accepted blockers FE-P8 must respect: none accepted as final; all current FE-P7 blockers prevent row closure.
+- FE-P0 through FE-P7 dependency state: FE-P0 through FE-P6 are `active_green`; FE-P7 is planned and partially implemented.
+- Drift and finalization command outcomes: Sprint 3 `make phase-ledger-drift` passed with `.cartulary/test-results/20260610T011103Z-p21255`; `make agent-finalize` passed with `.cartulary/test-results/20260610T011303Z-p28234`.
+- Owner-accepted blockers FE-P8 must respect: none accepted as final; the remaining current FE-P7 blockers prevent full phase closure.
 - Strict non-claims FE-P8 cannot inherit without its own row-owned evidence: FE-P7 completion, saved-view persistence, rollback readiness, full coordination-surface readiness, product conformance from visual/a11y artifacts, and Core 05 publication readiness.

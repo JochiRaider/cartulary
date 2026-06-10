@@ -142,23 +142,27 @@
           "target_name": "frontend-unit",
           "command_id": "cartulary.harness.command.frontend_unit.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
-          "scenario_title_required": false
+          "scenario_title_required": true
         }
       ],
-      "scenario_titles": [],
-      "claim_status": "blocked",
+      "scenario_titles": [
+        "FE-U-P7-02 keeps same-field conflict queue identity separate from pending replay and visible order",
+        "FE-U-P7-02 derives save-state conflict anchors from record_id field_key and base_row_version",
+        "FE-U-P7-02 keeps resolver state anchored to stable row and field identities across refresh and reorder",
+        "FE-U-P7-02 preserves resolver draft and focus when a stale conflict token refreshes the same anchor"
+      ],
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify same-field conflict anchors, conflict queue, and resolver state use record_id + field_key + base_row_version rather than visible indexes.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
       "default_check_required": false,
-      "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-U-P7-02",
@@ -166,14 +170,7 @@
       "evidence_delta": "full evidence is retained outside default check",
       "warm_local_cost_class": "low",
       "phase_id": "FE-P7",
-      "blockers": [
-        {
-          "blocker_id": "FE-U-P7-02-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-I-P7-01",

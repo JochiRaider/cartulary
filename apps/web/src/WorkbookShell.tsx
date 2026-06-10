@@ -176,6 +176,7 @@ import {
   type PendingReplayUnitState,
   parsePendingReplayPublicError,
   pendingReplayCapacity,
+  sameFieldConflictQueueKey,
   WorkbookPendingQueueModel,
   type WorkbookSaveStateConflictAnchor,
 } from "./workbookPendingQueue";
@@ -466,6 +467,7 @@ type SameFieldConflictPayload = {
 
 type LocalConflictState = {
   key: string;
+  anchor: WorkbookSaveStateConflictAnchor;
   conflict: SameFieldConflictPayload;
   focusKey: string;
   localValue: unknown;
@@ -509,12 +511,18 @@ type PendingQueueRuntimeSnapshot = {
 function saveStateConflictAnchorsFromLocalConflicts(
   conflicts: Record<string, LocalConflictState>,
 ): WorkbookSaveStateConflictAnchor[] {
-  return Object.values(conflicts).map((entry) => ({
-    record_id: entry.conflict.record_id,
-    field_key: entry.conflict.field_key,
-    base_row_version: entry.conflict.base_row_version,
-    current_row_version: entry.conflict.current_row_version,
-  }));
+  return Object.values(conflicts).map((entry) => ({ ...entry.anchor }));
+}
+
+function saveStateConflictAnchorFromPayload(
+  conflict: SameFieldConflictPayload,
+): WorkbookSaveStateConflictAnchor {
+  return {
+    record_id: conflict.record_id,
+    field_key: conflict.field_key,
+    base_row_version: conflict.base_row_version,
+    current_row_version: conflict.current_row_version,
+  };
 }
 
 type WorkbookTimingEvent = {
@@ -4620,7 +4628,7 @@ export function TimelineWorkbook({
       focusKey: string,
       surface: TimelineScalarEditorSurface,
     ) => {
-      const queueKey = `${conflict.record_id}:${conflict.field_key}`;
+      const queueKey = sameFieldConflictQueueKey(conflict);
       const binding = timelineScalarBindingForField(conflict.field_key);
       if (binding !== null && typeof conflict.client_value === "string") {
         scalarDraftValuesRef.current.set(
@@ -4654,19 +4662,26 @@ export function TimelineWorkbook({
         });
       }
       setConflictQueueState((current) => {
+        const existing = current[queueKey];
+        const mergedDraft =
+          existing?.mergedDraft ??
+          (typeof conflict.suggested_merged_value === "string"
+            ? conflict.suggested_merged_value
+            : typeof conflict.server_value === "string"
+              ? conflict.server_value
+              : "");
         const next = {
           ...current,
           [queueKey]: {
             key: queueKey,
+            anchor: saveStateConflictAnchorFromPayload(conflict),
             conflict,
             focusKey,
-            localValue: conflict.client_value,
-            mergedDraft:
-              typeof conflict.suggested_merged_value === "string"
-                ? conflict.suggested_merged_value
-                : typeof conflict.server_value === "string"
-                  ? conflict.server_value
-                  : "",
+            localValue:
+              conflict.client_value === undefined
+                ? existing?.localValue
+                : conflict.client_value,
+            mergedDraft,
           },
         };
         updateSaveStateForConflicts(next);
@@ -6726,7 +6741,7 @@ export function TimelineWorkbook({
                   const conflictBinding = timelineScalarBindingForField(
                     conflict.field_key,
                   );
-                  const queueKey = `${conflict.record_id}:${conflict.field_key}`;
+                  const queueKey = sameFieldConflictQueueKey(conflict);
                   pasteConflictKeys.push(queueKey);
                   registerSameFieldConflict(
                     conflict,
@@ -8239,6 +8254,14 @@ export function TimelineWorkbook({
           {activeConflict ? (
             <section
               data-testid="conflict-resolver"
+              data-conflict-record-id={activeConflict.anchor.record_id}
+              data-conflict-field-key={activeConflict.anchor.field_key}
+              data-conflict-base-row-version={
+                activeConflict.anchor.base_row_version
+              }
+              data-conflict-current-row-version={
+                activeConflict.anchor.current_row_version
+              }
               style={conflictResolverStyle}
               aria-label="Same-field conflict resolver"
             >

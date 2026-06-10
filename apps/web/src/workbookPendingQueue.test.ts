@@ -10,7 +10,9 @@ import {
   type PendingReplayVisibleEdit,
   parsePendingReplayPublicError,
   pendingReplayCapacity,
+  sameFieldConflictQueueKey,
   WorkbookPendingQueueModel,
+  workbookSaveStateConflictAnchorIdentity,
 } from "./workbookPendingQueue";
 
 const incidentId = "incident-fe-p4";
@@ -1445,5 +1447,162 @@ describe("FE-U-P4-02 save-state unit model", () => {
     expect(multiConflictPresentation.secondaryMessage).not.toContain(
       "timeline.",
     );
+  });
+});
+
+describe("FE-U-P7-02 conflict anchoring and resolver state unit model", () => {
+  it("FE-U-P7-02 keeps same-field conflict queue identity separate from pending replay and visible order", () => {
+    const queue = createQueue();
+    expectAccepted(
+      queue.admit(
+        patchUnit({
+          clientTxnId: "txn-visible-late",
+          recordId: "record-anchor",
+          order: 1,
+          baseRowVersion: 41,
+          fieldKey: "timeline.summary",
+          value: "Local anchored draft",
+          presentationHint: {
+            label: "Visible row 99",
+            recordType: "timeline-visible-label",
+            sortRank: 99,
+            visibleRowIndex: 99,
+          },
+          visibleEdit: {
+            rowKey: "visible-row-99",
+            fieldKey: "timeline.summary",
+            value: "Local anchored draft",
+          },
+        }),
+      ),
+    );
+    expectAccepted(
+      queue.admit(
+        patchUnit({
+          clientTxnId: "txn-behind-conflict",
+          recordId: "record-behind",
+          order: 2,
+          baseRowVersion: 3,
+          fieldKey: "timeline.details",
+          value: "Behind conflict",
+          presentationHint: {
+            label: "Visible row 1",
+            recordType: "timeline-visible-label",
+            sortRank: 1,
+            visibleRowIndex: 1,
+          },
+        }),
+      ),
+    );
+
+    queue.dispatchNext();
+    const settlement = queue.settleDispatched({
+      ok: false,
+      status: 409,
+      error: sameFieldConflictError({
+        conflictToken: "conflict-token-anchor",
+        recordId: "record-anchor",
+        fieldKey: "timeline.summary",
+        baseRowVersion: 41,
+        currentRowVersion: 42,
+      }),
+    });
+
+    expect(settlement.outcome).toBe("same_field_conflict");
+    if (settlement.outcome !== "same_field_conflict") {
+      throw new Error("expected same-field conflict settlement");
+    }
+    expect(settlement.conflict.key).toBe(
+      sameFieldConflictQueueKey({
+        record_id: "record-anchor",
+        field_key: "timeline.summary",
+      }),
+    );
+    expect(settlement.conflict).toMatchObject({
+      record_id: "record-anchor",
+      field_key: "timeline.summary",
+      base_row_version: 41,
+      current_row_version: 42,
+    });
+    expect(settlement.conflict.key).not.toContain("99");
+    expect(settlement.conflict.key).not.toContain("Visible row");
+    const [conflictAnchor] =
+      settlement.snapshot.saveStatePresentation.conflictAnchors;
+    if (conflictAnchor === undefined) {
+      throw new Error("expected same-field conflict save-state anchor");
+    }
+    expect(
+      workbookSaveStateConflictAnchorIdentity(conflictAnchor),
+    ).toBe("record-anchor\u0000timeline.summary\u000041");
+    expect(
+      settlement.snapshot.units.map((unit) => unit.clientTxnId),
+    ).toEqual(["txn-behind-conflict"]);
+    expect(queue.dispatchNext()).toBeNull();
+
+    queue.clearSameFieldConflict(settlement.conflict.key);
+    expect(queue.snapshot().sameFieldConflicts).toEqual([]);
+    expect(queue.dispatchNext()?.unit.clientTxnId).toBe(
+      "txn-behind-conflict",
+    );
+  });
+
+  it("FE-U-P7-02 derives save-state conflict anchors from record_id field_key and base_row_version", () => {
+    const presentation = deriveWorkbookSaveState({
+      queuedCount: 5,
+      inFlightCount: 1,
+      sameFieldConflicts: [
+        {
+          key: "record-a:timeline.summary",
+          conflict_token: "conflict-a",
+          record_id: "record-a",
+          field_key: "timeline.summary",
+          conflict_resolution_class: "text_compare_merge",
+          base_row_version: 7,
+          current_row_version: 8,
+        },
+        {
+          key: "record-a:timeline.summary",
+          conflict_token: "conflict-a-refresh",
+          record_id: "record-a",
+          field_key: "timeline.summary",
+          conflict_resolution_class: "text_compare_merge",
+          base_row_version: 9,
+          current_row_version: 10,
+        },
+      ],
+      localDraftConflicts: [
+        {
+          record_id: "record-a",
+          field_key: "timeline.summary",
+          base_row_version: 7,
+          current_row_version: 8,
+        },
+        {
+          record_id: "record-b",
+          field_key: "timeline.details",
+          base_row_version: 2,
+          current_row_version: 5,
+        },
+      ],
+    });
+
+    expect(presentation.primaryLabel).toBe("Conflict");
+    expect(presentation.secondaryKind).toBe("same_field_conflict");
+    expect(presentation.secondaryMessage).toBe(
+      "3 same-field conflicts need review.",
+    );
+    expect(
+      presentation.conflictAnchors.map((anchor) =>
+        workbookSaveStateConflictAnchorIdentity(anchor),
+      ),
+    ).toEqual([
+      "record-a\u0000timeline.summary\u00007",
+      "record-a\u0000timeline.summary\u00009",
+      "record-b\u0000timeline.details\u00002",
+    ]);
+    expect(presentation.secondaryMessage).not.toContain("record-a");
+    expect(presentation.secondaryMessage).not.toContain("timeline.summary");
+    expect(presentation.secondaryMessage).not.toContain("conflict-a");
+    expect(presentation.secondaryMessage).not.toContain("/api/v1");
   });
 });
