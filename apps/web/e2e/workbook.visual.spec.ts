@@ -79,6 +79,7 @@ import {
 import {
   driveRealTimelineSummaryConflict,
   editTimelineSummary,
+  focusRemoteTimelineCellAndWaitForPresence,
   installIncidentSocketMonitor,
   installPatchController,
   installPatchTransportFailureController,
@@ -1546,17 +1547,14 @@ test.describe("FE-P7 workbook visual readiness", () => {
         },
       );
       remotePage = remoteSession.page;
-      await remotePage
-        .getByTestId(rowCellTestId(presenceRow.record_id, "timeline.summary"))
-        .focus();
-      await expect(
-        page.getByTestId(rowPresenceMarkerTestId(presenceRow.record_id)),
-      ).toBeVisible();
-      await expect(
-        page.getByTestId(
-          cellPresenceMarkerTestId(presenceRow.record_id, "timeline.summary"),
-        ),
-      ).toBeVisible();
+      await focusRemoteTimelineCellAndWaitForPresence({
+        actorText: "VA",
+        fieldKey: "timeline.summary",
+        primaryPage: page,
+        recordId: presenceRow.record_id,
+        remotePage,
+        socketMonitor: primarySocket,
+      });
       await assertMarkerAnchoredToGridTarget({
         anchorKind: "row-gutter",
         markerTestId: rowPresenceMarkerTestId(presenceRow.record_id),
@@ -1704,37 +1702,14 @@ test.describe("Phase 6 workbook visual evidence", () => {
         },
       );
       remotePage = remoteSession.page;
-      const markerStartAt = primarySocket.messageCount();
-      const fieldKey = "timeline.summary";
-      const markerDelta = primarySocket.waitForMessage("presence_delta", {
-        matches: (message) => {
-          const presence = message.payload.presence;
-          return (
-            presence !== null &&
-            typeof presence === "object" &&
-            !Array.isArray(presence) &&
-            "record_id" in presence &&
-            presence.record_id === timelineRow.record_id &&
-            "field_key" in presence &&
-            presence.field_key === fieldKey &&
-            "mode" in presence &&
-            presence.mode === "editing"
-          );
-        },
-        startAt: markerStartAt,
+      await focusRemoteTimelineCellAndWaitForPresence({
+        actorText: "VA",
+        fieldKey: "timeline.summary",
+        primaryPage: page,
+        recordId: timelineRow.record_id,
+        remotePage,
+        socketMonitor: primarySocket,
       });
-      await remotePage
-        .getByTestId(rowCellTestId(timelineRow.record_id, fieldKey))
-        .focus();
-      await markerDelta;
-      await expect(
-        page.getByTestId(rowPresenceMarkerTestId(timelineRow.record_id)),
-      ).toContainText("VA");
-      await expect(
-        page.getByTestId(
-          cellPresenceMarkerTestId(timelineRow.record_id, "timeline.summary"),
-        ),
-      ).toContainText("VA");
       await assertMarkerAnchoredToGridTarget({
         anchorKind: "row-gutter",
         markerTestId: rowPresenceMarkerTestId(timelineRow.record_id),

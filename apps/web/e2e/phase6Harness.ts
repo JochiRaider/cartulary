@@ -1,11 +1,13 @@
 import { performance } from "node:perf_hooks";
 
 import {
+  cellPresenceMarkerTestId,
   conflictMarkerTestId,
   currentIncidentRoleTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   rowCellTestId,
+  rowPresenceMarkerTestId,
   saveStateTestId,
 } from "@cartulary/ui-contracts";
 import type { Browser, Page, Route, WebSocket } from "@playwright/test";
@@ -583,6 +585,74 @@ export function installIncidentSocketMonitor(page: Page, incidentId: string) {
     }
     return null;
   }
+}
+
+export function presenceDeltaMatches(
+  message: SocketMessage,
+  options: {
+    fieldKey: string;
+    mode: string;
+    recordId: string;
+  },
+) {
+  const presence = message.payload.presence;
+  return (
+    presence !== null &&
+    typeof presence === "object" &&
+    !Array.isArray(presence) &&
+    "record_id" in presence &&
+    presence.record_id === options.recordId &&
+    "field_key" in presence &&
+    presence.field_key === options.fieldKey &&
+    "mode" in presence &&
+    presence.mode === options.mode
+  );
+}
+
+export async function focusRemoteTimelineCellAndWaitForPresence({
+  actorText,
+  fieldKey,
+  mode = "editing",
+  primaryPage,
+  recordId,
+  remotePage,
+  socketMonitor,
+  timeoutMs,
+}: {
+  actorText?: string;
+  fieldKey: string;
+  mode?: string;
+  primaryPage: Page;
+  recordId: string;
+  remotePage: Page;
+  socketMonitor: ReturnType<typeof installIncidentSocketMonitor>;
+  timeoutMs?: number;
+}) {
+  const markerStartAt = socketMonitor.messageCount();
+  const markerDelta = socketMonitor.waitForMessage("presence_delta", {
+    matches: (message) =>
+      presenceDeltaMatches(message, {
+        fieldKey,
+        mode,
+        recordId,
+      }),
+    startAt: markerStartAt,
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+  });
+  await remotePage.getByTestId(rowCellTestId(recordId, fieldKey)).focus();
+  const presenceDelta = await markerDelta;
+  const rowMarker = primaryPage.getByTestId(rowPresenceMarkerTestId(recordId));
+  const cellMarker = primaryPage.getByTestId(
+    cellPresenceMarkerTestId(recordId, fieldKey),
+  );
+  if (actorText === undefined) {
+    await expect(rowMarker).toBeVisible();
+    await expect(cellMarker).toBeVisible();
+  } else {
+    await expect(rowMarker).toContainText(actorText);
+    await expect(cellMarker).toContainText(actorText);
+  }
+  return presenceDelta;
 }
 
 export async function installPatchController(page: Page) {

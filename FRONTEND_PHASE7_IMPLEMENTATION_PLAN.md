@@ -4,9 +4,9 @@
 
 FE-P7 covers live collaboration and conflicts in the frontend: WebSocket stream handling, event reducers, presence anchoring, live row updates, reset and invalidate handling, stale-row requery, same-field conflicts, and resolver behavior.
 
-Current repository status after FE-P7 remediation on 2026-06-10: FE-P7 is `active`, with `row_rollup_state=active_green`. The frontend registry has no FE-P7 activation blockers. The FE-P7 map marks all six rows as `claim_status=implemented`, and current row-owned evidence closes unit, integration, E2E, visual, and accessibility rows.
+Current repository status after FE-P7 remediation on 2026-06-10: FE-P7 is `active`, with `row_rollup_state=active_green`. The frontend registry has no FE-P7 activation blockers. The FE-P7 map marks all six rows as `claim_status=implemented`. The 2026-06-10 16:17Z visual audit failure is preserved as diagnostic context; the current `browser-e2e-visual` rerun closes `FE-V-P7-01` with the refreshed frontend registry and FE-P7 map digests.
 
-Execution eligibility: FE-P7 is now phase-closure eligible through current mapped target evidence. The retained row-accounting roots listed in this document use the current FE-P7 map digest `ffe9f57d6d2cc21fe15c0a1ce4ab1192b97ccafee2747f88be0c19fb2c9e309f` and current registry digest `b18e51339f688df3819c4191a8dd62e9dc96b156fc632fe42e415c32d2d2c783`.
+Execution eligibility: FE-P7 is phase-closure eligible through current mapped target evidence. Current freshness inputs use guide digest `7bfa510b010f7696ab79d174ea23489e28045b7924743d16d9990e2ef8e22339`, FE-P7 map digest `2fbc51a199d218247210ba57273ef58de31b88e9b29d641722886acd92ecd096`, registry digest `45f36f461a0aebf7baf2cad15ee0fa4098f12020e494a535bf418fd0db5fcbd2`, ledger digest `378137aa817ef13122879969bbafd12b222c02096f77eec9c4de5369f99dcfb6`, and visual fixture registry digest `364c3e26b7331a647fae03fff1a3f74cf6febdf9ff99b2ea6ae53c461f13c6ba`.
 
 Phase state: FE-P7 is active and green. Visual and accessibility evidence remains design-direction evidence only; product conformance remains owned by the mapped unit, public API, and WebSocket/browser rows. Core 05 claim-publication evidence remains out of scope.
 
@@ -80,8 +80,8 @@ FE-P7 registry detail:
 
 - `status`: `active`
 - `row_rollup_state`: `active_green`
-- `evidence_freshness_digest`: `e7ba8c39acf4105783ce0ee6e6ca48eed9defc96b153ddccdb698b18ff969e25`
-- `manifest_digest`: `ffe9f57d6d2cc21fe15c0a1ce4ab1192b97ccafee2747f88be0c19fb2c9e309f`
+- `evidence_freshness_digest`: `9441f930ae2f1bee90256a7130c733ddd706f0faf8f7effe60f6c510ce214105`
+- `manifest_digest`: `2fbc51a199d218247210ba57273ef58de31b88e9b29d641722886acd92ecd096`
 - `ledger_digest`: `378137aa817ef13122879969bbafd12b222c02096f77eec9c4de5369f99dcfb6`
 - Activation blockers: none.
 - Dependencies: FE-P0 through FE-P6.
@@ -103,15 +103,15 @@ Generated FE-P7 coverage ledger status:
 - Generated status: `active`
 - Generated rollup: `active_green`
 - Rows: same six FE-P7 rows as the live map; all six rows are `implemented`.
-- Drift status: `make phase-ledger-drift` passed with run root `.cartulary/test-results/20260610T130152Z-p23694`
+- Drift status: `make phase-ledger-drift` passed with run root `.cartulary/test-results/20260610T170121Z-p68912`
 - Closure limit: the ledger is downstream and cannot close rows by itself.
 
 FE-P7 visual fixture IDs from the live visual fixture registry:
 
 | Fixture ID | Registry title | Status | Owner rows | Notes |
 | --- | --- | --- | --- | --- |
-| `FE-VFIX-03` | FE-P7 same-field conflict resolver and conflict strip | `current` | `FE-V-P7-01` | Primary FE-P7 golden: `fe-v-p7-01-conflict-resolver-linux.png`; retained visual row accounting is current. |
-| `FE-VFIX-04` | FE-P7 row/cell presence markers | `current` | `FE-V-P7-01` | Primary FE-P7 golden: `fe-v-p7-01-presence-markers-linux.png`; retained visual row accounting is current. |
+| `FE-VFIX-03` | FE-P7 same-field conflict resolver and conflict strip | `current` | `FE-V-P7-01` | Primary FE-P7 golden: `fe-v-p7-01-conflict-resolver-linux.png`; current visual row accounting is `.cartulary/test-results/20260610T170224Z-p79058/browser-e2e-visual/frontend-row-accounting.json`. |
+| `FE-VFIX-04` | FE-P7 row/cell presence markers | `current` | `FE-V-P7-01` | Primary FE-P7 golden: `fe-v-p7-01-presence-markers-linux.png`; current visual row accounting is `.cartulary/test-results/20260610T170224Z-p79058/browser-e2e-visual/frontend-row-accounting.json`. |
 | `FE-VFIX-08` | FE-P7 save-state conflict and recovered state strip | `current` | `FE-V-P4-01`, `FE-V-P7-01` | Primary FE-P7 golden: `fe-v-p7-01-conflict-strip-linux.png`; FE-P4 and FE-P6 artifacts remain context only. |
 
 Retained current evidence roots that may be relevant:
@@ -119,10 +119,11 @@ Retained current evidence roots that may be relevant:
 - Direct FE-P7 unit row evidence exists at `.cartulary/test-results/20260610T130229Z-p26754/frontend-unit/frontend-row-accounting.json`; row accounting reports `FE-U-P7-01` and `FE-U-P7-02` as mapped and closed.
 - Direct FE-P7 public-route evidence exists at `.cartulary/test-results/20260610T130245Z-p28234/browser-e2e-webserver-backed/frontend-row-accounting.json`; row accounting reports `FE-I-P7-01` and `FE-E-P7-01` as mapped and closed.
 - Direct FE-P7 stateful multi-client evidence exists at `.cartulary/test-results/20260610T130424Z-p40986/browser-e2e-stateful/frontend-row-accounting.json`; row accounting reports `FE-E-P7-01` as mapped and closed.
-- Direct FE-P7 visual evidence exists at `.cartulary/test-results/20260610T130553Z-p52420/browser-e2e-visual/frontend-row-accounting.json`; row accounting reports `FE-V-P7-01` as mapped and closed.
-- Direct FE-P7 accessibility evidence exists at `.cartulary/test-results/20260610T130709Z-p63211/browser-e2e-a11y/frontend-row-accounting.json`; row accounting reports `FE-A11Y-P7-01` as mapped and closed.
-- Final full check evidence exists at `.cartulary/test-results/20260610T131508Z-p32177`; `make check` passed with 145/145 work units and 771 tests.
-- Finalizer evidence exists at `.cartulary/test-results/20260610T131642Z-p84249`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260610T131508Z-p32177` passed.
+- The failed FE-P7 visual audit root is `.cartulary/test-results/20260610T161759Z-p48827/browser-e2e-visual/frontend-row-accounting.json`; `FE-V-P7-01` failed because the scenario asserted the row presence marker before the primary page received the matching `presence_delta`.
+- Current FE-P7 visual evidence exists at `.cartulary/test-results/20260610T170224Z-p79058/browser-e2e-visual/frontend-row-accounting.json`; row accounting reports `FE-V-P7-01` as mapped and closed with current registry digest `45f36f461a0aebf7baf2cad15ee0fa4098f12020e494a535bf418fd0db5fcbd2` and FE-P7 map digest `2fbc51a199d218247210ba57273ef58de31b88e9b29d641722886acd92ecd096`.
+- Current FE-P7 accessibility evidence exists at `.cartulary/test-results/20260610T170341Z-p89889/browser-e2e-a11y/frontend-row-accounting.json`; row accounting reports `FE-A11Y-P7-01` as mapped and closed with the same current registry and FE-P7 map digests.
+- Current full-gate evidence is `.cartulary/test-results/20260610T171041Z-p57554`; `make check` passed with 142/142 work units and 771 tests.
+- Current finalization evidence is `.cartulary/test-results/20260610T171217Z-p9597`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260610T171041Z-p57554` passed with generated artifacts unchanged, duration baselines refreshed, and run checks passing.
 - FE-P6 handoff roots are listed in the FE-P6 handoff section as dependency context only.
 
 Relevant existing code, selectors, helpers, and tests:
@@ -132,9 +133,10 @@ Relevant existing code, selectors, helpers, and tests:
 - `apps/web/src/workbookShellPhase4.ts` normalizes and applies `record_changed` payloads and ignores self-originated socket transactions.
 - `apps/web/src/timelineWorkbookTestSupport.ts` provides jsdom WebSocket mocks, live row helpers, visible row helpers, and `/api/v1/records/` patch helpers for unit tests.
 - `apps/web/src/WorkbookShell.phase7.test.tsx` now contains FE-P7 row-owned unit coverage for resolver keyboard safety, focus restoration, conflict preservation, stale-token recovery, and stable identity.
+- `apps/web/e2e/phase6Harness.ts` now exports shared presence synchronization helpers that focus a remote grid cell, wait for a matching `/ws/v1/` `presence_delta` by `record_id`, `field_key`, and mode, then assert row and cell markers before visual or accessibility checks proceed.
 - `apps/web/e2e/phase6.collaboration.spec.ts` now contains FE-P7 row-owned public-route and multi-client scenarios through `/ws/v1/` and `/api/v1/`, including presence, same-field conflict resolver UI, pending replay, revocation, reset/invalidate, stale requery, and stable marker anchoring. FE-P6 scenarios in the same file remain dependency context unless they appear in current FE-P7 row accounting.
-- `apps/web/e2e/workbook.visual.spec.ts` now contains FE-P7-owned visual scenarios and goldens for row/cell presence, same-field conflict resolver, conflict strip, reset/invalidate notice, and recovered saved state. Legacy V-6/FE-P4 fixture names remain context only.
-- `apps/web/e2e/workbook.a11y.spec.ts` now contains FE-P7-owned accessibility coverage. `apps/web/e2e/workbook.a11y-preflight.spec.ts` remains blocked-row smoke and is not FE-P7 closure evidence.
+- `apps/web/e2e/workbook.visual.spec.ts` now contains FE-P7-owned visual scenarios and goldens for row/cell presence, same-field conflict resolver, conflict strip, reset/invalidate notice, and recovered saved state. The FE-P7 visual presence setup waits for the matching public `presence_delta` before asserting or capturing markers. Legacy V-6/FE-P4 fixture names remain context only.
+- `apps/web/e2e/workbook.a11y.spec.ts` now contains FE-P7-owned accessibility coverage. The FE-P7 accessibility presence setup uses the same public `presence_delta` synchronization helper. `apps/web/e2e/workbook.a11y-preflight.spec.ts` remains blocked-row smoke and is not FE-P7 closure evidence.
 - `packages/grid-adapter/src/core.ts` and `packages/grid-adapter/src/index.tsx` preserve record identity through `recordId`, `fieldKey`, presentation rows, navigation, paste targets, and row rendering.
 - `packages/protocol-ts/src/index.ts` exposes generated contract artifacts and public envelope types from generated roots.
 - `packages/ui-contracts/src/index.ts` defines stable selectors such as `conflictMarkerTestId(recordId, fieldKey)`, `rowPresenceMarkerTestId(recordId)`, `cellPresenceMarkerTestId(recordId, fieldKey)`, `saveStateTestId()`, `pendingQueueNoticeTestId()`, and `rowCellTestId(recordId, fieldKey)`.
@@ -148,8 +150,8 @@ Make target explanation results:
 | `make explain-target TARGET=frontend-unit DETAIL=summary` | Passed. Public fast-verification target; latest artifact `.cartulary/test-results/20260607T212136Z-p3783644/frontend-unit/frontend-unit/phase-summary.json`; phase coverage excludes phase7. |
 | `make explain-target TARGET=browser-e2e-stateful DETAIL=summary` | Passed. Public full-gate target with Postgres, object store, browser stack; phase coverage includes phase1 and phase6. |
 | `make explain-target TARGET=browser-e2e-webserver-backed DETAIL=summary` | Passed. Public full-gate target with webserver-backed browser batch; phase coverage includes phase7. |
-| `make explain-target TARGET=browser-e2e-visual DETAIL=summary` | Passed. Public visual browser batch; phase coverage currently phase3 through phase6. |
-| `make explain-target TARGET=browser-e2e-a11y DETAIL=summary` | Passed. Public a11y browser batch; phase coverage none; no latest artifact. |
+| `make explain-target TARGET=browser-e2e-visual DETAIL=summary` | Passed. Public visual browser batch. Current closure for `FE-V-P7-01` comes from frontend row accounting, not base visual phase labels. |
+| `make explain-target TARGET=browser-e2e-a11y DETAIL=summary` | Passed. Public accessibility browser batch. Current closure for implemented accessibility rows comes from frontend row accounting and `frontend-accessibility-summary.json`. |
 | `make explain-target TARGET=browser-e2e-a11y-preflight DETAIL=summary` | Passed. Public blocked-row accessibility preflight smoke; phase coverage none; no latest artifact. |
 | `make explain-target TARGET=phase-ledger-drift DETAIL=summary` | Passed. Public phase-maintenance target. |
 | `make explain-target TARGET=generate-drift DETAIL=summary` | Passed. Public generated artifact drift target. |
@@ -159,10 +161,7 @@ Make target explanation results:
 | `make explain-target TARGET=agent-finalize DETAIL=summary` | Passed. Public phase-maintenance target with optional `RESULTS_DIR`. |
 | `make explain-target TARGET=frontend-typecheck DETAIL=summary` | Passed. Public fast-verification target. |
 | `make explain-target TARGET=frontend-import-boundary-check DETAIL=summary` | Passed. Public fast-verification target. |
-| `make explain-target TARGET=frontend-phase-drift DETAIL=summary` | Failed as expected: target not declared. Record as `TODO: command not present`. |
-| `make explain-target TARGET=generated-drift DETAIL=summary` | Failed as expected: target not declared. Use `make generate-drift`. |
-| `make explain-target TARGET=lint-docs DETAIL=summary` | Failed as expected: target not declared. No public Markdown lint target found. |
-| `make explain-target TARGET=format-docs DETAIL=summary` | Failed as expected: target not declared. No public Markdown format target found. |
+| Canonical drift commands | Use `make phase-ledger-drift`, `make generate-drift`, `make generated-artifact-policy-check`, and `make json-shape-check`; do not add or rely on legacy alias targets. |
 
 Do not infer row closure from previous phase plans, previous retained runs, generated ledgers, fixture registry status, visual filenames, scenario titles, broad `make check`, or stale artifacts.
 
@@ -273,8 +272,8 @@ Expected implementation domains:
 | `FE-U-P7-02` | unit | product conformance | `docs/spec/03_workbook_interaction_collaboration_and_workflows.md#Core 03 Sections 3.1, 3.3.4, 3.3.5, 3.3.6, 4.2, 4.3, and 4.4` | `REQ-03-033`, `REQ-03-071`, `REQ-03-072`, `REQ-03-073`, `REQ-03-074`, `REQ-03-075`, `REQ-03-076`, `REQ-03-084`, `REQ-03-089`, `REQ-03-099`, `REQ-03-100` | `AC-009`, `AC-013`, `AC-037`, `AC-042`, `AC-047`, `AC-126`, `AC-163`, `AC-203`, `AC-204`, `AC-226`, `AC-231`, `AC-381` | `make frontend-unit` | `implemented` | `.cartulary/test-results/20260610T130229Z-p26754/frontend-unit/frontend-row-accounting.json` closes same-field conflict anchors, queue identity, resolver state, keyboard cancellation safety, stale-token recovery, save-state conflict anchors, focus preservation, and `record_id + field_key + base_row_version` identity assertions | none | Unit evidence only; does not claim public resolver integration, browser E2E, visual readiness, accessibility readiness, or Core 05 publication. |
 | `FE-I-P7-01` | integration | product conformance | `docs/spec/01_architecture_storage_and_view_contracts.md#Core 01 Section 3.3.6`; `docs/spec/03_workbook_interaction_collaboration_and_workflows.md#Core 03 Sections 3.1, 3.3.4, 3.3.5, 3.3.6, 4.2, 4.3, and 4.4` | `REQ-01-057`, `REQ-01-070`, `REQ-03-033`, `REQ-03-071`, `REQ-03-072`, `REQ-03-073`, `REQ-03-074`, `REQ-03-075`, `REQ-03-076`, `REQ-03-084`, `REQ-03-089`, `REQ-03-099`, `REQ-03-100` | `AC-009`, `AC-013`, `AC-037`, `AC-042`, `AC-047`, `AC-124`, `AC-127`, `AC-181`, `AC-183`, `AC-188`, `AC-190`, `AC-200`, `AC-218`, `AC-221`, `AC-231`, `AC-299`, `AC-381` | `make browser-e2e-webserver-backed` | `implemented` | `.cartulary/test-results/20260610T130245Z-p28234/browser-e2e-webserver-backed/frontend-row-accounting.json` closes public resolver `POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve`, success/error envelopes, stale-token refresh, row refresh, focus preservation, and pending queue ordering | none | Does not claim multi-client E2E closure, visual readiness, accessibility readiness, or Core 05 publication. |
 | `FE-E-P7-01` | e2e | product conformance | `docs/spec/01_architecture_storage_and_view_contracts.md#Core 01 Sections 3.1, 3.3.1, 3.3.6, and 3.3.10`; `docs/spec/03_workbook_interaction_collaboration_and_workflows.md#Core 03 Sections 3.1, 3.3.4, 3.3.5, 3.3.6, 4.2, 4.3, 4.4, and 14` | `REQ-01-017`, `REQ-01-022`, `REQ-01-057`, `REQ-01-070`, `REQ-01-250`, `REQ-01-253`, `REQ-03-033`, `REQ-03-071`, `REQ-03-072`, `REQ-03-073`, `REQ-03-074`, `REQ-03-075`, `REQ-03-076`, `REQ-03-084`, `REQ-03-089`, `REQ-03-096`, `REQ-03-097`, `REQ-03-098`, `REQ-03-099`, `REQ-03-100`, `REQ-03-223`, `REQ-03-235` | `AC-009`, `AC-013`, `AC-037`, `AC-042`, `AC-047`, `AC-124`, `AC-129`, `AC-131`, `AC-136`, `AC-156`, `AC-163`, `AC-181`, `AC-183`, `AC-188`, `AC-190`, `AC-200`, `AC-218`, `AC-221`, `AC-233`, `AC-299`, `AC-381` | `make browser-e2e-stateful`; `make browser-e2e-webserver-backed` | `implemented` | `.cartulary/test-results/20260610T130424Z-p40986/browser-e2e-stateful/frontend-row-accounting.json` and `.cartulary/test-results/20260610T130245Z-p28234/browser-e2e-webserver-backed/frontend-row-accounting.json` close multi-client live row update, presence anchoring, reset/invalidate, stale-row requery, resolver, revocation, and current sort/filter/group survival through `/ws/v1/` and `/api/v1/` | none | Does not claim visual/a11y readiness or Core 05 publication. |
-| `FE-V-P7-01` | visual | design direction | `docs/guides/cartulary-ui-ux-design-guide.md#UI/UX guide Sections 8, 10.4, 10.5, 13`; `docs/guides/cartulary_visual_golden_maintenance.md#visual golden guide Sections 2, 3, 5` | none | `R2-AC-023`, `R2-AC-026`, `R2-AC-045`, `R2-AC-050`, `R2-AC-073`, `R2-AC-079` | `make browser-e2e-visual`; fixture IDs `FE-VFIX-03`, `FE-VFIX-04`, `FE-VFIX-08` | `implemented` | `.cartulary/test-results/20260610T130553Z-p52420/browser-e2e-visual/frontend-row-accounting.json` plus FE-P7 goldens for same-field conflict, row/cell presence, presence hints, conflict resolver, reset/invalidate notice, save-state conflict, and recovered saved state | none | Design-direction only; does not claim product conformance or Core 05 publication. |
-| `FE-A11Y-P7-01` | accessibility | design direction | `docs/guides/cartulary-ui-ux-design-guide.md#UI/UX guide Sections 10.4, 10.5, 14` | none | `R2-AC-045`, `R2-AC-050`, `R2-AC-080`, `R2-AC-086`, `D-AC-009`, `D-AC-012` | `make browser-e2e-a11y` | `implemented` | `.cartulary/test-results/20260610T130709Z-p63211/browser-e2e-a11y/frontend-row-accounting.json` plus accessibility summary proving accessible name/state communication for conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict | none | Design-direction only; does not claim product conformance or Core 05 publication. |
+| `FE-V-P7-01` | visual | design direction | `docs/guides/cartulary-ui-ux-design-guide.md#UI/UX guide Sections 8, 10.4, 10.5, 13`; `docs/guides/cartulary_visual_golden_maintenance.md#visual golden guide Sections 2, 3, 5` | none | `R2-AC-023`, `R2-AC-026`, `R2-AC-045`, `R2-AC-050`, `R2-AC-073`, `R2-AC-079` | `make browser-e2e-visual`; fixture IDs `FE-VFIX-03`, `FE-VFIX-04`, `FE-VFIX-08` | `implemented` | `.cartulary/test-results/20260610T170224Z-p79058/browser-e2e-visual/frontend-row-accounting.json` plus FE-P7 goldens for same-field conflict, row/cell presence, presence hints, conflict resolver, reset/invalidate notice, save-state conflict, and recovered saved state | none | Design-direction only; does not claim product conformance or Core 05 publication. |
+| `FE-A11Y-P7-01` | accessibility | design direction | `docs/guides/cartulary-ui-ux-design-guide.md#UI/UX guide Sections 10.4, 10.5, 14` | none | `R2-AC-045`, `R2-AC-050`, `R2-AC-080`, `R2-AC-086`, `D-AC-009`, `D-AC-012` | `make browser-e2e-a11y` | `implemented` | `.cartulary/test-results/20260610T170341Z-p89889/browser-e2e-a11y/frontend-row-accounting.json` plus accessibility summary proving accessible name/state communication for conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict | none | Design-direction only; does not claim product conformance or Core 05 publication. |
 
 ## Evidence Layer Matrix
 
@@ -395,7 +394,7 @@ Sprint 1 blockers and unresolved evidence gaps:
 - No direct FE-P7 row-owned `frontend-row-accounting.json` evidence exists in retained local artifacts.
 - Retained FE-P6 row accounting is stale or unowned for FE-P7 closure even when it exercises overlapping collaboration behavior.
 - `FE-VFIX-03`, `FE-VFIX-04`, and `FE-VFIX-08` are current fixture-registry entries, but fixture status and V-6/FE-P4 golden names cannot close `FE-V-P7-01`.
-- `FE-A11Y-P7-01` maps to `browser-e2e-a11y-preflight`, while both `browser-e2e-a11y` and `browser-e2e-a11y-preflight` currently explain with no phase coverage and no latest artifact. Preflight smoke cannot be used as implemented-row closure without map and guide authority.
+- Historical Sprint 1 note: accessibility closure was unresolved at that time. The current live FE-P7 map and frontend guide now map implemented `FE-A11Y-P7-01` to `browser-e2e-a11y`; preflight remains blocked-row smoke only.
 - Core 05 claim-publication evidence remains inactive because no explicit FE-P7 claim-bearing metadata was found.
 
 Tracked-file correction status:
@@ -526,23 +525,23 @@ Binary Sprint 3 outcome: `pass with remaining phase blockers`. `FE-U-P7-02` is c
 ### Sprint 6: Visual Readiness
 
 - Goal: Implement and validate `FE-V-P7-01`.
-- Source inputs: UI/UX guide Sections 8, 10.4, 10.5, 13; visual golden guide Sections 2, 3, 5; live fixture registry; `apps/web/e2e/workbook.visual.spec.ts`.
+- Source inputs: UI/UX guide Sections 8, 10.4, 10.5, 13; visual golden guide Sections 2, 3, 5; live fixture registry; `apps/web/e2e/workbook.visual.spec.ts`; `apps/web/e2e/phase6Harness.ts`.
 - Implementation tasks: verify or recapture FE-P7 visual fixtures for same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict. Live fixture candidates are `FE-VFIX-03`, `FE-VFIX-04`, and `FE-VFIX-08`.
 - Validation commands: `make explain-target TARGET=browser-e2e-visual DETAIL=summary`; `make browser-e2e-visual`.
 - Expected artifacts: `browser-e2e-visual/target-summary.json`, visual phase summaries, snapshot artifacts, and `browser-e2e-visual/frontend-row-accounting.json`.
 - Row-accounting expectations: `FE-V-P7-01` appears as `design_direction`, not product conformance, with current fixture IDs and map digests.
-- Blockers: current blocker `visual_fixture_not_recaptured_for_frontend_row`; block if V-6 filenames or registry `current` status are treated as closure without FE-P7 row accounting.
+- Blockers: none after remediation. The preserved 2026-06-10 16:17Z failure was a presence synchronization race, not a fixture-registry blocker; block if V-6 filenames, registry `current` status, or screenshots are treated as closure without FE-P7 row accounting and marker assertions.
 - Non-claims: visual readiness does not claim product conformance or Core 05 publication.
 - Binary completion criteria: pass if row-owned visual accounting and expected fixture artifacts exist for FE-P7; fail otherwise.
 
 ### Sprint 7: Accessibility Readiness
 
 - Goal: Implement and validate `FE-A11Y-P7-01`.
-- Source inputs: UI/UX guide Sections 10.4, 10.5, 14; `docs/design.md`; live FE-P7 map; `apps/web/e2e/workbook.a11y-preflight.spec.ts`; `apps/web/e2e/a11yPhaseMap.ts`.
-- Implementation tasks: verify conflict state, resolver controls, presence hints, stale-row notice, and save-state conflict communication by accessible name/state, not color alone. Resolve target ambiguity before claiming closure.
-- Validation commands: live map target is `make browser-e2e-a11y-preflight`; also inspect `make explain-target TARGET=browser-e2e-a11y DETAIL=summary` before promoting implemented accessibility closure. Run `make browser-e2e-a11y-preflight` only as mapped smoke unless the map/guide promote closure.
-- Expected artifacts: preflight target artifacts if smoke remains mapped; for implemented closure, accessibility row accounting and `cartulary.frontend_accessibility_summary.v2` from `browser-e2e-a11y` if guide requirements still apply.
-- Row-accounting expectations: no closure from blocked-row smoke unless current map and guide explicitly allow it. Current `browser-e2e-a11y-preflight` has no phase coverage.
+- Source inputs: UI/UX guide Sections 10.4, 10.5, 14; `docs/design.md`; live FE-P7 map; `apps/web/e2e/workbook.a11y.spec.ts`; `apps/web/e2e/a11yPhaseMap.ts`; `apps/web/e2e/phase6Harness.ts`.
+- Implementation tasks: verify conflict state, resolver controls, presence hints, stale-row notice, and save-state conflict communication by accessible name/state, not color alone.
+- Validation commands: live map target is `make browser-e2e-a11y`; `make browser-e2e-a11y-preflight` remains blocked-row smoke only and does not close `FE-A11Y-P7-01`.
+- Expected artifacts: accessibility row accounting and `cartulary.frontend_accessibility_summary.v2` from `browser-e2e-a11y`.
+- Row-accounting expectations: no closure from blocked-row smoke. Current `browser-e2e-a11y-preflight` has no phase coverage.
 - Blockers: block if preflight smoke is used as closure without map authority, or if state is conveyed by color only.
 - Non-claims: accessibility readiness is design-direction only and not product conformance.
 - Binary completion criteria: pass if the row map, guide, target, accessibility artifact, and row accounting agree; fail otherwise.
@@ -585,8 +584,7 @@ Execution commands for implementation and closure:
 - `make browser-e2e-stateful`
 - `make browser-e2e-webserver-backed`
 - `make browser-e2e-visual`
-- `make browser-e2e-a11y-preflight` for the current live `FE-A11Y-P7-01` mapping, with the preflight closure caveat above
-- `make browser-e2e-a11y` only if the live map or guide promotes implemented accessibility closure to the accessibility batch
+- `make browser-e2e-a11y`
 - `make phase-ledger-drift`
 - `make generate-drift`
 - `make generated-artifact-policy-check`
@@ -595,12 +593,7 @@ Execution commands for implementation and closure:
 - `make agent-finalize RESULTS_DIR=<successful-full-check-run-root>` when using retained successful full warm check evidence
 - `make agent-finalize` without `RESULTS_DIR` only when retained-run maintenance is intentionally skipped and the final report records that reason
 
-Absent command records:
-
-- `TODO: command not present`: `make frontend-phase-drift`
-- `TODO: command not present`: `make generated-drift`; use `make generate-drift`
-- `TODO: command not present`: `make lint-docs`
-- `TODO: command not present`: `make format-docs`
+Do not add compatibility aliases for legacy probe names. Use the canonical public Make targets listed above.
 
 ## Evidence Requirements
 
@@ -627,7 +620,7 @@ Per-row artifact requirements:
 | `FE-I-P7-01` | `frontend-unit` plus `browser-e2e-webserver-backed` row accounting if both remain mapped | Public resolver mutation, success/error envelopes, row refresh, focus return, pending queue ordering, current scenario title, pass status. |
 | `FE-E-P7-01` | `browser-e2e-stateful` and `browser-e2e-webserver-backed` row accounting | Multi-client `/ws/v1/` frames, `/api/v1/` mutations/queries, presence anchoring, reset/invalidate, stale requery, same-field resolver, session revocation behavior, pass status. |
 | `FE-V-P7-01` | `browser-e2e-visual` row accounting, visual snapshots, fixture registry IDs | Fixture IDs `FE-VFIX-03`, `FE-VFIX-04`, `FE-VFIX-08` or updated live IDs; same-field conflict, row-gutter presence, presence hints, resolver, reset/invalidate notice, save-state conflict; design-direction pass status. |
-| `FE-A11Y-P7-01` | Current mapped accessibility/preflight row accounting and accessibility summary when applicable | Conflict state, resolver controls, presence hint, stale-row notice, save-state conflict accessible names/states; no color-only reliance; explicit closure rule for preflight versus `browser-e2e-a11y`. |
+| `FE-A11Y-P7-01` | `browser-e2e-a11y` row accounting and `frontend-accessibility-summary.json` | Conflict state, resolver controls, presence hint, stale-row notice, save-state conflict accessible names/states; no color-only reliance; preflight remains blocked-row smoke only. |
 
 ## Blocker Rules
 
@@ -685,8 +678,8 @@ Current FE-P8 handoff baseline after FE-P7 closure:
   - `FE-U-P7-01` and `FE-U-P7-02`: `.cartulary/test-results/20260610T130229Z-p26754/frontend-unit/frontend-row-accounting.json`
   - `FE-I-P7-01`: `.cartulary/test-results/20260610T130245Z-p28234/browser-e2e-webserver-backed/frontend-row-accounting.json`
   - `FE-E-P7-01`: `.cartulary/test-results/20260610T130245Z-p28234/browser-e2e-webserver-backed/frontend-row-accounting.json` and `.cartulary/test-results/20260610T130424Z-p40986/browser-e2e-stateful/frontend-row-accounting.json`
-  - `FE-V-P7-01`: `.cartulary/test-results/20260610T130553Z-p52420/browser-e2e-visual/frontend-row-accounting.json`
-  - `FE-A11Y-P7-01`: `.cartulary/test-results/20260610T130709Z-p63211/browser-e2e-a11y/frontend-row-accounting.json`
+  - `FE-V-P7-01`: `.cartulary/test-results/20260610T170224Z-p79058/browser-e2e-visual/frontend-row-accounting.json`
+  - `FE-A11Y-P7-01`: `.cartulary/test-results/20260610T170341Z-p89889/browser-e2e-a11y/frontend-row-accounting.json`
 - Exact blockers for unclosed FE-P7 rows: none.
 - WebSocket and public-route evidence status: current row-owned evidence proves `/ws/v1/incidents/{incident_id}` live update/presence/reset/invalidate/stale/revocation handling and `/api/v1/records/{record_id}/conflicts/{conflict_token}/resolve` resolver behavior.
 - Conflict resolver evidence status: unit and webserver-backed evidence prove stable conflict identity, stale-token refresh, request/response envelopes, pending queue order, non-destructive keyboard cancellation, and focus preservation.
@@ -694,6 +687,8 @@ Current FE-P8 handoff baseline after FE-P7 closure:
 - Visual readiness status and fixture IDs: `FE-VFIX-03`, `FE-VFIX-04`, and `FE-VFIX-08` have FE-P7-owned fixture artifacts and current visual row accounting. This remains design-direction evidence only.
 - Accessibility readiness status: `FE-A11Y-P7-01` closes through `browser-e2e-a11y`; preflight remains smoke only. This remains design-direction evidence only.
 - FE-P0 through FE-P7 dependency state: FE-P0 through FE-P7 are `active_green`.
-- Drift and finalization command outcomes: `make json-shape-check`, `make phase-ledger-drift`, `make generate-drift`, and `make generated-artifact-policy-check` passed after promotion; full `make check` passed at `.cartulary/test-results/20260610T131508Z-p32177`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260610T131508Z-p32177` passed at `.cartulary/test-results/20260610T131642Z-p84249`.
+- Latest drift command outcomes recorded for this final handoff: `make json-shape-check` passed at `.cartulary/test-results/20260610T171342Z-p12185`; `make phase-ledger-drift` passed at `.cartulary/test-results/20260610T171342Z-p12187`; `make generate-drift` passed at `.cartulary/test-results/20260610T171342Z-p12220`; `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260610T171342Z-p12254`.
+- Full-gate outcome after duration-baseline refresh: `make check` passed at `.cartulary/test-results/20260610T171041Z-p57554` with 142/142 work units and 771 tests.
+- Finalization outcome: `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260610T171041Z-p57554` passed at `.cartulary/test-results/20260610T171217Z-p9597`; generated artifacts were unchanged, duration baselines were refreshed, and run checks passed.
 - Owner-accepted blockers FE-P8 must respect: none for FE-P7.
 - Strict non-claims FE-P8 cannot inherit without its own row-owned evidence: saved-view persistence, rollback readiness, full coordination-surface readiness, product conformance from visual/a11y artifacts, and Core 05 publication readiness.

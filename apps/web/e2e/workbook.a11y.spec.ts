@@ -99,6 +99,8 @@ import {
 } from "./phase4Helpers";
 import {
   driveRealTimelineSummaryConflict,
+  focusRemoteTimelineCellAndWaitForPresence,
+  installIncidentSocketMonitor,
   installPatchController,
   installPatchTransportFailureController,
   openIncidentAsTrackedUserReady,
@@ -1852,6 +1854,7 @@ test.describe("FE-P7 accessibility readiness", () => {
       });
       const recordId = requireRecordId(row);
       const patchController = await installPatchController(page);
+      const primarySocket = installIncidentSocketMonitor(page, incidentId);
 
       let remotePage: Page | null = null;
       try {
@@ -1859,6 +1862,7 @@ test.describe("FE-P7 accessibility readiness", () => {
         await expect(
           page.getByTestId(workbookShellReadyTestId()),
         ).toBeVisible();
+        await primarySocket.waitForAcceptedSocket();
 
         const remoteSession = await openIncidentAsTrackedUserReady(
           browser,
@@ -1874,17 +1878,14 @@ test.describe("FE-P7 accessibility readiness", () => {
           },
         );
         remotePage = remoteSession.page;
-        await remotePage
-          .getByTestId(rowCellTestId(recordId, "timeline.summary"))
-          .focus();
-        await expect(
-          page.getByTestId(rowPresenceMarkerTestId(recordId)),
-        ).toBeVisible();
-        await expect(
-          page.getByTestId(
-            cellPresenceMarkerTestId(recordId, "timeline.summary"),
-          ),
-        ).toBeVisible();
+        await focusRemoteTimelineCellAndWaitForPresence({
+          actorText: "AA",
+          fieldKey: "timeline.summary",
+          primaryPage: page,
+          recordId,
+          remotePage,
+          socketMonitor: primarySocket,
+        });
 
         await driveRealTimelineSummaryConflict({
           baseRowVersion: 1,
