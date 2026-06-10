@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:cd71ffc082fd01eef4b364cd1f10a8d5aec3bbb6ce2995ca7327267e3744e09d",
+  "input_digest": "sha256:8cdfc5a482ab0d5e5ee298382acf7013cfaf34ffdb794c1458e5fa47d0e6ee50",
   "inputs": [
     {
       "path": "scripts/lib/agent-finalize-action-cache.mjs",
@@ -322,7 +322,7 @@
     {
       "path": "tools/browser_e2e_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:31e982cc7dab1724f1f095d36af4da161be6aeae0d345ea72ce4359184e0a63a"
+      "hash": "sha256:8fb11ce925170bb36658b5dcf6b256a11607446c5a335bd9c3f25cb82cd295a1"
     },
     {
       "path": "tools/execution_topology_manifest.json",
@@ -332,12 +332,12 @@
     {
       "path": "tools/go_test_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:b3e05c91a29e47592bff71d161a51584add106aad64642bde87dc258382c6814"
+      "hash": "sha256:30932dd19cf8d2b26051008c8163bd3899721a7d34252386d59d3013fe41c407"
     },
     {
       "path": "tools/harness_smoke_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:ee7896e01fdcf105157f469341d18d4f61f3acb8eb883165792e83bf023f6894"
+      "hash": "sha256:98574f730c9574a187e2013169a4a2a4c7884850336b00cfa83c5f58a8bbf150"
     },
     {
       "path": "tools/phase_registry.json",
@@ -412,12 +412,12 @@
     {
       "path": "tools/service_backed_make_target_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:019963658f993d1a33d8703458a2bfb16d5cf7b4fbda2cc764d40a78d8e3b42e"
+      "hash": "sha256:356c71376d4d01ab3e570a131402b0e093d841e696d65552cbabc3a744dd50ad"
     }
   ],
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:9e2e3e4c3bda8d6dc867ac0f1d43f5676f18e343a20ab0094f79be79602742e0",
-    "tools/scheduler_manifest.json": "sha256:2cdb7b054612f2ce1f75dfbc5e4629bd16769f51a16e54ac096c12c6bb868f62",
+    "tools/scheduler_manifest.json": "sha256:3f3b584112b20af6cdf1cd520775f79e2a2633dd48e32905f23368f0ab495c10",
     "tools/task_surface_manifest.json": "sha256:bb2b77fce656e8ff917132d0791ef25aa14cdc974d854c8dd5a5dcde9ca73e6f",
     "tools/task_surface.generated.mk": "sha256:feb055b4f8ceb9d90f4309fbbe8b7da05b717dc40667c3704a868acc2c19e960"
   }
