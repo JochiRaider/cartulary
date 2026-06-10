@@ -2,9 +2,12 @@
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
+  mkdirSync,
   readdirSync,
   readFileSync,
   statSync,
+  unlinkSync,
+  writeFileSync,
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -261,7 +264,7 @@ const actionRegistry = [
         commandKind: "make_target",
         requiresResultsDir: true,
         mutatesRepo: false,
-        env: {
+        makeVars: {
           TARGET: "check",
           SCHEDULER_WARM_CHECK_BUDGET_MS: warmBudgetMs,
           SCHEDULER_WARM_CHECK_BALANCE_RATIO: warmBalanceRatio,
@@ -397,6 +400,89 @@ function changedFilesSince(before) {
   return changed.sort((left, right) => left.localeCompare(right));
 }
 
+function gitTrackedFiles() {
+  const result = spawnSync("git", ["ls-files", "-z"], {
+    cwd: repoRoot,
+    encoding: "buffer",
+  });
+  if (result.status !== 0) {
+    return [];
+  }
+  return result.stdout
+    .toString("utf8")
+    .split("\0")
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function snapshotTrackedFiles() {
+  const snapshot = new Map();
+  for (const file of gitTrackedFiles()) {
+    const absolute = path.join(repoRoot, file);
+    try {
+      snapshot.set(file, readFileSync(absolute));
+    } catch {
+      snapshot.set(file, null);
+    }
+  }
+  return snapshot;
+}
+
+function bufferEqualsSnapshot(file, expected) {
+  const absolute = path.join(repoRoot, file);
+  if (expected === null) {
+    return !existsSync(absolute);
+  }
+  try {
+    return readFileSync(absolute).equals(expected);
+  } catch {
+    return false;
+  }
+}
+
+function restoreTrackedSnapshot(snapshot) {
+  const changed = [];
+  for (const [file, expected] of snapshot.entries()) {
+    if (!bufferEqualsSnapshot(file, expected)) {
+      changed.push(file);
+    }
+  }
+  if (changed.length === 0) {
+    return {
+      status: "not_needed",
+      restored_files: [],
+      error: null,
+    };
+  }
+  const restored = [];
+  try {
+    for (const file of changed.sort((left, right) => left.localeCompare(right))) {
+      const expected = snapshot.get(file);
+      const absolute = path.join(repoRoot, file);
+      if (expected === null) {
+        if (existsSync(absolute)) {
+          unlinkSync(absolute);
+        }
+      } else {
+        mkdirSync(path.dirname(absolute), { recursive: true });
+        writeFileSync(absolute, expected);
+      }
+      restored.push(file);
+    }
+  } catch (error) {
+    return {
+      status: "failed",
+      restored_files: restored,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+  return {
+    status: "restored",
+    restored_files: restored,
+    error: null,
+  };
+}
+
 function baseSubstep(definition) {
   return {
     id: definition.id,
@@ -473,6 +559,20 @@ function baseAction(definition, includePreflight) {
 }
 
 function selectedActionDefinitions() {
+  if (resultsDirInput) {
+    const scheduler = actionRegistry.find(
+      (action) => action.actionID === "scheduler_drift_validation",
+    );
+    if (!scheduler) {
+      throw new Error("agent-finalize scheduler drift validation action missing");
+    }
+    return [
+      scheduler,
+      ...actionRegistry.filter(
+        (action) => action.actionID !== "scheduler_drift_validation",
+      ),
+    ];
+  }
   return actionRegistry;
 }
 
@@ -719,6 +819,7 @@ function writeSummary({
   actions,
   failures,
   updatedFiles,
+  mutationRollback,
   resultsDirStatus,
 }) {
   const refreshed = actionPassed(actions, "duration_baseline_refresh");
@@ -752,6 +853,7 @@ function writeSummary({
       status: generatedStatusFor(actions, updatedFiles),
       updated_file_count: updatedFiles.length,
     },
+    mutation_rollback: mutationRollback,
     duration: {
       status: resultsDirInput
         ? failedDuration || !refreshed
@@ -802,15 +904,18 @@ function runMakeSubstep(definition, substep) {
     scrubMakeCommandVariable(childEnv, "RESULTS_DIR");
   }
   delete childEnv.CARTULARY_TEST_TARGET;
-  const result = spawnSync(
-    makeBin,
-    ["--no-print-directory", definition.target],
-    {
-      cwd: repoRoot,
-      env: childEnv,
-      encoding: "utf8",
-    },
+  const makeVarArgs = Object.entries(definition.makeVars ?? {}).map(
+    ([key, value]) => `${key}=${value}`,
   );
+  const result = spawnSync(makeBin, [
+    "--no-print-directory",
+    definition.target,
+    ...makeVarArgs,
+  ], {
+    cwd: repoRoot,
+    env: childEnv,
+    encoding: "utf8",
+  });
   const completedAt = now();
   const summaryFile = childSummaryPath(definition.target);
   const stdoutLog = path.join(childPhaseDir(definition.target), "stdout.log");
@@ -916,11 +1021,18 @@ function main() {
   const startedAt = now();
   const startedMs = Date.now();
   const beforeStatus = gitStatusMap();
+  const trackedSnapshot = snapshotTrackedFiles();
   const actions = selectedActions();
   const definitions = selectedActionDefinitions();
   const failures = [];
   let failed = false;
   let resultsDirStatus = resultsDirInput ? "valid" : "skipped";
+  let mutationRollback = {
+    status: "not_needed",
+    restored_file_count: 0,
+    restored_files: [],
+    error: null,
+  };
 
   for (let actionIndex = 0; actionIndex < actions.length; actionIndex += 1) {
     const action = actions[actionIndex];
@@ -1007,6 +1119,16 @@ function main() {
     }
   }
 
+  if (failed) {
+    const rollback = restoreTrackedSnapshot(trackedSnapshot);
+    mutationRollback = {
+      status: rollback.status,
+      restored_file_count: rollback.restored_files.length,
+      restored_files: rollback.restored_files,
+      error: rollback.error,
+    };
+  }
+
   const updatedFiles = changedFilesSince(beforeStatus);
   const summary = writeSummary({
     status: failed ? "fail" : "pass",
@@ -1015,6 +1137,7 @@ function main() {
     actions,
     failures,
     updatedFiles,
+    mutationRollback,
     resultsDirStatus,
   });
 

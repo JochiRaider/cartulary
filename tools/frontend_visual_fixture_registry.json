@@ -104,7 +104,7 @@
       "owner_row_ids": [
         "FE-V-P7-01"
       ],
-      "playwright_scenario_title": "FE-V-P7-01 Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures.",
+      "playwright_scenario_title": "FE-V-P7-01 Capture same-field conflict resolver.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-resolver-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-resolver-linux.png",
@@ -153,7 +153,7 @@
       "owner_row_ids": [
         "FE-V-P7-01"
       ],
-      "playwright_scenario_title": "FE-V-P7-01 Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures.",
+      "playwright_scenario_title": "FE-V-P7-01 Capture row-gutter and cell presence markers.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-presence-markers-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-presence-markers-linux.png",
@@ -341,11 +341,12 @@
         "FE-V-P4-01",
         "FE-V-P7-01"
       ],
-      "playwright_scenario_title": "FE-V-P7-01 Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures.",
+      "playwright_scenario_title": "FE-V-P7-01 Capture conflict save-state strip.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-strip-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-strip-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-recovered-saved-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-reset-invalidate-notice-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-pending-replay-status-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-saved-strip-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-syncing-strip-linux.png",

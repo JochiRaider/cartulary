@@ -21,7 +21,7 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
-const baselineSchemaID = "cartulary.browser_e2e_duration_baselines.v2";
+const baselineSchemaID = "cartulary.browser_e2e_duration_baselines.v3";
 const shardPlanSchemaID = "cartulary.browser_e2e_shard_plan.v2";
 const defaultBaselineFile = path.join(
   repoRoot,
@@ -32,7 +32,8 @@ const baselineNote =
   "Advisory browser functional manifest-entry weights for duration-balanced Playwright sharding. Refresh with make browser-e2e-duration-baselines RESULTS_DIR=<dir>.";
 const defaultEntryWeightMs = 10000;
 const defaultShardTargetMs = 12000;
-const browserManifestIDPattern = /^E-[0-9]+-[A-Z0-9]+(?:-[A-Z0-9]+)*$/u;
+const browserBaselineRowIDPattern =
+  /^(?:E-[0-9]+-[A-Z0-9]+(?:-[A-Z0-9]+)*|FE-(?:U|I|B|E|V|A11Y|S)-P(?:0|[1-9][0-9]*)-[0-9]{2})$/u;
 
 function usage() {
   process.stderr.write(
@@ -121,9 +122,9 @@ function readBaselineDocument(file, { allowMissing = true } = {}) {
     );
   }
   for (const [id, entry] of Object.entries(rawEntries)) {
-    if (!browserManifestIDPattern.test(id)) {
+    if (!browserBaselineRowIDPattern.test(id)) {
       throw new Error(
-        `${path.relative(repoRoot, file)} entries key ${id} must be an E-* manifest ID`,
+        `${path.relative(repoRoot, file)} entries key ${id} must be an E-* manifest ID or FE-* frontend browser row ID`,
       );
     }
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
@@ -269,16 +270,23 @@ function frontendBrowserReadinessEntries(
   root,
   { baseEntries, phase = "", frontendRowIDs = new Set() } = {},
 ) {
+  if (process.env.CARTULARY_PHASE_MANIFEST_ROOT && frontendRowIDs.size === 0) {
+    return [];
+  }
   const baseTitles = new Set(
     baseEntries.flatMap((entry) => entry.titles ?? [entry.title]),
   );
   const seenTitles = new Set();
   const knownSelectedIDs = new Set();
   const entries = [];
+  const activeBasePhases = new Set(phaseManifestNames(root));
   const registry = loadFrontendPhaseRegistry(root);
   for (const frontendPhase of registry.phases) {
     const basePhase = frontendPhaseToBasePhase(frontendPhase.phase_id);
     if (basePhase === "" || (phase && basePhase !== phase)) {
+      continue;
+    }
+    if (frontendRowIDs.size === 0 && !activeBasePhases.has(basePhase)) {
       continue;
     }
     const { manifest } = loadFrontendPhaseMap(root, frontendPhase.phase_id);
@@ -333,6 +341,21 @@ function frontendBrowserReadinessEntries(
     }
   }
   return entries.sort(compareEntries);
+}
+
+function browserDurationBaselineEntries(
+  root,
+  { phase = "", frontendRowIDs = new Set() } = {},
+) {
+  const baseEntries = browserFunctionalEntries(root, { phase });
+  const allBaseEntries =
+    phase || frontendRowIDs.size > 0 ? browserFunctionalEntries(root) : baseEntries;
+  const frontendEntries = frontendBrowserReadinessEntries(root, {
+    baseEntries: allBaseEntries,
+    phase,
+    frontendRowIDs,
+  });
+  return [...baseEntries, ...frontendEntries].sort(compareEntries);
 }
 
 function readBaseline(file, activeEntries) {
@@ -416,7 +439,10 @@ export function createPlan({
     phase,
     frontendRowIDs,
   });
-  const baseline = readBaseline(baselineFile, activeEntries);
+  const baseline = readBaseline(
+    baselineFile,
+    browserDurationBaselineEntries(repoRoot),
+  );
   const entries = collectEntryRows(repoRoot, baseline, {
     phase,
     frontendEntries,
@@ -650,7 +676,7 @@ function collectObservedBrowserEntryDurations(
       for (const entryTiming of timing.entries ?? []) {
         const id = String(entryTiming.id ?? "");
         const durationMs = observedDurationMs(entryTiming);
-        if (browserManifestIDPattern.test(id) && durationMs > 0) {
+        if (browserBaselineRowIDPattern.test(id) && durationMs > 0) {
           const currentObserved = observed.get(id);
           const normalized = {
             id,
@@ -695,7 +721,7 @@ function parseBaselineResultsArgs(argv) {
 }
 
 function activeEntryRowsForBaseline(baselineFile) {
-  const activeEntries = browserFunctionalEntries(repoRoot);
+  const activeEntries = browserDurationBaselineEntries(repoRoot);
   const baseline = readBaseline(baselineFile, activeEntries);
   return {
     baseline,
@@ -706,7 +732,7 @@ function activeEntryRowsForBaseline(baselineFile) {
 function updateBaselines(argv) {
   const { baselineFile, resultsDir } = parseBaselineResultsArgs(argv);
   const baseline = readBaselineDocument(baselineFile, { allowMissing: true });
-  const authoritativeEntries = browserFunctionalEntries(repoRoot);
+  const authoritativeEntries = browserDurationBaselineEntries(repoRoot);
   const observed = collectObservedBrowserEntryDurations(resultsDir);
   const missingObserved = authoritativeEntries.filter(
     (entry) => !observed.has(entry.id),
@@ -743,7 +769,7 @@ function updateBaselines(argv) {
 
   writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
   process.stdout.write(
-    `updated ${authoritativeEntries.length} browser E2E entry duration baselines from ${path.relative(repoRoot, resultsDir)}\n`,
+    `updated ${authoritativeEntries.length} browser E2E row duration baselines from ${path.relative(repoRoot, resultsDir)}\n`,
   );
 }
 

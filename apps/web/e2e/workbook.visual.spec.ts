@@ -1480,7 +1480,7 @@ test.describe("FE-P6 visual readiness", () => {
 });
 
 test.describe("FE-P7 workbook visual readiness", () => {
-  test("FE-V-P7-01 Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures.", async ({
+  test("FE-V-P7-01 Capture row-gutter and cell presence markers.", async ({
     browser,
     page,
     sessionTracker,
@@ -1506,26 +1506,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
         "timeline.summary": "Presence visual row",
       },
     )) as ViewRow;
-    const conflictRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("FEVP701-CONFLICT"),
-        "timeline.summary": "Conflict visual base",
-      },
-    )) as ViewRow;
-    const queueRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("FEVP701-QUEUE"),
-        "timeline.summary": "Pending visual base",
-      },
-    )) as ViewRow;
     const primarySocket = installIncidentSocketMonitor(page, incidentId);
-    const patchController = await installPatchController(page);
 
     let remotePage: Page | null = null;
     try {
@@ -1581,45 +1562,53 @@ test.describe("FE-P7 workbook visual readiness", () => {
         timelineViewSchemaId,
         { scroll: { top: 0, left: "left" } },
       );
+    } finally {
+      await remotePage?.context().close();
+    }
+  });
 
-      await driveRealTimelineSummaryConflict({
-        afterLocalPatchHeld: async () => {
-          await editTimelineSummary(
-            page,
-            queueRow.record_id,
-            "Pending visual queued replay",
-          );
-          await expect(
-            page.getByTestId(pendingQueueNoticeTestId()),
-          ).toBeVisible();
-        },
-        baseRowVersion: conflictRow.row_version,
-        localValue: "Conflict visual local",
-        page,
-        patchController,
-        recordId: conflictRow.record_id,
-        remoteValue: "Conflict visual server",
-        txnPrefix: "visual-fe-p7-conflict",
-      });
+  test("FE-V-P7-01 Capture same-field conflict resolver.", async ({ page }) => {
+    const fixture = await prepareFeP7ConflictVisual(page, {
+      incidentKeyPrefix: "FEVP701RESOLVE",
+      title: "FE-P7 visual conflict resolver",
+    });
+    try {
       await expect(
         page.getByTestId(
-          conflictMarkerTestId(conflictRow.record_id, "timeline.summary"),
+          conflictMarkerTestId(
+            fixture.conflictRow.record_id,
+            "timeline.summary",
+          ),
         ),
       ).toBeVisible();
       await assertMarkerAnchoredToGridTarget({
         anchorKind: "cell",
         markerTestId: conflictMarkerTestId(
-          conflictRow.record_id,
+          fixture.conflictRow.record_id,
           "timeline.summary",
         ),
         page,
         surface: timelineViewSchemaId,
-        targetTestId: rowCellTestId(conflictRow.record_id, "timeline.summary"),
+        targetTestId: rowCellTestId(
+          fixture.conflictRow.record_id,
+          "timeline.summary",
+        ),
       });
       await assertViewportVisualRegression(
         page,
         "fe-v-p7-01-conflict-resolver",
       );
+    } finally {
+      await fixture.patchController.dispose();
+    }
+  });
+
+  test("FE-V-P7-01 Capture conflict save-state strip.", async ({ page }) => {
+    const fixture = await prepareFeP7ConflictVisual(page, {
+      incidentKeyPrefix: "FEVP701CONFLICTSTRIP",
+      title: "FE-P7 visual conflict strip",
+    });
+    try {
       await page.getByTestId("conflict-close").click();
       await expect(page.getByTestId("conflict-resolver")).toHaveCount(0);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
@@ -1627,13 +1616,17 @@ test.describe("FE-P7 workbook visual readiness", () => {
         page.getByTestId(workbookShellSlotTestId("status-strip")),
       ).toContainText("Conflict");
       await assertStatusStripVisualFixture(page, "fe-v-p7-01-conflict-strip");
+    } finally {
+      await fixture.patchController.dispose();
+    }
+  });
 
-      await page
-        .getByTestId(
-          conflictMarkerTestId(conflictRow.record_id, "timeline.summary"),
-        )
-        .click();
-      await expect(page.getByTestId("conflict-resolver")).toBeVisible();
+  test("FE-V-P7-01 Capture recovered saved-state strip.", async ({ page }) => {
+    const fixture = await prepareFeP7ConflictVisual(page, {
+      incidentKeyPrefix: "FEVP701RECOVERED",
+      title: "FE-P7 visual recovered strip",
+    });
+    try {
       await page.getByTestId("conflict-keep-saved").click();
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
@@ -1642,11 +1635,198 @@ test.describe("FE-P7 workbook visual readiness", () => {
         "fe-v-p7-01-recovered-saved-strip",
       );
     } finally {
-      await patchController.dispose();
-      await remotePage?.context().close();
+      await fixture.patchController.dispose();
     }
   });
+
+  test("FE-V-P7-01 Capture reset/invalidate refresh strip.", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("FEVP701INVALIDATE"),
+      "FE-P7 visual reset/invalidate strip",
+    );
+    const invalidateRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("FEVP701-INVALIDATE"),
+        "timeline.summary": "Invalidate visual base",
+      },
+    )) as ViewRow;
+    const socketMonitor = installIncidentSocketMonitor(page, incidentId);
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await socketMonitor.waitForAcceptedSocket();
+    await maskIncidentIdentity(page, incidentId);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await driveFeP7InvalidateRefreshVisual({
+      incidentId,
+      page,
+      recordId: invalidateRow.record_id,
+      rowVersion: invalidateRow.row_version,
+      socketMonitor,
+    });
+  });
 });
+
+async function prepareFeP7ConflictVisual(
+  page: Page,
+  options: {
+    incidentKeyPrefix: string;
+    title: string;
+  },
+) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey(options.incidentKeyPrefix),
+    options.title,
+  );
+  const conflictRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn(`${options.incidentKeyPrefix}-CONFLICT`),
+      "timeline.summary": "Conflict visual base",
+    },
+  )) as ViewRow;
+  const queueRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn(`${options.incidentKeyPrefix}-QUEUE`),
+      "timeline.summary": "Pending visual base",
+    },
+  )) as ViewRow;
+  const patchController = await installPatchController(page);
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await maskIncidentIdentity(page, incidentId);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await driveRealTimelineSummaryConflict({
+    afterLocalPatchHeld: async () => {
+      await editTimelineSummary(
+        page,
+        queueRow.record_id,
+        "Pending visual queued replay",
+      );
+      await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
+    },
+    baseRowVersion: conflictRow.row_version,
+    localValue: "Conflict visual local",
+    page,
+    patchController,
+    recordId: conflictRow.record_id,
+    remoteValue: "Conflict visual server",
+    txnPrefix: `${options.incidentKeyPrefix.toLowerCase()}-conflict`,
+  });
+  return { conflictRow, patchController };
+}
+
+async function driveFeP7InvalidateRefreshVisual({
+  incidentId,
+  page,
+  recordId,
+  rowVersion,
+  socketMonitor,
+}: {
+  incidentId: string;
+  page: Page;
+  recordId: string;
+  rowVersion: number;
+  socketMonitor: ReturnType<typeof installIncidentSocketMonitor>;
+}) {
+  const removeStartAt = socketMonitor.messageCount();
+  const deleteResponse = await page.request.delete(
+    `${apiBase}/api/v1/records/${recordId}`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        base_row_version: rowVersion,
+        client_txn_id: uniqueTxn("fevp701-delete"),
+      },
+    },
+  );
+  expect(deleteResponse.ok()).toBeTruthy();
+  const removeMessage = await socketMonitor.waitForMessage("record_changed", {
+    matches: (message) =>
+      message.payload.record_id === recordId &&
+      Array.isArray(message.payload.affected_views) &&
+      message.payload.affected_views.some(
+        (view: { change_kind?: string }) => view.change_kind === "remove",
+      ),
+    startAt: removeStartAt,
+  });
+  await expect(
+    page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+  ).toHaveCount(0);
+
+  const queryHold = await holdBrowserApiRequest(page, {
+    method: "POST",
+    path: `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
+  });
+  let queryReleased = false;
+  try {
+    const invalidateStartAt = socketMonitor.messageCount();
+    const restoreResponse = await page.request.post(
+      `${apiBase}/api/v1/records/${recordId}/restore`,
+      {
+        headers: await csrfHeaders(page),
+        data: {
+          base_row_version: Number(removeMessage.payload.row_version),
+          client_txn_id: uniqueTxn("fevp701-restore"),
+        },
+      },
+    );
+    expect(restoreResponse.ok()).toBeTruthy();
+    await socketMonitor.waitForMessage("record_changed", {
+      matches: (message) =>
+        message.payload.record_id === recordId &&
+        Array.isArray(message.payload.affected_views) &&
+        message.payload.affected_views.some(
+          (view: { change_kind?: string; view_schema_id?: string }) =>
+            view.view_schema_id === timelineViewSchemaId &&
+            view.change_kind === "invalidate",
+        ),
+      startAt: invalidateStartAt,
+    });
+    await queryHold.waitForHit;
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+    await expect(
+      page.getByTestId(workbookShellSlotTestId("status-strip")),
+    ).toContainText("Queued edits are waiting for workbook refresh.");
+    await assertStatusStripVisualFixture(
+      page,
+      "fe-v-p7-01-reset-invalidate-notice",
+    );
+    const queryRefreshResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response
+          .url()
+          .endsWith(
+            `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
+          ),
+    );
+    queryHold.release();
+    queryReleased = true;
+    expect((await queryRefreshResponse).ok()).toBeTruthy();
+  } finally {
+    if (!queryReleased) {
+      queryHold.release();
+    }
+    await queryHold.dispose();
+  }
+  await expect(
+    page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+  ).toHaveValue("Invalidate visual base", { timeout: 10_000 });
+}
 
 test.describe("Phase 6 workbook visual evidence", () => {
   test("V-6-GRID-01 regresses Phase 6 row-gutter and same-cell presence markers", async ({

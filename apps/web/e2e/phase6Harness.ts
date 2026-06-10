@@ -522,6 +522,14 @@ export function installIncidentSocketMonitor(page: Page, incidentId: string) {
         timeoutMs?: number;
       } = {},
     ) => waitForMessage(type, options),
+    waitForMessageWhere: (
+      label: string,
+      options: {
+        matches: (message: SocketMessage) => boolean;
+        startAt?: number;
+        timeoutMs?: number;
+      },
+    ) => waitForMatchingMessage(label, options),
   };
 
   function waitForMessage(
@@ -532,36 +540,42 @@ export function installIncidentSocketMonitor(page: Page, incidentId: string) {
       timeoutMs?: number;
     } = {},
   ) {
+    return waitForMatchingMessage(`socket message ${type}`, {
+      ...options,
+      matches: (message) =>
+        message.type === type && (options.matches?.(message) ?? true),
+    });
+  }
+
+  function waitForMatchingMessage(
+    label: string,
+    options: {
+      matches: (message: SocketMessage) => boolean;
+      startAt?: number;
+      timeoutMs?: number;
+    },
+  ) {
     const startAt = options.startAt ?? 0;
-    const existing = messages
-      .slice(startAt)
-      .find(
-        (message) =>
-          message.type === type && (options.matches?.(message) ?? true),
-      );
+    const existing = messages.slice(startAt).find(options.matches);
     if (existing) {
       return Promise.resolve(existing);
     }
     return new Promise<SocketMessage>((resolve, reject) => {
       const waiter = {
         matches: (message: SocketMessage) =>
-          messages.indexOf(message) >= startAt &&
-          message.type === type &&
-          (options.matches?.(message) ?? true),
+          messages.indexOf(message) >= startAt && options.matches(message),
         reject,
         resolve,
         timeout: setTimeout(() => {
           messageWaiters.splice(messageWaiters.indexOf(waiter), 1);
           reject(
             new Error(
-              `timed out waiting for socket message ${type}; ${describeSocketMonitorState(
-                {
-                  closes,
-                  messages,
-                  sentMessages,
-                  sockets,
-                },
-              )}`,
+              `timed out waiting for ${label}; ${describeSocketMonitorState({
+                closes,
+                messages,
+                sentMessages,
+                sockets,
+              })}`,
             ),
           );
         }, options.timeoutMs ?? 10_000),
@@ -595,7 +609,38 @@ export function presenceDeltaMatches(
     recordId: string;
   },
 ) {
-  const presence = message.payload.presence;
+  return presenceMessageMatches(message, options);
+}
+
+export function presenceMessageMatches(
+  message: SocketMessage,
+  options: {
+    fieldKey: string;
+    mode: string;
+    recordId: string;
+  },
+) {
+  if (message.type === "presence_delta") {
+    return presenceRecordMatches(message.payload.presence, options);
+  }
+  if (message.type !== "presence_snapshot") {
+    return false;
+  }
+  const presences = message.payload.presences;
+  if (!Array.isArray(presences)) {
+    return false;
+  }
+  return presences.some((presence) => presenceRecordMatches(presence, options));
+}
+
+function presenceRecordMatches(
+  presence: unknown,
+  options: {
+    fieldKey: string;
+    mode: string;
+    recordId: string;
+  },
+) {
   return (
     presence !== null &&
     typeof presence === "object" &&
@@ -629,18 +674,21 @@ export async function focusRemoteTimelineCellAndWaitForPresence({
   timeoutMs?: number;
 }) {
   const markerStartAt = socketMonitor.messageCount();
-  const markerDelta = socketMonitor.waitForMessage("presence_delta", {
-    matches: (message) =>
-      presenceDeltaMatches(message, {
-        fieldKey,
-        mode,
-        recordId,
-      }),
-    startAt: markerStartAt,
-    ...(timeoutMs === undefined ? {} : { timeoutMs }),
-  });
+  const markerPresence = socketMonitor.waitForMessageWhere(
+    `matching presence ${recordId}:${fieldKey}:${mode}`,
+    {
+      matches: (message) =>
+        presenceMessageMatches(message, {
+          fieldKey,
+          mode,
+          recordId,
+        }),
+      startAt: markerStartAt,
+      ...(timeoutMs === undefined ? {} : { timeoutMs }),
+    },
+  );
   await remotePage.getByTestId(rowCellTestId(recordId, fieldKey)).focus();
-  const presenceDelta = await markerDelta;
+  const presenceMessage = await markerPresence;
   const rowMarker = primaryPage.getByTestId(rowPresenceMarkerTestId(recordId));
   const cellMarker = primaryPage.getByTestId(
     cellPresenceMarkerTestId(recordId, fieldKey),
@@ -652,7 +700,7 @@ export async function focusRemoteTimelineCellAndWaitForPresence({
     await expect(rowMarker).toContainText(actorText);
     await expect(cellMarker).toContainText(actorText);
   }
-  return presenceDelta;
+  return presenceMessage;
 }
 
 export async function installPatchController(page: Page) {
@@ -914,7 +962,58 @@ function describeSocketMonitorState({
   const closed = closes
     .map((close) => `${close.socketIndex}@${Math.round(close.closedAtMs)}ms`)
     .join(", ");
-  return `sockets=${sockets.length}; received=[${received}]; sent=[${sent}]; closes=[${closed}]`;
+  const presence = describePresenceMessages(messages);
+  return `sockets=${sockets.length}; received=[${received}]; sent=[${sent}]; closes=[${closed}]; presence=[${presence}]`;
+}
+
+function describePresenceMessages(messages: readonly SocketMessage[]) {
+  return messages
+    .filter(
+      (message) =>
+        message.type === "presence_delta" ||
+        message.type === "presence_snapshot",
+    )
+    .slice(-8)
+    .map(
+      (message) => `${message.socketIndex}:${presencePayloadSummary(message)}`,
+    )
+    .join("; ");
+}
+
+function presencePayloadSummary(message: SocketMessage) {
+  if (message.type === "presence_delta") {
+    return `delta:${presenceRecordSummary(message.payload.presence)}`;
+  }
+  const presences = message.payload.presences;
+  if (!Array.isArray(presences)) {
+    return "snapshot:invalid";
+  }
+  const sample = presences.slice(0, 4).map(presenceRecordSummary).join("|");
+  return `snapshot:${presences.length}:${sample}`;
+}
+
+function presenceRecordSummary(presence: unknown) {
+  if (
+    presence === null ||
+    typeof presence !== "object" ||
+    Array.isArray(presence)
+  ) {
+    return "invalid";
+  }
+  const candidate = presence as Record<string, unknown>;
+  return [
+    boundedSocketValue(candidate.record_id),
+    boundedSocketValue(candidate.field_key),
+    boundedSocketValue(candidate.mode),
+    boundedSocketValue(candidate.connection_id),
+  ].join("/");
+}
+
+function boundedSocketValue(value: unknown) {
+  if (typeof value !== "string") {
+    return "-";
+  }
+  return value.slice(0, 80);
 }
 
 function parseRequestBody(postData: string | null): Record<string, unknown> {

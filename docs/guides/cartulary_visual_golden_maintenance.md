@@ -135,6 +135,18 @@ claim-publication evidence out of scope.
 | --- | --- | --- | --- | --- | --- | --- |
 | `FE-V-P6-01` | `tools/frontend_phase_maps/fe_p6_test_map.json` | `FE-VFIX-05` | Deterministic workbook incident with requested, pending, quarantined, available-preview, available-download, unsupported-preview, failed-handle, and inconsistent-handle Evidence rows, plus one Timeline row with an attached PNG evidence count. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation; native file-input dimensions are normalized only for the FE-P6 actions-column screenshot crop. | Evidence grid right-edge actions-column capture, snapshot `fe-v-p6-01-evidence-affordance-states`; Timeline row evidence-actions anchor capture, snapshot `fe-v-p6-01-timeline-evidence-count`. |
 
+### Current FE-P7 visual readiness fixture citation map
+
+The FE-P7 visual readiness fixture uses deterministic app-owned Timeline
+workbook state and public collaboration traffic. It is design-direction
+evidence only and keeps Core 05 claim-publication evidence out of scope. Fresh
+FE-P7 closure requires current `browser-e2e-visual` row accounting; retained
+passing visual evidence is context only after a newer visual audit fails.
+
+| Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
+| --- | --- | --- | --- | --- | --- | --- |
+| `FE-V-P7-01` | `tools/frontend_phase_maps/fe_p7_test_map.json` | `FE-VFIX-03`, `FE-VFIX-04`, `FE-VFIX-08` | Deterministic workbook incidents for a remote Timeline presence row, same-field conflict resolver state with queued replay, conflict and recovered save-state strips, and a delete/restore invalidate refresh strip. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and dynamic actor connection data masked by visual preparation; remote actor initials remain deterministic. | Grid capture `fe-v-p7-01-presence-markers`; viewport capture `fe-v-p7-01-conflict-resolver`; status-strip captures `fe-v-p7-01-conflict-strip`, `fe-v-p7-01-recovered-saved-strip`, and `fe-v-p7-01-reset-invalidate-notice`. |
+
 ### Current exposed-theme fixture citation map
 
 The exposed-theme fixture uses test-only DOM inside the ordinary workbook page

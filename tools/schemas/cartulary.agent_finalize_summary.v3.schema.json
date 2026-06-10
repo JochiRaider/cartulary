@@ -17,6 +17,7 @@
     "completed_at",
     "duration_ms",
     "generated",
+    "mutation_rollback",
     "duration",
     "run_checks",
     "updated_files",
@@ -44,6 +45,21 @@
       "properties": {
         "status": { "enum": ["unchanged", "updated", "unknown"] },
         "updated_file_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "mutation_rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "restored_file_count", "restored_files", "error"],
+      "properties": {
+        "status": { "enum": ["not_needed", "restored", "failed"] },
+        "restored_file_count": { "type": "integer", "minimum": 0 },
+        "restored_files": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "error": { "type": ["string", "null"] }
       }
     },
     "duration": {

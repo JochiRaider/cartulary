@@ -495,6 +495,9 @@ type PendingReplayAdmissionRequest = PendingReplayUnitInput &
 type PendingQueueRuntime = {
   model: WorkbookPendingQueueModel;
   metaByUnitId: Map<string, PendingReplayRuntimeMeta>;
+  refreshBlockedRecordIds: Map<string, number>;
+  refreshInFlightCount: number;
+  refreshReplayBlockAllCount: number;
   resetRefreshInFlight: boolean;
   replayScheduled: boolean;
 };
@@ -507,6 +510,31 @@ type PendingQueueRuntimeSnapshot = {
   overflowMessage: string | null;
   resetRefreshInFlight: boolean;
 };
+
+type PendingRefreshReplayBlockScope =
+  | { kind: "all" }
+  | { kind: "record"; recordId: string }
+  | { kind: "none" };
+
+function refreshBlocksRecord(
+  pending: PendingQueueRuntime,
+  recordId: string | null,
+): boolean {
+  if (pending.resetRefreshInFlight !== true) {
+    return false;
+  }
+  if (pending.refreshReplayBlockAllCount > 0) {
+    return true;
+  }
+  return recordId !== null && pending.refreshBlockedRecordIds.has(recordId);
+}
+
+function refreshBlocksPendingUnit(
+  pending: PendingQueueRuntime,
+  unit: PendingReplayUnitState,
+): boolean {
+  return refreshBlocksRecord(pending, unit.recordId);
+}
 
 function saveStateConflictAnchorsFromLocalConflicts(
   conflicts: Record<string, LocalConflictState>,
@@ -3144,6 +3172,9 @@ export function TimelineWorkbook({
       clientInstanceId: socketClientInstanceIdRef.current,
     }),
     metaByUnitId: new Map(),
+    refreshBlockedRecordIds: new Map(),
+    refreshInFlightCount: 0,
+    refreshReplayBlockAllCount: 0,
     resetRefreshInFlight: false,
     replayScheduled: false,
   });
@@ -3220,6 +3251,8 @@ export function TimelineWorkbook({
     },
     [syncSocketLifecycleRefs],
   );
+  const dispatchSocketLifecycleRef = useRef(dispatchSocketLifecycle);
+  dispatchSocketLifecycleRef.current = dispatchSocketLifecycle;
 
   const pruneAutoResolutionNoticesForRows = useCallback(
     (committedRows: readonly WorkbookRow[]) => {
@@ -3294,6 +3327,8 @@ export function TimelineWorkbook({
     () => sheetRef ?? { kind: "view_schema", id: timelineViewSchemaId },
     [sheetRef],
   );
+  const activeSheetRuntimeRef = useRef(activeSheetRef);
+  activeSheetRuntimeRef.current = activeSheetRef;
 
   useEffect(() => {
     currentPresenceRef.current = currentPresence;
@@ -3323,13 +3358,13 @@ export function TimelineWorkbook({
           payload: {
             presence: workbookPresence(
               currentPresenceRef.current,
-              activeSheetRef,
+              activeSheetRuntimeRef.current,
             ),
           },
         }),
       );
     }, 150);
-  }, [activeSheetRef, currentPresence]);
+  }, [currentPresence]);
 
   const updateWorkbookFocusAnchor = useCallback(
     (anchor: WorkbookFocusAnchor | null) => {
@@ -3373,6 +3408,59 @@ export function TimelineWorkbook({
     });
     publishSaveStatePresentation(pending);
   }, [publishSaveStatePresentation]);
+  const publishPendingQueueStateRef = useRef(publishPendingQueueState);
+  publishPendingQueueStateRef.current = publishPendingQueueState;
+
+  const beginRefreshInFlight = useCallback(
+    (scope: PendingRefreshReplayBlockScope) => {
+      const pending = pendingQueueRef.current;
+      pending.refreshInFlightCount += 1;
+      if (scope.kind === "all") {
+        pending.refreshReplayBlockAllCount += 1;
+      } else if (scope.kind === "record") {
+        pending.refreshBlockedRecordIds.set(
+          scope.recordId,
+          (pending.refreshBlockedRecordIds.get(scope.recordId) ?? 0) + 1,
+        );
+      }
+      pending.resetRefreshInFlight = pending.refreshInFlightCount > 0;
+      publishPendingQueueState();
+    },
+    [publishPendingQueueState],
+  );
+
+  const finishRefreshInFlight = useCallback(
+    (scope: PendingRefreshReplayBlockScope) => {
+      const pending = pendingQueueRef.current;
+      pending.refreshInFlightCount = Math.max(
+        0,
+        pending.refreshInFlightCount - 1,
+      );
+      if (scope.kind === "all") {
+        pending.refreshReplayBlockAllCount = Math.max(
+          0,
+          pending.refreshReplayBlockAllCount - 1,
+        );
+      } else if (scope.kind === "record") {
+        const currentCount = pending.refreshBlockedRecordIds.get(
+          scope.recordId,
+        );
+        if (currentCount === undefined || currentCount <= 1) {
+          pending.refreshBlockedRecordIds.delete(scope.recordId);
+        } else {
+          pending.refreshBlockedRecordIds.set(scope.recordId, currentCount - 1);
+        }
+      }
+      pending.resetRefreshInFlight = pending.refreshInFlightCount > 0;
+      publishPendingQueueState();
+      schedulePendingReplayRef.current();
+    },
+    [publishPendingQueueState],
+  );
+  const beginRefreshInFlightRef = useRef(beginRefreshInFlight);
+  beginRefreshInFlightRef.current = beginRefreshInFlight;
+  const finishRefreshInFlightRef = useRef(finishRefreshInFlight);
+  finishRefreshInFlightRef.current = finishRefreshInFlight;
 
   useEffect(() => {
     const clientInstanceId =
@@ -3388,6 +3476,9 @@ export function TimelineWorkbook({
     pendingQueueRef.current = {
       model: new WorkbookPendingQueueModel({ incidentId, clientInstanceId }),
       metaByUnitId: new Map(),
+      refreshBlockedRecordIds: new Map(),
+      refreshInFlightCount: 0,
+      refreshReplayBlockAllCount: 0,
       resetRefreshInFlight: false,
       replayScheduled: false,
     };
@@ -3572,6 +3663,8 @@ export function TimelineWorkbook({
     },
     [],
   );
+  const resolvePendingSocketTxnRef = useRef(resolvePendingSocketTxn);
+  resolvePendingSocketTxnRef.current = resolvePendingSocketTxn;
 
   const restoreGridScroll = useCallback(
     (preservedScroll: ScrollPosition | null) => {
@@ -3798,6 +3891,8 @@ export function TimelineWorkbook({
       resolveViewportContinuityElement,
     ],
   );
+  const beginViewportContinuityRef = useRef(beginViewportContinuity);
+  beginViewportContinuityRef.current = beginViewportContinuity;
 
   const settleViewportContinuityFollowup = useCallback((token: number) => {
     setViewportContinuityRequest((current) => {
@@ -3841,6 +3936,8 @@ export function TimelineWorkbook({
     },
     [],
   );
+  const advanceViewportContinuityRef = useRef(advanceViewportContinuity);
+  advanceViewportContinuityRef.current = advanceViewportContinuity;
 
   const tryRestoreViewportContinuity = useCallback(
     (continuity: ViewportContinuityRequest) => {
@@ -4203,7 +4300,7 @@ export function TimelineWorkbook({
         ) {
           return null;
         }
-        if (!hasPendingRecordWork && !pending.resetRefreshInFlight) {
+        if (!hasPendingRecordWork && !refreshBlocksRecord(pending, recordId)) {
           const row = latestCommittedTimelineRow(recordId);
           const rowVersion =
             latestCommittedRowVersion(recordId) ?? options.fallbackRowVersion;
@@ -4236,8 +4333,8 @@ export function TimelineWorkbook({
         return false;
       }
 
-      pendingQueueRef.current.resetRefreshInFlight = true;
-      publishPendingQueueState();
+      const refreshScope: PendingRefreshReplayBlockScope = { kind: "all" };
+      beginRefreshInFlight(refreshScope);
       try {
         const retryOptions: LoadRowsOptions = {
           showLoading: false,
@@ -4249,13 +4346,11 @@ export function TimelineWorkbook({
         }
         await loadRowsRef.current(retryOptions);
       } finally {
-        pendingQueueRef.current.resetRefreshInFlight = false;
-        publishPendingQueueState();
-        schedulePendingReplayRef.current();
+        finishRefreshInFlight(refreshScope);
       }
       return true;
     },
-    [clearViewportContinuity, publishPendingQueueState],
+    [beginRefreshInFlight, clearViewportContinuity, finishRefreshInFlight],
   );
 
   const freshTimelineRowsForQueryResult = useCallback(
@@ -4469,6 +4564,8 @@ export function TimelineWorkbook({
       isStaleTimelineRowVersion,
     ],
   );
+  const applyRecordChangedPatchRef = useRef(applyRecordChangedPatch);
+  applyRecordChangedPatchRef.current = applyRecordChangedPatch;
 
   useEffect(() => {
     // Keep saved-view reselection and shell-level refreshes observable here even
@@ -4864,6 +4961,8 @@ export function TimelineWorkbook({
     publishPendingQueueState,
     schedulePendingReplay,
   ]);
+  const scheduleAuthRecoveryProbeRef = useRef(scheduleAuthRecoveryProbe);
+  scheduleAuthRecoveryProbeRef.current = scheduleAuthRecoveryProbe;
 
   const replayPendingQueueRef = useRef<() => Promise<void>>(async () => {
     return undefined;
@@ -4873,11 +4972,13 @@ export function TimelineWorkbook({
     (reason: string) => {
       const pending = pendingQueueRef.current;
       const snapshot = pending.model.snapshot();
+      const candidate = pending.model.peekNextQueued();
       const readyForImmediateDrain =
         !snapshot.authPaused &&
         snapshot.halted === null &&
         snapshot.sameFieldConflicts.length === 0 &&
-        !pending.resetRefreshInFlight &&
+        candidate !== null &&
+        !refreshBlocksPendingUnit(pending, candidate.unit) &&
         Object.keys(conflictQueueRef.current).length === 0 &&
         snapshot.inFlightCount === 0 &&
         snapshot.queuedCount > 0;
@@ -4964,7 +5065,6 @@ export function TimelineWorkbook({
       snapshot.authPaused ||
       snapshot.halted !== null ||
       snapshot.sameFieldConflicts.length > 0 ||
-      pending.resetRefreshInFlight ||
       Object.keys(conflictQueueRef.current).length > 0
     ) {
       publishPendingQueueState();
@@ -4976,6 +5076,10 @@ export function TimelineWorkbook({
       return;
     }
     const unit = candidate.unit;
+    if (refreshBlocksPendingUnit(pending, unit)) {
+      publishPendingQueueState();
+      return;
+    }
     const meta = pending.metaByUnitId.get(unit.id);
     if (meta === undefined) {
       const dispatch = pending.model.markDispatched(unit.id);
@@ -5231,7 +5335,7 @@ export function TimelineWorkbook({
               last_seen_stream_seq: socketLastSeenStreamSeqRef.current,
               presence: workbookPresence(
                 currentPresenceRef.current,
-                activeSheetRef,
+                activeSheetRuntimeRef.current,
               ),
             },
           }),
@@ -5245,21 +5349,23 @@ export function TimelineWorkbook({
             client_instance_id: clientInstanceId,
             presence: workbookPresence(
               currentPresenceRef.current,
-              activeSheetRef,
+              activeSheetRuntimeRef.current,
             ),
           },
         }),
       );
     };
 
-    const requestSocketLifecycleRefresh = () => {
-      pendingQueueRef.current.resetRefreshInFlight = true;
-      publishPendingQueueState();
-      void loadRowsRef.current({ showLoading: false }).finally(() => {
-        pendingQueueRef.current.resetRefreshInFlight = false;
-        publishPendingQueueState();
-        schedulePendingReplay();
-      });
+    const requestSocketLifecycleRefresh = (
+      options: Omit<LoadRowsOptions, "showLoading"> = {},
+      refreshScope: PendingRefreshReplayBlockScope = { kind: "all" },
+    ) => {
+      beginRefreshInFlightRef.current(refreshScope);
+      void loadRowsRef
+        .current({ showLoading: false, ...options })
+        .finally(() => {
+          finishRefreshInFlightRef.current(refreshScope);
+        });
     };
 
     const applySocketLifecycleEffects = (
@@ -5273,10 +5379,10 @@ export function TimelineWorkbook({
             setRefreshError(
               "Authentication required before queued edits can replay.",
             );
-            publishPendingQueueState();
+            publishPendingQueueStateRef.current();
             break;
           case "schedule_auth_recovery_probe":
-            scheduleAuthRecoveryProbe();
+            scheduleAuthRecoveryProbeRef.current();
             break;
           case "close_socket":
             target.close();
@@ -5291,8 +5397,8 @@ export function TimelineWorkbook({
             break;
           case "resume_pending_replay":
             pendingQueueRef.current.model.resumeAfterAuthRecovery();
-            publishPendingQueueState();
-            schedulePendingReplay();
+            publishPendingQueueStateRef.current();
+            schedulePendingReplayRef.current();
             break;
           case "apply_record_change":
           case "ignore_duplicate_sequence":
@@ -5359,7 +5465,7 @@ export function TimelineWorkbook({
         return;
       }
       if (message.type === "hello_ack" || message.type === "resume_ack") {
-        const effects = dispatchSocketLifecycle({
+        const effects = dispatchSocketLifecycleRef.current({
           type: "session_ack",
           messageType: message.type,
           ...(message.payload === undefined
@@ -5378,25 +5484,31 @@ export function TimelineWorkbook({
         return;
       }
       if (message.type === "session_revoked") {
-        const effects = dispatchSocketLifecycle({ type: "session_revoked" });
+        const effects = dispatchSocketLifecycleRef.current({
+          type: "session_revoked",
+        });
         applySocketLifecycleEffects(effects, target);
         return;
       }
       if (
-        shouldIgnoreSelfOriginatedRecordChange(raw, resolvePendingSocketTxn)
+        shouldIgnoreSelfOriginatedRecordChange(
+          raw,
+          resolvePendingSocketTxnRef.current,
+        )
       ) {
         return;
       }
       if (!isRecordChangedMessage(raw)) {
         return;
       }
-      const streamEffects = dispatchSocketLifecycle({
+      const recordChangedPayload = message.payload as RecordChangedPayload;
+      const streamEffects = dispatchSocketLifecycleRef.current({
         type: "record_changed_received",
         message: {
           ...(typeof message.stream_seq === "number"
             ? { stream_seq: message.stream_seq }
             : {}),
-          payload: message.payload as RecordChangedPayload,
+          payload: recordChangedPayload,
         },
       });
       for (const effect of streamEffects) {
@@ -5411,18 +5523,16 @@ export function TimelineWorkbook({
           return;
         }
       }
-      const viewportContinuityToken = beginViewportContinuity({
+      const viewportContinuityToken = beginViewportContinuityRef.current({
         kind: "scroll-only",
       });
-      const applied = applyRecordChangedPatch(
-        message.payload as RecordChangedPayload,
-      );
-      const followupEffects = dispatchSocketLifecycle({
+      const applied = applyRecordChangedPatchRef.current(recordChangedPayload);
+      const followupEffects = dispatchSocketLifecycleRef.current({
         type: "record_change_result",
         applied,
       });
       if (applied) {
-        advanceViewportContinuity(viewportContinuityToken);
+        advanceViewportContinuityRef.current(viewportContinuityToken);
         return;
       }
       if (
@@ -5432,10 +5542,12 @@ export function TimelineWorkbook({
             effect.reason === "record_change_requery",
         )
       ) {
-        void loadRowsRef.current({
-          showLoading: false,
-          viewportContinuityToken,
-        });
+        requestSocketLifecycleRefresh(
+          {
+            viewportContinuityToken,
+          },
+          { kind: "record", recordId: recordChangedPayload.record_id },
+        );
       }
     };
 
@@ -5445,7 +5557,7 @@ export function TimelineWorkbook({
       }
       socket = new WebSocket(changeSocketURL);
       activeSocketRef.current = socket;
-      dispatchSocketLifecycle({ type: "socket_connecting" });
+      dispatchSocketLifecycleRef.current({ type: "socket_connecting" });
       socket.onopen = () => {
         if (socket) {
           sendSessionEstablishment(socket);
@@ -5463,9 +5575,11 @@ export function TimelineWorkbook({
           (event.reason === "session_revoked" ||
             event.reason === "authorization_denied")
         ) {
-          const effects = dispatchSocketLifecycle({
-            type: "authorization_closed",
-          }).filter((effect) => effect.kind !== "close_socket");
+          const effects = dispatchSocketLifecycleRef
+            .current({
+              type: "authorization_closed",
+            })
+            .filter((effect) => effect.kind !== "close_socket");
           applySocketLifecycleEffects(effects, socket as WebSocket);
         }
         scheduleReconnect();
@@ -5487,22 +5601,10 @@ export function TimelineWorkbook({
       }
       activeSocketRef.current = null;
       socketReconnectAfterAuthRef.current = null;
-      dispatchSocketLifecycle({ type: "socket_connecting" });
+      dispatchSocketLifecycleRef.current({ type: "socket_connecting" });
       socket?.close();
     };
-  }, [
-    activeSheetRef,
-    advanceViewportContinuity,
-    applyRecordChangedPatch,
-    beginViewportContinuity,
-    changeSocketURL,
-    dispatchSocketLifecycle,
-    incidentId,
-    publishPendingQueueState,
-    resolvePendingSocketTxn,
-    scheduleAuthRecoveryProbe,
-    schedulePendingReplay,
-  ]);
+  }, [changeSocketURL, incidentId]);
 
   const queueScalarSave = useCallback(
     (

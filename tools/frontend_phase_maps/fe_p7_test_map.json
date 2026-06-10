@@ -492,11 +492,15 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P7-01 Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures."
+        "FE-V-P7-01 Capture row-gutter and cell presence markers.",
+        "FE-V-P7-01 Capture same-field conflict resolver.",
+        "FE-V-P7-01 Capture conflict save-state strip.",
+        "FE-V-P7-01 Capture recovered saved-state strip.",
+        "FE-V-P7-01 Capture reset/invalidate refresh strip."
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures.",
+        "statement": "Capture presence markers, same-field conflict resolver state, conflict and recovered save-state strips, and reset/invalidate refresh strip fixtures.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },

@@ -68,10 +68,21 @@ write_fake_make() {
   cat >"$file" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
-target="${@: -1}"
+target=""
+for arg in "$@"; do
+  if [[ "$arg" == --* || "$arg" == *=* ]]; then
+    continue
+  fi
+  target="$arg"
+  break
+done
+if [[ -z "$target" ]]; then
+  printf 'fake make could not identify target in args: %s\n' "$*" >&2
+  exit 2
+fi
 printf '%s\n' "$target" >>"$FAKE_MAKE_LOG"
 if [[ -n "${FAKE_MAKE_ENV_LOG:-}" ]]; then
-  printf '%s\tRESULTS_DIR=%s\n' "$target" "${RESULTS_DIR:-}" >>"$FAKE_MAKE_ENV_LOG"
+  printf '%s\tRESULTS_DIR=%s\tARGS=%s\n' "$target" "${RESULTS_DIR:-}" "$*" >>"$FAKE_MAKE_ENV_LOG"
 fi
 if [[ "${FAKE_REJECT_RESULTS_DIR_LEAK:-}" == "1" ]]; then
   case "$target" in
@@ -82,6 +93,9 @@ if [[ "${FAKE_REJECT_RESULTS_DIR_LEAK:-}" == "1" ]]; then
       fi
       ;;
   esac
+fi
+if [[ -n "${FAKE_MUTATE_TRACKED_FILE:-}" && "${FAKE_MUTATE_TARGET:-}" == "$target" ]]; then
+  printf 'synthetic mutation from %s\n' "$target" >"${FAKE_MUTATE_ROOT:-.}/${FAKE_MUTATE_TRACKED_FILE}"
 fi
 if [[ "${FAKE_FAIL_TARGET:-}" == "$target" ]]; then
   if [[ -n "${CARTULARY_TEST_RESULTS_DIR:-}" && -n "${CARTULARY_TEST_RUN_ID:-}" ]]; then
@@ -209,7 +223,7 @@ assert_invalid_results_dir() {
   fi
   local summary="$scenario_dir/results/$label/agent-finalize/finalize-summary.json"
   assert_equals "$(json_field "$summary" 'value.results_dir_status')" "invalid" "$label results dir status"
-  assert_equals "$(json_field "$summary" 'value.failures[0].action_id')" "structure_ledger_refresh" "$label failure action"
+  assert_equals "$(json_field "$summary" 'value.failures[0].action_id')" "scheduler_drift_validation" "$label failure action"
   assert_equals "$(json_field "$summary" 'value.failures[0].substep_id')" "retained-run-preflight" "$label failure substep"
   assert_equals "$(json_field "$summary" 'value.failures[0].failure_class')" "$expected_class" "$label failure class"
   assert_equals "$(json_field "$summary" 'value.failures[0].failure_reason')" "$expected_reason" "$label failure reason"
@@ -394,12 +408,14 @@ MAKEFLAGS="--no-print-directory -- RESULTS_DIR=$retained_dir" \
 RESULTS_DIR="$retained_dir" \
   "$SCRIPT"
 results_summary="$results_dir/results/with-results/agent-finalize/finalize-summary.json"
-assert_equals "$(json_field "$results_summary" 'value.actions.map((action) => action.action_id)')" $'structure_ledger_refresh\nschema_shape_validation\nduration_baseline_refresh\nduration_baseline_coverage\nduration_baseline_drift_validation\nscheduler_drift_validation' "RESULTS_DIR action selection"
+assert_equals "$(json_field "$results_summary" 'value.actions.map((action) => action.action_id)')" $'scheduler_drift_validation\nstructure_ledger_refresh\nschema_shape_validation\nduration_baseline_refresh\nduration_baseline_coverage\nduration_baseline_drift_validation' "RESULTS_DIR action selection"
 assert_equals "$(json_field "$results_summary" 'value.actions[0].substeps[0].id')" "retained-run-preflight" "RESULTS_DIR preflight is private substep"
 assert_equals "$(json_field "$results_summary" 'value.results_dir_status')" "valid" "RESULTS_DIR valid"
 assert_equals "$(json_field "$results_summary" 'value.duration.status')" "refreshed" "RESULTS_DIR duration refreshed"
 assert_equals "$(json_field "$results_summary" 'value.run_checks.status')" "pass" "RESULTS_DIR run checks pass"
 assert_equals "$(json_field "$results_summary" 'value.actions.find((action) => action.action_id === "duration_baseline_refresh").substeps.map((substep) => substep.id).slice(-2)')" $'phase-schedules-after-duration-baselines\nphase-schedule-drift-after-duration-baselines' "RESULTS_DIR refreshes schedules after duration baselines"
+assert_contains "$(cat "$results_env_log")" $'scheduler-event-order-drift\tRESULTS_DIR='"$retained_dir" "scheduler health substep receives retained run first"
+assert_contains "$(cat "$results_env_log")" $'scheduler-summary-timing-drift\tRESULTS_DIR='"$retained_dir"$'\tARGS=--no-print-directory scheduler-summary-timing-drift TARGET=check ' "scheduler timing substep selects retained check target"
 assert_contains "$(cat "$results_env_log")" $'go-test-duration-baselines\tRESULTS_DIR='"$retained_dir" "RESULTS_DIR substep receives retained run"
 assert_contains "$(cat "$results_env_log")" $'phase-schedules\tRESULTS_DIR=' "RESULTS_DIR is stripped from non-retained substeps"
 assert_not_contains "$(cat "$results_env_log")" $'phase-schedules\tRESULTS_DIR='"$retained_dir" "RESULTS_DIR must not leak into non-retained phase-schedules substep"
@@ -503,6 +519,40 @@ assert_equals "$(json_field "$failure_summary" 'value.failures[0].failure_class'
 assert_equals "$(json_field "$failure_summary" 'value.actions.filter((action) => action.execution_state === "skipped_after_failure").length')" "2" "child failure skipped-after-failure actions"
 assert_equals "$(json_field "$failure_summary" 'value.actions.filter((action) => action.execution_state === "not_selected").length')" "3" "child failure retained actions not selected"
 assert_equals "$(json_field "$failure_summary" 'value.actions.flatMap((action) => action.substeps).filter((step) => step.status === "skipped").length')" "12" "child failure skipped substeps"
+
+rollback_dir="$TMP_DIR/rollback"
+mkdir -p "$rollback_dir"
+rollback_make="$rollback_dir/fake-make"
+rollback_log="$rollback_dir/make.log"
+rollback_before="$rollback_dir/browser-baseline-before.json"
+cp "$ROOT_DIR/tools/browser_e2e_duration_baselines.json" "$rollback_before"
+write_fake_make "$rollback_make"
+set +e
+CARTULARY_TEST_RESULTS_DIR="$rollback_dir/results" \
+CARTULARY_TEST_RUN_ID="rollback" \
+CARTULARY_PHASE_ARTIFACT_DIR="$rollback_dir/results/rollback/agent-finalize/agent-finalize" \
+CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
+MAKE="$rollback_make" \
+FAKE_MAKE_LOG="$rollback_log" \
+FAKE_MUTATE_ROOT="$ROOT_DIR" \
+FAKE_MUTATE_TARGET="phase-schedules" \
+FAKE_MUTATE_TRACKED_FILE="tools/browser_e2e_duration_baselines.json" \
+FAKE_FAIL_TARGET="phase-schedules" \
+RESULTS_DIR="" \
+  "$SCRIPT" >"$rollback_dir/stdout.log" 2>"$rollback_dir/stderr.log"
+rollback_status=$?
+set -e
+if [[ "$rollback_status" -eq 0 ]]; then
+  fail "rollback mutation failure unexpectedly passed"
+fi
+if ! cmp -s "$rollback_before" "$ROOT_DIR/tools/browser_e2e_duration_baselines.json"; then
+  fail "failed finalizer must restore tracked files mutated before failure"
+fi
+rollback_summary="$rollback_dir/results/rollback/agent-finalize/finalize-summary.json"
+assert_equals "$(json_field "$rollback_summary" 'value.mutation_rollback.status')" "restored" "rollback summary status"
+assert_equals "$(json_field "$rollback_summary" 'value.mutation_rollback.restored_file_count')" "1" "rollback restored file count"
+assert_contains "$(json_field "$rollback_summary" 'value.mutation_rollback.restored_files')" "tools/browser_e2e_duration_baselines.json" "rollback restored file list"
+assert_equals "$(json_field "$rollback_summary" 'value.updated_files.length')" "0" "rollback leaves no tracked updated files"
 
 wrapper_dir="$TMP_DIR/wrapper"
 mkdir -p "$wrapper_dir"

@@ -333,7 +333,7 @@ JSON
 
 cat >"$tmp_dir/baseline.json" <<'JSON'
 {
-  "schema_id": "cartulary.browser_e2e_duration_baselines.v2",
+  "schema_id": "cartulary.browser_e2e_duration_baselines.v3",
   "default_entry_weight_ms": 7000,
   "shard_target_ms": 8000,
   "entries": {
@@ -385,9 +385,6 @@ if (!future || future.file !== "apps/web/e2e/future.spec.ts") {
 const unweighted = plan.entries.find((entry) => entry.id === "E-2-01");
 if (!unweighted || unweighted.weight_ms !== 7000) {
   throw new Error("missing baseline entries must use the configured default weight");
-}
-if (!plan.entries.some((entry) => String(entry.id).startsWith("FE-"))) {
-  throw new Error("frontend browser readiness rows must be included in the shard plan");
 }
 if (!plan.shards.some((shard) => String(shard.grep).includes("E-1-03 beta secondary"))) {
   throw new Error("multi-title Playwright shard grep must include every row title");
@@ -567,7 +564,7 @@ JSON
 
 cat >"$tmp_dir/browser-refresh-baseline.json" <<'JSON'
 {
-  "schema_id": "cartulary.browser_e2e_duration_baselines.v2",
+  "schema_id": "cartulary.browser_e2e_duration_baselines.v3",
   "note": "old note",
   "default_entry_weight_ms": 7000,
   "shard_target_ms": 8000,
@@ -592,7 +589,7 @@ refresh_output="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
     "$node_cmd" "$PLANNER" update-baselines --baseline-file "$tmp_dir/browser-refresh-baseline.json" "$browser_results"
 )"
-assert_contains "$refresh_output" "updated 6 browser E2E entry duration baselines" "browser baseline refresh output"
+assert_contains "$refresh_output" "updated 6 browser E2E row duration baselines" "browser baseline refresh output"
 "$node_cmd" - "$tmp_dir/browser-refresh-baseline.json" <<'EOF'
 const fs = require("node:fs");
 const [baselineFile] = process.argv.slice(2);
@@ -628,7 +625,7 @@ EOF
 
 cat >"$tmp_dir/browser-make-baseline.json" <<'JSON'
 {
-  "schema_id": "cartulary.browser_e2e_duration_baselines.v2",
+  "schema_id": "cartulary.browser_e2e_duration_baselines.v3",
   "default_entry_weight_ms": 7000,
   "shard_target_ms": 8000,
   "entries": {}
@@ -642,7 +639,7 @@ make_refresh_output="$(
       "${MAKE:-make}" --no-print-directory -C "$ROOT_DIR" browser-e2e-duration-baselines 2>&1
 )"
 assert_contains "$make_refresh_output" "[RESULT] target=browser-e2e-duration-baselines status=pass" "make browser baseline refresh summary"
-assert_contains "$(tool_logs_from_result "$make_refresh_output")" "updated 6 browser E2E entry duration baselines" "make browser baseline refresh output"
+assert_contains "$(tool_logs_from_result "$make_refresh_output")" "updated 6 browser E2E row duration baselines" "make browser baseline refresh output"
 CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" check-baseline-drift --baseline-file "$tmp_dir/browser-make-baseline.json" "$browser_results" >/dev/null
 

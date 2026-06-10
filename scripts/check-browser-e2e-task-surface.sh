@@ -999,7 +999,7 @@ fi
 if ! grep -Fq '"execution_dependency": "browser_visual"' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must declare browser_visual manifest selection for visual groups"
 fi
-if ! grep -Fq 'cartulary.browser_e2e_duration_baselines.v2' "$browser_duration_baselines"; then
+if ! grep -Fq 'cartulary.browser_e2e_duration_baselines.v3' "$browser_duration_baselines"; then
   fail "browser E2E duration baselines must declare their schema"
 fi
 if ! grep -Fq 'browser_functional' "$browser_shard_plan_script"; then
