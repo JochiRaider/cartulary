@@ -1478,6 +1478,178 @@ test.describe("FE-P6 visual readiness", () => {
   });
 });
 
+test.describe("FE-P7 workbook visual readiness", () => {
+  test("FE-V-P7-01 Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures.", async ({
+    browser,
+    page,
+    sessionTracker,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("FEVP701"),
+      "FE-P7 visual collaboration states",
+    );
+    const remote = await createIncidentMemberUser(page, incidentId, {
+      display_name: "Visual Analyst",
+      email: uniqueEmail("fe-v-p7-remote"),
+      initial_password: "FeVP7RemotePass!",
+      role: "editor",
+    });
+    const presenceRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("FEVP701-PRESENCE"),
+        "timeline.summary": "Presence visual row",
+      },
+    )) as ViewRow;
+    const conflictRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("FEVP701-CONFLICT"),
+        "timeline.summary": "Conflict visual base",
+      },
+    )) as ViewRow;
+    const queueRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("FEVP701-QUEUE"),
+        "timeline.summary": "Pending visual base",
+      },
+    )) as ViewRow;
+    const primarySocket = installIncidentSocketMonitor(page, incidentId);
+    const patchController = await installPatchController(page);
+
+    let remotePage: Page | null = null;
+    try {
+      await page.goto(`/?incident_id=${incidentId}`);
+      await primarySocket.waitForAcceptedSocket();
+      await maskIncidentIdentity(page, incidentId);
+
+      const remoteSession = await openIncidentAsTrackedUserReady(
+        browser,
+        sessionTracker,
+        {
+          createdBy: "FE-V-P7-01",
+          email: remote.email,
+          incidentId,
+          password: remote.initial_password,
+          purpose: "FE-P7 visual presence analyst",
+          readyRecordId: presenceRow.record_id,
+          userId: remote.user_id,
+        },
+      );
+      remotePage = remoteSession.page;
+      await remotePage
+        .getByTestId(rowCellTestId(presenceRow.record_id, "timeline.summary"))
+        .focus();
+      await expect(
+        page.getByTestId(rowPresenceMarkerTestId(presenceRow.record_id)),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId(
+          cellPresenceMarkerTestId(presenceRow.record_id, "timeline.summary"),
+        ),
+      ).toBeVisible();
+      await assertMarkerAnchoredToGridTarget({
+        anchorKind: "row-gutter",
+        markerTestId: rowPresenceMarkerTestId(presenceRow.record_id),
+        page,
+        surface: timelineViewSchemaId,
+        targetTestId: gridRowGutterTestId(
+          timelineViewSchemaId,
+          presenceRow.record_id,
+        ),
+      });
+      await assertMarkerAnchoredToGridTarget({
+        anchorKind: "cell",
+        markerTestId: cellPresenceMarkerTestId(
+          presenceRow.record_id,
+          "timeline.summary",
+        ),
+        page,
+        surface: timelineViewSchemaId,
+        targetTestId: rowCellTestId(presenceRow.record_id, "timeline.summary"),
+      });
+      await assertWorkbookGridVisualRegression(
+        page,
+        "fe-v-p7-01-presence-markers",
+        timelineViewSchemaId,
+        { scroll: { top: 0, left: "left" } },
+      );
+
+      await driveRealTimelineSummaryConflict({
+        afterLocalPatchHeld: async () => {
+          await editTimelineSummary(
+            page,
+            queueRow.record_id,
+            "Pending visual queued replay",
+          );
+          await expect(
+            page.getByTestId(pendingQueueNoticeTestId()),
+          ).toBeVisible();
+        },
+        baseRowVersion: conflictRow.row_version,
+        localValue: "Conflict visual local",
+        page,
+        patchController,
+        recordId: conflictRow.record_id,
+        remoteValue: "Conflict visual server",
+        txnPrefix: "visual-fe-p7-conflict",
+      });
+      await expect(
+        page.getByTestId(
+          conflictMarkerTestId(conflictRow.record_id, "timeline.summary"),
+        ),
+      ).toBeVisible();
+      await assertMarkerAnchoredToGridTarget({
+        anchorKind: "cell",
+        markerTestId: conflictMarkerTestId(
+          conflictRow.record_id,
+          "timeline.summary",
+        ),
+        page,
+        surface: timelineViewSchemaId,
+        targetTestId: rowCellTestId(conflictRow.record_id, "timeline.summary"),
+      });
+      await assertViewportVisualRegression(
+        page,
+        "fe-v-p7-01-conflict-resolver",
+      );
+      await page.getByTestId("conflict-close").click();
+      await expect(page.getByTestId("conflict-resolver")).toHaveCount(0);
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+      await expect(
+        page.getByTestId(workbookShellSlotTestId("status-strip")),
+      ).toContainText("Conflict");
+      await assertStatusStripVisualFixture(page, "fe-v-p7-01-conflict-strip");
+
+      await page
+        .getByTestId(
+          conflictMarkerTestId(conflictRow.record_id, "timeline.summary"),
+        )
+        .click();
+      await expect(page.getByTestId("conflict-resolver")).toBeVisible();
+      await page.getByTestId("conflict-keep-saved").click();
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+      await assertStatusStripVisualFixture(
+        page,
+        "fe-v-p7-01-recovered-saved-strip",
+      );
+    } finally {
+      await patchController.dispose();
+      await remotePage?.context().close();
+    }
+  });
+});
+
 test.describe("Phase 6 workbook visual evidence", () => {
   test("V-6-GRID-01 regresses Phase 6 row-gutter and same-cell presence markers", async ({
     browser,
@@ -2024,7 +2196,47 @@ async function assertViewportVisualRegression(page: Page, name: string) {
 async function assertStatusStripVisualRegression(page: Page, name: string) {
   const statusStrip = page.getByTestId(workbookShellSlotTestId("status-strip"));
   await expectStatusStripFocusAnchorVisuallyHidden(statusStrip);
+  await statusStrip.scrollIntoViewIfNeeded();
   await assertVisualRegression(page, name, statusStrip);
+}
+
+async function assertStatusStripVisualFixture(page: Page, name: string) {
+  const cloneTestId = `visual-status-strip-${name}`;
+  await page.evaluate(
+    ({ cloneSelector, cloneTestId, sourceSelector, sourceTestId }) => {
+      document.querySelector(cloneSelector)?.remove();
+      const source = document.querySelector(sourceSelector);
+      if (!(source instanceof HTMLElement)) {
+        throw new Error(`missing status strip fixture source ${sourceTestId}`);
+      }
+      const sourceRect = source.getBoundingClientRect();
+      const clone = source.cloneNode(true) as HTMLElement;
+      clone.setAttribute("aria-hidden", "true");
+      clone.setAttribute("data-testid", cloneTestId);
+      clone.style.position = "fixed";
+      clone.style.insetInlineStart = "0";
+      clone.style.insetBlockStart = "0";
+      clone.style.inlineSize = `${Math.round(sourceRect.width)}px`;
+      clone.style.margin = "0";
+      clone.style.zIndex = "2147483647";
+      document.body.append(clone);
+    },
+    {
+      cloneSelector: dataTestIdSelector(cloneTestId),
+      cloneTestId,
+      sourceSelector: dataTestIdSelector(
+        workbookShellSlotTestId("status-strip"),
+      ),
+      sourceTestId: workbookShellSlotTestId("status-strip"),
+    },
+  );
+  try {
+    await assertVisualRegression(page, name, page.getByTestId(cloneTestId));
+  } finally {
+    await page.evaluate((selector) => {
+      document.querySelector(selector)?.remove();
+    }, dataTestIdSelector(cloneTestId));
+  }
 }
 
 async function expectStatusStripFocusAnchorVisuallyHidden(

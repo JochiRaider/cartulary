@@ -104,9 +104,11 @@
       "owner_row_ids": [
         "FE-V-P7-01"
       ],
-      "playwright_scenario_title": "V-6-GRID-02 captures same-field conflict resolver visuals",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-02-conflict-resolver-linux.png",
+      "playwright_scenario_title": "FE-V-P7-01 Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-resolver-linux.png",
       "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-resolver-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-strip-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-02-conflict-resolver-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-03-blocked-conflict-linux.png"
       ],
@@ -151,9 +153,10 @@
       "owner_row_ids": [
         "FE-V-P7-01"
       ],
-      "playwright_scenario_title": "V-6-GRID-01 captures presence and row-gutter markers anchored to grid rows",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-01-presence-markers-linux.png",
+      "playwright_scenario_title": "FE-V-P7-01 Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-presence-markers-linux.png",
       "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-presence-markers-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-6-grid-01-presence-markers-linux.png"
       ],
       "seed_id": "fe-vfix-04-deterministic-seed",
@@ -338,9 +341,11 @@
         "FE-V-P4-01",
         "FE-V-P7-01"
       ],
-      "playwright_scenario_title": "FE-V-P4-01 Capture save-state strip, pending replay indication, inline edit cell, and empty successful Timeline query fixtures.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-pending-replay-status-linux.png",
+      "playwright_scenario_title": "FE-V-P7-01 Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-strip-linux.png",
       "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-conflict-strip-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p7-01-recovered-saved-strip-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-pending-replay-status-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-saved-strip-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-02-syncing-strip-linux.png",

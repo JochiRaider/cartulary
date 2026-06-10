@@ -7880,11 +7880,36 @@ export function TimelineWorkbook({
     window.setTimeout(() => {
       (
         document.querySelector(
-          '[data-testid="conflict-resolver-summary"]',
+          dataTestIdSelector("conflict-resolver-summary"),
         ) as HTMLElement | null
       )?.focus();
     }, 0);
   }, [activeConflict]);
+
+  const closeConflictResolver = useCallback(
+    (conflict: LocalConflictState) => {
+      setActiveConflictKey(null);
+      restoreConflictFocus(conflict.focusKey);
+    },
+    [restoreConflictFocus],
+  );
+
+  useEffect(() => {
+    if (!activeConflict) {
+      return;
+    }
+    const handleConflictResolverEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      event.preventDefault();
+      closeConflictResolver(activeConflict);
+    };
+    document.addEventListener("keydown", handleConflictResolverEscape);
+    return () => {
+      document.removeEventListener("keydown", handleConflictResolverEscape);
+    };
+  }, [activeConflict, closeConflictResolver]);
 
   const clearLocalConflict = useCallback(
     (conflict: LocalConflictState) => {
@@ -8264,6 +8289,21 @@ export function TimelineWorkbook({
               }
               style={conflictResolverStyle}
               aria-label="Same-field conflict resolver"
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  closeConflictResolver(activeConflict);
+                  return;
+                }
+                const summary = event.currentTarget.querySelector(
+                  dataTestIdSelector("conflict-resolver-summary"),
+                );
+                if (event.key === "Enter" && event.target === summary) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }
+              }}
             >
               <div data-testid="conflict-resolver-summary" tabIndex={-1}>
                 <p style={eyebrowStyle}>Conflict</p>
@@ -8425,8 +8465,7 @@ export function TimelineWorkbook({
                   style={secondaryActionButtonStyle}
                   data-testid="conflict-close"
                   onClick={() => {
-                    setActiveConflictKey(null);
-                    restoreConflictFocus(activeConflict.focusKey);
+                    closeConflictResolver(activeConflict);
                   }}
                 >
                   Close

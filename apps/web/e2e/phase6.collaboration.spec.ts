@@ -29,12 +29,15 @@ import type { Locator, Page } from "@playwright/test";
 import { revokeAllSessions } from "./authRuntime";
 import { expect, test } from "./fixtures";
 import {
+  apiBase,
   applyStorageState,
   createIncident,
   createIncidentMemberUser,
+  csrfHeaders,
   openIncidentAsTrackedUser,
   uniqueEmail,
   uniqueIncidentKey,
+  uniqueTxn,
 } from "./helpers";
 import {
   createTimelineRow,
@@ -56,6 +59,407 @@ import {
 } from "./phase6Harness";
 
 const presenceInteractionThresholdMs = 1000;
+
+test("FE-I-P7-01 Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering.", async ({
+  browser,
+  page,
+  sessionTracker,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("FEIP701"),
+    "FE-I-P7-01 conflict resolver public route",
+  );
+  const remote = await createIncidentMemberUser(page, incidentId, {
+    display_name: "FE-I-P7 Remote",
+    email: uniqueEmail("fe-i-p7-remote"),
+    initial_password: "FeIP7RemotePass!",
+    role: "editor",
+  });
+  const conflictId = requireRecordId(
+    await createTimelineRow(page, incidentId, "FE-I-P7 conflict base"),
+  );
+  const queuedAId = requireRecordId(
+    await createTimelineRow(page, incidentId, "FE-I-P7 queued A base"),
+  );
+  const queuedBId = requireRecordId(
+    await createTimelineRow(page, incidentId, "FE-I-P7 queued B base"),
+  );
+  const patchController = await installPatchController(page);
+
+  let remotePage: Page | null = null;
+  try {
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(
+      page.getByTestId(rowCellTestId(conflictId, "timeline.summary")),
+    ).toHaveValue("FE-I-P7 conflict base");
+
+    remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
+      createdBy: "FE-I-P7-01",
+      email: remote.email,
+      incidentId,
+      password: remote.initial_password,
+      purpose: "FE-I-P7 public resolver remote analyst",
+      userId: remote.user_id,
+    });
+    await expect(
+      remotePage.getByTestId(rowCellTestId(conflictId, "timeline.summary")),
+    ).toHaveValue("FE-I-P7 conflict base");
+
+    await driveRealTimelineSummaryConflict({
+      baseRowVersion: 1,
+      localValue: "FE-I-P7 local draft",
+      page,
+      patchController,
+      recordId: conflictId,
+      remotePatchPage: remotePage,
+      remoteValue: "FE-I-P7 remote saved",
+      txnPrefix: "feip701-remote-conflict",
+    });
+
+    await patchTimelineField(
+      remotePage,
+      conflictId,
+      2,
+      "timeline.summary",
+      "FE-I-P7 newer saved",
+      "feip701-newer-saved",
+    );
+
+    await page
+      .getByTestId("conflict-merged-value")
+      .fill("FE-I-P7 stale merged draft");
+    const staleResolveRequest = page.waitForRequest(
+      (request) =>
+        request.method() === "POST" &&
+        request.url().includes(`/api/v1/records/${conflictId}/conflicts/`) &&
+        request.url().endsWith("/resolve"),
+    );
+    const staleResolveResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().includes(`/api/v1/records/${conflictId}/conflicts/`) &&
+        response.url().endsWith("/resolve"),
+    );
+    await page.getByTestId("conflict-use-merged").click();
+    const staleRequest = await staleResolveRequest;
+    const staleResponse = await staleResolveResponse;
+    expect(staleResponse.status()).toBe(409);
+    expect(JSON.parse(staleRequest.postData() ?? "{}")).toMatchObject({
+      conflict_token: expect.any(String),
+      resolution_kind: "merged_value",
+      resolved_value: "FE-I-P7 stale merged draft",
+    });
+    const staleEnvelope = await staleResponse.json();
+    expect(staleEnvelope.error.code).toBe("same_field_conflict");
+    expect(staleEnvelope.error.conflict.server_value).toBe(
+      "FE-I-P7 newer saved",
+    );
+    await expect(page.getByTestId("conflict-server-value")).toHaveValue(
+      "FE-I-P7 newer saved",
+    );
+    await expect(page.getByTestId("conflict-local-value")).toHaveValue(
+      "FE-I-P7 stale merged draft",
+    );
+
+    await page
+      .getByTestId("conflict-merged-value")
+      .fill("FE-I-P7 final merged");
+    const successResolveRequest = page.waitForRequest(
+      (request) =>
+        request.method() === "POST" &&
+        request.url().includes(`/api/v1/records/${conflictId}/conflicts/`) &&
+        request.url().endsWith("/resolve"),
+    );
+    const successResolveResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().includes(`/api/v1/records/${conflictId}/conflicts/`) &&
+        response.url().endsWith("/resolve"),
+    );
+    await page.getByTestId("conflict-use-merged").click();
+    const successRequest = await successResolveRequest;
+    const successResponse = await successResolveResponse;
+    expect(successResponse.ok()).toBeTruthy();
+    expect(JSON.parse(successRequest.postData() ?? "{}")).toMatchObject({
+      conflict_token: expect.any(String),
+      resolution_kind: "merged_value",
+      resolved_value: "FE-I-P7 final merged",
+    });
+    await expect(page.getByTestId("conflict-resolver")).toHaveCount(0);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expectServerTimelineCells(page, incidentId, conflictId, {
+      "timeline.summary": "FE-I-P7 final merged",
+    });
+
+    const heldQueuePatch = patchController.holdNextPatch({
+      recordId: queuedAId,
+    });
+    await editTimelineSummary(page, queuedAId, "FE-I-P7 queued A local");
+    await heldQueuePatch.waitForHit;
+    await editTimelineSummary(page, queuedBId, "FE-I-P7 queued B local");
+    await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
+      "2",
+    );
+    heldQueuePatch.release();
+    await expect
+      .poll(
+        () =>
+          successfulPatchCalls(patchController.calls).filter((call) =>
+            [queuedAId, queuedBId].includes(call.recordId),
+          ).length,
+      )
+      .toBe(2);
+    const replayed = successfulPatchCalls(patchController.calls).filter(
+      (call) => [queuedAId, queuedBId].includes(call.recordId),
+    );
+    expect(replayed.map((call) => call.recordId)).toEqual([
+      queuedAId,
+      queuedBId,
+    ]);
+    expect(replayed.map((call) => summaryPatchValue(call.body))).toEqual([
+      "FE-I-P7 queued A local",
+      "FE-I-P7 queued B local",
+    ]);
+  } finally {
+    await patchController.dispose();
+    await remotePage?.context().close();
+  }
+});
+
+test("FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/.", async ({
+  browser,
+  page,
+  sessionTracker,
+  workerAdminRequest,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("FEEP701"),
+    "FE-E-P7-01 live collaboration",
+  );
+  const remote = await createIncidentMemberUser(page, incidentId, {
+    display_name: "FE-E-P7 Remote",
+    email: uniqueEmail("fe-e-p7-remote"),
+    initial_password: "FeEP7RemotePass!",
+    role: "editor",
+  });
+  const liveId = requireRecordId(
+    await createTimelineRow(page, incidentId, "FE-E-P7 live base"),
+  );
+  const invalidateId = requireRecordId(
+    await createTimelineRow(page, incidentId, "FE-E-P7 invalidate base"),
+  );
+  const conflictId = requireRecordId(
+    await createTimelineRow(page, incidentId, "FE-E-P7 Zulu conflict base"),
+  );
+  const patchController = await installPatchController(page);
+  const socketMonitor = installIncidentSocketMonitor(page, incidentId);
+
+  let remotePage: Page | null = null;
+  try {
+    await page.goto(`/?incident_id=${incidentId}`);
+    await socketMonitor.waitForMessage("hello_ack");
+    await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+    await applyFilterChip(
+      page,
+      timelineViewSchemaId,
+      "timeline.has_evidence",
+      "false",
+    );
+    await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
+
+    remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
+      createdBy: "FE-E-P7-01",
+      email: remote.email,
+      incidentId,
+      password: remote.initial_password,
+      purpose: "FE-E-P7 remote analyst",
+      userId: remote.user_id,
+    });
+    await sortByHeader(remotePage, timelineViewSchemaId, "timeline.summary");
+    await applyFilterChip(
+      remotePage,
+      timelineViewSchemaId,
+      "timeline.has_evidence",
+      "false",
+    );
+    await changeGrouping(
+      remotePage,
+      timelineViewSchemaId,
+      "timeline.capture_state",
+    );
+
+    await scrollGridCellIntoView({
+      cellKey: "timeline.summary",
+      page: remotePage,
+      recordId: liveId,
+      surface: timelineViewSchemaId,
+    });
+    const presenceStartAt = socketMonitor.messageCount();
+    await remotePage
+      .getByTestId(rowCellTestId(liveId, "timeline.summary"))
+      .focus();
+    await socketMonitor.waitForMessage("presence_delta", {
+      matches: (message) =>
+        presenceDeltaMatches(message, {
+          fieldKey: "timeline.summary",
+          mode: "editing",
+          recordId: liveId,
+        }),
+      startAt: presenceStartAt,
+    });
+    await expect(
+      page.getByTestId(rowPresenceMarkerTestId(liveId)),
+    ).toContainText("FR");
+    await expect(
+      page.getByTestId(cellPresenceMarkerTestId(liveId, "timeline.summary")),
+    ).toContainText("FR");
+    await assertMarkerAnchoredToGridTarget({
+      anchorKind: "row-gutter",
+      markerTestId: rowPresenceMarkerTestId(liveId),
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: gridRowGutterTestId(timelineViewSchemaId, liveId),
+    });
+    await assertMarkerAnchoredToGridTarget({
+      anchorKind: "cell",
+      markerTestId: cellPresenceMarkerTestId(liveId, "timeline.summary"),
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: rowCellTestId(liveId, "timeline.summary"),
+    });
+
+    const liveStartAt = socketMonitor.messageCount();
+    await patchTimelineField(
+      remotePage,
+      liveId,
+      1,
+      "timeline.summary",
+      "FE-E-P7 live remote update",
+      "feep701-live-remote",
+    );
+    await socketMonitor.waitForMessage("record_changed", {
+      matches: (message) =>
+        message.payload.record_id === liveId &&
+        message.payload.row_version === 2,
+      startAt: liveStartAt,
+    });
+    await scrollGridCellIntoView({
+      cellKey: "timeline.summary",
+      page,
+      recordId: liveId,
+      surface: timelineViewSchemaId,
+    });
+    await expect(
+      page.getByTestId(rowCellTestId(liveId, "timeline.summary")),
+    ).toHaveValue("FE-E-P7 live remote update");
+
+    const removeStartAt = socketMonitor.messageCount();
+    const deleteResponse = await page.request.delete(
+      `${apiBase}/api/v1/records/${invalidateId}`,
+      {
+        headers: await csrfHeaders(page),
+        data: {
+          base_row_version: 1,
+          client_txn_id: uniqueTxn("feep701-delete"),
+        },
+      },
+    );
+    expect(deleteResponse.ok()).toBeTruthy();
+    const removeMessage = await socketMonitor.waitForMessage("record_changed", {
+      matches: (message) =>
+        message.payload.record_id === invalidateId &&
+        Array.isArray(message.payload.affected_views) &&
+        message.payload.affected_views.some(
+          (view: { change_kind?: string }) => view.change_kind === "remove",
+        ),
+      startAt: removeStartAt,
+    });
+    const tombstoneVersion = Number(removeMessage.payload.row_version);
+    expect(tombstoneVersion).toBeGreaterThan(1);
+
+    const invalidateStartAt = socketMonitor.messageCount();
+    const restoreResponse = await page.request.post(
+      `${apiBase}/api/v1/records/${invalidateId}/restore`,
+      {
+        headers: await csrfHeaders(page),
+        data: {
+          base_row_version: tombstoneVersion,
+          client_txn_id: uniqueTxn("feep701-restore"),
+        },
+      },
+    );
+    expect(restoreResponse.ok()).toBeTruthy();
+    await socketMonitor.waitForMessage("record_changed", {
+      matches: (message) =>
+        message.payload.record_id === invalidateId &&
+        Array.isArray(message.payload.affected_views) &&
+        message.payload.affected_views.some(
+          (view: { change_kind?: string; view_schema_id?: string }) =>
+            view.view_schema_id === timelineViewSchemaId &&
+            view.change_kind === "invalidate",
+        ),
+      startAt: invalidateStartAt,
+    });
+    await scrollGridCellIntoView({
+      cellKey: "timeline.summary",
+      page,
+      recordId: invalidateId,
+      surface: timelineViewSchemaId,
+    });
+    await expect(
+      page.getByTestId(rowCellTestId(invalidateId, "timeline.summary")),
+    ).toHaveValue("FE-E-P7 invalidate base");
+
+    await scrollGridCellIntoView({
+      cellKey: "timeline.summary",
+      page,
+      recordId: conflictId,
+      surface: timelineViewSchemaId,
+    });
+    await driveRealTimelineSummaryConflict({
+      baseRowVersion: 1,
+      localValue: "FE-E-P7 local conflict",
+      page,
+      patchController,
+      recordId: conflictId,
+      remotePatchPage: remotePage,
+      remoteValue: "FE-E-P7 remote conflict",
+      txnPrefix: "feep701-conflict",
+    });
+    await assertMarkerAnchoredToGridTarget({
+      anchorKind: "cell",
+      markerTestId: conflictMarkerTestId(conflictId, "timeline.summary"),
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: rowCellTestId(conflictId, "timeline.summary"),
+    });
+    await page.getByTestId("conflict-use-unsaved").click();
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expectServerTimelineCells(page, incidentId, conflictId, {
+      "timeline.summary": "FE-E-P7 local conflict",
+    });
+  } finally {
+    await patchController.dispose();
+    await remotePage?.context().close();
+  }
+
+  await exerciseRevokedPendingReplay({
+    createdBy: "FE-E-P7-01",
+    incidentKeyPrefix: "FEEP701REVOKE",
+    page,
+    scenario: "revoked",
+    sessionTracker,
+    triggerRevocation: async ({ member }) => {
+      await revokeAllSessions(
+        workerAdminRequest,
+        member.user_id,
+        "FE-E-P7-01 browser revoke-all",
+      );
+    },
+  });
+});
 
 test("E-6-01 shows two analysts each other's workbook presence within the expected interaction window", async ({
   browser,

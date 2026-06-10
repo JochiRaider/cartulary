@@ -1531,19 +1531,17 @@ describe("FE-U-P7-02 conflict anchoring and resolver state unit model", () => {
     if (conflictAnchor === undefined) {
       throw new Error("expected same-field conflict save-state anchor");
     }
-    expect(
-      workbookSaveStateConflictAnchorIdentity(conflictAnchor),
-    ).toBe("record-anchor\u0000timeline.summary\u000041");
-    expect(
-      settlement.snapshot.units.map((unit) => unit.clientTxnId),
-    ).toEqual(["txn-behind-conflict"]);
+    expect(workbookSaveStateConflictAnchorIdentity(conflictAnchor)).toBe(
+      "record-anchor\u0000timeline.summary\u000041",
+    );
+    expect(settlement.snapshot.units.map((unit) => unit.clientTxnId)).toEqual([
+      "txn-behind-conflict",
+    ]);
     expect(queue.dispatchNext()).toBeNull();
 
     queue.clearSameFieldConflict(settlement.conflict.key);
     expect(queue.snapshot().sameFieldConflicts).toEqual([]);
-    expect(queue.dispatchNext()?.unit.clientTxnId).toBe(
-      "txn-behind-conflict",
-    );
+    expect(queue.dispatchNext()?.unit.clientTxnId).toBe("txn-behind-conflict");
   });
 
   it("FE-U-P7-02 derives save-state conflict anchors from record_id field_key and base_row_version", () => {

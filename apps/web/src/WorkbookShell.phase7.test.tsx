@@ -1,5 +1,6 @@
 import {
   conflictMarkerTestId,
+  rowCellTestId,
   rowHistoryActionTestId,
   rowHistoryDeleteButtonTestId,
   rowHistoryItemTestId,
@@ -7,7 +8,6 @@ import {
   rowHistoryOpenButtonTestId,
   rowHistoryPanelTestId,
   rowHistoryRestoreButtonTestId,
-  rowCellTestId,
   saveStateTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -31,8 +31,8 @@ import {
   type TimelineWorkbookFetchMock,
   timelineRow,
   timelineViewSchemaId,
-  waitForVisibleGridRowRecordIds,
   visibleGridRowRecordIds,
+  waitForVisibleGridRowRecordIds,
 } from "./timelineWorkbookTestSupport";
 import {
   buildRecordRollbackTargetFromHistoryAction,
@@ -736,6 +736,76 @@ describe("Phase 7 workbook history support coverage", () => {
         "Conflict",
       );
     });
+  });
+
+  it("FE-U-P7-02 keeps resolver keyboard focus non-destructive and cancellation preserves conflict draft", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "record-1",
+              rowVersion: 1,
+              summary: "Keyboard conflict base",
+              captureState: "rough",
+            }),
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        errorEnvelope("same_field_conflict", 409, {
+          conflict_token: "conflict-token-keyboard",
+          record_id: "record-1",
+          field_key: "timeline.summary",
+          conflict_resolution_class: "text_compare_merge",
+          base_row_version: 1,
+          current_row_version: 2,
+          base_value: "Keyboard conflict base",
+          server_value: "Keyboard server value",
+          client_value: "Keyboard local draft",
+          suggested_merged_value: "Keyboard merged suggestion",
+        }),
+      );
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+    const input = (await findWorkbookCell(
+      container,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    )) as HTMLInputElement;
+    fireEvent.focus(input);
+    await changeInputValue(input, "Keyboard local draft");
+    fireEvent.blur(input);
+
+    const resolver = await screen.findByTestId("conflict-resolver");
+    const summary = screen.getByTestId("conflict-resolver-summary");
+    await waitFor(() => {
+      expect(document.activeElement).toBe(summary);
+    });
+
+    fireEvent.keyDown(summary, { key: "Enter" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("conflict-resolver")).toBe(resolver);
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
+
+    fireEvent.keyDown(resolver, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByTestId("conflict-resolver")).toBeNull();
+      expect(document.activeElement).toBe(
+        screen.getByTestId(rowCellTestId("record-1", "timeline.summary")),
+      );
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
+        "Conflict",
+      );
+    });
+    expect(
+      screen.getByTestId(conflictMarkerTestId("record-1", "timeline.summary")),
+    ).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("FE-U-P7-02 preserves resolver draft and focus when a stale conflict token refreshes the same anchor", async () => {

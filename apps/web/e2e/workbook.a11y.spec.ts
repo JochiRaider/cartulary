@@ -5,6 +5,8 @@ import { pasteGridMatrix } from "@cartulary/test-utils";
 import {
   autoResolutionNoticeTestId,
   autoResolutionUndoButtonTestId,
+  cellPresenceMarkerTestId,
+  conflictMarkerTestId,
   currentIncidentRoleTestId,
   dataTestIdSelector,
   evidenceAccessMessageTestId,
@@ -39,6 +41,7 @@ import {
   rowCellTestId,
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
+  rowPresenceMarkerTestId,
   savedViewSelectorTestId,
   saveStateTestId,
   surfaceTabTestId,
@@ -70,6 +73,7 @@ import {
   apiBase,
   createIncident,
   createIncidentMembership,
+  createIncidentMemberUser,
   createViewRow,
   csrfHeaders,
   enrollTotpViaBootstrap,
@@ -94,7 +98,11 @@ import {
   requireItemByRawText,
 } from "./phase4Helpers";
 import {
+  driveRealTimelineSummaryConflict,
+  installPatchController,
   installPatchTransportFailureController,
+  openIncidentAsTrackedUserReady,
+  requireRecordId,
   successfulPatchCalls,
 } from "./phase6Harness";
 
@@ -131,6 +139,9 @@ const p5AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
 const p6AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P6-01",
 ) as [string];
+const p7AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
+  "FE-A11Y-P7-01",
+) as [string];
 
 if (p2AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
@@ -155,6 +166,11 @@ if (p5AccessibilityScenarioTitles.length !== 1) {
 if (p6AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
     `FE-A11Y-P6-01 must declare exactly 1 scenario; found ${p6AccessibilityScenarioTitles.length}`,
+  );
+}
+if (p7AccessibilityScenarioTitles.length !== 1) {
+  throw new Error(
+    `FE-A11Y-P7-01 must declare exactly 1 scenario; found ${p7AccessibilityScenarioTitles.length}`,
   );
 }
 
@@ -1812,6 +1828,135 @@ test.describe("FE-P6 accessibility readiness", () => {
       evidenceAccessMessageTestId(inconsistentHandle.record_id),
     ]);
   });
+});
+
+test.describe("FE-P7 accessibility readiness", () => {
+  test(
+    p7AccessibilityScenarioTitles[0],
+    async ({ browser, page, sessionTracker }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      const incidentId = await createIncident(
+        page,
+        uniqueIncidentKey("A11YP7"),
+        "FE-A11Y-P7 conflict accessibility",
+      );
+      const remote = await createIncidentMemberUser(page, incidentId, {
+        display_name: "Accessible Analyst",
+        email: uniqueEmail("fe-a11y-p7-remote"),
+        initial_password: "FeA11yP7RemotePass!",
+        role: "editor",
+      });
+      const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
+        client_txn_id: uniqueTxn("fe-a11y-p7-row"),
+        "timeline.summary": "FE-A11Y-P7 conflict base",
+      });
+      const recordId = requireRecordId(row);
+      const patchController = await installPatchController(page);
+
+      let remotePage: Page | null = null;
+      try {
+        await page.goto(`/?incident_id=${incidentId}`);
+        await expect(
+          page.getByTestId(workbookShellReadyTestId()),
+        ).toBeVisible();
+
+        const remoteSession = await openIncidentAsTrackedUserReady(
+          browser,
+          sessionTracker,
+          {
+            createdBy: "FE-A11Y-P7-01",
+            email: remote.email,
+            incidentId,
+            password: remote.initial_password,
+            purpose: "FE-A11Y-P7 remote presence analyst",
+            readyRecordId: recordId,
+            userId: remote.user_id,
+          },
+        );
+        remotePage = remoteSession.page;
+        await remotePage
+          .getByTestId(rowCellTestId(recordId, "timeline.summary"))
+          .focus();
+        await expect(
+          page.getByTestId(rowPresenceMarkerTestId(recordId)),
+        ).toBeVisible();
+        await expect(
+          page.getByTestId(
+            cellPresenceMarkerTestId(recordId, "timeline.summary"),
+          ),
+        ).toBeVisible();
+
+        await driveRealTimelineSummaryConflict({
+          baseRowVersion: 1,
+          localValue: "FE-A11Y-P7 local draft",
+          page,
+          patchController,
+          recordId,
+          remotePatchPage: remotePage,
+          remoteValue: "FE-A11Y-P7 saved value",
+          txnPrefix: "fea11yp7-conflict",
+        });
+        const resolver = page.getByTestId("conflict-resolver");
+        await expect(resolver).toHaveAttribute(
+          "aria-label",
+          "Same-field conflict resolver",
+        );
+        const summary = page.getByTestId("conflict-resolver-summary");
+        await expect(summary).toBeFocused();
+        await expect(page.getByTestId("conflict-field-key")).toHaveValue(
+          "timeline.summary",
+        );
+        await expect(page.getByTestId("conflict-server-value")).toHaveValue(
+          "FE-A11Y-P7 saved value",
+        );
+        await expect(page.getByTestId("conflict-local-value")).toHaveValue(
+          "FE-A11Y-P7 local draft",
+        );
+        await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
+        await expect(
+          page.getByRole("button", { name: "Keep saved value" }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("button", { name: "Use my unsaved value" }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("button", { name: "Use merged value" }),
+        ).toBeVisible();
+
+        await summary.press("Enter");
+        await expect(resolver).toBeVisible();
+        await expect(page.getByTestId(saveStateTestId())).toHaveText(
+          "Conflict",
+        );
+        await expect(
+          page.getByTestId(conflictMarkerTestId(recordId, "timeline.summary")),
+        ).toBeVisible();
+        await expectAllInteractiveControlsNamed(page);
+        await expectNoFocusTrap(page);
+        await expectAndRecordContrast(page, [
+          saveStateTestId(),
+          rowPresenceMarkerTestId(recordId),
+          cellPresenceMarkerTestId(recordId, "timeline.summary"),
+          "conflict-close",
+          "conflict-keep-saved",
+          "conflict-use-unsaved",
+          "conflict-use-merged",
+        ]);
+
+        await page.keyboard.press("Escape");
+        await expect(resolver).toHaveCount(0);
+        await expect(page.getByTestId(saveStateTestId())).toHaveText(
+          "Conflict",
+        );
+        await expect(
+          page.getByTestId(conflictMarkerTestId(recordId, "timeline.summary")),
+        ).toBeVisible();
+      } finally {
+        await patchController.dispose();
+        await remotePage?.context().close();
+      }
+    },
+  );
 });
 
 test.describe("FE-P1 accessibility readiness", () => {

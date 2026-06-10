@@ -107,11 +107,20 @@
         {
           "source_key": "core03",
           "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
-          "section_ref": "Core 03 Sections 3.1, 3.3.5, 3.3.6, 4.2, and 4.4",
-          "heading_text": "3.1 Concurrency strategy; 3.3.5 Local draft, history, and analytics boundary; 3.3.6 Paste-time same-field conflicts; 4.2 Save-state presentation; 4.4 Local pending queue",
+          "section_ref": "Core 03 Sections 3.1, 3.3.4, 3.3.5, 3.3.6, 4.2, 4.3, and 4.4",
+          "heading_text": "3.1 Concurrency strategy; 3.3.4 Same-field conflict transport contract; 3.3.5 Local draft, history, and analytics boundary; 3.3.6 Paste-time same-field conflicts; 4.2 Save-state presentation; 4.3 Presence; 4.4 Local pending queue",
           "req_ids": [
             "REQ-03-033",
-            "REQ-03-084"
+            "REQ-03-071",
+            "REQ-03-072",
+            "REQ-03-073",
+            "REQ-03-074",
+            "REQ-03-075",
+            "REQ-03-076",
+            "REQ-03-084",
+            "REQ-03-089",
+            "REQ-03-099",
+            "REQ-03-100"
           ],
           "ac_ids": [],
           "role": "product_owner",
@@ -120,7 +129,16 @@
       ],
       "core_req_ids": [
         "REQ-03-033",
-        "REQ-03-084"
+        "REQ-03-071",
+        "REQ-03-072",
+        "REQ-03-073",
+        "REQ-03-074",
+        "REQ-03-075",
+        "REQ-03-076",
+        "REQ-03-084",
+        "REQ-03-089",
+        "REQ-03-099",
+        "REQ-03-100"
       ],
       "core_ac_ids": [
         "AC-009",
@@ -151,7 +169,8 @@
         "FE-U-P7-02 keeps same-field conflict queue identity separate from pending replay and visible order",
         "FE-U-P7-02 derives save-state conflict anchors from record_id field_key and base_row_version",
         "FE-U-P7-02 keeps resolver state anchored to stable row and field identities across refresh and reorder",
-        "FE-U-P7-02 preserves resolver draft and focus when a stale conflict token refreshes the same anchor"
+        "FE-U-P7-02 preserves resolver draft and focus when a stale conflict token refreshes the same anchor",
+        "FE-U-P7-02 keeps resolver keyboard focus non-destructive and cancellation preserves conflict draft"
       ],
       "claim_status": "implemented",
       "claim": {
@@ -193,11 +212,20 @@
         {
           "source_key": "core03",
           "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
-          "section_ref": "Core 03 Sections 3.1, 3.3.5, 3.3.6, 4.2, and 4.4",
-          "heading_text": "3.1 Concurrency strategy; 3.3.5 Local draft, history, and analytics boundary; 3.3.6 Paste-time same-field conflicts; 4.2 Save-state presentation; 4.4 Local pending queue",
+          "section_ref": "Core 03 Sections 3.1, 3.3.4, 3.3.5, 3.3.6, 4.2, 4.3, and 4.4",
+          "heading_text": "3.1 Concurrency strategy; 3.3.4 Same-field conflict transport contract; 3.3.5 Local draft, history, and analytics boundary; 3.3.6 Paste-time same-field conflicts; 4.2 Save-state presentation; 4.3 Presence; 4.4 Local pending queue",
           "req_ids": [
             "REQ-03-033",
-            "REQ-03-084"
+            "REQ-03-071",
+            "REQ-03-072",
+            "REQ-03-073",
+            "REQ-03-074",
+            "REQ-03-075",
+            "REQ-03-076",
+            "REQ-03-084",
+            "REQ-03-089",
+            "REQ-03-099",
+            "REQ-03-100"
           ],
           "ac_ids": [],
           "role": "product_owner",
@@ -208,7 +236,16 @@
         "REQ-01-057",
         "REQ-01-070",
         "REQ-03-033",
-        "REQ-03-084"
+        "REQ-03-071",
+        "REQ-03-072",
+        "REQ-03-073",
+        "REQ-03-074",
+        "REQ-03-075",
+        "REQ-03-076",
+        "REQ-03-084",
+        "REQ-03-089",
+        "REQ-03-099",
+        "REQ-03-100"
       ],
       "core_ac_ids": [
         "AC-009",
@@ -236,32 +273,31 @@
           "command_id": "cartulary.harness.command.frontend_unit.v1",
           "evidence_role": "primary",
           "required_for_closure": false,
-          "frontend_row_accounting_required": true,
+          "frontend_row_accounting_required": false,
           "scenario_title_required": false
         },
         {
           "target_name": "browser-e2e-webserver-backed",
           "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
-          "scenario_title_required": false
+          "scenario_title_required": true
         }
       ],
       "scenario_titles": [
         "FE-I-P7-01 Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
       "default_check_required": false,
-      "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-I-P7-01",
@@ -269,14 +305,7 @@
       "evidence_delta": "full evidence is retained outside default check",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P7",
-      "blockers": [
-        {
-          "blocker_id": "FE-I-P7-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-E-P7-01",
@@ -286,9 +315,11 @@
         {
           "source_key": "core01",
           "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
-          "section_ref": "Core 01 Sections 3.3.6 and 3.3.10",
-          "heading_text": "3.3.6 Success and error envelopes; 3.3.10 WebSocket collaboration stream",
+          "section_ref": "Core 01 Sections 3.1, 3.3.1, 3.3.6, and 3.3.10",
+          "heading_text": "3.1 Browser client; 3.3.1 Versioning and compatibility; 3.3.6 Success and error envelopes; 3.3.10 WebSocket collaboration stream",
           "req_ids": [
+            "REQ-01-017",
+            "REQ-01-022",
             "REQ-01-057",
             "REQ-01-070",
             "REQ-01-250",
@@ -301,11 +332,25 @@
         {
           "source_key": "core03",
           "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
-          "section_ref": "Core 03 Sections 3.1, 3.3.5, 3.3.6, 4.2, and 4.4",
-          "heading_text": "3.1 Concurrency strategy; 3.3.5 Local draft, history, and analytics boundary; 3.3.6 Paste-time same-field conflicts; 4.2 Save-state presentation; 4.4 Local pending queue",
+          "section_ref": "Core 03 Sections 3.1, 3.3.4, 3.3.5, 3.3.6, 4.2, 4.3, 4.4, and 14",
+          "heading_text": "3.1 Concurrency strategy; 3.3.4 Same-field conflict transport contract; 3.3.5 Local draft, history, and analytics boundary; 3.3.6 Paste-time same-field conflicts; 4.2 Save-state presentation; 4.3 Presence; 4.4 Local pending queue; 14 Sorting, filtering, and grouping",
           "req_ids": [
             "REQ-03-033",
-            "REQ-03-084"
+            "REQ-03-071",
+            "REQ-03-072",
+            "REQ-03-073",
+            "REQ-03-074",
+            "REQ-03-075",
+            "REQ-03-076",
+            "REQ-03-084",
+            "REQ-03-089",
+            "REQ-03-096",
+            "REQ-03-097",
+            "REQ-03-098",
+            "REQ-03-099",
+            "REQ-03-100",
+            "REQ-03-223",
+            "REQ-03-235"
           ],
           "ac_ids": [],
           "role": "product_owner",
@@ -313,12 +358,28 @@
         }
       ],
       "core_req_ids": [
+        "REQ-01-017",
+        "REQ-01-022",
         "REQ-01-057",
         "REQ-01-070",
         "REQ-01-250",
         "REQ-01-253",
         "REQ-03-033",
-        "REQ-03-084"
+        "REQ-03-071",
+        "REQ-03-072",
+        "REQ-03-073",
+        "REQ-03-074",
+        "REQ-03-075",
+        "REQ-03-076",
+        "REQ-03-084",
+        "REQ-03-089",
+        "REQ-03-096",
+        "REQ-03-097",
+        "REQ-03-098",
+        "REQ-03-099",
+        "REQ-03-100",
+        "REQ-03-223",
+        "REQ-03-235"
       ],
       "core_ac_ids": [
         "AC-009",
@@ -349,7 +410,7 @@
           "target_name": "browser-e2e-stateful",
           "command_id": "cartulary.harness.command.browser_e2e_stateful.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         },
@@ -357,7 +418,7 @@
           "target_name": "browser-e2e-webserver-backed",
           "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         }
@@ -365,17 +426,16 @@
       "scenario_titles": [
         "FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
       "default_check_required": false,
-      "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-E-P7-01",
@@ -383,14 +443,7 @@
       "evidence_delta": "full evidence is retained outside default check",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P7",
-      "blockers": [
-        {
-          "blocker_id": "FE-E-P7-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-V-P7-01",
@@ -433,7 +486,7 @@
           "target_name": "browser-e2e-visual",
           "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         }
@@ -441,11 +494,11 @@
       "scenario_titles": [
         "FE-V-P7-01 Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Capture same-field conflict, row-gutter presence, presence hint, conflict resolver, reset/invalidate notice, and save-state conflict fixtures.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
@@ -458,14 +511,7 @@
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P7",
-      "blockers": [
-        {
-          "blocker_id": "FE-V-P7-01-BLOCKER-01",
-          "reason_code": "visual_fixture_not_recaptured_for_frontend_row",
-          "description": "Visual fixture is planned but direct frontend row-accounting evidence has not been recaptured under the closed fixture registry.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-A11Y-P7-01",
@@ -495,10 +541,10 @@
       ],
       "targets": [
         {
-          "target_name": "browser-e2e-a11y-preflight",
-          "command_id": "cartulary.harness.command.browser_e2e_a11y_preflight.v1",
+          "target_name": "browser-e2e-a11y",
+          "command_id": "cartulary.harness.command.browser_e2e_a11y.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         }
@@ -506,11 +552,11 @@
       "scenario_titles": [
         "FE-A11Y-P7-01 Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
@@ -523,14 +569,7 @@
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P7",
-      "blockers": [
-        {
-          "blocker_id": "FE-A11Y-P7-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     }
   ]
 }
