@@ -348,6 +348,69 @@ This plan does not specify new route behavior unless already owned by Core 00 th
 - Non-claims: readiness does not implement behavior, close rows, or activate Core 05.
 - Binary completion criteria: pass if live status, digests, blockers, fixture IDs, code surfaces, target explanations, and drift results are recorded; fail if any owner ref is missing or contradictory without blocker entry.
 
+#### Sprint 1 Closeout: Readiness And Drift Baseline
+
+Sprint 1 completed as a baseline-and-correction sprint. It did not implement product behavior, promote any FE-P7 row, change public APIs, change selectors, update visual goldens, edit generated artifacts, or claim accessibility/product/Core 05 closure.
+
+Current live baseline recorded during the Sprint 1 run:
+
+- `FE-P7` remains `planned`, with `row_rollup_state=no_rows_implemented`.
+- `FE-P7-ACTIVATION-BLOCKER-01` remains active with reason `frontend_phase_not_active`.
+- All six FE-P7 rows remain `claim_status=blocked`.
+- Product-conformance rows are `FE-U-P7-01`, `FE-U-P7-02`, `FE-I-P7-01`, and `FE-E-P7-01`; they require current mapped row-owned evidence and `frontend-row-accounting.json`.
+- Design-direction rows are `FE-V-P7-01` and `FE-A11Y-P7-01`; visual and accessibility evidence must not be counted as product conformance or Core 05 publication evidence.
+- The generated FE-P7 coverage ledger is current downstream status only and is not row, target, phase, or sprint closure evidence.
+- Existing FE-P6 collaboration, visual, accessibility, selector, and helper artifacts overlap FE-P7 behavior but remain dependency context unless current FE-P7 row ownership and freshness are proven.
+
+Inspected live inputs:
+
+- Governing sources: Core 00 through Core 05, `docs/testing-harness-nlspec.md`, `docs/domain.md`, `docs/design.md`, the frontend implementation/testing guide, and the visual golden maintenance guide.
+- FE-P7 sources: `tools/frontend_phase_registry.json`, `tools/frontend_phase_maps/fe_p7_test_map.json`, `docs/testing/frontend_phase_coverage_ledgers/fe_p7_coverage_ledger.md`, and `tools/frontend_visual_fixture_registry.json`.
+- Examples only: prior frontend phase implementation plans.
+- Implementation-support sources: relevant app, E2E, selector, helper, grid-adapter, and protocol facade code under `apps/web` and `packages`.
+- Retained artifacts under `.cartulary/test-results`, including frontend row-accounting files. No direct FE-P7 row-owned evidence root was found.
+
+Fresh Sprint 1 command evidence:
+
+| Command | Result | Evidence |
+| --- | --- | --- |
+| `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P7` | pass | FE-P7 is planned, blocked, explainable, and not executable as a phase. |
+| `make task-guide ROLE=feature-dev PHASE=FE-P7` | fail | Frontend phases require `PHASE_NAMESPACE=frontend`; this is an invocation requirement, not product drift. |
+| `make task-guide ROLE=feature-dev PHASE_NAMESPACE=frontend PHASE=FE-P7` | pass | Recommended Sprint 1 path is `explain-phase` and `phase-ledger-drift`. |
+| `make phase-ledger-drift` | pass | `.cartulary/test-results/20260610T000156Z-p69566` |
+| `make generated-artifact-policy-check` | pass | `.cartulary/test-results/20260610T000218Z-p69964` |
+| `make json-shape-check` | pass | `.cartulary/test-results/20260610T000227Z-p70160` |
+| `make generate-drift` | pass | `.cartulary/test-results/20260610T000234Z-p70503` |
+| `make agent-finalize` | pass | `.cartulary/test-results/20260610T000247Z-p71387`; generated unchanged; `RESULTS_DIR` unset, so retained-run maintenance was skipped. |
+
+Sprint 1 blockers and unresolved evidence gaps:
+
+- Row, target, phase, and sprint implementation closure remain blocked because FE-P7 is not active, all rows are blocked, and current FE-P7 targets have `required_for_closure=false`.
+- No direct FE-P7 row-owned `frontend-row-accounting.json` evidence exists in retained local artifacts.
+- Retained FE-P6 row accounting is stale or unowned for FE-P7 closure even when it exercises overlapping collaboration behavior.
+- `FE-VFIX-03`, `FE-VFIX-04`, and `FE-VFIX-08` are current fixture-registry entries, but fixture status and V-6/FE-P4 golden names cannot close `FE-V-P7-01`.
+- `FE-A11Y-P7-01` maps to `browser-e2e-a11y-preflight`, while both `browser-e2e-a11y` and `browser-e2e-a11y-preflight` currently explain with no phase coverage and no latest artifact. Preflight smoke cannot be used as implemented-row closure without map and guide authority.
+- Core 05 claim-publication evidence remains inactive because no explicit FE-P7 claim-bearing metadata was found.
+
+Tracked-file correction status:
+
+- Baseline command execution changed no tracked files.
+- This Sprint 1 closeout section is the only tracked correction for the sprint.
+- No implementation, tests, maps, registries, generated artifacts, docs/spec authority sources, visual goldens, or lockfiles were changed.
+
+Post-correction validation after this planning-artifact edit:
+
+| Command | Result | Evidence |
+| --- | --- | --- |
+| `git diff --check` | pass | No whitespace errors. |
+| `make phase-ledger-drift` | pass | `.cartulary/test-results/20260610T001206Z-p74028` |
+| `make generated-artifact-policy-check` | pass | `.cartulary/test-results/20260610T001214Z-p74384` |
+| `make json-shape-check` | pass | `.cartulary/test-results/20260610T001218Z-p74568` |
+| `make generate-drift` | pass | `.cartulary/test-results/20260610T001222Z-p74899` |
+| `make agent-finalize` | pass | `.cartulary/test-results/20260610T001230Z-p75769`; generated unchanged; `RESULTS_DIR` unset, so retained-run maintenance was skipped. |
+
+Binary Sprint 1 outcome: `pass with blockers`. Readiness and drift baseline are established; FE-P7 row, target, phase, and implementation closure remain blocked.
+
 ### Sprint 2: WebSocket Reducer And Lifecycle
 
 - Goal: Implement and validate `FE-U-P7-01`.
