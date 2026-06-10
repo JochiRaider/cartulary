@@ -69,23 +69,27 @@
           "target_name": "frontend-unit",
           "command_id": "cartulary.harness.command.frontend_unit.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
-          "scenario_title_required": false
+          "scenario_title_required": true
         }
       ],
-      "scenario_titles": [],
-      "claim_status": "blocked",
+      "scenario_titles": [
+        "FE-U-P7-01 applies row update and invalidate lifecycle decisions without visible-index state",
+        "FE-U-P7-01 requests reset and stale-row requery for reset-required and stale record changes",
+        "FE-U-P7-01 pauses replay and suppresses reconnect after authorization close or session revocation",
+        "FE-U-P7-01 ignores duplicate stream sequences and refreshes on sequence gaps"
+      ],
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify WebSocket reducer handles row update, reset, invalidate, stale-row requery request, authorization close, and session revocation states.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
       "default_check_required": false,
-      "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-U-P7-01",
@@ -93,14 +97,7 @@
       "evidence_delta": "full evidence is retained outside default check",
       "warm_local_cost_class": "low",
       "phase_id": "FE-P7",
-      "blockers": [
-        {
-          "blocker_id": "FE-U-P7-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-U-P7-02",
