@@ -40,14 +40,14 @@ Live inspection occurred from repository root `/home/jochi/code/cartulary` on 20
 | `docs/testing/frontend_phase_coverage_ledgers/fe_p8_coverage_ledger.md` | Present. Generated downstream ledger reports FE-P8 `planned`, `no_rows_implemented`, six blocked rows. | SHA256 `d18408e2b4dec27fe959f4338077c61cc5473e83f99eb5e1d6c2612404fbe8e1`. |
 | `tools/frontend_visual_fixture_registry.json` | Present. FE-P8 owner fixtures are current for grouped result, group/tree row, and empty successful query; registry status alone cannot close FE-V-P8-01. | SHA256 `293c7f3b5211ee6a1ef5461f83d4c119240d16d2837eecb358b1e836a067ab3d`. |
 | `docs/guides/cartulary_frontend_implementation_testing_guide.md` | Present. FE-P8 guide scope matches saved views, sorting, filtering, grouping, layout state, active chips, startup/default-surface UI, group rows, and query-control persistence. | SHA256 `3750847aac8805eb59a1f93430de24a036665241aa7ad3eb6dfb13dcb349b0b5`. |
-| `docs/testing-harness-nlspec.md` | Present. Harness mechanics only; frontend registry/maps/ledgers/row-accounting are implementation-readiness artifacts and do not define product behavior. | SHA256 `92cfaebb5bcac06565f0cc6b246edfb3446fa2d3ae1e8662f7baf3a1794c7064`. |
+| `docs/testing-harness-nlspec.md` | Present. Harness mechanics only; frontend registry/maps/ledgers/row-accounting are implementation-readiness artifacts and do not define product behavior. | SHA256 `931aa13edf01869edc9a23ff93cdd58a6ab4ccb63ece76670067727444d96dd2`. |
 | `docs/opentelemetry-instrumentation-nlspec.md` | Present. Telemetry-only NLSpec; no FE-P8 product behavior authority. | SHA256 `e763ef88ef0420f6c4e1ee1c7bf69733451d4da8475d44347cb1a5c8e06e4451`. |
-| Core 00 through Core 05 | Present under `docs/spec/`. Core 00 through Core 04 own product behavior; Core 05 remains publication-only. | Core 00 `e3b2e5e9ed4f47d29694612d571f3255437a9a1acbceb31fc38d9229756a682f`; Core 01 `0aa290e6dc4c92e68470a5da35372df8461435a34069144494a473601c62efaa`; Core 02 `bb92665e26804b8c465d961fdef39b78e3f07c389a26a6478e9a210ce393d3fa`; Core 03 `fb561f66e61cf75e777a8c1c4d618d1064ca3b36e8d02435e85131ce631f5b10`; Core 04 `ab4d03966850879625141165d7902f108cfe989914e2b01ed42e2ff7968f6da1`; Core 05 `ee2f572430b75b41ccd20d4dede9c72251b3a4432db2ccf525bec9415da7ef89`. |
+| Core 00 through Core 05 | Present under `docs/spec/`. Core 00 through Core 04 own product behavior; Core 05 remains publication-only. | Core 00 `e3b2e5e9ed4f47d29694612d571f3255437a9a1acbceb31fc38d9229756a682f`; Core 01 `1c55b261681c59e948356d8f80e2d3f5ab8936d33db5742d18a31f701a81bac9`; Core 02 `bb92665e26804b8c465d961fdef39b78e3f07c389a26a6478e9a210ce393d3fa`; Core 03 `fb561f66e61cf75e777a8c1c4d618d1064ca3b36e8d02435e85131ce631f5b10`; Core 04 `ab4d03966850879625141165d7902f108cfe989914e2b01ed42e2ff7968f6da1`; Core 05 `ee2f572430b75b41ccd20d4dede9c72251b3a4432db2ccf525bec9415da7ef89`. |
 | `docs/domain.md` | Present. Vocabulary and concept-boundary reference only. | SHA256 `c461f865e5a0524865e691661f9049ceb9031226124aec60e4014b00847d0e21`. |
 | `docs/guides/cartulary_implementation_testing_guide.md` | Present. Shared row/test/harness discipline and browser helper mechanics. | SHA256 `0f37b87228685269cef75e299be4d03a54ad4ee5a51af91ee4f74e3e25d1ae3a`. |
-| `docs/guides/cartulary-dev-guide.md` | Present. Frontend package and generated artifact boundaries. | SHA256 `0c35b7c6bf206e22a2f2ae0b4a00a14dd16d43dfefbdbe65b4887f17b7c4d83d`. |
+| `docs/guides/cartulary-dev-guide.md` | Present. Frontend package and generated artifact boundaries. | SHA256 `a4b8fb4b9e3b03c905ed276d19a692559ddf1e70396f224f8f8b2a3f68e58776`. |
 | `docs/guides/cartulary-ui-ux-design-guide.md` | Present. Design direction only. | SHA256 `3229622b552fed5c15b158d3bd5d7a7e91f99bf4581e40124657b88298a09b26`. |
-| `docs/design.md` | Present. Design token and visual/accessibility direction only. | SHA256 `728da652a0c8d233145c980bde1f32aad66957eea9f9bd32081ed73a13a038bf`. |
+| `docs/design.md` | Present. Design token and visual/accessibility direction only. | SHA256 `e28345fac8ba22fc58264454237af209360a84af0c714ff4e1c94c6028d8cd05`. |
 | `docs/guides/cartulary_visual_golden_maintenance.md` | Present. Visual golden maintenance only; fixture status cannot close product rows. | SHA256 `21faf12489ef6a9ee93e10197ad8197ceb1a1da8a7303a5fc693ac71db5ce5c1`. |
 | `FRONTEND_PHASE0_IMPLEMENTATION_PLAN.md` through `FRONTEND_PHASE7_IMPLEMENTATION_PLAN.md` | Phase 5, 6, and 7 exist at repository root. Phase 0 through Phase 4 exist under `docs/archive/`. | `rg --files` inspection. |
 
@@ -114,12 +114,12 @@ No inspected fixture-registry entry with `owner_row_ids` containing `FE-V-P8-01`
 
 | Artifact root | Inspected finding | FE-P8 use |
 | --- | --- | --- |
-| `.cartulary/test-results/20260611T141819Z-p21786/frontend-unit/frontend-row-accounting.json` | `target_status` `pass`, current guide digest and registry digest, but `row_results` contains no FE-P8 rows. | Must not close FE-U-P8-01 or FE-I-P8-01. |
-| `.cartulary/test-results/20260611T141819Z-p21786/browser-e2e-webserver-backed/frontend-row-accounting.json` | `target_status` `pass`, current guide digest and registry digest, but `row_results` contains no FE-P8 rows. | Must not close FE-I-P8-01, FE-B-P8-01, or FE-E-P8-01. |
-| `.cartulary/test-results/20260611T141819Z-p21786/browser-e2e-stateful/frontend-row-accounting.json` | `target_status` `pass`, current guide digest and registry digest, but `row_results` contains no FE-P8 rows. | Must not close FE-E-P8-01. |
+| `.cartulary/test-results/20260611T193506Z-p52331/frontend-unit/frontend-row-accounting.json` | `target_status` `pass`, current guide digest `3750847aac8805eb59a1f93430de24a036665241aa7ad3eb6dfb13dcb349b0b5` and registry digest `46d57e203433102aa9fe6ffbe58ce83338890306de417decd0b56b2694094bcc`, but `row_results` contains no FE-P8 rows. | Must not close FE-U-P8-01 or FE-I-P8-01. |
+| `.cartulary/test-results/20260611T193506Z-p52331/browser-e2e-webserver-backed/frontend-row-accounting.json` | `target_status` `pass`, current guide digest and registry digest, but `row_results` contains no FE-P8 rows. | Must not close FE-I-P8-01, FE-B-P8-01, or FE-E-P8-01. |
+| `.cartulary/test-results/20260611T193506Z-p52331/browser-e2e-stateful/frontend-row-accounting.json` | `target_status` `pass`, current guide digest and registry digest, but `row_results` contains no FE-P8 rows. | Must not close FE-E-P8-01. |
 | `.cartulary/test-results/20260610T191949Z-p14292/browser-e2e-visual/frontend-row-accounting.json` | `target_status` `pass`, but guide digest `7bfa510b010f7696ab79d174ea23489e28045b7924743d16d9990e2ef8e22339` and registry digest `4ad7f3f5fa9dd7ecd4865375e2c47940e089d17b5d4bf00297621842948782e8` are stale relative to current inspected digests; row results omit FE-V-P8-01. | Must not close FE-V-P8-01. |
 | `.cartulary/test-results/20260610T171433Z-p14284/browser-e2e-a11y-preflight/accessibility-preflight/frontend-accessibility-preflight-summary.json` | `status` `pass` for FE-A11Y-P8-01 scenario, but phase row still records `claim_status` `blocked`, `required_for_closure` `false`, and the target root has no `frontend-row-accounting.json`. | May inform readiness; must not close FE-A11Y-P8-01. |
-| `.cartulary/test-results/20260611T141819Z-p21786/check/target-summary.json` | `status` `pass`. It is a broad retained check run. | Must not close FE-P8 rows because current FE-P8 row-owned accounting is absent. |
+| `.cartulary/test-results/20260611T193506Z-p52331/check/target-summary.json` | `status` `pass`. It is a broad retained check run. | Must not close FE-P8 rows because current FE-P8 row-owned accounting is absent. |
 
 ### Target Explanation Status
 
@@ -128,8 +128,8 @@ All required explanation commands were run and exited with status 0 before plan 
 | Command | Result | Live finding |
 | --- | --- | --- |
 | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P8` | pass | FE-P8 is `planned`; all six rows are blocked; planned frontend phases are explainable but not executable as a whole. |
-| `make explain-target TARGET=frontend-unit DETAIL=summary` | pass | Public fast target; phase coverage includes `phase8`; latest artifact `.cartulary/test-results/20260611T141819Z-p21786/frontend-unit/frontend-unit/phase-summary.json`. |
-| `make explain-target TARGET=browser-e2e-webserver-backed DETAIL=summary` | pass | Public full-gate target; phase coverage includes `phase8`; latest artifact `.cartulary/test-results/20260611T141819Z-p21786/browser-e2e-webserver-backed/target-summary.json`. |
+| `make explain-target TARGET=frontend-unit DETAIL=summary` | pass | Public fast target; phase coverage includes `phase8`; latest artifact `.cartulary/test-results/20260611T193506Z-p52331/frontend-unit/frontend-unit/phase-summary.json`. |
+| `make explain-target TARGET=browser-e2e-webserver-backed DETAIL=summary` | pass | Public full-gate target; phase coverage includes `phase8`; latest artifact `.cartulary/test-results/20260611T193506Z-p52331/browser-e2e-webserver-backed/target-summary.json`. |
 | `make explain-target TARGET=browser-e2e-stateful DETAIL=summary` | pass | Public full-gate target; phase coverage lists `phase1,phase6`, while the live FE-P8 map names it for FE-E-P8-01. This is a validation-surface finding. |
 | `make explain-target TARGET=browser-e2e-support DETAIL=summary` | pass | `internal_helper`; phase coverage lists `phase1,phase2,phase3`, while the live FE-P8 map names it for FE-B-P8-01. This is a validation-surface finding. |
 | `make explain-target TARGET=browser-e2e-visual DETAIL=summary` | pass | Public full-gate target; phase coverage lists `phase3,phase4,phase5,phase6`, while the live FE-P8 map names it for FE-V-P8-01. This is a validation-surface finding. |
@@ -139,10 +139,13 @@ All required explanation commands were run and exited with status 0 before plan 
 | `make explain-target TARGET=generate-drift DETAIL=summary` | pass | Public phase-maintenance target. |
 | `make explain-target TARGET=generated-artifact-policy-check DETAIL=summary` | pass | Public phase-maintenance target. |
 | `make explain-target TARGET=json-shape-check DETAIL=summary` | pass | Public phase-maintenance target. |
-| `make explain-target TARGET=check DETAIL=summary` | pass | Public full-gate target; latest artifact `.cartulary/test-results/20260611T141819Z-p21786/check/target-summary.json`. |
+| `make explain-target TARGET=check DETAIL=summary` | pass | Public full-gate target; latest artifact `.cartulary/test-results/20260611T193506Z-p52331/check/target-summary.json`. |
 | `make explain-target TARGET=agent-finalize DETAIL=summary` | pass | Public helper target requiring `RESULTS_DIR` when retained-run maintenance is intended. |
 | `make explain-target TARGET=frontend-typecheck DETAIL=summary` | pass | Public fast target. |
 | `make explain-target TARGET=frontend-import-boundary-check DETAIL=summary` | pass | Public fast target. |
+| `make explain-target TARGET=phase-ledgers DETAIL=summary` | pass | Public helper target for regenerating generated ledgers only after owner map or registry edits. |
+| `make explain-target TARGET=lint-markdown DETAIL=summary` | pass | Public fast target for authored Markdown changes. |
+| `make task-guide ROLE=phase-author PHASE_NAMESPACE=frontend PHASE=FE-P8` | pass | Current task guide narrows Sprint 1 source validation to `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P8` and `make phase-ledger-drift`. |
 
 ## Source Limits
 
@@ -150,7 +153,7 @@ All required explanation commands were run and exited with status 0 before plan 
 2. All six FE-P8 rows in `tools/frontend_phase_maps/fe_p8_test_map.json` are blocked. The plan must not mark any row complete.
 3. The live FE-P8 guide section uses broader REQ ranges than the exact REQ ID lists in the live map. Closure must use the live map exact IDs. TODO: `FE-P8-SOURCE-DRIFT-01` reconcile guide range language and map exact IDs before expanding any FE-P8 row claim.
 4. The generated FE-P8 ledger is downstream. It records the current planned/blocked state but cannot close rows.
-5. The latest current-digest product row-accounting artifacts inspected under `.cartulary/test-results/20260611T141819Z-p21786` contain no FE-P8 rows. TODO: `FE-P8-EVIDENCE-01` produce current FE-P8 row-owned accounting in the mapped targets.
+5. The latest current-digest product row-accounting artifacts inspected under `.cartulary/test-results/20260611T193506Z-p52331` contain no FE-P8 rows. TODO: `FE-P8-EVIDENCE-01` produce current FE-P8 row-owned accounting in the mapped targets.
 6. The retained visual row-accounting artifact from `.cartulary/test-results/20260610T191949Z-p14292` has stale guide and registry digests and omits FE-V-P8-01. TODO: `FE-P8-VISUAL-01` recapture FE-V-P8-01 against current registry, guide, and map digests.
 7. The retained accessibility preflight summary from `.cartulary/test-results/20260610T171433Z-p14284` has a passing FE-A11Y-P8-01 scenario but still records the row as blocked and has no root `frontend-row-accounting.json`. TODO: `FE-P8-A11Y-01` produce accepted current row accounting or map-authorized accessibility evidence.
 8. `make explain-target` reports FE-P8 coverage for `frontend-unit` and `browser-e2e-webserver-backed`; it does not currently report FE-P8 coverage for `browser-e2e-stateful`, `browser-e2e-support`, `browser-e2e-visual`, or `browser-e2e-a11y-preflight`, even though the live FE-P8 map names those targets. TODO: `FE-P8-TARGET-SURFACE-01` confirm target coverage after FE-P8 activation or update the task surface if the live map and target explanation remain inconsistent.
@@ -158,6 +161,7 @@ All required explanation commands were run and exited with status 0 before plan 
 10. Existing FE-P8-adjacent tests in `apps/web/src/WorkbookShell.phase8.query.test.tsx` and `apps/web/e2e/phase8.workbook.spec.ts` are implementation context only until their scenarios are row-owned by the live FE-P8 map and current accounting artifacts.
 11. The plan cannot claim public route behavior from frontend mocks. Saved-view persistence, startup/default persistence, and query replay must be proven through `/api/v1/` route evidence in mapped browser/E2E targets.
 12. The plan cannot claim Core 05 publication, benchmark, visual-publication, fixture-sensitive publication, or claim-publication readiness. No explicit claim-bearing FE-P8 metadata was inspected.
+13. `FE-A11Y-P8-01` cites `D-AC-009` in `tools/frontend_phase_maps/fe_p8_test_map.json`, `docs/testing/frontend_phase_coverage_ledgers/fe_p8_coverage_ledger.md`, and the frontend guide row, but current `docs/design.md` contains no `D-AC-009`. TODO: `FE-P8-A11Y-SOURCE-01` reconcile or replace that design-direction support ID through owner map and guide updates before accepting FE-A11Y-P8-01 readiness. The FE-P5 remediation that replaced stale `D-AC-009`/`D-AC-012` with `D-AC-050`/`D-AC-051` is context only and must not be copied into FE-P8 without fresh owner verification.
 
 ## FE-P7 Handoff Inputs
 
@@ -322,6 +326,73 @@ FE-P8 deliverables must include:
 | Expected evidence | Source inventory with file digests, registry status, row inventory, target explanation results, and blocker register. |
 | Blockers | Any missing owner ref, stale digest, guide/map/ledger mismatch, absent target, or retained artifact that conflicts with current map state. |
 | Strict non-claims | This sprint must not claim product behavior, row closure, generated-ledger authority, or FE-P8 activation. |
+
+#### Sprint 1 Scope, Non-Scope, And Assumptions
+
+Sprint 1 is a documentation and implementation-support slice. It closes only the readiness/source-alignment baseline for FE-P8 by recording live authority, live source gaps, deterministic blocker handling, validation commands, and skipped-check rationale in this plan. It does not implement workbook behavior, promote phase rows, activate FE-P8, recapture visual fixtures, close accessibility rows, edit generated outputs, or update harness code.
+
+Assumptions:
+
+1. Core 00 through Core 04 own product conformance; Core 05 remains inactive unless explicit claim-bearing publication metadata is added.
+2. `docs/testing-harness-nlspec.md` owns harness mechanics and retained-artifact rules only.
+3. `tools/frontend_phase_maps/fe_p8_test_map.json` and `tools/frontend_phase_registry.json` are authored source inputs; `docs/testing/frontend_phase_coverage_ledgers/fe_p8_coverage_ledger.md` is generated downstream.
+4. Retained runs are usable only as context unless their row accounting has current guide/registry/map digests, direct FE-P8 row IDs, and map-authorized closure status.
+5. Existing FE-P8-adjacent tests remain candidate implementation context until exact FE-P8 row-owned accounting is produced.
+
+Non-scope:
+
+1. No product-conformance changes.
+2. No harness behavior changes.
+3. No FE-P8 map promotion, registry activation, or row closure.
+4. No generated-ledger hand edits.
+5. No Core 05 publication, visual-publication, benchmark, rollback, evidence-handle, or FE-P9 readiness claim.
+
+#### Sprint 1 Readiness And Source-Alignment Gaps
+
+| Gap ID | Source | Live condition | Deterministic handling |
+| --- | --- | --- | --- |
+| `FE-P8-S1-GAP-01` | `tools/frontend_phase_registry.json` | FE-P8 is `planned`, `no_rows_implemented`, with activation blocker `FE-P8-ACTIVATION-BLOCKER-01`. | Keep FE-P8 non-active; do not run or claim whole-phase closure. |
+| `FE-P8-S1-GAP-02` | `tools/frontend_phase_maps/fe_p8_test_map.json` | All six rows are `claim_status="blocked"` and `required_for_closure=false`. | Keep all rows blocked until owner inputs and current row evidence are promoted together. |
+| `FE-P8-S1-GAP-03` | Retained product accounting | Latest current-digest product row accounting under `.cartulary/test-results/20260611T193506Z-p52331` contains no FE-P8 rows. | Treat broad target pass and broad `make check` pass as context only. |
+| `FE-P8-S1-GAP-04` | Visual retained artifact | `.cartulary/test-results/20260610T191949Z-p14292/browser-e2e-visual/frontend-row-accounting.json` has stale guide/registry digests and no FE-V-P8-01 row. | Do not close visual readiness; recapture through mapped visual row when in scope. |
+| `FE-P8-S1-GAP-05` | Accessibility preflight | `.cartulary/test-results/20260610T171433Z-p14284/.../frontend-accessibility-preflight-summary.json` passes blocked-row smoke but records FE-A11Y-P8-01 as blocked and has no root row accounting. | Treat as diagnostic readiness context only. |
+| `FE-P8-S1-GAP-06` | Target explanations | `browser-e2e-stateful`, `browser-e2e-support`, `browser-e2e-visual`, and `browser-e2e-a11y-preflight` do not advertise phase8 coverage even though the FE-P8 map names them. | Keep as validation-surface blocker until activation or task-surface metadata is reconciled. |
+| `FE-P8-S1-GAP-07` | `docs/design.md` and FE-P8 accessibility map | `D-AC-009` is cited by FE-P8 accessibility support/design IDs, but no current `D-AC-009` exists in `docs/design.md`. | Record `FE-P8-A11Y-SOURCE-01`; do not infer replacement IDs from other phases. |
+| `FE-P8-S1-GAP-08` | Fixture registry | FE-P8-owned fixtures cover grouped result, group/tree row, and empty successful query only. | Do not use fixture status to prove saved-view selector, active chips, or default/startup state indicator readiness. |
+
+#### Sprint 1 Work Breakdown
+
+| Task | Owner source | Expected file changes | Validation target | Acceptance evidence |
+| --- | --- | --- | --- | --- |
+| Refresh authority and digest inventory | Core 00; frontend guide; harness NLSpec | `FRONTEND_PHASE8_IMPLEMENTATION_PLAN.md` only | `sha256sum`; `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P8` | Current source table and FE-P8 planned/blocked status. |
+| Record source gaps and blockers | Frontend guide; registry/map; harness NLSpec | Same | `rg`; `jq`; target explanations | Gap table with no inferred row closure. |
+| Add `D-AC-009` blocker | `docs/design.md`; FE-P8 map | Same | `rg "D-AC-009"` | Explicit unresolved design-ID blocker for FE-A11Y-P8-01. |
+| Record validation evidence | Harness NLSpec; Make target surface | Same | Commands listed in Sprint 1 validation ledger | Pass/fail ledger with run roots. |
+| State skipped checks and non-claims | AGENTS procedure; harness NLSpec | Same | `git status --short` | No generated, product, full-check, or finalizer evidence is claimed. |
+
+#### Sprint 1 Deterministic Source Handling
+
+1. Missing owner references, stale digests, contradictory source status, or unverifiable retained artifacts create blockers rather than inferred closure.
+2. Generated ledgers are regenerated only through `make phase-ledgers` after an authored map or registry edit; Sprint 1 does not edit those inputs, so no regeneration is expected.
+3. Retained artifacts older than current guide/registry/map digests remain diagnostic context only.
+4. Broad `make check` success cannot close FE-P8 rows without current FE-P8 row-owned accounting.
+5. Design-direction rows cannot be promoted to product conformance; accessibility preflight cannot close an implemented accessibility row without map authority and accepted accounting.
+6. FE-P5's `D-AC-009` remediation is historical context only. FE-P8 must resolve its own support/design IDs through the FE-P8 owner map and current design source.
+
+#### Sprint 1 Validation Ledger
+
+| Command | Post-edit result | Evidence |
+| --- | --- | --- |
+| `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P8` | pass | FE-P8 reported `planned`; all six rows reported `blocked`; whole planned phase reported non-executable. |
+| `make task-guide ROLE=phase-author PHASE_NAMESPACE=frontend PHASE=FE-P8` | pass | Task guide selected `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P8` and `make phase-ledger-drift`. |
+| Mapped and maintenance `make explain-target TARGET=<target> DETAIL=summary` commands | pass | Reconfirmed mapped FE-P8 targets, phase-maintenance targets, `lint-markdown`, `check`, and `agent-finalize` are explainable; validation-surface gaps remain for mapped planned browser targets that do not advertise phase8 coverage. |
+| `make phase-ledger-drift` | pass | `.cartulary/test-results/20260611T195739Z-p16131/phase-ledger-drift/tool-run-summary.json`. |
+| `make generated-artifact-policy-check` | pass | `.cartulary/test-results/20260611T195739Z-p16153/generated-artifact-policy-check/tool-run-summary.json`. |
+| `make json-shape-check` | pass | `.cartulary/test-results/20260611T195739Z-p16167/json-shape-check/tool-run-summary.json`. |
+| `make lint-markdown` | pass | `.cartulary/test-results/20260611T195739Z-p16115/lint-markdown/tool-run-summary.json`. |
+| `git status --short` | pass | Only `FRONTEND_PHASE8_IMPLEMENTATION_PLAN.md` is modified; ignored run artifacts were produced by validation. |
+
+`make phase-ledgers`, `make generate-drift`, `make check`, and `make agent-finalize RESULTS_DIR=...` were intentionally skipped for Sprint 1 because no phase map, registry, generated owner input, product behavior, or retained full-check completion evidence changed.
 
 ### Sprint 2: Unit And Query-State Foundation
 
@@ -500,6 +571,7 @@ The following conditions must create blockers:
 | FE-V-P8-01 | Retained visual row accounting | Visual accounting uses stale guide/registry digests and omits FE-V-P8-01. | Stale visual artifact cannot close current FE-P8 readiness. | Recapture FE-V-P8-01 visual evidence with current digests. | FE-V-P8-01 readiness. |
 | FE-V-P8-01 | Fixture registry | Current FE-P8-owned fixtures cover grouped result, group row, and empty successful query, but no separate FE-P8-owned fixture IDs were found for saved-view selector, active chips, or default/startup indicator. | Fixture coverage is incomplete for the live visual row wording unless row-owned visual accounting captures the complete scenario. | Add fixture ownership or capture full FE-V-P8-01 scenario under current accounting. | FE-V-P8-01 readiness. |
 | FE-A11Y-P8-01 | Retained preflight summary | Scenario passes, but phase row still has `claim_status` `blocked`, `required_for_closure` `false`, and no root `frontend-row-accounting.json`. | Preflight pass is not accepted row closure under current map state. | Produce accepted row accounting or update map authority, then rerun preflight. | FE-A11Y-P8-01 readiness. |
+| FE-A11Y-P8-01 | FE-P8 map, FE-P8 ledger, frontend guide, and `docs/design.md` | FE-P8 cites `D-AC-009`, but current `docs/design.md` contains no `D-AC-009`. | The design-direction support ID is unresolved, and FE-P8 cannot silently inherit FE-P5's historical replacement choice. | Reconcile FE-P8 accessibility support/design IDs through owner map and guide updates, regenerate ledgers through `make phase-ledgers`, and rerun drift checks. | FE-A11Y-P8-01 source alignment and readiness. |
 | All product rows | Existing FE-P8-adjacent tests | Existing app tests use legacy `U-8`/`E-8` naming and current row accounting omits FE-P8 rows. | Tests are implementation context, not current row-owned evidence. | Retitle/map scenarios to exact FE-P8 row IDs and produce current accounting. | Product row closure. |
 | All FE-P8 | Core 05 boundary | No explicit FE-P8 claim-bearing metadata inspected. | Publication readiness cannot be inferred. | Add Core 05-compliant claim metadata only if publication evidence is in scope. | Core 05 claims. |
 
@@ -550,8 +622,8 @@ At plan creation, FE-P8 is not complete. FE-P9 may use this plan as dependency c
 | Product rows | FE-U-P8-01, FE-I-P8-01, FE-B-P8-01, FE-E-P8-01 all blocked. |
 | Design-direction rows | FE-V-P8-01 and FE-A11Y-P8-01 blocked. |
 | Direct accepted FE-P8 evidence roots | None. TODO: `FE-P8-HANDOFF-01` produce current row-owned evidence roots before FE-P9 may depend on FE-P8 behavior. |
-| Retained context roots | `.cartulary/test-results/20260611T141819Z-p21786` broad check context; `.cartulary/test-results/20260610T191949Z-p14292` stale visual context; `.cartulary/test-results/20260610T171433Z-p14284` a11y preflight context. These are context only and do not close FE-P8. |
-| Drift/finalization at plan creation | Target explanations passed. Post-write `git diff --check` passed with no output. `make phase-ledger-drift` passed at `.cartulary/test-results/20260611T152507Z-p92384`. `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260611T152420Z-p91128`. `make json-shape-check` passed at `.cartulary/test-results/20260611T152420Z-p91151`. `make agent-finalize` was not run because no retained successful full-check evidence was used for FE-P8 closure. |
+| Retained context roots | `.cartulary/test-results/20260611T193506Z-p52331` broad check/product-target context; `.cartulary/test-results/20260610T191949Z-p14292` stale visual context; `.cartulary/test-results/20260610T171433Z-p14284` a11y preflight context. These are context only and do not close FE-P8. |
+| Drift/finalization at Sprint 1 source-alignment update | Target explanations passed. `make lint-markdown` passed at `.cartulary/test-results/20260611T195739Z-p16115`. `make phase-ledger-drift` passed at `.cartulary/test-results/20260611T195739Z-p16131`. `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260611T195739Z-p16153`. `make json-shape-check` passed at `.cartulary/test-results/20260611T195739Z-p16167`. `make phase-ledgers`, `make generate-drift`, `make check`, and `make agent-finalize RESULTS_DIR=...` were skipped because Sprint 1 changed only this authored plan and did not use retained full-check evidence for FE-P8 closure. |
 | Strict non-claims | No product row closure, no visual/product promotion, no accessibility/product promotion, no Core 05 publication, no evidence handle readiness, no rollback readiness, no full FE-P9 readiness. |
 | Remaining source limits | Guide/map exact-ID drift, target explanation phase-coverage gaps for mapped planned targets, stale retained visual evidence, preflight-only a11y evidence, and absent current FE-P8 row accounting. |
 
