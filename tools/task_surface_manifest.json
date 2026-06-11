@@ -198,6 +198,10 @@
           "description": "enforce frontend import ownership boundaries"
         },
         {
+          "target": "frontend-fallow-static",
+          "description": "run non-blocking Fallow static codebase intelligence"
+        },
+        {
           "target": "lint-scripts",
           "description": "run JavaScript orchestration script Biome checks"
         },
@@ -1611,6 +1615,13 @@
         "./scripts/check-frontend-import-boundaries.mjs"
       ],
       "test_target": "self"
+    },
+    "frontend-fallow-static": {
+      "type": "node_tool",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
+      ]
     },
     "lint-biome": {
       "prerequisites": [
@@ -7109,6 +7120,62 @@
       }
     },
     {
+      "name": "frontend-fallow-static",
+      "backing_scripts": [
+        "scripts/run-fallow-static.mjs",
+        ".fallowrc.json",
+        "tools/fallow/cartulary-boundaries.rulepack.json",
+        "tools/schemas/cartulary.fallow_static_summary.v1.schema.json"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v3"
+      },
+      "command_id": "cartulary.harness.command.frontend_fallow_static.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "static_analysis_security",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": []
+      }
+    },
+    {
       "name": "lint-biome",
       "backing_scripts": [
         "scripts/run-frontend-biome.sh"
@@ -9574,7 +9641,8 @@
         "harness-smoke-run-vitest-phase",
         "harness-smoke-run-vitest-manifest-phase",
         "harness-smoke-run-frontend-unit",
-        "harness-smoke-frontend-import-boundaries"
+        "harness-smoke-frontend-import-boundaries",
+        "harness-smoke-fallow-static"
       ]
     },
     "lifecycle": {
@@ -9632,6 +9700,7 @@
         "harness-smoke-run-vitest-manifest-phase",
         "harness-smoke-run-frontend-unit",
         "harness-smoke-frontend-import-boundaries",
+        "harness-smoke-fallow-static",
         "harness-smoke-web-e2e-lifecycle",
         "harness-smoke-dev-stack-lifecycle",
         "harness-smoke-tool-output-real-targets"
@@ -9987,6 +10056,15 @@
       "name": "harness-smoke-frontend-import-boundaries",
       "backing_scripts": [
         "scripts/test-frontend-import-boundaries.sh"
+      ]
+    },
+    {
+      "name": "harness-smoke-fallow-static",
+      "backing_scripts": [
+        "scripts/test-fallow-static.sh",
+        ".fallowrc.json",
+        "tools/fallow/cartulary-boundaries.rulepack.json",
+        "tools/schemas/cartulary.fallow_static_summary.v1.schema.json"
       ]
     },
     {

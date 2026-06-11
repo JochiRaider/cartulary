@@ -89,6 +89,13 @@ const expectedMakeEnvVars = {
     "FIXTURE_TOP",
     "CARTULARY_TEST_RESULTS_DIR",
   ],
+  "frontend-fallow-static": [
+    "CARTULARY_TEST_RESULTS_DIR",
+    "CARTULARY_TEST_RUN_ID",
+    "NODE_BIN",
+    "NODE_RUNTIME_DIR",
+    "PNPM",
+  ],
   "go-test-duration-baseline-coverage": ["GO_TEST_DURATION_BASELINE"],
   "go-test-duration-baseline-drift": [
     "RESULTS_DIR",
@@ -215,6 +222,13 @@ for (const [name, expected] of Object.entries(expectedMakeEnvVars)) {
 }
 assertList("task-guide runtime env", makeNodeToolRuntimeEnvVars("task-guide"), [
   "CARTULARY_TEST_RESULTS_DIR",
+]);
+assertList("frontend-fallow-static runtime env", makeNodeToolRuntimeEnvVars("frontend-fallow-static"), [
+  "CARTULARY_TEST_RESULTS_DIR",
+  "CARTULARY_TEST_RUN_ID",
+  "NODE_BIN",
+  "NODE_RUNTIME_DIR",
+  "PNPM",
 ]);
 assertList("phase-slice runtime env", makeNodeToolRuntimeEnvVars("phase-slice"), [
   "MAKE",
@@ -497,6 +511,28 @@ assert(!("JSON" in taskGuideChildEnv), "task-guide child env must not expose JSO
 assert(!("PHASE" in taskGuideChildEnv), "task-guide child env must not expose PHASE after args are built");
 assert(!("PHASE_NAMESPACE" in taskGuideChildEnv), "task-guide child env must not expose PHASE_NAMESPACE after args are built");
 assert(!("ROLE" in taskGuideChildEnv), "task-guide child env must not expose ROLE after args are built");
+
+const fallowChildEnv = buildMakeNodeToolChildEnv("frontend-fallow-static", {
+  CARTULARY_TEST_RESULTS_DIR: "/tmp/results",
+  CARTULARY_TEST_RUN_ID: "run-fallow",
+  JSON: "1",
+  NODE_BIN: "/tmp/node",
+  NODE_RUNTIME_DIR: "/tmp/node-runtime",
+  PHASE: "phase4",
+  PNPM: "/tmp/pnpm",
+});
+assert(
+  fallowChildEnv.CARTULARY_TEST_RESULTS_DIR === "/tmp/results",
+  "frontend-fallow-static child env must keep result-root runtime env",
+);
+assert(
+  fallowChildEnv.CARTULARY_TEST_RUN_ID === "run-fallow",
+  "frontend-fallow-static child env must keep run-id runtime env",
+);
+assert(fallowChildEnv.NODE_BIN === "/tmp/node", "frontend-fallow-static child env must keep NODE_BIN");
+assert(fallowChildEnv.PNPM === "/tmp/pnpm", "frontend-fallow-static child env must keep PNPM");
+assert(!("JSON" in fallowChildEnv), "frontend-fallow-static child env must not expose JSON");
+assert(!("PHASE" in fallowChildEnv), "frontend-fallow-static child env must not expose PHASE");
 
 const phaseSliceChildEnv = buildMakeNodeToolChildEnv("phase-slice", {
   CARTULARY_TEST_RESULTS_DIR: "/tmp/results",

@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.fallow_static_summary.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "target",
+    "generated_at",
+    "mode",
+    "config",
+    "reports",
+    "totals",
+    "baseline",
+    "enforcement",
+    "artifacts",
+    "warnings",
+    "extensions"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.fallow_static_summary.v1" },
+    "target": { "const": "frontend-fallow-static" },
+    "generated_at": { "type": "string", "minLength": 1, "format": "date-time" },
+    "mode": { "enum": ["phase_a_report"] },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "static_layer", "runtime_enabled"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "static_layer": { "const": "open" },
+        "runtime_enabled": { "const": false }
+      }
+    },
+    "reports": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/report" }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reports", "issue_count", "by_rule", "by_severity"],
+      "properties": {
+        "reports": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "issue_count": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "by_rule": { "$ref": "#/$defs/counts_by_string" },
+        "by_severity": { "$ref": "#/$defs/counts_by_string" }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "artifacts"],
+      "properties": {
+        "mode": { "enum": ["not_configured", "copied"] },
+        "artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/artifact" }
+        }
+      }
+    },
+    "enforcement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["blocking", "failure_on_issues"],
+      "properties": {
+        "blocking": { "const": false },
+        "failure_on_issues": { "const": false }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/warning" }
+    },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "kind", "path"],
+      "properties": {
+        "role": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "counts_by_string": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer"
+      }
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "command",
+        "status",
+        "exit_code",
+        "artifact",
+        "issue_count",
+        "by_rule",
+        "by_severity",
+        "raw_count_fields"
+      ],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "status": { "enum": ["pass", "fail"] },
+        "exit_code": { "type": "integer" },
+        "artifact": { "$ref": "#/$defs/artifact" },
+        "issue_count": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "by_rule": { "$ref": "#/$defs/counts_by_string" },
+        "by_severity": { "$ref": "#/$defs/counts_by_string" },
+        "raw_count_fields": { "$ref": "#/$defs/counts_by_string" }
+      }
+    },
+    "warning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "message"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "issue_count": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" }
+      }
+    }
+  }
+}

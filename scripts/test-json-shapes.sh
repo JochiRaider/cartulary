@@ -388,6 +388,80 @@ write_valid_tool_run_summary() {
 JSON
 }
 
+write_valid_fallow_static_summary() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.fallow_static_summary.v1",
+  "target": "frontend-fallow-static",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "mode": "phase_a_report",
+  "config": {
+    "path": ".fallowrc.json",
+    "static_layer": "open",
+    "runtime_enabled": false
+  },
+  "reports": [
+    {
+      "name": "dead-code",
+      "command": ["fallow", "dead-code", "--format", "json"],
+      "status": "pass",
+      "exit_code": 0,
+      "artifact": {
+        "role": "dead_code_json",
+        "kind": "json",
+        "path": ".cartulary/test-results/run/frontend-fallow-static/fallow/dead-code.json"
+      },
+      "issue_count": 1,
+      "by_rule": {
+        "apps-web-no-react-data-grid": 1
+      },
+      "by_severity": {
+        "warn": 1
+      },
+      "raw_count_fields": {
+        "policy_violations": 1
+      }
+    }
+  ],
+  "totals": {
+    "reports": 1,
+    "issue_count": 1,
+    "by_rule": {
+      "apps-web-no-react-data-grid": 1
+    },
+    "by_severity": {
+      "warn": 1
+    }
+  },
+  "baseline": {
+    "mode": "not_configured",
+    "artifacts": []
+  },
+  "enforcement": {
+    "blocking": false,
+    "failure_on_issues": false
+  },
+  "artifacts": [
+    {
+      "role": "dead_code_json",
+      "kind": "json",
+      "path": ".cartulary/test-results/run/frontend-fallow-static/fallow/dead-code.json"
+    }
+  ],
+  "warnings": [
+    {
+      "kind": "fallow_findings",
+      "issue_count": 1,
+      "message": "Fallow Phase A findings are retained as non-blocking static-analysis evidence."
+    }
+  ],
+  "extensions": {}
+}
+JSON
+}
+
 write_minimal_scheduler_summary() {
   local file="$1"
   local schema_id="$2"
@@ -707,6 +781,12 @@ write_valid_agent_finalize_summary() {
     "status": "unchanged",
     "updated_file_count": 0
   },
+  "mutation_rollback": {
+    "status": "not_needed",
+    "restored_file_count": 0,
+    "restored_files": [],
+    "error": null
+  },
   "duration": {
     "status": "skipped",
     "refreshed": false,
@@ -973,6 +1053,12 @@ const mutations = {
   },
   "tool-run-summary-missing-schema-id": (fixture) => {
     delete fixture.schema_id;
+  },
+  "fallow-static-summary-blocking": (fixture) => {
+    fixture.enforcement.blocking = true;
+  },
+  "fallow-static-summary-unknown-key": (fixture) => {
+    fixture.legacy_key = true;
   },
   "web-e2e-stack-wrong-frontend-mode": (fixture) => {
     fixture.frontend_mode = "dev";
@@ -1583,6 +1669,24 @@ write_valid_tool_run_summary "$missing_schema_id"
 mutate_json_fixture tool-run-summary-missing-schema-id "$missing_schema_id"
 missing_schema_id_output="$(assert_fails "missing tool run schema_id" run_shape_check tool-run-summary "$missing_schema_id")"
 assert_contains "$missing_schema_id_output" "schema_id is required" "missing tool run schema_id"
+
+fallow_static_summary="$tmp_dir/fallow-static-summary.json"
+write_valid_fallow_static_summary "$fallow_static_summary"
+assert_contains "$(assert_passes "valid fallow static summary" run_shape_check fallow-static-summary "$fallow_static_summary")" \
+  "json shape check passed" \
+  "valid fallow static summary"
+
+fallow_static_blocking="$tmp_dir/fallow-static-summary-blocking.json"
+write_valid_fallow_static_summary "$fallow_static_blocking"
+mutate_json_fixture fallow-static-summary-blocking "$fallow_static_blocking"
+fallow_static_blocking_output="$(assert_fails "fallow static summary rejects blocking mode" run_shape_check fallow-static-summary "$fallow_static_blocking")"
+assert_contains "$fallow_static_blocking_output" "must be equal to constant" "fallow static summary blocking mode"
+
+fallow_static_unknown_key="$tmp_dir/fallow-static-summary-unknown-key.json"
+write_valid_fallow_static_summary "$fallow_static_unknown_key"
+mutate_json_fixture fallow-static-summary-unknown-key "$fallow_static_unknown_key"
+fallow_static_unknown_key_output="$(assert_fails "fallow static summary rejects unknown key" run_shape_check fallow-static-summary "$fallow_static_unknown_key")"
+assert_contains "$fallow_static_unknown_key_output" "must NOT have additional properties" "fallow static summary unknown key"
 
 web_e2e_stack="$tmp_dir/web-e2e-stack.json"
 write_valid_web_e2e_stack "$web_e2e_stack"

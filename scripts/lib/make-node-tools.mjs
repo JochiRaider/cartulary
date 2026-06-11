@@ -241,6 +241,21 @@ export const makeNodeTools = {
       return args;
     },
   },
+  "frontend-fallow-static": {
+    inputs: [],
+    runtimeEnv: [
+      "CARTULARY_TEST_RESULTS_DIR",
+      "CARTULARY_TEST_RUN_ID",
+      "NODE_BIN",
+      "NODE_RUNTIME_DIR",
+      "PNPM",
+    ],
+    script: "./scripts/run-fallow-static.mjs",
+    usage: "usage: make frontend-fallow-static",
+    buildArgs() {
+      return [];
+    },
+  },
   "go-test-duration-baselines": {
     inputs: ["PRUNE_OBSERVED_PACKAGES", "ALLOW_COMMAND_OVERHEAD_DECREASE", "GO_TEST_DURATION_BASELINE"],
     script: "./scripts/update-go-test-durations.mjs",

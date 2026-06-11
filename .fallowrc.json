@@ -1,0 +1,171 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "apps/web/src/main.tsx",
+    "apps/web/src/testSetup.ts",
+    "apps/web/src/testSetup.dom.ts",
+    "apps/web/e2e/**/*.ts",
+    "apps/web/*.config.ts",
+    "packages/grid-adapter/src/index.tsx",
+    "packages/grid-adapter/src/test-support.tsx",
+    "packages/protocol-ts/src/index.ts",
+    "packages/test-utils/src/index.ts",
+    "packages/ui-contracts/src/index.ts",
+    "packages/view-contracts/src/index.ts"
+  ],
+  "workspaces": {
+    "patterns": ["apps/web", "packages/*"]
+  },
+  "ignorePatterns": [
+    "node_modules/**",
+    ".pnpm-store/**",
+    ".cache/**",
+    ".cartulary/**",
+    "tmp/**",
+    "apps/web/dist/**",
+    "apps/web/test-results/**",
+    "apps/web/playwright-report/**",
+    "apps/web/coverage/**",
+    "packages/ui",
+    "packages/ui/**",
+    "internal/gen/**",
+    "tools/task_surface.generated.mk",
+    "tools/browser_e2e_batch_manifest.json",
+    "tools/scheduler_manifest.json",
+    "tools/task_surface_manifest.json"
+  ],
+  "ignoreExports": [
+    { "file": "packages/grid-adapter/src/index.tsx", "exports": ["*"] },
+    { "file": "packages/grid-adapter/src/test-support.tsx", "exports": ["*"] },
+    { "file": "packages/protocol-ts/src/index.ts", "exports": ["*"] },
+    { "file": "packages/test-utils/src/index.ts", "exports": ["*"] },
+    { "file": "packages/ui-contracts/src/index.ts", "exports": ["*"] },
+    { "file": "packages/view-contracts/src/index.ts", "exports": ["*"] }
+  ],
+  "publicPackages": [
+    "@cartulary/grid-adapter",
+    "@cartulary/protocol-ts",
+    "@cartulary/test-utils",
+    "@cartulary/ui-contracts",
+    "@cartulary/view-contracts"
+  ],
+  "rules": {
+    "unused-files": "warn",
+    "unused-exports": "warn",
+    "unused-types": "warn",
+    "private-type-leaks": "off",
+    "unused-dependencies": "warn",
+    "unused-dev-dependencies": "warn",
+    "unused-optional-dependencies": "warn",
+    "unused-enum-members": "warn",
+    "unused-class-members": "warn",
+    "unresolved-imports": "warn",
+    "unlisted-dependencies": "warn",
+    "duplicate-exports": "warn",
+    "type-only-dependencies": "warn",
+    "test-only-dependencies": "warn",
+    "circular-dependencies": "warn",
+    "re-export-cycle": "warn",
+    "boundary-violation": "warn",
+    "coverage-gaps": "off",
+    "feature-flags": "off",
+    "stale-suppressions": "warn",
+    "security-client-server-leak": "off",
+    "security-sink": "off",
+    "policy-violation": "warn"
+  },
+  "boundaries": {
+    "zones": [
+      {
+        "name": "apps-web",
+        "patterns": ["apps/web/src/**", "apps/web/e2e/**", "apps/web/*.config.ts"]
+      },
+      {
+        "name": "packages-grid-adapter",
+        "patterns": ["packages/grid-adapter/src/**"]
+      },
+      {
+        "name": "packages-protocol-ts",
+        "patterns": ["packages/protocol-ts/src/**"]
+      },
+      {
+        "name": "packages-test-utils",
+        "patterns": ["packages/test-utils/src/**"]
+      },
+      {
+        "name": "packages-ui-contracts",
+        "patterns": ["packages/ui-contracts/src/**"]
+      },
+      {
+        "name": "packages-view-contracts",
+        "patterns": ["packages/view-contracts/src/**"]
+      }
+    ],
+    "rules": [
+      {
+        "from": "apps-web",
+        "allow": [
+          "apps-web",
+          "packages-grid-adapter",
+          "packages-protocol-ts",
+          "packages-test-utils",
+          "packages-ui-contracts",
+          "packages-view-contracts"
+        ]
+      },
+      {
+        "from": "packages-grid-adapter",
+        "allow": [
+          "packages-grid-adapter",
+          "packages-protocol-ts",
+          "packages-test-utils",
+          "packages-ui-contracts",
+          "packages-view-contracts"
+        ]
+      },
+      {
+        "from": "packages-ui-contracts",
+        "allow": ["packages-ui-contracts", "packages-protocol-ts"]
+      },
+      {
+        "from": "packages-view-contracts",
+        "allow": ["packages-view-contracts", "packages-protocol-ts"]
+      },
+      {
+        "from": "packages-protocol-ts",
+        "allow": ["packages-protocol-ts"]
+      },
+      {
+        "from": "packages-test-utils",
+        "allow": [
+          "packages-test-utils",
+          "packages-grid-adapter",
+          "packages-protocol-ts",
+          "packages-ui-contracts",
+          "packages-view-contracts"
+        ]
+      }
+    ]
+  },
+  "rulePacks": ["tools/fallow/cartulary-boundaries.rulepack.json"],
+  "overrides": [
+    {
+      "files": [
+        "packages/protocol-ts/src/generated/**",
+        "packages/ui-contracts/src/generated/**"
+      ],
+      "rules": {
+        "unused-files": "off",
+        "unused-exports": "off",
+        "unused-types": "off"
+      }
+    }
+  ],
+  "audit": {
+    "gate": "new-only",
+    "deadCodeBaseline": null,
+    "healthBaseline": null,
+    "dupesBaseline": null
+  },
+  "production": false
+}

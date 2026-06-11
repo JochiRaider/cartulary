@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/rule-pack-schema.json",
+  "version": 1,
+  "name": "cartulary-boundaries",
+  "description": "Cartulary frontend package boundary rules for Fallow static analysis.",
+  "rules": [
+    {
+      "id": "apps-web-no-react-data-grid",
+      "kind": "banned-import",
+      "specifiers": ["react-data-grid"],
+      "files": ["apps/web/**"],
+      "message": "Use @cartulary/grid-adapter for workbook grid use.",
+      "severity": "warn"
+    }
+  ]
+}

@@ -63,6 +63,7 @@ const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
 const serviceBackedMakeTargetBaselineSchemaID =
   "cartulary.scheduler_work_unit_duration_baselines.v2";
 const toolRunSummarySchemaID = "cartulary.tool_run_summary.v3";
+const fallowStaticSummarySchemaID = "cartulary.fallow_static_summary.v1";
 const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v3";
 const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v2";
 const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v3";
@@ -1534,6 +1535,12 @@ function validateKind(kind, file) {
       return;
     case "tool-run-summary":
       validateToolRunSummaryShape(file);
+      return;
+    case "fallow-static-summary":
+      validateSchemaSync(
+        fallowStaticSummarySchemaID,
+        readShapeFile(file, file),
+      );
       return;
     case "agent-finalize-summary":
       validateSchemaSync(
