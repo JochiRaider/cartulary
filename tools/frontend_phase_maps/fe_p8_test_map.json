@@ -3,7 +3,7 @@
   "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P8",
-  "guide_digest": "3750847aac8805eb59a1f93430de24a036665241aa7ad3eb6dfb13dcb349b0b5",
+  "guide_digest": "f582d6fc183210a8404b020116b2dd84a7f92b216e06973e5bc53a0e53d85059",
   "rows": [
     {
       "id": "FE-U-P8-01",
@@ -19,6 +19,19 @@
             "REQ-01-035",
             "REQ-01-038",
             "REQ-01-047"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Section 3.3.5.2",
+          "heading_text": "3.3.5.2 View-schema, saved-view, and workbook-preference contracts",
+          "req_ids": [
+            "REQ-01-142",
+            "REQ-01-143"
           ],
           "ac_ids": [],
           "role": "product_owner",
@@ -42,6 +55,8 @@
         "REQ-01-035",
         "REQ-01-038",
         "REQ-01-047",
+        "REQ-01-142",
+        "REQ-01-143",
         "REQ-03-223",
         "REQ-03-235"
       ],
@@ -73,23 +88,28 @@
           "target_name": "frontend-unit",
           "command_id": "cartulary.harness.command.frontend_unit.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
-          "scenario_title_required": false
+          "scenario_title_required": true
         }
       ],
-      "scenario_titles": [],
-      "claim_status": "blocked",
+      "scenario_titles": [
+        "FE-U-P8-01 compiles query requests with schema field keys and capability metadata",
+        "FE-U-P8-01 serializes saved-view query_json with canonical empty arrays and omitted inactive grouping",
+        "FE-U-P8-01 serializes saved-view layout_json as portable schema field-key state",
+        "FE-U-P8-01 renders active filter chips and grouping controls by field key",
+        "FE-U-P8-01 keeps grouped presentation rows out of mutation-capable anchors"
+      ],
+      "claim_status": "implemented",
       "claim": {
         "statement": "Compile sort, filter, group, layout, and active chips to owner query contracts using schema field_key and capability metadata.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
       "default_check_required": false,
-      "future_default_check_candidate": true,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-U-P8-01",
@@ -97,14 +117,7 @@
       "evidence_delta": "full evidence is retained outside default check",
       "warm_local_cost_class": "low",
       "phase_id": "FE-P8",
-      "blockers": [
-        {
-          "blocker_id": "FE-U-P8-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-I-P8-01",

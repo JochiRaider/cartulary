@@ -2,11 +2,27 @@
 
 ## Summary
 
-FE-P8 covers saved views, sorting, filtering, grouping, layout state, active chips, startup and default surface UI, group rows, and query-control persistence for the Cartulary frontend. The live repository status at plan creation is `planned` with `row_rollup_state` `no_rows_implemented`; the phase is blocked by `FE-P8-ACTIVATION-BLOCKER-01` in `tools/frontend_phase_registry.json`.
+FE-P8 covers saved views, sorting, filtering, grouping, layout state, active chips, startup and default surface UI, group rows, and query-control persistence for the Cartulary frontend. The live repository status at Sprint 1 plan creation was `planned` with `row_rollup_state` `no_rows_implemented`; the phase was blocked by `FE-P8-ACTIVATION-BLOCKER-01` in `tools/frontend_phase_registry.json`.
 
-This plan does not claim FE-P8 completion. Current product-conformance closure is blocked because the live FE-P8 map has all six rows at `claim_status` `blocked`, the latest retained full-check row-accounting artifacts inspected from `.cartulary/test-results/20260611T141819Z-p21786` contain no FE-P8 rows, and retained visual/accessibility artifacts either use stale digests or remain design-direction preflight only. Existing FE-P8-adjacent implementation and test surfaces exist under `apps/web`, `packages/grid-adapter`, `packages/view-contracts`, `packages/protocol-ts`, `packages/ui-contracts`, and `packages/test-utils`, but those files are candidate implementation context until current row-owned FE-P8 evidence closes through the live map.
+This plan does not claim FE-P8 completion. Sprint 2 closes only FE-U-P8-01. FE-P8 remains `planned` with `row_rollup_state` `partially_implemented`, and the activation blocker remains in `tools/frontend_phase_registry.json`. FE-I-P8-01, FE-B-P8-01, FE-E-P8-01, FE-V-P8-01, and FE-A11Y-P8-01 remain blocked and non-claimed.
 
-FE-P8 must be treated as planned and blocked until direct current evidence, row accounting, freshness validation, registry promotion, and ledger regeneration agree. Broad `make check`, generated ledgers, retained old artifacts, visual snapshot filenames, fixture-registry status, and support-only checks must not close FE-P8 rows by themselves.
+FE-P8 must be treated as planned until direct current evidence, row accounting, freshness validation, registry promotion, and ledger regeneration agree for every required row. Broad `make check`, generated ledgers, retained old artifacts, visual snapshot filenames, fixture-registry status, and support-only checks must not close FE-P8 rows by themselves.
+
+### Sprint 2 Executed Status
+
+Sprint 2 implemented the unit/query-state foundation for FE-U-P8-01 on 2026-06-11. The product-conformance scope is deterministic frontend unit behavior for sort/filter/group query compilation, saved-view `query_json` and `layout_json` serialization, active chips, and presentation-only group rows.
+
+Implementation support, design-direction, browser integration, E2E persistence, visual, accessibility, and generated-artifact work remain out of scope for Sprint 2. No generated protocol files were edited.
+
+| Field | Sprint 2 result |
+| --- | --- |
+| Implemented row | FE-U-P8-01 only. |
+| Registry state | FE-P8 remains `planned`; `row_rollup_state` is `partially_implemented`; `FE-P8-ACTIVATION-BLOCKER-01` remains active. |
+| Row accounting evidence | `.cartulary/test-results/20260611T204024Z-p40590/frontend-unit/frontend-row-accounting.json` includes FE-U-P8-01 with `closure_status` `closed`. |
+| Unit scenario titles | `FE-U-P8-01 compiles query requests with schema field keys and capability metadata`; `FE-U-P8-01 serializes saved-view query_json with canonical empty arrays and omitted inactive grouping`; `FE-U-P8-01 serializes saved-view layout_json as portable schema field-key state`; `FE-U-P8-01 renders active filter chips and grouping controls by field key`; `FE-U-P8-01 keeps grouped presentation rows out of mutation-capable anchors`. |
+| Owner update | FE-U-P8-01 owner metadata now includes Core 01 Section 3.3.5.2 for `REQ-01-142` and `REQ-01-143`. |
+| Generated ledger | Regenerated through `make phase-ledgers`; `docs/testing/frontend_phase_coverage_ledgers/fe_p8_coverage_ledger.md` was not hand-edited. |
+| Non-claims | No saved-view route persistence, reload behavior, browser command closure, visual readiness, accessibility readiness, Core 05 publication, or full FE-P8 completion. |
 
 ## Authority Model
 
@@ -27,9 +43,9 @@ The authority order for this plan is:
 
 Core 00 through Core 04 own product conformance. Core 05 must remain inactive for FE-P8 unless explicit claim-bearing metadata exists. The testing harness NLSpec owns command invocation, target selection, scheduling, fixture lifecycle, artifact emission, cleanup, verification gates, registry/map/ledger mechanics, row accounting, freshness, and target explanations; it must not redefine product behavior. The frontend implementation testing guide owns planning and verification mechanics only. Generated ledgers are downstream artifacts and must not be hand-edited or treated as row-closure authority. Visual and accessibility evidence remain design-direction evidence unless owner mappings explicitly promote a narrower claim. Conflicts between guide text, live maps, generated ledgers, registries, retained artifacts, code, or command output must be recorded as blockers instead of silently reconciled.
 
-## Current Repo Status
+## Sprint 1 Repo Baseline
 
-Live inspection occurred from repository root `/home/jochi/code/cartulary` on 2026-06-11. The worktree was clean before this plan file was created.
+Initial live inspection occurred from repository root `/home/jochi/code/cartulary` on 2026-06-11. The worktree was clean before this plan file was created. This section is retained as Sprint 1 baseline context; the Sprint 2 executed status above supersedes it for FE-U-P8-01.
 
 ### Inspected Inputs
 
@@ -147,7 +163,9 @@ All required explanation commands were run and exited with status 0 before plan 
 | `make explain-target TARGET=lint-markdown DETAIL=summary` | pass | Public fast target for authored Markdown changes. |
 | `make task-guide ROLE=phase-author PHASE_NAMESPACE=frontend PHASE=FE-P8` | pass | Current task guide narrows Sprint 1 source validation to `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P8` and `make phase-ledger-drift`. |
 
-## Source Limits
+## Sprint 1 Source Limits
+
+This source-limit list records the Sprint 1 audit baseline. Sprint 2 resolves the FE-U-P8-01 unit-evidence gap only; later-row and phase-activation limits remain unless separately superseded above.
 
 1. FE-P8 is not active. `tools/frontend_phase_registry.json` marks FE-P8 as `planned` with `row_rollup_state` `no_rows_implemented` and activation blocker `FE-P8-ACTIVATION-BLOCKER-01`.
 2. All six FE-P8 rows in `tools/frontend_phase_maps/fe_p8_test_map.json` are blocked. The plan must not mark any row complete.
@@ -222,7 +240,7 @@ FE-P8 must not include:
 
 | Row ID | Layer | Evidence class | Owner sections | Exact REQ IDs | Exact AC IDs | Repository target or TODO | Current `claim_status` | Expected closure evidence | Blockers | Non-claims |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| FE-U-P8-01 | unit | product_conformance | Core 01 Section 3.3.4; Core 03 Section 14 | REQ-01-035, REQ-01-038, REQ-01-047, REQ-03-223, REQ-03-235 | AC-013, AC-014, AC-024, AC-026, AC-044, AC-047, AC-124, AC-127, AC-184, AC-185, AC-231, AC-238, AC-243, AC-359, AC-361, AC-363, AC-364, AC-372, AC-375, AC-387 | `make frontend-unit`; TODO: add/promote exact FE-U-P8-01 unit evidence and row accounting. | blocked | Current `frontend-row-accounting.json` from `frontend-unit` with FE-U-P8-01 row, current map/registry/guide digests, passing unit identity, and closure eligibility. | `FE-U-P8-01-BLOCKER-01`; no current FE-P8 unit row in inspected latest accounting. | Does not claim saved-view persistence, browser behavior, visual readiness, a11y readiness, or Core 05 publication. |
+| FE-U-P8-01 | unit | product_conformance | Core 01 Sections 3.3.4 and 3.3.5.2; Core 03 Section 14 | REQ-01-035, REQ-01-038, REQ-01-047, REQ-01-142, REQ-01-143, REQ-03-223, REQ-03-235 | AC-013, AC-014, AC-024, AC-026, AC-044, AC-047, AC-124, AC-127, AC-184, AC-185, AC-231, AC-238, AC-243, AC-359, AC-361, AC-363, AC-364, AC-372, AC-375, AC-387 | `make frontend-unit`; exact FE-U-P8-01 unit scenarios added and mapped. | implemented | Current `frontend-row-accounting.json` from `frontend-unit` at `.cartulary/test-results/20260611T204024Z-p40590/frontend-unit/frontend-row-accounting.json` has FE-U-P8-01 `closure_status` `closed`, current map/registry/guide digests, passing unit identity, and closure eligibility. | None for FE-U-P8-01 after Sprint 2. | Does not claim saved-view persistence, browser behavior, visual readiness, a11y readiness, or Core 05 publication. |
 | FE-I-P8-01 | integration | product_conformance | Core 01 Section 3.3.5.2; Core 03 Section 3 | REQ-01-138, REQ-01-151, REQ-03-012, REQ-03-032 | AC-146, AC-153, AC-231, AC-233, AC-360 | `make frontend-unit`; `make browser-e2e-webserver-backed`; TODO: add/promote exact FE-I-P8-01 integration evidence and row accounting. | blocked | Current row accounting from mapped targets proving saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts. | `FE-I-P8-01-BLOCKER-01`; no current FE-P8 row in inspected latest accounting. | Does not claim E2E reload persistence, visual readiness, a11y readiness, or Core 05 publication. |
 | FE-B-P8-01 | browser_integration | product_conformance | Core 03 Section 3; Core 03 Section 14; implementation guide Section 14.9A | REQ-03-012, REQ-03-032, REQ-03-223, REQ-03-235 | AC-013, AC-014, AC-024, AC-026, AC-044, AC-047, AC-146, AC-153, AC-231, AC-233, AC-360, AC-363, AC-364 | `make browser-e2e-webserver-backed`; `make browser-e2e-support`; TODO: add/promote exact FE-B-P8-01 browser helper evidence and row accounting. | blocked | Current row accounting with scenario title `FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI.` | `FE-B-P8-01-BLOCKER-01`; `browser-e2e-support` is an internal helper and target explanation does not currently list phase8 coverage. | Does not claim route persistence after reload, visual readiness, a11y readiness, or Core 05 publication. |
 | FE-E-P8-01 | e2e | product_conformance | Core 01 Section 3.3.4; Core 01 Section 3.3.5.2; Core 03 Section 3; Core 03 Section 14 | REQ-01-035, REQ-01-038, REQ-01-047, REQ-01-138, REQ-01-151, REQ-03-012, REQ-03-032, REQ-03-223, REQ-03-235 | AC-013, AC-014, AC-024, AC-026, AC-044, AC-047, AC-124, AC-127, AC-146, AC-153, AC-184, AC-185, AC-231, AC-233, AC-238, AC-243, AC-359, AC-361, AC-363, AC-364, AC-372, AC-375, AC-387 | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; TODO: add/promote exact FE-E-P8-01 public-route reload/replay evidence and row accounting. | blocked | Current row accounting with scenario title `FE-E-P8-01 Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload.` plus public route request/response artifacts. | `FE-E-P8-01-BLOCKER-01`; latest current-digest accounting has no FE-P8 row. | Does not claim visual readiness, a11y readiness, rollback readiness, evidence handles, or Core 05 publication. |
@@ -405,6 +423,21 @@ Non-scope:
 | Blockers | Visible-label keys, DOM-order keys, row-index keys, unsupported field operations, non-sortable field sorting, group rows with writable IDs, stale map digests, or missing FE-U-P8-01 accounting. |
 | Strict non-claims | Unit closure must not claim saved-view route persistence, reload behavior, visual readiness, or accessibility readiness. |
 
+#### Sprint 2 Execution Ledger
+
+| Command | Result | Evidence |
+| --- | --- | --- |
+| `make frontend-unit` | pass | `.cartulary/test-results/20260611T204024Z-p40590/frontend-unit/frontend-row-accounting.json`; FE-U-P8-01 `closure_status` is `closed`. |
+| Row-accounting inspection | pass | Same artifact contains all five exact FE-U-P8-01 scenario titles and current guide, registry, and FE-P8 map references. |
+| `make frontend-typecheck` | pass | `.cartulary/test-results/20260611T204050Z-p42146`. |
+| `make frontend-import-boundary-check` | pass | `.cartulary/test-results/20260611T204101Z-p42534`. |
+| `make json-shape-check` | pass | `.cartulary/test-results/20260611T204106Z-p42887`. |
+| `make generated-artifact-policy-check` | pass | `.cartulary/test-results/20260611T204110Z-p43218`. |
+| `make phase-ledger-drift` | pass | `.cartulary/test-results/20260611T204114Z-p43396`. |
+| `make explain-target TARGET=frontend-unit DETAIL=summary` | pass | Latest artifact `.cartulary/test-results/20260611T204024Z-p40590/frontend-unit/frontend-unit/phase-summary.json`; phase coverage includes `phase8`. |
+
+`make check` was skipped because Sprint 2 did not expand beyond the unit/map/docs slice. `make agent-finalize` was skipped because no retained successful full-check `RESULTS_DIR` was used.
+
 ### Sprint 3: Saved-View Integration
 
 | Field | Plan |
@@ -532,7 +565,7 @@ Every FE-P8 evidence payload must include:
 
 | Row ID | Required artifact family | Minimum evidence payload |
 | --- | --- | --- |
-| FE-U-P8-01 | `frontend-unit` row accounting, target summary, phase summary, unit test output | `cartulary.frontend_row_accounting.v3`, row FE-U-P8-01, command `cartulary.harness.command.frontend_unit.v1`, target `frontend-unit`, current guide digest `3750847aac8805eb59a1f93430de24a036665241aa7ad3eb6dfb13dcb349b0b5`, current registry digest, current FE-P8 map digest, passing unit identity for sort/filter/group/layout/chip compilation, closure status closed, artifact root. |
+| FE-U-P8-01 | `frontend-unit` row accounting, target summary, phase summary, unit test output | `cartulary.frontend_row_accounting.v3`, row FE-U-P8-01, command `cartulary.harness.command.frontend_unit.v1`, target `frontend-unit`, current guide digest `f582d6fc183210a8404b020116b2dd84a7f92b216e06973e5bc53a0e53d85059`, current registry digest, current FE-P8 map digest, passing unit identity for sort/filter/group/layout/chip compilation, closure status closed, artifact root `.cartulary/test-results/20260611T204024Z-p40590`. |
 | FE-I-P8-01 | `frontend-unit` and `browser-e2e-webserver-backed` row accounting, route/browser artifacts | Row FE-I-P8-01, command IDs for mapped targets, exact scenario title, public saved-view/workbook-preference contract evidence, active surface scope evidence, current digests, pass status, closure status, artifact roots. |
 | FE-B-P8-01 | `browser-e2e-webserver-backed` and `browser-e2e-support` row accounting/summaries | Row FE-B-P8-01, exact scenario title, command helper proof for sort/filter/group/chips/layout/group expand-collapse/startup-default controls, stable selector evidence, current digests, pass status, closure status, artifact roots. |
 | FE-E-P8-01 | `browser-e2e-webserver-backed` and `browser-e2e-stateful` row accounting, route traces, reload artifacts | Row FE-E-P8-01, exact scenario title, public `/api/v1/` saved-view/preference/query route evidence, reload replay evidence, current digests, pass status, closure status, artifact roots. |
@@ -562,9 +595,9 @@ The following conditions must create blockers:
 
 | Affected row | Affected source | Exact observed condition | Why closure is blocked | Minimum follow-up | Prevents |
 | --- | --- | --- | --- | --- | --- |
-| All FE-P8 | `tools/frontend_phase_registry.json` | FE-P8 status `planned`, rollup `no_rows_implemented`, activation blocker `FE-P8-ACTIVATION-BLOCKER-01`. | Planned phases are explainable but not executable as whole-phase closure. | Promote direct row evidence and freshness validation together through owner inputs. | FE-P8 activation and full phase completion. |
+| All FE-P8 | `tools/frontend_phase_registry.json` | FE-P8 status `planned`, rollup `partially_implemented`, activation blocker `FE-P8-ACTIVATION-BLOCKER-01`. | Planned phases are explainable but not executable as whole-phase closure. | Promote remaining direct row evidence and freshness validation together through owner inputs. | FE-P8 activation and full phase completion. |
 | All FE-P8 | FE-P8 guide vs live map | Guide uses broader REQ ranges than exact live map IDs. | Row closure cannot expand owner claims beyond exact live map IDs. | Reconcile guide/map or update owner map and regenerate ledger. | Expanded guide-range claims. |
-| FE-U-P8-01 | Latest `frontend-unit` row accounting | `.cartulary/test-results/20260611T141819Z-p21786/frontend-unit/frontend-row-accounting.json` has no FE-P8 rows. | No current row-owned unit evidence. | Add/promote FE-U-P8-01 unit evidence and rerun mapped target. | FE-U-P8-01 closure. |
+| FE-U-P8-01 | Latest `frontend-unit` row accounting | Resolved in Sprint 2. `.cartulary/test-results/20260611T204024Z-p40590/frontend-unit/frontend-row-accounting.json` includes FE-U-P8-01 with `closure_status` `closed`. | No longer blocks FE-U-P8-01 unit closure. | Continue to exclude FE-U-P8-01 from browser, visual, accessibility, and Core 05 claims. | None for FE-U-P8-01 unit closure. |
 | FE-I-P8-01 | Latest `frontend-unit` and `browser-e2e-webserver-backed` row accounting | Latest current-digest artifacts have no FE-P8 rows. | No current row-owned saved-view integration evidence. | Add/promote FE-I-P8-01 evidence and rerun mapped targets. | FE-I-P8-01 closure. |
 | FE-B-P8-01 | Live map and target explanation | Map names `browser-e2e-support`; target explanation marks it `internal_helper` and phase coverage does not list phase8. | Helper evidence cannot silently become closure evidence. | Confirm support target accounting path after activation or update map/task surface. | FE-B-P8-01 closure. |
 | FE-E-P8-01 | Latest `browser-e2e-stateful` row accounting | Current-digest stateful accounting has no FE-P8 rows; target explanation phase coverage does not list phase8. | No current row-owned E2E persistence evidence. | Add/promote FE-E-P8-01 scenario and rerun mapped targets with public route traces. | FE-E-P8-01 closure. |
@@ -572,7 +605,7 @@ The following conditions must create blockers:
 | FE-V-P8-01 | Fixture registry | Current FE-P8-owned fixtures cover grouped result, group row, and empty successful query, but no separate FE-P8-owned fixture IDs were found for saved-view selector, active chips, or default/startup indicator. | Fixture coverage is incomplete for the live visual row wording unless row-owned visual accounting captures the complete scenario. | Add fixture ownership or capture full FE-V-P8-01 scenario under current accounting. | FE-V-P8-01 readiness. |
 | FE-A11Y-P8-01 | Retained preflight summary | Scenario passes, but phase row still has `claim_status` `blocked`, `required_for_closure` `false`, and no root `frontend-row-accounting.json`. | Preflight pass is not accepted row closure under current map state. | Produce accepted row accounting or update map authority, then rerun preflight. | FE-A11Y-P8-01 readiness. |
 | FE-A11Y-P8-01 | FE-P8 map, FE-P8 ledger, frontend guide, and `docs/design.md` | FE-P8 cites `D-AC-009`, but current `docs/design.md` contains no `D-AC-009`. | The design-direction support ID is unresolved, and FE-P8 cannot silently inherit FE-P5's historical replacement choice. | Reconcile FE-P8 accessibility support/design IDs through owner map and guide updates, regenerate ledgers through `make phase-ledgers`, and rerun drift checks. | FE-A11Y-P8-01 source alignment and readiness. |
-| All product rows | Existing FE-P8-adjacent tests | Existing app tests use legacy `U-8`/`E-8` naming and current row accounting omits FE-P8 rows. | Tests are implementation context, not current row-owned evidence. | Retitle/map scenarios to exact FE-P8 row IDs and produce current accounting. | Product row closure. |
+| Remaining product rows | Existing FE-P8-adjacent tests | FE-U-P8-01 now has exact row-owned unit scenarios; later product rows still require exact mapped scenario identity and current row accounting. | Later-row tests remain implementation context until mapped and accounted under their live FE-P8 row IDs. | Retitle/map scenarios to exact remaining FE-P8 row IDs and produce current accounting. | FE-I-P8-01, FE-B-P8-01, and FE-E-P8-01 closure. |
 | All FE-P8 | Core 05 boundary | No explicit FE-P8 claim-bearing metadata inspected. | Publication readiness cannot be inferred. | Add Core 05-compliant claim metadata only if publication evidence is in scope. | Core 05 claims. |
 
 ## Strict Non-Claims
@@ -612,19 +645,19 @@ This plan does not claim:
 
 ## FE-P9 Handoff
 
-At plan creation, FE-P8 is not complete. FE-P9 may use this plan as dependency context for source limits, implementation surfaces, and blockers. FE-P9 must not treat this plan, FE-P7 evidence, generated FE-P8 ledger text, current fixture-registry status, broad retained `make check`, or retained stale visual/a11y artifacts as FE-P8 row closure.
+After Sprint 2, FE-P8 is not complete. FE-P9 may use this plan as dependency context for source limits, implementation surfaces, and blockers. FE-P9 must not treat this plan, FE-P7 evidence, generated FE-P8 ledger text, current fixture-registry status, broad retained `make check`, or retained stale visual/a11y artifacts as FE-P8 row closure. FE-P9 may treat only the current FE-U-P8-01 row accounting below as unit/query-state evidence, not as browser, route persistence, visual, accessibility, or phase-completion evidence.
 
 | Handoff field | Current FE-P8 value |
 | --- | --- |
 | Registry status | `planned`. |
-| Row rollup | `no_rows_implemented`. |
+| Row rollup | `partially_implemented`. |
 | Activation blocker | `FE-P8-ACTIVATION-BLOCKER-01`. |
-| Product rows | FE-U-P8-01, FE-I-P8-01, FE-B-P8-01, FE-E-P8-01 all blocked. |
+| Product rows | FE-U-P8-01 implemented and closed by current `frontend-unit` row accounting. FE-I-P8-01, FE-B-P8-01, and FE-E-P8-01 remain blocked and non-claimed. |
 | Design-direction rows | FE-V-P8-01 and FE-A11Y-P8-01 blocked. |
-| Direct accepted FE-P8 evidence roots | None. TODO: `FE-P8-HANDOFF-01` produce current row-owned evidence roots before FE-P9 may depend on FE-P8 behavior. |
+| Direct accepted FE-P8 evidence roots | `.cartulary/test-results/20260611T204024Z-p40590/frontend-unit/frontend-row-accounting.json` for FE-U-P8-01 only. TODO: `FE-P8-HANDOFF-01` produce current row-owned evidence roots for FE-I-P8-01, FE-B-P8-01, FE-E-P8-01, FE-V-P8-01, and FE-A11Y-P8-01 before those behaviors may be treated as closed. |
 | Retained context roots | `.cartulary/test-results/20260611T193506Z-p52331` broad check/product-target context; `.cartulary/test-results/20260610T191949Z-p14292` stale visual context; `.cartulary/test-results/20260610T171433Z-p14284` a11y preflight context. These are context only and do not close FE-P8. |
 | Drift/finalization at Sprint 1 source-alignment update | Target explanations passed. `make lint-markdown` passed at `.cartulary/test-results/20260611T195739Z-p16115`. `make phase-ledger-drift` passed at `.cartulary/test-results/20260611T195739Z-p16131`. `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260611T195739Z-p16153`. `make json-shape-check` passed at `.cartulary/test-results/20260611T195739Z-p16167`. `make phase-ledgers`, `make generate-drift`, `make check`, and `make agent-finalize RESULTS_DIR=...` were skipped because Sprint 1 changed only this authored plan and did not use retained full-check evidence for FE-P8 closure. |
-| Strict non-claims | No product row closure, no visual/product promotion, no accessibility/product promotion, no Core 05 publication, no evidence handle readiness, no rollback readiness, no full FE-P9 readiness. |
-| Remaining source limits | Guide/map exact-ID drift, target explanation phase-coverage gaps for mapped planned targets, stale retained visual evidence, preflight-only a11y evidence, and absent current FE-P8 row accounting. |
+| Strict non-claims | No FE-I/FE-B/FE-E product row closure, no visual/product promotion, no accessibility/product promotion, no Core 05 publication, no evidence handle readiness, no rollback readiness, no full FE-P9 readiness. |
+| Remaining source limits | Target explanation phase-coverage gaps for mapped planned browser/design-direction targets, stale retained visual evidence, preflight-only a11y evidence, and absent current row-owned accounting for all FE-P8 rows except FE-U-P8-01. |
 
 FE-P9 handoff after FE-P8 implementation must replace this baseline with final registry status, row inventory, direct evidence roots for every closed row, exact blockers for every unclosed row, drift/finalization outcomes, strict non-claims, and any remaining source limits.

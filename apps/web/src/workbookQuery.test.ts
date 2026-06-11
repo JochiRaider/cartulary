@@ -25,7 +25,7 @@ describe("workbookQuery", () => {
         fieldKey: "timeline.tags",
         op: "contains_any",
         arg: {
-          values: ["phish", "c2"],
+          values: ["c2", "phish"],
         },
       },
     ]);

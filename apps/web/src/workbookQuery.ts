@@ -20,6 +20,47 @@ export type WorkbookQueryState = {
   readonly sort: readonly WorkbookSortEntry[];
 };
 
+export type WorkbookSavedViewFilterJson = {
+  readonly arg: Record<string, unknown>;
+  readonly field_key: string;
+  readonly op: string;
+};
+
+export type WorkbookSavedViewQueryJson = {
+  readonly filters: readonly WorkbookSavedViewFilterJson[];
+  readonly group_by?: string;
+  readonly sort: readonly WorkbookSavedViewSortJson[];
+};
+
+export type WorkbookSavedViewSortJson = {
+  readonly direction: "asc" | "desc";
+  readonly field_key: string;
+};
+
+export type WorkbookLayoutColumnWidth = {
+  readonly fieldKey: string;
+  readonly widthPx: number;
+};
+
+export type WorkbookLayoutState = {
+  readonly columnOrder?: readonly string[] | undefined;
+  readonly columnWidths?:
+    | Readonly<Record<string, number>>
+    | readonly WorkbookLayoutColumnWidth[]
+    | undefined;
+  readonly hiddenFieldKeys?: readonly string[] | undefined;
+};
+
+export type WorkbookSavedViewLayoutJson = {
+  readonly column_order: readonly string[];
+  readonly column_widths: readonly {
+    readonly field_key: string;
+    readonly width_px: number;
+  }[];
+  readonly hidden_field_keys: readonly string[];
+  readonly layout_schema_id: "cartulary.layout.v1";
+};
+
 export type FilterDraft = {
   readonly booleanValue: "" | "false" | "true";
   readonly fieldKey: string;
@@ -142,20 +183,52 @@ export function buildQueryRequest(
       field_key: entry.fieldKey,
     }));
   }
-  const filters = state.filters.filter(
-    (filter) => contract.filterableFieldMap[filter.fieldKey],
-  );
+  const filters = normalizeFiltersForWire(contract, state);
   if (filters.length > 0) {
-    request.filters = filters.map((filter) => ({
-      arg: filter.arg,
-      field_key: filter.fieldKey,
-      op: filter.op,
-    }));
+    request.filters = filters;
   }
   if (state.groupBy && contract.groupableFieldMap[state.groupBy]) {
     request.group_by = state.groupBy;
   }
   return request;
+}
+
+export function buildSavedViewQueryJson(
+  contract: ViewContract,
+  state: WorkbookQueryState,
+): WorkbookSavedViewQueryJson {
+  const queryJson: WorkbookSavedViewQueryJson = {
+    filters: normalizeFiltersForWire(contract, state),
+    sort: normalizeUserSortForPersistence(contract, state).map((entry) => ({
+      direction: entry.direction,
+      field_key: entry.fieldKey,
+    })),
+  };
+  if (state.groupBy && contract.groupableFieldMap[state.groupBy]) {
+    return {
+      ...queryJson,
+      group_by: state.groupBy,
+    };
+  }
+  return queryJson;
+}
+
+export function buildSavedViewLayoutJson(
+  contract: ViewContract,
+  state: WorkbookLayoutState = {},
+): WorkbookSavedViewLayoutJson {
+  const fieldKeys = contract.fields.map((field) => field.fieldKey);
+  const allowed = new Set(fieldKeys);
+  const columnOrder = canonicalColumnOrder(fieldKeys, state.columnOrder);
+  return {
+    layout_schema_id: "cartulary.layout.v1",
+    column_order: columnOrder,
+    hidden_field_keys: canonicalHiddenFieldKeys(
+      allowed,
+      state.hiddenFieldKeys ?? contract.defaultHiddenFields,
+    ),
+    column_widths: canonicalColumnWidths(allowed, state.columnWidths),
+  };
 }
 
 export function filterChipLabel(
@@ -196,9 +269,7 @@ function normalizeSortForRequest(
   contract: ViewContract,
   state: WorkbookQueryState,
 ): readonly WorkbookSortEntry[] {
-  const sort = state.sort.filter(
-    (entry) => contract.sortableFieldMap[entry.fieldKey],
-  );
+  const sort = normalizeUserSortForPersistence(contract, state);
   if (!state.groupBy) {
     return sort;
   }
@@ -209,6 +280,134 @@ function normalizeSortForRequest(
     return sort;
   }
   return [{ fieldKey: state.groupBy, direction: "asc" }, ...sort];
+}
+
+function normalizeUserSortForPersistence(
+  contract: ViewContract,
+  state: WorkbookQueryState,
+): readonly WorkbookSortEntry[] {
+  const seen = new Set<string>();
+  const sort: WorkbookSortEntry[] = [];
+  for (const entry of state.sort) {
+    if (!contract.sortableFieldMap[entry.fieldKey] || seen.has(entry.fieldKey)) {
+      continue;
+    }
+    seen.add(entry.fieldKey);
+    sort.push(entry);
+  }
+  return sort;
+}
+
+function normalizeFiltersForWire(
+  contract: ViewContract,
+  state: WorkbookQueryState,
+): readonly WorkbookSavedViewFilterJson[] {
+  const filters = new Map<string, WorkbookSavedViewFilterJson>();
+  for (const filter of state.filters) {
+    const field = contract.fieldMap[filter.fieldKey];
+    if (
+      !field ||
+      !contract.filterableFieldMap[filter.fieldKey] ||
+      !field.filterOps.includes(filter.op)
+    ) {
+      continue;
+    }
+    const normalized = normalizeFilterArg(filter);
+    if (normalized === null) {
+      continue;
+    }
+    filters.set(filter.fieldKey, {
+      arg: normalized,
+      field_key: filter.fieldKey,
+      op: filter.op,
+    });
+  }
+  return [...filters.values()].sort((left, right) =>
+    left.field_key.localeCompare(right.field_key),
+  );
+}
+
+function normalizeFilterArg(
+  filter: WorkbookFilter,
+): Record<string, unknown> | null {
+  if (
+    (filter.op === "contains_any" || filter.op === "contains_all") &&
+    Array.isArray(filter.arg.values)
+  ) {
+    const values = canonicalStringValues(filter.arg.values);
+    return values.length > 0 ? { values } : null;
+  }
+  return filter.arg;
+}
+
+function canonicalStringValues(values: readonly unknown[]): readonly string[] {
+  return [
+    ...new Set(
+      values
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter((value) => value !== ""),
+    ),
+  ].sort((left, right) => left.localeCompare(right));
+}
+
+function canonicalColumnOrder(
+  fieldKeys: readonly string[],
+  requested: readonly string[] = [],
+): readonly string[] {
+  const allowed = new Set(fieldKeys);
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const fieldKey of requested) {
+    if (!allowed.has(fieldKey) || seen.has(fieldKey)) {
+      continue;
+    }
+    seen.add(fieldKey);
+    ordered.push(fieldKey);
+  }
+  for (const fieldKey of fieldKeys) {
+    if (seen.has(fieldKey)) {
+      continue;
+    }
+    ordered.push(fieldKey);
+  }
+  return ordered;
+}
+
+function canonicalHiddenFieldKeys(
+  allowed: ReadonlySet<string>,
+  values: readonly string[],
+): readonly string[] {
+  return [...new Set(values.filter((fieldKey) => allowed.has(fieldKey)))].sort(
+    (left, right) => left.localeCompare(right),
+  );
+}
+
+function canonicalColumnWidths(
+  allowed: ReadonlySet<string>,
+  values: WorkbookLayoutState["columnWidths"],
+): WorkbookSavedViewLayoutJson["column_widths"] {
+  const widths = new Map<string, number>();
+  const entries = Array.isArray(values)
+    ? values.map((value) => [value.fieldKey, value.widthPx] as const)
+    : Object.entries(values ?? {});
+  for (const [fieldKey, widthPx] of entries) {
+    if (
+      !allowed.has(fieldKey) ||
+      !Number.isSafeInteger(widthPx) ||
+      widthPx < 40 ||
+      widthPx > 4096
+    ) {
+      continue;
+    }
+    widths.set(fieldKey, widthPx);
+  }
+  return [...widths.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([fieldKey, widthPx]) => ({
+      field_key: fieldKey,
+      width_px: widthPx,
+    }));
 }
 
 function buildFilterFromDraft(draft: FilterDraft): WorkbookFilter | null {
@@ -243,10 +442,7 @@ function buildFilterFromDraft(draft: FilterDraft): WorkbookFilter | null {
   }
 
   if (mode === "tagset") {
-    const values = trimmed
-      .split(/[\n,]/u)
-      .map((value) => value.trim())
-      .filter((value) => value !== "");
+    const values = canonicalStringValues(trimmed.split(/[\n,]/u));
     if (values.length < 1) {
       return null;
     }
