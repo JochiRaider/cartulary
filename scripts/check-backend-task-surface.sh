@@ -495,6 +495,7 @@ for scheduled_target in \
   lint-biome \
   frontend-import-boundary-check \
   lint-scripts \
+  lint-markdown \
   lint-shell \
   phase-test-name-check \
   go-test-duration-baseline-coverage \
@@ -696,7 +697,7 @@ assert_check_needs lint-go "go-lint-toolchain"
 assert_check_needs go-vulncheck "govulncheck-toolchain"
 assert_check_needs go-gosec-targeted "gosec-toolchain"
 assert_check_needs lint-shell "shell-lint-toolchain"
-for scheduled_target in frontend-typecheck frontend-unit frontend-import-boundary-check lint-biome lint-scripts phase-map-check phase-ledger-drift; do
+for scheduled_target in frontend-typecheck frontend-unit frontend-import-boundary-check lint-biome lint-scripts lint-markdown phase-map-check phase-ledger-drift; do
   assert_check_needs "$scheduled_target" "check-frontend-install"
 done
 if [[ "$(check_schedule_field check-service-backed resource_claims)" != "host_cpu,host_io,suite_service_stack" ]]; then

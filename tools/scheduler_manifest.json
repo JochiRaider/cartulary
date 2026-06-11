@@ -5541,6 +5541,24 @@
           }
         },
         {
+          "target": "lint-markdown",
+          "priority": 12875,
+          "weight_ms": 10000,
+          "needs": [
+            "check-frontend-install"
+          ],
+          "make_prerequisite_policy": "skip",
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu",
+          "command": {
+            "type": "make_target",
+            "target": "lint-markdown"
+          }
+        },
+        {
           "target": "lint-shell",
           "priority": 12850,
           "weight_ms": 10000,

@@ -349,6 +349,7 @@ In that realization, `artifact_sha256` is computed from the exact raw manifest
 bytes consumed, and the same commit would also append one deployment-local
 administrative audit event for bootstrap consumption.
 
+```sql
 CREATE TABLE auth_providers (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     provider_key text NOT NULL UNIQUE,

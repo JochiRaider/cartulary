@@ -410,7 +410,7 @@
           },
           {
             "target": "lint",
-            "description": "run backend, frontend, script, and shell lint/type checks"
+            "description": "run backend, frontend, script, Markdown, and shell lint/type checks"
           },
           {
             "target": "lint-biome",
@@ -423,6 +423,10 @@
           {
             "target": "lint-scripts",
             "description": "run JavaScript orchestration script Biome checks"
+          },
+          {
+            "target": "lint-markdown",
+            "description": "run structural Markdown lint over authored docs"
           },
           {
             "target": "lint-shell",
@@ -782,6 +786,7 @@
               "lint-biome",
               "frontend-import-boundary-check",
               "lint-scripts",
+              "lint-markdown",
               "lint-shell",
               "frontend-typecheck"
             ]
@@ -816,6 +821,13 @@
             "target": "lint-scripts",
             "produces_summary_targets": [
               "lint-scripts"
+            ]
+          },
+          {
+            "type": "step",
+            "target": "lint-markdown",
+            "produces_summary_targets": [
+              "lint-markdown"
             ]
           },
           {
@@ -1856,6 +1868,22 @@
         ],
         "test_target": "self",
         "success_summary": true
+      },
+      "lint-markdown": {
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "lint markdown",
+        "command": [
+          "bash",
+          "./scripts/run-markdownlint.sh"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "failure_note": "inspect Markdown lint diagnostics; do not run broad prose reflow"
       },
       "harness-contract-tests": {
         "type": "phase_command",
@@ -7692,6 +7720,70 @@
           "summary_schema": "cartulary.tool_run_summary.v3"
         },
         "command_id": "cartulary.harness.command.lint_scripts.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "static_analysis_security",
+        "side_effects": [
+          {
+            "class": "retained_artifacts",
+            "owner_section": "Section 8",
+            "artifact_policy": "tool_run_summary"
+          }
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
+      },
+      {
+        "name": "lint-markdown",
+        "backing_scripts": [
+          "scripts/run-markdownlint.sh"
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "static_validation",
+          "order": 125,
+          "needs": [
+            "check-frontend-install"
+          ]
+        },
+        "output_policy": {
+          "output_class": "summary_with_artifacts",
+          "artifact_policy": "tool_run_summary",
+          "success_budget": {
+            "stdout_lines": 2,
+            "stdout_bytes": 600,
+            "stderr_lines": 0,
+            "stderr_bytes": 0
+          },
+          "failure_budget": {
+            "stderr_lines": 35,
+            "stderr_bytes": 6000,
+            "excerpt_lines": 25,
+            "excerpt_bytes": 4096
+          },
+          "raw_stream_policy": "never_default",
+          "summary_schema": "cartulary.tool_run_summary.v3"
+        },
+        "command_id": "cartulary.harness.command.lint_markdown.v1",
         "semantic_behaviors": [
           {
             "behavior": "evidence_normalization",

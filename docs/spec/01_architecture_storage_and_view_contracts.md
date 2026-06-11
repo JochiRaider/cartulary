@@ -5792,6 +5792,7 @@ For file-part media-type matching on those routes, the server MUST compare the `
 | `POST /api/v1/import-sessions` | `text/csv`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `application/octet-stream` |
 | `POST /api/v1/reference-packs/import` | `application/zip`, `application/x-tar`, `application/gzip`, `application/x-gzip`, `application/octet-stream` |
 | `POST /api/v1/incident-bundles/import` | `application/zip`, `application/x-tar`, `application/gzip`, `application/x-gzip`, `application/octet-stream` |
+
 Profiles: import, incident_portability, reference_pack
 Verified by: AC-262, AC-270, AC-275
 

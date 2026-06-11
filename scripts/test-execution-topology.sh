@@ -454,6 +454,7 @@ const expectedCheckWorkUnitPriorities = [
   ["otel-conformance", 12940],
   ["json-shape-check", 12925],
   ["lint-scripts", 12900],
+  ["lint-markdown", 12875],
   ["lint-shell", 12850],
   ["phase-test-name-check", 12000],
   ["phase-map-check", 11500],

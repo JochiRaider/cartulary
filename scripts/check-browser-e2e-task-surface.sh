@@ -543,6 +543,7 @@ for scheduled_target in \
   lint-biome \
   frontend-import-boundary-check \
   lint-scripts \
+  lint-markdown \
   lint-shell \
   phase-test-name-check \
   phase-map-check \

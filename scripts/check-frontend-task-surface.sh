@@ -110,7 +110,7 @@ if (Array.isArray(topology.check_schedules)) {
   throw new Error("execution topology must own check schedule profiles, not flat schedules");
 }
 const topologyTargets = new Map((topology.task_surface?.targets ?? []).map((entry) => [entry.name, entry]));
-for (const required of ["frontend-typecheck", "frontend-unit", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-shell"]) {
+for (const required of ["frontend-typecheck", "frontend-unit", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-markdown", "lint-shell"]) {
   const metadata = topologyTargets.get(required)?.check_schedule;
   if (!metadata?.schedules?.includes("check")) {
     throw new Error(`execution topology must schedule ${required} through check_schedule metadata`);
@@ -132,12 +132,12 @@ for (const removed of ["check-static-validation", "check-local-product", "check-
     throw new Error(`${removed} must not remain scheduled after leaf check expansion`);
   }
 }
-for (const required of ["toolchain-drift", "check-frontend-install", "frontend-typecheck", "frontend-unit", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-shell", "check-harness-smoke"]) {
+for (const required of ["toolchain-drift", "check-frontend-install", "frontend-typecheck", "frontend-unit", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-markdown", "lint-shell", "check-harness-smoke"]) {
   if (!targets.has(required)) {
     throw new Error(`check schedule must include ${required}`);
   }
 }
-for (const target of ["frontend-typecheck", "frontend-unit", "frontend-import-boundary-check", "lint-biome", "lint-scripts"]) {
+for (const target of ["frontend-typecheck", "frontend-unit", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-markdown"]) {
   const needs = unitByTarget.get(target)?.needs ?? [];
   if (needs.join(",") !== "check-frontend-install") {
     throw new Error(`${target} must depend on check-frontend-install`);
@@ -270,6 +270,7 @@ assert_text_contains "frontend-import-boundary-check recipe" "$frontend_import_b
 assert_text_contains "frontend-import-boundary-check recipe" "$frontend_import_boundary_block" '$(FRONTEND_INSTALL_STAMP)' "frontend-import-boundary-check must depend on frontend install"
 lint_block="$(extract_target_block lint)"
 assert_text_contains "lint recipe" "$lint_block" "frontend-import-boundary-check" "lint must include frontend-import-boundary-check"
+assert_text_contains "lint recipe" "$lint_block" "lint-markdown" "lint must include lint-markdown"
 assert_text_contains "lint recipe" "$lint_block" "lint-shell" "lint must include lint-shell"
 if ! grep -Fq 'exec biome check --error-on-warnings' "$frontend_biome_script"; then
   fail "frontend Biome check mode must fail on warnings"
@@ -283,6 +284,13 @@ fi
 lint_scripts_block="$(extract_target_block lint-scripts)"
 if ! text_contains "$lint_scripts_block" './scripts/run-scripts-biome.sh'; then
   fail "lint-scripts must run the curated scripts Biome wrapper"
+fi
+lint_markdown_block="$(extract_target_block lint-markdown)"
+if ! text_contains "$lint_markdown_block" './scripts/run-markdownlint.sh'; then
+  fail "lint-markdown must run the curated Markdown lint wrapper"
+fi
+if ! text_contains "$lint_markdown_block" '$(FRONTEND_INSTALL_STAMP)'; then
+  fail "lint-markdown must depend on frontend install"
 fi
 lint_shell_block="$(extract_target_block lint-shell)"
 if ! text_contains "$lint_shell_block" 'scripts/run-shellcheck.sh'; then

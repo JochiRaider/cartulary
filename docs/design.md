@@ -1432,7 +1432,7 @@ Design contract. Every visual fixture MUST use this execution contract.
 | Density | `{density.default-mode}` unless fixture row declares another density from §3.9. |
 | Font fallback | Registry font stack; custom font files MUST NOT be distributed to users as evidence artifacts. |
 | Seed data | Stable fixture dataset ID declared in the row. |
-| Dynamic masks | Closed grammar: `mask(selector=<stable selector>, region=<text|bbox|attribute>, replacement=<fixed string>)`. |
+| Dynamic masks | Closed grammar: `mask(selector=<stable selector>, region=<text\|bbox\|attribute>, replacement=<fixed string>)`. |
 | Scroll anchor | `top_left`, `row:<record_id>`, `cell:<record_id>:<field_key>`, `right_edge`, or `status_strip`. Missing anchor is fixture failure. |
 | Crop rule | `full_viewport`, `selector:<stable selector>`, or `region:<x,y,width,height>`. |
 | Diff tolerance | `0` pixel mismatch unless the fixture row declares a non-zero tolerance with rationale. |

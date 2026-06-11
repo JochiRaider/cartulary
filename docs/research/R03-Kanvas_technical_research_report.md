@@ -7,15 +7,15 @@ The intended user appears to be a hands-on incident responder or investigator wh
 
 Architecturally, the project is best understood as a controller-heavy desktop application. `kanvas.py` owns application bootstrap, UI signal wiring, workbook/session state, file locking, generic grid editing, and child-window launchers. The `helper/` package contains the actual subsystems: workbook schema constants, local DB schema management, system-type and evidence-type management, search/filter UI, visualizations, ATT&CK and D3FEND mapping, VERIS editing, external lookups, downloaded knowledge-base viewers, report generation, STIX conversion, and defanging utilities. The resulting shape is simple to run and easy to distribute, but it also concentrates a great deal of control flow in one file and depends heavily on naming conventions in the workbook schema.[^kanvas-init] [^kanvas-connect] [^kanvas-load] [^kanvas-edit] [^windowsui-layout] [^system-type] [^download-updates] [^report-engine]
 
-### Direct observations
+## Direct observations
 
 The code directly shows a `QApplication` bootstrap, creation of `kanvas.db`, workbook loading through `openpyxl`, search/filtering through `QSortFilterProxyModel`, visualization windows built with `networkx` and `matplotlib`, reference-data download/update into SQLite and `data/`, and an HTML report pipeline that assembles workbook data and generated visualizations into a single file.[^kanvas-init] [^kanvas-load] [^viz-network] [^viz-timeline] [^download-updates] [^report-engine] [^html-exporter]
 
-### Reasonable inferences
+## Reasonable inferences
 
 The design is optimized for portability, investigator familiarity, and low deployment complexity. A workbook can be emailed or placed on a share, the app can open it locally, and most intelligence datasets can be pulled down into local storage. That is a practical fit for IR teams that do not want or cannot deploy a centralized case platform.[^readme-overview] [^kanvas-lock] [^download-updates]
 
-### Unresolved ambiguities
+## Unresolved ambiguities
 
 I did not find a dedicated domain model layer or schema migration system beyond the workbook template and `CREATE TABLE IF NOT EXISTS` calls. I also found API-key support for OpenAI and Anthropic in configuration, but I did not find any inspected feature module that actually invokes those SDKs. That suggests either planned-but-not-implemented integration or code outside the inspected paths.[^db-utils] [^requirements] [^api-config] [^api-yaml]
 
@@ -123,15 +123,15 @@ A practical dependency map looks like this:
 - `helper/resources/*` depends on `download_updates.py` having already populated `data/`.
 - `helper/lookups/*` depends on `api_config.py` and, in some cases, the local DB.[^config] [^db-utils] [^system-type] [^api-config] [^report-builder] [^viz-generator] [^download-updates]
 
-### Direct observations
+## Direct observations
 
 The code directly shows a workbook-first architecture and a secondary local reference database. `kanvas.py` creates `kanvas.db`, `SystemTypeManager` seeds system types into SQLite, `EvidenceTypeManager` reads evidence types from SQLite, and the report pipeline passes both workbook and `db_path` into exporters and visualization generators.[^kanvas-init] [^system-type] [^report-engine]
 
-### Reasonable inferences
+## Reasonable inferences
 
 This architecture was likely chosen so that case data remains portable and organization-specific reference data can evolve independently from each case file. The workbook is the exchange artifact; SQLite and `data/` are the workstation-local accelerators.[^readme-overview] [^download-updates]
 
-### Unresolved ambiguities
+## Unresolved ambiguities
 
 I did not find an explicit contract for where `kanvas.db` and the downloaded `data/` directory are expected to live in a packaged or frozen build. Several modules rely on relative paths or application-directory assumptions, which may behave differently across packaging strategies.[^kanvas-init] [^download-updates] [^markdown-editor]
 

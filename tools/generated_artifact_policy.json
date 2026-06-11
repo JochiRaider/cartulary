@@ -92,6 +92,57 @@
         "packages/protocol-ts/src/generated",
         "packages/ui-contracts/src/generated"
       ]
+    },
+    "markdownlint": {
+      "path": ".markdownlint-cli2.jsonc",
+      "required_globs": [
+        "*.md",
+        "docs/*.md",
+        "docs/spec/**/*.md",
+        "docs/guides/**/*.md",
+        "docs/research/**/*.md",
+        "docs/user_guides/**/*.md",
+        "apps/web/public/assets/fonts/*.md"
+      ],
+      "required_ignores": [
+        "docs/testing/phase*_coverage_ledger.md",
+        "docs/testing/frontend_phase_coverage_ledgers/*_coverage_ledger.md",
+        "docs/archive/**",
+        "docs/testing-harness-spec-recovery-docs/**",
+        "internal/gen/**",
+        "packages/protocol-ts/src/generated/**",
+        "packages/ui-contracts/src/generated/**"
+      ],
+      "forbidden_globs": [
+        "docs/testing/**/*.md",
+        "docs/archive/**/*.md",
+        "docs/testing-harness-spec-recovery-docs/**/*.md",
+        "internal/gen/**/*.md",
+        "packages/protocol-ts/src/generated/**/*.md",
+        "packages/ui-contracts/src/generated/**/*.md"
+      ],
+      "required_rules": [
+        "MD001",
+        "MD009",
+        "MD010",
+        "MD011",
+        "MD018",
+        "MD019",
+        "MD020",
+        "MD021",
+        "MD023",
+        "MD024",
+        "MD040",
+        "MD042",
+        "MD047",
+        "MD051",
+        "MD052",
+        "MD053",
+        "MD056"
+      ],
+      "disabled_rules": [
+        "MD013"
+      ]
     }
   }
 }

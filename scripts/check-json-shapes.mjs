@@ -322,6 +322,7 @@ const lintScopeCheckKeys = new Set([
   "shell_sources",
   "biome",
   "frontend_import_boundaries",
+  "markdownlint",
 ]);
 const lintShellSourceKeys = new Set([
   "path",
@@ -333,6 +334,14 @@ const lintBiomeKeys = new Set([
   "required_files_includes",
   "forbidden_files_includes",
   "required_override_includes",
+]);
+const lintMarkdownlintKeys = new Set([
+  "path",
+  "required_globs",
+  "required_ignores",
+  "forbidden_globs",
+  "required_rules",
+  "disabled_rules",
 ]);
 const lintFrontendBoundaryKeys = new Set([
   "path",
@@ -898,6 +907,43 @@ function validateGeneratedArtifactPolicyShape(file) {
   requireStringArray(
     frontendBoundaries.required_restricted_paths,
     `${file}.lint_scope_checks.frontend_import_boundaries.required_restricted_paths`,
+  );
+  const markdownlint = requireObject(
+    lintScope.markdownlint,
+    `${file}.lint_scope_checks.markdownlint`,
+  );
+  assertObjectKeys(
+    markdownlint,
+    lintMarkdownlintKeys,
+    `${file}.lint_scope_checks.markdownlint`,
+  );
+  requireRepoRelativePath(
+    markdownlint.path,
+    `${file}.lint_scope_checks.markdownlint.path`,
+  );
+  requireStringArray(
+    markdownlint.required_globs,
+    `${file}.lint_scope_checks.markdownlint.required_globs`,
+    { nonEmpty: true },
+  );
+  requireStringArray(
+    markdownlint.required_ignores,
+    `${file}.lint_scope_checks.markdownlint.required_ignores`,
+    { nonEmpty: true },
+  );
+  requireStringArray(
+    markdownlint.forbidden_globs ?? [],
+    `${file}.lint_scope_checks.markdownlint.forbidden_globs`,
+  );
+  requireStringArray(
+    markdownlint.required_rules,
+    `${file}.lint_scope_checks.markdownlint.required_rules`,
+    { nonEmpty: true },
+  );
+  requireStringArray(
+    markdownlint.disabled_rules,
+    `${file}.lint_scope_checks.markdownlint.disabled_rules`,
+    { nonEmpty: true },
   );
 }
 
