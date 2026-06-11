@@ -18,8 +18,8 @@ import {
   relationshipItemsTestId,
   rowInspectButtonTestId,
   saveStateTestId,
-  timelinePreviewRowTestId,
   timelineCollectionInputTestId,
+  timelinePreviewRowTestId,
   timelineRowVersionTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
@@ -308,16 +308,11 @@ export async function seedHostMentionStateFixture(
       [hostRefsFieldKey]: collectionActionsPayload([manualRawText]),
     },
   )) as ViewRow;
-  const autoRow = (await createViewRow(
-    page,
-    incidentId,
-    timelineViewSchemaId,
-    {
-      client_txn_id: uniqueTxn(`${options.txnPrefix}-auto-row`),
-      "timeline.occurred_at": options.occurredAt.auto,
-      "timeline.summary": options.summary.auto,
-    },
-  )) as ViewRow;
+  const autoRow = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn(`${options.txnPrefix}-auto-row`),
+    "timeline.occurred_at": options.occurredAt.auto,
+    "timeline.summary": options.summary.auto,
+  })) as ViewRow;
   const dismissedRow = (await createViewRow(
     page,
     incidentId,

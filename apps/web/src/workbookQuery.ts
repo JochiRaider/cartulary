@@ -289,7 +289,10 @@ function normalizeUserSortForPersistence(
   const seen = new Set<string>();
   const sort: WorkbookSortEntry[] = [];
   for (const entry of state.sort) {
-    if (!contract.sortableFieldMap[entry.fieldKey] || seen.has(entry.fieldKey)) {
+    if (
+      !contract.sortableFieldMap[entry.fieldKey] ||
+      seen.has(entry.fieldKey)
+    ) {
       continue;
     }
     seen.add(entry.fieldKey);

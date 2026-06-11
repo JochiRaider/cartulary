@@ -1257,7 +1257,10 @@ describe("Support Phase 4 TimelineWorkbook", () => {
   it("renders a dismissed mention restore action after the dismiss flow completes", async () => {
     const mentionId = "11111111-1111-4111-8111-000000000402";
     const mentionItemRef = `entity_mention:${mentionId}`;
-    mockDismissRestoreMentionResponses(fetchMock, { mentionId, mentionItemRef });
+    mockDismissRestoreMentionResponses(fetchMock, {
+      mentionId,
+      mentionItemRef,
+    });
 
     render(
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
@@ -1300,7 +1303,10 @@ describe("Support Phase 4 TimelineWorkbook", () => {
   it("reveals a vertically clipped inspect action through dismiss and restore continuity", async () => {
     const mentionId = "11111111-1111-4111-8111-000000000403";
     const mentionItemRef = `entity_mention:${mentionId}`;
-    mockDismissRestoreMentionResponses(fetchMock, { mentionId, mentionItemRef });
+    mockDismissRestoreMentionResponses(fetchMock, {
+      mentionId,
+      mentionItemRef,
+    });
 
     render(
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,

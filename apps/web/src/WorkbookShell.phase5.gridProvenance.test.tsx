@@ -23,8 +23,8 @@ import {
   fullWorkbookViewRow,
   successEnvelope,
   viewRowsEnvelopeForView,
-  workbookCollectionValue,
   type WorkbookViewApiRow,
+  workbookCollectionValue,
 } from "./timelineWorkbookTestSupport";
 import { WorkbookShell } from "./WorkbookShell";
 import { readCollectionItems } from "./workbookMentionChips";

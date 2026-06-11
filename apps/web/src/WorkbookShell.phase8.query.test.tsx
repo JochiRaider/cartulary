@@ -7,8 +7,8 @@ import {
   dataTestIdSelector,
   gridFilterChipTestId,
   gridFilterFieldTestId,
-  gridGroupRowTestId,
   gridGroupingSelectTestId,
+  gridGroupRowTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -330,10 +330,7 @@ describe("Phase 8 workbook query controls", () => {
 
     fireEvent.click(
       screen.getByTestId(
-        gridFilterChipTestId(
-          timelineViewSchemaId,
-          "timeline.capture_state",
-        ),
+        gridFilterChipTestId(timelineViewSchemaId, "timeline.capture_state"),
       ),
     );
     expect(onRemoveFilter).toHaveBeenCalledWith("timeline.capture_state");

@@ -9,7 +9,10 @@ import {
   saveStateTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
-import type { ViewContract, ViewFieldContract } from "@cartulary/view-contracts";
+import type {
+  ViewContract,
+  ViewFieldContract,
+} from "@cartulary/view-contracts";
 import {
   cleanup,
   fireEvent,
@@ -373,7 +376,11 @@ export function viewRowsEnvelopeForView(
   rowsByView: Record<string, readonly WorkbookViewApiRow[]>,
   incidentId = "incident-1",
 ) {
-  return viewRowsEnvelope(viewSchemaId, rowsByView[viewSchemaId] ?? [], incidentId);
+  return viewRowsEnvelope(
+    viewSchemaId,
+    rowsByView[viewSchemaId] ?? [],
+    incidentId,
+  );
 }
 
 export function timelineRowsEnvelope(

@@ -61,11 +61,6 @@ import {
   timelineViewSchemaId,
 } from "../src/workbookSurfaceRegistry";
 import {
-  createEvidenceFixtureRow,
-  createUploadedEvidenceFixture,
-  type EvidenceUploadOptions,
-} from "./evidenceFixtureHelpers";
-import {
   p1AccessibilityScenarioTitles,
   scenarioTitlesForAccessibilityRow,
 } from "./a11yPhaseMap";
@@ -73,6 +68,11 @@ import {
   createLocalUser as createAuthLocalUser,
   revokeAllSessions,
 } from "./authRuntime";
+import {
+  createEvidenceFixtureRow,
+  createUploadedEvidenceFixture,
+  type EvidenceUploadOptions,
+} from "./evidenceFixtureHelpers";
 import { expect, test } from "./fixtures";
 import {
   apiBase,
