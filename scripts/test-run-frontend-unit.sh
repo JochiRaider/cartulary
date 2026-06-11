@@ -286,6 +286,9 @@ if [[ "${FAKE_FRONTEND_UNIT_MODE:-success}" == *failure ]]; then
   echo "frontend unit smoke stderr" >&2
   exit 1
 fi
+if [[ "${FAKE_FRONTEND_UNIT_MODE:-success}" == "success-exit-mismatch" ]]; then
+  exit 1
+fi
 EOF
 chmod +x "$fake_pnpm"
 
@@ -322,6 +325,8 @@ run_case() {
 }
 
 success_summary="$(run_case success success pass)"
+success_exit_mismatch_summary="$(run_case success-exit-mismatch success-exit-mismatch pass)"
+assert_equals "$(json_field "$success_exit_mismatch_summary" "status")" "pass" "success exit mismatch target status"
 frontend_counts="$("${NODE:-node}" - "$ROOT_DIR" <<'EOF'
 const fs = require("node:fs");
 const path = require("node:path");
@@ -625,12 +630,15 @@ authoritative_phase_summary="${authoritative_summary%/target-summary.json}/front
 runner_json="$(json_field "$authoritative_phase_summary" "artifacts.runner_json")"
 stdout_log="$(json_field "$authoritative_phase_summary" "artifacts.stdout_log")"
 stderr_log="$(json_field "$authoritative_phase_summary" "artifacts.stderr_log")"
+failure_details_json="$(json_field "$authoritative_phase_summary" "artifacts.vitest_failure_details_json")"
 assert_contains "$runner_json" "/raw/frontend-unit/runner.json" "authoritative failure runner artifact path"
 assert_contains "$stdout_log" "/raw/frontend-unit/stdout.log" "authoritative failure stdout artifact path"
 assert_contains "$stderr_log" "/raw/frontend-unit/stderr.log" "authoritative failure stderr artifact path"
+assert_contains "$failure_details_json" "/raw/frontend-unit/vitest-failure-details.json" "authoritative failure sidecar artifact path"
 assert_artifact_present "$runner_json" "authoritative failure runner artifact"
 assert_artifact_present "$stdout_log" "authoritative failure stdout artifact"
 assert_artifact_present "$stderr_log" "authoritative failure stderr artifact"
+assert_artifact_present "$failure_details_json" "authoritative failure sidecar artifact"
 
 stack_summary="$(run_case stack stack-failure fail)"
 stack_target_dir="${stack_summary%/target-summary.json}"
@@ -656,7 +664,7 @@ if (!(dossier.diagnostic_tags ?? []).includes("vitest_stack_trace_error")) {
   throw new Error("stack failure summary must include vitest_stack_trace_error diagnostic tag");
 }
 const raw = String(dossier.raw ?? "");
-for (const required of ["runner.json", "stdout.log", "stderr.log"]) {
+for (const required of ["runner.json", "vitest-failure-details.json", "stdout.log", "stderr.log"]) {
   if (!raw.includes(required)) {
     throw new Error(`stack failure summary raw artifacts missing ${required}: ${raw}`);
   }

@@ -17,6 +17,8 @@ export const sharedExecutionGroupSchemaID = "cartulary.test_shared_execution_gro
 export const testAccountingClassificationSchemaID = "cartulary.test_accounting_classification.v1";
 export const frontendRowAccountingSchemaID =
   "cartulary.frontend_row_accounting.v3";
+export const vitestFailureDetailsSchemaID =
+  "cartulary.vitest_failure_details.v1";
 
 export const testCoverageBuckets = [
   "authoritative",

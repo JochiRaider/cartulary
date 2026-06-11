@@ -30,9 +30,11 @@ type WebSocketLike = {
 
 export type TimelineWorkbookFetchMock = ReturnType<typeof vi.fn>;
 type TimelineFetchResponse = Response | Promise<Response>;
+export type TimelineRecordActionName = "mark-reviewed" | "supersede";
 type TimelineRouteName =
   | "authSession"
   | "conflictResolution"
+  | "recordAction"
   | "recordPatch"
   | "rowQuery"
   | "fallback";
@@ -45,6 +47,7 @@ type TimelineRoutedFetchQueues = Record<
 export type TimelineWorkbookRouteFetch = {
   mockAuthSessionOnce: (response: TimelineFetchResponse) => void;
   mockConflictResolutionOnce: (response: TimelineFetchResponse) => void;
+  mockRecordActionOnce: (response: TimelineFetchResponse) => void;
   mockRecordPatchOnce: (response: TimelineFetchResponse) => void;
   mockRowQueryOnce: (response: TimelineFetchResponse) => void;
   mockFallbackOnce: (response: TimelineFetchResponse) => void;
@@ -162,6 +165,18 @@ function fetchURLText(input: RequestInfo | URL) {
   return input instanceof Request ? input.url : String(input);
 }
 
+function timelineRecordActionFromURL(
+  urlText: string,
+): TimelineRecordActionName | null {
+  if (urlText.endsWith("/mark-reviewed")) {
+    return "mark-reviewed";
+  }
+  if (urlText.endsWith("/supersede")) {
+    return "supersede";
+  }
+  return null;
+}
+
 function timelineFetchRoute(
   input: RequestInfo | URL,
   init: RequestInit | undefined,
@@ -186,6 +201,13 @@ function timelineFetchRoute(
   ) {
     return "conflictResolution";
   }
+  if (
+    method === "POST" &&
+    url.includes("/api/v1/records/") &&
+    timelineRecordActionFromURL(url) !== null
+  ) {
+    return "recordAction";
+  }
   if (method === "PATCH" && url.includes("/api/v1/records/")) {
     return "recordPatch";
   }
@@ -204,6 +226,7 @@ export function routeTimelineWorkbookFetchMock(
   const queues: TimelineRoutedFetchQueues = {
     authSession: [],
     conflictResolution: [],
+    recordAction: [],
     recordPatch: [],
     rowQuery: [],
     fallback: [],
@@ -234,6 +257,9 @@ export function routeTimelineWorkbookFetchMock(
     },
     mockConflictResolutionOnce: (response) => {
       queues.conflictResolution.push(response);
+    },
+    mockRecordActionOnce: (response) => {
+      queues.recordAction.push(response);
     },
     mockRecordPatchOnce: (response) => {
       queues.recordPatch.push(response);
@@ -841,6 +867,26 @@ export function timelineRecordPatchCalls(fetchSpy: TimelineWorkbookFetchMock) {
   });
 }
 
+export function timelineRecordActionCalls(
+  fetchSpy: TimelineWorkbookFetchMock,
+  action?: TimelineRecordActionName,
+) {
+  return fetchSpy.mock.calls.filter(([url, init]) => {
+    const method =
+      init && typeof init === "object" && "method" in init
+        ? String((init as { method?: unknown }).method ?? "GET").toUpperCase()
+        : "GET";
+    const urlText = fetchURLText(url as RequestInfo | URL);
+    const callAction = timelineRecordActionFromURL(urlText);
+    return (
+      method === "POST" &&
+      urlText.includes("/api/v1/records/") &&
+      callAction !== null &&
+      (action === undefined || callAction === action)
+    );
+  });
+}
+
 function timelineConflictResolutionCalls(fetchSpy: TimelineWorkbookFetchMock) {
   return fetchSpy.mock.calls.filter(([url, init]) => {
     const method =
@@ -895,6 +941,60 @@ export async function waitForTimelineRecordPatchCalls(
   );
 }
 
+export async function waitForTimelineRecordActionCalls(
+  fetchSpy: TimelineWorkbookFetchMock,
+  expectedCount: number,
+): Promise<void>;
+export async function waitForTimelineRecordActionCalls(
+  fetchSpy: TimelineWorkbookFetchMock,
+  action: TimelineRecordActionName,
+  expectedCount: number,
+): Promise<void>;
+export async function waitForTimelineRecordActionCalls(
+  fetchSpy: TimelineWorkbookFetchMock,
+  actionOrExpectedCount: TimelineRecordActionName | number,
+  maybeExpectedCount?: number,
+) {
+  const action =
+    typeof actionOrExpectedCount === "number"
+      ? undefined
+      : actionOrExpectedCount;
+  const expectedCount =
+    typeof actionOrExpectedCount === "number"
+      ? actionOrExpectedCount
+      : maybeExpectedCount;
+  if (expectedCount === undefined) {
+    throw new Error("expected Timeline record action count is required");
+  }
+
+  await waitFor(
+    () => {
+      expect(timelineRecordActionCalls(fetchSpy, action)).toHaveLength(
+        expectedCount,
+      );
+    },
+    {
+      onTimeout: (error) => {
+        const calls = fetchSpy.mock.calls
+          .map(([url, init], index) => {
+            const method =
+              init && typeof init === "object" && "method" in init
+                ? String((init as { method?: unknown }).method ?? "")
+                : "(none)";
+            return `${index}:${method}:${String(url)}`;
+          })
+          .join(" | ");
+        const routeLabel = action === undefined ? "action" : `action:${action}`;
+        return new Error(
+          `${error.message}\nExpected ${expectedCount} Timeline record ${routeLabel} calls. ` +
+            `Actual=${timelineRecordActionCalls(fetchSpy, action).length}. Calls=${calls}`,
+        );
+      },
+      timeout: workbookAsyncTimeoutMs,
+    },
+  );
+}
+
 export function setInputValueWithoutEvent(
   input: HTMLInputElement | HTMLTextAreaElement,
   value: string,
@@ -936,6 +1036,37 @@ export function extractTimelineRecordPatchBody(
     { mock: { calls: [call] } },
     0,
     `timeline record PATCH request at index ${index}`,
+  );
+}
+
+export function extractTimelineRecordActionBody(
+  fetchSpy: TimelineWorkbookFetchMock,
+  index?: number,
+): Record<string, unknown>;
+export function extractTimelineRecordActionBody(
+  fetchSpy: TimelineWorkbookFetchMock,
+  action: TimelineRecordActionName,
+  index?: number,
+): Record<string, unknown>;
+export function extractTimelineRecordActionBody(
+  fetchSpy: TimelineWorkbookFetchMock,
+  actionOrIndex: TimelineRecordActionName | number = 0,
+  maybeIndex = 0,
+) {
+  const action = typeof actionOrIndex === "number" ? undefined : actionOrIndex;
+  const index = typeof actionOrIndex === "number" ? actionOrIndex : maybeIndex;
+  const calls = timelineRecordActionCalls(fetchSpy, action);
+  const call = calls[index];
+  if (!call) {
+    const routeLabel = action === undefined ? "action" : `action ${action}`;
+    throw new Error(
+      `missing Timeline record ${routeLabel} request at index ${index}; found ${calls.length}`,
+    );
+  }
+  return requireJSONBodyAt<Record<string, unknown>>(
+    { mock: { calls: [call] } },
+    0,
+    `timeline record action request at index ${index}`,
   );
 }
 

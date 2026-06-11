@@ -3,7 +3,7 @@
   "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P4",
-  "guide_digest": "7bfa510b010f7696ab79d174ea23489e28045b7924743d16d9990e2ef8e22339",
+  "guide_digest": "3750847aac8805eb59a1f93430de24a036665241aa7ad3eb6dfb13dcb349b0b5",
   "rows": [
     {
       "id": "FE-U-P4-01",
@@ -26,13 +26,14 @@
         {
           "source_key": "core03",
           "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
-          "section_ref": "Core 03 Sections 4.1 and 15",
-          "heading_text": "4.1 Autosave; 15 Timeline read and write contract",
+          "section_ref": "Core 03 Sections 4.1, 4.2, and 15",
+          "heading_text": "4.1 Autosave; 4.2 Save-state presentation; 15 Timeline read and write contract",
           "req_ids": [
             "REQ-03-217",
             "REQ-03-222",
             "REQ-03-236",
-            "REQ-03-241"
+            "REQ-03-241",
+            "REQ-03-282"
           ],
           "ac_ids": [],
           "role": "product_owner",
@@ -45,7 +46,8 @@
         "REQ-03-217",
         "REQ-03-222",
         "REQ-03-236",
-        "REQ-03-241"
+        "REQ-03-241",
+        "REQ-03-282"
       ],
       "core_ac_ids": [
         "AC-003",
@@ -89,13 +91,16 @@
         "FE-U-P4-01 preserves same-runtime retryable failures and does not survive a new page instance",
         "FE-U-P4-01 halts non-retryable public failures with Table G anchors and queued units behind the blocker",
         "FE-U-P4-01 applies successful replay without retargeting by visible row order or labels",
+        "FE-U-P4-01 sends Timeline actions with the current row version after earlier workbook mutations",
+        "FE-U-P4-01 waits for a pending material autosave before supersede dispatch",
+        "FE-U-P4-01 keeps action result row versions ahead of stale projection reloads",
         "FE-U-P4-01 drives WorkbookShell admission, coalescing, and save-state from the shared pending queue model",
         "FE-U-P4-01 drives WorkbookShell retry and success settlement from the shared pending queue model",
         "FE-U-P4-01 drives WorkbookShell terminal halt presentation from the shared pending queue model"
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Verify sync-engine pending queue orders creates, patches, paste batches, retries, success, validation failures, and replay by stable mutation identifiers.",
+        "statement": "Verify sync-engine pending queue orders creates, patches, paste batches, row-versioned actions, retries, success, validation failures, and replay by stable mutation identifiers.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },

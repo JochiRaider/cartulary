@@ -631,6 +631,11 @@ Ambient collaboration state MUST NOT change this label mapping.
 Profiles: base
 Verified by: AC-043, AC-231, AC-376
 
+**REQ-03-282**
+When a workbook-dispatched record action requires `base_row_version`, the client MUST NOT dispatch that action while same-record local workbook mutation work is queued, in flight, or blocked by a refresh boundary. The client MUST first wait until the row has a known latest committed `row_version` for that record, then use that committed version as the action's `base_row_version`. If the pending queue is halted, authentication-paused, overflowing, or blocked by an unresolved same-field conflict, the client MUST fail the action locally through the workbook conflict state rather than guessing a stale base version.
+Profiles: base
+Verified by: AC-043, AC-125, AC-126, AC-181, AC-183, AC-200, AC-231
+
 ### 4.3 Presence
 
 **REQ-03-090**

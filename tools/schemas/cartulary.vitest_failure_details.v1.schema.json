@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.vitest_failure_details.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "runner_json",
+    "stdout_log",
+    "stderr_log",
+    "generated_at",
+    "failures"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.vitest_failure_details.v1" },
+    "runner_json": { "type": "string" },
+    "stdout_log": { "type": "string" },
+    "stderr_log": { "type": "string" },
+    "generated_at": { "$ref": "cartulary.harness.defs.v1#/$defs/timestamp" },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "owner_path",
+          "title",
+          "status",
+          "message",
+          "message_source",
+          "raw_messages",
+          "diagnostic_tags",
+          "first_app_frame"
+        ],
+        "properties": {
+          "owner_path": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "string", "minLength": 1 },
+          "message": { "type": "string" },
+          "message_source": { "type": "string", "minLength": 1 },
+          "raw_messages": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "diagnostic_tags": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          },
+          "first_app_frame": { "type": "string" }
+        }
+      }
+    }
+  }
+}

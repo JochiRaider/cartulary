@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:8cdfc5a482ab0d5e5ee298382acf7013cfaf34ffdb794c1458e5fa47d0e6ee50",
+  "input_digest": "sha256:96e3be449e99960e27cd59076a0eec75485ff7c662c1e63a7a40cd7efb834bc2",
   "inputs": [
     {
       "path": "scripts/lib/agent-finalize-action-cache.mjs",
@@ -297,17 +297,22 @@
     {
       "path": "scripts/lib/test-output/cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:d3d93f7d57680b365a5f2bc2c1c3a4f1796c496cf2715a35944db243d7ba38d1"
+      "hash": "sha256:c47342eea2ebad7ca6004c9fe8cc6add369e0afbfd419872e9468ff6bac2fe91"
     },
     {
       "path": "scripts/lib/test-output/context.mjs",
       "role": "renderer_source",
-      "hash": "sha256:e8a3720a3e0aeb29a9ecfb4aa60d17309d6e34965e2c9361544c5052ca833284"
+      "hash": "sha256:dc08dcba4eaf9fbefe64484513c1ad3580980acdae316b8eb5d06180e9f96702"
     },
     {
       "path": "scripts/lib/tool-output.mjs",
       "role": "renderer_source",
       "hash": "sha256:4845e481ad976908f9462a2c171a889e95534dcb408c8a0fac195767112fbbfe"
+    },
+    {
+      "path": "scripts/lib/vitest-failure-details.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:c0f8c6f0d04c306f9aafd38daa23b8e44861426d21e0f723e2fb13c22ed41d3d"
     },
     {
       "path": "scripts/render-execution-topology-artifacts.mjs",

@@ -97,6 +97,7 @@ import {
   timingBucketOrder,
   timingBucketSet,
   validPhaseCountingModes,
+  vitestFailureDetailsSchemaID,
 } from "./context.mjs";
 
 const resultsRoot = resolveResultsRoot();
@@ -5687,8 +5688,13 @@ function finalizeManifestAwareRunnerPhase(
   let status = selectedSlicePassed ? "pass" : "fail";
   let manifestSummary = null;
   let manifestMismatch = null;
+  const emptySelectionAllowed =
+    runner === "vitest" &&
+    optionalEnv("CARTULARY_VITEST_ALLOW_EMPTY_SELECTION") === "1" &&
+    (summary.counts?.tests ?? 0) === 0 &&
+    summary.dossiers.length === 0;
 
-  if (manifestAware && selectedSlicePassed) {
+  if (manifestAware && selectedSlicePassed && !emptySelectionAllowed) {
     const scope = readManifestScopeEnv();
     const selectedIDs = optionalSetFromLines("CARTULARY_MANIFEST_SELECTED_IDS");
     const entries = (
@@ -6027,13 +6033,77 @@ function vitestDiagnosticTags(messageOrMessages) {
   return tags;
 }
 
+function mergeVitestDiagnosticTags(...tagGroups) {
+  const tags = new Set();
+  for (const group of tagGroups) {
+    const entries = Array.isArray(group) ? group : [group];
+    for (const entry of entries) {
+      if (typeof entry === "string" && entry !== "") {
+        tags.add(entry);
+      }
+    }
+  }
+  return Array.from(tags).sort();
+}
+
+function loadVitestFailureDetails(file) {
+  if (!file || !existsSync(file)) {
+    return null;
+  }
+  const details = JSON.parse(readFileSync(file, "utf8"));
+  validateSchemaSync(vitestFailureDetailsSchemaID, details);
+  return details;
+}
+
+function vitestFailureDetailsKey(ownerPath, title) {
+  return `${normalizePath(ownerPath)}::${String(title ?? "")}`;
+}
+
+function indexVitestFailureDetails(details) {
+  const index = new Map();
+  for (const failure of details?.failures ?? []) {
+    const ownerPath = normalizePath(failure.owner_path ?? "");
+    const title = String(failure.title ?? "");
+    for (const candidate of [
+      ownerPath,
+      vitestOwnerToSelectionFile(ownerPath),
+      ownerPath.startsWith("apps/web/")
+        ? ownerPath.slice("apps/web/".length)
+        : "",
+    ]) {
+      if (candidate) {
+        index.set(vitestFailureDetailsKey(candidate, title), failure);
+      }
+    }
+  }
+  return index;
+}
+
+function vitestFailureDetailsEntry(detailsIndex, ownerPath, title) {
+  if (!detailsIndex) {
+    return null;
+  }
+  return (
+    detailsIndex.get(vitestFailureDetailsKey(ownerPath, title)) ??
+    detailsIndex.get(
+      vitestFailureDetailsKey(vitestOwnerToSelectionFile(ownerPath), title),
+    ) ??
+    null
+  );
+}
+
 function summarizeVitestFailureMessage({
   fallback,
   failureMessage = "",
   failureMessages = [],
   ownerPath,
+  sidecarMessage = "",
   title,
 }) {
+  const sidecar = String(sidecarMessage ?? "").trim();
+  if (sidecar !== "") {
+    return sidecar;
+  }
   const messages = normalizeFailureMessages(failureMessage, failureMessages);
   for (const message of messages) {
     for (const line of message.split("\n")) {
@@ -6067,8 +6137,11 @@ function summarizeVitestRun(
   phaseLabel,
   selection = null,
   rawFiles = [reportFile],
+  failureDetailsFile = "",
 ) {
   const report = JSON.parse(readFileSync(reportFile, "utf8"));
+  const failureDetails = loadVitestFailureDetails(failureDetailsFile);
+  const failureDetailsIndex = indexVitestFailureDetails(failureDetails);
   const owners = new Set();
   const inventory = [];
   const dossiers = [];
@@ -6094,6 +6167,12 @@ function summarizeVitestRun(
       counts.failed += 1;
       addCoverageFailureCount(counts, classification.coverage);
       const failureMessage = fileResult.message ?? "";
+      const sidecarFailure = vitestFailureDetailsEntry(
+        failureDetailsIndex,
+        classification.owner,
+        "(suite load)",
+      );
+      const sidecarMessage = sidecarFailure?.message ?? "";
       dossiers.push({
         coverage: classification.coverage,
         phase: classification.phase,
@@ -6105,9 +6184,14 @@ function summarizeVitestRun(
           fallback: `test file ${classification.owner} failed before a top-level test was attributed`,
           failureMessage,
           ownerPath: classification.owner,
+          sidecarMessage,
           title: "(suite load)",
         }),
-        diagnostic_tags: vitestDiagnosticTags(failureMessage),
+        diagnostic_tags: mergeVitestDiagnosticTags(
+          vitestDiagnosticTags([failureMessage, sidecarMessage]),
+          sidecarFailure?.diagnostic_tags ?? [],
+          sidecarFailure ? ["vitest_failure_sidecar"] : [],
+        ),
         reproduce: renderVitestReproduceCommand(classification.owner),
         raw: rawArtifacts,
       });
@@ -6146,6 +6230,12 @@ function summarizeVitestRun(
         ? assertion.failureMessages
         : [];
       const failureMessage = failureMessages[0] ?? "";
+      const sidecarFailure = vitestFailureDetailsEntry(
+        failureDetailsIndex,
+        classification.owner,
+        assertion.title ?? "(missing title)",
+      );
+      const sidecarMessage = sidecarFailure?.message ?? "";
       dossiers.push({
         coverage: classification.coverage,
         phase: classification.phase,
@@ -6158,9 +6248,14 @@ function summarizeVitestRun(
           failureMessage,
           failureMessages,
           ownerPath: classification.owner,
+          sidecarMessage,
           title: assertion.title ?? "(missing title)",
         }),
-        diagnostic_tags: vitestDiagnosticTags(failureMessages),
+        diagnostic_tags: mergeVitestDiagnosticTags(
+          vitestDiagnosticTags([...failureMessages, sidecarMessage]),
+          sidecarFailure?.diagnostic_tags ?? [],
+          sidecarFailure ? ["vitest_failure_sidecar"] : [],
+        ),
         reproduce: renderVitestReproduceCommand(
           classification.owner,
           (assertion.title ?? "").trim(),
@@ -6222,6 +6317,9 @@ function handleVitestPhase({ manifestAware }) {
   const stderrLog = optionalEnv("CARTULARY_PHASE_STDERR_LOG");
   const stdoutLog = optionalEnv("CARTULARY_PHASE_STDOUT_LOG");
   const watchdogLog = optionalEnv("CARTULARY_PHASE_WATCHDOG_LOG");
+  const failureDetailsLog = optionalEnv(
+    "CARTULARY_PHASE_VITEST_FAILURE_DETAILS",
+  );
   removeEmptyArtifact(stderrLog);
   removeEmptyArtifact(stdoutLog);
 
@@ -6257,6 +6355,9 @@ function handleVitestPhase({ manifestAware }) {
         stdout_log: existsSync(stdoutLog) ? stdoutLog : "",
         stderr_log: existsSync(stderrLog) ? stderrLog : "",
         watchdog_json: existsSync(watchdogLog) ? watchdogLog : "",
+        vitest_failure_details_json: existsSync(failureDetailsLog)
+          ? failureDetailsLog
+          : "",
       },
     });
     if (showPhaseDetailOutput(context)) {
@@ -6278,6 +6379,9 @@ function handleVitestPhase({ manifestAware }) {
         stdout_log: existsSync(stdoutLog) ? stdoutLog : "",
         stderr_log: existsSync(stderrLog) ? stderrLog : "",
         watchdog_json: existsSync(watchdogLog) ? watchdogLog : "",
+        vitest_failure_details_json: existsSync(failureDetailsLog)
+          ? failureDetailsLog
+          : "",
       },
     });
     return 0;
@@ -6287,7 +6391,8 @@ function handleVitestPhase({ manifestAware }) {
     reportFile,
     context.label,
     createVitestSelection({ manifestAware }),
-    [reportFile, stdoutLog, stderrLog],
+    [reportFile, failureDetailsLog, stdoutLog, stderrLog],
+    failureDetailsLog,
   );
   const selectedSlicePassed =
     summary.dossiers.length === 0 &&
@@ -6303,6 +6408,9 @@ function handleVitestPhase({ manifestAware }) {
       stdout_log: existsSync(stdoutLog) ? stdoutLog : "",
       stderr_log: existsSync(stderrLog) ? stderrLog : "",
       watchdog_json: existsSync(watchdogLog) ? watchdogLog : "",
+      vitest_failure_details_json: existsSync(failureDetailsLog)
+        ? failureDetailsLog
+        : "",
     },
     manifestMismatchArtifacts: () => ({
       raw: relToRepo(reportFile),
@@ -6312,7 +6420,7 @@ function handleVitestPhase({ manifestAware }) {
     }),
     failureDetailFields: (dossier) => ({
       ...dossier,
-      raw: renderRawList([reportFile, stdoutLog, stderrLog]),
+      raw: renderRawList([reportFile, failureDetailsLog, stdoutLog, stderrLog]),
     }),
   });
 }

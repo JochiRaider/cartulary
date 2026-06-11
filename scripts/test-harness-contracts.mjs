@@ -46,6 +46,46 @@ function readJSON(relativePath) {
   return JSON.parse(readFileSync(path.join(repoRoot, relativePath), "utf8"));
 }
 
+function runVitestPhaseSummaryFixture({ root, runnerJSON, sidecarJSON = "" }) {
+  const phaseDir = path.join(root, sidecarJSON ? "phase-sidecar" : "phase-fallback");
+  const resultsDir = path.relative(repoRoot, path.join(root, "results"));
+  const result = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, "scripts/lib/test-output.mjs"), "vitest-phase"],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        CARTULARY_TEST_RESULTS_DIR: resultsDir,
+        CARTULARY_TEST_RUN_ID: "vitest-sidecar-fixture",
+        CARTULARY_TEST_TARGET: "frontend-unit",
+        CARTULARY_PHASE_DIR: phaseDir,
+        CARTULARY_PHASE_LABEL: "frontend-unit vitest",
+        CARTULARY_PHASE_COMMAND: "pnpm --dir apps/web exec vitest run",
+        CARTULARY_PHASE_START_TIME: "2026-01-01T00:00:00.000Z",
+        CARTULARY_PHASE_END_TIME: "2026-01-01T00:00:01.000Z",
+        CARTULARY_PHASE_DURATION_MS: "1000",
+        CARTULARY_PHASE_EXIT_STATUS: "1",
+        CARTULARY_PHASE_RUNNER_LOG: runnerJSON,
+        CARTULARY_PHASE_STDOUT_LOG: path.join(root, "stdout.log"),
+        CARTULARY_PHASE_STDERR_LOG: path.join(root, "stderr.log"),
+        ...(sidecarJSON
+          ? { CARTULARY_PHASE_VITEST_FAILURE_DETAILS: sidecarJSON }
+          : {}),
+      },
+    },
+  );
+  assert.equal(
+    result.status,
+    1,
+    `vitest phase fixture should fail for the synthetic assertion: ${result.stderr}${result.stdout}`,
+  );
+  return JSON.parse(
+    readFileSync(path.join(phaseDir, "phase-summary.json"), "utf8"),
+  );
+}
+
 function browserWorkerSlotCount(group) {
   if (group?.kind === "functional_shard" || group?.kind === "support") {
     return 1;
@@ -100,6 +140,95 @@ function assertBrowserWorkerSlots(units, label) {
     `${label} worker slots must be contiguous`,
   );
 }
+
+test("Vitest failure sidecar overrides STACK_TRACE_ERROR summary fallback", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "vitest-sidecar."));
+  try {
+    const ownerPath = "apps/web/src/SyntheticSidecar.test.tsx";
+    const title = "reports the retained assertion message";
+    const runnerJSON = path.join(root, "runner.json");
+    const sidecarJSON = path.join(root, "vitest-failure-details.json");
+    writeFileSync(path.join(root, "stdout.log"), "");
+    writeFileSync(path.join(root, "stderr.log"), "");
+    writeFileSync(
+      runnerJSON,
+      JSON.stringify({
+        testResults: [
+          {
+            name: path.join(repoRoot, ownerPath),
+            status: "failed",
+            assertionResults: [
+              {
+                title,
+                status: "failed",
+                failureMessages: [
+                  `Error: STACK_TRACE_ERROR\n    at ${path.join(repoRoot, ownerPath)}:10:1`,
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    writeFileSync(
+      sidecarJSON,
+      JSON.stringify({
+        schema_id: "cartulary.vitest_failure_details.v1",
+        runner_json: path.relative(repoRoot, runnerJSON),
+        stdout_log: "",
+        stderr_log: "",
+        generated_at: "2026-01-01T00:00:00.000Z",
+        failures: [
+          {
+            owner_path: ownerPath,
+            title,
+            status: "failed",
+            message: "expected fetchMock to have exactly 2 calls, got 3",
+            message_source: "synthetic_sidecar_assertion_message",
+            raw_messages: [
+              "expected fetchMock to have exactly 2 calls, got 3",
+            ],
+            diagnostic_tags: ["vitest_stack_trace_error"],
+            first_app_frame: `${ownerPath}:10`,
+          },
+        ],
+      }),
+    );
+
+    const sidecarSummary = runVitestPhaseSummaryFixture({
+      root,
+      runnerJSON,
+      sidecarJSON,
+    });
+    assert.equal(
+      sidecarSummary.dossiers[0].message,
+      "expected fetchMock to have exactly 2 calls, got 3",
+    );
+    assert.ok(
+      sidecarSummary.dossiers[0].diagnostic_tags.includes(
+        "vitest_failure_sidecar",
+      ),
+      "sidecar-backed failures must carry a diagnostic tag",
+    );
+    assert.match(
+      sidecarSummary.dossiers[0].raw,
+      /vitest-failure-details\.json/,
+      "sidecar-backed failures must retain the sidecar artifact ref",
+    );
+
+    const fallbackSummary = runVitestPhaseSummaryFixture({
+      root,
+      runnerJSON,
+    });
+    assert.match(
+      fallbackSummary.dossiers[0].message,
+      /Vitest reporter emitted STACK_TRACE_ERROR/,
+      "missing sidecar must keep the current fallback diagnostic",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 function renderedArtifacts() {
   const topology = loadExecutionTopology();
