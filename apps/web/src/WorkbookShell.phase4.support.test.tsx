@@ -34,6 +34,7 @@ import {
   extractTimelineJSONBody,
   successEnvelope,
   timelineRow,
+  timelineRowsEnvelope,
   timelineViewSchemaId,
 } from "./timelineWorkbookTestSupport";
 import { TimelineWorkbook } from "./WorkbookShell";
@@ -1256,92 +1257,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
   it("renders a dismissed mention restore action after the dismiss flow completes", async () => {
     const mentionId = "11111111-1111-4111-8111-000000000402";
     const mentionItemRef = `entity_mention:${mentionId}`;
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "incident-1",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "record-1",
-            rowVersion: 1,
-            summary: "Alpha",
-            captureState: "reviewed",
-            hostRefs: [
-              resolvedItem({
-                itemRef: mentionItemRef,
-                entityType: "host",
-                rawText: "WS-023",
-                displayText: "WS-023",
-                resolvedRecordId: "host-1",
-                resolutionMethod: "explicit_resolve_route",
-                autoResolved: false,
-                provenance: "manual",
-                confidence: null,
-              }),
-            ],
-          }),
-        ],
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      mentionActionEnvelope({
-        actionStatus: "dismissed",
-        mentionId,
-        rawText: "WS-023",
-        resolvedRecordId: null,
-        sourceRowVersion: 2,
-        mentionRowVersion: 2,
-        resolutionMethod: "explicit_resolve_route",
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "incident-1",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "record-1",
-            rowVersion: 2,
-            summary: "Alpha",
-            captureState: "reviewed",
-            hostRefs: [],
-          }),
-        ],
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      mentionActionEnvelope({
-        actionStatus: "unresolved",
-        mentionId,
-        rawText: "WS-023",
-        resolvedRecordId: null,
-        sourceRowVersion: 3,
-        mentionRowVersion: 3,
-        resolutionMethod: null,
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "incident-1",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "record-1",
-            rowVersion: 3,
-            summary: "Alpha",
-            captureState: "reviewed",
-            hostRefs: [
-              unresolvedItem({
-                itemRef: mentionItemRef,
-                entityType: "host",
-                rawText: "WS-023",
-                mentionRowVersion: 3,
-              }),
-            ],
-          }),
-        ],
-      }),
-    );
+    mockDismissRestoreMentionResponses(fetchMock, { mentionId, mentionItemRef });
 
     render(
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
@@ -1384,92 +1300,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
   it("reveals a vertically clipped inspect action through dismiss and restore continuity", async () => {
     const mentionId = "11111111-1111-4111-8111-000000000403";
     const mentionItemRef = `entity_mention:${mentionId}`;
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "incident-1",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "record-1",
-            rowVersion: 1,
-            summary: "Alpha",
-            captureState: "reviewed",
-            hostRefs: [
-              resolvedItem({
-                itemRef: mentionItemRef,
-                entityType: "host",
-                rawText: "WS-023",
-                displayText: "WS-023",
-                resolvedRecordId: "host-1",
-                resolutionMethod: "explicit_resolve_route",
-                autoResolved: false,
-                provenance: "manual",
-                confidence: null,
-              }),
-            ],
-          }),
-        ],
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      mentionActionEnvelope({
-        actionStatus: "dismissed",
-        mentionId,
-        rawText: "WS-023",
-        resolvedRecordId: null,
-        sourceRowVersion: 2,
-        mentionRowVersion: 2,
-        resolutionMethod: "explicit_resolve_route",
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "incident-1",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "record-1",
-            rowVersion: 2,
-            summary: "Alpha",
-            captureState: "reviewed",
-            hostRefs: [],
-          }),
-        ],
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      mentionActionEnvelope({
-        actionStatus: "unresolved",
-        mentionId,
-        rawText: "WS-023",
-        resolvedRecordId: null,
-        sourceRowVersion: 3,
-        mentionRowVersion: 3,
-        resolutionMethod: null,
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "incident-1",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "record-1",
-            rowVersion: 3,
-            summary: "Alpha",
-            captureState: "reviewed",
-            hostRefs: [
-              unresolvedItem({
-                itemRef: mentionItemRef,
-                entityType: "host",
-                rawText: "WS-023",
-                mentionRowVersion: 3,
-              }),
-            ],
-          }),
-        ],
-      }),
-    );
+    mockDismissRestoreMentionResponses(fetchMock, { mentionId, mentionItemRef });
 
     render(
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
@@ -1707,6 +1538,89 @@ function mentionActionEnvelope({
     },
     change_set_id: `change-set-${actionStatus}`,
   });
+}
+
+function mockDismissRestoreMentionResponses(
+  fetchMock: ReturnType<typeof vi.fn>,
+  options: {
+    mentionId: string;
+    mentionItemRef: string;
+  },
+) {
+  fetchMock.mockResolvedValueOnce(
+    timelineRowsEnvelope([
+      timelineRow({
+        recordId: "record-1",
+        rowVersion: 1,
+        summary: "Alpha",
+        captureState: "reviewed",
+        hostRefs: [
+          resolvedItem({
+            itemRef: options.mentionItemRef,
+            entityType: "host",
+            rawText: "WS-023",
+            displayText: "WS-023",
+            resolvedRecordId: "host-1",
+            resolutionMethod: "explicit_resolve_route",
+            autoResolved: false,
+            provenance: "manual",
+            confidence: null,
+          }),
+        ],
+      }),
+    ]),
+  );
+  fetchMock.mockResolvedValueOnce(
+    mentionActionEnvelope({
+      actionStatus: "dismissed",
+      mentionId: options.mentionId,
+      rawText: "WS-023",
+      resolvedRecordId: null,
+      sourceRowVersion: 2,
+      mentionRowVersion: 2,
+      resolutionMethod: "explicit_resolve_route",
+    }),
+  );
+  fetchMock.mockResolvedValueOnce(
+    timelineRowsEnvelope([
+      timelineRow({
+        recordId: "record-1",
+        rowVersion: 2,
+        summary: "Alpha",
+        captureState: "reviewed",
+        hostRefs: [],
+      }),
+    ]),
+  );
+  fetchMock.mockResolvedValueOnce(
+    mentionActionEnvelope({
+      actionStatus: "unresolved",
+      mentionId: options.mentionId,
+      rawText: "WS-023",
+      resolvedRecordId: null,
+      sourceRowVersion: 3,
+      mentionRowVersion: 3,
+      resolutionMethod: null,
+    }),
+  );
+  fetchMock.mockResolvedValueOnce(
+    timelineRowsEnvelope([
+      timelineRow({
+        recordId: "record-1",
+        rowVersion: 3,
+        summary: "Alpha",
+        captureState: "reviewed",
+        hostRefs: [
+          unresolvedItem({
+            itemRef: options.mentionItemRef,
+            entityType: "host",
+            rawText: "WS-023",
+            mentionRowVersion: 3,
+          }),
+        ],
+      }),
+    ]),
+  );
 }
 
 function unresolvedItem({

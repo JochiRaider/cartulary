@@ -98,6 +98,36 @@ function secondFactorPayload(code: string) {
   };
 }
 
+function bootstrapAuthorizationHeader(options: {
+  authMode: TotpAuthMode;
+  bootstrapToken?: string | undefined;
+}): HeadersInit | undefined {
+  if (options.authMode !== "bootstrap") {
+    return undefined;
+  }
+  const token = options.bootstrapToken?.trim() ?? "";
+  if (token === "") {
+    return undefined;
+  }
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+function totpEnrollmentRequestInit(options: {
+  authMode: TotpAuthMode;
+  bootstrapToken?: string | undefined;
+  body: Record<string, unknown>;
+}): RequestInit {
+  const headers = bootstrapAuthorizationHeader(options);
+  return {
+    method: "POST",
+    credentials: options.authMode === "bootstrap" ? "omit" : "include",
+    body: JSON.stringify(options.body),
+    ...(headers === undefined ? {} : { headers }),
+  };
+}
+
 export function loadSession(
   apiBase?: string,
 ): Promise<APIResult<DataEnvelope<SessionData>>>;
@@ -174,10 +204,10 @@ export function beginTotpEnrollment(options: {
   currentFactorCode?: string;
   currentPassword?: string;
 }) {
-  const requestInit: RequestInit = {
-    method: "POST",
-    credentials: options.authMode === "bootstrap" ? "omit" : "include",
-    body: JSON.stringify({
+  const requestInit = totpEnrollmentRequestInit({
+    authMode: options.authMode,
+    bootstrapToken: options.bootstrapToken,
+    body: {
       client_txn_id: options.clientTxnId ?? clientTxnID("phase1-ui-totp-begin"),
       ...(options.authMode === "session"
         ? {
@@ -185,13 +215,8 @@ export function beginTotpEnrollment(options: {
             second_factor: secondFactorPayload(options.currentFactorCode ?? ""),
           }
         : {}),
-    }),
-  };
-  if (options.authMode === "bootstrap" && options.bootstrapToken?.trim()) {
-    requestInit.headers = {
-      Authorization: `Bearer ${options.bootstrapToken.trim()}`,
-    };
-  }
+    },
+  });
   return fetchJSON<DataEnvelope<TotpBeginResponse>>(
     apiPath(options.apiBase, "/api/v1/auth/mfa/totp/begin"),
     requestInit,
@@ -206,21 +231,16 @@ export function completeTotpEnrollment(options: {
   code: string;
   enrollmentId: string;
 }) {
-  const requestInit: RequestInit = {
-    method: "POST",
-    credentials: options.authMode === "bootstrap" ? "omit" : "include",
-    body: JSON.stringify({
+  const requestInit = totpEnrollmentRequestInit({
+    authMode: options.authMode,
+    bootstrapToken: options.bootstrapToken,
+    body: {
       client_txn_id:
         options.clientTxnId ?? clientTxnID("phase1-ui-totp-complete"),
       enrollment_id: options.enrollmentId,
       code: options.code,
-    }),
-  };
-  if (options.authMode === "bootstrap" && options.bootstrapToken?.trim()) {
-    requestInit.headers = {
-      Authorization: `Bearer ${options.bootstrapToken.trim()}`,
-    };
-  }
+    },
+  });
   return fetchJSON(
     apiPath(options.apiBase, "/api/v1/auth/mfa/totp/complete"),
     requestInit,

@@ -4,6 +4,7 @@ import {
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
   currentIncidentRoleTestId,
+  gridShellTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   rowCellTestId,
@@ -240,6 +241,71 @@ export async function driveRealTimelineSummaryConflict({
   await expect(page.getByTestId("conflict-local-value")).toHaveValue(
     localValue,
   );
+}
+
+export async function exerciseSameFieldResolver({
+  action,
+  expectedPrimary,
+  incidentId,
+  localValue,
+  mergedValue,
+  page,
+  patchController,
+  recordId,
+  remotePage,
+  remoteValue,
+}: {
+  action: "keep_saved" | "merged_value" | "use_unsaved";
+  expectedPrimary: string;
+  incidentId: string;
+  localValue: string;
+  mergedValue?: string;
+  page: Page;
+  patchController: Awaited<ReturnType<typeof installPatchController>>;
+  recordId: string;
+  remotePage: Page;
+  remoteValue: string;
+}) {
+  await driveRealTimelineSummaryConflict({
+    baseRowVersion: 1,
+    localValue,
+    page,
+    patchController,
+    recordId,
+    remoteValue,
+    remotePatchPage: remotePage,
+    txnPrefix: `e602-remote-${recordId}`,
+  });
+  await expect(
+    remotePage.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+  ).toHaveValue(remoteValue);
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+
+  if (action === "keep_saved") {
+    await page.getByTestId("conflict-keep-saved").click();
+  } else if (action === "use_unsaved") {
+    await page.getByTestId("conflict-use-unsaved").click();
+  } else {
+    await page.getByTestId("conflict-merged-value").fill(mergedValue ?? "");
+    await page.getByTestId("conflict-use-merged").click();
+  }
+
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+  await expect(page.getByTestId("conflict-resolver")).toHaveCount(0);
+  await expectServerTimelineCells(page, incidentId, recordId, {
+    "timeline.summary": expectedPrimary,
+  });
+  await expect(
+    page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+  ).toHaveValue(expectedPrimary);
+  await expect(
+    remotePage.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+  ).toHaveValue(expectedPrimary);
+  await expect(
+    page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+  ).toBeFocused();
 }
 
 export async function exerciseRevokedPendingReplay({

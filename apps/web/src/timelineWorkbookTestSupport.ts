@@ -9,6 +9,7 @@ import {
   saveStateTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
+import type { ViewContract, ViewFieldContract } from "@cartulary/view-contracts";
 import {
   cleanup,
   fireEvent,
@@ -82,6 +83,15 @@ type TimelineRowOptions = {
   hostRefs?: Array<Record<string, unknown>>;
   identityRefs?: Array<Record<string, unknown>>;
 };
+
+export type WorkbookViewApiRow = {
+  record_id: string;
+  row_version: number;
+  cells: Record<string, { value: unknown }>;
+  view_schema_id?: string;
+};
+
+export type WorkbookViewRowOverrides = Record<string, unknown>;
 
 type RecordChangedPayloadOptions = {
   recordId: string;
@@ -294,6 +304,98 @@ export function successEnvelope(data: unknown, status = 200) {
       headers: { "Content-Type": "application/json" },
     },
   );
+}
+
+export function workbookCollectionValue(
+  ordered: boolean,
+  items: readonly Record<string, unknown>[] = [],
+) {
+  return {
+    kind: "collection_value_v1",
+    ordered,
+    items: [...items],
+  };
+}
+
+export function defaultWorkbookViewCellValue(
+  field: ViewFieldContract,
+): unknown {
+  if (field.readKind === "collection") {
+    return workbookCollectionValue(false);
+  }
+  if (field.readKind === "number") {
+    return 0;
+  }
+  if (field.readKind === "boolean") {
+    return false;
+  }
+  return null;
+}
+
+export function fullWorkbookViewRow(
+  contract: ViewContract,
+  recordId: string,
+  rowVersion: number,
+  overrides: WorkbookViewRowOverrides,
+): WorkbookViewApiRow {
+  return {
+    record_id: recordId,
+    row_version: rowVersion,
+    view_schema_id: contract.viewSchemaId,
+    cells: Object.fromEntries(
+      contract.fields.map((field) => [
+        field.fieldKey,
+        {
+          value:
+            field.fieldKey in overrides
+              ? overrides[field.fieldKey]
+              : defaultWorkbookViewCellValue(field),
+        },
+      ]),
+    ),
+  };
+}
+
+export function viewRowsEnvelope(
+  viewSchemaId: string,
+  rows: readonly WorkbookViewApiRow[],
+  incidentId = "incident-1",
+) {
+  return successEnvelope({
+    incident_id: incidentId,
+    view_schema_id: viewSchemaId,
+    rows: [...rows],
+  });
+}
+
+export function viewRowsEnvelopeForView(
+  viewSchemaId: string,
+  rowsByView: Record<string, readonly WorkbookViewApiRow[]>,
+  incidentId = "incident-1",
+) {
+  return viewRowsEnvelope(viewSchemaId, rowsByView[viewSchemaId] ?? [], incidentId);
+}
+
+export function timelineRowsEnvelope(
+  rows: readonly ReturnType<typeof timelineRow>[],
+  incidentId = "incident-1",
+) {
+  return successEnvelope({
+    incident_id: incidentId,
+    view_schema_id: timelineViewSchemaId,
+    rows: [...rows],
+  });
+}
+
+export function timelineMutationEnvelope(
+  row: ReturnType<typeof timelineRow>,
+  changeSetId: string,
+) {
+  return successEnvelope({
+    view_schema_id: timelineViewSchemaId,
+    change_set_id: changeSetId,
+    row,
+  });
 }
 
 export function errorEnvelope(
@@ -1104,11 +1206,7 @@ function collectionValue(
   ordered: boolean,
   items: Array<Record<string, unknown>>,
 ) {
-  return {
-    kind: "collection_value_v1",
-    ordered,
-    items,
-  };
+  return workbookCollectionValue(ordered, items);
 }
 
 function tagItem(value: string) {

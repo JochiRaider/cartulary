@@ -40,7 +40,7 @@ export type PendingReplayVisibleEdit = {
   value: unknown;
 };
 
-export type PendingReplayUnitInput = {
+export type PendingReplayUnitBase = {
   id: string;
   kind: PendingReplayKind;
   source: PendingReplaySource;
@@ -55,9 +55,12 @@ export type PendingReplayUnitInput = {
   clientTxnId: string;
   coalesceKey: string;
   enqueueOrder: number;
+  presentationHint?: PendingReplayPresentationHint;
+};
+
+export type PendingReplayUnitInput = PendingReplayUnitBase & {
   mutationSignature?: string;
   operationClass?: PendingReplayOperationClass;
-  presentationHint?: PendingReplayPresentationHint;
   status?: PendingReplayStatus;
   visibleEdit?: PendingReplayVisibleEdit;
 };
@@ -95,26 +98,11 @@ export type PendingReplayMutationIdentity =
   | PendingReplayCreateIdentity
   | PendingReplayPatchIdentity;
 
-export type PendingReplayUnitState = {
-  id: string;
-  kind: PendingReplayKind;
-  source: PendingReplaySource;
-  incidentId: string;
-  clientInstanceId: string;
-  viewSchemaId: string;
-  rowKey: string;
-  recordId: string | null;
-  method: PendingReplayMethod;
-  path: string;
-  payloadIntent: PendingReplayPayloadIntent;
-  clientTxnId: string;
+export type PendingReplayUnitState = PendingReplayUnitBase & {
   mutationSignature: string;
-  coalesceKey: string;
-  enqueueOrder: number;
   operationClass: PendingReplayOperationClass;
   status: PendingReplayStatus;
   identity: PendingReplayMutationIdentity;
-  presentationHint?: PendingReplayPresentationHint;
 };
 
 export type PendingReplayPublicError = {

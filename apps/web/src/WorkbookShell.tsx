@@ -2817,6 +2817,15 @@ function RelationshipChip({
         ? `; matched ${item.matchedAliasText}`
         : "";
   const accessibleLabel = `${labelPrefix} ${label}${stateDetail}`;
+  const content = (
+    <RelationshipChipContent
+      chipState={chipState}
+      isAutoResolved={isAutoResolved}
+      isDismissed={isDismissed}
+      isResolved={isResolved}
+      label={label}
+    />
+  );
 
   return onSelect ? (
     <button
@@ -2827,32 +2836,7 @@ function RelationshipChip({
       type="button"
       onClick={onSelect}
     >
-      <span>{label}</span>
-      {isAutoResolved ? (
-        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
-          Auto
-        </span>
-      ) : null}
-      {chipState === "manual-resolution" ? (
-        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
-          Manual
-        </span>
-      ) : null}
-      {chipState === "resolved" ? (
-        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
-          Resolved
-        </span>
-      ) : null}
-      {!isResolved && !isDismissed ? (
-        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
-          Unresolved
-        </span>
-      ) : null}
-      {isDismissed ? (
-        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
-          Dismissed
-        </span>
-      ) : null}
+      {content}
     </button>
   ) : (
     <span
@@ -2861,6 +2845,26 @@ function RelationshipChip({
       role="note"
       style={chipStyle}
     >
+      {content}
+    </span>
+  );
+}
+
+function RelationshipChipContent({
+  chipState,
+  isAutoResolved,
+  isDismissed,
+  isResolved,
+  label,
+}: {
+  chipState: MentionChipState;
+  isAutoResolved: boolean;
+  isDismissed: boolean;
+  isResolved: boolean;
+  label: string;
+}) {
+  return (
+    <>
       <span>{label}</span>
       {isAutoResolved ? (
         <span data-density-role="narrow-metadata" style={chipMetaStyle}>
@@ -2887,7 +2891,7 @@ function RelationshipChip({
           Dismissed
         </span>
       ) : null}
-    </span>
+    </>
   );
 }
 
@@ -4904,7 +4908,7 @@ export function TimelineWorkbook({
     [],
   );
 
-  const schedulePendingReplay = useCallback(() => {
+  const schedulePendingReplayAfter = useCallback((delayMs: number) => {
     const pending = pendingQueueRef.current;
     if (pending.replayScheduled) {
       return;
@@ -4913,21 +4917,16 @@ export function TimelineWorkbook({
     pendingReplayTimerRef.current = window.setTimeout(() => {
       pendingReplayTimerRef.current = null;
       void replayPendingQueueRef.current();
-    }, 0);
+    }, delayMs);
   }, []);
+  const schedulePendingReplay = useCallback(() => {
+    schedulePendingReplayAfter(0);
+  }, [schedulePendingReplayAfter]);
   schedulePendingReplayRef.current = schedulePendingReplay;
 
   const schedulePendingReplayRetry = useCallback(() => {
-    const pending = pendingQueueRef.current;
-    if (pending.replayScheduled) {
-      return;
-    }
-    pending.replayScheduled = true;
-    pendingReplayTimerRef.current = window.setTimeout(() => {
-      pendingReplayTimerRef.current = null;
-      void replayPendingQueueRef.current();
-    }, 1000);
-  }, []);
+    schedulePendingReplayAfter(1000);
+  }, [schedulePendingReplayAfter]);
 
   const scheduleAuthRecoveryProbe = useCallback(() => {
     if (pendingReplayAuthRetryRef.current !== null) {

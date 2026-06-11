@@ -3,6 +3,8 @@ import {
   scrollGridTargetIntoView,
 } from "@cartulary/test-utils";
 import {
+  currentIncidentRoleTestId,
+  entityInspectButtonTestId,
   genericEditFieldSelectTestId,
   genericEditRecordSelectTestId,
   genericEditSubmitTestId,
@@ -16,8 +18,10 @@ import {
   relationshipItemsTestId,
   rowInspectButtonTestId,
   saveStateTestId,
+  timelinePreviewRowTestId,
   timelineCollectionInputTestId,
   timelineRowVersionTestId,
+  workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Response } from "@playwright/test";
 
@@ -195,6 +199,321 @@ export function collectionActionsPayload(rawTexts: string[]) {
       raw_text: rawText,
     })),
   };
+}
+
+export function resolvedRefPayload(rawText: string, resolvedRecordId: string) {
+  return {
+    kind: "collection_actions_v1",
+    actions: [
+      {
+        op: "add_resolved_ref",
+        raw_text: rawText,
+        resolved_record_id: resolvedRecordId,
+      },
+    ],
+  };
+}
+
+export async function seedHostMentionStateFixture(
+  page: Page,
+  incidentId: string,
+  options: {
+    displayPrefix: string;
+    hostnamePrefix: string;
+    occurredAt: {
+      auto: string;
+      dismissed: string;
+      manual: string;
+      resolved: string;
+      unresolved: string;
+    };
+    rawTextPrefix: string;
+    summary: {
+      auto: string;
+      dismissed: string;
+      manual: string;
+      resolved: string;
+      unresolved: string;
+    };
+    txnPrefix: string;
+  },
+) {
+  const resolvedTarget = (await createViewRow(
+    page,
+    incidentId,
+    hostsViewSchemaId,
+    {
+      client_txn_id: uniqueTxn(`${options.txnPrefix}-resolved-target`),
+      "host.display_name": `${options.displayPrefix} Resolved Target`,
+      "host.hostname": `${options.hostnamePrefix}-resolved-target.example.test`,
+    },
+  )) as ViewRow;
+  const manualTarget = (await createViewRow(
+    page,
+    incidentId,
+    hostsViewSchemaId,
+    {
+      client_txn_id: uniqueTxn(`${options.txnPrefix}-manual-target`),
+      "host.display_name": `${options.displayPrefix} Manual Target`,
+      "host.hostname": `${options.hostnamePrefix}-manual-target.example.test`,
+    },
+  )) as ViewRow;
+  await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn(`${options.txnPrefix}-auto-target`),
+    "host.display_name": `${options.displayPrefix} Auto Target`,
+    "host.hostname": `${options.hostnamePrefix}-auto-target.example.test`,
+    "host.aliases": collectionActionsPayload([
+      `${options.rawTextPrefix} Auto Alias`,
+    ]),
+  });
+
+  const unresolvedRawText = `${options.rawTextPrefix} Unresolved?`;
+  const resolvedRawText = `${options.rawTextPrefix} Resolved Raw`;
+  const manualRawText = `${options.rawTextPrefix} Manual Raw`;
+  const autoRawText = `${options.rawTextPrefix} Auto Alias`;
+  const dismissedRawText = `${options.rawTextPrefix} Dismissed Raw`;
+  const unresolvedRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn(`${options.txnPrefix}-unresolved-row`),
+      "timeline.occurred_at": options.occurredAt.unresolved,
+      "timeline.summary": options.summary.unresolved,
+      [hostRefsFieldKey]: collectionActionsPayload([unresolvedRawText]),
+    },
+  )) as ViewRow;
+  const resolvedRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn(`${options.txnPrefix}-resolved-row`),
+      "timeline.occurred_at": options.occurredAt.resolved,
+      "timeline.summary": options.summary.resolved,
+      [hostRefsFieldKey]: resolvedRefPayload(
+        resolvedRawText,
+        resolvedTarget.record_id,
+      ),
+    },
+  )) as ViewRow;
+  const manualRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn(`${options.txnPrefix}-manual-row`),
+      "timeline.occurred_at": options.occurredAt.manual,
+      "timeline.summary": options.summary.manual,
+      [hostRefsFieldKey]: collectionActionsPayload([manualRawText]),
+    },
+  )) as ViewRow;
+  const autoRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn(`${options.txnPrefix}-auto-row`),
+      "timeline.occurred_at": options.occurredAt.auto,
+      "timeline.summary": options.summary.auto,
+    },
+  )) as ViewRow;
+  const dismissedRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn(`${options.txnPrefix}-dismissed-row`),
+      "timeline.occurred_at": options.occurredAt.dismissed,
+      "timeline.summary": options.summary.dismissed,
+      [hostRefsFieldKey]: collectionActionsPayload([dismissedRawText]),
+    },
+  )) as ViewRow;
+
+  return {
+    autoRawText,
+    autoRow,
+    dismissedMention: requireItemByRawText(
+      collectionItems(dismissedRow, hostRefsFieldKey),
+      dismissedRawText,
+    ),
+    dismissedRawText,
+    dismissedRow,
+    manualMention: requireItemByRawText(
+      collectionItems(manualRow, hostRefsFieldKey),
+      manualRawText,
+    ),
+    manualRawText,
+    manualRow,
+    manualTarget,
+    resolvedMention: requireItemByRawText(
+      collectionItems(resolvedRow, hostRefsFieldKey),
+      resolvedRawText,
+    ),
+    resolvedRawText,
+    resolvedRow,
+    resolvedTarget,
+    unresolvedMention: requireItemByRawText(
+      collectionItems(unresolvedRow, hostRefsFieldKey),
+      unresolvedRawText,
+    ),
+    unresolvedRawText,
+    unresolvedRow,
+  };
+}
+
+export async function exerciseEntityMerge(
+  page: Page,
+  options: {
+    dependentRow: ViewRow;
+    entityType: "host" | "identity";
+    expectAdminRole?: boolean;
+    fieldKey: string;
+    incidentId: string;
+    loser: ViewRow;
+    loserLabel: string;
+    mergeReason: string;
+    rawText: string;
+    recordType: string;
+    resolvedLabel: string;
+    survivor: ViewRow;
+    survivorLabel: string;
+    viewSchemaId: string;
+  },
+) {
+  await page.goto(
+    `/?incident_id=${options.incidentId}&view_schema_id=${encodeURIComponent(
+      options.viewSchemaId,
+    )}`,
+  );
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  if (options.expectAdminRole === true) {
+    await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+      "Current incident role: admin",
+    );
+  }
+  await expect(
+    page.getByTestId(
+      gridRowTestId(options.viewSchemaId, options.survivor.record_id),
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(
+      gridRowTestId(options.viewSchemaId, options.loser.record_id),
+    ),
+  ).toBeVisible();
+
+  await page
+    .getByTestId(
+      entityInspectButtonTestId(options.entityType, options.survivor.record_id),
+    )
+    .click();
+  const inspectorTestId = entityInspectorLocalTestId(options.entityType);
+  await expect(page.getByTestId(inspectorTestId)).toContainText(
+    options.survivorLabel,
+  );
+  await expect(page.getByTestId("merge-start")).toBeVisible();
+  await page.getByTestId("merge-start").click();
+  await page
+    .getByTestId("merge-loser-record")
+    .selectOption(options.loser.record_id);
+  await page.getByTestId("merge-reason").fill(options.mergeReason);
+  await expect(page.getByTestId("merge-plan")).toContainText(
+    `Survivor ${options.survivorLabel}`,
+  );
+  await expect(page.getByTestId("merge-plan")).toContainText(
+    `loser ${options.loserLabel}`,
+  );
+  await expect(page.getByTestId("merge-plan")).toContainText(
+    options.survivor.record_id,
+  );
+  await expect(page.getByTestId("merge-plan")).toContainText(
+    options.loser.record_id,
+  );
+
+  const mergeResponsePromise = waitForMergeResponse(
+    page,
+    options.survivor.record_id,
+  );
+  await page.getByTestId("merge-confirm").click();
+  const mergeEnvelope = await readMergeEnvelope(await mergeResponsePromise);
+
+  await expect(
+    page.getByTestId(
+      gridRowTestId(options.viewSchemaId, options.loser.record_id),
+    ),
+  ).toHaveCount(0);
+  await expect(page.getByTestId(inspectorTestId)).toContainText(
+    options.survivorLabel,
+  );
+  await expect(page.getByTestId("merge-message")).toContainText(
+    `Merged ${options.loserLabel} into ${options.survivorLabel}`,
+  );
+  await expect(
+    page.getByTestId(timelinePreviewRowTestId(options.dependentRow.record_id)),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByTestId(timelinePreviewRowTestId(options.dependentRow.record_id))
+      .getByLabel(`Resolved ${options.resolvedLabel}`),
+  ).toBeVisible();
+
+  const entityRowsAfter = (await queryViewRows(
+    page,
+    options.incidentId,
+    options.viewSchemaId,
+  )) as ViewRow[];
+  const timelineRowsAfter = (await queryViewRows(
+    page,
+    options.incidentId,
+    timelineViewSchemaId,
+  )) as ViewRow[];
+  const dependentRowAfter = findRow(
+    timelineRowsAfter,
+    options.dependentRow.record_id,
+  );
+  const dependentItemAfter = requireItemByRawText(
+    collectionItems(dependentRowAfter, options.fieldKey),
+    options.rawText,
+  );
+
+  expect(mergeEnvelope.data.survivor_record_id).toBe(
+    options.survivor.record_id,
+  );
+  expect(mergeEnvelope.data.loser_record_id).toBe(options.loser.record_id);
+  expect(mergeEnvelope.data.merged_into_record_id).toBe(
+    options.survivor.record_id,
+  );
+  expect(mergeEnvelope.data.merge_summary.record_type).toBe(options.recordType);
+  expect(
+    mergeEnvelope.data.merge_summary.repointed_mention_resolution_count,
+  ).toBeGreaterThan(0);
+  expect(mergeEnvelope.data.merge_summary.repointed_link_count).toBeGreaterThan(
+    0,
+  );
+  expect(
+    entityRowsAfter.some((row) => row.record_id === options.survivor.record_id),
+  ).toBeTruthy();
+  expect(
+    entityRowsAfter.some((row) => row.record_id === options.loser.record_id),
+  ).toBeFalsy();
+  expect(String(dependentItemAfter.item_kind)).toBe("resolved_ref");
+  expect(String(dependentItemAfter.raw_text)).toBe(options.rawText);
+  expect(String(dependentItemAfter.resolved_record_id)).toBe(
+    options.survivor.record_id,
+  );
+
+  return {
+    dependentItemAfter,
+    dependentRowAfter,
+    entityRowsAfter,
+    mergeEnvelope,
+    timelineRowsAfter,
+  };
+}
+
+function entityInspectorLocalTestId(entityType: "host" | "identity") {
+  return entityType === "host" ? "host-inspector" : "identity-inspector";
 }
 
 export function collectionItems(

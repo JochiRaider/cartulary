@@ -49,6 +49,11 @@ import {
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page, Route, TestInfo } from "@playwright/test";
+import {
+  createEvidenceFixtureRow,
+  createUploadedEvidenceFixture,
+  type EvidenceUploadOptions,
+} from "./evidenceFixtureHelpers";
 import { expect, test } from "./fixtures";
 import {
   apiBase,
@@ -72,7 +77,9 @@ import {
   hostRefsFieldKey,
   hostsViewSchemaId,
   openTimelineInspector,
+  resolvedRefPayload,
   requireItemByRawText,
+  seedHostMentionStateFixture,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./phase4Helpers";
@@ -86,6 +93,7 @@ import {
   openIncidentAsTrackedUserReady,
   successfulPatchCalls,
 } from "./phase6Harness";
+import { injectDesignFixture } from "./visualFixtureHelpers";
 
 type ViewRow = {
   record_id: string;
@@ -124,19 +132,6 @@ function tagActionsPayload(tagNames: string[]) {
       op: "add_tag",
       tag_name: tagName,
     })),
-  };
-}
-
-function resolvedRefPayload(rawText: string, resolvedRecordId: string) {
-  return {
-    kind: "collection_actions_v1",
-    actions: [
-      {
-        op: "add_resolved_ref",
-        raw_text: rawText,
-        resolved_record_id: resolvedRecordId,
-      },
-    ],
   };
 }
 
@@ -735,107 +730,39 @@ test.describe("FE-P5 workbook visual readiness", () => {
       uniqueIncidentKey("FEVP501"),
       "FE-P5 visual mention chip states",
     );
-    const resolvedTarget = (await createViewRow(
-      page,
-      incidentId,
-      hostsViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("fevp501-resolved-target"),
-        "host.display_name": "FE-V-P5 Resolved Target",
-        "host.hostname": "fevp501-resolved-target.example.test",
-      },
-    )) as ViewRow;
-    const manualTarget = (await createViewRow(
-      page,
-      incidentId,
-      hostsViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("fevp501-manual-target"),
-        "host.display_name": "FE-V-P5 Manual Target",
-        "host.hostname": "fevp501-manual-target.example.test",
-      },
-    )) as ViewRow;
-    await createViewRow(page, incidentId, hostsViewSchemaId, {
-      client_txn_id: uniqueTxn("fevp501-auto-target"),
-      "host.display_name": "FE-V-P5 Auto Target",
-      "host.hostname": "fevp501-auto-target.example.test",
-      "host.aliases": collectionActionsPayload(["FEVP501 Auto Alias"]),
-    });
-
-    const unresolvedRawText = "FEVP501 Unresolved?";
-    const resolvedRawText = "FEVP501 Resolved Raw";
-    const manualRawText = "FEVP501 Manual Raw";
-    const autoRawText = "FEVP501 Auto Alias";
-    const dismissedRawText = "FEVP501 Dismissed Raw";
-    const unresolvedRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("fevp501-unresolved-row"),
-        "timeline.occurred_at": "2026-06-06T15:00:00Z",
-        "timeline.summary": "FE-V-P5 unresolved chip state",
-        [hostRefsFieldKey]: collectionActionsPayload([unresolvedRawText]),
-      },
-    )) as ViewRow;
-    const resolvedRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("fevp501-resolved-row"),
-        "timeline.occurred_at": "2026-06-06T15:05:00Z",
-        "timeline.summary": "FE-V-P5 resolved chip state",
-        [hostRefsFieldKey]: resolvedRefPayload(
-          resolvedRawText,
-          resolvedTarget.record_id,
-        ),
-      },
-    )) as ViewRow;
-    const manualRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("fevp501-manual-row"),
-        "timeline.occurred_at": "2026-06-06T15:10:00Z",
-        "timeline.summary": "FE-V-P5 manual chip state",
-        [hostRefsFieldKey]: collectionActionsPayload([manualRawText]),
-      },
-    )) as ViewRow;
-    const autoRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("fevp501-auto-row"),
-        "timeline.occurred_at": "2026-06-06T15:15:00Z",
-        "timeline.summary": "FE-V-P5 auto chip state",
-      },
-    )) as ViewRow;
-    const dismissedRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("fevp501-dismissed-row"),
-        "timeline.occurred_at": "2026-06-06T15:20:00Z",
-        "timeline.summary": "FE-V-P5 dismissed chip state",
-        [hostRefsFieldKey]: collectionActionsPayload([dismissedRawText]),
-      },
-    )) as ViewRow;
-    const resolvedMention = requireItemByRawText(
-      collectionItems(resolvedRow, hostRefsFieldKey),
-      resolvedRawText,
-    );
-    const manualMention = requireItemByRawText(
-      collectionItems(manualRow, hostRefsFieldKey),
-      manualRawText,
-    );
-    const dismissedMention = requireItemByRawText(
-      collectionItems(dismissedRow, hostRefsFieldKey),
+    const {
+      autoRawText,
+      autoRow,
+      dismissedMention,
       dismissedRawText,
-    );
+      dismissedRow,
+      manualMention,
+      manualRow,
+      manualTarget,
+      resolvedMention,
+      resolvedRow,
+      unresolvedRawText,
+      unresolvedRow,
+    } = await seedHostMentionStateFixture(page, incidentId, {
+      displayPrefix: "FE-V-P5",
+      hostnamePrefix: "fevp501",
+      occurredAt: {
+        auto: "2026-06-06T15:15:00Z",
+        dismissed: "2026-06-06T15:20:00Z",
+        manual: "2026-06-06T15:10:00Z",
+        resolved: "2026-06-06T15:05:00Z",
+        unresolved: "2026-06-06T15:00:00Z",
+      },
+      rawTextPrefix: "FEVP501",
+      summary: {
+        auto: "FE-V-P5 auto chip state",
+        dismissed: "FE-V-P5 dismissed chip state",
+        manual: "FE-V-P5 manual chip state",
+        resolved: "FE-V-P5 resolved chip state",
+        unresolved: "FE-V-P5 unresolved chip state",
+      },
+      txnPrefix: "fevp501",
+    });
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
@@ -2123,15 +2050,6 @@ type VisualEvidenceRowStateKey =
   | "pending_upload"
   | "requested";
 
-type VisualEvidenceUploadOptions = {
-  body: Buffer;
-  contentType: string;
-  filename: string;
-  requestedAt: string;
-  title: string;
-  txnPrefix: string;
-};
-
 async function createVisualEvidenceRow(
   page: Page,
   incidentId: string,
@@ -2143,109 +2061,26 @@ async function createVisualEvidenceRow(
     txnPrefix: string;
   },
 ): Promise<ViewRow> {
-  return (await createViewRow(page, incidentId, evidenceViewSchemaId, {
-    client_txn_id: uniqueTxn(options.txnPrefix),
-    "evidence.collector_party_text": "FE-P6 visual fixture",
-    "evidence.lifecycle_state": options.lifecycleState,
-    "evidence.requested_at": options.requestedAt,
-    "evidence.storage_ref": options.storageRef,
-    "evidence.title": options.title,
-  })) as ViewRow;
+  return createEvidenceFixtureRow(page, incidentId, {
+    collectorPartyText: "FE-P6 visual fixture",
+    ...options,
+  });
 }
 
 async function createUploadedVisualEvidence(
   page: Page,
   incidentId: string,
-  options: VisualEvidenceUploadOptions,
+  options: EvidenceUploadOptions,
 ): Promise<ViewRow> {
-  const row = (await createViewRow(page, incidentId, evidenceViewSchemaId, {
-    client_txn_id: uniqueTxn(`${options.txnPrefix}-ROW`),
-    "evidence.collector_party_text": "FE-P6 visual fixture",
-    "evidence.requested_at": options.requestedAt,
-    "evidence.title": options.title,
-  })) as ViewRow;
-  const createBlob = await page.request.post(`${apiBase}/api/v1/object-blobs`, {
-    headers: await csrfHeaders(page),
-    data: {
-      byte_size: options.body.byteLength,
-      client_txn_id: uniqueTxn(`${options.txnPrefix}-BLOB`),
-      content_type_hint: options.contentType,
-      filename_hint: options.filename,
-      incident_id: incidentId,
+  return createUploadedEvidenceFixture(page, incidentId, {
+    collectorPartyText: "FE-P6 visual fixture",
+    ...options,
+    txnSuffixes: {
+      attach: "ATTACH",
+      blob: "BLOB",
+      row: "ROW",
     },
   });
-  expect(createBlob.ok()).toBeTruthy();
-  const blobEnvelope = (await createBlob.json()) as {
-    data: {
-      object_blob_id: string;
-      upload_target: {
-        href: string;
-        method?: string;
-      };
-    };
-  };
-  expect(blobEnvelope.data.upload_target.method ?? "PUT").toBe("PUT");
-
-  const upload = await page.request.put(
-    resolveVisualAPIHref(blobEnvelope.data.upload_target.href),
-    {
-      data: options.body,
-      headers: { "Content-Type": options.contentType },
-    },
-  );
-  expect(upload.ok()).toBeTruthy();
-
-  const attach = await page.request.post(
-    `${apiBase}/api/v1/evidence-records/${row.record_id}/attach-blob`,
-    {
-      headers: await csrfHeaders(page),
-      data: {
-        base_row_version: row.row_version,
-        client_txn_id: uniqueTxn(`${options.txnPrefix}-ATTACH`),
-        object_blob_id: blobEnvelope.data.object_blob_id,
-      },
-    },
-  );
-  expect(attach.ok()).toBeTruthy();
-  return waitForVisualEvidenceState(page, incidentId, row.record_id, {
-    lifecycleState: "available",
-    uploadState: "available",
-  });
-}
-
-async function waitForVisualEvidenceState(
-  page: Page,
-  incidentId: string,
-  recordId: string,
-  state: { lifecycleState: string; uploadState: string },
-): Promise<ViewRow> {
-  let matchingRow: ViewRow | null = null;
-  await expect
-    .poll(
-      async () => {
-        const rows = (await queryViewRows(
-          page,
-          incidentId,
-          evidenceViewSchemaId,
-        )) as ViewRow[];
-        matchingRow =
-          rows.find((candidate) => candidate.record_id === recordId) ?? null;
-        return {
-          lifecycleState: visualCellValue(
-            matchingRow?.cells["evidence.lifecycle_state"],
-          ),
-          uploadState: visualCellValue(
-            matchingRow?.cells["evidence.upload_state"],
-          ),
-        };
-      },
-      { timeout: 30_000 },
-    )
-    .toEqual(state);
-  if (matchingRow === null) {
-    throw new Error(`Missing evidence row ${recordId}`);
-  }
-  return matchingRow;
 }
 
 async function expectVisualEvidenceState(
@@ -2309,17 +2144,6 @@ async function armVisualPublicErrorFault(
     },
   );
   expect(response.status()).toBe(201);
-}
-
-function resolveVisualAPIHref(href: string): string {
-  return href.startsWith("/") ? `${apiBase}${href}` : href;
-}
-
-function visualCellValue(cell: unknown): unknown {
-  if (cell !== null && typeof cell === "object" && "value" in cell) {
-    return (cell as { value: unknown }).value;
-  }
-  return cell;
 }
 
 async function assertVisualRegression(
@@ -2463,22 +2287,11 @@ async function assertExposedThemeCssVariables(page: Page) {
 }
 
 async function injectFeP3GridAdapterVisualFixture(page: Page) {
-  await page.evaluate(() => {
-    document
-      .querySelector("style[data-design-fixture-style='fe-p3-grid-adapter']")
-      ?.remove();
-    document
-      .querySelector("[data-design-fixture='fe-p3-grid-adapter']")
-      ?.remove();
-
-    const main = document.querySelector("main.cartulary-shell");
-    if (!(main instanceof HTMLElement)) {
-      throw new Error("Expected workbook shell main before FE-P3 fixture");
-    }
-
-    const style = document.createElement("style");
-    style.dataset.designFixtureStyle = "fe-p3-grid-adapter";
-    style.textContent = `
+  await injectDesignFixture(page, {
+    ariaLabel: "FE-P3 grid adapter visual fixtures",
+    fixtureName: "fe-p3-grid-adapter",
+    missingMainMessage: "Expected workbook shell main before FE-P3 fixture",
+    styleText: `
       [data-design-fixture='fe-p3-grid-adapter'] {
         position: fixed;
         inset: var(--ct-spacing-xl);
@@ -2638,13 +2451,8 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
         margin-block-end: var(--ct-spacing-xs);
         color: var(--ct-colors-ink);
       }
-    `;
-    document.head.append(style);
-
-    const fixture = document.createElement("section");
-    fixture.dataset.designFixture = "fe-p3-grid-adapter";
-    fixture.setAttribute("aria-label", "FE-P3 grid adapter visual fixtures");
-    fixture.innerHTML = `
+    `,
+    html: `
       <div class="fe-p3-grid-fixture-table" role="grid" aria-label="Adapter fixture grid">
         <div class="fe-p3-grid-fixture-row" role="row">
           <div class="fe-p3-grid-fixture-head fe-p3-grid-fixture-frozen" role="columnheader" data-fixture-id="FE-VFIX-09">Record</div>
@@ -2677,30 +2485,16 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
           <span><strong>No rows match this query</strong>Successful empty result</span>
         </div>
       </aside>
-    `;
-    main.append(fixture);
+    `,
   });
 }
 
 async function injectExposedThemeVisualFixture(page: Page) {
-  await page.evaluate(() => {
-    const existingStyle = document.querySelector(
-      "style[data-design-fixture-style='exposed-theme']",
-    );
-    existingStyle?.remove();
-    const existingFixture = document.querySelector(
-      "[data-design-fixture='exposed-theme']",
-    );
-    existingFixture?.remove();
-
-    const main = document.querySelector("main.cartulary-shell");
-    if (!(main instanceof HTMLElement)) {
-      throw new Error("Expected workbook shell main before theme fixture");
-    }
-
-    const style = document.createElement("style");
-    style.dataset.designFixtureStyle = "exposed-theme";
-    style.textContent = `
+  await injectDesignFixture(page, {
+    ariaLabel: "Exposed theme token state fixture",
+    fixtureName: "exposed-theme",
+    missingMainMessage: "Expected workbook shell main before theme fixture",
+    styleText: `
       [data-design-fixture='exposed-theme'] {
         position: fixed;
         inset: var(--ct-spacing-xl);
@@ -2890,13 +2684,8 @@ async function injectExposedThemeVisualFixture(page: Page) {
         outline: var(--ct-component-focus-ring-border);
         outline-offset: var(--ct-component-focus-ring-offset);
       }
-    `;
-    document.head.append(style);
-
-    const fixture = document.createElement("section");
-    fixture.dataset.designFixture = "exposed-theme";
-    fixture.setAttribute("aria-label", "Exposed theme token state fixture");
-    fixture.innerHTML = `
+    `,
+    html: `
       <div class="theme-fixture-panel">
         <h2 class="theme-fixture-title">dark_graphite token states</h2>
         <p class="theme-fixture-note">Generated CSS variables applied through the workbook runtime.</p>
@@ -2925,8 +2714,7 @@ async function injectExposedThemeVisualFixture(page: Page) {
         <input class="theme-input" value="Readonly token input" readonly />
         <div class="theme-grid-cell">Grid cell typography and default density</div>
       </div>
-    `;
-    main.append(fixture);
+    `,
   });
 }
 

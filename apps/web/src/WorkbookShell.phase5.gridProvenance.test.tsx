@@ -10,8 +10,6 @@ import {
 import {
   normalizeViewRowV1,
   requireViewContract,
-  type ViewContract,
-  type ViewFieldContract,
 } from "@cartulary/view-contracts";
 import {
   cleanup,
@@ -21,7 +19,13 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { successEnvelope } from "./timelineWorkbookTestSupport";
+import {
+  fullWorkbookViewRow,
+  successEnvelope,
+  viewRowsEnvelopeForView,
+  workbookCollectionValue,
+  type WorkbookViewApiRow,
+} from "./timelineWorkbookTestSupport";
 import { WorkbookShell } from "./WorkbookShell";
 import { readCollectionItems } from "./workbookMentionChips";
 import {
@@ -39,63 +43,13 @@ vi.mock(
 const exactScenarioTitle =
   "FE-I-P5-01 Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh.";
 
-type ViewApiRow = {
-  record_id: string;
-  row_version: number;
-  cells: Record<string, { value: unknown }>;
-  view_schema_id?: string;
-};
-
-type ViewRowOverrides = Record<string, unknown>;
-
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
 const notesContract = requireViewContract(notesViewSchemaId);
 const timelineContract = requireViewContract(timelineViewSchemaId);
 
 function collectionValue(items: readonly Record<string, unknown>[] = []) {
-  return {
-    kind: "collection_value_v1",
-    ordered: false,
-    items: [...items],
-  };
-}
-
-function defaultCellValue(field: ViewFieldContract): unknown {
-  if (field.readKind === "collection") {
-    return collectionValue();
-  }
-  if (field.readKind === "number") {
-    return 0;
-  }
-  if (field.readKind === "boolean") {
-    return false;
-  }
-  return null;
-}
-
-function fullViewRow(
-  contract: ViewContract,
-  recordId: string,
-  rowVersion: number,
-  overrides: ViewRowOverrides,
-): ViewApiRow {
-  return {
-    record_id: recordId,
-    row_version: rowVersion,
-    view_schema_id: contract.viewSchemaId,
-    cells: Object.fromEntries(
-      contract.fields.map((field) => [
-        field.fieldKey,
-        {
-          value:
-            field.fieldKey in overrides
-              ? overrides[field.fieldKey]
-              : defaultCellValue(field),
-        },
-      ]),
-    ),
-  };
+  return workbookCollectionValue(false, items);
 }
 
 function headerFieldKeys(viewSchemaId: string): string[] {
@@ -105,23 +59,12 @@ function headerFieldKeys(viewSchemaId: string): string[] {
   ).map((node) => node.getAttribute("data-grid-field-key") ?? "");
 }
 
-function queryRowsForView(
-  viewSchemaId: string,
-  rowsByView: Record<string, ViewApiRow[]>,
-) {
-  return successEnvelope({
-    incident_id: "incident-1",
-    view_schema_id: viewSchemaId,
-    rows: rowsByView[viewSchemaId] ?? [],
-  });
-}
-
 describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
-  let rowsByView: Record<string, ViewApiRow[]>;
+  let rowsByView: Record<string, WorkbookViewApiRow[]>;
   let patchRequests: Array<{ body: unknown; recordId: string }>;
 
-  function requireFirstViewRow(viewSchemaId: string): ViewApiRow {
+  function requireFirstViewRow(viewSchemaId: string): WorkbookViewApiRow {
     const row = rowsByView[viewSchemaId]?.[0];
     if (!row) {
       throw new Error(`test fixture missing first row for ${viewSchemaId}`);
@@ -134,7 +77,7 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
     patchRequests = [];
     rowsByView = {
       [hostsViewSchemaId]: [
-        fullViewRow(hostsContract, "host-1", 3, {
+        fullWorkbookViewRow(hostsContract, "host-1", 3, {
           "host.display_name": "Gateway Host",
           "host.hostname": "gw-01",
           "host.aliases": collectionValue([
@@ -157,7 +100,7 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
         }),
       ],
       [identitiesViewSchemaId]: [
-        fullViewRow(identitiesContract, "identity-1", 4, {
+        fullWorkbookViewRow(identitiesContract, "identity-1", 4, {
           "identity.display_name": "Alex Analyst",
           "identity.upn": "alex.analyst@example.test",
           "identity.email": "alex.analyst@example.test",
@@ -180,7 +123,7 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
         }),
       ],
       [notesViewSchemaId]: [
-        fullViewRow(notesContract, "note-1", 5, {
+        fullWorkbookViewRow(notesContract, "note-1", 5, {
           "note.title": "Investigation note",
           "note.body": "Initial note body",
           "note.tags": collectionValue([
@@ -197,7 +140,7 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
         }),
       ],
       [timelineViewSchemaId]: [
-        fullViewRow(timelineContract, "timeline-1", 6, {
+        fullWorkbookViewRow(timelineContract, "timeline-1", 6, {
           "timeline.occurred_at": "2026-04-24T15:00:00.000Z",
           "timeline.summary": "Gateway login by analyst",
           "timeline.details": "",
@@ -330,7 +273,7 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
         /\/api\/v1\/incidents\/incident-1\/views\/([^/]+)\/query(?:\?.*)?$/,
       );
       if (queryMatch) {
-        return queryRowsForView(
+        return viewRowsEnvelopeForView(
           decodeURIComponent(queryMatch[1] ?? ""),
           rowsByView,
         );

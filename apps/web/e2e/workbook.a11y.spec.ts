@@ -61,6 +61,11 @@ import {
   timelineViewSchemaId,
 } from "../src/workbookSurfaceRegistry";
 import {
+  createEvidenceFixtureRow,
+  createUploadedEvidenceFixture,
+  type EvidenceUploadOptions,
+} from "./evidenceFixtureHelpers";
+import {
   p1AccessibilityScenarioTitles,
   scenarioTitlesForAccessibilityRow,
 } from "./a11yPhaseMap";
@@ -75,10 +80,8 @@ import {
   createIncidentMembership,
   createIncidentMemberUser,
   createViewRow,
-  csrfHeaders,
   enrollTotpViaBootstrap,
   generateTotpCode,
-  queryViewRows,
   safeUnroute,
   sessionCookieName,
   testRouteHeaders,
@@ -89,13 +92,12 @@ import {
 import { Phase1Page } from "./phase1Page";
 import {
   addRelationshipTokenViaUI,
-  collectionActionsPayload,
   collectionItems,
   evidenceViewSchemaId,
   hostRefsFieldKey,
-  hostsViewSchemaId,
   openTimelineInspector,
   requireItemByRawText,
+  seedHostMentionStateFixture,
 } from "./phase4Helpers";
 import {
   driveRealTimelineSummaryConflict,
@@ -188,19 +190,6 @@ const phase1A11yAppLocalSelectors = Object.freeze({
 
 const keyboardSentinelId = "a11y-keyboard-sentinel";
 const contrastThreshold = 4.5;
-
-function resolvedRefPayload(rawText: string, resolvedRecordId: string) {
-  return {
-    kind: "collection_actions_v1",
-    actions: [
-      {
-        op: "add_resolved_ref",
-        raw_text: rawText,
-        resolved_record_id: resolvedRecordId,
-      },
-    ],
-  };
-}
 
 const privateDiagnosticPatterns = [
   /bootstrap[_ -]?token/i,
@@ -700,15 +689,6 @@ type EvidenceA11yRowStateKey =
   | "pending_upload"
   | "requested";
 
-type EvidenceA11yUploadOptions = {
-  body: Buffer;
-  contentType: string;
-  filename: string;
-  requestedAt: string;
-  title: string;
-  txnPrefix: string;
-};
-
 async function createA11yEvidenceRow(
   page: Page,
   incidentId: string,
@@ -720,109 +700,21 @@ async function createA11yEvidenceRow(
     txnPrefix: string;
   },
 ): Promise<ViewRow> {
-  return (await createViewRow(page, incidentId, evidenceViewSchemaId, {
-    client_txn_id: uniqueTxn(options.txnPrefix),
-    "evidence.collector_party_text": "FE-P6 accessibility fixture",
-    "evidence.lifecycle_state": options.lifecycleState,
-    "evidence.requested_at": options.requestedAt,
-    "evidence.storage_ref": options.storageRef,
-    "evidence.title": options.title,
-  })) as ViewRow;
+  return createEvidenceFixtureRow(page, incidentId, {
+    collectorPartyText: "FE-P6 accessibility fixture",
+    ...options,
+  });
 }
 
 async function createUploadedA11yEvidence(
   page: Page,
   incidentId: string,
-  options: EvidenceA11yUploadOptions,
+  options: EvidenceUploadOptions,
 ): Promise<ViewRow> {
-  const row = (await createViewRow(page, incidentId, evidenceViewSchemaId, {
-    client_txn_id: uniqueTxn(`${options.txnPrefix}-row`),
-    "evidence.collector_party_text": "FE-P6 accessibility fixture",
-    "evidence.requested_at": options.requestedAt,
-    "evidence.title": options.title,
-  })) as ViewRow;
-  const createBlob = await page.request.post(`${apiBase}/api/v1/object-blobs`, {
-    headers: await csrfHeaders(page),
-    data: {
-      byte_size: options.body.byteLength,
-      client_txn_id: uniqueTxn(`${options.txnPrefix}-blob`),
-      content_type_hint: options.contentType,
-      filename_hint: options.filename,
-      incident_id: incidentId,
-    },
+  return createUploadedEvidenceFixture(page, incidentId, {
+    collectorPartyText: "FE-P6 accessibility fixture",
+    ...options,
   });
-  expect(createBlob.ok()).toBeTruthy();
-  const blobEnvelope = (await createBlob.json()) as {
-    data: {
-      object_blob_id: string;
-      upload_target: {
-        href: string;
-        method?: string;
-      };
-    };
-  };
-  expect(blobEnvelope.data.upload_target.method ?? "PUT").toBe("PUT");
-
-  const upload = await page.request.put(
-    resolveA11yAPIHref(blobEnvelope.data.upload_target.href),
-    {
-      data: options.body,
-      headers: { "Content-Type": options.contentType },
-    },
-  );
-  expect(upload.ok()).toBeTruthy();
-
-  const attach = await page.request.post(
-    `${apiBase}/api/v1/evidence-records/${row.record_id}/attach-blob`,
-    {
-      headers: await csrfHeaders(page),
-      data: {
-        base_row_version: row.row_version,
-        client_txn_id: uniqueTxn(`${options.txnPrefix}-attach`),
-        object_blob_id: blobEnvelope.data.object_blob_id,
-      },
-    },
-  );
-  expect(attach.ok()).toBeTruthy();
-  return waitForA11yEvidenceState(page, incidentId, row.record_id, {
-    lifecycleState: "available",
-    uploadState: "available",
-  });
-}
-
-async function waitForA11yEvidenceState(
-  page: Page,
-  incidentId: string,
-  recordId: string,
-  state: { lifecycleState: string; uploadState: string },
-): Promise<ViewRow> {
-  let matchingRow: ViewRow | null = null;
-  await expect
-    .poll(
-      async () => {
-        const rows = (await queryViewRows(
-          page,
-          incidentId,
-          evidenceViewSchemaId,
-        )) as ViewRow[];
-        matchingRow =
-          rows.find((candidate) => candidate.record_id === recordId) ?? null;
-        return {
-          lifecycleState: a11yCellValue(
-            matchingRow?.cells["evidence.lifecycle_state"],
-          ),
-          uploadState: a11yCellValue(
-            matchingRow?.cells["evidence.upload_state"],
-          ),
-        };
-      },
-      { timeout: 30_000 },
-    )
-    .toEqual(state);
-  if (matchingRow === null) {
-    throw new Error(`missing evidence row ${recordId}`);
-  }
-  return matchingRow;
 }
 
 async function expectEvidenceAccessState(
@@ -899,17 +791,6 @@ async function armA11yPublicErrorFault(
     },
   );
   expect(response.status()).toBe(201);
-}
-
-function resolveA11yAPIHref(href: string): string {
-  return href.startsWith("/") ? `${apiBase}${href}` : href;
-}
-
-function a11yCellValue(cell: unknown): unknown {
-  if (cell !== null && typeof cell === "object" && "value" in cell) {
-    return (cell as { value: unknown }).value;
-  }
-  return cell;
 }
 
 async function holdSinglePublicAPIResponse(
@@ -1369,111 +1250,40 @@ test.describe("FE-P5 accessibility readiness", () => {
       uniqueIncidentKey("A11YP5"),
       "FE-A11Y-P5-01 mention states",
     );
-    const resolvedTarget = (await createViewRow(
-      page,
-      incidentId,
-      hostsViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("fe-a11y-p5-resolved-target"),
-        "host.display_name": "FE-A11Y-P5 Resolved Target",
-        "host.hostname": "fe-a11y-p5-resolved-target.example.test",
-      },
-    )) as ViewRow;
-    const manualTarget = (await createViewRow(
-      page,
-      incidentId,
-      hostsViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("fe-a11y-p5-manual-target"),
-        "host.display_name": "FE-A11Y-P5 Manual Target",
-        "host.hostname": "fe-a11y-p5-manual-target.example.test",
-      },
-    )) as ViewRow;
-    await createViewRow(page, incidentId, hostsViewSchemaId, {
-      client_txn_id: uniqueTxn("fe-a11y-p5-auto-target"),
-      "host.display_name": "FE-A11Y-P5 Auto Target",
-      "host.hostname": "fe-a11y-p5-auto-target.example.test",
-      "host.aliases": collectionActionsPayload(["FEA11YP5 Auto Alias"]),
-    });
-
-    const unresolvedRawText = "FEA11YP5 Unresolved?";
-    const resolvedRawText = "FEA11YP5 Resolved Raw";
-    const manualRawText = "FEA11YP5 Manual Raw";
-    const autoRawText = "FEA11YP5 Auto Alias";
-    const dismissedRawText = "FEA11YP5 Dismissed Raw";
-    const unresolvedRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("fe-a11y-p5-unresolved-row"),
-        "timeline.occurred_at": "2026-06-06T16:00:00Z",
-        "timeline.summary": "FE-A11Y-P5 unresolved chip",
-        [hostRefsFieldKey]: collectionActionsPayload([unresolvedRawText]),
-      },
-    )) as ViewRow;
-    const resolvedRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("fe-a11y-p5-resolved-row"),
-        "timeline.occurred_at": "2026-06-06T16:05:00Z",
-        "timeline.summary": "FE-A11Y-P5 resolved chip",
-        [hostRefsFieldKey]: resolvedRefPayload(
-          resolvedRawText,
-          resolvedTarget.record_id,
-        ),
-      },
-    )) as ViewRow;
-    const manualRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("fe-a11y-p5-manual-row"),
-        "timeline.occurred_at": "2026-06-06T16:10:00Z",
-        "timeline.summary": "FE-A11Y-P5 manual chip",
-        [hostRefsFieldKey]: collectionActionsPayload([manualRawText]),
-      },
-    )) as ViewRow;
-    const autoRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("fe-a11y-p5-auto-row"),
-        "timeline.occurred_at": "2026-06-06T16:15:00Z",
-        "timeline.summary": "FE-A11Y-P5 auto chip",
-      },
-    )) as ViewRow;
-    const dismissedRow = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("fe-a11y-p5-dismissed-row"),
-        "timeline.occurred_at": "2026-06-06T16:20:00Z",
-        "timeline.summary": "FE-A11Y-P5 dismissed chip",
-        [hostRefsFieldKey]: collectionActionsPayload([dismissedRawText]),
-      },
-    )) as ViewRow;
-    const unresolvedMention = requireItemByRawText(
-      collectionItems(unresolvedRow, hostRefsFieldKey),
-      unresolvedRawText,
-    );
-    const resolvedMention = requireItemByRawText(
-      collectionItems(resolvedRow, hostRefsFieldKey),
-      resolvedRawText,
-    );
-    const manualMention = requireItemByRawText(
-      collectionItems(manualRow, hostRefsFieldKey),
-      manualRawText,
-    );
-    const dismissedMention = requireItemByRawText(
-      collectionItems(dismissedRow, hostRefsFieldKey),
+    const {
+      autoRawText,
+      autoRow,
+      dismissedMention,
       dismissedRawText,
-    );
+      dismissedRow,
+      manualMention,
+      manualRow,
+      manualTarget,
+      resolvedMention,
+      resolvedRow,
+      unresolvedMention,
+      unresolvedRawText,
+      unresolvedRow,
+    } = await seedHostMentionStateFixture(page, incidentId, {
+      displayPrefix: "FE-A11Y-P5",
+      hostnamePrefix: "fe-a11y-p5",
+      occurredAt: {
+        auto: "2026-06-06T16:15:00Z",
+        dismissed: "2026-06-06T16:20:00Z",
+        manual: "2026-06-06T16:10:00Z",
+        resolved: "2026-06-06T16:05:00Z",
+        unresolved: "2026-06-06T16:00:00Z",
+      },
+      rawTextPrefix: "FEA11YP5",
+      summary: {
+        auto: "FE-A11Y-P5 auto chip",
+        dismissed: "FE-A11Y-P5 dismissed chip",
+        manual: "FE-A11Y-P5 manual chip",
+        resolved: "FE-A11Y-P5 resolved chip",
+        unresolved: "FE-A11Y-P5 unresolved chip",
+      },
+      txnPrefix: "fe-a11y-p5",
+    });
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
