@@ -123,12 +123,14 @@ import {
 } from "@cartulary/view-contracts";
 import {
   type CSSProperties,
+  type Dispatch,
   Fragment,
   type ClipboardEvent as ReactClipboardEvent,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
+  type SetStateAction,
   startTransition,
   useCallback,
   useEffect,
@@ -262,6 +264,10 @@ const systemViewSwitcherEntries = systemWorkbookSurfaceGroups.flatMap((group) =>
 );
 
 type SaveState = "Syncing" | "Saved" | "Conflict";
+type FilterDraftSetter = Dispatch<SetStateAction<FilterDraft>>;
+type MutationErrorSetter = Dispatch<SetStateAction<string | null>>;
+type MutationStateSetter = Dispatch<SetStateAction<SaveState>>;
+type WorkbookQueryStateSetter = Dispatch<SetStateAction<WorkbookQueryState>>;
 type SurfaceKind = string;
 type EditableField =
   | "timeline.occurred_at"
@@ -1375,6 +1381,43 @@ function selectWorkbookEditTarget<
     field:
       fields.find((field) => field.fieldKey === fieldKey) ?? fields[0] ?? null,
   };
+}
+
+function clearAppliedFilterDraft(current: FilterDraft): FilterDraft {
+  return {
+    ...current,
+    booleanValue: "",
+    value: "",
+  };
+}
+
+function applyFilterDraftToQuery(
+  setQueryState: WorkbookQueryStateSetter,
+  setFilterDraft: FilterDraftSetter,
+  draft: FilterDraft,
+): void {
+  setQueryState((current) => applyFilterDraft(current, draft));
+  setFilterDraft(clearAppliedFilterDraft);
+}
+
+function handleWorkbookLoadFailure(
+  error: unknown,
+  fallbackMessage: string,
+  onIncidentAccessLost: (() => void) | undefined,
+): string {
+  const message =
+    typeof error === "string"
+      ? error
+      : error instanceof Error
+        ? error.message
+        : fallbackMessage;
+  if (
+    message.includes("incident_not_found") ||
+    message.includes("authorization_denied")
+  ) {
+    onIncidentAccessLost?.();
+  }
+  return message;
 }
 
 const mergeIdentifierFields: Record<
@@ -2540,6 +2583,43 @@ async function submitViewRecordPatch({
   );
 }
 
+async function submitWorkbookPatchMutation({
+  apiBase,
+  baseRowVersion,
+  changes,
+  clientTxnId,
+  recordId,
+  setMutationError,
+  setMutationState,
+  viewSchemaId,
+}: {
+  readonly apiBase: string | undefined;
+  readonly baseRowVersion: number;
+  readonly changes: readonly Record<string, unknown>[];
+  readonly clientTxnId: string;
+  readonly recordId: string;
+  readonly setMutationError: MutationErrorSetter;
+  readonly setMutationState: MutationStateSetter;
+  readonly viewSchemaId: string;
+}) {
+  setMutationState("Syncing");
+  setMutationError(null);
+  const result = await submitViewRecordPatch({
+    apiBase,
+    baseRowVersion,
+    changes,
+    clientTxnId,
+    recordId,
+    viewSchemaId,
+  });
+  if (!result.ok) {
+    setMutationState("Conflict");
+    setMutationError(parseMutationError(result.payload));
+    return null;
+  }
+  return result.payload;
+}
+
 async function readUploadFailureDetail(response: Response): Promise<string> {
   try {
     return (await response.text()).replace(/\s+/g, " ").slice(0, 300);
@@ -3702,12 +3782,7 @@ export function TimelineWorkbook({
   );
 
   const applyQueryFilter = useCallback(() => {
-    setQueryState((current) => applyFilterDraft(current, filterDraft));
-    setFilterDraft((current) => ({
-      ...current,
-      booleanValue: "",
-      value: "",
-    }));
+    applyFilterDraftToQuery(setQueryState, setFilterDraft, filterDraft);
   }, [filterDraft]);
 
   const handleQueryGroupByChange = useCallback((groupBy: string | null) => {
@@ -9332,19 +9407,17 @@ function EntityWorkbookSurface({
       );
       return;
     }
-    setMutationState("Syncing");
-    setMutationError(null);
-    const result = await submitViewRecordPatch({
+    const payload = await submitWorkbookPatchMutation({
       apiBase,
       baseRowVersion: selectedEditRow.rowVersion,
       changes: [change],
       clientTxnId: `entity-patch-${contract.viewSchemaId}-${Date.now()}`,
       recordId: selectedEditRow.recordId,
+      setMutationError,
+      setMutationState,
       viewSchemaId: contract.viewSchemaId,
     });
-    if (!result.ok) {
-      setMutationState("Conflict");
-      setMutationError(parseMutationError(result.payload));
+    if (payload === null) {
       return;
     }
     await onRefreshEntities();
@@ -10728,23 +10801,21 @@ function GenericWorkbookSurface({
       );
       return;
     }
-    setMutationState("Syncing");
-    setMutationError(null);
-    const result = await submitViewRecordPatch({
+    const payload = await submitWorkbookPatchMutation({
       apiBase,
       baseRowVersion: selectedEditRow.row_version,
       changes: [change],
       clientTxnId: `generic-patch-${contract.viewSchemaId}-${Date.now()}`,
       recordId: selectedEditRow.record_id,
+      setMutationError,
+      setMutationState,
       viewSchemaId: contract.viewSchemaId,
     });
-    if (!result.ok) {
-      setMutationState("Conflict");
-      setMutationError(parseMutationError(result.payload));
+    if (payload === null) {
       return;
     }
     setEditValue("");
-    await completeGenericMutation<ViewMutationEnvelope>(result.payload);
+    await completeGenericMutation<ViewMutationEnvelope>(payload);
   };
 
   const submitPartyLinkPatch = async (
@@ -10755,22 +10826,20 @@ function GenericWorkbookSurface({
       setMutationError("Select a row before changing a party link.");
       return false;
     }
-    setMutationState("Syncing");
-    setMutationError(null);
-    const result = await submitViewRecordPatch({
+    const payload = await submitWorkbookPatchMutation({
       apiBase,
       baseRowVersion: selectedEditRow.row_version,
       changes,
       clientTxnId: `${txnPrefix}-${contract.viewSchemaId}-${Date.now()}`,
       recordId: selectedEditRow.record_id,
+      setMutationError,
+      setMutationState,
       viewSchemaId: contract.viewSchemaId,
     });
-    if (!result.ok) {
-      setMutationState("Conflict");
-      setMutationError(parseMutationError(result.payload));
+    if (payload === null) {
       return false;
     }
-    await completeGenericMutation<ViewMutationEnvelope>(result.payload);
+    await completeGenericMutation<ViewMutationEnvelope>(payload);
     return true;
   };
 
@@ -11415,6 +11484,50 @@ function GenericWorkbookSurface({
   );
 }
 
+function GenericMultiSelectControl({
+  ariaLabel,
+  id,
+  options,
+  testId,
+  value,
+  onChange,
+}: {
+  readonly ariaLabel: string;
+  readonly id: string | undefined;
+  readonly options: readonly {
+    readonly label: string;
+    readonly value: string;
+  }[];
+  readonly testId: string;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+}) {
+  return (
+    <select
+      aria-label={ariaLabel}
+      data-testid={testId}
+      id={id}
+      multiple
+      size={Math.min(Math.max(options.length, 2), 6)}
+      style={selectStyle}
+      value={splitDraftValues(value)}
+      onChange={(event) => {
+        onChange(
+          Array.from(event.currentTarget.selectedOptions)
+            .map((option) => option.value)
+            .join("\n"),
+        );
+      }}
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function GenericMutationControl({
   collectionItems = [],
   collectionMode,
@@ -11438,56 +11551,34 @@ function GenericMutationControl({
   if (field.writeKind === "action_payload") {
     if (collectionMode === "remove") {
       return (
-        <select
-          aria-label={controlLabel}
-          data-testid={testId}
+        <GenericMultiSelectControl
+          ariaLabel={controlLabel}
           id={id}
-          multiple
-          size={Math.min(Math.max(collectionItems.length, 2), 6)}
-          style={selectStyle}
-          value={splitDraftValues(value)}
-          onChange={(event) => {
-            onChange(
-              Array.from(event.currentTarget.selectedOptions)
-                .map((option) => option.value)
-                .join("\n"),
-            );
-          }}
-        >
-          {collectionItems.map((item) => (
-            <option key={item.itemRef} value={item.itemRef}>
-              {item.displayText}
-            </option>
-          ))}
-        </select>
+          options={collectionItems.map((item) => ({
+            label: item.displayText,
+            value: item.itemRef,
+          }))}
+          testId={testId}
+          value={value}
+          onChange={onChange}
+        />
       );
     }
 
     const options = referenceOptionsForField(field, referenceOptions);
     if (genericFieldUsesReferenceOptions(field)) {
       return (
-        <select
-          aria-label={controlLabel}
-          data-testid={testId}
+        <GenericMultiSelectControl
+          ariaLabel={controlLabel}
           id={id}
-          multiple
-          size={Math.min(Math.max(options.length, 2), 6)}
-          style={selectStyle}
-          value={splitDraftValues(value)}
-          onChange={(event) => {
-            onChange(
-              Array.from(event.currentTarget.selectedOptions)
-                .map((option) => option.value)
-                .join("\n"),
-            );
-          }}
-        >
-          {options.map((option) => (
-            <option key={option.recordId} value={option.recordId}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          options={options.map((option) => ({
+            label: option.label,
+            value: option.recordId,
+          }))}
+          testId={testId}
+          value={value}
+          onChange={onChange}
+        />
       );
     }
 
@@ -12858,15 +12949,11 @@ export function WorkbookShell({
       if (!request.isCurrent() || isAbortError(error)) {
         return;
       }
-      const message =
-        error instanceof Error ? error.message : "Entity load failed.";
-      if (
-        typeof message === "string" &&
-        (message.includes("incident_not_found") ||
-          message.includes("authorization_denied"))
-      ) {
-        onIncidentAccessLost?.();
-      }
+      const message = handleWorkbookLoadFailure(
+        error,
+        "Entity load failed.",
+        onIncidentAccessLost,
+      );
       setEntityLoadError(message);
     }
   }, [
@@ -12877,23 +12964,19 @@ export function WorkbookShell({
   ]);
 
   const applyHostFilter = useCallback(() => {
-    setHostQueryState((current) => applyFilterDraft(current, hostFilterDraft));
-    setHostFilterDraft((current) => ({
-      ...current,
-      booleanValue: "",
-      value: "",
-    }));
+    applyFilterDraftToQuery(
+      setHostQueryState,
+      setHostFilterDraft,
+      hostFilterDraft,
+    );
   }, [hostFilterDraft]);
 
   const applyIdentityFilter = useCallback(() => {
-    setIdentityQueryState((current) =>
-      applyFilterDraft(current, identityFilterDraft),
+    applyFilterDraftToQuery(
+      setIdentityQueryState,
+      setIdentityFilterDraft,
+      identityFilterDraft,
     );
-    setIdentityFilterDraft((current) => ({
-      ...current,
-      booleanValue: "",
-      value: "",
-    }));
   }, [identityFilterDraft]);
 
   const isSpecializedSurface =
@@ -12935,15 +13018,11 @@ export function WorkbookShell({
       if (!request.isCurrent() || isAbortError(error)) {
         return;
       }
-      const message =
-        error instanceof Error ? error.message : "Assessment load failed.";
-      if (
-        typeof message === "string" &&
-        (message.includes("incident_not_found") ||
-          message.includes("authorization_denied"))
-      ) {
-        onIncidentAccessLost?.();
-      }
+      const message = handleWorkbookLoadFailure(
+        error,
+        "Assessment load failed.",
+        onIncidentAccessLost,
+      );
       setAssessmentLoadError(message);
       setAssessmentRows([]);
     }
@@ -13002,15 +13081,11 @@ export function WorkbookShell({
       if (!request.isCurrent() || isAbortError(error)) {
         return;
       }
-      const message =
-        error instanceof Error ? error.message : "Surface load failed.";
-      if (
-        typeof message === "string" &&
-        (message.includes("incident_not_found") ||
-          message.includes("authorization_denied"))
-      ) {
-        onIncidentAccessLost?.();
-      }
+      const message = handleWorkbookLoadFailure(
+        error,
+        "Surface load failed.",
+        onIncidentAccessLost,
+      );
       setGenericLoadError(message);
       setGenericRows([]);
     }
@@ -13087,13 +13162,11 @@ export function WorkbookShell({
           return;
         }
         if (!result.ok) {
-          const message = parseErrorMessage(result.payload);
-          if (
-            message.includes("incident_not_found") ||
-            message.includes("authorization_denied")
-          ) {
-            onIncidentAccessLost?.();
-          }
+          handleWorkbookLoadFailure(
+            parseErrorMessage(result.payload),
+            "Saved views load failed.",
+            onIncidentAccessLost,
+          );
           setSavedViews([]);
           return;
         }
@@ -13410,14 +13483,11 @@ export function WorkbookShell({
           incidentId={incidentId}
           loadError={assessmentLoadError}
           onApplyFilter={() => {
-            setAssessmentQueryState((current) =>
-              applyFilterDraft(current, assessmentFilterDraft),
+            applyFilterDraftToQuery(
+              setAssessmentQueryState,
+              setAssessmentFilterDraft,
+              assessmentFilterDraft,
             );
-            setAssessmentFilterDraft((current) => ({
-              ...current,
-              booleanValue: "",
-              value: "",
-            }));
           }}
           onFilterDraftChange={setAssessmentFilterDraft}
           onGroupByChange={(groupBy) => {
@@ -13449,14 +13519,11 @@ export function WorkbookShell({
           incidentId={incidentId}
           loadError={genericLoadError}
           onApplyFilter={() => {
-            setGenericQueryState((current) =>
-              applyFilterDraft(current, genericFilterDraft),
+            applyFilterDraftToQuery(
+              setGenericQueryState,
+              setGenericFilterDraft,
+              genericFilterDraft,
             );
-            setGenericFilterDraft((current) => ({
-              ...current,
-              booleanValue: "",
-              value: "",
-            }));
           }}
           onFilterDraftChange={setGenericFilterDraft}
           onGroupByChange={(groupBy) => {

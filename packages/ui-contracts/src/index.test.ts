@@ -796,23 +796,28 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "incident-membership-admin-note",
     );
     expect(incidentMembershipListTestId()).toBe("incident-membership-list");
-    expect(incidentMembershipRowTestId("user-2")).toBe(
-      "incident-membership-row-user-2",
-    );
-    expect(incidentMembershipVersionTestId("user-2")).toBe(
-      "incident-membership-version-user-2",
-    );
-    expect(incidentMembershipRoleInputTestId("user-2")).toBe(
-      "incident-membership-role-input-user-2",
-    );
-    expect(incidentMembershipPatchButtonTestId("user-2")).toBe(
-      "incident-membership-patch-user-2",
-    );
-    expect(incidentMembershipDeleteButtonTestId("user-2")).toBe(
-      "incident-membership-delete-user-2",
-    );
-    expect(incidentMembershipRoleDisplayTestId("user-2")).toBe(
-      "incident-membership-role-user-2",
+    expectSelectorCases<
+      "delete" | "patch" | "roleDisplay" | "roleInput" | "row" | "version"
+    >(
+      (control) => {
+        const testIdFor = {
+          row: incidentMembershipRowTestId,
+          version: incidentMembershipVersionTestId,
+          roleInput: incidentMembershipRoleInputTestId,
+          patch: incidentMembershipPatchButtonTestId,
+          delete: incidentMembershipDeleteButtonTestId,
+          roleDisplay: incidentMembershipRoleDisplayTestId,
+        }[control];
+        return testIdFor("user-2");
+      },
+      [
+        ["row", "incident-membership-row-user-2"],
+        ["version", "incident-membership-version-user-2"],
+        ["roleInput", "incident-membership-role-input-user-2"],
+        ["patch", "incident-membership-patch-user-2"],
+        ["delete", "incident-membership-delete-user-2"],
+        ["roleDisplay", "incident-membership-role-user-2"],
+      ],
     );
     expect(phase2IncidentRowTestId("incident-2")).toBe(
       "incident-row-incident-2",
@@ -820,18 +825,24 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(phase2SelectIncidentButtonTestId("incident-2")).toBe(
       "select-incident-incident-2",
     );
-    expect(phase2MembershipRowTestId("user-2")).toBe("membership-row-user-2");
-    expect(phase2MembershipRoleInputTestId("user-2")).toBe(
-      "membership-role-input-user-2",
-    );
-    expect(phase2MembershipVersionTestId("user-2")).toBe(
-      "membership-version-user-2",
-    );
-    expect(phase2MembershipPatchButtonTestId("user-2")).toBe(
-      "patch-membership-user-2",
-    );
-    expect(phase2MembershipDeleteButtonTestId("user-2")).toBe(
-      "delete-membership-user-2",
+    expectSelectorCases<"delete" | "patch" | "roleInput" | "row" | "version">(
+      (control) => {
+        const testIdFor = {
+          row: phase2MembershipRowTestId,
+          roleInput: phase2MembershipRoleInputTestId,
+          version: phase2MembershipVersionTestId,
+          patch: phase2MembershipPatchButtonTestId,
+          delete: phase2MembershipDeleteButtonTestId,
+        }[control];
+        return testIdFor("user-2");
+      },
+      [
+        ["row", "membership-row-user-2"],
+        ["roleInput", "membership-role-input-user-2"],
+        ["version", "membership-version-user-2"],
+        ["patch", "patch-membership-user-2"],
+        ["delete", "delete-membership-user-2"],
+      ],
     );
     expect(extensionProfileRowTestId("profile:core")).toBe(
       "extension-profile%3Acore",
@@ -839,7 +850,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
   });
 
   it("provides stable Phase 1 bootstrap, landing, session, admin, and error selectors", () => {
-    expectPhase1SelectorCases(phase1AuthTestId, [
+    expectSelectorCases(phase1AuthTestId, [
       ["shell", "auth-shell"],
       ["shell-message", "auth-shell-message"],
       ["status", "auth-status"],
@@ -855,7 +866,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       ["bootstrap-complete", "auth-bootstrap-complete"],
     ]);
 
-    expectPhase1SelectorCases(phase1LandingTestId, [
+    expectSelectorCases(phase1LandingTestId, [
       ["shell", "incident-landing"],
       ["current-user", "landing-current-user"],
       ["refresh", "landing-refresh"],
@@ -870,14 +881,14 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       ["return", "landing-return"],
     ]);
 
-    expectPhase1SelectorCases(phase1RouteTestId, [
+    expectSelectorCases(phase1RouteTestId, [
       ["app-shell", "app-shell"],
       ["workbook-current-user", "workbook-current-user"],
       ["workbook-loading", "workbook-loading"],
       ["debug-harness-loading", "debug-harness-loading"],
     ]);
 
-    expectPhase1SelectorCases(phase1AccountTestId, [
+    expectSelectorCases(phase1AccountTestId, [
       ["refresh-state", "account-refresh-state"],
       ["logout", "account-logout"],
       ["session-user-id", "account-session-user-id"],
@@ -914,7 +925,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       ["status", "account-status"],
     ]);
 
-    expectPhase1SelectorCases(phase1AdminTestId, [
+    expectSelectorCases(phase1AdminTestId, [
       ["access-note", "admin-access-note"],
       ["create-email", "admin-create-email"],
       ["create-display-name", "admin-create-display-name"],
@@ -1064,7 +1075,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
   });
 });
 
-function expectPhase1SelectorCases<T extends string>(
+function expectSelectorCases<T extends string>(
   testIdFor: (selector: T) => string,
   cases: ReadonlyArray<readonly [T, string]>,
 ): void {

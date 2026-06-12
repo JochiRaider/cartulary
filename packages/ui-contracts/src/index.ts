@@ -481,27 +481,27 @@ export function incidentMembershipListTestId(): string {
 }
 
 export function incidentMembershipRowTestId(userId: string): string {
-  return userScopedTestId("incident-membership-row", userId);
+  return incidentMembershipControlTestId("row", userId);
 }
 
 export function incidentMembershipVersionTestId(userId: string): string {
-  return userScopedTestId("incident-membership-version", userId);
+  return incidentMembershipControlTestId("version", userId);
 }
 
 export function incidentMembershipRoleInputTestId(userId: string): string {
-  return userScopedTestId("incident-membership-role-input", userId);
+  return incidentMembershipControlTestId("roleInput", userId);
 }
 
 export function incidentMembershipPatchButtonTestId(userId: string): string {
-  return userScopedTestId("incident-membership-patch", userId);
+  return incidentMembershipControlTestId("patch", userId);
 }
 
 export function incidentMembershipDeleteButtonTestId(userId: string): string {
-  return userScopedTestId("incident-membership-delete", userId);
+  return incidentMembershipControlTestId("delete", userId);
 }
 
 export function incidentMembershipRoleDisplayTestId(userId: string): string {
-  return userScopedTestId("incident-membership-role", userId);
+  return incidentMembershipControlTestId("roleDisplay", userId);
 }
 
 export function phase2IncidentRowTestId(incidentId: string): string {
@@ -513,23 +513,23 @@ export function phase2SelectIncidentButtonTestId(incidentId: string): string {
 }
 
 export function phase2MembershipRowTestId(userId: string): string {
-  return userScopedTestId("membership-row", userId);
+  return phase2MembershipControlTestId("row", userId);
 }
 
 export function phase2MembershipRoleInputTestId(userId: string): string {
-  return userScopedTestId("membership-role-input", userId);
+  return phase2MembershipControlTestId("roleInput", userId);
 }
 
 export function phase2MembershipVersionTestId(userId: string): string {
-  return userScopedTestId("membership-version", userId);
+  return phase2MembershipControlTestId("version", userId);
 }
 
 export function phase2MembershipPatchButtonTestId(userId: string): string {
-  return userScopedTestId("patch-membership", userId);
+  return phase2MembershipControlTestId("patch", userId);
 }
 
 export function phase2MembershipDeleteButtonTestId(userId: string): string {
-  return userScopedTestId("delete-membership", userId);
+  return phase2MembershipControlTestId("delete", userId);
 }
 
 export function extensionProfileRowTestId(profileId: string): string {
@@ -1100,6 +1100,41 @@ function encodedTestId(prefix: string, value: string, label: string): string {
 
 function userScopedTestId(prefix: string, userId: string): string {
   return encodedTestId(prefix, userId, "user_id");
+}
+
+const incidentMembershipControlPrefixes = {
+  row: "incident-membership-row",
+  version: "incident-membership-version",
+  roleInput: "incident-membership-role-input",
+  patch: "incident-membership-patch",
+  delete: "incident-membership-delete",
+  roleDisplay: "incident-membership-role",
+} as const;
+
+type IncidentMembershipControl = keyof typeof incidentMembershipControlPrefixes;
+
+function incidentMembershipControlTestId(
+  control: IncidentMembershipControl,
+  userId: string,
+): string {
+  return userScopedTestId(incidentMembershipControlPrefixes[control], userId);
+}
+
+const phase2MembershipControlPrefixes = {
+  row: "membership-row",
+  roleInput: "membership-role-input",
+  version: "membership-version",
+  patch: "patch-membership",
+  delete: "delete-membership",
+} as const;
+
+type Phase2MembershipControl = keyof typeof phase2MembershipControlPrefixes;
+
+function phase2MembershipControlTestId(
+  control: Phase2MembershipControl,
+  userId: string,
+): string {
+  return userScopedTestId(phase2MembershipControlPrefixes[control], userId);
 }
 
 function stableEncodedTestId(
