@@ -2176,6 +2176,15 @@ function runtimeForwardedInputNames(entry = null) {
   );
 }
 
+function runtimeForwardedInputEnvEntries(entry = null) {
+  return [...runtimeForwardedInputNames(entry)]
+    .sort((left, right) => left.localeCompare(right))
+    .flatMap((name) => [
+      `${name}="$(${name})"`,
+      `CARTULARY_MAKE_ORIGIN_${name}="$(origin ${name})"`,
+    ]);
+}
+
 function envStripArgsForTarget(entry = null, manifest = null) {
   const runtimeForwarded = runtimeForwardedInputNames(entry);
   return publicMakeInputNames(manifest)
@@ -2191,15 +2200,19 @@ function envCommandPrefixForTarget(entry = null, manifest = null, env = []) {
 }
 
 function renderPhaseCommandRecipe(recipe, entry = null, manifest = null) {
-  const env = Object.entries(recipe.env ?? {}).map(
-    ([name, value]) => `${name}="${normalizeInternalMakeReferences(value)}"`,
-  );
+  const forwardedEnv = runtimeForwardedInputEnvEntries(entry);
+  const env = [
+    ...forwardedEnv,
+    ...Object.entries(recipe.env ?? {}).map(
+      ([name, value]) => `${name}="${normalizeInternalMakeReferences(value)}"`,
+    ),
+  ];
   const envPrefix = `${envCommandPrefixForTarget(entry, manifest, env)} `;
   const args = (recipe.args ?? []).map(normalizeInternalMakeReferences).join(" ");
   const argsSuffix = args ? ` ${args}` : "";
   const command = (recipe.command ?? []).map(normalizeInternalMakeReferences).join(" ");
   if (recipe.mode === "run_phase") {
-    const runnerEnv = [];
+    const runnerEnv = [...forwardedEnv];
     if (recipe.success_summary === true) {
       runnerEnv.push("CARTULARY_SUPPRESS_CHILD_SUCCESS=1");
     }

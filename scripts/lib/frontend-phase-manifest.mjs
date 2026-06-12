@@ -554,6 +554,41 @@ function validateRowMetadata(row, label) {
   }
 }
 
+function validateVisualAccessibilityEvidenceBoundary(row, label) {
+  const visualOrAccessibility =
+    row.layer === "visual" ||
+    row.layer === "accessibility" ||
+    row.id.startsWith("FE-V-") ||
+    row.id.startsWith("FE-A11Y-");
+  if (!visualOrAccessibility) {
+    return;
+  }
+  if (row.evidence_class === "product_conformance") {
+    throw new Error(
+      `${label} FE visual and accessibility rows must not use product_conformance; use design_direction, implementation_support, or an explicit Core 05 claim_publication_boundary route`,
+    );
+  }
+  if (row.evidence_class !== "claim_publication_boundary") {
+    return;
+  }
+  const hasCore05Owner = row.owner_refs.some(
+    (ownerRef) =>
+      ownerRef.source_key === "core05" &&
+      ownerRef.role === "claim_publication_owner" &&
+      ownerRef.resolution_status === "resolved",
+  );
+  if (!hasCore05Owner) {
+    throw new Error(
+      `${label} FE visual and accessibility claim_publication_boundary rows must cite a resolved Core 05 claim_publication_owner`,
+    );
+  }
+  if (row.claim.claim_publication_intent !== "claim_bearing_publication") {
+    throw new Error(
+      `${label} FE visual and accessibility claim_publication_boundary rows must declare claim_publication_intent=claim_bearing_publication`,
+    );
+  }
+}
+
 function validateCore03SortingFilteringGroupingOwnerRefs(row, label) {
   const coversSortingFilteringGrouping = row.core_req_ids.some((id) =>
     core03SortingFilteringGroupingReqIDs.has(id),
@@ -898,6 +933,7 @@ export function validateFrontendPhaseMap(
       );
     }
     validateRowMetadata(row, rowLabel);
+    validateVisualAccessibilityEvidenceBoundary(row, rowLabel);
     validateCore03SortingFilteringGroupingOwnerRefs(row, rowLabel);
   }
   assertUnique(ids, `${label}.rows.id`);

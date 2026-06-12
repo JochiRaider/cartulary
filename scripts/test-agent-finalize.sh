@@ -87,8 +87,12 @@ fi
 if [[ "${FAKE_REJECT_RESULTS_DIR_LEAK:-}" == "1" ]]; then
   case "$target" in
     phase-ledgers | phase-ledger-drift | phase-schedules | phase-schedule-drift | json-shape-check | go-test-duration-baseline-coverage)
-      if [[ -n "${RESULTS_DIR:-}" || " ${MAKEFLAGS:-} " == *" RESULTS_DIR="* ]]; then
+      if [[ -n "${RESULTS_DIR:-}" || -n "${CARTULARY_MAKE_ORIGIN_RESULTS_DIR:-}" || " ${MAKEFLAGS:-} " == *" RESULTS_DIR="* ]]; then
         printf 'RESULTS_DIR leaked into non-retained substep %s\n' "$target" >&2
+        exit 2
+      fi
+      if [[ -n "${ALLOW_OLDER_RESULTS_DIR:-}" || -n "${CARTULARY_MAKE_ORIGIN_ALLOW_OLDER_RESULTS_DIR:-}" || " ${MAKEFLAGS:-} " == *" ALLOW_OLDER_RESULTS_DIR="* ]]; then
+        printf 'ALLOW_OLDER_RESULTS_DIR leaked into non-retained substep %s\n' "$target" >&2
         exit 2
       fi
       ;;
@@ -250,6 +254,7 @@ assert_equals "$(json_field "$summary" 'value.actions.filter((action) => action.
 assert_equals "$(json_field "$summary" 'value.status')" "pass" "no RESULTS_DIR status"
 assert_equals "$(json_field "$summary" 'value.duration.status')" "skipped" "no RESULTS_DIR duration status"
 assert_equals "$(json_field "$summary" 'value.run_checks.status')" "skipped" "no RESULTS_DIR run checks"
+assert_equals "$(json_field "$summary" 'value.retained_run_selection.status')" "skipped" "no RESULTS_DIR retained selection skipped"
 assert_not_contains "$(cat "$success_log")" "duration-baseline-drift-suite" "no RESULTS_DIR skips retained-run drift"
 
 cache_dir="$TMP_DIR/cache"
@@ -404,6 +409,8 @@ MAKE="$results_make" \
 FAKE_MAKE_LOG="$results_log" \
 FAKE_MAKE_ENV_LOG="$results_env_log" \
 FAKE_REJECT_RESULTS_DIR_LEAK=1 \
+CARTULARY_MAKE_ORIGIN_RESULTS_DIR="command line" \
+CARTULARY_MAKE_ORIGIN_ALLOW_OLDER_RESULTS_DIR="undefined" \
 MAKEFLAGS="--no-print-directory -- RESULTS_DIR=$retained_dir" \
 RESULTS_DIR="$retained_dir" \
   "$SCRIPT"
@@ -411,6 +418,8 @@ results_summary="$results_dir/results/with-results/agent-finalize/finalize-summa
 assert_equals "$(json_field "$results_summary" 'value.actions.map((action) => action.action_id)')" $'scheduler_drift_validation\nstructure_ledger_refresh\nschema_shape_validation\nduration_baseline_refresh\nduration_baseline_coverage\nduration_baseline_drift_validation' "RESULTS_DIR action selection"
 assert_equals "$(json_field "$results_summary" 'value.actions[0].substeps[0].id')" "retained-run-preflight" "RESULTS_DIR preflight is private substep"
 assert_equals "$(json_field "$results_summary" 'value.results_dir_status')" "valid" "RESULTS_DIR valid"
+assert_equals "$(json_field "$results_summary" 'value.retained_run_selection.status')" "latest" "RESULTS_DIR selected latest root"
+assert_equals "$(json_field "$results_summary" 'value.retained_run_selection.supplied_is_latest')" "true" "RESULTS_DIR latest flag"
 assert_equals "$(json_field "$results_summary" 'value.duration.status')" "refreshed" "RESULTS_DIR duration refreshed"
 assert_equals "$(json_field "$results_summary" 'value.run_checks.status')" "pass" "RESULTS_DIR run checks pass"
 assert_equals "$(json_field "$results_summary" 'value.actions.find((action) => action.action_id === "duration_baseline_refresh").substeps.map((substep) => substep.id).slice(-2)')" $'phase-schedules-after-duration-baselines\nphase-schedule-drift-after-duration-baselines' "RESULTS_DIR refreshes schedules after duration baselines"
@@ -419,6 +428,36 @@ assert_contains "$(cat "$results_env_log")" $'scheduler-summary-timing-drift\tRE
 assert_contains "$(cat "$results_env_log")" $'go-test-duration-baselines\tRESULTS_DIR='"$retained_dir" "RESULTS_DIR substep receives retained run"
 assert_contains "$(cat "$results_env_log")" $'phase-schedules\tRESULTS_DIR=' "RESULTS_DIR is stripped from non-retained substeps"
 assert_not_contains "$(cat "$results_env_log")" $'phase-schedules\tRESULTS_DIR='"$retained_dir" "RESULTS_DIR must not leak into non-retained phase-schedules substep"
+
+older_parent="$TMP_DIR/retained-selection"
+older_retained_dir="$older_parent/20260101T000000Z-old"
+newer_retained_dir="$older_parent/20260102T000000Z-new"
+write_retained_run "$older_retained_dir"
+write_retained_run "$newer_retained_dir"
+assert_invalid_results_dir \
+  "older-retained" \
+  "$older_retained_dir" \
+  "config" \
+  "configuration_error" \
+  "older than the latest successful full warm check"
+
+older_override_dir="$TMP_DIR/older-override"
+mkdir -p "$older_override_dir"
+older_override_make="$older_override_dir/fake-make"
+older_override_log="$older_override_dir/make.log"
+write_fake_make "$older_override_make"
+CARTULARY_TEST_RESULTS_DIR="$older_override_dir/results" \
+CARTULARY_TEST_RUN_ID="older-override" \
+CARTULARY_PHASE_ARTIFACT_DIR="$older_override_dir/results/older-override/agent-finalize/agent-finalize" \
+CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
+MAKE="$older_override_make" \
+FAKE_MAKE_LOG="$older_override_log" \
+ALLOW_OLDER_RESULTS_DIR=1 \
+RESULTS_DIR="$older_retained_dir" \
+  "$SCRIPT"
+older_override_summary="$older_override_dir/results/older-override/agent-finalize/finalize-summary.json"
+assert_equals "$(json_field "$older_override_summary" 'value.retained_run_selection.status')" "older_with_override" "older override selection status"
+assert_equals "$(json_field "$older_override_summary" 'value.retained_run_selection.latest_results_dir')" "$(cd "$ROOT_DIR" && realpath --relative-to="$ROOT_DIR" "$newer_retained_dir")" "older override latest root"
 
 assert_invalid_results_dir \
   "missing-results" \

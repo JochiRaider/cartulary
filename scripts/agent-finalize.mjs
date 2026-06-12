@@ -33,6 +33,8 @@ const repoRoot = path.resolve(scriptDir, "..");
 const makeBin = process.env.MAKE || "make";
 const target = "agent-finalize";
 const resultsDirInput = (process.env.RESULTS_DIR || "").trim();
+const allowOlderResultsDir =
+  (process.env.ALLOW_OLDER_RESULTS_DIR || "").trim() === "1";
 const warmBudgetMs = process.env.SCHEDULER_WARM_CHECK_BUDGET_MS || "240000";
 const warmBalanceRatio =
   process.env.SCHEDULER_WARM_CHECK_BALANCE_RATIO || "1.25";
@@ -662,8 +664,7 @@ function preflightFailure(actionID, reason, failureClass = "artifact") {
   };
 }
 
-function validateRetainedRun(resultsDir, actionID) {
-  const resolved = path.resolve(resultsDir);
+function validateRetainedRunArtifacts(resolved, resultsDir, actionID) {
   if (!existsSync(resolved)) {
     return {
       ok: false,
@@ -786,6 +787,92 @@ function validateRetainedRun(resultsDir, actionID) {
   return { ok: true, resolved };
 }
 
+function checkCompletedAt(runRoot) {
+  const summary = readJSON(path.join(runRoot, "check", "tool-run-summary.json"));
+  return summary?.completed_at || summary?.started_at || path.basename(runRoot);
+}
+
+function latestSuccessfulCheckRun(parentDir, actionID) {
+  if (!existsSync(parentDir) || !statSync(parentDir).isDirectory()) {
+    return null;
+  }
+  const candidates = [];
+  for (const entry of readdirSync(parentDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const candidate = path.join(parentDir, entry.name);
+    const validation = validateRetainedRunArtifacts(candidate, candidate, actionID);
+    if (!validation.ok) {
+      continue;
+    }
+    candidates.push({
+      resolved: candidate,
+      completed_at: checkCompletedAt(candidate),
+    });
+  }
+  candidates.sort((left, right) => {
+    const byTime = String(left.completed_at).localeCompare(String(right.completed_at));
+    return byTime || left.resolved.localeCompare(right.resolved);
+  });
+  return candidates.at(-1) ?? null;
+}
+
+function baseRetainedRunSelection() {
+  return {
+    status: resultsDirInput ? "not_evaluated" : "skipped",
+    supplied_results_dir: resultsDirInput
+      ? relToRepo(path.resolve(resultsDirInput))
+      : null,
+    latest_results_dir: null,
+    supplied_is_latest: null,
+    allow_older_results_dir: allowOlderResultsDir,
+  };
+}
+
+function validateRetainedRun(resultsDir, actionID) {
+  const resolved = path.resolve(resultsDir);
+  const validation = validateRetainedRunArtifacts(resolved, resultsDir, actionID);
+  if (!validation.ok) {
+    return {
+      ...validation,
+      selection: {
+        ...baseRetainedRunSelection(),
+        status: "not_evaluated",
+      },
+    };
+  }
+
+  const latest = latestSuccessfulCheckRun(path.dirname(resolved), actionID);
+  const latestResolved = latest?.resolved ?? resolved;
+  const suppliedIsLatest = path.resolve(latestResolved) === resolved;
+  const selection = {
+    status: suppliedIsLatest
+      ? "latest"
+      : allowOlderResultsDir
+        ? "older_with_override"
+        : "older_rejected",
+    supplied_results_dir: relToRepo(resolved),
+    latest_results_dir: relToRepo(latestResolved),
+    supplied_is_latest: suppliedIsLatest,
+    allow_older_results_dir: allowOlderResultsDir,
+  };
+
+  if (!suppliedIsLatest && !allowOlderResultsDir) {
+    return {
+      ok: false,
+      selection,
+      failure: preflightFailure(
+        actionID,
+        `RESULTS_DIR is older than the latest successful full warm check retained root ${relToRepo(latestResolved)}; set ALLOW_OLDER_RESULTS_DIR=1 to intentionally use ${relToRepo(resolved)}`,
+        "config",
+      ),
+    };
+  }
+
+  return { ok: true, resolved, selection };
+}
+
 function generatedStatusFor(actions, updatedFiles) {
   if (updatedFiles.length > 0) {
     return "updated";
@@ -821,6 +908,7 @@ function writeSummary({
   updatedFiles,
   mutationRollback,
   resultsDirStatus,
+  retainedRunSelection,
 }) {
   const refreshed = actionPassed(actions, "duration_baseline_refresh");
   const durationChecked = actionPassed(
@@ -846,6 +934,7 @@ function writeSummary({
       ? relToRepo(path.resolve(resultsDirInput))
       : null,
     results_dir_status: resultsDirStatus,
+    retained_run_selection: retainedRunSelection,
     started_at: startedAt,
     completed_at: completedAt,
     duration_ms: durationMs(startedMs),
@@ -899,8 +988,12 @@ function runMakeSubstep(definition, substep) {
   } else {
     delete childEnv.CARTULARY_RETAINED_RESULTS_DIR;
   }
+  delete childEnv.ALLOW_OLDER_RESULTS_DIR;
+  delete childEnv.CARTULARY_MAKE_ORIGIN_ALLOW_OLDER_RESULTS_DIR;
+  scrubMakeCommandVariable(childEnv, "ALLOW_OLDER_RESULTS_DIR");
   if (!definition.requiresResultsDir) {
     delete childEnv.RESULTS_DIR;
+    delete childEnv.CARTULARY_MAKE_ORIGIN_RESULTS_DIR;
     scrubMakeCommandVariable(childEnv, "RESULTS_DIR");
   }
   delete childEnv.CARTULARY_TEST_TARGET;
@@ -1027,6 +1120,7 @@ function main() {
   const failures = [];
   let failed = false;
   let resultsDirStatus = resultsDirInput ? "valid" : "skipped";
+  let retainedRunSelection = baseRetainedRunSelection();
   let mutationRollback = {
     status: "not_needed",
     restored_file_count: 0,
@@ -1053,6 +1147,9 @@ function main() {
     if (action.substeps[0]?.id === preflightSubstep.id) {
       const substep = action.substeps[0];
       const result = runPreflightSubstep(action, substep);
+      if (result.selection) {
+        retainedRunSelection = result.selection;
+      }
       substepStartIndex = 1;
       if (!result.ok) {
         resultsDirStatus = "invalid";
@@ -1139,6 +1236,7 @@ function main() {
     updatedFiles,
     mutationRollback,
     resultsDirStatus,
+    retainedRunSelection,
   });
 
   if (summary.status === "fail") {

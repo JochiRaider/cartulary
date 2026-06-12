@@ -79,6 +79,24 @@ run_accessibility_summary_writer() {
   )
 }
 
+run_frontend_phase_map_validation() {
+  local file="$1"
+  local phase="$2"
+
+  (
+    cd "$ROOT_DIR"
+    "$NODE_BIN" --input-type=module - "$file" "$phase" <<'JS'
+import { readFileSync } from "node:fs";
+import { validateFrontendPhaseMap } from "./scripts/lib/frontend-phase-manifest.mjs";
+
+const [file, phase] = process.argv.slice(2);
+const manifest = JSON.parse(readFileSync(file, "utf8"));
+validateFrontendPhaseMap(manifest, file, phase);
+console.log("frontend phase map validated");
+JS
+  )
+}
+
 write_valid_phase_map() {
   local file="$1"
 
@@ -774,6 +792,13 @@ write_valid_agent_finalize_summary() {
   "output_mode": "summary",
   "results_dir": null,
   "results_dir_status": "skipped",
+  "retained_run_selection": {
+    "status": "skipped",
+    "supplied_results_dir": null,
+    "latest_results_dir": null,
+    "supplied_is_latest": null,
+    "allow_older_results_dir": false
+  },
   "started_at": "2026-01-01T00:00:00Z",
   "completed_at": "2026-01-01T00:00:01Z",
   "duration_ms": 1000,
@@ -1394,6 +1419,25 @@ mutate_json_fixture frontend-row-accounting-invalid-scope "$frontend_row_account
 frontend_row_accounting_bad_scope_output="$(assert_fails "frontend row accounting rejects invalid scope" \
   run_schema_validation cartulary.frontend_row_accounting.v3 "$frontend_row_accounting_bad_scope")"
 assert_contains "$frontend_row_accounting_bad_scope_output" "must be equal to one of the allowed values" "frontend row accounting invalid scope"
+
+frontend_visual_product_map="$tmp_dir/fe_p8_visual_product_map.json"
+cp "$ROOT_DIR/tools/frontend_phase_maps/fe_p8_test_map.json" "$frontend_visual_product_map"
+"$NODE_BIN" - "$frontend_visual_product_map" <<'JS'
+const fs = require("node:fs");
+const file = process.argv[2];
+const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
+const row = manifest.rows.find((entry) => entry.id === "FE-V-P8-01");
+if (!row) {
+  throw new Error("FE-V-P8-01 fixture row not found");
+}
+row.evidence_class = "product_conformance";
+row.core_req_ids = ["REQ-01-035"];
+row.core_ac_ids = ["AC-013"];
+fs.writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`);
+JS
+frontend_visual_product_output="$(assert_fails "frontend visual rows reject product conformance" \
+  run_frontend_phase_map_validation "$frontend_visual_product_map" FE-P8)"
+assert_contains "$frontend_visual_product_output" "must not use product_conformance" "frontend visual product conformance rejection"
 
 frontend_a11y_writer_missing="$tmp_dir/frontend-accessibility-summary-writer-missing.json"
 frontend_a11y_writer_missing_output="$(assert_fails "frontend accessibility summary writer rejects missing implemented evidence" \

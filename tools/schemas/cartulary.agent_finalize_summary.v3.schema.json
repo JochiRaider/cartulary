@@ -13,6 +13,7 @@
     "output_mode",
     "results_dir",
     "results_dir_status",
+    "retained_run_selection",
     "started_at",
     "completed_at",
     "duration_ms",
@@ -35,6 +36,32 @@
     "output_mode": { "enum": ["quiet", "summary", "ci", "verbose", "debug", "machine"] },
     "results_dir": { "type": ["string", "null"] },
     "results_dir_status": { "enum": ["skipped", "valid", "invalid"] },
+    "retained_run_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "supplied_results_dir",
+        "latest_results_dir",
+        "supplied_is_latest",
+        "allow_older_results_dir"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "skipped",
+            "not_evaluated",
+            "latest",
+            "older_with_override",
+            "older_rejected"
+          ]
+        },
+        "supplied_results_dir": { "type": ["string", "null"] },
+        "latest_results_dir": { "type": ["string", "null"] },
+        "supplied_is_latest": { "type": ["boolean", "null"] },
+        "allow_older_results_dir": { "type": "boolean" }
+      }
+    },
     "started_at": { "type": "string", "minLength": 1, "format": "date-time" },
     "completed_at": { "type": "string", "minLength": 1, "format": "date-time" },
     "duration_ms": { "type": "integer", "minimum": 0 },

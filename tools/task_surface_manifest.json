@@ -359,6 +359,11 @@
           "description": "refresh and validate harness-maintenance artifacts before verification"
         },
         {
+          "target": "frontend-evidence-audit",
+          "usage": "PHASE_NAMESPACE=frontend PHASE=FE-P8 CHECK_RESULTS_DIR=<root> BROWSER_SUPPORT_RESULTS_DIR=<root> BROWSER_VISUAL_RESULTS_DIR=<root> BROWSER_A11Y_RESULTS_DIR=<root>",
+          "description": "audit frontend phase closure across retained broad and explicit browser evidence roots"
+        },
+        {
           "target": "benchmark-claim-check",
           "description": "validate retained Core 05 benchmark claim artifacts"
         },
@@ -1298,6 +1303,21 @@
         "./scripts/agent-finalize.sh"
       ],
       "test_target": "self"
+    },
+    "frontend-evidence-audit": {
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
+      ],
+      "type": "phase_command",
+      "mode": "run_phase",
+      "phase_label": "frontend-evidence-audit",
+      "command": [
+        "$(NODE_BIN)",
+        "./scripts/frontend-evidence-audit.mjs"
+      ],
+      "test_target": "self",
+      "success_summary": true
     },
     "benchmark-claim-check": {
       "prerequisites": [
@@ -4256,6 +4276,23 @@
         "undeclared_inherited_env": "ignore",
         "inputs": [
           {
+            "name": "ALLOW_OLDER_RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "exact_1_bool",
+            "default": null,
+            "empty_string": "false",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
             "name": "RESULTS_DIR",
             "binding": "make_variable",
             "allowed_sources": [
@@ -4267,6 +4304,164 @@
             "type": "result_selector",
             "default": null,
             "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
+    },
+    {
+      "name": "frontend-evidence-audit",
+      "backing_scripts": [
+        "scripts/frontend-evidence-audit.mjs",
+        "scripts/lib/frontend-phase-manifest.mjs",
+        "scripts/lib/frontend-row-accounting.mjs"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 3,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 40,
+          "stderr_bytes": 8000,
+          "excerpt_lines": 30,
+          "excerpt_bytes": 6000
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v3"
+      },
+      "command_id": "cartulary.harness.command.frontend_evidence_audit.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "PHASE_NAMESPACE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "phase_namespace",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "PHASE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "phase_id",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CHECK_RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "result_selector",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_SUPPORT_RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "result_selector",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_VISUAL_RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "result_selector",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_A11Y_RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "result_selector",
+            "default": null,
+            "empty_string": "invalid",
             "normalization": "path_token",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
