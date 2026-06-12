@@ -222,6 +222,9 @@ const phaseIDPattern = /^FE-P(?:0|[1-9]\d*)$/;
 const phaseMapFilenamePattern = /^fe_p(0|[1-9]\d*)_test_map\.json$/;
 const phaseLedgerFilenamePattern = /^fe_p(0|[1-9]\d*)_coverage_ledger\.md$/;
 const rowIDPattern = /^FE-(?:U|I|B|E|V|A11Y|S)-P(?:0|[1-9]\d*)-\d{2}$/;
+const guideRowTableLinePattern =
+  /^\|\s*(FE-(?:U|I|B|E|V|A11Y|S)-P(?:0|[1-9]\d*)-\d{2})\s*\|/;
+const guideMakeTargetPattern = /`make\s+([^`\s]+)(?:\s+[^`]*)?`/g;
 const commandIDPattern =
   /^cartulary\.harness\.command\.[a-z0-9_]+\.v1$/;
 const frontendVisualFixtureRegistrySchemaID =
@@ -359,6 +362,55 @@ function frontendEvidenceFreshnessDigest(root, registry, entry) {
   return createHash("sha256")
     .update(JSON.stringify(payload))
     .digest("hex");
+}
+
+export function collectFrontendGuideTargetRestatementErrors(
+  guideText,
+  rowTargetNames,
+  guidePath = "frontend guide",
+) {
+  const errors = [];
+  for (const [lineIndex, line] of guideText.split("\n").entries()) {
+    const rowMatch = guideRowTableLinePattern.exec(line);
+    if (!rowMatch) {
+      continue;
+    }
+    const rowID = rowMatch[1];
+    const liveTargets = rowTargetNames.get(rowID) ?? [];
+    const liveTargetSet =
+      liveTargets instanceof Set ? liveTargets : new Set(liveTargets);
+    const liveTargetDisplay =
+      liveTargetSet.size > 0
+        ? [...liveTargetSet].sort().join(", ")
+        : "none";
+    guideMakeTargetPattern.lastIndex = 0;
+    for (const targetMatch of line.matchAll(guideMakeTargetPattern)) {
+      const targetName = targetMatch[1];
+      if (!liveTargetSet.has(targetName)) {
+        errors.push(
+          `${guidePath}:${lineIndex + 1} row ${rowID} restates make ${targetName}, but live frontend phase-map targets are ${liveTargetDisplay}`,
+        );
+      }
+    }
+  }
+  return errors;
+}
+
+function validateFrontendGuideTargetRestatements(root, registry, rowTargetNames) {
+  const absoluteGuidePath = repoPath(root, registry.guide_path);
+  if (!existsSync(absoluteGuidePath)) {
+    throw new Error(`frontend guide missing: ${registry.guide_path}`);
+  }
+  const errors = collectFrontendGuideTargetRestatementErrors(
+    readFileSync(absoluteGuidePath, "utf8"),
+    rowTargetNames,
+    registry.guide_path,
+  );
+  if (errors.length > 0) {
+    throw new Error(
+      `frontend guide target restatement drift:\n${errors.join("\n")}`,
+    );
+  }
 }
 
 function sectionNumbersFromOwnerRef(sectionRef) {
@@ -943,6 +995,7 @@ export function validateFrontendPhaseArtifacts(root = process.cwd(), options = {
   const checkFreshness = options.checkFreshness !== false;
   const registry = loadFrontendPhaseRegistry(root);
   const phaseStates = new Map();
+  const rowTargetNames = new Map();
   const expectedGuideDigest = sha256File(root, registry.guide_path);
   if (
     checkFreshness &&
@@ -962,6 +1015,12 @@ export function validateFrontendPhaseArtifacts(root = process.cwd(), options = {
       entry.manifest_path,
     );
     validateFrontendPhaseMap(manifest, entry.manifest_path, entry.phase_id);
+    for (const row of manifest.rows) {
+      rowTargetNames.set(
+        row.id,
+        new Set(row.targets.map((target) => target.target_name)),
+      );
+    }
     if (
       checkFreshness &&
       expectedGuideDigest &&
@@ -1044,6 +1103,7 @@ export function validateFrontendPhaseArtifacts(root = process.cwd(), options = {
       throw new Error(`unregistered frontend phase map: ${file}`);
     }
   }
+  validateFrontendGuideTargetRestatements(root, registry, rowTargetNames);
   validateFrontendVisualFixtureRegistry(root);
 }
 

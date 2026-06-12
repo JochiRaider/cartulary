@@ -26,6 +26,7 @@ import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,
 } from "./lib/task-surface.mjs";
+import { collectFrontendGuideTargetRestatementErrors } from "./lib/frontend-phase-manifest.mjs";
 import {
   HarnessConfigError,
   generateTestRouteToken,
@@ -45,6 +46,35 @@ const repoRoot = path.resolve(scriptDir, "..");
 function readJSON(relativePath) {
   return JSON.parse(readFileSync(path.join(repoRoot, relativePath), "utf8"));
 }
+
+test("frontend guide target restatements reject stale explicit targets", () => {
+  const rowTargets = new Map([
+    ["FE-A11Y-P9-01", new Set(["browser-e2e-a11y"])],
+  ]);
+  const matchingGuideRow =
+    "| FE-A11Y-P9-01 | Accessibility | Verify inspector controls. | UI/UX guide Sections 9, 12, 14 | `N/A` | `D-AC-009` | `make browser-e2e-a11y` | `design_direction` |";
+  assert.deepEqual(
+    collectFrontendGuideTargetRestatementErrors(
+      matchingGuideRow,
+      rowTargets,
+      "guide.md",
+    ),
+    [],
+  );
+
+  const staleGuideRow =
+    "| FE-A11Y-P9-01 | Accessibility | Verify inspector controls. | UI/UX guide Sections 9, 12, 14 | `N/A` | `D-AC-009` | `make browser-e2e-a11y-preflight` | `design_direction` |";
+  const errors = collectFrontendGuideTargetRestatementErrors(
+    staleGuideRow,
+    rowTargets,
+    "guide.md",
+  );
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /guide\.md:1/);
+  assert.match(errors[0], /FE-A11Y-P9-01/);
+  assert.match(errors[0], /browser-e2e-a11y-preflight/);
+  assert.match(errors[0], /browser-e2e-a11y/);
+});
 
 function runVitestPhaseSummaryFixture({ root, runnerJSON, sidecarJSON = "" }) {
   const phaseDir = path.join(root, sidecarJSON ? "phase-sidecar" : "phase-fallback");
