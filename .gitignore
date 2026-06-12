@@ -104,3 +104,8 @@ internal/platform/httpapi/webassets/dist/*
 operator
 
 
+.cartulary/web-e2e-port-leases/port-8080/pid
+.gitignore
+.cartulary/web-e2e-port-leases/port-4173/pid
+.cartulary/web-e2e-port-leases/port-4173/metadata
+.gitignore
