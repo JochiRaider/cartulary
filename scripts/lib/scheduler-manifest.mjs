@@ -5,6 +5,19 @@ import {
   browserGroupWorkerSlotCount,
 } from "./browser-scheduler-dependencies.mjs";
 import {
+  assertObjectKeys,
+  readJsonObject,
+  requireArray,
+  requireEnum,
+  requireInteger,
+  requireObject,
+  requireObjectArray,
+  requirePositiveInteger,
+  requireSchemaID,
+  requireString,
+  requireStringArray,
+} from "./json-shape.mjs";
+import {
   maxResourceClaims,
   normalizeResourceClaims as normalizeSchedulerResourceClaims,
   normalizeResourceLimits as normalizeSchedulerResourceLimits,
@@ -14,7 +27,59 @@ import {
 
 export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v1";
 const envNamePattern = /^[A-Z][A-Z0-9_]*$/;
+const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const makePrerequisitePolicies = new Set(["run", "skip"]);
+const schedulerKinds = new Set(["check", "service_backed", "phase_slice"]);
+const schedulerManifestKeys = new Set(["schema_id", "generated", "schedules"]);
+const schedulerScheduleKeys = new Set([
+  "target",
+  "scheduler_kind",
+  "capacity_profile",
+  "resource_limits",
+  "stop_on_first_failure",
+  "progress_tick_seconds",
+  "validate_timing",
+  "summary_groups",
+  "work_units",
+  "finalizers",
+]);
+const schedulerWorkUnitKeys = new Set([
+  "id",
+  "kind",
+  "type",
+  "class",
+  "target",
+  "label",
+  "aggregate_target",
+  "priority",
+  "weight_ms",
+  "needs",
+  "produces_summary_targets",
+  "completion_keys",
+  "failure_keys",
+  "running_dependency_keys",
+  "resource_claims",
+  "retained_resource_claims",
+  "release_retained_resource_claims",
+  "make_jobs",
+  "make_prerequisite_policy",
+  "env",
+  "runtime_binaries",
+  "service_session",
+  "browser_stage",
+  "browser_session_group",
+  "browser_session_isolation_reason",
+  "browser_session_finalizer",
+  "browser_group",
+  "shard",
+  "shard_names",
+  "scheduler_profile",
+  "count_in_total",
+  "counts_started",
+  "complete_on_failure",
+  "unblock_label",
+  "command",
+]);
 export const schedulerCommandTypeValues = Object.freeze([
   "make_target",
   "service_session_start",
@@ -98,6 +163,202 @@ export function validateSchedulerCommandShape(value, label) {
       throw new Error(`${label}.${field} must be a non-empty string`);
     }
   }
+}
+
+function parseWorkerEnvInteger(value, label, { min }) {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`${label} must be declared`);
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < min || String(parsed) !== value) {
+    throw new Error(
+      `${label} must be ${min === 0 ? "a non-negative" : "a positive"} integer`,
+    );
+  }
+  return parsed;
+}
+
+function validateBrowserWorkerSlotDescriptors(descriptors) {
+  const groupsByRuntime = new Map();
+  for (const descriptor of descriptors) {
+    const group = groupsByRuntime.get(descriptor.runtime) ?? [];
+    group.push(descriptor);
+    groupsByRuntime.set(descriptor.runtime, group);
+  }
+
+  for (const [runtime, descriptorsForRuntime] of groupsByRuntime.entries()) {
+    const totalWorkerCount = descriptorsForRuntime.reduce(
+      (sum, descriptor) =>
+        sum + browserGroupWorkerSlotCount(descriptor.browserGroup),
+      0,
+    );
+    const occupied = new Set();
+    for (const descriptor of descriptorsForRuntime) {
+      const count = parseWorkerEnvInteger(
+        descriptor.workerCountValue,
+        descriptor.workerCountLabel,
+        { min: 1 },
+      );
+      if (count !== totalWorkerCount) {
+        throw new Error(descriptor.workerCountMismatch(totalWorkerCount));
+      }
+      const offset = parseWorkerEnvInteger(
+        descriptor.workerOffsetValue,
+        descriptor.workerOffsetLabel,
+        { min: 0 },
+      );
+      const slotCount = browserGroupWorkerSlotCount(descriptor.browserGroup);
+      if (offset + slotCount > totalWorkerCount) {
+        throw new Error(descriptor.workerRangeExceeded(totalWorkerCount));
+      }
+      for (let slot = offset; slot < offset + slotCount; slot += 1) {
+        if (occupied.has(slot)) {
+          throw new Error(descriptor.workerSlotOverlap(slot));
+        }
+        occupied.add(slot);
+      }
+    }
+    if (occupied.size !== totalWorkerCount) {
+      throw new Error(descriptorsForRuntime[0].workerSlotsNotContiguous(runtime));
+    }
+  }
+}
+
+function validateSchedulerBrowserWorkerSlots(units, label) {
+  const descriptors = [];
+  for (const unit of units ?? []) {
+    if (unit?.kind !== "browser_group") {
+      continue;
+    }
+    const runtime =
+      typeof unit.service_session?.target === "string" &&
+      unit.service_session.target.trim() !== ""
+        ? unit.service_session.target.trim()
+        : label;
+    const unitID = unit.id ?? unit.target;
+    descriptors.push({
+      browserGroup: unit.browser_group,
+      runtime,
+      workerCountLabel: `${label}.${unitID}.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT`,
+      workerCountMismatch: (total) =>
+        `${label}.${unitID} worker count must equal ${total} for ${runtime}`,
+      workerCountValue: unit.env?.CARTULARY_PLAYWRIGHT_WORKER_COUNT,
+      workerOffsetLabel: `${label}.${unitID}.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET`,
+      workerOffsetValue: unit.env?.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET,
+      workerRangeExceeded: (total) =>
+        `${label}.${unitID} worker slot range exceeds ${total} for ${runtime}`,
+      workerSlotOverlap: (slot) =>
+        `${label} ${runtime} has overlapping worker-admin slot ${slot}`,
+      workerSlotsNotContiguous: () =>
+        `${label} ${runtime} worker-admin slots must be contiguous`,
+    });
+  }
+  validateBrowserWorkerSlotDescriptors(descriptors);
+}
+
+export function validateSchedulerManifestShape(file) {
+  const manifest = readJsonObject(file, file);
+  assertObjectKeys(manifest, schedulerManifestKeys, file);
+  requireSchemaID(manifest, schedulerManifestSchemaID, file);
+  requireObject(manifest.generated, `${file}.generated`);
+  requireObjectArray(manifest.schedules, `${file}.schedules`, {
+    nonEmpty: true,
+  }).forEach((schedule, index) => {
+    const label = `${file}.schedules[${index + 1}]`;
+    assertObjectKeys(schedule, schedulerScheduleKeys, label);
+    requireString(schedule.target, `${label}.target`, {
+      pattern: makeTargetPattern,
+    });
+    requireEnum(schedule.scheduler_kind, `${label}.scheduler_kind`, schedulerKinds);
+    requireString(schedule.capacity_profile, `${label}.capacity_profile`);
+    requireObject(schedule.resource_limits, `${label}.resource_limits`);
+    if (
+      schedule.stop_on_first_failure !== undefined &&
+      typeof schedule.stop_on_first_failure !== "boolean"
+    ) {
+      throw new Error(`${label}.stop_on_first_failure must be a boolean`);
+    }
+    if (
+      schedule.validate_timing !== undefined &&
+      typeof schedule.validate_timing !== "boolean"
+    ) {
+      throw new Error(`${label}.validate_timing must be a boolean`);
+    }
+    if (schedule.progress_tick_seconds !== undefined) {
+      requireInteger(schedule.progress_tick_seconds, `${label}.progress_tick_seconds`, {
+        min: 5,
+      });
+      if (schedule.progress_tick_seconds > 300) {
+        throw new Error(`${label}.progress_tick_seconds must be <= 300`);
+      }
+    }
+    requireObjectArray(schedule.work_units, `${label}.work_units`, {
+      nonEmpty: true,
+    }).forEach((unit, unitIndex) => {
+      const unitLabel = `${label}.work_units[${unitIndex + 1}]`;
+      assertObjectKeys(unit, schedulerWorkUnitKeys, unitLabel);
+      requireString(unit.target, `${unitLabel}.target`, {
+        pattern: makeTargetPattern,
+      });
+      requirePositiveInteger(unit.weight_ms, `${unitLabel}.weight_ms`);
+      const command = requireObject(unit.command, `${unitLabel}.command`);
+      validateSchedulerCommandShape(command, `${unitLabel}.command`);
+      if (unit.shard_names !== undefined) {
+        requireStringArray(unit.shard_names, `${unitLabel}.shard_names`);
+      }
+      if (command.type === "go_shard_finalize") {
+        const shardNames = requireStringArray(
+          unit.shard_names,
+          `${unitLabel}.shard_names`,
+          { nonEmpty: true },
+        );
+        const expectedNeeds = shardNames.map((shardName) => `go_shard:${shardName}`);
+        const needs = requireStringArray(unit.needs ?? [], `${unitLabel}.needs`);
+        for (const expectedNeed of expectedNeeds) {
+          if (!needs.includes(expectedNeed)) {
+            throw new Error(
+              `${unitLabel}.shard_names must match needs; missing ${expectedNeed}`,
+            );
+          }
+        }
+        for (const need of needs.filter((entry) => entry.startsWith("go_shard:"))) {
+          if (!expectedNeeds.includes(need)) {
+            throw new Error(
+              `${unitLabel}.needs includes ${need} not declared by shard_names`,
+            );
+          }
+        }
+      }
+      if (unit.priority !== undefined) {
+        requireInteger(unit.priority, `${unitLabel}.priority`, { min: 0 });
+      }
+      if (unit.make_prerequisite_policy !== undefined) {
+        requireEnum(
+          unit.make_prerequisite_policy,
+          `${unitLabel}.make_prerequisite_policy`,
+          makePrerequisitePolicies,
+        );
+      }
+      if (unit.env !== undefined) {
+        for (const name of Object.keys(
+          requireObject(unit.env, `${unitLabel}.env`),
+        )) {
+          requireString(name, `${unitLabel}.env key`, {
+            pattern: envNamePattern,
+          });
+        }
+      }
+      if (unit.runtime_binaries !== undefined) {
+        requireStringArray(unit.runtime_binaries, `${unitLabel}.runtime_binaries`, {
+          nonEmpty: true,
+        });
+      }
+    });
+    validateSchedulerBrowserWorkerSlots(schedule.work_units, label);
+    if (schedule.finalizers !== undefined) {
+      requireArray(schedule.finalizers, `${label}.finalizers`);
+    }
+  });
 }
 
 export function parseResourceLimitOverride(value) {
@@ -451,19 +712,8 @@ function validateGoShardFinalizers(units, scheduleLabel) {
   }
 }
 
-function parseWorkerEnvInteger(value, label, { min }) {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(`${label} must be declared`);
-  }
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed) || parsed < min || String(parsed) !== value) {
-    throw new Error(`${label} must be ${min === 0 ? "a non-negative" : "a positive"} integer`);
-  }
-  return parsed;
-}
-
 function validateBrowserWorkerSlotRanges(units, scheduleLabel, scheduleTarget) {
-  const groupsByRuntime = new Map();
+  const descriptors = [];
   for (const unit of units) {
     if (unit.kind !== "browser_group") {
       continue;
@@ -474,54 +724,24 @@ function validateBrowserWorkerSlotRanges(units, scheduleLabel, scheduleTarget) {
       unit.serviceSession.target.trim() !== ""
         ? unit.serviceSession.target.trim()
         : scheduleTarget;
-    const group = groupsByRuntime.get(runtimeKey) ?? [];
-    group.push(unit);
-    groupsByRuntime.set(runtimeKey, group);
-  }
-
-  for (const [runtimeKey, browserGroups] of groupsByRuntime.entries()) {
-    const totalWorkerCount = browserGroups.reduce(
-      (sum, unit) => sum + browserGroupWorkerSlotCount(unit.browserGroup),
-      0,
-    );
-    const occupied = new Set();
-    for (const unit of browserGroups) {
-      const count = parseWorkerEnvInteger(
-        unit.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT,
-        `${scheduleLabel} ${unit.id} env.CARTULARY_PLAYWRIGHT_WORKER_COUNT`,
-        { min: 1 },
-      );
-      if (count !== totalWorkerCount) {
-        throw new Error(
-          `${scheduleLabel} ${unit.id} env.CARTULARY_PLAYWRIGHT_WORKER_COUNT must equal ${totalWorkerCount} for browser runtime ${runtimeKey}`,
-        );
-      }
-      const offset = parseWorkerEnvInteger(
-        unit.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET,
-        `${scheduleLabel} ${unit.id} env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET`,
-        { min: 0 },
-      );
-      const slotCount = browserGroupWorkerSlotCount(unit.browserGroup);
-      if (offset + slotCount > totalWorkerCount) {
-        throw new Error(
-          `${scheduleLabel} ${unit.id} worker slot range exceeds ${totalWorkerCount} for browser runtime ${runtimeKey}`,
-        );
-      }
-      for (let slot = offset; slot < offset + slotCount; slot += 1) {
-        if (occupied.has(slot)) {
-          throw new Error(
-            `${scheduleLabel} browser runtime ${runtimeKey} has overlapping worker-admin slot ${slot}`,
-          );
-        }
-        occupied.add(slot);
-      }
-    }
-    if (occupied.size !== totalWorkerCount) {
-      throw new Error(
+    descriptors.push({
+      browserGroup: unit.browserGroup,
+      runtime: runtimeKey,
+      workerCountLabel: `${scheduleLabel} ${unit.id} env.CARTULARY_PLAYWRIGHT_WORKER_COUNT`,
+      workerCountMismatch: (total) =>
+        `${scheduleLabel} ${unit.id} env.CARTULARY_PLAYWRIGHT_WORKER_COUNT must equal ${total} for browser runtime ${runtimeKey}`,
+      workerCountValue: unit.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT,
+      workerOffsetLabel: `${scheduleLabel} ${unit.id} env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET`,
+      workerOffsetValue: unit.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET,
+      workerRangeExceeded: (total) =>
+        `${scheduleLabel} ${unit.id} worker slot range exceeds ${total} for browser runtime ${runtimeKey}`,
+      workerSlotOverlap: (slot) =>
+        `${scheduleLabel} browser runtime ${runtimeKey} has overlapping worker-admin slot ${slot}`,
+      workerSlotsNotContiguous: () =>
         `${scheduleLabel} browser runtime ${runtimeKey} worker-admin slots must be contiguous`,
-      );
-    }
+    });
   }
+  validateBrowserWorkerSlotDescriptors(descriptors);
 }
 
 export function normalizeSchedulerSchedule(manifest, target, {

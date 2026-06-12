@@ -2471,6 +2471,94 @@ async function uploadObjectBlobTarget(
   );
 }
 
+async function createAndAttachEvidenceBlob({
+  apiBase,
+  attachClientTxnId,
+  baseRowVersion,
+  createClientTxnId,
+  evidenceRecordId,
+  file,
+  incidentId,
+}: {
+  readonly apiBase: string | undefined;
+  readonly attachClientTxnId: () => string;
+  readonly baseRowVersion: number;
+  readonly createClientTxnId: () => string;
+  readonly evidenceRecordId: string;
+  readonly file: File;
+  readonly incidentId: string;
+}): Promise<void> {
+  const createBlobRequest = {
+    incident_id: incidentId,
+    client_txn_id: createClientTxnId(),
+    byte_size: file.size,
+    filename_hint: file.name || null,
+    content_type_hint: file.type || null,
+  } satisfies ObjectBlobCreateRequest;
+  const createBlob = await fetchJSON<ObjectBlobCreateEnvelope>(
+    apiPath(apiBase, "/api/v1/object-blobs"),
+    {
+      method: "POST",
+      body: JSON.stringify(createBlobRequest),
+    },
+  );
+  if (!createBlob.ok) {
+    throw new Error(evidencePublicErrorMessage(createBlob.payload));
+  }
+  const blobEnvelope = readEnvelope<ObjectBlobCreateEnvelope>(
+    createBlob.payload,
+  );
+  await uploadObjectBlobTarget(apiBase, blobEnvelope.data.upload_target, file);
+
+  const attachRequest = {
+    object_blob_id: blobEnvelope.data.object_blob_id,
+    base_row_version: baseRowVersion,
+    client_txn_id: attachClientTxnId(),
+  } satisfies EvidenceAttachBlobRequest;
+  const attach = await fetchJSON<EvidenceAttachBlobEnvelope>(
+    apiPath(
+      apiBase,
+      `/api/v1/evidence-records/${evidenceRecordId}/attach-blob`,
+    ),
+    {
+      method: "POST",
+      body: JSON.stringify(attachRequest),
+    },
+  );
+  if (!attach.ok) {
+    throw new Error(evidencePublicErrorMessage(attach.payload));
+  }
+}
+
+async function submitViewRecordPatch({
+  apiBase,
+  baseRowVersion,
+  changes,
+  clientTxnId,
+  recordId,
+  viewSchemaId,
+}: {
+  readonly apiBase: string | undefined;
+  readonly baseRowVersion: number;
+  readonly changes: readonly Record<string, unknown>[];
+  readonly clientTxnId: string;
+  readonly recordId: string;
+  readonly viewSchemaId: string;
+}) {
+  return fetchJSON<ViewMutationEnvelope>(
+    apiPath(apiBase, `/api/v1/records/${recordId}`),
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        view_schema_id: viewSchemaId,
+        base_row_version: baseRowVersion,
+        client_txn_id: clientTxnId,
+        changes,
+      }),
+    },
+  );
+}
+
 async function readUploadFailureDetail(response: Response): Promise<string> {
   try {
     return (await response.text()).replace(/\s+/g, " ").slice(0, 300);
@@ -7075,50 +7163,15 @@ export function TimelineWorkbook({
       );
       const evidenceRecord = evidenceEnvelope.data.row;
 
-      const createBlobRequest = {
-        incident_id: incidentId,
-        client_txn_id: nextClientTxnId(),
-        byte_size: file.size,
-        filename_hint: file.name || null,
-        content_type_hint: file.type || null,
-      } satisfies ObjectBlobCreateRequest;
-      const createBlob = await fetchJSON<ObjectBlobCreateEnvelope>(
-        apiPath(apiBase, "/api/v1/object-blobs"),
-        {
-          method: "POST",
-          body: JSON.stringify(createBlobRequest),
-        },
-      );
-      if (!createBlob.ok) {
-        throw new Error(evidencePublicErrorMessage(createBlob.payload));
-      }
-      const blobEnvelope = readEnvelope<ObjectBlobCreateEnvelope>(
-        createBlob.payload,
-      );
-      await uploadObjectBlobTarget(
+      await createAndAttachEvidenceBlob({
         apiBase,
-        blobEnvelope.data.upload_target,
+        attachClientTxnId: nextClientTxnId,
+        baseRowVersion: evidenceRecord.row_version,
+        createClientTxnId: nextClientTxnId,
+        evidenceRecordId: evidenceRecord.record_id,
         file,
-      );
-
-      const attachRequest = {
-        object_blob_id: blobEnvelope.data.object_blob_id,
-        base_row_version: evidenceRecord.row_version,
-        client_txn_id: nextClientTxnId(),
-      } satisfies EvidenceAttachBlobRequest;
-      const attach = await fetchJSON<EvidenceAttachBlobEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/evidence-records/${evidenceRecord.record_id}/attach-blob`,
-        ),
-        {
-          method: "POST",
-          body: JSON.stringify(attachRequest),
-        },
-      );
-      if (!attach.ok) {
-        throw new Error(evidencePublicErrorMessage(attach.payload));
-      }
+        incidentId,
+      });
       return evidenceRecord.record_id;
     },
     [apiBase, incidentId, nextClientTxnId],
@@ -9300,18 +9353,14 @@ function EntityWorkbookSurface({
     }
     setMutationState("Syncing");
     setMutationError(null);
-    const result = await fetchJSON<ViewMutationEnvelope>(
-      apiPath(apiBase, `/api/v1/records/${selectedEditRow.recordId}`),
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          view_schema_id: contract.viewSchemaId,
-          base_row_version: selectedEditRow.rowVersion,
-          client_txn_id: `entity-patch-${contract.viewSchemaId}-${Date.now()}`,
-          changes: [change],
-        }),
-      },
-    );
+    const result = await submitViewRecordPatch({
+      apiBase,
+      baseRowVersion: selectedEditRow.rowVersion,
+      changes: [change],
+      clientTxnId: `entity-patch-${contract.viewSchemaId}-${Date.now()}`,
+      recordId: selectedEditRow.recordId,
+      viewSchemaId: contract.viewSchemaId,
+    });
     if (!result.ok) {
       setMutationState("Conflict");
       setMutationError(parseMutationError(result.payload));
@@ -10445,49 +10494,15 @@ function GenericWorkbookSurface({
       setEvidenceMessage(row.record_id, "Uploading evidence.");
       setMutationState("Syncing");
       try {
-        const createBlobRequest = {
-          incident_id: incidentId,
-          client_txn_id: `evidence-blob-${Date.now()}`,
-          byte_size: file.size,
-          filename_hint: file.name || null,
-          content_type_hint: file.type || null,
-        } satisfies ObjectBlobCreateRequest;
-        const createBlob = await fetchJSON<ObjectBlobCreateEnvelope>(
-          apiPath(apiBase, "/api/v1/object-blobs"),
-          {
-            method: "POST",
-            body: JSON.stringify(createBlobRequest),
-          },
-        );
-        if (!createBlob.ok) {
-          throw new Error(evidencePublicErrorMessage(createBlob.payload));
-        }
-        const blobEnvelope = readEnvelope<ObjectBlobCreateEnvelope>(
-          createBlob.payload,
-        );
-        await uploadObjectBlobTarget(
+        await createAndAttachEvidenceBlob({
           apiBase,
-          blobEnvelope.data.upload_target,
+          attachClientTxnId: () => `evidence-attach-${Date.now()}`,
+          baseRowVersion: row.row_version,
+          createClientTxnId: () => `evidence-blob-${Date.now()}`,
+          evidenceRecordId: row.record_id,
           file,
-        );
-        const attachRequest = {
-          object_blob_id: blobEnvelope.data.object_blob_id,
-          base_row_version: row.row_version,
-          client_txn_id: `evidence-attach-${Date.now()}`,
-        } satisfies EvidenceAttachBlobRequest;
-        const attach = await fetchJSON<EvidenceAttachBlobEnvelope>(
-          apiPath(
-            apiBase,
-            `/api/v1/evidence-records/${row.record_id}/attach-blob`,
-          ),
-          {
-            method: "POST",
-            body: JSON.stringify(attachRequest),
-          },
-        );
-        if (!attach.ok) {
-          throw new Error(evidencePublicErrorMessage(attach.payload));
-        }
+          incidentId,
+        });
         setEvidenceMessage(row.record_id, "Evidence attached.");
         setMutationState("Saved");
         await onRefresh();
@@ -10734,18 +10749,14 @@ function GenericWorkbookSurface({
     }
     setMutationState("Syncing");
     setMutationError(null);
-    const result = await fetchJSON<ViewMutationEnvelope>(
-      apiPath(apiBase, `/api/v1/records/${selectedEditRow.record_id}`),
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          view_schema_id: contract.viewSchemaId,
-          base_row_version: selectedEditRow.row_version,
-          client_txn_id: `generic-patch-${contract.viewSchemaId}-${Date.now()}`,
-          changes: [change],
-        }),
-      },
-    );
+    const result = await submitViewRecordPatch({
+      apiBase,
+      baseRowVersion: selectedEditRow.row_version,
+      changes: [change],
+      clientTxnId: `generic-patch-${contract.viewSchemaId}-${Date.now()}`,
+      recordId: selectedEditRow.record_id,
+      viewSchemaId: contract.viewSchemaId,
+    });
     if (!result.ok) {
       setMutationState("Conflict");
       setMutationError(parseMutationError(result.payload));
@@ -10765,18 +10776,14 @@ function GenericWorkbookSurface({
     }
     setMutationState("Syncing");
     setMutationError(null);
-    const result = await fetchJSON<ViewMutationEnvelope>(
-      apiPath(apiBase, `/api/v1/records/${selectedEditRow.record_id}`),
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          view_schema_id: contract.viewSchemaId,
-          base_row_version: selectedEditRow.row_version,
-          client_txn_id: `${txnPrefix}-${contract.viewSchemaId}-${Date.now()}`,
-          changes,
-        }),
-      },
-    );
+    const result = await submitViewRecordPatch({
+      apiBase,
+      baseRowVersion: selectedEditRow.row_version,
+      changes,
+      clientTxnId: `${txnPrefix}-${contract.viewSchemaId}-${Date.now()}`,
+      recordId: selectedEditRow.record_id,
+      viewSchemaId: contract.viewSchemaId,
+    });
     if (!result.ok) {
       setMutationState("Conflict");
       setMutationError(parseMutationError(result.payload));

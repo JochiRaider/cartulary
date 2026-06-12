@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,10 +10,17 @@ import { loadBrowserBatchStages as loadBrowserBatchStagesFromManifest } from "./
 import { browserGroupCommand } from "./lib/browser-scheduler-dependencies.mjs";
 import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
 import { createRunnerContext } from "./lib/runner-context.mjs";
-import { browserStageCompleteRuntimeCommand } from "./lib/scheduler-browser-runtime.mjs";
-import { parseSchedulerRunnerArgs } from "./lib/scheduler-cli.mjs";
 import {
-  loadSchedulerManifest,
+  browserSessionFilesFor,
+  browserSessionFinalizerCommand,
+  browserSessionKeyFor,
+  browserSessionStartCommand,
+  browserStageCompleteCommand,
+  loadSchedulerRunnerManifest,
+  readStringEnvFile,
+  testOutputRuntimeCommand,
+} from "./lib/scheduler/runtime-command-helpers.mjs";
+import {
   normalizeSchedulerSchedule,
   parseResourceLimitOverride,
 } from "./lib/scheduler-manifest.mjs";
@@ -133,12 +140,9 @@ function validateNormalizedServiceBackedSchedule(schedule, browserStages) {
 }
 
 async function readJSONEnvFile(file) {
-  const parsed = JSON.parse(await readFile(file, "utf8"));
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error(`${file} must contain a JSON environment object`);
-  }
-  return Object.fromEntries(
-    Object.entries(parsed).filter((entry) => typeof entry[1] === "string"),
+  return readStringEnvFile(
+    file,
+    `${file} must contain a JSON environment object`,
   );
 }
 
@@ -258,36 +262,14 @@ function attachRuntime(
     path.join(repoRoot, "scripts", "start-web-e2e.sh");
   const browserGroupRunner =
     process.env.CARTULARY_BROWSER_E2E_GROUP_RUNNER || "";
-  const testOutputCommand = testOutputScript.endsWith(".mjs")
-    ? `${JSON.stringify(process.env.NODE_BIN || process.execPath)} ${JSON.stringify(testOutputScript)}`
-    : JSON.stringify(testOutputScript);
+  const testOutputCommand = testOutputRuntimeCommand(testOutputScript);
   const cartularyTestServicesBin =
     process.env.CARTULARY_TEST_SERVICES_BIN ||
     process.env.TEST_SERVICES_BIN ||
     "";
-  const browserSessionKeyFor = (unit) =>
-    unit.browserSessionGroup || unit.aggregateTarget || unit.target;
-  const browserSessionUnits = schedule.workUnits
-    .filter((unit) => unit.kind === "browser_stage_session")
-    .sort((left, right) => browserSessionKeyFor(left).localeCompare(browserSessionKeyFor(right)));
-  const browserSessionFiles = new Map(
-    browserSessionUnits.map((unit) => {
-      const sessionKey = browserSessionKeyFor(unit);
-      const fileStem = sessionKey.replaceAll(/[^A-Za-z0-9_.-]/g, "_");
-      return [
-        sessionKey,
-        {
-          envFile: path.join(
-            metadataDir,
-            `${fileStem}-browser-env.json`,
-          ),
-          leaseFile: path.join(
-            metadataDir,
-            `${fileStem}-browser-lease.json`,
-          ),
-        },
-      ];
-    }),
+  const { sessionFiles: browserSessionFiles } = browserSessionFilesFor(
+    schedule.workUnits,
+    metadataDir,
   );
   const browserSessionEnvFor = async (target) => {
     const files = browserSessionFiles.get(target);
@@ -314,24 +296,20 @@ function attachRuntime(
     }
     if (unit.kind === "browser_stage_session") {
       const files = browserSessionFiles.get(browserSessionKeyFor(unit));
-      unit.command = () => ({
-        command: browserSessionScript,
-        args: [
-          "--session-start",
-          "--env-file",
-          files.envFile,
-          "--lease-file",
-          files.leaseFile,
-        ],
-        env: {
-          ...process.env,
-          CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
-          CARTULARY_TEST_TARGET: unit.target,
-          CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
-          CARTULARY_BROWSER_STAGE: unit.browserStage,
-          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-        },
-      });
+      unit.command = () =>
+        browserSessionStartCommand({
+          browserSessionScript,
+          env: {
+            ...process.env,
+            CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
+            CARTULARY_TEST_TARGET: unit.target,
+            CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
+            CARTULARY_BROWSER_STAGE: unit.browserStage,
+            CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+          },
+          envFile: files.envFile,
+          leaseFile: files.leaseFile,
+        });
       continue;
     }
     if (unit.kind === "browser_group") {
@@ -372,7 +350,7 @@ function attachRuntime(
       const files = browserSessionFiles.get(browserSessionKeyFor(unit));
       const shouldStopSession = unit.browserSessionFinalizer !== false;
       unit.command = () =>
-        browserStageCompleteRuntimeCommand({
+        browserStageCompleteCommand({
           browserSessionScript,
           env: {
             ...process.env,
@@ -391,22 +369,19 @@ function attachRuntime(
     }
     if (unit.kind === "browser_session_finalizer") {
       const files = browserSessionFiles.get(browserSessionKeyFor(unit));
-      unit.command = () => ({
-        command: browserSessionScript,
-        args: [
-          "--session-stop",
-          "--lease-file",
-          files.leaseFile,
-        ],
-        env: {
-          ...process.env,
-          ...unit.env,
-          CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
-          CARTULARY_TEST_TARGET: unit.target,
-          CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
-          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-        },
-      });
+      unit.command = () =>
+        browserSessionFinalizerCommand({
+          browserSessionScript,
+          env: {
+            ...process.env,
+            ...unit.env,
+            CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
+            CARTULARY_TEST_TARGET: unit.target,
+            CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
+            CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+          },
+          leaseFile: files.leaseFile,
+        });
       continue;
     }
     if (unit.kind === "go_shard") {
@@ -579,18 +554,16 @@ async function runSchedule({
 
 async function main() {
   const context = createRunnerContext({ repoRoot });
-  const options = parseSchedulerRunnerArgs(process.argv.slice(2), {
-    allowDeferSummary: true,
-    defaultManifestPath,
-    parseResourceLimitOverride,
-    usageText:
-      "usage: run-service-backed-schedule.mjs --target <target> [--manifest <path>] [--defer-summary] [--resource-limit <name=value>...]\n",
-  });
-  const { manifest, manifestPath } = await loadSchedulerManifest(
-    options.manifest,
+  const { manifest, manifestPath, options } = await loadSchedulerRunnerManifest(
+    process.argv.slice(2),
     {
+      allowDeferSummary: true,
+      defaultManifestPath,
+      parseResourceLimitOverride,
       repoRoot,
       schemaID: supportedSchemaID,
+      usageText:
+        "usage: run-service-backed-schedule.mjs --target <target> [--manifest <path>] [--defer-summary] [--resource-limit <name=value>...]\n",
     },
   );
   const schedule = normalizeSchedulerSchedule(manifest, options.target, {

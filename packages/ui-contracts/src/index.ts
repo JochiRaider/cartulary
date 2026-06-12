@@ -315,7 +315,7 @@ const phase1ErrorSurfaces = Object.freeze(
 );
 
 export function phase1AuthTestId(selector: Phase1AuthSelector): StableTestId {
-  return stableSelectorTokenTestId(
+  return phase1SelectorTestId(
     phase1AuthTestIds,
     selector,
     "phase1 auth selector",
@@ -325,7 +325,7 @@ export function phase1AuthTestId(selector: Phase1AuthSelector): StableTestId {
 export function phase1AccountTestId(
   selector: Phase1AccountSelector,
 ): StableTestId {
-  return stableSelectorTokenTestId(
+  return phase1SelectorTestId(
     phase1AccountTestIds,
     selector,
     "phase1 account selector",
@@ -333,7 +333,7 @@ export function phase1AccountTestId(
 }
 
 export function phase1AdminTestId(selector: Phase1AdminSelector): StableTestId {
-  return stableSelectorTokenTestId(
+  return phase1SelectorTestId(
     phase1AdminTestIds,
     selector,
     "phase1 admin selector",
@@ -343,7 +343,7 @@ export function phase1AdminTestId(selector: Phase1AdminSelector): StableTestId {
 export function phase1LandingTestId(
   selector: Phase1LandingSelector,
 ): StableTestId {
-  return stableSelectorTokenTestId(
+  return phase1SelectorTestId(
     phase1LandingTestIds,
     selector,
     "phase1 landing selector",
@@ -351,7 +351,7 @@ export function phase1LandingTestId(
 }
 
 export function phase1RouteTestId(selector: Phase1RouteSelector): StableTestId {
-  return stableSelectorTokenTestId(
+  return phase1SelectorTestId(
     phase1RouteTestIds,
     selector,
     "phase1 route selector",
@@ -481,27 +481,27 @@ export function incidentMembershipListTestId(): string {
 }
 
 export function incidentMembershipRowTestId(userId: string): string {
-  return encodedTestId("incident-membership-row", userId, "user_id");
+  return userScopedTestId("incident-membership-row", userId);
 }
 
 export function incidentMembershipVersionTestId(userId: string): string {
-  return encodedTestId("incident-membership-version", userId, "user_id");
+  return userScopedTestId("incident-membership-version", userId);
 }
 
 export function incidentMembershipRoleInputTestId(userId: string): string {
-  return encodedTestId("incident-membership-role-input", userId, "user_id");
+  return userScopedTestId("incident-membership-role-input", userId);
 }
 
 export function incidentMembershipPatchButtonTestId(userId: string): string {
-  return encodedTestId("incident-membership-patch", userId, "user_id");
+  return userScopedTestId("incident-membership-patch", userId);
 }
 
 export function incidentMembershipDeleteButtonTestId(userId: string): string {
-  return encodedTestId("incident-membership-delete", userId, "user_id");
+  return userScopedTestId("incident-membership-delete", userId);
 }
 
 export function incidentMembershipRoleDisplayTestId(userId: string): string {
-  return encodedTestId("incident-membership-role", userId, "user_id");
+  return userScopedTestId("incident-membership-role", userId);
 }
 
 export function phase2IncidentRowTestId(incidentId: string): string {
@@ -513,23 +513,23 @@ export function phase2SelectIncidentButtonTestId(incidentId: string): string {
 }
 
 export function phase2MembershipRowTestId(userId: string): string {
-  return encodedTestId("membership-row", userId, "user_id");
+  return userScopedTestId("membership-row", userId);
 }
 
 export function phase2MembershipRoleInputTestId(userId: string): string {
-  return encodedTestId("membership-role-input", userId, "user_id");
+  return userScopedTestId("membership-role-input", userId);
 }
 
 export function phase2MembershipVersionTestId(userId: string): string {
-  return encodedTestId("membership-version", userId, "user_id");
+  return userScopedTestId("membership-version", userId);
 }
 
 export function phase2MembershipPatchButtonTestId(userId: string): string {
-  return encodedTestId("patch-membership", userId, "user_id");
+  return userScopedTestId("patch-membership", userId);
 }
 
 export function phase2MembershipDeleteButtonTestId(userId: string): string {
-  return encodedTestId("delete-membership", userId, "user_id");
+  return userScopedTestId("delete-membership", userId);
 }
 
 export function extensionProfileRowTestId(profileId: string): string {
@@ -914,23 +914,23 @@ export function assessmentCreatePanelTestId(): string {
 }
 
 export function evidencePreviewButtonTestId(recordId: string): string {
-  return recordTestId("evidence-preview", recordId);
+  return evidenceRecordControlTestId("preview", recordId);
 }
 
 export function evidenceDownloadButtonTestId(recordId: string): string {
-  return recordTestId("evidence-download", recordId);
+  return evidenceRecordControlTestId("download", recordId);
 }
 
 export function evidenceAttachFileInputTestId(recordId: string): string {
-  return recordTestId("evidence-attach-file", recordId);
+  return evidenceRecordControlTestId("attach-file", recordId);
 }
 
 export function evidenceAccessMessageTestId(recordId: string): string {
-  return recordTestId("evidence-access-message", recordId);
+  return evidenceRecordControlTestId("access-message", recordId);
 }
 
 export function evidencePreviewFrameTestId(recordId: string): string {
-  return recordTestId("evidence-preview-frame", recordId);
+  return evidenceRecordControlTestId("preview-frame", recordId);
 }
 
 export function evidencePreviewPanelTestId(): string {
@@ -946,23 +946,23 @@ export function genericCreateSubmitTestId(viewSchemaId: string): string {
 }
 
 export function genericEditRecordSelectTestId(viewSchemaId: string): string {
-  return viewScopedTestId("generic-edit-record", viewSchemaId);
+  return genericEditControlTestId("record", viewSchemaId);
 }
 
 export function genericEditFieldSelectTestId(viewSchemaId: string): string {
-  return viewScopedTestId("generic-edit-field", viewSchemaId);
+  return genericEditControlTestId("field", viewSchemaId);
 }
 
 export function genericEditActionSelectTestId(viewSchemaId: string): string {
-  return viewScopedTestId("generic-edit-action", viewSchemaId);
+  return genericEditControlTestId("action", viewSchemaId);
 }
 
 export function genericEditValueTestId(viewSchemaId: string): string {
-  return viewScopedTestId("generic-edit-value", viewSchemaId);
+  return genericEditControlTestId("value", viewSchemaId);
 }
 
 export function genericEditSubmitTestId(viewSchemaId: string): string {
-  return viewScopedTestId("generic-edit-submit", viewSchemaId);
+  return genericEditControlTestId("submit", viewSchemaId);
 }
 
 export function mentionResolveTargetSelectTestId(): string {
@@ -1082,12 +1082,24 @@ function stableSelectorTokenTestId<T extends string>(
   return stableTestId(requireSelectorToken(tokens, value, label));
 }
 
+function phase1SelectorTestId<T extends string>(
+  tokens: Readonly<Record<T, string>>,
+  value: T,
+  label: string,
+): StableTestId {
+  return stableSelectorTokenTestId(tokens, value, label);
+}
+
 function stableTestId(value: string): StableTestId {
   return value as StableTestId;
 }
 
 function encodedTestId(prefix: string, value: string, label: string): string {
   return `${prefix}-${encodeSelectorSegment(value, label)}`;
+}
+
+function userScopedTestId(prefix: string, userId: string): string {
+  return encodedTestId(prefix, userId, "user_id");
 }
 
 function stableEncodedTestId(
@@ -1102,6 +1114,13 @@ function viewScopedTestId(prefix: string, viewSchemaId: string): string {
   return `${prefix}-${requireViewSchemaId(viewSchemaId)}`;
 }
 
+function genericEditControlTestId(
+  control: string,
+  viewSchemaId: string,
+): string {
+  return viewScopedTestId(`generic-edit-${control}`, viewSchemaId);
+}
+
 function viewFirstTestId(
   viewSchemaId: WorkbookSurface,
   suffix: string,
@@ -1109,13 +1128,31 @@ function viewFirstTestId(
   return `${requireViewSchemaId(viewSchemaId)}-${suffix}`;
 }
 
+function suffixedTestId(base: string, suffix?: string): string {
+  return suffix === undefined ? base : `${base}-${suffix}`;
+}
+
+function tokenScopedTestId(
+  prefix: string,
+  token: string,
+  suffix?: string,
+): string {
+  return suffixedTestId(`${prefix}-${token}`, suffix);
+}
+
 function recordTestId(
   prefix: string,
   recordId: string,
   suffix?: string,
 ): string {
-  const base = `${prefix}-${requireRecordId(recordId)}`;
-  return suffix === undefined ? base : `${base}-${suffix}`;
+  return tokenScopedTestId(prefix, requireRecordId(recordId), suffix);
+}
+
+function evidenceRecordControlTestId(
+  control: string,
+  recordId: string,
+): string {
+  return recordTestId(`evidence-${control}`, recordId);
 }
 
 function recordFieldTestId(
@@ -1124,13 +1161,15 @@ function recordFieldTestId(
   fieldKey: string,
   suffix?: string,
 ): string {
-  const base = `${recordTestId(prefix, recordId)}-${requireFieldKey(fieldKey)}`;
-  return suffix === undefined ? base : `${base}-${suffix}`;
+  return tokenScopedTestId(
+    recordTestId(prefix, recordId),
+    requireFieldKey(fieldKey),
+    suffix,
+  );
 }
 
 function draftFieldTestId(fieldKey: string, suffix?: string): string {
-  const base = `draft-row-${requireFieldKey(fieldKey)}`;
-  return suffix === undefined ? base : `${base}-${suffix}`;
+  return tokenScopedTestId("draft-row", requireFieldKey(fieldKey), suffix);
 }
 
 function itemRefTestId(
@@ -1138,8 +1177,7 @@ function itemRefTestId(
   itemRef: string,
   suffix?: string,
 ): string {
-  const base = `${prefix}-${requireItemRef(itemRef)}`;
-  return suffix === undefined ? base : `${base}-${suffix}`;
+  return tokenScopedTestId(prefix, requireItemRef(itemRef), suffix);
 }
 
 function requireClosedToken<T extends string>(
