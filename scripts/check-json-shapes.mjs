@@ -24,11 +24,14 @@ import {
   requireArray,
   requireEnum,
   requireInteger,
+  requireNullableEnum,
   requireObject,
   requireObjectArray,
   requirePositiveInteger,
   requireRepoRelativePath,
+  requireRFC3339Timestamp,
   requireSchemaID,
+  requireSorted,
   requireString,
   requireStringArray,
   validateObjectArray,
@@ -43,6 +46,7 @@ import {
   phaseRegistrySchemaID,
   validatePhaseRegistry,
 } from "./lib/phase-registry.mjs";
+import { validateSchedulerCommandShape } from "./lib/scheduler-manifest.mjs";
 import {
   loadSchedulerResourceRegistry,
   validateSchedulerResourceRegistryShape as validateSchedulerResourceRegistryManifestShape,
@@ -200,55 +204,6 @@ const schedulerWorkUnitKeys = new Set([
   "unblock_label",
   "command",
 ]);
-const schedulerCommandTypes = new Set([
-  "make_target",
-  "service_session_start",
-  "browser_stage_session_start",
-  "browser_group",
-  "browser_stage_complete",
-  "browser_session_finalizer",
-  "go_shard",
-  "go_shard_finalize",
-  "service_complete",
-]);
-const schedulerCommandShapes = Object.freeze({
-  make_target: {
-    required: ["target"],
-    optional: ["service_target"],
-  },
-  service_session_start: {
-    required: ["service_target"],
-    optional: [],
-  },
-  browser_stage_session_start: {
-    required: ["service_target", "browser_stage"],
-    optional: [],
-  },
-  browser_group: {
-    required: ["service_target", "browser_stage", "group_id"],
-    optional: [],
-  },
-  browser_stage_complete: {
-    required: ["service_target", "browser_stage"],
-    optional: [],
-  },
-  browser_session_finalizer: {
-    required: ["service_target", "browser_session_group"],
-    optional: [],
-  },
-  go_shard: {
-    required: ["target", "shard", "service_target"],
-    optional: [],
-  },
-  go_shard_finalize: {
-    required: ["target", "service_target"],
-    optional: [],
-  },
-  service_complete: {
-    required: ["service_target"],
-    optional: [],
-  },
-});
 const toolRunFailureClasses = new Set([
   "product",
   "config",
@@ -311,8 +266,6 @@ const toolRunWorkUnitKeys = new Set([
 const toolRunEvidenceTargetKeys = new Set(["target", "status", "run_root"]);
 const toolRunHelperUnitKeys = new Set(["target", "status", "run_root"]);
 const toolRunSlowestKeys = new Set(["id", "duration_ms", "kind"]);
-const rfc3339TimestampPattern =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
 const extensionKeyPattern =
   /^(?:cartulary\.[A-Za-z0-9_.-]+|[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+){2,})$/u;
 const generatedArtifactEntryKeys = new Set([
@@ -615,24 +568,6 @@ function validateTaskSurfaceShape(file) {
     throw new Error(
       `${file} is invalid:\n${errors.map((error) => `  - ${error}`).join("\n")}`,
     );
-  }
-}
-
-function validateSchedulerCommandShape(command, label) {
-  const type = requireEnum(command.type, `${label}.type`, schedulerCommandTypes);
-  const shape = schedulerCommandShapes[type];
-  assertObjectKeys(
-    command,
-    new Set(["type", ...shape.required, ...shape.optional]),
-    label,
-  );
-  for (const field of shape.required) {
-    requireString(command[field], `${label}.${field}`);
-  }
-  for (const field of shape.optional) {
-    if (command[field] !== undefined) {
-      requireString(command[field], `${label}.${field}`);
-    }
   }
 }
 
@@ -1128,17 +1063,6 @@ function validateDurationBaselineShape(file) {
   }
 }
 
-function requireSorted(values, label, keyFn, orderLabel = "stable key") {
-  let previous = null;
-  for (const value of values) {
-    const key = keyFn(value);
-    if (previous !== null && key < previous) {
-      throw new Error(`${label} must be sorted by ${orderLabel}`);
-    }
-    previous = key;
-  }
-}
-
 function artifactStableKey(artifact) {
   return `${artifact.role}\u0000${artifact.kind}\u0000${artifact.path}`;
 }
@@ -1154,24 +1078,6 @@ function failureStableKey(failure) {
     failure.kind ?? "",
     failure.message ?? failure.headline ?? "",
   ].join("\u0000");
-}
-
-function requireNullableEnum(value, label, allowed) {
-  if (value === null) {
-    return null;
-  }
-  return requireEnum(value, label, allowed);
-}
-
-function requireRFC3339Timestamp(value, label) {
-  const timestamp = requireString(value, label);
-  if (
-    !rfc3339TimestampPattern.test(timestamp) ||
-    Number.isNaN(Date.parse(timestamp))
-  ) {
-    throw new Error(`${label} must be an RFC3339 timestamp`);
-  }
-  return timestamp;
 }
 
 function validateToolRunArtifacts(value, label) {

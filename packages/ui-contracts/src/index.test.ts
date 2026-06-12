@@ -10,6 +10,7 @@ import {
   currentIncidentRoleTestId,
   dataTestIdPrefixSelector,
   dataTestIdSelector,
+  draftCellTestId,
   draftRelationshipItemsTestId,
   draftTimelineCollectionInputTestId,
   entityInspectButtonTestId,
@@ -526,6 +527,15 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(gridRowTestId("cartulary.view.hosts.v1", "host-1")).toBe(
       "grid-row-cartulary.view.hosts.v1-host-1",
     );
+    expect(rowCellTestId("record-1", "timeline.summary")).toBe(
+      "row-record-1-timeline.summary",
+    );
+    expect(rowInspectorFieldTestId("record-1", "timeline.details")).toBe(
+      "row-record-1-timeline.details-inspector",
+    );
+    expect(draftCellTestId("timeline.summary")).toBe(
+      "draft-row-timeline.summary",
+    );
     expect(timelineRowVersionTestId("record-1")).toBe(
       "row-record-1-row_version",
     );
@@ -680,6 +690,12 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(rowCellTestId("record/1?x=y#z", "timeline.summary")).toBe(
       "row-record%2F1%3Fx%3Dy%23z-timeline.summary",
+    );
+    expect(conflictMarkerTestId("record/1?x=y#z", "timeline.summary")).toBe(
+      "conflict-marker-record%2F1%3Fx%3Dy%23z-timeline.summary",
+    );
+    expect(cellPresenceMarkerTestId("record/1?x=y#z", "timeline.summary")).toBe(
+      "presence-cell-record%2F1%3Fx%3Dy%23z-timeline.summary",
     );
 
     expect(relationshipChipTestId("a:b")).not.toBe(

@@ -15,7 +15,7 @@ import {
 export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v1";
 const envNamePattern = /^[A-Z][A-Z0-9_]*$/;
 const makePrerequisitePolicies = new Set(["run", "skip"]);
-const commandTypes = new Set([
+export const schedulerCommandTypeValues = Object.freeze([
   "make_target",
   "service_session_start",
   "browser_stage_session_start",
@@ -26,7 +26,8 @@ const commandTypes = new Set([
   "go_shard_finalize",
   "service_complete",
 ]);
-const commandShapes = Object.freeze({
+const commandTypes = new Set(schedulerCommandTypeValues);
+export const schedulerCommandShapes = Object.freeze({
   make_target: {
     required: ["target"],
     optional: ["service_target"],
@@ -64,6 +65,40 @@ const commandShapes = Object.freeze({
     optional: [],
   },
 });
+
+export function validateSchedulerCommandShape(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  if (typeof value.type !== "string" || value.type.trim() === "") {
+    throw new Error(`${label}.type must be a non-empty string`);
+  }
+  if (!commandTypes.has(value.type)) {
+    throw new Error(
+      `${label}.type must be one of ${schedulerCommandTypeValues.join("|")}`,
+    );
+  }
+  const shape = schedulerCommandShapes[value.type];
+  const allowed = new Set(["type", ...shape.required, ...shape.optional]);
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) {
+      throw new Error(`${label} has unknown key ${key}`);
+    }
+  }
+  for (const field of shape.required) {
+    if (typeof value[field] !== "string" || value[field].trim() === "") {
+      throw new Error(`${label}.${field} must be a non-empty string`);
+    }
+  }
+  for (const field of shape.optional) {
+    if (
+      value[field] !== undefined &&
+      (typeof value[field] !== "string" || value[field].trim() === "")
+    ) {
+      throw new Error(`${label}.${field} must be a non-empty string`);
+    }
+  }
+}
 
 export function parseResourceLimitOverride(value) {
   const [resource, amountText, extra] = value.split("=");
@@ -164,32 +199,7 @@ function normalizeEnv(value, label) {
 }
 
 function normalizeCommand(value, label) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${label} command must be an object`);
-  }
-  if (typeof value.type !== "string" || !commandTypes.has(value.type)) {
-    throw new Error(`${label} command.type must be one of ${Array.from(commandTypes).join(", ")}`);
-  }
-  const shape = commandShapes[value.type];
-  const allowed = new Set(["type", ...shape.required, ...shape.optional]);
-  for (const key of Object.keys(value)) {
-    if (!allowed.has(key)) {
-      throw new Error(`${label} command.${key} is not allowed for ${value.type}`);
-    }
-  }
-  for (const field of shape.required) {
-    if (typeof value[field] !== "string" || value[field].trim() === "") {
-      throw new Error(`${label} command.${field} must be a non-empty string for ${value.type}`);
-    }
-  }
-  for (const field of shape.optional) {
-    if (
-      value[field] !== undefined &&
-      (typeof value[field] !== "string" || value[field].trim() === "")
-    ) {
-      throw new Error(`${label} command.${field} must be a non-empty string for ${value.type}`);
-    }
-  }
+  validateSchedulerCommandShape(value, `${label} command`);
   return Object.fromEntries(
     Object.entries(value).map(([key, raw]) => [
       key,

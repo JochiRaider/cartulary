@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:39f0e00f3326f2b1ce44c419e6f390173a38ee1eb57f83931f89f3f5a424c538",
+  "input_digest": "sha256:7b4b06a92551226c8afae9e210bea6b12e74deb283476b203e6c787d1c8ad181",
   "inputs": [
     {
       "path": "scripts/lib/agent-finalize-action-cache.mjs",
@@ -137,7 +137,7 @@
     {
       "path": "scripts/lib/json-shape.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7c2b38e38a5c07234288497d9e1d573abedc9118eaecdce3f1a9ca11e6edfe3d"
+      "hash": "sha256:dd8785e42dfa6fbe5c3d992dbbe980549ebf99b261cf06b273c0778f65b2ded1"
     },
     {
       "path": "scripts/lib/json-test-helper.mjs",
@@ -190,9 +190,19 @@
       "hash": "sha256:722deb4d99ec470866151fdab5d42d4d2d1690408d2572845148fcacc7e72f83"
     },
     {
+      "path": "scripts/lib/scheduler-browser-runtime.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:94867e27af9b146974a1c6ac72aa07486e1e05568ce1fe7208013d3c55336165"
+    },
+    {
+      "path": "scripts/lib/scheduler-cli.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:a17f5987862c7d1e20e067ace827f0ccf0f9cab5093443675c76e809cd53817f"
+    },
+    {
       "path": "scripts/lib/scheduler-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:89b0b948879bef24390a8e0eda28797dba81a8c640824b6f9bede7f12333231a"
+      "hash": "sha256:fdc1bc3a1697258ec3e06ea2093e81fa7bd698d88841e7b7c94243fdee65e6c0"
     },
     {
       "path": "scripts/lib/scheduler-reporting.mjs",

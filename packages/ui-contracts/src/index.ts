@@ -584,7 +584,7 @@ export function conflictMarkerTestId(
   recordId: string,
   fieldKey: string,
 ): string {
-  return `conflict-marker-${requireRecordId(recordId)}-${requireFieldKey(fieldKey)}`;
+  return recordFieldTestId("conflict-marker", recordId, fieldKey);
 }
 
 export function rowPresenceMarkerTestId(recordId: string): string {
@@ -595,7 +595,7 @@ export function cellPresenceMarkerTestId(
   recordId: string,
   fieldKey: string,
 ): string {
-  return `presence-cell-${requireRecordId(recordId)}-${requireFieldKey(fieldKey)}`;
+  return recordFieldTestId("presence-cell", recordId, fieldKey);
 }
 
 export function saveStateTestId(): string {
@@ -727,7 +727,7 @@ export function gridRowTestId(
 }
 
 export function rowCellTestId(recordId: string, fieldKey: string): string {
-  return `row-${requireRecordId(recordId)}-${requireFieldKey(fieldKey)}`;
+  return recordFieldTestId("row", recordId, fieldKey);
 }
 
 export function timelineScalarEditorTestId(options: {
@@ -746,7 +746,7 @@ export function rowInspectorFieldTestId(
   recordId: string,
   fieldKey: string,
 ): string {
-  return `${rowCellTestId(recordId, fieldKey)}-inspector`;
+  return recordFieldTestId("row", recordId, fieldKey, "inspector");
 }
 
 export function rowInspectButtonTestId(recordId: string): string {
@@ -801,7 +801,7 @@ export function rowHistoryActionTestId(anchor: RowHistoryActionAnchor): string {
 }
 
 export function draftCellTestId(fieldKey: string): string {
-  return `draft-row-${requireFieldKey(fieldKey)}`;
+  return draftFieldTestId(fieldKey);
 }
 
 export function draftRowCreateButtonTestId(): string {
@@ -812,22 +812,22 @@ export function relationshipItemsTestId(
   recordId: string,
   fieldKey: string,
 ): string {
-  return `row-${requireRecordId(recordId)}-${requireFieldKey(fieldKey)}-items`;
+  return recordFieldTestId("row", recordId, fieldKey, "items");
 }
 
 export function draftRelationshipItemsTestId(fieldKey: string): string {
-  return `draft-row-${requireFieldKey(fieldKey)}-items`;
+  return draftFieldTestId(fieldKey, "items");
 }
 
 export function timelineCollectionInputTestId(
   recordId: string,
   fieldKey: string,
 ): string {
-  return `row-${requireRecordId(recordId)}-${requireFieldKey(fieldKey)}-input`;
+  return recordFieldTestId("row", recordId, fieldKey, "input");
 }
 
 export function draftTimelineCollectionInputTestId(fieldKey: string): string {
-  return `draft-row-${requireFieldKey(fieldKey)}-input`;
+  return draftFieldTestId(fieldKey, "input");
 }
 
 export function timelineRowVersionTestId(recordId: string): string {
@@ -867,15 +867,15 @@ export function timelinePreviewRowTestId(recordId: string): string {
 }
 
 export function relationshipChipTestId(itemRef: string): string {
-  return `chip-${requireItemRef(itemRef)}`;
+  return itemRefTestId("chip", itemRef);
 }
 
 export function mentionItemTestId(itemRef: string): string {
-  return `mention-${requireItemRef(itemRef)}`;
+  return itemRefTestId("mention", itemRef);
 }
 
 export function autoResolutionNoticeTestId(itemRef: string): string {
-  return `auto-resolution-notice-${requireItemRef(itemRef)}`;
+  return itemRefTestId("auto-resolution-notice", itemRef);
 }
 
 export function autoResolutionNoticeFamilySelector(): string {
@@ -1115,6 +1115,30 @@ function recordTestId(
   suffix?: string,
 ): string {
   const base = `${prefix}-${requireRecordId(recordId)}`;
+  return suffix === undefined ? base : `${base}-${suffix}`;
+}
+
+function recordFieldTestId(
+  prefix: string,
+  recordId: string,
+  fieldKey: string,
+  suffix?: string,
+): string {
+  const base = `${recordTestId(prefix, recordId)}-${requireFieldKey(fieldKey)}`;
+  return suffix === undefined ? base : `${base}-${suffix}`;
+}
+
+function draftFieldTestId(fieldKey: string, suffix?: string): string {
+  const base = `draft-row-${requireFieldKey(fieldKey)}`;
+  return suffix === undefined ? base : `${base}-${suffix}`;
+}
+
+function itemRefTestId(
+  prefix: string,
+  itemRef: string,
+  suffix?: string,
+): string {
+  const base = `${prefix}-${requireItemRef(itemRef)}`;
   return suffix === undefined ? base : `${base}-${suffix}`;
 }
 

@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+const rfc3339TimestampPattern =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
+
 export function readJsonObject(file, label = file) {
   const text = readFileSync(file, "utf8");
   assertNoDuplicateObjectMembers(text, label);
@@ -185,6 +188,24 @@ export function requireEnum(value, label, allowed) {
   return string;
 }
 
+export function requireNullableEnum(value, label, allowed) {
+  if (value === null) {
+    return null;
+  }
+  return requireEnum(value, label, allowed);
+}
+
+export function requireRFC3339Timestamp(value, label) {
+  const timestamp = requireString(value, label);
+  if (
+    !rfc3339TimestampPattern.test(timestamp) ||
+    Number.isNaN(Date.parse(timestamp))
+  ) {
+    throw new Error(`${label} must be an RFC3339 timestamp`);
+  }
+  return timestamp;
+}
+
 export function optionalStringArray(value, label) {
   if (value === undefined) {
     return [];
@@ -253,6 +274,22 @@ export function assertUnique(values, label) {
       throw new Error(`${label} contains duplicate ${value}`);
     }
     seen.add(value);
+  }
+}
+
+export function requireSorted(
+  values,
+  label,
+  keyFn,
+  orderLabel = "stable key",
+) {
+  let previous = null;
+  for (const value of values) {
+    const key = keyFn(value);
+    if (previous !== null && key < previous) {
+      throw new Error(`${label} must be sorted by ${orderLabel}`);
+    }
+    previous = key;
   }
 }
 

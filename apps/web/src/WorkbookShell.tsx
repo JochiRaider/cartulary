@@ -157,7 +157,10 @@ import {
   normalizeWorkbookViewRows,
   workbookContractColumns,
 } from "./workbookContractRows";
-import { mapWorkbookKeyboardCommand } from "./workbookKeyboard";
+import {
+  mapWorkbookKeyboardCommand,
+  type WorkbookKeyboardCommand,
+} from "./workbookKeyboard";
 import {
   type AutoResolutionNotice,
   buildAutoResolutionNotices,
@@ -5653,6 +5656,95 @@ export function TimelineWorkbook({
     };
   }, [changeSocketURL, incidentId]);
 
+  const enqueueAutosaveReplayForPendingMutation = useCallback(
+    ({
+      clientTxnId,
+      continueOnFreshDraft,
+      detectAutoResolution,
+      focusField,
+      focusKey,
+      mutationSignature,
+      payloadIntent,
+      promoteToCommittedRowInspect,
+      rowKey,
+      rowSnapshot,
+      surface,
+      viewportContinuityToken,
+      visibleEdit,
+    }: {
+      clientTxnId: string;
+      continueOnFreshDraft: boolean;
+      detectAutoResolution: boolean;
+      focusField: FocusFieldKey;
+      focusKey: string;
+      mutationSignature: string;
+      payloadIntent: PendingReplayUnitInput["payloadIntent"];
+      promoteToCommittedRowInspect: boolean;
+      rowKey: string;
+      rowSnapshot: WorkbookRow;
+      surface: TimelineScalarEditorSurface;
+      viewportContinuityToken: number;
+      visibleEdit?: PendingReplayUnitInput["visibleEdit"];
+    }) => {
+      pendingSignaturesRef.current.set(rowKey, mutationSignature);
+      startTransition(() => {
+        setRows((current) => {
+          const nextRows = current.map((row) =>
+            row.key === rowKey
+              ? { ...row, pendingSignature: mutationSignature }
+              : row,
+          );
+          rowsRef.current = nextRows;
+          return nextRows;
+        });
+      });
+
+      const targetPath =
+        rowSnapshot.recordId === null
+          ? apiPath(
+              apiBase,
+              `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
+            )
+          : apiPath(apiBase, `/api/v1/records/${rowSnapshot.recordId}`);
+      const clientInstanceId =
+        socketClientInstanceIdRef.current ?? tabClientInstanceId();
+      socketClientInstanceIdRef.current = clientInstanceId;
+      enqueuePendingReplayUnit({
+        id: `pending-${clientTxnId}`,
+        kind: rowSnapshot.recordId === null ? "create" : "patch",
+        source: "autosave",
+        incidentId,
+        clientInstanceId,
+        viewSchemaId: timelineViewSchemaId,
+        rowKey,
+        recordId: rowSnapshot.recordId,
+        focusField,
+        focusKey,
+        surface,
+        method: rowSnapshot.recordId === null ? "POST" : "PATCH",
+        path: targetPath,
+        payloadIntent,
+        clientTxnId,
+        mutationSignature,
+        coalesceKey:
+          rowSnapshot.recordId === null
+            ? `draft:${rowKey}`
+            : `record:${rowSnapshot.recordId}`,
+        enqueueOrder: pendingReplayOrderRef.current,
+        operationClass: "hot_path",
+        status: "queued",
+        ...(visibleEdit === undefined ? {} : { visibleEdit }),
+        rowSnapshot,
+        continueOnFreshDraft,
+        detectAutoResolution,
+        promoteToCommittedRowInspect,
+        viewportContinuityToken,
+      });
+      pendingReplayOrderRef.current += 1;
+    },
+    [apiBase, enqueuePendingReplayUnit, incidentId],
+  );
+
   const queueScalarSave = useCallback(
     (
       rowKey: string,
@@ -5737,68 +5829,25 @@ export function TimelineWorkbook({
               kind: "scroll-only",
             },
       );
-      pendingSignaturesRef.current.set(effectiveRowKey, mutationSignature);
-
-      startTransition(() => {
-        setRows((current) => {
-          const nextRows = current.map((row) =>
-            row.key === effectiveRowKey
-              ? { ...row, pendingSignature: mutationSignature }
-              : row,
-          );
-          rowsRef.current = nextRows;
-          return nextRows;
-        });
-      });
-
-      const targetPath =
-        snapshot.recordId === null
-          ? apiPath(
-              apiBase,
-              `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
-            )
-          : apiPath(apiBase, `/api/v1/records/${snapshot.recordId}`);
-      const clientInstanceId =
-        socketClientInstanceIdRef.current ?? tabClientInstanceId();
-      socketClientInstanceIdRef.current = clientInstanceId;
-      enqueuePendingReplayUnit({
-        id: `pending-${clientTxnId}`,
-        kind: snapshot.recordId === null ? "create" : "patch",
-        source: "autosave",
-        incidentId,
-        clientInstanceId,
-        viewSchemaId: timelineViewSchemaId,
-        rowKey: effectiveRowKey,
-        recordId: snapshot.recordId,
-        focusField,
-        focusKey,
-        surface: options.surface,
-        method: snapshot.recordId === null ? "POST" : "PATCH",
-        path: targetPath,
-        payloadIntent: payload,
+      enqueueAutosaveReplayForPendingMutation({
         clientTxnId,
-        mutationSignature,
-        coalesceKey:
-          snapshot.recordId === null
-            ? `draft:${effectiveRowKey}`
-            : `record:${snapshot.recordId}`,
-        enqueueOrder: pendingReplayOrderRef.current,
-        operationClass: "hot_path",
-        status: "queued",
-        ...(visibleEdit === undefined ? {} : { visibleEdit }),
-        rowSnapshot: snapshot,
         continueOnFreshDraft: options.continueOnFreshDraft,
         detectAutoResolution: false,
+        focusField,
+        focusKey,
+        mutationSignature,
+        payloadIntent: payload,
         promoteToCommittedRowInspect: false,
+        rowKey: effectiveRowKey,
+        surface: options.surface,
+        rowSnapshot: snapshot,
         viewportContinuityToken,
+        visibleEdit,
       });
-      pendingReplayOrderRef.current += 1;
     },
     [
-      apiBase,
       beginViewportContinuity,
-      enqueuePendingReplayUnit,
-      incidentId,
+      enqueueAutosaveReplayForPendingMutation,
       nextClientTxnId,
       rowWithScalarEditorDrafts,
     ],
@@ -5869,71 +5918,29 @@ export function TimelineWorkbook({
               recordId: snapshot.recordId,
             },
       );
-      pendingSignaturesRef.current.set(rowKey, mutationSignature);
-      startTransition(() => {
-        setRows((current) => {
-          const nextRows = current.map((row) =>
-            row.key === rowKey
-              ? { ...row, pendingSignature: mutationSignature }
-              : row,
-          );
-          rowsRef.current = nextRows;
-          return nextRows;
-        });
-      });
-
-      const targetPath =
-        snapshot.recordId === null
-          ? apiPath(
-              apiBase,
-              `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
-            )
-          : apiPath(apiBase, `/api/v1/records/${snapshot.recordId}`);
-      const clientInstanceId =
-        socketClientInstanceIdRef.current ?? tabClientInstanceId();
-      socketClientInstanceIdRef.current = clientInstanceId;
-      enqueuePendingReplayUnit({
-        id: `pending-${clientTxnId}`,
-        kind: snapshot.recordId === null ? "create" : "patch",
-        source: "autosave",
-        incidentId,
-        clientInstanceId,
-        viewSchemaId: timelineViewSchemaId,
-        rowKey,
-        recordId: snapshot.recordId,
-        focusField,
-        focusKey: inputFocusKey(rowKey, focusField, "grid"),
-        surface: "grid",
-        method: snapshot.recordId === null ? "POST" : "PATCH",
-        path: targetPath,
-        payloadIntent: payload,
+      enqueueAutosaveReplayForPendingMutation({
         clientTxnId,
+        continueOnFreshDraft: snapshot.recordId === null,
+        detectAutoResolution: true,
+        focusField,
+        focusKey,
         mutationSignature,
-        coalesceKey:
-          snapshot.recordId === null
-            ? `draft:${rowKey}`
-            : `record:${snapshot.recordId}`,
-        enqueueOrder: pendingReplayOrderRef.current,
-        operationClass: "hot_path",
-        status: "queued",
+        payloadIntent: payload,
+        promoteToCommittedRowInspect: snapshot.recordId === null,
+        rowKey,
+        surface: "grid",
+        rowSnapshot: effectiveSnapshot,
+        viewportContinuityToken,
         visibleEdit: {
           rowKey,
           fieldKey,
           value: draftValue,
         },
-        rowSnapshot: effectiveSnapshot,
-        continueOnFreshDraft: snapshot.recordId === null,
-        detectAutoResolution: true,
-        promoteToCommittedRowInspect: snapshot.recordId === null,
-        viewportContinuityToken,
       });
-      pendingReplayOrderRef.current += 1;
     },
     [
-      apiBase,
       beginViewportContinuity,
-      enqueuePendingReplayUnit,
-      incidentId,
+      enqueueAutosaveReplayForPendingMutation,
       latestCommittedTimelineRow,
       nextClientTxnId,
       rowWithScalarEditorDrafts,
@@ -6085,17 +6092,32 @@ export function TimelineWorkbook({
     selectedRow?.rowVersion ?? rowHistory.data?.row_version ?? null;
   const currentHistoryDeleted = rowHistory.data?.deleted === true;
 
-  const submitRowHistoryDeleteRestore = useCallback(
-    (operation: "delete" | "restore") => {
-      const recordId = currentHistoryRecordId;
-      if (recordId === null || recordId === undefined) {
-        return;
-      }
+  const submitRowHistoryMutation = useCallback(
+    ({
+      idleOptions,
+      missingVersionMessage,
+      onSuccess,
+      recordId,
+      request,
+      viewportContinuityTarget,
+    }: {
+      idleOptions?: {
+        readonly fallbackRowVersion?: number | null | undefined;
+        readonly refreshIfMissing?: boolean;
+      };
+      missingVersionMessage: string;
+      onSuccess: (
+        payload: unknown,
+        viewportContinuityToken: number,
+      ) => Promise<void>;
+      recordId: string;
+      request: (
+        baseRowVersion: number,
+        clientTxnId: string,
+      ) => Promise<{ ok: boolean; payload: unknown }>;
+      viewportContinuityTarget: ViewportContinuityTarget;
+    }) => {
       const clientTxnId = nextClientTxnId();
-      const viewportContinuityTarget: ViewportContinuityTarget =
-        selectedRow?.recordId === recordId
-          ? { kind: "row-inspect", recordId }
-          : { kind: "scroll-only" };
       const viewportContinuityToken = beginViewportContinuity(
         viewportContinuityTarget,
       );
@@ -6104,41 +6126,21 @@ export function TimelineWorkbook({
       saveQueueRef.current = saveQueueRef.current
         .catch(() => undefined)
         .then(async () => {
-          const idleRecord = await waitForCommittedRecordIdle(recordId, {
-            fallbackRowVersion:
-              operation === "restore"
-                ? rowHistory.data?.row_version
-                : currentHistoryRowVersion,
-            refreshIfMissing: operation !== "restore",
-          });
+          const idleRecord = await waitForCommittedRecordIdle(
+            recordId,
+            idleOptions,
+          );
           if (idleRecord === null) {
             clearViewportContinuity(viewportContinuityToken);
             setRowHistory((current) => ({
               ...current,
-              message: "Missing row version for destructive action.",
+              message: missingVersionMessage,
             }));
             finishSave("Conflict");
             return;
           }
           trackPendingSocketTxn(clientTxnId);
-          const path =
-            operation === "delete"
-              ? `/api/v1/records/${recordId}`
-              : `/api/v1/records/${recordId}/restore`;
-          const result = await fetchJSON<RecordDeleteRestoreEnvelope>(
-            apiPath(apiBase, path),
-            {
-              method: operation === "delete" ? "DELETE" : "POST",
-              body: JSON.stringify({
-                base_row_version: idleRecord.rowVersion,
-                client_txn_id: clientTxnId,
-                reason:
-                  operation === "delete"
-                    ? "Deleted from workbook history"
-                    : "Restored from workbook history",
-              }),
-            },
-          );
+          const result = await request(idleRecord.rowVersion, clientTxnId);
           if (!result.ok) {
             resolvePendingSocketTxn(clientTxnId);
             clearViewportContinuity(viewportContinuityToken);
@@ -6149,9 +6151,65 @@ export function TimelineWorkbook({
             finishSave("Conflict");
             return;
           }
-          const envelope = readEnvelope<RecordDeleteRestoreEnvelope>(
-            result.payload,
+          await onSuccess(result.payload, viewportContinuityToken);
+          finishSave("Saved");
+        });
+    },
+    [
+      beginSave,
+      beginViewportContinuity,
+      clearViewportContinuity,
+      finishSave,
+      nextClientTxnId,
+      resolvePendingSocketTxn,
+      trackPendingSocketTxn,
+      waitForCommittedRecordIdle,
+    ],
+  );
+
+  const submitRowHistoryDeleteRestore = useCallback(
+    (operation: "delete" | "restore") => {
+      const recordId = currentHistoryRecordId;
+      if (recordId === null || recordId === undefined) {
+        return;
+      }
+      const viewportContinuityTarget: ViewportContinuityTarget =
+        selectedRow?.recordId === recordId
+          ? { kind: "row-inspect", recordId }
+          : { kind: "scroll-only" };
+      submitRowHistoryMutation({
+        idleOptions: {
+          fallbackRowVersion:
+            operation === "restore"
+              ? rowHistory.data?.row_version
+              : currentHistoryRowVersion,
+          refreshIfMissing: operation !== "restore",
+        },
+        missingVersionMessage: "Missing row version for destructive action.",
+        recordId,
+        viewportContinuityTarget,
+        request: (baseRowVersion, clientTxnId) => {
+          const path =
+            operation === "delete"
+              ? `/api/v1/records/${recordId}`
+              : `/api/v1/records/${recordId}/restore`;
+          return fetchJSON<RecordDeleteRestoreEnvelope>(
+            apiPath(apiBase, path),
+            {
+              method: operation === "delete" ? "DELETE" : "POST",
+              body: JSON.stringify({
+                base_row_version: baseRowVersion,
+                client_txn_id: clientTxnId,
+                reason:
+                  operation === "delete"
+                    ? "Deleted from workbook history"
+                    : "Restored from workbook history",
+              }),
+            },
           );
+        },
+        onSuccess: async (payload, viewportContinuityToken) => {
+          const envelope = readEnvelope<RecordDeleteRestoreEnvelope>(payload);
           acceptTimelineRecordVersion(recordId, envelope.data.row_version);
           await fetchRecordHistory(recordId);
           if (operation === "restore") {
@@ -6161,25 +6219,18 @@ export function TimelineWorkbook({
             showLoading: false,
             viewportContinuityToken,
           });
-          finishSave("Saved");
-        });
+        },
+      });
     },
     [
       apiBase,
-      beginSave,
-      beginViewportContinuity,
-      clearViewportContinuity,
       acceptTimelineRecordVersion,
       currentHistoryRecordId,
       currentHistoryRowVersion,
       fetchRecordHistory,
-      finishSave,
-      nextClientTxnId,
-      resolvePendingSocketTxn,
       rowHistory.data?.row_version,
       selectedRow?.recordId,
-      trackPendingSocketTxn,
-      waitForCommittedRecordIdle,
+      submitRowHistoryMutation,
     ],
   );
 
@@ -6193,79 +6244,49 @@ export function TimelineWorkbook({
       if (target === null) {
         return;
       }
-      const clientTxnId = nextClientTxnId();
       const viewportContinuityTarget: ViewportContinuityTarget =
         selectedRow?.recordId === recordId
           ? { kind: "row-inspect", recordId }
           : { kind: "scroll-only" };
-      const viewportContinuityToken = beginViewportContinuity(
+      submitRowHistoryMutation({
+        idleOptions: {
+          fallbackRowVersion: currentHistoryRowVersion,
+        },
+        missingVersionMessage: "Missing row version for rollback.",
+        recordId,
         viewportContinuityTarget,
-      );
-      beginSave();
-      setRowHistory((current) => ({ ...current, message: null }));
-      saveQueueRef.current = saveQueueRef.current
-        .catch(() => undefined)
-        .then(async () => {
-          const idleRecord = await waitForCommittedRecordIdle(recordId, {
-            fallbackRowVersion: currentHistoryRowVersion,
-          });
-          if (idleRecord === null) {
-            clearViewportContinuity(viewportContinuityToken);
-            setRowHistory((current) => ({
-              ...current,
-              message: "Missing row version for rollback.",
-            }));
-            finishSave("Conflict");
-            return;
-          }
-          trackPendingSocketTxn(clientTxnId);
-          const result = await fetchJSON<RecordRollbackEnvelope>(
+        request: (baseRowVersion, clientTxnId) =>
+          fetchJSON<RecordRollbackEnvelope>(
             apiPath(apiBase, `/api/v1/records/${recordId}/rollback`),
             {
               method: "POST",
               body: JSON.stringify({
-                base_row_version: idleRecord.rowVersion,
+                base_row_version: baseRowVersion,
                 client_txn_id: clientTxnId,
                 reason: "Rollback from workbook history",
                 target,
               }),
             },
-          );
-          if (!result.ok) {
-            resolvePendingSocketTxn(clientTxnId);
-            clearViewportContinuity(viewportContinuityToken);
-            setRowHistory((current) => ({
-              ...current,
-              message: parseErrorMessage(result.payload),
-            }));
-            finishSave("Conflict");
-            return;
-          }
-          const envelope = readEnvelope<RecordRollbackEnvelope>(result.payload);
+          ),
+        onSuccess: async (payload, viewportContinuityToken) => {
+          const envelope = readEnvelope<RecordRollbackEnvelope>(payload);
           acceptTimelineRecordVersion(recordId, envelope.data.row_version);
           await fetchRecordHistory(recordId);
           await loadRowsRef.current({
             showLoading: false,
             viewportContinuityToken,
           });
-          finishSave("Saved");
-        });
+        },
+      });
     },
     [
       apiBase,
-      beginSave,
-      beginViewportContinuity,
-      clearViewportContinuity,
       acceptTimelineRecordVersion,
       currentHistoryRecordId,
       currentHistoryRowVersion,
       fetchRecordHistory,
-      finishSave,
-      nextClientTxnId,
-      resolvePendingSocketTxn,
       selectedRow?.recordId,
-      trackPendingSocketTxn,
-      waitForCommittedRecordIdle,
+      submitRowHistoryMutation,
     ],
   );
 
@@ -6558,6 +6579,41 @@ export function TimelineWorkbook({
     [queueScalarSave],
   );
 
+  const handleTimelineCommonKeyboardCommand = useCallback(
+    (command: WorkbookKeyboardCommand, anchor: GridCellAnchor | null) => {
+      if (anchor === null) {
+        return false;
+      }
+      if (command.kind === "open-history") {
+        openRowHistory(anchor.recordId);
+        return true;
+      }
+      if (command.kind === "close-inspector") {
+        setSelectedRowId(null);
+        setSelectedMentionRef(null);
+        setInspectorMessage(null);
+        setRowHistory({
+          recordId: null,
+          status: "idle",
+          data: null,
+          message: null,
+        });
+        restoreTimelineFocusAnchor(anchor);
+        return true;
+      }
+      if (command.kind === "preview-linked-evidence") {
+        setSelectedRowId(anchor.recordId);
+        setInspectorMessage(
+          "Linked evidence preview is unavailable for this row.",
+        );
+        restoreTimelineFocusAnchor(anchor);
+        return true;
+      }
+      return false;
+    },
+    [openRowHistory, restoreTimelineFocusAnchor],
+  );
+
   const handleKeyDown = useCallback(
     (
       event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -6640,35 +6696,14 @@ export function TimelineWorkbook({
         navigateTimelineFocusAnchor(anchor, command.intent);
         return;
       }
-      if (command.kind === "open-history" && anchor !== null) {
-        openRowHistory(anchor.recordId);
+      if (handleTimelineCommonKeyboardCommand(command, anchor)) {
         return;
-      }
-      if (command.kind === "close-inspector" && anchor !== null) {
-        setSelectedRowId(null);
-        setSelectedMentionRef(null);
-        setInspectorMessage(null);
-        setRowHistory({
-          recordId: null,
-          status: "idle",
-          data: null,
-          message: null,
-        });
-        restoreTimelineFocusAnchor(anchor);
-        return;
-      }
-      if (command.kind === "preview-linked-evidence" && anchor !== null) {
-        setSelectedRowId(anchor.recordId);
-        setInspectorMessage(
-          "Linked evidence preview is unavailable for this row.",
-        );
-        restoreTimelineFocusAnchor(anchor);
       }
     },
     [
       currentTimelineAnchorFor,
+      handleTimelineCommonKeyboardCommand,
       navigateTimelineFocusAnchor,
-      openRowHistory,
       queueScalarSave,
       rowHistory.recordId,
       rowHistory.status,
@@ -6715,29 +6750,7 @@ export function TimelineWorkbook({
         navigateTimelineFocusAnchor(anchor, command.intent);
         return;
       }
-      if (command.kind === "open-history" && anchor !== null) {
-        openRowHistory(anchor.recordId);
-        return;
-      }
-      if (command.kind === "close-inspector" && anchor !== null) {
-        setSelectedRowId(null);
-        setSelectedMentionRef(null);
-        setInspectorMessage(null);
-        setRowHistory({
-          recordId: null,
-          status: "idle",
-          data: null,
-          message: null,
-        });
-        restoreTimelineFocusAnchor(anchor);
-        return;
-      }
-      if (command.kind === "preview-linked-evidence" && anchor !== null) {
-        setSelectedRowId(anchor.recordId);
-        setInspectorMessage(
-          "Linked evidence preview is unavailable for this row.",
-        );
-        restoreTimelineFocusAnchor(anchor);
+      if (handleTimelineCommonKeyboardCommand(command, anchor)) {
         return;
       }
       if (command.kind === "quick-link" && anchor !== null) {
@@ -6776,10 +6789,9 @@ export function TimelineWorkbook({
     },
     [
       currentTimelineAnchorFor,
+      handleTimelineCommonKeyboardCommand,
       navigateTimelineFocusAnchor,
-      openRowHistory,
       queueCollectionSave,
-      restoreTimelineFocusAnchor,
       rowHistory.recordId,
       rowHistory.status,
       selectedRowId,
