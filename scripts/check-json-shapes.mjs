@@ -31,6 +31,7 @@ import {
   requireSchemaID,
   requireString,
   requireStringArray,
+  validateObjectArray,
 } from "./lib/json-shape.mjs";
 import {
   loadPhasePolicyExceptions,
@@ -381,6 +382,13 @@ const singletonImportKeys = new Set([
   "specifier",
   "required_count",
   "allowed_importers",
+]);
+const frontendBoundaryLevelValues = new Set(["error", "warning"]);
+const restrictedImportKindValues = new Set([
+  "package",
+  "path_prefix",
+  "node_builtin",
+  "workspace_package_facade",
 ]);
 const supportSchemaIDs = new Set([
   "cartulary.harness.defs.v1",
@@ -813,6 +821,14 @@ function validateBrowserBatchShape(file) {
   validateBrowserBatchManifestShape(file, file);
 }
 
+function validateGeneratedArtifactEntry(entry, label) {
+  requireRepoRelativePath(entry.path, `${label}.path`);
+  requireStringArray(entry.allowed_extensions, `${label}.allowed_extensions`, {
+    nonEmpty: true,
+  });
+  requireString(entry.required_marker, `${label}.required_marker`);
+}
+
 function validateGeneratedArtifactPolicyShape(file) {
   const policy = readShapeFile(file, file);
   assertObjectKeys(policy, generatedArtifactPolicyKeys, file);
@@ -821,34 +837,18 @@ function validateGeneratedArtifactPolicyShape(file) {
     policy.ignored_sentinel_filenames ?? [],
     `${file}.ignored_sentinel_filenames`,
   );
-  for (const [index, root] of requireObjectArray(
+  validateObjectArray(
     policy.generated_roots ?? [],
     `${file}.generated_roots`,
-  ).entries()) {
-    const label = `${file}.generated_roots[${index + 1}]`;
-    assertObjectKeys(root, generatedArtifactEntryKeys, label);
-    requireRepoRelativePath(root.path, `${label}.path`);
-    requireStringArray(root.allowed_extensions, `${label}.allowed_extensions`, {
-      nonEmpty: true,
-    });
-    requireString(root.required_marker, `${label}.required_marker`);
-  }
-  for (const [index, generatedFile] of requireObjectArray(
+    { keys: generatedArtifactEntryKeys },
+    validateGeneratedArtifactEntry,
+  );
+  validateObjectArray(
     policy.generated_files ?? [],
     `${file}.generated_files`,
-  ).entries()) {
-    const label = `${file}.generated_files[${index + 1}]`;
-    assertObjectKeys(generatedFile, generatedArtifactEntryKeys, label);
-    requireRepoRelativePath(generatedFile.path, `${label}.path`);
-    requireStringArray(
-      generatedFile.allowed_extensions,
-      `${label}.allowed_extensions`,
-      {
-        nonEmpty: true,
-      },
-    );
-    requireString(generatedFile.required_marker, `${label}.required_marker`);
-  }
+    { keys: generatedArtifactEntryKeys },
+    validateGeneratedArtifactEntry,
+  );
   const lintScope = requireObject(
     policy.lint_scope_checks,
     `${file}.lint_scope_checks`,
@@ -948,6 +948,95 @@ function validateGeneratedArtifactPolicyShape(file) {
   );
 }
 
+function requireFrontendBoundaryLevel(value, label) {
+  return requireEnum(value, label, frontendBoundaryLevelValues);
+}
+
+function validateFrontendBoundaryAppliesTo(value, label) {
+  const appliesTo = requireObject(value, label);
+  assertObjectKeys(appliesTo, frontendBoundaryAppliesToKeys, label);
+  requireStringArray(appliesTo.include, `${label}.include`, {
+    nonEmpty: true,
+  });
+  requireStringArray(appliesTo.exclude ?? [], `${label}.exclude`);
+}
+
+function validateRestrictedImport(restrictedImport, importLabel) {
+  const kind = requireEnum(
+    restrictedImport.kind,
+    `${importLabel}.kind`,
+    restrictedImportKindValues,
+  );
+  if (kind === "package") {
+    requireString(restrictedImport.name, `${importLabel}.name`);
+  }
+  if (kind === "path_prefix") {
+    requireRepoRelativePath(restrictedImport.path, `${importLabel}.path`);
+  }
+  if (kind === "node_builtin") {
+    requireStringArray(restrictedImport.names ?? [], `${importLabel}.names`);
+  }
+  if (kind === "workspace_package_facade") {
+    for (const [rootIndex, packageRoot] of requireStringArray(
+      restrictedImport.package_roots,
+      `${importLabel}.package_roots`,
+      { nonEmpty: true },
+    ).entries()) {
+      requireRepoRelativePath(
+        packageRoot,
+        `${importLabel}.package_roots[${rootIndex + 1}]`,
+      );
+    }
+  }
+  if (
+    restrictedImport.include_subpaths !== undefined &&
+    typeof restrictedImport.include_subpaths !== "boolean"
+  ) {
+    throw new Error(`${importLabel}.include_subpaths must be a boolean`);
+  }
+}
+
+function validateSingletonImport(singletonImport, label) {
+  requireString(singletonImport.id, `${label}.id`);
+  requireFrontendBoundaryLevel(singletonImport.level, `${label}.level`);
+  requireString(singletonImport.message, `${label}.message`);
+  requireString(singletonImport.specifier, `${label}.specifier`);
+  requirePositiveInteger(
+    singletonImport.required_count,
+    `${label}.required_count`,
+  );
+  requireStringArray(
+    singletonImport.allowed_importers,
+    `${label}.allowed_importers`,
+    { nonEmpty: true },
+  );
+}
+
+function validateFrontendBoundaryRule(rule, label) {
+  requireString(rule.id, `${label}.id`);
+  requireFrontendBoundaryLevel(rule.level, `${label}.level`);
+  requireString(rule.message, `${label}.message`);
+  validateFrontendBoundaryAppliesTo(rule.applies_to, `${label}.applies_to`);
+  requireStringArray(rule.allowed_importers, `${label}.allowed_importers`);
+  validateObjectArray(
+    rule.restricted_imports,
+    `${label}.restricted_imports`,
+    { nonEmpty: true, keys: restrictedImportKeys },
+    validateRestrictedImport,
+  );
+}
+
+function validateRawDesignTokenLiteralCheck(check, label) {
+  requireString(check.id, `${label}.id`);
+  requireFrontendBoundaryLevel(check.level, `${label}.level`);
+  requireString(check.message, `${label}.message`);
+  requireRepoRelativePath(check.design_document, `${label}.design_document`);
+  requireStringArray(check.token_namespaces, `${label}.token_namespaces`, {
+    nonEmpty: true,
+  });
+  validateFrontendBoundaryAppliesTo(check.applies_to, `${label}.applies_to`);
+}
+
 function validateFrontendImportBoundariesShape(file) {
   const config = readShapeFile(file, file);
   assertObjectKeys(config, frontendBoundaryKeys, file);
@@ -956,124 +1045,24 @@ function validateFrontendImportBoundariesShape(file) {
     nonEmpty: true,
   });
   requireStringArray(config.scan_excludes ?? [], `${file}.scan_excludes`);
-  for (const [index, singletonImport] of requireObjectArray(
+  validateObjectArray(
     config.singleton_imports ?? [],
     `${file}.singleton_imports`,
-  ).entries()) {
-    const label = `${file}.singleton_imports[${index + 1}]`;
-    assertObjectKeys(singletonImport, singletonImportKeys, label);
-    requireString(singletonImport.id, `${label}.id`);
-    requireEnum(
-      singletonImport.level,
-      `${label}.level`,
-      new Set(["error", "warning"]),
-    );
-    requireString(singletonImport.message, `${label}.message`);
-    requireString(singletonImport.specifier, `${label}.specifier`);
-    requirePositiveInteger(
-      singletonImport.required_count,
-      `${label}.required_count`,
-    );
-    requireStringArray(
-      singletonImport.allowed_importers,
-      `${label}.allowed_importers`,
-      { nonEmpty: true },
-    );
-  }
-  for (const [index, rule] of requireObjectArray(
+    { keys: singletonImportKeys },
+    validateSingletonImport,
+  );
+  validateObjectArray(
     config.rules,
     `${file}.rules`,
-    { nonEmpty: true },
-  ).entries()) {
-    const label = `${file}.rules[${index + 1}]`;
-    assertObjectKeys(rule, frontendBoundaryRuleKeys, label);
-    requireString(rule.id, `${label}.id`);
-    requireEnum(rule.level, `${label}.level`, new Set(["error", "warning"]));
-    requireString(rule.message, `${label}.message`);
-    const appliesTo = requireObject(rule.applies_to, `${label}.applies_to`);
-    assertObjectKeys(
-      appliesTo,
-      frontendBoundaryAppliesToKeys,
-      `${label}.applies_to`,
-    );
-    requireStringArray(appliesTo.include, `${label}.applies_to.include`, {
-      nonEmpty: true,
-    });
-    requireStringArray(appliesTo.exclude ?? [], `${label}.applies_to.exclude`);
-    requireStringArray(rule.allowed_importers, `${label}.allowed_importers`);
-    for (const [importIndex, restrictedImport] of requireObjectArray(
-      rule.restricted_imports,
-      `${label}.restricted_imports`,
-      { nonEmpty: true },
-    ).entries()) {
-      const importLabel = `${label}.restricted_imports[${importIndex + 1}]`;
-      assertObjectKeys(restrictedImport, restrictedImportKeys, importLabel);
-      const kind = requireEnum(
-        restrictedImport.kind,
-        `${importLabel}.kind`,
-        new Set([
-          "package",
-          "path_prefix",
-          "node_builtin",
-          "workspace_package_facade",
-        ]),
-      );
-      if (kind === "package") {
-        requireString(restrictedImport.name, `${importLabel}.name`);
-      }
-      if (kind === "path_prefix") {
-        requireRepoRelativePath(restrictedImport.path, `${importLabel}.path`);
-      }
-      if (kind === "node_builtin") {
-        requireStringArray(
-          restrictedImport.names ?? [],
-          `${importLabel}.names`,
-        );
-      }
-      if (kind === "workspace_package_facade") {
-        for (const [rootIndex, packageRoot] of requireStringArray(
-          restrictedImport.package_roots,
-          `${importLabel}.package_roots`,
-          { nonEmpty: true },
-        ).entries()) {
-          requireRepoRelativePath(
-            packageRoot,
-            `${importLabel}.package_roots[${rootIndex + 1}]`,
-          );
-        }
-      }
-      if (
-        restrictedImport.include_subpaths !== undefined &&
-        typeof restrictedImport.include_subpaths !== "boolean"
-      ) {
-        throw new Error(`${importLabel}.include_subpaths must be a boolean`);
-      }
-    }
-  }
-  for (const [index, check] of requireObjectArray(
+    { nonEmpty: true, keys: frontendBoundaryRuleKeys },
+    validateFrontendBoundaryRule,
+  );
+  validateObjectArray(
     config.raw_design_token_literal_checks ?? [],
     `${file}.raw_design_token_literal_checks`,
-  ).entries()) {
-    const label = `${file}.raw_design_token_literal_checks[${index + 1}]`;
-    assertObjectKeys(check, frontendBoundaryRawDesignLiteralCheckKeys, label);
-    requireString(check.id, `${label}.id`);
-    requireEnum(check.level, `${label}.level`, new Set(["error", "warning"]));
-    requireString(check.message, `${label}.message`);
-    requireRepoRelativePath(check.design_document, `${label}.design_document`);
-    requireStringArray(check.token_namespaces, `${label}.token_namespaces`, {
-      nonEmpty: true,
-    });
-    const appliesTo = requireObject(check.applies_to, `${label}.applies_to`);
-    assertObjectKeys(
-      appliesTo,
-      frontendBoundaryAppliesToKeys,
-      `${label}.applies_to`,
-    );
-    requireStringArray(appliesTo.include, `${label}.applies_to.include`, {
-      nonEmpty: true,
-    });
-    requireStringArray(appliesTo.exclude ?? [], `${label}.applies_to.exclude`);
-  }
+    { keys: frontendBoundaryRawDesignLiteralCheckKeys },
+    validateRawDesignTokenLiteralCheck,
+  );
 }
 
 function validateSchedulerResourceRegistryShape(file) {

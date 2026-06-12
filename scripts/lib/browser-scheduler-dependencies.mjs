@@ -1,9 +1,94 @@
+import path from "node:path";
+
+const browserKindScripts = new Map([
+  ["stateful", "run-browser-e2e-stateful.sh"],
+  ["measurement", "run-browser-e2e-measurement.sh"],
+  ["a11y", "run-browser-e2e-a11y.sh"],
+  ["a11y_preflight", "run-browser-e2e-a11y-preflight.sh"],
+  ["visual", "run-browser-e2e-visual.sh"],
+]);
+
 export function browserStageSessionKey(target) {
   return `browser_stage_session:${target}`;
 }
 
 export function browserGroupCompletionKey(groupID) {
   return `browser_group:${groupID}`;
+}
+
+function webserverBatchScript(repoRoot) {
+  return path.join(repoRoot, "scripts", "lib", "run-playwright-webserver-batch.sh");
+}
+
+function playwrightWebserverArgs(pnpmBin) {
+  return [
+    "--",
+    pnpmBin,
+    "--dir",
+    "apps/web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.webserver-backed.config.ts",
+  ];
+}
+
+function browserShardField(group, camelName, snakeName) {
+  return group[camelName] ?? group[snakeName];
+}
+
+export function browserGroupCommand({
+  browserGroupRunner,
+  env,
+  group,
+  pnpmBin,
+  repoRoot,
+  scriptEnv = {},
+}) {
+  if (browserGroupRunner) {
+    return {
+      command: browserGroupRunner,
+      args: [],
+      env,
+    };
+  }
+
+  if (group.kind === "functional_shard") {
+    return {
+      command: webserverBatchScript(repoRoot),
+      args: [
+        "functional-shard",
+        browserShardField(group, "shardName", "shard_name"),
+        String(browserShardField(group, "shardIndex", "shard_index")),
+        String(browserShardField(group, "shardCount", "shard_count")),
+        ...playwrightWebserverArgs(pnpmBin),
+      ],
+      env,
+    };
+  }
+
+  if (group.kind === "support") {
+    return {
+      command: webserverBatchScript(repoRoot),
+      args: ["support", ...playwrightWebserverArgs(pnpmBin)],
+      env,
+    };
+  }
+
+  const script = browserKindScripts.get(group.kind);
+  if (!script) {
+    throw new Error(`unsupported browser group kind ${group.kind}`);
+  }
+
+  return {
+    command: path.join(repoRoot, "scripts", script),
+    args: [],
+    env: {
+      ...env,
+      ...scriptEnv,
+    },
+  };
 }
 
 export function browserGroupNeeds(stageSessionKey) {

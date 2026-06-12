@@ -4,6 +4,7 @@ import { mkdir, open, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
+import { browserGroupCommand } from "./lib/browser-scheduler-dependencies.mjs";
 import { createRunnerContext } from "./lib/runner-context.mjs";
 import {
   loadSchedulerManifest,
@@ -1127,81 +1128,16 @@ function attachRuntime(
           CARTULARY_BROWSER_GROUP_TARGET: unit.target,
           CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
         });
-        if (browserGroupRunner) {
-          return {
-            command: browserGroupRunner,
-            args: [],
-            env: commonEnv,
-          };
-        }
-        if (group.kind === "functional_shard") {
-          return {
-            command: path.join(
-              repoRoot,
-              "scripts",
-              "lib",
-              "run-playwright-webserver-batch.sh",
-            ),
-            args: [
-              "functional-shard",
-              group.shard_name,
-              String(group.shard_index),
-              String(group.shard_count),
-              "--",
-              pnpmBin,
-              "--dir",
-              "apps/web",
-              "exec",
-              "playwright",
-              "test",
-              "--config",
-              "playwright.webserver-backed.config.ts",
-            ],
-            env: commonEnv,
-          };
-        }
-        if (group.kind === "support") {
-          return {
-            command: path.join(
-              repoRoot,
-              "scripts",
-              "lib",
-              "run-playwright-webserver-batch.sh",
-            ),
-            args: [
-              "support",
-              "--",
-              pnpmBin,
-              "--dir",
-              "apps/web",
-              "exec",
-              "playwright",
-              "test",
-              "--config",
-              "playwright.webserver-backed.config.ts",
-            ],
-            env: commonEnv,
-          };
-        }
-        const scriptsByKind = new Map([
-          ["stateful", "run-browser-e2e-stateful.sh"],
-          ["measurement", "run-browser-e2e-measurement.sh"],
-          ["a11y", "run-browser-e2e-a11y.sh"],
-          ["a11y_preflight", "run-browser-e2e-a11y-preflight.sh"],
-          ["visual", "run-browser-e2e-visual.sh"],
-        ]);
-        const script = scriptsByKind.get(group.kind);
-        if (!script) {
-          throw new Error(`unsupported browser group kind ${group.kind}`);
-        }
-        return {
-          command: path.join(repoRoot, "scripts", script),
-          args: [],
-          env: {
-            ...commonEnv,
+        return browserGroupCommand({
+          browserGroupRunner,
+          env: commonEnv,
+          group,
+          pnpmBin,
+          repoRoot,
+          scriptEnv: {
             PLAYWRIGHT_WORKERS: "1",
           },
-        };
+        });
       };
       continue;
     }

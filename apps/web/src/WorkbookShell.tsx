@@ -1322,6 +1322,54 @@ function genericContractColumnWidth(field: ViewFieldContract): number {
   return field.defaultHidden ? 160 : 220;
 }
 
+function buildWorkbookGridRows<Row>({
+  getRecordId,
+  rows,
+  selectedRecordId,
+  surface,
+}: {
+  readonly getRecordId: (row: Row) => string;
+  readonly rows: readonly Row[];
+  readonly selectedRecordId?: string | null | undefined;
+  readonly surface: WorkbookSurface;
+}): readonly GridRow<Row>[] {
+  return rows.map((row) => {
+    const recordId = getRecordId(row);
+    return {
+      key: recordId,
+      recordId,
+      data: row,
+      ...(selectedRecordId === null || selectedRecordId === undefined
+        ? {}
+        : { selected: recordId === selectedRecordId }),
+      testId: gridRowTestId(surface, recordId),
+    };
+  });
+}
+
+function selectWorkbookEditTarget<
+  Row,
+  Field extends { readonly fieldKey: string },
+>({
+  fieldKey,
+  fields,
+  getRecordId,
+  recordId,
+  rows,
+}: {
+  readonly fieldKey: string;
+  readonly fields: readonly Field[];
+  readonly getRecordId: (row: Row) => string;
+  readonly recordId: string;
+  readonly rows: readonly Row[];
+}): { readonly field: Field | null; readonly row: Row | null } {
+  return {
+    row: rows.find((row) => getRecordId(row) === recordId) ?? null,
+    field:
+      fields.find((field) => field.fieldKey === fieldKey) ?? fields[0] ?? null,
+  };
+}
+
 const mergeIdentifierFields: Record<
   EntityRow["entityType"],
   Array<{ key: string; label: string }>
@@ -9079,13 +9127,12 @@ function EntityWorkbookSurface({
       }),
     [contract, surface],
   );
-  const entityGridRows: readonly GridRow<EntityRow>[] = rows.map((row) => ({
-    key: row.recordId,
-    recordId: row.recordId,
-    data: row,
-    selected: row.recordId === selectedEntity?.recordId,
-    testId: gridRowTestId(contract.viewSchemaId, row.recordId),
-  }));
+  const entityGridRows = buildWorkbookGridRows({
+    getRecordId: (row: EntityRow) => row.recordId,
+    rows,
+    selectedRecordId: selectedEntity?.recordId ?? null,
+    surface,
+  });
   const entityFocus = useWorkbookGridFocus({
     columns: entityAnchorColumns,
     getGroupLabel: (row, fieldKey) => entityGroupLabel(row, fieldKey),
@@ -9200,12 +9247,14 @@ function EntityWorkbookSurface({
       </button>
     ),
   };
-  const selectedEditRow =
-    rows.find((row) => row.recordId === editRecordId) ?? null;
-  const selectedEditField =
-    editableEntityFields.find((field) => field.fieldKey === editFieldKey) ??
-    editableEntityFields[0] ??
-    null;
+  const { row: selectedEditRow, field: selectedEditField } =
+    selectWorkbookEditTarget({
+      fieldKey: editFieldKey,
+      fields: editableEntityFields,
+      getRecordId: (row: EntityRow) => row.recordId,
+      recordId: editRecordId,
+      rows,
+    });
 
   useEffect(() => {
     if (selectedEntity) {
@@ -10450,12 +10499,11 @@ function GenericWorkbookSurface({
       }),
     [contract, surface],
   );
-  const gridRows: readonly GridRow<EntityApiRow>[] = rows.map((row) => ({
-    key: row.record_id,
-    recordId: row.record_id,
-    data: row,
-    testId: gridRowTestId(contract.viewSchemaId, row.record_id),
-  }));
+  const gridRows = buildWorkbookGridRows({
+    getRecordId: (row: EntityApiRow) => row.record_id,
+    rows,
+    surface,
+  });
   const genericFocus = useWorkbookGridFocus({
     columns: anchorColumns,
     getGroupLabel: (row, fieldKey) =>
@@ -10569,12 +10617,14 @@ function GenericWorkbookSurface({
     issueEvidenceHandle,
     surface,
   ]);
-  const selectedEditRow =
-    rows.find((row) => row.record_id === editRecordId) ?? null;
-  const selectedEditField =
-    writableFields.find((field) => field.fieldKey === editFieldKey) ??
-    writableFields[0] ??
-    null;
+  const { row: selectedEditRow, field: selectedEditField } =
+    selectWorkbookEditTarget({
+      fieldKey: editFieldKey,
+      fields: writableFields,
+      getRecordId: (row: EntityApiRow) => row.record_id,
+      recordId: editRecordId,
+      rows,
+    });
   const selectedPartyLinkPair =
     partyLinkPairs.find((pair) => pair.key === partyLinkPairKey) ??
     partyLinkPairs[0] ??

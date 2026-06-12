@@ -315,44 +315,46 @@ const phase1ErrorSurfaces = Object.freeze(
 );
 
 export function phase1AuthTestId(selector: Phase1AuthSelector): StableTestId {
-  return stableTestId(
-    requireSelectorToken(phase1AuthTestIds, selector, "phase1 auth selector"),
+  return stableSelectorTokenTestId(
+    phase1AuthTestIds,
+    selector,
+    "phase1 auth selector",
   );
 }
 
 export function phase1AccountTestId(
   selector: Phase1AccountSelector,
 ): StableTestId {
-  return stableTestId(
-    requireSelectorToken(
-      phase1AccountTestIds,
-      selector,
-      "phase1 account selector",
-    ),
+  return stableSelectorTokenTestId(
+    phase1AccountTestIds,
+    selector,
+    "phase1 account selector",
   );
 }
 
 export function phase1AdminTestId(selector: Phase1AdminSelector): StableTestId {
-  return stableTestId(
-    requireSelectorToken(phase1AdminTestIds, selector, "phase1 admin selector"),
+  return stableSelectorTokenTestId(
+    phase1AdminTestIds,
+    selector,
+    "phase1 admin selector",
   );
 }
 
 export function phase1LandingTestId(
   selector: Phase1LandingSelector,
 ): StableTestId {
-  return stableTestId(
-    requireSelectorToken(
-      phase1LandingTestIds,
-      selector,
-      "phase1 landing selector",
-    ),
+  return stableSelectorTokenTestId(
+    phase1LandingTestIds,
+    selector,
+    "phase1 landing selector",
   );
 }
 
 export function phase1RouteTestId(selector: Phase1RouteSelector): StableTestId {
-  return stableTestId(
-    requireSelectorToken(phase1RouteTestIds, selector, "phase1 route selector"),
+  return stableSelectorTokenTestId(
+    phase1RouteTestIds,
+    selector,
+    "phase1 route selector",
   );
 }
 
@@ -374,11 +376,11 @@ export function phase1ErrorSummaryTestIds(
 }
 
 export function gridShellTestId(viewSchemaId: WorkbookSurface): string {
-  return `${requireViewSchemaId(viewSchemaId)}-grid-shell`;
+  return viewFirstTestId(viewSchemaId, "grid-shell");
 }
 
 export function surfaceTabTestId(viewSchemaId: string): string {
-  return `surface-tab-${requireViewSchemaId(viewSchemaId)}`;
+  return viewScopedTestId("surface-tab", viewSchemaId);
 }
 
 export function systemViewSelectorTestId(): string {
@@ -449,17 +451,13 @@ export function timelineInspectorSectionTestId(
 }
 
 export function landingIncidentCardTestId(incidentId: string): StableTestId {
-  return stableTestId(
-    `landing-incident-${encodeSelectorSegment(incidentId, "incident_id")}`,
-  );
+  return stableEncodedTestId("landing-incident", incidentId, "incident_id");
 }
 
 export function landingIncidentOpenButtonTestId(
   incidentId: string,
 ): StableTestId {
-  return stableTestId(
-    `landing-open-${encodeSelectorSegment(incidentId, "incident_id")}`,
-  );
+  return stableEncodedTestId("landing-open", incidentId, "incident_id");
 }
 
 export function incidentMembershipEmailInputTestId(): string {
@@ -483,59 +481,59 @@ export function incidentMembershipListTestId(): string {
 }
 
 export function incidentMembershipRowTestId(userId: string): string {
-  return `incident-membership-row-${encodeSelectorSegment(userId, "user_id")}`;
+  return encodedTestId("incident-membership-row", userId, "user_id");
 }
 
 export function incidentMembershipVersionTestId(userId: string): string {
-  return `incident-membership-version-${encodeSelectorSegment(userId, "user_id")}`;
+  return encodedTestId("incident-membership-version", userId, "user_id");
 }
 
 export function incidentMembershipRoleInputTestId(userId: string): string {
-  return `incident-membership-role-input-${encodeSelectorSegment(userId, "user_id")}`;
+  return encodedTestId("incident-membership-role-input", userId, "user_id");
 }
 
 export function incidentMembershipPatchButtonTestId(userId: string): string {
-  return `incident-membership-patch-${encodeSelectorSegment(userId, "user_id")}`;
+  return encodedTestId("incident-membership-patch", userId, "user_id");
 }
 
 export function incidentMembershipDeleteButtonTestId(userId: string): string {
-  return `incident-membership-delete-${encodeSelectorSegment(userId, "user_id")}`;
+  return encodedTestId("incident-membership-delete", userId, "user_id");
 }
 
 export function incidentMembershipRoleDisplayTestId(userId: string): string {
-  return `incident-membership-role-${encodeSelectorSegment(userId, "user_id")}`;
+  return encodedTestId("incident-membership-role", userId, "user_id");
 }
 
 export function phase2IncidentRowTestId(incidentId: string): string {
-  return `incident-row-${encodeSelectorSegment(incidentId, "incident_id")}`;
+  return encodedTestId("incident-row", incidentId, "incident_id");
 }
 
 export function phase2SelectIncidentButtonTestId(incidentId: string): string {
-  return `select-incident-${encodeSelectorSegment(incidentId, "incident_id")}`;
+  return encodedTestId("select-incident", incidentId, "incident_id");
 }
 
 export function phase2MembershipRowTestId(userId: string): string {
-  return `membership-row-${encodeSelectorSegment(userId, "user_id")}`;
+  return encodedTestId("membership-row", userId, "user_id");
 }
 
 export function phase2MembershipRoleInputTestId(userId: string): string {
-  return `membership-role-input-${encodeSelectorSegment(userId, "user_id")}`;
+  return encodedTestId("membership-role-input", userId, "user_id");
 }
 
 export function phase2MembershipVersionTestId(userId: string): string {
-  return `membership-version-${encodeSelectorSegment(userId, "user_id")}`;
+  return encodedTestId("membership-version", userId, "user_id");
 }
 
 export function phase2MembershipPatchButtonTestId(userId: string): string {
-  return `patch-membership-${encodeSelectorSegment(userId, "user_id")}`;
+  return encodedTestId("patch-membership", userId, "user_id");
 }
 
 export function phase2MembershipDeleteButtonTestId(userId: string): string {
-  return `delete-membership-${encodeSelectorSegment(userId, "user_id")}`;
+  return encodedTestId("delete-membership", userId, "user_id");
 }
 
 export function extensionProfileRowTestId(profileId: string): string {
-  return `extension-${encodeSelectorSegment(profileId, "extension_profile_id")}`;
+  return encodedTestId("extension", profileId, "extension_profile_id");
 }
 
 export function gridScrollportClassName(): string {
@@ -547,16 +545,17 @@ export function gridScrollportSelector(): string {
 }
 
 export function gridActionsHeaderTestId(viewSchemaId: WorkbookSurface): string {
-  return `${requireViewSchemaId(viewSchemaId)}-actions-header`;
+  return viewFirstTestId(viewSchemaId, "actions-header");
 }
 
 export function gridRowGutterTestId(
   viewSchemaId: WorkbookSurface,
   recordId: string,
 ): string {
-  return `${requireViewSchemaId(viewSchemaId)}-row-gutter-${requireRecordId(
-    recordId,
-  )}`;
+  return viewFirstTestId(
+    viewSchemaId,
+    `row-gutter-${requireRecordId(recordId)}`,
+  );
 }
 
 /**
@@ -665,32 +664,35 @@ export function gridSortHeaderTestId(
   viewSchemaId: WorkbookSurface,
   fieldKey: string,
 ): string {
-  return `${requireViewSchemaId(viewSchemaId)}-sort-${requireFieldKey(fieldKey)}`;
+  return viewFirstTestId(viewSchemaId, `sort-${requireFieldKey(fieldKey)}`);
 }
 
 export function gridFilterChipTestId(
   viewSchemaId: WorkbookSurface,
   fieldKey: string,
 ): string {
-  return `${requireViewSchemaId(viewSchemaId)}-filter-chip-${requireFieldKey(fieldKey)}`;
+  return viewFirstTestId(
+    viewSchemaId,
+    `filter-chip-${requireFieldKey(fieldKey)}`,
+  );
 }
 
 export function gridFilterFieldTestId(viewSchemaId: WorkbookSurface): string {
-  return `${requireViewSchemaId(viewSchemaId)}-filter-field`;
+  return viewFirstTestId(viewSchemaId, "filter-field");
 }
 
 export function gridFilterValueTestId(viewSchemaId: WorkbookSurface): string {
-  return `${requireViewSchemaId(viewSchemaId)}-filter-value`;
+  return viewFirstTestId(viewSchemaId, "filter-value");
 }
 
 export function gridFilterApplyTestId(viewSchemaId: WorkbookSurface): string {
-  return `${requireViewSchemaId(viewSchemaId)}-filter-apply`;
+  return viewFirstTestId(viewSchemaId, "filter-apply");
 }
 
 export function gridGroupingSelectTestId(
   viewSchemaId: WorkbookSurface,
 ): string {
-  return `${requireViewSchemaId(viewSchemaId)}-group-by`;
+  return viewFirstTestId(viewSchemaId, "group-by");
 }
 
 export function gridGroupRowTestId(
@@ -705,7 +707,7 @@ export function gridGroupRowTestIdPrefix(
   viewSchemaId: WorkbookSurface,
   fieldKey: string,
 ): string {
-  return `${requireViewSchemaId(viewSchemaId)}-group-${requireFieldKey(fieldKey)}-`;
+  return `${viewFirstTestId(viewSchemaId, `group-${requireFieldKey(fieldKey)}`)}-`;
 }
 
 export function gridGroupRowsSelector(
@@ -721,7 +723,7 @@ export function gridRowTestId(
   viewSchemaId: WorkbookSurface,
   recordId: string,
 ): string {
-  return `grid-row-${requireViewSchemaId(viewSchemaId)}-${requireRecordId(recordId)}`;
+  return `${viewScopedTestId("grid-row", viewSchemaId)}-${requireRecordId(recordId)}`;
 }
 
 export function rowCellTestId(recordId: string, fieldKey: string): string {
@@ -748,11 +750,11 @@ export function rowInspectorFieldTestId(
 }
 
 export function rowInspectButtonTestId(recordId: string): string {
-  return `row-${requireRecordId(recordId)}-inspect`;
+  return recordTestId("row", recordId, "inspect");
 }
 
 export function rowHistoryOpenButtonTestId(recordId: string): string {
-  return `row-history-open-${requireRecordId(recordId)}`;
+  return recordTestId("row-history-open", recordId);
 }
 
 export function rowHistoryOpenInspectorButtonTestId(recordId: string): string {
@@ -833,19 +835,19 @@ export function timelineRowVersionTestId(recordId: string): string {
 }
 
 export function timelineRowMarkReviewedButtonTestId(recordId: string): string {
-  return `row-${requireRecordId(recordId)}-mark-reviewed`;
+  return recordTestId("row", recordId, "mark-reviewed");
 }
 
 export function timelineRowReplacementInputTestId(recordId: string): string {
-  return `row-${requireRecordId(recordId)}-replacement-id`;
+  return recordTestId("row", recordId, "replacement-id");
 }
 
 export function timelineRowSupersedeButtonTestId(recordId: string): string {
-  return `row-${requireRecordId(recordId)}-supersede`;
+  return recordTestId("row", recordId, "supersede");
 }
 
 export function timelineEvidenceFileInputTestId(recordId: string): string {
-  return `timeline-evidence-file-${requireRecordId(recordId)}`;
+  return recordTestId("timeline-evidence-file", recordId);
 }
 
 export function timelineDraftEvidenceFileInputTestId(): string {
@@ -853,7 +855,7 @@ export function timelineDraftEvidenceFileInputTestId(): string {
 }
 
 export function timelineEvidenceAttachSectionTestId(recordId: string): string {
-  return `timeline-evidence-attach-${requireRecordId(recordId)}`;
+  return recordTestId("timeline-evidence-attach", recordId);
 }
 
 export function timelineDraftEvidenceAttachSectionTestId(): string {
@@ -861,7 +863,7 @@ export function timelineDraftEvidenceAttachSectionTestId(): string {
 }
 
 export function timelinePreviewRowTestId(recordId: string): string {
-  return `timeline-preview-row-${requireRecordId(recordId)}`;
+  return recordTestId("timeline-preview-row", recordId);
 }
 
 export function relationshipChipTestId(itemRef: string): string {
@@ -912,23 +914,23 @@ export function assessmentCreatePanelTestId(): string {
 }
 
 export function evidencePreviewButtonTestId(recordId: string): string {
-  return `evidence-preview-${requireRecordId(recordId)}`;
+  return recordTestId("evidence-preview", recordId);
 }
 
 export function evidenceDownloadButtonTestId(recordId: string): string {
-  return `evidence-download-${requireRecordId(recordId)}`;
+  return recordTestId("evidence-download", recordId);
 }
 
 export function evidenceAttachFileInputTestId(recordId: string): string {
-  return `evidence-attach-file-${requireRecordId(recordId)}`;
+  return recordTestId("evidence-attach-file", recordId);
 }
 
 export function evidenceAccessMessageTestId(recordId: string): string {
-  return `evidence-access-message-${requireRecordId(recordId)}`;
+  return recordTestId("evidence-access-message", recordId);
 }
 
 export function evidencePreviewFrameTestId(recordId: string): string {
-  return `evidence-preview-frame-${requireRecordId(recordId)}`;
+  return recordTestId("evidence-preview-frame", recordId);
 }
 
 export function evidencePreviewPanelTestId(): string {
@@ -940,27 +942,27 @@ export function genericCreateFieldTestId(fieldKey: string): string {
 }
 
 export function genericCreateSubmitTestId(viewSchemaId: string): string {
-  return `generic-create-submit-${requireViewSchemaId(viewSchemaId)}`;
+  return viewScopedTestId("generic-create-submit", viewSchemaId);
 }
 
 export function genericEditRecordSelectTestId(viewSchemaId: string): string {
-  return `generic-edit-record-${requireViewSchemaId(viewSchemaId)}`;
+  return viewScopedTestId("generic-edit-record", viewSchemaId);
 }
 
 export function genericEditFieldSelectTestId(viewSchemaId: string): string {
-  return `generic-edit-field-${requireViewSchemaId(viewSchemaId)}`;
+  return viewScopedTestId("generic-edit-field", viewSchemaId);
 }
 
 export function genericEditActionSelectTestId(viewSchemaId: string): string {
-  return `generic-edit-action-${requireViewSchemaId(viewSchemaId)}`;
+  return viewScopedTestId("generic-edit-action", viewSchemaId);
 }
 
 export function genericEditValueTestId(viewSchemaId: string): string {
-  return `generic-edit-value-${requireViewSchemaId(viewSchemaId)}`;
+  return viewScopedTestId("generic-edit-value", viewSchemaId);
 }
 
 export function genericEditSubmitTestId(viewSchemaId: string): string {
-  return `generic-edit-submit-${requireViewSchemaId(viewSchemaId)}`;
+  return viewScopedTestId("generic-edit-submit", viewSchemaId);
 }
 
 export function mentionResolveTargetSelectTestId(): string {
@@ -990,9 +992,7 @@ export function savedViewFamilySelector(): string {
 }
 
 export function savedViewSelectorTestId(viewSchemaId: string): StableTestId {
-  return stableTestId(
-    `saved-view-selector-${requireViewSchemaId(viewSchemaId)}`,
-  );
+  return stableTestId(viewScopedTestId("saved-view-selector", viewSchemaId));
 }
 
 export function savedViewOptionTestId(
@@ -1000,9 +1000,10 @@ export function savedViewOptionTestId(
   savedViewId: string,
 ): StableTestId {
   return stableTestId(
-    `saved-view-option-${requireViewSchemaId(
-      viewSchemaId,
-    )}-${encodeSelectorSegment(savedViewId, "saved_view_id")}`,
+    `${viewScopedTestId("saved-view-option", viewSchemaId)}-${encodeSelectorSegment(
+      savedViewId,
+      "saved_view_id",
+    )}`,
   );
 }
 
@@ -1073,38 +1074,82 @@ function requireSelectorToken<T extends string>(
   return token;
 }
 
+function stableSelectorTokenTestId<T extends string>(
+  tokens: Readonly<Record<T, string>>,
+  value: T,
+  label: string,
+): StableTestId {
+  return stableTestId(requireSelectorToken(tokens, value, label));
+}
+
 function stableTestId(value: string): StableTestId {
   return value as StableTestId;
+}
+
+function encodedTestId(prefix: string, value: string, label: string): string {
+  return `${prefix}-${encodeSelectorSegment(value, label)}`;
+}
+
+function stableEncodedTestId(
+  prefix: string,
+  value: string,
+  label: string,
+): StableTestId {
+  return stableTestId(encodedTestId(prefix, value, label));
+}
+
+function viewScopedTestId(prefix: string, viewSchemaId: string): string {
+  return `${prefix}-${requireViewSchemaId(viewSchemaId)}`;
+}
+
+function viewFirstTestId(
+  viewSchemaId: WorkbookSurface,
+  suffix: string,
+): string {
+  return `${requireViewSchemaId(viewSchemaId)}-${suffix}`;
+}
+
+function recordTestId(
+  prefix: string,
+  recordId: string,
+  suffix?: string,
+): string {
+  const base = `${prefix}-${requireRecordId(recordId)}`;
+  return suffix === undefined ? base : `${base}-${suffix}`;
+}
+
+function requireClosedToken<T extends string>(
+  tokens: readonly T[],
+  value: T,
+  label: string,
+): T {
+  if ((tokens as readonly string[]).includes(value)) {
+    return value;
+  }
+  throw new Error(`Invalid ${label} token: ${String(value)}`);
 }
 
 function requireSystemViewSwitcherGroupToken(
   groupToken: SystemViewSwitcherGroupToken,
 ): SystemViewSwitcherGroupToken {
-  if (
-    (systemViewSwitcherGroupTokens as readonly string[]).includes(groupToken)
-  ) {
-    return groupToken;
-  }
-  throw new Error(
-    `Invalid system view switcher group token: ${String(groupToken)}`,
+  return requireClosedToken(
+    systemViewSwitcherGroupTokens,
+    groupToken,
+    "system view switcher group",
   );
 }
 
 function requireWorkbookShellSlot(slot: WorkbookShellSlot): WorkbookShellSlot {
-  if ((workbookShellSlots as readonly string[]).includes(slot)) {
-    return slot;
-  }
-  throw new Error(`Invalid workbook shell slot token: ${String(slot)}`);
+  return requireClosedToken(workbookShellSlots, slot, "workbook shell slot");
 }
 
 function requireTimelineInspectorSection(
   section: TimelineInspectorSection,
 ): TimelineInspectorSection {
-  if ((timelineInspectorSections as readonly string[]).includes(section)) {
-    return section;
-  }
-  throw new Error(
-    `Invalid timeline inspector section token: ${String(section)}`,
+  return requireClosedToken(
+    timelineInspectorSections,
+    section,
+    "timeline inspector section",
   );
 }
 
