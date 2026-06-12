@@ -24,6 +24,8 @@ import {
   emptyWorkbookQueryState,
   toggleSortField,
   updateGroupBy,
+  workbookLayoutStateFromSavedViewLayoutJson,
+  workbookQueryStateFromSavedViewQueryJson,
 } from "./workbookQuery";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
@@ -277,6 +279,76 @@ describe("Phase 8 workbook query controls", () => {
     expect(encoded).not.toContain("focused");
     expect(encoded).not.toContain("presence");
     expect(encoded).not.toContain("Capture State");
+  });
+
+  it("normalizes saved-view query_json and layout_json back to portable field-key state", () => {
+    const contract = requireViewContract(timelineViewSchemaId);
+
+    const queryState = workbookQueryStateFromSavedViewQueryJson(contract, {
+      filters: [
+        {
+          field_key: "timeline.tags",
+          op: "contains_any",
+          arg: { values: ["zeta", "alpha", "alpha", ""] },
+        },
+        {
+          field_key: "Capture State",
+          op: "eq",
+          arg: { value: "reviewed" },
+        },
+        {
+          field_key: "timeline.capture_state",
+          op: "eq",
+          arg: { value: "reviewed" },
+        },
+      ],
+      group_by: "timeline.capture_state",
+      sort: [
+        { field_key: "timeline.sort_ts", direction: "desc" },
+        { field_key: "timeline.tags", direction: "asc" },
+        { field_key: "timeline.sort_ts", direction: "asc" },
+      ],
+    });
+
+    expect(buildSavedViewQueryJson(contract, queryState)).toEqual({
+      filters: [
+        {
+          arg: { value: "reviewed" },
+          field_key: "timeline.capture_state",
+          op: "eq",
+        },
+        {
+          arg: { values: ["alpha", "zeta"] },
+          field_key: "timeline.tags",
+          op: "contains_any",
+        },
+      ],
+      group_by: "timeline.capture_state",
+      sort: [{ direction: "desc", field_key: "timeline.sort_ts" }],
+    });
+
+    expect(
+      buildSavedViewLayoutJson(
+        contract,
+        workbookLayoutStateFromSavedViewLayoutJson(contract, {
+          layout_schema_id: "cartulary.layout.v1",
+          column_order: [
+            "timeline.summary",
+            "row_version",
+            "timeline.occurred_at",
+          ],
+          hidden_field_keys: ["timeline.details", "record_id"],
+          column_widths: [
+            { field_key: "timeline.summary", width_px: 480 },
+            { field_key: "row_version", width_px: 80 },
+          ],
+        }),
+      ),
+    ).toMatchObject({
+      layout_schema_id: "cartulary.layout.v1",
+      column_widths: [{ field_key: "timeline.summary", width_px: 480 }],
+      hidden_field_keys: ["timeline.details"],
+    });
   });
 
   it("FE-U-P8-01 renders active filter chips and grouping controls by field key", () => {

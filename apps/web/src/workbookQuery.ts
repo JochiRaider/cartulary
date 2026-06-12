@@ -231,6 +231,64 @@ export function buildSavedViewLayoutJson(
   };
 }
 
+export function workbookQueryStateFromSavedViewQueryJson(
+  contract: ViewContract,
+  value: unknown,
+): WorkbookQueryState {
+  if (!isObjectRecord(value)) {
+    return emptyWorkbookQueryState();
+  }
+  const state: WorkbookQueryState = {
+    filters: savedViewFiltersFromQueryJson(contract, value.filters),
+    groupBy:
+      typeof value.group_by === "string" &&
+      contract.groupableFieldMap[value.group_by]
+        ? value.group_by
+        : null,
+    sort: savedViewSortFromQueryJson(contract, value.sort),
+  };
+  return {
+    ...state,
+    filters: normalizeFiltersForWire(contract, state).map((filter) => ({
+      arg: { ...filter.arg },
+      fieldKey: filter.field_key,
+      op: filter.op,
+    })),
+    sort: normalizeUserSortForPersistence(contract, state),
+  };
+}
+
+export function workbookLayoutStateFromSavedViewLayoutJson(
+  contract: ViewContract,
+  value: unknown,
+): WorkbookLayoutState {
+  if (!isObjectRecord(value)) {
+    return {};
+  }
+  return {
+    columnOrder: Array.isArray(value.column_order)
+      ? value.column_order.filter(
+          (fieldKey): fieldKey is string => typeof fieldKey === "string",
+        )
+      : [],
+    columnWidths: Array.isArray(value.column_widths)
+      ? value.column_widths.filter(isObjectRecord).map((entry) => ({
+          fieldKey:
+            typeof entry.field_key === "string" ? entry.field_key : "",
+          widthPx:
+            typeof entry.width_px === "number"
+              ? Math.trunc(entry.width_px)
+              : Number.NaN,
+        }))
+      : [],
+    hiddenFieldKeys: Array.isArray(value.hidden_field_keys)
+      ? value.hidden_field_keys.filter(
+          (fieldKey): fieldKey is string => typeof fieldKey === "string",
+        )
+      : contract.defaultHiddenFields,
+  };
+}
+
 export function filterChipLabel(
   contract: ViewContract,
   filter: WorkbookFilter,
@@ -280,6 +338,78 @@ function normalizeSortForRequest(
     return sort;
   }
   return [{ fieldKey: state.groupBy, direction: "asc" }, ...sort];
+}
+
+function savedViewSortFromQueryJson(
+  contract: ViewContract,
+  value: unknown,
+): readonly WorkbookSortEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const sort: WorkbookSortEntry[] = [];
+  for (const entry of value) {
+    if (!isObjectRecord(entry)) {
+      continue;
+    }
+    if (
+      typeof entry.field_key !== "string" ||
+      !contract.sortableFieldMap[entry.field_key] ||
+      seen.has(entry.field_key) ||
+      (entry.direction !== "asc" && entry.direction !== "desc")
+    ) {
+      continue;
+    }
+    seen.add(entry.field_key);
+    sort.push({
+      direction: entry.direction,
+      fieldKey: entry.field_key,
+    });
+  }
+  return sort;
+}
+
+function savedViewFiltersFromQueryJson(
+  contract: ViewContract,
+  value: unknown,
+): readonly WorkbookFilter[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const filters = new Map<string, WorkbookFilter>();
+  for (const entry of value) {
+    if (!isObjectRecord(entry) || !isObjectRecord(entry.arg)) {
+      continue;
+    }
+    if (
+      typeof entry.field_key !== "string" ||
+      typeof entry.op !== "string" ||
+      !contract.filterableFieldMap[entry.field_key]
+    ) {
+      continue;
+    }
+    const field = contract.fieldMap[entry.field_key];
+    if (!field || !field.filterOps.includes(entry.op)) {
+      continue;
+    }
+    const candidate: WorkbookFilter = {
+      arg: { ...entry.arg },
+      fieldKey: entry.field_key,
+      op: entry.op,
+    };
+    if (normalizeFilterArg(candidate) === null) {
+      continue;
+    }
+    filters.set(entry.field_key, candidate);
+  }
+  return [...filters.values()].sort((left, right) =>
+    left.fieldKey.localeCompare(right.fieldKey),
+  );
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function normalizeUserSortForPersistence(

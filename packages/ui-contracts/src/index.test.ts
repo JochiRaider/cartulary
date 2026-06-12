@@ -110,9 +110,18 @@ import {
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
   rowPresenceMarkerTestId,
+  savedViewCreateButtonTestId,
+  savedViewDeleteButtonTestId,
+  savedViewDuplicateButtonTestId,
   savedViewFamilySelector,
+  savedViewNameInputTestId,
   savedViewOptionTestId,
+  savedViewScopeSelectTestId,
   savedViewSelectorTestId,
+  savedViewSetDefaultButtonTestId,
+  savedViewSetHomeButtonTestId,
+  savedViewStatusTestId,
+  savedViewUpdateButtonTestId,
   saveStateTestId,
   statusStripQueueCountTestId,
   surfaceTabTestId,
@@ -521,6 +530,42 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(
       savedViewOptionTestId("cartulary.view.hosts.v1", "saved/view 1"),
     ).toBe("saved-view-option-cartulary.view.hosts.v1-saved%2Fview%201");
+    expect(savedViewNameInputTestId("cartulary.view.hosts.v1")).toBe(
+      "saved-view-name-cartulary.view.hosts.v1",
+    );
+    expect(savedViewScopeSelectTestId("cartulary.view.hosts.v1")).toBe(
+      "saved-view-scope-cartulary.view.hosts.v1",
+    );
+    expect(savedViewCreateButtonTestId("cartulary.view.hosts.v1")).toBe(
+      "saved-view-create-cartulary.view.hosts.v1",
+    );
+    expect(
+      savedViewDuplicateButtonTestId(
+        "cartulary.view.hosts.v1",
+        "saved/view 1",
+      ),
+    ).toBe("saved-view-duplicate-cartulary.view.hosts.v1-saved%2Fview%201");
+    expect(
+      savedViewUpdateButtonTestId(
+        "cartulary.view.hosts.v1",
+        "saved/view 1",
+      ),
+    ).toBe("saved-view-update-cartulary.view.hosts.v1-saved%2Fview%201");
+    expect(
+      savedViewDeleteButtonTestId(
+        "cartulary.view.hosts.v1",
+        "saved/view 1",
+      ),
+    ).toBe("saved-view-delete-cartulary.view.hosts.v1-saved%2Fview%201");
+    expect(savedViewSetHomeButtonTestId("cartulary.view.hosts.v1")).toBe(
+      "saved-view-set-home-cartulary.view.hosts.v1",
+    );
+    expect(savedViewSetDefaultButtonTestId("cartulary.view.hosts.v1")).toBe(
+      "saved-view-set-default-cartulary.view.hosts.v1",
+    );
+    expect(savedViewStatusTestId("cartulary.view.hosts.v1")).toBe(
+      "saved-view-status-cartulary.view.hosts.v1",
+    );
   });
 
   it("provides shared builders for workbook action families", () => {

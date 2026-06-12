@@ -13,8 +13,16 @@ import {
   gridShellTestId,
   rowCellTestId,
   rowInspectButtonTestId,
+  savedViewCreateButtonTestId,
+  savedViewDeleteButtonTestId,
+  savedViewDuplicateButtonTestId,
+  savedViewNameInputTestId,
   savedViewOptionTestId,
+  savedViewScopeSelectTestId,
   savedViewSelectorTestId,
+  savedViewSetDefaultButtonTestId,
+  savedViewSetHomeButtonTestId,
+  savedViewUpdateButtonTestId,
   surfaceTabTestId,
   systemViewSwitcherGroupTestId,
   systemViewSwitcherOptionTestId,
@@ -53,6 +61,33 @@ import {
 } from "./workbookSurfaceRegistry";
 
 const savedViewId = "11111111-1111-4111-8111-111111111111";
+const savedViewCopyId = "33333333-3333-4333-8333-333333333333";
+
+type TestSavedViewResource = {
+  saved_view_id: string;
+  view_schema_id: string;
+  display_name: string;
+  scope: "private" | "shared" | "system";
+  query_json: unknown;
+  layout_json: unknown;
+  owner_user_id: string | null;
+  saved_view_version: number;
+};
+
+function testSavedViewResource(
+  overrides: Partial<TestSavedViewResource> &
+    Pick<TestSavedViewResource, "saved_view_id" | "view_schema_id">,
+): TestSavedViewResource {
+  return {
+    display_name: "Saved view",
+    layout_json: {},
+    owner_user_id: "user-1",
+    query_json: {},
+    saved_view_version: 1,
+    scope: "private",
+    ...overrides,
+  };
+}
 
 function requireField(
   contract: ViewContract,
@@ -85,11 +120,7 @@ describe("WorkbookShell surface selection", () => {
       cells: Record<string, { value: unknown }>;
     }>
   >;
-  let savedViews: Array<{
-    saved_view_id: string;
-    view_schema_id: string;
-    display_name: string;
-  }>;
+  let savedViews: TestSavedViewResource[];
   let queryResponseOverride:
     | ((
         viewSchemaId: string,
@@ -191,6 +222,74 @@ describe("WorkbookShell surface selection", () => {
           home_sheet_ref: null,
           default_sheet_ref: null,
         });
+      }
+      if (
+        method === "POST" &&
+        url.includes("/api/v1/incidents/incident-1/saved-views")
+      ) {
+        const body = JSON.parse(String(init?.body ?? "{}")) as Record<
+          string,
+          unknown
+        >;
+        const created = testSavedViewResource({
+          saved_view_id:
+            typeof body.display_name === "string" &&
+            body.display_name.endsWith(" Copy")
+              ? savedViewCopyId
+              : "44444444-4444-4444-8444-444444444444",
+          view_schema_id: String(body.view_schema_id),
+          display_name: String(body.display_name ?? "Saved view"),
+          scope: body.scope === "shared" ? "shared" : "private",
+          query_json: body.query_json ?? {},
+          layout_json: body.layout_json ?? {},
+          saved_view_version: 1,
+        });
+        savedViews = [
+          ...savedViews.filter(
+            (savedView) => savedView.saved_view_id !== created.saved_view_id,
+          ),
+          created,
+        ];
+        return successEnvelope(created, 201);
+      }
+      const savedViewMutationMatch = url.match(
+        /\/api\/v1\/incidents\/incident-1\/saved-views\/([^/?]+)$/,
+      );
+      if (savedViewMutationMatch && method === "PATCH") {
+        const savedViewID = decodeURIComponent(
+          savedViewMutationMatch[1] ?? "",
+        );
+        const existing = savedViews.find(
+          (savedView) => savedView.saved_view_id === savedViewID,
+        );
+        if (!existing) {
+          return errorEnvelope("not_found", 404);
+        }
+        const body = JSON.parse(String(init?.body ?? "{}")) as Record<
+          string,
+          unknown
+        >;
+        const updated: TestSavedViewResource = {
+          ...existing,
+          display_name: String(body.display_name ?? existing.display_name),
+          scope: body.scope === "shared" ? "shared" : "private",
+          query_json: body.query_json ?? existing.query_json,
+          layout_json: body.layout_json ?? existing.layout_json,
+          saved_view_version: existing.saved_view_version + 1,
+        };
+        savedViews = savedViews.map((savedView) =>
+          savedView.saved_view_id === savedViewID ? updated : savedView,
+        );
+        return successEnvelope(updated);
+      }
+      if (savedViewMutationMatch && method === "DELETE") {
+        const savedViewID = decodeURIComponent(
+          savedViewMutationMatch[1] ?? "",
+        );
+        savedViews = savedViews.filter(
+          (savedView) => savedView.saved_view_id !== savedViewID,
+        );
+        return successEnvelope({ saved_view_id: savedViewID });
       }
       if (
         method === "GET" &&
@@ -653,11 +752,10 @@ describe("WorkbookShell surface selection", () => {
     startupSelection = {
       selected_sheet_ref: { kind: "saved_view", id: savedViewId },
       selected_view_schema_id: evidenceViewSchemaId,
-      selected_saved_view: {
+      selected_saved_view: testSavedViewResource({
         saved_view_id: savedViewId,
-        incident_id: "incident-1",
         view_schema_id: evidenceViewSchemaId,
-      },
+      }),
       source: "home",
     };
 
@@ -677,16 +775,16 @@ describe("WorkbookShell surface selection", () => {
   it("renders saved views only in the active surface selector and preserves selected saved-view identity", async () => {
     const evidenceSavedViewId = "22222222-2222-4222-8222-222222222222";
     savedViews = [
-      {
+      testSavedViewResource({
         saved_view_id: savedViewId,
         view_schema_id: timelineViewSchemaId,
         display_name: "Timeline saved view",
-      },
-      {
+      }),
+      testSavedViewResource({
         saved_view_id: evidenceSavedViewId,
         view_schema_id: evidenceViewSchemaId,
         display_name: "Evidence saved view",
-      },
+      }),
     ];
 
     render(<WorkbookShell incidentId="incident-1" />);
@@ -759,6 +857,269 @@ describe("WorkbookShell surface selection", () => {
     expect(window.location.search).toContain(
       `view_schema_id=${encodeURIComponent(evidenceViewSchemaId)}`,
     );
+  });
+
+  it("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.", async () => {
+    const systemSavedViewId = "22222222-2222-4222-8222-222222222222";
+    timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
+    savedViews = [
+      testSavedViewResource({
+        saved_view_id: savedViewId,
+        view_schema_id: timelineViewSchemaId,
+        display_name: "Timeline saved view",
+        scope: "private",
+        query_json: {
+          filters: [
+            {
+              field_key: "timeline.capture_state",
+              op: "eq",
+              arg: { value: "reviewed" },
+            },
+          ],
+          group_by: "timeline.capture_state",
+          sort: [{ field_key: "timeline.sort_ts", direction: "desc" }],
+        },
+        layout_json: {
+          layout_schema_id: "cartulary.layout.v1",
+          column_order: ["timeline.summary", "timeline.occurred_at"],
+          hidden_field_keys: ["timeline.details"],
+          column_widths: [
+            { field_key: "timeline.summary", width_px: 360 },
+          ],
+        },
+      }),
+      testSavedViewResource({
+        saved_view_id: systemSavedViewId,
+        view_schema_id: timelineViewSchemaId,
+        display_name: "System timeline",
+        owner_user_id: null,
+        scope: "system",
+        query_json: {
+          filters: [
+            {
+              field_key: "timeline.tags",
+              op: "contains_any",
+              arg: { values: ["alpha", "zeta"] },
+            },
+          ],
+          sort: [],
+        },
+      }),
+    ];
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    const selector = await screen.findByTestId(
+      savedViewSelectorTestId(timelineViewSchemaId),
+    );
+    const timelineQueryCallCount = () =>
+      fetchMock.mock.calls.filter(
+        ([input, init]) =>
+          String(input).includes(`/views/${timelineViewSchemaId}/query`) &&
+          ((init as RequestInit | undefined)?.method ?? "GET") === "POST",
+      ).length;
+    const savedViewMutationBodies = (method: string) =>
+      fetchMock.mock.calls
+        .filter(
+          ([input, init]) =>
+            String(input).includes(
+              "/api/v1/incidents/incident-1/saved-views",
+            ) &&
+            ((init as RequestInit | undefined)?.method ?? "GET").toUpperCase() ===
+              method,
+        )
+        .map(([, init]) =>
+          JSON.parse(String((init as RequestInit | undefined)?.body ?? "{}")),
+        ) as Array<Record<string, unknown>>;
+    await waitFor(() => {
+      expect(timelineQueryCallCount()).toBeGreaterThan(0);
+    });
+    const queryCountBeforeSelect = timelineQueryCallCount();
+
+    fireEvent.change(selector, { target: { value: savedViewId } });
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("sheet_ref_kind=saved_view");
+      expect(timelineQueryCallCount()).toBeGreaterThan(queryCountBeforeSelect);
+    });
+    const savedViewQueryBody = JSON.parse(
+      String(
+        (
+          fetchMock.mock.calls
+            .filter(
+              ([input, init]) =>
+                String(input).includes(
+                  `/views/${timelineViewSchemaId}/query`,
+                ) &&
+                ((init as RequestInit | undefined)?.method ?? "GET") ===
+                  "POST",
+            )
+            .at(-1)?.[1] as RequestInit | undefined
+        )?.body ?? "{}",
+      ),
+    );
+    expect(savedViewQueryBody).toEqual({
+      filters: [
+        {
+          arg: { value: "reviewed" },
+          field_key: "timeline.capture_state",
+          op: "eq",
+        },
+      ],
+      group_by: "timeline.capture_state",
+      sort: [
+        { direction: "asc", field_key: "timeline.capture_state" },
+        { direction: "desc", field_key: "timeline.sort_ts" },
+      ],
+    });
+    expect(window.location.search).toContain(`sheet_ref_id=${savedViewId}`);
+    expect(window.location.search).not.toContain("view_schema_id=");
+
+    fireEvent.change(
+      screen.getByTestId(savedViewNameInputTestId(timelineViewSchemaId)),
+      { target: { value: "Updated shared view" } },
+    );
+    fireEvent.change(
+      screen.getByTestId(savedViewScopeSelectTestId(timelineViewSchemaId)),
+      { target: { value: "shared" } },
+    );
+    fireEvent.click(
+      await screen.findByTestId(
+        savedViewUpdateButtonTestId(timelineViewSchemaId, savedViewId),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(savedViewMutationBodies("PATCH")).toHaveLength(1);
+    });
+    const patchBody = savedViewMutationBodies("PATCH")[0] ?? {};
+    expect(Object.keys(patchBody).sort()).toEqual([
+      "base_saved_view_version",
+      "display_name",
+      "layout_json",
+      "query_json",
+      "scope",
+    ]);
+    expect(patchBody).toMatchObject({
+      base_saved_view_version: 1,
+      display_name: "Updated shared view",
+      scope: "shared",
+      query_json: {
+        filters: [
+          {
+            arg: { value: "reviewed" },
+            field_key: "timeline.capture_state",
+            op: "eq",
+          },
+        ],
+        group_by: "timeline.capture_state",
+        sort: [{ direction: "desc", field_key: "timeline.sort_ts" }],
+      },
+      layout_json: {
+        layout_schema_id: "cartulary.layout.v1",
+      },
+    });
+    expect(patchBody).not.toHaveProperty("view_schema_id");
+    expect(patchBody).not.toHaveProperty("saved_view_id");
+    expect(patchBody).not.toHaveProperty("owner_user_id");
+
+    fireEvent.click(
+      screen.getByTestId(savedViewSetHomeButtonTestId(timelineViewSchemaId)),
+    );
+    fireEvent.click(
+      screen.getByTestId(savedViewSetDefaultButtonTestId(timelineViewSchemaId)),
+    );
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/workbook-preferences/me"),
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({
+            home_sheet_ref: { kind: "saved_view", id: savedViewId },
+          }),
+        }),
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/workbook-preferences/default"),
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({
+            default_sheet_ref: { kind: "saved_view", id: savedViewId },
+          }),
+        }),
+      );
+    });
+
+    fireEvent.change(selector, { target: { value: systemSavedViewId } });
+    const systemUpdateButton = await screen.findByTestId(
+      savedViewUpdateButtonTestId(timelineViewSchemaId, systemSavedViewId),
+    );
+    const systemDeleteButton = await screen.findByTestId(
+      savedViewDeleteButtonTestId(timelineViewSchemaId, systemSavedViewId),
+    );
+    expect((systemUpdateButton as HTMLButtonElement).disabled).toBe(true);
+    expect((systemDeleteButton as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(
+      screen.getByTestId(
+        savedViewDuplicateButtonTestId(
+          timelineViewSchemaId,
+          systemSavedViewId,
+        ),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(savedViewMutationBodies("POST")).toHaveLength(1);
+    });
+    expect(savedViewMutationBodies("POST")[0]).toMatchObject({
+      display_name: "System timeline Copy",
+      scope: "private",
+      view_schema_id: timelineViewSchemaId,
+      query_json: {
+        filters: [
+          {
+            arg: { values: ["alpha", "zeta"] },
+            field_key: "timeline.tags",
+            op: "contains_any",
+          },
+        ],
+        sort: [],
+      },
+    });
+
+    const copyDeleteButton = await screen.findByTestId(
+      savedViewDeleteButtonTestId(timelineViewSchemaId, savedViewCopyId),
+    );
+    fireEvent.click(copyDeleteButton);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining(
+          `/saved-views/${savedViewCopyId}`,
+        ),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+      expect(window.location.search).toContain(
+        `view_schema_id=${encodeURIComponent(timelineViewSchemaId)}`,
+      );
+    });
+    expect(screen.getByTestId(rowCellTestId("timeline-1", "timeline.summary")))
+      .not.toBeNull();
+
+    fireEvent.change(
+      screen.getByTestId(savedViewNameInputTestId(timelineViewSchemaId)),
+      { target: { value: "Created from current state" } },
+    );
+    fireEvent.click(
+      screen.getByTestId(savedViewCreateButtonTestId(timelineViewSchemaId)),
+    );
+    await waitFor(() => {
+      expect(savedViewMutationBodies("POST")).toHaveLength(2);
+    });
+    expect(savedViewMutationBodies("POST")[1]).toMatchObject({
+      display_name: "Created from current state",
+      scope: "private",
+      view_schema_id: timelineViewSchemaId,
+    });
   });
 
   it("passes invalid explicit base surfaces to backend startup fallback", async () => {

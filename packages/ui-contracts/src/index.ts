@@ -1007,6 +1007,76 @@ export function savedViewOptionTestId(
   );
 }
 
+export function savedViewNameInputTestId(
+  viewSchemaId: string,
+): StableTestId {
+  return stableTestId(viewScopedTestId("saved-view-name", viewSchemaId));
+}
+
+export function savedViewScopeSelectTestId(
+  viewSchemaId: string,
+): StableTestId {
+  return stableTestId(viewScopedTestId("saved-view-scope", viewSchemaId));
+}
+
+export function savedViewCreateButtonTestId(
+  viewSchemaId: string,
+): StableTestId {
+  return stableTestId(viewScopedTestId("saved-view-create", viewSchemaId));
+}
+
+export function savedViewDuplicateButtonTestId(
+  viewSchemaId: string,
+  savedViewId: string,
+): StableTestId {
+  return stableTestId(
+    `${viewScopedTestId("saved-view-duplicate", viewSchemaId)}-${encodeSelectorSegment(
+      savedViewId,
+      "saved_view_id",
+    )}`,
+  );
+}
+
+export function savedViewUpdateButtonTestId(
+  viewSchemaId: string,
+  savedViewId: string,
+): StableTestId {
+  return stableTestId(
+    `${viewScopedTestId("saved-view-update", viewSchemaId)}-${encodeSelectorSegment(
+      savedViewId,
+      "saved_view_id",
+    )}`,
+  );
+}
+
+export function savedViewDeleteButtonTestId(
+  viewSchemaId: string,
+  savedViewId: string,
+): StableTestId {
+  return stableTestId(
+    `${viewScopedTestId("saved-view-delete", viewSchemaId)}-${encodeSelectorSegment(
+      savedViewId,
+      "saved_view_id",
+    )}`,
+  );
+}
+
+export function savedViewSetHomeButtonTestId(
+  viewSchemaId: string,
+): StableTestId {
+  return stableTestId(viewScopedTestId("saved-view-set-home", viewSchemaId));
+}
+
+export function savedViewSetDefaultButtonTestId(
+  viewSchemaId: string,
+): StableTestId {
+  return stableTestId(viewScopedTestId("saved-view-set-default", viewSchemaId));
+}
+
+export function savedViewStatusTestId(viewSchemaId: string): StableTestId {
+  return stableTestId(viewScopedTestId("saved-view-status", viewSchemaId));
+}
+
 export function dataTestIdPrefixSelector(testIdPrefix: string): string {
   return `[data-testid^="${cssAttributeValue(
     requireNonEmptySelectorValue(testIdPrefix, "data-testid prefix"),

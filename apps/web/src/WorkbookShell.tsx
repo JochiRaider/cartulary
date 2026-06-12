@@ -84,8 +84,17 @@ import {
   rowHistoryRestoreButtonTestId,
   rowInspectButtonTestId,
   rowPresenceMarkerTestId,
+  savedViewCreateButtonTestId,
+  savedViewDeleteButtonTestId,
+  savedViewDuplicateButtonTestId,
+  savedViewNameInputTestId,
   savedViewOptionTestId,
+  savedViewScopeSelectTestId,
   savedViewSelectorTestId,
+  savedViewSetDefaultButtonTestId,
+  savedViewSetHomeButtonTestId,
+  savedViewStatusTestId,
+  savedViewUpdateButtonTestId,
   saveStateTestId,
   statusStripQueueCountTestId,
   surfaceTabTestId,
@@ -193,6 +202,8 @@ import {
 } from "./workbookPendingQueue";
 import {
   applyFilterDraft,
+  buildSavedViewLayoutJson,
+  buildSavedViewQueryJson,
   buildQueryRequest,
   defaultFilterDraft,
   emptyWorkbookQueryState,
@@ -200,6 +211,8 @@ import {
   removeFilterField,
   toggleSortField,
   updateGroupBy,
+  workbookLayoutStateFromSavedViewLayoutJson,
+  workbookQueryStateFromSavedViewQueryJson,
   type WorkbookQueryState,
 } from "./workbookQuery";
 import {
@@ -344,6 +357,10 @@ type TimelineWorkbookProps = {
   sheetRef?: WorkbookSheetRef | undefined;
   reloadToken?: number | undefined;
   savedViewSelector?: ReactNode | undefined;
+  filterDraft?: FilterDraft | undefined;
+  onFilterDraftChange?: FilterDraftSetter | undefined;
+  onQueryStateChange?: WorkbookQueryStateSetter | undefined;
+  queryState?: WorkbookQueryState | undefined;
   hostEntities?: EntityRow[];
   identityEntities?: EntityRow[];
   entityIndex?: Record<string, EntityRow>;
@@ -410,6 +427,11 @@ type SavedViewResource = {
   saved_view_id: string;
   view_schema_id: string;
   display_name: string;
+  scope: "private" | "shared" | "system";
+  query_json: unknown;
+  layout_json: unknown;
+  owner_user_id: string | null;
+  saved_view_version: number;
 };
 
 type SavedViewListEnvelope = {
@@ -423,6 +445,99 @@ type SavedViewListEnvelope = {
     };
   };
 };
+
+type SavedViewEnvelope = {
+  data: SavedViewResource;
+};
+
+function workbookContractForViewSchemaId(viewSchemaId: string): ViewContract {
+  return (
+    allWorkbookContracts.find(
+      (contract) => contract.viewSchemaId === viewSchemaId,
+    ) ?? timelineContract
+  );
+}
+
+function normalizeSavedViewResource(value: unknown): SavedViewResource | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.saved_view_id !== "string" ||
+    typeof record.view_schema_id !== "string" ||
+    typeof record.display_name !== "string" ||
+    !isStandardizedWorkbookViewSchemaId(record.view_schema_id)
+  ) {
+    return null;
+  }
+  const scope = normalizeSavedViewScope(record.scope);
+  if (scope === null) {
+    return null;
+  }
+  const version =
+    typeof record.saved_view_version === "number" &&
+    Number.isSafeInteger(record.saved_view_version)
+      ? record.saved_view_version
+      : 0;
+  return {
+    saved_view_id: record.saved_view_id,
+    view_schema_id: record.view_schema_id,
+    display_name: record.display_name,
+    scope,
+    query_json: record.query_json ?? {},
+    layout_json: record.layout_json ?? {},
+    owner_user_id:
+      typeof record.owner_user_id === "string" ? record.owner_user_id : null,
+    saved_view_version: version,
+  };
+}
+
+function normalizeSavedViewScope(
+  value: unknown,
+): SavedViewResource["scope"] | null {
+  return value === "private" || value === "shared" || value === "system"
+    ? value
+    : null;
+}
+
+function canMutateSavedView(
+  savedView: SavedViewResource | null,
+  currentUserId: string | null,
+  currentIncidentRole: IncidentRole | null,
+): boolean {
+  if (savedView === null || savedView.scope === "system") {
+    return false;
+  }
+  if (currentIncidentRole === "admin") {
+    return true;
+  }
+  return (
+    currentUserId !== null &&
+    savedView.owner_user_id !== null &&
+    savedView.owner_user_id === currentUserId
+  );
+}
+
+function savedViewQueryJsonForPersistence(
+  contract: ViewContract,
+  value: unknown,
+) {
+  return buildSavedViewQueryJson(
+    contract,
+    workbookQueryStateFromSavedViewQueryJson(contract, value),
+  );
+}
+
+function savedViewLayoutJsonForPersistence(
+  contract: ViewContract,
+  value: unknown,
+) {
+  return buildSavedViewLayoutJson(
+    contract,
+    workbookLayoutStateFromSavedViewLayoutJson(contract, value),
+  );
+}
 
 type TimelineMutationEnvelope = {
   data: {
@@ -3302,6 +3417,10 @@ export function TimelineWorkbook({
   sheetRef,
   reloadToken = 0,
   savedViewSelector,
+  filterDraft: controlledFilterDraft,
+  onFilterDraftChange,
+  onQueryStateChange,
+  queryState: controlledQueryState,
   hostEntities = [],
   identityEntities = [],
   entityIndex = {},
@@ -3353,12 +3472,14 @@ export function TimelineWorkbook({
   const [autoResolutionNotices, setAutoResolutionNotices] = useState<
     AutoResolutionNotice[]
   >([]);
-  const [queryState, setQueryState] = useState<WorkbookQueryState>(() =>
-    emptyWorkbookQueryState(),
-  );
-  const [filterDraft, setFilterDraft] = useState<FilterDraft>(() =>
-    defaultFilterDraft(timelineContract),
-  );
+  const [uncontrolledQueryState, setUncontrolledQueryState] =
+    useState<WorkbookQueryState>(() => emptyWorkbookQueryState());
+  const [uncontrolledFilterDraft, setUncontrolledFilterDraft] =
+    useState<FilterDraft>(() => defaultFilterDraft(timelineContract));
+  const queryState = controlledQueryState ?? uncontrolledQueryState;
+  const setQueryState = onQueryStateChange ?? setUncontrolledQueryState;
+  const filterDraft = controlledFilterDraft ?? uncontrolledFilterDraft;
+  const setFilterDraft = onFilterDraftChange ?? setUncontrolledFilterDraft;
   const draftCounterRef = useRef(2);
   const clientTxnRef = useRef(1);
   const pendingOpsRef = useRef(0);
@@ -12676,17 +12797,47 @@ function SystemViewSwitcher({
 
 function ActiveSurfaceSavedViewSelector({
   activeViewSchemaId,
+  currentIncidentRole,
+  currentUserId,
   savedViews,
   selectedSheetRef,
+  onCreateSavedView,
+  onDeleteSavedView,
+  onDuplicateSavedView,
   onSelectBaseSurface,
   onSelectSavedView,
+  onSetDefaultSheetRef,
+  onSetHomeSheetRef,
+  onUpdateSavedView,
 }: {
   readonly activeViewSchemaId: string;
+  readonly currentIncidentRole: IncidentRole | null;
+  readonly currentUserId: string | null;
   readonly savedViews: readonly SavedViewResource[];
   readonly selectedSheetRef: WorkbookSheetRef;
+  readonly onCreateSavedView: (input: {
+    readonly displayName: string;
+    readonly scope: "private" | "shared";
+  }) => Promise<SavedViewResource>;
+  readonly onDeleteSavedView: (savedView: SavedViewResource) => Promise<void>;
+  readonly onDuplicateSavedView: (
+    savedView: SavedViewResource,
+  ) => Promise<SavedViewResource>;
   readonly onSelectBaseSurface: (viewSchemaId: string) => void;
   readonly onSelectSavedView: (savedView: SavedViewResource) => void;
+  readonly onSetDefaultSheetRef: () => Promise<void>;
+  readonly onSetHomeSheetRef: () => Promise<void>;
+  readonly onUpdateSavedView: (
+    savedView: SavedViewResource,
+    input: {
+      readonly displayName: string;
+      readonly scope: "private" | "shared";
+    },
+  ) => Promise<SavedViewResource>;
 }) {
+  const [displayName, setDisplayName] = useState("Saved view");
+  const [scope, setScope] = useState<"private" | "shared">("private");
+  const [status, setStatus] = useState("");
   const activeSavedViews = useMemo(
     () =>
       savedViews.filter(
@@ -12701,51 +12852,224 @@ function ActiveSurfaceSavedViewSelector({
     )
       ? selectedSheetRef.id
       : "";
+  const selectedSavedView =
+    activeSavedViews.find(
+      (savedView) => savedView.saved_view_id === selectedSavedViewId,
+    ) ?? null;
+  const selectedSavedViewMutable = canMutateSavedView(
+    selectedSavedView,
+    currentUserId,
+    currentIncidentRole,
+  );
+  const trimmedDisplayName = displayName.trim();
+
+  useEffect(() => {
+    if (selectedSavedView === null) {
+      setDisplayName("Saved view");
+      setScope("private");
+      return;
+    }
+    setDisplayName(selectedSavedView.display_name);
+    setScope(selectedSavedView.scope === "shared" ? "shared" : "private");
+  }, [selectedSavedView]);
+
+  const runSavedViewAction = async (
+    action: () => Promise<void>,
+    successMessage: string,
+  ) => {
+    setStatus("");
+    try {
+      await action();
+      setStatus(successMessage);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Saved view failed.");
+    }
+  };
 
   return (
-    <label style={savedViewSelectorFrameStyle}>
-      <span style={savedViewSelectorLabelStyle}>View:</span>
-      <select
-        aria-label="Saved view"
-        data-active-view-schema-id={activeViewSchemaId}
-        data-selected-saved-view-id={selectedSavedViewId}
-        data-selected-sheet-ref-kind={
-          selectedSavedViewId === "" ? "view_schema" : "saved_view"
-        }
-        data-testid={savedViewSelectorTestId(activeViewSchemaId)}
-        style={savedViewSelectStyle}
-        value={selectedSavedViewId}
+    <div style={savedViewControlGroupStyle}>
+      <label style={savedViewSelectorFrameStyle}>
+        <span style={savedViewSelectorLabelStyle}>View:</span>
+        <select
+          aria-label="Saved view"
+          data-active-view-schema-id={activeViewSchemaId}
+          data-selected-saved-view-id={selectedSavedViewId}
+          data-selected-sheet-ref-kind={
+            selectedSavedViewId === "" ? "view_schema" : "saved_view"
+          }
+          data-testid={savedViewSelectorTestId(activeViewSchemaId)}
+          style={savedViewSelectStyle}
+          value={selectedSavedViewId}
+          onChange={(event) => {
+            const nextSavedViewId = event.currentTarget.value;
+            setStatus("");
+            if (nextSavedViewId === "") {
+              onSelectBaseSurface(activeViewSchemaId);
+              return;
+            }
+            const savedView = activeSavedViews.find(
+              (candidate) => candidate.saved_view_id === nextSavedViewId,
+            );
+            if (savedView !== undefined) {
+              onSelectSavedView(savedView);
+            }
+          }}
+        >
+          <option value="">Base view</option>
+          {activeSavedViews.map((savedView) => (
+            <option
+              key={savedView.saved_view_id}
+              data-saved-view-id={savedView.saved_view_id}
+              data-testid={savedViewOptionTestId(
+                activeViewSchemaId,
+                savedView.saved_view_id,
+              )}
+              data-view-schema-id={activeViewSchemaId}
+              value={savedView.saved_view_id}
+            >
+              {savedView.display_name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <input
+        aria-label="Saved view name"
+        data-testid={savedViewNameInputTestId(activeViewSchemaId)}
+        style={savedViewNameInputStyle}
+        type="text"
+        value={displayName}
         onChange={(event) => {
-          const nextSavedViewId = event.currentTarget.value;
-          if (nextSavedViewId === "") {
-            onSelectBaseSurface(activeViewSchemaId);
-            return;
-          }
-          const savedView = activeSavedViews.find(
-            (candidate) => candidate.saved_view_id === nextSavedViewId,
+          setDisplayName(event.currentTarget.value);
+        }}
+      />
+      <select
+        aria-label="Saved view scope"
+        data-testid={savedViewScopeSelectTestId(activeViewSchemaId)}
+        style={savedViewScopeSelectStyle}
+        value={scope}
+        onChange={(event) => {
+          setScope(
+            event.currentTarget.value === "shared" ? "shared" : "private",
           );
-          if (savedView !== undefined) {
-            onSelectSavedView(savedView);
-          }
         }}
       >
-        <option value="">Base view</option>
-        {activeSavedViews.map((savedView) => (
-          <option
-            key={savedView.saved_view_id}
-            data-saved-view-id={savedView.saved_view_id}
-            data-testid={savedViewOptionTestId(
-              activeViewSchemaId,
-              savedView.saved_view_id,
-            )}
-            data-view-schema-id={activeViewSchemaId}
-            value={savedView.saved_view_id}
-          >
-            {savedView.display_name}
-          </option>
-        ))}
+        <option value="private">Private</option>
+        <option value="shared">Shared</option>
       </select>
-    </label>
+      <button
+        data-testid={savedViewCreateButtonTestId(activeViewSchemaId)}
+        disabled={trimmedDisplayName === ""}
+        style={secondaryActionButtonStyle}
+        type="button"
+        onClick={() => {
+          void runSavedViewAction(
+            async () => {
+              await onCreateSavedView({
+                displayName: trimmedDisplayName,
+                scope,
+              });
+            },
+            "Saved view created.",
+          );
+        }}
+      >
+        Create
+      </button>
+      {selectedSavedView ? (
+        <>
+          <button
+            data-testid={savedViewDuplicateButtonTestId(
+              activeViewSchemaId,
+              selectedSavedView.saved_view_id,
+            )}
+            style={secondaryActionButtonStyle}
+            type="button"
+            onClick={() => {
+              void runSavedViewAction(
+                async () => {
+                  await onDuplicateSavedView(selectedSavedView);
+                },
+                "Saved view duplicated.",
+              );
+            }}
+          >
+            Duplicate
+          </button>
+          <button
+            data-testid={savedViewUpdateButtonTestId(
+              activeViewSchemaId,
+              selectedSavedView.saved_view_id,
+            )}
+            disabled={!selectedSavedViewMutable || trimmedDisplayName === ""}
+            style={secondaryActionButtonStyle}
+            type="button"
+            onClick={() => {
+              void runSavedViewAction(
+                async () => {
+                  await onUpdateSavedView(selectedSavedView, {
+                    displayName: trimmedDisplayName,
+                    scope,
+                  });
+                },
+                "Saved view updated.",
+              );
+            }}
+          >
+            Update
+          </button>
+          <button
+            data-testid={savedViewDeleteButtonTestId(
+              activeViewSchemaId,
+              selectedSavedView.saved_view_id,
+            )}
+            disabled={!selectedSavedViewMutable}
+            style={secondaryActionButtonStyle}
+            type="button"
+            onClick={() => {
+              void runSavedViewAction(
+                async () => {
+                  await onDeleteSavedView(selectedSavedView);
+                },
+                "Saved view deleted.",
+              );
+            }}
+          >
+            Delete
+          </button>
+        </>
+      ) : null}
+      <button
+        data-testid={savedViewSetHomeButtonTestId(activeViewSchemaId)}
+        style={secondaryActionButtonStyle}
+        type="button"
+        onClick={() => {
+          void runSavedViewAction(onSetHomeSheetRef, "Home view updated.");
+        }}
+      >
+        Home
+      </button>
+      <button
+        data-testid={savedViewSetDefaultButtonTestId(activeViewSchemaId)}
+        disabled={currentIncidentRole !== "admin"}
+        style={secondaryActionButtonStyle}
+        type="button"
+        onClick={() => {
+          void runSavedViewAction(
+            onSetDefaultSheetRef,
+            "Default view updated.",
+          );
+        }}
+      >
+        Default
+      </button>
+      <span
+        aria-live="polite"
+        data-testid={savedViewStatusTestId(activeViewSchemaId)}
+        style={savedViewStatusStyle}
+      >
+        {status}
+      </span>
+    </div>
   );
 }
 
@@ -12787,6 +13111,11 @@ export function WorkbookShell({
   const [currentIncidentRole, setCurrentIncidentRole] =
     useState<IncidentRole | null>(null);
   const [incidentControlsOpen, setIncidentControlsOpen] = useState(false);
+  const [timelineQueryState, setTimelineQueryState] =
+    useState<WorkbookQueryState>(() => emptyWorkbookQueryState());
+  const [timelineFilterDraft, setTimelineFilterDraft] = useState<FilterDraft>(
+    () => defaultFilterDraft(timelineContract),
+  );
   const [hostQueryState, setHostQueryState] = useState<WorkbookQueryState>(() =>
     emptyWorkbookQueryState(),
   );
@@ -12826,6 +13155,68 @@ export function WorkbookShell({
     controller: null,
     sequence: 0,
   });
+  const currentQueryStateForSurface = useCallback(
+    (viewSchemaId: string): WorkbookQueryState => {
+      if (viewSchemaId === timelineViewSchemaId) {
+        return timelineQueryState;
+      }
+      if (viewSchemaId === hostsViewSchemaId) {
+        return hostQueryState;
+      }
+      if (viewSchemaId === identitiesViewSchemaId) {
+        return identityQueryState;
+      }
+      if (viewSchemaId === assessmentsViewSchemaId) {
+        return assessmentQueryState;
+      }
+      return genericQueryState;
+    },
+    [
+      assessmentQueryState,
+      genericQueryState,
+      hostQueryState,
+      identityQueryState,
+      timelineQueryState,
+    ],
+  );
+  const applyQueryStateForSurface = useCallback(
+    (viewSchemaId: string, queryState: WorkbookQueryState) => {
+      const contract = workbookContractForViewSchemaId(viewSchemaId);
+      if (viewSchemaId === timelineViewSchemaId) {
+        setTimelineQueryState(queryState);
+        setTimelineFilterDraft(defaultFilterDraft(timelineContract));
+        return;
+      }
+      if (viewSchemaId === hostsViewSchemaId) {
+        setHostQueryState(queryState);
+        setHostFilterDraft(defaultFilterDraft(hostsContract));
+        return;
+      }
+      if (viewSchemaId === identitiesViewSchemaId) {
+        setIdentityQueryState(queryState);
+        setIdentityFilterDraft(defaultFilterDraft(identitiesContract));
+        return;
+      }
+      if (viewSchemaId === assessmentsViewSchemaId) {
+        setAssessmentQueryState(queryState);
+        setAssessmentFilterDraft(defaultFilterDraft(assessmentsContract));
+        return;
+      }
+      setGenericQueryState(queryState);
+      setGenericFilterDraft(defaultFilterDraft(contract));
+    },
+    [],
+  );
+  const upsertSavedView = useCallback((savedView: SavedViewResource) => {
+    setSavedViews((current) => {
+      const next = current.filter(
+        (candidate) => candidate.saved_view_id !== savedView.saved_view_id,
+      );
+      return [...next, savedView].sort((left, right) =>
+        left.display_name.localeCompare(right.display_name),
+      );
+    });
+  }, []);
   const selectWorkbookSurface = useCallback(
     (
       viewSchemaID: string,
@@ -12843,6 +13234,14 @@ export function WorkbookShell({
   );
   const selectSavedView = useCallback((savedView: SavedViewResource) => {
     const nextSurface = knownWorkbookViewSchemaId(savedView.view_schema_id);
+    const contract = workbookContractForViewSchemaId(nextSurface);
+    applyQueryStateForSurface(
+      nextSurface,
+      workbookQueryStateFromSavedViewQueryJson(
+        contract,
+        savedView.query_json,
+      ),
+    );
     surfaceSelectionVersionRef.current += 1;
     setSurface(nextSurface);
     setStartupSheetRef({
@@ -12850,7 +13249,192 @@ export function WorkbookShell({
       id: savedView.saved_view_id,
     });
     setSheetReloadToken((current) => current + 1);
-  }, []);
+  }, [applyQueryStateForSurface]);
+
+  const createSavedView = useCallback(
+    async (input: {
+      readonly displayName: string;
+      readonly scope: "private" | "shared";
+    }) => {
+      const contract = activeContract;
+      const queryState = currentQueryStateForSurface(contract.viewSchemaId);
+      const result = await fetchJSON<SavedViewEnvelope>(
+        apiPath(apiBase, `/api/v1/incidents/${incidentId}/saved-views`),
+        {
+          method: "POST",
+          body: JSON.stringify({
+            view_schema_id: contract.viewSchemaId,
+            display_name: input.displayName,
+            scope: input.scope,
+            query_json: buildSavedViewQueryJson(contract, queryState),
+            layout_json: buildSavedViewLayoutJson(contract),
+          }),
+        },
+      );
+      if (!result.ok) {
+        throw new Error(parseErrorMessage(result.payload));
+      }
+      const savedView = normalizeSavedViewResource(
+        readEnvelope<SavedViewEnvelope>(result.payload).data,
+      );
+      if (savedView === null) {
+        throw new Error("Saved-view create returned an invalid resource.");
+      }
+      upsertSavedView(savedView);
+      selectSavedView(savedView);
+      return savedView;
+    },
+    [
+      activeContract,
+      apiBase,
+      currentQueryStateForSurface,
+      incidentId,
+      selectSavedView,
+      upsertSavedView,
+    ],
+  );
+
+  const duplicateSavedView = useCallback(
+    async (source: SavedViewResource) => {
+      const contract = workbookContractForViewSchemaId(source.view_schema_id);
+      const result = await fetchJSON<SavedViewEnvelope>(
+        apiPath(apiBase, `/api/v1/incidents/${incidentId}/saved-views`),
+        {
+          method: "POST",
+          body: JSON.stringify({
+            view_schema_id: source.view_schema_id,
+            display_name: `${source.display_name} Copy`,
+            scope: "private",
+            query_json: savedViewQueryJsonForPersistence(
+              contract,
+              source.query_json,
+            ),
+            layout_json: savedViewLayoutJsonForPersistence(
+              contract,
+              source.layout_json,
+            ),
+          }),
+        },
+      );
+      if (!result.ok) {
+        throw new Error(parseErrorMessage(result.payload));
+      }
+      const savedView = normalizeSavedViewResource(
+        readEnvelope<SavedViewEnvelope>(result.payload).data,
+      );
+      if (savedView === null) {
+        throw new Error("Saved-view duplicate returned an invalid resource.");
+      }
+      upsertSavedView(savedView);
+      selectSavedView(savedView);
+      return savedView;
+    },
+    [apiBase, incidentId, selectSavedView, upsertSavedView],
+  );
+
+  const updateSavedView = useCallback(
+    async (
+      savedView: SavedViewResource,
+      input: {
+        readonly displayName: string;
+        readonly scope: "private" | "shared";
+      },
+    ) => {
+      const contract = workbookContractForViewSchemaId(savedView.view_schema_id);
+      const queryState = currentQueryStateForSurface(savedView.view_schema_id);
+      const result = await fetchJSON<SavedViewEnvelope>(
+        apiPath(
+          apiBase,
+          `/api/v1/incidents/${incidentId}/saved-views/${savedView.saved_view_id}`,
+        ),
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            base_saved_view_version: savedView.saved_view_version,
+            display_name: input.displayName,
+            scope: input.scope,
+            query_json: buildSavedViewQueryJson(contract, queryState),
+            layout_json: buildSavedViewLayoutJson(contract),
+          }),
+        },
+      );
+      if (!result.ok) {
+        throw new Error(parseErrorMessage(result.payload));
+      }
+      const updated = normalizeSavedViewResource(
+        readEnvelope<SavedViewEnvelope>(result.payload).data,
+      );
+      if (updated === null) {
+        throw new Error("Saved-view update returned an invalid resource.");
+      }
+      upsertSavedView(updated);
+      return updated;
+    },
+    [apiBase, currentQueryStateForSurface, incidentId, upsertSavedView],
+  );
+
+  const deleteSavedView = useCallback(
+    async (savedView: SavedViewResource) => {
+      const result = await fetchJSON<Record<string, unknown>>(
+        apiPath(
+          apiBase,
+          `/api/v1/incidents/${incidentId}/saved-views/${savedView.saved_view_id}`,
+        ),
+        { method: "DELETE" },
+      );
+      if (!result.ok) {
+        throw new Error(parseErrorMessage(result.payload));
+      }
+      setSavedViews((current) =>
+        current.filter(
+          (candidate) =>
+            candidate.saved_view_id !== savedView.saved_view_id,
+        ),
+      );
+      if (
+        startupSheetRef.kind === "saved_view" &&
+        startupSheetRef.id === savedView.saved_view_id
+      ) {
+        const baseSurface = knownWorkbookViewSchemaId(savedView.view_schema_id);
+        setSurface(baseSurface);
+        setStartupSheetRef({ kind: "view_schema", id: baseSurface });
+        setSheetReloadToken((current) => current + 1);
+      }
+    },
+    [apiBase, incidentId, startupSheetRef],
+  );
+
+  const setWorkbookHomeSheetRef = useCallback(async () => {
+    const result = await fetchJSON<Record<string, unknown>>(
+      apiPath(
+        apiBase,
+        `/api/v1/incidents/${incidentId}/workbook-preferences/me`,
+      ),
+      {
+        method: "PUT",
+        body: JSON.stringify({ home_sheet_ref: startupSheetRef }),
+      },
+    );
+    if (!result.ok) {
+      throw new Error(parseErrorMessage(result.payload));
+    }
+  }, [apiBase, incidentId, startupSheetRef]);
+
+  const setWorkbookDefaultSheetRef = useCallback(async () => {
+    const result = await fetchJSON<Record<string, unknown>>(
+      apiPath(
+        apiBase,
+        `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
+      ),
+      {
+        method: "PUT",
+        body: JSON.stringify({ default_sheet_ref: startupSheetRef }),
+      },
+    );
+    if (!result.ok) {
+      throw new Error(parseErrorMessage(result.payload));
+    }
+  }, [apiBase, incidentId, startupSheetRef]);
 
   const entityIndex = useMemo(() => {
     const index: Record<string, EntityRow> = {};
@@ -13133,6 +13717,24 @@ export function WorkbookShell({
       const nextSurface = knownWorkbookViewSchemaId(
         startup.selectedViewSchemaId,
       );
+      const startupSavedView = normalizeSavedViewResource(
+        startup.selectedSavedView,
+      );
+      if (
+        startup.selectedSheetRef.kind === "saved_view" &&
+        startupSavedView !== null &&
+        startupSavedView.saved_view_id === startup.selectedSheetRef.id
+      ) {
+        const contract = workbookContractForViewSchemaId(nextSurface);
+        upsertSavedView(startupSavedView);
+        applyQueryStateForSurface(
+          nextSurface,
+          workbookQueryStateFromSavedViewQueryJson(
+            contract,
+            startupSavedView.query_json,
+          ),
+        );
+      }
       setSurface(nextSurface);
       setStartupSheetRef({ ...startup.selectedSheetRef });
     };
@@ -13140,7 +13742,7 @@ export function WorkbookShell({
     return () => {
       cancelled = true;
     };
-  }, [apiBase, incidentId, params]);
+  }, [apiBase, applyQueryStateForSurface, incidentId, params, upsertSavedView]);
 
   useEffect(() => {
     let cancelled = false;
@@ -13173,17 +13775,9 @@ export function WorkbookShell({
 
         const envelope = readEnvelope<SavedViewListEnvelope>(result.payload);
         for (const savedView of envelope.data.saved_views) {
-          if (
-            typeof savedView.saved_view_id === "string" &&
-            typeof savedView.view_schema_id === "string" &&
-            typeof savedView.display_name === "string" &&
-            isStandardizedWorkbookViewSchemaId(savedView.view_schema_id)
-          ) {
-            nextSavedViews.push({
-              saved_view_id: savedView.saved_view_id,
-              view_schema_id: savedView.view_schema_id,
-              display_name: savedView.display_name,
-            });
+          const normalized = normalizeSavedViewResource(savedView);
+          if (normalized !== null) {
+            nextSavedViews.push(normalized);
           }
         }
         const paging = envelope.meta?.paging;
@@ -13216,11 +13810,14 @@ export function WorkbookShell({
   }, [loadEntities, sheetReloadToken]);
 
   useEffect(() => {
+    if (startupSheetRef.kind === "saved_view") {
+      return;
+    }
     setGenericQueryState(emptyWorkbookQueryState());
     setGenericFilterDraft(defaultFilterDraft(activeContract));
     setGenericRows([]);
     setGenericLoadError(null);
-  }, [activeContract]);
+  }, [activeContract, startupSheetRef.kind]);
 
   useEffect(() => {
     void sheetReloadToken;
@@ -13294,8 +13891,16 @@ export function WorkbookShell({
   const activeSavedViewSelector = (
     <ActiveSurfaceSavedViewSelector
       activeViewSchemaId={surface}
+      currentIncidentRole={currentIncidentRole}
+      currentUserId={currentUserId}
+      onCreateSavedView={createSavedView}
+      onDeleteSavedView={deleteSavedView}
+      onDuplicateSavedView={duplicateSavedView}
       onSelectBaseSurface={selectWorkbookSurface}
       onSelectSavedView={selectSavedView}
+      onSetDefaultSheetRef={setWorkbookDefaultSheetRef}
+      onSetHomeSheetRef={setWorkbookHomeSheetRef}
+      onUpdateSavedView={updateSavedView}
       savedViews={savedViews}
       selectedSheetRef={startupSheetRef}
     />
@@ -13404,7 +14009,11 @@ export function WorkbookShell({
           hostEntities={hostRows}
           identityEntities={identityRows}
           incidentId={incidentId}
+          filterDraft={timelineFilterDraft}
+          onFilterDraftChange={setTimelineFilterDraft}
+          onQueryStateChange={setTimelineQueryState}
           onRefreshEntities={loadEntities}
+          queryState={timelineQueryState}
           reloadToken={sheetReloadToken}
           savedViewSelector={activeSavedViewSelector}
           sheetRef={startupSheetRef}
@@ -14450,6 +15059,14 @@ const savedViewSelectorFrameStyle = {
   minWidth: "10rem",
 };
 
+const savedViewControlGroupStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.4rem",
+  flex: "0 0 auto",
+  minWidth: 0,
+};
+
 const savedViewSelectorLabelStyle = {
   margin: 0,
   color: "var(--ct-colors-ink-muted)",
@@ -14482,6 +15099,27 @@ const savedViewSelectStyle = {
   borderRadius: "var(--ct-rounded-sm)",
   padding: "0.42rem 0.55rem",
   maxWidth: "10rem",
+};
+
+const savedViewNameInputStyle = {
+  ...inputStyle,
+  width: "10rem",
+  minWidth: "8rem",
+  padding: "0.42rem 0.55rem",
+};
+
+const savedViewScopeSelectStyle = {
+  ...savedViewSelectStyle,
+  maxWidth: "7rem",
+};
+
+const savedViewStatusStyle = {
+  color: "var(--ct-colors-ink-muted)",
+  fontSize: "0.78rem",
+  maxWidth: "12rem",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
 };
 
 const mergePlanStyle = {

@@ -19,6 +19,7 @@ export type WorkbookStartupSource =
   | "home"
   | "timeline";
 export type WorkbookStartupPointerSource = "default" | "home";
+export type WorkbookStartupSavedViewResource = Readonly<Record<string, unknown>>;
 
 export type WorkbookStartupClearedPointer = {
   readonly reasonCode: string;
@@ -30,7 +31,7 @@ export type WorkbookStartupSelection = {
   readonly clearedPointers: readonly WorkbookStartupClearedPointer[];
   readonly defaultSheetRef: WorkbookSheetRef | null;
   readonly homeSheetRef: WorkbookSheetRef | null;
-  readonly selectedSavedView: unknown | null;
+  readonly selectedSavedView: WorkbookStartupSavedViewResource | null;
   readonly selectedSheetRef: WorkbookSheetRef;
   readonly selectedViewSchemaId: string;
   readonly source: WorkbookStartupSource;
@@ -38,7 +39,7 @@ export type WorkbookStartupSelection = {
 
 export type WorkbookStartupCandidate = {
   readonly invalidReasonCode?: string;
-  readonly selectedSavedView?: unknown | null;
+  readonly selectedSavedView?: WorkbookStartupSavedViewResource | null;
   readonly selectedViewSchemaId?: string;
   readonly sheetRef?: WorkbookSheetRef | null;
   readonly valid: boolean;
@@ -108,6 +109,18 @@ function nullableSheetRef(value: unknown): WorkbookSheetRef | null | undefined {
     return null;
   }
   return isWorkbookSheetRef(value) ? { ...value } : undefined;
+}
+
+function nullableStartupSavedView(
+  value: unknown,
+): WorkbookStartupSavedViewResource | null | undefined {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  return { ...(value as Record<string, unknown>) };
 }
 
 function selectedViewSchemaIdFor(
@@ -205,7 +218,14 @@ export function normalizeWorkbookStartupSelection(
   }
   const homeSheetRef = nullableSheetRef(record.home_sheet_ref);
   const defaultSheetRef = nullableSheetRef(record.default_sheet_ref);
-  if (homeSheetRef === undefined || defaultSheetRef === undefined) {
+  const selectedSavedView = nullableStartupSavedView(
+    record.selected_saved_view,
+  );
+  if (
+    homeSheetRef === undefined ||
+    defaultSheetRef === undefined ||
+    selectedSavedView === undefined
+  ) {
     return null;
   }
   if (!Array.isArray(record.cleared_pointers)) {
@@ -236,7 +256,7 @@ export function normalizeWorkbookStartupSelection(
     clearedPointers,
     defaultSheetRef,
     homeSheetRef,
-    selectedSavedView: record.selected_saved_view ?? null,
+    selectedSavedView,
     selectedSheetRef: { ...record.selected_sheet_ref },
     selectedViewSchemaId: record.selected_view_schema_id,
     source: record.source,

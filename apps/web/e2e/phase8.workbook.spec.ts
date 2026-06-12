@@ -9,6 +9,16 @@ import {
   gridGroupRowTestId,
   gridShellTestId,
   rowCellTestId,
+  savedViewCreateButtonTestId,
+  savedViewDeleteButtonTestId,
+  savedViewDuplicateButtonTestId,
+  savedViewNameInputTestId,
+  savedViewOptionTestId,
+  savedViewScopeSelectTestId,
+  savedViewSelectorTestId,
+  savedViewSetDefaultButtonTestId,
+  savedViewSetHomeButtonTestId,
+  savedViewUpdateButtonTestId,
   surfaceTabTestId,
   timelineRowMarkReviewedButtonTestId,
   workbookShellReadyTestId,
@@ -23,6 +33,7 @@ import {
   createViewRow,
   csrfHeaders,
   loginLocalSession,
+  seedSystemSavedView,
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
@@ -108,6 +119,275 @@ test("E-8-01 saved-view route foundation persists canonical state while browser 
       name: /duplicate saved view|delete saved view/i,
     }),
   ).toHaveCount(0);
+});
+
+test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("FEIP801"),
+    "Phase 8 FE-I-P8-01 saved-view UI integration",
+  );
+  const timelineRow = await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("feip801-row"),
+      "timeline.summary": "FE-I-P8 saved view row",
+    },
+  );
+  const privateSavedView = await createSavedView(page, incidentId, {
+    display_name: "FE-I private timeline",
+    scope: "private",
+    view_schema_id: timelineViewSchemaId,
+    query_json: {
+      filters: [
+        {
+          field_key: "timeline.capture_state",
+          op: "eq",
+          arg: { value: "rough" },
+        },
+      ],
+      group_by: "timeline.capture_state",
+      sort: [{ field_key: "timeline.summary", direction: "asc" }],
+    },
+    layout_json: {},
+  });
+  const systemSavedView = await seedSystemSavedView(page, incidentId, {
+    display_name: "FE-I system timeline",
+    view_schema_id: timelineViewSchemaId,
+    query_json: {
+      filters: [
+        {
+          field_key: "timeline.tags",
+          op: "contains_any",
+          arg: { values: ["alpha", "zeta"] },
+        },
+      ],
+      sort: [],
+    },
+  });
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  const selector = page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId));
+  await expect(
+    selector.getByTestId(
+      savedViewOptionTestId(
+        timelineViewSchemaId,
+        privateSavedView.saved_view_id,
+      ),
+    ),
+  ).toHaveCount(1);
+
+  const selectRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
+  await selector.selectOption(privateSavedView.saved_view_id);
+  expect(readPostBody(await selectRequest)).toEqual({
+    filters: [
+      {
+        arg: { value: "rough" },
+        field_key: "timeline.capture_state",
+        op: "eq",
+      },
+    ],
+    group_by: "timeline.capture_state",
+    sort: [
+      { direction: "asc", field_key: "timeline.capture_state" },
+      { direction: "asc", field_key: "timeline.summary" },
+    ],
+  });
+  await expect(page).toHaveURL(/sheet_ref_kind=saved_view/);
+  await expect(page).toHaveURL(
+    new RegExp(`sheet_ref_id=${privateSavedView.saved_view_id}`),
+  );
+
+  await page
+    .getByTestId(savedViewNameInputTestId(timelineViewSchemaId))
+    .fill("FE-I updated shared");
+  await page
+    .getByTestId(savedViewScopeSelectTestId(timelineViewSchemaId))
+    .selectOption("shared");
+  const patchRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "PATCH" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/saved-views/${privateSavedView.saved_view_id}`,
+        ),
+  );
+  await page
+    .getByTestId(
+      savedViewUpdateButtonTestId(
+        timelineViewSchemaId,
+        privateSavedView.saved_view_id,
+      ),
+    )
+    .click();
+  const patchBody = readPostBody(await patchRequest);
+  expect(Object.keys(patchBody).sort()).toEqual([
+    "base_saved_view_version",
+    "display_name",
+    "layout_json",
+    "query_json",
+    "scope",
+  ]);
+  expect(patchBody).toMatchObject({
+    base_saved_view_version: privateSavedView.saved_view_version,
+    display_name: "FE-I updated shared",
+    scope: "shared",
+    query_json: {
+      filters: [
+        {
+          arg: { value: "rough" },
+          field_key: "timeline.capture_state",
+          op: "eq",
+        },
+      ],
+      group_by: "timeline.capture_state",
+      sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    },
+  });
+  expect(patchBody).not.toHaveProperty("saved_view_id");
+  expect(patchBody).not.toHaveProperty("view_schema_id");
+  expect(patchBody).not.toHaveProperty("owner_user_id");
+
+  const homeRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "PUT" &&
+      request
+        .url()
+        .endsWith(`/api/v1/incidents/${incidentId}/workbook-preferences/me`),
+  );
+  await page.getByTestId(savedViewSetHomeButtonTestId(timelineViewSchemaId)).click();
+  expect(readPostBody(await homeRequest)).toEqual({
+    home_sheet_ref: {
+      kind: "saved_view",
+      id: privateSavedView.saved_view_id,
+    },
+  });
+
+  const defaultRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "PUT" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
+        ),
+  );
+  await page
+    .getByTestId(savedViewSetDefaultButtonTestId(timelineViewSchemaId))
+    .click();
+  expect(readPostBody(await defaultRequest)).toEqual({
+    default_sheet_ref: {
+      kind: "saved_view",
+      id: privateSavedView.saved_view_id,
+    },
+  });
+
+  await selector.selectOption(systemSavedView.saved_view_id);
+  await expect(
+    page.getByTestId(
+      savedViewUpdateButtonTestId(
+        timelineViewSchemaId,
+        systemSavedView.saved_view_id,
+      ),
+    ),
+  ).toBeDisabled();
+  await expect(
+    page.getByTestId(
+      savedViewDeleteButtonTestId(
+        timelineViewSchemaId,
+        systemSavedView.saved_view_id,
+      ),
+    ),
+  ).toBeDisabled();
+
+  const duplicateRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      request
+        .url()
+        .endsWith(`/api/v1/incidents/${incidentId}/saved-views`),
+  );
+  const duplicateResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .endsWith(`/api/v1/incidents/${incidentId}/saved-views`),
+  );
+  await page
+    .getByTestId(
+      savedViewDuplicateButtonTestId(
+        timelineViewSchemaId,
+        systemSavedView.saved_view_id,
+      ),
+    )
+    .click();
+  expect(readPostBody(await duplicateRequest)).toMatchObject({
+    display_name: "FE-I system timeline Copy",
+    scope: "private",
+    view_schema_id: timelineViewSchemaId,
+    query_json: {
+      filters: [
+        {
+          arg: { values: ["alpha", "zeta"] },
+          field_key: "timeline.tags",
+          op: "contains_any",
+        },
+      ],
+      sort: [],
+    },
+  });
+  const duplicateSavedView = ((await (await duplicateResponse).json()) as {
+    data: SavedViewResource;
+  }).data;
+
+  const deleteRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "DELETE" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/saved-views/${duplicateSavedView.saved_view_id}`,
+        ),
+  );
+  await page
+    .getByTestId(
+      savedViewDeleteButtonTestId(
+        timelineViewSchemaId,
+        duplicateSavedView.saved_view_id,
+      ),
+    )
+    .click();
+  await deleteRequest;
+  await expect(page).toHaveURL(/view_schema_id=cartulary\.view\.timeline\.v1/);
+  expect(
+    rowIDs(await queryViewRows(page, incidentId, timelineViewSchemaId, {})),
+  ).toContain(String(timelineRow.record_id));
+
+  await page
+    .getByTestId(savedViewNameInputTestId(timelineViewSchemaId))
+    .fill("FE-I created current");
+  const createRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      request
+        .url()
+        .endsWith(`/api/v1/incidents/${incidentId}/saved-views`),
+  );
+  await page
+    .getByTestId(savedViewCreateButtonTestId(timelineViewSchemaId))
+    .click();
+  expect(readPostBody(await createRequest)).toMatchObject({
+    display_name: "FE-I created current",
+    scope: "private",
+    view_schema_id: timelineViewSchemaId,
+  });
 });
 
 test("E-8-02 workbook startup falls back to Timeline for an unsupported explicit sheet", async ({
@@ -703,7 +983,13 @@ type WorkbookSheetRef = {
 };
 
 type SavedViewResource = {
+  display_name: string;
+  layout_json?: Record<string, unknown>;
+  owner_user_id?: string | null;
+  query_json?: Record<string, unknown>;
   saved_view_id: string;
+  saved_view_version?: number;
+  scope?: string;
   view_schema_id: string;
 };
 
@@ -723,6 +1009,8 @@ async function createSavedView(
   incidentId: string,
   data: {
     display_name: string;
+    layout_json?: Record<string, unknown>;
+    query_json?: Record<string, unknown>;
     scope?: "private" | "shared";
     view_schema_id: string;
   },
@@ -732,9 +1020,11 @@ async function createSavedView(
     {
       headers: await csrfHeaders(page),
       data: {
-        ...data,
-        query_json: {},
-        layout_json: {},
+        display_name: data.display_name,
+        layout_json: data.layout_json ?? {},
+        query_json: data.query_json ?? {},
+        ...(data.scope === undefined ? {} : { scope: data.scope }),
+        view_schema_id: data.view_schema_id,
       },
     },
   );
