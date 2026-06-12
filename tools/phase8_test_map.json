@@ -19,6 +19,8 @@
     ],
     "support_execution_extras": [
       "Phase 8 workbook backend integration support covers exact-token full_text, strict prefix, and null-last ordering readiness for the browser-owned E-8-04 row.",
+      "Phase 8 workbook browser support covers FE-P8 command-helper readiness for saved-view selection, query controls, active chips, layout persistence, group expansion, and startup/default controls without carrying an independent Core product claim.",
+      "Phase 8 stateful browser coverage carries saved-view/default startup persistence and query replay after reload through isolated browser_stateful execution.",
       "Phase 3 through Phase 7 workbook, projection, mutation, collaboration, evidence, history, rollback, visual, and browser tests remain support-only for Phase 8.",
       "Support-only carryover files are listed in forbidden_id_files so they cannot accidentally claim Phase 8 IDs."
     ],
@@ -60,7 +62,8 @@
     "E-8-01",
     "E-8-02",
     "E-8-03",
-    "E-8-04"
+    "E-8-04",
+    "E-8-05"
   ],
   "forbidden_id_files": [
     "apps/web/e2e/measurement/phase3_measurement.spec.ts",
@@ -687,6 +690,45 @@
       "duplicate_of": null,
       "evidence_delta": "cross-stack browser behavior not owned by lower layers",
       "warm_local_cost_class": "browser"
+    },
+    {
+      "id": "E-8-05",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase8.workbook.spec.ts",
+      "title": "E-8-05 verifies saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload",
+      "execution_dependency": "browser_stateful",
+      "evidence_layer": "browser",
+      "claim": "Browser saved-view query/layout state, user home and incident default sheet preferences, startup selection, and reload query replay persist through public /api/v1 routes.",
+      "out_of_scope": "Browser helper command readiness is covered by FE-B-P8-01; visual and accessibility readiness remain frontend design-direction rows.",
+      "evidence_class": "product_conformance",
+      "layer": "browser_stateful",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves isolated reload and startup persistence behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "full_target_equivalent",
+      "default_check_reason_code": "full_target_equivalent_stateful",
+      "primary_evidence_owner": "E-8-05",
+      "duplicate_of": null,
+      "evidence_delta": "stateful browser behavior requires isolated runtime evidence",
+      "warm_local_cost_class": "browser"
+    },
+    {
+      "id": "E-8-SUPPORT-01",
+      "coverage": "supplemental",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase8.workbook.support.spec.ts",
+      "title": "FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI.",
+      "execution_dependency": "browser_support",
+      "evidence_layer": "browser_support",
+      "evidence_class": "implementation_support",
+      "layer": "browser_support",
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "E-8-SUPPORT-01",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy"
     }
   ]
 }

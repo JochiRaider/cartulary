@@ -1,8 +1,20 @@
 import {
   applyFilterChip,
+  assertActiveFilterChipVisible,
+  assertGroupRowPresentationOnly,
   changeGrouping,
+  collapseGridGroup,
+  createSavedViewFromCurrentSurface,
+  expandGridGroup,
+  readSavedViewSelectionState,
   removeFilterChip,
+  selectSavedView,
+  selectSavedViewScope,
+  setCurrentSavedViewAsDefault,
+  setCurrentSavedViewAsHome,
+  setSavedViewDraftName,
   sortByHeader,
+  updateSavedViewFromCurrentSurface,
 } from "@cartulary/test-utils";
 import {
   gridGroupRowsSelector,
@@ -172,7 +184,9 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  const selector = page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId));
+  const selector = page.getByTestId(
+    savedViewSelectorTestId(timelineViewSchemaId),
+  );
   await expect(
     selector.getByTestId(
       savedViewOptionTestId(
@@ -182,7 +196,11 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
     ),
   ).toHaveCount(1);
 
-  const selectRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
+  const selectRequest = waitForViewQuery(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  );
   await selector.selectOption(privateSavedView.saved_view_id);
   expect(readPostBody(await selectRequest)).toEqual({
     filters: [
@@ -261,7 +279,9 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
         .url()
         .endsWith(`/api/v1/incidents/${incidentId}/workbook-preferences/me`),
   );
-  await page.getByTestId(savedViewSetHomeButtonTestId(timelineViewSchemaId)).click();
+  await page
+    .getByTestId(savedViewSetHomeButtonTestId(timelineViewSchemaId))
+    .click();
   expect(readPostBody(await homeRequest)).toEqual({
     home_sheet_ref: {
       kind: "saved_view",
@@ -309,16 +329,12 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
   const duplicateRequest = page.waitForRequest(
     (request) =>
       request.method() === "POST" &&
-      request
-        .url()
-        .endsWith(`/api/v1/incidents/${incidentId}/saved-views`),
+      request.url().endsWith(`/api/v1/incidents/${incidentId}/saved-views`),
   );
   const duplicateResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
-      response
-        .url()
-        .endsWith(`/api/v1/incidents/${incidentId}/saved-views`),
+      response.url().endsWith(`/api/v1/incidents/${incidentId}/saved-views`),
   );
   await page
     .getByTestId(
@@ -343,9 +359,11 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
       sort: [],
     },
   });
-  const duplicateSavedView = ((await (await duplicateResponse).json()) as {
-    data: SavedViewResource;
-  }).data;
+  const duplicateSavedView = (
+    (await (await duplicateResponse).json()) as {
+      data: SavedViewResource;
+    }
+  ).data;
 
   const deleteRequest = page.waitForRequest(
     (request) =>
@@ -376,9 +394,7 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
   const createRequest = page.waitForRequest(
     (request) =>
       request.method() === "POST" &&
-      request
-        .url()
-        .endsWith(`/api/v1/incidents/${incidentId}/saved-views`),
+      request.url().endsWith(`/api/v1/incidents/${incidentId}/saved-views`),
   );
   await page
     .getByTestId(savedViewCreateButtonTestId(timelineViewSchemaId))
@@ -389,6 +405,519 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
     view_schema_id: timelineViewSchemaId,
   });
 });
+
+test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI.", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("FEBP801"),
+    "Phase 8 FE-B-P8-01 browser helper coverage",
+  );
+  const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("febp801-alpha"),
+    "timeline.summary": "Alpha FE-B",
+  });
+  const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("febp801-beta"),
+    "timeline.summary": "Beta FE-B",
+  });
+  const gamma = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("febp801-gamma"),
+    "timeline.summary": "Gamma FE-B",
+  });
+  const savedView = await createSavedView(page, incidentId, {
+    display_name: "FE-B helper source",
+    scope: "private",
+    view_schema_id: timelineViewSchemaId,
+  });
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expect(
+    page.getByTestId(rowCellTestId(alpha.record_id, "timeline.summary")),
+  ).toHaveValue("Alpha FE-B");
+
+  await page
+    .getByTestId(timelineRowMarkReviewedButtonTestId(beta.record_id))
+    .click();
+  await expect(
+    page.getByTestId(rowCellTestId(beta.record_id, "timeline.capture_state")),
+  ).toHaveText("reviewed");
+
+  const selectRequest = waitForViewQuery(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  );
+  await selectSavedView(page, timelineViewSchemaId, savedView.saved_view_id);
+  expect(Object.keys(readPostBody(await selectRequest)).sort()).toEqual([]);
+  await expect
+    .poll(() => readSavedViewSelectionState(page, timelineViewSchemaId))
+    .toEqual({
+      activeViewSchemaId: timelineViewSchemaId,
+      selectedSavedViewId: savedView.saved_view_id,
+      selectedSheetRefKind: "saved_view",
+    });
+
+  const sortRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
+  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+  expect(readPostBody(await sortRequest)).toEqual({
+    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+  });
+  await expectFirstDataRow(page, String(alpha.record_id));
+  expect(await visibleRecordIds(page)).toEqual([
+    String(alpha.record_id),
+    String(beta.record_id),
+    String(gamma.record_id),
+  ]);
+
+  const filterRequest = waitForViewQuery(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  );
+  await applyFilterChip(
+    page,
+    timelineViewSchemaId,
+    "timeline.capture_state",
+    "reviewed",
+  );
+  expect(readPostBody(await filterRequest)).toEqual({
+    filters: [
+      {
+        arg: { value: "reviewed" },
+        field_key: "timeline.capture_state",
+        op: "eq",
+      },
+    ],
+    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+  });
+  await assertActiveFilterChipVisible(
+    page,
+    timelineViewSchemaId,
+    "timeline.capture_state",
+  );
+  await expectFirstDataRow(page, String(beta.record_id));
+
+  const groupRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
+  await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
+  expect(readPostBody(await groupRequest)).toEqual({
+    filters: [
+      {
+        arg: { value: "reviewed" },
+        field_key: "timeline.capture_state",
+        op: "eq",
+      },
+    ],
+    group_by: "timeline.capture_state",
+    sort: [
+      { direction: "asc", field_key: "timeline.capture_state" },
+      { direction: "asc", field_key: "timeline.summary" },
+    ],
+  });
+  const reviewedGroupTestId = gridGroupRowTestId(
+    timelineViewSchemaId,
+    "timeline.capture_state",
+    "reviewed",
+  );
+  await expect(page.getByTestId(reviewedGroupTestId)).toBeVisible();
+  await assertGroupRowPresentationOnly({
+    groupTestId: reviewedGroupTestId,
+    page,
+    surface: timelineViewSchemaId,
+  });
+  await collapseGridGroup({
+    groupTestId: reviewedGroupTestId,
+    page,
+    surface: timelineViewSchemaId,
+  });
+  await expect(
+    page.getByTestId(rowCellTestId(beta.record_id, "timeline.summary")),
+  ).not.toBeVisible();
+  await expandGridGroup({
+    groupTestId: reviewedGroupTestId,
+    page,
+    surface: timelineViewSchemaId,
+  });
+  await expect(
+    page.getByTestId(rowCellTestId(beta.record_id, "timeline.summary")),
+  ).toBeVisible();
+
+  await setSavedViewDraftName(
+    page,
+    timelineViewSchemaId,
+    "FE-B helper persisted",
+  );
+  await selectSavedViewScope(page, timelineViewSchemaId, "shared");
+  const patchRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "PATCH" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/saved-views/${savedView.saved_view_id}`,
+        ),
+  );
+  await updateSavedViewFromCurrentSurface(
+    page,
+    timelineViewSchemaId,
+    savedView.saved_view_id,
+  );
+  const patchBody = readPostBody(await patchRequest);
+  expect(patchBody).toMatchObject({
+    base_saved_view_version: savedView.saved_view_version,
+    display_name: "FE-B helper persisted",
+    scope: "shared",
+    query_json: {
+      filters: [
+        {
+          arg: { value: "reviewed" },
+          field_key: "timeline.capture_state",
+          op: "eq",
+        },
+      ],
+      group_by: "timeline.capture_state",
+      sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    },
+    layout_json: {
+      layout_schema_id: "cartulary.layout.v1",
+    },
+  });
+
+  const homeRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "PUT" &&
+      request
+        .url()
+        .endsWith(`/api/v1/incidents/${incidentId}/workbook-preferences/me`),
+  );
+  await setCurrentSavedViewAsHome(page, timelineViewSchemaId);
+  expect(readPostBody(await homeRequest)).toEqual({
+    home_sheet_ref: {
+      kind: "saved_view",
+      id: savedView.saved_view_id,
+    },
+  });
+
+  const defaultRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "PUT" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
+        ),
+  );
+  await setCurrentSavedViewAsDefault(page, timelineViewSchemaId);
+  expect(readPostBody(await defaultRequest)).toEqual({
+    default_sheet_ref: {
+      kind: "saved_view",
+      id: savedView.saved_view_id,
+    },
+  });
+
+  const removeFilterRequest = waitForViewQuery(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  );
+  await removeFilterChip(page, timelineViewSchemaId, "timeline.capture_state");
+  expect(readPostBody(await removeFilterRequest)).toEqual({
+    group_by: "timeline.capture_state",
+    sort: [
+      { direction: "asc", field_key: "timeline.capture_state" },
+      { direction: "asc", field_key: "timeline.summary" },
+    ],
+  });
+});
+
+test("FE-E-P8-01 Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload.", async ({
+  page,
+}) => {
+  await verifySavedViewPersistenceReplay(
+    page,
+    "FEEP801",
+    "Phase 8 FE-E-P8-01 persisted query replay",
+  );
+});
+
+test("E-8-05 verifies saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload", async ({
+  page,
+}) => {
+  await verifySavedViewPersistenceReplay(
+    page,
+    "E805",
+    "Phase 8 E-8-05 persisted query replay",
+  );
+});
+
+async function verifySavedViewPersistenceReplay(
+  page: Page,
+  incidentKeyPrefix: string,
+  incidentTitle: string,
+) {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey(incidentKeyPrefix),
+    incidentTitle,
+  );
+  const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("feep801-alpha"),
+    "timeline.summary": "Alpha FE-E",
+  });
+  const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("feep801-beta"),
+    "timeline.summary": "Beta FE-E",
+  });
+  await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("feep801-gamma"),
+    "timeline.summary": "Gamma FE-E",
+  });
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expect(
+    page.getByTestId(rowCellTestId(alpha.record_id, "timeline.summary")),
+  ).toHaveValue("Alpha FE-E");
+
+  await page
+    .getByTestId(timelineRowMarkReviewedButtonTestId(beta.record_id))
+    .click();
+  await expect(
+    page.getByTestId(rowCellTestId(beta.record_id, "timeline.capture_state")),
+  ).toHaveText("reviewed");
+
+  const sortRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
+  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+  expect(readPostBody(await sortRequest)).toEqual({
+    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+  });
+
+  const filterRequest = waitForViewQuery(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  );
+  await applyFilterChip(
+    page,
+    timelineViewSchemaId,
+    "timeline.capture_state",
+    "reviewed",
+  );
+  expect(readPostBody(await filterRequest)).toEqual({
+    filters: [
+      {
+        arg: { value: "reviewed" },
+        field_key: "timeline.capture_state",
+        op: "eq",
+      },
+    ],
+    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+  });
+
+  const groupRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
+  await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
+  const replayedQuery = {
+    filters: [
+      {
+        arg: { value: "reviewed" },
+        field_key: "timeline.capture_state",
+        op: "eq",
+      },
+    ],
+    group_by: "timeline.capture_state",
+    sort: [
+      { direction: "asc", field_key: "timeline.capture_state" },
+      { direction: "asc", field_key: "timeline.summary" },
+    ],
+  };
+  expect(readPostBody(await groupRequest)).toEqual(replayedQuery);
+  await expectFirstDataRow(page, String(beta.record_id));
+
+  await setSavedViewDraftName(
+    page,
+    timelineViewSchemaId,
+    "FE-E persisted replay",
+  );
+  const createRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      request.url().endsWith(`/api/v1/incidents/${incidentId}/saved-views`),
+  );
+  const createResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith(`/api/v1/incidents/${incidentId}/saved-views`),
+  );
+  await createSavedViewFromCurrentSurface(page, timelineViewSchemaId);
+  const createBody = readPostBody(await createRequest);
+  expect(createBody).toMatchObject({
+    display_name: "FE-E persisted replay",
+    scope: "private",
+    view_schema_id: timelineViewSchemaId,
+    query_json: {
+      filters: [
+        {
+          arg: { value: "reviewed" },
+          field_key: "timeline.capture_state",
+          op: "eq",
+        },
+      ],
+      group_by: "timeline.capture_state",
+      sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    },
+    layout_json: {
+      layout_schema_id: "cartulary.layout.v1",
+    },
+  });
+  const savedView = (
+    (await (await createResponse).json()) as {
+      data: SavedViewResource;
+    }
+  ).data;
+  await expect
+    .poll(() => readSavedViewSelectionState(page, timelineViewSchemaId))
+    .toMatchObject({
+      activeViewSchemaId: timelineViewSchemaId,
+      selectedSavedViewId: savedView.saved_view_id,
+      selectedSheetRefKind: "saved_view",
+    });
+
+  const savedViewsResponse = await page.request.get(
+    `${apiBase}/api/v1/incidents/${incidentId}/saved-views`,
+  );
+  expect(savedViewsResponse.ok()).toBeTruthy();
+  const savedViews = (
+    (await savedViewsResponse.json()) as {
+      data: { saved_views: SavedViewResource[] };
+    }
+  ).data.saved_views;
+  const persistedSavedView = savedViews.find(
+    (candidate) => candidate.saved_view_id === savedView.saved_view_id,
+  );
+  expect(persistedSavedView).toMatchObject({
+    display_name: "FE-E persisted replay",
+    view_schema_id: timelineViewSchemaId,
+    query_json: {
+      filters: [
+        {
+          arg: { value: "reviewed" },
+          field_key: "timeline.capture_state",
+          op: "eq",
+        },
+      ],
+      group_by: "timeline.capture_state",
+      sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    },
+  });
+
+  const homeRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "PUT" &&
+      request
+        .url()
+        .endsWith(`/api/v1/incidents/${incidentId}/workbook-preferences/me`),
+  );
+  await setCurrentSavedViewAsHome(page, timelineViewSchemaId);
+  expect(readPostBody(await homeRequest)).toEqual({
+    home_sheet_ref: {
+      kind: "saved_view",
+      id: savedView.saved_view_id,
+    },
+  });
+  expect(
+    (await getUserWorkbookPreferences(page, incidentId)).home_sheet_ref,
+  ).toEqual({
+    kind: "saved_view",
+    id: savedView.saved_view_id,
+  });
+  expect(await getWorkbookStartup(page, incidentId)).toMatchObject({
+    selected_sheet_ref: {
+      kind: "saved_view",
+      id: savedView.saved_view_id,
+    },
+    selected_view_schema_id: timelineViewSchemaId,
+    source: "home",
+  });
+
+  const defaultRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "PUT" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
+        ),
+  );
+  await setCurrentSavedViewAsDefault(page, timelineViewSchemaId);
+  expect(readPostBody(await defaultRequest)).toEqual({
+    default_sheet_ref: {
+      kind: "saved_view",
+      id: savedView.saved_view_id,
+    },
+  });
+  expect(
+    (await getDefaultWorkbookPreferences(page, incidentId)).default_sheet_ref,
+  ).toEqual({
+    kind: "saved_view",
+    id: savedView.saved_view_id,
+  });
+
+  await putUserHomeSheetRef(page, incidentId, null);
+  expect(await getWorkbookStartup(page, incidentId)).toMatchObject({
+    selected_sheet_ref: {
+      kind: "saved_view",
+      id: savedView.saved_view_id,
+    },
+    selected_view_schema_id: timelineViewSchemaId,
+    source: "default",
+  });
+
+  const startupQueryRequest = waitForViewQueryBody(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    replayedQuery,
+  );
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  expect(readPostBody(await startupQueryRequest)).toEqual(replayedQuery);
+  await expect(page).toHaveURL(/sheet_ref_kind=saved_view/);
+  await expect(page).toHaveURL(
+    new RegExp(`sheet_ref_id=${savedView.saved_view_id}`),
+  );
+  expect(await visibleRecordIds(page)).toEqual([String(beta.record_id)]);
+  await expect(
+    page.getByTestId(
+      gridGroupRowTestId(
+        timelineViewSchemaId,
+        "timeline.capture_state",
+        "reviewed",
+      ),
+    ),
+  ).toBeVisible();
+
+  const reloadQueryRequest = waitForViewQueryBody(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    replayedQuery,
+  );
+  await page.reload();
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  expect(readPostBody(await reloadQueryRequest)).toEqual(replayedQuery);
+  expect(
+    rowIDs(
+      await queryViewRows(
+        page,
+        incidentId,
+        timelineViewSchemaId,
+        replayedQuery,
+      ),
+    ),
+  ).toEqual([String(beta.record_id)]);
+}
 
 test("E-8-02 workbook startup falls back to Timeline for an unsupported explicit sheet", async ({
   page,
@@ -962,19 +1491,59 @@ function waitForViewQuery(
   incidentId: string,
   viewSchemaId: string,
 ) {
+  return page.waitForRequest((request) =>
+    isViewQueryRequest(request, incidentId, viewSchemaId),
+  );
+}
+
+function waitForViewQueryBody(
+  page: Page,
+  incidentId: string,
+  viewSchemaId: string,
+  expectedBody: Record<string, unknown>,
+) {
   return page.waitForRequest(
     (request) =>
-      request.method() === "POST" &&
-      request
-        .url()
-        .endsWith(
-          `/api/v1/incidents/${incidentId}/views/${viewSchemaId}/query`,
-        ),
+      isViewQueryRequest(request, incidentId, viewSchemaId) &&
+      postBodyEquals(request, expectedBody),
   );
+}
+
+function isViewQueryRequest(
+  request: { method: () => string; url: () => string },
+  incidentId: string,
+  viewSchemaId: string,
+) {
+  return (
+    request.method() === "POST" &&
+    request
+      .url()
+      .endsWith(`/api/v1/incidents/${incidentId}/views/${viewSchemaId}/query`)
+  );
+}
+
+function postBodyEquals(
+  request: { postData: () => string | null },
+  expectedBody: Record<string, unknown>,
+) {
+  return stableJSON(readPostBody(request)) === stableJSON(expectedBody);
 }
 
 function readPostBody(request: { postData: () => string | null }) {
   return JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
+}
+
+function stableJSON(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJSON(item)).join(",")}]`;
+  }
+  if (value !== null && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => `${JSON.stringify(key)}:${stableJSON(item)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "undefined";
 }
 
 type WorkbookSheetRef = {

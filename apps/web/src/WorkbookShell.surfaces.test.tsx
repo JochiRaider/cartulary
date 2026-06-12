@@ -256,9 +256,7 @@ describe("WorkbookShell surface selection", () => {
         /\/api\/v1\/incidents\/incident-1\/saved-views\/([^/?]+)$/,
       );
       if (savedViewMutationMatch && method === "PATCH") {
-        const savedViewID = decodeURIComponent(
-          savedViewMutationMatch[1] ?? "",
-        );
+        const savedViewID = decodeURIComponent(savedViewMutationMatch[1] ?? "");
         const existing = savedViews.find(
           (savedView) => savedView.saved_view_id === savedViewID,
         );
@@ -283,9 +281,7 @@ describe("WorkbookShell surface selection", () => {
         return successEnvelope(updated);
       }
       if (savedViewMutationMatch && method === "DELETE") {
-        const savedViewID = decodeURIComponent(
-          savedViewMutationMatch[1] ?? "",
-        );
+        const savedViewID = decodeURIComponent(savedViewMutationMatch[1] ?? "");
         savedViews = savedViews.filter(
           (savedView) => savedView.saved_view_id !== savedViewID,
         );
@@ -454,6 +450,10 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("selects required built-in and system view surfaces by view_schema_id", async () => {
+    genericRowsByView[indicatorsViewSchemaId] = [
+      indicatorRow("indicator-1", 1, "ipv4_addr", "203.0.113.42"),
+    ];
+
     render(<WorkbookShell incidentId="incident-1" />);
 
     const builtInTabIds = screen
@@ -571,6 +571,13 @@ describe("WorkbookShell surface selection", () => {
     expect(window.location.search).toContain(
       `view_schema_id=${encodeURIComponent(indicatorsViewSchemaId)}`,
     );
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByTestId(
+          rowCellTestId("indicator-1", "indicator.indicator_type"),
+        ),
+      );
+    });
 
     fireEvent.click(screen.getByTestId(systemViewSwitcherTriggerTestId()));
     const commLogOption = screen.getByTestId(
@@ -883,9 +890,7 @@ describe("WorkbookShell surface selection", () => {
           layout_schema_id: "cartulary.layout.v1",
           column_order: ["timeline.summary", "timeline.occurred_at"],
           hidden_field_keys: ["timeline.details"],
-          column_widths: [
-            { field_key: "timeline.summary", width_px: 360 },
-          ],
+          column_widths: [{ field_key: "timeline.summary", width_px: 360 }],
         },
       }),
       testSavedViewResource({
@@ -925,8 +930,9 @@ describe("WorkbookShell surface selection", () => {
             String(input).includes(
               "/api/v1/incidents/incident-1/saved-views",
             ) &&
-            ((init as RequestInit | undefined)?.method ?? "GET").toUpperCase() ===
-              method,
+            (
+              (init as RequestInit | undefined)?.method ?? "GET"
+            ).toUpperCase() === method,
         )
         .map(([, init]) =>
           JSON.parse(String((init as RequestInit | undefined)?.body ?? "{}")),
@@ -951,8 +957,7 @@ describe("WorkbookShell surface selection", () => {
                 String(input).includes(
                   `/views/${timelineViewSchemaId}/query`,
                 ) &&
-                ((init as RequestInit | undefined)?.method ?? "GET") ===
-                  "POST",
+                ((init as RequestInit | undefined)?.method ?? "GET") === "POST",
             )
             .at(-1)?.[1] as RequestInit | undefined
         )?.body ?? "{}",
@@ -1061,10 +1066,7 @@ describe("WorkbookShell surface selection", () => {
     expect((systemDeleteButton as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(
       screen.getByTestId(
-        savedViewDuplicateButtonTestId(
-          timelineViewSchemaId,
-          systemSavedViewId,
-        ),
+        savedViewDuplicateButtonTestId(timelineViewSchemaId, systemSavedViewId),
       ),
     );
 
@@ -1093,17 +1095,16 @@ describe("WorkbookShell surface selection", () => {
     fireEvent.click(copyDeleteButton);
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining(
-          `/saved-views/${savedViewCopyId}`,
-        ),
+        expect.stringContaining(`/saved-views/${savedViewCopyId}`),
         expect.objectContaining({ method: "DELETE" }),
       );
       expect(window.location.search).toContain(
         `view_schema_id=${encodeURIComponent(timelineViewSchemaId)}`,
       );
     });
-    expect(screen.getByTestId(rowCellTestId("timeline-1", "timeline.summary")))
-      .not.toBeNull();
+    expect(
+      screen.getByTestId(rowCellTestId("timeline-1", "timeline.summary")),
+    ).not.toBeNull();
 
     fireEvent.change(
       screen.getByTestId(savedViewNameInputTestId(timelineViewSchemaId)),
@@ -1767,6 +1768,33 @@ function timelineRow(
         value: { kind: "collection_value_v1", ordered: false, items: [] },
       },
       "timeline.has_unresolved_mentions": { value: false },
+    },
+  };
+}
+
+function indicatorRow(
+  recordId: string,
+  rowVersion: number,
+  indicatorType: string,
+  displayValue: string,
+) {
+  return {
+    record_id: recordId,
+    row_version: rowVersion,
+    cells: {
+      "indicator.indicator_type": { value: indicatorType },
+      "indicator.value_kind": { value: "atomic" },
+      "indicator.display_value": { value: displayValue },
+      "indicator.normalized_value": { value: displayValue },
+      "indicator.defanged_value": { value: displayValue },
+      "indicator.hash_algorithm": { value: null },
+      "indicator.hash_value": { value: null },
+      "indicator.stix_pattern": { value: null },
+      "indicator.first_observed_at": { value: "2026-04-24T10:00:00.000Z" },
+      "indicator.last_observed_at": { value: "2026-04-24T10:00:00.000Z" },
+      "indicator.observation_count": { value: 1 },
+      "indicator.lifecycle_summary": { value: "active" },
+      "indicator.supporting_link_count": { value: 1 },
     },
   };
 }

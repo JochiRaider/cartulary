@@ -13,23 +13,40 @@ import {
   gridSortHeaderTestId,
   rowCellTestId,
   rowInspectButtonTestId,
+  savedViewCreateButtonTestId,
+  savedViewNameInputTestId,
+  savedViewScopeSelectTestId,
+  savedViewSelectorTestId,
+  savedViewSetDefaultButtonTestId,
+  savedViewSetHomeButtonTestId,
+  savedViewUpdateButtonTestId,
 } from "@cartulary/ui-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   applyFilterChip,
+  assertActiveFilterChipVisible,
   assertAnchorTestId,
   assertGridFocusContinuity,
+  assertGroupRowPresentationOnly,
   assertMarkerAnchoredToGridTarget,
   changeGrouping,
   collapseGridGroup,
+  createSavedViewFromCurrentSurface,
   expandGridGroup,
   fillDownGridCells,
   pasteMatrixText,
+  readSavedViewSelectionState,
   removeFilterChip,
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
+  selectSavedView,
+  selectSavedViewScope,
+  setCurrentSavedViewAsDefault,
+  setCurrentSavedViewAsHome,
+  setSavedViewDraftName,
   sortByHeader,
+  updateSavedViewFromCurrentSurface,
 } from "./index";
 
 afterEach(() => {
@@ -59,6 +76,7 @@ describe("@cartulary/test-utils selector choreography", () => {
           fill: async (nextValue: string) => {
             filled[value] = nextValue;
           },
+          isVisible: async () => true,
           selectOption: async (nextValue: string | readonly string[]) => {
             selected[value] = nextValue;
           },
@@ -69,6 +87,11 @@ describe("@cartulary/test-utils selector choreography", () => {
 
     await sortByHeader(page, surface, "timeline.summary");
     await applyFilterChip(page, surface, "timeline.capture_state", "rough");
+    await assertActiveFilterChipVisible(
+      page,
+      surface,
+      "timeline.capture_state",
+    );
     await removeFilterChip(page, surface, "timeline.capture_state");
     await changeGrouping(page, surface, "timeline.capture_state");
 
@@ -77,6 +100,7 @@ describe("@cartulary/test-utils selector choreography", () => {
       gridFilterFieldTestId(surface),
       gridFilterValueTestId(surface),
       gridFilterApplyTestId(surface),
+      gridFilterChipTestId(surface, "timeline.capture_state"),
       gridFilterChipTestId(surface, "timeline.capture_state"),
       gridGroupingSelectTestId(surface),
     ]);
@@ -88,6 +112,103 @@ describe("@cartulary/test-utils selector choreography", () => {
       "timeline.capture_state",
     );
     expect(filled).toEqual({});
+  });
+
+  it("targets saved-view browser commands through shared builders", async () => {
+    const savedViewId = "saved-view-1";
+    const observed: string[] = [];
+    const clicked: string[] = [];
+    const selected: Record<string, string | readonly string[]> = {};
+    const filled: Record<string, string> = {};
+    const elements = new Map<string, HTMLElement>();
+    const selector = document.createElement("select");
+    selector.setAttribute(
+      "data-active-view-schema-id",
+      testTimelineViewSchemaId,
+    );
+    selector.setAttribute("data-selected-sheet-ref-kind", "view_schema");
+    selector.setAttribute("data-selected-saved-view-id", "");
+    elements.set(savedViewSelectorTestId(testTimelineViewSchemaId), selector);
+    const page = {
+      getByTestId(value: string) {
+        observed.push(value);
+        const element = elements.get(value) ?? document.createElement("button");
+        return {
+          click: async () => {
+            clicked.push(value);
+          },
+          evaluate: async (
+            pageFunction: (element: Element, arg?: unknown) => unknown,
+            arg?: unknown,
+          ) => pageFunction(element, arg),
+          fill: async (nextValue: string) => {
+            filled[value] = nextValue;
+          },
+          selectOption: async (nextValue: string | readonly string[]) => {
+            selected[value] = nextValue;
+            if (value === savedViewSelectorTestId(testTimelineViewSchemaId)) {
+              selector.setAttribute(
+                "data-selected-sheet-ref-kind",
+                "saved_view",
+              );
+              selector.setAttribute(
+                "data-selected-saved-view-id",
+                String(nextValue),
+              );
+            }
+          },
+        };
+      },
+    };
+
+    await selectSavedView(page, testTimelineViewSchemaId, savedViewId);
+    await expect(
+      readSavedViewSelectionState(page, testTimelineViewSchemaId),
+    ).resolves.toEqual({
+      activeViewSchemaId: testTimelineViewSchemaId,
+      selectedSavedViewId: savedViewId,
+      selectedSheetRefKind: "saved_view",
+    });
+    await setSavedViewDraftName(
+      page,
+      testTimelineViewSchemaId,
+      "Timeline review",
+    );
+    await selectSavedViewScope(page, testTimelineViewSchemaId, "shared");
+    await updateSavedViewFromCurrentSurface(
+      page,
+      testTimelineViewSchemaId,
+      savedViewId,
+    );
+    await setCurrentSavedViewAsHome(page, testTimelineViewSchemaId);
+    await setCurrentSavedViewAsDefault(page, testTimelineViewSchemaId);
+    await createSavedViewFromCurrentSurface(page, testTimelineViewSchemaId);
+
+    expect(observed).toEqual([
+      savedViewSelectorTestId(testTimelineViewSchemaId),
+      savedViewSelectorTestId(testTimelineViewSchemaId),
+      savedViewNameInputTestId(testTimelineViewSchemaId),
+      savedViewScopeSelectTestId(testTimelineViewSchemaId),
+      savedViewUpdateButtonTestId(testTimelineViewSchemaId, savedViewId),
+      savedViewSetHomeButtonTestId(testTimelineViewSchemaId),
+      savedViewSetDefaultButtonTestId(testTimelineViewSchemaId),
+      savedViewCreateButtonTestId(testTimelineViewSchemaId),
+    ]);
+    expect(selected[savedViewSelectorTestId(testTimelineViewSchemaId)]).toBe(
+      savedViewId,
+    );
+    expect(selected[savedViewScopeSelectTestId(testTimelineViewSchemaId)]).toBe(
+      "shared",
+    );
+    expect(filled[savedViewNameInputTestId(testTimelineViewSchemaId)]).toBe(
+      "Timeline review",
+    );
+    expect(clicked).toEqual([
+      savedViewUpdateButtonTestId(testTimelineViewSchemaId, savedViewId),
+      savedViewSetHomeButtonTestId(testTimelineViewSchemaId),
+      savedViewSetDefaultButtonTestId(testTimelineViewSchemaId),
+      savedViewCreateButtonTestId(testTimelineViewSchemaId),
+    ]);
   });
 
   it("formats and posts fill-down browser command payloads", async () => {
@@ -203,6 +324,57 @@ describe("@cartulary/test-utils selector choreography", () => {
     });
     expect(ariaExpanded).toBe("true");
     expect(clickCount).toBe(2);
+  });
+
+  it("asserts group rows remain presentation-only", async () => {
+    const page = {
+      getByTestId(value: string) {
+        const element = Array.from(
+          document.querySelectorAll<HTMLElement>("[data-testid]"),
+        ).find((candidate) => candidate.dataset.testid === value);
+        if (element === undefined) {
+          throw new Error(`Missing test id ${value}`);
+        }
+        return {
+          click: async () => undefined,
+          evaluate: async (
+            pageFunction: (element: Element, arg?: unknown) => unknown,
+            arg?: unknown,
+          ) => pageFunction(element, arg),
+          fill: async () => undefined,
+        };
+      },
+    };
+
+    document.body.innerHTML = `
+      <div role="row" data-grid-row-kind="group">
+        <div role="gridcell" data-grid-row-kind="group">
+          <button data-testid="group-row" type="button">reviewed</button>
+        </div>
+      </div>
+    `;
+    await expect(
+      assertGroupRowPresentationOnly({
+        groupTestId: "group-row",
+        page,
+        surface: testTimelineViewSchemaId,
+      }),
+    ).resolves.toBeUndefined();
+
+    document.body.innerHTML = `
+      <div role="row" data-grid-row-kind="group" data-grid-record-id="record-1">
+        <div role="gridcell" data-grid-row-kind="group">
+          <button data-testid="group-row" type="button">reviewed</button>
+        </div>
+      </div>
+    `;
+    await expect(
+      assertGroupRowPresentationOnly({
+        groupTestId: "group-row",
+        page,
+        surface: testTimelineViewSchemaId,
+      }),
+    ).rejects.toThrow(/omit data-grid-record-id/);
   });
 });
 

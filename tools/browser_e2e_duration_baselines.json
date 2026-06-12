@@ -7,217 +7,217 @@
     "E-1-01": {
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-01 signs in as a local user and inspects the ordinary session surface",
-      "weight_ms": 761
+      "weight_ms": 539
     },
     "E-1-02": {
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-02 requires MFA on the ordinary login surface, rejects wrong codes, and accepts a valid TOTP code",
-      "weight_ms": 1371
+      "weight_ms": 837
     },
     "E-1-03": {
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-03 rejects invalid credentials without issuing a session cookie",
-      "weight_ms": 290
+      "weight_ms": 552
     },
     "E-1-06": {
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-06 follows the bootstrap-token enrollment sequence on the ordinary login shell and proves completion alone issues no session",
-      "weight_ms": 2451
+      "weight_ms": 2463
     },
     "E-1-07": {
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-07 requires the current password and current TOTP code, revokes the session immediately, and requires re-login with the new password",
-      "weight_ms": 1577
+      "weight_ms": 1708
     },
     "E-1-08": {
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-08 keeps deployment-user administration on deployment-admin sessions and hides it from an incident admin on the ordinary shell",
-      "weight_ms": 2208
+      "weight_ms": 1673
     },
     "E-1-09": {
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-09 creates an incident from the landing screen, lists it, and opens the workbook as incident admin",
-      "weight_ms": 1170
+      "weight_ms": 990
     },
     "E-1-10": {
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-10 clears a stale selected incident after membership removal while preserving the account session",
-      "weight_ms": 1635
+      "weight_ms": 1252
     },
     "E-1-11": {
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-11 observes current-role authorization on a stale reviewer edit through the public incident error envelope",
-      "weight_ms": 2036
+      "weight_ms": 1994
     },
     "E-1-12": {
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-12 returns a revoked target browser to login and allows re-authentication with unchanged incident membership",
-      "weight_ms": 1110
+      "weight_ms": 1146
     },
     "E-10-02": {
       "file": "apps/web/e2e/phase10.restore.spec.ts",
       "title": "Phase 10 E-10-02 restore recovers workbook surface and executes a built-in workbook query",
-      "weight_ms": 7662
+      "weight_ms": 7067
     },
     "E-11-01": {
       "file": "apps/web/e2e/phase11.reference-pack.spec.ts",
       "title": "E-11-01 shows Reference Pack progress and cancel controls without blocking landing interaction",
-      "weight_ms": 532
+      "weight_ms": 406
     },
     "E-2-01": {
       "file": "apps/web/e2e/phase2.spec.ts",
       "title": "E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface",
-      "weight_ms": 1021
+      "weight_ms": 976
     },
     "E-2-02": {
       "file": "apps/web/e2e/phase2.spec.ts",
       "title": "E-2-02 shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell",
-      "weight_ms": 1559
+      "weight_ms": 1538
     },
     "E-2-03": {
       "file": "apps/web/e2e/phase2.spec.ts",
       "title": "E-2-03 lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell",
-      "weight_ms": 2214
+      "weight_ms": 2654
     },
     "E-3-01": {
       "file": "apps/web/e2e/phase3.spec.ts",
       "title": "E-3-01 creates a Timeline row in-grid and continues editing on the draft row",
-      "weight_ms": 615
+      "weight_ms": 703
     },
     "E-3-03": {
       "file": "apps/web/e2e/phase3.spec.ts",
       "title": "E-3-03 drives review, demotion, and supersede through the visible workbook surface",
-      "weight_ms": 1961
+      "weight_ms": 1535
     },
     "E-3-04": {
       "file": "apps/web/e2e/phase3.spec.ts",
       "title": "E-3-04 uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation",
-      "weight_ms": 2330
+      "weight_ms": 2354
     },
     "E-4-01": {
       "file": "apps/web/e2e/phase4.mentions.resolve.spec.ts",
       "title": "E-4-01 resolves and creates entities from Timeline mentions in the inspector",
-      "weight_ms": 1819
+      "weight_ms": 2582
     },
     "E-4-02": {
       "file": "apps/web/e2e/phase4.mentions.lifecycle.spec.ts",
       "title": "E-4-02 dismisses and ordinarily restores a mention without relinking",
-      "weight_ms": 1885
+      "weight_ms": 1699
     },
     "E-4-03": {
       "file": "apps/web/e2e/phase4.merge.spec.ts",
       "title": "E-4-03 merges duplicate entities from the inspector and preserves survivor identity",
-      "weight_ms": 1725
+      "weight_ms": 1737
     },
     "E-4-04": {
       "file": "apps/web/e2e/phase4.autoresolve.spec.ts",
       "title": "E-4-04 auto-resolves only eligible exact-match Timeline tokens",
-      "weight_ms": 5885
+      "weight_ms": 4835
     },
     "E-4-05": {
       "file": "apps/web/e2e/phase4.workbook.assessments.spec.ts",
       "title": "E-4-05 creates append-only assessment history through the workbook UI",
-      "weight_ms": 1862
+      "weight_ms": 2332
     },
     "E-4-06": {
       "file": "apps/web/e2e/phase4.workbook.generic.spec.ts",
       "title": "E-4-06 creates and edits required workbook mutation surfaces through typed generic controls",
-      "weight_ms": 7987
+      "weight_ms": 7811
     },
     "E-5-01": {
       "file": "apps/web/e2e/phase5.evidence.spec.ts",
       "title": "E-5-01 attaches a screenshot to a selected Timeline row without leaving the workbook surface",
-      "weight_ms": 741
+      "weight_ms": 757
     },
     "E-5-02": {
       "file": "apps/web/e2e/phase5.evidence.spec.ts",
       "title": "E-5-02 persists a screenshot-only Timeline row through the two-step evidence path",
-      "weight_ms": 720
+      "weight_ms": 680
     },
     "E-5-03": {
       "file": "apps/web/e2e/phase5.evidence.spec.ts",
       "title": "E-5-03 redeems inline-safe previews and shows explicit blocked-preview outcomes",
-      "weight_ms": 1098
+      "weight_ms": 1001
     },
     "E-5-04": {
       "file": "apps/web/e2e/phase5.evidence.spec.ts",
       "title": "E-5-04 tracks requested evidence before a blob exists and later advances it",
-      "weight_ms": 2191
+      "weight_ms": 2163
     },
     "E-5-05": {
       "file": "apps/web/e2e/phase5.evidence.spec.ts",
       "title": "E-5-05 refreshes a second live workbook from the real evidence attach stream",
-      "weight_ms": 1381
+      "weight_ms": 1557
     },
     "E-6-01": {
       "file": "apps/web/e2e/phase6.collaboration.spec.ts",
       "title": "E-6-01 shows two analysts each other's workbook presence within the expected interaction window",
-      "weight_ms": 1463
+      "weight_ms": 1362
     },
     "E-6-02": {
       "file": "apps/web/e2e/phase6.collaboration.spec.ts",
       "title": "E-6-02 auto-merges different-field concurrent edits and requires explicit same-field resolution",
-      "weight_ms": 3438
+      "weight_ms": 2782
     },
     "E-6-04": {
       "file": "apps/web/e2e/phase6.collaboration.spec.ts",
       "title": "E-6-04 keeps live updates conflict markers and presence markers anchored to record_id and field_key",
-      "weight_ms": 6400
+      "weight_ms": 5924
     },
     "E-6-05": {
       "file": "apps/web/e2e/phase6.collaboration.spec.ts",
       "title": "E-6-05 replays queued unsent writes after re-authentication without silent reload restore",
-      "weight_ms": 11509
+      "weight_ms": 11642
     },
     "E-7-01": {
       "file": "apps/web/e2e/phase7.history.spec.ts",
       "title": "E-7-01 opens row history from the workbook surface with legal rollback actions",
-      "weight_ms": 840
+      "weight_ms": 724
     },
     "E-7-02": {
       "file": "apps/web/e2e/phase7.history.spec.ts",
       "title": "E-7-02 rolls back one attached-evidence mutation without reverting later unrelated edits",
-      "weight_ms": 1473
+      "weight_ms": 1823
     },
     "E-7-03": {
       "file": "apps/web/e2e/phase7.history.spec.ts",
       "title": "E-7-03 soft-deletes and restores a row with tombstone concurrency",
-      "weight_ms": 2114
+      "weight_ms": 1905
     },
     "E-7-04": {
       "file": "apps/web/e2e/phase7.history.spec.ts",
       "title": "E-7-04 whole-row restore appends a new attributed revision",
-      "weight_ms": 1469
+      "weight_ms": 1328
     },
     "E-7-05": {
       "file": "apps/web/e2e/phase7.history.spec.ts",
       "title": "E-7-05 rolls back a merge change set from row history",
-      "weight_ms": 1550
+      "weight_ms": 1303
     },
     "E-8-01": {
       "file": "apps/web/e2e/phase8.workbook.spec.ts",
       "title": "E-8-01 saved-view route foundation persists canonical state while browser lifecycle affordances remain pending",
-      "weight_ms": 594
+      "weight_ms": 549
     },
     "E-8-02": {
       "file": "apps/web/e2e/phase8.workbook.spec.ts",
       "title": "E-8-02 workbook startup falls back to Timeline for an unsupported explicit sheet",
-      "weight_ms": 1938
+      "weight_ms": 1787
     },
     "E-8-03": {
       "file": "apps/web/e2e/phase8.workbook.spec.ts",
       "title": "E-8-03 browser Timeline sort, filter, and group controls submit stable query keys",
-      "weight_ms": 1430
+      "weight_ms": 1225
     },
     "E-8-04": {
       "file": "apps/web/e2e/phase8.workbook.spec.ts",
       "title": "E-8-04 browser Notes full_text and prefix queries remain exact",
-      "weight_ms": 1031
+      "weight_ms": 863
     },
     "E-9-01": {
       "file": "apps/web/e2e/phase9.keyboard.spec.ts",
       "title": "Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without module switching",
-      "weight_ms": 916
+      "weight_ms": 884
     },
     "E-9-03": {
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
@@ -227,108 +227,123 @@
     "E-9-04": {
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
       "title": "Phase 9 E-9-04 Party create and link preserve raw text on the workbook surface",
-      "weight_ms": 6231
+      "weight_ms": 5622
     },
     "E-9-05": {
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
       "title": "Phase 9 E-9-05 assessment workflow keeps invalid timestamp drafts local",
-      "weight_ms": 2307
+      "weight_ms": 1888
     },
     "E-9-07": {
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
       "title": "Phase 9 E-9-07 optional standardized surfaces are workbook-native when exposed",
-      "weight_ms": 3774
+      "weight_ms": 3522
     },
     "E-9-08": {
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
       "title": "Phase 9 E-9-08 required registry identities stay canonical with optional additions",
-      "weight_ms": 1287
+      "weight_ms": 1269
     },
     "E-9-CONFLICT-02": {
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
       "title": "Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection continuity",
-      "weight_ms": 933
+      "weight_ms": 842
     },
     "E-9-COORDINATION-06": {
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
       "title": "Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native",
-      "weight_ms": 6129
+      "weight_ms": 5882
     },
     "E-9-GRIDANCHORS-01": {
       "file": "apps/web/e2e/phase9.keyboard.spec.ts",
       "title": "Phase 9 E-9-GRIDANCHORS-01 shared grid keyboard anchors stay stable across workbook cells",
-      "weight_ms": 6564
+      "weight_ms": 5928
     },
     "E-9-GRIDHOST-01": {
       "file": "apps/web/e2e/phase9.keyboard.spec.ts",
       "title": "Phase 9 E-9-GRIDHOST-01 Host entity-origin clipboard paste reuses exact matches and creates stubs",
-      "weight_ms": 689
+      "weight_ms": 746
     },
     "E-9-GRIDIDENTITY-01": {
       "file": "apps/web/e2e/phase9.keyboard.spec.ts",
       "title": "Phase 9 E-9-GRIDIDENTITY-01 Identity entity-origin clipboard paste reuses exact matches and creates stubs",
-      "weight_ms": 728
+      "weight_ms": 739
     },
     "E-9-PASTE-02": {
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
       "title": "Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range",
-      "weight_ms": 1012
+      "weight_ms": 975
     },
     "E-9-TASKDECISION-06": {
       "file": "apps/web/e2e/phase9.sentinel.spec.ts",
       "title": "Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows stay native",
-      "weight_ms": 3966
+      "weight_ms": 3288
     },
     "FE-B-P2-02": {
       "file": "apps/web/e2e/phase2.spec.ts",
       "title": "FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration.",
-      "weight_ms": 939
+      "weight_ms": 921
+    },
+    "FE-B-P8-01": {
+      "file": "apps/web/e2e/phase8.workbook.spec.ts",
+      "title": "FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI.",
+      "weight_ms": 1516
     },
     "FE-E-P2-01": {
       "file": "apps/web/e2e/phase2.spec.ts",
       "title": "FE-E-P2-01 Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell.",
-      "weight_ms": 997
+      "weight_ms": 1008
     },
     "FE-E-P4-01": {
       "file": "apps/web/e2e/frontend.phase4.public-route.spec.ts",
       "title": "FE-E-P4-01 Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts.",
-      "weight_ms": 8590
+      "weight_ms": 8228
     },
     "FE-E-P5-01": {
       "file": "apps/web/e2e/frontend.phase5.mention-lifecycle.spec.ts",
       "title": "FE-E-P5-01 Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows.",
-      "weight_ms": 2944
+      "weight_ms": 2901
     },
     "FE-E-P6-01": {
       "file": "apps/web/e2e/phase6.evidence-integration.spec.ts",
       "title": "FE-E-P6-01 Verify evidence attach, preview, download, blocked preview, and authorization denial through same-origin public handles.",
-      "weight_ms": 2854
+      "weight_ms": 2857
     },
     "FE-E-P7-01": {
       "file": "apps/web/e2e/phase6.collaboration.spec.ts",
       "title": "FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/.",
-      "weight_ms": 5874
+      "weight_ms": 6055
+    },
+    "FE-E-P8-01": {
+      "file": "apps/web/e2e/phase8.workbook.spec.ts",
+      "title": "FE-E-P8-01 Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload.",
+      "weight_ms": 2183
     },
     "FE-I-P4-01": {
       "file": "apps/web/e2e/frontend.phase4.timeline-query.spec.ts",
       "title": "FE-I-P4-01 Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh.",
-      "weight_ms": 2429
+      "weight_ms": 2286
     },
     "FE-I-P5-01": {
       "file": "apps/web/e2e/frontend.phase5.grid-provenance.spec.ts",
       "title": "FE-I-P5-01 Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh.",
-      "weight_ms": 1858
+      "weight_ms": 2337
     },
     "FE-I-P6-01": {
       "file": "apps/web/e2e/phase6.evidence-integration.spec.ts",
       "title": "FE-I-P6-01 Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths.",
-      "weight_ms": 1050
+      "weight_ms": 1189
     },
     "FE-I-P7-01": {
       "file": "apps/web/e2e/phase6.collaboration.spec.ts",
       "title": "FE-I-P7-01 Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering.",
-      "weight_ms": 2977
+      "weight_ms": 2835
+    },
+    "FE-I-P8-01": {
+      "file": "apps/web/e2e/phase8.workbook.spec.ts",
+      "title": "FE-I-P8-01 Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.",
+      "weight_ms": 1139
     }
   },
-  "updated_at": "2026-06-12T00:56:36.745Z"
+  "updated_at": "2026-06-12T04:52:55.127Z"
 }

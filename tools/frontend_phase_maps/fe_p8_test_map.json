@@ -3,7 +3,7 @@
   "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P8",
-  "guide_digest": "f582d6fc183210a8404b020116b2dd84a7f92b216e06973e5bc53a0e53d85059",
+  "guide_digest": "4d04187d15d86bd49ec08addb3aa25e625e4fd7740918e4ebe0e2376f56944d1",
   "rows": [
     {
       "id": "FE-U-P8-01",
@@ -264,7 +264,7 @@
           "target_name": "browser-e2e-webserver-backed",
           "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         },
@@ -272,7 +272,7 @@
           "target_name": "browser-e2e-support",
           "command_id": "cartulary.harness.command.browser_e2e_support.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         }
@@ -280,17 +280,17 @@
       "scenario_titles": [
         "FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
       "default_check_required": false,
-      "future_default_check_candidate": true,
+      "future_default_check_candidate": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-B-P8-01",
@@ -298,14 +298,7 @@
       "evidence_delta": "full evidence is retained outside default check",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P8",
-      "blockers": [
-        {
-          "blocker_id": "FE-B-P8-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-E-P8-01",
@@ -386,7 +379,7 @@
           "target_name": "browser-e2e-webserver-backed",
           "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         },
@@ -394,7 +387,7 @@
           "target_name": "browser-e2e-stateful",
           "command_id": "cartulary.harness.command.browser_e2e_stateful.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         }
@@ -402,17 +395,17 @@
       "scenario_titles": [
         "FE-E-P8-01 Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
       "default_check_required": false,
-      "future_default_check_candidate": true,
+      "future_default_check_candidate": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-E-P8-01",
@@ -420,14 +413,7 @@
       "evidence_delta": "full evidence is retained outside default check",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P8",
-      "blockers": [
-        {
-          "blocker_id": "FE-E-P8-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-V-P8-01",
@@ -472,7 +458,7 @@
           "target_name": "browser-e2e-visual",
           "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         }
@@ -480,11 +466,11 @@
       "scenario_titles": [
         "FE-V-P8-01 Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
@@ -497,14 +483,7 @@
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P8",
-      "blockers": [
-        {
-          "blocker_id": "FE-V-P8-01-BLOCKER-01",
-          "reason_code": "visual_fixture_not_recaptured_for_frontend_row",
-          "description": "Visual fixture is planned but direct frontend row-accounting evidence has not been recaptured under the closed fixture registry.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-A11Y-P8-01",
@@ -531,15 +510,15 @@
         "R2-AC-054",
         "R2-AC-080",
         "R2-AC-086",
-        "D-AC-009",
-        "D-AC-012"
+        "D-AC-050",
+        "D-AC-051"
       ],
       "targets": [
         {
-          "target_name": "browser-e2e-a11y-preflight",
-          "command_id": "cartulary.harness.command.browser_e2e_a11y_preflight.v1",
+          "target_name": "browser-e2e-a11y",
+          "command_id": "cartulary.harness.command.browser_e2e_a11y.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         }
@@ -547,11 +526,11 @@
       "scenario_titles": [
         "FE-A11Y-P8-01 Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
@@ -564,14 +543,7 @@
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P8",
-      "blockers": [
-        {
-          "blocker_id": "FE-A11Y-P8-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     }
   ]
 }

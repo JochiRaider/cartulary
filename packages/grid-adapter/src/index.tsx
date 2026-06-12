@@ -355,17 +355,18 @@ function renderDataHeaderContent<Row>({
   }
 
   return (
-    <span
+    <button
       data-grid-field-key={column.fieldKey}
       data-testid={column.headerTestId}
       style={headerButtonStyle(column.align)}
       title={column.sortDisabledReason ?? undefined}
+      type="button"
       onClick={() => {
         onToggleSort(sortFieldKey);
       }}
     >
       {content}
-    </span>
+    </button>
   );
 }
 
@@ -376,8 +377,10 @@ function GroupRow<Row>({
   onToggleGroup,
 }: GroupRowProps<Row>) {
   return (
-    <div role="row" style={rowContentsStyle}>
+    <div data-grid-row-kind="group" role="row" style={rowContentsStyle}>
       <div
+        data-grid-group-key={row.key}
+        data-grid-row-kind="group"
         role="gridcell"
         style={{
           ...groupCellStyle,

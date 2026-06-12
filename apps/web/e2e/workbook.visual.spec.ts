@@ -2,8 +2,14 @@ import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import {
+  applyFilterChip,
+  assertActiveFilterChipVisible,
   assertMarkerAnchoredToGridTarget,
   changeGrouping,
+  createSavedViewFromCurrentSurface,
+  setCurrentSavedViewAsDefault,
+  setCurrentSavedViewAsHome,
+  setSavedViewDraftName,
 } from "@cartulary/test-utils";
 import {
   cartularyDefaultThemeId,
@@ -37,6 +43,7 @@ import {
   rowInspectButtonTestId,
   rowPresenceMarkerTestId,
   savedViewSelectorTestId,
+  savedViewStatusTestId,
   saveStateTestId,
   surfaceTabTestId,
   systemViewSwitcherTriggerTestId,
@@ -1600,6 +1607,128 @@ test.describe("FE-P7 workbook visual readiness", () => {
   });
 });
 
+test.describe("FE-P8 workbook visual readiness", () => {
+  test("FE-V-P8-01 Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("FEVP801"),
+      "FE-P8 visual saved view query controls",
+    );
+    const reviewedRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("FEVP801-REVIEWED"),
+        "timeline.occurred_at": "2026-06-08T12:00:00Z",
+        "timeline.summary": "FE-P8 reviewed saved-view visual row",
+      },
+    )) as ViewRow;
+    await createViewRow(page, incidentId, timelineViewSchemaId, {
+      client_txn_id: uniqueTxn("FEVP801-ROUGH"),
+      "timeline.occurred_at": "2026-06-08T12:05:00Z",
+      "timeline.summary": "FE-P8 rough grouped visual row",
+    });
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await maskIncidentIdentity(page, incidentId);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await expect(
+      page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+
+    await page
+      .getByTestId(timelineRowMarkReviewedButtonTestId(reviewedRow.record_id))
+      .click();
+    await expect(
+      page.getByTestId(
+        rowCellTestId(reviewedRow.record_id, "timeline.capture_state"),
+      ),
+    ).toHaveText("reviewed");
+
+    await applyFilterChip(
+      page,
+      timelineViewSchemaId,
+      "timeline.capture_state",
+      "reviewed",
+    );
+    await assertActiveFilterChipVisible(
+      page,
+      timelineViewSchemaId,
+      "timeline.capture_state",
+    );
+    await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
+    await expect(
+      page.getByTestId(
+        gridGroupRowTestId(
+          timelineViewSchemaId,
+          "timeline.capture_state",
+          "reviewed",
+        ),
+      ),
+    ).toBeVisible();
+
+    await setSavedViewDraftName(
+      page,
+      timelineViewSchemaId,
+      "FE-P8 visual saved-view state",
+    );
+    await createSavedViewFromCurrentSurface(page, timelineViewSchemaId);
+    await expect(
+      page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
+    ).toHaveText("Saved view created.");
+    await setCurrentSavedViewAsHome(page, timelineViewSchemaId);
+    await expect(
+      page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
+    ).toHaveText("Home view updated.");
+    await setCurrentSavedViewAsDefault(page, timelineViewSchemaId);
+    await expect(
+      page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
+    ).toHaveText("Default view updated.");
+
+    await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+      scroll: { top: 0, left: "left" },
+    });
+    await assertViewportVisualRegression(
+      page,
+      "fe-v-p8-01-saved-view-query-controls",
+    );
+
+    const emptyIncidentId = await createIncident(
+      page,
+      uniqueIncidentKey("FEVP801EMPTY"),
+      "FE-P8 empty successful Timeline query",
+    );
+    await page.goto(`/?incident_id=${emptyIncidentId}`);
+    await maskIncidentIdentity(page, emptyIncidentId);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await expect(
+      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await expect
+      .poll(
+        async () =>
+          (await queryViewRows(page, emptyIncidentId, timelineViewSchemaId))
+            .length,
+      )
+      .toBe(0);
+    await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(0);
+    await expect(page.getByText("Draft timeline row")).toBeVisible();
+    await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+      scroll: { top: 0, left: "left" },
+    });
+    await assertWorkbookGridVisualRegression(
+      page,
+      "fe-v-p8-01-empty-successful-query",
+      timelineViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
+    );
+  });
+});
+
 async function prepareFeP7ConflictVisual(
   page: Page,
   options: {
@@ -2794,6 +2923,10 @@ async function installFeP6EvidenceAccessVisualStyle(page: Page) {
       [data-testid='${gridTestId}'] [data-grid-field-key='__cartulary_actions__'] {
         min-block-size: 4.35rem !important;
         overflow: hidden !important;
+      }
+
+      [data-testid='${gridTestId}'] [role='gridcell'][data-grid-field-key='record_id'] {
+        color: transparent !important;
       }
 
       [data-testid='${gridTestId}'] [data-evidence-state-key] {

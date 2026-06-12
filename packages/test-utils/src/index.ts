@@ -9,6 +9,13 @@ import {
   gridShellTestId,
   gridSortHeaderTestId,
   rowCellTestId,
+  savedViewCreateButtonTestId,
+  savedViewNameInputTestId,
+  savedViewScopeSelectTestId,
+  savedViewSelectorTestId,
+  savedViewSetDefaultButtonTestId,
+  savedViewSetHomeButtonTestId,
+  savedViewUpdateButtonTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 
@@ -31,6 +38,12 @@ type BrowserLocator = {
   press?: (value: string) => Promise<void>;
   scrollIntoViewIfNeeded?: () => Promise<void>;
   selectOption?: (value: string | readonly string[]) => Promise<unknown>;
+};
+
+export type SavedViewSelectionState = {
+  readonly activeViewSchemaId: string | null;
+  readonly selectedSavedViewId: string | null;
+  readonly selectedSheetRefKind: string | null;
 };
 
 type BrowserResponseLike = {
@@ -113,6 +126,100 @@ export async function resizeGridColumn(options: {
     `resizeGridColumn(${options.surface}) requires locator.evaluate() support`,
   );
   return evaluate((element) => element.getBoundingClientRect().width);
+}
+
+export async function selectSavedView(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+  savedViewId: string,
+) {
+  const selector = page.getByTestId(savedViewSelectorTestId(surface));
+  const selectOption = requireSelectOption(
+    selector,
+    `selectSavedView(${surface}) requires locator.selectOption() support`,
+  );
+  await selectOption(savedViewId);
+}
+
+export async function readSavedViewSelectionState(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+): Promise<SavedViewSelectionState> {
+  const selector = page.getByTestId(savedViewSelectorTestId(surface));
+  const evaluate = requireEvaluate(
+    selector,
+    `readSavedViewSelectionState(${surface}) requires locator.evaluate() support`,
+  );
+  return (await evaluate((element) => ({
+    activeViewSchemaId: element.getAttribute("data-active-view-schema-id"),
+    selectedSavedViewId: element.getAttribute("data-selected-saved-view-id"),
+    selectedSheetRefKind: element.getAttribute("data-selected-sheet-ref-kind"),
+  }))) as SavedViewSelectionState;
+}
+
+export async function setSavedViewDraftName(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+  displayName: string,
+) {
+  await page.getByTestId(savedViewNameInputTestId(surface)).fill(displayName);
+}
+
+export async function selectSavedViewScope(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+  scope: "private" | "shared",
+) {
+  const scopeSelect = page.getByTestId(savedViewScopeSelectTestId(surface));
+  const selectOption = requireSelectOption(
+    scopeSelect,
+    `selectSavedViewScope(${surface}) requires locator.selectOption() support`,
+  );
+  await selectOption(scope);
+}
+
+export async function createSavedViewFromCurrentSurface(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+) {
+  await page.getByTestId(savedViewCreateButtonTestId(surface)).click();
+}
+
+export async function updateSavedViewFromCurrentSurface(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+  savedViewId: string,
+) {
+  await page
+    .getByTestId(savedViewUpdateButtonTestId(surface, savedViewId))
+    .click();
+}
+
+export async function setCurrentSavedViewAsHome(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+) {
+  await page.getByTestId(savedViewSetHomeButtonTestId(surface)).click();
+}
+
+export async function setCurrentSavedViewAsDefault(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+) {
+  await page.getByTestId(savedViewSetDefaultButtonTestId(surface)).click();
+}
+
+export async function assertActiveFilterChipVisible(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+  fieldKey: string,
+) {
+  const chip = page.getByTestId(gridFilterChipTestId(surface, fieldKey));
+  if (!(await isLocatorVisible(chip))) {
+    throw new Error(
+      `Expected active filter chip for ${fieldKey} on ${surface} to be visible`,
+    );
+  }
 }
 
 export async function fillDownGridCells(options: {
@@ -228,6 +335,70 @@ export function expandGridGroup(
   options: Omit<Parameters<typeof setGridGroupExpanded>[0], "expanded">,
 ) {
   return setGridGroupExpanded({ ...options, expanded: true });
+}
+
+export async function assertGroupRowPresentationOnly(options: {
+  groupTestId: string;
+  page: BrowserPageLike;
+  surface: WorkbookSurface;
+}) {
+  const group = options.page.getByTestId(options.groupTestId);
+  const evaluate = requireEvaluate(
+    group,
+    `assertGroupRowPresentationOnly(${options.surface}) requires locator.evaluate() support`,
+  );
+  const state = (await evaluate((element) => {
+    const row = element.closest('[role="row"]');
+    if (row === null) {
+      return { hasRow: false };
+    }
+    return {
+      buttonCount: row.querySelectorAll("button").length,
+      editableControlCount: row.querySelectorAll(
+        'input, textarea, select, [contenteditable="true"]',
+      ).length,
+      hasRow: true,
+      interactiveCount: row.querySelectorAll(
+        'a[href], button, input, textarea, select, [role="button"], [role="textbox"], [contenteditable="true"]',
+      ).length,
+      recordId: row.getAttribute("data-grid-record-id"),
+      rowKind: row.getAttribute("data-grid-row-kind"),
+    };
+  })) as
+    | { readonly hasRow: false }
+    | {
+        readonly buttonCount: number;
+        readonly editableControlCount: number;
+        readonly hasRow: true;
+        readonly interactiveCount: number;
+        readonly recordId: string | null;
+        readonly rowKind: string | null;
+      };
+  if (!state.hasRow) {
+    throw new Error(
+      `Expected group ${options.groupTestId} on ${options.surface} to have an ARIA row ancestor`,
+    );
+  }
+  if (state.rowKind !== "group") {
+    throw new Error(
+      `Expected group ${options.groupTestId} on ${options.surface} to be marked data-grid-row-kind=group, received ${String(state.rowKind)}`,
+    );
+  }
+  if (state.recordId !== null && state.recordId !== "") {
+    throw new Error(
+      `Expected group ${options.groupTestId} on ${options.surface} to omit data-grid-record-id, received ${state.recordId}`,
+    );
+  }
+  if (state.editableControlCount !== 0) {
+    throw new Error(
+      `Expected group ${options.groupTestId} on ${options.surface} to expose no editable controls, received ${state.editableControlCount}`,
+    );
+  }
+  if (state.buttonCount !== 1 || state.interactiveCount !== 1) {
+    throw new Error(
+      `Expected group ${options.groupTestId} on ${options.surface} to expose exactly one expand/collapse control, received ${state.buttonCount} buttons and ${state.interactiveCount} interactive elements`,
+    );
+  }
 }
 
 export async function pasteGridMatrix(options: {
@@ -1233,4 +1404,14 @@ function requireEvaluate(
   }
   return (pageFunction, arg) =>
     locator.evaluate?.(pageFunction, arg) as Promise<unknown>;
+}
+
+function requireSelectOption(
+  locator: BrowserLocator,
+  message: string,
+): NonNullable<BrowserLocator["selectOption"]> {
+  if (typeof locator.selectOption !== "function") {
+    throw new Error(message);
+  }
+  return (value) => locator.selectOption?.(value) as Promise<unknown>;
 }

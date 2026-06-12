@@ -239,7 +239,7 @@
     },
     {
       "fixture_id": "FE-VFIX-06",
-      "fixture_title": "Grouped result",
+      "fixture_title": "Saved-view query controls and grouped result",
       "status": "current",
       "owner_phase_ids": [
         "FE-P8"
@@ -247,10 +247,10 @@
       "owner_row_ids": [
         "FE-V-P8-01"
       ],
-      "playwright_scenario_title": "V-3-GRID-03 captures grouped grid result and group outline row visuals",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-03-grouped-grid-linux.png",
+      "playwright_scenario_title": "FE-V-P8-01 Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p8-01-saved-view-query-controls-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/v-3-grid-03-grouped-grid-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p8-01-saved-view-query-controls-linux.png"
       ],
       "seed_id": "fe-vfix-06-deterministic-seed",
       "viewport_css_px": "1440x900",
@@ -264,15 +264,15 @@
       },
       "focus_state": {
         "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
+        "description": "Saved-view selector, active filter chip, grouping control, group row, and default/startup status indicator are visible after the owning Playwright scenario normalizes the grid."
       },
       "editor_state": {
         "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
+        "description": "No inline editor is active; saved-view query and layout state are committed before capture."
       },
       "inspector_state": {
         "kind": "fixture_specific",
-        "description": "Declared by the owning Playwright scenario before screenshot capture."
+        "description": "No row inspector is open; the workbook shell and query controls are the captured surface."
       },
       "dynamic_masks": [
         "incident identifiers",
@@ -697,7 +697,8 @@
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-empty-timeline-query-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p4-01-empty-timeline-query-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p3-01-grid-adapter-fixtures-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p8-01-empty-successful-query-linux.png"
       ],
       "seed_id": "fe-vfix-15-deterministic-seed",
       "viewport_css_px": "1440x900",

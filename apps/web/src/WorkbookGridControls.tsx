@@ -186,15 +186,16 @@ function placeholderForMode(mode: ReturnType<typeof filterInputMode>) {
 const toolbarStyle = {
   display: "flex",
   alignItems: "center",
+  flexWrap: "wrap" as const,
   flex: "1 1 auto",
   minWidth: 0,
-  overflowX: "auto" as const,
+  overflowX: "visible" as const,
 };
 
 const controlRowStyle = {
   display: "flex",
   gap: "0.45rem",
-  flexWrap: "nowrap" as const,
+  flexWrap: "wrap" as const,
   alignItems: "center",
   minWidth: 0,
 };
@@ -255,6 +256,7 @@ const clearButtonStyle = {
 const filterClusterStyle = {
   display: "inline-flex",
   alignItems: "center",
+  flexWrap: "wrap" as const,
   gap: "0.35rem",
   minWidth: 0,
 };

@@ -1,0 +1,290 @@
+import {
+  applyFilterChip,
+  assertActiveFilterChipVisible,
+  assertGroupRowPresentationOnly,
+  changeGrouping,
+  collapseGridGroup,
+  expandGridGroup,
+  readSavedViewSelectionState,
+  removeFilterChip,
+  selectSavedView,
+  selectSavedViewScope,
+  setCurrentSavedViewAsDefault,
+  setCurrentSavedViewAsHome,
+  setSavedViewDraftName,
+  sortByHeader,
+  updateSavedViewFromCurrentSurface,
+} from "@cartulary/test-utils";
+import {
+  gridGroupRowTestId,
+  rowCellTestId,
+  timelineRowMarkReviewedButtonTestId,
+  workbookShellReadyTestId,
+} from "@cartulary/ui-contracts";
+import type { Page } from "@playwright/test";
+
+import { expect, test } from "./fixtures";
+import {
+  apiBase,
+  createIncident,
+  createViewRow,
+  csrfHeaders,
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./helpers";
+
+const timelineViewSchemaId = "cartulary.view.timeline.v1";
+
+test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI.", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("S8B01"),
+    "Phase 8 support FE-B-P8-01 helper coverage",
+  );
+  const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("s8b01-alpha"),
+    "timeline.summary": "Alpha support FE-B",
+  });
+  const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("s8b01-beta"),
+    "timeline.summary": "Beta support FE-B",
+  });
+  const savedView = await createSavedView(page, incidentId, {
+    display_name: "FE-B support source",
+    scope: "private",
+    view_schema_id: timelineViewSchemaId,
+  });
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expect(
+    page.getByTestId(rowCellTestId(alpha.record_id, "timeline.summary")),
+  ).toHaveValue("Alpha support FE-B");
+
+  await page
+    .getByTestId(timelineRowMarkReviewedButtonTestId(beta.record_id))
+    .click();
+  await expect(
+    page.getByTestId(rowCellTestId(beta.record_id, "timeline.capture_state")),
+  ).toHaveText("reviewed");
+
+  const selectRequest = waitForTimelineQuery(page, incidentId);
+  await selectSavedView(page, timelineViewSchemaId, savedView.saved_view_id);
+  expect(Object.keys(readPostBody(await selectRequest)).sort()).toEqual([]);
+  await expect
+    .poll(() => readSavedViewSelectionState(page, timelineViewSchemaId))
+    .toMatchObject({
+      activeViewSchemaId: timelineViewSchemaId,
+      selectedSavedViewId: savedView.saved_view_id,
+      selectedSheetRefKind: "saved_view",
+    });
+
+  const sortRequest = waitForTimelineQuery(page, incidentId);
+  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+  expect(readPostBody(await sortRequest)).toEqual({
+    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+  });
+
+  const filterRequest = waitForTimelineQuery(page, incidentId);
+  await applyFilterChip(
+    page,
+    timelineViewSchemaId,
+    "timeline.capture_state",
+    "reviewed",
+  );
+  expect(readPostBody(await filterRequest)).toEqual({
+    filters: [
+      {
+        arg: { value: "reviewed" },
+        field_key: "timeline.capture_state",
+        op: "eq",
+      },
+    ],
+    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+  });
+  await assertActiveFilterChipVisible(
+    page,
+    timelineViewSchemaId,
+    "timeline.capture_state",
+  );
+
+  const groupRequest = waitForTimelineQuery(page, incidentId);
+  await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
+  expect(readPostBody(await groupRequest)).toEqual({
+    filters: [
+      {
+        arg: { value: "reviewed" },
+        field_key: "timeline.capture_state",
+        op: "eq",
+      },
+    ],
+    group_by: "timeline.capture_state",
+    sort: [
+      { direction: "asc", field_key: "timeline.capture_state" },
+      { direction: "asc", field_key: "timeline.summary" },
+    ],
+  });
+  const reviewedGroupTestId = gridGroupRowTestId(
+    timelineViewSchemaId,
+    "timeline.capture_state",
+    "reviewed",
+  );
+  await expect(page.getByTestId(reviewedGroupTestId)).toBeVisible();
+  await assertGroupRowPresentationOnly({
+    groupTestId: reviewedGroupTestId,
+    page,
+    surface: timelineViewSchemaId,
+  });
+  await collapseGridGroup({
+    groupTestId: reviewedGroupTestId,
+    page,
+    surface: timelineViewSchemaId,
+  });
+  await expect(
+    page.getByTestId(rowCellTestId(beta.record_id, "timeline.summary")),
+  ).not.toBeVisible();
+  await expandGridGroup({
+    groupTestId: reviewedGroupTestId,
+    page,
+    surface: timelineViewSchemaId,
+  });
+  await expect(
+    page.getByTestId(rowCellTestId(beta.record_id, "timeline.summary")),
+  ).toBeVisible();
+
+  await setSavedViewDraftName(
+    page,
+    timelineViewSchemaId,
+    "FE-B support persisted",
+  );
+  await selectSavedViewScope(page, timelineViewSchemaId, "shared");
+  const patchRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "PATCH" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/saved-views/${savedView.saved_view_id}`,
+        ),
+  );
+  await updateSavedViewFromCurrentSurface(
+    page,
+    timelineViewSchemaId,
+    savedView.saved_view_id,
+  );
+  expect(readPostBody(await patchRequest)).toMatchObject({
+    base_saved_view_version: savedView.saved_view_version,
+    display_name: "FE-B support persisted",
+    layout_json: {
+      layout_schema_id: "cartulary.layout.v1",
+    },
+    query_json: {
+      filters: [
+        {
+          arg: { value: "reviewed" },
+          field_key: "timeline.capture_state",
+          op: "eq",
+        },
+      ],
+      group_by: "timeline.capture_state",
+      sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    },
+    scope: "shared",
+  });
+
+  const homeRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "PUT" &&
+      request
+        .url()
+        .endsWith(`/api/v1/incidents/${incidentId}/workbook-preferences/me`),
+  );
+  await setCurrentSavedViewAsHome(page, timelineViewSchemaId);
+  expect(readPostBody(await homeRequest)).toEqual({
+    home_sheet_ref: {
+      kind: "saved_view",
+      id: savedView.saved_view_id,
+    },
+  });
+
+  const defaultRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "PUT" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
+        ),
+  );
+  await setCurrentSavedViewAsDefault(page, timelineViewSchemaId);
+  expect(readPostBody(await defaultRequest)).toEqual({
+    default_sheet_ref: {
+      kind: "saved_view",
+      id: savedView.saved_view_id,
+    },
+  });
+
+  const removeFilterRequest = waitForTimelineQuery(page, incidentId);
+  await removeFilterChip(page, timelineViewSchemaId, "timeline.capture_state");
+  expect(readPostBody(await removeFilterRequest)).toMatchObject({
+    group_by: "timeline.capture_state",
+  });
+});
+
+type SavedViewResource = {
+  display_name: string;
+  saved_view_id: string;
+  saved_view_version?: number;
+  scope?: string;
+  view_schema_id: string;
+};
+
+async function createSavedView(
+  page: Page,
+  incidentId: string,
+  data: {
+    display_name: string;
+    layout_json?: Record<string, unknown>;
+    query_json?: Record<string, unknown>;
+    scope?: "private" | "shared";
+    view_schema_id: string;
+  },
+) {
+  const response = await page.request.post(
+    `${apiBase}/api/v1/incidents/${incidentId}/saved-views`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        display_name: data.display_name,
+        layout_json: data.layout_json ?? {},
+        query_json: data.query_json ?? {},
+        ...(data.scope === undefined ? {} : { scope: data.scope }),
+        view_schema_id: data.view_schema_id,
+      },
+    },
+  );
+  expect(response.status()).toBe(201);
+  return ((await response.json()) as { data: SavedViewResource }).data;
+}
+
+function waitForTimelineQuery(page: Page, incidentId: string) {
+  return page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
+        ),
+  );
+}
+
+function readPostBody(request: { postData: () => string | null }) {
+  const raw = request.postData();
+  if (raw === null || raw.trim() === "") {
+    return {};
+  }
+  return JSON.parse(raw) as Record<string, unknown>;
+}

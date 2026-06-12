@@ -741,6 +741,7 @@ This phase completes workbook configuration and projection-backed navigation:
 | E-8-02 | Workbook open honors explicit `sheet_ref`, then home pointer, then incident default, then Timeline, clearing invalid pointers along the way.                                 | REQ-03-027..REQ-03-032                         | AC-150, AC-153                                 |
 | E-8-03 | Sorting, filtering, and grouping on Timeline produce a stable first useful viewport and deterministic final grouping order without turning group headers into rows.          | REQ-01-034..REQ-01-047, REQ-03-223..REQ-03-235 | AC-014, AC-024..AC-026, AC-044, AC-184, AC-185 |
 | E-8-04 | Exact-token `full_text` and strict `prefix` behavior do not degrade into fuzzy, phrase, wildcard, stemming, transliteration, or relevance-ranked search.                     | REQ-01-042, REQ-01-565..REQ-01-567             | AC-387                                         |
+| E-8-05 | Saved-view query/layout persistence, workbook-preference startup selection, and reload query replay are proven through public `/api/v1/` routes rather than in-memory state. | REQ-01-034..REQ-01-047, REQ-03-027..REQ-03-032, REQ-03-223..REQ-03-235 | AC-124, AC-127, AC-146, AC-153, AC-184, AC-185 |
 
 ---
 

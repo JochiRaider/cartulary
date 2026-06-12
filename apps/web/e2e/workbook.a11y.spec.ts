@@ -1,7 +1,10 @@
 import { Buffer } from "node:buffer";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { pasteGridMatrix } from "@cartulary/test-utils";
+import {
+  assertActiveFilterChipVisible,
+  pasteGridMatrix,
+} from "@cartulary/test-utils";
 import {
   autoResolutionNoticeTestId,
   autoResolutionUndoButtonTestId,
@@ -15,7 +18,9 @@ import {
   evidencePreviewFrameTestId,
   evidencePreviewPanelTestId,
   gridFilterApplyTestId,
+  gridFilterChipTestId,
   gridFilterFieldTestId,
+  gridFilterValueTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
   gridShellTestId,
@@ -42,7 +47,12 @@ import {
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
   rowPresenceMarkerTestId,
+  savedViewCreateButtonTestId,
+  savedViewNameInputTestId,
   savedViewSelectorTestId,
+  savedViewSetDefaultButtonTestId,
+  savedViewSetHomeButtonTestId,
+  savedViewStatusTestId,
   saveStateTestId,
   surfaceTabTestId,
   systemViewSwitcherMenuTestId,
@@ -146,6 +156,9 @@ const p6AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
 const p7AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P7-01",
 ) as [string];
+const p8AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
+  "FE-A11Y-P8-01",
+) as [string];
 
 if (p2AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
@@ -175,6 +188,11 @@ if (p6AccessibilityScenarioTitles.length !== 1) {
 if (p7AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
     `FE-A11Y-P7-01 must declare exactly 1 scenario; found ${p7AccessibilityScenarioTitles.length}`,
+  );
+}
+if (p8AccessibilityScenarioTitles.length !== 1) {
+  throw new Error(
+    `FE-A11Y-P8-01 must declare exactly 1 scenario; found ${p8AccessibilityScenarioTitles.length}`,
   );
 }
 
@@ -1768,6 +1786,161 @@ test.describe("FE-P7 accessibility readiness", () => {
       }
     },
   );
+});
+
+test.describe("FE-P8 accessibility readiness", () => {
+  test(p8AccessibilityScenarioTitles[0], async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("A11YP8"),
+      "FE-A11Y-P8 query controls",
+    );
+    const reviewedRow = await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p8-reviewed"),
+        "timeline.summary": "FE-A11Y-P8 reviewed row",
+      },
+    );
+    await createViewRow(page, incidentId, timelineViewSchemaId, {
+      client_txn_id: uniqueTxn("fe-a11y-p8-rough"),
+      "timeline.summary": "FE-A11Y-P8 rough row",
+    });
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+
+    const summarySortHeader = page.getByTestId(
+      gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
+    );
+    await expectVisibleFocus(summarySortHeader);
+    await summarySortHeader.press("Enter");
+    await expect(summarySortHeader).toContainText("Asc");
+
+    await page
+      .getByTestId(timelineRowMarkReviewedButtonTestId(reviewedRow.record_id))
+      .click();
+    await expect(
+      page.getByTestId(
+        rowCellTestId(reviewedRow.record_id, "timeline.capture_state"),
+      ),
+    ).toHaveText("reviewed");
+
+    const filterField = page.getByTestId(
+      gridFilterFieldTestId(timelineViewSchemaId),
+    );
+    await expectVisibleFocus(filterField);
+    await filterField.selectOption("timeline.capture_state");
+    const filterValue = page.getByTestId(
+      gridFilterValueTestId(timelineViewSchemaId),
+    );
+    await expectVisibleFocus(filterValue);
+    try {
+      await filterValue.selectOption("reviewed");
+    } catch {
+      await filterValue.fill("reviewed");
+    }
+    const filterApply = page.getByTestId(
+      gridFilterApplyTestId(timelineViewSchemaId),
+    );
+    await expectVisibleFocus(filterApply);
+    await filterApply.press("Enter");
+    await assertActiveFilterChipVisible(
+      page,
+      timelineViewSchemaId,
+      "timeline.capture_state",
+    );
+    const filterChip = page.getByTestId(
+      gridFilterChipTestId(timelineViewSchemaId, "timeline.capture_state"),
+    );
+    await expectVisibleFocus(filterChip);
+
+    const groupingSelect = page.getByTestId(
+      gridGroupingSelectTestId(timelineViewSchemaId),
+    );
+    await expectVisibleFocus(groupingSelect);
+    await groupingSelect.selectOption("timeline.capture_state");
+    const reviewedGroup = page.getByTestId(
+      gridGroupRowTestId(
+        timelineViewSchemaId,
+        "timeline.capture_state",
+        "reviewed",
+      ),
+    );
+    await expect(reviewedGroup).toBeVisible();
+    await expectVisibleFocus(reviewedGroup);
+    await expect(reviewedGroup).toHaveAttribute("aria-expanded", "true");
+    await reviewedGroup.press("Enter");
+    await expect(reviewedGroup).toHaveAttribute("aria-expanded", "false");
+    await reviewedGroup.press("Enter");
+    await expect(reviewedGroup).toHaveAttribute("aria-expanded", "true");
+
+    const savedViewSelector = page.getByTestId(
+      savedViewSelectorTestId(timelineViewSchemaId),
+    );
+    await expectVisibleFocus(savedViewSelector);
+    await expect(savedViewSelector).toHaveAttribute(
+      "data-selected-sheet-ref-kind",
+      "view_schema",
+    );
+    const savedViewNameInput = page.getByTestId(
+      savedViewNameInputTestId(timelineViewSchemaId),
+    );
+    await expectVisibleFocus(savedViewNameInput);
+    await savedViewNameInput.fill("FE-A11Y-P8 keyboard saved view");
+    const createSavedViewButton = page.getByTestId(
+      savedViewCreateButtonTestId(timelineViewSchemaId),
+    );
+    await expectVisibleFocus(createSavedViewButton);
+    await createSavedViewButton.press("Enter");
+    const savedViewStatus = page.getByTestId(
+      savedViewStatusTestId(timelineViewSchemaId),
+    );
+    await expect(savedViewStatus).toHaveAttribute("aria-live", "polite");
+    await expect(savedViewStatus).toHaveText("Saved view created.");
+    await expect(savedViewSelector).toHaveAttribute(
+      "data-selected-sheet-ref-kind",
+      "saved_view",
+    );
+
+    const homeButton = page.getByTestId(
+      savedViewSetHomeButtonTestId(timelineViewSchemaId),
+    );
+    await expectVisibleFocus(homeButton);
+    await homeButton.press("Enter");
+    await expect(savedViewStatus).toHaveText("Home view updated.");
+    const defaultButton = page.getByTestId(
+      savedViewSetDefaultButtonTestId(timelineViewSchemaId),
+    );
+    await expectVisibleFocus(defaultButton);
+    await defaultButton.press("Enter");
+    await expect(savedViewStatus).toHaveText("Default view updated.");
+
+    await expectAllInteractiveControlsNamed(page);
+    await expectNoFocusTrap(page);
+    await expectAndRecordContrast(page, [
+      gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
+      gridFilterFieldTestId(timelineViewSchemaId),
+      gridFilterValueTestId(timelineViewSchemaId),
+      gridFilterApplyTestId(timelineViewSchemaId),
+      gridFilterChipTestId(timelineViewSchemaId, "timeline.capture_state"),
+      gridGroupingSelectTestId(timelineViewSchemaId),
+      gridGroupRowTestId(
+        timelineViewSchemaId,
+        "timeline.capture_state",
+        "reviewed",
+      ),
+      savedViewSelectorTestId(timelineViewSchemaId),
+      savedViewNameInputTestId(timelineViewSchemaId),
+      savedViewCreateButtonTestId(timelineViewSchemaId),
+      savedViewSetHomeButtonTestId(timelineViewSchemaId),
+      savedViewSetDefaultButtonTestId(timelineViewSchemaId),
+      savedViewStatusTestId(timelineViewSchemaId),
+    ]);
+  });
 });
 
 test.describe("FE-P1 accessibility readiness", () => {

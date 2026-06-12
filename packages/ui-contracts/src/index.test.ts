@@ -540,22 +540,13 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "saved-view-create-cartulary.view.hosts.v1",
     );
     expect(
-      savedViewDuplicateButtonTestId(
-        "cartulary.view.hosts.v1",
-        "saved/view 1",
-      ),
+      savedViewDuplicateButtonTestId("cartulary.view.hosts.v1", "saved/view 1"),
     ).toBe("saved-view-duplicate-cartulary.view.hosts.v1-saved%2Fview%201");
     expect(
-      savedViewUpdateButtonTestId(
-        "cartulary.view.hosts.v1",
-        "saved/view 1",
-      ),
+      savedViewUpdateButtonTestId("cartulary.view.hosts.v1", "saved/view 1"),
     ).toBe("saved-view-update-cartulary.view.hosts.v1-saved%2Fview%201");
     expect(
-      savedViewDeleteButtonTestId(
-        "cartulary.view.hosts.v1",
-        "saved/view 1",
-      ),
+      savedViewDeleteButtonTestId("cartulary.view.hosts.v1", "saved/view 1"),
     ).toBe("saved-view-delete-cartulary.view.hosts.v1-saved%2Fview%201");
     expect(savedViewSetHomeButtonTestId("cartulary.view.hosts.v1")).toBe(
       "saved-view-set-home-cartulary.view.hosts.v1",

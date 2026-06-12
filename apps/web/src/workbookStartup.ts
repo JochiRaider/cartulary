@@ -19,7 +19,9 @@ export type WorkbookStartupSource =
   | "home"
   | "timeline";
 export type WorkbookStartupPointerSource = "default" | "home";
-export type WorkbookStartupSavedViewResource = Readonly<Record<string, unknown>>;
+export type WorkbookStartupSavedViewResource = Readonly<
+  Record<string, unknown>
+>;
 
 export type WorkbookStartupClearedPointer = {
   readonly reasonCode: string;

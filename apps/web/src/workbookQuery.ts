@@ -273,8 +273,7 @@ export function workbookLayoutStateFromSavedViewLayoutJson(
       : [],
     columnWidths: Array.isArray(value.column_widths)
       ? value.column_widths.filter(isObjectRecord).map((entry) => ({
-          fieldKey:
-            typeof entry.field_key === "string" ? entry.field_key : "",
+          fieldKey: typeof entry.field_key === "string" ? entry.field_key : "",
           widthPx:
             typeof entry.width_px === "number"
               ? Math.trunc(entry.width_px)
@@ -390,7 +389,7 @@ function savedViewFiltersFromQueryJson(
       continue;
     }
     const field = contract.fieldMap[entry.field_key];
-    if (!field || !field.filterOps.includes(entry.op)) {
+    if (!field?.filterOps.includes(entry.op)) {
       continue;
     }
     const candidate: WorkbookFilter = {

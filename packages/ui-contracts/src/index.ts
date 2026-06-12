@@ -1007,15 +1007,11 @@ export function savedViewOptionTestId(
   );
 }
 
-export function savedViewNameInputTestId(
-  viewSchemaId: string,
-): StableTestId {
+export function savedViewNameInputTestId(viewSchemaId: string): StableTestId {
   return stableTestId(viewScopedTestId("saved-view-name", viewSchemaId));
 }
 
-export function savedViewScopeSelectTestId(
-  viewSchemaId: string,
-): StableTestId {
+export function savedViewScopeSelectTestId(viewSchemaId: string): StableTestId {
   return stableTestId(viewScopedTestId("saved-view-scope", viewSchemaId));
 }
 

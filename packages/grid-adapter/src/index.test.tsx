@@ -158,6 +158,25 @@ describe("grid-adapter", () => {
     ).toBeTruthy();
     expect(screen.getByTestId("group-state-open")).toBeTruthy();
     expect(screen.getByTestId("group-state-reviewed")).toBeTruthy();
+    const openGroupToggle = screen.getByTestId("group-state-open");
+    const openGroupRow = openGroupToggle.closest('[role="row"]');
+    expect(openGroupRow).toBeTruthy();
+    if (openGroupRow === null) {
+      throw new Error("Expected open group toggle to have row ancestor");
+    }
+    expect(openGroupRow.getAttribute("data-grid-row-kind")).toBe("group");
+    expect(openGroupRow.getAttribute("data-grid-record-id")).toBeNull();
+    expect(
+      openGroupRow.querySelectorAll("input, textarea, select"),
+    ).toHaveLength(0);
+    expect(openGroupRow.querySelectorAll("button")).toHaveLength(1);
+    expect(openGroupToggle.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(openGroupToggle);
+    expect(openGroupToggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByTestId("row-record-1")).toBeNull();
+    fireEvent.click(openGroupToggle);
+    expect(openGroupToggle.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByTestId("row-record-1")).toBeTruthy();
 
     const labelHeader = screen.getByTestId("label-header");
     expect(labelHeader.getAttribute("data-grid-field-key")).toBe("label");

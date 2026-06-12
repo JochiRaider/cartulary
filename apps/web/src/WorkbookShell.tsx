@@ -202,18 +202,18 @@ import {
 } from "./workbookPendingQueue";
 import {
   applyFilterDraft,
+  buildQueryRequest,
   buildSavedViewLayoutJson,
   buildSavedViewQueryJson,
-  buildQueryRequest,
   defaultFilterDraft,
   emptyWorkbookQueryState,
   type FilterDraft,
   removeFilterField,
   toggleSortField,
   updateGroupBy,
+  type WorkbookQueryState,
   workbookLayoutStateFromSavedViewLayoutJson,
   workbookQueryStateFromSavedViewQueryJson,
-  type WorkbookQueryState,
 } from "./workbookQuery";
 import {
   buildMentionActionPayload,
@@ -3904,19 +3904,25 @@ export function TimelineWorkbook({
 
   const applyQueryFilter = useCallback(() => {
     applyFilterDraftToQuery(setQueryState, setFilterDraft, filterDraft);
-  }, [filterDraft]);
+  }, [filterDraft, setFilterDraft, setQueryState]);
 
-  const handleQueryGroupByChange = useCallback((groupBy: string | null) => {
-    setQueryState((current) =>
-      updateGroupBy(timelineContract, current, groupBy),
-    );
-  }, []);
+  const handleQueryGroupByChange = useCallback(
+    (groupBy: string | null) => {
+      setQueryState((current) =>
+        updateGroupBy(timelineContract, current, groupBy),
+      );
+    },
+    [setQueryState],
+  );
 
-  const handleQuerySortToggle = useCallback((fieldKey: string) => {
-    setQueryState((current) =>
-      toggleSortField(timelineContract, current, fieldKey),
-    );
-  }, []);
+  const handleQuerySortToggle = useCallback(
+    (fieldKey: string) => {
+      setQueryState((current) =>
+        toggleSortField(timelineContract, current, fieldKey),
+      );
+    },
+    [setQueryState],
+  );
 
   const currentGridScrollSnapshot = useCallback(() => {
     const element = gridShellRef.current;
@@ -12962,15 +12968,12 @@ function ActiveSurfaceSavedViewSelector({
         style={secondaryActionButtonStyle}
         type="button"
         onClick={() => {
-          void runSavedViewAction(
-            async () => {
-              await onCreateSavedView({
-                displayName: trimmedDisplayName,
-                scope,
-              });
-            },
-            "Saved view created.",
-          );
+          void runSavedViewAction(async () => {
+            await onCreateSavedView({
+              displayName: trimmedDisplayName,
+              scope,
+            });
+          }, "Saved view created.");
         }}
       >
         Create
@@ -12985,12 +12988,9 @@ function ActiveSurfaceSavedViewSelector({
             style={secondaryActionButtonStyle}
             type="button"
             onClick={() => {
-              void runSavedViewAction(
-                async () => {
-                  await onDuplicateSavedView(selectedSavedView);
-                },
-                "Saved view duplicated.",
-              );
+              void runSavedViewAction(async () => {
+                await onDuplicateSavedView(selectedSavedView);
+              }, "Saved view duplicated.");
             }}
           >
             Duplicate
@@ -13004,15 +13004,12 @@ function ActiveSurfaceSavedViewSelector({
             style={secondaryActionButtonStyle}
             type="button"
             onClick={() => {
-              void runSavedViewAction(
-                async () => {
-                  await onUpdateSavedView(selectedSavedView, {
-                    displayName: trimmedDisplayName,
-                    scope,
-                  });
-                },
-                "Saved view updated.",
-              );
+              void runSavedViewAction(async () => {
+                await onUpdateSavedView(selectedSavedView, {
+                  displayName: trimmedDisplayName,
+                  scope,
+                });
+              }, "Saved view updated.");
             }}
           >
             Update
@@ -13026,12 +13023,9 @@ function ActiveSurfaceSavedViewSelector({
             style={secondaryActionButtonStyle}
             type="button"
             onClick={() => {
-              void runSavedViewAction(
-                async () => {
-                  await onDeleteSavedView(selectedSavedView);
-                },
-                "Saved view deleted.",
-              );
+              void runSavedViewAction(async () => {
+                await onDeleteSavedView(selectedSavedView);
+              }, "Saved view deleted.");
             }}
           >
             Delete
@@ -13232,24 +13226,27 @@ export function WorkbookShell({
     },
     [],
   );
-  const selectSavedView = useCallback((savedView: SavedViewResource) => {
-    const nextSurface = knownWorkbookViewSchemaId(savedView.view_schema_id);
-    const contract = workbookContractForViewSchemaId(nextSurface);
-    applyQueryStateForSurface(
-      nextSurface,
-      workbookQueryStateFromSavedViewQueryJson(
-        contract,
-        savedView.query_json,
-      ),
-    );
-    surfaceSelectionVersionRef.current += 1;
-    setSurface(nextSurface);
-    setStartupSheetRef({
-      kind: "saved_view",
-      id: savedView.saved_view_id,
-    });
-    setSheetReloadToken((current) => current + 1);
-  }, [applyQueryStateForSurface]);
+  const selectSavedView = useCallback(
+    (savedView: SavedViewResource) => {
+      const nextSurface = knownWorkbookViewSchemaId(savedView.view_schema_id);
+      const contract = workbookContractForViewSchemaId(nextSurface);
+      applyQueryStateForSurface(
+        nextSurface,
+        workbookQueryStateFromSavedViewQueryJson(
+          contract,
+          savedView.query_json,
+        ),
+      );
+      surfaceSelectionVersionRef.current += 1;
+      setSurface(nextSurface);
+      setStartupSheetRef({
+        kind: "saved_view",
+        id: savedView.saved_view_id,
+      });
+      setSheetReloadToken((current) => current + 1);
+    },
+    [applyQueryStateForSurface],
+  );
 
   const createSavedView = useCallback(
     async (input: {
@@ -13340,7 +13337,9 @@ export function WorkbookShell({
         readonly scope: "private" | "shared";
       },
     ) => {
-      const contract = workbookContractForViewSchemaId(savedView.view_schema_id);
+      const contract = workbookContractForViewSchemaId(
+        savedView.view_schema_id,
+      );
       const queryState = currentQueryStateForSurface(savedView.view_schema_id);
       const result = await fetchJSON<SavedViewEnvelope>(
         apiPath(
@@ -13387,8 +13386,7 @@ export function WorkbookShell({
       }
       setSavedViews((current) =>
         current.filter(
-          (candidate) =>
-            candidate.saved_view_id !== savedView.saved_view_id,
+          (candidate) => candidate.saved_view_id !== savedView.saved_view_id,
         ),
       );
       if (
@@ -13864,7 +13862,7 @@ export function WorkbookShell({
         dataTestIdSelector(gridShellTestId(pendingGridFocusSurface)),
       );
       const focusTarget = gridShell?.querySelector<HTMLElement>(
-        '[data-testid][tabindex="0"], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]',
+        '[role="row"][data-grid-record-id] [role="gridcell"] [data-testid][tabindex="0"], [role="row"][data-grid-record-id] [role="gridcell"] button:not([disabled]), [role="row"][data-grid-record-id] [role="gridcell"] input:not([disabled]), [role="row"][data-grid-record-id] [role="gridcell"] select:not([disabled]), [role="row"][data-grid-record-id] [role="gridcell"] textarea:not([disabled]), [role="row"][data-grid-record-id] [role="gridcell"] a[href]',
       );
       if (focusTarget) {
         focusTarget.focus({ preventScroll: true });
@@ -14411,6 +14409,7 @@ const viewBarStyle = {
   zIndex: 4,
   display: "flex",
   alignItems: "center",
+  flexWrap: "wrap" as const,
   gap: "0.75rem",
   minHeight: "var(--ct-layout-viewBarHeight)",
   marginBottom: "var(--ct-spacing-sm)",
@@ -14418,7 +14417,7 @@ const viewBarStyle = {
   border: "var(--ct-border-hairline)",
   borderRadius: "var(--ct-rounded-sm)",
   background: "var(--ct-colors-surface-1)",
-  overflowX: "auto" as const,
+  overflowX: "visible" as const,
 };
 
 const gridShellStyle = {
@@ -15062,6 +15061,7 @@ const savedViewSelectorFrameStyle = {
 const savedViewControlGroupStyle = {
   display: "flex",
   alignItems: "center",
+  flexWrap: "wrap" as const,
   gap: "0.4rem",
   flex: "0 0 auto",
   minWidth: 0,
