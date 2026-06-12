@@ -812,22 +812,22 @@ export function relationshipItemsTestId(
   recordId: string,
   fieldKey: string,
 ): string {
-  return recordFieldTestId("row", recordId, fieldKey, "items");
+  return timelineCollectionFieldControlTestId(recordId, fieldKey, "items");
 }
 
 export function draftRelationshipItemsTestId(fieldKey: string): string {
-  return draftFieldTestId(fieldKey, "items");
+  return timelineCollectionFieldControlTestId(null, fieldKey, "items");
 }
 
 export function timelineCollectionInputTestId(
   recordId: string,
   fieldKey: string,
 ): string {
-  return recordFieldTestId("row", recordId, fieldKey, "input");
+  return timelineCollectionFieldControlTestId(recordId, fieldKey, "input");
 }
 
 export function draftTimelineCollectionInputTestId(fieldKey: string): string {
-  return draftFieldTestId(fieldKey, "input");
+  return timelineCollectionFieldControlTestId(null, fieldKey, "input");
 }
 
 export function timelineRowVersionTestId(recordId: string): string {
@@ -1170,6 +1170,16 @@ function recordFieldTestId(
 
 function draftFieldTestId(fieldKey: string, suffix?: string): string {
   return tokenScopedTestId("draft-row", requireFieldKey(fieldKey), suffix);
+}
+
+function timelineCollectionFieldControlTestId(
+  recordId: string | null,
+  fieldKey: string,
+  suffix: "items" | "input",
+): string {
+  return recordId === null
+    ? draftFieldTestId(fieldKey, suffix)
+    : recordFieldTestId("row", recordId, fieldKey, suffix);
 }
 
 function itemRefTestId(

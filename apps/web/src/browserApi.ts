@@ -40,6 +40,14 @@ export function readCookie(name: string): string | null {
   return null;
 }
 
+export function apiPath(base: string | undefined, path: string): string {
+  const trimmedBase = (base ?? "").trim();
+  if (trimmedBase === "") {
+    return path;
+  }
+  return `${trimmedBase.replace(/\/$/, "")}${path}`;
+}
+
 export async function fetchJSON<T>(
   input: RequestInfo | URL,
   init?: RequestInit,

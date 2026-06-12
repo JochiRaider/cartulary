@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { csrfHeaderName, fetchJSON } from "./browserApi";
+import { apiPath, csrfHeaderName, fetchJSON, readCookie } from "./browserApi";
 
 describe("fetchJSON", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -143,6 +143,47 @@ describe("fetchJSON", () => {
     expect(requestAt(fetchMock, 3).credentials).toBe("include");
     expect(requestAt(fetchMock, 3).headers.get("Content-Type")).toBeNull();
     expect(requestAt(fetchMock, 3).headers.get(csrfHeaderName)).toBeNull();
+  });
+});
+
+describe("readCookie", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("decodes the named cookie value", () => {
+    vi.spyOn(document, "cookie", "get").mockReturnValue(
+      "other_cookie=ignore; cartulary_csrf=test%20csrf",
+    );
+
+    expect(readCookie("cartulary_csrf")).toBe("test csrf");
+  });
+
+  it("distinguishes an empty cookie from a missing cookie", () => {
+    const cookieSpy = vi
+      .spyOn(document, "cookie", "get")
+      .mockReturnValue("cartulary_csrf=");
+
+    expect(readCookie("cartulary_csrf")).toBe("");
+
+    cookieSpy.mockReturnValue("other_cookie=value");
+    expect(readCookie("cartulary_csrf")).toBeNull();
+  });
+});
+
+describe("apiPath", () => {
+  it("returns the path unchanged when the base is empty", () => {
+    expect(apiPath(undefined, "/api/v1/incidents")).toBe("/api/v1/incidents");
+    expect(apiPath("  ", "/api/v1/incidents")).toBe("/api/v1/incidents");
+  });
+
+  it("joins a trimmed base with the path", () => {
+    expect(apiPath(" /cartulary ", "/api/v1/incidents")).toBe(
+      "/cartulary/api/v1/incidents",
+    );
+    expect(apiPath("/cartulary/", "/api/v1/incidents")).toBe(
+      "/cartulary/api/v1/incidents",
+    );
   });
 });
 

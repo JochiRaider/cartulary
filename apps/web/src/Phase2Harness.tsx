@@ -9,9 +9,12 @@ import {
   phase2SelectIncidentButtonTestId,
 } from "@cartulary/ui-contracts";
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
-
-const csrfCookieName = "cartulary_csrf";
-const csrfHeaderName = "X-CSRF-Token";
+import {
+  apiPath,
+  csrfCookieName,
+  csrfHeaderName,
+  readCookie,
+} from "./browserApi";
 
 type SessionMembership = {
   incident_id: string;
@@ -69,21 +72,6 @@ type ProbeResult = {
   body: unknown;
 };
 
-function readCookie(name: string): string | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const prefix = `${name}=`;
-  for (const segment of document.cookie.split(";")) {
-    const trimmed = segment.trim();
-    if (trimmed.startsWith(prefix)) {
-      return decodeURIComponent(trimmed.slice(prefix.length));
-    }
-  }
-  return null;
-}
-
 async function fetchJSON<T>(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -114,14 +102,6 @@ async function fetchJSON<T>(
     ? ((await response.json()) as T | { error?: APIError })
     : ((await response.text()) as unknown as T | { error?: APIError });
   return { ok: response.ok, status: response.status, payload };
-}
-
-function apiPath(base: string | undefined, path: string): string {
-  const trimmedBase = (base ?? "").trim();
-  if (trimmedBase === "") {
-    return path;
-  }
-  return `${trimmedBase.replace(/\/$/, "")}${path}`;
 }
 
 function extractError(payload: unknown): APIError | null {

@@ -139,6 +139,12 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import {
+  apiPath,
+  csrfCookieName,
+  csrfHeaderName,
+  readCookie,
+} from "./browserApi";
+import {
   buildEvidenceCountDisplayViewModel,
   buildEvidenceLifecycleViewModel,
   type EvidenceLifecycleViewModel,
@@ -254,8 +260,6 @@ const systemViewSwitcherEntries = systemWorkbookSurfaceGroups.flatMap((group) =>
     viewSchemaId: entry.viewSchemaId,
   })),
 );
-const csrfCookieName = "cartulary_csrf";
-const csrfHeaderName = "X-CSRF-Token";
 
 type SaveState = "Syncing" | "Saved" | "Conflict";
 type SurfaceKind = string;
@@ -2347,21 +2351,6 @@ function isAbortError(error: unknown): boolean {
     : error instanceof Error && error.name === "AbortError";
 }
 
-function readCookie(name: string): string | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const prefix = `${name}=`;
-  for (const segment of document.cookie.split(";")) {
-    const trimmed = segment.trim();
-    if (trimmed.startsWith(prefix)) {
-      return decodeURIComponent(trimmed.slice(prefix.length));
-    }
-  }
-  return null;
-}
-
 async function fetchJSON<T>(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -2415,14 +2404,6 @@ async function fetchJSON<T>(
       };
   options.onJSONParsed?.();
   return { ok: response.ok, status: response.status, payload };
-}
-
-function apiPath(base: string | undefined, path: string): string {
-  const trimmedBase = (base ?? "").trim();
-  if (trimmedBase === "") {
-    return path;
-  }
-  return `${trimmedBase.replace(/\/$/, "")}${path}`;
 }
 
 async function uploadObjectBlobTarget(
