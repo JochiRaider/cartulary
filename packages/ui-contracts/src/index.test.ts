@@ -100,6 +100,10 @@ import {
   rowCellTestId,
   rowHistoryActionTestId,
   rowHistoryDeleteButtonTestId,
+  rowHistoryDestructiveCancelButtonTestId,
+  rowHistoryDestructiveConfirmButtonTestId,
+  rowHistoryDestructiveConfirmPanelTestId,
+  rowHistoryDestructiveOperations,
   rowHistoryItemTestId,
   rowHistoryLoadingTestId,
   rowHistoryMessageTestId,
@@ -107,6 +111,9 @@ import {
   rowHistoryPanelTestId,
   rowHistoryRestoreButtonTestId,
   rowHistoryRollbackActions,
+  rowHistoryRollbackCancelButtonTestId,
+  rowHistoryRollbackConfirmButtonTestId,
+  rowHistoryRollbackPreviewTestId,
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
   rowPresenceMarkerTestId,
@@ -415,10 +422,20 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     const restoreItem = requireFixtureValue(historyItems[1], "restore item");
     const restoreItemId = rowHistoryItemTestId(restoreItem);
     const restoreActionId = rowHistoryActionTestId(restoreItem);
+    const restorePreviewId = rowHistoryRollbackPreviewTestId(restoreItem);
 
     expect(restoreItemId).toBe("row-history-item-hitem_change_set_2");
     expect(restoreActionId).toBe(
       "row-history-action-hitem_change_set_2-row_restore",
+    );
+    expect(restorePreviewId).toBe(
+      "row-history-rollback-preview-hitem_change_set_2-row_restore",
+    );
+    expect(rowHistoryRollbackConfirmButtonTestId(restoreItem)).toBe(
+      "row-history-rollback-preview-hitem_change_set_2-row_restore-confirm",
+    );
+    expect(rowHistoryRollbackCancelButtonTestId(restoreItem)).toBe(
+      "row-history-rollback-preview-hitem_change_set_2-row_restore-cancel",
     );
     const reversedRestoreItem = requireFixtureValue(
       [...historyItems].reverse()[0],
@@ -426,6 +443,9 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(rowHistoryItemTestId(reversedRestoreItem)).toBe(restoreItemId);
     expect(rowHistoryActionTestId(reversedRestoreItem)).toBe(restoreActionId);
+    expect(rowHistoryRollbackPreviewTestId(reversedRestoreItem)).toBe(
+      restorePreviewId,
+    );
     expect(rowHistoryPanelTestId()).toBe("row-history-panel");
     expect(rowHistoryOpenSelectedButtonTestId()).toBe(
       "row-history-open-selected",
@@ -434,6 +454,15 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(rowHistoryMessageTestId()).toBe("row-history-message");
     expect(rowHistoryDeleteButtonTestId()).toBe("row-history-delete");
     expect(rowHistoryRestoreButtonTestId()).toBe("row-history-restore");
+    expect(
+      rowHistoryDestructiveConfirmPanelTestId({ operation: "delete" }),
+    ).toBe("row-history-destructive-confirm-delete");
+    expect(
+      rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
+    ).toBe("row-history-destructive-confirm-delete-confirm");
+    expect(
+      rowHistoryDestructiveCancelButtonTestId({ operation: "restore" }),
+    ).toBe("row-history-destructive-confirm-restore-cancel");
   });
 
   it("validates closed-vocabulary-derived selector tokens", () => {
@@ -454,6 +483,11 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
           historyItemRef: "hitem_change_set_1",
         }),
       ).toContain(`-${action}`);
+    }
+    for (const operation of rowHistoryDestructiveOperations) {
+      expect(rowHistoryDestructiveConfirmPanelTestId({ operation })).toBe(
+        `row-history-destructive-confirm-${operation}`,
+      );
     }
     expect(() =>
       entityMentionResolutionStatusTestId("Resolved" as never),
@@ -705,6 +739,11 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
         historyItemRef: "hitem_change_set_1",
       }),
     ).toThrow("Invalid row history rollback action token: rollback");
+    expect(() =>
+      rowHistoryDestructiveConfirmPanelTestId({
+        operation: "remove" as never,
+      }),
+    ).toThrow("Invalid row history destructive operation token: remove");
     expect(() => rowHistoryItemTestId({ historyItemRef: "" })).toThrow(
       "Invalid history_item_ref selector token: ",
     );
@@ -721,6 +760,14 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
         historyItemRef: "h:item/1?x=y#z",
       }),
     ).toBe("row-history-action-h%3Aitem%2F1%3Fx%3Dy%23z-history_entry");
+    expect(
+      rowHistoryRollbackPreviewTestId({
+        action: "history_entry",
+        historyItemRef: "h:item/1?x=y#z",
+      }),
+    ).toBe(
+      "row-history-rollback-preview-h%3Aitem%2F1%3Fx%3Dy%23z-history_entry",
+    );
     expect(rowHistoryItemTestId({ historyItemRef: "a:b" })).not.toBe(
       rowHistoryItemTestId({ historyItemRef: "a-b" }),
     );

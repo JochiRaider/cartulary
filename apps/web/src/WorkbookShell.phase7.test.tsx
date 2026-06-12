@@ -3,11 +3,13 @@ import {
   rowCellTestId,
   rowHistoryActionTestId,
   rowHistoryDeleteButtonTestId,
+  rowHistoryDestructiveConfirmButtonTestId,
   rowHistoryItemTestId,
   rowHistoryMessageTestId,
   rowHistoryOpenButtonTestId,
   rowHistoryPanelTestId,
   rowHistoryRestoreButtonTestId,
+  rowHistoryRollbackConfirmButtonTestId,
   saveStateTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -373,6 +375,14 @@ describe("Phase 7 workbook history support coverage", () => {
     fireEvent.click(
       screen.getByTestId(historyActionTestId(rollbackItem, "history_entry")),
     );
+    fireEvent.click(
+      screen.getByTestId(
+        rowHistoryRollbackConfirmButtonTestId({
+          action: "history_entry",
+          historyItemRef: rollbackItem.history_item_ref,
+        }),
+      ),
+    );
 
     await waitFor(() => {
       expect(
@@ -471,6 +481,11 @@ describe("Phase 7 workbook history support coverage", () => {
     fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
     await screen.findByTestId(rowHistoryDeleteButtonTestId());
     fireEvent.click(screen.getByTestId(rowHistoryDeleteButtonTestId()));
+    fireEvent.click(
+      screen.getByTestId(
+        rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
+      ),
+    );
 
     await screen.findByTestId(rowHistoryRestoreButtonTestId());
     await waitFor(() => {
@@ -486,6 +501,11 @@ describe("Phase 7 workbook history support coverage", () => {
     });
 
     fireEvent.click(screen.getByTestId(rowHistoryRestoreButtonTestId()));
+    fireEvent.click(
+      screen.getByTestId(
+        rowHistoryDestructiveConfirmButtonTestId({ operation: "restore" }),
+      ),
+    );
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,

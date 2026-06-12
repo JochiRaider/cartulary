@@ -74,6 +74,9 @@ import {
   rowCellTestId,
   rowHistoryActionTestId,
   rowHistoryDeleteButtonTestId,
+  rowHistoryDestructiveCancelButtonTestId,
+  rowHistoryDestructiveConfirmButtonTestId,
+  rowHistoryDestructiveConfirmPanelTestId,
   rowHistoryItemTestId,
   rowHistoryLoadingTestId,
   rowHistoryMessageTestId,
@@ -82,6 +85,9 @@ import {
   rowHistoryOpenSelectedButtonTestId,
   rowHistoryPanelTestId,
   rowHistoryRestoreButtonTestId,
+  rowHistoryRollbackCancelButtonTestId,
+  rowHistoryRollbackConfirmButtonTestId,
+  rowHistoryRollbackPreviewTestId,
   rowInspectButtonTestId,
   rowPresenceMarkerTestId,
   savedViewCreateButtonTestId,
@@ -788,6 +794,22 @@ type RecordHistoryState = {
   data: RecordHistoryData | null;
   message: string | null;
 };
+
+type RowHistoryPendingAction =
+  | {
+      kind: "rollback";
+      action: RecordHistoryRollbackAction;
+      historyItemRef: string;
+      recordId: string;
+      rowVersion: number | null;
+      target: Record<string, unknown>;
+    }
+  | {
+      kind: "destructive";
+      operation: "delete" | "restore";
+      recordId: string;
+      rowVersion: number | null;
+    };
 
 const rowHistoryRollbackActionOrder = [
   "history_entry",
@@ -3466,6 +3488,8 @@ export function TimelineWorkbook({
     data: null,
     message: null,
   });
+  const [rowHistoryPendingAction, setRowHistoryPendingAction] =
+    useState<RowHistoryPendingAction | null>(null);
   const [dismissedMentionsByRow, setDismissedMentionsByRow] = useState<
     Record<string, DismissedMention[]>
   >({});
@@ -4980,9 +5004,50 @@ export function TimelineWorkbook({
       return;
     }
     if (!rows.some((row) => row.recordId === selectedRowId)) {
+      const previousAnchor = workbookFocusAnchorRef.current;
       setSelectedRowId(null);
+      setSelectedMentionRef(null);
+      setSelectedResolveTargetId("");
+      setRowHistory((current) =>
+        current.recordId === selectedRowId && current.data?.deleted !== true
+          ? {
+              recordId: null,
+              status: "idle",
+              data: null,
+              message: null,
+            }
+          : current,
+      );
+      setRowHistoryPendingAction((current) =>
+        current?.recordId === selectedRowId ? null : current,
+      );
+      setInspectorMessage("Selected row is no longer available.");
+      window.setTimeout(() => {
+        const fallbackFieldKey =
+          previousAnchor?.surface === timelineViewSchemaId
+            ? previousAnchor.fieldKey
+            : "timeline.summary";
+        const fallbackRow = rows.find((row) => row.recordId !== null);
+        if (fallbackRow?.recordId) {
+          if (
+            restoreTimelineFocusAnchor({
+              fieldKey: fallbackFieldKey,
+              recordId: fallbackRow.recordId,
+            })
+          ) {
+            return;
+          }
+        }
+        const gridShell = gridShellRef.current;
+        if (gridShell !== null) {
+          if (!gridShell.hasAttribute("tabindex")) {
+            gridShell.tabIndex = -1;
+          }
+          gridShell.focus({ preventScroll: true });
+        }
+      }, 0);
     }
-  }, [rows, selectedRowId]);
+  }, [restoreTimelineFocusAnchor, rows, selectedRowId]);
 
   useEffect(() => {
     if (inspectorMentions.length < 1) {
@@ -6310,6 +6375,7 @@ export function TimelineWorkbook({
         apiPath(apiBase, `/api/v1/records/${recordId}/history`),
       );
       if (!result.ok) {
+        setRowHistoryPendingAction(null);
         setRowHistory({
           recordId,
           status: "error",
@@ -6323,6 +6389,7 @@ export function TimelineWorkbook({
         const envelope = readEnvelope<RecordHistoryEnvelope>(result.payload);
         historyData = normalizeRecordHistoryData(envelope.data);
       } catch {
+        setRowHistoryPendingAction(null);
         setRowHistory({
           recordId,
           status: "error",
@@ -6332,6 +6399,7 @@ export function TimelineWorkbook({
         return null;
       }
       acceptTimelineRecordVersion(recordId, historyData.row_version);
+      setRowHistoryPendingAction(null);
       setRowHistory({
         recordId,
         status: "ready",
@@ -6346,6 +6414,7 @@ export function TimelineWorkbook({
   const openRowHistory = useCallback(
     (recordId: string) => {
       setSelectedRowId(recordId);
+      setRowHistoryPendingAction(null);
       setRowHistory({
         recordId,
         status: "loading",
@@ -6358,9 +6427,15 @@ export function TimelineWorkbook({
   );
 
   const currentHistoryRecordId =
-    selectedRow?.recordId ?? rowHistory.data?.record_id ?? rowHistory.recordId;
+    rowHistory.data?.deleted === true
+      ? rowHistory.data.record_id
+      : (selectedRow?.recordId ??
+        rowHistory.data?.record_id ??
+        rowHistory.recordId);
   const currentHistoryRowVersion =
-    selectedRow?.rowVersion ?? rowHistory.data?.row_version ?? null;
+    rowHistory.data?.deleted === true
+      ? rowHistory.data.row_version
+      : (selectedRow?.rowVersion ?? rowHistory.data?.row_version ?? null);
   const currentHistoryDeleted = rowHistory.data?.deleted === true;
 
   const submitRowHistoryMutation = useCallback(
@@ -6393,6 +6468,7 @@ export function TimelineWorkbook({
         viewportContinuityTarget,
       );
       beginSave();
+      setRowHistoryPendingAction(null);
       setRowHistory((current) => ({ ...current, message: null }));
       saveQueueRef.current = saveQueueRef.current
         .catch(() => undefined)
@@ -6505,14 +6581,12 @@ export function TimelineWorkbook({
     ],
   );
 
-  const submitRowHistoryRollback = useCallback(
-    (item: RecordHistoryItem, action: RecordHistoryRollbackAction) => {
-      const recordId = currentHistoryRecordId;
-      if (recordId === null || recordId === undefined) {
-        return;
-      }
-      const target = buildRecordRollbackTargetFromHistoryAction(item, action);
-      if (target === null) {
+  const submitRowHistoryRollbackTarget = useCallback(
+    (
+      pending: Extract<RowHistoryPendingAction, { readonly kind: "rollback" }>,
+    ) => {
+      const { recordId, target } = pending;
+      if (recordId.trim() === "") {
         return;
       }
       const viewportContinuityTarget: ViewportContinuityTarget =
@@ -6521,7 +6595,10 @@ export function TimelineWorkbook({
           : { kind: "scroll-only" };
       submitRowHistoryMutation({
         idleOptions: {
-          fallbackRowVersion: currentHistoryRowVersion,
+          fallbackRowVersion:
+            currentHistoryRecordId === recordId
+              ? currentHistoryRowVersion
+              : pending.rowVersion,
         },
         missingVersionMessage: "Missing row version for rollback.",
         recordId,
@@ -6560,6 +6637,65 @@ export function TimelineWorkbook({
       submitRowHistoryMutation,
     ],
   );
+
+  const previewRowHistoryDeleteRestore = useCallback(
+    (operation: "delete" | "restore") => {
+      const recordId = currentHistoryRecordId;
+      if (recordId === null || recordId === undefined) {
+        return;
+      }
+      setRowHistoryPendingAction({
+        kind: "destructive",
+        operation,
+        recordId,
+        rowVersion:
+          operation === "restore"
+            ? (rowHistory.data?.row_version ?? currentHistoryRowVersion)
+            : currentHistoryRowVersion,
+      });
+      setRowHistory((current) => ({ ...current, message: null }));
+    },
+    [currentHistoryRecordId, currentHistoryRowVersion, rowHistory.data],
+  );
+
+  const previewRowHistoryRollback = useCallback(
+    (item: RecordHistoryItem, action: RecordHistoryRollbackAction) => {
+      const recordId = currentHistoryRecordId;
+      if (recordId === null || recordId === undefined) {
+        return;
+      }
+      const target = buildRecordRollbackTargetFromHistoryAction(item, action);
+      if (target === null) {
+        return;
+      }
+      setRowHistoryPendingAction({
+        kind: "rollback",
+        action,
+        historyItemRef: item.history_item_ref,
+        recordId,
+        rowVersion: currentHistoryRowVersion,
+        target,
+      });
+      setRowHistory((current) => ({ ...current, message: null }));
+    },
+    [currentHistoryRecordId, currentHistoryRowVersion],
+  );
+
+  const confirmRowHistoryPendingAction = useCallback(() => {
+    const pending = rowHistoryPendingAction;
+    if (pending === null) {
+      return;
+    }
+    if (pending.kind === "destructive") {
+      submitRowHistoryDeleteRestore(pending.operation);
+      return;
+    }
+    submitRowHistoryRollbackTarget(pending);
+  }, [
+    rowHistoryPendingAction,
+    submitRowHistoryDeleteRestore,
+    submitRowHistoryRollbackTarget,
+  ]);
 
   function submitMentionAction(
     mention: InspectorMention,
@@ -6863,6 +6999,7 @@ export function TimelineWorkbook({
         setSelectedRowId(null);
         setSelectedMentionRef(null);
         setInspectorMessage(null);
+        setRowHistoryPendingAction(null);
         setRowHistory({
           recordId: null,
           status: "idle",
@@ -8080,6 +8217,10 @@ export function TimelineWorkbook({
       selectedRow?.recordId === recordId
         ? selectedRow
         : null;
+    const pendingHistoryAction =
+      recordId !== null && rowHistoryPendingAction?.recordId === recordId
+        ? rowHistoryPendingAction
+        : null;
     return (
       <section
         data-testid={timelineInspectorSectionTestId("history")}
@@ -8125,7 +8266,9 @@ export function TimelineWorkbook({
           ) : null}
           {rowHistory.message ? (
             <p
+              aria-live="assertive"
               data-testid={rowHistoryMessageTestId()}
+              role="alert"
               style={genericErrorTextStyle}
             >
               {rowHistory.message}
@@ -8152,7 +8295,7 @@ export function TimelineWorkbook({
                     style={destructiveActionButtonStyle}
                     type="button"
                     onClick={() => {
-                      submitRowHistoryDeleteRestore("delete");
+                      previewRowHistoryDeleteRestore("delete");
                     }}
                   >
                     Soft-delete row
@@ -8164,13 +8307,109 @@ export function TimelineWorkbook({
                     style={actionButtonStyle}
                     type="button"
                     onClick={() => {
-                      submitRowHistoryDeleteRestore("restore");
+                      previewRowHistoryDeleteRestore("restore");
                     }}
                   >
                     Restore row
                   </button>
                 ) : null}
               </div>
+              {pendingHistoryAction?.kind === "destructive" ? (
+                <div
+                  aria-label={`${pendingHistoryAction.operation} row confirmation`}
+                  aria-modal="true"
+                  data-testid={rowHistoryDestructiveConfirmPanelTestId({
+                    operation: pendingHistoryAction.operation,
+                  })}
+                  role="alertdialog"
+                  style={historyConfirmPanelStyle}
+                >
+                  <p style={bodyStyle}>
+                    Confirm {pendingHistoryAction.operation} for record{" "}
+                    {pendingHistoryAction.recordId} at row version{" "}
+                    {pendingHistoryAction.rowVersion ?? "unknown"}.
+                  </p>
+                  <div style={inlineButtonRowStyle}>
+                    <button
+                      data-testid={rowHistoryDestructiveConfirmButtonTestId({
+                        operation: pendingHistoryAction.operation,
+                      })}
+                      style={
+                        pendingHistoryAction.operation === "delete"
+                          ? destructiveActionButtonStyle
+                          : actionButtonStyle
+                      }
+                      type="button"
+                      onClick={confirmRowHistoryPendingAction}
+                    >
+                      Confirm{" "}
+                      {pendingHistoryAction.operation === "delete"
+                        ? "soft-delete"
+                        : "restore"}
+                    </button>
+                    <button
+                      data-testid={rowHistoryDestructiveCancelButtonTestId({
+                        operation: pendingHistoryAction.operation,
+                      })}
+                      style={secondaryActionButtonStyle}
+                      type="button"
+                      onClick={() => {
+                        setRowHistoryPendingAction(null);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {pendingHistoryAction?.kind === "rollback" ? (
+                <div
+                  aria-label="Rollback preview"
+                  aria-modal="true"
+                  data-testid={rowHistoryRollbackPreviewTestId({
+                    action: pendingHistoryAction.action,
+                    historyItemRef: pendingHistoryAction.historyItemRef,
+                  })}
+                  role="dialog"
+                  style={historyConfirmPanelStyle}
+                >
+                  <p style={bodyStyle}>
+                    Preview rollback {pendingHistoryAction.action} for history
+                    item {pendingHistoryAction.historyItemRef} on record{" "}
+                    {pendingHistoryAction.recordId} at row version{" "}
+                    {pendingHistoryAction.rowVersion ?? "unknown"}.
+                  </p>
+                  <p style={historyMetaStyle}>
+                    Target {String(pendingHistoryAction.target.kind ?? "")}
+                  </p>
+                  <div style={inlineButtonRowStyle}>
+                    <button
+                      data-testid={rowHistoryRollbackConfirmButtonTestId({
+                        action: pendingHistoryAction.action,
+                        historyItemRef: pendingHistoryAction.historyItemRef,
+                      })}
+                      style={actionButtonStyle}
+                      type="button"
+                      onClick={confirmRowHistoryPendingAction}
+                    >
+                      Confirm rollback
+                    </button>
+                    <button
+                      data-testid={rowHistoryRollbackCancelButtonTestId({
+                        action: pendingHistoryAction.action,
+                        historyItemRef: pendingHistoryAction.historyItemRef,
+                      })}
+                      style={secondaryActionButtonStyle}
+                      type="button"
+                      onClick={() => {
+                        setRowHistoryPendingAction(null);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <ol style={historyListStyle}>
                 {historyData.items.map((item) => {
                   const itemAnchor = {
@@ -8205,7 +8444,7 @@ export function TimelineWorkbook({
                           }
                           type="button"
                           onClick={() => {
-                            submitRowHistoryRollback(item, action);
+                            previewRowHistoryRollback(item, action);
                           }}
                         >
                           {label}
@@ -14779,6 +15018,15 @@ const historyItemHeaderStyle = {
   justifyContent: "space-between",
   gap: "0.75rem",
   flexWrap: "wrap" as const,
+};
+
+const historyConfirmPanelStyle = {
+  display: "grid",
+  gap: "0.55rem",
+  padding: "0.75rem",
+  borderRadius: "0.5rem",
+  border: "1px solid var(--ct-colors-semantic-caution)",
+  background: "var(--ct-colors-surface-2)",
 };
 
 const sectionTitleStyle = {

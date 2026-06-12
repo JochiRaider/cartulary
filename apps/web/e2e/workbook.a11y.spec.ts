@@ -44,6 +44,17 @@ import {
   relationshipChipTestId,
   relationshipItemsTestId,
   rowCellTestId,
+  rowHistoryActionTestId,
+  rowHistoryDeleteButtonTestId,
+  rowHistoryDestructiveCancelButtonTestId,
+  rowHistoryDestructiveConfirmButtonTestId,
+  rowHistoryDestructiveConfirmPanelTestId,
+  rowHistoryMessageTestId,
+  rowHistoryOpenButtonTestId,
+  rowHistoryPanelTestId,
+  rowHistoryRollbackCancelButtonTestId,
+  rowHistoryRollbackConfirmButtonTestId,
+  rowHistoryRollbackPreviewTestId,
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
   rowPresenceMarkerTestId,
@@ -58,7 +69,9 @@ import {
   systemViewSwitcherMenuTestId,
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
+  timelineInspectorSectionTestId,
   timelineRowMarkReviewedButtonTestId,
+  timelineScalarEditorTestId,
   workbookShellReadyTestId,
   workbookShellSlotLabel,
   workbookShellSlots,
@@ -90,8 +103,10 @@ import {
   createIncidentMembership,
   createIncidentMemberUser,
   createViewRow,
+  csrfHeaders,
   enrollTotpViaBootstrap,
   generateTotpCode,
+  patchTimelineRecord,
   safeUnroute,
   sessionCookieName,
   testRouteHeaders,
@@ -102,6 +117,7 @@ import {
 import { Phase1Page } from "./phase1Page";
 import {
   addRelationshipTokenViaUI,
+  collectionActionsPayload,
   collectionItems,
   evidenceViewSchemaId,
   hostRefsFieldKey,
@@ -124,6 +140,18 @@ type IncidentMembershipRecord = {
   membership_version: number;
   role: string;
   user_id: string;
+};
+
+type Phase9A11yHistoryItem = {
+  available_rollback_actions: Array<
+    "history_entry" | "change_set" | "row_restore"
+  >;
+  history_entry_ref?: string;
+  history_item_ref: string;
+};
+
+type Phase9A11yHistoryData = {
+  items: Phase9A11yHistoryItem[];
 };
 
 type ViewRow = {
@@ -159,6 +187,9 @@ const p7AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
 const p8AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P8-01",
 ) as [string];
+const p9AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
+  "FE-A11Y-P9-01",
+) as [string];
 
 if (p2AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
@@ -193,6 +224,11 @@ if (p7AccessibilityScenarioTitles.length !== 1) {
 if (p8AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
     `FE-A11Y-P8-01 must declare exactly 1 scenario; found ${p8AccessibilityScenarioTitles.length}`,
+  );
+}
+if (p9AccessibilityScenarioTitles.length !== 1) {
+  throw new Error(
+    `FE-A11Y-P9-01 must declare exactly 1 scenario; found ${p9AccessibilityScenarioTitles.length}`,
   );
 }
 
@@ -564,6 +600,61 @@ async function expectAndRecordContrast(page: Page, testIds: readonly string[]) {
       "utf8",
     );
   }
+}
+
+function phase9A11yAttachedEvidencePayload(recordId: string) {
+  return {
+    kind: "collection_actions_v1",
+    actions: [
+      {
+        op: "add_record_ref",
+        linked_record_id: recordId,
+      },
+    ],
+  };
+}
+
+function phase9A11yHistoryActionTestId(
+  item: Phase9A11yHistoryItem,
+  action: Phase9A11yHistoryItem["available_rollback_actions"][number],
+) {
+  return rowHistoryActionTestId({
+    action,
+    historyItemRef: item.history_item_ref,
+  });
+}
+
+function phase9A11yRollbackAnchor(
+  item: Phase9A11yHistoryItem,
+  action: Phase9A11yHistoryItem["available_rollback_actions"][number],
+) {
+  return {
+    action,
+    historyItemRef: item.history_item_ref,
+  };
+}
+
+function requirePhase9A11yHistoryEntryAction(history: Phase9A11yHistoryData) {
+  const item =
+    history.items.find(
+      (candidate) =>
+        candidate.available_rollback_actions.includes("history_entry") &&
+        typeof candidate.history_entry_ref === "string" &&
+        candidate.history_entry_ref.length > 0,
+    ) ?? null;
+  if (item === null) {
+    throw new Error("missing FE-A11Y-P9 history_entry rollback item");
+  }
+  return item;
+}
+
+async function fetchPhase9A11yRecordHistory(page: Page, recordId: string) {
+  const response = await page.request.get(
+    `${apiBase}/api/v1/records/${recordId}/history`,
+    { headers: await csrfHeaders(page) },
+  );
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { data: Phase9A11yHistoryData }).data;
 }
 
 async function expectP1SurfaceA11y(
@@ -1940,6 +2031,175 @@ test.describe("FE-P8 accessibility readiness", () => {
       savedViewSetDefaultButtonTestId(timelineViewSchemaId),
       savedViewStatusTestId(timelineViewSchemaId),
     ]);
+  });
+});
+
+test.describe("FE-P9 accessibility readiness", () => {
+  test(p9AccessibilityScenarioTitles[0], async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("A11YP9"),
+      "FE-A11Y-P9 inspector actions",
+    );
+    const evidence = (await createViewRow(
+      page,
+      incidentId,
+      evidenceViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p9-evidence"),
+        "evidence.collector_party_text": "FE-A11Y-P9 collector",
+        "evidence.title": "FE-A11Y-P9 evidence",
+      },
+    )) as ViewRow;
+    const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+      [hostRefsFieldKey]: collectionActionsPayload(["FE-A11Y-P9 host"]),
+      client_txn_id: uniqueTxn("fe-a11y-p9-row"),
+      "timeline.details": "FE-A11Y-P9 inspector details",
+      "timeline.summary": "FE-A11Y-P9 selected row",
+    })) as ViewRow;
+    const linkedRow = (await patchTimelineRecord(page, row.record_id, {
+      base_row_version: row.row_version,
+      changes: [
+        {
+          action_payload: phase9A11yAttachedEvidencePayload(evidence.record_id),
+          field_key: "timeline.attached_evidence_ids",
+        },
+      ],
+      client_txn_id: uniqueTxn("fe-a11y-p9-link"),
+      view_schema_id: timelineViewSchemaId,
+    })) as ViewRow;
+    const hostItem = requireItemByRawText(
+      collectionItems(linkedRow, hostRefsFieldKey),
+      "FE-A11Y-P9 host",
+    );
+    const history = await fetchPhase9A11yRecordHistory(page, row.record_id);
+    const rollbackItem = requirePhase9A11yHistoryEntryAction(history);
+    const rollbackAnchor = phase9A11yRollbackAnchor(
+      rollbackItem,
+      "history_entry",
+    );
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    const inspectButton = page.getByTestId(
+      rowInspectButtonTestId(row.record_id),
+    );
+    await expectVisibleFocus(inspectButton);
+    await inspectButton.press("Enter");
+
+    for (const section of [
+      "details",
+      "relationships",
+      "evidence",
+      "history",
+    ] as const) {
+      await expect(
+        page.getByTestId(timelineInspectorSectionTestId(section)),
+      ).toBeVisible();
+    }
+    const detailsEditor = page.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.details",
+        recordId: row.record_id,
+        surface: "inspector",
+      }),
+    );
+    await expectVisibleFocus(detailsEditor);
+    await expect(detailsEditor).toHaveValue("FE-A11Y-P9 inspector details");
+
+    const relationshipChip = page
+      .getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey))
+      .getByTestId(relationshipChipTestId(String(hostItem.item_ref)));
+    await expect(relationshipChip).toContainText("Unresolved");
+    await expectVisibleFocus(relationshipChip);
+
+    const openHistory = page.getByTestId(
+      rowHistoryOpenButtonTestId(row.record_id),
+    );
+    await expectVisibleFocus(openHistory);
+    await openHistory.press("Enter");
+    await expect(page.getByTestId(rowHistoryPanelTestId())).toBeVisible();
+    const rollbackAction = page.getByTestId(
+      phase9A11yHistoryActionTestId(rollbackItem, "history_entry"),
+    );
+    await expectVisibleFocus(rollbackAction);
+    await rollbackAction.press("Enter");
+
+    const rollbackPreview = page.getByTestId(
+      rowHistoryRollbackPreviewTestId(rollbackAnchor),
+    );
+    await expect(rollbackPreview).toHaveAttribute("role", "dialog");
+    await expect(rollbackPreview).toHaveAttribute("aria-modal", "true");
+    await expect(rollbackPreview).toContainText(/rollback/i);
+    const rollbackCancel = page.getByTestId(
+      rowHistoryRollbackCancelButtonTestId(rollbackAnchor),
+    );
+    const rollbackConfirm = page.getByTestId(
+      rowHistoryRollbackConfirmButtonTestId(rollbackAnchor),
+    );
+    await expectVisibleFocus(rollbackCancel);
+    await expectVisibleFocus(rollbackConfirm);
+
+    await page.route(`**/api/v1/records/${row.record_id}/rollback`, (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        status: 409,
+        body: JSON.stringify({
+          error: {
+            code: "row_version_conflict",
+            message: "Rollback target is stale for FE-A11Y-P9.",
+            retryable: false,
+          },
+        }),
+      }),
+    );
+    await rollbackConfirm.press("Enter");
+    const historyMessage = page.getByTestId(rowHistoryMessageTestId());
+    await expectAlertRole(historyMessage);
+    await expect(historyMessage).toHaveAttribute("aria-live", "assertive");
+    await expect(historyMessage).toContainText("row_version_conflict");
+    await expectNoPrivateDiagnostics(historyMessage);
+
+    const deleteButton = page.getByTestId(rowHistoryDeleteButtonTestId());
+    await expectVisibleFocus(deleteButton);
+    await deleteButton.press("Enter");
+    const deletePanel = page.getByTestId(
+      rowHistoryDestructiveConfirmPanelTestId({ operation: "delete" }),
+    );
+    await expect(deletePanel).toHaveAttribute("role", "alertdialog");
+    await expect(deletePanel).toHaveAttribute("aria-modal", "true");
+    await expect(deletePanel).toContainText(row.record_id);
+    const deleteConfirm = page.getByTestId(
+      rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
+    );
+    const deleteCancel = page.getByTestId(
+      rowHistoryDestructiveCancelButtonTestId({ operation: "delete" }),
+    );
+    await expectVisibleFocus(deleteConfirm);
+    await expectVisibleFocus(deleteCancel);
+    await expectAndRecordContrast(page, [
+      rowInspectButtonTestId(row.record_id),
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.details",
+        recordId: row.record_id,
+        surface: "inspector",
+      }),
+      relationshipChipTestId(String(hostItem.item_ref)),
+      rowHistoryOpenButtonTestId(row.record_id),
+      phase9A11yHistoryActionTestId(rollbackItem, "history_entry"),
+      rowHistoryRollbackConfirmButtonTestId(rollbackAnchor),
+      rowHistoryRollbackCancelButtonTestId(rollbackAnchor),
+      rowHistoryMessageTestId(),
+      rowHistoryDeleteButtonTestId(),
+      rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
+      rowHistoryDestructiveCancelButtonTestId({ operation: "delete" }),
+    ]);
+    await deleteCancel.press("Enter");
+    await expect(deletePanel).toHaveCount(0);
+
+    await expectAllInteractiveControlsNamed(page);
+    await expectNoFocusTrap(page);
   });
 });
 

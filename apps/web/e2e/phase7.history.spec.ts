@@ -4,9 +4,11 @@ import {
   rowCellTestId,
   rowHistoryActionTestId,
   rowHistoryDeleteButtonTestId,
+  rowHistoryDestructiveConfirmButtonTestId,
   rowHistoryOpenButtonTestId,
   rowHistoryPanelTestId,
   rowHistoryRestoreButtonTestId,
+  rowHistoryRollbackConfirmButtonTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
@@ -192,6 +194,14 @@ test("E-7-02 rolls back one attached-evidence mutation without reverting later u
     await page
       .getByTestId(historyActionTestId(rollbackItem, "history_entry"))
       .click();
+    await page
+      .getByTestId(
+        rowHistoryRollbackConfirmButtonTestId({
+          action: "history_entry",
+          historyItemRef: rollbackItem.history_item_ref,
+        }),
+      )
+      .click();
     const response = await rollbackResponse;
     expect(response.ok()).toBeTruthy();
     const rollbackBody = JSON.parse(response.request().postData() ?? "{}");
@@ -263,6 +273,11 @@ test("E-7-03 soft-deletes and restores a row with tombstone concurrency", async 
       response.url().endsWith(`/api/v1/records/${row.record_id}`),
   );
   await page.getByTestId(rowHistoryDeleteButtonTestId()).click();
+  await page
+    .getByTestId(
+      rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
+    )
+    .click();
   const deleted = await deleteResponse;
   expect(deleted.ok()).toBeTruthy();
   const deleteBody = JSON.parse(deleted.request().postData() ?? "{}");
@@ -285,6 +300,11 @@ test("E-7-03 soft-deletes and restores a row with tombstone concurrency", async 
       response.url().endsWith(`/api/v1/records/${row.record_id}/restore`),
   );
   await page.getByTestId(rowHistoryRestoreButtonTestId()).click();
+  await page
+    .getByTestId(
+      rowHistoryDestructiveConfirmButtonTestId({ operation: "restore" }),
+    )
+    .click();
   const restored = await restoreResponse;
   expect(restored.ok()).toBeTruthy();
   const restoreBody = JSON.parse(restored.request().postData() ?? "{}");
@@ -360,6 +380,14 @@ test("E-7-04 whole-row restore appends a new attributed revision", async ({
   );
   await page
     .getByTestId(historyActionTestId(restoreItem, "row_restore"))
+    .click();
+  await page
+    .getByTestId(
+      rowHistoryRollbackConfirmButtonTestId({
+        action: "row_restore",
+        historyItemRef: restoreItem.history_item_ref,
+      }),
+    )
     .click();
   const response = await restoreResponse;
   expect(response.ok()).toBeTruthy();
@@ -504,6 +532,15 @@ test("E-7-05 rolls back a merge change set from row history", async ({
         history.items[mergeIndex] as HistoryItem,
         "change_set",
       ),
+    )
+    .click();
+  await page
+    .getByTestId(
+      rowHistoryRollbackConfirmButtonTestId({
+        action: "change_set",
+        historyItemRef: (history.items[mergeIndex] as HistoryItem)
+          .history_item_ref,
+      }),
     )
     .click();
   const response = await rollbackResponse;

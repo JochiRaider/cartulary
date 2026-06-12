@@ -7,15 +7,22 @@
       "fixture_title": "Default Timeline workbook shell",
       "status": "current",
       "owner_phase_ids": [
-        "FE-P2"
+        "FE-P2",
+        "FE-P9"
       ],
       "owner_row_ids": [
-        "FE-V-P2-01"
+        "FE-V-P2-01",
+        "FE-V-P9-01"
       ],
       "playwright_scenario_title": "FE-V-P2-01 Capture Default Timeline workbook shell with top bar, view bar, dense Timeline grid, row-context inspector, and status strip.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-timeline-workbook-shell-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-timeline-workbook-shell-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-timeline-workbook-shell-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p9-01-inspector-relationships-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p9-01-inspector-history-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p9-01-rollback-preview-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p9-01-destructive-confirmation-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p9-01-public-error-linux.png"
       ],
       "seed_id": "fe-vfix-01-deterministic-seed",
       "viewport_css_px": "1440x900",
@@ -37,7 +44,7 @@
       },
       "inspector_state": {
         "kind": "fixture_specific",
-        "description": "Adjacent row-context Timeline inspector open with Details, Relationships, Evidence, and History sections visible."
+        "description": "Adjacent row-context Timeline inspector open with Details, Relationships, Evidence, and History sections visible; FE-P9 supporting artifacts additionally capture history, rollback preview, destructive confirmation, and public error states."
       },
       "dynamic_masks": [
         "incident identifiers",

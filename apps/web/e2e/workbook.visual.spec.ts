@@ -40,6 +40,16 @@ import {
   relationshipChipTestId,
   relationshipItemsTestId,
   rowCellTestId,
+  rowHistoryActionTestId,
+  rowHistoryDeleteButtonTestId,
+  rowHistoryDestructiveCancelButtonTestId,
+  rowHistoryDestructiveConfirmPanelTestId,
+  rowHistoryMessageTestId,
+  rowHistoryOpenButtonTestId,
+  rowHistoryPanelTestId,
+  rowHistoryRollbackCancelButtonTestId,
+  rowHistoryRollbackConfirmButtonTestId,
+  rowHistoryRollbackPreviewTestId,
   rowInspectButtonTestId,
   rowPresenceMarkerTestId,
   savedViewSelectorTestId,
@@ -51,6 +61,7 @@ import {
   timelineInspectorSectionTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowVersionTestId,
+  timelineScalarEditorTestId,
   workbookShellReadyTestId,
   workbookShellSlots,
   workbookShellSlotTestId,
@@ -70,6 +81,7 @@ import {
   csrfHeaders,
   gridSavedRows,
   holdBrowserApiRequest,
+  patchTimelineRecord,
   queryViewRows,
   testRouteHeaders,
   uniqueEmail,
@@ -106,6 +118,19 @@ type ViewRow = {
   record_id: string;
   row_version: number;
   cells: Record<string, unknown>;
+};
+
+type FeP9VisualHistoryItem = {
+  available_rollback_actions: Array<
+    "history_entry" | "change_set" | "row_restore"
+  >;
+  history_entry_ref?: string;
+  history_item_ref: string;
+};
+
+type FeP9VisualHistoryData = {
+  items: FeP9VisualHistoryItem[];
+  row_version: number;
 };
 
 type GridVisualScrollLeft = "left" | number;
@@ -1728,6 +1753,247 @@ test.describe("FE-P8 workbook visual readiness", () => {
     );
   });
 });
+
+test.describe("FE-P9 workbook visual readiness", () => {
+  test("FE-V-P9-01 Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("FEVP901"),
+      "FE-P9 visual inspector actions",
+    );
+    const evidence = (await createViewRow(
+      page,
+      incidentId,
+      evidenceViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("FEVP901-EVIDENCE"),
+        "evidence.collector_party_text": "FE-P9 visual collector",
+        "evidence.title": "FE-P9 visual attached evidence",
+      },
+    )) as ViewRow;
+    const target = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        [hostRefsFieldKey]: collectionActionsPayload(["FE-P9 visual host"]),
+        client_txn_id: uniqueTxn("FEVP901-TARGET"),
+        "timeline.details": "FE-P9 visual inspector details",
+        "timeline.summary": "FE-P9 visual inspector target",
+      },
+    )) as ViewRow;
+    const linkedTarget = (await patchTimelineRecord(page, target.record_id, {
+      base_row_version: target.row_version,
+      changes: [
+        {
+          action_payload: feP9VisualAttachedEvidencePayload(evidence.record_id),
+          field_key: "timeline.attached_evidence_ids",
+        },
+      ],
+      client_txn_id: uniqueTxn("FEVP901-LINK"),
+      view_schema_id: timelineViewSchemaId,
+    })) as ViewRow;
+    const hostItem = requireItemByRawText(
+      collectionItems(linkedTarget, hostRefsFieldKey),
+      "FE-P9 visual host",
+    );
+    const history = await fetchFeP9VisualRecordHistory(page, target.record_id);
+    const rollbackItem = requireFeP9VisualHistoryEntryAction(history);
+    const rollbackAnchor = feP9VisualRollbackPreviewAnchor(
+      rollbackItem,
+      "history_entry",
+    );
+
+    await page.goto(
+      `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+        timelineViewSchemaId,
+      )}`,
+    );
+    await maskIncidentIdentity(page, incidentId);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await openTimelineInspector(page, target.record_id);
+    for (const section of [
+      "details",
+      "relationships",
+      "evidence",
+      "history",
+    ] as const) {
+      await expect(
+        page.getByTestId(timelineInspectorSectionTestId(section)),
+      ).toBeVisible();
+    }
+    await expect(
+      page.getByTestId(
+        timelineScalarEditorTestId({
+          fieldKey: "timeline.details",
+          recordId: target.record_id,
+          surface: "inspector",
+        }),
+      ),
+    ).toHaveValue("FE-P9 visual inspector details");
+    await expect(
+      page
+        .getByTestId(
+          relationshipItemsTestId(target.record_id, hostRefsFieldKey),
+        )
+        .getByTestId(relationshipChipTestId(String(hostItem.item_ref))),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(timelineInspectorSectionTestId("evidence")),
+    ).toContainText("Attached evidence count: 0");
+
+    await page
+      .getByTestId(timelineInspectorSectionTestId("relationships"))
+      .scrollIntoViewIfNeeded();
+    await assertViewportVisualRegression(
+      page,
+      "fe-v-p9-01-inspector-relationships",
+    );
+
+    await page
+      .getByTestId(timelineInspectorSectionTestId("history"))
+      .scrollIntoViewIfNeeded();
+    await page
+      .getByTestId(rowHistoryOpenButtonTestId(target.record_id))
+      .click();
+    await expect(page.getByTestId(rowHistoryPanelTestId())).toBeVisible();
+    await expect(
+      page.getByTestId(
+        feP9VisualHistoryActionTestId(rollbackItem, "history_entry"),
+      ),
+    ).toBeVisible();
+    await page.getByTestId(rowHistoryPanelTestId()).scrollIntoViewIfNeeded();
+    await assertViewportVisualRegression(page, "fe-v-p9-01-inspector-history");
+
+    await page
+      .getByTestId(feP9VisualHistoryActionTestId(rollbackItem, "history_entry"))
+      .click();
+    await expect(
+      page.getByTestId(rowHistoryRollbackPreviewTestId(rollbackAnchor)),
+    ).toContainText(rollbackItem.history_item_ref);
+    await page
+      .getByTestId(rowHistoryRollbackPreviewTestId(rollbackAnchor))
+      .evaluate((element) => {
+        element.classList.add("visual-row-history-rollback-preview");
+      });
+    await page
+      .getByTestId(rowHistoryRollbackPreviewTestId(rollbackAnchor))
+      .scrollIntoViewIfNeeded();
+    await assertViewportVisualRegression(page, "fe-v-p9-01-rollback-preview");
+
+    await page
+      .getByTestId(rowHistoryRollbackCancelButtonTestId(rollbackAnchor))
+      .click();
+    await page.getByTestId(rowHistoryDeleteButtonTestId()).click();
+    await expect(
+      page.getByTestId(
+        rowHistoryDestructiveConfirmPanelTestId({ operation: "delete" }),
+      ),
+    ).toContainText(target.record_id);
+    await page
+      .getByTestId(
+        rowHistoryDestructiveConfirmPanelTestId({ operation: "delete" }),
+      )
+      .scrollIntoViewIfNeeded();
+    await assertViewportVisualRegression(
+      page,
+      "fe-v-p9-01-destructive-confirmation",
+    );
+
+    await page
+      .getByTestId(
+        rowHistoryDestructiveCancelButtonTestId({ operation: "delete" }),
+      )
+      .click();
+    await page
+      .getByTestId(feP9VisualHistoryActionTestId(rollbackItem, "history_entry"))
+      .click();
+    await page.route(
+      `**/api/v1/records/${target.record_id}/rollback`,
+      (route) =>
+        route.fulfill({
+          contentType: "application/json",
+          status: 409,
+          body: JSON.stringify({
+            error: {
+              code: "row_version_conflict",
+              message: "Rollback target is stale for FE-P9 visual fixture.",
+              retryable: false,
+            },
+          }),
+        }),
+    );
+    await page
+      .getByTestId(rowHistoryRollbackConfirmButtonTestId(rollbackAnchor))
+      .click();
+    await expect(page.getByTestId(rowHistoryMessageTestId())).toContainText(
+      "row_version_conflict",
+    );
+    await page.getByTestId(rowHistoryMessageTestId()).scrollIntoViewIfNeeded();
+    await assertViewportVisualRegression(page, "fe-v-p9-01-public-error");
+  });
+});
+
+function feP9VisualAttachedEvidencePayload(recordId: string) {
+  return {
+    kind: "collection_actions_v1",
+    actions: [
+      {
+        op: "add_record_ref",
+        linked_record_id: recordId,
+      },
+    ],
+  };
+}
+
+function feP9VisualHistoryActionTestId(
+  item: FeP9VisualHistoryItem,
+  action: FeP9VisualHistoryItem["available_rollback_actions"][number],
+) {
+  return rowHistoryActionTestId({
+    action,
+    historyItemRef: item.history_item_ref,
+  });
+}
+
+function feP9VisualRollbackPreviewAnchor(
+  item: FeP9VisualHistoryItem,
+  action: FeP9VisualHistoryItem["available_rollback_actions"][number],
+) {
+  return {
+    action,
+    historyItemRef: item.history_item_ref,
+  };
+}
+
+function requireFeP9VisualHistoryEntryAction(history: FeP9VisualHistoryData) {
+  const item =
+    history.items.find(
+      (candidate) =>
+        candidate.available_rollback_actions.includes("history_entry") &&
+        typeof candidate.history_entry_ref === "string" &&
+        candidate.history_entry_ref.length > 0,
+    ) ?? null;
+  if (item === null) {
+    throw new Error("missing FE-P9 visual history_entry rollback item");
+  }
+  return item;
+}
+
+async function fetchFeP9VisualRecordHistory(
+  page: Page,
+  recordId: string,
+): Promise<FeP9VisualHistoryData> {
+  const response = await page.request.get(
+    `${apiBase}/api/v1/records/${recordId}/history`,
+    { headers: await csrfHeaders(page) },
+  );
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { data: FeP9VisualHistoryData }).data;
+}
 
 async function prepareFeP7ConflictVisual(
   page: Page,
@@ -3575,6 +3841,23 @@ async function maskVisualDynamicText(page: Page) {
           color: transparent !important;
           caret-color: transparent !important;
         }
+
+        html[data-visual-snapshot="true"]
+          .visual-row-history-rollback-preview > p:first-child {
+          block-size: 4.5rem !important;
+          color: transparent !important;
+          inline-size: 100% !important;
+          overflow: hidden !important;
+          position: relative !important;
+        }
+
+        html[data-visual-snapshot="true"]
+          .visual-row-history-rollback-preview > p:first-child::after {
+          color: var(--ct-colors-ink-muted);
+          content: "Preview rollback history_entry for history item hitem.VISUAL-FIXTURE on record 00000000-0000-0000-0000-000000000000 at row version 2.";
+          inset: 0;
+          position: absolute;
+        }
       `;
       document.head.append(style);
     }
@@ -3588,6 +3871,7 @@ async function maskVisualDynamicText(page: Page) {
         "00000000-0000-0000-0000-000000000000",
       ],
       timestampReplacement,
+      [/hitem\.[^\s<>"']+/g, "hitem.VISUAL-FIXTURE"],
       [/\bIR-[A-Z0-9-]+\b/g, "IR-VISUAL-FIXTURE"],
       [/Playwright Worker Admin \d+/g, "Playwright Worker Admin"],
     ];

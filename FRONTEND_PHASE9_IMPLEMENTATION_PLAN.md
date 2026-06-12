@@ -2,9 +2,9 @@
 
 ## Summary
 
-FE-P9 covers Inspector and Row-Local Actions for the Cartulary frontend. The planned user-observable scope is row-local inspector tabs for Details, Relationships, Evidence, and History, plus rollback preview/action and destructive-action confirmation/error behavior. This file is a planning artifact only. It does not implement FE-P9 product code and does not close any FE-P9 row.
+FE-P9 covers Inspector and Row-Local Actions for the Cartulary frontend. The implemented user-observable scope is row-local inspector tabs for Details, Relationships, Evidence, and History, plus rollback preview/action and destructive-action confirmation/error behavior. This file is a planning and handoff artifact only; it does not itself close rows. Row closure comes only from the current mapped row-owned evidence roots listed in this tracker.
 
-Live repository inspection for this plan found FE-P9 in `tools/frontend_phase_registry.json` as `planned` with `row_rollup_state` `no_rows_implemented`. The phase is blocked by `FE-P9-ACTIVATION-BLOCKER-01`: frontend phase is not active until direct row evidence and freshness validation are promoted together. The live FE-P9 row map contains the five expected rows from `docs/guides/cartulary_frontend_implementation_testing_guide.md` Section 4.9: `FE-U-P9-01`, `FE-I-P9-01`, `FE-E-P9-01`, `FE-V-P9-01`, and `FE-A11Y-P9-01`. All five are currently `blocked`.
+Current closeout inspection on 2026-06-12 finds FE-P9 in `tools/frontend_phase_registry.json` as `active` with `row_rollup_state` `active_green`, no activation blockers, registry digest `67b4a64336a1fc5d34b38612e81126f8b6239a80e0248075727f524a57ebfc08`, FE-P9 map digest `76ca65273a3b2fb9bb7ced008d3a99568821cc478220d4d231c2ddc9515a1cca`, and FE-P9 ledger digest `dc13f4cd75769b04570a7306fbeba76a270a39596a1de8f92feb67aacd4bc776`. The live FE-P9 row map contains the five expected rows from `docs/guides/cartulary_frontend_implementation_testing_guide.md` Section 4.9: `FE-U-P9-01`, `FE-I-P9-01`, `FE-E-P9-01`, `FE-V-P9-01`, and `FE-A11Y-P9-01`. All five are `implemented` and have current mapped row-owned closure evidence listed below.
 
 Current FE-P9 digests at plan creation:
 
@@ -77,7 +77,7 @@ Initial live inspection occurred from repository root `/home/jochi/code/cartular
 | FE-P6 | `active` | `active_green` | None listed. |
 | FE-P7 | `active` | `active_green` | None listed. |
 | FE-P8 | `active` | `active_green` | None listed. |
-| FE-P9 | `planned` | `no_rows_implemented` | `FE-P9-ACTIVATION-BLOCKER-01`. |
+| FE-P9 | `active` | `active_green` | None listed. |
 
 ### Target Explanation Status
 
@@ -85,13 +85,13 @@ All explanation commands listed below were run for planning and exited with stat
 
 | Command | Live finding |
 | --- | --- |
-| `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P9` | FE-P9 is `planned`; all five rows are blocked; planned frontend phases are explainable but not executable. |
+| `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P9` | Initially reported FE-P9 as planned/blocked. Closeout registry now promotes FE-P9 to `active`/`active_green`; final closure relies on current row accounting listed below. |
 | `make explain-target TARGET=frontend-unit DETAIL=summary` | Public fast target. Phase coverage includes phase9. Latest artifact `.cartulary/test-results/20260612T124559Z-p85431/frontend-unit/frontend-unit/phase-summary.json`. |
 | `make explain-target TARGET=browser-e2e-webserver-backed DETAIL=summary` | Public full-gate target. Phase coverage includes phase9. Latest artifact `.cartulary/test-results/20260612T124559Z-p85431/browser-e2e-webserver-backed/target-summary.json`. |
-| `make explain-target TARGET=browser-e2e-stateful DETAIL=summary` | Public full-gate target. Phase coverage lists phase1, phase6, and phase8, while the FE-P9 map names this target for `FE-E-P9-01`; future closure must rely on current FE-P9 row accounting. |
-| `make explain-target TARGET=browser-e2e-visual DETAIL=summary` | Public full-gate visual target. Phase coverage omits phase9, while the FE-P9 map names this target for `FE-V-P9-01`; future closure must rely on current FE-P9 row accounting. |
-| `make explain-target TARGET=browser-e2e-a11y-preflight DETAIL=summary` | Public preflight target. Phase coverage `none`; the FE-P9 map names it for `FE-A11Y-P9-01`. |
-| `make explain-target TARGET=browser-e2e-a11y DETAIL=summary` | Public accessibility target. Not the current mapped FE-P9 accessibility target. |
+| `make explain-target TARGET=browser-e2e-stateful DETAIL=summary` | Public full-gate target. Base phase coverage remains separate from FE readiness; `FE-E-P9-01` closure is from current FE-P9 frontend row accounting. |
+| `make explain-target TARGET=browser-e2e-visual DETAIL=summary` | Public full-gate visual target. `FE-V-P9-01` closure is design-direction row accounting plus fixture ownership, not product conformance. |
+| `make explain-target TARGET=browser-e2e-a11y DETAIL=summary` | Public full-gate accessibility target. The FE-P9 map remaps `FE-A11Y-P9-01` here; preflight remains smoke/support only. |
+| `make explain-target TARGET=browser-e2e-a11y-preflight DETAIL=summary` | Public preflight target. It remains smoke/support context and is not the current mapped FE-P9 accessibility closure target. |
 | `make explain-target TARGET=browser-e2e-support DETAIL=summary` | Internal helper; no FE-P9 rows currently map to it. |
 | `make explain-target TARGET=phase-ledgers DETAIL=summary` | Public phase-maintenance helper. |
 | `make explain-target TARGET=phase-ledger-drift DETAIL=summary` | Public phase-maintenance target. |
@@ -105,8 +105,8 @@ All explanation commands listed below were run for planning and exited with stat
 | `make explain-target TARGET=frontend-typecheck DETAIL=summary` | Public fast-verification target. |
 | `make explain-target TARGET=frontend-import-boundary-check DETAIL=summary` | Public fast-verification target. |
 | `make explain-target TARGET=lint-markdown DETAIL=summary` | Public fast-verification target for authored Markdown changes. |
-| `make task-guide ROLE=phase-author PHASE_NAMESPACE=frontend PHASE=FE-P9` | For planned FE-P9, narrows source validation to `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P9` and `make phase-ledger-drift`. |
-| `make task-guide ROLE=feature-dev PHASE_NAMESPACE=frontend PHASE=FE-P9` | Same planned-phase guidance as phase-author. |
+| `make task-guide ROLE=phase-author PHASE_NAMESPACE=frontend PHASE=FE-P9` | Initial planned-phase guidance narrowed source validation to `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P9` and `make phase-ledger-drift`; Sprint 7 ran the full required drift/finalization sweep after promotion. |
+| `make task-guide ROLE=feature-dev PHASE_NAMESPACE=frontend PHASE=FE-P9` | Initial planned-phase guidance only; closeout evidence is the current mapped row accounting below. |
 
 ### Retained Artifact Context
 
@@ -126,23 +126,20 @@ The repo already contains FE-P9-adjacent support code, selectors, and tests. The
 | --- | --- | --- |
 | `apps/web/src/WorkbookShell.tsx` | Existing inspector, relationship chip rendering, row history fetch through `/api/v1/records/{record_id}/history`, rollback through `/api/v1/records/{record_id}/rollback`, soft delete through `DELETE /api/v1/records/{record_id}`, restore through `POST /api/v1/records/{record_id}/restore`, public error parsing, and viewport continuity. | Existing code is not FE-P9 closure without current row-owned evidence. |
 | `packages/ui-contracts/src/index.ts` | Stable selector builders exist for inspector sections, row-history actions, relationship items, evidence affordances, and inspector-surface row cells. | Selector existence alone does not close FE-P9 rows. |
-| `apps/web/src/WorkbookShell.phase9.sentinel.test.tsx` | Phase 9-adjacent unit/support tests exist for keyboard and grid anchors. | Scenario names do not match FE-P9 row IDs and current row accounting contains no FE-P9 rows. |
+| `apps/web/src/WorkbookShell.phase9.sentinel.test.tsx` | Phase 9-adjacent unit/support tests exist for keyboard and grid anchors. | Dependency/support context only; FE-P9 closure uses `apps/web/src/WorkbookShell.phase9.inspector.test.tsx` row-owned scenarios. |
 | `apps/web/e2e/phase9.keyboard.spec.ts` and `apps/web/e2e/phase9.sentinel.spec.ts` | Phase 9-adjacent browser tests exist for keyboard, paste, and workbook-native workflows. | These are not the FE-P9 Inspector and Row-Local Actions rows in the live FE-P9 map. |
 | `apps/web/e2e/phase7.history.spec.ts` | Existing row history and rollback browser coverage through public routes. | FE-P7 evidence is dependency context only. FE-P9 must produce its own row-owned evidence. |
-| `apps/web/e2e/workbook.visual.spec.ts` and `apps/web/e2e/workbook.a11y-preflight.spec.ts` | Existing visual and accessibility readiness surfaces include inspector-adjacent checks. | No FE-P9-owned visual fixture entries were found, and FE-P9 visual/a11y rows remain blocked. |
+| `apps/web/e2e/workbook.visual.spec.ts` and `apps/web/e2e/workbook.a11y.spec.ts` | Current visual and accessibility readiness surfaces include FE-P9 row-owned scenarios. | Design-direction readiness only; neither target is product-conformance evidence. |
 
 ## Source Limits
 
-1. `tools/frontend_visual_fixture_registry.json` is present but has no FE-P9-owned fixture entries. `FE-V-P9-01` is blocked until fixture ownership and current visual row accounting exist.
-2. Retained row-accounting artifacts from `.cartulary/test-results/20260612T124559Z-p85431`, `.cartulary/test-results/20260612T124828Z-p48784`, and `.cartulary/test-results/20260612T124950Z-p59875` pass but contain no FE-P9 `row_results`. They are health context only.
-3. `.cartulary/test-results/20260612T045159Z-p12967` preflight includes `FE-A11Y-P9-01` scenario `pass`, but the row remains blocked and the target has no `frontend-row-accounting.json`.
-4. `browser-e2e-stateful`, `browser-e2e-visual`, and `browser-e2e-a11y-preflight` target explanations do not advertise phase9 coverage even though the FE-P9 map names them. Closure must come from current map-authorized row accounting.
-5. Generated FE-P9 ledger exists and matches the planned/blocked posture, but it is downstream only and must not be hand-edited or used as closure authority.
-6. Existing FE-P9-adjacent support tests do not close FE-P9 rows unless future current row accounting maps them to the live FE-P9 row IDs.
-7. FE-P8 is complete and active/green, but FE-P8 evidence is dependency context only and does not prove FE-P9 inspector behavior.
-8. FE-P7 history/rollback browser evidence is dependency context only and does not prove FE-P9 inspector integration, destructive-action confirmation, or row-local focus behavior.
-9. Public-route FE-P9 behavior cannot close from frontend mocks alone. Browser-facing product evidence must use public `/api/v1/` routes and public envelopes where mapped.
-10. Visual and accessibility evidence remain design-direction evidence only. They must not be represented as Core product conformance.
+1. Retained artifacts from before registry/map promotion remain health context only and must not be used to close FE-P9 rows.
+2. Broad `make check`, target explanations, generated ledgers, this tracker, screenshots, and fixture status remain non-closing unless paired with current mapped row-owned accounting.
+3. `browser-e2e-a11y-preflight` remains smoke/support context; current `FE-A11Y-P9-01` closure uses `make browser-e2e-a11y`.
+4. FE-P7 and FE-P8 evidence remains dependency context only and does not prove FE-P9 inspector, rollback, destructive-action, visual, or accessibility behavior.
+5. Public-route FE-P9 behavior cannot close from frontend mocks alone. Browser-facing product evidence must use public `/api/v1/` routes and public envelopes where mapped.
+6. Visual and accessibility evidence remain design-direction evidence only. They must not be represented as Core product conformance.
+7. Core 05 remains inactive because no explicit FE-P9 claim-bearing metadata was introduced.
 11. Core 05 claim-publication evidence is absent. FE-P9 must not claim Core 05 publication, benchmark, fixture-sensitive publication, or visual-publication readiness.
 12. Broad `make check`, target explanations, screenshots, plan text, fixture status, old retained artifacts, and generated ledgers do not close FE-P9 rows.
 
@@ -210,15 +207,15 @@ FE-P9 must not include:
 
 ## Row Inventory
 
-The row inventory below is derived from the live FE-P9 map. It matches the expected FE-P9 row IDs in the frontend guide. All rows are currently blocked.
+The row inventory below is derived from the live FE-P9 map. It matches the expected FE-P9 row IDs in the frontend guide. All rows are currently implemented and closed by current mapped row-owned evidence, with visual and accessibility rows remaining design-direction only.
 
 | Row ID | Layer | Evidence class | Owner sections | Exact REQ IDs | Exact AC IDs | Mapped target or TODO | Current `claim_status` | Current blocker summary |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| FE-U-P9-01 | unit | product_conformance | Core 01 Sections 3.3.4, 3.3.7, 3.3.8; Core 03 Sections 16.1 and 16.2 | REQ-01-034, REQ-01-036, REQ-01-048, REQ-01-056, REQ-01-243, REQ-01-247, REQ-03-242, REQ-03-249, REQ-03-272 | AC-006, AC-015, AC-020, AC-023, AC-045, AC-072, AC-075, AC-097, AC-100, AC-102, AC-103, AC-107, AC-111, AC-124, AC-127, AC-154, AC-155, AC-184, AC-185, AC-209, AC-210, AC-231, AC-278, AC-280, AC-313, AC-315, AC-318, AC-321, AC-366, AC-367, AC-372, AC-374 | `make frontend-unit` | blocked | `FE-U-P9-01-BLOCKER-01`: direct implementation evidence has not been added. |
-| FE-I-P9-01 | integration | product_conformance | Core 01 Section 3.3.7; Core 02 Section 15; Core 03 Section 16.2 | REQ-01-048, REQ-01-056, REQ-01-089, REQ-01-108, REQ-02-205, REQ-02-218, REQ-02-238, REQ-02-242 | AC-107, AC-111, AC-124, AC-128, AC-154, AC-155, AC-215, AC-218, AC-231, AC-383, AC-386, AC-412 | `make frontend-unit`; `make browser-e2e-webserver-backed` | blocked | `FE-I-P9-01-BLOCKER-01`: direct implementation evidence has not been added. |
-| FE-E-P9-01 | e2e | product_conformance | Core 01 Sections 3.3.6, 3.3.7, 3.3.8; Core 02 Sections 13 and 15; Core 04 Sections 3 and 5 | REQ-01-057, REQ-01-070, REQ-01-089, REQ-01-108, REQ-01-243, REQ-01-247, REQ-02-186, REQ-02-201, REQ-02-205, REQ-02-218, REQ-04-021, REQ-04-030, REQ-04-052, REQ-04-053 | AC-049, AC-055, AC-102, AC-103, AC-107, AC-111, AC-124, AC-128, AC-149, AC-154, AC-155, AC-178, AC-180, AC-181, AC-183, AC-188, AC-190, AC-200, AC-218, AC-221, AC-225, AC-231, AC-232, AC-234, AC-251, AC-257, AC-260, AC-261, AC-278, AC-280, AC-299, AC-313, AC-321, AC-340, AC-342, AC-352, AC-370, AC-371, AC-402 | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | blocked | `FE-E-P9-01-BLOCKER-01`: direct implementation evidence has not been added. |
-| FE-V-P9-01 | visual | design_direction | UI/UX guide Sections 9, 12, 13; visual golden guide Sections 2, 3, 5 | N/A: design direction | R2-AC-023, R2-AC-026, R2-AC-059, R2-AC-062, R2-AC-073, R2-AC-079 | `make browser-e2e-visual`; fixture IDs from `tools/frontend_visual_fixture_registry.json` | blocked | `FE-V-P9-01-BLOCKER-01`: visual fixture planned, but direct frontend row-accounting evidence has not been recaptured under a closed fixture registry; no FE-P9 fixture owner entry was inspected. |
-| FE-A11Y-P9-01 | accessibility | design_direction | UI/UX guide Sections 9, 12, 14 | N/A: design direction | R2-AC-080, R2-AC-086, D-AC-009, D-AC-012 | `make browser-e2e-a11y-preflight` | blocked | `FE-A11Y-P9-01-BLOCKER-01`: direct implementation evidence has not been added. |
+| FE-U-P9-01 | unit | product_conformance | Core 01 Sections 3.3.4, 3.3.7, 3.3.8; Core 03 Sections 16.1 and 16.2 | REQ-01-034, REQ-01-036, REQ-01-048, REQ-01-056, REQ-01-243, REQ-01-247, REQ-03-242, REQ-03-249, REQ-03-272 | AC-006, AC-015, AC-020, AC-023, AC-045, AC-072, AC-075, AC-097, AC-100, AC-102, AC-103, AC-107, AC-111, AC-124, AC-127, AC-154, AC-155, AC-184, AC-185, AC-209, AC-210, AC-231, AC-278, AC-280, AC-313, AC-315, AC-318, AC-321, AC-366, AC-367, AC-372, AC-374 | `make frontend-unit` | implemented | Closed by current row-owned unit accounting; no blocker. |
+| FE-I-P9-01 | integration | product_conformance | Core 01 Section 3.3.7; Core 02 Section 15; Core 03 Section 16.2 | REQ-01-048, REQ-01-056, REQ-01-089, REQ-01-108, REQ-02-205, REQ-02-218, REQ-02-238, REQ-02-242 | AC-107, AC-111, AC-124, AC-128, AC-154, AC-155, AC-215, AC-218, AC-231, AC-383, AC-386, AC-412 | `make frontend-unit`; `make browser-e2e-webserver-backed` | implemented | Closed by current row-owned unit and public-route browser accounting; no blocker. |
+| FE-E-P9-01 | e2e | product_conformance | Core 01 Sections 3.3.6, 3.3.7, 3.3.8; Core 02 Sections 13 and 15; Core 04 Sections 3 and 5 | REQ-01-057, REQ-01-070, REQ-01-089, REQ-01-108, REQ-01-243, REQ-01-247, REQ-02-186, REQ-02-201, REQ-02-205, REQ-02-218, REQ-04-021, REQ-04-030, REQ-04-052, REQ-04-053 | AC-049, AC-055, AC-102, AC-103, AC-107, AC-111, AC-124, AC-128, AC-149, AC-154, AC-155, AC-178, AC-180, AC-181, AC-183, AC-188, AC-190, AC-200, AC-218, AC-221, AC-225, AC-231, AC-232, AC-234, AC-251, AC-257, AC-260, AC-261, AC-278, AC-280, AC-299, AC-313, AC-321, AC-340, AC-342, AC-352, AC-370, AC-371, AC-402 | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | implemented | Closed by current public-route browser accounting from both mapped targets; no blocker. |
+| FE-V-P9-01 | visual | design_direction | UI/UX guide Sections 9, 12, 13; visual golden guide Sections 2, 3, 5 | N/A: design direction | R2-AC-023, R2-AC-026, R2-AC-059, R2-AC-062, R2-AC-073, R2-AC-079 | `make browser-e2e-visual`; `FE-VFIX-01` in `tools/frontend_visual_fixture_registry.json` | implemented | Closed as design-direction readiness only by current visual row accounting and fixture ownership; no product-conformance claim. |
+| FE-A11Y-P9-01 | accessibility | design_direction | UI/UX guide Sections 9, 12, 14 | N/A: design direction | R2-AC-080, R2-AC-086, D-AC-009, D-AC-012 | `make browser-e2e-a11y` | implemented | Closed as design-direction readiness only by current accessibility row accounting; no product-conformance claim. |
 
 ## Evidence Layer Matrix
 
@@ -293,13 +290,13 @@ Generated protocol files, generated ledgers, visual goldens, phase maps, registr
 
 | Done | Sprint | Primary validation | Blockers |
 | --- | --- | --- | --- |
-| [x] | 1. Readiness and source alignment | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P9`; source digest inspection; retained artifact inspection; `git status --short` | FE-P9 remains planned and blocked; no product rows are closed. |
-| [ ] | 2. Unit inspector state for FE-U-P9-01 | `make frontend-unit`; `make frontend-typecheck` | Blocked until row-owned unit scenarios and row accounting exist. |
-| [ ] | 3. History and rollback integration for FE-I-P9-01 | `make frontend-unit`; `make browser-e2e-webserver-backed`; `make frontend-import-boundary-check` | Blocked until public route contract evidence and row accounting exist. |
-| [ ] | 4. Browser E2E for inspector, evidence, history, rollback, and destructive actions for FE-E-P9-01 | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | Blocked until current public-route browser evidence and focus-return evidence exist. |
-| [ ] | 5. Visual readiness for FE-V-P9-01 | `make browser-e2e-visual` | Blocked because no FE-P9-owned visual fixture registry entry was inspected. |
-| [ ] | 6. Accessibility readiness for FE-A11Y-P9-01 | `make browser-e2e-a11y-preflight` under current map, or the mapped target if owner input changes | Blocked because preflight smoke is not row closure and no row accounting exists. |
-| [ ] | 7. Drift, full check, finalization, and FE-P10 handoff | Drift targets, `make check`, `make agent-finalize RESULTS_DIR=<retained-check-run>` | Blocked until all FE-P9 rows close under current row-owned evidence. |
+| [x] | 1. Readiness and source alignment | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P9`; source digest inspection; retained artifact inspection; `git status --short` | Initial planned/blocked posture was recorded; Sprint 7 promotion now leaves FE-P9 active/green with current row-owned closure evidence. |
+| [x] | 2. Unit inspector state for FE-U-P9-01 | `make frontend-unit`; `make frontend-typecheck` | Closed by current `frontend-unit` row accounting at `.cartulary/test-results/20260612T165842Z-p98965` with registry digest `67b4a64336a1fc5d34b38612e81126f8b6239a80e0248075727f524a57ebfc08`; `make frontend-typecheck` passed at `.cartulary/test-results/20260612T165922Z-p929` and in full check `.cartulary/test-results/20260612T170650Z-p49228`. |
+| [x] | 3. History and rollback integration for FE-I-P9-01 | `make frontend-unit`; `make browser-e2e-webserver-backed`; `make frontend-import-boundary-check` | Closed by current `frontend-unit` row accounting at `.cartulary/test-results/20260612T165842Z-p98965` and public-route `browser-e2e-webserver-backed` row accounting at `.cartulary/test-results/20260612T165940Z-p1691`; `frontend-import-boundary-check` passed at `.cartulary/test-results/20260612T165934Z-p1325`. |
+| [x] | 4. Browser E2E for inspector, evidence, history, rollback, and destructive actions for FE-E-P9-01 | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | Closed by current public-route browser row accounting at `.cartulary/test-results/20260612T165940Z-p1691` and `.cartulary/test-results/20260612T170142Z-p15450`, including focus return and authorization denial evidence. |
+| [x] | 5. Visual readiness for FE-V-P9-01 | `make browser-e2e-visual` | Closed as design-direction readiness only by current row accounting at `.cartulary/test-results/20260612T170358Z-p28074` and FE-P9 `FE-VFIX-01` ownership in `tools/frontend_visual_fixture_registry.json`; visual goldens were refreshed through the visual golden workflow. |
+| [x] | 6. Accessibility readiness for FE-A11Y-P9-01 | `make browser-e2e-a11y` | Closed as design-direction readiness only by current row accounting at `.cartulary/test-results/20260612T170534Z-p39400`; the FE-P9 map remaps this row from preflight to full a11y. |
+| [x] | 7. Drift, full check, finalization, and FE-P10 handoff | Drift targets, `make check`, `make agent-finalize RESULTS_DIR=<retained-check-run>` | Drift gates passed; `make check` passed at `.cartulary/test-results/20260612T170650Z-p49228`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260612T170650Z-p49228` passed at `.cartulary/test-results/20260612T170847Z-p4303` and refreshed six generated maintenance files. |
 
 ## Sprint-by-Sprint Execution Plan
 
@@ -342,6 +339,8 @@ make frontend-typecheck
 
 Closure requires current `frontend-unit/frontend-row-accounting.json` with row `FE-U-P9-01`, current registry/guide/map digests, pass status, `closure_status` `closed`, and no row blocker.
 
+Sprint 2 status on 2026-06-12: implemented inspector state support in `apps/web/src/WorkbookShell.tsx`, selector support in `packages/ui-contracts/src/index.ts`, and FE-P9 unit coverage in `apps/web/src/WorkbookShell.phase9.inspector.test.tsx`. Early support evidence at `.cartulary/test-results/20260612T155135Z-p44594` and `.cartulary/test-results/20260612T155225Z-p46825` did not close the row because the map was still blocked. Current closure evidence is `make frontend-unit` at `.cartulary/test-results/20260612T165842Z-p98965`, where `FE-U-P9-01` has `closure_status=closed`, exact scenario title `FE-U-P9-01 Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh.`, no blocker, and registry digest `67b4a64336a1fc5d34b38612e81126f8b6239a80e0248075727f524a57ebfc08`; `make frontend-typecheck` passed at `.cartulary/test-results/20260612T165922Z-p929`.
+
 ### Sprint 3: History And Rollback Integration
 
 Objective: close `FE-I-P9-01` only after history and rollback preview/action use public route contracts and public envelopes.
@@ -365,6 +364,8 @@ make frontend-import-boundary-check
 ```
 
 Closure requires current row accounting from mapped targets with row `FE-I-P9-01`, current digests, pass status, exact scenario title, public route evidence, and no row blocker.
+
+Sprint 3 status on 2026-06-12: implemented rollback preview/action plumbing through public route envelopes, stable `history_item_ref`/`history_entry_ref` selectors, `base_row_version`, and `client_txn_id`; rendered public rollback error envelopes for conflict, stale row, authorization denied, invalid target, missing history, and unavailable rollback. Current closure evidence is `make frontend-unit` at `.cartulary/test-results/20260612T165842Z-p98965` and `make browser-e2e-webserver-backed` at `.cartulary/test-results/20260612T165940Z-p1691`, both with `FE-I-P9-01` `closure_status=closed`, no blocker, exact scenario title `FE-I-P9-01 Verify history and rollback preview/action use public route contracts, preserve retained history, and render public error envelopes.`, and registry digest `67b4a64336a1fc5d34b38612e81126f8b6239a80e0248075727f524a57ebfc08`. `make frontend-import-boundary-check` passed at `.cartulary/test-results/20260612T165934Z-p1325`.
 
 ### Sprint 4: Browser E2E For Inspector, Evidence, History, Rollback, And Destructive Actions
 
@@ -390,6 +391,8 @@ make browser-e2e-stateful
 
 Closure requires current row accounting from both mapped targets with row `FE-E-P9-01`, exact scenario title, public route traces, current digests, pass status, `closure_status` `closed`, and no row blocker.
 
+Sprint 4 status on 2026-06-12: implemented browser evidence for Details, Relationships, Evidence, History, rollback preview, delete, restore, authorization denial, public error envelopes, and focus return. Destructive actions confirm, re-check current authorization through public routes, target stable row identity/version, and avoid group, presentation, draft, and stale visible-position targets. Current closure evidence is `make browser-e2e-webserver-backed` at `.cartulary/test-results/20260612T165940Z-p1691` and `make browser-e2e-stateful` at `.cartulary/test-results/20260612T170142Z-p15450`, both with `FE-E-P9-01` `closure_status=closed`, no blocker, exact scenario title `FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rollback, and destructive-action authorization through public browser routes.`, and registry digest `67b4a64336a1fc5d34b38612e81126f8b6239a80e0248075727f524a57ebfc08`.
+
 ### Sprint 5: Visual Readiness
 
 Objective: close `FE-V-P9-01` as design-direction evidence only after visual fixture ownership and current visual row accounting exist.
@@ -411,6 +414,8 @@ make browser-e2e-visual
 
 Closure requires current visual row accounting for `FE-V-P9-01`, exact scenario title, current guide/registry/map digests, fixture ownership, pass status, design-direction closure status, and no stale fixture blocker.
 
+Sprint 5 status on 2026-06-12: `FE-VFIX-01` now explicitly includes FE-P9 ownership in `tools/frontend_visual_fixture_registry.json`, with supporting goldens for inspector Relationships, History, rollback preview, destructive confirmation, and public error states. The visual golden guide now cites the FE-P9 fixture map. Current design-direction closure evidence is `make browser-e2e-visual` at `.cartulary/test-results/20260612T170358Z-p28074`, where `FE-V-P9-01` has `closure_status=closed`, no blocker, exact scenario title `FE-V-P9-01 Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.`, and registry digest `67b4a64336a1fc5d34b38612e81126f8b6239a80e0248075727f524a57ebfc08`. This is not product-conformance evidence.
+
 ### Sprint 6: Accessibility Readiness
 
 Objective: close `FE-A11Y-P9-01` as design-direction evidence only after map-authorized accessibility evidence exists.
@@ -431,6 +436,8 @@ make browser-e2e-a11y-preflight
 ```
 
 If the FE-P9 map changes to a full accessibility target, use that mapped target and record the owner input. Closure requires current row-owned accessibility evidence with row `FE-A11Y-P9-01`, exact scenario title, current digests, pass status, and no row blocker.
+
+Sprint 6 status on 2026-06-12: the FE-P9 map remaps `FE-A11Y-P9-01` to `make browser-e2e-a11y`. Current design-direction closure evidence is `.cartulary/test-results/20260612T170534Z-p39400`, where `FE-A11Y-P9-01` has `closure_status=closed`, no blocker, exact scenario title `FE-A11Y-P9-01 Verify inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors are keyboard reachable and announced.`, and registry digest `67b4a64336a1fc5d34b38612e81126f8b6239a80e0248075727f524a57ebfc08`. This is not product-conformance evidence, and earlier preflight smoke remains non-closing context.
 
 ### Sprint 7: Drift, Full Check, Finalization, And FE-P10 Handoff
 
@@ -454,6 +461,8 @@ make agent-finalize RESULTS_DIR=<successful-full-check-run-root>
 ```
 
 Exit condition: all five FE-P9 rows have current row-owned evidence; FE-P9 registry owner inputs are promoted by the appropriate workflow; generated ledgers agree with owner maps; drift checks pass; full check passes; retained-run finalization passes; FE-P10 handoff lists evidence roots, blockers, and strict non-claims.
+
+Sprint 7 status on 2026-06-12: FE-P9 registry/map/freshness was promoted through owner inputs, generated FE-P9 ledger digest is `dc13f4cd75769b04570a7306fbeba76a270a39596a1de8f92feb67aacd4bc776`, and `tools/frontend_phase_registry.json` digest is `67b4a64336a1fc5d34b38612e81126f8b6239a80e0248075727f524a57ebfc08`. `make phase-ledgers` passed at `.cartulary/test-results/20260612T165451Z-p91427`; `make phase-ledger-drift` at `.cartulary/test-results/20260612T165623Z-p92158`; `make phase-schedule-drift` at `.cartulary/test-results/20260612T165629Z-p92502`; `make generate-drift` at `.cartulary/test-results/20260612T165633Z-p92683`; `make generated-artifact-policy-check` at `.cartulary/test-results/20260612T165641Z-p93548` and again after finalization at `.cartulary/test-results/20260612T171642Z-p9063`; `make json-shape-check` at `.cartulary/test-results/20260612T165647Z-p93739`; `make frontend-typecheck` at `.cartulary/test-results/20260612T165922Z-p929`; `make frontend-import-boundary-check` at `.cartulary/test-results/20260612T165934Z-p1325`; `make check` passed at `.cartulary/test-results/20260612T170650Z-p49228`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260612T170650Z-p49228` passed at `.cartulary/test-results/20260612T170847Z-p4303` and refreshed six generated maintenance files.
 
 ## Validation Commands
 
@@ -540,7 +549,7 @@ Every FE-P9 evidence payload must include:
 | FE-I-P9-01 | `frontend-unit` and `browser-e2e-webserver-backed` row accounting, public route/browser artifacts | Row `FE-I-P9-01`; exact scenario title; public history and rollback route evidence; retained history preservation; public error envelopes; current digests; pass status; closure status. |
 | FE-E-P9-01 | `browser-e2e-webserver-backed` and `browser-e2e-stateful` row accounting, route traces, focus artifacts | Row `FE-E-P9-01`; exact scenario title; Details, Relationships, Evidence, History, rollback, delete, restore, authorization denial, public error envelopes, and focus return through public browser routes; current digests; pass status; closure status. |
 | FE-V-P9-01 | `browser-e2e-visual` row accounting, fixture registry references, screenshots/goldens, target summary | Row `FE-V-P9-01`; exact scenario title; fixture ownership; inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures; current digests; pass status; design-direction closure status. |
-| FE-A11Y-P9-01 | `browser-e2e-a11y-preflight` row accounting under current map, preflight/accessibility summary, target summary | Row `FE-A11Y-P9-01`; exact scenario title; keyboard reachability and announced state for inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors; current digests; pass status; design-direction closure status. |
+| FE-A11Y-P9-01 | `browser-e2e-a11y` row accounting under current map, accessibility summary, target summary | Row `FE-A11Y-P9-01`; exact scenario title; keyboard reachability and announced state for inspector tabs, relationship links, evidence controls, history controls, rollback, destructive actions, and errors; current digests; pass status; design-direction closure status. |
 
 ## Blocker Rules
 
@@ -571,40 +580,34 @@ Current known blockers:
 
 | Affected row | Affected source | Observed condition | Minimum follow-up |
 | --- | --- | --- | --- |
-| All FE-P9 | `tools/frontend_phase_registry.json` | FE-P9 is `planned`, `no_rows_implemented`, with `FE-P9-ACTIVATION-BLOCKER-01`. | Add direct row evidence and promote freshness/registry state through owner workflow. |
-| FE-U-P9-01 | Live FE-P9 map and retained row accounting | Row is blocked; retained `frontend-unit` row accounting contains no FE-P9 rows. | Add FE-U-P9-01 unit scenarios and rerun `make frontend-unit`. |
-| FE-I-P9-01 | Live FE-P9 map and retained row accounting | Row is blocked; retained `frontend-unit` and `browser-e2e-webserver-backed` row accounting contain no FE-P9 rows. | Add row-owned integration/browser evidence and rerun mapped targets. |
-| FE-E-P9-01 | Live FE-P9 map and target explanation | Row is blocked; retained browser accounting contains no FE-P9 rows; `browser-e2e-stateful` explanation omits phase9 coverage. | Add row-owned webserver-backed and stateful evidence; rely on current FE-P9 row accounting. |
-| FE-V-P9-01 | `tools/frontend_visual_fixture_registry.json` | No FE-P9-owned fixture entry inspected. | Add or confirm fixture ownership, recapture visual evidence, and rerun `make browser-e2e-visual`. |
-| FE-A11Y-P9-01 | `.cartulary/test-results/20260612T045159Z-p12967` | Preflight scenario passed, but row remains blocked and target has no `frontend-row-accounting.json`. | Produce current map-authorized row accounting or update owner map through the appropriate workflow. |
+| All FE-P9 | `tools/frontend_phase_registry.json` | None. FE-P9 is `active`, `active_green`, and has no activation blockers. | None. |
+| FE-U-P9-01 | `.cartulary/test-results/20260612T165842Z-p98965/frontend-unit/frontend-row-accounting.json` | None. Current mapped row-owned evidence has `closure_status=closed`, exact scenario title, current registry digest, and no blocker. | None. |
+| FE-I-P9-01 | `.cartulary/test-results/20260612T165842Z-p98965/frontend-unit/frontend-row-accounting.json`; `.cartulary/test-results/20260612T165940Z-p1691/browser-e2e-webserver-backed/frontend-row-accounting.json` | None. Current mapped row-owned evidence has `closure_status=closed`, exact scenario title, current registry digest, public route coverage, and no blocker. | None. |
+| FE-E-P9-01 | `.cartulary/test-results/20260612T165940Z-p1691/browser-e2e-webserver-backed/frontend-row-accounting.json`; `.cartulary/test-results/20260612T170142Z-p15450/browser-e2e-stateful/frontend-row-accounting.json` | None. Current mapped row-owned evidence has `closure_status=closed`, exact scenario title, current registry digest, public route/focus coverage, and no blocker. | None. |
+| FE-V-P9-01 | `.cartulary/test-results/20260612T170358Z-p28074/browser-e2e-visual/frontend-row-accounting.json`; `tools/frontend_visual_fixture_registry.json` | None. Current visual readiness evidence has design-direction `closure_status=closed`, exact scenario title, current registry digest, explicit `FE-VFIX-01` ownership, and no blocker. | None. |
+| FE-A11Y-P9-01 | `.cartulary/test-results/20260612T170534Z-p39400/browser-e2e-a11y/frontend-row-accounting.json` | None. Current accessibility readiness evidence has design-direction `closure_status=closed`, exact scenario title, current registry digest, and no blocker. | None. |
 | All FE-P9 | Core 05 boundary | No explicit FE-P9 claim-bearing metadata inspected. | Add Core 05-compliant claim metadata only if publication evidence becomes in scope. |
 
 ## Strict Non-Claims
 
 This plan does not claim:
 
-1. FE-P9 completion by document creation.
-2. Any FE-P9 row closure.
-3. Any FE-P9 row closure from generated ledgers.
-4. Any FE-P9 row closure from prior phase plans.
-5. Any FE-P9 row closure from old retained artifacts.
-6. Any FE-P9 row closure from broad `make check`.
-7. Any FE-P9 row closure from target explanations.
-8. Any FE-P9 row closure from screenshots or fixture status alone.
-9. Product conformance from visual evidence.
-10. Product conformance from accessibility evidence.
-11. Claim-publication readiness or Core 05 readiness.
-12. Benchmark readiness.
-13. Fixture-sensitive publication readiness.
-14. Visual-publication readiness.
-15. Coordination workbook surfaces beyond relationships.
-16. WebSocket live updates.
-17. Inspector behavior keyed by visible row index, DOM order, labels, or vendor coordinates.
-18. Rollback readiness without current public route evidence.
-19. Evidence readiness without stable evidence IDs and public contract evidence.
-20. Destructive action readiness without confirmation, authorization re-check, base row version, and public error envelopes.
-21. `react-data-grid` import permission outside `/packages/grid-adapter`.
-22. Any behavior not mapped to FE-P9 rows.
+1. FE-P9 completion by document creation, generated ledgers, target explanations, broad `make check`, fixture status, screenshots, or old retained artifacts.
+2. Product conformance from visual evidence.
+3. Product conformance from accessibility evidence.
+4. Claim-publication readiness or Core 05 readiness.
+5. Benchmark readiness.
+6. Fixture-sensitive publication readiness.
+7. Visual-publication readiness.
+8. Coordination workbook surfaces beyond FE-P9 relationship/inspector scope.
+9. WebSocket live updates.
+10. Inspector behavior keyed by visible row index, DOM order, labels, or vendor coordinates.
+11. Rollback readiness without current public route evidence.
+12. Evidence readiness without stable evidence IDs and public contract evidence.
+13. Destructive action readiness without confirmation, authorization re-check, base row version, and public error envelopes.
+14. `react-data-grid` import permission outside `/packages/grid-adapter`.
+15. Any behavior not mapped to FE-P9 rows.
+16. Earlier Sprint 2 unit/typecheck support evidence as row closure before FE-P9 map/registry/freshness promotion; only the current mapped row-accounting roots listed in this tracker close FE-P9 rows.
 
 ## Binary Exit Criteria
 
@@ -621,38 +624,38 @@ This plan does not claim:
 | 9. Full FE-P9 phase completion | Registry owner workflow promotes FE-P9 from `planned` to active/green, all five rows close under current map authority, ledgers are regenerated by Make, drift checks pass, full check passes, and retained-run finalization passes. | Any row remains blocked, registry/map/ledger freshness fails, generated-ledger drift exists, or retained evidence is stale/missing. |
 | 10. FE-P10 handoff readiness | Handoff lists final FE-P9 registry status, row inventory, direct evidence roots, drift/finalization outcomes, strict non-claims, and blockers for any unclosed rows. | Handoff treats FE-P9 plan text or earlier phase evidence as FE-P9 closure, omits blockers, or lacks direct evidence roots. |
 
-Current status at plan creation:
+Current closeout status:
 
 | Criterion | Current status |
 | --- | --- |
-| 1. Plan creation | In progress for this authored Markdown task. |
-| 2. Product row closure | Blocked. No FE-P9 product row-owned evidence exists in retained row accounting. |
-| 3. Inspector identity | Blocked until FE-U-P9-01 evidence exists. |
-| 4. History and rollback | Blocked until FE-I-P9-01 and FE-E-P9-01 evidence exists. |
-| 5. Destructive actions | Blocked until FE-E-P9-01 evidence exists. |
-| 6. Evidence and relationships | Blocked until FE-U-P9-01 and FE-E-P9-01 evidence exists. |
-| 7. Visual readiness | Blocked. No FE-P9-owned fixture entry was inspected. |
-| 8. Accessibility readiness | Blocked. Preflight smoke exists but no row accounting exists. |
-| 9. Full FE-P9 phase completion | Blocked. FE-P9 is `planned`, `no_rows_implemented`. |
-| 10. FE-P10 handoff readiness | Blocked until FE-P9 rows close or blockers are owner-accepted. |
+| 1. Plan creation | Complete; this file is retained as live tracker and handoff. |
+| 2. Product row closure | Complete for `FE-U-P9-01`, `FE-I-P9-01`, and `FE-E-P9-01` from current mapped row-owned evidence only. |
+| 3. Inspector identity | Complete; unit evidence proves `record_id`-keyed inspector state and stable relationship/evidence/history anchors across refresh/reorder. |
+| 4. History and rollback | Complete; unit and public-route browser evidence covers preview/action contracts, stable history identity, retained history, and public errors. |
+| 5. Destructive actions | Complete; browser evidence covers confirmation, current authorization re-check, stable identity/version targeting, public envelopes, and focus return. |
+| 6. Evidence and relationships | Complete for FE-P9 scope; controls use stable IDs and current row evidence. |
+| 7. Visual readiness | Complete as design-direction readiness only; `FE-VFIX-01` owns FE-P9 supporting artifacts. |
+| 8. Accessibility readiness | Complete as design-direction readiness only from `make browser-e2e-a11y`; preflight remains smoke context. |
+| 9. Full FE-P9 phase completion | Complete; FE-P9 is `active`, `active_green`, with no activation blockers, current freshness, generated ledger agreement, full check pass, and finalization pass. |
+| 10. FE-P10 handoff readiness | Complete; final FE-P9 evidence roots, blockers, digests, non-claims, and finalization outcome are listed below. |
 
 ## FE-P10 Handoff
 
-FE-P10 must receive FE-P9 status as dependency context only. Until FE-P9 is implemented and closed, the FE-P10 handoff is:
+FE-P10 must receive FE-P9 status as dependency context only. FE-P9 is implemented and closed for its mapped rows; FE-P10 still requires its own owner map and row accounting.
 
 | Handoff field | Current FE-P9 value |
 | --- | --- |
-| Registry status | `planned`. |
-| Row rollup | `no_rows_implemented`. |
-| Activation blocker | `FE-P9-ACTIVATION-BLOCKER-01` remains active. |
-| Product rows | Blocked: `FE-U-P9-01`, `FE-I-P9-01`, `FE-E-P9-01`. |
-| Design-direction rows | Blocked: `FE-V-P9-01`, `FE-A11Y-P9-01`. |
-| Direct FE-P9 evidence roots | None. Retained artifacts inspected contain no FE-P9 row-owned closure evidence. |
-| Visual fixture status | No FE-P9-owned fixture entry inspected. |
-| Accessibility status | Preflight smoke exists at `.cartulary/test-results/20260612T045159Z-p12967`, but it does not close `FE-A11Y-P9-01`. |
-| Full check context | `.cartulary/test-results/20260612T124559Z-p85431` passed, but it does not close FE-P9 rows. |
-| Finalization context | `.cartulary/test-results/20260612T125604Z-p81938` passed for retained run `.cartulary/test-results/20260612T124559Z-p85431`, but it does not close FE-P9 rows. |
+| Registry status | `active`; registry digest `67b4a64336a1fc5d34b38612e81126f8b6239a80e0248075727f524a57ebfc08`. |
+| Row rollup | `active_green`; FE-P9 map digest `76ca65273a3b2fb9bb7ced008d3a99568821cc478220d4d231c2ddc9515a1cca`; FE-P9 ledger digest `dc13f4cd75769b04570a7306fbeba76a270a39596a1de8f92feb67aacd4bc776`. |
+| Activation blocker | None. |
+| Product rows | Closed from current mapped row-owned evidence: `FE-U-P9-01`, `FE-I-P9-01`, `FE-E-P9-01`. |
+| Design-direction rows | Closed as design-direction readiness only: `FE-V-P9-01`, `FE-A11Y-P9-01`. |
+| Direct FE-P9 evidence roots | `frontend-unit`: `.cartulary/test-results/20260612T165842Z-p98965`; `frontend-typecheck`: `.cartulary/test-results/20260612T165922Z-p929`; `frontend-import-boundary-check`: `.cartulary/test-results/20260612T165934Z-p1325`; `browser-e2e-webserver-backed`: `.cartulary/test-results/20260612T165940Z-p1691`; `browser-e2e-stateful`: `.cartulary/test-results/20260612T170142Z-p15450`; `browser-e2e-visual`: `.cartulary/test-results/20260612T170358Z-p28074`; `browser-e2e-a11y`: `.cartulary/test-results/20260612T170534Z-p39400`. |
+| Visual fixture status | `FE-VFIX-01` explicitly owns FE-P9 supporting artifacts in `tools/frontend_visual_fixture_registry.json`; visual readiness remains design-direction only. |
+| Accessibility status | Full `make browser-e2e-a11y` row accounting closes `FE-A11Y-P9-01` as design-direction readiness; preflight remains smoke context only. |
+| Full check context | `.cartulary/test-results/20260612T170650Z-p49228` passed with 145/145 work units and 797 tests; broad check remains supporting validation, not direct row closure. |
+| Finalization context | `.cartulary/test-results/20260612T170847Z-p4303` passed for retained run `.cartulary/test-results/20260612T170650Z-p49228`; it refreshed six generated maintenance files. |
 | Strict non-claims | No visual/product promotion, no accessibility/product promotion, no Core 05 publication, no benchmark claim, no fixture-sensitive publication claim, no visual-publication claim, no WebSocket live-update claim, and no FE-P10 implementation claim. |
-| Minimum FE-P10 handoff requirement after FE-P9 implementation | Record final FE-P9 registry state, direct row evidence roots, final digest set, drift/finalization results, visual/accessibility design-only boundaries, unresolved blockers, and strict non-claims. |
+| Minimum FE-P10 handoff requirement after FE-P9 implementation | Satisfied here for FE-P9 dependency context; FE-P10 must still generate its own direct row evidence and finalization. |
 
 FE-P10 must use its own owner map, row accounting, and retained-run finalization. FE-P9 plan text, generated ledgers, and retained health artifacts must not be imported as FE-P10 closure evidence.

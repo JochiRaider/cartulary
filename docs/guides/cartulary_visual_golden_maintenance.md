@@ -32,7 +32,7 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 
 | Fixture ID | Fixture title | Intended phase | Required surface state | Required scroll normalization | Status |
 | --- | --- | --- | --- | --- | --- |
-| `FE-VFIX-01` | Default Timeline workbook shell | `FE-P2` | App-owned workbook shell root with top bar, compact view bar, compact Timeline grid, row gutter, header affordances, row-context inspector, status strip, Core 01 default Timeline fields, selected row context, focused Summary cell, and no admin/control card stack above the active grid. | Top-left outer and grid scroll; viewport `1440x900` unless the fixture row states otherwise. | `current` |
+| `FE-VFIX-01` | Default Timeline workbook shell | `FE-P2`, `FE-P9` | App-owned workbook shell root with top bar, compact view bar, compact Timeline grid, row gutter, header affordances, row-context inspector, status strip, Core 01 default Timeline fields, selected row context, focused Summary cell, and no admin/control card stack above the active grid. FE-P9 supporting artifacts extend the row-context inspector state to history, rollback preview, destructive confirmation, and public error fixtures. | Top-left outer and grid scroll; viewport `1440x900` unless the fixture row states otherwise. | `current` |
 | `FE-VFIX-02` | Mention chip state matrix | `FE-P5` | Timeline relationship chips and inspector mention state render unresolved, resolved, auto-resolved, dismissed, and manual-resolution variants together. | Top-left grid scroll; incident and generated record identifiers masked. | `current` |
 | `FE-VFIX-03` | Same-field conflict | `FE-P7` | Conflict strip or resolver shows same-field conflict state and recovery affordance. | Top-left grid scroll or conflict row anchor. | `current` |
 | `FE-VFIX-04` | Row-gutter presence | `FE-P7` | Row gutter or presence marker is visible and anchored to the intended row. | Presence row anchor; dynamic actor labels masked where needed. | `current` |
@@ -146,6 +146,16 @@ passing visual evidence is context only after a newer visual audit fails.
 | Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
 | --- | --- | --- | --- | --- | --- | --- |
 | `FE-V-P7-01` | `tools/frontend_phase_maps/fe_p7_test_map.json` | `FE-VFIX-03`, `FE-VFIX-04`, `FE-VFIX-08` | Deterministic workbook incidents for a remote Timeline presence row, same-field conflict resolver state with queued replay, conflict and recovered save-state strips, and a delete/restore invalidate refresh strip. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and dynamic actor connection data masked by visual preparation; remote actor initials remain deterministic. | Grid capture `fe-v-p7-01-presence-markers`; viewport capture `fe-v-p7-01-conflict-resolver`; status-strip captures `fe-v-p7-01-conflict-strip`, `fe-v-p7-01-recovered-saved-strip`, and `fe-v-p7-01-reset-invalidate-notice`. |
+
+### Current FE-P9 visual readiness fixture citation map
+
+The FE-P9 visual readiness fixture uses deterministic app-owned Timeline and
+Evidence workbook state. It is design-direction evidence only and does not
+create product conformance or Core 05 claim-publication evidence.
+
+| Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
+| --- | --- | --- | --- | --- | --- | --- |
+| `FE-V-P9-01` | `tools/frontend_phase_maps/fe_p9_test_map.json` | `FE-VFIX-01` | Deterministic workbook incident with one Timeline row linked to one Evidence row, an unresolved host relationship token, retained row history, rollback preview, destructive confirmation, and a public rollback error envelope. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers, history references, and clock-derived labels masked by visual preparation. | Fixed viewport captures `fe-v-p9-01-inspector-relationships`, `fe-v-p9-01-inspector-history`, `fe-v-p9-01-rollback-preview`, `fe-v-p9-01-destructive-confirmation`, and `fe-v-p9-01-public-error`. |
 
 ### Current exposed-theme fixture citation map
 

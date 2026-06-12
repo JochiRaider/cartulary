@@ -45,6 +45,13 @@ export const rowHistoryRollbackActions = [
   "row_restore",
 ] as const satisfies readonly RowHistoryRollbackAction[];
 
+export type RowHistoryDestructiveOperation = "delete" | "restore";
+
+export const rowHistoryDestructiveOperations = [
+  "delete",
+  "restore",
+] as const satisfies readonly RowHistoryDestructiveOperation[];
+
 export type TimelineScalarEditorSurface = "grid" | "inspector";
 
 export const timelineScalarEditorSurfaces = [
@@ -207,6 +214,10 @@ export type RowHistoryItemAnchor = {
 
 export type RowHistoryActionAnchor = RowHistoryItemAnchor & {
   readonly action: RowHistoryRollbackAction;
+};
+
+export type RowHistoryDestructiveAnchor = {
+  readonly operation: RowHistoryDestructiveOperation;
 };
 
 const registeredViewSchemaIds = Object.freeze(
@@ -785,6 +796,24 @@ export function rowHistoryRestoreButtonTestId(): string {
   return "row-history-restore";
 }
 
+export function rowHistoryDestructiveConfirmPanelTestId(
+  anchor: RowHistoryDestructiveAnchor,
+): string {
+  return `row-history-destructive-confirm-${requireRowHistoryDestructiveOperation(anchor.operation)}`;
+}
+
+export function rowHistoryDestructiveConfirmButtonTestId(
+  anchor: RowHistoryDestructiveAnchor,
+): string {
+  return `${rowHistoryDestructiveConfirmPanelTestId(anchor)}-confirm`;
+}
+
+export function rowHistoryDestructiveCancelButtonTestId(
+  anchor: RowHistoryDestructiveAnchor,
+): string {
+  return `${rowHistoryDestructiveConfirmPanelTestId(anchor)}-cancel`;
+}
+
 export function rowHistoryItemTestId(anchor: RowHistoryItemAnchor): string {
   return `row-history-item-${encodeSelectorSegment(
     rowHistoryItemIdentity(anchor),
@@ -798,6 +827,28 @@ export function rowHistoryActionTestId(anchor: RowHistoryActionAnchor): string {
     rowHistoryActionIdentity(anchor),
     "row history action identity",
   )}-${action}`;
+}
+
+export function rowHistoryRollbackPreviewTestId(
+  anchor: RowHistoryActionAnchor,
+): string {
+  const action = requireRowHistoryRollbackAction(anchor.action);
+  return `row-history-rollback-preview-${encodeSelectorSegment(
+    rowHistoryActionIdentity(anchor),
+    "row history action identity",
+  )}-${action}`;
+}
+
+export function rowHistoryRollbackConfirmButtonTestId(
+  anchor: RowHistoryActionAnchor,
+): string {
+  return `${rowHistoryRollbackPreviewTestId(anchor)}-confirm`;
+}
+
+export function rowHistoryRollbackCancelButtonTestId(
+  anchor: RowHistoryActionAnchor,
+): string {
+  return `${rowHistoryRollbackPreviewTestId(anchor)}-cancel`;
 }
 
 export function draftCellTestId(fieldKey: string): string {
@@ -1371,6 +1422,15 @@ function requireRowHistoryRollbackAction(
     return value;
   }
   throw new Error(`Invalid row history rollback action token: ${value}`);
+}
+
+function requireRowHistoryDestructiveOperation(
+  value: string,
+): RowHistoryDestructiveOperation {
+  if (value === "delete" || value === "restore") {
+    return value;
+  }
+  throw new Error(`Invalid row history destructive operation token: ${value}`);
 }
 
 function rowHistoryItemIdentity(anchor: RowHistoryItemAnchor): string {
