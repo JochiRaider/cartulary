@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import {
   applyFilterChip,
   assertActiveFilterChipVisible,
@@ -125,6 +126,117 @@ type ViewRow = {
   row_version: number;
   cells: Record<string, unknown>;
 };
+
+type FrontendVisualFixture = {
+  blocked_reason: string;
+  browser_zoom_percent: number;
+  capture_scope: { kind: string; selector?: string };
+  density_id: string;
+  device_scale_factor: number;
+  dynamic_masks: string[];
+  fixture_id: string;
+  fixture_title: string;
+  focus_state: Record<string, unknown>;
+  editor_state: Record<string, unknown>;
+  golden_artifacts: string[];
+  golden_filename: string;
+  inspector_state: Record<string, unknown>;
+  no_dynamic_regions: boolean;
+  owner_phase_ids: string[];
+  owner_row_ids: string[];
+  playwright_scenario_title: string;
+  replacement_fixture_id: string;
+  scroll_normalization: { kind: string; anchor?: string; reason?: string };
+  seed_id: string;
+  status: string;
+  theme_id: string;
+  viewport_css_px: string;
+};
+
+type FrontendVisualFixtureRegistry = {
+  fixtures: FrontendVisualFixture[];
+  guide_path: string;
+  schema_id: string;
+};
+
+const expectedFeP11VisualFixtureIds = Array.from(
+  { length: 15 },
+  (_, index) => `FE-VFIX-${String(index + 1).padStart(2, "0")}`,
+);
+
+function findRepoRoot(): string {
+  let candidate = process.cwd();
+  while (true) {
+    if (
+      existsSync(
+        path.join(candidate, "tools", "frontend_visual_fixture_registry.json"),
+      )
+    ) {
+      return candidate;
+    }
+    const parent = path.dirname(candidate);
+    if (parent === candidate) {
+      throw new Error(
+        "could not find tools/frontend_visual_fixture_registry.json",
+      );
+    }
+    candidate = parent;
+  }
+}
+
+function repoPath(relativePath: string): string {
+  return path.join(findRepoRoot(), relativePath);
+}
+
+function loadFrontendVisualFixtureRegistry(): FrontendVisualFixtureRegistry {
+  return JSON.parse(
+    readFileSync(
+      repoPath("tools/frontend_visual_fixture_registry.json"),
+      "utf8",
+    ),
+  ) as FrontendVisualFixtureRegistry;
+}
+
+function frontendVisualFixtureRegistryDigest(): string {
+  return createHash("sha256")
+    .update(
+      readFileSync(repoPath("tools/frontend_visual_fixture_registry.json")),
+    )
+    .digest("hex");
+}
+
+function expectCurrentFrontendVisualFixtureMetadata(
+  fixture: FrontendVisualFixture,
+) {
+  expect(fixture.status).toBe("current");
+  expect(fixture.fixture_title.length).toBeGreaterThan(0);
+  expect(fixture.owner_phase_ids.length).toBeGreaterThan(0);
+  expect(fixture.owner_row_ids.length).toBeGreaterThan(0);
+  expect(fixture.playwright_scenario_title.length).toBeGreaterThan(0);
+  expect(fixture.seed_id.length).toBeGreaterThan(0);
+  expect(fixture.viewport_css_px).toMatch(/^[0-9]+x[0-9]+$/);
+  expect(fixture.device_scale_factor).toBeGreaterThanOrEqual(1);
+  expect(fixture.browser_zoom_percent).toBe(100);
+  expect(fixture.theme_id).toBe("dark_graphite");
+  expect(fixture.density_id.length).toBeGreaterThan(0);
+  expect(fixture.capture_scope.kind).toMatch(
+    /^(full_viewport|selector|region)$/,
+  );
+  expect(fixture.scroll_normalization.kind.length).toBeGreaterThan(0);
+  expect(Array.isArray(fixture.dynamic_masks)).toBeTruthy();
+  if (fixture.no_dynamic_regions) {
+    expect(fixture.dynamic_masks).toEqual([]);
+  }
+  expect(fixture.blocked_reason).toBe("");
+  expect(fixture.replacement_fixture_id).toBe("");
+  for (const artifact of fixture.golden_artifacts) {
+    expect(
+      existsSync(repoPath(artifact)),
+      `${artifact} should exist`,
+    ).toBeTruthy();
+  }
+  expect(fixture.golden_artifacts).toContain(fixture.golden_filename);
+}
 
 type FeP9VisualHistoryItem = {
   available_rollback_actions: Array<
@@ -2661,6 +2773,100 @@ test.describe("FE-P10 workbook visual readiness", () => {
 });
 
 test.describe("FE-P11 visual readiness", () => {
+  test("FE-V-P11-01 Run the owned-stack Playwright visual suite with deterministic seed data, viewport, zoom, fixture ordering, dynamic masks, scroll anchors, focus/editor state, inspector state, and post-scroll settle behavior.", async ({
+    browserName: _browserName,
+  }, testInfo) => {
+    const registry = loadFrontendVisualFixtureRegistry();
+    expect(registry.schema_id).toBe(
+      "cartulary.frontend_visual_fixture_registry.v2",
+    );
+    expect(registry.guide_path).toBe(
+      "docs/guides/cartulary_frontend_implementation_testing_guide.md",
+    );
+    expect(registry.fixtures.map((fixture) => fixture.fixture_id)).toEqual(
+      expectedFeP11VisualFixtureIds,
+    );
+    for (const fixture of registry.fixtures) {
+      expectCurrentFrontendVisualFixtureMetadata(fixture);
+    }
+
+    await testInfo.attach("fe-v-p11-01-owned-stack-visual-suite.json", {
+      body: Buffer.from(
+        JSON.stringify(
+          {
+            dynamic_masked_fixture_count: registry.fixtures.filter(
+              (fixture) => !fixture.no_dynamic_regions,
+            ).length,
+            fixture_count: registry.fixtures.length,
+            fixture_ids: registry.fixtures.map((fixture) => fixture.fixture_id),
+            registry_sha256: frontendVisualFixtureRegistryDigest(),
+            scroll_anchor_fixture_count: registry.fixtures.filter(
+              (fixture) => fixture.scroll_normalization.anchor,
+            ).length,
+            selector_fixture_ids: registry.fixtures
+              .filter((fixture) => fixture.capture_scope.kind === "selector")
+              .map((fixture) => fixture.fixture_id),
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      ),
+      contentType: "application/json",
+    });
+  });
+
+  test("FE-V-P11-02 Ensure the visual fixture matrix includes default Timeline workbook shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query.", async ({
+    browserName: _browserName,
+  }, testInfo) => {
+    const registry = loadFrontendVisualFixtureRegistry();
+    const fixturesById = new Map(
+      registry.fixtures.map((fixture) => [fixture.fixture_id, fixture]),
+    );
+    expect([...fixturesById.keys()]).toEqual(expectedFeP11VisualFixtureIds);
+
+    const defaultShell = fixturesById.get("FE-VFIX-01");
+    expect(defaultShell?.fixture_title).toBe("Default Timeline workbook shell");
+    expect(defaultShell?.capture_scope.kind).toBe("full_viewport");
+    expect(defaultShell?.owner_row_ids).not.toContain("FE-V-P11-03");
+
+    const exposedTheme = fixturesById.get("FE-VFIX-14");
+    expect(exposedTheme?.fixture_title).toBe("Exposed theme states");
+    expect(exposedTheme?.owner_phase_ids).toEqual(["FE-P11"]);
+    expect(exposedTheme?.owner_row_ids).toEqual(["FE-V-P11-03"]);
+    expect(exposedTheme?.capture_scope).toEqual({
+      kind: "selector",
+      selector: "[data-design-fixture='exposed-theme']",
+    });
+    expect(exposedTheme?.scroll_normalization.kind).toBe("not_applicable");
+    expect(exposedTheme?.viewport_css_px).toBe("1280x720");
+    expect(exposedTheme?.dynamic_masks).toEqual([]);
+    expect(exposedTheme?.no_dynamic_regions).toBe(true);
+
+    await testInfo.attach("fe-v-p11-02-visual-fixture-matrix.json", {
+      body: Buffer.from(
+        JSON.stringify(
+          {
+            fixture_ids: expectedFeP11VisualFixtureIds,
+            matrix_titles: expectedFeP11VisualFixtureIds.map(
+              (fixtureId) => fixturesById.get(fixtureId)?.fixture_title,
+            ),
+            non_claim_boundaries: [
+              "FE-VFIX-14 does not satisfy FE-VFIX-01",
+              "current fixture metadata does not close FE-P11 without row accounting",
+              "visual evidence remains non-publication evidence",
+            ],
+            registry_sha256: frontendVisualFixtureRegistryDigest(),
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      ),
+      contentType: "application/json",
+    });
+  });
+
   test("FE-V-P11-03 Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.", async ({
     page,
   }) => {

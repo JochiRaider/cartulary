@@ -128,6 +128,18 @@
       "rationale": "Legacy service-ref spellings remain only as opaque fixture strings in configuration tests."
     },
     {
+      "id": "frontend-raw-storage-leakage-guards",
+      "path_globs": [
+        "apps/web/e2e/phase6.evidence-integration.spec.ts",
+        "apps/web/src/WorkbookShell.surfaces.test.tsx",
+        "apps/web/src/WorkbookShell.tsx"
+      ],
+      "line_regex": "m[i]nio",
+      "classification": "legacy_external_endpoint",
+      "owner": "Frontend raw-storage leakage guards",
+      "rationale": "Legacy endpoint literals are retained only as negative redaction and raw-storage leakage sentinels, not as default runtime service references."
+    },
+    {
       "id": "historical-spec-appendices",
       "path_globs": [
         "docs/spec/A_*",

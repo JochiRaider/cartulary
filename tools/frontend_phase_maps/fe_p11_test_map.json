@@ -3,7 +3,7 @@
   "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P11",
-  "guide_digest": "e90d682716cd4f65f18c0c8cea43456bff13da2a9726093273fb29ff0f87aea7",
+  "guide_digest": "34204e465076fd9ae9a33e857d46e440981af6574b45915954923bd51f621d67",
   "rows": [
     {
       "id": "FE-V-P11-01",
@@ -43,7 +43,7 @@
           "target_name": "browser-e2e-visual",
           "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         }
@@ -51,11 +51,11 @@
       "scenario_titles": [
         "FE-V-P11-01 Run the owned-stack Playwright visual suite with deterministic seed data, viewport, zoom, fixture ordering, dynamic masks, scroll anchors, focus/editor state, inspector state, and post-scroll settle behavior."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Run the owned-stack Playwright visual suite with deterministic seed data, viewport, zoom, fixture ordering, dynamic masks, scroll anchors, focus/editor state, inspector state, and post-scroll settle behavior.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
@@ -68,14 +68,7 @@
       "evidence_delta": "support evidence is explicit-only",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P11",
-      "blockers": [
-        {
-          "blocker_id": "FE-V-P11-01-BLOCKER-01",
-          "reason_code": "visual_fixture_not_recaptured_for_frontend_row",
-          "description": "Visual fixture is planned but direct frontend row-accounting evidence has not been recaptured under the closed fixture registry.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-V-P11-02",
@@ -114,7 +107,7 @@
           "target_name": "browser-e2e-visual",
           "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         }
@@ -122,11 +115,11 @@
       "scenario_titles": [
         "FE-V-P11-02 Ensure the visual fixture matrix includes default Timeline workbook shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Ensure the visual fixture matrix includes default Timeline workbook shell, unresolved/resolved entity state, same-field conflict, row-gutter presence, evidence affordance, grouped result, Task Requests or Decisions, save-state strip, frozen column, resize handle, fill-down handle, edit cell, group outline row, exposed theme states, and empty successful query.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
@@ -139,14 +132,7 @@
       "evidence_delta": "support evidence is explicit-only",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P11",
-      "blockers": [
-        {
-          "blocker_id": "FE-V-P11-02-BLOCKER-01",
-          "reason_code": "visual_fixture_not_recaptured_for_frontend_row",
-          "description": "Visual fixture is planned but direct frontend row-accounting evidence has not been recaptured under the closed fixture registry.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-V-P11-03",
@@ -257,7 +243,7 @@
           "target_name": "browser-e2e-a11y-preflight",
           "command_id": "cartulary.harness.command.browser_e2e_a11y_preflight.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": true
         }
@@ -265,11 +251,11 @@
       "scenario_titles": [
         "FE-A11Y-P11-01 Verify global accessibility matrix for keyboard access, visible focus, System views, grid navigation/edit entry/exit, Esc, ARIA states, icon-only labels, contrast, and non-color-only empty/loading/error/blocked states."
       ],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify global accessibility matrix for keyboard access, visible focus, System views, grid navigation/edit entry/exit, Esc, ARIA states, icon-only labels, contrast, and non-color-only empty/loading/error/blocked states.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "scenario"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
@@ -282,14 +268,7 @@
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P11",
-      "blockers": [
-        {
-          "blocker_id": "FE-A11Y-P11-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-S-P11-01",
@@ -336,7 +315,7 @@
           "target_name": "frontend-unit",
           "command_id": "cartulary.harness.command.frontend_unit.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": false
         },
@@ -398,11 +377,11 @@
         }
       ],
       "scenario_titles": [],
-      "claim_status": "blocked",
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify frontend type check, unit tests, import-boundary check, Biome lint, generated drift, generated-artifact policy, phase ledger drift, and phase schedule drift are composed into readiness expectations.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "target_level"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
@@ -415,14 +394,7 @@
       "evidence_delta": "support evidence is explicit-only",
       "warm_local_cost_class": "medium",
       "phase_id": "FE-P11",
-      "blockers": [
-        {
-          "blocker_id": "FE-S-P11-01-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-S-P11-02",
@@ -478,19 +450,17 @@
           "target_name": "browser-e2e-a11y",
           "command_id": "cartulary.harness.command.browser_e2e_a11y.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": false
         }
       ],
-      "scenario_titles": [
-        "FE-S-P11-02 Verify frontend release readiness composes build, check, visual readiness, generated drift, frontend phase drift, and accessibility readiness without representing blocked fixtures or planned phases as complete."
-      ],
-      "claim_status": "blocked",
+      "scenario_titles": [],
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify frontend release readiness composes build, check, visual readiness, generated drift, frontend phase drift, and accessibility readiness without representing blocked fixtures or planned phases as complete.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "target_level"
       },
       "out_of_scope": [
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
@@ -503,14 +473,7 @@
       "evidence_delta": "support evidence is explicit-only",
       "warm_local_cost_class": "explicit_heavy",
       "phase_id": "FE-P11",
-      "blockers": [
-        {
-          "blocker_id": "FE-S-P11-02-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     },
     {
       "id": "FE-S-P11-03",
@@ -555,7 +518,7 @@
           "target_name": "browser-e2e-measurement",
           "command_id": "cartulary.harness.command.browser_e2e_measurement.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": false
         },
@@ -563,7 +526,7 @@
           "target_name": "browser-e2e-visual",
           "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
           "evidence_role": "primary",
-          "required_for_closure": false,
+          "required_for_closure": true,
           "frontend_row_accounting_required": true,
           "scenario_title_required": false
         },
@@ -576,14 +539,12 @@
           "scenario_title_required": false
         }
       ],
-      "scenario_titles": [
-        "FE-S-P11-03 Verify visual, responsiveness, and measurement evidence remains implementation-quality evidence unless Core 05 claim-publication requirements are separately satisfied."
-      ],
-      "claim_status": "blocked",
+      "scenario_titles": [],
+      "claim_status": "implemented",
       "claim": {
         "statement": "Verify visual, responsiveness, and measurement evidence remains implementation-quality evidence unless Core 05 claim-publication requirements are separately satisfied.",
         "claim_publication_intent": "none",
-        "closure_scope": "blocked"
+        "closure_scope": "target_level"
       },
       "out_of_scope": [
         "This row does not activate Core 05 unless claim_publication_intent is claim_bearing_publication."
@@ -596,14 +557,7 @@
       "evidence_delta": "claim-publication boundary evidence is explicit-only",
       "warm_local_cost_class": "none",
       "phase_id": "FE-P11",
-      "blockers": [
-        {
-          "blocker_id": "FE-S-P11-03-BLOCKER-01",
-          "reason_code": "frontend_phase_row_not_implemented",
-          "description": "Direct implementation evidence for this planned frontend phase row has not been added.",
-          "resolution_owner": "frontend_phase_owner"
-        }
-      ]
+      "blockers": []
     }
   ]
 }

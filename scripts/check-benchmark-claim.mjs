@@ -10,6 +10,12 @@ const repoRoot = path.resolve(scriptDir, "..");
 
 const benchmarkManifestSchemaID = "cartulary.benchmark_manifest.v1";
 const benchmarkProfileID = "cartulary.perf.desktop_ref.v1";
+const defaultBenchmarkManifestPath = path.join(
+  repoRoot,
+  ".cartulary",
+  "benchmark",
+  "benchmark_manifest.json",
+);
 
 const exactProfileValues = {
   benchmark_manifest_schema_id: benchmarkManifestSchemaID,
@@ -89,6 +95,13 @@ const requiredSecurityControls = [
 
 function main() {
   const manifestPath = resolveManifestPath();
+  if (!existsSync(manifestPath)) {
+    if (manifestPath === defaultBenchmarkManifestPath) {
+      console.log("benchmark claim manifest absent: no claim-bearing benchmark publication requested");
+      return;
+    }
+    throw new Error(`benchmark manifest missing: ${manifestPath}`);
+  }
   const manifest = readJSON(manifestPath);
   const manifestDir = path.dirname(manifestPath);
   const errors = validateBenchmarkManifest(manifest, manifestDir);
@@ -107,12 +120,8 @@ function resolveManifestPath() {
   const configured =
     process.argv[2] ??
     process.env.BENCHMARK_MANIFEST ??
-    path.join(repoRoot, ".cartulary", "benchmark", "benchmark_manifest.json");
-  const absolute = path.isAbsolute(configured) ? configured : path.join(repoRoot, configured);
-  if (!existsSync(absolute)) {
-    throw new Error(`benchmark manifest missing: ${absolute}`);
-  }
-  return absolute;
+    defaultBenchmarkManifestPath;
+  return path.resolve(path.isAbsolute(configured) ? configured : path.join(repoRoot, configured));
 }
 
 function readJSON(file) {

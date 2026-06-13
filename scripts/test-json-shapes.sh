@@ -1109,8 +1109,8 @@ const mutations = {
   "frontend-a11y-summary-blocked-row": (fixture) => {
     fixture.phase_rows[0].claim_status = "blocked";
   },
-  "frontend-a11y-preflight-implemented-row": (fixture) => {
-    fixture.phase_rows[0].claim_status = "implemented";
+  "frontend-a11y-preflight-invalid-claim-status": (fixture) => {
+    fixture.phase_rows[0].claim_status = "stale";
   },
   "frontend-row-accounting-unknown-key": (fixture) => {
     fixture.rows[0].legacy_key = true;
@@ -1380,12 +1380,12 @@ write_valid_frontend_accessibility_preflight_summary "$frontend_a11y_preflight"
 assert_passes "frontend accessibility preflight summary validates exact schema" \
   run_schema_validation cartulary.frontend_accessibility_preflight_summary.v1 "$frontend_a11y_preflight" >/dev/null
 
-frontend_a11y_preflight_implemented="$tmp_dir/frontend-accessibility-preflight-summary-implemented.json"
-write_valid_frontend_accessibility_preflight_summary "$frontend_a11y_preflight_implemented"
-mutate_json_fixture frontend-a11y-preflight-implemented-row "$frontend_a11y_preflight_implemented"
-frontend_a11y_preflight_implemented_output="$(assert_fails "frontend accessibility preflight rejects implemented rows" \
-  run_schema_validation cartulary.frontend_accessibility_preflight_summary.v1 "$frontend_a11y_preflight_implemented")"
-assert_contains "$frontend_a11y_preflight_implemented_output" "must be equal to constant" "frontend accessibility preflight implemented row"
+frontend_a11y_preflight_invalid_status="$tmp_dir/frontend-accessibility-preflight-summary-invalid-status.json"
+write_valid_frontend_accessibility_preflight_summary "$frontend_a11y_preflight_invalid_status"
+mutate_json_fixture frontend-a11y-preflight-invalid-claim-status "$frontend_a11y_preflight_invalid_status"
+frontend_a11y_preflight_invalid_status_output="$(assert_fails "frontend accessibility preflight rejects invalid claim status" \
+  run_schema_validation cartulary.frontend_accessibility_preflight_summary.v1 "$frontend_a11y_preflight_invalid_status")"
+assert_contains "$frontend_a11y_preflight_invalid_status_output" "must be equal to one of the allowed values" "frontend accessibility preflight invalid claim status"
 
 frontend_row_accounting="$tmp_dir/frontend-row-accounting.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting"

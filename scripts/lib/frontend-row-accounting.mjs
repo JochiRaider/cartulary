@@ -522,7 +522,8 @@ function frontendRowClosureStatus(row, targetStatus) {
   if (row.scenarios.length === 0) {
     if (
       row.claim_status === "implemented" &&
-      row.evidence_class === "implementation_support"
+      (row.evidence_class === "implementation_support" ||
+        row.evidence_class === "claim_publication_boundary")
     ) {
       return targetStatus === "pass" ? "closed" : "blocked_by_target";
     }

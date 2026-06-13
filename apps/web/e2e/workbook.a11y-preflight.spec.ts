@@ -8,13 +8,21 @@ import {
   gridGroupRowTestId,
   gridSortHeaderTestId,
   rowCellTestId,
+  rowInspectButtonTestId,
   savedViewCreateButtonTestId,
   savedViewNameInputTestId,
   savedViewSelectorTestId,
   savedViewSetDefaultButtonTestId,
   savedViewSetHomeButtonTestId,
   savedViewStatusTestId,
+  saveStateTestId,
+  surfaceTabTestId,
+  systemViewSwitcherMenuTestId,
+  systemViewSwitcherOptionTestId,
+  systemViewSwitcherTriggerTestId,
+  timelineInspectorSectionTestId,
   timelineRowMarkReviewedButtonTestId,
+  timelineScalarEditorTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
@@ -34,16 +42,97 @@ const timelineViewSchemaId = "cartulary.view.timeline.v1";
 const p8AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P8-01",
 ) as [string];
+const p11AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
+  "FE-A11Y-P11-01",
+) as [string];
 
 if (p8AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
     `FE-A11Y-P8-01 must declare exactly 1 scenario; found ${p8AccessibilityScenarioTitles.length}`,
   );
 }
+if (p11AccessibilityScenarioTitles.length !== 1) {
+  throw new Error(
+    `FE-A11Y-P11-01 must declare exactly 1 scenario; found ${p11AccessibilityScenarioTitles.length}`,
+  );
+}
 
 const focusableSelector =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const blockedScenarioTitles = blockedAccessibilityScenarioTitles();
+const indicatorsViewSchemaId = "cartulary.view.indicators.v1";
+
+type Rgb = {
+  b: number;
+  g: number;
+  r: number;
+};
+
+function parseRgb(value: string): Rgb {
+  const match = value.match(
+    /rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)/,
+  );
+  if (!match) {
+    throw new Error(`unsupported color value ${value}`);
+  }
+  return {
+    r: Number(match[1]),
+    g: Number(match[2]),
+    b: Number(match[3]),
+  };
+}
+
+function channelLuminance(channel: number): number {
+  const value = channel / 255;
+  return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+}
+
+function relativeLuminance(color: Rgb): number {
+  return (
+    0.2126 * channelLuminance(color.r) +
+    0.7152 * channelLuminance(color.g) +
+    0.0722 * channelLuminance(color.b)
+  );
+}
+
+function contrastRatio(foreground: Rgb, background: Rgb): number {
+  const lighter = Math.max(
+    relativeLuminance(foreground),
+    relativeLuminance(background),
+  );
+  const darker = Math.min(
+    relativeLuminance(foreground),
+    relativeLuminance(background),
+  );
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+async function expectTextContrast(locator: Locator) {
+  const colors = await locator.evaluate((element) => {
+    function isTransparent(value: string): boolean {
+      return (
+        value === "transparent" ||
+        value === "rgba(0, 0, 0, 0)" ||
+        /rgba\([^)]*,\s*0(?:\.0+)?\)$/.test(value)
+      );
+    }
+
+    const style = window.getComputedStyle(element);
+    let background = style.backgroundColor;
+    let candidate = element.parentElement;
+    while (isTransparent(background) && candidate) {
+      background = window.getComputedStyle(candidate).backgroundColor;
+      candidate = candidate.parentElement;
+    }
+    return {
+      background,
+      color: style.color,
+    };
+  });
+  expect(
+    contrastRatio(parseRgb(colors.color), parseRgb(colors.background)),
+  ).toBeGreaterThanOrEqual(4.5);
+}
 
 async function expectLaterPhaseSmoke(page: Page) {
   const focusableCount = await page.locator(focusableSelector).count();
@@ -210,6 +299,125 @@ test.describe("FE-P8 accessibility preflight", () => {
     await expectKeyboardReachable(defaultButton);
     await page.keyboard.press("Enter");
     await expect(savedViewStatus).toHaveText("Default view updated.");
+  });
+});
+
+test.describe("FE-P11 accessibility preflight", () => {
+  test(p11AccessibilityScenarioTitles[0], async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("A11YP11"),
+      "Accessibility FE-P11 readiness matrix",
+    );
+    const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
+      client_txn_id: uniqueTxn("A11YP11-ROW"),
+      "timeline.details": "FE-A11Y-P11 details",
+      "timeline.summary": "FE-A11Y-P11 keyboard row",
+    });
+    const reviewedRow = await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("A11YP11-REVIEWED"),
+        "timeline.summary": "FE-A11Y-P11 reviewed row",
+      },
+    );
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(page.locator("body")).toBeVisible();
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+
+    const timelineTab = page.getByTestId(
+      surfaceTabTestId(timelineViewSchemaId),
+    );
+    await expect(timelineTab).toHaveAttribute("aria-current", "page");
+    await expectKeyboardReachable(timelineTab);
+
+    const systemSwitcher = page.getByTestId(systemViewSwitcherTriggerTestId());
+    await expectKeyboardReachable(systemSwitcher);
+    await expect(systemSwitcher).toHaveAttribute("aria-label", "System views");
+    await systemSwitcher.press("Enter");
+    await expect(systemSwitcher).toHaveAttribute("aria-expanded", "true");
+    const menu = page.getByTestId(systemViewSwitcherMenuTestId());
+    await expect(menu).toBeVisible();
+    await expect(menu).toHaveAttribute("role", "menu");
+    const indicatorsOption = page.getByTestId(
+      systemViewSwitcherOptionTestId(
+        "scope-assessment",
+        indicatorsViewSchemaId,
+      ),
+    );
+    await expect(indicatorsOption).toHaveAttribute("role", "menuitemradio");
+    await expect(indicatorsOption).toHaveAttribute("aria-checked", "false");
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(systemSwitcher).toBeFocused();
+
+    const summarySortHeader = page.getByTestId(
+      gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
+    );
+    await expectKeyboardReachable(summarySortHeader);
+    await summarySortHeader.press("Enter");
+    await expect(summarySortHeader).toContainText("Asc");
+
+    const summaryCell = page.getByTestId(
+      rowCellTestId(row.record_id, "timeline.summary"),
+    );
+    await expectKeyboardReachable(summaryCell);
+    await page.keyboard.press("Enter");
+    const summaryEditor = page.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.summary",
+        recordId: row.record_id,
+        surface: "grid",
+      }),
+    );
+    await expect(summaryEditor).toBeVisible();
+    await expect(summaryEditor).toHaveAttribute("aria-label", /Summary/);
+    await summaryEditor.focus();
+    await expect(summaryEditor).toBeFocused();
+    await summaryEditor.fill("FE-A11Y-P11 edited summary");
+    await page.keyboard.press("Escape");
+    await expect(summaryCell).toBeVisible();
+
+    const inspectButton = page.getByTestId(
+      rowInspectButtonTestId(row.record_id),
+    );
+    await expectKeyboardReachable(inspectButton);
+    await inspectButton.press("Enter");
+    await expect(
+      page.getByTestId(timelineInspectorSectionTestId("details")),
+    ).toBeVisible();
+
+    await page
+      .getByTestId(timelineRowMarkReviewedButtonTestId(reviewedRow.record_id))
+      .click();
+    const groupingSelect = page.getByTestId(
+      gridGroupingSelectTestId(timelineViewSchemaId),
+    );
+    await expectKeyboardReachable(groupingSelect);
+    await groupingSelect.selectOption("timeline.capture_state");
+    const reviewedGroup = page.getByTestId(
+      gridGroupRowTestId(
+        timelineViewSchemaId,
+        "timeline.capture_state",
+        "reviewed",
+      ),
+    );
+    await expectKeyboardReachable(reviewedGroup);
+    await expect(reviewedGroup).toHaveAttribute("aria-expanded", "true");
+    await reviewedGroup.press("Enter");
+    await expect(reviewedGroup).toHaveAttribute("aria-expanded", "false");
+    await reviewedGroup.press("Enter");
+    await expect(reviewedGroup).toHaveAttribute("aria-expanded", "true");
+
+    const saveState = page.getByTestId(saveStateTestId());
+    await expect(saveState).toHaveAttribute("aria-live", "polite");
+    await expect(saveState).not.toHaveText("");
+    await expectTextContrast(saveState);
+    await expectLaterPhaseSmoke(page);
   });
 });
 

@@ -70,6 +70,16 @@ EOF
 )"
 valid_manifest="$tmp_dir/benchmark_manifest.json"
 
+default_manifest="$ROOT_DIR/.cartulary/benchmark/benchmark_manifest.json"
+if [[ ! -e "$default_manifest" ]]; then
+  default_absent_output="$(assert_passes "default absent benchmark manifest" "$NODE_BIN" "$CHECKER")"
+  assert_contains "$default_absent_output" "no claim-bearing benchmark publication requested" "default absent benchmark output"
+fi
+
+custom_missing="$tmp_dir/missing-benchmark-manifest.json"
+custom_missing_output="$(assert_fails "custom missing benchmark manifest" "$NODE_BIN" "$CHECKER" "$custom_missing")"
+assert_contains "$custom_missing_output" "benchmark manifest missing" "custom missing benchmark output"
+
 "$NODE_BIN" - "$valid_manifest" "$artifact" "$artifact_hash" <<'EOF'
 const { writeFileSync } = require("node:fs");
 const [manifestPath, artifactPath, artifactHash] = process.argv.slice(2);

@@ -645,7 +645,9 @@ function validateTargetRef(target, label, row) {
   );
   if (
     row.claim_status === "implemented" &&
-    row.evidence_class !== "implementation_support" &&
+    !["implementation_support", "claim_publication_boundary"].includes(
+      row.evidence_class,
+    ) &&
     target.required_for_closure &&
     target.scenario_title_required !== true
   ) {
@@ -1081,11 +1083,15 @@ export function validateFrontendPhaseMap(
       throw new Error(`${rowLabel}.id must belong to ${phaseID}`);
     }
     if (
-      row.targets.some((target) => target.target_name.startsWith("browser-e2e")) &&
+      row.targets.some(
+        (target) =>
+          target.target_name.startsWith("browser-e2e") &&
+          target.scenario_title_required,
+      ) &&
       row.scenario_titles.length === 0
     ) {
       throw new Error(
-        `${rowLabel}.scenario_titles must be non-empty for browser-backed rows`,
+        `${rowLabel}.scenario_titles must be non-empty for scenario-backed browser rows`,
       );
     }
     if (
@@ -1108,10 +1114,16 @@ export function validateFrontendPhaseMap(
     if (
       row.layer === "accessibility" &&
       claimStatus === "implemented" &&
-      row.targets.some((target) => target.target_name === "browser-e2e-a11y-preflight")
+      row.targets.some(
+        (target) =>
+          target.target_name === "browser-e2e-a11y-preflight" &&
+          (!target.required_for_closure ||
+            !target.frontend_row_accounting_required ||
+            !target.scenario_title_required),
+      )
     ) {
       throw new Error(
-        `${rowLabel} implemented accessibility rows must not close from browser-e2e-a11y-preflight`,
+        `${rowLabel} implemented accessibility preflight rows must require v3 row accounting and exact scenario closure`,
       );
     }
     validateRowMetadata(row, rowLabel);

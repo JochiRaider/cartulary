@@ -141,9 +141,25 @@ function scenarioRowsForMode(manifest, mode) {
       return false;
     }
     if (mode === "evidence") {
-      return candidate.claim_status === "implemented";
+      return (
+        candidate.claim_status === "implemented" &&
+        candidate.targets.some(
+          (target) => target.target_name === "browser-e2e-a11y",
+        )
+      );
     }
-    return candidate.claim_status === "blocked";
+    if (candidate.claim_status === "blocked") {
+      return true;
+    }
+    return (
+      candidate.claim_status === "implemented" &&
+      candidate.targets.some(
+        (target) =>
+          target.target_name === "browser-e2e-a11y-preflight" &&
+          target.required_for_closure === true &&
+          target.frontend_row_accounting_required === true,
+      )
+    );
   });
 }
 
