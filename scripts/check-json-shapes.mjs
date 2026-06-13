@@ -71,7 +71,7 @@ const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v3";
 const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v2";
 const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v3";
 const frontendVisualFixtureRegistrySchemaID =
-  "cartulary.frontend_visual_fixture_registry.v1";
+  "cartulary.frontend_visual_fixture_registry.v2";
 const sharedExtensionsRef = "cartulary.harness.defs.v1#/$defs/extensions";
 const schedulerSummaryCommonSchemaID = "cartulary.scheduler_summary.common.v9";
 

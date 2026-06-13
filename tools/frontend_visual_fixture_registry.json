@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.frontend_visual_fixture_registry.v1",
+  "schema_id": "cartulary.frontend_visual_fixture_registry.v2",
   "guide_path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
   "fixtures": [
     {
@@ -33,6 +33,9 @@
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-shell-root-and-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -79,6 +82,9 @@
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -129,6 +135,9 @@
         "kind": "top_left",
         "anchor": "workbook-grid"
       },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
       "focus_state": {
         "kind": "fixture_specific",
         "description": "Declared by the owning Playwright scenario before screenshot capture."
@@ -175,6 +184,9 @@
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -223,6 +235,9 @@
         "kind": "fixture_specific",
         "description": "Evidence grid scroll normalizes to the right-edge actions column with fixture-only native file-input dimension normalization for the affordance states crop; Timeline grid uses the named timeline evidence-actions row anchor."
       },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
       "focus_state": {
         "kind": "fixture_specific",
         "description": "Preview and download actions are exercised, then focus is blurred before screenshot capture."
@@ -269,6 +284,9 @@
         "kind": "top_left",
         "anchor": "workbook-grid"
       },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
       "focus_state": {
         "kind": "fixture_specific",
         "description": "Saved-view selector, active filter chip, grouping control, group row, and default/startup status indicator are visible after the owning Playwright scenario normalizes the grid."
@@ -314,6 +332,9 @@
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -373,6 +394,9 @@
         "kind": "top_left",
         "anchor": "workbook-grid"
       },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
       "focus_state": {
         "kind": "fixture_specific",
         "description": "Declared by the owning Playwright scenario before screenshot capture."
@@ -420,6 +444,9 @@
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -469,6 +496,9 @@
         "kind": "top_left",
         "anchor": "workbook-grid"
       },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
       "focus_state": {
         "kind": "fixture_specific",
         "description": "Declared by the owning Playwright scenario before screenshot capture."
@@ -516,6 +546,9 @@
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -569,6 +602,9 @@
         "kind": "top_left",
         "anchor": "workbook-grid"
       },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
       "focus_state": {
         "kind": "fixture_specific",
         "description": "Declared by the owning Playwright scenario before screenshot capture."
@@ -619,6 +655,9 @@
         "kind": "top_left",
         "anchor": "workbook-grid"
       },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
       "focus_state": {
         "kind": "fixture_specific",
         "description": "Declared by the owning Playwright scenario before screenshot capture."
@@ -656,14 +695,18 @@
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p11-03-exposed-theme-states-linux.png"
       ],
       "seed_id": "fe-vfix-14-deterministic-seed",
-      "viewport_css_px": "1440x900",
+      "viewport_css_px": "1280x720",
       "device_scale_factor": 1,
       "browser_zoom_percent": 100,
       "theme_id": "dark_graphite",
       "density_id": "default",
       "scroll_normalization": {
-        "kind": "top_left",
-        "anchor": "workbook-grid"
+        "kind": "not_applicable",
+        "reason": "selector-only exposed-theme specimen; no workbook-grid scroll state"
+      },
+      "capture_scope": {
+        "kind": "selector",
+        "selector": "[data-design-fixture='exposed-theme']"
       },
       "focus_state": {
         "kind": "fixture_specific",
@@ -677,12 +720,8 @@
         "kind": "fixture_specific",
         "description": "Declared by the owning Playwright scenario before screenshot capture."
       },
-      "dynamic_masks": [
-        "incident identifiers",
-        "generated record identifiers",
-        "clock-derived labels when visible"
-      ],
-      "no_dynamic_regions": false,
+      "dynamic_masks": [],
+      "no_dynamic_regions": true,
       "blocked_reason": "",
       "replacement_fixture_id": ""
     },
@@ -716,6 +755,9 @@
       "scroll_normalization": {
         "kind": "top_left",
         "anchor": "workbook-grid"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
       },
       "focus_state": {
         "kind": "fixture_specific",

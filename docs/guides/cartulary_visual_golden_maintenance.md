@@ -45,7 +45,7 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 | `FE-VFIX-11` | Fill-down handle | `FE-P3`, `FE-P10` | Fill-down affordance is visible in a deterministic focus/editor state. | Top-left grid scroll; active cell declared. | `current` |
 | `FE-VFIX-12` | Edit cell | `FE-P3`, `FE-P4`, `FE-P10` | Active edit cell renders editor state and save-state relationship. | Top-left grid scroll; active cell declared. | `current` |
 | `FE-VFIX-13` | Group outline row | `FE-P3`, `FE-P8`, `FE-P10` | Group row state is expanded/collapsed as declared by the fixture. | Group row anchor. | `current` |
-| `FE-VFIX-14` | Exposed theme states | `FE-P11` | Exposed theme, density, color, and token states render in representative controls. | Viewport `1280x720`; selector screenshot scope; no workbook-grid scroll state. | `current` |
+| `FE-VFIX-14` | Exposed theme states | `FE-P11` | Exposed theme, density, color, and token states render in representative controls. | Viewport `1280x720`; `capture_scope.kind="selector"`; no workbook-grid scroll state. | `current` |
 | `FE-VFIX-15` | Empty successful query | `FE-P3`, `FE-P4`, `FE-P8` | Successful empty result state renders without error or loading affordance. | Top-left grid scroll; empty-state container anchored. | `current` |
 
 ### Visual Support Acceptance
@@ -53,7 +53,7 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 | ID | Requirement |
 | --- | --- |
 | `VG-AC-001` | The matrix MUST contain exactly one row for each required `FE-VFIX-01` through `FE-VFIX-15` identifier and MUST NOT contain duplicate fixture IDs. |
-| `VG-AC-002` | Every `current` fixture MUST declare deterministic seed data, viewport, browser zoom, fixture order, dynamic masks, artifact owner rows, a primary golden filename, and every supporting golden artifact owned by the fixture before golden refresh is accepted. |
+| `VG-AC-002` | Every `current` fixture MUST declare deterministic seed data, viewport, browser zoom, fixture order, capture scope, dynamic masks or an explicit no-dynamic-regions declaration, artifact owner rows, a primary golden filename, and every supporting golden artifact owned by the fixture before golden refresh is accepted. |
 | `VG-AC-003` | Every workbook-grid fixture MUST declare scroll normalization using `GridVisualScrollState` or an equivalent named anchor before capture. |
 | `VG-AC-004` | Every golden refresh MUST cite an accepted refresh trigger, the affected authoritative `V-*` phase rows, any affected `FE-VFIX-*` fixture IDs and corresponding frontend phase-map rows when applicable, and whether dynamic masks, viewport state, or screenshot scope changed. |
 | `VG-AC-005` | A `missing` fixture MUST fail support validation unless the corresponding frontend phase-map row is `claim_status="blocked"` with a precise missing-fixture reason. |
@@ -166,7 +166,7 @@ for light or high-contrast themes.
 
 | Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
 | --- | --- | --- | --- | --- | --- | --- |
-| `FE-V-P11-03` | `tools/frontend_phase_maps/fe_p11_test_map.json` | `FE-VFIX-14` | Deterministic workbook incident plus test-only `section[data-design-fixture='exposed-theme']` token specimen. | `1280x720`, browser default zoom matching `{layout.zoomDefault}`. | None; specimen text is static and contains no generated IDs, actor names, timestamps, or cursors. | Selector crop, snapshot `fe-v-p11-03-exposed-theme-states`. |
+| `FE-V-P11-03` | `tools/frontend_phase_maps/fe_p11_test_map.json` | `FE-VFIX-14` | Deterministic workbook incident plus test-only `section[data-design-fixture='exposed-theme']` token specimen. | `1280x720`, browser default zoom matching `{layout.zoomDefault}`. | None; specimen text is static and contains no generated IDs, actor names, timestamps, or cursors. | `capture_scope.kind="selector"` with `[data-design-fixture='exposed-theme']`, snapshot `fe-v-p11-03-exposed-theme-states`. |
 
 ## Accepted Refresh Triggers
 

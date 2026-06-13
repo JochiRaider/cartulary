@@ -22,9 +22,9 @@ activation blocker `FE-P11-ACTIVATION-BLOCKER-01`. Current digest mirrors are:
 
 | Source | SHA-256 |
 | --- | --- |
-| FE-P11 map | `dc3b7305ab850254ad39d90327373656e3d3843684b41df6d480a59acec1d03b` |
+| FE-P11 map | `16f200de20effdc0655f1f59acb78cead88548f7f3132e5cbd25bf005f29926d` |
 | FE-P11 generated ledger | `1baa338199c4ed706fbb4dc6ca5b42652a657283ce06a6719d8e082cd1486313` |
-| FE-P11 evidence freshness | `2445ab0b3deae4f82ba6cbee8755ddf98c7d7b8a5fd41baf8cf4ffcd7b7a44e1` |
+| FE-P11 evidence freshness | `2da37c1ea11ed92c602d963dbd5cd168da97e9de7b03425b52d130aacef09f09` |
 
 `FE-V-P11-03` is the only live implemented FE-P11 row. It closes as
 design-direction readiness only from current `browser-e2e-visual` frontend row
@@ -69,27 +69,28 @@ evidence roots, target status, and digests are not FE-P11 facts.
 
 Live FE-P10 dependency context from the frontend registry: `status=active`,
 `row_rollup_state=active_green`, activation blockers `[]`, map digest
-`42cfca5547fda580aaf3388826fd0bf81d71bff33976480ebcf0a91d51067a5e`, ledger
+`5321447c81493dfee058c5a57e77f9aac3f8843f7b3fe5cec0dc56ec9ce388cf`, ledger
 digest `83768f981e59a603ef3619c4ab69afc7179aaf3c8978c78d277ead365ee34af2`,
 and freshness digest
-`23cd90b9d276b65223da638e515e4ac562973b2d85f12439aca4e387102c849f`.
+`21e01658cea3f7f4ed0e231f051c17b174c69c356e56246f140c7eff7a162bfe`.
 FE-P10 is dependency context only; FE-P11 needs its own row-owned evidence.
 
 Primary source digests inspected:
 
 | Source | SHA-256 |
 | --- | --- |
-| `docs/guides/cartulary_frontend_implementation_testing_guide.md` | `459ffe40579a33702160d51d5033145e15e48573dfc4e5c97c481e4781062462` |
-| `tools/frontend_phase_maps/fe_p11_test_map.json` | `dc3b7305ab850254ad39d90327373656e3d3843684b41df6d480a59acec1d03b` |
-| `tools/frontend_phase_registry.json` | `ea0f5dc922a1b29a30f421c927bc29690067c6fe7201a13f521dd47dcbc87477` |
+| `docs/guides/cartulary_frontend_implementation_testing_guide.md` | `e90d682716cd4f65f18c0c8cea43456bff13da2a9726093273fb29ff0f87aea7` |
+| `tools/frontend_phase_maps/fe_p11_test_map.json` | `16f200de20effdc0655f1f59acb78cead88548f7f3132e5cbd25bf005f29926d` |
+| `tools/frontend_phase_registry.json` | `556abf7923c10fceae87e473ceb1d7e0d0f1f3f33948a3c31b5a1e4815640837` |
 | `docs/testing/frontend_phase_coverage_ledgers/fe_p11_coverage_ledger.md` | `1baa338199c4ed706fbb4dc6ca5b42652a657283ce06a6719d8e082cd1486313` |
-| `tools/frontend_visual_fixture_registry.json` | `4baf8e10bf2676ae26b68c543d8e4bcefc303f8dec2b3596a4ff6608d9eea26c` |
-| `docs/testing-harness-nlspec.md` | `f8857f2d67316ba43ac9c7da71040b26fb0f66250c991508b6570d3cf367af83` |
+| `tools/frontend_visual_fixture_registry.json` | `20f466a5bdcf4a9f395c2da5d79c7b87118f7c978d4081b9e22441c9fe8e7e57` |
+| `tools/schemas/cartulary.frontend_visual_fixture_registry.v2.schema.json` | `b59506688fe7c6ef20e70ddf88ca95de36035195a8358f1ee1c3f4f534bfdb63` |
+| `docs/testing-harness-nlspec.md` | `4303343266385f42e86c077c2ac441d236edb8728d33327af08c30c4e0cc9d06` |
 | `docs/opentelemetry-instrumentation-nlspec.md` | `e763ef88ef0420f6c4e1ee1c7bf69733451d4da8475d44347cb1a5c8e06e4451` |
 | `docs/design.md` | `e28345fac8ba22fc58264454237af209360a84af0c714ff4e1c94c6028d8cd05` |
 | `docs/guides/cartulary-dev-guide.md` | `a4b8fb4b9e3b03c905ed276d19a692559ddf1e70396f224f8f8b2a3f68e58776` |
 | `docs/guides/cartulary-ui-ux-design-guide.md` | `3229622b552fed5c15b158d3bd5d7a7e91f99bf4581e40124657b88298a09b26` |
-| `docs/guides/cartulary_visual_golden_maintenance.md` | `b9a372d62fb890e72de140e29da2319fd8e202083e96819675e1edf1f64e07c3` |
+| `docs/guides/cartulary_visual_golden_maintenance.md` | `553122518fccb35ec25b5c1f8f197d8983f52678cdce198c02a745b2a185c836` |
 | Core 00 | `e3b2e5e9ed4f47d29694612d571f3255437a9a1acbceb31fc38d9229756a682f` |
 | Core 01 | `1c55b261681c59e948356d8f80e2d3f5ab8936d33db5742d18a31f701a81bac9` |
 | Core 02 | `bb92665e26804b8c465d961fdef39b78e3f07c389a26a6478e9a210ce393d3fa` |
@@ -104,9 +105,12 @@ Command ledger:
 | `make task-guide ROLE=phase-author PHASE_NAMESPACE=frontend PHASE=FE-P11` | pass | Reports planned phase guidance and selected-row execution hints. |
 | `make explain-phase PHASE_NAMESPACE=frontend PHASE=FE-P11` | pass | Reports seven rows, one implemented row, six blocked rows, and planned-phase non-executable posture. |
 | `make explain-target TARGET=<mapped-target> DETAIL=summary` | pass | All mapped FE-P11 targets are explainable; `release-check`, `browser-e2e-measurement`, and `benchmark-claim-check` report no latest artifact. |
-| `make phase-ledger-drift` | pass | `.cartulary/test-results/20260613T180901Z-p60996`; generated ledgers matched owner inputs. |
-| `make json-shape-check` | pass | `.cartulary/test-results/20260613T180901Z-p60994`; JSON shape and digest mirrors passed. |
-| `make generated-artifact-policy-check` | pass | `.cartulary/test-results/20260613T180901Z-p60995`; generated-artifact policy passed. |
+| `make phase-ledger-drift` | pass | `.cartulary/test-results/20260613T185132Z-p80825`; generated ledgers matched owner inputs. |
+| `make json-shape-check` | pass | `.cartulary/test-results/20260613T185124Z-p80465`; JSON shape and digest mirrors passed. |
+| `make phase-schedule-drift` | pass | `.cartulary/test-results/20260613T185132Z-p80830`; generated schedules matched current renderer inputs. |
+| `make generated-artifact-policy-check` | pass | `.cartulary/test-results/20260613T185132Z-p80862`; generated-artifact policy passed. |
+| `make browser-e2e-visual` | pass | `.cartulary/test-results/20260613T185149Z-p82291`; `FE-V-P11-03` closed as `design_direction`; `FE-V-P11-01` and `FE-V-P11-02` remained blocked in the live map. |
+| `make agent-finalize` | pass | `.cartulary/test-results/20260613T185336Z-p93968`; generated outputs unchanged; retained-run maintenance skipped because `RESULTS_DIR` was unset. |
 | Static `rg`, `sed`, and `jq` inspections | pass with one discarded probe | One discarded `jq` probe against `check/target-summary.json` failed because `.children` was not an array; no plan fact relies on it. |
 
 ## Source Limits
@@ -155,7 +159,7 @@ The existing interfaces cited by this plan are
 `cartulary.frontend_accessibility_summary.v2`,
 `cartulary.frontend_phase_test_map.v3`,
 `cartulary.frontend_phase_registry.v2`, and
-`cartulary.frontend_visual_fixture_registry.v1`.
+`cartulary.frontend_visual_fixture_registry.v2`.
 
 ## FE-P10 Handoff Inputs
 
@@ -237,7 +241,7 @@ evidence.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `FE-V-P11-01` | `browser-e2e-visual`; `cartulary.harness.command.browser_e2e_visual.v1` | `<run-root>/browser-e2e-visual/frontend-row-accounting.json` | `active_target` for direct target runs; `selected_rows` only for explicit FE-P11 selected-row execution. | Exact mapped scenario title is required because `scenario_title_required=true`. | Target `target_status="pass"`; row `closure_status="closed"`; row `failure_reason=""`; embedded guide, registry, and map digests match; companion validation satisfies the digest and freshness rules; no unresolved blocker. | `implementation_support` only. | Missing, stale, v1/v2-only, screenshot-only, or fixture-registry-only evidence is non-closure. | Until promoted from blocked, missing row accounting retains `visual_fixture_not_recaptured_for_frontend_row`. |
 | `FE-V-P11-02` | `browser-e2e-visual`; `cartulary.harness.command.browser_e2e_visual.v1` | `<run-root>/browser-e2e-visual/frontend-row-accounting.json` | `active_target` for direct target runs; `selected_rows` only for explicit FE-P11 selected-row execution. | Exact mapped scenario title is required because `scenario_title_required=true`. | Same closure fields as `FE-V-P11-01`. | `implementation_support` only. | Fixture registry `current` status, golden filenames, and Playwright screenshots are non-closure without row-owned accounting. | Until promoted from blocked, missing matrix row accounting retains `visual_fixture_not_recaptured_for_frontend_row`. |
-| `FE-V-P11-03` | `browser-e2e-visual`; `cartulary.harness.command.browser_e2e_visual.v1` | `<run-root>/browser-e2e-visual/frontend-row-accounting.json` | `active_target` for direct target runs; `selected_rows` only for explicit FE-P11 selected-row execution. | Exact mapped scenario title is required because `scenario_title_required=true`. | Target `target_status="pass"`; row `evidence_class="design_direction"`; row `closure_status="closed"`; row `failure_reason=""`; no unresolved blocker. | `design_direction` only. | Absence of default Timeline shell evidence is not a failure for this row. | This row MUST NOT close `FE-VFIX-01` and MUST NOT expand beyond exposed theme-state readiness while `FE-P11-FIXTURE-CONFLICT-01` remains open. |
+| `FE-V-P11-03` | `browser-e2e-visual`; `cartulary.harness.command.browser_e2e_visual.v1` | `<run-root>/browser-e2e-visual/frontend-row-accounting.json` | `active_target` for direct target runs; `selected_rows` only for explicit FE-P11 selected-row execution. | Exact mapped scenario title is required because `scenario_title_required=true`. | Target `target_status="pass"`; row `evidence_class="design_direction"`; row `closure_status="closed"`; row `failure_reason=""`; no unresolved blocker. | `design_direction` only. | Absence of default Timeline shell evidence is not a failure for this row. | This row MUST NOT close `FE-VFIX-01` and MUST NOT expand beyond exposed theme-state readiness. |
 | `FE-A11Y-P11-01` | `browser-e2e-a11y-preflight`; `cartulary.harness.command.browser_e2e_a11y_preflight.v1` | `<run-root>/browser-e2e-a11y-preflight/frontend-row-accounting.json` | `active_target` for direct target runs; `selected_rows` only for explicit FE-P11 selected-row execution. | Exact mapped scenario title is required because `scenario_title_required=true`. | Target `target_status="pass"`; row `evidence_class="design_direction"`; row `closure_status="closed"`; row `failure_reason=""`; embedded guide, registry, and map digests match; companion validation satisfies the digest and freshness rules; no unresolved blocker. | `design_direction` only. | `cartulary.frontend_accessibility_preflight_summary.v1` without v3 row accounting is support-only. Raw axe or Playwright accessibility output is non-closure. | Until promoted from blocked, missing preflight row accounting retains `frontend_phase_row_not_implemented`. |
 | `FE-S-P11-01` | `frontend-typecheck` / `cartulary.harness.command.frontend_typecheck.v1`; `frontend-unit` / `cartulary.harness.command.frontend_unit.v1`; `frontend-import-boundary-check` / `cartulary.harness.command.frontend_import_boundary_check.v1`; `lint-biome` / `cartulary.harness.command.lint_biome.v1`; `generated-artifact-policy-check` / `cartulary.harness.command.generated_artifact_policy_check.v1`; `generate-drift` / `cartulary.harness.command.generate_drift.v1`; `phase-ledger-drift` / `cartulary.harness.command.phase_ledger_drift.v1`; `phase-schedule-drift` / `cartulary.harness.command.phase_schedule_drift.v1`; `check` / `cartulary.harness.command.check.v1` | `<run-root>/frontend-unit/frontend-row-accounting.json` for the only mapped target with `frontend_row_accounting_required=true`; target summaries for all other listed targets. | `active_target` for direct `frontend-unit`; `selected_rows` only for explicit FE-P11 selected-row execution. | `scenario_titles[]` is intentionally empty; target-level closure permits `closing_scenario_titles=[]`. | Every listed target has `target_status="pass"` in current evidence; the `frontend-unit` row result has `closure_status="closed"` and `failure_reason=""`; embedded guide, registry, and map digests match; companion validation satisfies the digest and freshness rules; no unresolved blocker. | `implementation_support` only. | A pass from `make check` alone is non-closure. Omitted non-row-accounting target summaries keep the support predicate incomplete. | Until promoted from blocked, missing direct implementation evidence retains `frontend_phase_row_not_implemented`. |
 | `FE-S-P11-02` | `check` / `cartulary.harness.command.check.v1`; `release-check` / `cartulary.harness.command.release_check.v1`; `browser-e2e-a11y` / `cartulary.harness.command.browser_e2e_a11y.v1` | `<run-root>/browser-e2e-a11y/frontend-row-accounting.json` for the only mapped target with `frontend_row_accounting_required=true`; target summaries for `check` and `release-check`. | `active_target` for direct `browser-e2e-a11y`; `selected_rows` only for explicit FE-P11 selected-row execution. | The mapped scenario title is diagnostic because `scenario_title_required=false`; `closing_scenario_titles=[]` is acceptable unless the live map changes to `scenario_title_required=true`. | `check`, `release-check`, and `browser-e2e-a11y` have `target_status="pass"` when release readiness is claimed; the a11y row result has `closure_status="closed"` and `failure_reason=""`; embedded guide, registry, and map digests match; companion validation satisfies the digest and freshness rules; no unresolved blocker. | `implementation_support` only. | Without fresh `release-check`, release readiness is unclaimed. A `check` pass alone is non-closure. | Until promoted from blocked, missing release-readiness composition retains `frontend_phase_row_not_implemented`. |
@@ -273,10 +277,10 @@ unknown fixture IDs, missing fixture IDs, or fixture IDs outside that closed
 range are blockers for visual-matrix closure.
 
 Each fixture with `status="current"` MUST declare all fields required by
-`cartulary.frontend_visual_fixture_registry.v1`: fixture ID, status, owner phase
+`cartulary.frontend_visual_fixture_registry.v2`: fixture ID, status, owner phase
 IDs, owner row IDs, Playwright scenario title, primary golden filename, all
 supporting golden artifacts, seed, viewport, device scale factor, browser zoom,
-theme, density, scroll normalization, focus state, editor state, inspector state,
+theme, density, scroll normalization, capture scope, focus state, editor state, inspector state,
 dynamic-mask policy, blocked reason, and replacement fixture ID. `current` means
 schema-valid fixture metadata plus an owned Playwright scenario and committed
 golden. `current` does not close FE-P11 without mapped row-owned accounting.
@@ -287,12 +291,13 @@ golden. `current` does not close FE-P11 without mapped row-owned accounting.
 | `missing` | The owning row MUST remain blocked with a concrete missing-fixture reason. Generic placeholder text is non-closure. |
 | `retired` | The fixture MUST name `replacement_fixture_id` or a removal reason before any dependent row can complete. |
 
-`FE-VFIX-14` has a plan-level source conflict. The visual golden guide describes
-it as `1280x720`, selector crop, and no dynamic masks. The live registry records
-`1440x900`, workbook-grid anchoring, and dynamic masks. Until the visual golden
-guide and registry are reconciled, the registry is the live source for current
-FE-P11 fixture metadata, and `FE-VFIX-14` MUST NOT be used for new closure
-expansion beyond existing `FE-V-P11-03` design-direction readiness.
+`FE-VFIX-14` metadata is reconciled between the visual golden guide and the
+live registry. It is a selector-only exposed-theme design fixture with viewport
+`1280x720`, `capture_scope.kind="selector"` using
+`[data-design-fixture='exposed-theme']`, non-applicable workbook-grid scroll,
+`dynamic_masks=[]`, and `no_dynamic_regions=true`. The registry remains the
+live source for current FE-P11 fixture metadata, and `FE-VFIX-14` MUST NOT be
+used for closure expansion beyond `FE-V-P11-03` design-direction readiness.
 
 ## Accessibility Matrix Closure
 
@@ -379,8 +384,8 @@ Actions:
 
 1. Validate that the fixture registry contains exactly `FE-VFIX-01` through
    `FE-VFIX-15` and satisfies the visual fixture matrix closure rules.
-2. Enforce `FE-VFIX-14` as only the exposed theme-state support specimen for
-   `FE-V-P11-03`, subject to `FE-P11-FIXTURE-CONFLICT-01`.
+2. Enforce `FE-VFIX-14` as the selector-only exposed theme-state support
+   specimen for `FE-V-P11-03`.
 3. Re-run `make browser-e2e-visual` and evaluate
    `browser-e2e-visual/frontend-row-accounting.json` against the row closure
    matrix.
@@ -509,9 +514,9 @@ high-contrast theme, and does not activate Core 05 publication authority.
 requires the compact Timeline first viewport with row gutter, header
 affordances, selected row, focused Summary cell, adjacent inspector, status
 strip, no admin/demo stack, and only Core 01 default Timeline columns.
-`FE-VFIX-14` also remains constrained by `FE-P11-FIXTURE-CONFLICT-01` until the
-visual golden guide and fixture registry agree on viewport, screenshot scope,
-scroll anchor, and dynamic-mask policy.
+The visual golden guide and fixture registry agree that `FE-VFIX-14` uses
+viewport `1280x720`, selector capture scope, non-applicable workbook-grid
+scroll, and no dynamic regions.
 
 Visual screenshots, Playwright traces, accessibility summaries, preflight
 summaries, target explanations, generated ledgers, retained artifacts, and broad
@@ -529,7 +534,6 @@ unless the mapped current row-owned accounting rules above are also satisfied.
 | `FE-S-P11-01-BLOCKER-01` | `frontend_phase_owner` | Retain until readiness-composition evidence is added and promoted in the live map. |
 | `FE-S-P11-02-BLOCKER-01` | `frontend_phase_owner` | Retain until release-readiness composition evidence is added and promoted in the live map. |
 | `FE-S-P11-03-BLOCKER-01` | `frontend_phase_owner` | Retain until claim-publication-boundary evidence is added and promoted in the live map. |
-| `FE-P11-FIXTURE-CONFLICT-01` | `frontend_phase_owner` | Retain until `FE-VFIX-14` metadata is reconciled: the visual golden guide describes `1280x720`, selector crop, and no dynamic masks, while the registry records `1440x900`, workbook-grid anchoring, and dynamic masks. Until reconciled, the registry remains the live metadata source and `FE-VFIX-14` cannot support new closure expansion beyond `FE-V-P11-03`. |
 | `FE-P11-SOURCE-LIMIT-01` | `frontend_phase_owner` | FE-P11 map has no top-level `guide_path`; avoid asserting one. |
 | `FE-P11-SOURCE-LIMIT-02` | `frontend_phase_owner` | Latest inspected a11y preflight pass has no frontend row-accounting extension; it is not row closure. |
 | `FE-P11-SOURCE-LIMIT-03` | `frontend_phase_owner` | `release-check`, `browser-e2e-measurement`, and `benchmark-claim-check` have no latest artifact and require fresh execution before closure claims. |
@@ -568,8 +572,8 @@ This plan does not claim:
 20. Closure from broad `make check` alone.
 21. Closure from base `phase11` artifacts.
 22. Closure from this plan text.
-23. Closure expansion from `FE-VFIX-14` while `FE-P11-FIXTURE-CONFLICT-01`
-    remains open.
+23. Closure expansion from `FE-VFIX-14` beyond exposed theme-state
+    design-direction readiness.
 24. Any Core 05 claim-bearing publication path for FE-P11 while every live row
     has `claim_publication_intent="none"`.
 

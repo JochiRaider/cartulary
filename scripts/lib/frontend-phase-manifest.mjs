@@ -228,7 +228,7 @@ const guideMakeTargetPattern = /`make\s+([^`\s]+)(?:\s+[^`]*)?`/g;
 const commandIDPattern =
   /^cartulary\.harness\.command\.[a-z0-9_]+\.v1$/;
 const frontendVisualFixtureRegistrySchemaID =
-  "cartulary.frontend_visual_fixture_registry.v1";
+  "cartulary.frontend_visual_fixture_registry.v2";
 const visualFixtureRegistryKeys = new Set([
   "schema_id",
   "guide_path",
@@ -250,6 +250,7 @@ const visualFixtureKeys = new Set([
   "theme_id",
   "density_id",
   "scroll_normalization",
+  "capture_scope",
   "focus_state",
   "editor_state",
   "inspector_state",
@@ -259,6 +260,24 @@ const visualFixtureKeys = new Set([
   "replacement_fixture_id",
 ]);
 const visualFixtureIDPattern = /^FE-VFIX-(?:0[1-9]|1[0-5])$/;
+const validVisualCaptureScopeKinds = new Set([
+  "full_viewport",
+  "selector",
+  "region",
+]);
+const visualFullViewportCaptureScopeKeys = new Set(["kind"]);
+const visualSelectorCaptureScopeKeys = new Set(["kind", "selector"]);
+const visualRegionCaptureScopeKeys = new Set([
+  "kind",
+  "x",
+  "y",
+  "width",
+  "height",
+]);
+const stableVisualCaptureSelectorPattern =
+  /^\[[a-z0-9_-]*data-[a-z0-9_-]+=(?:"[^"]+"|'[^']+')\]$/u;
+const exposedThemeCaptureSelector =
+  "[data-design-fixture='exposed-theme']";
 const core03SortingFilteringGroupingReqIDs = new Set(
   Array.from({ length: 13 }, (_, index) => `REQ-03-${223 + index}`),
 );
@@ -299,6 +318,113 @@ function phaseFromLedgerPath(ledgerPath, label) {
 
 function requirePhaseID(value, label) {
   return requireString(value, label, { pattern: phaseIDPattern });
+}
+
+function requireFiniteNumber(value, label, { positive = false } = {}) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${label} must be a finite number`);
+  }
+  if (positive && value <= 0) {
+    throw new Error(`${label} must be greater than 0`);
+  }
+  return value;
+}
+
+function requireExactStringArray(value, expected, label) {
+  const actual = requireStringArray(value, label);
+  if (
+    actual.length !== expected.length ||
+    actual.some((entry, index) => entry !== expected[index])
+  ) {
+    throw new Error(`${label} must be exactly ${expected.join(", ")}`);
+  }
+  return actual;
+}
+
+function validateVisualCaptureScope(scopeValue, label) {
+  const scope = requireObject(scopeValue, label);
+  const kind = requireEnum(scope.kind, `${label}.kind`, validVisualCaptureScopeKinds);
+  if (kind === "full_viewport") {
+    assertObjectKeys(scope, visualFullViewportCaptureScopeKeys, label);
+    return scope;
+  }
+  if (kind === "selector") {
+    assertObjectKeys(scope, visualSelectorCaptureScopeKeys, label);
+    const selector = requireString(scope.selector, `${label}.selector`);
+    if (!stableVisualCaptureSelectorPattern.test(selector)) {
+      throw new Error(
+        `${label}.selector must be a stable data-attribute selector`,
+      );
+    }
+    return scope;
+  }
+  assertObjectKeys(scope, visualRegionCaptureScopeKeys, label);
+  requireFiniteNumber(scope.x, `${label}.x`);
+  requireFiniteNumber(scope.y, `${label}.y`);
+  requireFiniteNumber(scope.width, `${label}.width`, { positive: true });
+  requireFiniteNumber(scope.height, `${label}.height`, { positive: true });
+  return scope;
+}
+
+function validateVisualScrollNormalization(scroll, captureScope, label) {
+  const kind = requireString(scroll.kind, `${label}.kind`);
+  if (kind === "top_left") {
+    requireString(scroll.anchor, `${label}.anchor`);
+  }
+  if (kind === "not_applicable") {
+    requireString(scroll.reason, `${label}.reason`);
+  }
+  if (captureScope.kind === "selector" && scroll.anchor === "workbook-grid") {
+    throw new Error(
+      `${label}.anchor must not be workbook-grid for selector-only non-grid fixtures`,
+    );
+  }
+}
+
+function validateExposedThemeFixtureContract(fixture, label, captureScope) {
+  if (fixture.status !== "current") {
+    throw new Error(`${label}.status must be current for FE-VFIX-14`);
+  }
+  requireExactStringArray(fixture.owner_phase_ids, ["FE-P11"], `${label}.owner_phase_ids`);
+  requireExactStringArray(fixture.owner_row_ids, ["FE-V-P11-03"], `${label}.owner_row_ids`);
+  if (fixture.viewport_css_px !== "1280x720") {
+    throw new Error(`${label}.viewport_css_px must be 1280x720 for FE-VFIX-14`);
+  }
+  if (fixture.golden_filename !== "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p11-03-exposed-theme-states-linux.png") {
+    throw new Error(`${label}.golden_filename must match FE-V-P11-03 exposed-theme golden`);
+  }
+  if (
+    captureScope.kind !== "selector" ||
+    captureScope.selector !== exposedThemeCaptureSelector
+  ) {
+    throw new Error(
+      `${label}.capture_scope must select ${exposedThemeCaptureSelector}`,
+    );
+  }
+  assertObjectKeys(
+    fixture.scroll_normalization,
+    new Set(["kind", "reason"]),
+    `${label}.scroll_normalization`,
+  );
+  if (fixture.scroll_normalization.kind !== "not_applicable") {
+    throw new Error(
+      `${label}.scroll_normalization.kind must be not_applicable for FE-VFIX-14`,
+    );
+  }
+  if (
+    fixture.scroll_normalization.reason !==
+    "selector-only exposed-theme specimen; no workbook-grid scroll state"
+  ) {
+    throw new Error(
+      `${label}.scroll_normalization.reason must describe the selector-only exposed-theme specimen`,
+    );
+  }
+  if (fixture.dynamic_masks.length !== 0) {
+    throw new Error(`${label}.dynamic_masks must be empty for FE-VFIX-14`);
+  }
+  if (fixture.no_dynamic_regions !== true) {
+    throw new Error(`${label}.no_dynamic_regions must be true for FE-VFIX-14`);
+  }
 }
 
 function targetDisplayName(target) {
@@ -345,6 +471,10 @@ function frontendEvidenceFreshnessDigest(root, registry, entry) {
     visual_fixture_registry_digest: sha256File(
       root,
       "tools/frontend_visual_fixture_registry.json",
+    ),
+    visual_fixture_registry_schema_digest: sha256File(
+      root,
+      "tools/schemas/cartulary.frontend_visual_fixture_registry.v2.schema.json",
     ),
     registry_schema_digest: sha256File(
       root,
@@ -1226,12 +1356,38 @@ export function validateFrontendVisualFixtureRegistry(root = process.cwd()) {
     requireInteger(fixture.browser_zoom_percent, `${label}.browser_zoom_percent`, { min: 1 });
     requireString(fixture.theme_id, `${label}.theme_id`);
     requireString(fixture.density_id, `${label}.density_id`);
-    requireObject(fixture.scroll_normalization, `${label}.scroll_normalization`);
+    const scrollNormalization = requireObject(
+      fixture.scroll_normalization,
+      `${label}.scroll_normalization`,
+    );
+    const captureScope = validateVisualCaptureScope(
+      fixture.capture_scope,
+      `${label}.capture_scope`,
+    );
+    validateVisualScrollNormalization(
+      scrollNormalization,
+      captureScope,
+      `${label}.scroll_normalization`,
+    );
     requireObject(fixture.focus_state, `${label}.focus_state`);
     requireObject(fixture.editor_state, `${label}.editor_state`);
     requireObject(fixture.inspector_state, `${label}.inspector_state`);
-    requireStringArray(fixture.dynamic_masks, `${label}.dynamic_masks`);
-    requireBoolean(fixture.no_dynamic_regions, `${label}.no_dynamic_regions`);
+    const dynamicMasks = requireStringArray(
+      fixture.dynamic_masks,
+      `${label}.dynamic_masks`,
+    );
+    const noDynamicRegions = requireBoolean(
+      fixture.no_dynamic_regions,
+      `${label}.no_dynamic_regions`,
+    );
+    if (noDynamicRegions && dynamicMasks.length > 0) {
+      throw new Error(
+        `${label}.no_dynamic_regions=true requires empty dynamic_masks`,
+      );
+    }
+    if (fixtureID === "FE-VFIX-14") {
+      validateExposedThemeFixtureContract(fixture, label, captureScope);
+    }
     requireString(fixture.replacement_fixture_id || "none", `${label}.replacement_fixture_id`);
   }
   assertUnique(fixtureIDs, `${file}.fixtures.fixture_id`);
