@@ -13,17 +13,23 @@ import {
   genericEditRecordSelectTestId,
   genericEditValueTestId,
   gridFilterChipTestId,
+  gridFilterFieldTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
   gridScrollportSelector,
   gridShellTestId,
   rowCellTestId,
+  savedViewFamilySelector,
+  savedViewOptionTestId,
+  savedViewSelectorTestId,
   saveStateTestId,
   surfaceTabTestId,
   systemViewSwitcherMenuTestId,
+  systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   timelineMutationSubstrateReadyTestId,
   workbookShellReadyTestId,
+  workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Request } from "@playwright/test";
 
@@ -31,6 +37,7 @@ import { expect, test } from "./fixtures";
 import {
   apiBase,
   createIncident,
+  createSavedView,
   createViewRow,
   openSystemSurfaceBySwitcher,
   patchTimelineRecord,
@@ -82,6 +89,43 @@ const optionalStandardizedSurfaceIds = [
   "cartulary.view.findings.v1",
   "cartulary.view.forensic_keywords.v1",
   "cartulary.view.investigative_queries.v1",
+] as const;
+const feP10WorkbookShellSurfaces = [
+  {
+    groupToken: "coordination",
+    label: "Task Requests",
+    viewSchemaId: taskRequestsViewSchemaId,
+  },
+  {
+    groupToken: "coordination",
+    label: "Decisions",
+    viewSchemaId: decisionsViewSchemaId,
+  },
+  {
+    groupToken: "scope-assessment",
+    label: "Parties",
+    viewSchemaId: partiesViewSchemaId,
+  },
+  {
+    groupToken: "coordination",
+    label: "Communications Log",
+    viewSchemaId: commLogViewSchemaId,
+  },
+  {
+    groupToken: "coordination",
+    label: "Handoff",
+    viewSchemaId: handoffViewSchemaId,
+  },
+  {
+    groupToken: "review-learning",
+    label: "Status Review",
+    viewSchemaId: statusReviewViewSchemaId,
+  },
+  {
+    groupToken: "review-learning",
+    label: "Lesson",
+    viewSchemaId: lessonViewSchemaId,
+  },
 ] as const;
 const findingsViewSchemaId = "cartulary.view.findings.v1";
 const forensicKeywordsViewSchemaId = "cartulary.view.forensic_keywords.v1";
@@ -2120,6 +2164,154 @@ test("Phase 9 E-9-08 required registry identities stay canonical with optional a
   await expect(page).toHaveURL(
     new RegExp(`view_schema_id=${encodeURIComponent(findingsViewSchemaId)}`),
   );
+});
+
+test("FE-B-P10-01 Verify Task Requests, Decisions, Parties, Communications Log, Handoff, Status Review, and Lesson open inside the same workbook shell and retain view controls.", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("FEBP1001"),
+    "FE-B-P10-01 workbook shell coordination surfaces",
+  );
+  const savedViewIdsBySurface = new Map<string, string>();
+  for (const surface of feP10WorkbookShellSurfaces) {
+    const savedView = await createSavedView(page, incidentId, {
+      display_name: `FE-B-P10-01 ${surface.label} saved view`,
+      scope: "shared",
+      view_schema_id: surface.viewSchemaId,
+    });
+    savedViewIdsBySurface.set(surface.viewSchemaId, savedView.saved_view_id);
+  }
+
+  const firstSurface = feP10WorkbookShellSurfaces[0];
+  if (firstSurface === undefined) {
+    throw new Error("FE-P10 workbook shell surface list must not be empty");
+  }
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      firstSurface.viewSchemaId,
+    )}`,
+  );
+
+  const shell = page.getByTestId(workbookShellReadyTestId());
+  await expect(shell).toBeVisible();
+  const shellId = await shell.getAttribute("data-workbook-shell-id");
+  expect(shellId).toBe(workbookShellReadyTestId());
+
+  const topBar = shell.locator(
+    dataTestIdSelector(workbookShellSlotTestId("top-bar")),
+  );
+  const viewBar = shell.locator(
+    dataTestIdSelector(workbookShellSlotTestId("view-bar")),
+  );
+  const statusStrip = shell.locator(
+    dataTestIdSelector(workbookShellSlotTestId("status-strip")),
+  );
+  await expect(topBar).toBeVisible();
+  await expect(viewBar).toBeVisible();
+  await expect(statusStrip).toBeVisible();
+  await expect(
+    topBar.getByTestId(systemViewSwitcherTriggerTestId()),
+  ).toBeVisible();
+  await expect(topBar.locator(savedViewFamilySelector())).toHaveCount(0);
+  await expect(statusStrip.getByTestId(saveStateTestId())).toBeVisible();
+
+  await topBar.getByTestId(systemViewSwitcherTriggerTestId()).click();
+  const menu = page.getByTestId(systemViewSwitcherMenuTestId());
+  await expect(menu).toBeVisible();
+  for (const surface of feP10WorkbookShellSurfaces) {
+    await expect(
+      menu.getByTestId(
+        systemViewSwitcherOptionTestId(
+          surface.groupToken,
+          surface.viewSchemaId,
+        ),
+      ),
+    ).toHaveAttribute("data-view-schema-id", surface.viewSchemaId);
+  }
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+
+  for (const [index, surface] of feP10WorkbookShellSurfaces.entries()) {
+    if (index > 0) {
+      const surfaceQuery = page.waitForRequest((request) => {
+        return (
+          request.method() === "POST" &&
+          request
+            .url()
+            .endsWith(
+              `/api/v1/incidents/${incidentId}/views/${surface.viewSchemaId}/query`,
+            )
+        );
+      });
+      await topBar.getByTestId(systemViewSwitcherTriggerTestId()).click();
+      const option = page.getByTestId(
+        systemViewSwitcherOptionTestId(
+          surface.groupToken,
+          surface.viewSchemaId,
+        ),
+      );
+      await expect(option).toHaveAttribute(
+        "data-view-schema-id",
+        surface.viewSchemaId,
+      );
+      await option.click();
+      await surfaceQuery;
+    }
+
+    await expect(shell).toHaveAttribute(
+      "data-workbook-shell-id",
+      shellId ?? "",
+    );
+    await expect(shell).toHaveAttribute(
+      "data-active-view-schema-id",
+      surface.viewSchemaId,
+    );
+    await expect(page).toHaveURL(
+      new RegExp(`view_schema_id=${encodeURIComponent(surface.viewSchemaId)}`),
+    );
+    await expect(
+      page.getByTestId(gridShellTestId(surface.viewSchemaId)),
+    ).toBeVisible();
+    await expect(
+      viewBar.getByTestId(savedViewSelectorTestId(surface.viewSchemaId)),
+    ).toHaveCount(1);
+    await expect(
+      viewBar.getByTestId(gridFilterFieldTestId(surface.viewSchemaId)),
+    ).toBeVisible();
+    await expect(
+      viewBar.getByTestId(gridGroupingSelectTestId(surface.viewSchemaId)),
+    ).toBeVisible();
+
+    const activeSelector = viewBar.getByTestId(
+      savedViewSelectorTestId(surface.viewSchemaId),
+    );
+    const savedViewId = savedViewIdsBySurface.get(surface.viewSchemaId);
+    if (savedViewId === undefined) {
+      throw new Error(`missing saved view for ${surface.viewSchemaId}`);
+    }
+    await expect(
+      activeSelector.getByTestId(
+        savedViewOptionTestId(surface.viewSchemaId, savedViewId),
+      ),
+    ).toHaveAttribute("data-view-schema-id", surface.viewSchemaId);
+    for (const [
+      otherViewSchemaId,
+      otherSavedViewId,
+    ] of savedViewIdsBySurface.entries()) {
+      if (otherViewSchemaId === surface.viewSchemaId) {
+        continue;
+      }
+      await expect(
+        activeSelector.getByTestId(
+          savedViewOptionTestId(surface.viewSchemaId, otherSavedViewId),
+        ),
+      ).toHaveCount(0);
+    }
+    await expect(topBar.locator(savedViewFamilySelector())).toHaveCount(0);
+    await expect(statusStrip.getByTestId(saveStateTestId())).toBeVisible();
+  }
 });
 
 type PartyPatchChange = {

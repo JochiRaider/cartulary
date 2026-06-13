@@ -952,6 +952,24 @@
       "duplicate_of": null,
       "evidence_delta": "support evidence is explicit-only",
       "warm_local_cost_class": "explicit_heavy"
+    },
+    {
+      "id": "E-3-SUPPORT-04",
+      "coverage": "supplemental",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase9.keyboard.spec.ts",
+      "title": "FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.",
+      "execution_dependency": "browser_support",
+      "evidence_layer": "browser_support",
+      "evidence_class": "implementation_support",
+      "layer": "browser_support",
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "E-3-SUPPORT-04",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only frontend row selection support",
+      "warm_local_cost_class": "explicit_heavy"
     }
   ],
   "visual": [

@@ -6520,14 +6520,7 @@ function classifyPlaywrightCase(file, title, phaseLabel) {
   const manifested = loadManifestIndex().manifestPlaywright.get(
     `${normalizedFile}::${title}`,
   );
-  if (manifested && manifested.coverage !== "authoritative") {
-    return {
-      coverage: "support",
-      phase: manifested.phase,
-      id: manifested.id,
-      owner: normalizedFile,
-    };
-  }
+  const frontendManifested = loadFrontendPlaywrightIndex().byTitle.get(title);
   const authoritative = loadManifestIndex().authoritativePlaywright.get(
     `${normalizedFile}::${title}`,
   );
@@ -6539,7 +6532,22 @@ function classifyPlaywrightCase(file, title, phaseLabel) {
       owner: normalizedFile,
     };
   }
-  const frontendManifested = loadFrontendPlaywrightIndex().byTitle.get(title);
+  if (frontendManifested && /\bauthoritative\b/i.test(phaseLabel)) {
+    return {
+      coverage: frontendManifested.coverage,
+      phase: frontendManifested.phase,
+      id: frontendManifested.id,
+      owner: normalizedFile,
+    };
+  }
+  if (manifested && manifested.coverage !== "authoritative") {
+    return {
+      coverage: "support",
+      phase: manifested.phase,
+      id: manifested.id,
+      owner: normalizedFile,
+    };
+  }
   if (frontendManifested) {
     return {
       coverage: frontendManifested.coverage,

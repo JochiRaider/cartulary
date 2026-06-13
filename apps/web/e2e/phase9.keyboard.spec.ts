@@ -1,6 +1,22 @@
 import {
+  assertGroupRowPresentationOnly,
+  assertMountedGridRowCountAtMost,
+  changeGrouping,
+  fillDownGridCells,
+  pasteGridMatrix,
+  scrollGridCellIntoView,
+  sortByHeader,
+} from "@cartulary/test-utils";
+import {
+  gridGroupRowTestId,
+  gridRowGutterTestId,
+  gridScrollportSelector,
+  gridShellTestId,
   rowCellTestId,
   rowHistoryPanelTestId,
+  rowInspectButtonTestId,
+  rowInspectorFieldTestId,
+  saveStateTestId,
   timelineCollectionInputTestId,
   timelineMutationSubstrateReadyTestId,
 } from "@cartulary/ui-contracts";
@@ -8,8 +24,10 @@ import type { Locator, Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
+  apiBase,
   createIncident,
   createViewRow,
+  csrfHeaders,
   queryViewRows,
   uniqueIncidentKey,
   uniqueTxn,
@@ -20,6 +38,7 @@ import {
   assessmentsViewSchemaId,
   collectionActionsPayload,
   commLogViewSchemaId,
+  createTimelineFillers,
   decisionsViewSchemaId,
   handoffViewSchemaId,
   hostRefsFieldKey,
@@ -39,6 +58,10 @@ function stringCell(
   fieldKey: string,
 ): string {
   return String(row.cells?.[fieldKey]?.value ?? "");
+}
+
+function readPostBody(request: { postData: () => string | null }) {
+  return JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
 }
 
 type SharedGridAnchorOptions = {
@@ -296,6 +319,269 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.host_refs`,
   );
   expect(page.url()).toBe(initialURL);
+});
+
+test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("FEBP1002"),
+    "FE-B-P10-02 workbook keyboard contract",
+  );
+  const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("fe-b-p10-02-alpha"),
+    "timeline.summary": "FE-B-P10-02 Alpha",
+    "timeline.details": "FE-B-P10-02 Alpha details",
+  });
+  const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("fe-b-p10-02-beta"),
+    "timeline.summary": "FE-B-P10-02 Beta",
+    "timeline.details": "FE-B-P10-02 Beta details",
+  });
+  const gamma = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("fe-b-p10-02-gamma"),
+    "timeline.summary": "FE-B-P10-02 Gamma",
+    "timeline.details": "FE-B-P10-02 Gamma details",
+  });
+  await createTimelineFillers(page, incidentId, "FE-B-P10-02 filler", 44);
+  const virtualTarget = await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("fe-b-p10-02-virtual"),
+      "timeline.summary": "ZZZ FE-B-P10-02 virtual target",
+      "timeline.details": "FE-B-P10-02 virtual details",
+    },
+  );
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
+
+  const alphaSummary = page.getByTestId(
+    rowCellTestId(alpha.record_id, "timeline.summary"),
+  );
+  await expect(alphaSummary).toHaveValue("FE-B-P10-02 Alpha");
+  await alphaSummary.focus();
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.summary`,
+  );
+  const copiedText = await alphaSummary.evaluate((element) => {
+    const data = new DataTransfer();
+    const event = new ClipboardEvent("copy", {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: data,
+    });
+    element.dispatchEvent(event);
+    return data.getData("text/plain");
+  });
+  expect(copiedText).toBe("FE-B-P10-02 Alpha");
+
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `${timelineViewSchemaId}:${alpha.record_id}:${hostRefsFieldKey}`,
+  );
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.summary`,
+  );
+  await expect(alphaSummary).toBeFocused();
+
+  await alphaSummary.fill("FE-B-P10-02 dirty draft");
+  await alphaSummary.press("Escape");
+  await expect(alphaSummary).toHaveValue("FE-B-P10-02 Alpha");
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+
+  await page.getByTestId(rowInspectButtonTestId(alpha.record_id)).click();
+  const inspectorDetails = page.getByTestId(
+    rowInspectorFieldTestId(alpha.record_id, "timeline.details"),
+  );
+  await expect(inspectorDetails).toHaveValue("FE-B-P10-02 Alpha details");
+  await inspectorDetails.focus();
+  await inspectorDetails.fill("FE-B-P10-02 inspector dirty draft");
+  await inspectorDetails.press("Escape");
+  await expect(inspectorDetails).toHaveValue("FE-B-P10-02 Alpha details");
+  await inspectorDetails.press("Escape");
+  await expect(alphaSummary).toBeFocused();
+  await alphaSummary.press("Escape");
+  await expect(inspectorDetails).toHaveCount(0);
+  await expect(page.getByTestId("timeline-inspector")).toContainText(
+    "Draft timeline row",
+  );
+  await expect(alphaSummary).toBeFocused();
+  await alphaSummary.press("Escape");
+  await expect(inspectorDetails).toHaveCount(0);
+  await expect(alphaSummary).toBeFocused();
+
+  const pasteRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
+        ),
+  );
+  const pasteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
+        ),
+  );
+  await pasteGridMatrix({
+    fieldKey: "timeline.summary",
+    matrix: [["FE-B-P10-02 pasted Beta", "fe-b-p10-02-host-token"]],
+    page,
+    recordId: beta.record_id,
+    surface: timelineViewSchemaId,
+  });
+  expect(readPostBody(await pasteRequest)).toMatchObject({
+    columns: ["timeline.summary", "timeline.host_refs"],
+    start_field_key: "timeline.summary",
+    targets: [
+      {
+        kind: "record",
+        record_id: beta.record_id,
+      },
+    ],
+    view_schema_id: timelineViewSchemaId,
+  });
+  await expect((await pasteResponse).ok()).toBeTruthy();
+  await expect(
+    page.getByTestId(rowCellTestId(beta.record_id, "timeline.summary")),
+  ).toHaveValue("FE-B-P10-02 pasted Beta");
+  const betaAfterPaste = await waitForViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    beta.record_id,
+  );
+  expect(stringCell(betaAfterPaste, "timeline.summary")).toBe(
+    "FE-B-P10-02 pasted Beta",
+  );
+
+  const fillRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`,
+        ),
+  );
+  const fillResponse = await fillDownGridCells({
+    apiBase,
+    csrfHeaders: await csrfHeaders(page),
+    fieldKey: "timeline.details",
+    incidentId,
+    page,
+    surface: timelineViewSchemaId,
+    targetRecords: [
+      {
+        baseRowVersion: alpha.row_version,
+        recordId: alpha.record_id,
+      },
+      {
+        baseRowVersion: gamma.row_version,
+        recordId: gamma.record_id,
+      },
+    ],
+    value: "FE-B-P10-02 filled details",
+  });
+  expect(fillResponse.ok()).toBeTruthy();
+  expect(readPostBody(await fillRequest)).toMatchObject({
+    field_key: "timeline.details",
+    kind: "fill_down_v1",
+    targets: [
+      {
+        base_row_version: alpha.row_version,
+        record_id: alpha.record_id,
+      },
+      {
+        base_row_version: gamma.row_version,
+        record_id: gamma.record_id,
+      },
+    ],
+    value: "FE-B-P10-02 filled details",
+    view_schema_id: timelineViewSchemaId,
+  });
+
+  const reviewResponse = await page.request.post(
+    `${apiBase}/api/v1/records/${beta.record_id}/mark-reviewed`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        base_row_version: betaAfterPaste.row_version,
+        client_txn_id: uniqueTxn("fe-b-p10-02-review-beta"),
+        reason: "FE-B-P10-02 grouping setup",
+      },
+    },
+  );
+  expect(reviewResponse.ok()).toBeTruthy();
+  const reviewedBeta = await waitForViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    beta.record_id,
+  );
+  expect(stringCell(reviewedBeta, "timeline.capture_state")).toBe("reviewed");
+  await page.reload();
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(rowCellTestId(beta.record_id, "timeline.capture_state")),
+  ).toHaveText("reviewed");
+  await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
+  const reviewedGroupTestId = gridGroupRowTestId(
+    timelineViewSchemaId,
+    "timeline.capture_state",
+    "reviewed",
+  );
+  await expect(page.getByTestId(reviewedGroupTestId)).toBeVisible();
+  await assertGroupRowPresentationOnly({
+    groupTestId: reviewedGroupTestId,
+    page,
+    surface: timelineViewSchemaId,
+  });
+
+  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+  await assertMountedGridRowCountAtMost({
+    maxRows: 36,
+    page,
+    surface: timelineViewSchemaId,
+  });
+  await scrollGridCellIntoView({
+    cellKey: "timeline.summary",
+    page,
+    recordId: virtualTarget.record_id,
+    surface: timelineViewSchemaId,
+    timeoutMs: 6_000,
+  });
+  await expect(
+    page.getByTestId(
+      rowCellTestId(virtualTarget.record_id, "timeline.summary"),
+    ),
+  ).toBeVisible();
+  await page
+    .getByTestId(gridShellTestId(timelineViewSchemaId))
+    .locator(gridScrollportSelector())
+    .evaluate((element) => {
+      element.scrollLeft = 480;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+  const frozenGutter = page.getByTestId(
+    gridRowGutterTestId(timelineViewSchemaId, virtualTarget.record_id),
+  );
+  await expect(frozenGutter).toHaveCSS("position", "sticky");
+  await expect(frozenGutter).toHaveCSS("left", "0px");
 });
 
 test("Phase 9 E-9-GRIDANCHORS-01 shared grid keyboard anchors stay stable across workbook cells", async ({

@@ -1138,6 +1138,14 @@ function FocusableWorkbookCell({
       onFocus={() => {
         focus.update(recordId, fieldKey);
       }}
+      onCopy={(event) => {
+        event.clipboardData.setData(
+          "text/plain",
+          event.currentTarget.textContent ?? "",
+        );
+        event.preventDefault();
+        focus.update(recordId, fieldKey);
+      }}
       onPaste={
         onPaste
           ? (event) => {
@@ -3381,12 +3389,27 @@ function TimelineScalarEditor({
   const handleKeyDown = (
     event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
+    if (event.key === "Escape" && editorValue !== committedValue) {
+      event.preventDefault();
+      setEditorValue(committedValue);
+      onDraftChange(rowKey, field, surface, committedValue);
+      return;
+    }
     onKeyCommit(event, rowKey, field, surface);
   };
   const handlePaste = (
     event: ReactClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     onPasteCommit(event, rowKey, field, surface);
+  };
+  const handleCopy = (
+    event: ReactClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    event.clipboardData.setData("text/plain", editorValue);
+    event.preventDefault();
+    if (surface === "grid") {
+      onFocusAnchor(rowRecordId, presenceFieldKey);
+    }
   };
   const inputRef = (element: HTMLInputElement | HTMLTextAreaElement | null) => {
     registerInput(rowKey, field, surface, dataTestId, element);
@@ -3408,6 +3431,7 @@ function TimelineScalarEditor({
         }}
         onFocus={handleFocus}
         onKeyDown={handleKeyDown}
+        onCopy={handleCopy}
         onPaste={handlePaste}
       />
     );
@@ -3428,6 +3452,7 @@ function TimelineScalarEditor({
       }}
       onFocus={handleFocus}
       onKeyDown={handleKeyDown}
+      onCopy={handleCopy}
       onPaste={handlePaste}
     />
   );
@@ -4168,6 +4193,17 @@ export function TimelineWorkbook({
         );
         if (inputElement !== null) {
           return inputElement;
+        }
+      }
+      const binding = timelineFieldBinding(anchor.fieldKey);
+      if (binding.kind === "collection") {
+        const collectionInput = document.querySelector<HTMLInputElement>(
+          dataTestIdSelector(
+            timelineCollectionInputTestId(anchor.recordId, anchor.fieldKey),
+          ),
+        );
+        if (collectionInput !== null) {
+          return collectionInput;
         }
       }
       const testId =
@@ -6953,7 +6989,11 @@ export function TimelineWorkbook({
         return;
       }
       updateTimelineFocusAnchor(nextAnchor.recordId, nextAnchor.fieldKey);
+      const restoredNow = restoreTimelineFocusAnchor(nextAnchor);
       window.setTimeout(() => {
+        if (restoredNow) {
+          return;
+        }
         restoreTimelineFocusAnchor(nextAnchor);
       }, 0);
     },
@@ -11846,6 +11886,25 @@ function GenericWorkbookSurface({
           sort={queryState.sort}
         />
       </GridViewport>
+
+      <WorkbookShellSlotRegion
+        slot="status-strip"
+        style={statusStripStyle}
+        viewSchemaId={surface}
+      >
+        <span style={statusStripItemStyle}>
+          <span aria-hidden="true" style={statusIconStyle(mutationState)} />
+          <strong
+            aria-live="polite"
+            aria-label="Save state"
+            data-density-role="narrow-metadata"
+            data-testid={saveStateTestId()}
+            role="status"
+          >
+            {mutationState}
+          </strong>
+        </span>
+      </WorkbookShellSlotRegion>
     </section>
   );
 }

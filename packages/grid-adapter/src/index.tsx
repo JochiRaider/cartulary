@@ -10,6 +10,7 @@ import {
   type ForwardedRef,
   forwardRef,
   type MouseEvent,
+  type ReactNode,
   useCallback,
   useLayoutEffect,
   useMemo,
@@ -211,7 +212,11 @@ export function GridTable<Row>({
     >
       <div role="row" style={rowContentsStyle}>
         {rowGutter === undefined ? null : (
-          <div role="columnheader" style={rowGutterHeaderStyle}>
+          <div
+            data-grid-field-key="__cartulary_row_gutter__"
+            role="columnheader"
+            style={rowGutterHeaderStyle}
+          >
             <span data-testid={rowGutter.headerTestId}>
               {rowGutter.label ?? ""}
             </span>
@@ -291,6 +296,13 @@ type DataRowProps<Row> = {
   readonly row: GridRow<Row>;
 };
 
+type HeaderSortButtonProps<Row> = {
+  readonly children: ReactNode;
+  readonly column: GridColumn<Row>;
+  readonly onToggleSort: (fieldKey: string) => void;
+  readonly sortFieldKey: string;
+};
+
 type VirtualizedRows<Row> = {
   readonly items: readonly VirtualizedRowItem<Row>[];
 };
@@ -355,17 +367,45 @@ function renderDataHeaderContent<Row>({
   }
 
   return (
+    <HeaderSortButton
+      column={column}
+      sortFieldKey={sortFieldKey}
+      onToggleSort={onToggleSort}
+    >
+      {content}
+    </HeaderSortButton>
+  );
+}
+
+function HeaderSortButton<Row>({
+  children,
+  column,
+  onToggleSort,
+  sortFieldKey,
+}: HeaderSortButtonProps<Row>) {
+  const [isFocused, setIsFocused] = useState(false);
+
+  return (
     <button
       data-grid-field-key={column.fieldKey}
       data-testid={column.headerTestId}
-      style={headerButtonStyle(column.align)}
+      style={{
+        ...headerButtonStyle(column.align),
+        ...(isFocused ? headerButtonFocusStyle : null),
+      }}
       title={column.sortDisabledReason ?? undefined}
       type="button"
+      onBlur={() => {
+        setIsFocused(false);
+      }}
       onClick={() => {
         onToggleSort(sortFieldKey);
       }}
+      onFocus={() => {
+        setIsFocused(true);
+      }}
     >
-      {content}
+      {children}
     </button>
   );
 }
@@ -749,6 +789,8 @@ const headerCellBaseStyle = {
 
 const rowGutterHeaderStyle = {
   ...headerCellBaseStyle,
+  left: 0,
+  zIndex: 3,
   justifyContent: "center",
   color: "var(--ct-colors-ink-subtle)",
 };
@@ -769,6 +811,12 @@ const headerButtonBaseStyle = {
   color: "inherit",
   cursor: "pointer",
   font: "inherit",
+};
+
+const headerButtonFocusStyle = {
+  outline: "var(--ct-component-focus-ring-border)",
+  outlineOffset: "var(--ct-component-focus-ring-offset)",
+  boxShadow: "0 0 0 2px var(--ct-colors-accent)",
 };
 
 const headerMetaStyle = {
@@ -794,10 +842,17 @@ function rowGutterCellStyle(
   return {
     ...bodyCellStyle,
     ...rowStyle,
+    position: "sticky",
+    left: 0,
+    zIndex: 2,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     gap: "0.2rem",
+    background:
+      typeof rowStyle?.background === "string"
+        ? rowStyle.background
+        : "var(--ct-colors-surface-1)",
     color: "var(--ct-colors-ink-subtle)",
     fontSize: "0.76rem",
     fontWeight: 600,

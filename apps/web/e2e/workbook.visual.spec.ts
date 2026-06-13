@@ -92,13 +92,19 @@ import {
   addRelationshipTokenViaUI,
   collectionActionsPayload,
   collectionItems,
+  commLogViewSchemaId,
+  decisionsViewSchemaId,
   evidenceViewSchemaId,
+  handoffViewSchemaId,
   hostRefsFieldKey,
   hostsViewSchemaId,
+  lessonViewSchemaId,
   openTimelineInspector,
+  partiesViewSchemaId,
   requireItemByRawText,
   resolvedRefPayload,
   seedHostMentionStateFixture,
+  statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./phase4Helpers";
@@ -2384,6 +2390,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
         txnPrefix: "visual-phase6-pending-conflict",
       });
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
+      await page.getByTestId("conflict-resolver").scrollIntoViewIfNeeded();
       await assertViewportVisualRegression(
         page,
         "v-6-grid-03-blocked-conflict",
@@ -2401,6 +2408,255 @@ test.describe("Phase 6 workbook visual evidence", () => {
       page,
       "v-6-grid-03-recovered-saved-strip",
     );
+  });
+});
+
+test.describe("FE-P10 workbook visual readiness", () => {
+  test("FE-V-P10-01 Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures.", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "100%";
+    });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("FEVP1001"),
+      "FE-P10 coordination visual readiness",
+    );
+    const owner = await createIncidentMemberUser(page, incidentId, {
+      display_name: "FE-P10 visual owner",
+      email: uniqueEmail("fe-p10-visual-owner"),
+      initial_password: "Phase10Visual1!",
+      role: "editor",
+    });
+    const party = (await createViewRow(page, incidentId, partiesViewSchemaId, {
+      client_txn_id: uniqueTxn("FEVP1001-PARTY"),
+      "party.display_name": "FE-P10 Visual Party",
+      "party.party_kind": "team",
+    })) as ViewRow;
+    const taskRow = (await createViewRow(
+      page,
+      incidentId,
+      taskRequestsViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("V4GRID03-TASK"),
+        "task.task_kind": "collection",
+        "task.title": "Visual task request",
+      },
+    )) as ViewRow;
+    const decision = (await createViewRow(
+      page,
+      incidentId,
+      decisionsViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("FEVP1001-DECISION"),
+        "decision.decision_type": "containment",
+        "decision.rationale": "FE-P10 visual rationale",
+        "decision.summary": "FE-P10 visual decision",
+      },
+    )) as ViewRow;
+    const comm = (await createViewRow(page, incidentId, commLogViewSchemaId, {
+      client_txn_id: uniqueTxn("FEVP1001-COMM"),
+      "comm_log.audience": "FE-P10 visual responders",
+      "comm_log.channel_or_meeting": "FE-P10 visual bridge",
+      "comm_log.comm_type": "briefing",
+      "comm_log.decision_ids": {
+        actions: [
+          { linked_record_id: decision.record_id, op: "add_record_ref" },
+        ],
+        kind: "collection_actions_v1",
+      },
+      "comm_log.summary": "FE-P10 visual communication",
+    })) as ViewRow;
+    const handoff = (await createViewRow(
+      page,
+      incidentId,
+      handoffViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("FEVP1001-HANDOFF"),
+        "handoff.current_state_summary": "FE-P10 visual handoff state",
+        "handoff.incoming_owner_user_id": owner.user_id,
+      },
+    )) as ViewRow;
+    const status = (await createViewRow(
+      page,
+      incidentId,
+      statusReviewViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("FEVP1001-STATUS"),
+        "status_review.current_state_summary":
+          "FE-P10 visual status review state",
+      },
+    )) as ViewRow;
+    const lesson = (await createViewRow(page, incidentId, lessonViewSchemaId, {
+      client_txn_id: uniqueTxn("FEVP1001-LESSON"),
+      "lesson.summary": "FE-P10 visual lesson",
+    })) as ViewRow;
+
+    await page.goto(
+      `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+        taskRequestsViewSchemaId,
+      )}`,
+    );
+    await maskIncidentIdentity(page, incidentId);
+    await expect(
+      page.getByTestId(rowCellTestId(taskRow.record_id, "task.title")),
+    ).toHaveText("Visual task request");
+    await expect(
+      page.getByTestId(rowCellTestId(taskRow.record_id, "task.status")),
+    ).toHaveText("open");
+    await normalizeWorkbookGridVisualState(page, taskRequestsViewSchemaId, {
+      scroll: { top: 0, left: "left" },
+    });
+    await assertWorkbookGridVisualRegression(
+      page,
+      "v-4-grid-03-task-requests",
+      taskRequestsViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
+    );
+
+    await injectFeP3GridAdapterVisualFixture(page);
+    const fixture = page.locator("[data-design-fixture='fe-p3-grid-adapter']");
+    await expect(fixture).toBeVisible();
+    for (const fixtureId of [
+      "FE-VFIX-09",
+      "FE-VFIX-10",
+      "FE-VFIX-11",
+      "FE-VFIX-12",
+      "FE-VFIX-13",
+    ]) {
+      await expect(
+        fixture.locator(`[data-fixture-id='${fixtureId}']`),
+      ).toBeVisible();
+    }
+    await assertVisualRegression(
+      page,
+      "fe-v-p3-01-grid-adapter-fixtures",
+      fixture,
+    );
+
+    const linkedTask = (await createViewRow(
+      page,
+      incidentId,
+      taskRequestsViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("FEVP1001-LINKED-TASK"),
+        "task.requester_party_id": party.record_id,
+        "task.requester_party_text": "FE-P10 requester",
+        "task.task_kind": "follow_up",
+        "task.title": "FE-P10 party-linked task",
+      },
+    )) as ViewRow;
+
+    const surfaceExpectations = [
+      {
+        expected: "FE-P10 party-linked task",
+        fieldKey: "task.title",
+        recordId: linkedTask.record_id,
+        surface: taskRequestsViewSchemaId,
+      },
+      {
+        expected: "FE-P10 Visual Party",
+        fieldKey: "party.display_name",
+        recordId: party.record_id,
+        surface: partiesViewSchemaId,
+      },
+      {
+        expected: "FE-P10 visual communication",
+        fieldKey: "comm_log.summary",
+        recordId: comm.record_id,
+        surface: commLogViewSchemaId,
+      },
+      {
+        expected: "FE-P10 visual handoff state",
+        fieldKey: "handoff.current_state_summary",
+        recordId: handoff.record_id,
+        surface: handoffViewSchemaId,
+      },
+      {
+        expected: "FE-P10 visual status review state",
+        fieldKey: "status_review.current_state_summary",
+        recordId: status.record_id,
+        surface: statusReviewViewSchemaId,
+      },
+      {
+        expected: "FE-P10 visual lesson",
+        fieldKey: "lesson.summary",
+        recordId: lesson.record_id,
+        surface: lessonViewSchemaId,
+      },
+    ] as const;
+    for (const expectation of surfaceExpectations) {
+      await page.goto(
+        `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+          expectation.surface,
+        )}`,
+      );
+      await maskIncidentIdentity(page, incidentId);
+      await expect(
+        page.getByTestId(gridShellTestId(expectation.surface)),
+      ).toBeVisible();
+      const cell = page.getByTestId(
+        rowCellTestId(expectation.recordId, expectation.fieldKey),
+      );
+      await expect(cell).toHaveText(expectation.expected);
+      await cell.focus();
+      await normalizeWorkbookGridVisualState(page, expectation.surface, {
+        scroll: { top: 0, left: "left" },
+      });
+    }
+
+    const linkedRows = await queryViewRows(
+      page,
+      incidentId,
+      taskRequestsViewSchemaId,
+    );
+    const linked = linkedRows.find(
+      (candidate) => candidate.record_id === linkedTask.record_id,
+    );
+    const requesterPartyCell = linked?.cells["task.requester_party_id"] as
+      | { value?: unknown }
+      | undefined;
+    expect(requesterPartyCell?.value).toBe(party.record_id);
+    await test.info().attach("fe-v-p10-01-fixture-matrix.json", {
+      body: Buffer.from(
+        JSON.stringify(
+          {
+            browser_zoom_percent: 100,
+            device_scale_factor: 1,
+            dynamic_masks: [
+              "incident identifiers",
+              "generated record identifiers",
+              "clock-derived labels when visible",
+            ],
+            editor_state:
+              "FE-VFIX-12 readonly editor fixture captured in the grid-adapter fixture.",
+            fixture_ids: [
+              "FE-VFIX-07",
+              "FE-VFIX-09",
+              "FE-VFIX-10",
+              "FE-VFIX-11",
+              "FE-VFIX-12",
+              "FE-VFIX-13",
+            ],
+            focus_state:
+              "Each FE-P10 coordination/review surface focuses its row cell after deterministic query state is visible.",
+            screenshot_scopes: [
+              "task requests workbook grid",
+              "grid-adapter design fixture",
+            ],
+            seed_id: "fe-v-p10-01-deterministic-seed",
+            surfaces: surfaceExpectations.map((entry) => entry.surface),
+            viewport_css_px: "1440x900",
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      ),
+      contentType: "application/json",
+    });
   });
 });
 

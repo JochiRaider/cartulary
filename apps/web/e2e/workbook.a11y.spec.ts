@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
+  applyFilterChip,
   assertActiveFilterChipVisible,
   pasteGridMatrix,
 } from "@cartulary/test-utils";
@@ -58,6 +59,7 @@ import {
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
   rowPresenceMarkerTestId,
+  type SystemViewSwitcherGroupToken,
   savedViewCreateButtonTestId,
   savedViewNameInputTestId,
   savedViewSelectorTestId,
@@ -119,11 +121,18 @@ import {
   addRelationshipTokenViaUI,
   collectionActionsPayload,
   collectionItems,
+  commLogViewSchemaId,
+  decisionsViewSchemaId,
   evidenceViewSchemaId,
+  handoffViewSchemaId,
   hostRefsFieldKey,
+  lessonViewSchemaId,
   openTimelineInspector,
+  partiesViewSchemaId,
   requireItemByRawText,
   seedHostMentionStateFixture,
+  statusReviewViewSchemaId,
+  taskRequestsViewSchemaId,
 } from "./phase4Helpers";
 import {
   driveRealTimelineSummaryConflict,
@@ -190,6 +199,9 @@ const p8AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
 const p9AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P9-01",
 ) as [string];
+const p10AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
+  "FE-A11Y-P10-01",
+) as [string];
 
 if (p2AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
@@ -229,6 +241,11 @@ if (p8AccessibilityScenarioTitles.length !== 1) {
 if (p9AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
     `FE-A11Y-P9-01 must declare exactly 1 scenario; found ${p9AccessibilityScenarioTitles.length}`,
+  );
+}
+if (p10AccessibilityScenarioTitles.length !== 1) {
+  throw new Error(
+    `FE-A11Y-P10-01 must declare exactly 1 scenario; found ${p10AccessibilityScenarioTitles.length}`,
   );
 }
 
@@ -431,19 +448,37 @@ async function expectNoFocusTrap(page: Page) {
   }
 }
 
+async function expectTabTraversalAdvancesFrom(
+  page: Page,
+  origin: Locator,
+  tabCount = 4,
+) {
+  await expectVisibleFocus(origin);
+  const visited: string[] = [];
+  for (let index = 0; index < tabCount; index += 1) {
+    await page.keyboard.press("Tab");
+    visited.push(await activeElementSignature(page));
+  }
+  expect(visited.every((signature) => signature !== "")).toBeTruthy();
+  expect(new Set(visited).size).toBeGreaterThan(1);
+}
+
 async function expectVisibleFocus(locator: Locator) {
   await locator.focus();
   await expect(locator).toBeFocused();
-  const hasVisibleFocus = await locator.evaluate((element) => {
-    const style = window.getComputedStyle(element);
-    const outlineVisible =
-      style.outlineStyle !== "none" &&
-      style.outlineWidth !== "0px" &&
-      style.outlineColor !== "transparent";
-    const shadowVisible = style.boxShadow !== "none";
-    return outlineVisible || shadowVisible;
-  });
-  expect(hasVisibleFocus).toBeTruthy();
+  await expect
+    .poll(() =>
+      locator.evaluate((element) => {
+        const style = window.getComputedStyle(element);
+        const outlineVisible =
+          style.outlineStyle !== "none" &&
+          style.outlineWidth !== "0px" &&
+          style.outlineColor !== "transparent";
+        const shadowVisible = style.boxShadow !== "none";
+        return outlineVisible || shadowVisible;
+      }),
+    )
+    .toBeTruthy();
 }
 
 async function expectStatusRole(locator: Locator) {
@@ -600,6 +635,61 @@ async function expectAndRecordContrast(page: Page, testIds: readonly string[]) {
       "utf8",
     );
   }
+}
+
+async function expectCellTextOrValue(locator: Locator, value: string) {
+  const mode = await locator.evaluate((element) => {
+    if (
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLTextAreaElement ||
+      element instanceof HTMLSelectElement
+    ) {
+      return "value";
+    }
+    return "text";
+  });
+  if (mode === "value") {
+    await expect(locator).toHaveValue(value);
+    return;
+  }
+  await expect(locator).toContainText(value);
+}
+
+async function openA11ySystemSurface(
+  page: Page,
+  options: {
+    groupToken: SystemViewSwitcherGroupToken;
+    viewSchemaId: string;
+  },
+) {
+  const trigger = page.getByTestId(systemViewSwitcherTriggerTestId());
+  await expectVisibleFocus(trigger);
+  await trigger.press("Enter");
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  const menu = page.getByTestId(systemViewSwitcherMenuTestId());
+  await expect(menu).toBeVisible();
+  await expect(menu).toHaveAttribute("role", "menu");
+
+  const option = page.getByTestId(
+    systemViewSwitcherOptionTestId(options.groupToken, options.viewSchemaId),
+  );
+  await expect(option).toHaveAttribute("role", "menuitemradio");
+  await expect(option).toHaveAttribute(
+    "data-view-schema-id",
+    options.viewSchemaId,
+  );
+  await expect(option).not.toHaveText("");
+  await expectVisibleFocus(option);
+  await option.press("Enter");
+  await expect(menu).toHaveCount(0);
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(trigger).toHaveAttribute(
+    "data-view-schema-id",
+    options.viewSchemaId,
+  );
+  await expect(
+    page.getByTestId(gridShellTestId(options.viewSchemaId)),
+  ).toBeVisible();
 }
 
 function phase9A11yAttachedEvidencePayload(recordId: string) {
@@ -2200,6 +2290,353 @@ test.describe("FE-P9 accessibility readiness", () => {
 
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
+  });
+});
+
+test.describe("FE-P10 accessibility readiness", () => {
+  test(p10AccessibilityScenarioTitles[0], async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("A11YP10"),
+      "FE-A11Y-P10 coordination accessibility",
+    );
+    const owner = await createIncidentMemberUser(page, incidentId, {
+      display_name: "FE-P10 accessibility owner",
+      email: uniqueEmail("fe-p10-a11y-owner"),
+      initial_password: "Phase10A11y1!",
+      role: "editor",
+    });
+    const party = (await createViewRow(page, incidentId, partiesViewSchemaId, {
+      client_txn_id: uniqueTxn("fe-a11y-p10-party"),
+      "party.display_name": "FE-A11Y-P10 response party",
+      "party.party_kind": "team",
+    })) as ViewRow;
+    const task = (await createViewRow(
+      page,
+      incidentId,
+      taskRequestsViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p10-task"),
+        "task.priority": "normal",
+        "task.requester_party_id": party.record_id,
+        "task.task_kind": "collection",
+        "task.title": "FE-A11Y-P10 task alpha",
+      },
+    )) as ViewRow;
+    const urgentTask = (await createViewRow(
+      page,
+      incidentId,
+      taskRequestsViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p10-urgent-task"),
+        "task.priority": "urgent",
+        "task.task_kind": "follow_up",
+        "task.title": "FE-A11Y-P10 task urgent",
+      },
+    )) as ViewRow;
+    const clipboardRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p10-clipboard"),
+        "timeline.occurred_at": "2026-06-12T10:00:00Z",
+        "timeline.summary": "FE-A11Y-P10 clipboard row",
+      },
+    )) as ViewRow;
+    const decision = (await createViewRow(
+      page,
+      incidentId,
+      decisionsViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p10-decision"),
+        "decision.decision_type": "containment",
+        "decision.rationale": "FE-A11Y-P10 coordination rationale",
+        "decision.summary": "FE-A11Y-P10 decision summary",
+      },
+    )) as ViewRow;
+    const comm = (await createViewRow(page, incidentId, commLogViewSchemaId, {
+      client_txn_id: uniqueTxn("fe-a11y-p10-comm"),
+      "comm_log.audience": "FE-A11Y-P10 responders",
+      "comm_log.channel_or_meeting": "FE-A11Y-P10 bridge",
+      "comm_log.comm_type": "briefing",
+      "comm_log.decision_ids": {
+        actions: [
+          { linked_record_id: decision.record_id, op: "add_record_ref" },
+        ],
+        kind: "collection_actions_v1",
+      },
+      "comm_log.summary": "FE-A11Y-P10 communications log",
+    })) as ViewRow;
+    const handoff = (await createViewRow(
+      page,
+      incidentId,
+      handoffViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p10-handoff"),
+        "handoff.current_state_summary": "FE-A11Y-P10 handoff state",
+        "handoff.incoming_owner_user_id": owner.user_id,
+      },
+    )) as ViewRow;
+    const status = (await createViewRow(
+      page,
+      incidentId,
+      statusReviewViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p10-status"),
+        "status_review.current_state_summary":
+          "FE-A11Y-P10 status review state",
+      },
+    )) as ViewRow;
+    const lesson = (await createViewRow(page, incidentId, lessonViewSchemaId, {
+      client_txn_id: uniqueTxn("fe-a11y-p10-lesson"),
+      "lesson.summary": "FE-A11Y-P10 lesson summary",
+    })) as ViewRow;
+
+    const surfaces = [
+      {
+        expected: "FE-A11Y-P10 task alpha",
+        fieldKey: "task.title",
+        groupToken: "coordination",
+        label: "Task Requests",
+        row: task,
+        viewSchemaId: taskRequestsViewSchemaId,
+      },
+      {
+        expected: "FE-A11Y-P10 decision summary",
+        fieldKey: "decision.summary",
+        groupToken: "coordination",
+        label: "Decisions",
+        row: decision,
+        viewSchemaId: decisionsViewSchemaId,
+      },
+      {
+        expected: "FE-A11Y-P10 response party",
+        fieldKey: "party.display_name",
+        groupToken: "scope-assessment",
+        label: "Parties",
+        row: party,
+        viewSchemaId: partiesViewSchemaId,
+      },
+      {
+        expected: "FE-A11Y-P10 communications log",
+        fieldKey: "comm_log.summary",
+        groupToken: "coordination",
+        label: "Communications Log",
+        row: comm,
+        viewSchemaId: commLogViewSchemaId,
+      },
+      {
+        expected: "FE-A11Y-P10 handoff state",
+        fieldKey: "handoff.current_state_summary",
+        groupToken: "coordination",
+        label: "Handoff",
+        row: handoff,
+        viewSchemaId: handoffViewSchemaId,
+      },
+      {
+        expected: "FE-A11Y-P10 status review state",
+        fieldKey: "status_review.current_state_summary",
+        groupToken: "review-learning",
+        label: "Status Review",
+        row: status,
+        viewSchemaId: statusReviewViewSchemaId,
+      },
+      {
+        expected: "FE-A11Y-P10 lesson summary",
+        fieldKey: "lesson.summary",
+        groupToken: "review-learning",
+        label: "Lesson",
+        row: lesson,
+        viewSchemaId: lessonViewSchemaId,
+      },
+    ] as const;
+
+    await page.goto(
+      `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+        taskRequestsViewSchemaId,
+      )}`,
+    );
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await expect(page.getByTestId(currentIncidentRoleTestId())).toContainText(
+      "admin",
+    );
+    await expectStatusRole(page.getByTestId(saveStateTestId()));
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expectTabTraversalAdvancesFrom(
+      page,
+      page.getByTestId(systemViewSwitcherTriggerTestId()),
+    );
+
+    for (const surface of surfaces) {
+      await test.step(`${surface.label} accessibility surface`, async () => {
+        await openA11ySystemSurface(page, surface);
+        await expect(page).toHaveURL(
+          new RegExp(
+            `view_schema_id=${encodeURIComponent(surface.viewSchemaId)}`,
+          ),
+        );
+        await expect(
+          page.getByTestId(savedViewSelectorTestId(surface.viewSchemaId)),
+        ).toHaveAttribute("data-selected-sheet-ref-kind", "view_schema");
+        await expect(
+          page.getByTestId(gridFilterFieldTestId(surface.viewSchemaId)),
+        ).toBeVisible();
+        await expect(
+          page.getByTestId(gridFilterApplyTestId(surface.viewSchemaId)),
+        ).toBeVisible();
+        await expect(
+          page.getByTestId(gridGroupingSelectTestId(surface.viewSchemaId)),
+        ).toBeVisible();
+        await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
+          surface.viewSchemaId,
+        );
+
+        const sortHeader = page.getByTestId(
+          gridSortHeaderTestId(surface.viewSchemaId, surface.fieldKey),
+        );
+        await expectVisibleFocus(sortHeader);
+        await expect(sortHeader).not.toHaveText("");
+
+        const cell = page.getByTestId(
+          rowCellTestId(surface.row.record_id, surface.fieldKey),
+        );
+        await expectCellTextOrValue(cell, surface.expected);
+        await expectVisibleFocus(cell);
+      });
+    }
+
+    await openA11ySystemSurface(page, {
+      groupToken: "coordination",
+      viewSchemaId: taskRequestsViewSchemaId,
+    });
+
+    const taskTitle = page.getByTestId(
+      rowCellTestId(task.record_id, "task.title"),
+    );
+    await expectVisibleFocus(taskTitle);
+    const copiedTaskTitle = await taskTitle.evaluate((element) => {
+      const data = new DataTransfer();
+      element.dispatchEvent(
+        new ClipboardEvent("copy", {
+          bubbles: true,
+          cancelable: true,
+          clipboardData: data,
+        }),
+      );
+      return data.getData("text/plain");
+    });
+    expect(copiedTaskTitle).toBe("FE-A11Y-P10 task alpha");
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(
+      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    const clipboardSummary = page.getByTestId(
+      rowCellTestId(clipboardRow.record_id, "timeline.summary"),
+    );
+    await expectVisibleFocus(clipboardSummary);
+    await pasteGridMatrix({
+      fieldKey: "timeline.summary",
+      matrix: [["FE-A11Y-P10 pasted timeline", "fe-a11y-p10-host"]],
+      page,
+      recordId: clipboardRow.record_id,
+      surface: timelineViewSchemaId,
+    });
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(clipboardSummary).toHaveValue("FE-A11Y-P10 pasted timeline");
+
+    await openA11ySystemSurface(page, {
+      groupToken: "coordination",
+      viewSchemaId: taskRequestsViewSchemaId,
+    });
+
+    await applyFilterChip(
+      page,
+      taskRequestsViewSchemaId,
+      "task.priority",
+      "urgent",
+    );
+    await assertActiveFilterChipVisible(
+      page,
+      taskRequestsViewSchemaId,
+      "task.priority",
+    );
+    const priorityChip = page.getByTestId(
+      gridFilterChipTestId(taskRequestsViewSchemaId, "task.priority"),
+    );
+    await expect(priorityChip).toContainText("urgent");
+    await expectVisibleFocus(priorityChip);
+
+    const urgentTitle = page.getByTestId(
+      rowCellTestId(urgentTask.record_id, "task.title"),
+    );
+    await expectCellTextOrValue(urgentTitle, "FE-A11Y-P10 task urgent");
+
+    const savedViewName = page.getByTestId(
+      savedViewNameInputTestId(taskRequestsViewSchemaId),
+    );
+    await expectVisibleFocus(savedViewName);
+    await savedViewName.fill("FE-A11Y-P10 keyboard saved view");
+    const createSavedView = page.getByTestId(
+      savedViewCreateButtonTestId(taskRequestsViewSchemaId),
+    );
+    await expectVisibleFocus(createSavedView);
+    await createSavedView.press("Enter");
+    const savedStatus = page.getByTestId(
+      savedViewStatusTestId(taskRequestsViewSchemaId),
+    );
+    await expect(savedStatus).toHaveAttribute("aria-live", "polite");
+    await expect(savedStatus).toHaveText("Saved view created.");
+
+    await test.info().attach("fe-a11y-p10-01-readiness-matrix.json", {
+      contentType: "application/json",
+      body: Buffer.from(
+        `${JSON.stringify(
+          {
+            checks: [
+              "keyboard reachability",
+              "visible focus",
+              "accessible names",
+              "system-view menu ARIA state",
+              "status and saved-view live regions",
+              "clipboard copy and paste",
+              "non-color-only filter chip state",
+            ],
+            scenario_title: test.info().title,
+            stable_identity_scope: "view_schema_id + record_id + field_key",
+            surfaces: surfaces.map((surface) => ({
+              field_key: surface.fieldKey,
+              record_id: surface.row.record_id,
+              surface: surface.label,
+              view_schema_id: surface.viewSchemaId,
+            })),
+            viewport: "1440x900",
+            zoom: "100%",
+          },
+          null,
+          2,
+        )}\n`,
+      ),
+    });
+
+    await expectAllInteractiveControlsNamed(page);
+    await expectNoFocusTrap(page);
+    await expectAndRecordContrast(page, [
+      systemViewSwitcherTriggerTestId(),
+      savedViewSelectorTestId(taskRequestsViewSchemaId),
+      savedViewNameInputTestId(taskRequestsViewSchemaId),
+      savedViewCreateButtonTestId(taskRequestsViewSchemaId),
+      savedViewStatusTestId(taskRequestsViewSchemaId),
+      gridFilterFieldTestId(taskRequestsViewSchemaId),
+      gridFilterApplyTestId(taskRequestsViewSchemaId),
+      gridFilterChipTestId(taskRequestsViewSchemaId, "task.priority"),
+      gridGroupingSelectTestId(taskRequestsViewSchemaId),
+      gridSortHeaderTestId(taskRequestsViewSchemaId, "task.title"),
+      rowCellTestId(urgentTask.record_id, "task.title"),
+      saveStateTestId(),
+    ]);
   });
 });
 
