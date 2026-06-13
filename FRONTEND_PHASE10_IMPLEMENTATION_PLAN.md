@@ -31,6 +31,52 @@ product-conformance rows from mapped product evidence. `FE-V-P10-01` and
 accessibility evidence is not product conformance, Core 05 evidence, benchmark
 evidence, or publication evidence.
 
+## Post-Audit Remediation Addendum
+
+The June 13, 2026 audit failures are diagnostic inputs, not current closure
+evidence. The stale stateful failure at
+`.cartulary/test-results/20260613T162722Z-p35362/browser-e2e-stateful/frontend-row-accounting.json`
+failed the target through `FE-E-P8-01`, which left `FE-E-P10-01` not closed at
+the target level. The stale broad-health failure at
+`.cartulary/test-results/20260613T163234Z-p71490/check/tool-run-summary.json`
+failed through Phase 6 `frontend-unit` shell assertions with opaque async
+failure details.
+
+Remediation keeps the product route contract unchanged. Saved-view Home and
+Default browser helpers now provide awaitable variants that click the public UI,
+wait for the matching preference `PUT` response, validate the request body and
+response sheet reference, and leave GET/startup replay assertions to the
+scenario that owns persistence replay. Phase 8 browser evidence uses these
+awaitable helpers where preference persistence is the asserted behavior.
+
+Phase 6 shell tests now route conflict, record-patch, and row-query mocks
+through the route-aware workbook fetch mock for the conflict-resolution and
+pending-replay paths that were brittle under raw sequential fetch ordering.
+Shared wait helpers include conflict-resolution call diagnostics so future
+timeouts identify the observed fetch timeline instead of surfacing only an
+opaque stack trace.
+
+Fresh remediation validation supersedes the stale failures for handoff
+purposes: `make frontend-unit` passed at
+`.cartulary/test-results/20260613T165453Z-p92191`, with
+`frontend-unit-phase6-authoritative/phase-summary.json` reporting
+`status=pass`; `make browser-e2e-stateful` passed at
+`.cartulary/test-results/20260613T165509Z-p93713`, with
+`browser-e2e-stateful/frontend-row-accounting.json` reporting
+`target_status=pass` and closed `FE-E-P8-01` plus `FE-E-P10-01` rows.
+Broad validation then passed with `make check` at
+`.cartulary/test-results/20260613T165747Z-p7720`.
+
+Finalizer-maintained duration baseline, topology-render, and scheduler manifest
+files are retained as intentional tool output after
+`make agent-finalize RESULTS_DIR=.cartulary/test-results/20260613T165747Z-p7720`
+passed at `.cartulary/test-results/20260613T165942Z-p62468`; a follow-up
+`make json-shape-check` passed at
+`.cartulary/test-results/20260613T170007Z-p64545`. This addendum does not
+promote those generated maintenance files, broad target passes, visual
+evidence, accessibility evidence, screenshots, or old retained artifacts into
+product-conformance or Core 05 claim evidence.
+
 ## Authority Model
 
 Core 00 through Core 04 own product behavior. FE-P10 product behavior must be

@@ -26,6 +26,7 @@ import {
   timelineRow,
   timelineViewSchemaId,
   waitForPendingQueueState,
+  waitForTimelineConflictResolutionCalls,
   waitForTimelineRecordPatchCalls,
 } from "./timelineWorkbookTestSupport";
 import { pendingReplayCapacity, TimelineWorkbook } from "./WorkbookShell";
@@ -314,7 +315,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
   });
 
   it("Phase 6 resolver keep-saved action submits an explicit outcome and applies returned row state", async () => {
-    fetchMock.mockResolvedValueOnce(
+    const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockRowQueryOnce(
       successEnvelope({
         incident_id: "incident-1",
         view_schema_id: timelineViewSchemaId,
@@ -328,7 +330,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         ],
       }),
     );
-    fetchMock.mockResolvedValueOnce(
+    routedFetch.mockRecordPatchOnce(
       errorEnvelope("same_field_conflict", 409, {
         conflict_token: "conflict-token-keep",
         record_id: "record-1",
@@ -343,7 +345,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         server_updated_at: "2026-05-05T12:00:00Z",
       }),
     );
-    fetchMock.mockResolvedValueOnce(
+    routedFetch.mockConflictResolutionOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
         row: timelineRow({
@@ -368,10 +370,14 @@ describe("Phase 6 workbook collaboration coverage", () => {
     fireEvent.blur(input);
     await screen.findByTestId("conflict-resolver");
     fireEvent.click(screen.getByTestId("conflict-keep-saved"));
+    await waitForTimelineConflictResolutionCalls(fetchMock, 1);
 
     await waitFor(() => {
       expect(screen.queryByTestId("conflict-resolver")).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
+      expect(
+        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      ).toBe("2");
     });
     expect(extractTimelineConflictResolutionBody(fetchMock, 0)).toEqual({
       conflict_token: "conflict-token-keep",
@@ -381,7 +387,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
   });
 
   it("Phase 6 resolver use-unsaved action submits an explicit outcome and applies returned row state", async () => {
-    fetchMock.mockResolvedValueOnce(
+    const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockRowQueryOnce(
       successEnvelope({
         incident_id: "incident-1",
         view_schema_id: timelineViewSchemaId,
@@ -395,7 +402,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         ],
       }),
     );
-    fetchMock.mockResolvedValueOnce(
+    routedFetch.mockRecordPatchOnce(
       errorEnvelope("same_field_conflict", 409, {
         conflict_token: "conflict-token-use",
         record_id: "record-1",
@@ -409,7 +416,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         suggested_merged_value: "Server again\nUse local",
       }),
     );
-    fetchMock.mockResolvedValueOnce(
+    routedFetch.mockConflictResolutionOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
         change_set_id: "change-set-resolve",
@@ -434,6 +441,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     fireEvent.blur(input);
     await screen.findByTestId("conflict-resolver");
     fireEvent.click(screen.getByTestId("conflict-use-unsaved"));
+    await waitForTimelineConflictResolutionCalls(fetchMock, 1);
 
     await waitFor(() => {
       expect(screen.queryByTestId("conflict-resolver")).toBeNull();
@@ -451,7 +459,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
   });
 
   it("Phase 6 resolver merged-value action submits an explicit outcome and applies returned row state", async () => {
-    fetchMock.mockResolvedValueOnce(
+    const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockRowQueryOnce(
       successEnvelope({
         incident_id: "incident-1",
         view_schema_id: timelineViewSchemaId,
@@ -465,7 +474,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         ],
       }),
     );
-    fetchMock.mockResolvedValueOnce(
+    routedFetch.mockRecordPatchOnce(
       errorEnvelope("same_field_conflict", 409, {
         conflict_token: "conflict-token-merged",
         record_id: "record-1",
@@ -479,7 +488,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         suggested_merged_value: "Merge server\nMerge local",
       }),
     );
-    fetchMock.mockResolvedValueOnce(
+    routedFetch.mockConflictResolutionOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
         change_set_id: "change-set-merged",
@@ -511,6 +520,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       target: { value: "Merge final" },
     });
     fireEvent.click(screen.getByTestId("conflict-use-merged"));
+    await waitForTimelineConflictResolutionCalls(fetchMock, 1);
 
     await waitFor(() => {
       expect(screen.queryByTestId("conflict-resolver")).toBeNull();
@@ -530,7 +540,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
   it("Phase 6 U-6-09 keeps save-state labels and pending queue replay bounded and explicit", async () => {
     const firstPendingPatch = deferred<Response>();
     const secondPendingPatch = deferred<Response>();
-    fetchMock.mockResolvedValueOnce(
+    const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockRowQueryOnce(
       successEnvelope({
         incident_id: "incident-1",
         view_schema_id: timelineViewSchemaId,
@@ -550,8 +561,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
         ],
       }),
     );
-    fetchMock.mockReturnValueOnce(firstPendingPatch.promise);
-    fetchMock.mockReturnValueOnce(secondPendingPatch.promise);
+    routedFetch.mockRecordPatchOnce(firstPendingPatch.promise);
+    routedFetch.mockRecordPatchOnce(secondPendingPatch.promise);
 
     render(<TimelineWorkbook incidentId="incident-1" />);
 
@@ -725,12 +736,13 @@ describe("Phase 6 workbook collaboration coverage", () => {
       },
     });
 
+    await waitForTimelineRecordPatchCalls(fetchMock, 3);
+    expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([
+      "/api/v1/records/record-1",
+      "/api/v1/records/record-2",
+      "/api/v1/records/record-1",
+    ]);
     await waitFor(() => {
-      expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([
-        "/api/v1/records/record-1",
-        "/api/v1/records/record-2",
-        "/api/v1/records/record-1",
-      ]);
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
     expect(extractTimelineRecordPatchBody(fetchMock, 0).changes).toEqual([
@@ -832,7 +844,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
 
   it("Phase 6 U-6-09 moves the blocking same-field conflict out of the pending queue and keeps later writes queued", async () => {
     const firstPendingPatch = deferred<Response>();
-    fetchMock.mockResolvedValueOnce(
+    const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockRowQueryOnce(
       successEnvelope({
         incident_id: "incident-1",
         view_schema_id: timelineViewSchemaId,
@@ -852,7 +865,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         ],
       }),
     );
-    fetchMock.mockReturnValueOnce(firstPendingPatch.promise);
+    routedFetch.mockRecordPatchOnce(firstPendingPatch.promise);
 
     render(<TimelineWorkbook incidentId="incident-1" />);
     const firstInput = (await findWorkbookCell(
@@ -960,7 +973,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
   });
 
   it("FE-U-P4-01 drives WorkbookShell retry and success settlement from the shared pending queue model", async () => {
-    fetchMock.mockResolvedValueOnce(
+    const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockRowQueryOnce(
       successEnvelope({
         incident_id: "incident-1",
         view_schema_id: timelineViewSchemaId,
@@ -980,10 +994,10 @@ describe("Phase 6 workbook collaboration coverage", () => {
         ],
       }),
     );
-    fetchMock.mockResolvedValueOnce(
+    routedFetch.mockRecordPatchOnce(
       retryableErrorEnvelope("future_retryable_public_error", 409),
     );
-    fetchMock.mockResolvedValueOnce(
+    routedFetch.mockRecordPatchOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
         change_set_id: "change-set-retry-1",
@@ -995,7 +1009,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         }),
       }),
     );
-    fetchMock.mockResolvedValueOnce(
+    routedFetch.mockRecordPatchOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
         change_set_id: "change-set-retry-2",
@@ -1026,8 +1040,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
     await waitForTimelineRecordPatchCalls(fetchMock, 1);
     await changeQueuedCellValue(retrySecondInput, "Retry behind");
     fireEvent.blur(retrySecondInput);
+    await waitForTimelineRecordPatchCalls(fetchMock, 3);
     await waitFor(() => {
-      expect(timelineRecordPatchCallURLs(fetchMock)).toHaveLength(3);
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
     expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([
@@ -1038,7 +1052,8 @@ describe("Phase 6 workbook collaboration coverage", () => {
   });
 
   it("FE-U-P4-01 drives WorkbookShell terminal halt presentation from the shared pending queue model", async () => {
-    fetchMock.mockResolvedValueOnce(
+    const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    routedFetch.mockRowQueryOnce(
       successEnvelope({
         incident_id: "incident-1",
         view_schema_id: timelineViewSchemaId,
@@ -1052,7 +1067,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         ],
       }),
     );
-    fetchMock.mockResolvedValueOnce(
+    routedFetch.mockRecordPatchOnce(
       errorEnvelope("future_terminal_public_error", 409),
     );
     render(<TimelineWorkbook incidentId="incident-1" />);

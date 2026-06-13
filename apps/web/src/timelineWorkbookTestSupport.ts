@@ -1012,6 +1012,18 @@ function timelineConflictResolutionCalls(fetchSpy: TimelineWorkbookFetchMock) {
   });
 }
 
+function timelineFetchCallDiagnostic(fetchSpy: TimelineWorkbookFetchMock) {
+  return fetchSpy.mock.calls
+    .map(([url, init], index) => {
+      const method =
+        init && typeof init === "object" && "method" in init
+          ? String((init as { method?: unknown }).method ?? "")
+          : "(none)";
+      return `${index}:${method}:${String(url)}`;
+    })
+    .join(" | ");
+}
+
 export function timelineRecordPatchCallURLs(
   fetchSpy: TimelineWorkbookFetchMock,
 ) {
@@ -1031,18 +1043,35 @@ export async function waitForTimelineRecordPatchCalls(
     },
     {
       onTimeout: (error) => {
-        const calls = fetchSpy.mock.calls
-          .map(([url, init], index) => {
-            const method =
-              init && typeof init === "object" && "method" in init
-                ? String((init as { method?: unknown }).method ?? "")
-                : "(none)";
-            return `${index}:${method}:${String(url)}`;
-          })
-          .join(" | ");
         return new Error(
           `${error.message}\nExpected ${expectedCount} Timeline record PATCH calls. ` +
-            `Actual=${timelineRecordPatchCalls(fetchSpy).length}. Calls=${calls}`,
+            `Actual=${timelineRecordPatchCalls(fetchSpy).length}. Calls=${timelineFetchCallDiagnostic(
+              fetchSpy,
+            )}`,
+        );
+      },
+      timeout: workbookAsyncTimeoutMs,
+    },
+  );
+}
+
+export async function waitForTimelineConflictResolutionCalls(
+  fetchSpy: TimelineWorkbookFetchMock,
+  expectedCount: number,
+) {
+  await waitFor(
+    () => {
+      expect(timelineConflictResolutionCalls(fetchSpy)).toHaveLength(
+        expectedCount,
+      );
+    },
+    {
+      onTimeout: (error) => {
+        return new Error(
+          `${error.message}\nExpected ${expectedCount} Timeline conflict-resolution POST calls. ` +
+            `Actual=${timelineConflictResolutionCalls(fetchSpy).length}. Calls=${timelineFetchCallDiagnostic(
+              fetchSpy,
+            )}`,
         );
       },
       timeout: workbookAsyncTimeoutMs,
@@ -1084,19 +1113,12 @@ export async function waitForTimelineRecordActionCalls(
     },
     {
       onTimeout: (error) => {
-        const calls = fetchSpy.mock.calls
-          .map(([url, init], index) => {
-            const method =
-              init && typeof init === "object" && "method" in init
-                ? String((init as { method?: unknown }).method ?? "")
-                : "(none)";
-            return `${index}:${method}:${String(url)}`;
-          })
-          .join(" | ");
         const routeLabel = action === undefined ? "action" : `action:${action}`;
         return new Error(
           `${error.message}\nExpected ${expectedCount} Timeline record ${routeLabel} calls. ` +
-            `Actual=${timelineRecordActionCalls(fetchSpy, action).length}. Calls=${calls}`,
+            `Actual=${timelineRecordActionCalls(fetchSpy, action).length}. Calls=${timelineFetchCallDiagnostic(
+              fetchSpy,
+            )}`,
         );
       },
       timeout: workbookAsyncTimeoutMs,

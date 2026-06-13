@@ -43,7 +43,9 @@ import {
   selectSavedView,
   selectSavedViewScope,
   setCurrentSavedViewAsDefault,
+  setCurrentSavedViewAsDefaultAndWait,
   setCurrentSavedViewAsHome,
+  setCurrentSavedViewAsHomeAndWait,
   setSavedViewDraftName,
   sortByHeader,
   updateSavedViewFromCurrentSurface,
@@ -208,6 +210,167 @@ describe("@cartulary/test-utils selector choreography", () => {
       savedViewSetHomeButtonTestId(testTimelineViewSchemaId),
       savedViewSetDefaultButtonTestId(testTimelineViewSchemaId),
       savedViewCreateButtonTestId(testTimelineViewSchemaId),
+    ]);
+  });
+
+  it("awaits saved-view preference PUT responses and validates persisted sheet refs", async () => {
+    const incidentId = "incident-1";
+    const sheetRef = { kind: "saved_view" as const, id: "saved-view-1" };
+    const clicked: string[] = [];
+    const requestWaiters: {
+      predicate: (request: {
+        method: () => string;
+        postDataJSON: () => unknown;
+        url: () => string;
+      }) => boolean;
+      resolve: (request: {
+        method: () => string;
+        postDataJSON: () => unknown;
+        url: () => string;
+      }) => void;
+    }[] = [];
+    const responseWaiters: {
+      predicate: (response: {
+        json: () => Promise<unknown>;
+        ok: () => boolean;
+        request: () => {
+          method: () => string;
+          postDataJSON: () => unknown;
+          url: () => string;
+        };
+        status: () => number;
+        url: () => string;
+      }) => boolean;
+      resolve: (response: {
+        json: () => Promise<unknown>;
+        ok: () => boolean;
+        request: () => {
+          method: () => string;
+          postDataJSON: () => unknown;
+          url: () => string;
+        };
+        status: () => number;
+        url: () => string;
+      }) => void;
+    }[] = [];
+    const emitPreferenceResponse = (
+      field: "default_sheet_ref" | "home_sheet_ref",
+      routeSuffix: "default" | "me",
+    ) => {
+      const url = `http://cartulary.test/api/v1/incidents/${incidentId}/workbook-preferences/${routeSuffix}`;
+      const request = {
+        method: () => "PUT",
+        postDataJSON: () => ({ [field]: sheetRef }),
+        url: () => url,
+      };
+      const response = {
+        json: async () => ({
+          data: { [field]: sheetRef },
+          meta: { request_id: "req-preference" },
+        }),
+        ok: () => true,
+        request: () => request,
+        status: () => 200,
+        url: () => url,
+      };
+      for (const waiter of requestWaiters.splice(0)) {
+        if (waiter.predicate(request)) {
+          waiter.resolve(request);
+        }
+      }
+      for (const waiter of responseWaiters.splice(0)) {
+        if (waiter.predicate(response)) {
+          waiter.resolve(response);
+        }
+      }
+    };
+    const page = {
+      getByTestId(value: string) {
+        return {
+          click: async () => {
+            clicked.push(value);
+            if (
+              value === savedViewSetHomeButtonTestId(testTimelineViewSchemaId)
+            ) {
+              emitPreferenceResponse("home_sheet_ref", "me");
+            }
+            if (
+              value ===
+              savedViewSetDefaultButtonTestId(testTimelineViewSchemaId)
+            ) {
+              emitPreferenceResponse("default_sheet_ref", "default");
+            }
+          },
+          fill: async () => undefined,
+        };
+      },
+      waitForRequest(
+        predicate: (request: {
+          method: () => string;
+          postDataJSON: () => unknown;
+          url: () => string;
+        }) => boolean,
+      ) {
+        return new Promise<{
+          method: () => string;
+          postDataJSON: () => unknown;
+          url: () => string;
+        }>((resolve) => {
+          requestWaiters.push({ predicate, resolve });
+        });
+      },
+      waitForResponse(
+        predicate: (response: {
+          json: () => Promise<unknown>;
+          ok: () => boolean;
+          request: () => {
+            method: () => string;
+            postDataJSON: () => unknown;
+            url: () => string;
+          };
+          status: () => number;
+          url: () => string;
+        }) => boolean,
+      ) {
+        return new Promise<{
+          json: () => Promise<unknown>;
+          ok: () => boolean;
+          request: () => {
+            method: () => string;
+            postDataJSON: () => unknown;
+            url: () => string;
+          };
+          status: () => number;
+          url: () => string;
+        }>((resolve) => {
+          responseWaiters.push({ predicate, resolve });
+        });
+      },
+    };
+
+    await expect(
+      setCurrentSavedViewAsHomeAndWait(page, testTimelineViewSchemaId, {
+        expectedSheetRef: sheetRef,
+        incidentId,
+      }),
+    ).resolves.toMatchObject({
+      field: "home_sheet_ref",
+      requestBody: { home_sheet_ref: sheetRef },
+      status: 200,
+    });
+    await expect(
+      setCurrentSavedViewAsDefaultAndWait(page, testTimelineViewSchemaId, {
+        expectedSheetRef: sheetRef,
+        incidentId,
+      }),
+    ).resolves.toMatchObject({
+      field: "default_sheet_ref",
+      requestBody: { default_sheet_ref: sheetRef },
+      status: 200,
+    });
+    expect(clicked).toEqual([
+      savedViewSetHomeButtonTestId(testTimelineViewSchemaId),
+      savedViewSetDefaultButtonTestId(testTimelineViewSchemaId),
     ]);
   });
 

@@ -10,8 +10,8 @@ import {
   removeFilterChip,
   selectSavedView,
   selectSavedViewScope,
-  setCurrentSavedViewAsDefault,
-  setCurrentSavedViewAsHome,
+  setCurrentSavedViewAsDefaultAndWait,
+  setCurrentSavedViewAsHomeAndWait,
   setSavedViewDraftName,
   sortByHeader,
   updateSavedViewFromCurrentSurface,
@@ -28,8 +28,6 @@ import {
   savedViewOptionTestId,
   savedViewScopeSelectTestId,
   savedViewSelectorTestId,
-  savedViewSetDefaultButtonTestId,
-  savedViewSetHomeButtonTestId,
   savedViewUpdateButtonTestId,
   surfaceTabTestId,
   timelineRowMarkReviewedButtonTestId,
@@ -272,36 +270,34 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
   expect(patchBody).not.toHaveProperty("view_schema_id");
   expect(patchBody).not.toHaveProperty("owner_user_id");
 
-  const homeRequest = page.waitForRequest(
-    (request) =>
-      request.method() === "PUT" &&
-      request
-        .url()
-        .endsWith(`/api/v1/incidents/${incidentId}/workbook-preferences/me`),
+  const privateSavedViewRef = {
+    kind: "saved_view",
+    id: privateSavedView.saved_view_id,
+  } as const;
+  const homeAction = await setCurrentSavedViewAsHomeAndWait(
+    page,
+    timelineViewSchemaId,
+    {
+      expectedSheetRef: privateSavedViewRef,
+      incidentId,
+    },
   );
-  await page
-    .getByTestId(savedViewSetHomeButtonTestId(timelineViewSchemaId))
-    .click();
-  expect(readPostBody(await homeRequest)).toEqual({
+  expect(homeAction.requestBody).toEqual({
     home_sheet_ref: {
       kind: "saved_view",
       id: privateSavedView.saved_view_id,
     },
   });
 
-  const defaultRequest = page.waitForRequest(
-    (request) =>
-      request.method() === "PUT" &&
-      request
-        .url()
-        .endsWith(
-          `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
-        ),
+  const defaultAction = await setCurrentSavedViewAsDefaultAndWait(
+    page,
+    timelineViewSchemaId,
+    {
+      expectedSheetRef: privateSavedViewRef,
+      incidentId,
+    },
   );
-  await page
-    .getByTestId(savedViewSetDefaultButtonTestId(timelineViewSchemaId))
-    .click();
-  expect(readPostBody(await defaultRequest)).toEqual({
+  expect(defaultAction.requestBody).toEqual({
     default_sheet_ref: {
       kind: "saved_view",
       id: privateSavedView.saved_view_id,
@@ -585,32 +581,34 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     },
   });
 
-  const homeRequest = page.waitForRequest(
-    (request) =>
-      request.method() === "PUT" &&
-      request
-        .url()
-        .endsWith(`/api/v1/incidents/${incidentId}/workbook-preferences/me`),
+  const savedViewRef = {
+    kind: "saved_view",
+    id: savedView.saved_view_id,
+  } as const;
+  const homeAction = await setCurrentSavedViewAsHomeAndWait(
+    page,
+    timelineViewSchemaId,
+    {
+      expectedSheetRef: savedViewRef,
+      incidentId,
+    },
   );
-  await setCurrentSavedViewAsHome(page, timelineViewSchemaId);
-  expect(readPostBody(await homeRequest)).toEqual({
+  expect(homeAction.requestBody).toEqual({
     home_sheet_ref: {
       kind: "saved_view",
       id: savedView.saved_view_id,
     },
   });
 
-  const defaultRequest = page.waitForRequest(
-    (request) =>
-      request.method() === "PUT" &&
-      request
-        .url()
-        .endsWith(
-          `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
-        ),
+  const defaultAction = await setCurrentSavedViewAsDefaultAndWait(
+    page,
+    timelineViewSchemaId,
+    {
+      expectedSheetRef: savedViewRef,
+      incidentId,
+    },
   );
-  await setCurrentSavedViewAsDefault(page, timelineViewSchemaId);
-  expect(readPostBody(await defaultRequest)).toEqual({
+  expect(defaultAction.requestBody).toEqual({
     default_sheet_ref: {
       kind: "saved_view",
       id: savedView.saved_view_id,
@@ -812,15 +810,19 @@ async function verifySavedViewPersistenceReplay(
     },
   });
 
-  const homeRequest = page.waitForRequest(
-    (request) =>
-      request.method() === "PUT" &&
-      request
-        .url()
-        .endsWith(`/api/v1/incidents/${incidentId}/workbook-preferences/me`),
+  const savedViewRef = {
+    kind: "saved_view",
+    id: savedView.saved_view_id,
+  } as const;
+  const homeAction = await setCurrentSavedViewAsHomeAndWait(
+    page,
+    timelineViewSchemaId,
+    {
+      expectedSheetRef: savedViewRef,
+      incidentId,
+    },
   );
-  await setCurrentSavedViewAsHome(page, timelineViewSchemaId);
-  expect(readPostBody(await homeRequest)).toEqual({
+  expect(homeAction.requestBody).toEqual({
     home_sheet_ref: {
       kind: "saved_view",
       id: savedView.saved_view_id,
@@ -841,17 +843,15 @@ async function verifySavedViewPersistenceReplay(
     source: "home",
   });
 
-  const defaultRequest = page.waitForRequest(
-    (request) =>
-      request.method() === "PUT" &&
-      request
-        .url()
-        .endsWith(
-          `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
-        ),
+  const defaultAction = await setCurrentSavedViewAsDefaultAndWait(
+    page,
+    timelineViewSchemaId,
+    {
+      expectedSheetRef: savedViewRef,
+      incidentId,
+    },
   );
-  await setCurrentSavedViewAsDefault(page, timelineViewSchemaId);
-  expect(readPostBody(await defaultRequest)).toEqual({
+  expect(defaultAction.requestBody).toEqual({
     default_sheet_ref: {
       kind: "saved_view",
       id: savedView.saved_view_id,

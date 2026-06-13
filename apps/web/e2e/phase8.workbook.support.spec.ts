@@ -9,8 +9,8 @@ import {
   removeFilterChip,
   selectSavedView,
   selectSavedViewScope,
-  setCurrentSavedViewAsDefault,
-  setCurrentSavedViewAsHome,
+  setCurrentSavedViewAsDefaultAndWait,
+  setCurrentSavedViewAsHomeAndWait,
   setSavedViewDraftName,
   sortByHeader,
   updateSavedViewFromCurrentSurface,
@@ -194,32 +194,34 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     scope: "shared",
   });
 
-  const homeRequest = page.waitForRequest(
-    (request) =>
-      request.method() === "PUT" &&
-      request
-        .url()
-        .endsWith(`/api/v1/incidents/${incidentId}/workbook-preferences/me`),
+  const savedViewRef = {
+    kind: "saved_view",
+    id: savedView.saved_view_id,
+  } as const;
+  const homeAction = await setCurrentSavedViewAsHomeAndWait(
+    page,
+    timelineViewSchemaId,
+    {
+      expectedSheetRef: savedViewRef,
+      incidentId,
+    },
   );
-  await setCurrentSavedViewAsHome(page, timelineViewSchemaId);
-  expect(readPostBody(await homeRequest)).toEqual({
+  expect(homeAction.requestBody).toEqual({
     home_sheet_ref: {
       kind: "saved_view",
       id: savedView.saved_view_id,
     },
   });
 
-  const defaultRequest = page.waitForRequest(
-    (request) =>
-      request.method() === "PUT" &&
-      request
-        .url()
-        .endsWith(
-          `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
-        ),
+  const defaultAction = await setCurrentSavedViewAsDefaultAndWait(
+    page,
+    timelineViewSchemaId,
+    {
+      expectedSheetRef: savedViewRef,
+      incidentId,
+    },
   );
-  await setCurrentSavedViewAsDefault(page, timelineViewSchemaId);
-  expect(readPostBody(await defaultRequest)).toEqual({
+  expect(defaultAction.requestBody).toEqual({
     default_sheet_ref: {
       kind: "saved_view",
       id: savedView.saved_view_id,
