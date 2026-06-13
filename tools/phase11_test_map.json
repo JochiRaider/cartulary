@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase11",
-  "note": "Phase 11 manifest for the selected Import Extension Profile, Snapshot and Reporting Extension Profile, Reference Pack Extension Profile, Incident Portability Extension Profile, and shared common-job substrate. Enterprise Authentication remains reserved and unclaimed.",
+  "note": "Phase 11 manifest for the selected Import Extension Profile, Snapshot and Reporting Extension Profile, Reference Pack Extension Profile, Incident Portability Extension Profile, Enterprise Authentication direct evidence, and shared common-job substrate. Enterprise Authentication remains reserved and unclaimed by default until Sprint 6 exit criteria pass.",
   "profile_claims": [
     {
       "profile_id": "enterprise_authentication",
@@ -22,7 +22,14 @@
         "AC-351",
         "AC-352"
       ],
-      "direct_evidence_ids": [],
+      "direct_evidence_ids": [
+        "U-11-ENTERPRISE-AUTH-01",
+        "I-11-ENTERPRISE-AUTH-01",
+        "I-11-ENTERPRISE-AUTH-02",
+        "I-11-ENTERPRISE-AUTH-03",
+        "E-11-02",
+        "E-11-03"
+      ],
       "aggregate_ac_ids": [
         "AC-235"
       ]
@@ -200,7 +207,7 @@
       "Phase 11 is active for the selected Import Extension Profile, the selected Snapshot and Reporting Extension Profile, the selected Reference Pack Extension Profile, the selected Incident Portability Extension Profile, and the common job substrate required by selected extension routes.",
       "Import evidence covers upload-envelope early failure, CSV and XLSX discovery, session and unit reads, preview, deterministic mapping approval, select, apply, terminal job summaries, durable state separation, and request-time authorization for common jobs.",
       "Snapshot and Reporting evidence covers immutable snapshot replay, redaction profile validation, deterministic redaction precedence, manifest provenance, external-release binary and working-material boundaries, distinct approvals, publication, and state conflicts.",
-      "Enterprise Authentication remains unselected and unclaimed; reserved-family behavior continues to be its only default runtime exposure.",
+      "Enterprise Authentication has direct implementation evidence rows but remains unclaimed by default; reserved-family behavior continues unless tests enable the profile override or the final claim gate is deliberately flipped.",
       "Generated ledgers and schedules are downstream artifacts and must not be hand-edited."
     ],
     "authoritative_execution": [
@@ -208,7 +215,8 @@
       "`backend-integration` selects Import upload-envelope no-durable-state behavior, CSV mapping/select/apply, XLSX used-range discovery evidence, and Snapshot/Reporting snapshot-release lifecycle evidence.",
       "`backend-unit` selects Snapshot/Reporting redaction profile and post-redaction validation fixtures.",
       "`backend-unit`, `backend-integration`, `frontend-unit`, and `browser-e2e-webserver-backed` select Reference Pack request validation, disconnected bundle verification, archive-limit enforcement, import/list/read, lifecycle, failure, async admission, disconnected seed, refresh replay, optional-pack degradation, Reference Pack-owned job authorization, admin-gated UI, operator progress/cancel, and contract-registry evidence.",
-      "`backend-unit` and `backend-integration` select Incident Portability request validation, numeric manifest/checksum determinism, archive verification, closed contract registries, export descriptor, import idempotency, source-state round-trip, inert actor descriptor, attribution sidecar, projection rebuild, and imported incident open evidence."
+      "`backend-unit` and `backend-integration` select Incident Portability request validation, numeric manifest/checksum determinism, archive verification, closed contract registries, export descriptor, import idempotency, source-state round-trip, inert actor descriptor, attribution sidecar, projection rebuild, and imported incident open evidence.",
+      "`frontend-unit`, `backend-integration`, and `browser-e2e-webserver-backed` select Enterprise Authentication provider discovery/begin, deterministic OIDC callback, deterministic SAML ACS, binding lifecycle, safe-user summary, audit, and session revocation evidence while the profile remains unclaimed by default."
     ],
     "support_execution_extras": [
       "Upload-envelope helper unit tests and lower-level durable job manager tests remain support-only substrate outside the direct Phase 11 rows.",
@@ -234,6 +242,12 @@
   },
   "shared_harnesses": [],
   "expected_ids": [
+    "U-11-ENTERPRISE-AUTH-01",
+    "I-11-ENTERPRISE-AUTH-01",
+    "I-11-ENTERPRISE-AUTH-02",
+    "I-11-ENTERPRISE-AUTH-03",
+    "E-11-02",
+    "E-11-03",
     "U-11-JOBS-01",
     "U-11-JOBS-02",
     "U-11-JOBS-03",
@@ -282,6 +296,27 @@
   "forbidden_id_files": [],
   "support_go_targets": [],
   "unit": [
+    {
+      "id": "U-11-ENTERPRISE-AUTH-01",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/App.phase1.test.tsx",
+      "title": "Phase 11 U-11-ENTERPRISE-AUTH-01 enterprise auth discovery renders provider sign-in and begins with a relative return_to",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component",
+      "claim_status": "implemented",
+      "claim": "The anonymous login surface renders enabled enterprise providers from discovery and sends provider begin with a relative return_to before navigating to the server-issued redirect URL.",
+      "out_of_scope": "This component evidence does not claim protocol callback validation or deployment-admin binding management.",
+      "evidence_class": "product_conformance",
+      "layer": "frontend_unit",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-11-ENTERPRISE-AUTH-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
+    },
     {
       "id": "U-11-JOBS-01",
       "coverage": "authoritative",
@@ -788,6 +823,108 @@
     }
   ],
   "integration": [
+    {
+      "id": "I-11-ENTERPRISE-AUTH-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase11_enterprise_auth_integration_test.go",
+      "symbol": "TestPhase11EnterpriseAuthProviderOIDC_I_11_ENTERPRISE_AUTH_01",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Enterprise provider discovery excludes disabled providers, begin creates a non-public browser-bound OIDC transaction, callback resolves only an existing active binding into the ordinary session family, updates last_auth_at, rejects replay, and does not JIT-create users.",
+      "out_of_scope": "This deterministic harness evidence uses a fake OIDC response model and does not by itself prove production IdP interoperability.",
+      "execution_family": "backend-integration-phase11-enterprise-auth-oidc",
+      "execution_label": "backend-integration phase11 enterprise OIDC",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed enterprise auth state requires isolated provider, transaction, binding, and session rows.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-ENTERPRISE-AUTH-01",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
+    },
+    {
+      "id": "I-11-ENTERPRISE-AUTH-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase11_enterprise_auth_integration_test.go",
+      "symbol": "TestPhase11EnterpriseSAMLACS_I_11_ENTERPRISE_AUTH_02",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "SAML SP-initiated begin/ACS uses RelayState correlation, resolves an existing active binding into the ordinary session family, rejects invalid signatures, and rejects IdP-initiated ACS without a transaction.",
+      "out_of_scope": "This deterministic harness evidence uses a fake SAML assertion envelope and does not by itself prove production SAML XML signature interoperability.",
+      "execution_family": "backend-integration-phase11-enterprise-auth-saml",
+      "execution_label": "backend-integration phase11 enterprise SAML",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed enterprise auth state requires isolated provider, transaction, binding, and session rows.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-ENTERPRISE-AUTH-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
+    },
+    {
+      "id": "I-11-ENTERPRISE-AUTH-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase11_enterprise_auth_integration_test.go",
+      "symbol": "TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Deployment-admin binding create, replay, rotate, retire, safe-user summary shape, active uniqueness conflict, audit lineage, and rotate/retire target session revocation are exercised through public routes.",
+      "out_of_scope": "This evidence does not add a public provider-management API and does not claim self-service linking, JIT provisioning, SCIM, or passkeys.",
+      "execution_family": "backend-integration-phase11-enterprise-auth-bindings",
+      "execution_label": "backend-integration phase11 enterprise bindings",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed enterprise auth state requires isolated provider, binding, idempotency, audit, and session rows.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-ENTERPRISE-AUTH-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
+    },
     {
       "id": "I-11-IMPORT-01",
       "coverage": "authoritative",
@@ -1572,6 +1709,54 @@
     }
   ],
   "e2e": [
+    {
+      "id": "E-11-02",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase11.enterprise-auth.spec.ts",
+      "title": "E-11-02 shows enterprise providers and begins provider sign-in from the anonymous shell",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim_status": "implemented",
+      "claim": "The browser anonymous shell renders discovered enterprise providers, sends begin with relative return_to, and follows the server-issued redirect URL.",
+      "out_of_scope": "This browser evidence mocks the IdP redirect target and does not claim protocol callback or ACS validation.",
+      "execution_family": "browser-functional-phase11-enterprise-auth-begin",
+      "execution_label": "browser functional phase11 enterprise auth begin",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves anonymous sign-in UI and redirect behavior that lower layers cannot fully exercise.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "E-11-02",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "browser"
+    },
+    {
+      "id": "E-11-03",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase11.enterprise-auth.spec.ts",
+      "title": "E-11-03 opens the only visible incident after enterprise session root convergence",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim_status": "implemented",
+      "claim": "An enterprise-authenticated browser landing on `/` with exactly one visible incident converges to that incident workbook.",
+      "out_of_scope": "This browser evidence overrides the session provider type and does not claim IdP callback or ACS protocol verification.",
+      "execution_family": "browser-functional-phase11-enterprise-auth-root-convergence",
+      "execution_label": "browser functional phase11 enterprise auth root convergence",
+      "evidence_class": "product_conformance",
+      "layer": "browser_functional",
+      "default_check_required": true,
+      "default_check_reason": "Default browser projection proves root landing convergence that lower layers cannot fully exercise.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "E-11-03",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "browser"
+    },
     {
       "id": "E-11-01",
       "coverage": "authoritative",

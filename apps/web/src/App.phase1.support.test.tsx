@@ -57,6 +57,9 @@ describe("Phase 1 ordinary shell support", () => {
           ),
         );
       }
+      if (String(input) === "/api/v1/auth/providers") {
+        return Promise.resolve(jsonResponse({ data: { providers: [] } }));
+      }
       throw new Error(`unexpected fetch: ${String(input)}`);
     });
 
@@ -73,7 +76,7 @@ describe("Phase 1 ordinary shell support", () => {
         "Ready to sign in.",
       );
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("FE-S-P1-01 Verify bootstrap route selectors and error-state selectors use stable test-id builders.", async () => {

@@ -33,6 +33,42 @@
         "summary": "Inspect the current session without sliding idle expiry."
       }
     },
+    "/api/v1/auth/providers": {
+      "get": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "listEnterpriseAuthProviders",
+        "summary": "List enabled interactive OIDC and SAML providers for Enterprise Authentication."
+      }
+    },
+    "/api/v1/auth/providers/{provider_key}/begin": {
+      "post": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "beginEnterpriseAuth",
+        "summary": "Begin an Enterprise Authentication provider sign-in transaction."
+      }
+    },
+    "/api/v1/auth/oidc/{provider_key}/callback": {
+      "get": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "completeEnterpriseOIDC",
+        "summary": "Complete an OIDC auth-code Enterprise Authentication callback."
+      }
+    },
+    "/api/v1/auth/saml/{provider_key}/acs": {
+      "post": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "completeEnterpriseSAML",
+        "summary": "Complete a SAML SP-initiated Enterprise Authentication ACS response."
+      }
+    },
     "/api/v1/auth/credential-state": {
       "get": {
         "tags": [
@@ -126,6 +162,33 @@
         ],
         "operationId": "revokeAllDeploymentUserSessions",
         "summary": "Explicitly revoke all sessions for a deployment-scoped local user."
+      }
+    },
+    "/api/v1/users/{user_id}/auth-bindings": {
+      "post": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "createEnterpriseAuthBinding",
+        "summary": "Create an enterprise auth binding for an existing deployment-local user."
+      }
+    },
+    "/api/v1/users/{user_id}/auth-bindings/{auth_binding_id}/rotate": {
+      "post": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "rotateEnterpriseAuthBinding",
+        "summary": "Rotate an active enterprise auth binding to a new provider subject."
+      }
+    },
+    "/api/v1/users/{user_id}/auth-bindings/{auth_binding_id}": {
+      "delete": {
+        "tags": [
+          "enterprise-auth"
+        ],
+        "operationId": "retireEnterpriseAuthBinding",
+        "summary": "Retire an active enterprise auth binding and revoke target sessions."
       }
     },
     "/api/v1/incidents": {
@@ -8095,7 +8158,12 @@
             "type": "string"
           },
           "provider_type": {
-            "const": "local"
+            "type": "string",
+            "enum": [
+              "local",
+              "oidc",
+              "saml"
+            ]
           },
           "mfa_state": {
             "type": "string"

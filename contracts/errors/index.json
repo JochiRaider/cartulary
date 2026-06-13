@@ -44,6 +44,11 @@
       "summary": "The authentication request body failed route-owned validation."
     },
     {
+      "code": "invalid_enterprise_auth_request",
+      "http_status": 400,
+      "summary": "The Enterprise Authentication begin request body failed route-owned validation."
+    },
+    {
       "code": "credential_bootstrap_rejected",
       "http_status": 409,
       "summary": "A bootstrap_token was presented on a route outside the Phase 1 bootstrap boundary or with the wrong subject."
@@ -52,6 +57,21 @@
       "code": "totp_setup_not_pending",
       "http_status": 409,
       "summary": "The requested TOTP enrollment is not pending for the current subject."
+    },
+    {
+      "code": "enterprise_auth_transaction_rejected",
+      "http_status": 409,
+      "summary": "The Enterprise Authentication protocol transaction is missing, expired, consumed, mismatched, or not bound to the current browser context."
+    },
+    {
+      "code": "provider_response_rejected",
+      "http_status": 409,
+      "summary": "The upstream enterprise identity provider response failed protocol validation."
+    },
+    {
+      "code": "provider_identity_rejected",
+      "http_status": 409,
+      "summary": "The upstream enterprise identity resolved to no active deployment-local user binding."
     },
     {
       "code": "invalid_current_password",
@@ -77,6 +97,26 @@
       "code": "user_version_conflict",
       "http_status": 409,
       "summary": "The requested deployment-user mutation used a stale base_user_version."
+    },
+    {
+      "code": "auth_provider_not_found",
+      "http_status": 404,
+      "summary": "The requested Enterprise Authentication provider is not configured."
+    },
+    {
+      "code": "auth_provider_disabled",
+      "http_status": 404,
+      "summary": "The requested Enterprise Authentication provider is disabled for interactive sign-in."
+    },
+    {
+      "code": "auth_binding_not_found",
+      "http_status": 404,
+      "summary": "The requested active Enterprise Authentication binding is not visible for the target user."
+    },
+    {
+      "code": "auth_binding_conflict",
+      "http_status": 409,
+      "summary": "The requested Enterprise Authentication binding mutation conflicts with active binding state."
     },
     {
       "code": "last_deployment_admin",

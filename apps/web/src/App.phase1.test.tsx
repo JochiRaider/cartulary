@@ -31,6 +31,7 @@ import {
   sessionResource,
 } from "./appShellTestSupport";
 import { csrfHeaderName } from "./browserApi";
+import { setEnterpriseAuthNavigateForTesting } from "./Phase1Surface";
 import {
   deferred,
   errorResponse,
@@ -151,7 +152,64 @@ describe("Phase 1 ordinary app shell", () => {
       username: "operator@example.test",
       password: "OperatorPass1!",
     });
-    await expectStableFetchCount(fetchMock, 5);
+    await expectStableFetchCount(fetchMock, 6);
+  });
+
+  it("Phase 11 U-11-ENTERPRISE-AUTH-01 enterprise auth discovery renders provider sign-in and begins with a relative return_to", async () => {
+    const navigateSpy = vi.fn();
+    const restoreNavigate = setEnterpriseAuthNavigateForTesting(navigateSpy);
+    try {
+    installLandingShellFetch(fetchMock, {
+      session: errorResponse("session_required", 401),
+      enterpriseProviders: {
+        providers: [
+          {
+            provider_key: "corp-oidc",
+            provider_type: "oidc",
+            display_name: "Corporate OIDC",
+          },
+        ],
+      },
+      extraRoutes: [
+        {
+          method: "POST",
+          url: "/api/v1/auth/providers/corp-oidc/begin",
+          handler: () =>
+            jsonResponse({
+              data: {
+                provider_key: "corp-oidc",
+                provider_type: "oidc",
+                redirect_url: "https://idp.example.test/start",
+                expires_at: "2026-06-13T22:30:00Z",
+              },
+            }),
+        },
+      ],
+    });
+
+    renderApp();
+
+    const providerButton = await screen.findByTestId(
+      phase1AuthTestId("enterprise-provider-button"),
+    );
+    expect(providerButton.textContent).toBe("Corporate OIDC");
+    fireEvent.click(providerButton);
+
+    await waitFor(() => {
+      expect(navigateSpy).toHaveBeenCalledWith("https://idp.example.test/start");
+    });
+    const beginRequest = requireJSONRequest(
+      fetchMock,
+      "/api/v1/auth/providers/corp-oidc/begin",
+      "POST",
+    );
+    expect(beginRequest.body).toEqual({
+      return_to: "/",
+    });
+    await expectStableFetchCount(fetchMock, 3);
+    } finally {
+      restoreNavigate();
+    }
   });
 
   it("Phase 1 U-1-14 ordinary shell blocks authenticated bootstrap until credential state loads and renders credential public errors without private details", async () => {
@@ -243,7 +301,7 @@ describe("Phase 1 ordinary app shell", () => {
       screen.getByTestId(phase1ErrorSummaryTestIds("auth").details).textContent,
     ).toContain("Field: second_factor.assertion.code");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 2);
+    await expectStableFetchCount(fetchMock, 3);
   });
 
   it("FE-I-P1-01 route-boundary credential-state errors render public envelopes on landing and account surfaces without private details", async () => {
@@ -462,7 +520,7 @@ describe("Phase 1 ordinary app shell", () => {
     expect(
       screen.queryByTestId(phase1LandingTestId("current-user")),
     ).toBeNull();
-    await expectStableFetchCount(fetchMock, 5);
+    await expectStableFetchCount(fetchMock, 6);
   });
 
   it("Phase 1 U-1-16 ordinary account-security controls issue password-change and totp-enrollment requests, surface failures on the shell, and refresh back to anonymous state after success", async () => {
@@ -647,7 +705,7 @@ describe("Phase 1 ordinary app shell", () => {
         },
       },
     });
-    await expectStableFetchCount(fetchMock, 7);
+    await expectStableFetchCount(fetchMock, 9);
   });
 
   it("FE-I-P1-01 route-boundary account password and TOTP errors render public envelopes without private details", async () => {
@@ -926,7 +984,7 @@ describe("Phase 1 ordinary app shell", () => {
       screen.queryByTestId(phase1LandingTestId("current-user")),
     ).toBeNull();
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 4);
+    await expectStableFetchCount(fetchMock, 5);
   });
 
   it("FE-I-P1-01 route-boundary session TOTP complete errors render public envelopes without private details", async () => {

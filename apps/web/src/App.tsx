@@ -561,12 +561,25 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           (incident) =>
             incident.incident_id === options.routeSnapshot.incidentId,
         );
-      const nextRoute = requestedIncidentStillVisible
-        ? null
-        : {
-            incidentId: "",
-            debugHarness: options.routeSnapshot.debugHarness,
-          };
+      const enterpriseRootIncidentID =
+        options.routeSnapshot.incidentId === "" &&
+        !options.routeSnapshot.debugHarness &&
+        nextSession.provider_type !== "local" &&
+        nextIncidents.length === 1
+          ? (nextIncidents[0]?.incident_id ?? "")
+          : "";
+      const nextRoute =
+        enterpriseRootIncidentID !== ""
+          ? {
+              incidentId: enterpriseRootIncidentID,
+              debugHarness: false,
+            }
+          : requestedIncidentStillVisible
+            ? null
+            : {
+                incidentId: "",
+                debugHarness: options.routeSnapshot.debugHarness,
+              };
       const nextLandingNotice =
         nextRoute !== null
           ? (options.landingNotice ?? defaultStaleIncidentMessage)

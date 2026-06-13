@@ -23,6 +23,19 @@ var ErrPendingExpired = errors.New("authn: pending enrollment expired")
 var ErrPendingConsumed = errors.New("authn: pending enrollment consumed")
 var ErrLastDeploymentAdmin = errors.New("authn: last deployment admin")
 var ErrUserVersionConflict = errors.New("authn: user version conflict")
+var ErrAuthProviderNotFound = errors.New("authn: auth provider not found")
+var ErrAuthProviderDisabled = errors.New("authn: auth provider disabled")
+var ErrEnterpriseTransactionNotFound = errors.New("authn: enterprise auth transaction not found")
+var ErrEnterpriseTransactionExpired = errors.New("authn: enterprise auth transaction expired")
+var ErrEnterpriseTransactionUsed = errors.New("authn: enterprise auth transaction already used")
+var ErrEnterpriseTransactionProviderMismatch = errors.New("authn: enterprise auth transaction provider mismatch")
+var ErrEnterpriseTransactionBrowserMismatch = errors.New("authn: enterprise auth transaction browser mismatch")
+var ErrEnterpriseIdentityNoLinkedUser = errors.New("authn: enterprise identity has no linked user")
+var ErrEnterpriseIdentityInactiveUser = errors.New("authn: enterprise identity user inactive")
+var ErrAuthBindingNotFound = errors.New("authn: auth binding not found")
+var ErrAuthBindingNotActive = errors.New("authn: auth binding not active")
+var ErrAuthBindingProviderSubjectInUse = errors.New("authn: auth binding provider subject in use")
+var ErrAuthBindingProviderAlreadyLinkedForUser = errors.New("authn: auth binding provider already linked for user")
 
 type Store struct {
 	pool postgres.DB
@@ -50,6 +63,8 @@ type UserRecord struct {
 type SessionRecord struct {
 	ID                       uuid.UUID
 	UserID                   uuid.UUID
+	ProviderType             string
+	AuthBindingID            *uuid.UUID
 	AuthenticatedAt          time.Time
 	LastQualifyingActivityAt time.Time
 	IdleExpiresAt            time.Time
@@ -148,6 +163,60 @@ type AdminRevokeAllResult struct {
 	Replayed          bool
 }
 
+type EnterpriseAuthProviderRecord struct {
+	ID                    uuid.UUID
+	ProviderKey           string
+	ProviderType          string
+	DisplayName           string
+	IsEnabled             bool
+	IsInteractive         bool
+	AuthorizationEndpoint *string
+	Issuer                *string
+	Audience              *string
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+}
+
+type EnterpriseAuthTransactionRecord struct {
+	ID                 uuid.UUID
+	ProviderID         uuid.UUID
+	ProviderKey        string
+	ProviderType       string
+	ReturnTo           string
+	State              *string
+	Nonce              *string
+	RelayState         *string
+	BrowserBindingHash []byte
+	CreatedAt          time.Time
+	ExpiresAt          time.Time
+	ConsumedAt         *time.Time
+}
+
+type EnterpriseAuthBindingSummary struct {
+	ID              uuid.UUID
+	UserID          uuid.UUID
+	ProviderKey     string
+	ProviderType    string
+	ProviderSubject string
+	CreatedAt       time.Time
+	LastAuthAt      *time.Time
+}
+
+type EnterpriseAuthCompletionResult struct {
+	User          UserRecord
+	Binding       EnterpriseAuthBindingSummary
+	ReturnTo      string
+	TransactionID uuid.UUID
+}
+
+type EnterpriseAuthBindingResult struct {
+	User              UserRecord
+	ResponseJSON      []byte
+	RevokedSessionIDs []uuid.UUID
+	Replayed          bool
+	StatusCode        int
+}
+
 func NewStore(pool postgres.DB) *Store {
 	return &Store{pool: pool}
 }
@@ -209,7 +278,7 @@ SELECT incident_id, role
 func (s *Store) GetSessionByFingerprint(ctx context.Context, fingerprint []byte) (SessionRecord, UserRecord, error) {
 	row := s.pool.QueryRow(ctx, `
 SELECT s.id, s.user_id, s.authenticated_at, s.last_qualifying_activity_at, s.idle_expires_at, s.absolute_expires_at,
-       s.session_expires_at, s.revoked_at, s.revoke_reason_code, s.created_at, s.updated_at,
+       s.session_expires_at, s.revoked_at, s.revoke_reason_code, s.created_at, s.updated_at, s.provider_type, s.auth_binding_id,
        u.id, u.email::text, u.display_name, u.password_hash, u.password_changed_at, u.mfa_required, u.is_active,
        u.is_deployment_admin, u.created_at, u.updated_at, u.updated_by_user_id, u.last_login_at, u.user_version,
        u.totp_enrolled_at, u.totp_secret_ciphertext, u.totp_secret_nonce
@@ -232,6 +301,8 @@ SELECT s.id, s.user_id, s.authenticated_at, s.last_qualifying_activity_at, s.idl
 		&session.RevokeReasonCode,
 		&session.CreatedAt,
 		&session.UpdatedAt,
+		&session.ProviderType,
+		&session.AuthBindingID,
 		&user.ID,
 		&user.Email,
 		&user.DisplayName,
@@ -256,6 +327,14 @@ SELECT s.id, s.user_id, s.authenticated_at, s.last_qualifying_activity_at, s.idl
 }
 
 func (s *Store) CreateSessionWithConcurrency(ctx context.Context, user UserRecord, fingerprint []byte, timing SessionTiming, requestID string) (SessionRecord, *SessionRecord, error) {
+	return s.createSessionWithConcurrency(ctx, user, fingerprint, timing, requestID, "local", nil)
+}
+
+func (s *Store) CreateSessionWithProviderConcurrency(ctx context.Context, user UserRecord, fingerprint []byte, timing SessionTiming, requestID string, providerType string, authBindingID *uuid.UUID) (SessionRecord, *SessionRecord, error) {
+	return s.createSessionWithConcurrency(ctx, user, fingerprint, timing, requestID, providerType, authBindingID)
+}
+
+func (s *Store) createSessionWithConcurrency(ctx context.Context, user UserRecord, fingerprint []byte, timing SessionTiming, requestID string, providerType string, authBindingID *uuid.UUID) (SessionRecord, *SessionRecord, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return SessionRecord{}, nil, fmt.Errorf("begin session transaction: %w", err)
@@ -266,7 +345,7 @@ func (s *Store) CreateSessionWithConcurrency(ctx context.Context, user UserRecor
 
 	rows, err := tx.Query(ctx, `
 SELECT id, user_id, authenticated_at, last_qualifying_activity_at, idle_expires_at, absolute_expires_at,
-       session_expires_at, revoked_at, revoke_reason_code, created_at, updated_at
+       session_expires_at, revoked_at, revoke_reason_code, created_at, updated_at, provider_type, auth_binding_id
   FROM user_sessions
  WHERE user_id = $1
    AND revoked_at IS NULL
@@ -340,11 +419,11 @@ VALUES ($1, $2, 'auth.login', 'session_revoked', $3::text, $4::text, jsonb_build
 	if err := tx.QueryRow(ctx, `
 INSERT INTO user_sessions (
     user_id, token_fingerprint, authenticated_at, last_qualifying_activity_at,
-    idle_expires_at, absolute_expires_at, session_expires_at
+    idle_expires_at, absolute_expires_at, session_expires_at, provider_type, auth_binding_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING id, user_id, authenticated_at, last_qualifying_activity_at, idle_expires_at, absolute_expires_at,
-          session_expires_at, revoked_at, revoke_reason_code, created_at, updated_at
+          session_expires_at, revoked_at, revoke_reason_code, created_at, updated_at, provider_type, auth_binding_id
 `,
 		user.ID,
 		fingerprint,
@@ -353,6 +432,8 @@ RETURNING id, user_id, authenticated_at, last_qualifying_activity_at, idle_expir
 		timing.IdleExpiresAt,
 		timing.AbsoluteExpiresAt,
 		timing.SessionExpiresAt,
+		providerType,
+		authBindingID,
 	).Scan(
 		&created.ID,
 		&created.UserID,
@@ -365,6 +446,8 @@ RETURNING id, user_id, authenticated_at, last_qualifying_activity_at, idle_expir
 		&created.RevokeReasonCode,
 		&created.CreatedAt,
 		&created.UpdatedAt,
+		&created.ProviderType,
+		&created.AuthBindingID,
 	); err != nil {
 		return SessionRecord{}, nil, fmt.Errorf("insert session: %w", err)
 	}
@@ -449,7 +532,7 @@ UPDATE user_sessions
 func (s *Store) ListActiveSessionsForUser(ctx context.Context, userID uuid.UUID) ([]SessionRecord, error) {
 	rows, err := s.pool.Query(ctx, `
 SELECT id, user_id, authenticated_at, last_qualifying_activity_at, idle_expires_at, absolute_expires_at,
-       session_expires_at, revoked_at, revoke_reason_code, created_at, updated_at
+       session_expires_at, revoked_at, revoke_reason_code, created_at, updated_at, provider_type, auth_binding_id
   FROM user_sessions
  WHERE user_id = $1
    AND revoked_at IS NULL
@@ -1585,6 +1668,8 @@ func scanSession(scanner interface{ Scan(...any) error }) (SessionRecord, error)
 		&session.RevokeReasonCode,
 		&session.CreatedAt,
 		&session.UpdatedAt,
+		&session.ProviderType,
+		&session.AuthBindingID,
 	)
 	return session, err
 }

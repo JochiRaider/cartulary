@@ -66,27 +66,11 @@ func ApplyUserCreateDefaults(mfaRequired *bool, isDeploymentAdmin *bool) UserCre
 }
 
 func BuildSafeUserResource(user authn.UserRecord) map[string]any {
-	return map[string]any{
-		"user_id":             user.ID,
-		"email":               user.Email,
-		"display_name":        user.DisplayName,
-		"is_active":           user.IsActive,
-		"mfa_required":        user.MFARequired,
-		"is_deployment_admin": user.IsDeploymentAdmin,
-		"created_at":          user.CreatedAt,
-		"updated_at":          user.UpdatedAt,
-		"updated_by_user_id":  user.UpdatedByUserID,
-		"last_login_at":       user.LastLoginAt,
-		"user_version":        user.UserVersion,
-		"auth_bindings": []map[string]any{
-			{
-				"provider_type": "local",
-				"provider_key":  "local",
-				"username":      user.Email,
-				"created_at":    user.CreatedAt,
-			},
-		},
-	}
+	return BuildSafeUserResourceWithEnterpriseBindings(user, nil)
+}
+
+func BuildSafeUserResourceWithEnterpriseBindings(user authn.UserRecord, bindings []authn.EnterpriseAuthBindingSummary) map[string]any {
+	return authn.SafeUserResponseWithEnterpriseBindings(user, bindings)
 }
 
 func WouldLeaveNoActiveDeploymentAdmins(currentIsAdmin bool, currentIsActive bool, activeAdminCount int, nextIsAdmin bool, nextIsActive bool) bool {

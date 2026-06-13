@@ -1,5 +1,9 @@
 import { jsonResponse } from "./fetchMockTestSupport";
-import type { CredentialState, SessionData } from "./phase1Client";
+import type {
+  CredentialState,
+  EnterpriseAuthProvider,
+  SessionData,
+} from "./phase1Client";
 
 type FetchMock = {
   mockImplementation: (
@@ -43,6 +47,7 @@ export type IncidentResource = {
 
 type InstallLandingShellFetchOptions = {
   credentialState?: MaybeHandler<CredentialState>;
+  enterpriseProviders?: MaybeHandler<{ providers: EnterpriseAuthProvider[] }>;
   extraRoutes?: ExtraRoute[];
   incidents?: MaybeHandler<IncidentResource[]>;
   onCreateIncident?: MaybeHandler<IncidentResource>;
@@ -66,6 +71,12 @@ export function installLandingShellFetch(
 
     if (request.url === "/api/v1/auth/session" && request.method === "GET") {
       return dataResponse(options.session, request);
+    }
+    if (
+      request.url === "/api/v1/auth/providers" &&
+      request.method === "GET"
+    ) {
+      return dataResponse(options.enterpriseProviders ?? { providers: [] }, request);
     }
     if (
       request.url === "/api/v1/auth/credential-state" &&

@@ -274,6 +274,52 @@ type DeploymentBootstrapState struct {
 	ConsumedAt          pgtype.Timestamptz `json:"consumed_at"`
 }
 
+type EnterpriseAuthBinding struct {
+	ID                      pgtype.UUID        `json:"id"`
+	UserID                  pgtype.UUID        `json:"user_id"`
+	ProviderID              pgtype.UUID        `json:"provider_id"`
+	ProviderKey             string             `json:"provider_key"`
+	ProviderType            string             `json:"provider_type"`
+	ProviderSubject         string             `json:"provider_subject"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	CreatedByUserID         pgtype.UUID        `json:"created_by_user_id"`
+	LastAuthAt              pgtype.Timestamptz `json:"last_auth_at"`
+	RetiredAt               pgtype.Timestamptz `json:"retired_at"`
+	RetiredByUserID         pgtype.UUID        `json:"retired_by_user_id"`
+	RetireReason            pgtype.Text        `json:"retire_reason"`
+	ReplacedByAuthBindingID pgtype.UUID        `json:"replaced_by_auth_binding_id"`
+}
+
+type EnterpriseAuthProvider struct {
+	ID                    pgtype.UUID        `json:"id"`
+	ProviderKey           string             `json:"provider_key"`
+	ProviderType          string             `json:"provider_type"`
+	DisplayName           string             `json:"display_name"`
+	IsEnabled             bool               `json:"is_enabled"`
+	IsInteractive         bool               `json:"is_interactive"`
+	AuthorizationEndpoint pgtype.Text        `json:"authorization_endpoint"`
+	Issuer                pgtype.Text        `json:"issuer"`
+	Audience              pgtype.Text        `json:"audience"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type EnterpriseAuthTransaction struct {
+	ID                 pgtype.UUID        `json:"id"`
+	ProviderID         pgtype.UUID        `json:"provider_id"`
+	ProviderKey        string             `json:"provider_key"`
+	ProviderType       string             `json:"provider_type"`
+	ReturnTo           string             `json:"return_to"`
+	State              pgtype.Text        `json:"state"`
+	Nonce              pgtype.Text        `json:"nonce"`
+	PkceVerifierHash   []byte             `json:"pkce_verifier_hash"`
+	RelayState         pgtype.Text        `json:"relay_state"`
+	BrowserBindingHash []byte             `json:"browser_binding_hash"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt         pgtype.Timestamptz `json:"consumed_at"`
+}
+
 type EntityAlias struct {
 	EntityAliasID   pgtype.UUID        `json:"entity_alias_id"`
 	IncidentID      pgtype.UUID        `json:"incident_id"`
@@ -1115,6 +1161,8 @@ type UserSession struct {
 	RevokeReasonCode         pgtype.Text        `json:"revoke_reason_code"`
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
+	ProviderType             string             `json:"provider_type"`
+	AuthBindingID            pgtype.UUID        `json:"auth_binding_id"`
 }
 
 type UserWorkbookPreference struct {

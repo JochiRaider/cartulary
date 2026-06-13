@@ -33,6 +33,7 @@ type authStore interface {
 	ListIncidentMembershipSummaries(context.Context, uuid.UUID) ([]authn.IncidentMembershipSummary, error)
 	GetSessionByFingerprint(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error)
 	CreateSessionWithConcurrency(context.Context, authn.UserRecord, []byte, authn.SessionTiming, string) (authn.SessionRecord, *authn.SessionRecord, error)
+	CreateSessionWithProviderConcurrency(context.Context, authn.UserRecord, []byte, authn.SessionTiming, string, string, *uuid.UUID) (authn.SessionRecord, *authn.SessionRecord, error)
 	SlideSession(context.Context, uuid.UUID, authn.SessionTiming) (authn.SessionTiming, error)
 	RevokeSession(context.Context, uuid.UUID, string, time.Time) error
 	IssueBootstrapToken(context.Context, uuid.UUID, []byte, time.Time) (authn.BootstrapTokenRecord, error)
@@ -49,6 +50,14 @@ type authStore interface {
 	AdminResetPassword(context.Context, authn.UserRecord, uuid.UUID, int64, string, string, []byte, string, time.Time) (authn.AdminPasswordResetResult, error)
 	AdminResetTOTP(context.Context, authn.UserRecord, uuid.UUID, int64, string, []byte, string, time.Time) (authn.AdminTOTPResetResult, error)
 	AdminRevokeAllSessions(context.Context, authn.UserRecord, uuid.UUID, string, []byte, string, time.Time) (authn.AdminRevokeAllResult, error)
+	ListEnterpriseAuthProviders(context.Context) ([]authn.EnterpriseAuthProviderRecord, error)
+	GetEnterpriseAuthProviderByKey(context.Context, string) (authn.EnterpriseAuthProviderRecord, error)
+	CreateEnterpriseAuthTransaction(context.Context, authn.EnterpriseAuthProviderRecord, string, *string, *string, []byte, *string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
+	CompleteEnterpriseAuthTransaction(context.Context, string, string, string, []byte, *string, string, time.Time) (authn.EnterpriseAuthCompletionResult, error)
+	ListEnterpriseAuthBindingSummaries(context.Context, uuid.UUID) ([]authn.EnterpriseAuthBindingSummary, error)
+	CreateEnterpriseAuthBinding(context.Context, authn.UserRecord, uuid.UUID, int64, string, string, string, *string, []byte, string, time.Time) (authn.EnterpriseAuthBindingResult, error)
+	RotateEnterpriseAuthBinding(context.Context, authn.UserRecord, uuid.UUID, uuid.UUID, int64, string, string, *string, []byte, string, time.Time) (authn.EnterpriseAuthBindingResult, error)
+	RetireEnterpriseAuthBinding(context.Context, authn.UserRecord, uuid.UUID, uuid.UUID, int64, string, *string, []byte, string, time.Time) (authn.EnterpriseAuthBindingResult, error)
 }
 
 type sessionHub interface {
@@ -80,6 +89,10 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		mux.HandleFunc("/api/v1/auth/login", service.handleLogin)
 		mux.HandleFunc("/api/v1/auth/session", service.handleSession)
 		mux.HandleFunc("/api/v1/auth/logout", service.handleLogout)
+		mux.HandleFunc("/api/v1/auth/providers", service.handleEnterpriseProviders)
+		mux.HandleFunc("/api/v1/auth/providers/", service.handleEnterpriseProviders)
+		mux.HandleFunc("/api/v1/auth/oidc/", service.handleEnterpriseOIDC)
+		mux.HandleFunc("/api/v1/auth/saml/", service.handleEnterpriseSAML)
 		mux.HandleFunc("/api/v1/auth/credential-state", service.handleCredentialState)
 		mux.HandleFunc("/api/v1/auth/password/change", service.handlePasswordChange)
 		mux.HandleFunc("/api/v1/auth/mfa/totp/begin", service.handleTOTPBegin)
@@ -656,7 +669,12 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 		}
 		resources := make([]map[string]any, 0, len(users))
 		for _, user := range users {
-			resources = append(resources, BuildSafeUserResource(user))
+			resource, err := s.buildSafeUserResource(r.Context(), user)
+			if err != nil {
+				writeAPIError(w, r, internalAPIError(err))
+				return
+			}
+			resources = append(resources, resource)
 		}
 		rows, nextCursor, err := pagination.PageResources(binding, cursor, resources)
 		switch {
@@ -777,6 +795,10 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.handleEnterpriseAuthBindings(w, r, userID, segments) {
+		return
+	}
+
 	if len(segments) == 1 {
 		switch r.Method {
 		case http.MethodGet:
@@ -806,7 +828,12 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 				writeAPIError(w, r, internalAPIError(err))
 				return
 			}
-			_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildSafeUserResource(user))
+			resource, err := s.buildSafeUserResource(r.Context(), user)
+			if err != nil {
+				writeAPIError(w, r, internalAPIError(err))
+				return
+			}
+			_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
 		case http.MethodPatch:
 			principal, apiErr := s.authenticateSessionRequest(r, true)
 			if apiErr != nil {
@@ -855,7 +882,12 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 					s.clearAuthCookies(w)
 				}
 			}
-			_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildSafeUserResource(user))
+			resource, err := s.buildSafeUserResource(r.Context(), user)
+			if err != nil {
+				writeAPIError(w, r, internalAPIError(err))
+				return
+			}
+			_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
@@ -1212,6 +1244,10 @@ func (s *Service) buildSessionResource(ctx context.Context, user authn.UserRecor
 	if user.MFARequired {
 		mfaState = "satisfied"
 	}
+	providerType := session.ProviderType
+	if providerType == "" {
+		providerType = "local"
+	}
 
 	memberships, err := s.store.ListIncidentMembershipSummaries(ctx, user.ID)
 	if err != nil {
@@ -1228,7 +1264,7 @@ func (s *Service) buildSessionResource(ctx context.Context, user authn.UserRecor
 	return map[string]any{
 		"user_id":             user.ID,
 		"display_name":        user.DisplayName,
-		"provider_type":       "local",
+		"provider_type":       providerType,
 		"mfa_state":           mfaState,
 		"is_deployment_admin": user.IsDeploymentAdmin,
 		"authenticated_at":    session.AuthenticatedAt,
@@ -1237,6 +1273,14 @@ func (s *Service) buildSessionResource(ctx context.Context, user authn.UserRecor
 		"session_expires_at":  session.SessionExpiresAt,
 		"memberships":         summaries,
 	}, nil
+}
+
+func (s *Service) buildSafeUserResource(ctx context.Context, user authn.UserRecord) (map[string]any, error) {
+	bindings, err := s.store.ListEnterpriseAuthBindingSummaries(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	return BuildSafeUserResourceWithEnterpriseBindings(user, bindings), nil
 }
 
 func (s *Service) validateActiveTOTP(user authn.UserRecord, secondFactor *SecondFactorAssertion) *APIError {

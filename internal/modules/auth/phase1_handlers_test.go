@@ -1899,6 +1899,7 @@ type authStoreStub struct {
 	listIncidentMembershipSummariesFunc func(context.Context, uuid.UUID) ([]authn.IncidentMembershipSummary, error)
 	getSessionByFingerprintFunc         func(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error)
 	createSessionWithConcurrencyFunc    func(context.Context, authn.UserRecord, []byte, authn.SessionTiming, string) (authn.SessionRecord, *authn.SessionRecord, error)
+	createSessionWithProviderFunc       func(context.Context, authn.UserRecord, []byte, authn.SessionTiming, string, string, *uuid.UUID) (authn.SessionRecord, *authn.SessionRecord, error)
 	slideSessionFunc                    func(context.Context, uuid.UUID, authn.SessionTiming) (authn.SessionTiming, error)
 	revokeSessionFunc                   func(context.Context, uuid.UUID, string, time.Time) error
 	issueBootstrapTokenFunc             func(context.Context, uuid.UUID, []byte, time.Time) (authn.BootstrapTokenRecord, error)
@@ -1915,6 +1916,14 @@ type authStoreStub struct {
 	adminResetPasswordFunc              func(context.Context, authn.UserRecord, uuid.UUID, int64, string, string, []byte, string, time.Time) (authn.AdminPasswordResetResult, error)
 	adminResetTOTPFunc                  func(context.Context, authn.UserRecord, uuid.UUID, int64, string, []byte, string, time.Time) (authn.AdminTOTPResetResult, error)
 	adminRevokeAllSessionsFunc          func(context.Context, authn.UserRecord, uuid.UUID, string, []byte, string, time.Time) (authn.AdminRevokeAllResult, error)
+	listEnterpriseAuthProvidersFunc     func(context.Context) ([]authn.EnterpriseAuthProviderRecord, error)
+	getEnterpriseAuthProviderByKeyFunc  func(context.Context, string) (authn.EnterpriseAuthProviderRecord, error)
+	createEnterpriseAuthTxnFunc         func(context.Context, authn.EnterpriseAuthProviderRecord, string, *string, *string, []byte, *string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
+	completeEnterpriseAuthTxnFunc       func(context.Context, string, string, string, []byte, *string, string, time.Time) (authn.EnterpriseAuthCompletionResult, error)
+	listEnterpriseAuthBindingsFunc      func(context.Context, uuid.UUID) ([]authn.EnterpriseAuthBindingSummary, error)
+	createEnterpriseAuthBindingFunc     func(context.Context, authn.UserRecord, uuid.UUID, int64, string, string, string, *string, []byte, string, time.Time) (authn.EnterpriseAuthBindingResult, error)
+	rotateEnterpriseAuthBindingFunc     func(context.Context, authn.UserRecord, uuid.UUID, uuid.UUID, int64, string, string, *string, []byte, string, time.Time) (authn.EnterpriseAuthBindingResult, error)
+	retireEnterpriseAuthBindingFunc     func(context.Context, authn.UserRecord, uuid.UUID, uuid.UUID, int64, string, *string, []byte, string, time.Time) (authn.EnterpriseAuthBindingResult, error)
 }
 
 func (s *authStoreStub) GetUserByNormalizedEmail(ctx context.Context, email string) (authn.UserRecord, error) {
@@ -1935,6 +1944,13 @@ func (s *authStoreStub) GetSessionByFingerprint(ctx context.Context, fingerprint
 
 func (s *authStoreStub) CreateSessionWithConcurrency(ctx context.Context, user authn.UserRecord, fingerprint []byte, timing authn.SessionTiming, requestID string) (authn.SessionRecord, *authn.SessionRecord, error) {
 	return callStub4Result2(s.createSessionWithConcurrencyFunc, ctx, user, fingerprint, timing, requestID)
+}
+
+func (s *authStoreStub) CreateSessionWithProviderConcurrency(ctx context.Context, user authn.UserRecord, fingerprint []byte, timing authn.SessionTiming, requestID string, providerType string, authBindingID *uuid.UUID) (authn.SessionRecord, *authn.SessionRecord, error) {
+	if s.createSessionWithProviderFunc != nil {
+		return s.createSessionWithProviderFunc(ctx, user, fingerprint, timing, requestID, providerType, authBindingID)
+	}
+	return s.CreateSessionWithConcurrency(ctx, user, fingerprint, timing, requestID)
 }
 
 func (s *authStoreStub) SlideSession(ctx context.Context, sessionID uuid.UUID, timing authn.SessionTiming) (authn.SessionTiming, error) {
@@ -2003,6 +2019,62 @@ func (s *authStoreStub) AdminResetTOTP(ctx context.Context, actor authn.UserReco
 
 func (s *authStoreStub) AdminRevokeAllSessions(ctx context.Context, actor authn.UserRecord, targetUserID uuid.UUID, clientTxnID string, requestHash []byte, requestID string, now time.Time) (authn.AdminRevokeAllResult, error) {
 	return callStub6(s.adminRevokeAllSessionsFunc, ctx, actor, targetUserID, clientTxnID, requestHash, requestID, now)
+}
+
+func (s *authStoreStub) ListEnterpriseAuthProviders(ctx context.Context) ([]authn.EnterpriseAuthProviderRecord, error) {
+	if s.listEnterpriseAuthProvidersFunc == nil {
+		return nil, nil
+	}
+	return s.listEnterpriseAuthProvidersFunc(ctx)
+}
+
+func (s *authStoreStub) GetEnterpriseAuthProviderByKey(ctx context.Context, providerKey string) (authn.EnterpriseAuthProviderRecord, error) {
+	if s.getEnterpriseAuthProviderByKeyFunc == nil {
+		return authn.EnterpriseAuthProviderRecord{}, authn.ErrAuthProviderNotFound
+	}
+	return s.getEnterpriseAuthProviderByKeyFunc(ctx, providerKey)
+}
+
+func (s *authStoreStub) CreateEnterpriseAuthTransaction(ctx context.Context, provider authn.EnterpriseAuthProviderRecord, returnTo string, state *string, nonce *string, pkceVerifierHash []byte, relayState *string, browserBindingHash []byte, now time.Time) (authn.EnterpriseAuthTransactionRecord, error) {
+	if s.createEnterpriseAuthTxnFunc == nil {
+		return authn.EnterpriseAuthTransactionRecord{}, nil
+	}
+	return s.createEnterpriseAuthTxnFunc(ctx, provider, returnTo, state, nonce, pkceVerifierHash, relayState, browserBindingHash, now)
+}
+
+func (s *authStoreStub) CompleteEnterpriseAuthTransaction(ctx context.Context, providerKey string, providerType string, correlation string, browserBindingHash []byte, nonce *string, providerSubject string, now time.Time) (authn.EnterpriseAuthCompletionResult, error) {
+	if s.completeEnterpriseAuthTxnFunc == nil {
+		return authn.EnterpriseAuthCompletionResult{}, authn.ErrEnterpriseTransactionNotFound
+	}
+	return s.completeEnterpriseAuthTxnFunc(ctx, providerKey, providerType, correlation, browserBindingHash, nonce, providerSubject, now)
+}
+
+func (s *authStoreStub) ListEnterpriseAuthBindingSummaries(ctx context.Context, userID uuid.UUID) ([]authn.EnterpriseAuthBindingSummary, error) {
+	if s.listEnterpriseAuthBindingsFunc == nil {
+		return nil, nil
+	}
+	return s.listEnterpriseAuthBindingsFunc(ctx, userID)
+}
+
+func (s *authStoreStub) CreateEnterpriseAuthBinding(ctx context.Context, actor authn.UserRecord, targetUserID uuid.UUID, baseUserVersion int64, clientTxnID string, providerKey string, providerSubject string, reason *string, requestHash []byte, requestID string, now time.Time) (authn.EnterpriseAuthBindingResult, error) {
+	if s.createEnterpriseAuthBindingFunc == nil {
+		return authn.EnterpriseAuthBindingResult{}, authn.ErrAuthProviderNotFound
+	}
+	return s.createEnterpriseAuthBindingFunc(ctx, actor, targetUserID, baseUserVersion, clientTxnID, providerKey, providerSubject, reason, requestHash, requestID, now)
+}
+
+func (s *authStoreStub) RotateEnterpriseAuthBinding(ctx context.Context, actor authn.UserRecord, targetUserID uuid.UUID, authBindingID uuid.UUID, baseUserVersion int64, clientTxnID string, newProviderSubject string, reason *string, requestHash []byte, requestID string, now time.Time) (authn.EnterpriseAuthBindingResult, error) {
+	if s.rotateEnterpriseAuthBindingFunc == nil {
+		return authn.EnterpriseAuthBindingResult{}, authn.ErrAuthBindingNotFound
+	}
+	return s.rotateEnterpriseAuthBindingFunc(ctx, actor, targetUserID, authBindingID, baseUserVersion, clientTxnID, newProviderSubject, reason, requestHash, requestID, now)
+}
+
+func (s *authStoreStub) RetireEnterpriseAuthBinding(ctx context.Context, actor authn.UserRecord, targetUserID uuid.UUID, authBindingID uuid.UUID, baseUserVersion int64, clientTxnID string, reason *string, requestHash []byte, requestID string, now time.Time) (authn.EnterpriseAuthBindingResult, error) {
+	if s.retireEnterpriseAuthBindingFunc == nil {
+		return authn.EnterpriseAuthBindingResult{}, authn.ErrAuthBindingNotFound
+	}
+	return s.retireEnterpriseAuthBindingFunc(ctx, actor, targetUserID, authBindingID, baseUserVersion, clientTxnID, reason, requestHash, requestID, now)
 }
 
 type hubStub struct {

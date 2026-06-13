@@ -5,7 +5,7 @@ export type SessionMembership = {
   role: string;
 };
 
-export type SessionProviderType = "local";
+export type SessionProviderType = "local" | "oidc" | "saml";
 export type SessionMFAState = "not_required" | "satisfied";
 export type CredentialAuthKind = "local";
 export type CredentialRecoveryModel = "admin_assisted";
@@ -44,9 +44,39 @@ export type UserResource = {
   is_active: boolean;
   mfa_required: boolean;
   is_deployment_admin: boolean;
+  auth_bindings?: AuthBindingSummary[];
 };
 
 export type TotpAuthMode = "bootstrap" | "session";
+
+export type AuthBindingSummary =
+  | {
+      provider_type: "local";
+      provider_key: "local";
+      username: string;
+      created_at: string;
+    }
+  | {
+      auth_binding_id: string;
+      provider_type: "oidc" | "saml";
+      provider_key: string;
+      provider_subject: string;
+      created_at: string;
+      last_auth_at: string | null;
+    };
+
+export type EnterpriseAuthProvider = {
+  provider_key: string;
+  provider_type: "oidc" | "saml";
+  display_name: string;
+};
+
+export type EnterpriseAuthBeginResponse = {
+  provider_key: string;
+  provider_type: "oidc" | "saml";
+  redirect_url: string;
+  expires_at: string;
+};
 
 type DataEnvelope<T> = {
   data: T;
@@ -184,6 +214,36 @@ export function loginLocal(options: {
         username: options.username,
         password: options.password,
         second_factor: secondFactorPayload(options.secondFactorCode ?? ""),
+      }),
+    },
+  );
+}
+
+export function listEnterpriseAuthProviders(options?: ShellGetOptions) {
+  return fetchJSON<DataEnvelope<{ providers: EnterpriseAuthProvider[] }>>(
+    apiPath(options?.apiBase, "/api/v1/auth/providers"),
+    typeof options?.signal === "undefined"
+      ? undefined
+      : {
+          signal: options.signal,
+        },
+  );
+}
+
+export function beginEnterpriseAuth(options: {
+  apiBase?: string | undefined;
+  providerKey: string;
+  returnTo?: string | undefined;
+}) {
+  return fetchJSON<DataEnvelope<EnterpriseAuthBeginResponse>>(
+    apiPath(
+      options.apiBase,
+      `/api/v1/auth/providers/${encodeURIComponent(options.providerKey)}/begin`,
+    ),
+    {
+      method: "POST",
+      body: JSON.stringify({
+        return_to: options.returnTo ?? "/",
       }),
     },
   );

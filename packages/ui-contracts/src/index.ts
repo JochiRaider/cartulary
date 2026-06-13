@@ -81,6 +81,8 @@ export type Phase1AuthSelector =
   | "bootstrap-enrollment-id"
   | "bootstrap-secret-base32"
   | "bootstrap-token"
+  | "enterprise-provider-button"
+  | "enterprise-provider-list"
   | "login-password"
   | "login-submit"
   | "login-totp-code"
@@ -231,6 +233,8 @@ const phase1AuthTestIds = Object.freeze({
   "bootstrap-enrollment-id": "auth-bootstrap-enrollment-id",
   "bootstrap-secret-base32": "auth-bootstrap-secret-base32",
   "bootstrap-token": "auth-bootstrap-token",
+  "enterprise-provider-button": "auth-enterprise-provider-button",
+  "enterprise-provider-list": "auth-enterprise-provider-list",
   "login-password": "auth-login-password",
   "login-submit": "auth-login-submit",
   "login-totp-code": "auth-login-totp-code",

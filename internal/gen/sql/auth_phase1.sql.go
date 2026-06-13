@@ -124,9 +124,24 @@ FROM user_sessions
 WHERE token_fingerprint = $1
 `
 
-func (q *Queries) GetSessionByFingerprint(ctx context.Context, tokenFingerprint []byte) (UserSession, error) {
+type GetSessionByFingerprintRow struct {
+	ID                       pgtype.UUID        `json:"id"`
+	UserID                   pgtype.UUID        `json:"user_id"`
+	TokenFingerprint         []byte             `json:"token_fingerprint"`
+	AuthenticatedAt          pgtype.Timestamptz `json:"authenticated_at"`
+	LastQualifyingActivityAt pgtype.Timestamptz `json:"last_qualifying_activity_at"`
+	IdleExpiresAt            pgtype.Timestamptz `json:"idle_expires_at"`
+	AbsoluteExpiresAt        pgtype.Timestamptz `json:"absolute_expires_at"`
+	SessionExpiresAt         pgtype.Timestamptz `json:"session_expires_at"`
+	RevokedAt                pgtype.Timestamptz `json:"revoked_at"`
+	RevokeReasonCode         pgtype.Text        `json:"revoke_reason_code"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetSessionByFingerprint(ctx context.Context, tokenFingerprint []byte) (GetSessionByFingerprintRow, error) {
 	row := q.db.QueryRow(ctx, getSessionByFingerprint, tokenFingerprint)
-	var i UserSession
+	var i GetSessionByFingerprintRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -170,15 +185,30 @@ type ListActiveSessionsForUserParams struct {
 	SessionExpiresAt pgtype.Timestamptz `json:"session_expires_at"`
 }
 
-func (q *Queries) ListActiveSessionsForUser(ctx context.Context, arg ListActiveSessionsForUserParams) ([]UserSession, error) {
+type ListActiveSessionsForUserRow struct {
+	ID                       pgtype.UUID        `json:"id"`
+	UserID                   pgtype.UUID        `json:"user_id"`
+	TokenFingerprint         []byte             `json:"token_fingerprint"`
+	AuthenticatedAt          pgtype.Timestamptz `json:"authenticated_at"`
+	LastQualifyingActivityAt pgtype.Timestamptz `json:"last_qualifying_activity_at"`
+	IdleExpiresAt            pgtype.Timestamptz `json:"idle_expires_at"`
+	AbsoluteExpiresAt        pgtype.Timestamptz `json:"absolute_expires_at"`
+	SessionExpiresAt         pgtype.Timestamptz `json:"session_expires_at"`
+	RevokedAt                pgtype.Timestamptz `json:"revoked_at"`
+	RevokeReasonCode         pgtype.Text        `json:"revoke_reason_code"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListActiveSessionsForUser(ctx context.Context, arg ListActiveSessionsForUserParams) ([]ListActiveSessionsForUserRow, error) {
 	rows, err := q.db.Query(ctx, listActiveSessionsForUser, arg.UserID, arg.SessionExpiresAt)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []UserSession
+	var items []ListActiveSessionsForUserRow
 	for rows.Next() {
-		var i UserSession
+		var i ListActiveSessionsForUserRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,

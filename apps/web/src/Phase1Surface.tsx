@@ -5,18 +5,21 @@ import {
   phase1ErrorCodeTestId,
   phase1ErrorSummaryTestIds,
 } from "@cartulary/ui-contracts";
-import { type CSSProperties, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 
 import { type APIError, extractError, publicErrorView } from "./browserApi";
 import {
   adminResetPassword,
   adminResetTotp,
   adminRevokeAllSessions,
+  beginEnterpriseAuth,
   beginTotpEnrollment,
   type CredentialState,
   changePassword,
   completeTotpEnrollment,
   createLocalUser,
+  type EnterpriseAuthProvider,
+  listEnterpriseAuthProviders,
   loadUser,
   loginLocal,
   logoutCurrentSession,
@@ -59,6 +62,20 @@ type TargetAdminOperation = "loading" | "mutating";
 
 type AuthChallengeState = "mfa_required" | "mfa_setup_required";
 
+let enterpriseAuthNavigate = (redirectURL: string) => {
+  window.location.assign(redirectURL);
+};
+
+export function setEnterpriseAuthNavigateForTesting(
+  navigate: (redirectURL: string) => void,
+) {
+  const previous = enterpriseAuthNavigate;
+  enterpriseAuthNavigate = navigate;
+  return () => {
+    enterpriseAuthNavigate = previous;
+  };
+}
+
 export function Phase1AuthSurface({
   bootstrapState,
   message,
@@ -73,11 +90,48 @@ export function Phase1AuthSurface({
   const [bootstrapToken, setBootstrapToken] = useState("");
   const [bootstrapEnrollmentId, setBootstrapEnrollmentId] = useState("");
   const [bootstrapSecretBase32, setBootstrapSecretBase32] = useState("");
+  const [enterpriseProviders, setEnterpriseProviders] = useState<
+    EnterpriseAuthProvider[]
+  >([]);
 
   const [username, setUsername] = useState("bootstrap-admin@example.test");
   const [password, setPassword] = useState("BootstrapPass1!");
   const [totpCode, setTotpCode] = useState("");
   const [bootstrapCompleteCode, setBootstrapCompleteCode] = useState("");
+
+  useEffect(() => {
+    if (bootstrapState === "loading") {
+      return;
+    }
+    const controller = new AbortController();
+    void (async () => {
+      const result = await listEnterpriseAuthProviders({
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) {
+        return;
+      }
+      const nextError = extractError(result.payload);
+      if (!result.ok) {
+        if (
+          result.status === 404 ||
+          nextError?.code === "extension_profile_not_claimed"
+        ) {
+          setEnterpriseProviders([]);
+          return;
+        }
+        setEnterpriseProviders([]);
+        return;
+      }
+      const data = (
+        result.payload as { data: { providers: EnterpriseAuthProvider[] } }
+      ).data;
+      setEnterpriseProviders(data.providers);
+    })();
+    return () => {
+      controller.abort();
+    };
+  }, [bootstrapState]);
 
   async function handleLogin() {
     setStatusText("Signing in");
@@ -123,6 +177,24 @@ export function Phase1AuthSurface({
     setError(null);
     setStatusText("Signed in");
     await onAuthenticated();
+  }
+
+  async function handleEnterpriseBegin(providerKey: string) {
+    setStatusText("Starting enterprise sign-in");
+    const returnTo =
+      `${window.location.pathname}${window.location.search}`.trim() || "/";
+    const result = await beginEnterpriseAuth({
+      providerKey,
+      returnTo,
+    });
+    const nextError = extractError(result.payload);
+    setError(nextError);
+    if (!result.ok) {
+      setStatusText("Enterprise sign-in failed");
+      return;
+    }
+    const data = (result.payload as { data: { redirect_url: string } }).data;
+    enterpriseAuthNavigate(data.redirect_url);
   }
 
   async function handleBeginBootstrapEnrollment() {
@@ -293,6 +365,36 @@ export function Phase1AuthSurface({
             testIds={phase1ErrorSummaryTestIds("auth")}
           />
         </section>
+
+        {enterpriseProviders.length > 0 ? (
+          <section style={cardStyle}>
+            <div style={cardHeaderStyle}>
+              <div>
+                <p style={sectionEyebrowStyle}>Enterprise</p>
+                <h2 style={sectionTitleStyle}>Provider sign-in</h2>
+              </div>
+            </div>
+            <div
+              data-testid={phase1AuthTestId("enterprise-provider-list")}
+              style={buttonRowStyle}
+            >
+              {enterpriseProviders.map((provider) => (
+                <button
+                  key={provider.provider_key}
+                  data-provider-key={provider.provider_key}
+                  data-testid={phase1AuthTestId("enterprise-provider-button")}
+                  style={secondaryButtonStyle}
+                  type="button"
+                  onClick={() => {
+                    void handleEnterpriseBegin(provider.provider_key);
+                  }}
+                >
+                  {provider.display_name}
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {bootstrapToken !== "" ? (
           <section style={cardStyle}>
