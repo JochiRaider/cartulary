@@ -1,12 +1,16 @@
 import {
+  landingIncidentCardTestId,
   phase1AuthTestId,
+  phase1LandingTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
 import {
   createIncident,
+  createIncidentMembership,
   createIncidentMemberUser,
+  createLocalUser,
   uniqueEmail,
   uniqueIncidentKey,
 } from "./helpers";
@@ -96,28 +100,65 @@ test("E-11-02 shows enterprise providers and begins provider sign-in from the an
   }
 });
 
-test("E-11-03 opens the only visible incident after enterprise session root convergence", async ({
+test("E-11-03 handles enterprise session root landing for zero, one, multiple, and disappearing incidents", async ({
   page,
   sessionTracker,
 }) => {
+  const zeroPassword = "EnterpriseZero1!";
+  const zeroEmail = uniqueEmail("phase11-e1103-zero");
+  const zeroMember = await createLocalUser(page, {
+    email: zeroEmail,
+    display_name: "Enterprise Zero Member",
+    initial_password: zeroPassword,
+  });
+
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E1103"),
     "Enterprise Root Convergence",
   );
-  const memberPassword = "EnterpriseRoot1!";
-  const member = await createIncidentMemberUser(page, incidentId, {
+  const singlePassword = "EnterpriseRoot1!";
+  const singleMember = await createIncidentMemberUser(page, incidentId, {
     email: uniqueEmail("phase11-e1103-member"),
     display_name: "Enterprise Root Member",
-    initial_password: memberPassword,
+    initial_password: singlePassword,
     role: "admin",
   });
+
+  const multipleIncidentA = await createIncident(
+    page,
+    uniqueIncidentKey("E1103A"),
+    "Enterprise Multiple A",
+  );
+  const multipleIncidentB = await createIncident(
+    page,
+    uniqueIncidentKey("E1103B"),
+    "Enterprise Multiple B",
+  );
+  const multiplePassword = "EnterpriseMultiple1!";
+  const multipleMember = await createIncidentMemberUser(
+    page,
+    multipleIncidentA,
+    {
+      email: uniqueEmail("phase11-e1103-multiple"),
+      display_name: "Enterprise Multiple Member",
+      initial_password: multiplePassword,
+      role: "admin",
+    },
+  );
+  await createIncidentMembership(
+    page,
+    multipleIncidentB,
+    multipleMember.email,
+    "viewer",
+  );
+
   await sessionTracker.loginTrackedUser(page, {
     createdBy: "phase11.enterprise-auth",
-    email: member.email,
-    password: memberPassword,
-    purpose: "enterprise root convergence",
-    userId: member.user_id,
+    email: zeroEmail,
+    password: zeroPassword,
+    purpose: "enterprise root zero incidents",
+    userId: zeroMember.user_id,
   });
 
   await page.route("**/api/v1/auth/session", async (route) => {
@@ -137,6 +178,63 @@ test("E-11-03 opens the only visible incident after enterprise session root conv
   });
 
   await page.goto("/");
+  await expect(
+    page.getByTestId(phase1LandingTestId("empty-state")),
+  ).toBeVisible();
+  await expect(page).not.toHaveURL(/incident_id=/);
+
+  await sessionTracker.loginTrackedUser(page, {
+    createdBy: "phase11.enterprise-auth",
+    email: multipleMember.email,
+    password: multiplePassword,
+    purpose: "enterprise root multiple incidents",
+    userId: multipleMember.user_id,
+  });
+  await page.goto("/");
+  await expect(
+    page.getByTestId(landingIncidentCardTestId(multipleIncidentA)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(landingIncidentCardTestId(multipleIncidentB)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(phase1LandingTestId("incidents-count")),
+  ).toHaveText("2");
+  await expect(page).not.toHaveURL(/incident_id=/);
+
+  await sessionTracker.loginTrackedUser(page, {
+    createdBy: "phase11.enterprise-auth",
+    email: singleMember.email,
+    password: singlePassword,
+    purpose: "enterprise root convergence",
+    userId: singleMember.user_id,
+  });
+  await page.goto("/");
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+
+  await page.route("**/api/v1/incidents", async (route) => {
+    if (route.request().method().toUpperCase() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    const response = await route.fetch();
+    const body = await response.json();
+    await route.fulfill({
+      response,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...body,
+        data: {
+          ...body.data,
+          incidents: [],
+        },
+      }),
+    });
+  });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page).not.toHaveURL(/incident_id=/);
+  await expect(
+    page.getByTestId(phase1LandingTestId("empty-state")),
+  ).toBeVisible();
 });

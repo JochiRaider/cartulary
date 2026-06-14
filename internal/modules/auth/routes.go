@@ -20,11 +20,13 @@ import (
 const unauthorizedCode = "session_required"
 
 type Service struct {
-	store       authStore
-	hub         sessionHub
-	keys        authn.MasterKeys
-	cursorCodec *pagination.Codec
-	now         func() time.Time
+	store        authStore
+	hub          sessionHub
+	keys         authn.MasterKeys
+	cursorCodec  *pagination.Codec
+	now          func() time.Time
+	oidcVerifier enterpriseOIDCVerifier
+	samlVerifier enterpriseSAMLVerifier
 }
 
 type authStore interface {
@@ -140,11 +142,13 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	}
 
 	return &Service{
-		store:       authn.NewStore(deps.PostgresHandle()),
-		hub:         deps.WSHub,
-		keys:        keys,
-		cursorCodec: cursorCodec,
-		now:         now,
+		store:        authn.NewStore(deps.PostgresHandle()),
+		hub:          deps.WSHub,
+		keys:         keys,
+		cursorCodec:  cursorCodec,
+		now:          now,
+		oidcVerifier: deterministicEnterpriseOIDCVerifier{},
+		samlVerifier: deterministicEnterpriseSAMLVerifier{},
 	}, nil
 }
 

@@ -129,15 +129,15 @@ func (s *Store) CompleteOIDCEnterpriseAuthTransaction(
 		return EnterpriseAuthCompletionResult{}, ErrAuthProviderDisabled
 	}
 
-	transaction, err := fetchEnterpriseTransactionByCorrelationTx(ctx, tx, "oidc", state)
+	transaction, err := fetchEnterpriseTransactionByBrowserBindingTx(ctx, tx, "oidc", browserBindingHash)
 	if err != nil {
 		return EnterpriseAuthCompletionResult{}, err
 	}
 	if err := validateEnterpriseTransactionForProvider(provider, transaction, "oidc", now); err != nil {
 		return EnterpriseAuthCompletionResult{}, err
 	}
-	if !bytes.Equal(transaction.BrowserBindingHash, browserBindingHash) {
-		return EnterpriseAuthCompletionResult{}, ErrEnterpriseTransactionBrowserMismatch
+	if transaction.State == nil || *transaction.State != state {
+		return EnterpriseAuthCompletionResult{}, ErrEnterpriseTransactionStateMismatch
 	}
 	if transaction.Nonce == nil || nonce == nil || *transaction.Nonce != *nonce {
 		return EnterpriseAuthCompletionResult{}, ErrSubjectMismatch
@@ -759,6 +759,22 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
 	record, err := scanEnterpriseAuthTransaction(tx.QueryRow(ctx, query, correlation))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionNotFound
+	}
+	return record, err
+}
+
+func fetchEnterpriseTransactionByBrowserBindingTx(ctx context.Context, tx pgx.Tx, providerType string, browserBindingHash []byte) (EnterpriseAuthTransactionRecord, error) {
+	record, err := scanEnterpriseAuthTransaction(tx.QueryRow(ctx, `
+SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
+       browser_binding_hash, saml_completion_hash, saml_subject, saml_staged_at,
+       created_at, expires_at, consumed_at
+  FROM enterprise_auth_transactions
+ WHERE provider_type = $1
+   AND browser_binding_hash = $2
+ FOR UPDATE
+`, providerType, browserBindingHash))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionBrowserMismatch
 	}
 	return record, err
 }

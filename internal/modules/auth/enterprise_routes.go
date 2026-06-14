@@ -2,7 +2,6 @@ package auth
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -41,14 +40,6 @@ type EnterpriseBindingRetireRequest struct {
 	BaseUserVersion int64
 	ClientTxnID     string
 	Reason          *string
-}
-
-type fakeSAMLAssertion struct {
-	Subject        string `json:"subject"`
-	Issuer         string `json:"issuer"`
-	Audience       string `json:"audience"`
-	SignatureValid *bool  `json:"signature_valid"`
-	ExpiresAt      string `json:"expires_at"`
 }
 
 func (s *Service) handleEnterpriseProviders(w http.ResponseWriter, r *http.Request) {
@@ -177,21 +168,22 @@ func (s *Service) handleEnterpriseOIDC(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	query := r.URL.Query()
-	state := strings.TrimSpace(query.Get("state"))
-	code := strings.TrimSpace(query.Get("code"))
-	nonce := strings.TrimSpace(query.Get("nonce"))
-	subject := query.Get("subject")
-	if state == "" || code == "" || nonce == "" {
-		writeAPIError(w, r, providerResponseRejected("missing_required_field"))
+	provider, err := s.store.GetEnterpriseAuthProviderByKey(r.Context(), providerKey)
+	if errors.Is(err, authn.ErrAuthProviderNotFound) || (err == nil && provider.ProviderType != "oidc") {
+		writeAPIError(w, r, &APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
 		return
 	}
-	if code != "valid-code" {
-		writeAPIError(w, r, providerResponseRejected("code_exchange_failed"))
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if subject == "" {
-		writeAPIError(w, r, providerIdentityRejected("subject_missing"))
+	if !provider.IsEnabled {
+		writeAPIError(w, r, &APIError{Status: http.StatusNotFound, Code: "auth_provider_disabled", Details: map[string]any{}})
+		return
+	}
+	verified, apiErr := s.oidcVerifier.VerifyCallback(provider, r.URL.Query())
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	browserHash, apiErr := s.enterpriseBrowserBindingHash(r)
@@ -199,7 +191,7 @@ func (s *Service) handleEnterpriseOIDC(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.CompleteOIDCEnterpriseAuthTransaction(r.Context(), providerKey, state, browserHash, &nonce, subject, s.now())
+	result, err := s.store.CompleteOIDCEnterpriseAuthTransaction(r.Context(), providerKey, verified.State, browserHash, &verified.Nonce, verified.ProviderSubject, s.now())
 	if err != nil {
 		writeAPIError(w, r, s.enterpriseCompletionError(err))
 		return
@@ -234,11 +226,6 @@ func (s *Service) handleEnterpriseSAML(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, enterpriseTransactionRejected("not_found"))
 		return
 	}
-	assertion, apiErr := decodeFakeSAMLAssertion(r.Form.Get("SAMLResponse"))
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
 	provider, err := s.store.GetEnterpriseAuthProviderByKey(r.Context(), providerKey)
 	if errors.Is(err, authn.ErrAuthProviderNotFound) {
 		writeAPIError(w, r, &APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
@@ -252,27 +239,9 @@ func (s *Service) handleEnterpriseSAML(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, &APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
 		return
 	}
-	if provider.Issuer != nil && assertion.Issuer != *provider.Issuer {
-		writeAPIError(w, r, providerResponseRejected("issuer_mismatch"))
-		return
-	}
-	if provider.Audience != nil && assertion.Audience != *provider.Audience {
-		writeAPIError(w, r, providerResponseRejected("audience_mismatch"))
-		return
-	}
-	if assertion.SignatureValid == nil || !*assertion.SignatureValid {
-		writeAPIError(w, r, providerResponseRejected("signature_invalid"))
-		return
-	}
-	if assertion.ExpiresAt != "" {
-		expiresAt, err := time.Parse(time.RFC3339, assertion.ExpiresAt)
-		if err != nil || !expiresAt.After(s.now()) {
-			writeAPIError(w, r, providerResponseRejected("assertion_expired"))
-			return
-		}
-	}
-	if assertion.Subject == "" {
-		writeAPIError(w, r, providerIdentityRejected("subject_missing"))
+	verified, apiErr := s.samlVerifier.VerifyACS(provider, r.Form, s.now())
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	completionToken, err := authn.GenerateOpaqueToken()
@@ -281,7 +250,11 @@ func (s *Service) handleEnterpriseSAML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	completionHash := authn.FingerprintToken(s.keys, completionToken)
-	if _, err := s.store.StageSAMLEnterpriseAuthTransaction(r.Context(), providerKey, relayState, assertion.Subject, completionHash, s.now()); err != nil {
+	if _, err := s.store.StageSAMLEnterpriseAuthTransaction(r.Context(), providerKey, relayState, verified.ProviderSubject, completionHash, s.now()); err != nil {
+		if errors.Is(err, authn.ErrEnterpriseTransactionNotFound) {
+			writeAPIError(w, r, providerResponseRejected("relay_state_mismatch"))
+			return
+		}
 		writeAPIError(w, r, s.enterpriseCompletionError(err))
 		return
 	}
@@ -489,6 +462,8 @@ func (s *Service) enterpriseCompletionError(err error) *APIError {
 		return enterpriseTransactionRejected("already_used")
 	case errors.Is(err, authn.ErrEnterpriseTransactionProviderMismatch):
 		return enterpriseTransactionRejected("provider_mismatch")
+	case errors.Is(err, authn.ErrEnterpriseTransactionStateMismatch):
+		return providerResponseRejected("state_mismatch")
 	case errors.Is(err, authn.ErrEnterpriseTransactionCompletionMismatch):
 		return enterpriseTransactionRejected("completion_mismatch")
 	case errors.Is(err, authn.ErrEnterpriseTransactionBrowserMismatch):
@@ -767,21 +742,6 @@ func providerCallbackKey(path string, prefix string, suffix string) (string, boo
 		return "", false
 	}
 	return key, true
-}
-
-func decodeFakeSAMLAssertion(value string) (fakeSAMLAssertion, *APIError) {
-	if strings.TrimSpace(value) == "" {
-		return fakeSAMLAssertion{}, providerResponseRejected("missing_required_field")
-	}
-	payload := []byte(value)
-	var assertion fakeSAMLAssertion
-	if err := json.Unmarshal(payload, &assertion); err != nil {
-		decoded, decodeErr := base64.StdEncoding.DecodeString(value)
-		if decodeErr != nil || json.Unmarshal(decoded, &assertion) != nil {
-			return fakeSAMLAssertion{}, providerResponseRejected("missing_required_field")
-		}
-	}
-	return assertion, nil
 }
 
 func invalidEnterpriseAuthRequest(field string, reasonCode string) *APIError {

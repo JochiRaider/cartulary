@@ -29,6 +29,7 @@ var ErrEnterpriseTransactionNotFound = errors.New("authn: enterprise auth transa
 var ErrEnterpriseTransactionExpired = errors.New("authn: enterprise auth transaction expired")
 var ErrEnterpriseTransactionUsed = errors.New("authn: enterprise auth transaction already used")
 var ErrEnterpriseTransactionProviderMismatch = errors.New("authn: enterprise auth transaction provider mismatch")
+var ErrEnterpriseTransactionStateMismatch = errors.New("authn: enterprise auth transaction state mismatch")
 var ErrEnterpriseTransactionBrowserMismatch = errors.New("authn: enterprise auth transaction browser mismatch")
 var ErrEnterpriseTransactionCompletionMismatch = errors.New("authn: enterprise auth transaction completion mismatch")
 var ErrEnterpriseIdentityNoLinkedUser = errors.New("authn: enterprise identity has no linked user")

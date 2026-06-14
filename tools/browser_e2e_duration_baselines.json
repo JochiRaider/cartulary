@@ -71,7 +71,7 @@
     },
     "E-11-03": {
       "file": "apps/web/e2e/phase11.enterprise-auth.spec.ts",
-      "title": "E-11-03 opens the only visible incident after enterprise session root convergence",
+      "title": "E-11-03 handles enterprise session root landing for zero, one, multiple, and disappearing incidents",
       "weight_ms": 938
     },
     "E-2-01": {
