@@ -674,6 +674,10 @@
             "description": "build backend and operator binaries with embedded web assets"
           },
           {
+            "target": "standup-package-smoke",
+            "description": "smoke the MVP on-prem stand-up package image and compose topology"
+          },
+          {
             "target": "build-server",
             "description": "build the server binary"
           },
@@ -1420,6 +1424,19 @@
         "phase_label": "deployable-shape",
         "command": [
           "./scripts/ci/check-deployable-shape.sh"
+        ],
+        "test_target": "self",
+        "success_summary": true
+      },
+      "standup-package-smoke": {
+        "prerequisites": [
+          "deployable-shape"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "standup-package-smoke",
+        "command": [
+          "./scripts/ci/check-standup-package-smoke.sh"
         ],
         "test_target": "self",
         "success_summary": true
@@ -4318,18 +4335,108 @@
         }
       },
       {
-        "name": "deployable-shape",
-        "backing_scripts": [
-          "scripts/ci/check-deployable-shape.sh"
-        ],
-        "target_class": "internal_helper",
-        "default_inclusion_sets": [],
-        "lifecycle_state": "candidate_child"
+      "name": "deployable-shape",
+      "backing_scripts": [
+        "scripts/ci/check-deployable-shape.sh"
+      ],
+      "target_class": "internal_helper",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "standup-package-smoke",
+      "backing_scripts": [
+        "scripts/ci/check-standup-package-smoke.sh",
+        "deploy/mvp/Containerfile",
+        "deploy/mvp/docker-compose.yml",
+        "deploy/mvp/config.toml.example",
+        "deploy/mvp/bootstrap-admin.json.example",
+        "deploy/mvp/runtime-roots/backups/.keep",
+        "deploy/mvp/runtime-roots/exports/.keep",
+        "deploy/mvp/runtime-roots/reference-packs/.keep",
+        "deploy/mvp/runtime-roots/tmp/.keep"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v3"
       },
-      {
-        "name": "phase-map-check",
-        "backing_scripts": [
-          "scripts/check-phase-maps.sh"
+      "command_id": "cartulary.harness.command.standup_package_smoke.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            "dist",
+            "bin"
+          ]
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "service_resource_mutation",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "resource_families": [
+            "scratch databases",
+            "object buckets or prefixes",
+            "runtime roots"
+          ],
+          "lifecycle_machine": "fixture and service lifecycle from Section 11"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": []
+      },
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active"
+    },
+    {
+      "name": "phase-map-check",
+      "backing_scripts": [
+        "scripts/check-phase-maps.sh"
         ],
         "check_schedule": {
           "schedules": [

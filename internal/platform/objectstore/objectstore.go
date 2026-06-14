@@ -17,7 +17,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -136,11 +135,7 @@ func newS3Store(ctx context.Context, settings Settings) (Store, error) {
 	if err := validateBucketName(settings.Bucket); err != nil {
 		return nil, err
 	}
-	client, err := minio.New(settings.Endpoint, &minio.Options{
-		Creds:      credentials.NewStaticV4(settings.AccessKey, settings.SecretKey, ""),
-		Secure:     settings.Secure,
-		MaxRetries: 1,
-	})
+	client, err := newS3Client(settings)
 	if err != nil {
 		return nil, fmt.Errorf("create S3 client: %w", err)
 	}
@@ -160,6 +155,69 @@ func newS3Store(ctx context.Context, settings Settings) (Store, error) {
 	}
 
 	return store, nil
+}
+
+func EnsureConfiguredBucket(ctx context.Context, cfg config.Config, env map[string]string) (EnsureBucketResult, error) {
+	settings, err := ResolveSettings(cfg, env)
+	if err != nil {
+		return EnsureBucketResult{}, err
+	}
+
+	switch settings.BindingKind {
+	case "filesystem_root":
+		store, err := NewFilesystemStore(settings.RootPath)
+		if err != nil {
+			return EnsureBucketResult{}, err
+		}
+		_ = store.Close()
+		return EnsureBucketResult{AlreadyExists: true}, nil
+	case "managed_service":
+		return ensureManagedServiceBucket(ctx, settings)
+	default:
+		return EnsureBucketResult{}, fmt.Errorf("ensure object-store bucket: unsupported binding_kind %q", settings.BindingKind)
+	}
+}
+
+func ensureManagedServiceBucket(ctx context.Context, settings Settings) (EnsureBucketResult, error) {
+	if err := validateBucketName(settings.Bucket); err != nil {
+		return EnsureBucketResult{}, err
+	}
+	client, err := newS3Client(settings)
+	if err != nil {
+		return EnsureBucketResult{}, fmt.Errorf("create S3 client: %w", err)
+	}
+
+	exists, err := runWithRetry(ctx, OperationEnsureBucket, objectMetadataTimeout, true, func(ctx context.Context) (bool, error) {
+		return client.BucketExists(ctx, settings.Bucket)
+	})
+	if err != nil {
+		return EnsureBucketResult{}, err
+	}
+
+	result := EnsureBucketResult{AlreadyExists: exists}
+	if !exists {
+		_, err = runWithRetry(ctx, OperationEnsureBucket, objectMutationTimeout, true, func(ctx context.Context) (struct{}, error) {
+			return struct{}{}, client.MakeBucket(ctx, settings.Bucket, minio.MakeBucketOptions{})
+		})
+		if err != nil {
+			return EnsureBucketResult{}, err
+		}
+		result = EnsureBucketResult{Created: true}
+	}
+
+	store := &S3Store{client: client, bucket: settings.Bucket}
+	if err := store.validateStartupCapabilities(ctx); err != nil {
+		return EnsureBucketResult{}, err
+	}
+	return result, nil
+}
+
+func newS3Client(settings Settings) (*minio.Client, error) {
+	return minio.New(settings.Endpoint, &minio.Options{
+		Creds:      credentials.NewStaticV4(settings.AccessKey, settings.SecretKey, ""),
+		Secure:     settings.Secure,
+		MaxRetries: 1,
+	})
 }
 
 func (s *S3Store) validateStartupCapabilities(ctx context.Context) error {
@@ -801,10 +859,14 @@ func EnvKeysForServiceRef(serviceRef string) (ServiceRefEnvKeys, error) {
 func NormalizeServiceRef(value string) string {
 	var builder strings.Builder
 	previousUnderscore := false
-	for _, r := range value {
+	for i := 0; i < len(value); i++ {
+		c := value[i]
 		switch {
-		case unicode.IsLetter(r) || unicode.IsDigit(r):
-			builder.WriteRune(unicode.ToUpper(r))
+		case c >= 'a' && c <= 'z':
+			builder.WriteByte(c - ('a' - 'A'))
+			previousUnderscore = false
+		case c >= 'A' && c <= 'Z' || c >= '0' && c <= '9':
+			builder.WriteByte(c)
 			previousUnderscore = false
 		case !previousUnderscore:
 			builder.WriteByte('_')

@@ -1,0 +1,32 @@
+config_schema_id = "cartulary.deployment_config.v1"
+deployment_profile = "on_prem"
+
+[application]
+public_origin = "http://localhost:8080"
+
+[roots.database_storage]
+binding_kind = "managed_service"
+service_ref = "primary"
+
+[roots.object_storage]
+binding_kind = "managed_service"
+service_ref = "primary"
+
+[roots.backup_storage]
+binding_kind = "filesystem_root"
+path = "/var/lib/cartulary/backups"
+
+[roots.reference_pack_storage]
+binding_kind = "filesystem_root"
+path = "/var/lib/cartulary/reference-packs"
+
+[roots.temporary_work]
+binding_kind = "filesystem_root"
+path = "/var/lib/cartulary/tmp"
+
+[roots.export_outputs]
+binding_kind = "filesystem_root"
+path = "/var/lib/cartulary/exports"
+
+[bootstrap]
+first_admin_manifest_path = "/etc/cartulary/bootstrap-admin.json"

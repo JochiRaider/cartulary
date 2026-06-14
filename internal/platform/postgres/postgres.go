@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"unicode"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -359,10 +358,14 @@ func lookupEnv(env map[string]string, key string) (string, bool) {
 func normalizeServiceRef(value string) string {
 	var builder strings.Builder
 	previousUnderscore := false
-	for _, r := range value {
+	for i := 0; i < len(value); i++ {
+		c := value[i]
 		switch {
-		case unicode.IsLetter(r) || unicode.IsDigit(r):
-			builder.WriteRune(unicode.ToUpper(r))
+		case c >= 'a' && c <= 'z':
+			builder.WriteByte(c - ('a' - 'A'))
+			previousUnderscore = false
+		case c >= 'A' && c <= 'Z' || c >= '0' && c <= '9':
+			builder.WriteByte(c)
 			previousUnderscore = false
 		case !previousUnderscore:
 			builder.WriteByte('_')

@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,8 +11,10 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
 var embeddedAssetPathPattern = regexp.MustCompile(`(?:src|href)="(/assets/[^"]+)"`)
@@ -74,6 +78,104 @@ func TestNewHandler_ServesEmbeddedRootAndAssets(t *testing.T) {
 	}
 }
 
+func TestNewHandler_HealthzRemainsLivenessAndReadyzIsStructured(t *testing.T) {
+	t.Parallel()
+
+	handler, err := NewHandler(Options{
+		Dependencies: DependencySet{
+			Readiness: ReadinessCheckFunc(func(context.Context) ReadinessState {
+				return ReadyReadinessState()
+			}),
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewHandler(): %v", err)
+	}
+
+	healthRequest := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	healthRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(healthRecorder, healthRequest)
+	healthResponse := healthRecorder.Result()
+	defer healthResponse.Body.Close()
+	healthBody, err := io.ReadAll(healthResponse.Body)
+	if err != nil {
+		t.Fatalf("read healthz body: %v", err)
+	}
+	if healthResponse.StatusCode != http.StatusOK || string(healthBody) != "ok\n" {
+		t.Fatalf("unexpected healthz response: status=%d body=%q", healthResponse.StatusCode, string(healthBody))
+	}
+	if contentType := healthResponse.Header.Get("Content-Type"); !strings.Contains(contentType, "text/plain") {
+		t.Fatalf("unexpected healthz content type: %q", contentType)
+	}
+
+	readyRequest := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	readyRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(readyRecorder, readyRequest)
+	readyResponse := readyRecorder.Result()
+	defer readyResponse.Body.Close()
+	if readyResponse.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected readyz status: got %d want %d", readyResponse.StatusCode, http.StatusOK)
+	}
+	var payload ReadinessState
+	if err := json.NewDecoder(readyResponse.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode readyz response: %v", err)
+	}
+	if payload.SchemaID != ReadinessSchemaID || payload.Status != ReadinessStatusReady {
+		t.Fatalf("unexpected readyz payload: %#v", payload)
+	}
+}
+
+func TestNewHandler_ReadyzDegradedStatusAndRedactsDependencyDetails(t *testing.T) {
+	t.Parallel()
+
+	leakedValues := []string{
+		"http://127.0.0.1:9000",
+		"secret-bucket",
+		"AKIA-SECRET",
+		"object/key.txt",
+		"storage://unsafe/ref",
+		"postgres://user:pass@db.example.test/cartulary",
+	}
+	store := readinessFailingStore{err: errors.New(strings.Join(leakedValues, " "))}
+	handler, err := NewHandler(Options{
+		Dependencies: DependencySet{
+			Readiness: NewDependencyReadinessChecker(nil, store),
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewHandler(): %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	response := recorder.Result()
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read readyz body: %v", err)
+	}
+	if response.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("unexpected degraded readyz status: got %d body=%q", response.StatusCode, string(body))
+	}
+	for _, value := range leakedValues {
+		if strings.Contains(string(body), value) {
+			t.Fatalf("readyz leaked forbidden value %q in body %q", value, string(body))
+		}
+	}
+
+	var payload ReadinessState
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("decode degraded readyz response: %v", err)
+	}
+	if payload.Status != ReadinessStatusDegradedDependency {
+		t.Fatalf("unexpected degraded readyz status payload: %#v", payload)
+	}
+	if len(payload.Dependencies) != 1 || payload.Dependencies[0].ReasonCode != ReadinessReasonDependencyUnavailable {
+		t.Fatalf("unexpected degraded dependency payload: %#v", payload.Dependencies)
+	}
+}
+
 func TestNewHandler_KeepsReservedExtensionRouting(t *testing.T) {
 	t.Parallel()
 
@@ -105,6 +207,42 @@ func TestNewHandler_KeepsReservedExtensionRouting(t *testing.T) {
 	if errorPayload["code"] != "extension_profile_not_claimed" {
 		t.Fatalf("unexpected reserved-route code: %#v", errorPayload)
 	}
+}
+
+type readinessFailingStore struct {
+	err error
+}
+
+func (store readinessFailingStore) UploadTarget(context.Context, string, time.Time) (objectstore.UploadTarget, error) {
+	return objectstore.UploadTarget{}, store.err
+}
+
+func (store readinessFailingStore) CompleteUploadTarget(context.Context, string, io.Reader, string) error {
+	return store.err
+}
+
+func (store readinessFailingStore) PutObject(context.Context, string, io.Reader, int64, string) error {
+	return store.err
+}
+
+func (store readinessFailingStore) ReadObject(context.Context, string, objectstore.ReadOptions) (io.ReadCloser, objectstore.ObjectInfo, error) {
+	return nil, objectstore.ObjectInfo{}, store.err
+}
+
+func (store readinessFailingStore) StatObject(context.Context, string) (objectstore.ObjectInfo, error) {
+	return objectstore.ObjectInfo{}, store.err
+}
+
+func (store readinessFailingStore) ListObjects(context.Context, string) ([]objectstore.ObjectInfo, error) {
+	return nil, store.err
+}
+
+func (store readinessFailingStore) DeleteObject(context.Context, string) error {
+	return store.err
+}
+
+func (store readinessFailingStore) Close() error {
+	return nil
 }
 
 func TestNewHandler_KeepsUnclaimedReservedExtensionRootsUnavailable(t *testing.T) {

@@ -52,6 +52,7 @@ const (
 	OperationGetObjectRange         Operation = "GetObjectRange"
 	OperationListPrefix             Operation = "ListPrefix"
 	OperationDeleteObject           Operation = "DeleteObject"
+	OperationEnsureBucket           Operation = "EnsureBucket"
 	OperationEnsureBucketForDevTest Operation = "EnsureBucketForDevTest"
 	OperationStartupValidation      Operation = "StartupValidation"
 )

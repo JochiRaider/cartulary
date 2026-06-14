@@ -142,6 +142,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		JobRunner:         runtime.JobRunner,
 		WSHub:             hub,
 		CursorCodec:       cursorCodec,
+		Readiness:         httpapi.NewDependencyReadinessChecker(runtime.Postgres, runtime.ObjectStore),
 		PublicErrorFaults: testRuntimeDeps.PublicErrorFaults,
 		Now:               now,
 	}

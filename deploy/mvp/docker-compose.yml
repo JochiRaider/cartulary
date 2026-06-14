@@ -1,0 +1,108 @@
+services:
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cartulary}
+      POSTGRES_USER: ${POSTGRES_USER:-cartulary}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/mvp/.env}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - cartulary-postgres-data:/var/lib/postgresql/data
+
+  seaweedfs-s3:
+    image: docker.io/chrislusf/seaweedfs:4.17@sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9
+    command:
+      - server
+      - -dir=/data
+      - -s3
+      - -s3.port=8333
+      - -s3.allowedOrigins=${CARTULARY_PUBLIC_ORIGIN:-http://localhost:8080}
+      - -s3.port.iceberg=0
+      - -webdav=false
+    environment:
+      AWS_ACCESS_KEY_ID: ${CARTULARY_S3_PRIMARY_ACCESS_KEY_ID:?set CARTULARY_S3_PRIMARY_ACCESS_KEY_ID in deploy/mvp/.env}
+      AWS_SECRET_ACCESS_KEY: ${CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY:?set CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY in deploy/mvp/.env}
+    volumes:
+      - cartulary-seaweedfs-data:/data
+
+  migrate:
+    image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
+    build:
+      context: ../..
+      dockerfile: deploy/mvp/Containerfile
+    entrypoint: ["/usr/local/bin/cartulary-migrate"]
+    command: ["up"]
+    env_file:
+      - ./.env
+    environment:
+      CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
+      CARTULARY_POSTGRES_PRIMARY_DSN: postgresql://${POSTGRES_USER:-cartulary}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/mvp/.env}@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./config.toml:/etc/cartulary/config.toml:ro
+    restart: "no"
+
+  object-store-init:
+    image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
+    entrypoint: ["/usr/local/bin/cartulary-operator"]
+    command: ["object-store", "init"]
+    env_file:
+      - ./.env
+    environment:
+      CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
+      CARTULARY_S3_PRIMARY_ENDPOINT: seaweedfs-s3:8333
+      CARTULARY_S3_PRIMARY_SECURE: "false"
+    depends_on:
+      seaweedfs-s3:
+        condition: service_started
+    volumes:
+      - ./config.toml:/etc/cartulary/config.toml:ro
+    restart: on-failure
+
+  app:
+    image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
+    build:
+      context: ../..
+      dockerfile: deploy/mvp/Containerfile
+    env_file:
+      - ./.env
+    environment:
+      CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
+      CARTULARY_HTTP_ADDR: :8080
+      CARTULARY__APPLICATION__PUBLIC_ORIGIN: ${CARTULARY_PUBLIC_ORIGIN:-http://localhost:8080}
+      CARTULARY_POSTGRES_PRIMARY_DSN: postgresql://${POSTGRES_USER:-cartulary}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/mvp/.env}@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=disable
+      CARTULARY_S3_PRIMARY_ENDPOINT: seaweedfs-s3:8333
+      CARTULARY_S3_PRIMARY_SECURE: "false"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      object-store-init:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${CARTULARY_HTTP_PORT:-8080}:8080"
+    volumes:
+      - ./config.toml:/etc/cartulary/config.toml:ro
+      - ./bootstrap-admin.json:/etc/cartulary/bootstrap-admin.json:ro
+      - cartulary-backups:/var/lib/cartulary/backups
+      - cartulary-reference-packs:/var/lib/cartulary/reference-packs
+      - cartulary-tmp:/var/lib/cartulary/tmp
+      - cartulary-exports:/var/lib/cartulary/exports
+    restart: unless-stopped
+
+volumes:
+  cartulary-postgres-data:
+  cartulary-seaweedfs-data:
+  cartulary-backups:
+  cartulary-reference-packs:
+  cartulary-tmp:
+  cartulary-exports:

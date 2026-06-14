@@ -35,6 +35,7 @@ type DependencySet struct {
 	JobRunner         *jobs.Runner
 	WSHub             *platformws.Hub
 	CursorCodec       *pagination.Codec
+	Readiness         ReadinessChecker
 	PublicErrorFaults PublicErrorFaultStore
 	Now               func() time.Time
 }
@@ -115,6 +116,10 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load embedded web assets: %w", err)
 	}
+	readiness := option.Dependencies.Readiness
+	if readiness == nil {
+		readiness = NewDependencyReadinessChecker(option.Dependencies.Postgres, option.Dependencies.ObjectStore)
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/assets/", http.StripPrefix("/", http.FileServerFS(staticFS)))
@@ -140,9 +145,12 @@ func NewHandler(options ...Options) (http.Handler, error) {
 		_, _ = fmt.Fprintln(w, "ok")
 	})
 	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		_, _ = fmt.Fprintln(w, "ready")
+		state := readiness.CheckReadiness(r.Context())
+		status := http.StatusServiceUnavailable
+		if state.Status == ReadinessStatusReady {
+			status = http.StatusOK
+		}
+		_ = writeJSON(w, status, state)
 	})
 
 	for _, registrar := range option.AdditionalRoutes {

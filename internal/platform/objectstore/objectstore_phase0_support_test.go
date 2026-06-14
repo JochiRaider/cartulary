@@ -64,6 +64,60 @@ func TestSupportPhase0_ManagedServiceObjectStoreBinding(t *testing.T) {
 		}
 	})
 
+	t.Run("deployment-local init creates the configured managed-service bucket", func(t *testing.T) {
+		bucket := fmt.Sprintf("phase0-support-managed-object-init-%d", time.Now().UnixNano())
+		defer func() {
+			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
+				t.Logf("cleanup bucket: %v", err)
+			}
+		}()
+
+		env := s3Harness.EnvForServiceRef("object_primary", bucket)
+		if _, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), env); err == nil {
+			t.Fatal("expected managed-service object-store setup to fail before bucket init")
+		}
+
+		result, err := objectstore.EnsureConfiguredBucket(context.Background(), managedObjectStoreConfig(t), env)
+		if err != nil {
+			t.Fatalf("ensure configured bucket: %v", err)
+		}
+		if !result.Created || result.AlreadyExists {
+			t.Fatalf("unexpected first ensure result: %#v", result)
+		}
+
+		store, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), env)
+		if err != nil {
+			t.Fatalf("setup object store after bucket init: %v", err)
+		}
+		defer store.Close()
+
+		second, err := objectstore.EnsureConfiguredBucket(context.Background(), managedObjectStoreConfig(t), env)
+		if err != nil {
+			t.Fatalf("ensure existing configured bucket: %v", err)
+		}
+		if second.Created || !second.AlreadyExists {
+			t.Fatalf("unexpected second ensure result: %#v", second)
+		}
+	})
+
+	t.Run("managed service env key normalization is ASCII only", func(t *testing.T) {
+		keys, err := objectstore.EnvKeysForServiceRef("object.primary-1")
+		if err != nil {
+			t.Fatalf("resolve punctuation service-ref keys: %v", err)
+		}
+		if keys.Endpoint != "CARTULARY_S3_OBJECT_PRIMARY_1_ENDPOINT" ||
+			keys.AccessKey != "CARTULARY_S3_OBJECT_PRIMARY_1_ACCESS_KEY_ID" ||
+			keys.SecretKey != "CARTULARY_S3_OBJECT_PRIMARY_1_SECRET_ACCESS_KEY" ||
+			keys.Secure != "CARTULARY_S3_OBJECT_PRIMARY_1_SECURE" ||
+			keys.Bucket != "CARTULARY_S3_OBJECT_PRIMARY_1_BUCKET" {
+			t.Fatalf("unexpected normalized object-store keys: %#v", keys)
+		}
+
+		if _, err := objectstore.EnvKeysForServiceRef("é"); err == nil {
+			t.Fatal("expected non-ASCII-only service_ref to be rejected")
+		}
+	})
+
 	t.Run("phase_d_adapter_contract_hardening", requirePhaseDAdapterContractHardening)
 }
 

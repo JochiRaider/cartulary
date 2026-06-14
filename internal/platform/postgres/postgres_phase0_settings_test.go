@@ -66,6 +66,20 @@ func TestSupportPhase0_PostgresRootBindingResolution(t *testing.T) {
 		}
 	})
 
+	t.Run("managed service env key normalization is ASCII only", func(t *testing.T) {
+		key, err := postgres.EnvKeyForServiceRef("postgres.primary-1")
+		if err != nil {
+			t.Fatalf("resolve punctuation service-ref key: %v", err)
+		}
+		if key != "CARTULARY_POSTGRES_POSTGRES_PRIMARY_1_DSN" {
+			t.Fatalf("unexpected normalized postgres key: got %q", key)
+		}
+
+		if _, err := postgres.EnvKeyForServiceRef("é"); err == nil {
+			t.Fatal("expected non-ASCII-only service_ref to be rejected")
+		}
+	})
+
 	t.Run("managed service ignores generic DSN env and fails closed", func(t *testing.T) {
 		cfg := postgresSettingsConfig(t, "managed_service")
 		_, err := postgres.ResolveSettings(cfg, map[string]string{

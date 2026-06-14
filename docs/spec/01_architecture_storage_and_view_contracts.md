@@ -21,6 +21,8 @@ The application deployable MUST remain a single deployable unit even when deploy
 Profiles: base
 Verified by: AC-231, AC-404
 
+For packaged deployments, the browser-facing UI responsibility in REQ-01-002 MUST be satisfied by browser assets packaged with and served by the application deployable. A production or package runtime MUST NOT require a development frontend server, Vite runtime, frontend source-tree checkout, `apps/web` runtime path, `node_modules` runtime path, or a separate browser-UI deployable.
+
 Microservice decomposition is out of scope for current conformance.
 
 ## 2. Required modules and boundaries

@@ -28,6 +28,7 @@ const (
 	OperatorRestoreResultSchemaID                    = "cartulary.operator.restore_result.v1"
 	OperatorRestoreVerificationSchemaID              = "cartulary.operator.restore_verification_result.v1"
 	OperatorRestoreVerificationDueSchemaID           = "cartulary.operator.restore_verification_due_result.v1"
+	OperatorObjectStoreInitResultSchemaID            = "cartulary.operator.object_store_init_result.v1"
 	OperatorObjectStoreMigrationResultSchemaID       = "cartulary.operator.object_store_migration_result.v1"
 	RestoreVerificationTargetMarkerSchemaID          = "cartulary.restore_verification_target.v1"
 	phase10RestoreMinimumSchemaVersion         int64 = 22
@@ -40,13 +41,14 @@ type operatorPostgresPool interface {
 }
 
 type operatorRunner struct {
-	stdout           io.Writer
-	stderr           io.Writer
-	loadConfig       func(string) (config.Config, error)
-	setupPostgres    func(context.Context, config.Config) (operatorPostgresPool, error)
-	setupObjectStore func(context.Context, config.Config) (objectstore.Store, error)
-	newBackupStorage func(config.Config) (recovery.BackupStorage, error)
-	now              func() time.Time
+	stdout                  io.Writer
+	stderr                  io.Writer
+	loadConfig              func(string) (config.Config, error)
+	setupPostgres           func(context.Context, config.Config) (operatorPostgresPool, error)
+	setupObjectStore        func(context.Context, config.Config) (objectstore.Store, error)
+	ensureObjectStoreBucket func(context.Context, config.Config) (objectstore.EnsureBucketResult, error)
+	newBackupStorage        func(config.Config) (recovery.BackupStorage, error)
+	now                     func() time.Time
 }
 
 type operatorCLIResult struct {
@@ -138,6 +140,13 @@ type OperatorRestoreVerificationDueItem struct {
 	RestoreVerificationArtifactSizeBytes int64      `json:"restore_verification_artifact_size_bytes,omitempty"`
 }
 
+type OperatorObjectStoreInitResult struct {
+	SchemaID      string `json:"schema_id"`
+	Result        string `json:"result"`
+	Created       bool   `json:"created"`
+	AlreadyExists bool   `json:"already_exists"`
+}
+
 type OperatorObjectStoreMigrationResult struct {
 	SchemaID             string                                `json:"schema_id"`
 	RunID                string                                `json:"run_id"`
@@ -186,6 +195,9 @@ func newOperatorRunner(stdout io.Writer, stderr io.Writer) operatorRunner {
 		setupObjectStore: func(ctx context.Context, cfg config.Config) (objectstore.Store, error) {
 			return objectstore.Setup(ctx, cfg)
 		},
+		ensureObjectStoreBucket: func(ctx context.Context, cfg config.Config) (objectstore.EnsureBucketResult, error) {
+			return objectstore.EnsureConfiguredBucket(ctx, cfg, nil)
+		},
 		newBackupStorage: func(cfg config.Config) (recovery.BackupStorage, error) {
 			return recovery.NewBackupStorageFromConfig(cfg)
 		},
@@ -218,6 +230,8 @@ func (runner operatorRunner) run(ctx context.Context, parsed operatorCLIResult) 
 		return runner.runRestoreVerifyLatest(ctx, parsed)
 	case "restore-verify due":
 		return runner.runRestoreVerifyDue(ctx, parsed)
+	case "object-store init":
+		return runner.runObjectStoreInit(ctx, parsed)
 	case "object-store-migration run":
 		return runner.runObjectStoreMigration(ctx, parsed)
 	default:
@@ -456,6 +470,24 @@ func (runner operatorRunner) runRestoreVerifyDue(ctx context.Context, parsed ope
 	return nil
 }
 
+func (runner operatorRunner) runObjectStoreInit(ctx context.Context, parsed operatorCLIResult) error {
+	cfg, err := runner.loadConfig(parsed.sourceConfigPath)
+	if err != nil {
+		return sanitizeObjectStoreInitError(err)
+	}
+	result, err := runner.ensureObjectStoreBucket(ctx, cfg)
+	if err != nil {
+		return sanitizeObjectStoreInitError(err)
+	}
+	payload := OperatorObjectStoreInitResult{
+		SchemaID:      OperatorObjectStoreInitResultSchemaID,
+		Result:        operatorObjectStoreInitResultCode(result),
+		Created:       result.Created,
+		AlreadyExists: result.AlreadyExists,
+	}
+	return runner.encodeJSON(payload)
+}
+
 func (runner operatorRunner) runObjectStoreMigration(ctx context.Context, parsed operatorCLIResult) error {
 	sourceCfg, targetCfg, sourcePool, sourceObjectStore, targetObjectStore, backupStorage, err := runner.openObjectStoreMigrationRuntime(ctx, parsed)
 	if err != nil {
@@ -666,6 +698,9 @@ func parseOperatorCLIArgs(args []string, stderr io.Writer) operatorCLIResult {
 		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), operatorUsage())
 		return operatorCLIResult{stop: true, exitCode: 2}
 	}
+	if len(args) >= 2 && args[0] == "object-store" && args[1] == "init" {
+		return parseObjectStoreInitArgs(args[2:], stderr)
+	}
 	if len(args) >= 2 && args[0] == "object-store-migration" && args[1] == "run" {
 		return parseObjectStoreMigrationRunArgs(args[2:], stderr)
 	}
@@ -681,6 +716,22 @@ func parseOperatorCLIArgs(args []string, stderr io.Writer) operatorCLIResult {
 	default:
 		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), operatorUsage())
 		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+}
+
+func parseObjectStoreInitArgs(args []string, stderr io.Writer) operatorCLIResult {
+	flags := flag.NewFlagSet("operator object-store init", flag.ContinueOnError)
+	flags.SetOutput(normalizeOperatorWriter(stderr))
+	sourceConfig := flags.String("config", "", "optional deployment config path")
+	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return operatorCLIResult{stop: true, exitCode: 0}
+		}
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	return operatorCLIResult{
+		command:          "object-store init",
+		sourceConfigPath: strings.TrimSpace(*sourceConfig),
 	}
 }
 
@@ -901,6 +952,7 @@ func operatorUsage() string {
 		"  operator restore latest -source-config <path> -target-config <path> -deployment-admin-email <email> -confirm-backup-set-id <uuid> [-as-of <RFC3339>]",
 		"  operator restore-verify latest -source-config <path> -target-config <path> -deployment-admin-email <email> [-as-of <RFC3339>]",
 		"  operator restore-verify due -source-config <path> -target-config <path> -deployment-admin-email <email> [-as-of <RFC3339>]",
+		"  operator object-store init [-config <path>]",
 		"  operator object-store-migration run -source-config <path> -target-config <path> -deployment-admin-email <email> -confirm-backup-set-id <uuid> -quiescence-proof <path> -artifacts-dir <dir> [-as-of <RFC3339>] [-run-id <uuid>]",
 	}, "\n")
 }
@@ -1276,6 +1328,37 @@ func (runner operatorRunner) encodeJSON(payload any) error {
 		return fmt.Errorf("encode operator JSON: %w", err)
 	}
 	return nil
+}
+
+func operatorObjectStoreInitResultCode(result objectstore.EnsureBucketResult) string {
+	if result.Created {
+		return "created"
+	}
+	return "already_exists"
+}
+
+func sanitizeObjectStoreInitError(err error) error {
+	if err == nil {
+		return nil
+	}
+	reasonCode := "dependency_unavailable"
+	var diagnosticsErr *config.DiagnosticsError
+	if errors.As(err, &diagnosticsErr) && diagnosticsErr.Code != "" {
+		reasonCode = diagnosticsErr.Code
+	} else if adapterErr, ok := objectstore.AsAdapterError(err); ok && adapterErr.Reason != "" {
+		reasonCode = string(adapterErr.Reason)
+	} else {
+		lower := strings.ToLower(err.Error())
+		switch {
+		case strings.Contains(lower, "service_ref"):
+			reasonCode = "managed_service_ref_invalid"
+		case strings.Contains(lower, "missing object-store"):
+			reasonCode = "missing_service_binding"
+		case strings.Contains(lower, "parse cartulary_s3_"):
+			reasonCode = "invalid_service_binding"
+		}
+	}
+	return fmt.Errorf("object-store init failed: reason_code=%s", reasonCode)
 }
 
 func sameConfigPath(sourcePath string, targetPath string) bool {

@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -30,6 +31,54 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
+
+func TestMVPObjectStoreInitOperatorCreatesConfiguredBucket(t *testing.T) {
+	ctx := context.Background()
+	s3Harness := s3test.Start(t)
+	bucket := fmt.Sprintf("mvp-object-store-init-%d", time.Now().UnixNano())
+	defer func() {
+		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
+			t.Logf("cleanup bucket: %v", err)
+		}
+	}()
+
+	configFixture := operatorManagedS3Config(t, "postgres://unused", "object_primary")
+	cfg, err := config.LoadWithOptions(config.LoadOptions{Path: configFixture.path})
+	if err != nil {
+		t.Fatalf("load managed S3 config fixture: %v", err)
+	}
+	env := mergeOperatorEnv(operatorRecoveryEnv(), s3Harness.EnvForServiceRef("object_primary", bucket))
+	if _, err := objectstore.SetupWithEnv(ctx, cfg, env); err == nil {
+		t.Fatal("expected object-store setup to fail while configured bucket is missing")
+	} else {
+		adapterErr, ok := objectstore.AsAdapterError(err)
+		if !ok || adapterErr.Reason != objectstore.ReasonBucketMissing {
+			t.Fatalf("unexpected pre-init object-store error: %#v %v", adapterErr, err)
+		}
+	}
+
+	operatorBin := buildOperatorBinary(t)
+	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, env, "object-store", "init", "-config", configFixture.path)
+	if exitCode != 0 {
+		t.Fatalf("object-store init failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+		t.Fatalf("decode object-store init JSON: %v\nstdout=%s", err, stdout)
+	}
+	if payload["schema_id"] != app.OperatorObjectStoreInitResultSchemaID || payload["result"] != "created" || payload["created"] != true {
+		t.Fatalf("unexpected object-store init payload: %#v", payload)
+	}
+	if strings.Contains(stdout, bucket) || strings.Contains(stdout, s3Harness.Endpoint) || strings.Contains(stderr, bucket) || strings.Contains(stderr, s3Harness.Endpoint) {
+		t.Fatalf("object-store init exposed storage details: stdout=%s stderr=%s", stdout, stderr)
+	}
+
+	store, err := objectstore.SetupWithEnv(ctx, cfg, env)
+	if err != nil {
+		t.Fatalf("object-store setup failed after init: %v", err)
+	}
+	_ = store.Close()
+}
 
 func TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
