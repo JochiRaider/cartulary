@@ -7,6 +7,11 @@
 
 Visual goldens are committed validation inputs for browser-rendered workbook states. They help detect UI drift in `browser-e2e-visual`, but they are not product behavior owners and they are not claim-bearing evidence by themselves.
 
+For pre-MVP browser inspection and design-discovery review, use
+`docs/guides/cartulary_browser_design_readiness_workflow.md` before accepting or
+refreshing goldens. That workflow treats current goldens as coverage hints and
+regression inputs until the live layout has been reviewed directly in a browser.
+
 ## Canonical Surface
 
 - Use `make browser-e2e-visual` for the canonical validation target.
