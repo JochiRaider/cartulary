@@ -47,11 +47,9 @@ import {
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import {
-  normalizeViewRowV1,
   requireViewContract,
   resolveHeaderSortFieldKey,
   type ViewContract,
-  type ViewFieldContract,
   visibleFields,
 } from "@cartulary/view-contracts";
 import {
@@ -66,14 +64,38 @@ import {
   useState,
 } from "react";
 import { ActiveSurfaceSavedViewSelector } from "./ActiveSurfaceSavedViewSelector";
+import {
+  assessmentColumnWidth,
+  initialAssessmentDraft,
+  isAssessmentConfidenceBand,
+  supportRowLabel,
+} from "./assessmentWorkbookModel";
 import { apiPath } from "./browserApi";
+import {
+  buildMergePlan,
+  type EntityRow,
+  entityContractColumnWidth,
+  entityGroupLabel,
+  entityRowFromApi,
+} from "./entityWorkbookModel";
 import { buildEvidenceLifecycleViewModel } from "./evidenceLifecycleViewModel";
+import { GenericMutationControl } from "./GenericMutationControl";
 import {
   buildGenericCreatePayload,
   buildGenericPatchChange,
+  enumValuesFor,
+  extractEmailFromPartyText,
   type GenericCollectionMode,
+  genericCellLabel,
+  genericCellLabelForField,
+  genericCollectionItems,
+  genericCollectionSupportsRemove,
+  genericContractColumnWidth,
+  genericCreateMinimumMessage,
+  genericRowLabel,
   initialGenericCreateDraft,
-  splitDraftValues,
+  parseMutationError,
+  partyLinkPairsForContract,
 } from "./genericWorkbookModel";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { SystemViewSwitcher } from "./SystemViewSwitcher";
@@ -82,6 +104,9 @@ import {
   buildRecordRollbackTargetFromHistoryAction,
   TimelineWorkbook,
 } from "./TimelineWorkbook";
+import { useAssessmentSupportRows } from "./useAssessmentSupportRows";
+import { useEntityTimelinePreview } from "./useEntityTimelinePreview";
+import { useGenericReferenceOptions } from "./useGenericReferenceOptions";
 import { useWorkbookShellRuntime } from "./useWorkbookShellRuntime";
 import { WorkbookGridControls } from "./WorkbookGridControls";
 import { WorkbookShellSlotRegion, workbookShellId } from "./WorkbookShellSlots";
@@ -111,7 +136,6 @@ import {
   useWorkbookGridFocus,
   WorkbookFocusAnchorStatus,
 } from "./workbookGridFocus";
-import { readCollectionItems } from "./workbookMentionChips";
 import { pendingReplayCapacity } from "./workbookPendingQueue";
 import { displayInitials } from "./workbookPresence";
 import {
@@ -127,13 +151,7 @@ import {
   updateGroupBy,
   type WorkbookQueryState,
 } from "./workbookQuery";
-import {
-  emptyGenericReferenceOptions,
-  type GenericReferenceOption,
-  type GenericReferenceOptions,
-  genericFieldUsesReferenceOptions,
-  referenceOptionsForField,
-} from "./workbookReferenceOptions";
+import { emptyGenericReferenceOptions } from "./workbookReferenceOptions";
 import { savedViewQueryStateForRuntime } from "./workbookSavedViewRuntime";
 import {
   normalizeSavedViewResource,
@@ -154,42 +172,29 @@ import {
 } from "./workbookStyles";
 import {
   assessmentsViewSchemaId,
-  commLogViewSchemaId,
   decisionsViewSchemaId,
   evidenceViewSchemaId,
-  findingsViewSchemaId,
-  forensicKeywordsViewSchemaId,
-  handoffViewSchemaId,
   hostsViewSchemaId,
   identitiesViewSchemaId,
-  investigativeQueriesViewSchemaId,
   knownWorkbookViewSchemaId,
-  lessonViewSchemaId,
   listWorkbookSurfaceRegistryEntries,
   notesViewSchemaId,
   partiesViewSchemaId,
   requiredBuiltInWorkbookSurfaceIds,
-  statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./workbookSurfaceRegistry";
 import {
-  type AssessmentConfidenceBand,
   type AssessmentCreateDraft,
   buildAssessmentCreatePayload,
   buildCreatePayload,
-  type CollectionDrafts,
   clipboardTextLooksTabular,
   confidenceScoreFromBand,
   createDraftRow,
   decideWorkbookRecordFreshness,
   type EntityApiRow,
   ensureDraftRow,
-  type RowValues,
-  type TagCollectionItem,
-  type TimelineApiRow,
   type WorkbookRecordFreshnessDecision,
-  type WorkbookRow,
   type WorkbookVersionedRecord,
 } from "./workbookTimelineModel";
 import { stringifyGridValue } from "./workbookValueFormat";
@@ -247,14 +252,6 @@ type WorkbookShellProps = {
     | undefined;
   onIncidentAccessLost?: (() => void) | undefined;
   onReturnToLanding?: (() => void) | undefined;
-};
-
-type WorkbookQueryEnvelope = {
-  data: {
-    incident_id: string;
-    view_schema_id: string;
-    rows: unknown[];
-  };
 };
 
 function workbookContractForViewSchemaId(viewSchemaId: string): ViewContract {
@@ -361,83 +358,6 @@ type WorkbookStartupEnvelope = {
   data?: unknown;
 };
 
-type EntityRow = {
-  entityType: "host" | "identity";
-  recordId: string;
-  rowVersion: number;
-  label: string;
-  secondaryText: string;
-  state: string;
-  aliasTexts: string[];
-  linkedEventCount: number;
-  rawRow: EntityApiRow;
-  identifiers: Array<{
-    key: string;
-    label: string;
-    value: string;
-  }>;
-};
-
-type PartyLinkPair = {
-  key: string;
-  label: string;
-  textFieldKey: string;
-  refFieldKey: string;
-};
-
-type MergePlanLine = {
-  label: string;
-  outcome: string;
-};
-
-function entityContractColumnWidth(field: ViewFieldContract): number {
-  switch (field.fieldKey) {
-    case "host.display_name":
-    case "identity.display_name":
-      return 240;
-    case "host.hostname":
-    case "identity.upn":
-    case "identity.email":
-    case "identity.sam_account_name":
-      return 260;
-    case "host.aliases":
-    case "identity.aliases":
-      return 320;
-    case "host.linked_event_count":
-    case "identity.linked_event_count":
-    case "host.evidence_count":
-    case "identity.evidence_count":
-      return 140;
-    case "host.edited_at":
-    case "identity.edited_at":
-      return 180;
-    case "host.host_state":
-    case "identity.identity_state":
-    case "identity.mfa_state":
-    case "identity.reset_status":
-      return 150;
-    default:
-      return 200;
-  }
-}
-
-function genericContractColumnWidth(field: ViewFieldContract): number {
-  if (field.fieldKey.endsWith(".body") || field.fieldKey.endsWith(".summary")) {
-    return 320;
-  }
-  if (
-    field.fieldKey.endsWith(".edited_at") ||
-    field.fieldKey.endsWith(".updated_at") ||
-    field.fieldKey.endsWith(".timestamp_utc")
-  ) {
-    return 180;
-  }
-  if (field.readKind === "collection") {
-    return 260;
-  }
-  return field.defaultHidden ? 160 : 220;
-}
-
 function buildWorkbookGridRows<Row>({
   getRecordId,
   rows,
@@ -503,101 +423,8 @@ function applyFilterDraftToQuery(
   setFilterDraft(clearAppliedFilterDraft);
 }
 
-const mergeIdentifierFields: Record<
-  EntityRow["entityType"],
-  Array<{ key: string; label: string }>
-> = {
-  host: [
-    { key: "host.aad_device_id", label: "AAD Device ID" },
-    { key: "host.fqdn", label: "FQDN" },
-    { key: "host.hostname", label: "Hostname" },
-  ],
-  identity: [
-    { key: "identity.aad_object_id", label: "AAD Object ID" },
-    { key: "identity.sid", label: "SID" },
-    { key: "identity.upn", label: "UPN" },
-    { key: "identity.email", label: "Email" },
-    { key: "identity.sam_account_name", label: "SAM Account Name" },
-  ],
-};
-
-function emptyCollectionDrafts(): CollectionDrafts {
-  return {
-    hostRefs: "",
-    identityRefs: "",
-    tags: "",
-  };
-}
-
 function normalizeValue(value: string): string {
   return value.trim();
-}
-
-function readStringCell(
-  row: TimelineApiRow | EntityApiRow,
-  fieldKey: string,
-): string {
-  const raw = row.cells[fieldKey]?.value;
-  return typeof raw === "string" ? raw : "";
-}
-
-function readNumberCell(row: EntityApiRow, fieldKey: string): number {
-  const raw = row.cells[fieldKey]?.value;
-  return typeof raw === "number" ? raw : 0;
-}
-
-function readCellValue(
-  row: TimelineApiRow | EntityApiRow | null,
-  fieldKey: string,
-): unknown {
-  return row?.cells[fieldKey]?.value ?? null;
-}
-
-function readTagItems(row: TimelineApiRow): TagCollectionItem[] {
-  const raw = row.cells["timeline.tags"]?.value;
-  const value =
-    raw &&
-    typeof raw === "object" &&
-    !Array.isArray(raw) &&
-    "items" in raw &&
-    Array.isArray(raw.items)
-      ? raw.items
-      : [];
-  return value
-    .map((item, index) => {
-      if (!item || typeof item !== "object") {
-        return null;
-      }
-      const object = item as Record<string, unknown>;
-      const rawText =
-        typeof object.raw_text === "string"
-          ? object.raw_text
-          : typeof object.display_text === "string"
-            ? object.display_text
-            : "";
-      if (rawText === "") {
-        return null;
-      }
-      return {
-        itemRef:
-          typeof object.item_ref === "string"
-            ? object.item_ref
-            : `tag-item-${index}:${rawText}`,
-        itemKind:
-          typeof object.item_kind === "string" ? object.item_kind : "tag",
-        displayText:
-          typeof object.display_text === "string"
-            ? object.display_text
-            : rawText,
-        rawText,
-      };
-    })
-    .filter((item): item is TagCollectionItem => item !== null);
-}
-
-function entityGroupLabel(row: EntityRow, fieldKey: string) {
-  const value = stringifyGridValue(readCellValue(row.rawRow, fieldKey)).trim();
-  return value === "" ? "Unassigned" : value;
 }
 
 function entityCellContent(
@@ -638,157 +465,6 @@ function entityCellContent(
     return String(row.rowVersion);
   }
   return genericCellLabel(row.rawRow.cells[fieldKey]?.value);
-}
-
-function validateTimelineViewSchemaId(value: unknown, source: string) {
-  if (value !== timelineViewSchemaId) {
-    throw new Error(
-      `Timeline view row envelope failed: ${source} view_schema_id must be ${timelineViewSchemaId}.`,
-    );
-  }
-}
-
-function materializeTimelineCells(
-  cells: Readonly<Record<string, { readonly value: unknown }>>,
-): Record<string, { value: unknown }> {
-  return Object.fromEntries(
-    Object.entries(cells).map(([fieldKey, cell]) => [
-      fieldKey,
-      { value: cell.value },
-    ]),
-  );
-}
-
-function normalizeTimelineFullRow(
-  row: unknown,
-  source: string,
-): TimelineApiRow {
-  const normalized = normalizeViewRowV1(timelineContract, row, source);
-  return {
-    view_schema_id: normalized.viewSchemaId,
-    record_id: normalized.recordId,
-    row_version: normalized.rowVersion,
-    cells: materializeTimelineCells(normalized.cells),
-    ...(normalized.groupValues === undefined
-      ? {}
-      : { group_values: { ...normalized.groupValues } }),
-  };
-}
-
-function rowFromApi(row: TimelineApiRow): WorkbookRow {
-  const values: RowValues = {
-    occurredAt: readStringCell(row, "timeline.occurred_at"),
-    summary: readStringCell(row, "timeline.summary"),
-    details: readStringCell(row, "timeline.details"),
-    sourceText: readStringCell(row, "timeline.source_text"),
-  };
-
-  return {
-    key: row.record_id,
-    recordId: row.record_id,
-    rowVersion: row.row_version,
-    viewSchemaId: row.view_schema_id,
-    captureState: readStringCell(row, "timeline.capture_state"),
-    values,
-    committedValues: values,
-    collectionValues: {
-      hostRefs: readCollectionItems(row, "timeline.host_refs"),
-      identityRefs: readCollectionItems(row, "timeline.identity_refs"),
-      tags: readTagItems(row),
-    },
-    collectionDrafts: emptyCollectionDrafts(),
-    pendingSignature: null,
-    rawRow: row,
-  };
-}
-
-function entityRowFromApi(
-  row: EntityApiRow,
-  entityType: EntityRow["entityType"],
-): EntityRow {
-  const labelField =
-    entityType === "host" ? "host.display_name" : "identity.display_name";
-  const secondaryCandidates =
-    entityType === "host"
-      ? ["host.hostname", "host.fqdn"]
-      : ["identity.email", "identity.upn", "identity.sam_account_name"];
-  const stateField =
-    entityType === "host" ? "host.host_state" : "identity.identity_state";
-  const aliasesField =
-    entityType === "host" ? "host.aliases" : "identity.aliases";
-  const linkedEventField =
-    entityType === "host"
-      ? "host.linked_event_count"
-      : "identity.linked_event_count";
-  const identifiers = mergeIdentifierFields[entityType]
-    .map((field) => {
-      const value = readStringCell(row, field.key);
-      if (value === "") {
-        return null;
-      }
-      return {
-        key: field.key,
-        label: field.label,
-        value,
-      };
-    })
-    .filter(
-      (
-        value,
-      ): value is {
-        key: string;
-        label: string;
-        value: string;
-      } => value !== null,
-    );
-  const aliasItems = (() => {
-    const raw = row.cells[aliasesField]?.value;
-    if (
-      !raw ||
-      typeof raw !== "object" ||
-      Array.isArray(raw) ||
-      !("items" in raw) ||
-      !Array.isArray(raw.items)
-    ) {
-      return [] as string[];
-    }
-    return raw.items
-      .map((item) => {
-        if (!item || typeof item !== "object") {
-          return null;
-        }
-        const object = item as Record<string, unknown>;
-        if (typeof object.raw_text === "string") {
-          return object.raw_text;
-        }
-        if (typeof object.alias_text === "string") {
-          return object.alias_text;
-        }
-        return typeof object.display_text === "string"
-          ? object.display_text
-          : null;
-      })
-      .filter((value): value is string => value !== null);
-  })();
-  const secondaryText =
-    secondaryCandidates
-      .map((field) => readStringCell(row, field))
-      .find((value) => value !== "") ?? "";
-  const label =
-    readStringCell(row, labelField) || secondaryText || row.record_id;
-
-  return {
-    entityType,
-    recordId: row.record_id,
-    rowVersion: row.row_version,
-    label,
-    secondaryText,
-    state: readStringCell(row, stateField),
-    aliasTexts: aliasItems,
-    linkedEventCount: readNumberCell(row, linkedEventField),
-    rawRow: row,
-    identifiers,
-  };
 }
 
 async function submitViewRecordPatch({
@@ -857,64 +533,6 @@ async function submitWorkbookPatchMutation({
   return result.payload;
 }
 
-function compareValue(value: string) {
-  return value.trim().toLowerCase();
-}
-
-function buildMergePlan(survivor: EntityRow, loser: EntityRow) {
-  const identifierLines: MergePlanLine[] = mergeIdentifierFields[
-    survivor.entityType
-  ].flatMap((field) => {
-    const survivorValue =
-      survivor.identifiers.find((identifier) => identifier.key === field.key)
-        ?.value ?? "";
-    const loserValue =
-      loser.identifiers.find((identifier) => identifier.key === field.key)
-        ?.value ?? "";
-    if (survivorValue === "" && loserValue === "") {
-      return [];
-    }
-    if (survivorValue === "" && loserValue !== "") {
-      return [{ label: field.label, outcome: `Promote ${loserValue}` }];
-    }
-    if (
-      survivorValue !== "" &&
-      loserValue !== "" &&
-      compareValue(survivorValue) === compareValue(loserValue)
-    ) {
-      return [{ label: field.label, outcome: `Duplicate no-op ${loserValue}` }];
-    }
-    if (survivorValue !== "" && loserValue !== "") {
-      return [
-        {
-          label: field.label,
-          outcome: `Conflict survivor=${survivorValue} loser=${loserValue}`,
-        },
-      ];
-    }
-    return [{ label: field.label, outcome: `Survivor keeps ${survivorValue}` }];
-  });
-
-  const survivorAliases = new Set(survivor.aliasTexts.map(compareValue));
-  const aliasesToCopy = loser.aliasTexts.filter(
-    (value) => !survivorAliases.has(compareValue(value)),
-  );
-  const duplicateAliases = loser.aliasTexts.filter((value) =>
-    survivorAliases.has(compareValue(value)),
-  );
-
-  return {
-    identifierLines,
-    aliasesToCopy,
-    duplicateAliases,
-    provenanceOnlySummary: "Not exposed on this surface.",
-    dependencySummary:
-      survivor.linkedEventCount > 0 || loser.linkedEventCount > 0
-        ? `Linked events visible on surface: survivor=${survivor.linkedEventCount}, loser=${loser.linkedEventCount}.`
-        : "Dependency counts are not exposed on this surface.",
-  };
-}
-
 function EntityWorkbookSurface({
   incidentId,
   apiBase,
@@ -957,8 +575,12 @@ function EntityWorkbookSurface({
   const [editValue, setEditValue] = useState("");
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [mutationState, setMutationState] = useState<SaveState>("Saved");
-  const [timelinePreviewRows, setTimelinePreviewRows] = useState<WorkbookRow[]>(
-    [],
+  const { loadTimelinePreview, timelinePreviewRows } = useEntityTimelinePreview(
+    {
+      apiBase,
+      entityType,
+      incidentId,
+    },
   );
 
   const selectedEntity =
@@ -1167,58 +789,6 @@ function EntityWorkbookSurface({
     setSelectedRecordId(selectedEditRow.recordId);
     setMutationState("Saved");
   }
-
-  const loadTimelinePreview = useCallback(
-    async (recordId: string) => {
-      const result = await fetchJSON<WorkbookQueryEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
-        ),
-        {
-          method: "POST",
-          body: JSON.stringify({}),
-        },
-      );
-      if (!result.ok) {
-        setTimelinePreviewRows([]);
-        return;
-      }
-      const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
-      try {
-        validateTimelineViewSchemaId(
-          envelope.data.view_schema_id,
-          "timeline preview query response",
-        );
-      } catch {
-        setTimelinePreviewRows([]);
-        return;
-      }
-      const draftKey = entityType === "host" ? "hostRefs" : "identityRefs";
-      let previewRows: WorkbookRow[];
-      try {
-        previewRows = envelope.data.rows
-          .map((row, index) =>
-            rowFromApi(
-              normalizeTimelineFullRow(
-                row,
-                `timeline preview query rows[${index}]`,
-              ),
-            ),
-          )
-          .filter((row) =>
-            row.collectionValues[draftKey].some(
-              (item) => item.resolvedRecordId === recordId,
-            ),
-          );
-      } catch {
-        setTimelinePreviewRows([]);
-        return;
-      }
-      setTimelinePreviewRows(previewRows);
-    },
-    [apiBase, entityType, incidentId],
-  );
 
   async function confirmMerge() {
     if (!selectedEntity || !loserEntity) {
@@ -1592,9 +1162,9 @@ function AssessmentWorkbookSurface({
   queryState: WorkbookQueryState;
 }) {
   const [draft, setDraft] = useState<AssessmentCreateDraft>(() =>
-    initialAssessmentDraft(),
+    initialAssessmentDraft(assessmentsContract),
   );
-  const [supportRows, setSupportRows] = useState<TimelineApiRow[]>([]);
+  const supportRows = useAssessmentSupportRows({ apiBase, incidentId });
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const subjectRows = draft.subjectType === "host" ? hostRows : identityRows;
@@ -1671,50 +1241,6 @@ function AssessmentWorkbookSurface({
     });
   }, [subjectRows]);
 
-  useEffect(() => {
-    let isCurrent = true;
-    async function loadSupportRows() {
-      const result = await fetchJSON<WorkbookQueryEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
-        ),
-        {
-          method: "POST",
-          body: JSON.stringify({}),
-        },
-      );
-      if (!isCurrent) {
-        return;
-      }
-      if (!result.ok) {
-        setSupportRows([]);
-        return;
-      }
-      const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
-      try {
-        validateTimelineViewSchemaId(
-          envelope.data.view_schema_id,
-          "assessment support query response",
-        );
-        setSupportRows(
-          envelope.data.rows.map((row, index) =>
-            normalizeTimelineFullRow(
-              row,
-              `assessment support query rows[${index}]`,
-            ),
-          ),
-        );
-      } catch {
-        setSupportRows([]);
-      }
-    }
-    void loadSupportRows();
-    return () => {
-      isCurrent = false;
-    };
-  }, [apiBase, incidentId]);
-
   async function submitAssessment() {
     const payload = buildAssessmentCreatePayload(
       draft,
@@ -1744,7 +1270,7 @@ function AssessmentWorkbookSurface({
       }
       await onRefreshAssessmentRows();
       setDraft((current) => ({
-        ...initialAssessmentDraft(),
+        ...initialAssessmentDraft(assessmentsContract),
         subjectType: current.subjectType,
         subjectRecordId: current.subjectRecordId,
       }));
@@ -2047,11 +1573,8 @@ function GenericWorkbookSurface({
     useState<GenericCollectionMode>("add");
   const [partyLinkPairKey, setPartyLinkPairKey] = useState("");
   const [partyLinkExistingPartyId, setPartyLinkExistingPartyId] = useState("");
-  const [referenceOptions, setReferenceOptions] =
-    useState<GenericReferenceOptions>(() => emptyGenericReferenceOptions());
-  const [referenceLoadError, setReferenceLoadError] = useState<string | null>(
-    null,
-  );
+  const { referenceLoadError, referenceOptions, refreshReferenceOptions } =
+    useGenericReferenceOptions({ apiBase, incidentId });
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [mutationState, setMutationState] = useState<SaveState>("Saved");
   const [evidenceMessageByRecordID, setEvidenceMessageByRecordID] = useState<
@@ -2093,130 +1616,6 @@ function GenericWorkbookSurface({
       return partyLinkPairs[0]?.key ?? "";
     });
   }, [partyLinkPairs]);
-
-  const refreshReferenceOptions = useCallback(async () => {
-    setReferenceLoadError(null);
-    const targetViewSchemaIds = [
-      timelineViewSchemaId,
-      hostsViewSchemaId,
-      identitiesViewSchemaId,
-      partiesViewSchemaId,
-      taskRequestsViewSchemaId,
-      decisionsViewSchemaId,
-      evidenceViewSchemaId,
-      notesViewSchemaId,
-      findingsViewSchemaId,
-      investigativeQueriesViewSchemaId,
-      forensicKeywordsViewSchemaId,
-    ];
-    const loaded = await Promise.all(
-      targetViewSchemaIds.map(async (viewSchemaId) => {
-        const targetContract = requireViewContract(viewSchemaId);
-        const result = await fetchJSON<ViewQueryEnvelope>(
-          apiPath(
-            apiBase,
-            `/api/v1/incidents/${incidentId}/views/${viewSchemaId}/query`,
-          ),
-          {
-            method: "POST",
-            body: JSON.stringify(
-              buildQueryRequest(targetContract, emptyWorkbookQueryState()),
-            ),
-          },
-        );
-        if (!result.ok) {
-          throw new Error(parseErrorMessage(result.payload));
-        }
-        const envelope = readEnvelope<ViewQueryEnvelope>(result.payload);
-        return [viewSchemaId, envelope.data.rows] as const;
-      }),
-    );
-    const rowsByView = Object.fromEntries(loaded) as Record<
-      string,
-      EntityApiRow[]
-    >;
-    const next: GenericReferenceOptions = {
-      parties: genericReferenceOptionsFromRows(
-        partiesViewSchemaId,
-        rowsByView[partiesViewSchemaId] ?? [],
-      ),
-      taskRequests: genericReferenceOptionsFromRows(
-        taskRequestsViewSchemaId,
-        rowsByView[taskRequestsViewSchemaId] ?? [],
-      ),
-      decisions: genericReferenceOptionsFromRows(
-        decisionsViewSchemaId,
-        rowsByView[decisionsViewSchemaId] ?? [],
-      ),
-      evidence: genericReferenceOptionsFromRows(
-        evidenceViewSchemaId,
-        rowsByView[evidenceViewSchemaId] ?? [],
-      ),
-      hosts: genericReferenceOptionsFromRows(
-        hostsViewSchemaId,
-        rowsByView[hostsViewSchemaId] ?? [],
-      ),
-      identities: genericReferenceOptionsFromRows(
-        identitiesViewSchemaId,
-        rowsByView[identitiesViewSchemaId] ?? [],
-      ),
-      notes: genericReferenceOptionsFromRows(
-        notesViewSchemaId,
-        rowsByView[notesViewSchemaId] ?? [],
-      ),
-      timeline: genericReferenceOptionsFromRows(
-        timelineViewSchemaId,
-        rowsByView[timelineViewSchemaId] ?? [],
-      ),
-      noteSourceRecords: [],
-      allRecords: [],
-    };
-    next.noteSourceRecords = [
-      ...next.timeline,
-      ...next.hosts,
-      ...next.identities,
-      ...next.evidence,
-    ];
-    next.allRecords = [
-      ...next.timeline,
-      ...next.hosts,
-      ...next.identities,
-      ...next.evidence,
-      ...next.notes,
-      ...genericReferenceOptionsFromRows(
-        findingsViewSchemaId,
-        rowsByView[findingsViewSchemaId] ?? [],
-      ),
-      ...genericReferenceOptionsFromRows(
-        investigativeQueriesViewSchemaId,
-        rowsByView[investigativeQueriesViewSchemaId] ?? [],
-      ),
-      ...genericReferenceOptionsFromRows(
-        forensicKeywordsViewSchemaId,
-        rowsByView[forensicKeywordsViewSchemaId] ?? [],
-      ),
-      ...next.taskRequests,
-      ...next.decisions,
-      ...next.parties,
-    ];
-    setReferenceOptions(next);
-  }, [apiBase, incidentId]);
-
-  useEffect(() => {
-    let isCurrent = true;
-    refreshReferenceOptions().catch((error: unknown) => {
-      if (!isCurrent) {
-        return;
-      }
-      setReferenceOptions(emptyGenericReferenceOptions());
-      setReferenceLoadError(
-        error instanceof Error ? error.message : "Reference options failed.",
-      );
-    });
-    return () => {
-      isCurrent = false;
-    };
-  }, [refreshReferenceOptions]);
 
   const setEvidenceMessage = useCallback(
     (recordId: string, message: string | null) => {
@@ -3244,543 +2643,6 @@ function GenericWorkbookSurface({
       </WorkbookShellSlotRegion>
     </section>
   );
-}
-
-function GenericMultiSelectControl({
-  ariaLabel,
-  id,
-  options,
-  testId,
-  value,
-  onChange,
-}: {
-  readonly ariaLabel: string;
-  readonly id: string | undefined;
-  readonly options: readonly {
-    readonly label: string;
-    readonly value: string;
-  }[];
-  readonly testId: string;
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-}) {
-  return (
-    <select
-      aria-label={ariaLabel}
-      data-testid={testId}
-      id={id}
-      multiple
-      size={Math.min(Math.max(options.length, 2), 6)}
-      style={selectStyle}
-      value={splitDraftValues(value)}
-      onChange={(event) => {
-        onChange(
-          Array.from(event.currentTarget.selectedOptions)
-            .map((option) => option.value)
-            .join("\n"),
-        );
-      }}
-    >
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function GenericMutationControl({
-  collectionItems = [],
-  collectionMode,
-  field,
-  id,
-  referenceOptions,
-  testId,
-  value,
-  onChange,
-}: {
-  collectionItems?: Array<{ itemRef: string; displayText: string }>;
-  collectionMode: GenericCollectionMode;
-  field: ViewFieldContract;
-  id?: string;
-  referenceOptions: GenericReferenceOptions;
-  testId: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const controlLabel = `${field.label} value`;
-  if (field.writeKind === "action_payload") {
-    if (collectionMode === "remove") {
-      return (
-        <GenericMultiSelectControl
-          ariaLabel={controlLabel}
-          id={id}
-          options={collectionItems.map((item) => ({
-            label: item.displayText,
-            value: item.itemRef,
-          }))}
-          testId={testId}
-          value={value}
-          onChange={onChange}
-        />
-      );
-    }
-
-    const options = referenceOptionsForField(field, referenceOptions);
-    if (genericFieldUsesReferenceOptions(field)) {
-      return (
-        <GenericMultiSelectControl
-          ariaLabel={controlLabel}
-          id={id}
-          options={options.map((option) => ({
-            label: option.label,
-            value: option.recordId,
-          }))}
-          testId={testId}
-          value={value}
-          onChange={onChange}
-        />
-      );
-    }
-
-    return (
-      <textarea
-        aria-label={controlLabel}
-        data-testid={testId}
-        id={id}
-        rows={3}
-        style={textareaStyle}
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-      />
-    );
-  }
-
-  const referenceChoices = referenceOptionsForField(field, referenceOptions);
-  if (genericFieldUsesReferenceOptions(field)) {
-    return (
-      <select
-        aria-label={controlLabel}
-        data-testid={testId}
-        id={id}
-        style={selectStyle}
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-      >
-        <option value="">{field.clearable ? "None" : "Select"}</option>
-        {referenceChoices.map((option) => (
-          <option key={option.recordId} value={option.recordId}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
-  if (field.enumValues && field.enumValues.length > 0) {
-    return (
-      <select
-        aria-label={controlLabel}
-        data-testid={testId}
-        id={id}
-        style={selectStyle}
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-      >
-        <option value="">Select</option>
-        {field.enumValues.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
-  if (field.readKind === "boolean") {
-    return (
-      <input
-        aria-label={controlLabel}
-        data-testid={testId}
-        id={id}
-        style={inputStyle}
-        type="checkbox"
-        checked={value === "true"}
-        onChange={(event) => {
-          onChange(event.target.checked ? "true" : "false");
-        }}
-      />
-    );
-  }
-
-  if (field.readKind === "number") {
-    return (
-      <input
-        aria-label={controlLabel}
-        data-testid={testId}
-        id={id}
-        style={inputStyle}
-        type="number"
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-      />
-    );
-  }
-
-  if (isMultilineGenericField(field)) {
-    return (
-      <textarea
-        aria-label={controlLabel}
-        data-testid={testId}
-        id={id}
-        rows={3}
-        style={textareaStyle}
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-      />
-    );
-  }
-
-  return (
-    <input
-      aria-label={controlLabel}
-      data-testid={testId}
-      id={id}
-      placeholder={
-        field.directScalarContractId === "timestamp_instant_v1"
-          ? "RFC3339 timestamp"
-          : undefined
-      }
-      style={inputStyle}
-      type="text"
-      value={value}
-      onChange={(event) => {
-        onChange(event.target.value);
-      }}
-    />
-  );
-}
-
-function genericCellLabel(value: unknown): string {
-  if (value === null || value === undefined || value === "") {
-    return "None";
-  }
-  if (typeof value === "string" || typeof value === "number") {
-    return String(value);
-  }
-  if (typeof value === "boolean") {
-    return value ? "Yes" : "No";
-  }
-  if (typeof value === "object" && value !== null && "items" in value) {
-    const items = (value as { items?: unknown }).items;
-    if (Array.isArray(items)) {
-      const labels = collectionItemLabels(items);
-      if (labels.length > 0) {
-        return labels.join(", ");
-      }
-      return "None";
-    }
-  }
-  return JSON.stringify(value);
-}
-
-function genericCellLabelForField(
-  surface: WorkbookSurface,
-  fieldKey: string,
-  value: unknown,
-): string {
-  if (
-    surface === evidenceViewSchemaId &&
-    fieldKey === "evidence.storage_ref" &&
-    typeof value === "string" &&
-    /^object:\/\/[0-9a-f-]+$/iu.test(value.trim())
-  ) {
-    return "Managed object";
-  }
-  return genericCellLabel(value);
-}
-
-function collectionItemLabels(items: readonly unknown[]): string[] {
-  return items.flatMap((item) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) {
-      return [];
-    }
-    const raw = item as Record<string, unknown>;
-    const candidates = [
-      raw.display_text,
-      raw.alias_text,
-      raw.tag_name,
-      raw.raw_text,
-      raw.linked_record_id,
-      raw.record_id,
-      raw.item_ref,
-    ];
-    const label = candidates.find(
-      (value): value is string =>
-        typeof value === "string" && value.trim() !== "",
-    );
-    return label === undefined ? [] : [label];
-  });
-}
-
-function genericCreateMinimumMessage(viewSchemaId: string): string {
-  switch (viewSchemaId) {
-    case partiesViewSchemaId:
-      return "Display name and kind are required.";
-    case notesViewSchemaId:
-      return "Title or body is required.";
-    case taskRequestsViewSchemaId:
-      return "Title and task kind are required.";
-    case decisionsViewSchemaId:
-      return "Summary, decision type, and rationale are required.";
-    case evidenceViewSchemaId:
-      return "Evidence needs a title, storage ref, collector, or source.";
-    case commLogViewSchemaId:
-      return "Type, audience, channel or meeting, and summary are required.";
-    case handoffViewSchemaId:
-      return "Incoming owner and current state summary are required.";
-    case statusReviewViewSchemaId:
-      return "Current state summary is required.";
-    case lessonViewSchemaId:
-      return "Summary is required.";
-    case findingsViewSchemaId:
-      return "Statement is required.";
-    case investigativeQueriesViewSchemaId:
-      return "Platform, purpose, and query text are required.";
-    case forensicKeywordsViewSchemaId:
-      return "Pattern and reason are required.";
-    default:
-      return "At least one value is required.";
-  }
-}
-
-function genericReferenceOptionsFromRows(
-  viewSchemaId: string,
-  rows: EntityApiRow[],
-): GenericReferenceOption[] {
-  return rows.map((row) => ({
-    recordId: row.record_id,
-    label: genericRowLabel(requireViewContract(viewSchemaId), row),
-    viewSchemaId,
-  }));
-}
-
-function partyLinkPairsForContract(contract: ViewContract): PartyLinkPair[] {
-  const hasField = (fieldKey: string) => Boolean(contract.fieldMap[fieldKey]);
-  const pairs: PartyLinkPair[] = [];
-  if (
-    hasField("evidence.collector_party_text") &&
-    hasField("evidence.collector_party_id")
-  ) {
-    pairs.push({
-      key: "evidence.collector_party_text:evidence.collector_party_id",
-      label: "Collector",
-      textFieldKey: "evidence.collector_party_text",
-      refFieldKey: "evidence.collector_party_id",
-    });
-  }
-  if (
-    hasField("evidence.source_party_text") &&
-    hasField("evidence.source_party_id")
-  ) {
-    pairs.push({
-      key: "evidence.source_party_text:evidence.source_party_id",
-      label: "Source",
-      textFieldKey: "evidence.source_party_text",
-      refFieldKey: "evidence.source_party_id",
-    });
-  }
-  if (
-    hasField("task.requester_party_text") &&
-    hasField("task.requester_party_id")
-  ) {
-    pairs.push({
-      key: "task.requester_party_text:task.requester_party_id",
-      label: "Requester",
-      textFieldKey: "task.requester_party_text",
-      refFieldKey: "task.requester_party_id",
-    });
-  }
-  return pairs;
-}
-
-function extractEmailFromPartyText(value: string): string | null {
-  const match = value.match(/[^\s<>@]+@[^\s<>@]+/u);
-  return match?.[0] ?? null;
-}
-
-function genericRowLabel(contract: ViewContract, row: EntityApiRow): string {
-  const preferredFieldKeys = [
-    "timeline.summary",
-    "host.display_name",
-    "host.hostname",
-    "identity.display_name",
-    "identity.upn",
-    "party.display_name",
-    "task.title",
-    "decision.summary",
-    "evidence.title",
-    "evidence.storage_ref",
-    "note.title",
-    "note.body",
-    "comm_log.summary",
-    "handoff.current_state_summary",
-    "status_review.current_state_summary",
-    "lesson.summary",
-    "finding.statement",
-    "investigative_query.purpose",
-    "investigative_query.query_text",
-    "forensic_keyword.pattern",
-  ];
-  for (const fieldKey of preferredFieldKeys) {
-    if (!contract.fieldMap[fieldKey]) {
-      continue;
-    }
-    const label = stringifyGridValue(row.cells[fieldKey]?.value).trim();
-    if (label !== "") {
-      return `${label} (${row.record_id})`;
-    }
-  }
-  return row.record_id;
-}
-
-function genericCollectionSupportsRemove(_fieldKey: string): boolean {
-  return true;
-}
-
-function genericCollectionItems(
-  row: EntityApiRow,
-  fieldKey: string,
-): Array<{ itemRef: string; displayText: string }> {
-  const value = row.cells[fieldKey]?.value;
-  if (!value || typeof value !== "object" || !("items" in value)) {
-    return [];
-  }
-  const rawItems = (value as { items?: unknown }).items;
-  if (!Array.isArray(rawItems)) {
-    return [];
-  }
-  return rawItems.flatMap((item) => {
-    if (!item || typeof item !== "object") {
-      return [];
-    }
-    const raw = item as Record<string, unknown>;
-    const itemRef = typeof raw.item_ref === "string" ? raw.item_ref : "";
-    if (itemRef === "") {
-      return [];
-    }
-    const displayText =
-      typeof raw.display_text === "string" && raw.display_text.trim() !== ""
-        ? raw.display_text
-        : itemRef;
-    return [{ itemRef, displayText }];
-  });
-}
-
-function isMultilineGenericField(field: ViewFieldContract): boolean {
-  return (
-    field.stringContractId === "multiline_body_v1" ||
-    field.fieldKey.endsWith(".body") ||
-    field.fieldKey.endsWith(".notes") ||
-    field.fieldKey.endsWith(".rationale") ||
-    field.fieldKey.endsWith("_summary") ||
-    field.fieldKey.endsWith(".details")
-  );
-}
-
-function parseMutationError(payload: unknown): string {
-  const base = parseErrorMessage(payload);
-  if (!payload || typeof payload !== "object" || !("error" in payload)) {
-    return base;
-  }
-  const error = payload.error;
-  if (!error || typeof error !== "object" || !("conflict" in error)) {
-    return base;
-  }
-  const conflict = error.conflict;
-  if (!conflict || typeof conflict !== "object") {
-    return base;
-  }
-  const fieldKey =
-    "field_key" in conflict && typeof conflict.field_key === "string"
-      ? conflict.field_key
-      : null;
-  return fieldKey ? `${base}: ${fieldKey}` : base;
-}
-
-function enumValuesFor(
-  contract: ViewContract,
-  fieldKey: string,
-  fallback: readonly string[],
-): readonly string[] {
-  return contract.fieldMap[fieldKey]?.enumValues ?? fallback;
-}
-
-function isAssessmentConfidenceBand(
-  value: string,
-): value is AssessmentConfidenceBand {
-  return (
-    value === "unset" ||
-    value === "low" ||
-    value === "medium" ||
-    value === "high"
-  );
-}
-
-function assessmentColumnWidth(fieldKey: string): number {
-  switch (fieldKey) {
-    case "assessment.subject_ref":
-      return 300;
-    case "assessment.rationale":
-      return 360;
-    case "assessment.assessed_at":
-      return 210;
-    case "assessment.assessor":
-      return 300;
-    default:
-      return 180;
-  }
-}
-
-function initialAssessmentDraft(): AssessmentCreateDraft {
-  const [assessmentState = "unknown"] = enumValuesFor(
-    assessmentsContract,
-    "assessment.assessment_state",
-    ["unknown", "suspected", "confirmed", "disproven", "cleared"],
-  );
-  const confidenceBand = enumValuesFor(
-    assessmentsContract,
-    "assessment.confidence_band",
-    ["unset", "low", "medium", "high"],
-  ).find(isAssessmentConfidenceBand);
-  return {
-    assessedAt: "",
-    assessmentState,
-    confidenceBand: confidenceBand ?? "unset",
-    rationale: "",
-    subjectRecordId: "",
-    subjectType: "host",
-    supportRecordIds: [],
-  };
-}
-
-function supportRowLabel(row: TimelineApiRow): string {
-  const summary = readStringCell(row, "timeline.summary");
-  if (summary !== "") {
-    return summary;
-  }
-  return row.record_id;
 }
 
 export function WorkbookShell({

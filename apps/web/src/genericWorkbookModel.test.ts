@@ -7,10 +7,23 @@ import { describe, expect, it } from "vitest";
 import {
   buildGenericCreatePayload,
   buildGenericPatchChange,
+  collectionItemLabels,
+  extractEmailFromPartyText,
+  genericCellLabel,
+  genericCellLabelForField,
+  genericCollectionItems,
+  genericContractColumnWidth,
+  genericCreateMinimumMessage,
+  genericReferenceOptionsFromRows,
+  genericRowLabel,
   initialGenericCreateDraft,
+  isMultilineGenericField,
+  parseMutationError,
+  partyLinkPairsForContract,
   workbookCreateMinimumSatisfied,
 } from "./genericWorkbookModel";
 import {
+  commLogViewSchemaId,
   decisionsViewSchemaId,
   evidenceViewSchemaId,
   findingsViewSchemaId,
@@ -145,5 +158,121 @@ describe("genericWorkbookModel", () => {
         "unknown.field": "value",
       }),
     ).toBe(true);
+  });
+
+  it("keeps display labels, widths, and minimum messages contract-driven", () => {
+    const evidence = requireViewContract(evidenceViewSchemaId);
+    const notes = requireViewContract(notesViewSchemaId);
+
+    expect(genericCellLabel(null)).toBe("None");
+    expect(genericCellLabel(true)).toBe("Yes");
+    expect(
+      genericCellLabel({
+        items: [
+          { display_text: "Display" },
+          { alias_text: "Alias" },
+          { tag_name: "Tag" },
+        ],
+      }),
+    ).toBe("Display, Alias, Tag");
+    expect(
+      genericCellLabelForField(
+        evidenceViewSchemaId,
+        "evidence.storage_ref",
+        "object://12345678-1234-4234-8234-123456789abc",
+      ),
+    ).toBe("Managed object");
+    expect(
+      collectionItemLabels([
+        { raw_text: "raw" },
+        { linked_record_id: "record-1" },
+        { item_ref: "item-1" },
+      ]),
+    ).toEqual(["raw", "record-1", "item-1"]);
+    expect(genericCreateMinimumMessage(evidenceViewSchemaId)).toBe(
+      "Evidence needs a title, storage ref, collector, or source.",
+    );
+    expect(genericCreateMinimumMessage("cartulary.view.unknown.v1")).toBe(
+      "At least one value is required.",
+    );
+    expect(genericContractColumnWidth(requireField(notes, "note.body"))).toBe(
+      320,
+    );
+    expect(
+      genericContractColumnWidth(requireField(evidence, "evidence.edited_at")),
+    ).toBe(180);
+  });
+
+  it("builds reference labels, party-link pairs, and collection item view models", () => {
+    const evidence = requireViewContract(evidenceViewSchemaId);
+    const commLog = requireViewContract(commLogViewSchemaId);
+    const row = {
+      record_id: "evidence-1",
+      row_version: 2,
+      cells: {
+        "evidence.title": { value: "Endpoint package" },
+        "evidence.related_records": {
+          value: {
+            items: [
+              { item_ref: "record-ref-1", display_text: "Record one" },
+              { item_ref: "record-ref-2", display_text: "" },
+              { display_text: "missing ref" },
+            ],
+          },
+        },
+      },
+    };
+
+    expect(genericRowLabel(evidence, row)).toBe(
+      "Endpoint package (evidence-1)",
+    );
+    expect(
+      genericReferenceOptionsFromRows(evidenceViewSchemaId, [row]),
+    ).toEqual([
+      {
+        recordId: "evidence-1",
+        label: "Endpoint package (evidence-1)",
+        viewSchemaId: evidenceViewSchemaId,
+      },
+    ]);
+    expect(
+      partyLinkPairsForContract(evidence).map((pair) => pair.label),
+    ).toEqual(["Collector", "Source"]);
+    expect(
+      partyLinkPairsForContract(commLog).some(
+        (pair) => pair.label === "Requester",
+      ),
+    ).toBe(false);
+    expect(genericCollectionItems(row, "evidence.related_records")).toEqual([
+      { itemRef: "record-ref-1", displayText: "Record one" },
+      { itemRef: "record-ref-2", displayText: "record-ref-2" },
+    ]);
+  });
+
+  it("keeps multiline detection, party email extraction, and mutation error parsing stable", () => {
+    const notes = requireViewContract(notesViewSchemaId);
+    expect(isMultilineGenericField(requireField(notes, "note.body"))).toBe(
+      true,
+    );
+    expect(extractEmailFromPartyText("Alice <alice@example.test>")).toBe(
+      "alice@example.test",
+    );
+    expect(extractEmailFromPartyText("No address")).toBeNull();
+    expect(
+      parseMutationError({
+        error: {
+          code: "row_version_conflict",
+          conflict: { field_key: "note.body" },
+        },
+      }),
+    ).toBe("row_version_conflict: note.body");
+    expect(
+      parseMutationError({
+        error: {
+          code: "validation_failed",
+          details: { reason_code: "missing_required_field" },
+        },
+      }),
+    ).toBe("validation_failed: missing_required_field");
   });
 });

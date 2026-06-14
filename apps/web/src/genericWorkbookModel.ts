@@ -1,6 +1,8 @@
-import type {
-  ViewContract,
-  ViewFieldContract,
+import type { WorkbookSurface } from "@cartulary/ui-contracts";
+import {
+  requireViewContract,
+  type ViewContract,
+  type ViewFieldContract,
 } from "@cartulary/view-contracts";
 import {
   commLogViewSchemaId,
@@ -16,10 +18,19 @@ import {
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
 } from "./workbookSurfaceRegistry";
+import type { EntityApiRow } from "./workbookTimelineModel";
+import { stringifyGridValue } from "./workbookValueFormat";
 
 export type GenericCollectionMode = "add" | "remove";
 
 const invalidGenericPayloadValue = Symbol("invalid generic payload value");
+
+export type PartyLinkPair = {
+  key: string;
+  label: string;
+  textFieldKey: string;
+  refFieldKey: string;
+};
 
 function normalizeValue(value: string): string {
   return value.trim();
@@ -256,4 +267,307 @@ export function isPartyRefCollection(fieldKey: string): boolean {
     fieldKey === "comm_log.audience_party_ids" ||
     fieldKey === "comm_log.attendee_party_ids"
   );
+}
+
+export function genericContractColumnWidth(field: ViewFieldContract): number {
+  if (field.fieldKey.endsWith(".body") || field.fieldKey.endsWith(".summary")) {
+    return 320;
+  }
+  if (
+    field.fieldKey.endsWith(".edited_at") ||
+    field.fieldKey.endsWith(".updated_at") ||
+    field.fieldKey.endsWith(".timestamp_utc")
+  ) {
+    return 180;
+  }
+  if (field.readKind === "collection") {
+    return 260;
+  }
+  return field.defaultHidden ? 160 : 220;
+}
+
+export function genericCellLabel(value: unknown): string {
+  if (value === null || value === undefined || value === "") {
+    return "None";
+  }
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+  if (typeof value === "object" && value !== null && "items" in value) {
+    const items = (value as { items?: unknown }).items;
+    if (Array.isArray(items)) {
+      const labels = collectionItemLabels(items);
+      if (labels.length > 0) {
+        return labels.join(", ");
+      }
+      return "None";
+    }
+  }
+  return JSON.stringify(value);
+}
+
+export function genericCellLabelForField(
+  surface: WorkbookSurface,
+  fieldKey: string,
+  value: unknown,
+): string {
+  if (
+    surface === evidenceViewSchemaId &&
+    fieldKey === "evidence.storage_ref" &&
+    typeof value === "string" &&
+    /^object:\/\/[0-9a-f-]+$/iu.test(value.trim())
+  ) {
+    return "Managed object";
+  }
+  return genericCellLabel(value);
+}
+
+export function collectionItemLabels(items: readonly unknown[]): string[] {
+  return items.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return [];
+    }
+    const raw = item as Record<string, unknown>;
+    const candidates = [
+      raw.display_text,
+      raw.alias_text,
+      raw.tag_name,
+      raw.raw_text,
+      raw.linked_record_id,
+      raw.record_id,
+      raw.item_ref,
+    ];
+    const label = candidates.find(
+      (value): value is string =>
+        typeof value === "string" && value.trim() !== "",
+    );
+    return label === undefined ? [] : [label];
+  });
+}
+
+export function genericCreateMinimumMessage(viewSchemaId: string): string {
+  switch (viewSchemaId) {
+    case partiesViewSchemaId:
+      return "Display name and kind are required.";
+    case notesViewSchemaId:
+      return "Title or body is required.";
+    case taskRequestsViewSchemaId:
+      return "Title and task kind are required.";
+    case decisionsViewSchemaId:
+      return "Summary, decision type, and rationale are required.";
+    case evidenceViewSchemaId:
+      return "Evidence needs a title, storage ref, collector, or source.";
+    case commLogViewSchemaId:
+      return "Type, audience, channel or meeting, and summary are required.";
+    case handoffViewSchemaId:
+      return "Incoming owner and current state summary are required.";
+    case statusReviewViewSchemaId:
+      return "Current state summary is required.";
+    case lessonViewSchemaId:
+      return "Summary is required.";
+    case findingsViewSchemaId:
+      return "Statement is required.";
+    case investigativeQueriesViewSchemaId:
+      return "Platform, purpose, and query text are required.";
+    case forensicKeywordsViewSchemaId:
+      return "Pattern and reason are required.";
+    default:
+      return "At least one value is required.";
+  }
+}
+
+export function genericReferenceOptionsFromRows(
+  viewSchemaId: string,
+  rows: EntityApiRow[],
+) {
+  return rows.map((row) => ({
+    recordId: row.record_id,
+    label: genericRowLabel(requireViewContract(viewSchemaId), row),
+    viewSchemaId,
+  }));
+}
+
+export function partyLinkPairsForContract(
+  contract: ViewContract,
+): PartyLinkPair[] {
+  const hasField = (fieldKey: string) => Boolean(contract.fieldMap[fieldKey]);
+  const pairs: PartyLinkPair[] = [];
+  if (
+    hasField("evidence.collector_party_text") &&
+    hasField("evidence.collector_party_id")
+  ) {
+    pairs.push({
+      key: "evidence.collector_party_text:evidence.collector_party_id",
+      label: "Collector",
+      textFieldKey: "evidence.collector_party_text",
+      refFieldKey: "evidence.collector_party_id",
+    });
+  }
+  if (
+    hasField("evidence.source_party_text") &&
+    hasField("evidence.source_party_id")
+  ) {
+    pairs.push({
+      key: "evidence.source_party_text:evidence.source_party_id",
+      label: "Source",
+      textFieldKey: "evidence.source_party_text",
+      refFieldKey: "evidence.source_party_id",
+    });
+  }
+  if (
+    hasField("task.requester_party_text") &&
+    hasField("task.requester_party_id")
+  ) {
+    pairs.push({
+      key: "task.requester_party_text:task.requester_party_id",
+      label: "Requester",
+      textFieldKey: "task.requester_party_text",
+      refFieldKey: "task.requester_party_id",
+    });
+  }
+  return pairs;
+}
+
+export function extractEmailFromPartyText(value: string): string | null {
+  const match = value.match(/[^\s<>@]+@[^\s<>@]+/u);
+  return match?.[0] ?? null;
+}
+
+export function genericRowLabel(
+  contract: ViewContract,
+  row: EntityApiRow,
+): string {
+  const preferredFieldKeys = [
+    "timeline.summary",
+    "host.display_name",
+    "host.hostname",
+    "identity.display_name",
+    "identity.upn",
+    "party.display_name",
+    "task.title",
+    "decision.summary",
+    "evidence.title",
+    "evidence.storage_ref",
+    "note.title",
+    "note.body",
+    "comm_log.summary",
+    "handoff.current_state_summary",
+    "status_review.current_state_summary",
+    "lesson.summary",
+    "finding.statement",
+    "investigative_query.purpose",
+    "investigative_query.query_text",
+    "forensic_keyword.pattern",
+  ];
+  for (const fieldKey of preferredFieldKeys) {
+    if (!contract.fieldMap[fieldKey]) {
+      continue;
+    }
+    const label = stringifyGridValue(row.cells[fieldKey]?.value).trim();
+    if (label !== "") {
+      return `${label} (${row.record_id})`;
+    }
+  }
+  return row.record_id;
+}
+
+export function genericCollectionSupportsRemove(_fieldKey: string): boolean {
+  return true;
+}
+
+export function genericCollectionItems(
+  row: EntityApiRow,
+  fieldKey: string,
+): Array<{ itemRef: string; displayText: string }> {
+  const value = row.cells[fieldKey]?.value;
+  if (!value || typeof value !== "object" || !("items" in value)) {
+    return [];
+  }
+  const rawItems = (value as { items?: unknown }).items;
+  if (!Array.isArray(rawItems)) {
+    return [];
+  }
+  return rawItems.flatMap((item) => {
+    if (!item || typeof item !== "object") {
+      return [];
+    }
+    const raw = item as Record<string, unknown>;
+    const itemRef = typeof raw.item_ref === "string" ? raw.item_ref : "";
+    if (itemRef === "") {
+      return [];
+    }
+    const displayText =
+      typeof raw.display_text === "string" && raw.display_text.trim() !== ""
+        ? raw.display_text
+        : itemRef;
+    return [{ itemRef, displayText }];
+  });
+}
+
+export function isMultilineGenericField(field: ViewFieldContract): boolean {
+  return (
+    field.stringContractId === "multiline_body_v1" ||
+    field.fieldKey.endsWith(".body") ||
+    field.fieldKey.endsWith(".notes") ||
+    field.fieldKey.endsWith(".rationale") ||
+    field.fieldKey.endsWith("_summary") ||
+    field.fieldKey.endsWith(".details")
+  );
+}
+
+function parseGenericErrorBase(payload: unknown): string {
+  if (!payload || typeof payload !== "object" || !("error" in payload)) {
+    return "Request failed.";
+  }
+  const error = payload.error;
+  if (!error || typeof error !== "object") {
+    return "Request failed.";
+  }
+  if ("code" in error && typeof error.code === "string") {
+    if (
+      "details" in error &&
+      error.details &&
+      typeof error.details === "object" &&
+      "reason_code" in error.details &&
+      typeof error.details.reason_code === "string"
+    ) {
+      return `${error.code}: ${error.details.reason_code}`;
+    }
+    return error.code;
+  }
+  if ("message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+  return "Request failed.";
+}
+
+export function parseMutationError(payload: unknown): string {
+  const base = parseGenericErrorBase(payload);
+  if (!payload || typeof payload !== "object" || !("error" in payload)) {
+    return base;
+  }
+  const error = payload.error;
+  if (!error || typeof error !== "object" || !("conflict" in error)) {
+    return base;
+  }
+  const conflict = error.conflict;
+  if (!conflict || typeof conflict !== "object") {
+    return base;
+  }
+  const fieldKey =
+    "field_key" in conflict && typeof conflict.field_key === "string"
+      ? conflict.field_key
+      : null;
+  return fieldKey ? `${base}: ${fieldKey}` : base;
+}
+
+export function enumValuesFor(
+  contract: ViewContract,
+  fieldKey: string,
+  fallback: readonly string[],
+): readonly string[] {
+  return contract.fieldMap[fieldKey]?.enumValues ?? fallback;
 }

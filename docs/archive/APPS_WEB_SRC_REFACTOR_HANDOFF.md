@@ -59,11 +59,11 @@ Update the status cells in place while executing the refactor.
 
 | Sprint | Refactor objectives | Implementation status | Validation status |
 | --- | --- | --- | --- |
-| 1. Characterize behavior and pin regression coverage | Record current Core 03 behavior, identify coverage for workbook open/default surface, views, saves, conflicts, paste, keyboard, grouping, evidence, mentions, history, rollback, and presence. | Not started | Not run |
-| 2. Extract pure utilities and model helpers | Move behavior-free row normalization, cell readers, patch builders, labels, widths, messages, merge planning, and mutation error parsing out of large components. | Not started | Not run |
-| 3. Decompose `WorkbookShell` plus entity/generic/assessment surfaces | Reduce shell and non-Timeline surfaces to composition over hooks and focused controls. | Not started | Not run |
-| 4. Extract Timeline runtime hooks and mutation/live-update flows | Isolate Timeline pending queue orchestration, WebSocket/live updates, conflicts, history, mentions, evidence attach, paste, keyboard, focus, and presence. | Not started | Not run |
-| 5. Extract Timeline presentation seams and finalize shell cleanup | Move Timeline render builders, notices, presence markers, inspector sections, and status wiring into focused components; leave `TimelineWorkbook.tsx` as an assembler. | Not started | Not run |
+| 1. Characterize behavior and pin regression coverage | Record current Core 03 behavior, identify coverage for workbook open/default surface, views, saves, conflicts, paste, keyboard, grouping, evidence, mentions, history, rollback, and presence. | Complete - current behavior was reconciled against existing phase and model suites before production movement. | Pass - `make frontend-unit` passed at `.cartulary/test-results/20260614T141151Z-p70526` before extraction work. |
+| 2. Extract pure utilities and model helpers | Move behavior-free row normalization, cell readers, patch builders, labels, widths, messages, merge planning, and mutation error parsing out of large components. | Complete - pure entity, generic, assessment, and Timeline row/payload helpers moved to model modules with focused tests. | Pass - `make frontend-typecheck` passed at `.cartulary/test-results/20260614T143846Z-p83668`; `make frontend-unit` passed at `.cartulary/test-results/20260614T143943Z-p85900`. |
+| 3. Decompose `WorkbookShell` plus entity/generic/assessment surfaces | Reduce shell and non-Timeline surfaces to composition over hooks and focused controls. | Complete - generic reference loading, assessment support loading, entity Timeline preview loading, and generic mutation controls moved behind focused hooks/components. | Pass - `make frontend-typecheck` passed at `.cartulary/test-results/20260614T144759Z-p90540`; `make frontend-unit` passed at `.cartulary/test-results/20260614T144810Z-p90936`. |
+| 4. Extract Timeline runtime hooks and mutation/live-update flows | Isolate Timeline pending queue orchestration, WebSocket/live updates, conflicts, history, mentions, evidence attach, paste, keyboard, focus, and presence. | Complete - existing Timeline runtime hooks were reconciled and reused; committed-row freshness/load sequencing, history state, and inspector selection were moved into focused hooks without grid markup. | Mixed - fast checks passed; `make phase-slice PHASE=phase4` failed only in browser visual screenshot `V-4-GRID-01`, documented below. |
+| 5. Extract Timeline presentation seams and finalize shell cleanup | Move Timeline render builders, notices, presence markers, inspector sections, and status wiring into focused components; leave `TimelineWorkbook.tsx` as an assembler. | Complete - Timeline notices and presence markers were moved into focused presentation components; existing grid, inspector, row action, conflict, evidence, history, and status components remain the presentation seams. | Mixed - fast checks, import boundary, lint, a11y preflight, phase 8, phase 9, and `agent-finalize` passed; phase 3 and phase 4 visual screenshot diffs are documented below. |
 
 # Ordered implementation plan by sprint
 
@@ -237,25 +237,48 @@ make check
 
 # Workbook-shell regression checklist
 
-- [ ] Workbook open/default surface.
-- [ ] Built-in/system view switching.
-- [ ] Saved-view switching.
-- [ ] Scalar edit/save-state.
-- [ ] Timeline paste.
-- [ ] Keyboard navigation.
-- [ ] Selected row/focused cell preservation.
-- [ ] Conflict display/resolution.
-- [ ] Mention states.
-- [ ] Evidence attach/preview/download states.
-- [ ] Row history/rollback/destructive controls.
-- [ ] Presence anchoring.
-- [ ] Grouped result.
-- [ ] Frozen column.
-- [ ] Resize handle.
-- [ ] Fill-down handle.
-- [ ] Edit cell.
-- [ ] Empty result.
-- [ ] Save-state strip.
+- [x] Workbook open/default surface - pinned by `WorkbookShell.surfaces.test.tsx` startup/default surface cases and `workbookStartup.test.ts`.
+- [x] Built-in/system view switching - pinned by `WorkbookShell.surfaces.test.tsx` and `workbookSurfaceRegistry.test.ts`.
+- [x] Saved-view switching - pinned by `WorkbookShell.surfaces.test.tsx`, `workbookSavedViews.test.ts`, and `workbookSavedViewRuntime.test.ts`.
+- [x] Scalar edit/save-state - pinned by `WorkbookShell.phase3.autosave.test.tsx`, `WorkbookShell.phase4.saveState.test.tsx`, and `workbookPendingQueue.test.ts`.
+- [x] Timeline paste - pinned by `WorkbookShell.phase3.autosave.test.tsx`, `WorkbookShell.phase9.sentinel.test.tsx`, and `workbookClipboard.test.ts`.
+- [x] Keyboard navigation - pinned by `WorkbookShell.phase9.sentinel.test.tsx` and `workbookKeyboard.test.ts`.
+- [x] Selected row/focused cell preservation - pinned by `WorkbookShell.phase6.test.tsx`, `WorkbookShell.phase7.test.tsx`, `WorkbookShell.phase9.inspector.test.tsx`, `WorkbookShell.phase9.sentinel.test.tsx`, and `workbookContinuity.test.ts`.
+- [x] Conflict display/resolution - pinned by `WorkbookShell.phase6.test.tsx`, `WorkbookShell.phase7.test.tsx`, `timelineConflictModel.test.ts`, and `workbookPendingQueue.test.ts`.
+- [x] Mention states - pinned by `WorkbookShell.phase5.mentionChips.test.ts`, `WorkbookShell.phase5.gridProvenance.test.tsx`, and `WorkbookShell.phase9.inspector.test.tsx`.
+- [x] Evidence attach/preview/download states - pinned by `WorkbookShell.surfaces.test.tsx`, `WorkbookShell.phase5.test.tsx`, `workbookEvidence.test.ts`, and `evidenceLifecycleViewModel.test.ts`.
+- [x] Row history/rollback/destructive controls - pinned by `WorkbookShell.phase7.test.tsx` and `WorkbookShell.phase9.inspector.test.tsx`.
+- [x] Presence anchoring - pinned by `WorkbookShell.phase6.test.tsx` and `workbookPresence.ts` call-site coverage in Timeline rendering tests.
+- [x] Grouped result - pinned by `WorkbookShell.phase8.query.test.tsx`, `WorkbookShell.phase9.sentinel.test.tsx`, and `workbookQuery.test.ts`.
+- [x] Frozen column - pinned by grid adapter and shell phase 9 anchor tests covering row/action column anchoring.
+- [x] Resize handle - pinned by existing Timeline/editor component rendering coverage and typechecked style contracts.
+- [x] Fill-down handle - pinned as preserved grid-adapter capability by phase 9 anchor and paste target coverage.
+- [x] Edit cell - pinned by `WorkbookShell.phase3.grid.test.tsx`, `WorkbookShell.phase3.autosave.test.tsx`, and `WorkbookShell.phase9.sentinel.test.tsx`.
+- [x] Empty result - pinned by workbook surface/query tests that keep controls mounted through empty or failed query states.
+- [x] Save-state strip - pinned by `WorkbookShell.phase4.saveState.test.tsx`, `WorkbookShell.phase6.test.tsx`, and `WorkbookStatusStrip.tsx` usage.
+
+# Behavior inventory and validation notes
+
+- 2026-06-14 sprint 1 inventory: Existing coverage already pins the requested hot paths across `WorkbookShell.phase3.*`, `WorkbookShell.phase4.*`, `WorkbookShell.phase5.*`, `WorkbookShell.phase6.test.tsx`, `WorkbookShell.phase7.test.tsx`, `WorkbookShell.phase8.query.test.tsx`, `WorkbookShell.phase9.*`, `WorkbookShell.surfaces.test.tsx`, `WorkbookShell.assessments.test.tsx`, and pure model suites for startup, saved views, query, clipboard, keyboard, continuity, queue, socket lifecycle, evidence, conflict parsing, and reference options. No production logic was moved during sprint 1.
+- 2026-06-14 sprint 1 validation: `make task-guide ROLE=feature-dev PHASE=phase3`, `phase4`, `phase8`, and `phase9` passed and identified frontend unit plus phase slices as the narrow behavior gates. `make frontend-unit` passed in 12.9s with run root `.cartulary/test-results/20260614T141151Z-p70526`.
+- 2026-06-14 risk decision: Treat existing phase/browser-service guidance as sufficient to begin pure extraction. Service-backed and browser checks are deferred until stateful or focus/layout-bearing production code moves in sprints 3 through 5.
+- 2026-06-14 sprint 2 inventory: Added `entityWorkbookModel.ts`, `assessmentWorkbookModel.ts`, and `workbookTimelineModel.test.ts`; expanded `genericWorkbookModel.ts` and `genericWorkbookModel.test.ts`. `WorkbookShell.tsx` now imports entity row mapping, merge planning, generic labels/messages/reference helpers, assessment defaults, and Timeline row normalization from model owners. `TimelineWorkbook.tsx` now imports Timeline field bindings, row normalization, patch shaping, evidence payloads, focus-key formatting, and relationship labels from `workbookTimelineModel.ts`. No React state, DOM, fetch, WebSocket, or grid markup was moved into pure modules.
+- 2026-06-14 sprint 2 validation: Initial `make frontend-typecheck` failed at `.cartulary/test-results/20260614T142633Z-p77041` due to unused imports after the first extraction; fixed. A later typecheck failed at `.cartulary/test-results/20260614T143802Z-p83007` due to missing moved imports and a narrow test cast; fixed. `make frontend-typecheck` passed at `.cartulary/test-results/20260614T143846Z-p83668`. Initial `make frontend-unit` failed at `.cartulary/test-results/20260614T143900Z-p84076` because the new Timeline model test fixture omitted required projection cells; fixed. `make frontend-unit` passed at `.cartulary/test-results/20260614T143943Z-p85900`.
+- 2026-06-14 risk decision: Pure model moves are considered covered by focused unit tests plus the existing frontend unit suite. Stateful shell and Timeline behavior remains in the large components until sprints 3 and 4, where phase slices are required.
+- 2026-06-14 sprint 3 inventory: Added `useGenericReferenceOptions.ts`, `useAssessmentSupportRows.ts`, `useEntityTimelinePreview.ts`, and `GenericMutationControl.tsx`. `WorkbookShell.tsx` now delegates generic reference loading, assessment support-row lookup, entity Timeline preview loading, and generic mutation input rendering to focused boundaries. Saved-view, startup/default, query, latest-query, focus, and Core 03 shell decisions remain in `WorkbookShell.tsx` or existing shell runtime/query modules; no runtime route contract, generated artifact, Core doc, lockfile, or migration changed.
+- 2026-06-14 sprint 3 validation: `make frontend-typecheck` initially failed at `.cartulary/test-results/20260614T144719Z-p89923` because extraction left unused shell types; fixed. `make frontend-typecheck` passed at `.cartulary/test-results/20260614T144759Z-p90540`. `make frontend-unit` passed at `.cartulary/test-results/20260614T144810Z-p90936`.
+- 2026-06-14 risk decision: Sprint 3 moved state/effect boundaries but did not change grid markup contracts or browser focus semantics. Phase slices remain required after Timeline runtime/presentation extractions because those touch higher-risk Core 03 collaboration and keyboard paths.
+- 2026-06-14 sprint 4 inventory: Added `useTimelineCommittedRows.ts`, `useTimelineHistoryState.ts`, and `useTimelineInspectorSelection.ts`. `TimelineWorkbook.tsx` now delegates committed-row version refs and freshness bookkeeping, row-history state/pending action state, and selected-row/mention derivation to focused hooks. Existing `useTimelineRows`, `useTimelineConflicts`, `useTimelineMentions`, `useTimelineEvidenceActions`, `useTimelineLiveUpdates`, `useTimelinePendingSaves`, `useTimelineGridInteractions`, and `useTimelineWorkbookRuntime` remain the runtime owners for rows, conflicts, mentions, evidence actions, WebSocket/live update state, pending replay, grid refs, and workbook runtime state. New hooks expose typed state/commands and do not own grid markup.
+- 2026-06-14 sprint 4 validation: `make frontend-typecheck` passed at `.cartulary/test-results/20260614T145234Z-p94375`. `make frontend-unit` passed at `.cartulary/test-results/20260614T145246Z-p94777`.
+- 2026-06-14 risk decision: Sprint 4 did not rewrite mutation submission, pending replay admission, socket message handling, conflict resolution, mention actions, evidence attach, paste, keyboard, focus/scroll continuity, rollback, or presence transport. Those flows stayed in existing runtime hooks or the Timeline assembler while their surrounding state ownership was reduced, preserving Core 03 behavior before presentation extraction.
+- 2026-06-14 sprint 5 inventory: Added `TimelineWorkbookNotices.tsx` and `TimelinePresenceMarkers.tsx`. Auto-resolution notice markup, pending queue notice markup, cell presence markers, and row gutter presence markers moved out of `TimelineWorkbook.tsx`; undo/review, current-row lookup, mention mutation submission, queue state, and presence filtering remain in the Timeline assembler or existing runtime hooks. `WorkbookShell.tsx` is reduced to 4136 lines and `TimelineWorkbook.tsx` is reduced to 6073 lines after sprints 1 through 5.
+- 2026-06-14 sprint 5 validation: `make frontend-typecheck` passed at `.cartulary/test-results/20260614T150118Z-p1651`. `make frontend-unit` passed at `.cartulary/test-results/20260614T150127Z-p2041`.
+- 2026-06-14 sprint 5 follow-up extraction: `useTimelineCommittedRows.ts` now owns committed-row freshness decisions, accepted row versions, query-load epoch checks, load sequencing, and loaded-state commands. This was done after Biome correctly identified that raw committed-row refs in `TimelineWorkbook.tsx` left hook dependencies unclear. `TimelineWorkbook.tsx` now uses typed committed-row commands and no longer owns those ref internals.
+- 2026-06-14 final fast validation: `make lint-biome` passed at `.cartulary/test-results/20260614T151342Z-p13469`; `make frontend-typecheck` passed at `.cartulary/test-results/20260614T151349Z-p13884`; `make frontend-import-boundary-check` passed at `.cartulary/test-results/20260614T151349Z-p13906`; `make frontend-unit` passed at `.cartulary/test-results/20260614T151402Z-p14634`.
+- 2026-06-14 phase and browser validation: `make phase-slice PHASE=phase8` passed at `.cartulary/test-results/20260614T151913Z-p48859`; `make phase-slice PHASE=phase9` passed at `.cartulary/test-results/20260614T151957Z-p63144`; `make browser-e2e-a11y-preflight` passed at `.cartulary/test-results/20260614T152040Z-p73926`.
+- 2026-06-14 documented validation failures: `make phase-slice PHASE=phase3` failed at `.cartulary/test-results/20260614T151428Z-p16322` because `browser-e2e-visual` reported screenshot diffs for `V-3-GRID-01`, `V-3-GRID-02`, and `V-3-GRID-03`; affected artifacts include `browser-e2e-visual/browser-e2e-visual-phase3-authoritative/playwright-output/*/v-3-grid-*-actual.png` and matching `*-diff.png` files. `make phase-slice PHASE=phase4` failed at `.cartulary/test-results/20260614T151822Z-p35642` because `browser-e2e-visual` reported a screenshot diff for `V-4-GRID-01`; affected artifacts include `browser-e2e-visual/browser-e2e-visual-phase4-authoritative/playwright-output/workbook.visual-Phase-4-wo-e0445--chips-in-the-workbook-grid/v-4-grid-01-mention-chips-actual.png` and `v-4-grid-01-mention-chips-diff.png`. The phase 3 visual diffs are small pixel-ratio mismatches around Timeline grid text rendering/clipping; the phase 4 diff is a mention-chip visual golden mismatch. Non-visual phase children inspected in the summaries passed. Next action is to follow `docs/guides/cartulary_visual_golden_maintenance.md` or investigate current browser/font rendering before any golden update; no golden files were changed in this refactor.
+- 2026-06-14 finalization: `make agent-finalize` passed at `.cartulary/test-results/20260614T152130Z-p83712`; generated output was unchanged. Retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+- 2026-06-14 risk decision: Sprint 5 preserved notice and presence test IDs, ARIA labels, text, and local style values while moving presentation ownership. It did not change route contracts, Core docs, generated artifacts, lockfiles, migrations, visual goldens, or product-conformance evidence. The remaining risk is documented visual golden drift in phase 3 and phase 4 browser visual checks.
 
 # Assumptions and defaults
 

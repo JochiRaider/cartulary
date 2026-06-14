@@ -10,10 +10,6 @@ import {
   resolveGridPasteTargets,
 } from "@cartulary/grid-adapter";
 import {
-  autoResolutionNoticeTestId,
-  autoResolutionReviewButtonTestId,
-  autoResolutionUndoButtonTestId,
-  cellPresenceMarkerTestId,
   conflictMarkerTestId,
   dataTestIdSelector,
   draftCellTestId,
@@ -25,12 +21,9 @@ import {
   gridRowTestId,
   gridScrollportSelector,
   gridSortHeaderTestId,
-  pendingQueueCountTestId,
-  pendingQueueNoticeTestId,
   relationshipItemsTestId,
   rowCellTestId,
   rowInspectButtonTestId,
-  rowPresenceMarkerTestId,
   timelineCollectionInputTestId,
   timelineInspectorSectionTestId,
   timelineMutationSubstrateReadyTestId,
@@ -39,11 +32,8 @@ import {
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 import {
-  normalizeViewRowPatchV1,
-  normalizeViewRowV1,
   requireViewContract,
   resolveHeaderSortFieldKey,
-  visibleFields,
 } from "@cartulary/view-contracts";
 import {
   type Dispatch,
@@ -74,19 +64,26 @@ import {
   type RecordHistoryData,
   type RecordHistoryItem,
   type RecordHistoryRollbackAction,
-  type RecordHistoryState,
   type RowHistoryPendingAction,
   TimelineHistoryPanel,
 } from "./TimelineHistoryPanel";
+import {
+  TimelineCellPresenceMarker,
+  TimelineRowGutterContent,
+} from "./TimelinePresenceMarkers";
 import { TimelineRowActions } from "./TimelineRowActions";
 import { TimelineWorkbookInspector } from "./TimelineWorkbookInspector";
+import { TimelineWorkbookNotices } from "./TimelineWorkbookNotices";
 import { parseSameFieldConflict } from "./timelineConflictModel";
+import { useTimelineCommittedRows } from "./useTimelineCommittedRows";
 import { useTimelineConflicts } from "./useTimelineConflicts";
 import { useTimelineEvidenceActions } from "./useTimelineEvidenceActions";
 import {
   type TimelineGridInteractionRefs,
   useTimelineGridInteractions,
 } from "./useTimelineGridInteractions";
+import { useTimelineHistoryState } from "./useTimelineHistoryState";
+import { useTimelineInspectorSelection } from "./useTimelineInspectorSelection";
 import {
   type TimelineLiveUpdateRefs,
   type TimelinePresenceDraft,
@@ -126,12 +123,9 @@ import {
 import {
   type AutoResolutionNotice,
   buildAutoResolutionNotices,
-  buildInspectorMentions,
   type CollectionItem,
   type DismissedMention,
   type InspectorMention,
-  type RelationshipFieldKey,
-  readCollectionItems,
 } from "./workbookMentionChips";
 import {
   buildStableMutationSignature,
@@ -145,10 +139,8 @@ import {
   type WorkbookSaveStateConflictAnchor,
 } from "./workbookPendingQueue";
 import {
-  displayInitials,
   isPresenceRecord,
   presenceMatchesSheet,
-  visiblePresence,
   type WorkbookPresenceInput,
   type WorkbookPresenceMode,
 } from "./workbookPresence";
@@ -180,25 +172,49 @@ import {
   timelineViewSchemaId,
 } from "./workbookSurfaceRegistry";
 import {
+  applyViewRowPatch,
   buildAssessmentCreatePayload,
+  buildAttachedEvidenceCreatePayload,
+  buildAttachedEvidencePatchPayload,
+  buildCollectionPatchIntent,
   buildCreatePayload,
+  buildScalarPatchIntent,
   type CollectionDraftKey,
-  type CollectionDrafts,
   type CollectionFieldKey,
   clipboardTextLooksTabular,
   confidenceScoreFromBand,
   createDraftRow,
+  createDraftRowForKey,
   decideWorkbookRecordFreshness,
-  type EditableField,
   type EntityApiRow,
   ensureDraftRow,
   type FocusFieldKey,
+  inputFocusKey,
   type LocalConflictState,
+  materializePendingReplayPayload,
+  normalizeTimelineFullRow,
+  normalizeTimelinePatchCells,
   type RowValues,
+  readTimelineCellValue,
+  rowFromApi,
   type SameFieldConflictPayload,
   type TagCollectionItem,
-  type TimelineApiRow,
+  type TimelineCollectionBinding,
   type TimelineConflictResolution,
+  type TimelinePatchCells,
+  type TimelineScalarBinding,
+  type TimelineScalarEditorSurface,
+  timelineColumnWidth,
+  timelineFieldBinding,
+  timelineFocusFieldForFieldKey,
+  timelineGroupLabel,
+  timelineInspectorBindings,
+  timelineRelationshipLabel,
+  timelineScalarBindingForField,
+  timelineScalarBindings,
+  timelineScalarEditorSurfaces,
+  timelineVisibleBindings,
+  validateTimelineViewSchemaId,
   type WorkbookRecordFreshnessDecision,
   type WorkbookRow,
   type WorkbookVersionedRecord,
@@ -569,167 +585,6 @@ type LoadRowsOptions = {
   viewportContinuityToken?: number;
 };
 
-type TimelineScalarBinding = {
-  kind: "scalar";
-  fieldKey: EditableField;
-  key: keyof RowValues;
-  multiline?: boolean;
-};
-
-type TimelineCollectionBinding = {
-  kind: "collection";
-  fieldKey: CollectionFieldKey;
-  draftKey: CollectionDraftKey;
-  collectionKind: "relationship" | "tag";
-  entityType?: "host" | "identity";
-};
-
-type TimelineReadonlyBinding = {
-  kind: "readonly";
-  fieldKey: string;
-};
-
-type TimelineFieldBinding =
-  | TimelineScalarBinding
-  | TimelineCollectionBinding
-  | TimelineReadonlyBinding;
-type TimelineScalarEditorSurface = "grid" | "inspector";
-const timelineScalarEditorSurfaces: readonly TimelineScalarEditorSurface[] = [
-  "grid",
-  "inspector",
-];
-
-const timelineScalarBindingIndex: Record<EditableField, TimelineScalarBinding> =
-  {
-    "timeline.occurred_at": {
-      kind: "scalar",
-      fieldKey: "timeline.occurred_at",
-      key: "occurredAt",
-    },
-    "timeline.summary": {
-      kind: "scalar",
-      fieldKey: "timeline.summary",
-      key: "summary",
-    },
-    "timeline.details": {
-      kind: "scalar",
-      fieldKey: "timeline.details",
-      key: "details",
-      multiline: true,
-    },
-    "timeline.source_text": {
-      kind: "scalar",
-      fieldKey: "timeline.source_text",
-      key: "sourceText",
-      multiline: true,
-    },
-  };
-
-const timelineCollectionBindingIndex: Record<
-  CollectionFieldKey,
-  TimelineCollectionBinding
-> = {
-  "timeline.host_refs": {
-    kind: "collection",
-    fieldKey: "timeline.host_refs",
-    draftKey: "hostRefs",
-    collectionKind: "relationship",
-    entityType: "host",
-  },
-  "timeline.identity_refs": {
-    kind: "collection",
-    fieldKey: "timeline.identity_refs",
-    draftKey: "identityRefs",
-    collectionKind: "relationship",
-    entityType: "identity",
-  },
-  "timeline.tags": {
-    kind: "collection",
-    fieldKey: "timeline.tags",
-    draftKey: "tags",
-    collectionKind: "tag",
-  },
-};
-
-const timelineInspectorEditableFields: readonly EditableField[] = [
-  "timeline.details",
-  "timeline.source_text",
-];
-
-function timelineFieldBinding(fieldKey: string): TimelineFieldBinding {
-  if (fieldKey in timelineScalarBindingIndex) {
-    return timelineScalarBindingIndex[fieldKey as EditableField];
-  }
-  if (fieldKey in timelineCollectionBindingIndex) {
-    return timelineCollectionBindingIndex[fieldKey as CollectionFieldKey];
-  }
-  return {
-    kind: "readonly",
-    fieldKey,
-  };
-}
-
-const timelineVisibleBindings: readonly TimelineFieldBinding[] = visibleFields(
-  timelineContract,
-).map((field) => timelineFieldBinding(field.fieldKey));
-const timelineInspectorBindings: readonly TimelineScalarBinding[] =
-  timelineInspectorEditableFields.map(
-    (fieldKey) => timelineFieldBinding(fieldKey) as TimelineScalarBinding,
-  );
-
-function timelineScalarBindingForField(
-  fieldKey: string,
-): TimelineScalarBinding | null {
-  const binding = timelineFieldBinding(fieldKey);
-  return binding.kind === "scalar" ? binding : null;
-}
-
-function timelineFocusFieldForFieldKey(fieldKey: string): FocusFieldKey | null {
-  const binding = timelineFieldBinding(fieldKey);
-  if (binding.kind === "scalar") {
-    return binding.key;
-  }
-  if (binding.kind === "collection") {
-    return binding.draftKey;
-  }
-  return null;
-}
-
-function timelineColumnWidth(fieldKey: string): number {
-  switch (fieldKey) {
-    case "timeline.occurred_at":
-    case "timeline.edited_at":
-      return 180;
-    case "timeline.summary":
-      return 320;
-    case "timeline.host_refs":
-      return 300;
-    case "timeline.identity_refs":
-      return 320;
-    case "timeline.evidence_count":
-      return 112;
-    case "timeline.tags":
-      return 240;
-    default:
-      return 224;
-  }
-}
-
-function emptyCollectionDrafts(): CollectionDrafts {
-  return {
-    hostRefs: "",
-    identityRefs: "",
-    tags: "",
-  };
-}
-
-function createDraftRowForKey(rowKey: string): WorkbookRow | null {
-  if (!rowKey.startsWith("draft-")) {
-    return null;
-  }
-  return { ...createDraftRow(0), key: rowKey };
-}
-
 function normalizeValue(value: string): string {
   return value.trim();
 }
@@ -752,171 +607,6 @@ function recordWorkbookTiming(
   };
   probe.events.push(event);
   probe.mark?.(event);
-}
-
-function readStringCell(
-  row: TimelineApiRow | EntityApiRow,
-  fieldKey: string,
-): string {
-  const raw = row.cells[fieldKey]?.value;
-  return typeof raw === "string" ? raw : "";
-}
-
-function readCellValue(
-  row: TimelineApiRow | EntityApiRow | null,
-  fieldKey: string,
-): unknown {
-  return row?.cells[fieldKey]?.value ?? null;
-}
-
-function readTagItems(row: TimelineApiRow): TagCollectionItem[] {
-  const raw = row.cells["timeline.tags"]?.value;
-  const value =
-    raw &&
-    typeof raw === "object" &&
-    !Array.isArray(raw) &&
-    "items" in raw &&
-    Array.isArray(raw.items)
-      ? raw.items
-      : [];
-  return value
-    .map((item, index) => {
-      if (!item || typeof item !== "object") {
-        return null;
-      }
-      const object = item as Record<string, unknown>;
-      const rawText =
-        typeof object.raw_text === "string"
-          ? object.raw_text
-          : typeof object.display_text === "string"
-            ? object.display_text
-            : "";
-      if (rawText === "") {
-        return null;
-      }
-      return {
-        itemRef:
-          typeof object.item_ref === "string"
-            ? object.item_ref
-            : `tag-item-${index}:${rawText}`,
-        itemKind:
-          typeof object.item_kind === "string" ? object.item_kind : "tag",
-        displayText:
-          typeof object.display_text === "string"
-            ? object.display_text
-            : rawText,
-        rawText,
-      };
-    })
-    .filter((item): item is TagCollectionItem => item !== null);
-}
-
-function timelineGroupLabel(row: WorkbookRow, fieldKey: string) {
-  const value = stringifyGridValue(readCellValue(row.rawRow, fieldKey)).trim();
-  return value === "" ? "Unassigned" : value;
-}
-
-function validateTimelineViewSchemaId(value: unknown, source: string) {
-  if (value !== timelineViewSchemaId) {
-    throw new Error(
-      `Timeline view row envelope failed: ${source} view_schema_id must be ${timelineViewSchemaId}.`,
-    );
-  }
-}
-
-function materializeTimelineCells(
-  cells: Readonly<Record<string, { readonly value: unknown }>>,
-): Record<string, { value: unknown }> {
-  return Object.fromEntries(
-    Object.entries(cells).map(([fieldKey, cell]) => [
-      fieldKey,
-      { value: cell.value },
-    ]),
-  );
-}
-
-function normalizeTimelineFullRow(
-  row: unknown,
-  source: string,
-): TimelineApiRow {
-  const normalized = normalizeViewRowV1(timelineContract, row, source);
-  return {
-    view_schema_id: normalized.viewSchemaId,
-    record_id: normalized.recordId,
-    row_version: normalized.rowVersion,
-    cells: materializeTimelineCells(normalized.cells),
-    ...(normalized.groupValues === undefined
-      ? {}
-      : { group_values: { ...normalized.groupValues } }),
-  };
-}
-
-type TimelinePatchCells = NonNullable<
-  RecordChangedPayload["affected_views"][number]["patch_cells"]
->;
-
-function normalizeTimelinePatchCells(
-  patch: unknown,
-  source: string,
-): TimelinePatchCells {
-  const normalized = normalizeViewRowPatchV1(timelineContract, patch, source);
-  return {
-    record_id: normalized.recordId,
-    row_version: normalized.rowVersion,
-    cells: materializeTimelineCells(normalized.cells),
-    ...(normalized.groupValues === undefined
-      ? {}
-      : { group_values: { ...normalized.groupValues } }),
-  };
-}
-
-function rowFromApi(row: TimelineApiRow): WorkbookRow {
-  const values: RowValues = {
-    occurredAt: readStringCell(row, "timeline.occurred_at"),
-    summary: readStringCell(row, "timeline.summary"),
-    details: readStringCell(row, "timeline.details"),
-    sourceText: readStringCell(row, "timeline.source_text"),
-  };
-
-  return {
-    key: row.record_id,
-    recordId: row.record_id,
-    rowVersion: row.row_version,
-    viewSchemaId: row.view_schema_id,
-    captureState: readStringCell(row, "timeline.capture_state"),
-    values,
-    committedValues: values,
-    collectionValues: {
-      hostRefs: readCollectionItems(row, "timeline.host_refs"),
-      identityRefs: readCollectionItems(row, "timeline.identity_refs"),
-      tags: readTagItems(row),
-    },
-    collectionDrafts: emptyCollectionDrafts(),
-    pendingSignature: null,
-    rawRow: row,
-  };
-}
-
-function applyViewRowPatch(
-  row: TimelineApiRow,
-  patch: TimelinePatchCells,
-): TimelineApiRow {
-  return {
-    ...row,
-    row_version: patch.row_version,
-    cells: {
-      ...row.cells,
-      ...patch.cells,
-    },
-    ...(patch.group_values
-      ? {
-          group_values: {
-            ...(row.group_values ?? {}),
-            ...patch.group_values,
-          },
-        }
-      : {}),
-  };
 }
 
 function resolveGridScrollElement(
@@ -975,7 +665,7 @@ function rowWithMaterializedScalarDrafts(
   },
 ): WorkbookRow {
   let nextValues: RowValues | null = null;
-  for (const binding of Object.values(timelineScalarBindingIndex)) {
+  for (const binding of timelineScalarBindings) {
     let draftValue =
       preferred?.field === binding.key ? preferred.value : undefined;
     if (draftValue === undefined) {
@@ -1060,148 +750,6 @@ function reconcileCommittedRowsWithLocalDrafts({
   };
 }
 
-function buildCollectionActions(
-  fieldKey: CollectionFieldKey,
-  rawInput: string,
-) {
-  const actions = rawInput
-    .split(/\r?\n/u)
-    .filter((segment) => segment.trim() !== "")
-    .map((rawText) =>
-      fieldKey === "timeline.tags"
-        ? {
-            op: "add_tag",
-            tag_name: rawText,
-          }
-        : {
-            op: "add_token",
-            raw_text: rawText,
-          },
-    );
-  if (actions.length < 1) {
-    return null;
-  }
-  return {
-    kind: "collection_actions_v1",
-    actions,
-  };
-}
-
-function buildScalarPatchIntent(row: WorkbookRow, clientTxnId: string) {
-  const changes = Object.values(timelineScalarBindingIndex)
-    .map((field) => {
-      const current = normalizeValue(row.values[field.key]);
-      const committed = normalizeValue(row.committedValues[field.key]);
-      if (current === committed) {
-        return null;
-      }
-      return {
-        field_key: field.fieldKey,
-        value: current === "" ? null : current,
-      };
-    })
-    .filter(
-      (change): change is { field_key: EditableField; value: string | null } =>
-        change !== null,
-    )
-    .sort((left, right) => left.field_key.localeCompare(right.field_key));
-
-  if (changes.length < 1) {
-    return null;
-  }
-
-  return {
-    view_schema_id: timelineViewSchemaId,
-    client_txn_id: clientTxnId,
-    changes,
-  };
-}
-
-function buildCollectionPatchIntent(
-  fieldKey: CollectionFieldKey,
-  draftValue: string,
-  clientTxnId: string,
-) {
-  const actionPayload = buildCollectionActions(fieldKey, draftValue);
-  if (actionPayload === null) {
-    return null;
-  }
-
-  return {
-    view_schema_id: timelineViewSchemaId,
-    client_txn_id: clientTxnId,
-    changes: [
-      {
-        field_key: fieldKey,
-        action_payload: actionPayload,
-      },
-    ],
-  };
-}
-
-function buildAttachedEvidenceCreatePayload(
-  evidenceRecordId: string,
-  clientTxnId: string,
-) {
-  return {
-    client_txn_id: clientTxnId,
-    "timeline.attached_evidence_ids": {
-      kind: "collection_actions_v1",
-      actions: [
-        {
-          op: "add_record_ref",
-          linked_record_id: evidenceRecordId,
-        },
-      ],
-    },
-  };
-}
-
-function buildAttachedEvidencePatchPayload(
-  row: WorkbookRow,
-  evidenceRecordId: string,
-  clientTxnId: string,
-) {
-  if (row.rowVersion === null) {
-    return null;
-  }
-  return {
-    view_schema_id: timelineViewSchemaId,
-    base_row_version: row.rowVersion,
-    client_txn_id: clientTxnId,
-    changes: [
-      {
-        field_key: "timeline.attached_evidence_ids",
-        action_payload: {
-          kind: "collection_actions_v1",
-          actions: [
-            {
-              op: "add_record_ref",
-              linked_record_id: evidenceRecordId,
-            },
-          ],
-        },
-      },
-    ],
-  };
-}
-
-function materializePendingReplayPayload(
-  unit: PendingReplayUnitState,
-  currentRow: WorkbookRow | undefined,
-) {
-  if (unit.kind === "create") {
-    return unit.payloadIntent;
-  }
-  if (currentRow?.rowVersion === null || currentRow?.rowVersion === undefined) {
-    return null;
-  }
-  return {
-    ...unit.payloadIntent,
-    base_row_version: currentRow.rowVersion,
-  };
-}
-
 function websocketPath(base: string | undefined, path: string): string {
   const trimmedBase = (base ?? "").trim();
   if (trimmedBase === "") {
@@ -1239,18 +787,6 @@ function workbookPresence(
     input.field_key = presence.fieldKey;
   }
   return input;
-}
-
-function inputFocusKey(
-  rowKey: string,
-  field: FocusFieldKey,
-  surface: TimelineScalarEditorSurface = "grid",
-) {
-  return `${rowKey}:${field}:${surface}`;
-}
-
-function timelineRelationshipLabel(fieldKey: RelationshipFieldKey) {
-  return fieldKey === "timeline.identity_refs" ? "Identities" : "Hosts";
 }
 
 function pruneDismissedMentions(
@@ -1463,21 +999,43 @@ export function TimelineWorkbook({
   const [replacementDrafts, setReplacementDrafts] = useState<
     Record<string, string>
   >({});
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [rowHistory, setRowHistory] = useState<RecordHistoryState>({
-    recordId: null,
-    status: "idle",
-    data: null,
-    message: null,
+  const timelineInspectorSelection = useTimelineInspectorSelection({
+    currentIncidentRole,
+    dismissedMentionsByRow,
+    rows,
+    selectedMentionRef,
   });
-  const [rowHistoryPendingAction, setRowHistoryPendingAction] =
-    useState<RowHistoryPendingAction | null>(null);
+  const {
+    canManageMentions,
+    draftRow,
+    inspectorMentions,
+    selectedMention,
+    selectedRow,
+    selectedRowId,
+  } = timelineInspectorSelection.snapshot;
+  const { setSelectedRowId } = timelineInspectorSelection.commands;
+  const timelineHistoryState = useTimelineHistoryState();
+  const { rowHistory, rowHistoryPendingAction } = timelineHistoryState.snapshot;
+  const { setRowHistory, setRowHistoryPendingAction } =
+    timelineHistoryState.commands;
   const clientTxnRef = useRef(1);
-  const committedTimelineRowsRef = useRef(new Map<string, WorkbookRow>());
-  const committedTimelineRowVersionsRef = useRef(new Map<string, number>());
-  const committedTimelineRowsEpochRef = useRef(0);
-  const hasLoadedRowsRef = useRef(false);
-  const loadSequenceRef = useRef(0);
+  const timelineCommittedRows = useTimelineCommittedRows({ rowsRef });
+  const {
+    acceptCommittedTimelineRow,
+    acceptCommittedTimelineRows,
+    acceptTimelineActionResult,
+    acceptTimelineRecordVersion,
+    beginLoad: beginTimelineRowsLoad,
+    committedRowsChangedSince,
+    currentCommittedTimelineRow,
+    hasLoadedRows,
+    isCurrentLoadSequence,
+    isStaleTimelineRowVersion,
+    knownTimelineRowVersion,
+    latestCommittedRowVersion,
+    latestCommittedTimelineRow,
+    markRowsLoaded,
+  } = timelineCommittedRows.commands;
   const scalarDraftValuesRef = useRef(new Map<string, string>());
   const loadRowsRef = useRef<(options: LoadRowsOptions) => Promise<void>>(
     async () => undefined,
@@ -1724,33 +1282,6 @@ export function TimelineWorkbook({
     return value;
   }, []);
 
-  const selectedRow = useMemo(
-    () =>
-      rows.find(
-        (row) => row.recordId !== null && row.recordId === selectedRowId,
-      ) ?? null,
-    [rows, selectedRowId],
-  );
-  const draftRow = useMemo(
-    () => rows.find((row) => row.recordId === null) ?? null,
-    [rows],
-  );
-  const dismissedForSelectedRow = selectedRow?.recordId
-    ? (dismissedMentionsByRow[selectedRow.recordId] ?? [])
-    : [];
-  const inspectorMentions = useMemo(
-    () =>
-      buildInspectorMentions(selectedRow ?? undefined, dismissedForSelectedRow),
-    [dismissedForSelectedRow, selectedRow],
-  );
-  const selectedMention =
-    inspectorMentions.find((item) => item.itemRef === selectedMentionRef) ??
-    inspectorMentions[0] ??
-    null;
-  const canManageMentions =
-    currentIncidentRole === "editor" ||
-    currentIncidentRole === "reviewer" ||
-    currentIncidentRole === "admin";
   const handleResolveTargetChange = useCallback(
     (value: string) => {
       setSelectedResolveTargetId(value);
@@ -1990,7 +1521,7 @@ export function TimelineWorkbook({
       return selector;
     }
     const [rowKey, fieldKey, surface] = focusKey.split(":");
-    const scalarBinding = Object.values(timelineScalarBindingIndex).find(
+    const scalarBinding = timelineScalarBindings.find(
       (binding) => binding.key === fieldKey,
     );
     if (
@@ -2193,173 +1724,6 @@ export function TimelineWorkbook({
     [hostEntities, identityEntities],
   );
 
-  const knownTimelineRowVersion = useCallback((recordId: string) => {
-    return committedTimelineRowVersionsRef.current.get(recordId);
-  }, []);
-
-  const currentCommittedTimelineRow = useCallback((recordId: string) => {
-    return (
-      committedTimelineRowsRef.current.get(recordId) ??
-      rowsRef.current.find(
-        (candidate) =>
-          candidate.recordId === recordId && candidate.rowVersion !== null,
-      ) ??
-      null
-    );
-  }, []);
-
-  const acceptCommittedTimelineRow = useCallback(
-    (
-      row: WorkbookRow,
-    ): { row: WorkbookRow; accepted: boolean; stale: boolean } => {
-      if (row.recordId === null || row.rowVersion === null) {
-        return { row, accepted: false, stale: false };
-      }
-      const currentVersion = knownTimelineRowVersion(row.recordId);
-      if (decideWorkbookRecordFreshness(row, currentVersion).stale) {
-        return {
-          row: currentCommittedTimelineRow(row.recordId) ?? row,
-          accepted: false,
-          stale: true,
-        };
-      }
-      if (currentVersion !== row.rowVersion) {
-        committedTimelineRowsEpochRef.current += 1;
-      }
-      committedTimelineRowVersionsRef.current.set(row.recordId, row.rowVersion);
-      committedTimelineRowsRef.current.set(row.recordId, row);
-      return { row, accepted: true, stale: false };
-    },
-    [currentCommittedTimelineRow, knownTimelineRowVersion],
-  );
-
-  const acceptCommittedTimelineRows = useCallback(
-    (committedRows: readonly WorkbookRow[]) => {
-      for (const row of committedRows) {
-        acceptCommittedTimelineRow(row);
-      }
-    },
-    [acceptCommittedTimelineRow],
-  );
-
-  const isStaleTimelineRowVersion = useCallback(
-    (recordId: string, rowVersion: number) =>
-      decideWorkbookRecordFreshness(
-        { recordId, rowVersion },
-        knownTimelineRowVersion(recordId),
-      ).stale,
-    [knownTimelineRowVersion],
-  );
-
-  const acceptTimelineRecordVersion = useCallback(
-    (recordId: string, rowVersion: number) => {
-      if (isStaleTimelineRowVersion(recordId, rowVersion)) {
-        return { accepted: false, stale: true };
-      }
-      const existing = currentCommittedTimelineRow(recordId);
-      if (existing === null) {
-        const currentVersion = knownTimelineRowVersion(recordId);
-        if (currentVersion !== rowVersion) {
-          committedTimelineRowsEpochRef.current += 1;
-        }
-        committedTimelineRowVersionsRef.current.set(recordId, rowVersion);
-        return { accepted: true, stale: false };
-      }
-      const accepted = acceptCommittedTimelineRow({
-        ...existing,
-        rowVersion,
-        rawRow:
-          existing.rawRow === null
-            ? null
-            : {
-                ...existing.rawRow,
-                row_version: rowVersion,
-              },
-      });
-      return { accepted: accepted.accepted, stale: accepted.stale };
-    },
-    [
-      acceptCommittedTimelineRow,
-      currentCommittedTimelineRow,
-      isStaleTimelineRowVersion,
-      knownTimelineRowVersion,
-    ],
-  );
-
-  const acceptTimelineActionResult = useCallback(
-    (result: TimelineActionEnvelope["data"]) => {
-      const existing =
-        committedTimelineRowsRef.current.get(result.record_id) ??
-        rowsRef.current.find((row) => row.recordId === result.record_id) ??
-        null;
-      if (existing === null) {
-        acceptTimelineRecordVersion(result.record_id, result.row_version);
-        return;
-      }
-      const accepted = acceptCommittedTimelineRow({
-        ...existing,
-        rowVersion: result.row_version,
-        captureState: result.capture_state,
-        rawRow:
-          existing.rawRow === null
-            ? null
-            : {
-                ...existing.rawRow,
-                row_version: result.row_version,
-                cells: {
-                  ...existing.rawRow.cells,
-                  "timeline.capture_state": {
-                    value: result.capture_state,
-                  },
-                },
-              },
-      });
-      return accepted;
-    },
-    [acceptCommittedTimelineRow, acceptTimelineRecordVersion],
-  );
-
-  const latestCommittedTimelineRow = useCallback(
-    (recordId: string) => {
-      const visibleRow = rowsRef.current.find(
-        (candidate) => candidate.recordId === recordId,
-      );
-      const knownVersion =
-        committedTimelineRowVersionsRef.current.get(recordId);
-      if (
-        visibleRow !== undefined &&
-        visibleRow.rowVersion !== null &&
-        (knownVersion === undefined || visibleRow.rowVersion >= knownVersion)
-      ) {
-        acceptCommittedTimelineRow(visibleRow);
-        return visibleRow;
-      }
-
-      const committedRow = committedTimelineRowsRef.current.get(recordId);
-      if (
-        committedRow !== undefined &&
-        committedRow.rowVersion !== null &&
-        (knownVersion === undefined || committedRow.rowVersion >= knownVersion)
-      ) {
-        return committedRow;
-      }
-      return null;
-    },
-    [acceptCommittedTimelineRow],
-  );
-
-  const latestCommittedRowVersion = useCallback(
-    (recordId: string) => {
-      const row = latestCommittedTimelineRow(recordId);
-      return (
-        committedTimelineRowVersionsRef.current.get(recordId) ??
-        row?.rowVersion ??
-        null
-      );
-    },
-    [latestCommittedTimelineRow],
-  );
-
   const applyRowMutation = useCallback(
     (
       rowKey: string,
@@ -2496,6 +1860,7 @@ export function TimelineWorkbook({
       setDismissedMentionsByRow,
       setAutoResolutionNotices,
       setRows,
+      setSelectedRowId,
     ],
   );
 
@@ -2604,14 +1969,12 @@ export function TimelineWorkbook({
 
   const loadRows = useCallback(
     async (options: LoadRowsOptions) => {
-      const requestSequence = loadSequenceRef.current + 1;
-      loadSequenceRef.current = requestSequence;
-      const queryStartEpoch = committedTimelineRowsEpochRef.current;
+      const { queryStartEpoch, requestSequence } = beginTimelineRowsLoad();
 
-      if (options.showLoading && !hasLoadedRowsRef.current) {
+      if (options.showLoading && !hasLoadedRows()) {
         setIsInitialLoading(true);
       }
-      if (hasLoadedRowsRef.current) {
+      if (hasLoadedRows()) {
         setRefreshError(null);
       } else {
         setLoadError(null);
@@ -2622,13 +1985,13 @@ export function TimelineWorkbook({
         body: queryBody,
       });
 
-      if (requestSequence !== loadSequenceRef.current) {
+      if (!isCurrentLoadSequence(requestSequence)) {
         return;
       }
 
-      if (queryStartEpoch !== committedTimelineRowsEpochRef.current) {
+      if (committedRowsChangedSince(queryStartEpoch)) {
         const refreshed = await refreshTimelineRowsAfterStaleResult(options);
-        if (!refreshed && !hasLoadedRowsRef.current) {
+        if (!refreshed && !hasLoadedRows()) {
           setIsInitialLoading(false);
         }
         return;
@@ -2639,7 +2002,7 @@ export function TimelineWorkbook({
           clearViewportContinuity(options.viewportContinuityToken);
         }
         const message = "Timeline projection load failed.";
-        if (hasLoadedRowsRef.current) {
+        if (hasLoadedRows()) {
           setRefreshError(message);
         } else {
           setLoadError(message);
@@ -2665,7 +2028,7 @@ export function TimelineWorkbook({
           clearViewportContinuity(options.viewportContinuityToken);
         }
         const message = "Timeline projection load failed.";
-        if (hasLoadedRowsRef.current) {
+        if (hasLoadedRows()) {
           setRefreshError(message);
         } else {
           setLoadError(message);
@@ -2706,7 +2069,7 @@ export function TimelineWorkbook({
       });
       pruneAutoResolutionNoticesForRows(committedRows);
       publishSaveStatePresentation(pendingQueueRef.current);
-      hasLoadedRowsRef.current = true;
+      markRowsLoaded();
       setLoadError(null);
       setRefreshError(null);
       setIsInitialLoading(false);
@@ -2714,10 +2077,15 @@ export function TimelineWorkbook({
     [
       advanceViewportContinuity,
       acceptCommittedTimelineRows,
+      beginTimelineRowsLoad,
       clearViewportContinuity,
+      committedRowsChangedSince,
       pruneAutoResolutionNoticesForRows,
       publishSaveStatePresentation,
       freshTimelineRowsForQueryResult,
+      hasLoadedRows,
+      isCurrentLoadSequence,
+      markRowsLoaded,
       nextDraftIndex,
       queryBody,
       queryPath,
@@ -2933,6 +2301,9 @@ export function TimelineWorkbook({
     setSelectedMentionRef,
     setInspectorMessage,
     setSelectedResolveTargetId,
+    setRowHistory,
+    setRowHistoryPendingAction,
+    setSelectedRowId,
   ]);
 
   useEffect(() => {
@@ -3131,7 +2502,7 @@ export function TimelineWorkbook({
 
   const clearSubmittedScalarEditorDraftValuesForRow = useCallback(
     (rowKey: string, submittedValues: RowValues) => {
-      for (const binding of Object.values(timelineScalarBindingIndex)) {
+      for (const binding of timelineScalarBindings) {
         for (const surface of timelineScalarEditorSurfaces) {
           const focusKey = inputFocusKey(rowKey, binding.key, surface);
           if (
@@ -4010,7 +3381,7 @@ export function TimelineWorkbook({
       if (!snapshot) {
         return;
       }
-      const binding = Object.values(timelineScalarBindingIndex).find(
+      const binding = timelineScalarBindings.find(
         (candidate) => candidate.key === focusField,
       );
       if (
@@ -4304,7 +3675,12 @@ export function TimelineWorkbook({
       });
       return historyData;
     },
-    [acceptTimelineRecordVersion, apiBase],
+    [
+      acceptTimelineRecordVersion,
+      apiBase,
+      setRowHistory,
+      setRowHistoryPendingAction,
+    ],
   );
 
   const openRowHistory = useCallback(
@@ -4319,7 +3695,14 @@ export function TimelineWorkbook({
       });
       void fetchRecordHistory(recordId);
     },
-    [fetchRecordHistory, rowHistory.data, rowHistory.recordId],
+    [
+      fetchRecordHistory,
+      rowHistory.data,
+      rowHistory.recordId,
+      setRowHistory,
+      setRowHistoryPendingAction,
+      setSelectedRowId,
+    ],
   );
 
   const currentHistoryRecordId =
@@ -4405,6 +3788,8 @@ export function TimelineWorkbook({
       finishSave,
       nextClientTxnId,
       resolvePendingSocketTxn,
+      setRowHistory,
+      setRowHistoryPendingAction,
       trackPendingSocketTxn,
       waitForCommittedRecordIdle,
     ],
@@ -4473,6 +3858,7 @@ export function TimelineWorkbook({
       fetchRecordHistory,
       rowHistory.data?.row_version,
       selectedRow?.recordId,
+      setSelectedRowId,
       submitRowHistoryMutation,
     ],
   );
@@ -4551,7 +3937,13 @@ export function TimelineWorkbook({
       });
       setRowHistory((current) => ({ ...current, message: null }));
     },
-    [currentHistoryRecordId, currentHistoryRowVersion, rowHistory.data],
+    [
+      currentHistoryRecordId,
+      currentHistoryRowVersion,
+      rowHistory.data,
+      setRowHistory,
+      setRowHistoryPendingAction,
+    ],
   );
 
   const previewRowHistoryRollback = useCallback(
@@ -4574,7 +3966,12 @@ export function TimelineWorkbook({
       });
       setRowHistory((current) => ({ ...current, message: null }));
     },
-    [currentHistoryRecordId, currentHistoryRowVersion],
+    [
+      currentHistoryRecordId,
+      currentHistoryRowVersion,
+      setRowHistory,
+      setRowHistoryPendingAction,
+    ],
   );
 
   const confirmRowHistoryPendingAction = useCallback(() => {
@@ -4924,6 +4321,9 @@ export function TimelineWorkbook({
       restoreTimelineFocusAnchor,
       setSelectedMentionRef,
       setInspectorMessage,
+      setRowHistory,
+      setRowHistoryPendingAction,
+      setSelectedRowId,
     ],
   );
 
@@ -4944,7 +4344,7 @@ export function TimelineWorkbook({
         restoreTimelineFocusAnchor(priorGridAnchor);
         return;
       }
-      const binding = Object.values(timelineScalarBindingIndex).find(
+      const binding = timelineScalarBindings.find(
         (candidate) => candidate.key === focusField,
       );
       const fieldKey = binding?.fieldKey ?? focusField;
@@ -5110,6 +4510,7 @@ export function TimelineWorkbook({
       selectedRowId,
       setSelectedMentionRef,
       setInspectorMessage,
+      setSelectedRowId,
     ],
   );
 
@@ -5121,7 +4522,7 @@ export function TimelineWorkbook({
       surface: TimelineScalarEditorSurface,
     ) => {
       const clipboardText = event.clipboardData?.getData("text/plain") ?? "";
-      const binding = Object.values(timelineScalarBindingIndex).find(
+      const binding = timelineScalarBindings.find(
         (candidate) => candidate.key === focusField,
       );
       const fieldKey = binding?.fieldKey ?? focusField;
@@ -5325,7 +4726,12 @@ export function TimelineWorkbook({
       setCurrentPresence(next);
       sendPresenceUpdate(next);
     },
-    [sendPresenceUpdate, setInspectorMessage, setCurrentPresence],
+    [
+      sendPresenceUpdate,
+      setInspectorMessage,
+      setCurrentPresence,
+      setSelectedRowId,
+    ],
   );
 
   const handleEditModePresence = useCallback(
@@ -5350,8 +4756,59 @@ export function TimelineWorkbook({
       setSelectedMentionRef(itemRef);
       setInspectorMessage(null);
     },
-    [setSelectedMentionRef, setInspectorMessage],
+    [setSelectedMentionRef, setInspectorMessage, setSelectedRowId],
   );
+
+  function handleUndoAutoResolutionNotice(notice: AutoResolutionNotice) {
+    const row = rowsRef.current.find(
+      (candidate) => candidate.recordId === notice.rowRecordId,
+    );
+    const activeItem =
+      row === undefined
+        ? undefined
+        : [
+            ...row.collectionValues.hostRefs,
+            ...row.collectionValues.identityRefs,
+          ].find(
+            (item) =>
+              item.itemRef === notice.itemRef &&
+              item.itemKind === "resolved_ref",
+          );
+    if (activeItem && row?.recordId) {
+      submitMentionAction(
+        {
+          rowRecordId: row.recordId,
+          fieldKey: notice.fieldKey,
+          entityType: activeItem.entityType,
+          itemRef: activeItem.itemRef,
+          rawText: activeItem.rawText,
+          resolvedRecordId: activeItem.resolvedRecordId,
+          mentionRowVersion: activeItem.mentionRowVersion,
+          resolutionMethod: activeItem.resolutionMethod,
+          autoResolved: activeItem.autoResolved,
+          status: "resolved",
+          chipState: mentionChipStateForItem(activeItem),
+          anchor: {
+            recordId: row.recordId,
+            fieldKey: notice.fieldKey,
+            itemRef: activeItem.itemRef,
+            entityMentionId: activeItem.itemRef.startsWith("entity_mention:")
+              ? activeItem.itemRef.slice("entity_mention:".length) || null
+              : null,
+            targetEntityRecordId: activeItem.resolvedRecordId,
+          },
+          sourceKind: "entity_mention",
+          isActiveRelationshipValue: true,
+          priorTargetEntityRecordId: null,
+          displayText: activeItem.displayText,
+          provenance: activeItem.provenance,
+          confidence: activeItem.confidence,
+          matchedAliasText: activeItem.matchedAliasText,
+        },
+        "revert_to_unresolved",
+      );
+    }
+  }
 
   const handleCreateBlankDraftRow = useCallback(
     (row: WorkbookRow) => {
@@ -5562,7 +5019,6 @@ export function TimelineWorkbook({
         row.recordId,
         binding.fieldKey,
       );
-      const sameCellVisible = visiblePresence(sameCellPresence, 1);
       return (
         <>
           <TimelineScalarEditor
@@ -5603,25 +5059,13 @@ export function TimelineWorkbook({
               Conflict
             </button>
           ) : null}
-          {sameCellPresence.length > 0 && surface === "grid" ? (
-            <span
-              aria-label={`${sameCellPresence
-                .map((presence) => presence.display_name)
-                .join(", ")} editing ${timelineBindingLabel(binding.fieldKey)}`}
-              data-testid={cellPresenceMarkerTestId(
-                row.recordId ?? "draft",
-                binding.fieldKey,
-              )}
-              role="img"
-              style={cellPresenceStyle}
-            >
-              {sameCellVisible.shown.map((presence) =>
-                displayInitials(presence.display_name),
-              )}
-              {sameCellVisible.overflow > 0
-                ? ` +${sameCellVisible.overflow}`
-                : ""}
-            </span>
+          {surface === "grid" ? (
+            <TimelineCellPresenceMarker
+              fieldKey={binding.fieldKey}
+              fieldLabel={timelineBindingLabel(binding.fieldKey)}
+              presences={sameCellPresence}
+              recordId={row.recordId}
+            />
           ) : null}
         </>
       );
@@ -5800,8 +5244,11 @@ export function TimelineWorkbook({
             }
             if (binding.fieldKey === "timeline.evidence_count") {
               const countDisplay = buildEvidenceCountDisplayViewModel({
-                projectedCount: readCellValue(row.rawRow, binding.fieldKey),
-                projectedHasEvidence: readCellValue(
+                projectedCount: readTimelineCellValue(
+                  row.rawRow,
+                  binding.fieldKey,
+                ),
+                projectedHasEvidence: readTimelineCellValue(
                   row.rawRow,
                   "timeline.has_evidence",
                 ),
@@ -5844,7 +5291,7 @@ export function TimelineWorkbook({
               );
             }
             const text = stringifyGridValue(
-              readCellValue(row.rawRow, binding.fieldKey),
+              readTimelineCellValue(row.rawRow, binding.fieldKey),
             );
             return (
               <span
@@ -5922,33 +5369,17 @@ export function TimelineWorkbook({
     () =>
       rows.map((row, index) => {
         const rowPresence = presenceForRow(row.recordId);
-        const rowPresenceVisible = visiblePresence(rowPresence, 2);
         const ordinal = row.recordId === null ? "+" : String(index + 1);
         return {
           key: row.key,
           recordId: row.recordId,
           data: row,
           gutterContent: (
-            <span style={rowGutterContentStyle}>
-              <span aria-hidden="true">{ordinal}</span>
-              {rowPresence.length > 0 ? (
-                <span
-                  aria-label={`${rowPresence
-                    .map((presence) => presence.display_name)
-                    .join(", ")} focused on this row`}
-                  data-testid={rowPresenceMarkerTestId(row.recordId ?? "draft")}
-                  role="img"
-                  style={rowGutterPresenceStyle}
-                >
-                  {rowPresenceVisible.shown
-                    .map((presence) => displayInitials(presence.display_name))
-                    .join("")}
-                  {rowPresenceVisible.overflow > 0
-                    ? `+${rowPresenceVisible.overflow}`
-                    : ""}
-                </span>
-              ) : null}
-            </span>
+            <TimelineRowGutterContent
+              ordinal={ordinal}
+              presences={rowPresence}
+              recordId={row.recordId}
+            />
           ),
           gutterLabel: ordinal,
           gutterTestId:
@@ -6004,8 +5435,14 @@ export function TimelineWorkbook({
 
   function renderEvidenceAttachSection(row: WorkbookRow) {
     const countDisplay = buildEvidenceCountDisplayViewModel({
-      projectedCount: readCellValue(row.rawRow, "timeline.evidence_count"),
-      projectedHasEvidence: readCellValue(row.rawRow, "timeline.has_evidence"),
+      projectedCount: readTimelineCellValue(
+        row.rawRow,
+        "timeline.evidence_count",
+      ),
+      projectedHasEvidence: readTimelineCellValue(
+        row.rawRow,
+        "timeline.has_evidence",
+      ),
     });
     return (
       <TimelineEvidencePanel
@@ -6265,132 +5702,13 @@ export function TimelineWorkbook({
         }}
       />
 
-      {autoResolutionNotices.length > 0 ? (
-        <aside style={noticeStackStyle}>
-          {autoResolutionNotices.map((notice) => (
-            <div
-              key={notice.itemRef}
-              data-testid={autoResolutionNoticeTestId(notice.itemRef)}
-              style={noticeCardStyle}
-            >
-              <p style={noticeTitleStyle}>Auto-resolved mention</p>
-              <p style={bodyStyle}>
-                Raw token <strong>{notice.rawText}</strong> matched{" "}
-                <strong>
-                  {entityIndex[notice.resolvedRecordId]?.label ??
-                    notice.rawText}
-                </strong>
-                {notice.matchedAliasText ? (
-                  <>
-                    {" "}
-                    via alias <strong>{notice.matchedAliasText}</strong>
-                  </>
-                ) : null}
-                .
-              </p>
-              <div style={inlineButtonRowStyle}>
-                <button
-                  data-testid={autoResolutionUndoButtonTestId(notice.itemRef)}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    const row = rowsRef.current.find(
-                      (candidate) => candidate.recordId === notice.rowRecordId,
-                    );
-                    const activeItem =
-                      row === undefined
-                        ? undefined
-                        : [
-                            ...row.collectionValues.hostRefs,
-                            ...row.collectionValues.identityRefs,
-                          ].find(
-                            (item) =>
-                              item.itemRef === notice.itemRef &&
-                              item.itemKind === "resolved_ref",
-                          );
-                    if (activeItem && row?.recordId) {
-                      submitMentionAction(
-                        {
-                          rowRecordId: row.recordId,
-                          fieldKey: notice.fieldKey,
-                          entityType: activeItem.entityType,
-                          itemRef: activeItem.itemRef,
-                          rawText: activeItem.rawText,
-                          resolvedRecordId: activeItem.resolvedRecordId,
-                          mentionRowVersion: activeItem.mentionRowVersion,
-                          resolutionMethod: activeItem.resolutionMethod,
-                          autoResolved: activeItem.autoResolved,
-                          status: "resolved",
-                          chipState: mentionChipStateForItem(activeItem),
-                          anchor: {
-                            recordId: row.recordId,
-                            fieldKey: notice.fieldKey,
-                            itemRef: activeItem.itemRef,
-                            entityMentionId: activeItem.itemRef.startsWith(
-                              "entity_mention:",
-                            )
-                              ? activeItem.itemRef.slice(
-                                  "entity_mention:".length,
-                                ) || null
-                              : null,
-                            targetEntityRecordId: activeItem.resolvedRecordId,
-                          },
-                          sourceKind: "entity_mention",
-                          isActiveRelationshipValue: true,
-                          priorTargetEntityRecordId: null,
-                          displayText: activeItem.displayText,
-                          provenance: activeItem.provenance,
-                          confidence: activeItem.confidence,
-                          matchedAliasText: activeItem.matchedAliasText,
-                        },
-                        "revert_to_unresolved",
-                      );
-                    }
-                  }}
-                >
-                  Undo
-                </button>
-                <button
-                  data-testid={autoResolutionReviewButtonTestId(notice.itemRef)}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    handleSelectMention(notice.rowRecordId, notice.itemRef);
-                  }}
-                >
-                  Review
-                </button>
-              </div>
-            </div>
-          ))}
-        </aside>
-      ) : null}
-
-      {pendingQueueSnapshot.overflowMessage !== null ||
-      pendingQueueSnapshot.haltedMessage !== null ||
-      pendingQueueSnapshot.authPaused ||
-      pendingQueueSnapshot.queuedCount + pendingQueueSnapshot.inFlightCount >
-        0 ? (
-        <aside
-          data-testid={pendingQueueNoticeTestId()}
-          role="status"
-          style={noticeCardStyle}
-        >
-          <p style={noticeTitleStyle}>Queued edits</p>
-          <p style={bodyStyle}>
-            {pendingQueueSnapshot.overflowMessage ??
-              pendingQueueSnapshot.haltedMessage ??
-              (pendingQueueSnapshot.authPaused
-                ? "Authentication is required before queued edits can replay."
-                : "Queued edits are waiting to replay.")}
-          </p>
-          <p data-testid={pendingQueueCountTestId()} style={bodyStyle}>
-            Pending units:{" "}
-            {pendingQueueSnapshot.queuedCount +
-              pendingQueueSnapshot.inFlightCount}
-          </p>
-        </aside>
-      ) : null}
+      <TimelineWorkbookNotices
+        autoResolutionNotices={autoResolutionNotices}
+        entityIndex={entityIndex}
+        onReviewAutoResolution={handleSelectMention}
+        onUndoAutoResolution={handleUndoAutoResolutionNotice}
+        pendingQueueSnapshot={pendingQueueSnapshot}
+      />
 
       <div style={splitShellStyle}>
         <div>
@@ -6605,27 +5923,6 @@ const timelineGridShellStyle = {
   minBlockSize: "24rem",
 };
 
-const rowGutterContentStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "0.2rem",
-  minWidth: 0,
-};
-
-const rowGutterPresenceStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  minWidth: "1rem",
-  height: "1rem",
-  borderRadius: "var(--ct-rounded-pill)",
-  border: "var(--ct-border-hairline)",
-  color: "var(--ct-colors-semantic-presence-other)",
-  fontSize: "0.62rem",
-  lineHeight: 1,
-};
-
 const inputStyle = {
   boxSizing: "border-box" as const,
   display: "block",
@@ -6678,27 +5975,6 @@ const conflictMarkerStyle = {
   background: "var(--ct-colors-surface-2)",
   padding: "0 0.35rem",
   fontSize: "0.68rem",
-  lineHeight: 1,
-};
-
-const cellPresenceStyle = {
-  position: "absolute" as const,
-  insetBlockStart: "4px",
-  insetInlineEnd: "6px",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "fit-content",
-  minHeight: 0,
-  height: "18px",
-  margin: 0,
-  borderRadius: "var(--ct-rounded-pill)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
-  color: "var(--ct-colors-semantic-presence-other)",
-  padding: "0 0.35rem",
-  fontSize: "0.68rem",
-  fontWeight: 700,
   lineHeight: 1,
 };
 
@@ -6782,21 +6058,9 @@ const emptyRelationshipStyle = {
   fontSize: "0.9rem",
 };
 
-const inlineButtonRowStyle = {
-  display: "flex",
-  gap: "0.5rem",
-  flexWrap: "wrap" as const,
-};
-
 const inspectorActionStackStyle = {
   display: "grid",
   gap: "0.75rem",
-};
-
-const noticeStackStyle = {
-  display: "grid",
-  gap: "0.75rem",
-  marginBottom: "1rem",
 };
 
 const noticeCardStyle = {
@@ -6806,10 +6070,4 @@ const noticeCardStyle = {
   padding: "0.85rem 1rem",
   display: "grid",
   gap: "0.5rem",
-};
-
-const noticeTitleStyle = {
-  margin: 0,
-  fontSize: "0.95rem",
-  fontWeight: 600,
 };
