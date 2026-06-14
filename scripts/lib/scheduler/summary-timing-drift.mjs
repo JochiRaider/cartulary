@@ -133,7 +133,12 @@ function checkSchedulerCriticalPath({ errors, file, summary, timing, events }) {
     return;
   }
   if (!terminal) {
-    if ((summary.completed_work_units ?? 0) > 0) {
+    const failedOnlySummary =
+      summary.status === "fail" &&
+      Array.isArray(summary.observed_failed_work_units) &&
+      summary.observed_failed_work_units.length > 0 &&
+      units.length === 0;
+    if ((summary.completed_work_units ?? 0) > 0 && !failedOnlySummary) {
       errors.push(`${file}: critical_path_terminal_unit is missing despite completed work`);
     }
     return;

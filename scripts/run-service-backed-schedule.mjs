@@ -657,6 +657,12 @@ async function main() {
 }
 
 main().catch((error) => {
-  process.stderr.write(`${error.message}\n`);
-  process.exitCode = 2;
+  const exitCode = Number.isInteger(error?.exitCode) ? error.exitCode : 2;
+  const reason =
+    typeof error?.failure_class === "string" &&
+    typeof error?.failure_reason === "string"
+      ? `failure_class=${error.failure_class} reason=${error.failure_reason}\n`
+      : "";
+  process.stderr.write(`${error.message}\n${reason}`);
+  process.exitCode = exitCode;
 });

@@ -95,7 +95,7 @@ JSON
     ;;
   support_success)
     cat >"$output_file" <<'JSON'
-{"suites":[{"specs":[{"title":"FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"support Phase 3 keeps a pending edit anchored to its record under sort, filter, group, and live invalidation","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"support Phase 3 keeps repeated scalar grid edits out of the RDG measured-width crash path","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]}],"suites":[]}],"errors":[]}
+{"suites":[{"specs":[{"title":"FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"support Phase 3 keeps a pending edit anchored to its record under sort, filter, group, and live invalidation","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"support Phase 3 keeps repeated scalar grid edits out of the RDG measured-width crash path","file":"phase3.support.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.","file":"phase9.keyboard.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]}],"suites":[]}],"errors":[]}
 JSON
     ;;
   failure)
@@ -143,7 +143,7 @@ support_output="$(
 )"
 assert_empty "$support_output" "playwright manifest support success"
 support_summary="$tmp_dir/results/playwright-manifest-support-success/adhoc/playwright-manifest-support-success/phase-summary.json"
-assert_contains "$(json_field "$support_summary" "counts.support")" "3" "playwright support success count"
+assert_contains "$(json_field "$support_summary" "counts.support")" "4" "playwright support success count"
 assert_json_null "$support_summary" "manifest_mismatch" "playwright support success mismatch"
 
 set +e

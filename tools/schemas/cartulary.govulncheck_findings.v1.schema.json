@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.govulncheck_findings.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "tool",
+    "status",
+    "counts",
+    "vulnerability_ids",
+    "blocking_vulnerability_ids",
+    "findings"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.govulncheck_findings.v1" },
+    "tool": { "const": "govulncheck" },
+    "status": { "$ref": "cartulary.harness.defs.v1#/$defs/status" },
+    "config": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "object" }
+      ]
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_event_count",
+        "osv_count",
+        "finding_count",
+        "blocking_count",
+        "reachability"
+      ],
+      "properties": {
+        "raw_event_count": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "osv_count": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "finding_count": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "blocking_count": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+        "reachability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["module", "package", "symbol"],
+          "properties": {
+            "module": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+            "package": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" },
+            "symbol": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" }
+          }
+        }
+      }
+    },
+    "vulnerability_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "blocking_vulnerability_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    }
+  },
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "position": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["filename", "line", "column"],
+          "properties": {
+            "filename": { "type": "string" },
+            "line": {
+              "oneOf": [
+                { "type": "null" },
+                { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" }
+              ]
+            },
+            "column": {
+              "oneOf": [
+                { "type": "null" },
+                { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "symbol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package", "receiver", "function", "position"],
+      "properties": {
+        "package": { "type": "string" },
+        "receiver": { "type": "string" },
+        "function": { "type": "string" },
+        "position": { "$ref": "#/$defs/position" }
+      }
+    },
+    "trace_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module", "version", "package", "receiver", "function", "position"],
+      "properties": {
+        "module": { "type": "string" },
+        "version": { "type": "string" },
+        "package": { "type": "string" },
+        "receiver": { "type": "string" },
+        "function": { "type": "string" },
+        "position": { "$ref": "#/$defs/position" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "aliases",
+        "summary",
+        "fixed_version",
+        "fixed_versions",
+        "affected_packages",
+        "reachability",
+        "blocking",
+        "modules",
+        "packages",
+        "symbols",
+        "trace"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "aliases": { "$ref": "#/$defs/string_array" },
+        "summary": { "type": "string" },
+        "fixed_version": { "type": "string" },
+        "fixed_versions": { "$ref": "#/$defs/string_array" },
+        "affected_packages": { "$ref": "#/$defs/string_array" },
+        "reachability": { "enum": ["module", "package", "symbol"] },
+        "blocking": { "type": "boolean" },
+        "modules": { "$ref": "#/$defs/string_array" },
+        "packages": { "$ref": "#/$defs/string_array" },
+        "symbols": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/symbol" }
+        },
+        "trace": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/trace_entry" }
+        }
+      }
+    }
+  }
+}

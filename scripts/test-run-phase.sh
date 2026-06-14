@@ -548,16 +548,34 @@ cat >"$CARTULARY_PHASE_ARTIFACT_DIR/govulncheck-findings.json" <<'JSON'
   "schema_id": "cartulary.govulncheck_findings.v1",
   "tool": "govulncheck",
   "status": "fail",
+  "config": null,
   "counts": {
+    "raw_event_count": 2,
+    "osv_count": 1,
     "finding_count": 1,
-    "blocking_count": 1
+    "blocking_count": 1,
+    "reachability": {
+      "module": 0,
+      "package": 0,
+      "symbol": 1
+    }
   },
+  "vulnerability_ids": ["GO-2099-0001"],
   "blocking_vulnerability_ids": ["GO-2099-0001"],
   "findings": [
     {
       "id": "GO-2099-0001",
+      "aliases": [],
+      "summary": "synthetic reachable vulnerability",
+      "fixed_version": "",
+      "fixed_versions": [],
+      "affected_packages": [],
       "reachability": "symbol",
-      "blocking": true
+      "blocking": true,
+      "modules": [],
+      "packages": [],
+      "symbols": [],
+      "trace": []
     }
   ]
 }
@@ -582,13 +600,88 @@ govulncheck_message="govulncheck found 1 symbol-reachable vulnerabilities: GO-20
 assert_contains "$govulncheck_security_output" "reason=security_finding" "Govulncheck security failure reason"
 assert_contains "$govulncheck_security_output" "$govulncheck_message" "Govulncheck security failure message"
 govulncheck_security_summary="$govulncheck_security_results/govulncheck-security-failure/go-vulncheck/go-vulncheck/phase-summary.json"
-govulncheck_security_tool_summary="$govulncheck_security_results/govulncheck-security-failure/go-vulncheck/go-vulncheck/tool-run-summary.json"
+govulncheck_security_target_summary="$govulncheck_security_results/govulncheck-security-failure/go-vulncheck/target-summary.json"
+govulncheck_security_tool_summary="$govulncheck_security_results/govulncheck-security-failure/go-vulncheck/tool-run-summary.json"
 assert_equals "$(json_field "$govulncheck_security_summary" "failure_class")" "security" "Govulncheck security summary class"
 assert_equals "$(json_field "$govulncheck_security_summary" "failure_reason")" "security_finding" "Govulncheck security summary reason"
 assert_equals "$(json_field "$govulncheck_security_summary" "failure_classes.security")" "1" "Govulncheck security class count"
 assert_equals "$(json_field "$govulncheck_security_summary" "failure_reasons.security_finding")" "1" "Govulncheck security reason count"
 assert_equals "$(json_field "$govulncheck_security_summary" "dossiers.0.message")" "$govulncheck_message" "Govulncheck security dossier message"
-assert_equals "$(json_field "$govulncheck_security_tool_summary" "extensions.cartulary.security.govulncheck.blocking_count")" "1" "Govulncheck security extension blocking count"
+"${NODE:-node}" - "$govulncheck_security_target_summary" "$govulncheck_security_tool_summary" <<'JS'
+const fs = require("node:fs");
+const [targetSummaryFile, toolSummaryFile] = process.argv.slice(2);
+const targetSummary = JSON.parse(fs.readFileSync(targetSummaryFile, "utf8"));
+const toolSummary = JSON.parse(fs.readFileSync(toolSummaryFile, "utf8"));
+for (const [label, summary] of [
+  ["target", targetSummary],
+  ["tool", toolSummary],
+]) {
+  const govulncheck = summary.extensions?.["cartulary.security"]?.govulncheck;
+  if (govulncheck?.blocking_count !== 1) {
+    throw new Error(`${label} summary Govulncheck blocking_count got ${govulncheck?.blocking_count}`);
+  }
+}
+const findingArtifact = (toolSummary.summary_artifacts ?? []).find(
+  (artifact) =>
+    artifact.role === "govulncheck_findings" &&
+    artifact.kind === "json" &&
+    artifact.path.endsWith("/go-vulncheck/go-vulncheck/govulncheck-findings.json"),
+);
+if (!findingArtifact) {
+  throw new Error("canonical tool summary must reference govulncheck findings");
+}
+JS
+
+govulncheck_malformed_results="$(mktemp -d "$ROOT_DIR/tmp/run-phase-govulncheck-malformed-results.XXXXXX")"
+cleanup_paths+=("$govulncheck_malformed_results")
+govulncheck_malformed_script="$govulncheck_malformed_results/fake-govulncheck-malformed-phase.sh"
+cat >"$govulncheck_malformed_script" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+cat >"$CARTULARY_PHASE_ARTIFACT_DIR/govulncheck-findings.json" <<'JSON'
+{
+  "schema_id": "cartulary.govulncheck_findings.v1",
+  "tool": "govulncheck",
+  "status": "fail",
+  "counts": {
+    "finding_count": 1,
+    "blocking_count": 1
+  },
+  "blocking_vulnerability_ids": ["GO-2099-0001"],
+  "findings": []
+}
+JSON
+printf '%s\n' '=== Symbol Results ==='
+exit 1
+EOF
+chmod +x "$govulncheck_malformed_script"
+set +e
+govulncheck_malformed_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$govulncheck_malformed_results" \
+  CARTULARY_TEST_RUN_ID="govulncheck-malformed-failure" \
+  CARTULARY_TEST_TARGET="go-vulncheck" \
+    "$HELPER" "go-vulncheck" -- "$govulncheck_malformed_script" \
+    2>&1
+)"
+govulncheck_malformed_status=$?
+set -e
+assert_equals "$govulncheck_malformed_status" "1" "Govulncheck malformed phase status"
+assert_contains "$govulncheck_malformed_output" "reason=artifact_error" "Govulncheck malformed failure reason"
+govulncheck_malformed_summary="$govulncheck_malformed_results/govulncheck-malformed-failure/go-vulncheck/go-vulncheck/phase-summary.json"
+govulncheck_malformed_target_summary="$govulncheck_malformed_results/govulncheck-malformed-failure/go-vulncheck/target-summary.json"
+assert_equals "$(json_field "$govulncheck_malformed_summary" "failure_class")" "artifact" "Govulncheck malformed summary class"
+assert_equals "$(json_field "$govulncheck_malformed_summary" "failure_reason")" "artifact_error" "Govulncheck malformed summary reason"
+assert_equals "$(json_field "$govulncheck_malformed_target_summary" "failure_class")" "artifact" "Govulncheck malformed target class"
+"${NODE:-node}" - "$govulncheck_malformed_target_summary" <<'JS'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (summary.extensions?.["cartulary.security"]?.govulncheck !== undefined) {
+  throw new Error("malformed Govulncheck findings must not produce security extension data");
+}
+JS
 
 gosec_security_results="$(mktemp -d "$ROOT_DIR/tmp/run-phase-gosec-results.XXXXXX")"
 cleanup_paths+=("$gosec_security_results")

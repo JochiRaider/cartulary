@@ -211,9 +211,13 @@ function observedFailedWorkUnits(completedWork) {
 
 function criticalPathSummary(completedWork, schedulerStartedMonotonicMs, schedulerCompletedMonotonicMs, topBlockers) {
   const records = completedWork.filter((record) => record.status === 0);
+  const envelopeDurationMs = Math.max(
+    0,
+    schedulerCompletedMonotonicMs - schedulerStartedMonotonicMs,
+  );
   if (records.length === 0) {
     return {
-      critical_path_wall_duration_ms: 0,
+      critical_path_wall_duration_ms: envelopeDurationMs,
       critical_path_units: [],
       critical_path_blockers: topBlockers.slice(0, 5),
       critical_path_terminal_unit: null,
@@ -284,10 +288,7 @@ function criticalPathSummary(completedWork, schedulerStartedMonotonicMs, schedul
     completion_keys: [...(terminal.completion_keys ?? [])],
   };
   return {
-    critical_path_wall_duration_ms: Math.max(
-      0,
-      schedulerCompletedMonotonicMs - schedulerStartedMonotonicMs,
-    ),
+    critical_path_wall_duration_ms: envelopeDurationMs,
     critical_path_units: units,
     critical_path_blockers: topBlockers.slice(0, 5),
     critical_path_terminal_unit: terminalUnit,
@@ -1394,11 +1395,15 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
     if (schedule.validateSummaryTiming !== false) {
       const timingDrift = validateSchedulerSummaryTiming(reporter.eventsPath);
       if (timingDrift.errors.length > 0) {
-        throw new Error(
+        const error = new Error(
           `scheduler summary timing drift detected for ${schedule.target}:\n${timingDrift.errors
             .map((error) => `  ${error}`)
             .join("\n")}`,
         );
+        error.exitCode = 11;
+        error.failure_class = "harness";
+        error.failure_reason = "scheduler_accounting_error";
+        throw error;
       }
     }
     return {

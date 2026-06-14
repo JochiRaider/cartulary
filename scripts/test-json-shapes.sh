@@ -406,6 +406,72 @@ write_valid_tool_run_summary() {
 JSON
 }
 
+write_valid_govulncheck_findings() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.govulncheck_findings.v1",
+  "tool": "govulncheck",
+  "status": "fail",
+  "config": null,
+  "counts": {
+    "raw_event_count": 2,
+    "osv_count": 1,
+    "finding_count": 1,
+    "blocking_count": 1,
+    "reachability": {
+      "module": 0,
+      "package": 0,
+      "symbol": 1
+    }
+  },
+  "vulnerability_ids": ["GO-2099-0001"],
+  "blocking_vulnerability_ids": ["GO-2099-0001"],
+  "findings": [
+    {
+      "id": "GO-2099-0001",
+      "aliases": ["CVE-2099-0001"],
+      "summary": "synthetic reachable vulnerability",
+      "fixed_version": "v1.2.3",
+      "fixed_versions": ["v1.2.3"],
+      "affected_packages": ["example.test/module"],
+      "reachability": "symbol",
+      "blocking": true,
+      "modules": ["example.test/module"],
+      "packages": ["example.test/module/pkg"],
+      "symbols": [
+        {
+          "package": "example.test/module/pkg",
+          "receiver": "",
+          "function": "Vulnerable",
+          "position": {
+            "filename": "pkg/vulnerable.go",
+            "line": 12,
+            "column": 3
+          }
+        }
+      ],
+      "trace": [
+        {
+          "module": "example.test/module",
+          "version": "v1.0.0",
+          "package": "example.test/module/pkg",
+          "receiver": "",
+          "function": "Vulnerable",
+          "position": {
+            "filename": "pkg/vulnerable.go",
+            "line": 12,
+            "column": 3
+          }
+        }
+      ]
+    }
+  ]
+}
+JSON
+}
+
 write_valid_fallow_static_summary() {
   local file="$1"
 
@@ -1080,6 +1146,12 @@ const mutations = {
   "tool-run-summary-missing-schema-id": (fixture) => {
     delete fixture.schema_id;
   },
+  "govulncheck-findings-unknown-key": (fixture) => {
+    fixture.legacy_key = true;
+  },
+  "govulncheck-findings-missing-count": (fixture) => {
+    delete fixture.counts.raw_event_count;
+  },
   "fallow-static-summary-blocking": (fixture) => {
     fixture.enforcement.blocking = true;
   },
@@ -1714,6 +1786,22 @@ write_valid_tool_run_summary "$missing_schema_id"
 mutate_json_fixture tool-run-summary-missing-schema-id "$missing_schema_id"
 missing_schema_id_output="$(assert_fails "missing tool run schema_id" run_shape_check tool-run-summary "$missing_schema_id")"
 assert_contains "$missing_schema_id_output" "schema_id is required" "missing tool run schema_id"
+
+govulncheck_findings="$tmp_dir/govulncheck-findings.json"
+write_valid_govulncheck_findings "$govulncheck_findings"
+assert_passes "valid Govulncheck findings schema" run_schema_validation cartulary.govulncheck_findings.v1 "$govulncheck_findings" >/dev/null
+
+govulncheck_findings_unknown_key="$tmp_dir/govulncheck-findings-unknown-key.json"
+write_valid_govulncheck_findings "$govulncheck_findings_unknown_key"
+mutate_json_fixture govulncheck-findings-unknown-key "$govulncheck_findings_unknown_key"
+govulncheck_findings_unknown_output="$(assert_fails "Govulncheck findings reject unknown key" run_schema_validation cartulary.govulncheck_findings.v1 "$govulncheck_findings_unknown_key")"
+assert_contains "$govulncheck_findings_unknown_output" "must NOT have additional properties" "Govulncheck findings unknown key"
+
+govulncheck_findings_missing_count="$tmp_dir/govulncheck-findings-missing-count.json"
+write_valid_govulncheck_findings "$govulncheck_findings_missing_count"
+mutate_json_fixture govulncheck-findings-missing-count "$govulncheck_findings_missing_count"
+govulncheck_findings_missing_output="$(assert_fails "Govulncheck findings require raw count" run_schema_validation cartulary.govulncheck_findings.v1 "$govulncheck_findings_missing_count")"
+assert_contains "$govulncheck_findings_missing_output" "must have required property 'raw_event_count'" "Govulncheck findings missing count"
 
 fallow_static_summary="$tmp_dir/fallow-static-summary.json"
 write_valid_fallow_static_summary "$fallow_static_summary"

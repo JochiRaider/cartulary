@@ -828,6 +828,7 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.check_scheduler_summary.v10`          | `tools/schemas/cartulary.check_scheduler_summary.v10.schema.json`          | present           | Check scheduler          | Before scheduler target success.          |
 | `cartulary.service_backed_scheduler_summary.v10` | `tools/schemas/cartulary.service_backed_scheduler_summary.v10.schema.json` | present           | Service-backed scheduler | Before scheduler target success.          |
 | `cartulary.scheduler_event.v6`                  | `tools/schemas/cartulary.scheduler_event.v6.schema.json`                  | present           | Scheduler                | During scheduler JSONL validation.        |
+| `cartulary.govulncheck_findings.v1`             | `tools/schemas/cartulary.govulncheck_findings.v1.schema.json`             | present           | Govulncheck wrapper      | Before failure classification or target-summary security rollup consumes findings. |
 | `cartulary.test_services.lease.v1`              | `tools/schemas/cartulary.test_services.lease.v1.schema.json`              | present           | Service suite            | Before attach or cleanup relies on lease. |
 | `cartulary.test_services.lifecycle.v1`          | `tools/schemas/cartulary.test_services.lifecycle.v1.schema.json`          | present           | Service suite            | During service lifecycle JSONL validation. |
 | `cartulary.web_e2e_stack.v2`                    | `tools/schemas/cartulary.web_e2e_stack.v2.schema.json`                    | present           | Legacy browser stack retained-run compatibility | Diagnostic inspection of pre-preview retained runs only. |
@@ -869,6 +870,8 @@ Public and machine summaries SHOULD print or serialize `run_root` once per summa
 Every schema-owned artifact MUST include `schema_id`. A schema-owned artifact MAY include `extensions` only when its schema declares that field. When present, `extensions` MUST be an object keyed by reverse-DNS or `cartulary.*` extension keys. Consumers MUST ignore unknown extension keys and MUST NOT derive required behavior from an unknown extension key. Adding a new required top-level member or changing the meaning of an existing member requires a new schema ID. Extension data is supplemental only; any value required for conformance, drift, timing, cleanup, scheduling, or failure classification MUST be a declared schema member.
 
 Supplemental service-backed extension data under `extensions["cartulary.service_backed"]` MUST normalize extension-level `readiness_status`, `teardown_status`, and `leak_status` to `pass`, `fail`, or `unknown`. These extension rollups MUST be derived from canonical service lifecycle artifacts and MUST NOT expose raw lifecycle tokens such as `succeeded`, `cleanup_failed`, or `skipped_no_lease` as pass/fail status fields. The schema-owned scheduler and service artifacts remain authoritative when extension data is absent or `unknown`.
+
+Supplemental security extension data under `extensions["cartulary.security"]` MAY summarize scanner artifacts retained by the current target. For Govulncheck, target and tool-run summaries SHOULD expose `govulncheck.status`, `govulncheck.finding_count`, `govulncheck.blocking_count`, and `govulncheck.blocking_vulnerability_ids` derived only from the current target's schema-valid `cartulary.govulncheck_findings.v1` artifacts. This extension is a convenience rollup; `cartulary.govulncheck_findings.v1` and normalized failure fields remain authoritative for security classification.
 Verified by: TH-HARNESS-AC-000
 
 **TH-HARNESS-REQ-254**
@@ -922,6 +925,7 @@ Verified by: TH-HARNESS-AC-037
 | Scheduler event stream                               | Scheduler                                       | `<target>/scheduler-events.jsonl`                               | `cartulary.scheduler_event.v6`                                | `seq` strictly increases with no gaps                                                 | Retained.                                                    |
 | Scheduler progress summary                           | Scheduler reporter                              | `<target>/progress-summary.log`                                 | diagnostic-only                                               | Bounded progress snapshots                                                            | Retained.                                                    |
 | Scheduler pressure summary                           | Scheduler reporter                              | `<target>/pressure-summary.json`                                | required retained diagnostic; no current schema attachment     | Closed current-profile fields are defined below; ordering is target, lane, resource, fixture-class, and slowest-work lexical order after producer timestamps are normalized | Retained.                                                    |
+| Govulncheck findings                                 | Govulncheck wrapper                             | `<target>/<phase>/govulncheck-findings.json`                     | `cartulary.govulncheck_findings.v1`                            | Finding IDs and counts in deterministic order; symbol-reachable findings are blocking | Retained with the phase; promoted by target summary as artifact refs and supplemental security extension data. |
 | Agent finalizer summary                              | Agent finalizer                                 | `agent-finalize/finalize-summary.json`                          | `cartulary.agent_finalize_summary.v3`                         | Ordered actions, private substeps, skipped work, cache state, updated files, `RESULTS_DIR`, child artifact refs | Retained.                                                    |
 | Cache state artifacts                                | Cache helpers and agent finalizer               | `<target>/*-cache-*.json` when emitted; records under `.cache/cartulary/*` | `cartulary.cache.readiness.v1`, `cartulary.cache.build_artifact.v1`, `cartulary.agent_finalize_action_cache_record.v1`, or `cartulary.execution_topology_render_cache.v1` | Profile ID, cache state/reason, key digest, input digest, output digest, output paths, and record path in schema-defined order | Run-root artifacts retained; default cache records removed only by `make distclean`. |
 | Runtime binary provenance                            | Go target runner                                | `_shared/<execution-family>/runtime-binaries.json` when an aggregate declares runtime binaries | diagnostic-only                                               | Runtime binary ID, scheduler-owned consumer env, producer target, normalized path, file digest, build-artifact ref, and output digest | Retained with the shared Go report. |
@@ -1033,6 +1037,8 @@ Scheduler summaries MUST propagate the normalized primary failure from a failed 
 
 Every failed retained summary that carries the standard failure fields MUST expose both a non-null `failure_class` and a non-null `failure_reason`. Passing summaries MUST expose no primary failure. A generic shell-wrapper exit such as `command exited with status 1` is diagnostic wrapper evidence when a tool runner has already emitted a classified failure for the same target; it MUST NOT become the primary failure and SHOULD NOT be counted as an independent primary harness failure.
 
+Post-summary scheduler validation failures, including scheduler event, timing, critical-path, summary, or accounting drift detected after child work has completed, MUST be normalized as `failure_class=harness`, `failure_reason=scheduler_accounting_error`, and public exit code `11`. They MUST NOT fall through as caller `configuration_error` merely because they are detected by the scheduler runner.
+
 Failure classification uses two layers:
 
 - `failure_class`: coarse stable grouping for humans and automation.
@@ -1116,6 +1122,8 @@ Verified by: TH-HARNESS-AC-013, TH-HARNESS-AC-014, TH-HARNESS-AC-021
 
 **TH-HARNESS-REQ-303**
 A scheduler MUST preserve the first failed work unit and its retained detail as `failed_work_unit` and `failed_work_unit_detail` even when later sibling work drains and also fails. Scheduler summaries MUST include a bounded `observed_failed_work_units[]` array containing completed nonzero-exit work units in finish order, including later drained sibling failures; that array is diagnostic and MUST NOT rewrite the first failed work unit. Human failure output, scheduler summaries, target summaries, and tool-run summaries MUST choose a primary headline and public exit code from the primary-failure rules without contradicting `failed_work_unit` when the failed work unit has retained classified child evidence.
+
+Scheduler `critical_path_wall_duration_ms` is the scheduler timing envelope and MUST equal the scheduler total duration for every emitted scheduler summary, including failed schedules. When a failed schedule completes no successful work unit, `critical_path_units[]` MUST be empty and `critical_path_terminal_unit` MUST be `null`; the failed path remains represented by `failed_work_unit_detail` and `observed_failed_work_units[]`.
 Verified by: TH-HARNESS-AC-014, TH-HARNESS-AC-024
 
 **TH-HARNESS-REQ-304**
@@ -1363,7 +1371,7 @@ while pending is not empty or running is not empty:
 run finalizers in manifest order after all running units drain
 release retained resource claims
 emit scheduler summary, progress summary, and scheduler_complete
-validate timing when validate_timing is true
+validate timing when validate_timing is true; validation failures are `scheduler_accounting_error`
 exit with selected primary failure
 ```
 

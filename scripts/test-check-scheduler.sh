@@ -2743,6 +2743,15 @@ const reportedMs = Math.round(Number(match[1].slice(0, -1)) * 1000);
 if (Math.abs(reportedMs - summary.scheduler_total_duration_ms) > 10) {
   throw new Error(`failure total_wall_time ${reportedMs}ms does not match scheduler_total_duration_ms ${summary.scheduler_total_duration_ms}ms`);
 }
+if (summary.critical_path_wall_duration_ms !== summary.scheduler_total_duration_ms) {
+  throw new Error(`failed-only critical path duration ${summary.critical_path_wall_duration_ms}ms does not match scheduler total ${summary.scheduler_total_duration_ms}ms`);
+}
+if ((summary.critical_path_units ?? []).length !== 0) {
+  throw new Error("failed-only scheduler summary must not report successful critical path units");
+}
+if (summary.critical_path_terminal_unit !== null) {
+  throw new Error("failed-only scheduler summary terminal unit must be null");
+}
 EOF
 failure_scheduler_events="${failure_dir}/results/failure/check/scheduler-events.jsonl"
 assert_check_scheduler_artifacts "$failure_dir" failure check fail beta 4 skip
@@ -2791,6 +2800,61 @@ for (const [label, expectedText] of [
   }
 }
 EOF
+
+accounting_error_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-accounting-error.XXXXXX")"
+cleanup_paths+=("$accounting_error_dir")
+write_fake_make "$accounting_error_dir"
+accounting_error_manifest="${accounting_error_dir}/manifest.json"
+cat >"$accounting_error_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "host_cpu": 1 },
+      "work_units": [
+        { "target": "alpha", "weight_ms": 10, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+      ]
+    }
+  ]
+}
+JSON
+accounting_error_output_wrapper="${accounting_error_dir}/corrupt-test-output.sh"
+cat >"$accounting_error_output_wrapper" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+real="${CARTULARY_REAL_TEST_OUTPUT_SCRIPT:?}"
+set +e
+"$real" "$@"
+status=$?
+set -e
+if [[ "$status" -eq 0 && "${CARTULARY_CORRUPT_SCHEDULER_SUMMARY:-}" == "1" && "${1:-}" == "target-summary" && "${2:-}" == "check" ]]; then
+  "${NODE_BIN:-node}" - "${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/check/scheduler-summary.json" <<'JS'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+summary.scheduler_total_duration_ms = 0;
+summary.critical_path_wall_duration_ms = 0;
+fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`);
+JS
+fi
+exit "$status"
+EOF
+chmod +x "$accounting_error_output_wrapper"
+set +e
+accounting_error_output="$(
+  CARTULARY_CORRUPT_SCHEDULER_SUMMARY=1 \
+  CARTULARY_REAL_TEST_OUTPUT_SCRIPT="$ROOT_DIR/scripts/lib/test-output.sh" \
+  TEST_OUTPUT_SCRIPT="$accounting_error_output_wrapper" \
+    run_scheduler "$accounting_error_dir" "$accounting_error_manifest" accounting-error --resource-limit host_cpu=1 2>&1
+)"
+accounting_error_status=$?
+set -e
+assert_equals "$accounting_error_status" "11" "scheduler accounting validation exit status"
+assert_contains "$accounting_error_output" "scheduler summary timing drift detected" "scheduler accounting validation output"
+assert_contains "$accounting_error_output" "failure_class=harness reason=scheduler_accounting_error" "scheduler accounting validation normalized reason"
+assert_not_contains "$accounting_error_output" "reason=configuration_error" "scheduler accounting validation not configuration"
 
 classified_failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-classified-failure.XXXXXX")"
 cleanup_paths+=("$classified_failure_dir")
@@ -2903,6 +2967,7 @@ cat >"$service_skip_manifest" <<'JSON'
         { "target": "backend-integration", "weight_ms": 70, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
         { "target": "backend-integration-support", "weight_ms": 60, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
         { "target": "backend-process", "weight_ms": 50, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "build-operator", "weight_ms": 45, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
         { "target": "browser-e2e-webserver-backed", "weight_ms": 40, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
         { "target": "browser-e2e-stateful", "weight_ms": 30, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
         { "target": "browser-e2e-measurement", "weight_ms": 20, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
@@ -2916,6 +2981,7 @@ cat >"$service_skip_manifest" <<'JSON'
             "backend-integration",
             "backend-integration-support",
             "backend-process",
+            "build-operator",
             "browser-e2e-webserver-backed",
             "browser-e2e-stateful",
             "browser-e2e-measurement",
@@ -3033,12 +3099,14 @@ service_no_lease_output="$(
 )"
 service_no_lease_status=$?
 set -e
-assert_equals "$service_no_lease_status" "2" "service no-lease startup failure status"
+assert_equals "$service_no_lease_status" "1" "service no-lease startup failure status"
 assert_contains "$service_no_lease_output" "fake test-services start failure before lease" "service no-lease preserves startup failure"
 assert_not_contains "$service_no_lease_output" "terminate-suite should not run without a lease" "service no-lease cleanup skips missing lease"
 assert_not_contains "$(cat "${service_no_lease_dir}/test-services.log")" "test-services terminate-suite" "service no-lease does not invoke terminate-suite"
 service_no_lease_scheduler_summary="${service_no_lease_dir}/results/service-no-lease/check/scheduler-summary.json"
 assert_file_present "$service_no_lease_scheduler_summary" "service no-lease scheduler summary"
+assert_equals "$(json_field "$service_no_lease_scheduler_summary" "failure_class")" "harness" "service no-lease scheduler failure class"
+assert_equals "$(json_field "$service_no_lease_scheduler_summary" "failure_reason")" "unknown_failure" "service no-lease scheduler failure reason"
 assert_equals "$("$NODE_BIN" -e 'const fs=require("node:fs"); const summary=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); console.log(summary.service_sessions?.[0]?.cleanup_status ?? "missing");' "$service_no_lease_scheduler_summary")" "skipped_no_lease" "service no-lease cleanup status"
 
 invalid_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-invalid.XXXXXX")"

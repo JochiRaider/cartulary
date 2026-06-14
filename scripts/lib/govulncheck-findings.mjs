@@ -3,7 +3,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { redactValue } from "./harness-contract.mjs";
+import { redactValue, validateSchemaSync } from "./harness-contract.mjs";
 
 const schemaID = "cartulary.govulncheck_findings.v1";
 
@@ -224,6 +224,7 @@ function main(argv) {
     throw new Error("Govulncheck JSON output was empty");
   }
   const summary = summarize(values);
+  validateSchemaSync(schemaID, summary);
   mkdirSync(path.dirname(options.output), { recursive: true, mode: 0o700 });
   writeFileSync(options.output, `${JSON.stringify(summary, null, 2)}\n`, {
     mode: 0o600,

@@ -102,6 +102,7 @@ import {
 
 const resultsRoot = resolveResultsRoot();
 const runId = resolveRunId();
+const govulncheckFindingsSchemaID = "cartulary.govulncheck_findings.v1";
 
 let cachedGoModulePath;
 let cachedManifestIndex;
@@ -245,6 +246,12 @@ function writeJson(file, value) {
 function writeValidatedJson(file, schemaID, value) {
   validateSchemaSync(schemaID, value);
   writeJson(file, value);
+}
+
+function oneLineError(error) {
+  return String(error instanceof Error ? error.message : error)
+    .split(/\r?\n/u)[0]
+    .trim();
 }
 
 function createCounts() {
@@ -1082,6 +1089,71 @@ function resolveArtifactPath(value) {
   return path.isAbsolute(value) ? value : path.join(repoRoot, value);
 }
 
+function uniqueSortedStrings(values = []) {
+  return [
+    ...new Set(
+      values
+        .filter((value) => typeof value === "string")
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  ].sort((left, right) => left.localeCompare(right));
+}
+
+function arrayFromArtifactValue(value) {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => arrayFromArtifactValue(entry));
+  }
+  if (!value) {
+    return [];
+  }
+  return String(value)
+    .split(";")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function loadGovulncheckFindingsFile(file) {
+  if (!file || !existsSync(file)) {
+    return { findings: null, error: null, artifact: "" };
+  }
+  const artifact = relToRepo(file);
+  let findings;
+  try {
+    findings = JSON.parse(readFileSync(file, "utf8"));
+  } catch (error) {
+    return {
+      findings: null,
+      error: `invalid JSON: ${oneLineError(error)}`,
+      artifact,
+    };
+  }
+  try {
+    validateSchemaSync(govulncheckFindingsSchemaID, findings);
+  } catch (error) {
+    return {
+      findings: null,
+      error: oneLineError(error),
+      artifact,
+    };
+  }
+  return { findings, error: null, artifact };
+}
+
+function govulncheckArtifactFailure(file, error, defaults = {}) {
+  const artifact = relToRepo(file);
+  const detail = error ? `: ${error}` : "";
+  return artifactFailureRecord(
+    `invalid Govulncheck findings artifact ${artifact}${detail}`,
+    {
+      ...defaults,
+      source: "govulncheck",
+      label: "govulncheck-findings",
+      artifact,
+    },
+  );
+}
+
 function finalizeLine(summary) {
   const actions = Array.isArray(summary.actions) ? summary.actions : [];
   const reused = actions.filter((action) => action.execution_state === "reused").length;
@@ -1318,6 +1390,9 @@ function writePhaseArtifacts(context, details) {
   const govulncheckFindingsPath = artifacts.govulncheck_findings
     ? resolveArtifactPath(artifacts.govulncheck_findings)
     : "";
+  const govulncheckFindingsResult = loadGovulncheckFindingsFile(
+    govulncheckFindingsPath,
+  );
   const shellcheckFilesChecked =
     shellcheckInventoryPath && existsSync(shellcheckInventoryPath)
       ? readFileSync(shellcheckInventoryPath, "utf8")
@@ -1330,10 +1405,7 @@ function writePhaseArtifacts(context, details) {
           .split(/\r?\n/u)
           .filter(Boolean).length
       : null;
-  const govulncheckFindings =
-    govulncheckFindingsPath && existsSync(govulncheckFindingsPath)
-      ? readJsonIfExists(govulncheckFindingsPath)
-      : null;
+  const govulncheckFindings = govulncheckFindingsResult.findings;
   const securityExtension = {};
   if (securityProfileCount !== null) {
     securityExtension.profile_count = securityProfileCount;
@@ -2315,6 +2387,92 @@ function summarizeTargetDir(target) {
   };
 }
 
+function phaseAlreadyReportedGovulncheckArtifactError(summary = {}) {
+  return (summary.failures ?? []).some((failure) => {
+    if (failure?.failure_reason !== "artifact_error") {
+      return false;
+    }
+    const text = [
+      failure.source,
+      failure.label,
+      failure.message,
+      failure.artifact,
+    ]
+      .join("\n")
+      .toLowerCase();
+    return text.includes("govulncheck") || text.includes("go-vulncheck");
+  });
+}
+
+function govulncheckRollupFromPhaseSummaries(target, summaries = []) {
+  const artifacts = [];
+  const artifactSet = new Set();
+  const failures = [];
+  let status = "pass";
+  let findingCount = 0;
+  let blockingCount = 0;
+  let validArtifactCount = 0;
+  const blockingIDs = [];
+
+  for (const summary of summaries) {
+    const values = arrayFromArtifactValue(summary.artifacts?.govulncheck_findings);
+    for (const value of values) {
+      const artifactPath = resolveArtifactPath(value);
+      const artifact = relToRepo(artifactPath);
+      if (artifactSet.has(artifact)) {
+        continue;
+      }
+      artifactSet.add(artifact);
+      artifacts.push(artifact);
+
+      const result = loadGovulncheckFindingsFile(artifactPath);
+      if (result.error) {
+        if (!phaseAlreadyReportedGovulncheckArtifactError(summary)) {
+          failures.push(
+            govulncheckArtifactFailure(artifactPath, result.error, {
+              target,
+              phase: summary.phase ?? "",
+              runner: summary.runner ?? "",
+            }),
+          );
+        }
+        continue;
+      }
+      const findings = result.findings;
+      if (!findings) {
+        continue;
+      }
+      validArtifactCount += 1;
+      findingCount += findings.counts?.finding_count ?? 0;
+      blockingCount += findings.counts?.blocking_count ?? 0;
+      blockingIDs.push(...(findings.blocking_vulnerability_ids ?? []));
+      if (findings.status === "fail" || (findings.counts?.blocking_count ?? 0) > 0) {
+        status = "fail";
+      }
+    }
+  }
+
+  const extension =
+    validArtifactCount > 0
+      ? {
+          "cartulary.security": {
+            govulncheck: {
+              status,
+              finding_count: findingCount,
+              blocking_count: blockingCount,
+              blocking_vulnerability_ids: uniqueSortedStrings(blockingIDs),
+            },
+          },
+        }
+      : {};
+
+  return {
+    artifacts: artifacts.length > 0 ? { govulncheck_findings: artifacts } : {},
+    extensions: extension,
+    failures,
+  };
+}
+
 function printInventory(targetSummary) {
   if (process.env.CARTULARY_TEST_INVENTORY !== "1") {
     return;
@@ -2968,6 +3126,12 @@ function writeTargetLine(stream, label, targetSummary) {
   );
 }
 
+function govulncheckFindingArtifactRefs(targetSummary) {
+  return arrayFromArtifactValue(targetSummary.artifacts?.govulncheck_findings).map(
+    (artifact) => artifactRef("govulncheck_findings", artifact, "json"),
+  );
+}
+
 function targetToolSummary(targetSummary, summaryJsonPath) {
   const totals = targetSummary.totals ?? {};
   const counts = totals.counts ?? {};
@@ -3053,6 +3217,7 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
             "jsonl",
           )
         : null,
+      ...govulncheckFindingArtifactRefs(targetSummary),
       ...serviceSharedSummaryArtifacts(runRunRoot),
     ],
     logArtifacts: [
@@ -3403,6 +3568,10 @@ function handleTargetSummary(args) {
     frontendRowAccountingOptions,
   );
   const summary = summarizeTargetDir(target);
+  const securityRollup = govulncheckRollupFromPhaseSummaries(
+    target,
+    summary.summaries,
+  );
   const lifecycleSpans = lifecycleTimingSpans(target, summary.targetDir);
   const timingFailures = timingFailuresFromSpans(lifecycleSpans);
   const teardownFailures = timingFailures.filter(
@@ -3439,11 +3608,17 @@ function handleTargetSummary(args) {
     summary.counts.non_test_failed +=
       unresolvedMissingChildTargetSummaries.length;
   }
+  if (securityRollup.failures.length > 0) {
+    summary.counts.failed += securityRollup.failures.length;
+    summary.counts.non_test += securityRollup.failures.length;
+    summary.counts.non_test_failed += securityRollup.failures.length;
+  }
   if (
     requestedStatus === "fail" &&
     summary.failed === false &&
     timingFailures.length === 0 &&
     unresolvedMissingChildTargetSummaries.length === 0 &&
+    securityRollup.failures.length === 0 &&
     failedChildTargets.length === 0 &&
     skippedChildTargets.length === 0
   ) {
@@ -3456,6 +3631,7 @@ function handleTargetSummary(args) {
     summary.failed === false &&
     timingFailures.length === 0 &&
     unresolvedMissingChildTargetSummaries.length === 0 &&
+    securityRollup.failures.length === 0 &&
     failedChildTargets.length === 0 &&
     skippedChildTargets.length === 0
       ? [
@@ -3480,6 +3656,7 @@ function handleTargetSummary(args) {
           source: "target-summary",
         }),
       ),
+      ...securityRollup.failures,
       ...requestedFallbackFailure,
     ],
     normalizeCounts(summary.counts),
@@ -3488,6 +3665,7 @@ function handleTargetSummary(args) {
     summary.failed ||
     timingFailures.length > 0 ||
     unresolvedMissingChildTargetSummaries.length > 0 ||
+    securityRollup.failures.length > 0 ||
     (requestedStatus === "fail" &&
       failedChildTargets.length === 0 &&
       skippedChildTargets.length === 0);
@@ -3631,6 +3809,14 @@ function handleTargetSummary(args) {
     mergeAccountingModes(modes, schedulerAccounting.accounting_modes);
     totalsSection.accounting_modes = modes;
   }
+  if (securityRollup.artifacts.govulncheck_findings?.length > 0) {
+    ownSection.artifacts.govulncheck_findings =
+      securityRollup.artifacts.govulncheck_findings;
+    if (totalsSection.artifacts && typeof totalsSection.artifacts === "object") {
+      totalsSection.artifacts.govulncheck_findings =
+        securityRollup.artifacts.govulncheck_findings;
+    }
+  }
   const schedulerFailureOverride =
     status === "FAIL" &&
     schedulerSummary?.status === "fail" &&
@@ -3707,6 +3893,7 @@ function handleTargetSummary(args) {
   const finalStatus =
     frontendAccountingFailures.length > 0 ? "FAIL" : status;
   const targetExtensions = {
+    ...securityRollup.extensions,
     ...(schedulerAccounting
       ? {
           "cartulary.scheduler_accounting": schedulerAccounting,
@@ -4685,6 +4872,12 @@ function classifyShellFailureDetails(context, stdoutLines, stderrLines, message)
   if (startupDiagnostic) {
     return startupDiagnostic;
   }
+  if (govulncheckFindingsValidationError(context)) {
+    return {
+      failure_class: "artifact",
+      failure_reason: "artifact_error",
+    };
+  }
 
   const text = [
     context.target,
@@ -4763,7 +4956,7 @@ function classifyShellFailureDetails(context, stdoutLines, stderrLines, message)
 }
 
 function firstStructuredToolFailureLine(context) {
-  return govulncheckFailureLine(context);
+  return govulncheckArtifactErrorLine(context) || govulncheckFailureLine(context);
 }
 
 function isSecurityScannerFindingFailure(context, text) {
@@ -4788,11 +4981,24 @@ function readGovulncheckFindings(context) {
   if (!file || !existsSync(file)) {
     return null;
   }
-  const findings = readJsonIfExists(file);
-  if (findings?.schema_id !== "cartulary.govulncheck_findings.v1") {
-    return null;
+  return loadGovulncheckFindingsFile(file).findings;
+}
+
+function govulncheckFindingsValidationError(context) {
+  const file = govulncheckFindingsPath(context);
+  if (!file || !existsSync(file)) {
+    return "";
   }
-  return findings;
+  const result = loadGovulncheckFindingsFile(file);
+  return result.error ?? "";
+}
+
+function govulncheckArtifactErrorLine(context) {
+  const error = govulncheckFindingsValidationError(context);
+  if (!error) {
+    return "";
+  }
+  return `Govulncheck findings artifact is invalid: ${error}`;
 }
 
 function govulncheckFailureLine(context) {

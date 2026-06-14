@@ -403,7 +403,7 @@ support_phase3_summary="$success_root/browser-e2e-support-phase3-supplemental/ph
 assert_equals "$(json_field "$support_phase2_summary" "status")" "pass" "phase2 support batch success status"
 assert_equals "$(json_field "$support_phase2_summary" "counts.support")" "3" "phase2 support batch support count"
 assert_equals "$(json_field "$support_phase3_summary" "status")" "pass" "phase3 support batch success status"
-assert_equals "$(json_field "$support_phase3_summary" "counts.support")" "3" "phase3 support batch support count"
+assert_equals "$(json_field "$support_phase3_summary" "counts.support")" "4" "phase3 support batch support count"
 phase1_timing="$success_root/browser-e2e-functional-phase1-authoritative/playwright-timing.json"
 phase4_timing="$success_root/browser-e2e-functional-phase4-authoritative/playwright-timing.json"
 assert_equals "$(json_field "$phase1_timing" "source")" "playwright_result_timestamps" "phase1 timing source"
