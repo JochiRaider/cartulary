@@ -196,6 +196,168 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata(t *t
 	}
 }
 
+func TestPhase10_E_10_01_DeploymentLocalOperatorCaptureBackupSet(t *testing.T) {
+	ctx := context.Background()
+	postgresHarness := pgtest.Start(t)
+	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-operator-capture")
+	s3Harness := s3test.Start(t)
+	bucket := fmt.Sprintf("phase10-operator-capture-%d", time.Now().UnixNano())
+	if err := s3Harness.CreateBucket(ctx, bucket); err != nil {
+		t.Fatalf("create backup capture bucket: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
+			t.Logf("cleanup bucket: %v", err)
+		}
+	})
+
+	sourceConfig := operatorManagedS3Config(t, sourceDB.DSN, "backup-capture")
+	adminEmail := "phase10-e-10-01-capture-admin@example.test"
+	nonAdminEmail := "phase10-e-10-01-capture-viewer@example.test"
+	inactiveAdminEmail := "phase10-e-10-01-capture-inactive@example.test"
+	adminID := seedOperatorUser(t, sourceDB.DSN, adminEmail, true, true)
+	seedOperatorUser(t, sourceDB.DSN, nonAdminEmail, false, true)
+	seedOperatorUser(t, sourceDB.DSN, inactiveAdminEmail, true, false)
+	blob := seedOperatorMigrationBlob(t, sourceDB.DSN, adminID, []byte("phase10 capture object proof"))
+	if _, err := s3Harness.RoundTrip(ctx, bucket, blob.storageKey, blob.body); err != nil {
+		t.Fatalf("write source object for backup capture: %v", err)
+	}
+
+	env := mergeOperatorEnv(operatorRecoveryEnv(), s3Harness.EnvForServiceRef("backup-capture", bucket))
+	operatorBin := buildOperatorBinary(t)
+	asOf := time.Now().UTC().Truncate(time.Second)
+	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102301")
+	proofPath := writeOperatorBackupQuiescenceProof(t, asOf.Add(-time.Second))
+	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(t, 30*time.Second, operatorBin, env,
+		"backup", "capture",
+		"-source-config", sourceConfig.path,
+		"-deployment-admin-email", adminEmail,
+		"-backup-set-id", backupSetID.String(),
+		"-quiescence-proof", proofPath,
+		"-as-of", asOf.Format(time.RFC3339Nano),
+	)
+	if exitCode != 0 {
+		t.Fatalf("operator backup capture failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+		t.Fatalf("decode backup capture JSON: %v\nstdout=%s", err, stdout)
+	}
+	if payload["schema_id"] != app.OperatorBackupCaptureResultSchemaID || payload["backup_set_id"] != backupSetID.String() {
+		t.Fatalf("unexpected backup capture payload: %#v", payload)
+	}
+	if payload["verification_state"] != string(recovery.VerificationUnverified) || payload["last_verified_restore_at"] != nil {
+		t.Fatalf("new capture must be unverified with null restore timestamp: %#v", payload)
+	}
+	if !operatorPayloadStringHasPrefix(payload, "postgres_restore_anchor", "backup-storage://backup_sets/") ||
+		!operatorPayloadStringHasPrefix(payload, "object_store_restore_anchor", "backup-storage://backup_sets/") {
+		t.Fatalf("backup capture did not expose both restore anchors: %#v", payload)
+	}
+	requireOperatorArtifactProof(t, payload)
+	requireOperatorRetentionFloor(t, payload, "retained_until")
+	requireOperatorRetentionFloor(t, payload, "postgres_restore_anchor_retained_until")
+	requireOperatorRetentionFloor(t, payload, "object_store_restore_anchor_retained_until")
+	summary, ok := payload["object_store_backup_summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("backup capture payload missing object_store_backup_summary: %#v", payload)
+	}
+	bucketRef, ok := summary["bucket_ref"].(map[string]any)
+	if !ok || bucketRef["redacted"] != true || bucketRef["redaction_class"] != "bucket" {
+		t.Fatalf("backup capture summary did not redact bucket: %#v", summary)
+	}
+	if strings.Contains(stdout, bucket) || strings.Contains(stdout, s3Harness.Endpoint) ||
+		strings.Contains(stdout, blob.storageKey) || strings.Contains(stdout, blob.storageRef) ||
+		strings.Contains(stderr, bucket) || strings.Contains(stderr, s3Harness.Endpoint) {
+		t.Fatalf("backup capture exposed storage details: stdout=%s stderr=%s", stdout, stderr)
+	}
+
+	rawArtifact := filepath.Join(sourceConfig.backupRoot, "backup_sets", backupSetID.String(), "object-store-artifact.json")
+	rawBody, err := os.ReadFile(rawArtifact)
+	if err != nil {
+		t.Fatalf("read raw encrypted backup artifact: %v", err)
+	}
+	for _, forbidden := range []string{string(blob.body), blob.storageKey, blob.storageRef, bucket, s3Harness.Endpoint} {
+		if strings.Contains(string(rawBody), forbidden) {
+			t.Fatalf("raw encrypted backup artifact contains forbidden plaintext %q: %s", forbidden, rawBody)
+		}
+	}
+
+	latestStdout, latestStderr, latestExit := runOperatorBinary(t, operatorBin, env,
+		"backup-metadata", "latest",
+		"-source-config", sourceConfig.path,
+		"-deployment-admin-email", adminEmail,
+		"-as-of", asOf.Add(time.Minute).Format(time.RFC3339Nano),
+	)
+	if latestExit != 0 {
+		t.Fatalf("operator latest metadata after capture failed: exit=%d stdout=%s stderr=%s", latestExit, latestStdout, latestStderr)
+	}
+	var latest map[string]any
+	if err := json.Unmarshal([]byte(latestStdout), &latest); err != nil {
+		t.Fatalf("decode latest metadata JSON: %v\nstdout=%s", err, latestStdout)
+	}
+	if latest["backup_set_id"] != backupSetID.String() {
+		t.Fatalf("latest metadata selected wrong backup: %#v", latest)
+	}
+	consistencyPointAt, err := time.Parse(time.RFC3339Nano, latest["consistency_point_at"].(string))
+	if err != nil {
+		t.Fatalf("parse latest consistency_point_at: %v", err)
+	}
+	if consistencyPointAt.Before(asOf.Add(-24 * time.Hour)) {
+		t.Fatalf("latest backup is older than 24 hours: %s as_of=%s", consistencyPointAt, asOf)
+	}
+	requireOperatorRetentionFloor(t, latest, "retained_until")
+
+	_, nonAdminStderr, nonAdminExit := runOperatorBinary(t, operatorBin, env,
+		"backup", "capture",
+		"-source-config", sourceConfig.path,
+		"-deployment-admin-email", nonAdminEmail,
+		"-quiescence-proof", proofPath,
+	)
+	if nonAdminExit == 0 || !strings.Contains(nonAdminStderr, "deployment admin authorization failed") {
+		t.Fatalf("non-admin backup capture did not fail closed: exit=%d stderr=%s", nonAdminExit, nonAdminStderr)
+	}
+	_, inactiveStderr, inactiveExit := runOperatorBinary(t, operatorBin, env,
+		"backup", "capture",
+		"-source-config", sourceConfig.path,
+		"-deployment-admin-email", inactiveAdminEmail,
+		"-quiescence-proof", proofPath,
+	)
+	if inactiveExit == 0 || !strings.Contains(inactiveStderr, "deployment admin authorization failed") {
+		t.Fatalf("inactive admin backup capture did not fail closed: exit=%d stderr=%s", inactiveExit, inactiveStderr)
+	}
+	missingKeyEnv := mergeOperatorEnv(env)
+	delete(missingKeyEnv, recovery.RecoveryMasterKeyEnv)
+	_, missingKeyStderr, missingKeyExit := runOperatorBinary(t, operatorBin, missingKeyEnv,
+		"backup", "capture",
+		"-source-config", sourceConfig.path,
+		"-deployment-admin-email", adminEmail,
+		"-quiescence-proof", proofPath,
+	)
+	if missingKeyExit == 0 || !strings.Contains(missingKeyStderr, "recovery master key required") {
+		t.Fatalf("missing recovery key did not fail closed: exit=%d stderr=%s", missingKeyExit, missingKeyStderr)
+	}
+	wrongKeyEnv := mergeOperatorEnv(env)
+	wrongKeyEnv[recovery.RecoveryMasterKeyEnv] = "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE="
+	_, wrongKeyStderr, wrongKeyExit := runOperatorBinary(t, operatorBin, wrongKeyEnv,
+		"backup-metadata", "latest",
+		"-source-config", sourceConfig.path,
+		"-deployment-admin-email", adminEmail,
+		"-as-of", asOf.Add(time.Minute).Format(time.RFC3339Nano),
+	)
+	if wrongKeyExit == 0 || !strings.Contains(wrongKeyStderr, "no successful retained backup") {
+		t.Fatalf("wrong recovery key did not fail closed on artifact access: exit=%d stderr=%s", wrongKeyExit, wrongKeyStderr)
+	}
+
+	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
+	reloaded, err := recovery.NewBackupCatalog(recovery.NewStore(mustOpenOperatorPool(t, sourceDB.DSN)), backupStorage).RestoreCandidateBackup(ctx, asOf.Add(time.Minute))
+	if err != nil {
+		t.Fatalf("captured backup did not remain durable: %v", err)
+	}
+	if reloaded.BackupSetID != backupSetID || reloaded.VerificationState != recovery.VerificationUnverified {
+		t.Fatalf("reloaded captured backup changed identity or verification state: %#v", reloaded)
+	}
+}
+
 func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
@@ -404,6 +566,46 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner(t *testin
 		t.Fatalf("seed fresh verification state: %v", err)
 	}
 	operatorBin := buildOperatorBinary(t)
+	_, sameConfigStderr, sameConfigExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"restore-verify", "due",
+		"-source-config", sourceConfig.path,
+		"-target-config", sourceConfig.path,
+		"-deployment-admin-email", adminEmail,
+		"-as-of", asOf.Format(time.RFC3339Nano),
+	)
+	if sameConfigExit == 0 || !strings.Contains(sameConfigStderr, "source-config and target-config must be different files") {
+		t.Fatalf("same-config restore-verify due did not fail closed: exit=%d stderr=%s", sameConfigExit, sameConfigStderr)
+	}
+	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
+
+	sameDSNConfig := operatorExplicitConfig(t, sourceDB.DSN)
+	_, sameDSNStderr, sameDSNExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"restore-verify", "due",
+		"-source-config", sourceConfig.path,
+		"-target-config", sameDSNConfig.path,
+		"-deployment-admin-email", adminEmail,
+		"-as-of", asOf.Format(time.RFC3339Nano),
+	)
+	if sameDSNExit == 0 || !strings.Contains(sameDSNStderr, "source and target postgres DSNs must differ") {
+		t.Fatalf("same-DSN restore-verify due did not fail closed: exit=%d stderr=%s", sameDSNExit, sameDSNStderr)
+	}
+	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
+
+	sameObjectStoreConfig := operatorConfigVariant(t, targetConfig, map[string]string{
+		targetConfig.objectRoot: sourceConfig.objectRoot,
+	})
+	_, sameObjectStderr, sameObjectExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"restore-verify", "due",
+		"-source-config", sourceConfig.path,
+		"-target-config", sameObjectStoreConfig.path,
+		"-deployment-admin-email", adminEmail,
+		"-as-of", asOf.Format(time.RFC3339Nano),
+	)
+	if sameObjectExit == 0 || !strings.Contains(sameObjectStderr, "source and target object stores must differ") {
+		t.Fatalf("same-object-store restore-verify due did not fail closed: exit=%d stderr=%s", sameObjectExit, sameObjectStderr)
+	}
+	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
+
 	_, unsafeStderr, unsafeExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore-verify", "due",
 		"-source-config", sourceConfig.path,
@@ -417,6 +619,20 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner(t *testin
 	if !strings.Contains(unsafeStderr, "target marker") {
 		t.Fatalf("unsafe restore-verification target failure did not mention marker: %s", unsafeStderr)
 	}
+	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
+
+	writeInvalidRestoreVerificationTargetMarker(t, targetCfg)
+	_, invalidMarkerStderr, invalidMarkerExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"restore-verify", "due",
+		"-source-config", sourceConfig.path,
+		"-target-config", targetConfig.path,
+		"-deployment-admin-email", adminEmail,
+		"-as-of", asOf.Format(time.RFC3339Nano),
+	)
+	if invalidMarkerExit == 0 || !strings.Contains(invalidMarkerStderr, "target marker is not a restore-verification target") {
+		t.Fatalf("invalid-marker restore-verify due did not fail closed: exit=%d stderr=%s", invalidMarkerExit, invalidMarkerStderr)
+	}
+	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
 
 	writeRestoreVerificationTargetMarker(t, targetCfg)
 	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
@@ -842,6 +1058,28 @@ func operatorManagedS3Config(t testing.TB, dsn string, serviceRef string) operat
 	}
 }
 
+func operatorConfigVariant(t testing.TB, base operatorExplicitConfigFixture, replacements map[string]string) operatorExplicitConfigFixture {
+	t.Helper()
+
+	body, err := os.ReadFile(base.path)
+	if err != nil {
+		t.Fatalf("read base operator config: %v", err)
+	}
+	contents := string(body)
+	for oldValue, newValue := range replacements {
+		contents = strings.ReplaceAll(contents, oldValue, newValue)
+	}
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(configPath, []byte(contents), 0o644); err != nil {
+		t.Fatalf("write operator config variant: %v", err)
+	}
+	return operatorExplicitConfigFixture{
+		path:       configPath,
+		objectRoot: base.objectRoot,
+		backupRoot: base.backupRoot,
+	}
+}
+
 func operatorMigrationS3Env(source *s3test.Harness, target *s3test.Harness, bucket string) map[string]string {
 	env := mergeOperatorEnv(source.EnvForServiceRef("migration-source", bucket), target.EnvForServiceRef("migration-target", bucket))
 	return env
@@ -963,6 +1201,30 @@ func writeOperatorMigrationQuiescenceProof(t testing.TB) string {
 		t.Fatalf("write migration quiescence proof: %v", err)
 	}
 	return path
+}
+
+func writeOperatorBackupQuiescenceProof(t testing.TB, checkedAt time.Time) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "backup-quiescence-proof.json")
+	body := []byte(fmt.Sprintf(
+		`{"schema_id":"%s","proof_kind":"process_stopped","checked_at":%q,"process_state":"absent","http_listener_closed":true,"websocket_listener_closed":true}`+"\n",
+		app.BackupCaptureQuiescenceProofSchemaID,
+		checkedAt.UTC().Format(time.RFC3339Nano),
+	))
+	if err := os.WriteFile(path, body, 0o600); err != nil {
+		t.Fatalf("write backup quiescence proof: %v", err)
+	}
+	return path
+}
+
+func mustOpenOperatorPool(t testing.TB, dsn string) *pgxpool.Pool {
+	t.Helper()
+	pool, err := pgxpool.New(context.Background(), dsn)
+	if err != nil {
+		t.Fatalf("open operator pgx pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	return pool
 }
 
 func operatorPhaseFArtifactsDir(t testing.TB, name string) string {
@@ -1166,6 +1428,42 @@ func writeRestoreVerificationTargetMarker(t testing.TB, cfg config.Config) {
 	body := []byte(`{"schema_id":"` + app.RestoreVerificationTargetMarkerSchemaID + `","purpose":"restore_verification_target"}`)
 	if err := os.WriteFile(markerPath, body, 0o600); err != nil {
 		t.Fatalf("write restore verification target marker: %v", err)
+	}
+}
+
+func writeInvalidRestoreVerificationTargetMarker(t testing.TB, cfg config.Config) {
+	t.Helper()
+	markerPath, err := app.RestoreVerificationTargetMarkerPath(cfg)
+	if err != nil {
+		t.Fatalf("resolve invalid restore verification target marker path: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(markerPath), 0o700); err != nil {
+		t.Fatalf("create invalid restore verification target marker directory: %v", err)
+	}
+	body := []byte(`{"schema_id":"cartulary.restore_verification_target.v1","purpose":"production_target"}`)
+	if err := os.WriteFile(markerPath, body, 0o600); err != nil {
+		t.Fatalf("write invalid restore verification target marker: %v", err)
+	}
+}
+
+func requireOperatorRestoreTargetUnmutated(t testing.TB, dsn string) {
+	t.Helper()
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("open target sql for mutation check: %v", err)
+	}
+	defer db.Close()
+	var rowCount int
+	if err := db.QueryRowContext(context.Background(), `
+SELECT
+    (SELECT COUNT(*) FROM incidents)
+  + (SELECT COUNT(*) FROM records)
+  + (SELECT COUNT(*) FROM object_blobs)
+`).Scan(&rowCount); err != nil {
+		t.Fatalf("query target mutation count: %v", err)
+	}
+	if rowCount != 0 {
+		t.Fatalf("unsafe restore-verification preflight mutated target rows, count=%d", rowCount)
 	}
 }
 

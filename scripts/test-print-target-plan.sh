@@ -222,8 +222,9 @@ const phase10OperatorShards = plan.shards
   .sort((left, right) => left.name.localeCompare(right.name));
 const expected = [
   ["backend-process-phase10-operator-inspection-scn-001", "SCN-001", "^TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata$"],
-  ["backend-process-phase10-operator-inspection-scn-002", "SCN-002", "^TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup$"],
-  ["backend-process-phase10-operator-inspection-scn-003", "SCN-003", "^TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner$"],
+  ["backend-process-phase10-operator-inspection-scn-002", "SCN-002", "^TestPhase10_E_10_01_DeploymentLocalOperatorCaptureBackupSet$"],
+  ["backend-process-phase10-operator-inspection-scn-003", "SCN-003", "^TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup$"],
+  ["backend-process-phase10-operator-inspection-scn-004", "SCN-004", "^TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner$"],
   ["backend-process-phase10-operator-inspection-scn-004-mismatch", "SCN-004-MISMATCH", "^TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsMismatchEvidence$"],
   ["backend-process-phase10-operator-inspection-scn-004-pass", "SCN-004-PASS", "^TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassEvidence$"],
 ];

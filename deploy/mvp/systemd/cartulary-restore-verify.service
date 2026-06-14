@@ -1,0 +1,13 @@
+[Unit]
+Description=Cartulary MVP restore verification due runner
+Wants=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+Environment=CARTULARY_MVP_DIR=/opt/cartulary/deploy/mvp
+Environment=CARTULARY_MVP_ENV_FILE=/etc/cartulary/mvp.env
+Environment=CARTULARY_SOURCE_CONFIG=/opt/cartulary/deploy/mvp/config.toml
+Environment=CARTULARY_RESTORE_VERIFY_TARGET_CONFIG=/opt/cartulary/deploy/mvp/restore-verification-target.toml
+Environment=CARTULARY_RESTORE_VERIFY_TARGET_ROOT=/var/lib/cartulary/restore-verification-target
+ExecStart=/opt/cartulary/deploy/mvp/scripts/restore-verify-due.sh

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Cartulary MVP restore verification daily
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30min
+Persistent=true
+Unit=cartulary-restore-verify.service
+
+[Install]
+WantedBy=timers.target

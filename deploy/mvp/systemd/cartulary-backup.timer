@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Cartulary MVP backup capture every 6 hours
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=6h
+RandomizedDelaySec=5min
+Persistent=true
+Unit=cartulary-backup.service
+
+[Install]
+WantedBy=timers.target

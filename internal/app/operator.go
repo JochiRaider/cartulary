@@ -24,6 +24,8 @@ import (
 )
 
 const (
+	OperatorBackupCaptureResultSchemaID              = "cartulary.operator.backup_capture_result.v1"
+	BackupCaptureQuiescenceProofSchemaID             = "cartulary.backup_capture_quiescence_proof.v1"
 	BackupMetadataInspectionSchemaID                 = "cartulary.operator.backup_metadata.v1"
 	OperatorRestoreResultSchemaID                    = "cartulary.operator.restore_result.v1"
 	OperatorRestoreVerificationSchemaID              = "cartulary.operator.restore_verification_result.v1"
@@ -59,6 +61,7 @@ type operatorCLIResult struct {
 	asOf               time.Time
 	sourceConfigPath   string
 	targetConfigPath   string
+	captureBackupSetID uuid.UUID
 	confirmBackupSetID uuid.UUID
 	runID              uuid.UUID
 	artifactsDir       string
@@ -90,6 +93,41 @@ type BackupMetadataInspection struct {
 	LastVerifiedRestoreAt                 *time.Time                   `json:"last_verified_restore_at"`
 	LastVerificationBasisSHA256           string                       `json:"last_verification_basis_sha256,omitempty"`
 	DurabilityDiagnostics                 []BackupDurabilityDiagnostic `json:"durability_diagnostics,omitempty"`
+}
+
+type OperatorBackupCaptureResult struct {
+	SchemaID                              string                                `json:"schema_id"`
+	BackupSetID                           string                                `json:"backup_set_id"`
+	ConsistencyPointAt                    time.Time                             `json:"consistency_point_at"`
+	CreatedAt                             time.Time                             `json:"created_at"`
+	RetainedUntil                         time.Time                             `json:"retained_until"`
+	PostgresRestoreAnchor                 string                                `json:"postgres_restore_anchor"`
+	ObjectStoreRestoreAnchor              string                                `json:"object_store_restore_anchor"`
+	PostgresArtifactKey                   string                                `json:"postgres_artifact_key"`
+	PostgresArtifactSHA256                string                                `json:"postgres_artifact_sha256"`
+	PostgresArtifactSizeBytes             int64                                 `json:"postgres_artifact_size_bytes"`
+	ObjectStoreArtifactKey                string                                `json:"object_store_artifact_key"`
+	ObjectStoreArtifactSHA256             string                                `json:"object_store_artifact_sha256"`
+	ObjectStoreArtifactSizeBytes          int64                                 `json:"object_store_artifact_size_bytes"`
+	IntegrityManifestKey                  string                                `json:"integrity_manifest_key"`
+	IntegrityManifestSHA256               string                                `json:"integrity_manifest_sha256"`
+	IntegrityManifestSizeBytes            int64                                 `json:"integrity_manifest_size_bytes"`
+	PostgresRestoreAnchorRetainedUntil    time.Time                             `json:"postgres_restore_anchor_retained_until"`
+	ObjectStoreRestoreAnchorRetainedUntil time.Time                             `json:"object_store_restore_anchor_retained_until"`
+	VerificationState                     string                                `json:"verification_state"`
+	LastVerifiedRestoreAt                 *time.Time                            `json:"last_verified_restore_at"`
+	ObjectStoreBackupSummary              recovery.ObjectStoreBackupSummary     `json:"object_store_backup_summary"`
+	StorageEncryption                     recovery.BackupStorageEncryptionProof `json:"storage_encryption"`
+	QuiescenceProof                       OperatorBackupCaptureQuiescenceProof  `json:"quiescence_proof"`
+}
+
+type OperatorBackupCaptureQuiescenceProof struct {
+	SchemaID                string    `json:"schema_id"`
+	ProofKind               string    `json:"proof_kind"`
+	CheckedAt               time.Time `json:"checked_at"`
+	ProcessState            string    `json:"process_state"`
+	HTTPListenerClosed      bool      `json:"http_listener_closed"`
+	WebSocketListenerClosed bool      `json:"websocket_listener_closed"`
 }
 
 type BackupDurabilityDiagnostic struct {
@@ -222,6 +260,8 @@ func (runner operatorRunner) runCLI(ctx context.Context, args []string) int {
 
 func (runner operatorRunner) run(ctx context.Context, parsed operatorCLIResult) error {
 	switch parsed.command {
+	case "backup capture":
+		return runner.runBackupCapture(ctx, parsed)
 	case "backup-metadata latest":
 		return runner.runBackupMetadataLatest(ctx, parsed)
 	case "restore latest":
@@ -237,6 +277,89 @@ func (runner operatorRunner) run(ctx context.Context, parsed operatorCLIResult) 
 	default:
 		return fmt.Errorf("unsupported operator command %q", parsed.command)
 	}
+}
+
+func (runner operatorRunner) runBackupCapture(ctx context.Context, parsed operatorCLIResult) error {
+	cfg, err := runner.loadConfig(parsed.sourceConfigPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	pool, err := runner.setupPostgres(ctx, cfg)
+	if err != nil {
+		return fmt.Errorf("open postgres: %w", err)
+	}
+	defer pool.Close()
+	objectStore, err := runner.setupObjectStore(ctx, cfg)
+	if err != nil {
+		return fmt.Errorf("open object store: %w", err)
+	}
+	defer func() { _ = objectStore.Close() }()
+	backupStorage, err := runner.newBackupStorage(cfg)
+	if err != nil {
+		return fmt.Errorf("open backup storage: %w", err)
+	}
+	if err := authorizeDeploymentAdmin(ctx, pool, parsed.email); err != nil {
+		return err
+	}
+	proof, err := loadBackupCaptureQuiescenceProof(parsed.quiescenceProof)
+	if err != nil {
+		return err
+	}
+	if err := validateBackupCaptureQuiescenceProof(proof); err != nil {
+		return err
+	}
+
+	consistencyPointAt := parsed.asOf
+	if consistencyPointAt.IsZero() {
+		consistencyPointAt = runner.now()
+	}
+	consistencyPointAt = consistencyPointAt.UTC()
+	backupSetID := parsed.captureBackupSetID
+	if backupSetID == uuid.Nil {
+		backupSetID = uuid.New()
+	}
+	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, pool)
+	if err != nil {
+		return fmt.Errorf("capture postgres artifact: %w", err)
+	}
+	blobIndex, err := loadBackupCaptureObjectBlobIndex(ctx, pool)
+	if err != nil {
+		return err
+	}
+	objectBucket, err := backupCaptureObjectStoreBucket(cfg)
+	if err != nil {
+		return err
+	}
+	objectArtifacts, err := recovery.CaptureSeaweedFSS3ObjectStoreBackupArtifacts(ctx, objectStore, recovery.ObjectStoreBackupCaptureParams{
+		BackupSetID:               backupSetID,
+		ConsistencyPointAt:        consistencyPointAt,
+		Bucket:                    objectBucket,
+		BlobObjectIDsByStorageRef: blobIndex,
+	})
+	if err != nil {
+		return fmt.Errorf("capture object-store artifacts: %w", err)
+	}
+	backupSet, err := recovery.NewCaptureService(recovery.NewStore(pool), backupStorage).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
+		BackupSetID:                       backupSetID,
+		ConsistencyPointAt:                consistencyPointAt,
+		CreatedAt:                         consistencyPointAt,
+		RetainedUntil:                     consistencyPointAt.Add(recovery.MinimumRetentionDuration),
+		PostgresArtifact:                  recovery.BackupArtifact{Body: postgresArtifact, ContentType: "application/json"},
+		ObjectStoreArtifact:               recovery.BackupArtifact{Body: objectArtifacts.SnapshotBody, ContentType: "application/json"},
+		ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: objectArtifacts.ManifestBody, ContentType: "application/json"},
+		ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: objectArtifacts.SummaryBody, ContentType: "application/json"},
+	})
+	if err != nil {
+		return fmt.Errorf("capture backup set: %w", err)
+	}
+	if err := recovery.NewBackupCatalog(recovery.NewStore(pool), backupStorage).VerifyBackupSetDurability(ctx, backupSet); err != nil {
+		return fmt.Errorf("verify captured backup durability: %w", err)
+	}
+	storageProof, err := backupCaptureStorageEncryptionProof(backupStorage)
+	if err != nil {
+		return err
+	}
+	return runner.encodeJSON(backupCaptureResultFromStore(backupSet, objectArtifacts.Summary, storageProof, proof))
 }
 
 func (runner operatorRunner) runBackupMetadataLatest(ctx context.Context, parsed operatorCLIResult) error {
@@ -698,6 +821,9 @@ func parseOperatorCLIArgs(args []string, stderr io.Writer) operatorCLIResult {
 		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), operatorUsage())
 		return operatorCLIResult{stop: true, exitCode: 2}
 	}
+	if len(args) >= 2 && args[0] == "backup" && args[1] == "capture" {
+		return parseBackupCaptureArgs(args[2:], stderr)
+	}
 	if len(args) >= 2 && args[0] == "object-store" && args[1] == "init" {
 		return parseObjectStoreInitArgs(args[2:], stderr)
 	}
@@ -716,6 +842,48 @@ func parseOperatorCLIArgs(args []string, stderr io.Writer) operatorCLIResult {
 	default:
 		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), operatorUsage())
 		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+}
+
+func parseBackupCaptureArgs(args []string, stderr io.Writer) operatorCLIResult {
+	flags := flag.NewFlagSet("operator backup capture", flag.ContinueOnError)
+	flags.SetOutput(normalizeOperatorWriter(stderr))
+	email := flags.String("deployment-admin-email", "", "active deployment-admin email authorized to capture a backup")
+	sourceConfig := flags.String("source-config", "", "optional source deployment config path")
+	backupSetIDRaw := flags.String("backup-set-id", "", "optional stable backup_set_id UUID")
+	asOfRaw := flags.String("as-of", "", "RFC3339 consistency point timestamp")
+	quiescenceProof := flags.String("quiescence-proof", "", "path to backup capture write-quiescence proof JSON")
+	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return operatorCLIResult{stop: true, exitCode: 0}
+		}
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	normalizedEmail, asOf, ok := parseOperatorCommonFlags(stderr, *email, *asOfRaw)
+	if !ok {
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	var backupSetID uuid.UUID
+	if strings.TrimSpace(*backupSetIDRaw) != "" {
+		parsed, err := uuid.Parse(strings.TrimSpace(*backupSetIDRaw))
+		if err != nil {
+			_, _ = fmt.Fprintf(normalizeOperatorWriter(stderr), "backup-set-id must be a UUID: %v\n", err)
+			return operatorCLIResult{stop: true, exitCode: 2}
+		}
+		backupSetID = parsed
+	}
+	proofPath := strings.TrimSpace(*quiescenceProof)
+	if proofPath == "" {
+		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), "quiescence-proof is required")
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	return operatorCLIResult{
+		command:            "backup capture",
+		email:              normalizedEmail,
+		asOf:               asOf,
+		sourceConfigPath:   strings.TrimSpace(*sourceConfig),
+		captureBackupSetID: backupSetID,
+		quiescenceProof:    proofPath,
 	}
 }
 
@@ -948,6 +1116,7 @@ func parseRequiredRestoreConfigFlags(stderr io.Writer, sourceConfig string, targ
 func operatorUsage() string {
 	return strings.Join([]string{
 		"usage:",
+		"  operator backup capture -deployment-admin-email <email> -quiescence-proof <path> [-source-config <path>] [-backup-set-id <uuid>] [-as-of <RFC3339>]",
 		"  operator backup-metadata latest -deployment-admin-email <email> [-source-config <path>] [-as-of <RFC3339>]",
 		"  operator restore latest -source-config <path> -target-config <path> -deployment-admin-email <email> -confirm-backup-set-id <uuid> [-as-of <RFC3339>]",
 		"  operator restore-verify latest -source-config <path> -target-config <path> -deployment-admin-email <email> [-as-of <RFC3339>]",
@@ -992,6 +1161,137 @@ func backupMetadataInspectionFromStore(backupSet recovery.BackupSet) BackupMetad
 		VerificationState:                     string(backupSet.VerificationState),
 		LastVerifiedRestoreAt:                 backupSet.LastVerifiedRestoreAt,
 		LastVerificationBasisSHA256:           backupSet.LastVerificationBasisSHA256,
+	}
+}
+
+func backupCaptureResultFromStore(backupSet recovery.BackupSet, summary recovery.ObjectStoreBackupSummary, storageProof recovery.BackupStorageEncryptionProof, quiescenceProof OperatorBackupCaptureQuiescenceProof) OperatorBackupCaptureResult {
+	return OperatorBackupCaptureResult{
+		SchemaID:                              OperatorBackupCaptureResultSchemaID,
+		BackupSetID:                           backupSet.BackupSetID.String(),
+		ConsistencyPointAt:                    backupSet.ConsistencyPointAt,
+		CreatedAt:                             backupSet.CreatedAt,
+		RetainedUntil:                         backupSet.RetainedUntil,
+		PostgresRestoreAnchor:                 backupSet.PostgresRestoreAnchor,
+		ObjectStoreRestoreAnchor:              backupSet.ObjectStoreRestoreAnchor,
+		PostgresArtifactKey:                   backupSet.PostgresArtifactKey,
+		PostgresArtifactSHA256:                backupSet.PostgresArtifactSHA256,
+		PostgresArtifactSizeBytes:             backupSet.PostgresArtifactSizeBytes,
+		ObjectStoreArtifactKey:                backupSet.ObjectStoreArtifactKey,
+		ObjectStoreArtifactSHA256:             backupSet.ObjectStoreArtifactSHA256,
+		ObjectStoreArtifactSizeBytes:          backupSet.ObjectStoreArtifactSizeBytes,
+		IntegrityManifestKey:                  backupSet.IntegrityManifestKey,
+		IntegrityManifestSHA256:               backupSet.IntegrityManifestSHA256,
+		IntegrityManifestSizeBytes:            backupSet.IntegrityManifestSizeBytes,
+		PostgresRestoreAnchorRetainedUntil:    backupSet.PostgresRestoreAnchorRetainedUntil,
+		ObjectStoreRestoreAnchorRetainedUntil: backupSet.ObjectStoreRestoreAnchorRetainedUntil,
+		VerificationState:                     string(backupSet.VerificationState),
+		LastVerifiedRestoreAt:                 backupSet.LastVerifiedRestoreAt,
+		ObjectStoreBackupSummary:              summary,
+		StorageEncryption:                     storageProof,
+		QuiescenceProof:                       quiescenceProof,
+	}
+}
+
+type backupCaptureStorageEncryptionReporter interface {
+	BackupStorageEncryptionProof() recovery.BackupStorageEncryptionProof
+}
+
+func backupCaptureStorageEncryptionProof(storage recovery.BackupStorage) (recovery.BackupStorageEncryptionProof, error) {
+	reporter, ok := storage.(backupCaptureStorageEncryptionReporter)
+	if !ok {
+		return recovery.BackupStorageEncryptionProof{}, recovery.ErrEncryptedBackupStorage
+	}
+	proof := reporter.BackupStorageEncryptionProof()
+	if proof.Mode != recovery.BackupStorageEncryptionModeAESGCM ||
+		proof.EnvelopeSchemaID != recovery.BackupArtifactEnvelopeSchemaID ||
+		strings.TrimSpace(proof.KeyFingerprintSHA256) == "" {
+		return recovery.BackupStorageEncryptionProof{}, recovery.ErrEncryptedBackupStorage
+	}
+	return proof, nil
+}
+
+func loadBackupCaptureQuiescenceProof(path string) (OperatorBackupCaptureQuiescenceProof, error) {
+	body, err := os.ReadFile(filepath.Clean(path)) // #nosec G304 -- operator supplied local proof path is intentionally read by deployment-local CLI.
+	if err != nil {
+		return OperatorBackupCaptureQuiescenceProof{}, fmt.Errorf("read backup capture quiescence proof: %w", err)
+	}
+	var proof OperatorBackupCaptureQuiescenceProof
+	decoder := json.NewDecoder(strings.NewReader(string(body)))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&proof); err != nil {
+		return OperatorBackupCaptureQuiescenceProof{}, fmt.Errorf("decode backup capture quiescence proof: %w", err)
+	}
+	if decoder.Decode(&struct{}{}) != io.EOF {
+		return OperatorBackupCaptureQuiescenceProof{}, errors.New("decode backup capture quiescence proof: trailing JSON content")
+	}
+	return proof, nil
+}
+
+func validateBackupCaptureQuiescenceProof(proof OperatorBackupCaptureQuiescenceProof) error {
+	if proof.SchemaID != BackupCaptureQuiescenceProofSchemaID {
+		return fmt.Errorf("%w: unsupported backup capture quiescence proof schema %q", recovery.ErrInvalidBackupArtifact, proof.SchemaID)
+	}
+	if proof.ProofKind != "process_stopped" {
+		return fmt.Errorf("%w: backup capture proof_kind must be process_stopped", recovery.ErrInvalidBackupArtifact)
+	}
+	if proof.CheckedAt.IsZero() {
+		return fmt.Errorf("%w: backup capture checked_at is required", recovery.ErrInvalidBackupArtifact)
+	}
+	switch proof.ProcessState {
+	case "absent", "stopped_by_supervisor":
+	default:
+		return fmt.Errorf("%w: backup capture process_state must prove process absence or supervisor stop", recovery.ErrInvalidBackupArtifact)
+	}
+	if !proof.HTTPListenerClosed || !proof.WebSocketListenerClosed {
+		return fmt.Errorf("%w: backup capture listeners must both be closed", recovery.ErrInvalidBackupArtifact)
+	}
+	return nil
+}
+
+func loadBackupCaptureObjectBlobIndex(ctx context.Context, db postgres.DB) (map[string]uuid.UUID, error) {
+	rows, err := db.Query(ctx, `
+SELECT storage_key, object_blob_id
+FROM object_blobs
+WHERE storage_key IS NOT NULL AND storage_key <> ''
+ORDER BY storage_key ASC
+`)
+	if err != nil {
+		return nil, fmt.Errorf("list object blobs for backup manifest: %w", err)
+	}
+	defer rows.Close()
+	index := make(map[string]uuid.UUID)
+	for rows.Next() {
+		var storageKey string
+		var objectBlobID uuid.UUID
+		if err := rows.Scan(&storageKey, &objectBlobID); err != nil {
+			return nil, fmt.Errorf("scan object blob for backup manifest: %w", err)
+		}
+		index[storageKey] = objectBlobID
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate object blobs for backup manifest: %w", err)
+	}
+	return index, nil
+}
+
+func backupCaptureObjectStoreBucket(cfg config.Config) (string, error) {
+	settings, err := objectstore.ResolveSettings(cfg, nil)
+	if err != nil {
+		return "", fmt.Errorf("resolve object-store settings for backup capture: %w", err)
+	}
+	switch settings.BindingKind {
+	case "managed_service":
+		if strings.TrimSpace(settings.Bucket) == "" {
+			return "", errors.New("backup capture requires configured object-store bucket")
+		}
+		return settings.Bucket, nil
+	case "filesystem_root":
+		if strings.TrimSpace(settings.RootPath) == "" {
+			return "", errors.New("backup capture requires configured filesystem object-store root")
+		}
+		return "filesystem-root:" + filepath.Clean(settings.RootPath), nil
+	default:
+		return "", fmt.Errorf("backup capture unsupported object-store binding kind %q", settings.BindingKind)
 	}
 }
 
