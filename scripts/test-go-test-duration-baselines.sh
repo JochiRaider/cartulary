@@ -134,7 +134,7 @@ assert_contains "$partial_prune_output" "make test-service-backed" "partial prun
 mkdir -p "$results_dir/test-service-backed"
 cat >"$results_dir/test-service-backed/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_scheduler_summary.v9",
+  "schema_id": "cartulary.service_backed_scheduler_summary.v10",
   "target": "test-service-backed",
   "status": "pass",
   "scheduler_kind": "service_backed",

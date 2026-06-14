@@ -507,6 +507,7 @@ write_minimal_scheduler_summary() {
   "critical_path_units": [],
   "critical_path_blockers": [],
   "critical_path_terminal_unit": null,
+  "observed_failed_work_units": [],
   "skipped_work_units": [],
   "failed_work_unit": null,
   "failed_work_unit_detail": null,
@@ -1335,11 +1336,11 @@ assert_contains "$(assert_passes "valid phase registry" run_shape_check phase-re
   "valid phase registry"
 
 service_scheduler_summary="$tmp_dir/service-scheduler-summary.json"
-write_minimal_scheduler_summary "$service_scheduler_summary" "cartulary.service_backed_scheduler_summary.v9"
+write_minimal_scheduler_summary "$service_scheduler_summary" "cartulary.service_backed_scheduler_summary.v10"
 assert_passes "service scheduler summary validates exact schema" \
-  run_schema_validation cartulary.service_backed_scheduler_summary.v9 "$service_scheduler_summary" >/dev/null
+  run_schema_validation cartulary.service_backed_scheduler_summary.v10 "$service_scheduler_summary" >/dev/null
 mismatched_scheduler_output="$(assert_fails "scheduler summary rejects mismatched schema_id" \
-  run_schema_validation cartulary.check_scheduler_summary.v9 "$service_scheduler_summary")"
+  run_schema_validation cartulary.check_scheduler_summary.v10 "$service_scheduler_summary")"
 assert_contains "$mismatched_scheduler_output" "must be equal to constant" "scheduler summary mismatched schema_id"
 
 frontend_a11y_summary="$tmp_dir/frontend-accessibility-summary-v2.json"

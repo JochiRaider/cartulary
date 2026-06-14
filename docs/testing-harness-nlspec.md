@@ -825,8 +825,8 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.vitest_failure_details.v1`           | `tools/schemas/cartulary.vitest_failure_details.v1.schema.json`           | present           | Vitest wrappers          | Before Vitest phase summaries consume failure diagnostics. |
 | `cartulary.test_target_summary.v4`              | `tools/schemas/cartulary.test_target_summary.v4.schema.json`              | present           | Target summary generator | Before aggregate/run summary consumes it. |
 | `cartulary.test_run_summary.v6`                 | `tools/schemas/cartulary.test_run_summary.v6.schema.json`                 | present           | Run summary generator    | Before public aggregate success.          |
-| `cartulary.check_scheduler_summary.v9`          | `tools/schemas/cartulary.check_scheduler_summary.v9.schema.json`          | present           | Check scheduler          | Before scheduler target success.          |
-| `cartulary.service_backed_scheduler_summary.v9` | `tools/schemas/cartulary.service_backed_scheduler_summary.v9.schema.json` | present           | Service-backed scheduler | Before scheduler target success.          |
+| `cartulary.check_scheduler_summary.v10`          | `tools/schemas/cartulary.check_scheduler_summary.v10.schema.json`          | present           | Check scheduler          | Before scheduler target success.          |
+| `cartulary.service_backed_scheduler_summary.v10` | `tools/schemas/cartulary.service_backed_scheduler_summary.v10.schema.json` | present           | Service-backed scheduler | Before scheduler target success.          |
 | `cartulary.scheduler_event.v6`                  | `tools/schemas/cartulary.scheduler_event.v6.schema.json`                  | present           | Scheduler                | During scheduler JSONL validation.        |
 | `cartulary.test_services.lease.v1`              | `tools/schemas/cartulary.test_services.lease.v1.schema.json`              | present           | Service suite            | Before attach or cleanup relies on lease. |
 | `cartulary.test_services.lifecycle.v1`          | `tools/schemas/cartulary.test_services.lifecycle.v1.schema.json`          | present           | Service suite            | During service lifecycle JSONL validation. |
@@ -1115,7 +1115,7 @@ Vitest wrappers MAY retain `cartulary.vitest_failure_details.v1` sidecars under 
 Verified by: TH-HARNESS-AC-013, TH-HARNESS-AC-014, TH-HARNESS-AC-021
 
 **TH-HARNESS-REQ-303**
-A scheduler MUST preserve the first failed work unit and its retained detail as `failed_work_unit` and `failed_work_unit_detail` even when later sibling work drains and also fails. Later drained failures MAY be retained as additional failure records, but they MUST NOT rewrite the first failed work unit. Human failure output, scheduler summaries, target summaries, and tool-run summaries MUST choose a primary headline and public exit code from the primary-failure rules without contradicting `failed_work_unit` when the failed work unit has retained classified child evidence.
+A scheduler MUST preserve the first failed work unit and its retained detail as `failed_work_unit` and `failed_work_unit_detail` even when later sibling work drains and also fails. Scheduler summaries MUST include a bounded `observed_failed_work_units[]` array containing completed nonzero-exit work units in finish order, including later drained sibling failures; that array is diagnostic and MUST NOT rewrite the first failed work unit. Human failure output, scheduler summaries, target summaries, and tool-run summaries MUST choose a primary headline and public exit code from the primary-failure rules without contradicting `failed_work_unit` when the failed work unit has retained classified child evidence.
 Verified by: TH-HARNESS-AC-014, TH-HARNESS-AC-024
 
 **TH-HARNESS-REQ-304**

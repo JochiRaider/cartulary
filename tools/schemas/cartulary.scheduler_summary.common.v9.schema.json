@@ -68,6 +68,11 @@
     "critical_path_units": { "type": "array", "items": { "type": "object" } },
     "critical_path_blockers": { "type": "array", "items": { "type": "object" } },
     "critical_path_terminal_unit": { "$ref": "cartulary.harness.defs.v1#/$defs/free_object" },
+    "observed_failed_work_units": {
+      "type": "array",
+      "maxItems": 25,
+      "items": { "$ref": "#/$defs/observed_failed_work_unit" }
+    },
     "skipped_work_units": { "type": "array", "items": { "type": "object" } },
     "failed_work_unit": { "type": ["string", "null"] },
     "failed_work_unit_detail": { "$ref": "cartulary.harness.defs.v1#/$defs/free_object" },
@@ -106,6 +111,27 @@
         { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_number" },
         { "type": "null" }
       ]
+    },
+    "observed_failed_work_unit": {
+      "type": "object",
+      "required": ["id", "label", "kind", "status", "duration_ms", "log_file"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "aggregate_target": { "type": ["string", "null"] },
+        "kind": { "type": "string", "minLength": 1 },
+        "work_unit_type": { "type": ["string", "null"] },
+        "service_session_target": { "type": ["string", "null"] },
+        "status": { "type": "integer", "minimum": 1 },
+        "duration_ms": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_number" },
+        "started_monotonic_ms": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_number" },
+        "finished_monotonic_ms": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_number" },
+        "needs": { "type": "array", "items": { "type": "string" } },
+        "completion_keys": { "type": "array", "items": { "type": "string" } },
+        "resource_claims": { "$ref": "cartulary.harness.defs.v1#/$defs/free_object" },
+        "log_file": { "type": "string", "minLength": 1 }
+      }
     },
     "service_session": {
       "type": "object",

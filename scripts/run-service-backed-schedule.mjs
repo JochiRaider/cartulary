@@ -57,7 +57,7 @@ const defaultBrowserBatchManifestPath = path.join(
 const supportedSchemaID = "cartulary.scheduler_manifest.v1";
 const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
 const schedulerSummarySchemaID =
-  "cartulary.service_backed_scheduler_summary.v9";
+  "cartulary.service_backed_scheduler_summary.v10";
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";

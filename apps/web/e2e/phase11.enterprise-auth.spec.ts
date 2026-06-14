@@ -4,7 +4,12 @@ import {
 } from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
-import { createIncident, uniqueIncidentKey } from "./helpers";
+import {
+  createIncident,
+  createIncidentMemberUser,
+  uniqueEmail,
+  uniqueIncidentKey,
+} from "./helpers";
 
 test("E-11-02 shows enterprise providers and begins provider sign-in from the anonymous shell", async ({
   browser,
@@ -80,9 +85,11 @@ test("E-11-02 shows enterprise providers and begins provider sign-in from the an
     await expect(providerButton).toContainText("Corporate OIDC");
 
     await providerButton.click();
-    await expect.poll(() => beginBody).toEqual({
-      return_to: "/",
-    });
+    await expect
+      .poll(() => beginBody)
+      .toEqual({
+        return_to: "/",
+      });
     await expect(page).toHaveURL(/\/enterprise-idp\/start\?state=e-11-02$/);
   } finally {
     await context.close();
@@ -91,12 +98,27 @@ test("E-11-02 shows enterprise providers and begins provider sign-in from the an
 
 test("E-11-03 opens the only visible incident after enterprise session root convergence", async ({
   page,
+  sessionTracker,
 }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E1103"),
     "Enterprise Root Convergence",
   );
+  const memberPassword = "EnterpriseRoot1!";
+  const member = await createIncidentMemberUser(page, incidentId, {
+    email: uniqueEmail("phase11-e1103-member"),
+    display_name: "Enterprise Root Member",
+    initial_password: memberPassword,
+    role: "admin",
+  });
+  await sessionTracker.loginTrackedUser(page, {
+    createdBy: "phase11.enterprise-auth",
+    email: member.email,
+    password: memberPassword,
+    purpose: "enterprise root convergence",
+    userId: member.user_id,
+  });
 
   await page.route("**/api/v1/auth/session", async (route) => {
     const response = await route.fetch();

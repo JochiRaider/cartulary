@@ -142,7 +142,7 @@ const assertRepoRelativeArtifact = (artifactPath, label) => {
     throw new Error(`${label} must not point at obsolete temp scheduler logs, got ${artifactPath}`);
   }
 };
-if (summary.schema_id !== "cartulary.check_scheduler_summary.v9") {
+if (summary.schema_id !== "cartulary.check_scheduler_summary.v10") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
 }
 if (summary.scheduler_kind !== "check") {
@@ -182,6 +182,12 @@ if (expectedFailed === "-") {
   }
 } else if (failed !== expectedFailed) {
   throw new Error(`failed work unit got ${failed} want ${expectedFailed}`);
+}
+if (!Array.isArray(summary.observed_failed_work_units)) {
+  throw new Error("summary must record observed_failed_work_units");
+}
+if (expectedStatus === "pass" && summary.observed_failed_work_units.length !== 0) {
+  throw new Error("passing summary must not record observed failed work units");
 }
 if (!Array.isArray(summary.slowest_work_units) || summary.slowest_work_units.length === 0) {
   throw new Error("summary must record slowest work");
@@ -767,7 +773,8 @@ sleep_duration="${!sleep_var:-${FAKE_SLEEP_DEFAULT:-0.05}}"
 change_active 1
 write_nested_scheduler_progress
 sleep "$sleep_duration"
-if [[ "${FAKE_FAIL_TARGET:-}" == "$target" ]]; then
+fail_targets=",${FAKE_FAIL_TARGETS:-${FAKE_FAIL_TARGET:-}},"
+if [[ "$fail_targets" == *",$target,"* ]]; then
   echo "fake failure for $target" >&2
   if [[ "${FAKE_SECURITY_FAIL_WITH_SUMMARY_TARGET:-}" == "$target" ]]; then
     write_security_failure_summary
@@ -878,6 +885,7 @@ EOF
   FAKE_SLEEP_MIGRATION_DRIFT="${FAKE_SLEEP_MIGRATION_DRIFT:-}" \
   FAKE_SLEEP_PARTIAL_SERVICE="${FAKE_SLEEP_PARTIAL_SERVICE:-}" \
   FAKE_FAIL_TARGET="${FAKE_FAIL_TARGET:-}" \
+  FAKE_FAIL_TARGETS="${FAKE_FAIL_TARGETS:-}" \
   FAKE_FAIL_WITH_SUMMARY_TARGET="${FAKE_FAIL_WITH_SUMMARY_TARGET:-}" \
   MAKE="${dir}/fake-make" \
   NODE_BIN="$NODE_BIN" \
@@ -1407,7 +1415,7 @@ cat >"${summary_timing_dir}/valid/check/scheduler-events.jsonl" <<'JSONL'
 JSONL
 cat >"${summary_timing_dir}/valid/check/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.check_scheduler_summary.v9",
+  "schema_id": "cartulary.check_scheduler_summary.v10",
   "target": "check",
   "status": "pass",
   "scheduler_kind": "check",
@@ -1645,7 +1653,7 @@ function toolSummary(target, durationMs) {
   push({ event: "scheduler-finish", monotonic_ms: serviceMs, emitted_at: emittedAt(serviceMs) });
   writeEvents(path.join(checkDir, "scheduler-events.jsonl"), events);
   writeJSON(path.join(checkDir, "scheduler-summary.json"), {
-    schema_id: "cartulary.check_scheduler_summary.v9",
+    schema_id: "cartulary.check_scheduler_summary.v10",
     target: "check",
     status: "pass",
     scheduler_kind: "check",
@@ -1751,7 +1759,7 @@ cat >"${summary_timing_dir}/critical/linked/check/scheduler-events.jsonl" <<'JSO
 JSONL
 cat >"${summary_timing_dir}/critical/linked/check/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.check_scheduler_summary.v9",
+  "schema_id": "cartulary.check_scheduler_summary.v10",
   "target": "check",
   "status": "pass",
   "scheduler_kind": "check",
@@ -1814,7 +1822,7 @@ cat >"${parent_work_unit_dir}/stale/check/scheduler-events.jsonl" <<'JSONL'
 JSONL
 cat >"${parent_work_unit_dir}/stale/check/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.check_scheduler_summary.v9",
+  "schema_id": "cartulary.check_scheduler_summary.v10",
   "target": "check",
   "status": "pass",
   "scheduler_kind": "check",
@@ -1862,7 +1870,7 @@ cat >"${parent_work_unit_dir}/stale/check-service-backed/target-summary.json" <<
 JSON
 cat >"${parent_work_unit_dir}/stale/check-service-backed/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_scheduler_summary.v9",
+  "schema_id": "cartulary.service_backed_scheduler_summary.v10",
   "target": "check-service-backed",
   "status": "pass",
   "scheduler_kind": "service_backed",
@@ -1889,7 +1897,7 @@ mkdir -p \
   "${full_envelope_dir}/results/envelope/_shared/test-services/suite/events"
 cat >"${full_envelope_dir}/results/envelope/check-service-backed/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_scheduler_summary.v9",
+  "schema_id": "cartulary.service_backed_scheduler_summary.v10",
   "target": "check-service-backed",
   "status": "pass",
   "scheduler_kind": "service_backed",
@@ -2682,7 +2690,7 @@ cat >"$failure_manifest" <<'JSON'
 JSON
 set +e
 failure_output="$(
-  FAKE_FAIL_TARGET=beta
+  FAKE_FAIL_TARGETS=alpha,beta
   FAKE_SLEEP_ALPHA=0.2
   FAKE_SLEEP_BETA=0.01
   run_scheduler "$failure_dir" "$failure_manifest" failure --resource-limit host_cpu=2 2>&1
@@ -2691,6 +2699,7 @@ failure_status=$?
 set -e
 assert_equals "$failure_status" "1" "failure exit status"
 assert_contains "$failure_output" "fake failure for beta" "failure child output"
+assert_contains "$failure_output" "fake failure for alpha" "drained sibling failure output"
 assert_contains "$failure_output" "[FAIL] target=check" "failure summary"
 assert_occurrences "$failure_output" "[FAIL] target=check" "1" "failure single check failure block"
 assert_contains "$failure_output" "[SUMMARY] target=check status=fail" "failure scheduler status summary"
@@ -2748,6 +2757,10 @@ if (summary.failed_work_unit_detail?.aggregate_target !== "beta") {
 if (summary.failed_work_unit_detail?.label !== "beta") {
   throw new Error(`failed work label got ${summary.failed_work_unit_detail?.label}`);
 }
+const observedFailed = (summary.observed_failed_work_units ?? []).map((unit) => unit.label);
+if (observedFailed.join(",") !== "beta,alpha") {
+  throw new Error(`observed failed work units got ${observedFailed.join(",")} want beta,alpha`);
+}
 const skipped = new Map(summary.skipped_work_units.map((unit) => [unit.id, unit]));
 if (skipped.get("delta")?.reason !== "dependency_failure") {
   throw new Error("delta must be marked skipped by dependency failure");
@@ -2762,7 +2775,7 @@ if (!events.some((event) => event.event === "skip" && event.work_unit === "delta
 }
 const slowestByLabel = new Map(summary.slowest_work_units.map((unit) => [unit.label, unit]));
 for (const [label, expectedText] of [
-  ["alpha", "fake pass for alpha"],
+  ["alpha", "fake failure for alpha"],
   ["beta", "fake failure for beta"],
 ]) {
   const logFile = slowestByLabel.get(label)?.log_file;

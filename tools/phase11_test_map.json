@@ -867,7 +867,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "backend_integration",
       "claim_status": "implemented",
-      "claim": "SAML SP-initiated begin/ACS uses RelayState correlation, resolves an existing active binding into the ordinary session family, rejects invalid signatures, and rejects IdP-initiated ACS without a transaction.",
+      "claim": "SAML SP-initiated begin/ACS uses RelayState correlation, stages verified provider response state, completes through a same-origin browser-bound hop into the ordinary session family, rejects invalid signatures, and rejects IdP-initiated ACS without a transaction.",
       "out_of_scope": "This deterministic harness evidence uses a fake SAML assertion envelope and does not by itself prove production SAML XML signature interoperability.",
       "execution_family": "backend-integration-phase11-enterprise-auth-saml",
       "execution_label": "backend-integration phase11 enterprise SAML",

@@ -72,11 +72,11 @@ export function installLandingShellFetch(
     if (request.url === "/api/v1/auth/session" && request.method === "GET") {
       return dataResponse(options.session, request);
     }
-    if (
-      request.url === "/api/v1/auth/providers" &&
-      request.method === "GET"
-    ) {
-      return dataResponse(options.enterpriseProviders ?? { providers: [] }, request);
+    if (request.url === "/api/v1/auth/providers" && request.method === "GET") {
+      return dataResponse(
+        options.enterpriseProviders ?? { providers: [] },
+        request,
+      );
     }
     if (
       request.url === "/api/v1/auth/credential-state" &&

@@ -73,7 +73,11 @@ const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v3";
 const frontendVisualFixtureRegistrySchemaID =
   "cartulary.frontend_visual_fixture_registry.v2";
 const sharedExtensionsRef = "cartulary.harness.defs.v1#/$defs/extensions";
-const schedulerSummaryCommonSchemaID = "cartulary.scheduler_summary.common.v9";
+const schedulerSummaryCommonSchemaID = "cartulary.scheduler_summary.common.v10";
+const schedulerSummaryCommonSchemaIDs = new Set([
+  "cartulary.scheduler_summary.common.v9",
+  schedulerSummaryCommonSchemaID,
+]);
 
 const phaseStatusValues = new Set(["active", "planned", "retired"]);
 const phaseNamePattern = /^phase(?:0|[1-9]\d*)$/;
@@ -293,7 +297,7 @@ const restrictedImportKindValues = new Set([
 ]);
 const supportSchemaIDs = new Set([
   "cartulary.harness.defs.v1",
-  schedulerSummaryCommonSchemaID,
+  ...schedulerSummaryCommonSchemaIDs,
 ]);
 
 function usage() {
@@ -1065,7 +1069,7 @@ function schemaIsClosed(schema) {
     return true;
   }
   return (schema?.allOf ?? []).some(
-    (entry) => entry?.$ref === schedulerSummaryCommonSchemaID,
+    (entry) => schedulerSummaryCommonSchemaIDs.has(entry?.$ref),
   );
 }
 

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.check_scheduler_summary.v10",
+  "allOf": [
+    { "$ref": "cartulary.scheduler_summary.common.v10" },
+    {
+      "type": "object",
+      "required": ["schema_id"],
+      "properties": {
+        "schema_id": { "const": "cartulary.check_scheduler_summary.v10" }
+      }
+    }
+  ]
+}

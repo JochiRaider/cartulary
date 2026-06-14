@@ -185,6 +185,30 @@ function finalizerTimings(completedWork) {
     }));
 }
 
+const observedFailedWorkUnitLimit = 25;
+
+function observedFailedWorkUnits(completedWork) {
+  return completedWork
+    .filter((record) => record.status !== 0)
+    .slice(0, observedFailedWorkUnitLimit)
+    .map((record) => ({
+      id: record.id,
+      label: record.label,
+      aggregate_target: record.aggregate_target,
+      kind: record.kind,
+      work_unit_type: record.work_unit_type,
+      service_session_target: record.service_session_target,
+      status: record.status,
+      duration_ms: record.duration_ms,
+      started_monotonic_ms: record.started_monotonic_ms,
+      finished_monotonic_ms: record.finished_monotonic_ms,
+      needs: [...(record.needs ?? [])],
+      completion_keys: [...(record.completion_keys ?? [])],
+      resource_claims: { ...(record.resource_claims ?? {}) },
+      log_file: record.log_file,
+    }));
+}
+
 function criticalPathSummary(completedWork, schedulerStartedMonotonicMs, schedulerCompletedMonotonicMs, topBlockers) {
   const records = completedWork.filter((record) => record.status === 0);
   if (records.length === 0) {
@@ -928,6 +952,7 @@ class SchedulerReporter {
       completed_work_units: this.completedCount,
       ...timing,
       ...criticalPath,
+      observed_failed_work_units: observedFailedWorkUnits(this.completedWork),
       skipped_work_units: this.skippedWork,
       failed_work_unit: failed,
       failed_work_unit_detail: failedDetail,

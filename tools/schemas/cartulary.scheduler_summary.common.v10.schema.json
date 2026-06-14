@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.scheduler_summary.common.v10",
+  "allOf": [
+    { "$ref": "cartulary.scheduler_summary.common.v9" },
+    {
+      "type": "object",
+      "required": ["observed_failed_work_units"],
+      "properties": {
+        "observed_failed_work_units": {
+          "type": "array",
+          "maxItems": 25,
+          "items": {
+            "$ref": "cartulary.scheduler_summary.common.v9#/$defs/observed_failed_work_unit"
+          }
+        }
+      }
+    }
+  ]
+}

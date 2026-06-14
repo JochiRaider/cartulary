@@ -1919,7 +1919,9 @@ type authStoreStub struct {
 	listEnterpriseAuthProvidersFunc     func(context.Context) ([]authn.EnterpriseAuthProviderRecord, error)
 	getEnterpriseAuthProviderByKeyFunc  func(context.Context, string) (authn.EnterpriseAuthProviderRecord, error)
 	createEnterpriseAuthTxnFunc         func(context.Context, authn.EnterpriseAuthProviderRecord, string, *string, *string, []byte, *string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
-	completeEnterpriseAuthTxnFunc       func(context.Context, string, string, string, []byte, *string, string, time.Time) (authn.EnterpriseAuthCompletionResult, error)
+	completeOIDCEnterpriseAuthTxnFunc   func(context.Context, string, string, []byte, *string, string, time.Time) (authn.EnterpriseAuthCompletionResult, error)
+	stageSAMLEnterpriseAuthTxnFunc      func(context.Context, string, string, string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
+	completeSAMLEnterpriseAuthTxnFunc   func(context.Context, string, []byte, []byte, time.Time) (authn.EnterpriseAuthCompletionResult, error)
 	listEnterpriseAuthBindingsFunc      func(context.Context, uuid.UUID) ([]authn.EnterpriseAuthBindingSummary, error)
 	createEnterpriseAuthBindingFunc     func(context.Context, authn.UserRecord, uuid.UUID, int64, string, string, string, *string, []byte, string, time.Time) (authn.EnterpriseAuthBindingResult, error)
 	rotateEnterpriseAuthBindingFunc     func(context.Context, authn.UserRecord, uuid.UUID, uuid.UUID, int64, string, string, *string, []byte, string, time.Time) (authn.EnterpriseAuthBindingResult, error)
@@ -2042,11 +2044,25 @@ func (s *authStoreStub) CreateEnterpriseAuthTransaction(ctx context.Context, pro
 	return s.createEnterpriseAuthTxnFunc(ctx, provider, returnTo, state, nonce, pkceVerifierHash, relayState, browserBindingHash, now)
 }
 
-func (s *authStoreStub) CompleteEnterpriseAuthTransaction(ctx context.Context, providerKey string, providerType string, correlation string, browserBindingHash []byte, nonce *string, providerSubject string, now time.Time) (authn.EnterpriseAuthCompletionResult, error) {
-	if s.completeEnterpriseAuthTxnFunc == nil {
+func (s *authStoreStub) CompleteOIDCEnterpriseAuthTransaction(ctx context.Context, providerKey string, state string, browserBindingHash []byte, nonce *string, providerSubject string, now time.Time) (authn.EnterpriseAuthCompletionResult, error) {
+	if s.completeOIDCEnterpriseAuthTxnFunc == nil {
 		return authn.EnterpriseAuthCompletionResult{}, authn.ErrEnterpriseTransactionNotFound
 	}
-	return s.completeEnterpriseAuthTxnFunc(ctx, providerKey, providerType, correlation, browserBindingHash, nonce, providerSubject, now)
+	return s.completeOIDCEnterpriseAuthTxnFunc(ctx, providerKey, state, browserBindingHash, nonce, providerSubject, now)
+}
+
+func (s *authStoreStub) StageSAMLEnterpriseAuthTransaction(ctx context.Context, providerKey string, relayState string, providerSubject string, completionHash []byte, now time.Time) (authn.EnterpriseAuthTransactionRecord, error) {
+	if s.stageSAMLEnterpriseAuthTxnFunc == nil {
+		return authn.EnterpriseAuthTransactionRecord{}, authn.ErrEnterpriseTransactionNotFound
+	}
+	return s.stageSAMLEnterpriseAuthTxnFunc(ctx, providerKey, relayState, providerSubject, completionHash, now)
+}
+
+func (s *authStoreStub) CompleteSAMLEnterpriseAuthTransaction(ctx context.Context, providerKey string, completionHash []byte, browserBindingHash []byte, now time.Time) (authn.EnterpriseAuthCompletionResult, error) {
+	if s.completeSAMLEnterpriseAuthTxnFunc == nil {
+		return authn.EnterpriseAuthCompletionResult{}, authn.ErrEnterpriseTransactionCompletionMismatch
+	}
+	return s.completeSAMLEnterpriseAuthTxnFunc(ctx, providerKey, completionHash, browserBindingHash, now)
 }
 
 func (s *authStoreStub) ListEnterpriseAuthBindingSummaries(ctx context.Context, userID uuid.UUID) ([]authn.EnterpriseAuthBindingSummary, error) {

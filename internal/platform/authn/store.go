@@ -30,6 +30,7 @@ var ErrEnterpriseTransactionExpired = errors.New("authn: enterprise auth transac
 var ErrEnterpriseTransactionUsed = errors.New("authn: enterprise auth transaction already used")
 var ErrEnterpriseTransactionProviderMismatch = errors.New("authn: enterprise auth transaction provider mismatch")
 var ErrEnterpriseTransactionBrowserMismatch = errors.New("authn: enterprise auth transaction browser mismatch")
+var ErrEnterpriseTransactionCompletionMismatch = errors.New("authn: enterprise auth transaction completion mismatch")
 var ErrEnterpriseIdentityNoLinkedUser = errors.New("authn: enterprise identity has no linked user")
 var ErrEnterpriseIdentityInactiveUser = errors.New("authn: enterprise identity user inactive")
 var ErrAuthBindingNotFound = errors.New("authn: auth binding not found")
@@ -187,6 +188,9 @@ type EnterpriseAuthTransactionRecord struct {
 	Nonce              *string
 	RelayState         *string
 	BrowserBindingHash []byte
+	SAMLCompletionHash []byte
+	SAMLSubject        *string
+	SAMLStagedAt       *time.Time
 	CreatedAt          time.Time
 	ExpiresAt          time.Time
 	ConsumedAt         *time.Time

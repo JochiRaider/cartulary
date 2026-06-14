@@ -65,7 +65,7 @@ func TestPhase11EnterpriseAuthProviderOIDC_I_11_ENTERPRISE_AUTH_01(t *testing.T)
 	if _, ok := beginData["auth_transaction_id"]; ok {
 		t.Fatalf("begin response must not expose public transaction ids: %#v", beginData)
 	}
-	enterpriseCookie := requireCookie(t, beginResp.Cookies(), "cartulary_enterprise_auth_txn")
+	enterpriseCookie := requireEnterpriseAuthCookie(t, beginResp.Cookies())
 	redirectURL, err := url.Parse(beginData["redirect_url"].(string))
 	if err != nil {
 		t.Fatalf("parse redirect_url: %v", err)
@@ -144,16 +144,37 @@ func TestPhase11EnterpriseSAMLACS_I_11_ENTERPRISE_AUTH_02(t *testing.T) {
 	acsResp := doFormNoRedirect(t, server.HTTP.URL+"/api/v1/auth/saml/corp-saml/acs", url.Values{
 		"RelayState":   []string{relayState},
 		"SAMLResponse": []string{assertion},
-	}, withCookies(begin.cookie))
+	})
 	if acsResp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("expected SAML ACS 303, got %d body=%#v", acsResp.StatusCode, httptestx.ReadJSONBody(t, acsResp))
 	}
-	authCookies := httptestx.RequireAuthCookies(t, acsResp.Cookies())
+	if hasCookie(acsResp.Cookies(), "cartulary_session") {
+		t.Fatalf("SAML ACS must not issue the session directly: %#v", acsResp.Cookies())
+	}
+	completionLocation := acsResp.Header.Get("Location")
+	if !strings.HasPrefix(completionLocation, "/api/v1/auth/saml/corp-saml/acs/complete?completion=") {
+		t.Fatalf("unexpected SAML completion redirect: %q", completionLocation)
+	}
+
+	noCookieCompletion := doNoRedirect(t, http.MethodGet, server.HTTP.URL+completionLocation, nil)
+	httptestx.RequireErrorEnvelope(t, noCookieCompletion, http.StatusConflict, "enterprise_auth_transaction_rejected")
+
+	wrongCompletion := doNoRedirect(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/saml/corp-saml/acs/complete?completion=wrong", nil, withCookies(begin.cookie))
+	httptestx.RequireErrorEnvelope(t, wrongCompletion, http.StatusConflict, "enterprise_auth_transaction_rejected")
+
+	completionResp := doNoRedirect(t, http.MethodGet, server.HTTP.URL+completionLocation, nil, withCookies(begin.cookie))
+	if completionResp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("expected SAML completion 303, got %d body=%#v", completionResp.StatusCode, httptestx.ReadJSONBody(t, completionResp))
+	}
+	authCookies := httptestx.RequireAuthCookies(t, completionResp.Cookies())
 	sessionResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(authCookies.Session))
 	sessionData := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
 	if sessionData["provider_type"] != "saml" || sessionData["user_id"] != userID {
 		t.Fatalf("unexpected SAML session data: %#v", sessionData)
 	}
+
+	replayResp := doNoRedirect(t, http.MethodGet, server.HTTP.URL+completionLocation, nil, withCookies(begin.cookie))
+	httptestx.RequireErrorEnvelope(t, replayResp, http.StatusConflict, "enterprise_auth_transaction_rejected")
 
 	failBegin := beginEnterpriseAuth(t, server, "corp-saml")
 	failURL, _ := url.Parse(failBegin.redirectURL)
@@ -167,7 +188,7 @@ func TestPhase11EnterpriseSAMLACS_I_11_ENTERPRISE_AUTH_02(t *testing.T) {
 	badACS := doForm(t, server.HTTP.URL+"/api/v1/auth/saml/corp-saml/acs", url.Values{
 		"RelayState":   []string{failURL.Query().Get("RelayState")},
 		"SAMLResponse": []string{badAssertion},
-	}, withCookies(failBegin.cookie))
+	})
 	httptestx.RequireErrorEnvelope(t, badACS, http.StatusConflict, "provider_response_rejected")
 
 	idpInitiated := doForm(t, server.HTTP.URL+"/api/v1/auth/saml/corp-saml/acs", url.Values{
@@ -339,9 +360,27 @@ func beginEnterpriseAuth(t testing.TB, server *httptestx.Server, providerKey str
 	resp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/"+providerKey+"/begin", map[string]any{})
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	return enterpriseBeginResult{
-		cookie:      requireCookie(t, resp.Cookies(), "cartulary_enterprise_auth_txn"),
+		cookie:      requireEnterpriseAuthCookie(t, resp.Cookies()),
 		redirectURL: body["data"].(map[string]any)["redirect_url"].(string),
 	}
+}
+
+func requireEnterpriseAuthCookie(t testing.TB, cookies []*http.Cookie) *http.Cookie {
+	t.Helper()
+	cookie := requireCookie(t, cookies, "cartulary_enterprise_auth_txn")
+	if !cookie.HttpOnly {
+		t.Fatalf("enterprise auth cookie must be HttpOnly: %#v", cookie)
+	}
+	if !cookie.Secure {
+		t.Fatalf("enterprise auth cookie must be Secure: %#v", cookie)
+	}
+	if cookie.Path != "/api/v1/auth" {
+		t.Fatalf("enterprise auth cookie must be scoped to /api/v1/auth, got %q", cookie.Path)
+	}
+	if cookie.SameSite != http.SameSiteLaxMode {
+		t.Fatalf("enterprise auth cookie must use SameSite=Lax, got %v", cookie.SameSite)
+	}
+	return cookie
 }
 
 func requireCookie(t testing.TB, cookies []*http.Cookie, name string) *http.Cookie {
@@ -353,6 +392,15 @@ func requireCookie(t testing.TB, cookies []*http.Cookie, name string) *http.Cook
 	}
 	t.Fatalf("missing cookie %s in %#v", name, cookies)
 	return nil
+}
+
+func hasCookie(cookies []*http.Cookie, name string) bool {
+	for _, cookie := range cookies {
+		if cookie.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func queryUserVersion(t testing.TB, db *sql.DB, userID string) int64 {

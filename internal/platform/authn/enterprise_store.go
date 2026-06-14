@@ -77,7 +77,8 @@ INSERT INTO enterprise_auth_transactions (
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-          browser_binding_hash, created_at, expires_at, consumed_at
+          browser_binding_hash, saml_completion_hash, saml_subject, saml_staged_at,
+          created_at, expires_at, consumed_at
 `, provider.ID, provider.ProviderKey, provider.ProviderType, returnTo, state, nonce, pkceVerifierHash, relayState, browserBindingHash, now.UTC(), now.UTC().Add(EnterpriseAuthTransactionTTL)).Scan(
 		&record.ID,
 		&record.ProviderID,
@@ -88,6 +89,9 @@ RETURNING id, provider_id, provider_key, provider_type, return_to, state, nonce,
 		&record.Nonce,
 		&record.RelayState,
 		&record.BrowserBindingHash,
+		&record.SAMLCompletionHash,
+		&record.SAMLSubject,
+		&record.SAMLStagedAt,
 		&record.CreatedAt,
 		&record.ExpiresAt,
 		&record.ConsumedAt,
@@ -97,11 +101,10 @@ RETURNING id, provider_id, provider_key, provider_type, return_to, state, nonce,
 	return record, nil
 }
 
-func (s *Store) CompleteEnterpriseAuthTransaction(
+func (s *Store) CompleteOIDCEnterpriseAuthTransaction(
 	ctx context.Context,
 	providerKey string,
-	providerType string,
-	correlation string,
+	state string,
 	browserBindingHash []byte,
 	nonce *string,
 	providerSubject string,
@@ -119,36 +122,146 @@ func (s *Store) CompleteEnterpriseAuthTransaction(
 	if err != nil {
 		return EnterpriseAuthCompletionResult{}, err
 	}
-	if provider.ProviderType != providerType {
+	if provider.ProviderType != "oidc" {
 		return EnterpriseAuthCompletionResult{}, ErrAuthProviderNotFound
 	}
 	if !provider.IsEnabled {
 		return EnterpriseAuthCompletionResult{}, ErrAuthProviderDisabled
 	}
 
-	transaction, err := fetchEnterpriseTransactionByCorrelationTx(ctx, tx, providerType, correlation)
+	transaction, err := fetchEnterpriseTransactionByCorrelationTx(ctx, tx, "oidc", state)
 	if err != nil {
 		return EnterpriseAuthCompletionResult{}, err
 	}
-	if transaction.ProviderID != provider.ID || transaction.ProviderKey != providerKey || transaction.ProviderType != providerType {
-		return EnterpriseAuthCompletionResult{}, ErrEnterpriseTransactionProviderMismatch
-	}
-	if transaction.ConsumedAt != nil {
-		return EnterpriseAuthCompletionResult{}, ErrEnterpriseTransactionUsed
-	}
-	if !transaction.ExpiresAt.After(now.UTC()) {
-		return EnterpriseAuthCompletionResult{}, ErrEnterpriseTransactionExpired
+	if err := validateEnterpriseTransactionForProvider(provider, transaction, "oidc", now); err != nil {
+		return EnterpriseAuthCompletionResult{}, err
 	}
 	if !bytes.Equal(transaction.BrowserBindingHash, browserBindingHash) {
 		return EnterpriseAuthCompletionResult{}, ErrEnterpriseTransactionBrowserMismatch
 	}
-	if providerType == "oidc" {
-		if transaction.Nonce == nil || nonce == nil || *transaction.Nonce != *nonce {
-			return EnterpriseAuthCompletionResult{}, ErrSubjectMismatch
-		}
+	if transaction.Nonce == nil || nonce == nil || *transaction.Nonce != *nonce {
+		return EnterpriseAuthCompletionResult{}, ErrSubjectMismatch
 	}
 
-	binding, err := fetchActiveEnterpriseBindingBySubjectTx(ctx, tx, provider.ID, providerSubject)
+	return completeEnterpriseAuthTransaction(ctx, tx, transaction, provider.ID, providerSubject, now)
+}
+
+func (s *Store) StageSAMLEnterpriseAuthTransaction(
+	ctx context.Context,
+	providerKey string,
+	relayState string,
+	providerSubject string,
+	completionHash []byte,
+	now time.Time,
+) (EnterpriseAuthTransactionRecord, error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return EnterpriseAuthTransactionRecord{}, fmt.Errorf("begin enterprise auth SAML staging: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	provider, err := fetchEnterpriseAuthProviderByKeyTx(ctx, tx, providerKey)
+	if err != nil {
+		return EnterpriseAuthTransactionRecord{}, err
+	}
+	if provider.ProviderType != "saml" {
+		return EnterpriseAuthTransactionRecord{}, ErrAuthProviderNotFound
+	}
+	if !provider.IsEnabled {
+		return EnterpriseAuthTransactionRecord{}, ErrAuthProviderDisabled
+	}
+
+	transaction, err := fetchEnterpriseTransactionByCorrelationTx(ctx, tx, "saml", relayState)
+	if err != nil {
+		return EnterpriseAuthTransactionRecord{}, err
+	}
+	if err := validateEnterpriseTransactionForProvider(provider, transaction, "saml", now); err != nil {
+		return EnterpriseAuthTransactionRecord{}, err
+	}
+	if transaction.SAMLCompletionHash != nil || transaction.SAMLSubject != nil || transaction.SAMLStagedAt != nil {
+		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionUsed
+	}
+
+	stagedAt := now.UTC()
+	staged, err := scanEnterpriseAuthTransaction(tx.QueryRow(ctx, `
+UPDATE enterprise_auth_transactions
+   SET saml_completion_hash = $2,
+       saml_subject = $3,
+       saml_staged_at = $4
+ WHERE id = $1
+RETURNING id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
+          browser_binding_hash, saml_completion_hash, saml_subject, saml_staged_at,
+          created_at, expires_at, consumed_at
+`, transaction.ID, completionHash, providerSubject, stagedAt))
+	if err != nil {
+		return EnterpriseAuthTransactionRecord{}, fmt.Errorf("stage enterprise auth SAML transaction: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return EnterpriseAuthTransactionRecord{}, fmt.Errorf("commit enterprise auth SAML staging: %w", err)
+	}
+	return staged, nil
+}
+
+func (s *Store) CompleteSAMLEnterpriseAuthTransaction(
+	ctx context.Context,
+	providerKey string,
+	completionHash []byte,
+	browserBindingHash []byte,
+	now time.Time,
+) (EnterpriseAuthCompletionResult, error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return EnterpriseAuthCompletionResult{}, fmt.Errorf("begin enterprise auth SAML completion: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	provider, err := fetchEnterpriseAuthProviderByKeyTx(ctx, tx, providerKey)
+	if err != nil {
+		return EnterpriseAuthCompletionResult{}, err
+	}
+	if provider.ProviderType != "saml" {
+		return EnterpriseAuthCompletionResult{}, ErrAuthProviderNotFound
+	}
+	if !provider.IsEnabled {
+		return EnterpriseAuthCompletionResult{}, ErrAuthProviderDisabled
+	}
+
+	transaction, err := fetchEnterpriseTransactionByCompletionHashTx(ctx, tx, completionHash)
+	if err != nil {
+		return EnterpriseAuthCompletionResult{}, err
+	}
+	if err := validateEnterpriseTransactionForProvider(provider, transaction, "saml", now); err != nil {
+		return EnterpriseAuthCompletionResult{}, err
+	}
+	if !bytes.Equal(transaction.BrowserBindingHash, browserBindingHash) {
+		return EnterpriseAuthCompletionResult{}, ErrEnterpriseTransactionBrowserMismatch
+	}
+	if transaction.SAMLSubject == nil || *transaction.SAMLSubject == "" {
+		return EnterpriseAuthCompletionResult{}, ErrEnterpriseTransactionCompletionMismatch
+	}
+
+	return completeEnterpriseAuthTransaction(ctx, tx, transaction, provider.ID, *transaction.SAMLSubject, now)
+}
+
+func validateEnterpriseTransactionForProvider(provider EnterpriseAuthProviderRecord, transaction EnterpriseAuthTransactionRecord, providerType string, now time.Time) error {
+	if transaction.ProviderID != provider.ID || transaction.ProviderKey != provider.ProviderKey || transaction.ProviderType != providerType {
+		return ErrEnterpriseTransactionProviderMismatch
+	}
+	if transaction.ConsumedAt != nil {
+		return ErrEnterpriseTransactionUsed
+	}
+	if !transaction.ExpiresAt.After(now.UTC()) {
+		return ErrEnterpriseTransactionExpired
+	}
+	return nil
+}
+
+func completeEnterpriseAuthTransaction(ctx context.Context, tx pgx.Tx, transaction EnterpriseAuthTransactionRecord, providerID uuid.UUID, providerSubject string, now time.Time) (EnterpriseAuthCompletionResult, error) {
+	binding, err := fetchActiveEnterpriseBindingBySubjectTx(ctx, tx, providerID, providerSubject)
 	if err != nil {
 		return EnterpriseAuthCompletionResult{}, err
 	}
@@ -603,6 +716,9 @@ func scanEnterpriseAuthTransaction(scanner interface{ Scan(...any) error }) (Ent
 		&record.Nonce,
 		&record.RelayState,
 		&record.BrowserBindingHash,
+		&record.SAMLCompletionHash,
+		&record.SAMLSubject,
+		&record.SAMLStagedAt,
 		&record.CreatedAt,
 		&record.ExpiresAt,
 		&record.ConsumedAt,
@@ -626,14 +742,16 @@ SELECT id, provider_key, provider_type, display_name, is_enabled, is_interactive
 func fetchEnterpriseTransactionByCorrelationTx(ctx context.Context, tx pgx.Tx, providerType string, correlation string) (EnterpriseAuthTransactionRecord, error) {
 	query := `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-       browser_binding_hash, created_at, expires_at, consumed_at
+       browser_binding_hash, saml_completion_hash, saml_subject, saml_staged_at,
+       created_at, expires_at, consumed_at
   FROM enterprise_auth_transactions
  WHERE state = $1
  FOR UPDATE`
 	if providerType == "saml" {
 		query = `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-       browser_binding_hash, created_at, expires_at, consumed_at
+       browser_binding_hash, saml_completion_hash, saml_subject, saml_staged_at,
+       created_at, expires_at, consumed_at
   FROM enterprise_auth_transactions
  WHERE relay_state = $1
  FOR UPDATE`
@@ -641,6 +759,21 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
 	record, err := scanEnterpriseAuthTransaction(tx.QueryRow(ctx, query, correlation))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionNotFound
+	}
+	return record, err
+}
+
+func fetchEnterpriseTransactionByCompletionHashTx(ctx context.Context, tx pgx.Tx, completionHash []byte) (EnterpriseAuthTransactionRecord, error) {
+	record, err := scanEnterpriseAuthTransaction(tx.QueryRow(ctx, `
+SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
+       browser_binding_hash, saml_completion_hash, saml_subject, saml_staged_at,
+       created_at, expires_at, consumed_at
+  FROM enterprise_auth_transactions
+ WHERE saml_completion_hash = $1
+ FOR UPDATE
+`, completionHash))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionCompletionMismatch
 	}
 	return record, err
 }

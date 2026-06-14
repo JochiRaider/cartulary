@@ -377,9 +377,10 @@ try {
   const schedulerSummaryPath = path.join(failureResults, "failure/phase-slice/scheduler-summary.json");
   assert.ok(existsSync(schedulerSummaryPath), "failed phase slice must write scheduler summary");
   const schedulerSummary = readJSON(schedulerSummaryPath);
-  assert.equal(schedulerSummary.schema_id, "cartulary.phase_slice_scheduler_summary.v3");
+  assert.equal(schedulerSummary.schema_id, "cartulary.phase_slice_scheduler_summary.v4");
   assert.equal(schedulerSummary.status, "fail");
   assert.equal(schedulerSummary.failed_work_unit, "backend-unit");
+  assert.deepEqual(schedulerSummary.observed_failed_work_units.map((unit) => unit.label), ["backend-unit"]);
   const targetSummary = readJSON(path.join(failureResults, "failure/phase-slice/target-summary.json"));
   assert.equal(targetSummary.status, "fail", "failed phase slice must write failing target summary");
 } finally {
@@ -403,7 +404,7 @@ try {
       kind: "phase-slice",
       prefix: "PHASE-SCHEDULER",
       eventSchemaID: "cartulary.scheduler_event.v6",
-      summarySchemaID: "cartulary.phase_slice_scheduler_summary.v3",
+      summarySchemaID: "cartulary.phase_slice_scheduler_summary.v4",
       resourceLimits: new Map(),
       resourceLimitSources: new Map(),
       workUnits: [

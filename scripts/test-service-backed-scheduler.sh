@@ -141,7 +141,7 @@ const assertRepoRelativeArtifact = (artifactPath, label) => {
     }
   }
 };
-if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v9") {
+if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v10") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
 }
 if (summary.scheduler_kind !== "service_backed") {
@@ -149,6 +149,12 @@ if (summary.scheduler_kind !== "service_backed") {
 }
 if (summary.status !== expectedStatus) {
   throw new Error(`summary status got ${summary.status} want ${expectedStatus}`);
+}
+if (!Array.isArray(summary.observed_failed_work_units)) {
+  throw new Error("summary must record observed_failed_work_units");
+}
+if (expectedStatus === "pass" && summary.observed_failed_work_units.length !== 0) {
+  throw new Error("passing summary must not record observed failed work units");
 }
 if (expectedStatus === "fail" && summary.failure_class !== expectedFailureClass) {
   throw new Error(`summary failure_class got ${summary.failure_class} want ${expectedFailureClass}`);

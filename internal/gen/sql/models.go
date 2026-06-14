@@ -318,6 +318,9 @@ type EnterpriseAuthTransaction struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
 	ConsumedAt         pgtype.Timestamptz `json:"consumed_at"`
+	SamlCompletionHash []byte             `json:"saml_completion_hash"`
+	SamlSubject        pgtype.Text        `json:"saml_subject"`
+	SamlStagedAt       pgtype.Timestamptz `json:"saml_staged_at"`
 }
 
 type EntityAlias struct {

@@ -31,7 +31,6 @@ import {
   sessionResource,
 } from "./appShellTestSupport";
 import { csrfHeaderName } from "./browserApi";
-import { setEnterpriseAuthNavigateForTesting } from "./Phase1Surface";
 import {
   deferred,
   errorResponse,
@@ -41,6 +40,7 @@ import {
   readHeader,
   requireJSONRequest,
 } from "./fetchMockTestSupport";
+import { setEnterpriseAuthNavigateForTesting } from "./Phase1Surface";
 
 describe("Phase 1 ordinary app shell", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -159,54 +159,56 @@ describe("Phase 1 ordinary app shell", () => {
     const navigateSpy = vi.fn();
     const restoreNavigate = setEnterpriseAuthNavigateForTesting(navigateSpy);
     try {
-    installLandingShellFetch(fetchMock, {
-      session: errorResponse("session_required", 401),
-      enterpriseProviders: {
-        providers: [
+      installLandingShellFetch(fetchMock, {
+        session: errorResponse("session_required", 401),
+        enterpriseProviders: {
+          providers: [
+            {
+              provider_key: "corp-oidc",
+              provider_type: "oidc",
+              display_name: "Corporate OIDC",
+            },
+          ],
+        },
+        extraRoutes: [
           {
-            provider_key: "corp-oidc",
-            provider_type: "oidc",
-            display_name: "Corporate OIDC",
+            method: "POST",
+            url: "/api/v1/auth/providers/corp-oidc/begin",
+            handler: () =>
+              jsonResponse({
+                data: {
+                  provider_key: "corp-oidc",
+                  provider_type: "oidc",
+                  redirect_url: "https://idp.example.test/start",
+                  expires_at: "2026-06-13T22:30:00Z",
+                },
+              }),
           },
         ],
-      },
-      extraRoutes: [
-        {
-          method: "POST",
-          url: "/api/v1/auth/providers/corp-oidc/begin",
-          handler: () =>
-            jsonResponse({
-              data: {
-                provider_key: "corp-oidc",
-                provider_type: "oidc",
-                redirect_url: "https://idp.example.test/start",
-                expires_at: "2026-06-13T22:30:00Z",
-              },
-            }),
-        },
-      ],
-    });
+      });
 
-    renderApp();
+      renderApp();
 
-    const providerButton = await screen.findByTestId(
-      phase1AuthTestId("enterprise-provider-button"),
-    );
-    expect(providerButton.textContent).toBe("Corporate OIDC");
-    fireEvent.click(providerButton);
+      const providerButton = await screen.findByTestId(
+        phase1AuthTestId("enterprise-provider-button"),
+      );
+      expect(providerButton.textContent).toBe("Corporate OIDC");
+      fireEvent.click(providerButton);
 
-    await waitFor(() => {
-      expect(navigateSpy).toHaveBeenCalledWith("https://idp.example.test/start");
-    });
-    const beginRequest = requireJSONRequest(
-      fetchMock,
-      "/api/v1/auth/providers/corp-oidc/begin",
-      "POST",
-    );
-    expect(beginRequest.body).toEqual({
-      return_to: "/",
-    });
-    await expectStableFetchCount(fetchMock, 3);
+      await waitFor(() => {
+        expect(navigateSpy).toHaveBeenCalledWith(
+          "https://idp.example.test/start",
+        );
+      });
+      const beginRequest = requireJSONRequest(
+        fetchMock,
+        "/api/v1/auth/providers/corp-oidc/begin",
+        "POST",
+      );
+      expect(beginRequest.body).toEqual({
+        return_to: "/",
+      });
+      await expectStableFetchCount(fetchMock, 3);
     } finally {
       restoreNavigate();
     }

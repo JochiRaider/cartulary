@@ -54,7 +54,7 @@ const defaultManifestPath = path.join(
 );
 const supportedSchemaID = "cartulary.scheduler_manifest.v1";
 const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
-const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v9";
+const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v10";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 const packageReadinessTarget = "check-frontend-install";
 

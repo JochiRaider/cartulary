@@ -199,7 +199,7 @@ func (s *Service) handleEnterpriseOIDC(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.CompleteEnterpriseAuthTransaction(r.Context(), providerKey, "oidc", state, browserHash, &nonce, subject, s.now())
+	result, err := s.store.CompleteOIDCEnterpriseAuthTransaction(r.Context(), providerKey, state, browserHash, &nonce, subject, s.now())
 	if err != nil {
 		writeAPIError(w, r, s.enterpriseCompletionError(err))
 		return
@@ -210,6 +210,10 @@ func (s *Service) handleEnterpriseOIDC(w http.ResponseWriter, r *http.Request) {
 func (s *Service) handleEnterpriseSAML(w http.ResponseWriter, r *http.Request) {
 	if apiErr := s.requireEnterpriseProfileClaimed(r.URL.Path); apiErr != nil {
 		writeAPIError(w, r, apiErr)
+		return
+	}
+	if providerKey, ok := providerCallbackKey(r.URL.Path, "/api/v1/auth/saml/", "/acs/complete"); ok {
+		s.handleEnterpriseSAMLComplete(w, r, providerKey)
 		return
 	}
 	providerKey, ok := providerCallbackKey(r.URL.Path, "/api/v1/auth/saml/", "/acs")
@@ -271,12 +275,35 @@ func (s *Service) handleEnterpriseSAML(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, providerIdentityRejected("subject_missing"))
 		return
 	}
+	completionToken, err := authn.GenerateOpaqueToken()
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	completionHash := authn.FingerprintToken(s.keys, completionToken)
+	if _, err := s.store.StageSAMLEnterpriseAuthTransaction(r.Context(), providerKey, relayState, assertion.Subject, completionHash, s.now()); err != nil {
+		writeAPIError(w, r, s.enterpriseCompletionError(err))
+		return
+	}
+	http.Redirect(w, r, enterpriseSAMLCompletionURL(providerKey, completionToken), http.StatusSeeOther)
+}
+
+func (s *Service) handleEnterpriseSAMLComplete(w http.ResponseWriter, r *http.Request, providerKey string) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	completionToken := strings.TrimSpace(r.URL.Query().Get("completion"))
+	if completionToken == "" {
+		writeAPIError(w, r, enterpriseTransactionRejected("completion_mismatch"))
+		return
+	}
 	browserHash, apiErr := s.enterpriseBrowserBindingHash(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.CompleteEnterpriseAuthTransaction(r.Context(), providerKey, "saml", relayState, browserHash, nil, assertion.Subject, s.now())
+	result, err := s.store.CompleteSAMLEnterpriseAuthTransaction(r.Context(), providerKey, authn.FingerprintToken(s.keys, completionToken), browserHash, s.now())
 	if err != nil {
 		writeAPIError(w, r, s.enterpriseCompletionError(err))
 		return
@@ -462,6 +489,8 @@ func (s *Service) enterpriseCompletionError(err error) *APIError {
 		return enterpriseTransactionRejected("already_used")
 	case errors.Is(err, authn.ErrEnterpriseTransactionProviderMismatch):
 		return enterpriseTransactionRejected("provider_mismatch")
+	case errors.Is(err, authn.ErrEnterpriseTransactionCompletionMismatch):
+		return enterpriseTransactionRejected("completion_mismatch")
 	case errors.Is(err, authn.ErrEnterpriseTransactionBrowserMismatch):
 		return enterpriseTransactionRejected("browser_binding_mismatch")
 	case errors.Is(err, authn.ErrSubjectMismatch):
@@ -709,6 +738,12 @@ func enterpriseRedirectURL(provider authn.EnterpriseAuthProviderRecord, transact
 	return parsed.String()
 }
 
+func enterpriseSAMLCompletionURL(providerKey string, completionToken string) string {
+	query := url.Values{}
+	query.Set("completion", completionToken)
+	return "/api/v1/auth/saml/" + url.PathEscape(providerKey) + "/acs/complete?" + query.Encode()
+}
+
 func providerBeginKey(path string) (string, bool) {
 	trimmed := strings.TrimPrefix(path, "/api/v1/auth/providers/")
 	if trimmed == path {
@@ -779,7 +814,7 @@ func (s *Service) setEnterpriseAuthCookie(w http.ResponseWriter, value string, e
 		Value:    value,
 		Path:     "/api/v1/auth",
 		HttpOnly: true,
-		SameSite: http.SameSiteNoneMode,
+		SameSite: http.SameSiteLaxMode,
 		Secure:   true,
 		Expires:  expiresAt,
 	})
@@ -791,7 +826,7 @@ func (s *Service) clearEnterpriseAuthCookie(w http.ResponseWriter) {
 		Value:    "",
 		Path:     "/api/v1/auth",
 		HttpOnly: true,
-		SameSite: http.SameSiteNoneMode,
+		SameSite: http.SameSiteLaxMode,
 		Secure:   true,
 		MaxAge:   -1,
 	})

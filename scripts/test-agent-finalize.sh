@@ -138,7 +138,7 @@ write_retained_run() {
 JSON
   cat >"$dir/check/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.check_scheduler_summary.v9",
+  "schema_id": "cartulary.check_scheduler_summary.v10",
   "target": "check",
   "status": "pass"
 }
@@ -187,7 +187,7 @@ write_incomplete_retained_run() {
 JSON
   cat >"$dir/check/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.check_scheduler_summary.v9",
+  "schema_id": "cartulary.check_scheduler_summary.v10",
   "target": "check",
   "status": "pass"
 }

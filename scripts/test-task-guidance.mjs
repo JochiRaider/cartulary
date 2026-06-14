@@ -155,13 +155,14 @@ function createFixture(scenario) {
     artifacts: { dir: "tmp/task-guidance/run-h" },
   });
   writeJSON(path.join(resultsDir, "run-h", "check", "scheduler-summary.json"), {
-    schema_id: "cartulary.check_scheduler_summary.v9",
+    schema_id: "cartulary.check_scheduler_summary.v10",
     target: "check",
     status: "pass",
     scheduler_kind: "check",
     completed_work_units: 2,
     total_work_units: 2,
     failed_work_unit: null,
+    observed_failed_work_units: [],
     slowest_work_units: [{ label: "check-service-backed", duration_ms: 60700 }],
     progress_snapshots: [
       {
