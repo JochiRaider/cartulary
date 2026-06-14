@@ -57,6 +57,7 @@ export const TimelineWorkbookGrid = forwardRef<
       <GridTable
         actionsColumn={actionsColumn}
         columns={columns}
+        density="compact"
         getGroupLabel={getGroupLabel}
         getGroupRowTestId={getGroupRowTestId}
         groupBy={groupBy}

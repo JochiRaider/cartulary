@@ -3,7 +3,7 @@
   "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P5",
-  "guide_digest": "34204e465076fd9ae9a33e857d46e440981af6574b45915954923bd51f621d67",
+  "guide_digest": "55a7fc35698b043310b7c79af505635f7cb7e36369fca85854ad2b2c0885847c",
   "rows": [
     {
       "id": "FE-U-P5-01",
@@ -75,7 +75,7 @@
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Verify mention chip view models preserve unresolved, resolved, auto-resolved, dismissed, and manual-resolution state by stable identifiers and field keys.",
+        "statement": "Verify mention chip view models preserve unresolved, resolved, auto-resolved, dismissed, and manual-resolution metadata by stable identifiers and field keys.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },
@@ -390,11 +390,11 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution state fixtures."
+        "FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures."
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution state fixtures.",
+        "statement": "Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },

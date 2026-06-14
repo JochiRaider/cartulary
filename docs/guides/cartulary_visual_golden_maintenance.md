@@ -20,9 +20,9 @@ The authoritative current-profile visual rows are the `V-*` rows in
 Those rows are separate from frontend `FE-*` readiness rows. A golden refresh
 for an existing `V-*` row MUST cite the affected `V-*` row IDs. When the same
 golden also serves a frontend visual fixture, the refresh MUST additionally cite
-the applicable `FE-VFIX-*` IDs and frontend phase-map rows. Do not infer
-frontend row closure from a Playwright title, filename, or base phase manifest
-entry alone.
+the applicable `frontend_fixture_refs`, `FE-VFIX-*` IDs, and frontend phase-map
+rows. Do not infer frontend row closure from a Playwright title, filename, or
+base phase manifest entry alone.
 
 ## Visual Fixture Matrix
 
@@ -33,7 +33,7 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 | Fixture ID | Fixture title | Intended phase | Required surface state | Required scroll normalization | Status |
 | --- | --- | --- | --- | --- | --- |
 | `FE-VFIX-01` | Default Timeline workbook shell | `FE-P2`, `FE-P9` | App-owned workbook shell root with top bar, compact view bar, compact Timeline grid, row gutter, header affordances, row-context inspector, status strip, Core 01 default Timeline fields, selected row context, focused Summary cell, and no admin/control card stack above the active grid. FE-P9 supporting artifacts extend the row-context inspector state to history, rollback preview, destructive confirmation, and public error fixtures. | Top-left outer and grid scroll; viewport `1440x900` unless the fixture row states otherwise. | `current` |
-| `FE-VFIX-02` | Mention chip state matrix | `FE-P5` | Timeline relationship chips and inspector mention state render unresolved, resolved, auto-resolved, dismissed, and manual-resolution variants together. | Top-left grid scroll; incident and generated record identifiers masked. | `current` |
+| `FE-VFIX-02` | Mention chip state matrix | `FE-P5` | Timeline relationship chips and inspector mention state render unresolved, resolved, auto-resolved, dismissed, and resolved chips with manual-resolution metadata together. | Top-left grid scroll; incident and generated record identifiers masked. | `current` |
 | `FE-VFIX-03` | Same-field conflict | `FE-P7` | Conflict strip or resolver shows same-field conflict state and recovery affordance. | Top-left grid scroll or conflict row anchor. | `current` |
 | `FE-VFIX-04` | Row-gutter presence | `FE-P7` | Row gutter or presence marker is visible and anchored to the intended row. | Presence row anchor; dynamic actor labels masked where needed. | `current` |
 | `FE-VFIX-05` | Evidence affordance | `FE-P6` | Evidence count, access-control affordance, available, requested, pending, blocked, failed-handle, inconsistent-handle, unsupported-preview, and download-handle states are visible. | Evidence grid right-edge actions column; Timeline evidence-actions row anchor; incident and generated record identifiers masked. | `current` |
@@ -117,13 +117,14 @@ design-direction evidence only; it does not create product conformance or Core
 
 The FE-P5 visual readiness fixture uses deterministic app-owned Timeline
 workbook state. It captures the unresolved token chip, direct resolved chip,
-manual-resolution chip, auto-resolved chip, and dismissed mention inspector
-state in one first-viewport fixture. This map is design-direction evidence
+resolved chip with manual-resolution metadata, auto-resolved chip, and dismissed
+mention inspector state in one first-viewport fixture. This map is
+design-direction evidence
 only; it does not create product conformance or Core 05 publication evidence.
 
 | Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
 | --- | --- | --- | --- | --- | --- | --- |
-| `FE-V-P5-01` | `tools/frontend_phase_maps/fe_p5_test_map.json` | `FE-VFIX-02` | Deterministic workbook incident with Timeline rows for unresolved, resolved, manual-resolution, auto-resolved, and dismissed mention states. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation. | Fixed viewport capture, snapshot `fe-v-p5-01-mention-chip-states`. |
+| `FE-V-P5-01` | `tools/frontend_phase_maps/fe_p5_test_map.json` | `FE-VFIX-02` | Deterministic workbook incident with Timeline rows for unresolved, resolved, resolved-with-manual-metadata, auto-resolved, and dismissed mention states. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers and clock-derived labels masked by visual preparation. | Fixed viewport capture, snapshot `fe-v-p5-01-mention-chip-states`. |
 
 ### Current FE-P6 visual readiness fixture citation map
 
@@ -208,6 +209,15 @@ When a frontend fixture is added, the handoff or pull request must state:
 - whether the fixture is `current`, remains `missing`, or retires a prior fixture row with replacement rationale.
 
 When the vendored font bundle changes, treat the change as an intentional visual-refresh trigger only after reviewing the diff. The visual harness waits for `document.fonts.ready`, requires active Inter and JetBrains Mono faces to load, and retains the `FONT_MANIFEST.json` SHA-256 with screenshot artifacts so font metric changes can be traced to the bundle version.
+
+Before refreshing any font- or glyph-sensitive golden, inspect the retained
+`*-render-diagnostics` and `*-grid-diagnostics` attachments. The render
+diagnostics record browser version, user agent, Playwright viewport metadata,
+`devicePixelRatio`, font-face status, computed grid/chip typography, grid token
+CSS variables, and representative text/chip bounds. Grid diagnostics additionally
+record density ID, computed row height, computed line height, focused element,
+shell and scrollport state, visible field keys, and chip bounds when chips are
+present.
 
 Skipped work units after a `browser-e2e-visual/visual` failure should be treated as cascade skips unless their own summaries show independent failures. Scheduler `resource:host_cpu`, `resource:host_io`, and dependency blocker counts are scheduling metadata, not root-cause failures.
 

@@ -50,10 +50,7 @@ export function mentionChipStateForItem(
     return "unresolved";
   }
   if (item.autoResolved) {
-    return "auto-resolved";
-  }
-  if (item.resolutionMethod === "explicit_resolve_route") {
-    return "manual-resolution";
+    return "auto_resolved";
   }
   return "resolved";
 }
@@ -71,12 +68,12 @@ export function RelationshipChip({
 }) {
   const label = relationshipItemLabel(item, entityIndex);
   const chipState = mentionChipStateForItem(item);
-  const isResolved =
-    chipState === "resolved" ||
-    chipState === "auto-resolved" ||
-    chipState === "manual-resolution";
+  const isResolved = chipState === "resolved" || chipState === "auto_resolved";
   const isDismissed = chipState === "dismissed";
-  const isAutoResolved = chipState === "auto-resolved";
+  const isAutoResolved = chipState === "auto_resolved";
+  const isManualResolution =
+    chipState === "resolved" &&
+    item.resolutionMethod === "explicit_resolve_route";
   const chipStyle = {
     ...relationshipChipStyle,
     ...(isDismissed
@@ -89,27 +86,25 @@ export function RelationshipChip({
     ...(selected ? selectedChipStyle : null),
   };
   const labelPrefix =
-    chipState === "manual-resolution"
-      ? "Resolved"
-      : chipState === "auto-resolved"
-        ? "Auto-resolved"
-        : chipState === "dismissed"
-          ? "Dismissed"
-          : chipState === "resolved"
-            ? "Resolved"
-            : "Unresolved";
-  const stateDetail =
-    chipState === "manual-resolution"
-      ? "; manual resolution"
-      : chipState === "auto-resolved" && item.matchedAliasText
-        ? `; matched ${item.matchedAliasText}`
-        : "";
+    chipState === "auto_resolved"
+      ? "Auto-resolved"
+      : chipState === "dismissed"
+        ? "Dismissed"
+        : chipState === "resolved"
+          ? "Resolved"
+          : "Unresolved";
+  const stateDetail = isManualResolution
+    ? "; manual resolution"
+    : chipState === "auto_resolved" && item.matchedAliasText
+      ? `; matched ${item.matchedAliasText}`
+      : "";
   const accessibleLabel = `${labelPrefix} ${label}${stateDetail}`;
   const content = (
     <RelationshipChipContent
       chipState={chipState}
       isAutoResolved={isAutoResolved}
       isDismissed={isDismissed}
+      isManualResolution={isManualResolution}
       isResolved={isResolved}
       label={label}
     />
@@ -142,12 +137,14 @@ function RelationshipChipContent({
   chipState,
   isAutoResolved,
   isDismissed,
+  isManualResolution,
   isResolved,
   label,
 }: {
   chipState: MentionChipState;
   isAutoResolved: boolean;
   isDismissed: boolean;
+  isManualResolution: boolean;
   isResolved: boolean;
   label: string;
 }) {
@@ -159,12 +156,12 @@ function RelationshipChipContent({
           Auto
         </span>
       ) : null}
-      {chipState === "manual-resolution" ? (
+      {isManualResolution ? (
         <span data-density-role="narrow-metadata" style={chipMetaStyle}>
           Manual
         </span>
       ) : null}
-      {chipState === "resolved" ? (
+      {chipState === "resolved" && !isManualResolution ? (
         <span data-density-role="narrow-metadata" style={chipMetaStyle}>
           Resolved
         </span>
@@ -445,7 +442,7 @@ const gridCellTextareaStyle = {
   minHeight: "3.5rem",
 };
 
-const relationshipChipStyle = {
+export const relationshipChipBaseStyle = {
   display: "inline-flex",
   alignItems: "center",
   gap: "0.35rem",
@@ -457,6 +454,8 @@ const relationshipChipStyle = {
   minWidth: 0,
   overflowWrap: "anywhere" as const,
 };
+
+const relationshipChipStyle = relationshipChipBaseStyle;
 
 const unresolvedChipStyle = {
   border: "1px dashed var(--ct-colors-semantic-caution)",

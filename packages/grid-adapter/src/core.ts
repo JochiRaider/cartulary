@@ -7,6 +7,8 @@ import type {
 
 export type GridSortDirection = "asc" | "desc";
 
+export type GridDensity = "compact" | "default" | "comfortable";
+
 export type GridSortEntry = {
   readonly fieldKey: string;
   readonly direction: GridSortDirection;
@@ -78,6 +80,7 @@ export type GridViewportProps = PropsWithChildren<{
 export type GridTableProps<Row> = {
   readonly actionsColumn?: GridActionsColumn<Row> | undefined;
   readonly columns: readonly GridColumn<Row>[];
+  readonly density?: GridDensity | undefined;
   readonly emptyMessage?: ReactNode | undefined;
   readonly getGroupLabel?: (
     row: Row,

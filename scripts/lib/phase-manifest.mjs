@@ -8,6 +8,7 @@ import {
   validSupportTargets,
 } from "./execution-dependencies.mjs";
 import {
+  frontendVisualFixtureRegistryPath,
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
 } from "./frontend-phase-manifest.mjs";
@@ -78,6 +79,8 @@ const emptyGoSelectionExceptionKeys = new Set([
   "package_patterns",
 ]);
 const postgresFixturePolicyTemplateClone = "template_clone";
+const frontendFixtureRefPattern = /^FE-VFIX-(?:0[1-9]|1[0-5])$/;
+const frontendFixtureRefIDsByRoot = new Map();
 const validRuntimeBinaries = new Set(["operator"]);
 const postgresFixturePolicyPackageReset = "package_reset";
 const postgresFixturePolicyMigrationScratch = "migration_scratch";
@@ -1277,6 +1280,7 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
         }
       }
       validateFixtureRefs(entry, `manifest entry ${entry.id}`);
+      validateFrontendFixtureRefs(root, entry, `manifest entry ${entry.id}`);
       assertAuthoritativeGridRowsUseLiveAdapter(root, entry, `manifest entry ${entry.id}`);
       entries.push({ ...entry, section });
     }
@@ -1578,6 +1582,56 @@ function validateFixtureRefs(entry, label) {
     }
     seen.add(ref);
   }
+}
+
+function validateFrontendFixtureRefs(root, entry, label) {
+  if (entry.frontend_fixture_refs === undefined) {
+    return;
+  }
+  if (!Array.isArray(entry.frontend_fixture_refs) || entry.frontend_fixture_refs.length === 0) {
+    throw new Error(`${label} frontend_fixture_refs must be a non-empty string array when present`);
+  }
+  const validRefs = frontendVisualFixtureRefIDs(root);
+  const seen = new Set();
+  for (const [index, ref] of entry.frontend_fixture_refs.entries()) {
+    if (typeof ref !== "string" || !frontendFixtureRefPattern.test(ref)) {
+      throw new Error(
+        `${label} frontend_fixture_refs[${index + 1}] must be an FE-VFIX-* fixture identifier`,
+      );
+    }
+    if (!validRefs.has(ref)) {
+      throw new Error(
+        `${label} frontend_fixture_refs[${index + 1}] references unknown frontend fixture ${ref}`,
+      );
+    }
+    if (seen.has(ref)) {
+      throw new Error(`${label} frontend_fixture_refs contains duplicate ${ref}`);
+    }
+    seen.add(ref);
+  }
+}
+
+function frontendVisualFixtureRefIDs(root) {
+  const normalizedRoot = path.resolve(root);
+  const cached = frontendFixtureRefIDsByRoot.get(normalizedRoot);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const file = frontendVisualFixtureRegistryPath(normalizedRoot);
+  const registry = readJsonObject(file, file);
+  if (!Array.isArray(registry.fixtures)) {
+    throw new Error(`${file}.fixtures must be an array`);
+  }
+  const refs = new Set();
+  for (const [index, fixture] of registry.fixtures.entries()) {
+    const ref = fixture?.fixture_id;
+    if (typeof ref !== "string" || !frontendFixtureRefPattern.test(ref)) {
+      throw new Error(`${file}.fixtures[${index + 1}].fixture_id must be an FE-VFIX-* fixture identifier`);
+    }
+    refs.add(ref);
+  }
+  frontendFixtureRefIDsByRoot.set(normalizedRoot, refs);
+  return refs;
 }
 
 function assertAuthoritativeGridRowsUseLiveAdapter(root, entry, label) {

@@ -131,7 +131,7 @@ describe("FE-P5 mention chip state model", () => {
       [
         "entity_mention:33333333-3333-4333-8333-333333333333",
         "resolved",
-        "auto-resolved",
+        "auto_resolved",
         {
           recordId: "record-1",
           fieldKey: "timeline.host_refs",
@@ -146,7 +146,7 @@ describe("FE-P5 mention chip state model", () => {
       [
         "entity_mention:44444444-4444-4444-8444-444444444444",
         "resolved",
-        "manual-resolution",
+        "resolved",
         {
           recordId: "record-1",
           fieldKey: "timeline.identity_refs",
@@ -195,6 +195,7 @@ describe("FE-P5 mention chip state model", () => {
         rawText: " alex.analyst@example.test ",
         provenance: "manual",
         resolvedRecordId: "identity-4",
+        resolutionMethod: "explicit_resolve_route",
       }),
     );
     expect(mentions[4]).toEqual(

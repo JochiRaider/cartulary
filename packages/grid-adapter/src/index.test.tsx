@@ -242,6 +242,54 @@ describe("grid-adapter", () => {
     );
   });
 
+  it("selects default and compact density tokens explicitly", async () => {
+    const rows: readonly GridRow<HarnessRow>[] = [
+      {
+        key: "record-1",
+        recordId: "record-1",
+        data: {
+          label: "Alpha",
+          state: "open",
+        },
+      },
+    ];
+
+    const { rerender } = render(
+      <GridViewport testId="density-grid-shell">
+        <GridTable columns={columns} rows={rows} />
+      </GridViewport>,
+    );
+
+    const grid = (
+      await screen.findByTestId("density-grid-shell")
+    ).querySelector('[role="grid"]') as HTMLElement;
+    expect(grid.style.getPropertyValue("--cartulary-grid-density")).toBe(
+      "default",
+    );
+    expect(grid.style.getPropertyValue("--cartulary-grid-row-height")).toBe(
+      "36px",
+    );
+    expect(grid.style.getPropertyValue("--cartulary-grid-cell-padding")).toBe(
+      "var(--ct-density-default-cellPadding)",
+    );
+
+    rerender(
+      <GridViewport testId="density-grid-shell">
+        <GridTable columns={columns} density="compact" rows={rows} />
+      </GridViewport>,
+    );
+
+    expect(grid.style.getPropertyValue("--cartulary-grid-density")).toBe(
+      "compact",
+    );
+    expect(grid.style.getPropertyValue("--cartulary-grid-row-height")).toBe(
+      "28px",
+    );
+    expect(grid.style.getPropertyValue("--cartulary-grid-cell-padding")).toBe(
+      "var(--ct-density-compact-cellPadding)",
+    );
+  });
+
   it("keeps editable cells mounted across repeated parent renders with an actions column", async () => {
     function EditableGridHarness() {
       const [label, setLabel] = useState("Alpha");

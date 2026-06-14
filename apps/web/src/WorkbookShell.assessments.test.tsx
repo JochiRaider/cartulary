@@ -141,6 +141,11 @@ describe("Assessment workbook surface", () => {
           home_sheet_ref: null,
         });
       }
+      if (url.includes("/api/v1/incidents/incident-1/saved-views")) {
+        return successEnvelope({
+          saved_views: [],
+        });
+      }
       if (url.includes(`/views/${hostsViewSchemaId}/query`)) {
         return successEnvelope({
           incident_id: "incident-1",

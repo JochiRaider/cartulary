@@ -284,7 +284,7 @@ describe("Support Phase 4 workbook helpers", () => {
         resolutionMethod: "auto_match",
         autoResolved: true,
         status: "resolved",
-        chipState: "auto-resolved",
+        chipState: "auto_resolved",
         anchor: {
           recordId: "record-1",
           fieldKey: "timeline.host_refs",
@@ -311,7 +311,7 @@ describe("Support Phase 4 workbook helpers", () => {
         resolutionMethod: "explicit_resolve_route",
         autoResolved: false,
         status: "resolved",
-        chipState: "manual-resolution",
+        chipState: "resolved",
         anchor: {
           recordId: "record-1",
           fieldKey: "timeline.identity_refs",
@@ -448,6 +448,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
     expect(autoChip.textContent).toContain("Auto");
     expect(manualChip.textContent).not.toContain("Auto");
+    expect(manualChip.textContent).toContain("Manual");
   });
 
   it("preserves continuity when resolving a mention to an existing entity", async () => {

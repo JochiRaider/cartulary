@@ -25,6 +25,7 @@ import {
   buildGridPresentationRows,
   type GridActionsColumn,
   type GridColumn,
+  type GridDensity,
   type GridPresentationRow,
   type GridRow,
   type GridRowGutter,
@@ -43,6 +44,7 @@ export {
   type GridCellAnchor,
   type GridCellSelection,
   type GridColumn,
+  type GridDensity,
   type GridEditorAdapter,
   type GridNavigationIntent,
   type GridNavigationKey,
@@ -78,9 +80,27 @@ const defaultRowGutterMinWidth = 48;
 const defaultRowGutterWidth = 56;
 const defaultGridClientHeight = 720;
 const gridHeaderHeight = 32;
-const gridGroupRowHeight = 32;
-const gridDataRowHeight = 28;
 const gridVirtualizationOverscanRows = 3;
+const gridDensityMetrics = {
+  compact: {
+    cellPaddingVar: "--ct-density-compact-cellPadding",
+    rowHeight: 28,
+  },
+  default: {
+    cellPaddingVar: "--ct-density-default-cellPadding",
+    rowHeight: 36,
+  },
+  comfortable: {
+    cellPaddingVar: "--ct-density-comfortable-cellPadding",
+    rowHeight: 44,
+  },
+} as const satisfies Record<
+  GridDensity,
+  {
+    readonly cellPaddingVar: string;
+    readonly rowHeight: number;
+  }
+>;
 
 export const GridViewport = forwardRef<HTMLDivElement, GridViewportProps>(
   function GridViewport(
@@ -103,6 +123,7 @@ export const GridViewport = forwardRef<HTMLDivElement, GridViewportProps>(
 export function GridTable<Row>({
   actionsColumn,
   columns,
+  density = "default",
   emptyMessage = "No rows",
   getGroupLabel,
   getGroupRowTestId,
@@ -179,24 +200,40 @@ export function GridTable<Row>({
     () => resolveGridInlineSize(columns, actionsColumn, rowGutter),
     [actionsColumn, columns, rowGutter],
   );
+  const densityMetrics = gridDensityMetrics[density];
   const resolvedGridStyle = useMemo(
     () =>
       ({
         ...gridStyle,
+        "--cartulary-grid-cell-padding": `var(${densityMetrics.cellPaddingVar})`,
+        "--cartulary-grid-density": density,
+        "--cartulary-grid-row-height": `${densityMetrics.rowHeight}px`,
         gridTemplateColumns,
         minWidth: gridInlineSize,
         width: gridInlineSize,
       }) satisfies CSSProperties & Record<string, string | number>,
-    [gridInlineSize, gridTemplateColumns],
+    [
+      density,
+      densityMetrics.cellPaddingVar,
+      densityMetrics.rowHeight,
+      gridInlineSize,
+      gridTemplateColumns,
+    ],
   );
   const virtualRows = useMemo(
     () =>
       buildVirtualizedRows({
         clientHeight: viewportState.clientHeight,
+        density,
         rows: renderedRows,
         scrollTop: viewportState.scrollTop,
       }),
-    [renderedRows, viewportState.clientHeight, viewportState.scrollTop],
+    [
+      density,
+      renderedRows,
+      viewportState.clientHeight,
+      viewportState.scrollTop,
+    ],
   );
   const handleScroll = useCallback(() => {
     refreshViewportState();
@@ -256,6 +293,7 @@ export function GridTable<Row>({
           ) : item.row.kind === "group" ? (
             <GroupRow
               collapsed={collapsedGroups.has(item.row.key)}
+              density={density}
               key={item.key}
               row={item.row}
               totalColumnCount={totalColumnCount}
@@ -265,6 +303,7 @@ export function GridTable<Row>({
             <DataRow
               actionsColumn={actionsColumn}
               columns={columns}
+              density={density}
               key={item.key}
               rowGutter={rowGutter}
               row={item.row.gridRow}
@@ -284,6 +323,7 @@ type RenderDataHeaderContentProps<Row> = {
 
 type GroupRowProps<Row> = {
   readonly collapsed: boolean;
+  readonly density: GridDensity;
   readonly row: Extract<AdapterGridRow<Row>, { readonly kind: "group" }>;
   readonly totalColumnCount: number;
   readonly onToggleGroup: (groupKey: string) => void;
@@ -292,6 +332,7 @@ type GroupRowProps<Row> = {
 type DataRowProps<Row> = {
   readonly actionsColumn: GridActionsColumn<Row> | undefined;
   readonly columns: readonly GridColumn<Row>[];
+  readonly density: GridDensity;
   readonly rowGutter: GridRowGutter | undefined;
   readonly row: GridRow<Row>;
 };
@@ -321,6 +362,7 @@ type VirtualizedRowItem<Row> =
 
 type BuildVirtualizedRowsProps<Row> = {
   readonly clientHeight: number;
+  readonly density: GridDensity;
   readonly rows: readonly AdapterGridRow<Row>[];
   readonly scrollTop: number;
 };
@@ -412,6 +454,7 @@ function HeaderSortButton<Row>({
 
 function GroupRow<Row>({
   collapsed,
+  density,
   row,
   totalColumnCount,
   onToggleGroup,
@@ -425,6 +468,7 @@ function GroupRow<Row>({
         style={{
           ...groupCellStyle,
           gridColumn: `span ${Math.max(totalColumnCount, 1)}`,
+          minBlockSize: gridPresentationRowHeight(row, density),
         }}
       >
         <button
@@ -447,6 +491,7 @@ function GroupRow<Row>({
 function DataRow<Row>({
   actionsColumn,
   columns,
+  density,
   row,
   rowGutter,
 }: DataRowProps<Row>) {
@@ -472,7 +517,7 @@ function DataRow<Row>({
           data-grid-field-key="__cartulary_row_gutter__"
           data-testid={row.gutterTestId}
           role="rowheader"
-          style={rowGutterCellStyle(rowStyle)}
+          style={rowGutterCellStyle(rowStyle, density)}
         >
           {row.gutterContent ?? row.gutterLabel ?? ""}
         </div>
@@ -482,7 +527,7 @@ function DataRow<Row>({
           data-grid-field-key={column.fieldKey}
           key={column.fieldKey}
           role="gridcell"
-          style={bodyCellStyleForColumn(column, rowStyle)}
+          style={bodyCellStyleForColumn(column, rowStyle, density)}
         >
           {column.renderCell(row.data)}
         </div>
@@ -491,7 +536,7 @@ function DataRow<Row>({
         <div
           data-grid-field-key={actionsColumnKey}
           role="gridcell"
-          style={bodyCellStyleForRow(rowStyle)}
+          style={bodyCellStyleForRow(rowStyle, density)}
         >
           {actionsColumn.renderCell(row)}
         </div>
@@ -510,19 +555,23 @@ function GridSpacer({ height }: { readonly height: number }) {
 function bodyCellStyleForColumn<Row>(
   column: GridColumn<Row>,
   rowStyle: CSSProperties | undefined,
+  density: GridDensity,
 ): CSSProperties {
   return {
     ...bodyCellStyle,
     ...alignmentStyle(column.align),
+    minBlockSize: rowHeightForDensity(density),
     ...(rowStyle ?? {}),
   };
 }
 
 function bodyCellStyleForRow(
   rowStyle: CSSProperties | undefined,
+  density: GridDensity,
 ): CSSProperties {
   return {
     ...bodyCellStyle,
+    minBlockSize: rowHeightForDensity(density),
     ...(rowStyle ?? {}),
   };
 }
@@ -545,6 +594,7 @@ function buildGridTemplateColumns<Row>(
 
 function buildVirtualizedRows<Row>({
   clientHeight,
+  density,
   rows,
   scrollTop,
 }: BuildVirtualizedRowsProps<Row>): VirtualizedRows<Row> {
@@ -557,7 +607,8 @@ function buildVirtualizedRows<Row>({
   const bodyViewportTop = Math.max(0, scrollTop - gridHeaderHeight);
   const effectiveClientHeight =
     clientHeight > 0 ? clientHeight : defaultGridClientHeight;
-  const overscanPx = gridDataRowHeight * gridVirtualizationOverscanRows;
+  const dataRowHeight = rowHeightForDensity(density);
+  const overscanPx = dataRowHeight * gridVirtualizationOverscanRows;
   const windowTop = Math.max(0, bodyViewportTop - overscanPx);
   const windowBottom = bodyViewportTop + effectiveClientHeight + overscanPx;
   const items: VirtualizedRowItem<Row>[] = [];
@@ -566,7 +617,7 @@ function buildVirtualizedRows<Row>({
   let spacerIndex = 0;
 
   for (const row of rows) {
-    const height = gridPresentationRowHeight(row);
+    const height = gridPresentationRowHeight(row, density);
     const rowTop = offsetTop;
     const rowBottom = rowTop + height;
     const shouldMount =
@@ -602,8 +653,15 @@ function buildVirtualizedRows<Row>({
   };
 }
 
-function gridPresentationRowHeight<Row>(row: AdapterGridRow<Row>): number {
-  return row.kind === "group" ? gridGroupRowHeight : gridDataRowHeight;
+function gridPresentationRowHeight<Row>(
+  row: AdapterGridRow<Row>,
+  density: GridDensity,
+): number {
+  return row.kind === "group" ? gridHeaderHeight : rowHeightForDensity(density);
+}
+
+function rowHeightForDensity(density: GridDensity): number {
+  return gridDensityMetrics[density].rowHeight;
 }
 
 function resolveGridInlineSize<Row>(
@@ -828,20 +886,22 @@ const bodyCellStyle = {
   position: "relative" as const,
   boxSizing: "border-box" as const,
   minWidth: 0,
-  minBlockSize: gridDataRowHeight,
-  padding: "var(--ct-density-compact-cellPadding)",
+  minBlockSize: "var(--cartulary-grid-row-height)",
+  padding: "var(--cartulary-grid-cell-padding)",
   borderBottom: "var(--ct-border-hairline)",
-  lineHeight: 1.25,
+  lineHeight: "var(--ct-typography-grid-cell-lineHeight)",
   overflowWrap: "anywhere" as const,
   verticalAlign: "top" as const,
 };
 
 function rowGutterCellStyle(
   rowStyle: CSSProperties | undefined,
+  density: GridDensity,
 ): CSSProperties {
   return {
     ...bodyCellStyle,
     ...rowStyle,
+    minBlockSize: rowHeightForDensity(density),
     position: "sticky",
     left: 0,
     zIndex: 2,
@@ -865,7 +925,7 @@ const groupCellStyle = {
   ...bodyCellStyle,
   background: "var(--ct-colors-surface-2)",
   color: "var(--ct-colors-ink-muted)",
-  minBlockSize: gridGroupRowHeight,
+  minBlockSize: gridHeaderHeight,
 };
 
 const spacerStyle = {

@@ -5,16 +5,14 @@ export type RelationshipFieldKey =
 export type MentionChipState =
   | "unresolved"
   | "resolved"
-  | "auto-resolved"
-  | "dismissed"
-  | "manual-resolution";
+  | "auto_resolved"
+  | "dismissed";
 
 export const mentionChipStates = [
   "unresolved",
   "resolved",
-  "auto-resolved",
+  "auto_resolved",
   "dismissed",
-  "manual-resolution",
 ] as const satisfies readonly MentionChipState[];
 
 export type MentionChipAnchor = {
@@ -128,13 +126,10 @@ function mentionChipAnchor({
 function mentionChipState({
   autoResolved,
   itemKind,
-  resolutionMethod,
   status,
 }: {
   autoResolved: boolean;
   itemKind: string;
-  provenance: string | null | undefined;
-  resolutionMethod: string | null;
   status: "unresolved" | "resolved" | "dismissed";
 }): MentionChipState {
   if (status === "dismissed") {
@@ -144,10 +139,7 @@ function mentionChipState({
     return "unresolved";
   }
   if (autoResolved) {
-    return "auto-resolved";
-  }
-  if (resolutionMethod === "explicit_resolve_route") {
-    return "manual-resolution";
+    return "auto_resolved";
   }
   return "resolved";
 }
@@ -174,8 +166,6 @@ function activeInspectorMention(
     chipState: mentionChipState({
       autoResolved: item.autoResolved,
       itemKind: item.itemKind,
-      provenance: item.provenance,
-      resolutionMethod: item.resolutionMethod,
       status,
     }),
     anchor: mentionChipAnchor({

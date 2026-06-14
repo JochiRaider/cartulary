@@ -984,6 +984,10 @@
       "fixture_refs": [
         "VFIX-GRID-01"
       ],
+      "frontend_fixture_refs": [
+        "FE-VFIX-01",
+        "FE-VFIX-08"
+      ],
       "claim": "The visual harness captures a deterministic Timeline default viewport with visible row version and save-state strip while masking generated incident identity.",
       "out_of_scope": "Presence, row-gutter collaboration markers, frozen columns, and future grid controls remain owned by later phase visual rows when exposed.",
       "evidence_class": "visual_readiness",
@@ -1008,6 +1012,10 @@
         "VFIX-GRID-08",
         "VFIX-GRID-12"
       ],
+      "frontend_fixture_refs": [
+        "FE-VFIX-08",
+        "FE-VFIX-12"
+      ],
       "claim": "The visual harness drives the real Timeline workbook surface through active edit, `Syncing`, `Saved`, and `Conflict` save-state presentations.",
       "out_of_scope": "Full same-field conflict resolution UI remains Phase 6 evidence.",
       "evidence_class": "visual_readiness",
@@ -1030,6 +1038,10 @@
       "evidence_layer": "browser_visual",
       "fixture_refs": [
         "VFIX-GRID-06"
+      ],
+      "frontend_fixture_refs": [
+        "FE-VFIX-06",
+        "FE-VFIX-13"
       ],
       "claim": "The visual harness captures a deterministic grouped Timeline viewport with group headers rendered as presentation-only rows and visible grid chrome currently exposed by the product.",
       "out_of_scope": "Drag-fill, resize handles, treegrid controls, and frozen-column visual states are not claimed until those capabilities are product-exposed.",

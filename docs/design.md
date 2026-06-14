@@ -1000,6 +1000,8 @@ Design contract. Chip states MUST use the closed visual vocabulary below.
 
 Design contract. Color alone MUST NOT distinguish chip states.
 
+Design contract. Manual resolution is represented by resolution metadata on the `resolved` state; it MUST NOT create a fifth chip state.
+
 ### 9.3 Relationship and collection cells
 
 Design contract. Relationship cells that mix unresolved mention tokens and canonical chips MUST preserve those as different object types. They MUST NOT be coerced into comma-delimited strings for display, editing, conflict resolution, or copy/paste presentation.

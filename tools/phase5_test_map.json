@@ -801,6 +801,9 @@
       "title": "V-5-GRID-02 captures blocked preview feedback and Timeline evidence badges",
       "execution_dependency": "browser_visual",
       "evidence_layer": "browser_visual",
+      "frontend_fixture_refs": [
+        "FE-VFIX-05"
+      ],
       "claim": "The visual harness captures blocked evidence access feedback plus Timeline evidence-count and has-evidence badge presentation after browser attach.",
       "out_of_scope": "Preview-handle issuance and redemption contracts remain backend and functional browser evidence.",
       "evidence_class": "visual_readiness",

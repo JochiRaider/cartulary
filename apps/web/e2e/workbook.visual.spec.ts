@@ -16,6 +16,7 @@ import {
   cartularyDefaultThemeId,
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
+  dataTestIdPrefixSelector,
   dataTestIdSelector,
   evidenceAccessMessageTestId,
   evidenceAttachFileInputTestId,
@@ -163,6 +164,7 @@ const expectedFeP11VisualFixtureIds = Array.from(
   { length: 15 },
   (_, index) => `FE-VFIX-${String(index + 1).padStart(2, "0")}`,
 );
+const timelineInspectorTestId = "timeline-inspector";
 
 function findRepoRoot(): string {
   let candidate = process.cwd();
@@ -550,7 +552,9 @@ test.describe("Phase 3 workbook visual evidence", () => {
       ),
     ).toHaveValue("Default visual row");
 
-    await assertViewportVisualRegression(page, "v-3-grid-01-timeline-default");
+    await assertViewportVisualRegression(page, "v-3-grid-01-timeline-default", {
+      renderSurface: timelineViewSchemaId,
+    });
   });
 
   test("V-3-GRID-02 captures Timeline edit save-state visuals for active cell syncing saved and conflict states", async ({
@@ -871,7 +875,7 @@ test.describe("FE-P4 visual readiness", () => {
 });
 
 test.describe("FE-P5 workbook visual readiness", () => {
-  test("FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution state fixtures.", async ({
+  test("FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -907,7 +911,7 @@ test.describe("FE-P5 workbook visual readiness", () => {
       summary: {
         auto: "FE-V-P5 auto chip state",
         dismissed: "FE-V-P5 dismissed chip state",
-        manual: "FE-V-P5 manual chip state",
+        manual: "FE-V-P5 manual resolution metadata",
         resolved: "FE-V-P5 resolved chip state",
         unresolved: "FE-V-P5 unresolved chip state",
       },
@@ -3007,10 +3011,11 @@ async function assertVisualRegression(
   page: Page,
   name: string,
   locator = page.getByRole("main"),
-  options: { maxDiffPixels?: number } = {},
+  options: { maxDiffPixels?: number; renderSurface?: string } = {},
 ) {
   await expect(locator).toBeVisible();
   await prepareVisualRegressionState(page);
+  await attachVisualRenderDiagnostics(page, name, options.renderSurface);
   await expect(locator).toHaveScreenshot(`${name}.png`, {
     animations: "disabled",
     caret: "hide",
@@ -3020,8 +3025,13 @@ async function assertVisualRegression(
   });
 }
 
-async function assertViewportVisualRegression(page: Page, name: string) {
+async function assertViewportVisualRegression(
+  page: Page,
+  name: string,
+  options: { renderSurface?: string } = {},
+) {
   await prepareVisualRegressionState(page);
+  await attachVisualRenderDiagnostics(page, name, options.renderSurface);
   await expect(page).toHaveScreenshot(`${name}.png`, {
     animations: "disabled",
     caret: "hide",
@@ -3589,8 +3599,8 @@ async function assertWorkbookGridVisualRegression(
       name,
       page.getByTestId(gridShellTestId(surface)),
       options.maxDiffPixels === undefined
-        ? {}
-        : { maxDiffPixels: options.maxDiffPixels },
+        ? { renderSurface: surface }
+        : { maxDiffPixels: options.maxDiffPixels, renderSurface: surface },
     );
   } catch (error) {
     try {
@@ -3621,6 +3631,7 @@ async function assertEvidenceAccessVisualRegression(page: Page, name: string) {
       page,
       name,
       page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
+      { renderSurface: evidenceViewSchemaId },
     );
   } catch (error) {
     try {
@@ -3726,14 +3737,268 @@ async function waitForVendoredFonts(page: Page) {
 }
 
 async function attachFontManifestDigest() {
+  await test.info().attach("font-manifest-sha256", {
+    body: Buffer.from(`${fontManifestSha256()}\n`, "utf8"),
+    contentType: "text/plain",
+  });
+}
+
+function fontManifestSha256(): string {
   const manifest = readFileSync(
     new URL("../public/assets/fonts/FONT_MANIFEST.json", import.meta.url),
   );
-  const sha256 = createHash("sha256").update(manifest).digest("hex");
-  await test.info().attach("font-manifest-sha256", {
-    body: Buffer.from(`${sha256}\n`, "utf8"),
-    contentType: "text/plain",
+  return createHash("sha256").update(manifest).digest("hex");
+}
+
+async function attachVisualRenderDiagnostics(
+  page: Page,
+  name: string,
+  surface?: string,
+) {
+  const browser = page.context().browser();
+  const diagnostics = await readVisualRenderDiagnostics(page, surface);
+  await test.info().attach(`${name}-render-diagnostics`, {
+    body: JSON.stringify(
+      {
+        ...diagnostics,
+        fontManifestSha256: fontManifestSha256(),
+        playwright: {
+          browserName: browser?.browserType().name() ?? null,
+          browserVersion: browser?.version() ?? null,
+          nodeArch: process.arch,
+          nodePlatform: process.platform,
+          nodeVersion: process.version,
+          viewport: page.viewportSize(),
+        },
+      },
+      null,
+      2,
+    ),
+    contentType: "application/json",
   });
+}
+
+async function readVisualRenderDiagnostics(page: Page, surface?: string) {
+  return page.evaluate(
+    ({ chipSelector, scrollportSelector, shellSelector }) => {
+      const round = (value: number) => Number(value.toFixed(2));
+      const rectFor = (element: Element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          bottom: round(rect.bottom),
+          height: round(rect.height),
+          left: round(rect.left),
+          right: round(rect.right),
+          top: round(rect.top),
+          width: round(rect.width),
+          x: round(rect.x),
+          y: round(rect.y),
+        };
+      };
+      const textBoundsFor = (element: HTMLElement) => {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const rect = range.getBoundingClientRect();
+        range.detach();
+        return {
+          bottom: round(rect.bottom),
+          height: round(rect.height),
+          left: round(rect.left),
+          right: round(rect.right),
+          text: (element.textContent ?? "").replace(/\s+/g, " ").trim(),
+          top: round(rect.top),
+          width: round(rect.width),
+        };
+      };
+      const fontStyleFor = (element: HTMLElement | null) => {
+        if (element === null) {
+          return null;
+        }
+        const style = getComputedStyle(element);
+        return {
+          fontFamily: style.fontFamily,
+          fontFeatureSettings: style.fontFeatureSettings,
+          fontKerning: style.fontKerning,
+          fontSize: style.fontSize,
+          fontStretch: style.fontStretch,
+          fontStyle: style.fontStyle,
+          fontSynthesis: style.fontSynthesis,
+          fontVariantLigatures: style.fontVariantLigatures,
+          fontVariationSettings: style.fontVariationSettings,
+          fontWeight: style.fontWeight,
+          letterSpacing: style.letterSpacing,
+          lineHeight: style.lineHeight,
+          textRendering: style.textRendering,
+          webkitFontSmoothing: style.getPropertyValue("-webkit-font-smoothing"),
+        };
+      };
+      const shell =
+        shellSelector === null
+          ? null
+          : document.querySelector<HTMLElement>(shellSelector);
+      const scrollport =
+        shell?.querySelector<HTMLElement>(scrollportSelector) ?? null;
+      const gridStyleSource = scrollport ?? shell;
+      const gridTextSamples = shell
+        ? Array.from(
+            shell.querySelectorAll<HTMLElement>(
+              '[role="columnheader"], [role="rowheader"], [role="gridcell"]',
+            ),
+          )
+            .filter((element) => {
+              const rect = element.getBoundingClientRect();
+              return (
+                rect.width > 0 &&
+                rect.height > 0 &&
+                (element.textContent ?? "").trim() !== ""
+              );
+            })
+            .slice(0, 8)
+            .map((element) => ({
+              ariaColIndex: element.getAttribute("aria-colindex"),
+              fieldKey: element.getAttribute("data-grid-field-key"),
+              rect: rectFor(element),
+              role: element.getAttribute("role"),
+              testId: element.getAttribute("data-testid"),
+              textBounds: textBoundsFor(element),
+              typography: fontStyleFor(element),
+            }))
+        : [];
+      const chipSamples = Array.from(
+        document.querySelectorAll<HTMLElement>(chipSelector),
+      )
+        .filter((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        })
+        .slice(0, 8)
+        .map((element) => ({
+          ariaLabel: element.getAttribute("aria-label"),
+          rect: rectFor(element),
+          role: element.getAttribute("role"),
+          testId: element.getAttribute("data-testid"),
+          textBounds: textBoundsFor(element),
+          typography: fontStyleFor(element),
+        }));
+      const userAgentData =
+        "userAgentData" in navigator
+          ? {
+              brands: (
+                navigator as Navigator & {
+                  userAgentData?: {
+                    brands?: unknown;
+                    mobile?: unknown;
+                    platform?: unknown;
+                  };
+                }
+              ).userAgentData?.brands,
+              mobile: (
+                navigator as Navigator & {
+                  userAgentData?: {
+                    brands?: unknown;
+                    mobile?: unknown;
+                    platform?: unknown;
+                  };
+                }
+              ).userAgentData?.mobile,
+              platform: (
+                navigator as Navigator & {
+                  userAgentData?: {
+                    brands?: unknown;
+                    mobile?: unknown;
+                    platform?: unknown;
+                  };
+                }
+              ).userAgentData?.platform,
+            }
+          : null;
+      return {
+        computed: {
+          chip: fontStyleFor(
+            chipSamples.length > 0
+              ? document.querySelector<HTMLElement>(chipSelector)
+              : null,
+          ),
+          gridCell: fontStyleFor(
+            gridTextSamples.length > 0
+              ? (shell?.querySelector<HTMLElement>(
+                  '[role="gridcell"], [role="rowheader"], [role="columnheader"]',
+                ) ?? null)
+              : null,
+          ),
+          scrollport: fontStyleFor(scrollport),
+          shell: fontStyleFor(shell),
+        },
+        cssVars: gridStyleSource
+          ? {
+              cellPadding: getComputedStyle(gridStyleSource)
+                .getPropertyValue("--cartulary-grid-cell-padding")
+                .trim(),
+              density: getComputedStyle(gridStyleSource)
+                .getPropertyValue("--cartulary-grid-density")
+                .trim(),
+              gridCellLineHeight: getComputedStyle(gridStyleSource)
+                .getPropertyValue("--ct-typography-grid-cell-lineHeight")
+                .trim(),
+              rowHeight: getComputedStyle(gridStyleSource)
+                .getPropertyValue("--cartulary-grid-row-height")
+                .trim(),
+            }
+          : null,
+        devicePixelRatio: window.devicePixelRatio,
+        fontFaces: Array.from(document.fonts).map((face) => ({
+          display: face.display,
+          family: face.family,
+          status: face.status,
+          stretch: face.stretch,
+          style: face.style,
+          weight: face.weight,
+        })),
+        fontChecks: {
+          inter400: document.fonts.check('400 12px "Inter"'),
+          inter500: document.fonts.check('500 12px "Inter"'),
+          jetBrainsMono400: document.fonts.check('400 12px "JetBrains Mono"'),
+        },
+        gridTextSamples,
+        navigator: {
+          hardwareConcurrency: navigator.hardwareConcurrency,
+          language: navigator.language,
+          languages: navigator.languages,
+          platform: navigator.platform,
+          userAgent: navigator.userAgent,
+          userAgentData,
+        },
+        shell: shell ? rectFor(shell) : null,
+        chipSamples,
+        scrollport: scrollport ? rectFor(scrollport) : null,
+        visualViewport:
+          window.visualViewport === null
+            ? null
+            : {
+                height: round(window.visualViewport.height),
+                offsetLeft: round(window.visualViewport.offsetLeft),
+                offsetTop: round(window.visualViewport.offsetTop),
+                pageLeft: round(window.visualViewport.pageLeft),
+                pageTop: round(window.visualViewport.pageTop),
+                scale: window.visualViewport.scale,
+                width: round(window.visualViewport.width),
+              },
+        viewport: {
+          innerHeight: window.innerHeight,
+          innerWidth: window.innerWidth,
+          outerHeight: window.outerHeight,
+          outerWidth: window.outerWidth,
+          screenHeight: window.screen.height,
+          screenWidth: window.screen.width,
+        },
+      };
+    },
+    {
+      chipSelector: dataTestIdPrefixSelector("chip-"),
+      scrollportSelector: gridScrollportSelector(),
+      shellSelector: surface === undefined ? null : gridShellSelector(surface),
+    },
+  );
 }
 
 async function normalizeWorkbookGridVisualState(
@@ -3983,6 +4248,7 @@ async function readWorkbookGridAnchorState(
   return page.evaluate(
     async ({
       anchor,
+      inspectorSelector,
       scrollportSelector,
       selectors,
       shellSelector,
@@ -4068,9 +4334,7 @@ async function readWorkbookGridAnchorState(
               ? document.activeElement.getAttribute("data-testid")
               : null,
           anchorKind: anchor.kind,
-          inspectorOpen:
-            document.querySelector('[data-testid="timeline-inspector"]') !==
-            null,
+          inspectorOpen: document.querySelector(inspectorSelector) !== null,
           missingFieldKeys,
           missingTestIds,
           ready:
@@ -4148,6 +4412,7 @@ async function readWorkbookGridAnchorState(
     },
     {
       anchor,
+      inspectorSelector: dataTestIdSelector(timelineInspectorTestId),
       scrollportSelector: gridScrollportSelector(),
       selectors: buildWorkbookGridAnchorSelectors(surface, anchor),
       shellSelector: gridShellSelector(surface),
@@ -4168,14 +4433,127 @@ async function attachWorkbookGridVisualDiagnostics(
       ? await readWorkbookGridAnchorState(page, surface, options.anchor)
       : await readWorkbookGridDiagnostics(page, surface);
   await testInfo.attach(`${name}-grid-diagnostics`, {
-    body: JSON.stringify(diagnostics, null, 2),
+    body: JSON.stringify(
+      {
+        ...diagnostics,
+        presentation: await readWorkbookGridPresentationDiagnostics(
+          page,
+          surface,
+        ),
+      },
+      null,
+      2,
+    ),
     contentType: "application/json",
   });
 }
 
+async function readWorkbookGridPresentationDiagnostics(
+  page: Page,
+  surface: string,
+) {
+  return page.evaluate(
+    ({ chipSelector, scrollportSelector, shellSelector, surface }) => {
+      const round = (value: number) => Number(value.toFixed(2));
+      const rectFor = (element: Element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          bottom: round(rect.bottom),
+          height: round(rect.height),
+          left: round(rect.left),
+          right: round(rect.right),
+          top: round(rect.top),
+          width: round(rect.width),
+        };
+      };
+      const typographyFor = (element: HTMLElement | null) => {
+        if (element === null) {
+          return null;
+        }
+        const style = getComputedStyle(element);
+        return {
+          fontFamily: style.fontFamily,
+          fontSize: style.fontSize,
+          fontWeight: style.fontWeight,
+          letterSpacing: style.letterSpacing,
+          lineHeight: style.lineHeight,
+          paddingBlockEnd: style.paddingBlockEnd,
+          paddingBlockStart: style.paddingBlockStart,
+          paddingInlineEnd: style.paddingInlineEnd,
+          paddingInlineStart: style.paddingInlineStart,
+        };
+      };
+      const shell = document.querySelector<HTMLElement>(shellSelector);
+      if (shell === null) {
+        throw new Error(`Expected ${surface} grid shell to exist`);
+      }
+      const scrollport = shell.querySelector<HTMLElement>(scrollportSelector);
+      if (scrollport === null) {
+        throw new Error(
+          `Expected ${surface} grid shell to contain ${scrollportSelector}`,
+        );
+      }
+      const gridStyle = getComputedStyle(scrollport);
+      const rowHeightVar = gridStyle
+        .getPropertyValue("--cartulary-grid-row-height")
+        .trim();
+      const firstCell = shell.querySelector<HTMLElement>(
+        '[role="gridcell"], [role="rowheader"], [role="columnheader"]',
+      );
+      const firstDataCell =
+        shell.querySelector<HTMLElement>(
+          '[data-grid-record-id] [role="gridcell"], [data-grid-record-id] [role="rowheader"]',
+        ) ?? firstCell;
+      const chipBounds = Array.from(
+        shell.querySelectorAll<HTMLElement>(chipSelector),
+      )
+        .filter((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        })
+        .slice(0, 8)
+        .map((element) => ({
+          ariaLabel: element.getAttribute("aria-label"),
+          rect: rectFor(element),
+          testId: element.getAttribute("data-testid"),
+          text: (element.textContent ?? "").replace(/\s+/g, " ").trim(),
+          typography: typographyFor(element),
+        }));
+      return {
+        chipBounds,
+        computedLineHeight: firstCell
+          ? getComputedStyle(firstCell).lineHeight
+          : null,
+        computedRowHeight:
+          rowHeightVar === "" ? null : round(Number.parseFloat(rowHeightVar)),
+        densityId: gridStyle
+          .getPropertyValue("--cartulary-grid-density")
+          .trim(),
+        gridCell: typographyFor(firstCell),
+        observedFirstCellHeight: firstDataCell
+          ? round(firstDataCell.getBoundingClientRect().height)
+          : null,
+        rowHeightVar,
+        cellPaddingVar: gridStyle
+          .getPropertyValue("--cartulary-grid-cell-padding")
+          .trim(),
+        tokenGridCellLineHeight: gridStyle
+          .getPropertyValue("--ct-typography-grid-cell-lineHeight")
+          .trim(),
+      };
+    },
+    {
+      chipSelector: dataTestIdPrefixSelector("chip-"),
+      scrollportSelector: gridScrollportSelector(),
+      shellSelector: gridShellSelector(surface),
+      surface,
+    },
+  );
+}
+
 async function readWorkbookGridDiagnostics(page: Page, surface: string) {
   return page.evaluate(
-    ({ scrollportSelector, shellSelector, surface }) => {
+    ({ inspectorSelector, scrollportSelector, shellSelector, surface }) => {
       const shell = document.querySelector<HTMLElement>(shellSelector);
       if (shell === null) {
         throw new Error(`Expected ${surface} grid shell to exist`);
@@ -4213,8 +4591,7 @@ async function readWorkbookGridDiagnostics(page: Page, surface: string) {
           document.activeElement instanceof HTMLElement
             ? document.activeElement.getAttribute("data-testid")
             : null,
-        inspectorOpen:
-          document.querySelector('[data-testid="timeline-inspector"]') !== null,
+        inspectorOpen: document.querySelector(inspectorSelector) !== null,
         ready: true,
         requiredRects: {},
         screenshotTargetTestId: `${surface}-grid-shell`,
@@ -4251,6 +4628,7 @@ async function readWorkbookGridDiagnostics(page: Page, surface: string) {
       };
     },
     {
+      inspectorSelector: dataTestIdSelector(timelineInspectorTestId),
       scrollportSelector: gridScrollportSelector(),
       shellSelector: gridShellSelector(surface),
       surface,

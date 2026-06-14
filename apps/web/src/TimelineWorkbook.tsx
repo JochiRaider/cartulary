@@ -55,6 +55,7 @@ import { buildEvidenceCountDisplayViewModel } from "./evidenceLifecycleViewModel
 import {
   mentionChipStateForItem,
   RelationshipChip,
+  relationshipChipBaseStyle,
   TimelineScalarEditor,
 } from "./TimelineCellEditors";
 import { TimelineConflictResolver } from "./TimelineConflictResolver";
@@ -6033,21 +6034,8 @@ const relationshipItemsWrapStyle = {
   minWidth: 0,
 };
 
-const relationshipChipStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "0.35rem",
-  borderRadius: "var(--ct-component-chip-rounded)",
-  padding: "var(--ct-component-chip-padding)",
-  font: "inherit",
-  lineHeight: 1.2,
-  maxWidth: "100%",
-  minWidth: 0,
-  overflowWrap: "anywhere" as const,
-};
-
 const tagChipStyle = {
-  ...relationshipChipStyle,
+  ...relationshipChipBaseStyle,
   border: "var(--ct-component-chip-border)",
   background: "var(--ct-component-chip-backgroundColor)",
   color: "var(--ct-component-chip-textColor)",

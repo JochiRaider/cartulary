@@ -159,6 +159,7 @@ export const phaseManifestEntryKeys = new Set([
   "fixture_policy",
   "fixture_budget",
   "fixture_refs",
+  "frontend_fixture_refs",
   "template_clone_reason",
   "template_clone_reason_code",
   "group_clone_reason",
@@ -326,6 +327,11 @@ export function validatePhaseManifestShape(manifest, label) {
       }
       if (entry.fixture_refs !== undefined) {
         requireStringArray(entry.fixture_refs, `${entryLabel}.fixture_refs`, {
+          nonEmpty: true,
+        });
+      }
+      if (entry.frontend_fixture_refs !== undefined) {
+        requireStringArray(entry.frontend_fixture_refs, `${entryLabel}.frontend_fixture_refs`, {
           nonEmpty: true,
         });
       }

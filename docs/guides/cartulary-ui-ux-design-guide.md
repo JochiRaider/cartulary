@@ -460,6 +460,8 @@ A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to stat
 
 *Design direction.* The chip-state vocabulary is closed for Revision 2. §8.3 and §16.1 MUST use the same four states: `unresolved`, `resolved`, `auto_resolved`, and `dismissed`.
 
+*Design direction.* Manual resolution is metadata on the `resolved` state, not a separate chip state. A manually resolved chip MAY expose a non-color marker when provenance or review requires a visible distinction.
+
 *Design direction.* Unresolved chips MUST be visually distinct from resolved chips through a combination of border treatment and an inline state marker. The default unresolved treatment is dashed or dotted border plus a leading `?` marker or visible `Unresolved` label. Color difference alone MUST NOT be the sole distinguishing signal.
 
 *Design direction.* Auto-resolved chips MUST show the `auto` marker defined in §16.1 until the user explicitly changes or reverts the resolution.

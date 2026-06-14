@@ -68,7 +68,7 @@
       "owner_row_ids": [
         "FE-V-P5-01"
       ],
-      "playwright_scenario_title": "FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution state fixtures.",
+      "playwright_scenario_title": "FE-V-P5-01 Capture unresolved token, resolved chip, auto-resolved chip, dismissed mention, and manual resolution metadata fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p5-01-mention-chip-states-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p5-01-mention-chip-states-linux.png"
