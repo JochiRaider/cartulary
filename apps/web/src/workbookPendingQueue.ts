@@ -1,4 +1,5 @@
 import { publicErrorCode, publicErrorStatusText } from "./publicError";
+import { parseSameFieldConflictFields } from "./timelineConflictModel";
 
 export const pendingReplayCapacity = 64;
 
@@ -941,34 +942,12 @@ function failureAnchor(
   };
 }
 
-function parseSameFieldConflict(
-  error: PendingReplayPublicError,
-): PendingReplayPublicSameFieldConflict | null {
-  const conflict = error.conflict;
-  if (conflict === undefined) {
-    return null;
-  }
-  if (
-    typeof conflict.conflict_token !== "string" ||
-    conflict.conflict_token.trim() === "" ||
-    typeof conflict.record_id !== "string" ||
-    conflict.record_id.trim() === "" ||
-    typeof conflict.field_key !== "string" ||
-    conflict.field_key.trim() === "" ||
-    typeof conflict.conflict_resolution_class !== "string" ||
-    conflict.conflict_resolution_class.trim() === "" ||
-    typeof conflict.base_row_version !== "number" ||
-    typeof conflict.current_row_version !== "number"
-  ) {
-    return null;
-  }
-  return conflict;
-}
-
 function sameFieldConflictAnchor(
   error: PendingReplayPublicError,
 ): PendingReplaySameFieldConflict | null {
-  const conflict = parseSameFieldConflict(error);
+  const conflict = parseSameFieldConflictFields(
+    error.conflict,
+  ) as PendingReplayPublicSameFieldConflict | null;
   if (conflict === null) {
     return null;
   }

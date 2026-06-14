@@ -42,12 +42,12 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "./fetchMockTestSupport";
-import { errorEnvelope, successEnvelope } from "./timelineWorkbookTestSupport";
 import {
   buildGenericCreatePayload,
   buildGenericPatchChange,
-  WorkbookShell,
-} from "./WorkbookShell";
+} from "./genericWorkbookModel";
+import { errorEnvelope, successEnvelope } from "./timelineWorkbookTestSupport";
+import { WorkbookShell } from "./WorkbookShell";
 import {
   commLogViewSchemaId,
   evidenceViewSchemaId,

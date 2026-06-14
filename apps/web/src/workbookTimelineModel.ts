@@ -4,6 +4,13 @@ import type {
 } from "./workbookMentionChips";
 import { timelineViewSchemaId } from "./workbookSurfaceRegistry";
 
+export type {
+  WorkbookRecordFreshnessDecision,
+  WorkbookVersionedRecord,
+} from "./timelineRowsModel";
+export { decideWorkbookRecordFreshness } from "./timelineRowsModel";
+export { clipboardTextLooksTabular } from "./workbookClipboard";
+
 export type EditableField =
   | "timeline.occurred_at"
   | "timeline.summary"
@@ -183,37 +190,6 @@ const timelineCollectionBindingIndex: Record<
   },
 };
 
-export type WorkbookVersionedRecord = {
-  readonly recordId: string | null;
-  readonly rowVersion: number | null;
-};
-
-export type WorkbookRecordFreshnessDecision = {
-  readonly comparable: boolean;
-  readonly stale: boolean;
-};
-
-export function decideWorkbookRecordFreshness(
-  incoming: WorkbookVersionedRecord,
-  knownRowVersion: number | null | undefined,
-): WorkbookRecordFreshnessDecision {
-  if (
-    incoming.recordId === null ||
-    incoming.rowVersion === null ||
-    knownRowVersion === null ||
-    knownRowVersion === undefined
-  ) {
-    return {
-      comparable: false,
-      stale: false,
-    };
-  }
-  return {
-    comparable: true,
-    stale: incoming.rowVersion < knownRowVersion,
-  };
-}
-
 function emptyValues(): RowValues {
   return {
     occurredAt: "",
@@ -388,8 +364,4 @@ export function buildAssessmentCreatePayload(
   }
 
   return payload;
-}
-
-export function clipboardTextLooksTabular(text: string): boolean {
-  return text.includes("\n") || text.includes("\r") || text.includes("\t");
 }

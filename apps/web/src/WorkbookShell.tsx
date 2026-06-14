@@ -68,6 +68,13 @@ import {
 import { ActiveSurfaceSavedViewSelector } from "./ActiveSurfaceSavedViewSelector";
 import { apiPath } from "./browserApi";
 import { buildEvidenceLifecycleViewModel } from "./evidenceLifecycleViewModel";
+import {
+  buildGenericCreatePayload,
+  buildGenericPatchChange,
+  type GenericCollectionMode,
+  initialGenericCreateDraft,
+  splitDraftValues,
+} from "./genericWorkbookModel";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { SystemViewSwitcher } from "./SystemViewSwitcher";
 import { RelationshipChip } from "./TimelineCellEditors";
@@ -75,6 +82,7 @@ import {
   buildRecordRollbackTargetFromHistoryAction,
   TimelineWorkbook,
 } from "./TimelineWorkbook";
+import { useWorkbookShellRuntime } from "./useWorkbookShellRuntime";
 import { WorkbookGridControls } from "./WorkbookGridControls";
 import { WorkbookShellSlotRegion, workbookShellId } from "./WorkbookShellSlots";
 import {
@@ -87,6 +95,7 @@ import {
   parseErrorMessage,
   readEnvelope,
 } from "./workbookApi";
+import { clipboardGridDimensions } from "./workbookClipboard";
 import {
   normalizeWorkbookViewRows,
   workbookContractColumns,
@@ -117,8 +126,15 @@ import {
   toggleSortField,
   updateGroupBy,
   type WorkbookQueryState,
-  workbookQueryStateFromSavedViewQueryJson,
 } from "./workbookQuery";
+import {
+  emptyGenericReferenceOptions,
+  type GenericReferenceOption,
+  type GenericReferenceOptions,
+  genericFieldUsesReferenceOptions,
+  referenceOptionsForField,
+} from "./workbookReferenceOptions";
+import { savedViewQueryStateForRuntime } from "./workbookSavedViewRuntime";
 import {
   normalizeSavedViewResource,
   type SavedViewEnvelope,
@@ -129,7 +145,6 @@ import {
 } from "./workbookSavedViews";
 import {
   normalizeWorkbookStartupSelection,
-  type WorkbookSheetRef,
   workbookStartupQueryFromURLParams,
 } from "./workbookStartup";
 import {
@@ -177,6 +192,7 @@ import {
   type WorkbookRow,
   type WorkbookVersionedRecord,
 } from "./workbookTimelineModel";
+import { stringifyGridValue } from "./workbookValueFormat";
 
 export type {
   RecordHistoryItem,
@@ -210,7 +226,6 @@ type FilterDraftSetter = Dispatch<SetStateAction<FilterDraft>>;
 type MutationErrorSetter = Dispatch<SetStateAction<string | null>>;
 type MutationStateSetter = Dispatch<SetStateAction<SaveState>>;
 type WorkbookQueryStateSetter = Dispatch<SetStateAction<WorkbookQueryState>>;
-type SurfaceKind = string;
 type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
 
 type WorkbookShellProps = {
@@ -363,33 +378,12 @@ type EntityRow = {
   }>;
 };
 
-type GenericReferenceOption = {
-  recordId: string;
-  label: string;
-  viewSchemaId: string;
-};
-
-type GenericReferenceOptions = {
-  parties: GenericReferenceOption[];
-  taskRequests: GenericReferenceOption[];
-  decisions: GenericReferenceOption[];
-  evidence: GenericReferenceOption[];
-  hosts: GenericReferenceOption[];
-  identities: GenericReferenceOption[];
-  notes: GenericReferenceOption[];
-  timeline: GenericReferenceOption[];
-  noteSourceRecords: GenericReferenceOption[];
-  allRecords: GenericReferenceOption[];
-};
-
 type PartyLinkPair = {
   key: string;
   label: string;
   textFieldKey: string;
   refFieldKey: string;
 };
-
-type GenericCollectionMode = "add" | "remove";
 
 type MergePlanLine = {
   label: string;
@@ -557,41 +551,6 @@ function readCellValue(
   fieldKey: string,
 ): unknown {
   return row?.cells[fieldKey]?.value ?? null;
-}
-
-function stringifyGridValue(value: unknown): string {
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "boolean") {
-    return value ? "true" : "false";
-  }
-  if (typeof value === "number") {
-    return String(value);
-  }
-  if (
-    value &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    "items" in value &&
-    Array.isArray(value.items)
-  ) {
-    return value.items
-      .map((item) => {
-        if (!item || typeof item !== "object") {
-          return null;
-        }
-        const object = item as Record<string, unknown>;
-        return typeof object.display_text === "string"
-          ? object.display_text
-          : typeof object.raw_text === "string"
-            ? object.raw_text
-            : null;
-      })
-      .filter((item): item is string => item !== null)
-      .join(", ");
-  }
-  return "";
 }
 
 function readTagItems(row: TimelineApiRow): TagCollectionItem[] {
@@ -830,59 +789,6 @@ function entityRowFromApi(
     rawRow: row,
     identifiers,
   };
-}
-
-function clipboardGridDimensions(text: string): {
-  readonly columnCount: number;
-  readonly rowCount: number;
-} {
-  const rows = parseClipboardTableForDimensions(text);
-  const columnCount = rows.reduce((max, row) => Math.max(max, row.length), 1);
-  return {
-    columnCount,
-    rowCount: Math.max(1, rows.length),
-  };
-}
-
-function parseClipboardTableForDimensions(text: string): string[][] {
-  const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const trimmed = normalized.replace(/\n+$/, "");
-  if (trimmed === "") {
-    return [[""]];
-  }
-  const delimiter = trimmed.includes("\t") ? "\t" : ",";
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let quoted = false;
-  for (let index = 0; index < trimmed.length; index += 1) {
-    const char = trimmed[index];
-    if (char === '"') {
-      if (quoted && trimmed[index + 1] === '"') {
-        cell += '"';
-        index += 1;
-      } else {
-        quoted = !quoted;
-      }
-      continue;
-    }
-    if (!quoted && char === delimiter) {
-      row.push(cell);
-      cell = "";
-      continue;
-    }
-    if (!quoted && char === "\n") {
-      row.push(cell);
-      rows.push(row);
-      row = [];
-      cell = "";
-      continue;
-    }
-    cell += char;
-  }
-  row.push(cell);
-  rows.push(row);
-  return rows;
 }
 
 async function submitViewRecordPatch({
@@ -3628,199 +3534,6 @@ function collectionItemLabels(items: readonly unknown[]): string[] {
   });
 }
 
-export function buildGenericCreatePayload(
-  contract: ViewContract,
-  draft: Record<string, string>,
-  clientTxnId: string,
-): Record<string, unknown> | null {
-  if (!workbookCreateMinimumSatisfied(contract.viewSchemaId, draft)) {
-    return null;
-  }
-  const payload: Record<string, unknown> = { client_txn_id: clientTxnId };
-  const fields = contract.fields.filter(
-    (field) => field.writeKind !== "read_only",
-  );
-  for (const field of fields) {
-    const value = normalizeValue(draft[field.fieldKey] ?? "");
-    if (field.writeKind === "action_payload") {
-      if (value === "") {
-        continue;
-      }
-      const actionPayload = buildGenericCollectionActions(field, value, "add");
-      if (actionPayload !== null) {
-        payload[field.fieldKey] = actionPayload;
-      }
-      continue;
-    }
-
-    if (value === "") {
-      if (field.clearable) {
-        payload[field.fieldKey] = null;
-      }
-      continue;
-    }
-    const payloadValue = genericDirectPayloadValue(field, value);
-    if (payloadValue === invalidGenericPayloadValue) {
-      return null;
-    }
-    payload[field.fieldKey] = payloadValue;
-  }
-  return Object.keys(payload).length > 1 ? payload : null;
-}
-
-export function buildGenericPatchChange(
-  field: ViewFieldContract,
-  rawValue: string,
-  collectionMode: GenericCollectionMode = "add",
-): Record<string, unknown> | null {
-  const value = normalizeValue(rawValue);
-  if (field.writeKind === "action_payload") {
-    const actionPayload = buildGenericCollectionActions(
-      field,
-      value,
-      collectionMode,
-    );
-    return actionPayload === null
-      ? null
-      : { field_key: field.fieldKey, action_payload: actionPayload };
-  }
-  if (value === "" && !field.clearable) {
-    return null;
-  }
-  const payloadValue =
-    value === "" && field.clearable
-      ? null
-      : genericDirectPayloadValue(field, value);
-  if (payloadValue === invalidGenericPayloadValue) {
-    return null;
-  }
-  return {
-    field_key: field.fieldKey,
-    value: payloadValue,
-  };
-}
-
-const invalidGenericPayloadValue = Symbol("invalid generic payload value");
-
-function genericDirectPayloadValue(
-  field: ViewFieldContract,
-  value: string,
-): string | number | boolean | typeof invalidGenericPayloadValue {
-  if (field.readKind === "number") {
-    if (!/^-?\d+$/u.test(value)) {
-      return invalidGenericPayloadValue;
-    }
-    const parsed = Number.parseInt(value, 10);
-    return Number.isSafeInteger(parsed) ? parsed : invalidGenericPayloadValue;
-  }
-  if (field.readKind === "boolean") {
-    if (value === "true") {
-      return true;
-    }
-    if (value === "false") {
-      return false;
-    }
-    return invalidGenericPayloadValue;
-  }
-  return value;
-}
-
-function buildGenericCollectionActions(
-  field: ViewFieldContract,
-  rawValue: string,
-  mode: GenericCollectionMode,
-): Record<string, unknown> | null {
-  const tokens = splitDraftValues(rawValue);
-  if (tokens.length === 0) {
-    return null;
-  }
-  const actions = tokens.map((value) => {
-    if (field.fieldKey === "note.tags") {
-      return mode === "remove"
-        ? { op: "remove_tag", item_ref: value }
-        : { op: "add_tag", tag_name: value };
-    }
-    if (isPartyRefCollection(field.fieldKey)) {
-      return mode === "remove"
-        ? { op: "remove_party_ref", item_ref: value }
-        : { op: "add_party_ref", party_id: value };
-    }
-    if (field.fieldKey === "handoff.open_risk_refs") {
-      return mode === "remove"
-        ? { op: "remove_risk_ref", item_ref: value }
-        : { op: "add_risk_ref", risk_ref_text: value };
-    }
-    return mode === "remove"
-      ? { op: "remove_record_ref", item_ref: value }
-      : { op: "add_record_ref", linked_record_id: value };
-  });
-  return { kind: "collection_actions_v1", actions };
-}
-
-function splitDraftValues(rawValue: string): string[] {
-  return rawValue
-    .split(/\r?\n/u)
-    .map((value) => normalizeValue(value))
-    .filter((value) => value !== "");
-}
-
-function workbookCreateMinimumSatisfied(
-  viewSchemaId: string,
-  draft: Record<string, string>,
-): boolean {
-  const has = (fieldKey: string) =>
-    normalizeValue(draft[fieldKey] ?? "") !== "";
-  switch (viewSchemaId) {
-    case partiesViewSchemaId:
-      return has("party.display_name") && has("party.party_kind");
-    case notesViewSchemaId:
-      return has("note.title") || has("note.body");
-    case taskRequestsViewSchemaId:
-      return has("task.title") && has("task.task_kind");
-    case decisionsViewSchemaId:
-      return (
-        has("decision.summary") &&
-        has("decision.decision_type") &&
-        has("decision.rationale")
-      );
-    case evidenceViewSchemaId:
-      return (
-        has("evidence.title") ||
-        has("evidence.storage_ref") ||
-        has("evidence.collector_party_text") ||
-        has("evidence.source_party_text")
-      );
-    case commLogViewSchemaId:
-      return (
-        has("comm_log.comm_type") &&
-        has("comm_log.audience") &&
-        has("comm_log.channel_or_meeting") &&
-        has("comm_log.summary")
-      );
-    case handoffViewSchemaId:
-      return (
-        has("handoff.incoming_owner_user_id") &&
-        has("handoff.current_state_summary")
-      );
-    case statusReviewViewSchemaId:
-      return has("status_review.current_state_summary");
-    case lessonViewSchemaId:
-      return has("lesson.summary");
-    case findingsViewSchemaId:
-      return has("finding.statement");
-    case investigativeQueriesViewSchemaId:
-      return (
-        has("investigative_query.platform") &&
-        has("investigative_query.purpose") &&
-        has("investigative_query.query_text")
-      );
-    case forensicKeywordsViewSchemaId:
-      return has("forensic_keyword.pattern") && has("forensic_keyword.reason");
-    default:
-      return Object.values(draft).some((value) => normalizeValue(value) !== "");
-  }
-}
-
 function genericCreateMinimumMessage(viewSchemaId: string): string {
   switch (viewSchemaId) {
     case partiesViewSchemaId:
@@ -3850,56 +3563,6 @@ function genericCreateMinimumMessage(viewSchemaId: string): string {
     default:
       return "At least one value is required.";
   }
-}
-
-function initialGenericCreateDraft(
-  contract: ViewContract,
-  currentUserId: string | null,
-): Record<string, string> {
-  const draft: Record<string, string> = {};
-  for (const field of contract.fields) {
-    if (field.writeKind === "read_only") {
-      continue;
-    }
-    if (
-      currentUserId &&
-      (field.fieldKey === "task.owner_user_id" ||
-        field.fieldKey === "decision.owner_user_id" ||
-        field.fieldKey === "finding.owner_user_id" ||
-        field.fieldKey === "status_review.review_owner_user_id" ||
-        field.fieldKey === "lesson.owner_user_id")
-    ) {
-      draft[field.fieldKey] = currentUserId;
-    }
-    if (field.fieldKey === "finding.kind") {
-      draft[field.fieldKey] = "finding";
-    }
-    if (field.fieldKey === "finding.state") {
-      draft[field.fieldKey] = "open";
-    }
-    if (field.fieldKey === "forensic_keyword.match_mode") {
-      draft[field.fieldKey] = "literal";
-    }
-    if (field.fieldKey === "forensic_keyword.case_sensitive") {
-      draft[field.fieldKey] = "false";
-    }
-  }
-  return draft;
-}
-
-function emptyGenericReferenceOptions(): GenericReferenceOptions {
-  return {
-    parties: [],
-    taskRequests: [],
-    decisions: [],
-    evidence: [],
-    hosts: [],
-    identities: [],
-    notes: [],
-    timeline: [],
-    noteSourceRecords: [],
-    allRecords: [],
-  };
 }
 
 function genericReferenceOptionsFromRows(
@@ -3990,79 +3653,6 @@ function genericRowLabel(contract: ViewContract, row: EntityApiRow): string {
     }
   }
   return row.record_id;
-}
-
-function referenceOptionsForField(
-  field: ViewFieldContract,
-  options: GenericReferenceOptions,
-): GenericReferenceOption[] {
-  if (field.directReferenceContractId === "same_incident_party_ref_v1") {
-    return options.parties;
-  }
-  if (field.directReferenceContractId === "same_incident_decision_ref_v1") {
-    return options.decisions;
-  }
-  if (isPartyRefCollection(field.fieldKey)) {
-    return options.parties;
-  }
-  switch (field.fieldKey) {
-    case "comm_log.decision_ids":
-    case "handoff.open_decision_ids":
-    case "status_review.open_decision_ids":
-      return options.decisions;
-    case "comm_log.action_task_ids":
-    case "handoff.open_task_ids":
-    case "status_review.blocked_task_ids":
-    case "lesson.follow_up_task_ids":
-      return options.taskRequests;
-    case "status_review.pending_evidence_ids":
-    case "lesson.evidence_refs":
-      return options.evidence;
-    case "task.linked_record_ids":
-    case "decision.support_refs":
-    case "decision.affected_record_ids":
-    case "finding.supporting_refs":
-    case "finding.contradictory_refs":
-      return options.allRecords;
-    default:
-      return [];
-  }
-}
-
-function genericFieldUsesReferenceOptions(field: ViewFieldContract): boolean {
-  if (
-    field.directReferenceContractId === "same_incident_party_ref_v1" ||
-    field.directReferenceContractId === "same_incident_decision_ref_v1" ||
-    isPartyRefCollection(field.fieldKey)
-  ) {
-    return true;
-  }
-  switch (field.fieldKey) {
-    case "comm_log.decision_ids":
-    case "handoff.open_decision_ids":
-    case "status_review.open_decision_ids":
-    case "comm_log.action_task_ids":
-    case "handoff.open_task_ids":
-    case "status_review.blocked_task_ids":
-    case "lesson.follow_up_task_ids":
-    case "status_review.pending_evidence_ids":
-    case "lesson.evidence_refs":
-    case "task.linked_record_ids":
-    case "decision.support_refs":
-    case "decision.affected_record_ids":
-    case "finding.supporting_refs":
-    case "finding.contradictory_refs":
-      return true;
-    default:
-      return false;
-  }
-}
-
-function isPartyRefCollection(fieldKey: string): boolean {
-  return (
-    fieldKey === "comm_log.audience_party_ids" ||
-    fieldKey === "comm_log.attendee_party_ids"
-  );
 }
 
 function genericCollectionSupportsRemove(_fieldKey: string): boolean {
@@ -4208,15 +3798,27 @@ export function WorkbookShell({
       ? knownWorkbookViewSchemaId(explicit)
       : timelineViewSchemaId;
   }, [params]);
-  const [surface, setSurface] = useState<SurfaceKind>(initialViewSchemaID);
-  const [startupSheetRef, setStartupSheetRef] = useState<WorkbookSheetRef>(
-    () => ({ kind: "view_schema", id: initialViewSchemaID }),
-  );
   const surfaceSelectionVersionRef = useRef(0);
-  const [sheetReloadToken, setSheetReloadToken] = useState(0);
-  const [pendingGridFocusSurface, setPendingGridFocusSurface] = useState<
-    string | null
-  >(null);
+  const workbookRuntime = useWorkbookShellRuntime({
+    initialViewSchemaId: initialViewSchemaID,
+    surfaceSelectionVersionRef,
+  });
+  const {
+    pendingGridFocusSurface,
+    savedViews,
+    sheetReloadToken,
+    startupSheetRef,
+    surface,
+  } = workbookRuntime.snapshot;
+  const {
+    applyStartupIdentity,
+    deleteSavedViewIdentity,
+    replaceSavedViews,
+    selectSavedViewIdentity,
+    selectWorkbookSurface,
+    setPendingGridFocusSurface,
+    upsertSavedView,
+  } = workbookRuntime.commands;
   const [hostRows, setHostRows] = useState<EntityRow[]>([]);
   const [identityRows, setIdentityRows] = useState<EntityRow[]>([]);
   const [entityLoadError, setEntityLoadError] = useState<string | null>(null);
@@ -4226,7 +3828,6 @@ export function WorkbookShell({
   const [assessmentLoadError, setAssessmentLoadError] = useState<string | null>(
     null,
   );
-  const [savedViews, setSavedViews] = useState<SavedViewResource[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentIncidentRole, setCurrentIncidentRole] =
     useState<IncidentRole | null>(null);
@@ -4327,51 +3928,17 @@ export function WorkbookShell({
     },
     [],
   );
-  const upsertSavedView = useCallback((savedView: SavedViewResource) => {
-    setSavedViews((current) => {
-      const next = current.filter(
-        (candidate) => candidate.saved_view_id !== savedView.saved_view_id,
-      );
-      return [...next, savedView].sort((left, right) =>
-        left.display_name.localeCompare(right.display_name),
-      );
-    });
-  }, []);
-  const selectWorkbookSurface = useCallback(
-    (
-      viewSchemaID: string,
-      options: { readonly focusFirstGridTarget?: boolean } = {},
-    ) => {
-      const nextSurface = knownWorkbookViewSchemaId(viewSchemaID);
-      surfaceSelectionVersionRef.current += 1;
-      setSurface(nextSurface);
-      setStartupSheetRef({ kind: "view_schema", id: nextSurface });
-      if (options.focusFirstGridTarget) {
-        setPendingGridFocusSurface(nextSurface);
-      }
-    },
-    [],
-  );
   const selectSavedView = useCallback(
     (savedView: SavedViewResource) => {
       const nextSurface = knownWorkbookViewSchemaId(savedView.view_schema_id);
       const contract = workbookContractForViewSchemaId(nextSurface);
       applyQueryStateForSurface(
         nextSurface,
-        workbookQueryStateFromSavedViewQueryJson(
-          contract,
-          savedView.query_json,
-        ),
+        savedViewQueryStateForRuntime(contract, savedView),
       );
-      surfaceSelectionVersionRef.current += 1;
-      setSurface(nextSurface);
-      setStartupSheetRef({
-        kind: "saved_view",
-        id: savedView.saved_view_id,
-      });
-      setSheetReloadToken((current) => current + 1);
+      selectSavedViewIdentity(savedView);
     },
-    [applyQueryStateForSurface],
+    [applyQueryStateForSurface, selectSavedViewIdentity],
   );
 
   const createSavedView = useCallback(
@@ -4510,22 +4077,9 @@ export function WorkbookShell({
       if (!result.ok) {
         throw new Error(parseErrorMessage(result.payload));
       }
-      setSavedViews((current) =>
-        current.filter(
-          (candidate) => candidate.saved_view_id !== savedView.saved_view_id,
-        ),
-      );
-      if (
-        startupSheetRef.kind === "saved_view" &&
-        startupSheetRef.id === savedView.saved_view_id
-      ) {
-        const baseSurface = knownWorkbookViewSchemaId(savedView.view_schema_id);
-        setSurface(baseSurface);
-        setStartupSheetRef({ kind: "view_schema", id: baseSurface });
-        setSheetReloadToken((current) => current + 1);
-      }
+      deleteSavedViewIdentity(savedView, startupSheetRef);
     },
-    [apiBase, incidentId, startupSheetRef],
+    [apiBase, deleteSavedViewIdentity, incidentId, startupSheetRef],
   );
 
   const setWorkbookHomeSheetRef = useCallback(async () => {
@@ -4853,20 +4407,26 @@ export function WorkbookShell({
         upsertSavedView(startupSavedView);
         applyQueryStateForSurface(
           nextSurface,
-          workbookQueryStateFromSavedViewQueryJson(
-            contract,
-            startupSavedView.query_json,
-          ),
+          savedViewQueryStateForRuntime(contract, startupSavedView),
         );
       }
-      setSurface(nextSurface);
-      setStartupSheetRef({ ...startup.selectedSheetRef });
+      applyStartupIdentity({
+        sheetRef: startup.selectedSheetRef,
+        viewSchemaId: nextSurface,
+      });
     };
     void loadStartup();
     return () => {
       cancelled = true;
     };
-  }, [apiBase, applyQueryStateForSurface, incidentId, params, upsertSavedView]);
+  }, [
+    apiBase,
+    applyQueryStateForSurface,
+    applyStartupIdentity,
+    incidentId,
+    params,
+    upsertSavedView,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -4893,7 +4453,7 @@ export function WorkbookShell({
             "Saved views load failed.",
             onIncidentAccessLost,
           );
-          setSavedViews([]);
+          replaceSavedViews([]);
           return;
         }
 
@@ -4912,7 +4472,7 @@ export function WorkbookShell({
       } while (cursorToken !== null);
 
       if (!cancelled) {
-        setSavedViews(nextSavedViews);
+        replaceSavedViews(nextSavedViews);
       }
     };
 
@@ -4920,7 +4480,7 @@ export function WorkbookShell({
     return () => {
       cancelled = true;
     };
-  }, [apiBase, incidentId, onIncidentAccessLost]);
+  }, [apiBase, incidentId, onIncidentAccessLost, replaceSavedViews]);
 
   useEffect(() => {
     void Promise.all([loadEntities(), loadSessionRole()]);
@@ -5010,7 +4570,7 @@ export function WorkbookShell({
         window.clearTimeout(timer);
       }
     };
-  }, [pendingGridFocusSurface, surface]);
+  }, [pendingGridFocusSurface, setPendingGridFocusSurface, surface]);
 
   const activeSavedViewSelector = (
     <ActiveSurfaceSavedViewSelector
