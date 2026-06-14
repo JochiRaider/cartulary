@@ -5,6 +5,13 @@ import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "n
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  expectedBrowserRuntimeProbe,
+  otelGeneratorSourceRef,
+  validateOtelGeneratorReference,
+  validateOtelImportBoundaryContractShape,
+} from "./generate-otel-contracts.mjs";
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const snapshotPath = "contracts/otel/otel_source_snapshot.v1.json";
 const conformanceStatusPath = "contracts/otel/conformance_status.json";
@@ -18,7 +25,6 @@ const dependencyClassificationPath = "internal/testutil/golden/otel/dependency_u
 const otelDocPath = "docs/opentelemetry-instrumentation-nlspec.md";
 const core01Path = "docs/spec/01_architecture_storage_and_view_contracts.md";
 const core04Path = "docs/spec/04_security_deployment_and_conformance.md";
-const scriptPath = "scripts/check-otel-conformance.mjs";
 const expectedDigest = "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632";
 const otelCommit = "d4a91bddb53b4c308df3e40171a60059183efd88";
 const semconvCommit = "e018fe6f91862f5ed63c082f87697cddac596784";
@@ -164,13 +170,6 @@ const expectedHostileDeclarativeConfigAttempts = [
   "log_bridge_or_log_exporter",
   "plugin_component_provider",
 ];
-
-const expectedBrowserRuntimeProbe = {
-  make_target: "frontend-unit",
-  evidence: "apps/web/src/app/otelBoundary.test.ts::OpenTelemetry browser boundary",
-  state_sources: ["localStorage", "sessionStorage", "DOM attribute", "URL parameter", "globalThis"],
-  forbidden_effects: ["telemetry_export_global", "remote_telemetry_request", "browser_config_authority"],
-};
 
 const expectedNonTransferAbsenceRules = [
   "required_collector_deployment",
@@ -443,14 +442,6 @@ function evidenceOK(actual, expected) {
   );
 }
 
-function gitBlobSHA(relativePath) {
-  const content = readFileSync(repoPath(relativePath));
-  return createHash("sha1")
-    .update(`blob ${content.length}\0`)
-    .update(content)
-    .digest("hex");
-}
-
 function assert(condition, message, checks, id) {
   if (!condition) {
     checks.push({ id, status: "fail", message });
@@ -535,7 +526,18 @@ function validateSnapshot(snapshot, checks) {
   const constants = snapshot.semconv_generated_constants ?? {};
   assert(constants.source_kind === "repo_codegen", "generated constants source kind is closed", checks, "snapshot.constants.source_kind");
   assert(constants.input_model_digest === expectedDigest, "generated constants bind to model digest", checks, "snapshot.constants.digest_binding");
-  assert(constants.generator_source_sha === gitBlobSHA(scriptPath), "generated constants source SHA matches checker script", checks, "snapshot.constants.source_sha");
+  const generatorErrors = validateOtelGeneratorReference({
+    root: repoRoot,
+    generatorSourceRef: constants.generator_source_ref,
+    generatorSourceSHA: constants.generator_source_sha,
+    requireTracked: true,
+  });
+  assert(
+    generatorErrors.length === 0,
+    `generated constants source SHA matches the tracked OTel contract generator${generatorErrors.length ? `; ${generatorErrors.join("; ")}` : ""}`,
+    checks,
+    "snapshot.constants.source_sha",
+  );
 
   const paths = snapshot.source_paths ?? [];
   const seenPaths = new Set();
@@ -565,6 +567,7 @@ function validateGeneratedConstantsManifest(manifest, checks) {
   );
   assert(manifest.source_kind === "repo_codegen", "generated constants source kind is repo_codegen", checks, "constants_manifest.source_kind");
   assert(manifest.input_model_digest === expectedDigest, "generated constants manifest binds to the adopted model digest", checks, "constants_manifest.digest");
+  assert(manifest.generator_source_ref === otelGeneratorSourceRef, "generated constants manifest names the OTel contract generator", checks, "constants_manifest.generator_source_ref");
   assert(manifest.output_path === "contracts/otel/semantic_conventions_constants.v1.json", "generated constants manifest names the repo-control output", checks, "constants_manifest.output_path");
 }
 
@@ -879,6 +882,13 @@ function dynamicImportViolations(files, patterns) {
 
 function validateImportBoundary(boundary, checks) {
   assert(boundary.schema_id === "cartulary.otel_import_boundary.v1", "import-boundary manifest uses the adopted schema", checks, "import_boundary.schema_id");
+  const shapeErrors = validateOtelImportBoundaryContractShape(repoRoot, boundary, { requireEvidenceFile: true });
+  assert(
+    shapeErrors.length === 0,
+    `import-boundary manifest has the closed contract shape and live evidence references${shapeErrors.length ? `; ${shapeErrors.join("; ")}` : ""}`,
+    checks,
+    "import_boundary.shape",
+  );
 
   const allowedAPIs = new Set(boundary.allowed_ordinary_otel_imports ?? []);
   const forbiddenPrefixes = boundary.forbidden_ordinary_otel_import_prefixes ?? [];
@@ -994,10 +1004,9 @@ function validateImportBoundary(boundary, checks) {
   const runtimeProbe = boundary.browser_runtime_probe ?? {};
   const runtimeProbeOK =
     runtimeProbe.make_target === expectedBrowserRuntimeProbe.make_target &&
-    runtimeProbe.evidence === expectedBrowserRuntimeProbe.evidence &&
     JSON.stringify(runtimeProbe.state_sources ?? []) === JSON.stringify(expectedBrowserRuntimeProbe.state_sources) &&
     JSON.stringify(runtimeProbe.forbidden_effects ?? []) === JSON.stringify(expectedBrowserRuntimeProbe.forbidden_effects) &&
-    fileExists(String(runtimeProbe.evidence ?? "").split("::")[0]);
+    shapeErrors.length === 0;
   assert(
     runtimeProbeOK,
     "browser runtime probe evidence covers state sources, forbidden effects, and a live frontend-unit test",

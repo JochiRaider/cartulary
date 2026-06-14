@@ -13,10 +13,10 @@
   "probability_sampler_status": "not_adopted_development",
   "semconv_generated_constants": {
     "source_kind": "repo_codegen",
-    "generator_name": "cartulary-otel-conformance-contract",
+    "generator_name": "cartulary-otel-contract-generator",
     "generator_version": "1.0.0",
-    "generator_source_ref": "scripts/check-otel-conformance.mjs",
-    "generator_source_sha": "69c09b59ac935ebfe8a5a8b66de5a55137f733e7",
+    "generator_source_ref": "scripts/generate-otel-contracts.mjs",
+    "generator_source_sha": "c6c75f40f8419010ac83a8bbd0aaeb70d56ea241",
     "input_model_digest": "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632",
     "output_package_or_path": "contracts/otel/semantic_conventions_constants.v1.json"
   },
@@ -86,7 +86,11 @@
         "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp",
         "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
       ],
-      "versions": ["v1.41.0", "v1.41.0", "v0.17.0"],
+      "versions": [
+        "v1.41.0",
+        "v1.41.0",
+        "v0.17.0"
+      ],
       "module_or_lockfile_source": "go.mod"
     },
     {
@@ -98,7 +102,11 @@
         "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc",
         "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
       ],
-      "versions": ["v1.41.0", "v1.41.0", "v0.17.0"],
+      "versions": [
+        "v1.41.0",
+        "v1.41.0",
+        "v0.17.0"
+      ],
       "module_or_lockfile_source": "go.mod"
     },
     {

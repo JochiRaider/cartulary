@@ -84,9 +84,19 @@
   ],
   "browser_runtime_probe": {
     "make_target": "frontend-unit",
-    "evidence": "apps/web/src/otelBoundary.test.ts::OpenTelemetry browser boundary",
-    "state_sources": ["localStorage", "sessionStorage", "DOM attribute", "URL parameter", "globalThis"],
-    "forbidden_effects": ["telemetry_export_global", "remote_telemetry_request", "browser_config_authority"]
+    "evidence": "apps/web/src/app/otelBoundary.test.ts::OpenTelemetry browser boundary",
+    "state_sources": [
+      "localStorage",
+      "sessionStorage",
+      "DOM attribute",
+      "URL parameter",
+      "globalThis"
+    ],
+    "forbidden_effects": [
+      "telemetry_export_global",
+      "remote_telemetry_request",
+      "browser_config_authority"
+    ]
   },
   "non_transfer_absence_rules": [
     "required_collector_deployment",
@@ -112,21 +122,66 @@
     "probability_sampler"
   ],
   "forbidden_browser_runtime_patterns": [
-    { "id": "otel_namespace", "pattern": "@opentelemetry/" },
-    { "id": "opentelemetry_text", "pattern": "opentelemetry" },
-    { "id": "otlp_text", "pattern": "otlp" },
-    { "id": "telemetry_config_authority", "pattern": "telemetry" },
-    { "id": "datadog", "pattern": "datadog" },
-    { "id": "honeycomb", "pattern": "honeycomb" },
-    { "id": "newrelic", "pattern": "newrelic" },
-    { "id": "prometheus", "pattern": "prometheus" },
-    { "id": "sentry", "pattern": "sentry" },
-    { "id": "session_replay_kebab", "pattern": "session-replay" },
-    { "id": "session_replay_camel", "pattern": "sessionReplay" },
-    { "id": "splunk", "pattern": "splunk" },
-    { "id": "jaeger", "pattern": "jaeger" },
-    { "id": "zipkin", "pattern": "zipkin" },
-    { "id": "analytics_init", "pattern": "analytics(" }
+    {
+      "id": "otel_namespace",
+      "pattern": "@opentelemetry/"
+    },
+    {
+      "id": "opentelemetry_text",
+      "pattern": "opentelemetry"
+    },
+    {
+      "id": "otlp_text",
+      "pattern": "otlp"
+    },
+    {
+      "id": "telemetry_config_authority",
+      "pattern": "telemetry"
+    },
+    {
+      "id": "datadog",
+      "pattern": "datadog"
+    },
+    {
+      "id": "honeycomb",
+      "pattern": "honeycomb"
+    },
+    {
+      "id": "newrelic",
+      "pattern": "newrelic"
+    },
+    {
+      "id": "prometheus",
+      "pattern": "prometheus"
+    },
+    {
+      "id": "sentry",
+      "pattern": "sentry"
+    },
+    {
+      "id": "session_replay_kebab",
+      "pattern": "session-replay"
+    },
+    {
+      "id": "session_replay_camel",
+      "pattern": "sessionReplay"
+    },
+    {
+      "id": "splunk",
+      "pattern": "splunk"
+    },
+    {
+      "id": "jaeger",
+      "pattern": "jaeger"
+    },
+    {
+      "id": "zipkin",
+      "pattern": "zipkin"
+    },
+    {
+      "id": "analytics_init",
+      "pattern": "analytics("
+    }
   ],
   "observed_module_graph_notes": [
     {

@@ -1,9 +1,9 @@
 {
   "schema_id": "cartulary.otel_generated_constants_manifest.v1",
   "source_kind": "repo_codegen",
-  "generator_name": "cartulary-otel-conformance-contract",
+  "generator_name": "cartulary-otel-contract-generator",
   "generator_version": "1.0.0",
-  "generator_source_ref": "scripts/check-otel-conformance.mjs",
+  "generator_source_ref": "scripts/generate-otel-contracts.mjs",
   "input_model_digest_algorithm": "semconv_model_digest_v1",
   "input_model_digest": "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632",
   "output_path": "contracts/otel/semantic_conventions_constants.v1.json",

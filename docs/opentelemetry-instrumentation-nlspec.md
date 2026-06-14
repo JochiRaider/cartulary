@@ -140,6 +140,8 @@ The repo-control `otel_source_snapshot` object MUST contain exactly the top-leve
 
 Ordinary instrumentation code MUST NOT use ad hoc string literals for emitted standard attributes or metric names when a generated or pinned constant exists. Generated-constants drift is a conformance failure unless the normalized golden corpus proves `registry_equivalent` under §4.5.
 
+For `source_kind='repo_codegen'`, `generator_source_ref` is the repo-relative path to the OTel contract generator that materializes repo-control OTel contract metadata. It MUST NOT point at the conformance checker. `generator_source_sha` is the Git blob SHA of that generator source at the time the generated-constants provenance is materialized. The current generator source is `scripts/generate-otel-contracts.mjs`, and `make generate` MUST refresh the dependent OTel contract metadata before `make generate-drift` or `make otel-conformance` treats it as current.
+
 #### 4.1.4 Language SDK package set
 
 **OTEL-REQ-140**
@@ -1288,6 +1290,8 @@ Browser code MAY create local performance marks or local diagnostic events only 
 **OTEL-REQ-115**
 No browser local-storage, session-storage, IndexedDB, Service Worker, cookie, DOM attribute, React prop, grid vendor coordinate, or URL parameter may configure telemetry exporters, headers, endpoints, samplers, processors, metric readers, resource attributes, or log bridges.
 
+The browser runtime probe evidence is owned by `contracts/otel/import_boundary.json`. Its `browser_runtime_probe.evidence` value MUST use repo-relative `path::test name` format, MUST name a live `frontend-unit` test, and MUST cover localStorage, sessionStorage, DOM attribute, URL parameter, and `globalThis` state sources plus the forbidden effects `telemetry_export_global`, `remote_telemetry_request`, and `browser_config_authority`. The conformance checker MUST validate the referenced path and test name as evidence; it MUST NOT replace the contract-owned evidence pointer with a checker-local hard-coded path.
+
 ### 13.2 Concepts not transferred into Cartulary
 
 **OTEL-REQ-116**
@@ -1391,7 +1395,7 @@ The update gate MUST compare span names, span kinds, span status policy, span ev
 
 ### 15.1 Configuration and source-baseline criteria
 
-- **OTEL-AC-001:** The repo contains a complete `otel_source_snapshot` with `schema_id='cartulary.otel_source_snapshot.v1'`, immutable OTel spec ref `v1.57.0`, full OTel spec commit SHA, semantic-conventions ref `v1.41.0`, full semantic-conventions commit SHA, exact source paths from §4.2, document statuses, `semconv_model_digest_algorithm='semconv_model_digest_v1'`, semantic-convention model digest `3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632`, generated constants provenance, and exhaustive SDK package-family rows.
+- **OTEL-AC-001:** The repo contains a complete `otel_source_snapshot` with `schema_id='cartulary.otel_source_snapshot.v1'`, immutable OTel spec ref `v1.57.0`, full OTel spec commit SHA, semantic-conventions ref `v1.41.0`, full semantic-conventions commit SHA, exact source paths from §4.2, document statuses, `semconv_model_digest_algorithm='semconv_model_digest_v1'`, semantic-convention model digest `3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632`, generated constants provenance bound to `scripts/generate-otel-contracts.mjs`, and exhaustive SDK package-family rows.
 - **OTEL-AC-002:** Conformance mode fails on `main`, unresolved source-snapshot placeholder values, short-only commit SHA, missing source path, duplicated source path, unknown source path, missing document status, missing model digest, missing generated constants provenance, missing SDK package family, or prohibited browser/runtime OTel package family.
 - **OTEL-AC-003:** Unknown `telemetry.*` keys fail deployment-config validation.
 - **OTEL-AC-004:** Invalid cross-key combinations in §6.5 fail before readiness.

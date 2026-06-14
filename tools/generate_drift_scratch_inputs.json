@@ -1,12 +1,16 @@
 {
   "schema_id": "cartulary.generate_drift_scratch_inputs.v1",
   "generated_paths": [
+    "contracts/otel/generated_constants_manifest.json",
+    "contracts/otel/import_boundary.json",
+    "contracts/otel/otel_source_snapshot.v1.json",
     "internal/gen/contracts",
     "internal/gen/sql",
     "packages/protocol-ts/src/generated",
     "packages/ui-contracts/src/generated"
   ],
   "copy_paths": [
+    "apps/web/src/app/otelBoundary.test.ts",
     "Makefile",
     "sqlc.yaml",
     "go.mod",
@@ -16,6 +20,7 @@
     "scripts/list-build-inputs.sh",
     "scripts/generate-artifacts.sh",
     "scripts/generate-design-tokens.mjs",
+    "scripts/generate-otel-contracts.mjs",
     "scripts/lib",
     "docs/design.md",
     "tools/execution_topology_manifest.json",

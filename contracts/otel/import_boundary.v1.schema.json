@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.otel_import_boundary.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "ordinary_go_source_roots",
+    "ordinary_go_test_support_roots",
+    "telemetry_bootstrap_roots",
+    "hostile_fixture_roots",
+    "allowed_ordinary_otel_imports",
+    "forbidden_ordinary_otel_import_prefixes",
+    "telemetry_bootstrap_import_notes",
+    "allowed_cartulary_telemetry_accessor_import",
+    "browser_package_manifest_roots",
+    "forbidden_browser_package_patterns",
+    "browser_source_roots",
+    "browser_runtime_source_roots",
+    "browser_built_bundle_roots",
+    "browser_text_bundle_extensions",
+    "browser_source_exclude_suffixes",
+    "browser_runtime_probe",
+    "non_transfer_absence_rules",
+    "forbidden_browser_runtime_patterns",
+    "observed_module_graph_notes"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.otel_import_boundary.v1" },
+    "ordinary_go_source_roots": { "$ref": "#/$defs/stringArray" },
+    "ordinary_go_test_support_roots": { "$ref": "#/$defs/stringArray" },
+    "telemetry_bootstrap_roots": { "$ref": "#/$defs/stringArray" },
+    "hostile_fixture_roots": { "$ref": "#/$defs/stringArray" },
+    "allowed_ordinary_otel_imports": { "$ref": "#/$defs/stringArray" },
+    "forbidden_ordinary_otel_import_prefixes": { "$ref": "#/$defs/stringArray" },
+    "telemetry_bootstrap_import_notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["package_prefix", "allowed_root", "runtime_boundary_effect"],
+        "properties": {
+          "package_prefix": { "type": "string", "minLength": 1 },
+          "allowed_root": { "type": "string", "minLength": 1 },
+          "runtime_boundary_effect": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "allowed_cartulary_telemetry_accessor_import": { "type": "string", "minLength": 1 },
+    "browser_package_manifest_roots": { "$ref": "#/$defs/stringArray" },
+    "forbidden_browser_package_patterns": { "$ref": "#/$defs/stringArray" },
+    "browser_source_roots": { "$ref": "#/$defs/stringArray" },
+    "browser_runtime_source_roots": { "$ref": "#/$defs/stringArray" },
+    "browser_built_bundle_roots": { "$ref": "#/$defs/stringArray" },
+    "browser_text_bundle_extensions": { "$ref": "#/$defs/stringArray" },
+    "browser_source_exclude_suffixes": { "$ref": "#/$defs/stringArray" },
+    "browser_runtime_probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["make_target", "evidence", "state_sources", "forbidden_effects"],
+      "properties": {
+        "make_target": { "const": "frontend-unit" },
+        "evidence": { "type": "string", "pattern": "^[^:]+::[^:]+$" },
+        "state_sources": { "$ref": "#/$defs/stringArray" },
+        "forbidden_effects": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "non_transfer_absence_rules": { "$ref": "#/$defs/stringArray" },
+    "forbidden_browser_runtime_patterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "pattern"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "pattern": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "observed_module_graph_notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["package", "source", "runtime_boundary_effect"],
+        "properties": {
+          "package": { "type": "string", "minLength": 1 },
+          "source": { "type": "string", "minLength": 1 },
+          "runtime_boundary_effect": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}
