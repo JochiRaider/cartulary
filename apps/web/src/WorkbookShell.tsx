@@ -197,8 +197,8 @@ import { stringifyGridValue } from "./workbookValueFormat";
 export type {
   RecordHistoryItem,
   RecordHistoryRollbackAction,
-  TimelineWorkbookProps,
-} from "./TimelineWorkbook";
+} from "./TimelineHistoryPanel";
+export type { TimelineWorkbookProps } from "./TimelineWorkbook";
 export type { WorkbookRecordFreshnessDecision, WorkbookVersionedRecord };
 export {
   buildAssessmentCreatePayload,

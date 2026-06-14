@@ -348,31 +348,18 @@ function publicErrorMessageFromPayload(payload: unknown): string {
 function parsePendingReplayPublicConflict(
   value: unknown,
 ): PendingReplayPublicSameFieldConflict | undefined {
-  if (!isRecord(value)) {
-    return undefined;
-  }
-  if (
-    typeof value.conflict_token !== "string" ||
-    value.conflict_token.trim() === "" ||
-    typeof value.record_id !== "string" ||
-    value.record_id.trim() === "" ||
-    typeof value.field_key !== "string" ||
-    value.field_key.trim() === "" ||
-    typeof value.conflict_resolution_class !== "string" ||
-    value.conflict_resolution_class.trim() === "" ||
-    typeof value.base_row_version !== "number" ||
-    typeof value.current_row_version !== "number"
-  ) {
+  const conflict = parseSameFieldConflictFields(value);
+  if (conflict === null) {
     return undefined;
   }
   return {
-    ...value,
-    conflict_token: value.conflict_token,
-    record_id: value.record_id,
-    field_key: value.field_key,
-    conflict_resolution_class: value.conflict_resolution_class,
-    base_row_version: value.base_row_version,
-    current_row_version: value.current_row_version,
+    ...conflict,
+    conflict_token: conflict.conflict_token,
+    record_id: conflict.record_id,
+    field_key: conflict.field_key,
+    conflict_resolution_class: conflict.conflict_resolution_class,
+    base_row_version: conflict.base_row_version,
+    current_row_version: conflict.current_row_version,
   };
 }
 
