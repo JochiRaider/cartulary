@@ -68,5 +68,5 @@ This ledger is generated from `tools/phase7_test_map.json`. Update the manifest 
 ## Support-Only Evidence
 
 - `internal/modules/timeline`, `internal/modules/entities`, `internal/modules/evidence`, `internal/modules/workbook`, and `internal/modules/collaboration` Phase 3 through Phase 6 tests provide substrate support only.
-- `apps/web/src/WorkbookShell.phase7.test.tsx` is supplemental UI coverage for row-history rendering, server-supplied action visibility, selector-only rollback request construction, delete or restore row-version selection, and ordinary collaboration continuity; authoritative reviewer workflow evidence remains the `E-7-*` browser rows.
+- `apps/web/src/workbook/WorkbookShell.phase7.test.tsx` is supplemental UI coverage for row-history rendering, server-supplied action visibility, selector-only rollback request construction, delete or restore row-version selection, and ordinary collaboration continuity; authoritative reviewer workflow evidence remains the `E-7-*` browser rows.
 - Existing browser specs under `apps/web/e2e/phase4*`, `phase5*`, and `phase6*` remain prior-phase evidence and are forbidden from claiming Phase 7 IDs.

@@ -113,12 +113,12 @@
           "apps/web/src/*.test.tsx",
           "apps/web/src/**/*.test.ts",
           "apps/web/src/**/*.test.tsx",
-          "apps/web/src/*TestSupport.ts",
-          "apps/web/src/*TestSupport.tsx",
-          "apps/web/src/fetchMockTestSupport.ts",
-          "apps/web/src/testSetup.ts",
-          "apps/web/src/testSetup.dom.ts",
-          "apps/web/src/timelineWorkbookTestSupport.ts",
+          "apps/web/src/**/*TestSupport.ts",
+          "apps/web/src/**/*TestSupport.tsx",
+          "apps/web/src/testing/fetchMockTestSupport.ts",
+          "apps/web/src/testing/testSetup.ts",
+          "apps/web/src/testing/testSetup.dom.ts",
+          "apps/web/src/testing/timelineWorkbookTestSupport.ts",
           "packages/grid-adapter/src/*.test.ts",
           "packages/grid-adapter/src/*.test.tsx",
           "packages/grid-adapter/src/**/*.test.ts",
@@ -185,12 +185,12 @@
           "apps/web/src/*.test.tsx",
           "apps/web/src/**/*.test.ts",
           "apps/web/src/**/*.test.tsx",
-          "apps/web/src/*TestSupport.ts",
-          "apps/web/src/*TestSupport.tsx",
-          "apps/web/src/fetchMockTestSupport.ts",
-          "apps/web/src/testSetup.ts",
-          "apps/web/src/testSetup.dom.ts",
-          "apps/web/src/timelineWorkbookTestSupport.ts",
+          "apps/web/src/**/*TestSupport.ts",
+          "apps/web/src/**/*TestSupport.tsx",
+          "apps/web/src/testing/fetchMockTestSupport.ts",
+          "apps/web/src/testing/testSetup.ts",
+          "apps/web/src/testing/testSetup.dom.ts",
+          "apps/web/src/testing/timelineWorkbookTestSupport.ts",
           "packages/grid-adapter/src/*.test.ts",
           "packages/grid-adapter/src/*.test.tsx",
           "packages/grid-adapter/src/**/*.test.ts",
@@ -244,19 +244,23 @@
         },
         {
           "kind": "path_prefix",
-          "path": "apps/web/src/fetchMockTestSupport"
+          "path": "apps/web/src/testing/appShellTestSupport"
         },
         {
           "kind": "path_prefix",
-          "path": "apps/web/src/testSetup"
+          "path": "apps/web/src/testing/fetchMockTestSupport"
         },
         {
           "kind": "path_prefix",
-          "path": "apps/web/src/testSetup.dom"
+          "path": "apps/web/src/testing/testSetup"
         },
         {
           "kind": "path_prefix",
-          "path": "apps/web/src/timelineWorkbookTestSupport"
+          "path": "apps/web/src/testing/testSetup.dom"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/testing/timelineWorkbookTestSupport"
         }
       ]
     }
@@ -278,12 +282,12 @@
           "apps/web/src/*.test.tsx",
           "apps/web/src/**/*.test.ts",
           "apps/web/src/**/*.test.tsx",
-          "apps/web/src/*TestSupport.ts",
-          "apps/web/src/*TestSupport.tsx",
-          "apps/web/src/fetchMockTestSupport.ts",
-          "apps/web/src/testSetup.ts",
-          "apps/web/src/testSetup.dom.ts",
-          "apps/web/src/timelineWorkbookTestSupport.ts",
+          "apps/web/src/**/*TestSupport.ts",
+          "apps/web/src/**/*TestSupport.tsx",
+          "apps/web/src/testing/fetchMockTestSupport.ts",
+          "apps/web/src/testing/testSetup.ts",
+          "apps/web/src/testing/testSetup.dom.ts",
+          "apps/web/src/testing/timelineWorkbookTestSupport.ts",
           "packages/grid-adapter/src/*.test.ts",
           "packages/grid-adapter/src/*.test.tsx",
           "packages/grid-adapter/src/**/*.test.ts",

@@ -167,7 +167,7 @@ const expectedHostileDeclarativeConfigAttempts = [
 
 const expectedBrowserRuntimeProbe = {
   make_target: "frontend-unit",
-  evidence: "apps/web/src/otelBoundary.test.ts::OpenTelemetry browser boundary",
+  evidence: "apps/web/src/app/otelBoundary.test.ts::OpenTelemetry browser boundary",
   state_sources: ["localStorage", "sessionStorage", "DOM attribute", "URL parameter", "globalThis"],
   forbidden_effects: ["telemetry_export_global", "remote_telemetry_request", "browser_config_authority"],
 };

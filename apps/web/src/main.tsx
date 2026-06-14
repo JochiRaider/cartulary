@@ -1,6 +1,6 @@
 import ReactDOM from "react-dom/client";
 
-import { AppRoot } from "./AppRoot";
+import { AppRoot } from "./app/AppRoot";
 
 const rootElement = document.getElementById("root");
 

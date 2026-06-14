@@ -31,7 +31,7 @@
       "| Owner-aware mutation helpers | `internal/testutil/phase2test.LookupOwnerMutations()`, `RequireOwnerMutationEvent()`, `CountMutationArtifacts()`, and `RequireNoMutationArtifacts()` keep Phase 2 tests tied to incident resource or membership mutation ownership on the current audit substrate instead of naming `deployment_admin_audit_events` directly. |",
       "| Store-domain incident helpers | `internal/testutil/phase2storetest.StartStore()`, `SeedLocalUserRecord()`, `CreateIncidentInStore()`, `CreateMembershipInStore()`, `LookupUserByID()`, `LookupUserByEmail()`, and `SnapshotIncidentCreateReplaySideEffects()` keep Phase 2 store-backed unit rows aligned with the Phase 3 helper pattern instead of embedding one-off SQL in each test. |",
       "| Reusable incident route fixture helpers | `internal/modules/incidents/phase2_inventory_helpers_test.go` centralizes the seeded incident, membership, and record fixture setup plus route execution helpers shared by the Phase 2 support and integration matrices. |",
-      "| Frontend ordinary-shell component coverage | `apps/web/src/App.landing.test.tsx` and `apps/web/src/IncidentAdminPanel.test.tsx` keep the authoritative frontend-unit evidence on the ordinary landing or incident shell rather than the debug-only `Phase2Harness`. |",
+      "| Frontend ordinary-shell component coverage | `apps/web/src/app/App.landing.test.tsx` and `apps/web/src/app/IncidentAdminPanel.test.tsx` keep the authoritative frontend-unit evidence on the ordinary landing or incident shell rather than the debug-only `Phase2Harness`. |",
       "| Audit-substrate follow-on | Phase 2 currently proves owner-level mutation attribution through the existing audit substrate only. Whether Phase 2 incident mutations should migrate onto `change_sets` is a separate owner decision and is not asserted by this ledger. |"
     ],
     "support_only": [
@@ -41,7 +41,7 @@
       "`internal/modules/incidents/phase2_support_test.go::TestSupportPhase2Unit_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable` keeps pure decoder-shape and `last_incident_admin` guard regression coverage on the executed `backend-unit` support surface. It does not replace `U-2-07`.",
       "`internal/modules/incidents/phase2_extra_integration_test.go` keeps membership replay and before-or-after mutation payload regressions that strengthen confidence but do not replace the authoritative `I-2-*` rows.",
       "`apps/web/e2e/phase2.support.spec.ts` and browser-authenticated request probes remain supplemental browser evidence for request-shape regressions and reserved-route behavior.",
-      "`apps/web/src/Phase2Harness.tsx` remains a debug-only probe surface behind `?debug=harness` and is not completion evidence."
+      "`apps/web/src/app/Phase2Harness.tsx` remains a debug-only probe surface behind `?debug=harness` and is not completion evidence."
     ]
   },
   "expected_ids": [
@@ -557,7 +557,7 @@
       "id": "U-2-11",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/App.landing.test.tsx",
+      "file": "apps/web/src/app/App.landing.test.tsx",
       "title": "Phase 2 U-2-11 ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
@@ -577,7 +577,7 @@
       "id": "U-2-12",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/IncidentAdminPanel.test.tsx",
+      "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
       "title": "Phase 2 U-2-12 ordinary incident shell gates promoted-field controls by incident role, hides membership-admin controls from non-admin members, and returns to landing when incident access is lost",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
@@ -597,7 +597,7 @@
       "id": "U-2-13",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/IncidentAdminPanel.test.tsx",
+      "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
       "title": "Phase 2 U-2-13 ordinary incident shell issues membership create, patch, and delete requests with versioned payloads and refreshes session role after each mutation",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",

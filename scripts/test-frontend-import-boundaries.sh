@@ -165,7 +165,7 @@ write_config() {
       "message": "Browser runtime code must not import Node builtins.",
       "applies_to": {
         "include": ["apps/web/src/**", "packages/grid-adapter/src/**", "packages/protocol-ts/src/**", "packages/ui-contracts/src/**", "packages/view-contracts/src/**"],
-        "exclude": ["apps/web/src/*.test.ts", "apps/web/src/*.test.tsx", "apps/web/src/**/*.test.ts", "apps/web/src/**/*.test.tsx", "apps/web/src/*TestSupport.ts", "packages/grid-adapter/src/*.test.tsx", "packages/grid-adapter/src/**/*.test.tsx", "packages/grid-adapter/src/test-support.tsx", "packages/ui-contracts/src/*.test.ts", "packages/ui-contracts/src/**/*.test.ts", "packages/view-contracts/src/*.test.ts", "packages/view-contracts/src/**/*.test.ts"]
+        "exclude": ["apps/web/src/*.test.ts", "apps/web/src/*.test.tsx", "apps/web/src/**/*.test.ts", "apps/web/src/**/*.test.tsx", "apps/web/src/**/*TestSupport.ts", "packages/grid-adapter/src/*.test.tsx", "packages/grid-adapter/src/**/*.test.tsx", "packages/grid-adapter/src/test-support.tsx", "packages/ui-contracts/src/*.test.ts", "packages/ui-contracts/src/**/*.test.ts", "packages/view-contracts/src/*.test.ts", "packages/view-contracts/src/**/*.test.ts"]
       },
       "allowed_importers": [],
       "restricted_imports": [
@@ -203,7 +203,7 @@ write_config() {
       "message": "Browser runtime code must not import test, e2e, or harness helper surfaces.",
       "applies_to": {
         "include": ["apps/web/src/**", "packages/grid-adapter/src/**", "packages/protocol-ts/src/**", "packages/ui-contracts/src/**", "packages/view-contracts/src/**"],
-        "exclude": ["apps/web/src/*.test.ts", "apps/web/src/*.test.tsx", "apps/web/src/**/*.test.ts", "apps/web/src/**/*.test.tsx", "apps/web/src/*TestSupport.ts", "apps/web/src/fetchMockTestSupport.ts", "apps/web/src/timelineWorkbookTestSupport.ts", "packages/grid-adapter/src/*.test.tsx", "packages/grid-adapter/src/**/*.test.tsx", "packages/grid-adapter/src/test-support.tsx", "packages/ui-contracts/src/*.test.ts", "packages/ui-contracts/src/**/*.test.ts", "packages/view-contracts/src/*.test.ts", "packages/view-contracts/src/**/*.test.ts"]
+        "exclude": ["apps/web/src/*.test.ts", "apps/web/src/*.test.tsx", "apps/web/src/**/*.test.ts", "apps/web/src/**/*.test.tsx", "apps/web/src/**/*TestSupport.ts", "apps/web/src/testing/fetchMockTestSupport.ts", "apps/web/src/testing/timelineWorkbookTestSupport.ts", "packages/grid-adapter/src/*.test.tsx", "packages/grid-adapter/src/**/*.test.tsx", "packages/grid-adapter/src/test-support.tsx", "packages/ui-contracts/src/*.test.ts", "packages/ui-contracts/src/**/*.test.ts", "packages/view-contracts/src/*.test.ts", "packages/view-contracts/src/**/*.test.ts"]
       },
       "allowed_importers": [],
       "restricted_imports": [
@@ -234,11 +234,15 @@ write_config() {
         },
         {
           "kind": "path_prefix",
-          "path": "apps/web/src/fetchMockTestSupport"
+          "path": "apps/web/src/testing/appShellTestSupport"
         },
         {
           "kind": "path_prefix",
-          "path": "apps/web/src/timelineWorkbookTestSupport"
+          "path": "apps/web/src/testing/fetchMockTestSupport"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/testing/timelineWorkbookTestSupport"
         }
       ]
     },
@@ -526,7 +530,8 @@ declared_package_export_output="$(assert_passes "declared package export in test
 assert_contains "$declared_package_export_output" "frontend import boundaries verified" "declared package export output"
 
 test_helper_runtime_root="$(prepare_case_root test-helper-runtime)"
-cat >"$test_helper_runtime_root/apps/web/src/timelineWorkbookTestSupport.ts" <<'TS'
+mkdir -p "$test_helper_runtime_root/apps/web/src/testing"
+cat >"$test_helper_runtime_root/apps/web/src/testing/timelineWorkbookTestSupport.ts" <<'TS'
 export const support = true;
 TS
 cat >"$test_helper_runtime_root/apps/web/src/runtimeHelperLeak.tsx" <<'TS'
@@ -535,13 +540,13 @@ import { GridTable } from "@cartulary/grid-adapter/test-support";
 import { test } from "@playwright/test";
 import { render } from "@testing-library/react";
 import { describe } from "vitest";
-import { support } from "./timelineWorkbookTestSupport";
+import { support } from "./testing/timelineWorkbookTestSupport";
 
 export const leaked = { GridTable, describe, helper, render, support, test };
 TS
 test_helper_runtime_output="$(assert_fails "runtime test helper error" run_checker "$test_helper_runtime_root")"
 assert_contains "$test_helper_runtime_output" "frontend-runtime-test-helper-boundary" "runtime test helper rule"
-for specifier in "@cartulary/test-utils" "@cartulary/grid-adapter/test-support" "@playwright/test" "@testing-library/react" "vitest" "./timelineWorkbookTestSupport"; do
+for specifier in "@cartulary/test-utils" "@cartulary/grid-adapter/test-support" "@playwright/test" "@testing-library/react" "vitest" "./testing/timelineWorkbookTestSupport"; do
   assert_contains "$test_helper_runtime_output" "$specifier" "runtime test helper specifier $specifier"
 done
 

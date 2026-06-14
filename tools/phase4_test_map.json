@@ -15,7 +15,7 @@
       "`tools/execution_topology_manifest.json` owns browser batch grouping and renders `tools/browser_e2e_batch_manifest.json` for Phase 4: `browser-e2e-webserver-backed` carries authoritative `E-4-*` rows through duration-balanced Playwright manifest-entry shards for `test` and `check`, while direct `browser-e2e-webserver-backed` and helper-only `browser-e2e-functional` select the same rows through manifest-driven `browser_functional` shard planning. `browser-e2e-visual` carries authoritative `V-4-*` visual rows through `browser_visual`."
     ],
     "support_execution_extras": [
-      "`apps/web/src/WorkbookShell.phase4.support.test.tsx` runs through `frontend-unit` and is forbidden from claiming `U-4-*`, `I-4-*`, or `E-4-*` identifiers."
+      "`apps/web/src/workbook/WorkbookShell.phase4.support.test.tsx` runs through `frontend-unit` and is forbidden from claiming `U-4-*`, `I-4-*`, or `E-4-*` identifiers."
     ],
     "sections": {
       "unit": "Unit",
@@ -29,11 +29,11 @@
       "| Real runtime and route helpers | `internal/testutil/phase4test` centralizes the Postgres + object-store runtime boot path, bootstrap-admin login helpers, inventory-driven route metadata, and authoritative replay/history conformance helpers for owned Phase 4 HTTP routes, while `internal/testutil/phase4storetest` owns rollback-backed entity or mention seed helpers and contract-derived field-surface helpers for store rows. |",
       "| Cross-cutting HTTP and projection helpers | `internal/testutil/httptestx` owns success or error envelope checks, replay scaffolding, authorization re-derivation assertions, mutation attribution checks, closed-vocabulary checks, field-key conformance, and projection determinism assertions shared across the Phase 4 backend suite. |",
       "| Entity and Timeline substrate inspection | `internal/testutil/assertx`, `internal/testutil/timelinetest`, and Phase 4 package-local lookup helpers inspect durable mention, link, change-set, projection, and observation state that the authoritative Phase 4 rows rely on. |",
-      "| Browser helper fixtures | `apps/web/src/timelineWorkbookTestSupport.tsx` and `apps/web/src/workbookShellPhase4.ts` provide the mocked workbook row, websocket, and mention helper scaffolding used by the support-only Phase 4 workbook tests. |"
+      "| Browser helper fixtures | `apps/web/src/testing/timelineWorkbookTestSupport.ts` and `apps/web/src/workbook/timeline/services/workbookShellPhase4.ts` provide the mocked workbook row, websocket, and mention helper scaffolding used by the support-only Phase 4 workbook tests. |"
     ],
     "support_only": [
       "`internal/modules/entities/phase4_support_integration_test.go` consumes the centralized Phase 4 route-family inventory through `TestSupportPhase4Integration_SurfaceEnvelope`, `..._CSRFProtection`, `..._ReplayAndDivergentConflict`, `..._AuthorizationReDerivation`, `..._DefaultQueryMetaAndFieldKeyConformance`, and `..._ProjectionAndWebsocketConsequences`. These tests are diagnostic smoke coverage for mention, merge, entity-origin, indicator, Timeline, object-blob, evidence-handle, Parties, assessment, coordination, and generic workbook routes; authoritative completion claims must live in the owned `I-4-*` rows.",
-      "`apps/web/src/WorkbookShell.phase4.support.test.tsx` keeps mocked helper and component regression coverage for Phase 4 workbook chips, payload builders, inspector mention derivation, and auto-resolution notices. It remains support-only and is not completion evidence for Phase 4."
+      "`apps/web/src/workbook/WorkbookShell.phase4.support.test.tsx` keeps mocked helper and component regression coverage for Phase 4 workbook chips, payload builders, inspector mention derivation, and auto-resolution notices. It remains support-only and is not completion evidence for Phase 4."
     ]
   },
   "expected_ids": [
@@ -76,7 +76,7 @@
   ],
   "forbidden_id_files": [
     "internal/modules/entities/phase4_support_integration_test.go",
-    "apps/web/src/WorkbookShell.phase4.support.test.tsx"
+    "apps/web/src/workbook/WorkbookShell.phase4.support.test.tsx"
   ],
   "support_go_targets": [
     {
@@ -471,7 +471,7 @@
       "id": "U-4-WB-01",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/WorkbookShell.assessments.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
       "title": "Phase 4 U-4-WB-01 maps band-first assessment create payloads without submitting the derived band",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
@@ -491,7 +491,7 @@
       "id": "U-4-WB-02",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/WorkbookShell.assessments.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
       "title": "Phase 4 U-4-WB-02 submits assessment creates through the workbook UI",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
@@ -511,7 +511,7 @@
       "id": "U-4-WB-03",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/WorkbookShell.surfaces.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
       "title": "Phase 4 U-4-WB-03 issues opaque evidence preview and download handles from the evidence surface",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
@@ -531,7 +531,7 @@
       "id": "U-4-WB-04",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/WorkbookShell.surfaces.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
       "title": "Phase 4 U-4-WB-04 builds required creates with direct values, timestamps, and explicit clears",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
@@ -551,7 +551,7 @@
       "id": "U-4-WB-05",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/WorkbookShell.surfaces.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
       "title": "Phase 4 U-4-WB-05 builds direct clears and typed collection actions",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",

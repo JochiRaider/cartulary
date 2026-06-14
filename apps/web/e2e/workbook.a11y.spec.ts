@@ -84,7 +84,7 @@ import {
   indicatorsViewSchemaId,
   requiredBuiltInWorkbookSurfaceIds,
   timelineViewSchemaId,
-} from "../src/workbookSurfaceRegistry";
+} from "../src/workbook/models/workbookSurfaceRegistry";
 import {
   p1AccessibilityScenarioTitles,
   scenarioTitlesForAccessibilityRow,

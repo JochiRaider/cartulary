@@ -131,8 +131,8 @@
       "id": "frontend-raw-storage-leakage-guards",
       "path_globs": [
         "apps/web/e2e/phase6.evidence-integration.spec.ts",
-        "apps/web/src/WorkbookShell.surfaces.test.tsx",
-        "apps/web/src/WorkbookShell.tsx"
+        "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
+        "apps/web/src/workbook/WorkbookShell.tsx"
       ],
       "line_regex": "m[i]nio",
       "classification": "legacy_external_endpoint",

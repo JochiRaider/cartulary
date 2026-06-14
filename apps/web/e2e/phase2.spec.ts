@@ -34,7 +34,7 @@ import {
   hostsViewSchemaId,
   indicatorsViewSchemaId,
   requiredBuiltInWorkbookSurfaceIds,
-} from "../src/workbookSurfaceRegistry";
+} from "../src/workbook/models/workbookSurfaceRegistry";
 import { expect, test } from "./fixtures";
 import {
   createIncident,

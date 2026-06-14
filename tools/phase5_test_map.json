@@ -30,11 +30,11 @@
       "| --- | --- |",
       "| Real runtime and route helpers | Phase 5 initially reuses `internal/testutil/phase4test` for Postgres, object-store services, bootstrap-admin login, incident creation, and HTTP route helpers until Phase 5-specific helper ownership materially diverges. |",
       "| Evidence module helpers | Phase 5 evidence tests own object blob, evidence record, access-handle, and object-store assertions in package-local test files rather than promoting Phase 4 smoke tests. |",
-      "| Workbook and browser helpers | `apps/web/src/WorkbookShell.phase5.test.tsx` and `apps/web/e2e/phase5.evidence.spec.ts` hold Phase 5 workbook and browser rows for evidence attachment, counts, previews, and requested-evidence flows. |"
+      "| Workbook and browser helpers | `apps/web/src/workbook/WorkbookShell.phase5.test.tsx` and `apps/web/e2e/phase5.evidence.spec.ts` hold Phase 5 workbook and browser rows for evidence attachment, counts, previews, and requested-evidence flows. |"
     ],
     "support_only": [
       "`internal/modules/evidence/evidence_integration_test.go` keeps Phase 4 object-blob and evidence-handle route smoke coverage as carryover support for Phase 5 implementation, but authoritative Phase 5 completion claims must live in `phase5_*` rows.",
-      "`apps/web/src/WorkbookShell.phase4.support.test.tsx` remains Phase 4 support-only workbook helper coverage and must not claim Phase 5 IDs."
+      "`apps/web/src/workbook/WorkbookShell.phase4.support.test.tsx` remains Phase 4 support-only workbook helper coverage and must not claim Phase 5 IDs."
     ]
   },
   "expected_ids": [
@@ -66,7 +66,7 @@
   ],
   "forbidden_id_files": [
     "internal/modules/evidence/evidence_integration_test.go",
-    "apps/web/src/WorkbookShell.phase4.support.test.tsx"
+    "apps/web/src/workbook/WorkbookShell.phase4.support.test.tsx"
   ],
   "support_go_targets": [],
   "unit": [
@@ -300,7 +300,7 @@
       "id": "U-5-08",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/WorkbookShell.phase5.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.phase5.test.tsx",
       "title": "Phase 5 U-5-08 reflects attached evidence counts on the workbook surface without forcing navigation",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",

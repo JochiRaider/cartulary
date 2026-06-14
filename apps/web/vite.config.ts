@@ -49,7 +49,10 @@ export default defineConfig({
           name: "browser-unit",
           environment: "jsdom",
           include: browserUnitIncludes,
-          setupFiles: ["./src/testSetup.ts", "./src/testSetup.dom.ts"],
+          setupFiles: [
+            "./src/testing/testSetup.ts",
+            "./src/testing/testSetup.dom.ts",
+          ],
         },
       }),
       defineProject({
@@ -57,7 +60,7 @@ export default defineConfig({
           name: "harness-node",
           environment: "node",
           include: harnessNodeIncludes,
-          setupFiles: ["./src/testSetup.ts"],
+          setupFiles: ["./src/testing/testSetup.ts"],
         },
       }),
     ],

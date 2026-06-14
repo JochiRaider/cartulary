@@ -9,122 +9,122 @@
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/App.landing.test.tsx",
+      "file": "apps/web/src/app/App.landing.test.tsx",
       "title": "shows the zero-incident landing state",
       "coverage": "unowned_regression",
       "reason": "Residual landing-shell assertions not claimed by authoritative phase rows remain product regression coverage."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/App.landing.test.tsx",
+      "file": "apps/web/src/app/App.landing.test.tsx",
       "title": "renders one or many visible incidents on the landing screen",
       "coverage": "unowned_regression",
       "reason": "Residual landing-shell assertions not claimed by authoritative phase rows remain product regression coverage."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/App.landing.test.tsx",
+      "file": "apps/web/src/app/App.landing.test.tsx",
       "title": "renders the workbook directly from an authenticated incident route under StrictMode",
       "coverage": "unowned_regression",
       "reason": "Residual landing-shell assertions not claimed by authoritative phase rows remain product regression coverage."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/App.landing.test.tsx",
+      "file": "apps/web/src/app/App.landing.test.tsx",
       "title": "returns to the landing screen when workbook access is lost",
       "coverage": "unowned_regression",
       "reason": "Residual landing-shell assertions not claimed by authoritative phase rows remain product regression coverage."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/App.landing.test.tsx",
+      "file": "apps/web/src/app/App.landing.test.tsx",
       "title": "cancels an in-flight shell refresh when the app unmounts",
       "coverage": "unowned_regression",
       "reason": "Residual landing-shell assertions not claimed by authoritative phase rows remain product regression coverage."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/App.landing.test.tsx",
+      "file": "apps/web/src/app/App.landing.test.tsx",
       "title": "aborts an in-flight refresh when entering the debug harness and loads the ordinary shell after leaving it",
       "coverage": "unowned_regression",
       "reason": "Residual landing-shell assertions not claimed by authoritative phase rows remain product regression coverage."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/App.phase1.test.tsx",
+      "file": "apps/web/src/app/App.phase1.test.tsx",
       "title": "keeps deployment-admin target actions disabled until a target load completes and leaves version-conflict status stable",
       "coverage": "unowned_regression",
       "reason": "Residual deployment-admin shell state handling remains intentional product regression coverage outside the Phase 1 authoritative row inventory."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/WorkbookShell.assessments.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
       "coverage": "unowned_regression",
       "reason": "Workbook assessment component behavior is intentional regression coverage until a later phase owns it."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/WorkbookShell.phase3.autosave.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
       "title": "Phase 3 U-3-05 suppresses duplicate pending scalar saves that only differ by client_txn_id",
       "coverage": "unowned_regression",
       "reason": "Residual Phase 3 workbook autosave assertion not claimed by an authoritative phase row remains product regression coverage."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/WorkbookShell.phase3.autosave.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
       "title": "Phase 3 U-3-05 queues a follow-up scalar save when the logical payload changes while a prior save is pending",
       "coverage": "unowned_regression",
       "reason": "Residual Phase 3 workbook autosave assertion not claimed by an authoritative phase row remains product regression coverage."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/WorkbookShell.phase3.grid.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
       "title": "classifies committed Timeline row freshness by record_id and row_version",
       "coverage": "unowned_regression",
       "reason": "Residual Phase 3 workbook freshness helper coverage remains product regression coverage outside the authoritative phase row inventory."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/WorkbookShell.phase3.grid.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
       "title": "keeps accepted committed row state across stale invalidation queries and replay responses",
       "coverage": "unowned_regression",
       "reason": "Residual Phase 3 stale query and replay regression coverage remains product regression coverage outside the authoritative phase row inventory."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/WorkbookShell.phase3.grid.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
       "title": "ignores stale query errors after a newer committed row response",
       "coverage": "unowned_regression",
       "reason": "Residual Phase 3 stale query error regression coverage remains product regression coverage outside the authoritative phase row inventory."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/WorkbookShell.phase3.grid.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
       "title": "ignores stale sparse live row patches after a newer committed row is accepted",
       "coverage": "unowned_regression",
       "reason": "Residual Phase 3 stale live patch regression coverage remains product regression coverage outside the authoritative phase row inventory."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/WorkbookShell.surfaces.test.tsx",
+      "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
       "coverage": "unowned_regression",
       "reason": "Workbook surface switching behavior is intentional regression coverage until a later phase owns it."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/browserApi.test.ts",
+      "file": "apps/web/src/services/browserApi.test.ts",
       "coverage": "unowned_regression",
       "reason": "Browser API client behavior is intentional product regression coverage."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbookContinuity.test.ts",
+      "file": "apps/web/src/workbook/utils/workbookContinuity.test.ts",
       "coverage": "unowned_regression",
       "reason": "Workbook continuity helpers are intentional product regression coverage."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbookQuery.test.ts",
+      "file": "apps/web/src/workbook/models/workbookQuery.test.ts",
       "coverage": "unowned_regression",
       "reason": "Workbook query helpers are intentional product regression coverage."
     },
