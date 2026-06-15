@@ -54,12 +54,27 @@ Run the local development stack from the repository root:
 ```bash
 make bootstrap
 make db-up
+make build-migrate
+CARTULARY_CONFIG_FILE="$PWD/configs/dev/config.toml" \
+  CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="postgres://cartulary:cartulary@localhost:5432/cartulary?sslmode=disable" \
+  ./migrate up
 make dev
 ```
 
 `make bootstrap` is needed only when the pinned local toolchain is not already
-installed. `make dev` starts the Go server and Vite dev server for manual
-inspection. The browser URL is:
+installed. `make db-up` starts local Postgres and object storage but does not
+upgrade an existing database. Run the migration binary before `make dev` so the
+database schema matches the current server code.
+
+For a clean design-review database, reset and migrate the local database
+instead:
+
+```bash
+CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset
+```
+
+`make dev` starts the Go server and Vite dev server for manual inspection. The
+browser URL is:
 
 ```text
 http://127.0.0.1:5173
@@ -210,4 +225,3 @@ The pre-MVP browser design review is complete when:
   accessible-name, contrast, or state-communication findings;
 - any skipped `make frontend-evidence-audit` run is explicitly recorded with
   the missing retained roots.
-
