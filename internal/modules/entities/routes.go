@@ -398,20 +398,40 @@ func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bo
 }
 
 func (s *Service) publishRecordChange(result MentionActionResult, actorUserID uuid.UUID) {
-	if s.hub == nil || result.SourceRecordID == uuid.Nil || result.ChangeSetID == uuid.Nil {
+	if s.hub == nil {
 		return
 	}
-	changedKeys := append([]string(nil), result.ChangedFieldKeys...)
-	slices.Sort(changedKeys)
-	s.hub.PublishRecordChange(platformws.RecordChange{
-		IncidentID:       result.IncidentID,
-		RecordID:         result.SourceRecordID,
-		RowVersion:       result.SourceRecordRowVersion,
-		ChangeSetID:      result.ChangeSetID,
-		ActorUserID:      actorUserID,
-		ChangedFieldKeys: changedKeys,
-		ViewSchemaID:     "cartulary.view.timeline.v1",
-	})
+	if result.SourceRecordID != uuid.Nil && result.ChangeSetID != uuid.Nil {
+		changedKeys := append([]string(nil), result.ChangedFieldKeys...)
+		slices.Sort(changedKeys)
+		s.hub.PublishRecordChange(platformws.RecordChange{
+			IncidentID:       result.IncidentID,
+			RecordID:         result.SourceRecordID,
+			RowVersion:       result.SourceRecordRowVersion,
+			ChangeSetID:      result.ChangeSetID,
+			ClientTxnID:      result.ClientTxnID,
+			ActorUserID:      actorUserID,
+			ChangedFieldKeys: changedKeys,
+			ViewSchemaID:     "cartulary.view.timeline.v1",
+		})
+	}
+	for _, invalidation := range result.EntityInvalidations {
+		if invalidation.RecordID == uuid.Nil || result.ChangeSetID == uuid.Nil {
+			continue
+		}
+		changedKeys := append([]string(nil), invalidation.ChangedFieldKeys...)
+		slices.Sort(changedKeys)
+		s.hub.PublishRecordChange(platformws.RecordChange{
+			IncidentID:       result.IncidentID,
+			RecordID:         invalidation.RecordID,
+			RowVersion:       invalidation.RowVersion,
+			ChangeSetID:      result.ChangeSetID,
+			ClientTxnID:      result.ClientTxnID,
+			ActorUserID:      actorUserID,
+			ChangedFieldKeys: changedKeys,
+			ViewSchemaID:     invalidation.ViewSchemaID,
+		})
+	}
 }
 
 func (s *Service) publishMergeChanges(result MergeResult, actorUserID uuid.UUID) {

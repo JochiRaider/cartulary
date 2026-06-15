@@ -299,6 +299,10 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	if err := s.projectionStore.RebuildIncidentTimelineTx(ctx, tx, mention.IncidentID); err != nil {
 		return MentionActionResult{}, err
 	}
+	entityInvalidations, err := mentionEntityInvalidationsTx(ctx, tx, outcome)
+	if err != nil {
+		return MentionActionResult{}, err
+	}
 
 	payload := buildMentionActionPayload(mention.IncidentID, outcome.After, nextRecord.RecordID, nextRecord.RowVersion, changeSetID, outcome.ActiveLink)
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
@@ -318,7 +322,9 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		SourceRecordID:         nextRecord.RecordID,
 		SourceRecordRowVersion: nextRecord.RowVersion,
 		ChangeSetID:            changeSetID,
+		ClientTxnID:            request.ClientTxnID,
 		ChangedFieldKeys:       mentionChangedFieldKeys(mention.SourceFieldKey),
+		EntityInvalidations:    entityInvalidations,
 	}, nil
 }
 
@@ -439,6 +445,9 @@ UPDATE entity_mentions
 			createdLink = &link
 		}
 	}
+	if err := s.rebuildMentionEntityProjectionTx(ctx, tx, after.IncidentID, after.EntityType); err != nil {
+		return mentionMutationResult{}, err
+	}
 
 	return mentionMutationResult{
 		Before:         before,
@@ -447,6 +456,66 @@ UPDATE entity_mentions
 		CreatedLink:    createdLink,
 		TombstonedLink: tombstonedLink,
 	}, nil
+}
+
+func (s *Store) rebuildMentionEntityProjectionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string) error {
+	switch entityType {
+	case "host":
+		return s.projectionStore.RebuildIncidentHostsTx(ctx, tx, incidentID)
+	case "identity":
+		return s.projectionStore.RebuildIncidentIdentitiesTx(ctx, tx, incidentID)
+	default:
+		return nil
+	}
+}
+
+func mentionEntityInvalidationsTx(ctx context.Context, tx pgx.Tx, outcome mentionMutationResult) ([]MentionEntityInvalidation, error) {
+	viewSchemaID, changedFieldKey, ok := mentionEntityInvalidationSurface(outcome.After.EntityType)
+	if !ok {
+		return nil, nil
+	}
+
+	seen := make(map[uuid.UUID]struct{}, 2)
+	recordIDs := make([]uuid.UUID, 0, 2)
+	for _, recordID := range []*uuid.UUID{outcome.Before.ResolvedRecordID, outcome.After.ResolvedRecordID} {
+		if recordID == nil {
+			continue
+		}
+		if _, ok := seen[*recordID]; ok {
+			continue
+		}
+		seen[*recordID] = struct{}{}
+		recordIDs = append(recordIDs, *recordID)
+	}
+	slices.SortFunc(recordIDs, func(left uuid.UUID, right uuid.UUID) int {
+		return strings.Compare(left.String(), right.String())
+	})
+
+	invalidations := make([]MentionEntityInvalidation, 0, len(recordIDs))
+	for _, recordID := range recordIDs {
+		var rowVersion int64
+		if err := tx.QueryRow(ctx, `SELECT row_version FROM records WHERE record_id = $1`, recordID).Scan(&rowVersion); err != nil {
+			return nil, fmt.Errorf("load mention entity invalidation row version: %w", err)
+		}
+		invalidations = append(invalidations, MentionEntityInvalidation{
+			RecordID:         recordID,
+			RowVersion:       rowVersion,
+			ViewSchemaID:     viewSchemaID,
+			ChangedFieldKeys: []string{changedFieldKey},
+		})
+	}
+	return invalidations, nil
+}
+
+func mentionEntityInvalidationSurface(entityType string) (string, string, bool) {
+	switch entityType {
+	case "host":
+		return HostsViewSchemaID, "host.linked_event_count", true
+	case "identity":
+		return IdentitiesViewSchemaID, "identity.linked_event_count", true
+	default:
+		return "", "", false
+	}
 }
 
 func loadMentionActionRecordTx(ctx context.Context, tx pgx.Tx, mentionID uuid.UUID) (mentionActionRecord, error) {

@@ -20,6 +20,7 @@ export type TimelineGridSurfaceProps = {
   readonly onToggleSort: (fieldKey: string) => void;
   readonly rowGutter: GridRowGutter;
   readonly rows: readonly WorkbookRow[];
+  readonly slotStyle?: CSSProperties;
   readonly sort: WorkbookQueryState["sort"];
   readonly style: CSSProperties;
   readonly timelineGridRows: readonly GridRow<WorkbookRow>[];
@@ -38,6 +39,7 @@ export const TimelineGridSurface = forwardRef<
     onToggleSort,
     rowGutter,
     rows,
+    slotStyle,
     sort,
     style,
     timelineGridRows,
@@ -47,6 +49,7 @@ export const TimelineGridSurface = forwardRef<
   return (
     <WorkbookShellSlotRegion
       slot="primary-grid"
+      style={slotStyle}
       viewSchemaId={timelineViewSchemaId}
     >
       <TimelineWorkbookGrid

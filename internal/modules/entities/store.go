@@ -948,13 +948,40 @@ INSERT INTO host_grid_projection (
     containment_status,
     edited_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, 0, 0, NULL, NULL, NULL, NULL, NULL, $7)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    (
+        SELECT COUNT(*)::integer
+          FROM record_links l
+          JOIN records source_record
+            ON source_record.record_id = l.src_record_id
+           AND source_record.record_type = 'timeline_event'
+           AND source_record.deleted_at IS NULL
+         WHERE l.incident_id = $2
+           AND l.dst_record_id = $1
+           AND l.link_type = 'observed_on_host'
+           AND l.deleted_at IS NULL
+    ),
+    0,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    $7
+)
 ON CONFLICT (record_id) DO UPDATE
 SET incident_id = EXCLUDED.incident_id,
     row_version = EXCLUDED.row_version,
     display_name = EXCLUDED.display_name,
     hostname = EXCLUDED.hostname,
     host_state = EXCLUDED.host_state,
+    linked_event_count = EXCLUDED.linked_event_count,
     edited_at = EXCLUDED.edited_at
 `, record.RecordID, record.IncidentID, record.RowVersion, record.DisplayName, record.Hostname, record.HostState, record.UpdatedAt.UTC())
 	if err != nil {
@@ -1028,7 +1055,33 @@ INSERT INTO identity_grid_projection (
     reset_status,
     edited_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, 0, NULL, NULL, NULL, $9)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8,
+    (
+        SELECT COUNT(*)::integer
+          FROM record_links l
+          JOIN records source_record
+            ON source_record.record_id = l.src_record_id
+           AND source_record.record_type = 'timeline_event'
+           AND source_record.deleted_at IS NULL
+         WHERE l.incident_id = $2
+           AND l.dst_record_id = $1
+           AND l.link_type = 'observed_as_identity'
+           AND l.deleted_at IS NULL
+    ),
+    0,
+    NULL,
+    NULL,
+    NULL,
+    $9
+)
 ON CONFLICT (record_id) DO UPDATE
 SET incident_id = EXCLUDED.incident_id,
     row_version = EXCLUDED.row_version,
@@ -1037,6 +1090,7 @@ SET incident_id = EXCLUDED.incident_id,
     email = EXCLUDED.email,
     sam_account_name = EXCLUDED.sam_account_name,
     identity_state = EXCLUDED.identity_state,
+    linked_event_count = EXCLUDED.linked_event_count,
     edited_at = EXCLUDED.edited_at
 `, record.RecordID, record.IncidentID, record.RowVersion, record.DisplayName, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.UpdatedAt.UTC())
 	if err != nil {

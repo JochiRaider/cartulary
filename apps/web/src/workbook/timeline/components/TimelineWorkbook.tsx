@@ -4,6 +4,7 @@ import {
   type GridCellAnchor,
   type GridColumn,
   type GridNavigationIntent,
+  type GridPasteTargetResolution,
   type GridRow,
   navigateGridCellAnchor,
   reconcileRecordRows,
@@ -36,6 +37,7 @@ import {
   resolveHeaderSortFieldKey,
 } from "@cartulary/view-contracts";
 import {
+  type CSSProperties,
   type Dispatch,
   type ClipboardEvent as ReactClipboardEvent,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -224,7 +226,10 @@ import {
 } from "./TimelinePresenceMarkers";
 import { TimelineRowActions } from "./TimelineRowActions";
 import { TimelineWorkbookInspector } from "./TimelineWorkbookInspector";
-import { TimelineWorkbookNotices } from "./TimelineWorkbookNotices";
+import {
+  TimelineWorkbookNotices,
+  timelinePendingQueueMessage,
+} from "./TimelineWorkbookNotices";
 
 export type { WorkbookRecordFreshnessDecision, WorkbookVersionedRecord };
 export {
@@ -752,6 +757,64 @@ function reconcileCommittedRowsWithLocalDrafts({
       [...committedRows, ...localDraftRows],
       nextDraftIndex,
     ).rows,
+  };
+}
+
+function timelineClipboardShouldDispatchTabular(
+  fieldKey: string,
+  clipboardText: string,
+) {
+  if (clipboardTextLooksTabular(clipboardText)) {
+    return true;
+  }
+  return (
+    fieldKey === "timeline.occurred_at" &&
+    clipboardGridDimensions(clipboardText).columnCount > 1
+  );
+}
+
+function timelinePasteColumnsFromStart(
+  columns: readonly GridColumn<WorkbookRow>[],
+  startFieldKey: string,
+  pastedColumnCount: number,
+) {
+  const startColumnIndex = columns.findIndex(
+    (column) => column.fieldKey === startFieldKey,
+  );
+  if (startColumnIndex < 0) {
+    return null;
+  }
+  const targetColumns = columns
+    .slice(startColumnIndex, startColumnIndex + pastedColumnCount)
+    .map((column) => column.fieldKey);
+  return targetColumns.length < 1 ? null : targetColumns;
+}
+
+function resolveDraftTimelinePasteTargets({
+  columns,
+  pastedColumnCount,
+  pastedRowCount,
+  startFieldKey,
+}: {
+  readonly columns: readonly GridColumn<WorkbookRow>[];
+  readonly pastedColumnCount: number;
+  readonly pastedRowCount: number;
+  readonly startFieldKey: string;
+}): GridPasteTargetResolution | null {
+  const targetColumns = timelinePasteColumnsFromStart(
+    columns,
+    startFieldKey,
+    pastedColumnCount,
+  );
+  if (targetColumns === null || pastedRowCount < 1) {
+    return null;
+  }
+  return {
+    columns: targetColumns,
+    rowTargets: Array.from({ length: pastedRowCount }, (_, createIndex) => ({
+      createIndex,
+      kind: "create" as const,
+    })),
   };
 }
 
@@ -4534,126 +4597,143 @@ export function TimelineWorkbook({
       if (
         surface === "grid" &&
         binding !== undefined &&
-        clipboardTextLooksTabular(clipboardText)
+        timelineClipboardShouldDispatchTabular(fieldKey, clipboardText)
       ) {
         const anchor = currentTimelineAnchorFor(rowKey, fieldKey);
-        if (anchor !== null) {
-          const dimensions = clipboardGridDimensions(clipboardText);
-          const presentationRows = buildGridPresentationRows({
-            getGroupLabel: (row, groupFieldKey) =>
-              timelineGroupLabel(row, groupFieldKey),
-            groupBy: queryState.groupBy,
-            rows: timelineAnchorRowsRef.current,
-          });
-          const targetResolution = resolveGridPasteTargets({
-            columns: timelineAnchorColumnsRef.current,
-            current: anchor,
-            pastedColumnCount: dimensions.columnCount,
-            pastedRowCount: dimensions.rowCount,
-            presentationRows,
-          });
-          if (targetResolution !== null) {
-            event.preventDefault();
-            const clientTxnId = nextClientTxnId();
-            const viewportContinuityToken = beginViewportContinuity({
-              kind: "input",
-              focusKey: inputFocusKey(rowKey, focusField, surface),
-            });
-            beginSave();
-            saveQueueRef.current = saveQueueRef.current
-              .catch(() => undefined)
-              .then(async () => {
-                const rowTargetPayload: Array<
-                  | { readonly kind: "create" }
-                  | {
-                      readonly base_row_version: number;
-                      readonly kind: "record";
-                      readonly record_id: string;
-                    }
-                > = [];
-                for (const target of targetResolution.rowTargets) {
-                  if (target.kind === "create") {
-                    rowTargetPayload.push({ kind: "create" });
-                    continue;
+        const dimensions = clipboardGridDimensions(clipboardText);
+        const targetResolution =
+          anchor !== null
+            ? (() => {
+                const presentationRows = buildGridPresentationRows({
+                  getGroupLabel: (row, groupFieldKey) =>
+                    timelineGroupLabel(row, groupFieldKey),
+                  groupBy: queryState.groupBy,
+                  rows: timelineAnchorRowsRef.current,
+                });
+                return resolveGridPasteTargets({
+                  columns: timelineAnchorColumnsRef.current,
+                  current: anchor,
+                  pastedColumnCount: dimensions.columnCount,
+                  pastedRowCount: dimensions.rowCount,
+                  presentationRows,
+                });
+              })()
+            : rowsRef.current.find((row) => row.key === rowKey)?.recordId ===
+                null
+              ? resolveDraftTimelinePasteTargets({
+                  columns: timelineAnchorColumnsRef.current,
+                  pastedColumnCount: dimensions.columnCount,
+                  pastedRowCount: dimensions.rowCount,
+                  startFieldKey: fieldKey,
+                })
+              : null;
+        if (targetResolution !== null) {
+          event.preventDefault();
+          const clientTxnId = nextClientTxnId();
+          const viewportContinuityToken = beginViewportContinuity(
+            anchor === null
+              ? { kind: "scroll-only" }
+              : {
+                  kind: "input",
+                  focusKey: inputFocusKey(rowKey, focusField, surface),
+                },
+          );
+          beginSave();
+          saveQueueRef.current = saveQueueRef.current
+            .catch(() => undefined)
+            .then(async () => {
+              const rowTargetPayload: Array<
+                | { readonly kind: "create" }
+                | {
+                    readonly base_row_version: number;
+                    readonly kind: "record";
+                    readonly record_id: string;
                   }
-                  const idleRecord = await waitForCommittedRecordIdle(
-                    target.recordId,
-                  );
-                  if (idleRecord === null) {
-                    clearViewportContinuity(viewportContinuityToken);
-                    finishSave("Conflict");
-                    return;
-                  }
-                  rowTargetPayload.push({
-                    kind: "record",
-                    record_id: target.recordId,
-                    base_row_version: idleRecord.rowVersion,
-                  });
+              > = [];
+              for (const target of targetResolution.rowTargets) {
+                if (target.kind === "create") {
+                  rowTargetPayload.push({ kind: "create" });
+                  continue;
                 }
-                trackPendingSocketTxn(clientTxnId);
-                const result = await fetchJSON<TimelineClipboardPasteEnvelope>(
-                  apiPath(
-                    apiBase,
-                    `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
-                  ),
-                  {
-                    method: "POST",
-                    body: JSON.stringify({
-                      view_schema_id: timelineViewSchemaId,
-                      client_txn_id: clientTxnId,
-                      clipboard_text: clipboardText,
-                      format: clipboardText.includes("\t") ? "tsv" : "csv",
-                      start_field_key: fieldKey,
-                      columns: targetResolution.columns,
-                      targets: rowTargetPayload,
-                    }),
-                  },
+                const idleRecord = await waitForCommittedRecordIdle(
+                  target.recordId,
                 );
-                resolvePendingSocketTxn(clientTxnId);
-                if (!result.ok) {
+                if (idleRecord === null) {
                   clearViewportContinuity(viewportContinuityToken);
                   finishSave("Conflict");
                   return;
                 }
-                const envelope = readEnvelope<TimelineClipboardPasteEnvelope>(
-                  result.payload,
-                );
-                const pasteConflictKeys: string[] = [];
-                for (const conflict of envelope.data.conflicts ?? []) {
-                  const conflictBinding = timelineScalarBindingForField(
-                    conflict.field_key,
-                  );
-                  const queueKey = sameFieldConflictQueueKey(conflict);
-                  pasteConflictKeys.push(queueKey);
-                  registerSameFieldConflict(
-                    conflict,
-                    inputFocusKey(
-                      conflict.record_id,
-                      conflictBinding?.key ?? focusField,
-                      "grid",
-                    ),
-                    "grid",
-                  );
-                }
-                if (pasteConflictKeys.length > 1) {
-                  setPasteConflictGroup({ keys: pasteConflictKeys });
-                  setActiveConflictKey(pasteConflictKeys[0] ?? null);
-                } else if (pasteConflictKeys.length === 0) {
-                  setPasteConflictGroup(null);
-                }
-                await loadRowsRef.current({
-                  showLoading: false,
-                  viewportContinuityToken,
+                rowTargetPayload.push({
+                  kind: "record",
+                  record_id: target.recordId,
+                  base_row_version: idleRecord.rowVersion,
                 });
-                restoreTimelineFocusAnchor(anchor);
-                finishSave(
-                  envelope.data.conflicts && envelope.data.conflicts.length > 0
-                    ? "Conflict"
-                    : "Saved",
+              }
+              trackPendingSocketTxn(clientTxnId);
+              const result = await fetchJSON<TimelineClipboardPasteEnvelope>(
+                apiPath(
+                  apiBase,
+                  `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
+                ),
+                {
+                  method: "POST",
+                  body: JSON.stringify({
+                    view_schema_id: timelineViewSchemaId,
+                    client_txn_id: clientTxnId,
+                    clipboard_text: clipboardText,
+                    format: clipboardText.includes("\t") ? "tsv" : "csv",
+                    start_field_key: fieldKey,
+                    columns: targetResolution.columns,
+                    targets: rowTargetPayload,
+                  }),
+                },
+              );
+              resolvePendingSocketTxn(clientTxnId);
+              if (!result.ok) {
+                clearViewportContinuity(viewportContinuityToken);
+                finishSave("Conflict");
+                return;
+              }
+              const envelope = readEnvelope<TimelineClipboardPasteEnvelope>(
+                result.payload,
+              );
+              const pasteConflictKeys: string[] = [];
+              for (const conflict of envelope.data.conflicts ?? []) {
+                const conflictBinding = timelineScalarBindingForField(
+                  conflict.field_key,
                 );
+                const queueKey = sameFieldConflictQueueKey(conflict);
+                pasteConflictKeys.push(queueKey);
+                registerSameFieldConflict(
+                  conflict,
+                  inputFocusKey(
+                    conflict.record_id,
+                    conflictBinding?.key ?? focusField,
+                    "grid",
+                  ),
+                  "grid",
+                );
+              }
+              if (pasteConflictKeys.length > 1) {
+                setPasteConflictGroup({ keys: pasteConflictKeys });
+                setActiveConflictKey(pasteConflictKeys[0] ?? null);
+              } else if (pasteConflictKeys.length === 0) {
+                setPasteConflictGroup(null);
+              }
+              await loadRowsRef.current({
+                showLoading: false,
+                viewportContinuityToken,
               });
-            return;
-          }
+              if (anchor !== null) {
+                restoreTimelineFocusAnchor(anchor);
+              }
+              finishSave(
+                envelope.data.conflicts && envelope.data.conflicts.length > 0
+                  ? "Conflict"
+                  : "Saved",
+              );
+            });
+          return;
         }
       }
       window.setTimeout(() => {
@@ -5672,6 +5752,13 @@ export function TimelineWorkbook({
     [setConflictQueueState],
   );
 
+  const pendingQueueDisplayMessage =
+    timelinePendingQueueMessage(pendingQueueSnapshot);
+  const visibleRefreshError =
+    refreshError !== null && refreshError !== pendingQueueDisplayMessage
+      ? refreshError
+      : null;
+
   if (isInitialLoading) {
     return (
       <section style={panelStyle}>
@@ -5716,41 +5803,43 @@ export function TimelineWorkbook({
       />
 
       <div style={splitShellStyle}>
-        <div>
-          {refreshError !== null ? (
-            <aside
-              data-testid="timeline-refresh-error"
-              role="status"
-              style={noticeCardStyle}
+        <div style={timelineMainColumnStyle}>
+          <div style={timelineMainHeaderStyle}>
+            {visibleRefreshError !== null ? (
+              <aside
+                data-testid="timeline-refresh-error"
+                role="status"
+                style={noticeCardStyle}
+              >
+                <p style={bodyStyle}>{visibleRefreshError}</p>
+              </aside>
+            ) : null}
+            <WorkbookShellSlotRegion
+              slot="view-bar"
+              style={viewBarStyle}
+              viewSchemaId={timelineViewSchemaId}
             >
-              <p style={bodyStyle}>{refreshError}</p>
-            </aside>
-          ) : null}
-          <WorkbookShellSlotRegion
-            slot="view-bar"
-            style={viewBarStyle}
-            viewSchemaId={timelineViewSchemaId}
-          >
-            {savedViewSelector}
-            <WorkbookGridControls
-              contract={timelineContract}
-              filterDraft={filterDraft}
-              onApplyFilter={applyQueryFilter}
-              onClearAll={() => {
-                setQueryState(emptyWorkbookQueryState());
-                setFilterDraft(defaultFilterDraft(timelineContract));
-              }}
-              onFilterDraftChange={setFilterDraft}
-              onGroupByChange={handleQueryGroupByChange}
-              onRemoveFilter={(fieldKey) => {
-                setQueryState((current) =>
-                  removeFilterField(current, fieldKey),
-                );
-              }}
-              queryState={queryState}
-              surface={timelineViewSchemaId}
-            />
-          </WorkbookShellSlotRegion>
+              {savedViewSelector}
+              <WorkbookGridControls
+                contract={timelineContract}
+                filterDraft={filterDraft}
+                onApplyFilter={applyQueryFilter}
+                onClearAll={() => {
+                  setQueryState(emptyWorkbookQueryState());
+                  setFilterDraft(defaultFilterDraft(timelineContract));
+                }}
+                onFilterDraftChange={setFilterDraft}
+                onGroupByChange={handleQueryGroupByChange}
+                onRemoveFilter={(fieldKey) => {
+                  setQueryState((current) =>
+                    removeFilterField(current, fieldKey),
+                  );
+                }}
+                queryState={queryState}
+                surface={timelineViewSchemaId}
+              />
+            </WorkbookShellSlotRegion>
+          </div>
           <TimelineGridSurface
             actionsColumn={timelineActionsColumn}
             columns={timelineColumns}
@@ -5761,6 +5850,7 @@ export function TimelineWorkbook({
             ref={gridShellRef}
             rowGutter={timelineRowGutter}
             rows={rows}
+            slotStyle={primaryGridSlotStyle}
             sort={queryState.sort}
             style={timelineGridShellStyle}
             timelineGridRows={timelineGridRows}
@@ -5786,6 +5876,7 @@ export function TimelineWorkbook({
 
         <WorkbookShellSlotRegion
           slot="inspector"
+          style={inspectorSlotStyle}
           viewSchemaId={timelineViewSchemaId}
         >
           <TimelineWorkbookInspector
@@ -5815,7 +5906,7 @@ export function TimelineWorkbook({
 
       <WorkbookShellSlotRegion
         slot="status-strip"
-        style={statusStripStyle}
+        style={timelineStatusStripStyle}
         viewSchemaId={timelineViewSchemaId}
       >
         <WorkbookStatusStrip
@@ -5847,7 +5938,7 @@ const panelStyle = {
 const workbookStyle = {
   position: "relative" as const,
   display: "grid",
-  gridTemplateRows: "minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+  gridTemplateRows: "auto minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
   minHeight: "calc(100vh - var(--ct-layout-topBarHeight))",
 };
 
@@ -5893,8 +5984,12 @@ const splitShellStyle = {
   alignItems: "stretch",
   gridTemplateColumns:
     "minmax(0, 1fr) minmax(var(--ct-layout-inspectorMinWidth), var(--ct-layout-inspectorDefaultWidth))",
+  gridRow: 2,
   minHeight: 0,
+  minWidth: 0,
+  overflow: "hidden",
   padding: "var(--ct-spacing-sm)",
+  boxSizing: "border-box" as const,
 };
 
 const viewBarStyle = {
@@ -5913,6 +6008,32 @@ const viewBarStyle = {
   overflowX: "visible" as const,
 };
 
+const timelineMainColumnStyle = {
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr) auto",
+  minHeight: 0,
+  minWidth: 0,
+  overflow: "hidden",
+};
+
+const timelineMainHeaderStyle = {
+  display: "grid",
+  gap: "var(--ct-spacing-sm)",
+  minWidth: 0,
+};
+
+const primaryGridSlotStyle = {
+  minHeight: 0,
+  minWidth: 0,
+  overflow: "hidden",
+};
+
+const inspectorSlotStyle = {
+  minHeight: 0,
+  minWidth: 0,
+  overflow: "hidden",
+};
+
 const gridShellStyle = {
   overflow: "hidden",
   overflowAnchor: "none" as const,
@@ -5923,10 +6044,14 @@ const gridShellStyle = {
 
 const timelineGridShellStyle = {
   ...gridShellStyle,
-  blockSize:
-    "calc(100vh - var(--ct-layout-topBarHeight) - var(--ct-layout-statusStripHeight) - var(--ct-layout-viewBarHeight) - 32px)",
-  minBlockSize: "24rem",
+  blockSize: "100%",
+  minBlockSize: 0,
 };
+
+const timelineStatusStripStyle = {
+  ...statusStripStyle,
+  gridRow: 3,
+} satisfies CSSProperties;
 
 const inputStyle = {
   boxSizing: "border-box" as const,

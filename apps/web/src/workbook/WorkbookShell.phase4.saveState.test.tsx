@@ -1,5 +1,8 @@
 import {
+  gridShellTestId,
+  pendingQueueNoticeTestId,
   saveStateTestId,
+  timelineMutationSubstrateReadyTestId,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -73,10 +76,25 @@ describe("FE-U-P4-02 WorkbookShell save-state status strip", () => {
       "record-auth",
       "timeline.summary",
     )) as HTMLInputElement;
+    const workbookShell = screen.getByTestId(
+      timelineMutationSubstrateReadyTestId(),
+    );
+    expect(workbookShell.style.gridTemplateRows).toBe(
+      "auto minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+    );
 
     const statusStrip = screen.getByTestId(
       workbookShellSlotTestId("status-strip"),
     );
+    expect(statusStrip.style.gridRow).toBe("3");
+    expect(statusStrip.style.overflow).toBe("hidden");
+    expect(
+      screen.getByTestId(workbookShellSlotTestId("primary-grid")).style
+        .overflow,
+    ).toBe("hidden");
+    expect(
+      screen.getByTestId(gridShellTestId(timelineViewSchemaId)).style.blockSize,
+    ).toBe("100%");
     expect(within(statusStrip).getByTestId(saveStateTestId()).textContent).toBe(
       "Saved",
     );
@@ -140,10 +158,25 @@ describe("FE-U-P4-02 WorkbookShell save-state status strip", () => {
           "Authentication is required before queued edits can replay.",
         ),
       ).toBeTruthy();
-      expect(screen.getByTestId("pending-queue-notice").textContent).toContain(
-        "Authentication is required before queued edits can replay.",
-      );
+      expect(
+        screen.getByTestId(pendingQueueNoticeTestId()).textContent,
+      ).toContain("Authentication is required before queued edits can replay.");
     });
+    const statusDetail = within(statusStrip).getByText(
+      "Authentication is required before queued edits can replay.",
+    );
+    expect(statusDetail.style.display).toBe("block");
+    expect(statusDetail.style.overflow).toBe("hidden");
+    expect(statusDetail.style.textOverflow).toBe("ellipsis");
+    expect(statusDetail.style.whiteSpace).toBe("nowrap");
+    const pendingNotice = screen.getByTestId(pendingQueueNoticeTestId());
+    expect(pendingNotice.style.display).toBe("flex");
+    expect(pendingNotice.style.alignItems).toBe("center");
+    expect(pendingNotice.style.overflow).toBe("hidden");
+    expect(pendingNotice.parentElement?.style.maxBlockSize).toBe(
+      "min(8rem, 20vh)",
+    );
+    expect(pendingNotice.parentElement?.style.overflowY).toBe("auto");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -24,6 +24,7 @@ import {
   sessionResource,
 } from "../testing/appShellTestSupport";
 import { AppRoot } from "./AppRoot";
+import { Phase1AccountPanel, Phase1AdminPanel } from "./Phase1Surface";
 
 describe("Phase 1 ordinary shell support", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -122,6 +123,45 @@ describe("Phase 1 ordinary shell support", () => {
     expect(
       screen.getByTestId(phase1ErrorSummaryTestIds("auth").container),
     ).toBeTruthy();
+  });
+
+  it("keeps account and deployment-admin panels on design tokens without overflowing inputs", () => {
+    const session = sessionResource({ is_deployment_admin: true });
+
+    render(
+      <>
+        <Phase1AccountPanel
+          credentialState={credentialStateResource()}
+          credentialStateError={null}
+          onRefreshShell={() => undefined}
+          session={session}
+        />
+        <Phase1AdminPanel onRefreshShell={() => undefined} session={session} />
+      </>,
+    );
+
+    const accountCard = screen
+      .getByText("Session and credential security")
+      .closest("section");
+    const adminCard = screen
+      .getByText("User administration")
+      .closest("section");
+    expect(accountCard?.style.background).toBe("var(--ct-colors-surface-2)");
+    expect(adminCard?.style.background).toBe("var(--ct-colors-surface-2)");
+
+    const createEmail = screen.getByTestId(phase1AdminTestId("create-email"));
+    const accountPassword = screen.getByTestId(
+      phase1AccountTestId("password-current"),
+    );
+    for (const input of [createEmail, accountPassword]) {
+      expect(input.style.boxSizing).toBe("border-box");
+      expect(input.style.maxWidth).toBe("100%");
+      expect(input.style.minWidth).toBe("0");
+      expect(input.style.background).toBe(
+        "var(--ct-component-text-input-backgroundColor)",
+      );
+      expect(input.style.border).toBe("var(--ct-component-text-input-border)");
+    }
   });
 });
 

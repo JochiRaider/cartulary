@@ -1606,16 +1606,19 @@ function PublicErrorSummary({
 const shellStyle: CSSProperties = {
   minHeight: "100vh",
   padding: "2rem",
+  background: "var(--ct-colors-canvas)",
+  color: "var(--ct-colors-ink)",
+  fontFamily: "var(--ct-typography-ui-fontFamily)",
 };
 
 const shellPanelStyle: CSSProperties = {
   width: "min(56rem, 100%)",
   margin: "0 auto",
   padding: "2rem",
-  borderRadius: "1.5rem",
-  background: "rgb(255 251 244 / 0.94)",
-  boxShadow: "0 24px 80px rgb(29 78 70 / 0.12)",
-  border: "1px solid rgb(185 204 196 / 0.8)",
+  borderRadius: "var(--ct-rounded-lg)",
+  background: "var(--ct-colors-surface-1)",
+  boxShadow: "var(--ct-elevation-panel)",
+  border: "var(--ct-border-hairline)",
 };
 
 const sectionHeaderStyle: CSSProperties = {
@@ -1631,7 +1634,7 @@ const eyebrowStyle: CSSProperties = {
   letterSpacing: "0.14em",
   textTransform: "uppercase",
   fontSize: "0.78rem",
-  color: "rgb(75 108 100)",
+  color: "var(--ct-colors-accent)",
 };
 
 const headlineStyle: CSSProperties = {
@@ -1642,23 +1645,27 @@ const headlineStyle: CSSProperties = {
 
 const bodyStyle: CSSProperties = {
   margin: "0.75rem 0 0",
-  color: "rgb(73 95 90)",
+  color: "var(--ct-colors-ink-muted)",
   maxWidth: "42rem",
+  overflowWrap: "anywhere",
 };
 
 const statusCardStyle: CSSProperties = {
   minWidth: "14rem",
   padding: "0.9rem 1rem",
-  borderRadius: "1rem",
-  background: "rgb(239 245 240)",
-  border: "1px solid rgb(197 214 206)",
+  borderRadius: "var(--ct-rounded-lg)",
+  background: "var(--ct-colors-surface-2)",
+  border: "var(--ct-border-hairline)",
 };
 
 const cardStyle: CSSProperties = {
   padding: "1.4rem",
-  borderRadius: "1.1rem",
-  background: "rgb(255 255 255 / 0.92)",
-  border: "1px solid rgb(211 223 216)",
+  borderRadius: "var(--ct-rounded-lg)",
+  background: "var(--ct-colors-surface-2)",
+  border: "var(--ct-border-hairline)",
+  color: "var(--ct-colors-ink)",
+  minWidth: 0,
+  boxSizing: "border-box",
 };
 
 const cardHeaderStyle: CSSProperties = {
@@ -1674,7 +1681,7 @@ const sectionEyebrowStyle: CSSProperties = {
   fontSize: "0.72rem",
   letterSpacing: "0.14em",
   textTransform: "uppercase",
-  color: "rgb(75 108 100)",
+  color: "var(--ct-colors-ink-subtle)",
 };
 
 const sectionTitleStyle: CSSProperties = {
@@ -1685,20 +1692,22 @@ const sectionTitleStyle: CSSProperties = {
 const subsectionStyle: CSSProperties = {
   marginTop: "1.5rem",
   paddingTop: "1.25rem",
-  borderTop: "1px solid rgb(222 230 225)",
+  borderTop: "var(--ct-border-hairline)",
+  minWidth: 0,
 };
 
 const subsectionTitleStyle: CSSProperties = {
   margin: 0,
   fontWeight: 700,
-  color: "rgb(45 82 75)",
+  color: "var(--ct-colors-ink)",
 };
 
 const formGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr",
+  gridTemplateColumns: "minmax(0, 1fr)",
   gap: "0.75rem",
   marginTop: "1rem",
+  minWidth: 0,
 };
 
 const detailGridStyle: CSSProperties = {
@@ -1706,6 +1715,7 @@ const detailGridStyle: CSSProperties = {
   gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
   gap: "0.85rem",
   marginTop: "1rem",
+  minWidth: 0,
 };
 
 const labelStyle: CSSProperties = {
@@ -1713,23 +1723,28 @@ const labelStyle: CSSProperties = {
   fontSize: "0.72rem",
   letterSpacing: "0.12em",
   textTransform: "uppercase",
-  color: "rgb(75 108 100)",
+  color: "var(--ct-colors-ink-subtle)",
   marginBottom: "0.35rem",
 };
 
 const labelBlockStyle: CSSProperties = {
   fontSize: "0.84rem",
   fontWeight: 600,
-  color: "rgb(45 82 75)",
+  color: "var(--ct-colors-ink-muted)",
+  minWidth: 0,
 };
 
 const inputStyle: CSSProperties = {
+  boxSizing: "border-box",
   width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
   marginTop: "0.35rem",
-  padding: "0.72rem 0.85rem",
-  borderRadius: "0.9rem",
-  border: "1px solid rgb(191 207 199)",
-  background: "rgb(255 255 255)",
+  padding: "var(--ct-component-text-input-padding)",
+  borderRadius: "var(--ct-component-text-input-rounded)",
+  border: "var(--ct-component-text-input-border)",
+  background: "var(--ct-component-text-input-backgroundColor)",
+  color: "var(--ct-component-text-input-textColor)",
   fontSize: "0.95rem",
 };
 
@@ -1741,25 +1756,26 @@ const buttonRowStyle: CSSProperties = {
 };
 
 const buttonStyle: CSSProperties = {
-  padding: "0.72rem 1rem",
-  borderRadius: "999px",
+  padding: "var(--ct-component-button-primary-padding)",
+  borderRadius: "var(--ct-component-button-primary-rounded)",
   border: "none",
-  background: "rgb(30 98 86)",
-  color: "white",
-  fontWeight: 700,
+  background: "var(--ct-component-button-primary-backgroundColor)",
+  color: "var(--ct-component-button-primary-textColor)",
+  fontWeight: 600,
   cursor: "pointer",
 };
 
 const secondaryButtonStyle: CSSProperties = {
   ...buttonStyle,
-  background: "rgb(232 240 235)",
-  color: "rgb(30 74 67)",
-  border: "1px solid rgb(197 214 206)",
+  background: "var(--ct-component-button-secondary-backgroundColor)",
+  color: "var(--ct-component-button-secondary-textColor)",
+  border: "var(--ct-component-button-secondary-border)",
 };
 
 const monoTextStyle: CSSProperties = {
-  fontFamily: "var(--font-mono)",
+  fontFamily: "var(--ct-typography-mono-fontFamily)",
   overflowWrap: "anywhere",
+  minWidth: 0,
 };
 
 const plainListStyle: CSSProperties = {
@@ -1782,19 +1798,19 @@ const checkboxLabelStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: "0.45rem",
-  color: "rgb(45 82 75)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const statusTextStyle: CSSProperties = {
   margin: "1rem 0 0",
   minHeight: "1.5rem",
-  color: "rgb(45 82 75)",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const errorStyle: CSSProperties = {
   margin: "0.25rem 0 0",
   minHeight: "1.25rem",
-  color: "rgb(147 47 47)",
+  color: "var(--ct-colors-semantic-conflict)",
   fontWeight: 600,
 };
 
@@ -1805,12 +1821,12 @@ const publicErrorStyle: CSSProperties = {
 const errorMessageStyle: CSSProperties = {
   margin: 0,
   minHeight: "1.25rem",
-  color: "rgb(126 45 45)",
+  color: "var(--ct-colors-semantic-conflict)",
 };
 
 const errorDetailStyle: CSSProperties = {
   margin: "0.2rem 0 0",
   minHeight: "1.25rem",
-  color: "rgb(126 45 45)",
+  color: "var(--ct-colors-semantic-conflict)",
   overflowWrap: "anywhere",
 };

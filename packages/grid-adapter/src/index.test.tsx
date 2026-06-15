@@ -191,6 +191,38 @@ describe("grid-adapter", () => {
     expect(onToggleSort).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps rows mounted when the real scroll position exceeds the fixed row-height estimate", async () => {
+    const rows: readonly GridRow<HarnessRow>[] = Array.from(
+      { length: 10 },
+      (_, index) => {
+        const rowNumber = index + 1;
+        return {
+          key: `record-${rowNumber}`,
+          recordId: `record-${rowNumber}`,
+          data: {
+            label: `Row ${rowNumber}`,
+            state: rowNumber === 10 ? "draft-boundary" : "open",
+          },
+          testId: `row-record-${rowNumber}`,
+        };
+      },
+    );
+
+    render(
+      <GridViewport testId="scroll-boundary-grid-shell">
+        <GridTable columns={columns} rows={rows} />
+      </GridViewport>,
+    );
+
+    const grid = (
+      await screen.findByTestId("scroll-boundary-grid-shell")
+    ).querySelector('[role="grid"]') as HTMLElement;
+    grid.scrollTop = 900;
+    fireEvent.scroll(grid);
+
+    expect(screen.getByTestId("row-record-10")).toBeTruthy();
+  });
+
   it("honors explicit data and actions column widths", async () => {
     const rows: readonly GridRow<HarnessRow>[] = [
       {

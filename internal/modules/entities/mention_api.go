@@ -32,7 +32,16 @@ type MentionActionResult struct {
 	SourceRecordID         uuid.UUID
 	SourceRecordRowVersion int64
 	ChangeSetID            uuid.UUID
+	ClientTxnID            string
 	ChangedFieldKeys       []string
+	EntityInvalidations    []MentionEntityInvalidation
+}
+
+type MentionEntityInvalidation struct {
+	RecordID         uuid.UUID
+	RowVersion       int64
+	ViewSchemaID     string
+	ChangedFieldKeys []string
 }
 
 func DecodeMentionActionRequest(reader io.Reader) (MentionActionRequest, *auth.APIError) {

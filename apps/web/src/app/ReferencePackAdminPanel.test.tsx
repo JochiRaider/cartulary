@@ -1,6 +1,7 @@
 import {
   referencePackAdminPanelTestId,
   referencePackCancelButtonTestId,
+  referencePackFileInputTestId,
   referencePackJobStatusTestId,
   referencePackRefreshAllButtonTestId,
   referencePackReloadButtonTestId,
@@ -84,6 +85,15 @@ describe("ReferencePackAdminPanel", () => {
     });
 
     render(<ReferencePackAdminPanel session={session(true)} />);
+    const panel = screen.getByTestId(referencePackAdminPanelTestId());
+    expect(panel.style.background).toBe("var(--ct-colors-surface-2)");
+    expect(panel.style.border).toBe("var(--ct-border-hairline)");
+    expect(panel.style.boxSizing).toBe("border-box");
+    const fileInput = screen.getByTestId(referencePackFileInputTestId());
+    expect(fileInput.style.boxSizing).toBe("border-box");
+    expect(fileInput.style.maxWidth).toBe("100%");
+    expect(fileInput.style.minWidth).toBe("0");
+
     fireEvent.click(screen.getByTestId(referencePackReloadButtonTestId()));
     const packRow = await screen.findByTestId(
       referencePackRowTestId("type_registry.host", "1"),

@@ -6,6 +6,7 @@ import {
 } from "@cartulary/grid-adapter";
 import {
   conflictMarkerTestId,
+  draftCellTestId,
   gridShellTestId,
   rowCellTestId,
   saveStateTestId,
@@ -540,6 +541,80 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     expect(clipboardTextLooksTabular("alpha,beta")).toBe(false);
     expect(clipboardTextLooksTabular("alpha\tbeta")).toBe(true);
     expect(clipboardTextLooksTabular("alpha,beta\ngamma,delta")).toBe(true);
+  });
+
+  it("dispatches single-line CSV pasted into the draft Time cell as a create-row paste", async () => {
+    const existingRows = Array.from({ length: 9 }, (_, index) => {
+      const rowNumber = index + 1;
+      return timelineRow({
+        recordId: `record-${rowNumber}`,
+        rowVersion: 1,
+        occurredAt: `2026-06-${String(rowNumber).padStart(2, "0")}`,
+        summary: `Existing row ${rowNumber}`,
+        captureState: "rough",
+      });
+    });
+    const createdRow = timelineRow({
+      recordId: "record-10",
+      rowVersion: 1,
+      occurredAt: "2026-06-14",
+      summary: "test1",
+      captureState: "rough",
+    });
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: existingRows,
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-draft-csv-paste",
+        rows: [createdRow],
+        conflicts: [],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [...existingRows, createdRow],
+      }),
+    );
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    await screen.findByTestId(saveStateTestId());
+    await waitForVisibleGridRowRecordIds(
+      container,
+      existingRows.map((row) => row.record_id),
+    );
+
+    const draftTime = screen.getByTestId(
+      draftCellTestId("timeline.occurred_at"),
+    );
+    fireEvent.paste(draftTime, {
+      clipboardData: {
+        getData: () => "2026-06-14,test1,host2",
+      },
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+    expect(extractTimelineJSONBody(fetchMock, 1)).toMatchObject({
+      view_schema_id: timelineViewSchemaId,
+      clipboard_text: "2026-06-14,test1,host2",
+      format: "csv",
+      start_field_key: "timeline.occurred_at",
+      columns: [
+        "timeline.occurred_at",
+        "timeline.summary",
+        "timeline.host_refs",
+      ],
+      targets: [{ kind: "create" }],
+    });
   });
 
   it("Phase 9 I-9-GRID-01 rendered paste dispatch uses stable anchors and quote-aware dimensions", async () => {

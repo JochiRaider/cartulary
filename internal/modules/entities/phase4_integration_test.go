@@ -77,6 +77,8 @@ func TestPhase4_ResolveRoute_I_4_01(t *testing.T) {
 
 		socket := phase4test.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.Phase4TimelineViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
+		hostSocket := phase4test.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.Phase4HostsViewSchemaID, adminLogin.SessionCookie.Value)
+		defer hostSocket.Close(1000, "test_complete")
 
 		payload := fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-resolve", golden.Phase4MentionActionResolve, uuidPointer(golden.Phase4CanonicalHostRecordID), nil)
 		resp := phase4test.DoJSON(
@@ -109,6 +111,26 @@ func TestPhase4_ResolveRoute_I_4_01(t *testing.T) {
 		socketPayload := phase4test.RequireRecordChanged(t, socket, golden.Phase4TimelineRecordID.String(), 2)
 		if socketPayload.ChangeSetID != data["change_set_id"] {
 			t.Fatalf("expected websocket to carry the mention action change_set_id, got payload=%#v response=%#v", socketPayload, data)
+		}
+		hostSocketPayload := phase4test.RequireRecordChanged(t, hostSocket, golden.Phase4CanonicalHostRecordID.String(), 1)
+		if hostSocketPayload.ChangeSetID != data["change_set_id"] {
+			t.Fatalf("expected host websocket invalidation to carry the mention action change_set_id, got payload=%#v response=%#v", hostSocketPayload, data)
+		}
+		if !stringSliceContains(hostSocketPayload.ChangedFieldKeys, "host.linked_event_count") {
+			t.Fatalf("expected host linked-event count invalidation, got %#v", hostSocketPayload)
+		}
+		viewLogin := phase4test.LoginResult{
+			SessionCookie: adminLogin.SessionCookie,
+			CSRFCookie:    adminLogin.CSRFCookie,
+		}
+		hostRow := phase4test.FindRow(
+			t,
+			phase4test.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.Phase4HostsViewSchemaID, viewLogin),
+			golden.Phase4CanonicalHostRecordID.String(),
+		)
+		hostCells := hostRow["cells"].(map[string]any)
+		if got := hostCells["host.linked_event_count"].(map[string]any)["value"]; got != float64(1) {
+			t.Fatalf("expected resolved host to expose one linked event, got %#v row=%#v", got, hostRow)
 		}
 
 		replayResp := phase4test.DoJSON(
@@ -2374,6 +2396,15 @@ func queryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 		t.Fatalf("query count: %v", err)
 	}
 	return count
+}
+
+func stringSliceContains(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func lookupIdentityState(t testing.TB, db *sql.DB, recordID uuid.UUID) (string, *uuid.UUID, int64, string) {

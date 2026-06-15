@@ -58,7 +58,18 @@ SELECT
     h.display_name,
     h.hostname,
     h.host_state,
-    0,
+    (
+        SELECT COUNT(*)::integer
+          FROM record_links l
+          JOIN records source_record
+            ON source_record.record_id = l.src_record_id
+           AND source_record.record_type = 'timeline_event'
+           AND source_record.deleted_at IS NULL
+         WHERE l.incident_id = h.incident_id
+           AND l.dst_record_id = h.record_id
+           AND l.link_type = 'observed_on_host'
+           AND l.deleted_at IS NULL
+    ),
     (
         SELECT COUNT(*)::integer
           FROM record_links l
@@ -144,7 +155,18 @@ SELECT
     i.email,
     i.sam_account_name,
     i.identity_state,
-    0,
+    (
+        SELECT COUNT(*)::integer
+          FROM record_links l
+          JOIN records source_record
+            ON source_record.record_id = l.src_record_id
+           AND source_record.record_type = 'timeline_event'
+           AND source_record.deleted_at IS NULL
+         WHERE l.incident_id = i.incident_id
+           AND l.dst_record_id = i.record_id
+           AND l.link_type = 'observed_as_identity'
+           AND l.deleted_at IS NULL
+    ),
     (
         SELECT COUNT(*)::integer
           FROM record_links l

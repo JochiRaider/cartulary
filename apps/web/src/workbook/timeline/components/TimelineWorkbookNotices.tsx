@@ -9,6 +9,27 @@ import type { CSSProperties } from "react";
 import type { TimelinePendingQueueSnapshot } from "../hooks/useTimelinePendingSaves";
 import type { AutoResolutionNotice } from "../models/workbookMentionChips";
 
+export function timelinePendingQueueMessage(
+  pendingQueueSnapshot: TimelinePendingQueueSnapshot,
+): string | null {
+  if (pendingQueueSnapshot.overflowMessage !== null) {
+    return pendingQueueSnapshot.overflowMessage;
+  }
+  if (pendingQueueSnapshot.haltedMessage !== null) {
+    return pendingQueueSnapshot.haltedMessage;
+  }
+  if (pendingQueueSnapshot.authPaused) {
+    return "Authentication is required before queued edits can replay.";
+  }
+  if (
+    pendingQueueSnapshot.queuedCount + pendingQueueSnapshot.inFlightCount >
+    0
+  ) {
+    return "Queued edits are waiting to replay.";
+  }
+  return null;
+}
+
 export function TimelineWorkbookNotices({
   autoResolutionNotices,
   entityIndex,
@@ -25,86 +46,75 @@ export function TimelineWorkbookNotices({
   readonly onUndoAutoResolution: (notice: AutoResolutionNotice) => void;
   readonly pendingQueueSnapshot: TimelinePendingQueueSnapshot;
 }) {
-  const hasPendingQueueNotice =
-    pendingQueueSnapshot.overflowMessage !== null ||
-    pendingQueueSnapshot.haltedMessage !== null ||
-    pendingQueueSnapshot.authPaused ||
-    pendingQueueSnapshot.queuedCount + pendingQueueSnapshot.inFlightCount > 0;
+  const pendingQueueMessage = timelinePendingQueueMessage(pendingQueueSnapshot);
+  const pendingQueueCount =
+    pendingQueueSnapshot.queuedCount + pendingQueueSnapshot.inFlightCount;
+
+  if (autoResolutionNotices.length === 0 && pendingQueueMessage === null) {
+    return null;
+  }
 
   return (
-    <>
-      {autoResolutionNotices.length > 0 ? (
-        <aside style={noticeStackStyle}>
-          {autoResolutionNotices.map((notice) => (
-            <div
-              key={notice.itemRef}
-              data-testid={autoResolutionNoticeTestId(notice.itemRef)}
-              style={noticeCardStyle}
-            >
-              <p style={noticeTitleStyle}>Auto-resolved mention</p>
-              <p style={bodyStyle}>
-                Raw token <strong>{notice.rawText}</strong> matched{" "}
-                <strong>
-                  {entityIndex[notice.resolvedRecordId]?.label ??
-                    notice.rawText}
-                </strong>
-                {notice.matchedAliasText ? (
-                  <>
-                    {" "}
-                    via alias <strong>{notice.matchedAliasText}</strong>
-                  </>
-                ) : null}
-                .
-              </p>
-              <div style={inlineButtonRowStyle}>
-                <button
-                  data-testid={autoResolutionUndoButtonTestId(notice.itemRef)}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    onUndoAutoResolution(notice);
-                  }}
-                >
-                  Undo
-                </button>
-                <button
-                  data-testid={autoResolutionReviewButtonTestId(notice.itemRef)}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    onReviewAutoResolution(notice.rowRecordId, notice.itemRef);
-                  }}
-                >
-                  Review
-                </button>
-              </div>
-            </div>
-          ))}
-        </aside>
-      ) : null}
-
-      {hasPendingQueueNotice ? (
-        <aside
-          data-testid={pendingQueueNoticeTestId()}
-          role="status"
+    <aside aria-label="Workbook notices" style={noticeStackStyle}>
+      {autoResolutionNotices.map((notice) => (
+        <div
+          key={notice.itemRef}
+          data-testid={autoResolutionNoticeTestId(notice.itemRef)}
           style={noticeCardStyle}
         >
-          <p style={noticeTitleStyle}>Queued edits</p>
+          <p style={noticeTitleStyle}>Auto-resolved mention</p>
           <p style={bodyStyle}>
-            {pendingQueueSnapshot.overflowMessage ??
-              pendingQueueSnapshot.haltedMessage ??
-              (pendingQueueSnapshot.authPaused
-                ? "Authentication is required before queued edits can replay."
-                : "Queued edits are waiting to replay.")}
+            Raw token <strong>{notice.rawText}</strong> matched{" "}
+            <strong>
+              {entityIndex[notice.resolvedRecordId]?.label ?? notice.rawText}
+            </strong>
+            {notice.matchedAliasText ? (
+              <>
+                {" "}
+                via alias <strong>{notice.matchedAliasText}</strong>
+              </>
+            ) : null}
+            .
           </p>
-          <p data-testid={pendingQueueCountTestId()} style={bodyStyle}>
-            Pending units:{" "}
-            {pendingQueueSnapshot.queuedCount +
-              pendingQueueSnapshot.inFlightCount}
-          </p>
-        </aside>
+          <div style={inlineButtonRowStyle}>
+            <button
+              data-testid={autoResolutionUndoButtonTestId(notice.itemRef)}
+              style={secondaryActionButtonStyle}
+              type="button"
+              onClick={() => {
+                onUndoAutoResolution(notice);
+              }}
+            >
+              Undo
+            </button>
+            <button
+              data-testid={autoResolutionReviewButtonTestId(notice.itemRef)}
+              style={secondaryActionButtonStyle}
+              type="button"
+              onClick={() => {
+                onReviewAutoResolution(notice.rowRecordId, notice.itemRef);
+              }}
+            >
+              Review
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {pendingQueueMessage !== null ? (
+        <div
+          data-testid={pendingQueueNoticeTestId()}
+          role="status"
+          style={pendingQueueNoticeCardStyle}
+        >
+          <strong style={pendingQueueTitleStyle}>Queued edits</strong>
+          <span style={noticeMessageStyle}>{pendingQueueMessage}</span>
+          <span data-testid={pendingQueueCountTestId()} style={queueCountStyle}>
+            Pending {pendingQueueCount}
+          </span>
+        </div>
       ) : null}
-    </>
+    </aside>
   );
 }
 
@@ -112,6 +122,22 @@ const bodyStyle = {
   margin: 0,
   lineHeight: 1.5,
   color: "var(--ct-colors-ink-muted)",
+  minWidth: 0,
+  overflowWrap: "anywhere" as const,
+} satisfies CSSProperties;
+
+const noticeMessageStyle = {
+  ...bodyStyle,
+  flex: "1 1 auto",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+} satisfies CSSProperties;
+
+const queueCountStyle = {
+  ...bodyStyle,
+  flex: "0 0 auto",
+  whiteSpace: "nowrap" as const,
 } satisfies CSSProperties;
 
 const actionButtonStyle = {
@@ -137,8 +163,11 @@ const inlineButtonRowStyle = {
 
 const noticeStackStyle = {
   display: "grid",
-  gap: "0.75rem",
-  marginBottom: "1rem",
+  gap: "0.5rem",
+  marginBottom: "0.5rem",
+  minWidth: 0,
+  maxBlockSize: "min(8rem, 20vh)",
+  overflowY: "auto",
 } satisfies CSSProperties;
 
 const noticeCardStyle = {
@@ -148,6 +177,27 @@ const noticeCardStyle = {
   padding: "0.85rem 1rem",
   display: "grid",
   gap: "0.5rem",
+  minWidth: 0,
+  alignSelf: "start",
+} satisfies CSSProperties;
+
+const pendingQueueNoticeCardStyle = {
+  borderRadius: "var(--ct-rounded-sm)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  padding: "0.45rem 0.75rem",
+  display: "flex",
+  alignItems: "center",
+  gap: "0.75rem",
+  minWidth: 0,
+  overflow: "hidden",
+} satisfies CSSProperties;
+
+const pendingQueueTitleStyle = {
+  color: "var(--ct-colors-ink)",
+  fontSize: "0.85rem",
+  fontWeight: 650,
+  whiteSpace: "nowrap",
 } satisfies CSSProperties;
 
 const noticeTitleStyle = {

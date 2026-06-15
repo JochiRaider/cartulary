@@ -10,7 +10,14 @@ import {
   referencePackReloadButtonTestId,
   referencePackRowTestId,
 } from "@cartulary/ui-contracts";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   type APIError,
@@ -271,6 +278,7 @@ export function ReferencePackAdminPanel({
         <input
           aria-label="Reference pack bundle file"
           data-testid={referencePackFileInputTestId()}
+          style={fileInputStyle}
           type="file"
           onChange={(event) => {
             setFile(event.currentTarget.files?.[0] ?? null);
@@ -395,11 +403,13 @@ export function ReferencePackAdminPanel({
 }
 
 const panelStyle = {
+  boxSizing: "border-box" as const,
   minWidth: 0,
   padding: "1.25rem",
-  borderRadius: "0.75rem",
-  border: "1px solid rgb(185 204 196 / 0.8)",
-  background: "rgb(255 255 255 / 0.72)",
+  borderRadius: "var(--ct-rounded-lg)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink)",
 };
 
 const panelHeaderStyle = {
@@ -411,7 +421,7 @@ const panelHeaderStyle = {
 
 const eyebrowStyle = {
   margin: 0,
-  color: "rgb(70 96 89)",
+  color: "var(--ct-colors-ink-subtle)",
   fontSize: "0.75rem",
   textTransform: "uppercase" as const,
 };
@@ -426,7 +436,15 @@ const uploadRowStyle = {
   gridTemplateColumns: "minmax(0, 1fr) auto",
   gap: "0.75rem",
   marginTop: "1rem",
+  minWidth: 0,
 };
+
+const fileInputStyle = {
+  boxSizing: "border-box" as const,
+  minWidth: 0,
+  maxWidth: "100%",
+  color: "var(--ct-colors-ink-muted)",
+} satisfies CSSProperties;
 
 const actionBarStyle = {
   display: "flex",
@@ -449,15 +467,17 @@ const packListStyle = {
   display: "grid",
   gap: "0.45rem",
   marginTop: "0.75rem",
+  minWidth: 0,
 };
 
 const packRowStyle = {
   display: "grid",
-  gridTemplateColumns: "minmax(10rem, 1fr) auto auto repeat(3, auto)",
+  gridTemplateColumns: "minmax(0, 1fr) auto auto repeat(3, auto)",
   gap: "0.5rem",
   alignItems: "center",
   minHeight: "2.25rem",
   fontSize: "0.82rem",
+  minWidth: 0,
 };
 
 const packLabelStyle = {
@@ -468,29 +488,31 @@ const packLabelStyle = {
 };
 
 const buttonStyle = {
-  border: "1px solid rgb(139 165 157)",
-  borderRadius: "0.45rem",
-  background: "rgb(255 255 255)",
-  padding: "0.45rem 0.65rem",
+  border: "var(--ct-component-button-secondary-border)",
+  borderRadius: "var(--ct-component-button-secondary-rounded)",
+  background: "var(--ct-component-button-secondary-backgroundColor)",
+  color: "var(--ct-component-button-secondary-textColor)",
+  padding: "var(--ct-component-button-secondary-padding)",
   cursor: "pointer",
 };
 
 const primaryButtonStyle = {
   ...buttonStyle,
-  color: "white",
-  borderColor: "rgb(22 95 75)",
-  background: "rgb(22 95 75)",
+  border: "none",
+  color: "var(--ct-component-button-primary-textColor)",
+  background: "var(--ct-component-button-primary-backgroundColor)",
+  padding: "var(--ct-component-button-primary-padding)",
 };
 
 const errorStyle = {
   minHeight: "1.25rem",
   margin: "0.75rem 0 0",
-  color: "rgb(142 45 36)",
+  color: "var(--ct-colors-semantic-conflict)",
   fontSize: "0.82rem",
 };
 
 const emptyStyle = {
   margin: "0.5rem 0 0",
-  color: "rgb(70 96 89)",
+  color: "var(--ct-colors-ink-muted)",
   fontSize: "0.82rem",
 };

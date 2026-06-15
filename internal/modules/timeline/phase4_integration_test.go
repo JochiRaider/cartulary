@@ -1001,6 +1001,9 @@ UPDATE incident_memberships
 		if identityEmail != "vpn.user@example.test" {
 			t.Fatalf("expected created identity query row to expose the mention email, got %#v", identityRow)
 		}
+		if got := identityCells["identity.linked_event_count"].(map[string]any)["value"]; got != float64(1) {
+			t.Fatalf("expected created identity to expose one linked event, got %#v row=%#v", got, identityRow)
+		}
 	})
 
 	t.Run("client supplied confidence is rejected without side effects", func(t *testing.T) {

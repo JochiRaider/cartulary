@@ -39,12 +39,14 @@ export const statusStripStyle = {
   display: "flex",
   alignItems: "center",
   gap: "0.8rem",
+  minWidth: 0,
   minHeight: "var(--ct-layout-statusStripHeight)",
   padding: "0 1rem",
   borderTop: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-1)",
   color: "var(--ct-colors-ink-muted)",
   fontSize: "0.82rem",
+  overflow: "hidden",
 } satisfies CSSProperties;
 
 export const statusStripItemStyle = {
@@ -61,10 +63,13 @@ export const statusStripMutedItemStyle = {
 
 export const statusStripSecondaryItemStyle = {
   ...statusStripMutedItemStyle,
+  display: "block",
+  flex: "0 1 min(34rem, 42vw)",
   minWidth: 0,
   maxWidth: "min(34rem, 42vw)",
   overflow: "hidden",
   textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 } satisfies CSSProperties;
 
 export const statusStripSpacerStyle = {

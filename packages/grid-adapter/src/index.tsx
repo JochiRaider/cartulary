@@ -78,9 +78,7 @@ const defaultActionsColumnMinWidth = 144;
 const defaultActionsColumnWidth = 176;
 const defaultRowGutterMinWidth = 48;
 const defaultRowGutterWidth = 56;
-const defaultGridClientHeight = 720;
 const gridHeaderHeight = 32;
-const gridVirtualizationOverscanRows = 3;
 const gridDensityMetrics = {
   compact: {
     cellPaddingVar: "--ct-density-compact-cellPadding",
@@ -593,63 +591,14 @@ function buildGridTemplateColumns<Row>(
 }
 
 function buildVirtualizedRows<Row>({
-  clientHeight,
-  density,
   rows,
-  scrollTop,
 }: BuildVirtualizedRowsProps<Row>): VirtualizedRows<Row> {
-  if (rows.length === 0) {
-    return {
-      items: [],
-    };
-  }
-
-  const bodyViewportTop = Math.max(0, scrollTop - gridHeaderHeight);
-  const effectiveClientHeight =
-    clientHeight > 0 ? clientHeight : defaultGridClientHeight;
-  const dataRowHeight = rowHeightForDensity(density);
-  const overscanPx = dataRowHeight * gridVirtualizationOverscanRows;
-  const windowTop = Math.max(0, bodyViewportTop - overscanPx);
-  const windowBottom = bodyViewportTop + effectiveClientHeight + overscanPx;
-  const items: VirtualizedRowItem<Row>[] = [];
-  let pendingSpacerHeight = 0;
-  let offsetTop = 0;
-  let spacerIndex = 0;
-
-  for (const row of rows) {
-    const height = gridPresentationRowHeight(row, density);
-    const rowTop = offsetTop;
-    const rowBottom = rowTop + height;
-    const shouldMount =
-      (rowBottom >= windowTop && rowTop <= windowBottom) ||
-      (row.kind === "data" && row.gridRow.selected === true);
-    if (shouldMount) {
-      if (pendingSpacerHeight > 0) {
-        items.push({
-          height: pendingSpacerHeight,
-          key: `spacer-${spacerIndex}`,
-          kind: "spacer",
-        });
-        spacerIndex += 1;
-        pendingSpacerHeight = 0;
-      }
-      items.push({ key: row.key, kind: "row", row });
-    } else {
-      pendingSpacerHeight += height;
-    }
-    offsetTop = rowBottom;
-  }
-
-  if (pendingSpacerHeight > 0) {
-    items.push({
-      height: pendingSpacerHeight,
-      key: `spacer-${spacerIndex}`,
-      kind: "spacer",
-    });
-  }
-
+  // Timeline rows can be taller than the density row-height token because
+  // relationship chips and editors wrap. Until the adapter owns measured row
+  // virtualization, keep rows mounted so high real scroll positions cannot
+  // unmount the active draft row.
   return {
-    items,
+    items: rows.map((row) => ({ key: row.key, kind: "row", row })),
   };
 }
 

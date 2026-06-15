@@ -268,7 +268,11 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, 'rough', 1, $4, $4, $3, $3)
 `, current.RecordID, incidentID, actor.ID, now.UTC(), current.OccurredAt, current.Summary, current.Details, current.SourceText, rawCaptureJSON); err != nil {
 		return clipboardAppliedRow{}, fmt.Errorf("insert clipboard paste timeline row: %w", err)
 	}
-	if err := applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, current.RecordID, rowPlan.Cells, originKind, now.UTC()); err != nil {
+	mentionProjectionRefresh, err := applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, current.RecordID, rowPlan.Cells, originKind, now.UTC())
+	if err != nil {
+		return clipboardAppliedRow{}, err
+	}
+	if err := s.rebuildMentionEntityProjectionsTx(ctx, tx, current.IncidentID, mentionProjectionRefresh); err != nil {
 		return clipboardAppliedRow{}, err
 	}
 	tagMutations, err := applyPasteTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, rowPlan.Cells, now.UTC())
@@ -355,7 +359,11 @@ func (s *Store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor
 	evidenceChanged := pasteCellsIncludeField(acceptedCells, "timeline.attached_evidence_ids")
 	materialChanged := hasMaterialChange(current, next)
 	if mentionChanged {
-		if err := applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, acceptedCells, originKind, now.UTC()); err != nil {
+		mentionProjectionRefresh, err := applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, acceptedCells, originKind, now.UTC())
+		if err != nil {
+			return clipboardAppliedRow{}, nil, err
+		}
+		if err := s.rebuildMentionEntityProjectionsTx(ctx, tx, current.IncidentID, mentionProjectionRefresh); err != nil {
 			return clipboardAppliedRow{}, nil, err
 		}
 	}
@@ -457,7 +465,8 @@ func pasteCellsIncludeField(cells []clipboardPasteCell, fieldKey string) bool {
 	})
 }
 
-func applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, cells []clipboardPasteCell, originKind string, now time.Time) error {
+func applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, cells []clipboardPasteCell, originKind string, now time.Time) (mentionProjectionRefresh, error) {
+	var refresh mentionProjectionRefresh
 	for _, cell := range cells {
 		if cell.Change.ActionPayload == nil || (cell.FieldKey != "timeline.host_refs" && cell.FieldKey != "timeline.identity_refs") {
 			continue
@@ -466,14 +475,18 @@ func applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.User
 		if cell.FieldKey == "timeline.identity_refs" {
 			entityType = "identity"
 		}
-		if err := insertMentionActionsTx(ctx, tx, actor.ID, incidentID, recordID, cell.FieldKey, entityType, cell.Change.ActionPayload, mentionInsertOptions{
+		linked, err := insertMentionActionsTx(ctx, tx, actor.ID, incidentID, recordID, cell.FieldKey, entityType, cell.Change.ActionPayload, mentionInsertOptions{
 			allowInteractiveAutoResolution: true,
 			originKind:                     originKind,
-		}, now); err != nil {
-			return err
+		}, now)
+		if err != nil {
+			return mentionProjectionRefresh{}, err
+		}
+		if linked {
+			refresh.include(cell.FieldKey)
 		}
 	}
-	return nil
+	return refresh, nil
 }
 
 func applyPasteTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, cells []clipboardPasteCell, now time.Time) ([]recordTagMutation, error) {
