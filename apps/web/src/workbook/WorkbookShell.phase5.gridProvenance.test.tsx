@@ -6,6 +6,7 @@ import {
   gridShellTestId,
   rowCellTestId,
   surfaceTabTestId,
+  workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
 import {
   normalizeViewRowV1,
@@ -354,6 +355,9 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       screen.getByTestId(rowCellTestId("host-1", "host.aliases")).textContent,
     ).toContain("VPN Gateway");
 
+    fireEvent.click(
+      screen.getByTestId(workbookInspectorToggleTestId(hostsViewSchemaId)),
+    );
     fireEvent.change(
       screen.getByTestId(genericEditRecordSelectTestId(hostsViewSchemaId)),
       { target: { value: "host-1" } },
@@ -403,6 +407,9 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
         .textContent,
     ).toContain("Analyst Alex");
 
+    fireEvent.click(
+      screen.getByTestId(workbookInspectorToggleTestId(identitiesViewSchemaId)),
+    );
     fireEvent.change(
       screen.getByTestId(genericEditRecordSelectTestId(identitiesViewSchemaId)),
       { target: { value: "identity-1" } },
@@ -478,6 +485,9 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       itemKind: "unresolved_mention",
       resolvedRecordId: null,
     });
+    fireEvent.click(
+      screen.getByTestId(workbookInspectorToggleTestId(notesViewSchemaId)),
+    );
     fireEvent.change(
       screen.getByTestId(genericEditRecordSelectTestId(notesViewSchemaId)),
       { target: { value: "note-1" } },

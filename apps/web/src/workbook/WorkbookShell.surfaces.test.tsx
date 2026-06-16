@@ -27,6 +27,7 @@ import {
   systemViewSwitcherGroupTestId,
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
+  workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
@@ -1259,6 +1260,11 @@ describe("WorkbookShell surface selection", () => {
 
     render(<WorkbookShell incidentId="incident-1" />);
 
+    fireEvent.click(
+      await screen.findByTestId(
+        workbookInspectorToggleTestId(taskRequestsViewSchemaId),
+      ),
+    );
     fireEvent.change(
       await screen.findByTestId(
         genericEditRecordSelectTestId(taskRequestsViewSchemaId),
@@ -1344,6 +1350,11 @@ describe("WorkbookShell surface selection", () => {
 
     render(<WorkbookShell incidentId="incident-1" />);
 
+    fireEvent.click(
+      await screen.findByTestId(
+        workbookInspectorToggleTestId(taskRequestsViewSchemaId),
+      ),
+    );
     fireEvent.change(
       await screen.findByTestId(
         genericEditRecordSelectTestId(taskRequestsViewSchemaId),

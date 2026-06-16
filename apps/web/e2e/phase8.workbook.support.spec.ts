@@ -32,6 +32,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
+import { clickTimelineRowAction } from "./phase4Helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
@@ -63,9 +64,11 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     page.getByTestId(rowCellTestId(alpha.record_id, "timeline.summary")),
   ).toHaveValue("Alpha support FE-B");
 
-  await page
-    .getByTestId(timelineRowMarkReviewedButtonTestId(beta.record_id))
-    .click();
+  await clickTimelineRowAction(
+    page,
+    beta.record_id,
+    timelineRowMarkReviewedButtonTestId(beta.record_id),
+  );
   await expect(
     page.getByTestId(rowCellTestId(beta.record_id, "timeline.capture_state")),
   ).toHaveText("reviewed");

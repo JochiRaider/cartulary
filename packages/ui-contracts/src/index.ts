@@ -496,6 +496,42 @@ export function workbookShellSlotLabel(slot: WorkbookShellSlot): string {
   return workbookShellSlotLabels[requireWorkbookShellSlot(slot)];
 }
 
+export function workbookAddRowButtonTestId(
+  viewSchemaId: WorkbookSurface,
+): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "add-row"));
+}
+
+export function workbookInspectorToggleTestId(
+  viewSchemaId: WorkbookSurface,
+): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "inspector-toggle"));
+}
+
+export function workbookInspectorCloseButtonTestId(
+  viewSchemaId: WorkbookSurface,
+): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "inspector-close"));
+}
+
+export function workbookInlineDraftRowTestId(
+  viewSchemaId: WorkbookSurface,
+): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "inline-draft-row"));
+}
+
+export function workbookRowActionMenuButtonTestId(
+  viewSchemaId: WorkbookSurface,
+  recordId: string,
+): StableTestId {
+  return stableTestId(
+    viewFirstTestId(
+      viewSchemaId,
+      `row-action-menu-${requireRecordId(recordId)}`,
+    ),
+  );
+}
+
 export function timelineMutationSubstrateReadyTestId(): string {
   return "timeline-mutation-substrate-ready";
 }

@@ -1,6 +1,7 @@
 import { applyFilterChip, removeFilterChip } from "@cartulary/test-utils";
 import {
   rowCellTestId,
+  workbookAddRowButtonTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 
@@ -44,6 +45,9 @@ test("E-4-05 creates append-only assessment history through the workbook UI", as
     )}`,
   );
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await page
+    .getByTestId(workbookAddRowButtonTestId(assessmentsViewSchemaId))
+    .click();
   await expect(page.getByTestId("assessment-create-panel")).toBeVisible();
   await expect(page.getByTestId("assessment-create-subject")).toHaveValue(
     subject.record_id,

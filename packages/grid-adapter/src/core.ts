@@ -71,8 +71,11 @@ export type GridActionsColumn<Row> = {
   readonly width?: number | undefined;
 };
 
+export type GridChrome = "sheet" | "framed";
+
 export type GridViewportProps = PropsWithChildren<{
   readonly className?: string | undefined;
+  readonly chrome?: GridChrome | undefined;
   readonly style?: CSSProperties | undefined;
   readonly testId?: string | undefined;
 }>;

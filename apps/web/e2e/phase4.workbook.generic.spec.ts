@@ -3,6 +3,7 @@ import {
   genericCreateSubmitTestId,
   gridShellTestId,
   rowCellTestId,
+  workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
@@ -431,6 +432,7 @@ async function openGenericSurface(
   );
   void heading;
   await expect(page.getByTestId(gridShellTestId(viewSchemaId))).toBeVisible();
+  await page.getByTestId(workbookInspectorToggleTestId(viewSchemaId)).click();
 }
 
 async function expectGenericCreateMinimum(
@@ -461,5 +463,5 @@ async function setGenericCreateField(
 async function waitForGenericOption(page: Page, testId: string, value: string) {
   await expect(
     page.getByTestId(testId).locator(`option[value="${value}"]`),
-  ).toHaveCount(1);
+  ).toHaveCount(1, { timeout: 15_000 });
 }

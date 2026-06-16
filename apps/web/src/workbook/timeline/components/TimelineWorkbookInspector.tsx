@@ -1,4 +1,7 @@
+import { workbookInspectorCloseButtonTestId } from "@cartulary/ui-contracts";
+import { X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { InspectorMention } from "../models/workbookMentionChips";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 import type { MentionResolutionAction } from "../services/workbookShellPhase4";
@@ -20,6 +23,7 @@ export function TimelineWorkbookInspector({
   onResolveTargetChange,
   onSelectMention,
   onSetInspectorMessage,
+  onClose,
   onSubmitMentionAction,
   renderEvidenceAttachSection,
   renderInspectorFieldEditors,
@@ -43,6 +47,7 @@ export function TimelineWorkbookInspector({
   readonly onResolveTargetChange: (value: string) => void;
   readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
   readonly onSetInspectorMessage: (message: string) => void;
+  readonly onClose: () => void;
   readonly onSubmitMentionAction: (
     mention: InspectorMention,
     action: MentionResolutionAction,
@@ -63,15 +68,22 @@ export function TimelineWorkbookInspector({
       style={inspectorShellStyle}
     >
       <div style={inspectorHeaderStyle}>
-        <p style={eyebrowStyle}>Inspector</p>
+        <div style={inspectorTopRowStyle}>
+          <p style={eyebrowStyle}>Inspector</p>
+          <button
+            aria-label="Close inspector"
+            data-testid={workbookInspectorCloseButtonTestId(
+              timelineViewSchemaId,
+            )}
+            style={closeButtonStyle}
+            type="button"
+            onClick={onClose}
+          >
+            <X aria-hidden="true" size={16} />
+          </button>
+        </div>
         <h2 style={inspectorTitleStyle}>
-          {selectedRow?.recordId
-            ? `Timeline row ${selectedRow.recordId}`
-            : currentHistoryDeleted && rowHistoryRecordId
-              ? `Deleted row ${rowHistoryRecordId}`
-              : draftRow
-                ? "Draft timeline row"
-                : "Select a saved row"}
+          {inspectorTitle(selectedRow, draftRow, currentHistoryDeleted)}
         </h2>
       </div>
       {selectedRow?.recordId ? (
@@ -115,6 +127,23 @@ export function TimelineWorkbookInspector({
   );
 }
 
+function inspectorTitle(
+  selectedRow: WorkbookRow | null,
+  draftRow: WorkbookRow | null,
+  currentHistoryDeleted: boolean,
+) {
+  if (selectedRow?.recordId) {
+    return selectedRow.values.summary.trim() || "Selected timeline row";
+  }
+  if (currentHistoryDeleted) {
+    return "Deleted timeline row";
+  }
+  if (draftRow) {
+    return "Draft timeline row";
+  }
+  return "Select a saved row";
+}
+
 function InspectorMessage({ message }: { readonly message: string | null }) {
   return message ? (
     <p data-testid="timeline-inspector-message" style={bodyStyle}>
@@ -156,7 +185,27 @@ const inspectorHeaderStyle = {
   marginBottom: "1rem",
 } satisfies CSSProperties;
 
+const inspectorTopRowStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.5rem",
+} satisfies CSSProperties;
+
 const inspectorTitleStyle = {
   margin: 0,
   fontSize: "1.25rem",
+} satisfies CSSProperties;
+
+const closeButtonStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  inlineSize: "1.8rem",
+  blockSize: "1.8rem",
+  borderRadius: "var(--ct-rounded-sm)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink-muted)",
+  cursor: "pointer",
 } satisfies CSSProperties;

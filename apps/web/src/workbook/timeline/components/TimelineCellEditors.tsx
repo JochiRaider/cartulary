@@ -213,7 +213,7 @@ export function DraftRowCreateButton({
       }}
       onMouseDown={createBlankRow}
     >
-      Create blank row
+      Commit row
     </button>
   );
 }

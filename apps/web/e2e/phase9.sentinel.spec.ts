@@ -28,6 +28,8 @@ import {
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   timelineMutationSubstrateReadyTestId,
+  workbookAddRowButtonTestId,
+  workbookInspectorToggleTestId,
   workbookShellReadyTestId,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
@@ -228,7 +230,6 @@ test("Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
     `${timelineViewSchemaId}:${seed.record_id}:timeline.summary`,
   );
-  await expect(page.getByText(`Timeline row ${seed.record_id}`)).toBeVisible();
   await expect(
     page.getByTestId(
       rowCellTestId(seed.record_id as string, "timeline.summary"),
@@ -418,11 +419,14 @@ test("Phase 9 E-9-03 Notes tab creates artifact-backed linked notes", async ({
   await expect(
     page.getByTestId(gridShellTestId(notesViewSchemaId)),
   ).toBeVisible();
+  await page
+    .getByTestId(workbookInspectorToggleTestId(notesViewSchemaId))
+    .click();
   await expect(
     page
       .getByTestId("generic-create-note-source-record")
       .locator(`option[value="${source.record_id}"]`),
-  ).toHaveCount(1);
+  ).toHaveCount(1, { timeout: 15_000 });
   await page
     .getByTestId("generic-create-field-note.title")
     .fill("Phase 9 E-9-03 linked note");
@@ -977,6 +981,9 @@ test("Phase 9 E-9-05 assessment workflow keeps invalid timestamp drafts local", 
     )}`,
   );
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await page
+    .getByTestId(workbookAddRowButtonTestId(assessmentsViewSchemaId))
+    .click();
   await expect(page.getByTestId("assessment-create-panel")).toBeVisible();
   await expect(page.getByTestId("assessment-create-subject")).toHaveValue(
     subjectA.record_id as string,
@@ -2547,6 +2554,7 @@ async function openGenericSurface(
   );
   void heading;
   await expect(page.getByTestId(gridShellTestId(viewSchemaId))).toBeVisible();
+  await page.getByTestId(workbookInspectorToggleTestId(viewSchemaId)).click();
 }
 
 async function setPhase9GenericCreateField(
@@ -2579,6 +2587,7 @@ async function editPhase9GenericCell(
   fieldKey: string,
   value: string | string[],
 ) {
+  await page.getByTestId(workbookInspectorToggleTestId(viewSchemaId)).click();
   await page
     .getByTestId(genericEditRecordSelectTestId(viewSchemaId))
     .selectOption(recordId);
@@ -2619,7 +2628,7 @@ async function waitForPhase9GenericOption(
 ) {
   await expect(
     page.getByTestId(testId).locator(`option[value="${value}"]`),
-  ).toHaveCount(1);
+  ).toHaveCount(1, { timeout: 15_000 });
 }
 
 async function setGenericGridScroll(page: Page, viewSchemaId: string) {

@@ -151,19 +151,19 @@ A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to stat
 
 ### 5.1 Shell regions
 
-*Design direction.* The application shell MUST keep the workbook surface, active surface identity, saved-view controls, inspector, presence, save state, and status state in one continuous workspace.
+*Design direction.* The application shell MUST keep the workbook surface, active surface identity, saved-view controls, explicit inspector controls, presence, save state, and status state in one continuous workspace.
 
 *Design direction.* All rows in the following table inherit `*Design direction.*`.
 
 | Region       | Required contents                                                                                       | Boundary                              |
 | ------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | Top bar      | Incident identity, built-in tabs, `System views` switcher, current system-view title, presence summary. | Persistent chrome, not a dashboard.   |
-| View bar     | Active view selector, saved-view selector, sort, group, filters, active chips.                          | Belongs to active surface only.       |
+| View bar     | Compact sheet toolbar with active view selector, saved-view selector, sort, group, filters, active chips, inspector opener, and add-row control when allowed. | Belongs to active surface only.       |
 | Grid         | Active workbook surface with `record_id`-bound rows and `field_key`-bound cells.                        | Primary work surface.                 |
-| Inspector    | Details, Relationships, Evidence, History.                                                              | Adjacent and secondary.               |
+| Inspector    | Details, Relationships, Evidence, History, destructive and specialized row actions.                     | Closed by default; adjacent or overlay secondary surface only after explicit open. |
 | Status strip | Save state, secondary same-surface message, presence summary or overflow.                               | Capacity-limited working-state strip. |
 
-*Design direction.* The default Timeline route MUST be grid-first: the first-viewport composition centers the active Timeline grid, view bar, inspector, and status strip. Incident summary, bootstrap defaults, membership management, promoted-field patch forms, or other incident administration controls MUST NOT appear as a dominant card stack above the active grid unless the user explicitly opens a secondary incident-control surface or navigates to a distinct administration context.
+*Design direction.* The default Timeline route MUST be grid-first: the first-viewport composition centers the active Timeline grid, compact sheet toolbar, explicit inspector opener, bottom draft row when creation is allowed, and status strip. The inspector MUST be closed by default and MUST open only through explicit controls such as the toolbar inspector control, row action menu, history action, mention action, or equivalent keyboard-accessible command. Incident summary, bootstrap defaults, membership management, promoted-field patch forms, or other incident administration controls MUST NOT appear as a dominant card stack above the active grid unless the user explicitly opens a secondary incident-control surface or navigates to a distinct administration context.
 
 ### 5.2 Surface composition in the shell
 
@@ -219,22 +219,18 @@ A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to stat
 | Incident: INC-2026-0418   [Timeline] [Hosts] [Identities] [Evidence] [Notes]   |
 |                            [System views ▾: Task Requests]   Presence: A B +3  |
 +--------------------------------------------------------------------------------+
-| View: Default ▾   Saved views ▾   Sort ▾   Group ▾   Filters: status=open x    |
+| View: Default ▾   Saved views ▾   Sort ▾   Group ▾   Filter ▾  Inspector  Add  |
 +--------------------------------------------------------------------------------+
 | Grid: active workbook surface                                                  |
 | record_id-bound rows and field_key-bound cells                                 |
 |                                                                                |
-|                                                        +-------------------+   |
-|                                                        | Inspector [pin] x |   |
-|                                                        | Details           |   |
-|                                                        | Relationships     |   |
-|                                                        | Evidence          |   |
-|                                                        | History           |   |
-|                                                        +-------------------+   |
+| Bottom draft row appears inside the grid when ordinary creation is allowed.     |
 +--------------------------------------------------------------------------------+
 | Saved | Queue 0 | Presence 5 | More status ▾                                   |
 +--------------------------------------------------------------------------------+
 ```
+
+When opened explicitly, the inspector is mounted adjacent to the grid at base viewport and exposes Details, Relationships, Evidence, History, and specialized row actions without replacing ordinary grid editing.
 
 ### 5.7 Status-strip density budget
 
@@ -261,7 +257,7 @@ A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to stat
 - **R2-AC-019:** Required system views are grouped and ordered exactly as §5.3 states.
 - **R2-AC-020:** Saved views appear in the active surface’s view selector, not as primary tabs.
 - **R2-AC-021:** The guide rejects all-fourteen-tabs, command-palette-only system-view access, and separate coordination modules for the base design.
-- **R2-AC-022:** The wireframe and §5.1 show the tab strip, system-view switcher, view selector, grid, inspector, status strip, and grid-first Timeline default with no dominant administration card stack above the active grid.
+- **R2-AC-022:** The wireframe and §5.1 show the tab strip, system-view switcher, compact sheet toolbar, grid, explicit inspector opener, status strip, and grid-first Timeline default with no dominant administration card stack above the active grid.
 - **R2-AC-023:** §5.7 defines exactly three status-strip slots.
 - **R2-AC-024:** The primary slot permits exactly one save-state label.
 - **R2-AC-025:** Overflow uses a same-surface overflow affordance rather than silently dropping messages.
@@ -471,6 +467,8 @@ A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to stat
 ### 8.4 Inspector contract
 
 *Design direction.* The inspector is an adjacent, secondary surface for enrichment, relationships, evidence, history, and destructive actions. It MUST NOT replace direct grid editing for ordinary capture.
+
+*Design direction.* The inspector MUST be closed by default on workbook surfaces. Selecting a row or cell MUST select or focus only; it MUST NOT open the inspector unless the user activates an explicit inspector, row action, history, mention, evidence, or equivalent command.
 
 *Design direction.* The inspector owns detail editing that would clutter the grid, relationship review, evidence preview and attachment detail, row history, rollback affordances, and destructive confirmations.
 

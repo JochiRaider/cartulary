@@ -101,6 +101,61 @@ func TestPhase4_BindingMode_U_4_01(t *testing.T) {
 	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, identityResult.RecordID); got != 0 {
 		t.Fatalf("identity entity_origin write must not synthesize mentions, got %d", got)
 	}
+
+	phase4storetest.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, entityResult.RecordID, "host", "Import Host Alias")
+	phase4storetest.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, identityResult.RecordID, "identity", "Import Identity Alias")
+	importHostNormalizedToken, ok := fieldnorm.NormalizeMentionToken(" import   host alias ")
+	if !ok {
+		t.Fatal("normalize import host mention token")
+	}
+	importIdentityNormalizedToken, ok := fieldnorm.NormalizeMentionToken(" import   identity alias ")
+	if !ok {
+		t.Fatal("normalize import identity mention token")
+	}
+	importRequest := CreateRequest{
+		ClientTxnID: "txn-phase4-u-4-01-import-row",
+		Summary:     stringPtr("Import create preserves mention tokens"),
+		HostRefs: &CollectionActionPayload{Actions: []CollectionAction{{
+			Op:             "add_token",
+			RawText:        " import   host alias ",
+			NormalizedText: importHostNormalizedToken,
+		}}},
+		IdentityRefs: &CollectionActionPayload{Actions: []CollectionAction{{
+			Op:             "add_token",
+			RawText:        " import   identity alias ",
+			NormalizedText: importIdentityNormalizedToken,
+		}}},
+	}
+	importResult, err := timelineStore.CreateImportedRow(context.Background(), actor, incident.ID, importRequest, TimelineCreateRequestHash(importRequest), "req-phase4-u-4-01-import-row", time.Now().UTC())
+	if err != nil {
+		t.Fatalf("import create row: %v", err)
+	}
+	importRow := importResult.Payload["row"].(map[string]any)
+	importHostItem := phase4storetest.RequireSingleCollectionItem(t, importRow, golden.Phase4FieldTimelineHostRefs)
+	if importHostItem["item_kind"] != "unresolved_mention" || importHostItem["resolved_record_id"] != nil {
+		t.Fatalf("import host token must remain unresolved, got %#v", importHostItem)
+	}
+	if _, ok := importHostItem["provenance"]; ok {
+		t.Fatalf("import host token must not surface auto-match provenance, got %#v", importHostItem)
+	}
+	importIdentityItem := phase4storetest.RequireSingleCollectionItem(t, importRow, golden.Phase4FieldTimelineIdentityRefs)
+	if importIdentityItem["item_kind"] != "unresolved_mention" || importIdentityItem["resolved_record_id"] != nil {
+		t.Fatalf("import identity token must remain unresolved, got %#v", importIdentityItem)
+	}
+	if _, ok := importIdentityItem["provenance"]; ok {
+		t.Fatalf("import identity token must not surface auto-match provenance, got %#v", importIdentityItem)
+	}
+	importHostMention := phase4storetest.LookupMention(t, harness.DB, phase4storetest.MentionIDFromItemRef(t, importHostItem["item_ref"].(string)))
+	if importHostMention.ResolutionStatus != golden.Phase4MentionStatusUnresolved || importHostMention.ResolvedRecordID != nil || importHostMention.ResolutionMethod != nil {
+		t.Fatalf("import host mention must remain unresolved, got %#v", importHostMention)
+	}
+	importIdentityMention := phase4storetest.LookupMention(t, harness.DB, phase4storetest.MentionIDFromItemRef(t, importIdentityItem["item_ref"].(string)))
+	if importIdentityMention.ResolutionStatus != golden.Phase4MentionStatusUnresolved || importIdentityMention.ResolvedRecordID != nil || importIdentityMention.ResolutionMethod != nil {
+		t.Fatalf("import identity mention must remain unresolved, got %#v", importIdentityMention)
+	}
+	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE src_record_id = $1 AND deleted_at IS NULL`, importResult.RecordID); got != 0 {
+		t.Fatalf("import create must not create auto-match links, got %d", got)
+	}
 }
 
 // U-4-02 / REQ-02-031..REQ-02-032, REQ-02-058 / AC-019, AC-021.

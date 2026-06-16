@@ -14,7 +14,7 @@
         "FE-V-P2-01",
         "FE-V-P9-01"
       ],
-      "playwright_scenario_title": "FE-V-P2-01 Capture Default Timeline workbook shell with top bar, view bar, dense Timeline grid, row-context inspector, and status strip.",
+      "playwright_scenario_title": "FE-V-P2-01 Capture Default Timeline workbook shell with top bar, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-timeline-workbook-shell-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-timeline-workbook-shell-linux.png",
@@ -39,7 +39,7 @@
       },
       "focus_state": {
         "kind": "fixture_specific",
-        "description": "Selected Timeline row with the Summary cell focused before the fixed first-viewport screenshot capture."
+        "description": "Selected Timeline row with the Summary cell focused before the fixed first-viewport screenshot capture; row or cell selection does not open the inspector."
       },
       "editor_state": {
         "kind": "fixture_specific",
@@ -47,7 +47,7 @@
       },
       "inspector_state": {
         "kind": "fixture_specific",
-        "description": "Adjacent row-context Timeline inspector open with Details, Relationships, Evidence, and History sections visible; FE-P9 supporting artifacts additionally capture history, rollback preview, destructive confirmation, and public error states."
+        "description": "Default shell capture has the inspector collapsed with an explicit opener visible; FE-P9 supporting artifacts explicitly open the inspector for relationships, history, rollback preview, destructive confirmation, and public error states."
       },
       "dynamic_masks": [
         "incident identifiers",

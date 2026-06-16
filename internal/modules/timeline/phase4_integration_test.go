@@ -191,6 +191,90 @@ SELECT COUNT(*)
 		}
 	})
 
+	t.Run("create route auto resolves eligible host and identity tokens", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-u-4-08-create-auto-match")
+		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-u-4-08-create-incident",
+			"incident_key":  "IR-PHASE4-U408-CREATE",
+			"title":         "Phase 4 I-4-08 create auto match",
+		})
+		incidentID := incident["incident_id"].(string)
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Create Host", "create-host")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "Create Host Alias")
+		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalIdentityID, "Create Identity", "create.identity@example.test", "create.identity@example.test", "CREATEID")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalIdentityID, "identity", "Create Identity Alias")
+
+		resp := doPhase3JSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id":    "txn-phase4-u-4-08-create-row",
+				"timeline.summary": "Create auto-match row",
+				golden.Phase4FieldTimelineHostRefs: fixtures.CollectionActions(
+					fixtures.AddTokenAction(" create   host alias "),
+				),
+				golden.Phase4FieldTimelineIdentityRefs: fixtures.CollectionActions(
+					fixtures.AddTokenAction(" create   identity alias "),
+				),
+			},
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusCreated)["data"].(map[string]any)
+		row := data["row"].(map[string]any)
+		recordID := row["record_id"].(string)
+		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-phase4-u-4-08-create-row", 1, 1)
+
+		hostLink := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.Phase4CanonicalHostRecordID, "observed_on_host")
+		assertx.RequireActiveLink(
+			t,
+			hostLink,
+			mustUUID(t, recordID),
+			golden.Phase4CanonicalHostRecordID,
+			"observed_on_host",
+			golden.Phase4AutoMatchLinkExpectation.Provenance,
+			golden.Phase4AutoMatchLinkExpectation.Confidence,
+		)
+		identityLink := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.Phase4CanonicalIdentityID, "observed_as_identity")
+		assertx.RequireActiveLink(
+			t,
+			identityLink,
+			mustUUID(t, recordID),
+			golden.Phase4CanonicalIdentityID,
+			"observed_as_identity",
+			golden.Phase4AutoMatchLinkExpectation.Provenance,
+			golden.Phase4AutoMatchLinkExpectation.Confidence,
+		)
+
+		hostItem := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
+		if hostItem["item_kind"] != "resolved_ref" || hostItem["resolved_record_id"] != golden.Phase4CanonicalHostRecordID.String() || hostItem["resolution_method"] != golden.Phase4LinkProvenanceAutoMatch || hostItem["auto_resolved"] != true {
+			t.Fatalf("expected create host token to auto-resolve, got %#v", hostItem)
+		}
+		if hostItem["raw_text"] != " create   host alias " || hostItem["matched_alias_text"] != "Create Host Alias" {
+			t.Fatalf("expected create host token to preserve raw and matched alias text, got %#v", hostItem)
+		}
+		identityItem := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineIdentityRefs)
+		if identityItem["item_kind"] != "resolved_ref" || identityItem["resolved_record_id"] != golden.Phase4CanonicalIdentityID.String() || identityItem["resolution_method"] != golden.Phase4LinkProvenanceAutoMatch || identityItem["auto_resolved"] != true {
+			t.Fatalf("expected create identity token to auto-resolve, got %#v", identityItem)
+		}
+		if identityItem["raw_text"] != " create   identity alias " || identityItem["matched_alias_text"] != "Create Identity Alias" {
+			t.Fatalf("expected create identity token to preserve raw and matched alias text, got %#v", identityItem)
+		}
+
+		hostMention := lookupMention(t, harness.DB, mentionIDFromItemRef(t, hostItem["item_ref"].(string)))
+		assertx.RequireMentionStatus(t, hostMention, golden.Phase4MentionStatusResolved)
+		if hostMention.ResolvedRecordID == nil || *hostMention.ResolvedRecordID != golden.Phase4CanonicalHostRecordID {
+			t.Fatalf("expected create host mention to resolve to host, got %#v", hostMention)
+		}
+		identityMention := lookupMention(t, harness.DB, mentionIDFromItemRef(t, identityItem["item_ref"].(string)))
+		assertx.RequireMentionStatus(t, identityMention, golden.Phase4MentionStatusResolved)
+		if identityMention.ResolvedRecordID == nil || *identityMention.ResolvedRecordID != golden.Phase4CanonicalIdentityID {
+			t.Fatalf("expected create identity mention to resolve to identity, got %#v", identityMention)
+		}
+	})
+
 	t.Run("suppressor and forbidden rewrite tokens remain unresolved", func(t *testing.T) {
 		harness := phase4test.StartServer(t, "phase4-u-4-08-unresolved")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)

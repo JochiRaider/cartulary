@@ -254,7 +254,7 @@
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Verify continuous workbook shell composition: top bar, tab bar, System views, view bar, grid-first active surface slot, inspector sections, and status strip slots stay in one shell while incident controls remain reachable only through the explicit secondary control surface.",
+        "statement": "Verify continuous workbook shell composition: top bar, tab bar, System views, compact sheet toolbar, grid-first active surface slot, explicit collapsed-inspector default, and status strip slots stay in one shell while incident controls remain reachable only through the explicit secondary control surface.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },
@@ -508,11 +508,11 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P2-01 Capture Default Timeline workbook shell with top bar, view bar, dense Timeline grid, row-context inspector, and status strip."
+        "FE-V-P2-01 Capture Default Timeline workbook shell with top bar, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip."
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Capture Default Timeline workbook shell with top bar, view bar, dense Timeline grid, row-context inspector, and status strip.",
+        "statement": "Capture Default Timeline workbook shell with top bar, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },

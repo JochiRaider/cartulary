@@ -14,7 +14,6 @@ import {
   gridShellTestId,
   rowCellTestId,
   rowHistoryPanelTestId,
-  rowInspectButtonTestId,
   rowInspectorFieldTestId,
   saveStateTestId,
   timelineCollectionInputTestId,
@@ -47,6 +46,7 @@ import {
   indicatorsViewSchemaId,
   lessonViewSchemaId,
   notesViewSchemaId,
+  openTimelineInspector,
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
 } from "./phase4Helpers";
@@ -396,7 +396,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   await expect(alphaSummary).toHaveValue("FE-B-P10-02 Alpha");
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
-  await page.getByTestId(rowInspectButtonTestId(alpha.record_id)).click();
+  await openTimelineInspector(page, alpha.record_id);
   const inspectorDetails = page.getByTestId(
     rowInspectorFieldTestId(alpha.record_id, "timeline.details"),
   );

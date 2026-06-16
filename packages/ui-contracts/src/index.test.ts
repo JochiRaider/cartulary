@@ -156,6 +156,11 @@ import {
   timelineRowVersionTestId,
   timelineScalarEditorSurfaces,
   timelineScalarEditorTestId,
+  workbookAddRowButtonTestId,
+  workbookInlineDraftRowTestId,
+  workbookInspectorCloseButtonTestId,
+  workbookInspectorToggleTestId,
+  workbookRowActionMenuButtonTestId,
   workbookShellReadyTestId,
   workbookShellSlotLabel,
   workbookShellSlots,
@@ -520,6 +525,27 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])',
     );
     expect(gridDraftRowSelector()).toBe('[role="row"][data-grid-record-id=""]');
+  });
+
+  it("derives sheet toolbar, inspector, draft row, and row menu selectors from stable workbook ids", () => {
+    expect(workbookAddRowButtonTestId("cartulary.view.timeline.v1")).toBe(
+      "cartulary.view.timeline.v1-add-row",
+    );
+    expect(workbookInspectorToggleTestId("cartulary.view.timeline.v1")).toBe(
+      "cartulary.view.timeline.v1-inspector-toggle",
+    );
+    expect(
+      workbookInspectorCloseButtonTestId("cartulary.view.timeline.v1"),
+    ).toBe("cartulary.view.timeline.v1-inspector-close");
+    expect(workbookInlineDraftRowTestId("cartulary.view.timeline.v1")).toBe(
+      "cartulary.view.timeline.v1-inline-draft-row",
+    );
+    expect(
+      workbookRowActionMenuButtonTestId(
+        "cartulary.view.timeline.v1",
+        "record-1",
+      ),
+    ).toBe("cartulary.view.timeline.v1-row-action-menu-record-1");
   });
 
   it("derives stable Phase 6 collaboration and status selectors", () => {

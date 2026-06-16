@@ -57,7 +57,6 @@ import {
   rowHistoryRollbackCancelButtonTestId,
   rowHistoryRollbackConfirmButtonTestId,
   rowHistoryRollbackPreviewTestId,
-  rowInspectButtonTestId,
   rowInspectorFieldTestId,
   rowPresenceMarkerTestId,
   type SystemViewSwitcherGroupToken,
@@ -75,6 +74,8 @@ import {
   timelineInspectorSectionTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineScalarEditorTestId,
+  workbookInspectorToggleTestId,
+  workbookRowActionMenuButtonTestId,
   workbookShellReadyTestId,
   workbookShellSlotLabel,
   workbookShellSlots,
@@ -120,6 +121,7 @@ import {
 import { Phase1Page } from "./phase1Page";
 import {
   addRelationshipTokenViaUI,
+  clickTimelineRowAction,
   collectionActionsPayload,
   collectionItems,
   commLogViewSchemaId,
@@ -482,8 +484,15 @@ async function expectVisibleFocus(locator: Locator) {
     .toBeTruthy();
 }
 
-async function expectStatusRole(locator: Locator) {
-  await expect(locator).toBeVisible();
+async function expectStatusRole(
+  locator: Locator,
+  options: { readonly visible?: boolean } = {},
+) {
+  if (options.visible === false) {
+    await expect(locator).toHaveCount(1);
+  } else {
+    await expect(locator).toBeVisible();
+  }
   await expect(locator).toHaveAttribute("role", "status");
   await expect(locator).not.toHaveText("");
 }
@@ -1097,7 +1106,9 @@ test.describe("FE-P2 accessibility readiness", () => {
       page.getByRole("region", { name: "Workbook shell" }),
     ).toHaveCount(1);
 
-    for (const slot of workbookShellSlots) {
+    for (const slot of workbookShellSlots.filter(
+      (slot) => slot !== "inspector",
+    )) {
       const label = workbookShellSlotLabel(slot);
       const slotByTestId = shell.locator(
         dataTestIdSelector(workbookShellSlotTestId(slot)),
@@ -1106,6 +1117,23 @@ test.describe("FE-P2 accessibility readiness", () => {
       await expect(slotByTestId).toHaveAttribute("aria-label", label);
       await expect(shell.getByRole("region", { name: label })).toHaveCount(1);
     }
+    await expect(
+      shell.locator(dataTestIdSelector(workbookShellSlotTestId("inspector"))),
+    ).toHaveCount(0);
+    await page
+      .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
+      .click();
+    const inspectorSlot = shell.locator(
+      dataTestIdSelector(workbookShellSlotTestId("inspector")),
+    );
+    await expect(inspectorSlot).toBeVisible();
+    await expect(inspectorSlot).toHaveAttribute(
+      "aria-label",
+      workbookShellSlotLabel("inspector"),
+    );
+    await expect(
+      shell.getByRole("region", { name: workbookShellSlotLabel("inspector") }),
+    ).toHaveCount(1);
 
     for (const surface of requiredBuiltInWorkbookSurfaceIds) {
       const tab = page.getByTestId(surfaceTabTestId(surface));
@@ -1152,11 +1180,14 @@ test.describe("FE-P2 accessibility readiness", () => {
     ).toBeVisible();
 
     const inspectButton = page.getByTestId(
-      rowInspectButtonTestId(timelineRow.record_id),
+      workbookRowActionMenuButtonTestId(
+        timelineViewSchemaId,
+        timelineRow.record_id,
+      ),
     );
     await expect(inspectButton).toBeVisible();
     await expectVisibleFocus(inspectButton);
-    await inspectButton.click();
+    await openTimelineInspector(page, timelineRow.record_id);
 
     const inspector = page.getByTestId("timeline-inspector");
     await expect(inspector).toBeVisible();
@@ -1179,7 +1210,10 @@ test.describe("FE-P2 accessibility readiness", () => {
       systemViewSwitcherTriggerTestId(),
       savedViewSelectorTestId(timelineViewSchemaId),
       gridFilterApplyTestId(timelineViewSchemaId),
-      rowInspectButtonTestId(timelineRow.record_id),
+      workbookRowActionMenuButtonTestId(
+        timelineViewSchemaId,
+        timelineRow.record_id,
+      ),
       saveStateTestId(),
     ]);
   });
@@ -1225,6 +1259,14 @@ test.describe("FE-P3 accessibility readiness", () => {
     const betaMarkReviewed = page.getByTestId(
       timelineRowMarkReviewedButtonTestId(betaRow.record_id),
     );
+    await page
+      .getByTestId(
+        workbookRowActionMenuButtonTestId(
+          timelineViewSchemaId,
+          betaRow.record_id,
+        ),
+      )
+      .click();
     await expectVisibleFocus(betaMarkReviewed);
     await betaMarkReviewed.click();
     await expect(betaMarkReviewed).toBeDisabled();
@@ -1275,7 +1317,10 @@ test.describe("FE-P3 accessibility readiness", () => {
       ),
       gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
       rowCellTestId(betaRow.record_id, "timeline.summary"),
-      timelineRowMarkReviewedButtonTestId(betaRow.record_id),
+      workbookRowActionMenuButtonTestId(
+        timelineViewSchemaId,
+        betaRow.record_id,
+      ),
       saveStateTestId(),
     ]);
   });
@@ -1339,7 +1384,10 @@ test.describe("FE-P4 accessibility readiness", () => {
       gridFilterFieldTestId(timelineViewSchemaId),
       gridFilterApplyTestId(timelineViewSchemaId),
       gridGroupingSelectTestId(timelineViewSchemaId),
-      rowInspectButtonTestId(editRow.record_id),
+      workbookRowActionMenuButtonTestId(
+        timelineViewSchemaId,
+        editRow.record_id,
+      ),
     ]);
 
     const editSummary = page.getByTestId(
@@ -1398,10 +1446,13 @@ test.describe("FE-P4 accessibility readiness", () => {
     );
     await expectVisibleFocus(originSummary);
     const inspectButton = page.getByTestId(
-      rowInspectButtonTestId(editRow.record_id),
+      workbookRowActionMenuButtonTestId(
+        timelineViewSchemaId,
+        editRow.record_id,
+      ),
     );
     await expectVisibleFocus(inspectButton);
-    await inspectButton.click();
+    await openTimelineInspector(page, editRow.record_id);
     const inspectorDetails = page.getByTestId(
       rowInspectorFieldTestId(editRow.record_id, "timeline.details"),
     );
@@ -1435,7 +1486,10 @@ test.describe("FE-P4 accessibility readiness", () => {
       gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
       rowCellTestId(editRow.record_id, "timeline.summary"),
       rowCellTestId(validationRow.record_id, "timeline.occurred_at"),
-      rowInspectButtonTestId(editRow.record_id),
+      workbookRowActionMenuButtonTestId(
+        timelineViewSchemaId,
+        editRow.record_id,
+      ),
       pendingQueueNoticeTestId(),
       saveStateTestId(),
     ]);
@@ -1594,11 +1648,26 @@ test.describe("FE-P5 accessibility readiness", () => {
     );
 
     await expectTabOrderIncludes(page, [
-      rowInspectButtonTestId(unresolvedRow.record_id),
-      rowInspectButtonTestId(resolvedRow.record_id),
-      rowInspectButtonTestId(manualRow.record_id),
-      rowInspectButtonTestId(autoRow.record_id),
-      rowInspectButtonTestId(dismissedRow.record_id),
+      workbookRowActionMenuButtonTestId(
+        timelineViewSchemaId,
+        unresolvedRow.record_id,
+      ),
+      workbookRowActionMenuButtonTestId(
+        timelineViewSchemaId,
+        resolvedRow.record_id,
+      ),
+      workbookRowActionMenuButtonTestId(
+        timelineViewSchemaId,
+        manualRow.record_id,
+      ),
+      workbookRowActionMenuButtonTestId(
+        timelineViewSchemaId,
+        autoRow.record_id,
+      ),
+      workbookRowActionMenuButtonTestId(
+        timelineViewSchemaId,
+        dismissedRow.record_id,
+      ),
     ]);
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
@@ -2002,9 +2071,11 @@ test.describe("FE-P8 accessibility readiness", () => {
     await summarySortHeader.press("Enter");
     await expect(summarySortHeader).toContainText("Asc");
 
-    await page
-      .getByTestId(timelineRowMarkReviewedButtonTestId(reviewedRow.record_id))
-      .click();
+    await clickTimelineRowAction(
+      page,
+      reviewedRow.record_id,
+      timelineRowMarkReviewedButtonTestId(reviewedRow.record_id),
+    );
     await expect(
       page.getByTestId(
         rowCellTestId(reviewedRow.record_id, "timeline.capture_state"),
@@ -2174,10 +2245,10 @@ test.describe("FE-P9 accessibility readiness", () => {
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     const inspectButton = page.getByTestId(
-      rowInspectButtonTestId(row.record_id),
+      workbookRowActionMenuButtonTestId(timelineViewSchemaId, row.record_id),
     );
     await expectVisibleFocus(inspectButton);
-    await inspectButton.press("Enter");
+    await openTimelineInspector(page, row.record_id);
 
     for (const section of [
       "details",
@@ -2270,7 +2341,7 @@ test.describe("FE-P9 accessibility readiness", () => {
     await expectVisibleFocus(deleteConfirm);
     await expectVisibleFocus(deleteCancel);
     await expectAndRecordContrast(page, [
-      rowInspectButtonTestId(row.record_id),
+      workbookRowActionMenuButtonTestId(timelineViewSchemaId, row.record_id),
       timelineScalarEditorTestId({
         fieldKey: "timeline.details",
         recordId: row.record_id,
@@ -2490,9 +2561,6 @@ test.describe("FE-P10 accessibility readiness", () => {
         await expect(
           page.getByTestId(gridGroupingSelectTestId(surface.viewSchemaId)),
         ).toBeVisible();
-        await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
-          surface.viewSchemaId,
-        );
 
         const sortHeader = page.getByTestId(
           gridSortHeaderTestId(surface.viewSchemaId, surface.fieldKey),
@@ -2502,6 +2570,10 @@ test.describe("FE-P10 accessibility readiness", () => {
 
         const cell = page.getByTestId(
           rowCellTestId(surface.row.record_id, surface.fieldKey),
+        );
+        await cell.focus();
+        await expect(page.getByTestId("workbook-focus-anchor")).toContainText(
+          surface.viewSchemaId,
         );
         await expectCellTextOrValue(cell, surface.expected);
         await expectVisibleFocus(cell);
@@ -2725,7 +2797,9 @@ test.describe("FE-P1 accessibility readiness", () => {
         page.getByTestId(landingAdminMenuItemTestId("incidents")),
       );
       await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
-      await expectStatusRole(page.getByTestId(phase1AccountTestId("status")));
+      await expectStatusRole(page.getByTestId(phase1AccountTestId("status")), {
+        visible: false,
+      });
       await expectP1SurfaceA11y(page, {
         focusTestId: phase1LandingTestId("refresh"),
         tabStops: [
@@ -2880,8 +2954,12 @@ test.describe("FE-P1 accessibility readiness", () => {
       page.getByTestId(landingAdminMenuItemTestId("incidents")),
     );
     await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
-    await expectStatusRole(page.getByTestId(phase1AccountTestId("status")));
-    await expectStatusRole(page.getByTestId(phase1AdminTestId("status")));
+    await expectStatusRole(page.getByTestId(phase1AccountTestId("status")), {
+      visible: false,
+    });
+    await expectStatusRole(page.getByTestId(phase1AdminTestId("status")), {
+      visible: false,
+    });
     await expectP1SurfaceA11y(page, {
       focusTestId: phase1LandingTestId("create-button"),
       tabStops: [

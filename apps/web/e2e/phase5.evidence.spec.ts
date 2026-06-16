@@ -10,8 +10,9 @@ import {
   genericCreateSubmitTestId,
   gridShellTestId,
   rowCellTestId,
-  rowInspectButtonTestId,
+  timelineDraftEvidenceFileInputTestId,
   timelineEvidenceFileInputTestId,
+  workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
@@ -29,6 +30,7 @@ import {
 import {
   collectionItems,
   evidenceViewSchemaId,
+  openTimelineInspector,
   timelineViewSchemaId,
   type ViewRow,
 } from "./phase4Helpers";
@@ -57,7 +59,7 @@ test("E-5-01 attaches a screenshot to a selected Timeline row without leaving th
   const objectUploadRoutes = collectObjectUploadRoutes(page);
 
   await openTimelineSurface(page, incidentId);
-  await page.getByTestId(rowInspectButtonTestId(timelineRow.record_id)).click();
+  await openTimelineInspector(page, timelineRow.record_id);
   await page
     .getByTestId(timelineEvidenceFileInputTestId(timelineRow.record_id))
     .setInputFiles({
@@ -107,7 +109,10 @@ test("E-5-02 persists a screenshot-only Timeline row through the two-step eviden
   const objectUploadRoutes = collectObjectUploadRoutes(page);
 
   await openTimelineSurface(page, incidentId);
-  await page.getByTestId("timeline-evidence-file-draft").setInputFiles({
+  await page
+    .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
+    .click();
+  await page.getByTestId(timelineDraftEvidenceFileInputTestId()).setInputFiles({
     name: "draft-screenshot.png",
     mimeType: "image/png",
     buffer: tinyPNG(),
@@ -411,9 +416,7 @@ test("E-5-05 refreshes a second live workbook from the real evidence attach stre
     ).toHaveText("0");
 
     await openTimelineSurface(page, incidentId);
-    await page
-      .getByTestId(rowInspectButtonTestId(timelineRow.record_id))
-      .click();
+    await openTimelineInspector(page, timelineRow.record_id);
     await page
       .getByTestId(timelineEvidenceFileInputTestId(timelineRow.record_id))
       .setInputFiles({

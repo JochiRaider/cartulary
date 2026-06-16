@@ -24,13 +24,14 @@ import {
   gridSortHeaderTestId,
   relationshipItemsTestId,
   rowCellTestId,
-  rowInspectButtonTestId,
   timelineCollectionInputTestId,
   timelineInspectorSectionTestId,
   timelineMutationSubstrateReadyTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
   type WorkbookSurface,
+  workbookInlineDraftRowTestId,
+  workbookRowActionMenuButtonTestId,
 } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
@@ -62,7 +63,7 @@ import {
   createAndAttachEvidenceBlob,
   evidencePublicErrorMessage,
 } from "../../../services/workbookEvidence";
-import { WorkbookGridControls } from "../../components/WorkbookGridControls";
+import { WorkbookSheetToolbar } from "../../components/WorkbookSheetToolbar";
 import { WorkbookShellSlotRegion } from "../../components/WorkbookShellSlots";
 import { WorkbookStatusStrip } from "../../components/WorkbookStatusStrip";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
@@ -1067,6 +1068,7 @@ export function TimelineWorkbook({
   const [replacementDrafts, setReplacementDrafts] = useState<
     Record<string, string>
   >({});
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const timelineInspectorSelection = useTimelineInspectorSelection({
     currentIncidentRole,
     dismissedMentionsByRow,
@@ -1663,7 +1665,12 @@ export function TimelineWorkbook({
       switch (target.kind) {
         case "row-inspect":
           return document.querySelector<HTMLButtonElement>(
-            dataTestIdSelector(rowInspectButtonTestId(target.recordId)),
+            dataTestIdSelector(
+              workbookRowActionMenuButtonTestId(
+                timelineViewSchemaId,
+                target.recordId,
+              ),
+            ),
           );
         case "input":
           return resolveInputElement(target.focusKey);
@@ -3754,6 +3761,7 @@ export function TimelineWorkbook({
   const openRowHistory = useCallback(
     (recordId: string) => {
       setSelectedRowId(recordId);
+      setIsInspectorOpen(true);
       setRowHistoryPendingAction(null);
       setRowHistory({
         recordId,
@@ -4376,6 +4384,7 @@ export function TimelineWorkbook({
       }
       if (command.kind === "preview-linked-evidence") {
         setSelectedRowId(anchor.recordId);
+        setIsInspectorOpen(true);
         setInspectorMessage(
           "Linked evidence preview is unavailable for this row.",
         );
@@ -4547,10 +4556,12 @@ export function TimelineWorkbook({
               ].find((item) => item.itemKind !== "resolved_ref");
         if (mention !== undefined) {
           setSelectedRowId(anchor.recordId);
+          setIsInspectorOpen(true);
           setSelectedMentionRef(mention.itemRef);
           setInspectorMessage(null);
         } else {
           setSelectedRowId(anchor.recordId);
+          setIsInspectorOpen(true);
           setInspectorMessage(
             "No unresolved mention is available for quick link.",
           );
@@ -4819,6 +4830,21 @@ export function TimelineWorkbook({
     ],
   );
 
+  const openInspectorForRow = useCallback(
+    (recordId: string) => {
+      handleSelectRow(recordId);
+      setIsInspectorOpen(true);
+    },
+    [handleSelectRow],
+  );
+
+  const focusDraftRow = useCallback(() => {
+    const draftSummary = document.querySelector<HTMLInputElement>(
+      dataTestIdSelector(draftCellTestId("timeline.summary")),
+    );
+    draftSummary?.focus({ preventScroll: false });
+  }, []);
+
   const handleEditModePresence = useCallback(
     (recordId: string | null, fieldKey: string, editing: boolean) => {
       const next = editing
@@ -4840,6 +4866,7 @@ export function TimelineWorkbook({
       setSelectedRowId(rowRecordId);
       setSelectedMentionRef(itemRef);
       setInspectorMessage(null);
+      setIsInspectorOpen(true);
     },
     [setSelectedMentionRef, setInspectorMessage, setSelectedRowId],
   );
@@ -5416,15 +5443,15 @@ export function TimelineWorkbook({
   const timelineActionsColumn = useMemo<GridActionsColumn<WorkbookRow>>(
     () => ({
       headerTestId: gridActionsHeaderTestId(timelineViewSchemaId),
-      label: "Actions",
-      minWidth: 296,
-      width: 296,
+      label: "",
+      minWidth: 44,
+      width: 44,
       renderCell: ({ data: row }) => (
         <TimelineRowActions
           replacementDraft={replacementDrafts[row.key] ?? ""}
           row={row}
           onCreateBlankDraftRow={handleCreateBlankDraftRow}
-          onInspectRow={handleSelectRow}
+          onInspectRow={openInspectorForRow}
           onMarkReviewed={(rowKey) => {
             queueAction(rowKey, "mark-reviewed");
           }}
@@ -5443,7 +5470,7 @@ export function TimelineWorkbook({
     }),
     [
       handleCreateBlankDraftRow,
-      handleSelectRow,
+      openInspectorForRow,
       openRowHistory,
       queueAction,
       replacementDrafts,
@@ -5479,7 +5506,7 @@ export function TimelineWorkbook({
           selected: row.recordId !== null && row.recordId === selectedRowId,
           testId:
             row.recordId === null
-              ? undefined
+              ? workbookInlineDraftRowTestId(timelineViewSchemaId)
               : gridRowTestId(timelineViewSchemaId, row.recordId),
           variant: row.recordId === null ? "draft" : "default",
         };
@@ -5802,7 +5829,12 @@ export function TimelineWorkbook({
         pendingQueueSnapshot={pendingQueueSnapshot}
       />
 
-      <div style={splitShellStyle}>
+      <div
+        style={{
+          ...splitShellStyle,
+          ...(isInspectorOpen ? splitShellWithInspectorStyle : null),
+        }}
+      >
         <div style={timelineMainColumnStyle}>
           <div style={timelineMainHeaderStyle}>
             {visibleRefreshError !== null ? (
@@ -5819,10 +5851,11 @@ export function TimelineWorkbook({
               style={viewBarStyle}
               viewSchemaId={timelineViewSchemaId}
             >
-              {savedViewSelector}
-              <WorkbookGridControls
+              <WorkbookSheetToolbar
+                leading={savedViewSelector}
                 contract={timelineContract}
                 filterDraft={filterDraft}
+                onAddRow={focusDraftRow}
                 onApplyFilter={applyQueryFilter}
                 onClearAll={() => {
                   setQueryState(emptyWorkbookQueryState());
@@ -5830,6 +5863,9 @@ export function TimelineWorkbook({
                 }}
                 onFilterDraftChange={setFilterDraft}
                 onGroupByChange={handleQueryGroupByChange}
+                onInspectorToggle={() => {
+                  setIsInspectorOpen(true);
+                }}
                 onRemoveFilter={(fieldKey) => {
                   setQueryState((current) =>
                     removeFilterField(current, fieldKey),
@@ -5874,34 +5910,39 @@ export function TimelineWorkbook({
           ) : null}
         </div>
 
-        <WorkbookShellSlotRegion
-          slot="inspector"
-          style={inspectorSlotStyle}
-          viewSchemaId={timelineViewSchemaId}
-        >
-          <TimelineWorkbookInspector
-            canManageMentions={canManageMentions}
-            currentHistoryDeleted={currentHistoryDeleted}
-            draftRow={draftRow}
-            entityIndex={entityIndex}
-            getRelationshipLabel={timelineRelationshipLabel}
-            hostEntities={hostEntities}
-            identityEntities={identityEntities}
-            inspectorMessage={inspectorMessage}
-            inspectorMentions={inspectorMentions}
-            onResolveTargetChange={handleResolveTargetChange}
-            onSelectMention={handleSelectMention}
-            onSetInspectorMessage={setInspectorMessage}
-            onSubmitMentionAction={submitMentionAction}
-            renderEvidenceAttachSection={renderEvidenceAttachSection}
-            renderInspectorFieldEditors={renderInspectorFieldEditors}
-            renderRowHistorySection={renderRowHistorySection}
-            rowHistoryRecordId={rowHistory.data?.record_id ?? null}
-            selectedMention={selectedMention}
-            selectedResolveTargetId={selectedResolveTargetId}
-            selectedRow={selectedRow}
-          />
-        </WorkbookShellSlotRegion>
+        {isInspectorOpen ? (
+          <WorkbookShellSlotRegion
+            slot="inspector"
+            style={inspectorSlotStyle}
+            viewSchemaId={timelineViewSchemaId}
+          >
+            <TimelineWorkbookInspector
+              canManageMentions={canManageMentions}
+              currentHistoryDeleted={currentHistoryDeleted}
+              draftRow={draftRow}
+              entityIndex={entityIndex}
+              getRelationshipLabel={timelineRelationshipLabel}
+              hostEntities={hostEntities}
+              identityEntities={identityEntities}
+              inspectorMessage={inspectorMessage}
+              inspectorMentions={inspectorMentions}
+              onClose={() => {
+                setIsInspectorOpen(false);
+              }}
+              onResolveTargetChange={handleResolveTargetChange}
+              onSelectMention={handleSelectMention}
+              onSetInspectorMessage={setInspectorMessage}
+              onSubmitMentionAction={submitMentionAction}
+              renderEvidenceAttachSection={renderEvidenceAttachSection}
+              renderInspectorFieldEditors={renderInspectorFieldEditors}
+              renderRowHistorySection={renderRowHistorySection}
+              rowHistoryRecordId={rowHistory.data?.record_id ?? null}
+              selectedMention={selectedMention}
+              selectedResolveTargetId={selectedResolveTargetId}
+              selectedRow={selectedRow}
+            />
+          </WorkbookShellSlotRegion>
+        ) : null}
       </div>
 
       <WorkbookShellSlotRegion
@@ -5982,8 +6023,7 @@ const splitShellStyle = {
   display: "grid",
   gap: "var(--ct-spacing-shell-gap)",
   alignItems: "stretch",
-  gridTemplateColumns:
-    "minmax(0, 1fr) minmax(var(--ct-layout-inspectorMinWidth), var(--ct-layout-inspectorDefaultWidth))",
+  gridTemplateColumns: "minmax(0, 1fr)",
   gridRow: 2,
   minHeight: 0,
   minWidth: 0,
@@ -5992,18 +6032,19 @@ const splitShellStyle = {
   boxSizing: "border-box" as const,
 };
 
+const splitShellWithInspectorStyle = {
+  gridTemplateColumns:
+    "minmax(0, 1fr) minmax(var(--ct-layout-inspectorMinWidth), var(--ct-layout-inspectorDefaultWidth))",
+} satisfies CSSProperties;
+
 const viewBarStyle = {
   position: "relative" as const,
   zIndex: 4,
-  display: "flex",
-  alignItems: "center",
-  flexWrap: "wrap" as const,
-  gap: "0.75rem",
+  display: "block",
   minHeight: "var(--ct-layout-viewBarHeight)",
   marginBottom: "var(--ct-spacing-sm)",
-  padding: "0 var(--ct-spacing-sm)",
   border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-sm)",
+  borderRadius: 0,
   background: "var(--ct-colors-surface-1)",
   overflowX: "visible" as const,
 };

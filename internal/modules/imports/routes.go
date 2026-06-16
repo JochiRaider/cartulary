@@ -577,7 +577,7 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 			if apiErr != nil {
 				return fmt.Errorf("decode imported timeline row: %s", apiErr.Code)
 			}
-			if _, err := s.timelineStore.CreateRow(ctx, actor, start.IncidentID, request, timeline.TimelineCreateRequestHash(request), "req-import-"+start.ClientTxnID, s.now()); err != nil {
+			if _, err := s.timelineStore.CreateImportedRow(ctx, actor, start.IncidentID, request, timeline.TimelineCreateRequestHash(request), "req-import-"+start.ClientTxnID, s.now()); err != nil {
 				return err
 			}
 		default:

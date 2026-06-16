@@ -48,6 +48,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
+import { clickTimelineRowAction } from "./phase4Helpers";
 
 const evidenceViewSchemaId = "cartulary.view.evidence.v1";
 const hostsViewSchemaId = "cartulary.view.hosts.v1";
@@ -434,9 +435,11 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     page.getByTestId(rowCellTestId(alpha.record_id, "timeline.summary")),
   ).toHaveValue("Alpha FE-B");
 
-  await page
-    .getByTestId(timelineRowMarkReviewedButtonTestId(beta.record_id))
-    .click();
+  await clickTimelineRowAction(
+    page,
+    beta.record_id,
+    timelineRowMarkReviewedButtonTestId(beta.record_id),
+  );
   await expect(
     page.getByTestId(rowCellTestId(beta.record_id, "timeline.capture_state")),
   ).toHaveText("reviewed");
@@ -679,9 +682,11 @@ async function verifySavedViewPersistenceReplay(
     page.getByTestId(rowCellTestId(alpha.record_id, "timeline.summary")),
   ).toHaveValue("Alpha FE-E");
 
-  await page
-    .getByTestId(timelineRowMarkReviewedButtonTestId(beta.record_id))
-    .click();
+  await clickTimelineRowAction(
+    page,
+    beta.record_id,
+    timelineRowMarkReviewedButtonTestId(beta.record_id),
+  );
   await expect(
     page.getByTestId(rowCellTestId(beta.record_id, "timeline.capture_state")),
   ).toHaveText("reviewed");
@@ -1076,9 +1081,11 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
     ),
   ).toHaveValue("Alpha Phase 8");
 
-  await page
-    .getByTestId(timelineRowMarkReviewedButtonTestId(beta.record_id as string))
-    .click();
+  await clickTimelineRowAction(
+    page,
+    beta.record_id as string,
+    timelineRowMarkReviewedButtonTestId(beta.record_id as string),
+  );
   await expect(
     page.getByTestId(rowCellTestId(beta.record_id, "timeline.capture_state")),
   ).toHaveText("reviewed");

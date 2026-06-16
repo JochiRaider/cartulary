@@ -182,6 +182,10 @@ type RecordSubstrateSnapshot struct {
 	RecordRevisionCount int
 }
 
+type createRowOptions struct {
+	allowInteractiveAutoResolution bool
+}
+
 func NewStore(pool postgres.DB) *Store {
 	return NewStoreWithHooks(pool, currentStoreHooks())
 }
@@ -271,6 +275,16 @@ func (s *Store) SnapshotRecordSubstrate(ctx context.Context, recordID uuid.UUID)
 }
 
 func (s *Store) CreateRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+	return s.createRow(ctx, actor, incidentID, request, requestHash, requestID, now, createRowOptions{
+		allowInteractiveAutoResolution: true,
+	})
+}
+
+func (s *Store) CreateImportedRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+	return s.createRow(ctx, actor, incidentID, request, requestHash, requestID, now, createRowOptions{})
+}
+
+func (s *Store) createRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time, options createRowOptions) (MutationResult, error) {
 	scopeKey := incidentID.String() + ":" + TimelineViewSchemaID
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    createRouteKey,
@@ -392,7 +406,7 @@ FROM inserted_record, inserted_timeline_event
 	markCreateTimingDuration(ctx, "store_record_envelope_insert", durationFromMilliseconds(recordEnvelopeInsertMs))
 	markCreateTimingDuration(ctx, "store_timeline_event_insert", durationFromMilliseconds(timelineEventInsertMs))
 
-	mentionProjectionRefresh, err := applyCreateMentionActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.HostRefs, request.IdentityRefs, now.UTC())
+	mentionProjectionRefresh, err := applyCreateMentionActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.HostRefs, request.IdentityRefs, options, now.UTC())
 	if err != nil {
 		return MutationResult{}, err
 	}
@@ -2313,16 +2327,19 @@ func (r *mentionProjectionRefresh) include(fieldKey string) {
 	}
 }
 
-func applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, hostRefs *CollectionActionPayload, identityRefs *CollectionActionPayload, now time.Time) (mentionProjectionRefresh, error) {
+func applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, hostRefs *CollectionActionPayload, identityRefs *CollectionActionPayload, options createRowOptions, now time.Time) (mentionProjectionRefresh, error) {
 	var refresh mentionProjectionRefresh
-	hostLinked, err := insertMentionActionsTx(ctx, tx, actorUserID, incidentID, recordID, "timeline.host_refs", "host", hostRefs, mentionInsertOptions{}, now)
+	insertOptions := mentionInsertOptions{
+		allowInteractiveAutoResolution: options.allowInteractiveAutoResolution,
+	}
+	hostLinked, err := insertMentionActionsTx(ctx, tx, actorUserID, incidentID, recordID, "timeline.host_refs", "host", hostRefs, insertOptions, now)
 	if err != nil {
 		return mentionProjectionRefresh{}, err
 	}
 	if hostLinked {
 		refresh.Hosts = true
 	}
-	identityLinked, err := insertMentionActionsTx(ctx, tx, actorUserID, incidentID, recordID, "timeline.identity_refs", "identity", identityRefs, mentionInsertOptions{}, now)
+	identityLinked, err := insertMentionActionsTx(ctx, tx, actorUserID, incidentID, recordID, "timeline.identity_refs", "identity", identityRefs, insertOptions, now)
 	if err != nil {
 		return mentionProjectionRefresh{}, err
 	}

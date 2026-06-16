@@ -6,6 +6,7 @@ import {
   gridSavedRowsSelector,
   gridShellTestId,
   surfaceTabTestId,
+  workbookAddRowButtonTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -193,6 +194,11 @@ describe("Assessment workbook surface", () => {
 
     render(<WorkbookShell incidentId="incident-1" />);
 
+    fireEvent.click(
+      await screen.findByTestId(
+        workbookAddRowButtonTestId(assessmentsViewSchemaId),
+      ),
+    );
     await screen.findByTestId("assessment-create-panel");
     await waitFor(() => {
       expect(

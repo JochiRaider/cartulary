@@ -681,10 +681,10 @@ Design contract. The application shell MUST contain the regions in the table bel
 | Top bar | Incident identity, built-in tabs or `Surfaces`, `System views`, current surface title, presence summary when assigned by §7.5. | Persistent chrome, not a dashboard. |
 | View bar | Active surface selector, saved-view selector, sort, group, filter controls, active chips or overflow controls. | Belongs to active surface only. |
 | Grid | Active workbook surface with `record_id`-bound rows and `field_key`-bound cells. | Primary work surface. |
-| Inspector | Details, Relationships, Evidence, History. | Adjacent or overlay secondary surface. |
+| Inspector | Details, Relationships, Evidence, History, destructive and specialized row actions. | Conditional adjacent or overlay secondary surface opened through explicit controls. |
 | Status strip | Save state, secondary same-surface message, presence summary or overflow when assigned by §7.5. | Capacity-limited working-state strip. |
 
-Design contract. The default Timeline workbook shell at `{layout.baseViewport}` MUST show the top bar, view bar, active Timeline grid, row-context inspector, and status strip as the dominant first-viewport structure. Incident summary, bootstrap defaults, membership management, promoted-field patch forms, or other administration/control surfaces MUST NOT dominate the default Timeline path above the active grid; those controls are valid only inside an explicitly opened secondary surface or a distinct administration context.
+Design contract. The default Timeline workbook shell at `{layout.baseViewport}` MUST show the top bar, compact sheet toolbar, active Timeline grid, explicit inspector opener, bottom draft row when creation is allowed, and status strip as the dominant first-viewport structure. The inspector MUST be closed by default and MUST open only through explicit controls such as the toolbar inspector control, row action menu, history action, mention action, or equivalent keyboard-accessible command. Incident summary, bootstrap defaults, membership management, promoted-field patch forms, or other administration/control surfaces MUST NOT dominate the default Timeline path above the active grid; those controls are valid only inside an explicitly opened secondary surface or a distinct administration context.
 
 Design contract. A shell region MAY be visually collapsed only when the responsive algorithm in §7.5 assigns its controls to another reachable region. Omission behavior: a collapsed region with no assigned controls renders no visible container.
 

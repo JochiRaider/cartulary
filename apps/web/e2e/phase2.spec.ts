@@ -1,6 +1,7 @@
 import {
   currentIncidentRoleTestId,
   dataTestIdSelector,
+  genericCreateFieldTestId,
   gridShellTestId,
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
@@ -84,6 +85,10 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
     const slotLocator = shell.locator(
       dataTestIdSelector(workbookShellSlotTestId(slot)),
     );
+    if (slot === "inspector") {
+      await expect(slotLocator).toHaveCount(0);
+      continue;
+    }
     await expect(slotLocator).toHaveCount(1);
     await expect(slotLocator).toHaveAttribute(
       "data-workbook-shell-id",
@@ -155,17 +160,12 @@ test("FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, sele
     uniqueIncidentKey("FEBP202"),
     "FE-B-P2-02 switcher focus",
   );
-  const indicator = await createViewRow(
-    page,
-    incidentId,
-    indicatorsViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("fe-b-p2-02-indicator"),
-      "indicator.indicator_type": "ipv4_addr",
-      "indicator.value_kind": "atomic",
-      "indicator.display_value": "198.51.100.24",
-    },
-  );
+  await createViewRow(page, incidentId, indicatorsViewSchemaId, {
+    client_txn_id: uniqueTxn("fe-b-p2-02-indicator"),
+    "indicator.indicator_type": "ipv4_addr",
+    "indicator.value_kind": "atomic",
+    "indicator.display_value": "198.51.100.24",
+  });
   const timelineUrlPattern = new RegExp(
     `view_schema_id=${encodeURIComponent(timelineViewSchemaId)}`,
   );
@@ -220,10 +220,9 @@ test("FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, sele
   await expect(page).toHaveURL(
     new RegExp(`view_schema_id=${encodeURIComponent(indicatorsViewSchemaId)}`),
   );
-  const firstGridFocusTarget = page.getByTestId(
-    rowCellTestId(indicator.record_id as string, "indicator.indicator_type"),
-  );
-  await expect(firstGridFocusTarget).toBeFocused();
+  await expect(
+    page.getByTestId(genericCreateFieldTestId("indicator.indicator_type")),
+  ).toBeFocused();
 });
 
 test("FE-E-P2-01 Verify saved views appear only under the active surface's view selector and system views open inside the same workbook shell.", async ({

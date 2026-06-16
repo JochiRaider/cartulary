@@ -194,7 +194,7 @@ const toolbarStyle = {
 
 const controlRowStyle = {
   display: "flex",
-  gap: "0.45rem",
+  gap: "0.35rem",
   flexWrap: "wrap" as const,
   alignItems: "center",
   minWidth: 0,
@@ -202,22 +202,23 @@ const controlRowStyle = {
 
 const inlineLabelStyle = {
   display: "inline-flex",
-  gap: "0.35rem",
+  gap: "0.25rem",
   alignItems: "center",
   color: "var(--ct-colors-ink-muted)",
-  fontSize: "0.86rem",
+  fontSize: "0.78rem",
 };
 
 const inputStyle = {
   borderRadius: "var(--ct-component-text-input-rounded)",
   border: "var(--ct-component-text-input-border)",
   background: "var(--ct-component-text-input-backgroundColor)",
-  padding: "0.42rem 0.55rem",
+  padding: "0.26rem 0.45rem",
   font: "inherit",
   color: "var(--ct-component-text-input-textColor)",
   boxSizing: "border-box" as const,
   minWidth: "8rem",
   maxWidth: "10rem",
+  minHeight: "1.75rem",
 };
 
 const selectStyle = {
@@ -230,10 +231,11 @@ const actionButtonStyle = {
   border: "var(--ct-component-button-secondary-border)",
   background: "var(--ct-component-button-secondary-backgroundColor)",
   color: "var(--ct-component-button-secondary-textColor)",
-  padding: "0.42rem 0.6rem",
+  padding: "0.26rem 0.55rem",
   font: "inherit",
   cursor: "pointer",
-  height: "fit-content",
+  minHeight: "1.75rem",
+  height: "1.75rem",
 };
 
 const modeButtonStyle = {

@@ -21,6 +21,8 @@ import {
   timelineCollectionInputTestId,
   timelinePreviewRowTestId,
   timelineRowVersionTestId,
+  workbookInspectorToggleTestId,
+  workbookRowActionMenuButtonTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Response } from "@playwright/test";
@@ -654,9 +656,39 @@ export async function addRelationshipTokenViaUI(
 
 export async function openTimelineInspector(page: Page, recordId: string) {
   const inspectButtonTestId = rowInspectButtonTestId(recordId);
-  await ensureTimelineGridTargetVisible(page, inspectButtonTestId);
-  await page.getByTestId(inspectButtonTestId).click();
-  await expect(page.getByTestId("timeline-inspector")).toContainText(recordId);
+  await clickTimelineRowAction(page, recordId, inspectButtonTestId);
+  await expect(page.getByTestId("timeline-inspector")).toBeVisible();
+}
+
+export async function openTimelineRowActions(page: Page, recordId: string) {
+  const actionMenuTestId = workbookRowActionMenuButtonTestId(
+    timelineViewSchemaId,
+    recordId,
+  );
+  await ensureTimelineGridTargetVisible(page, actionMenuTestId);
+  const actionMenu = page.getByTestId(actionMenuTestId);
+  if ((await actionMenu.getAttribute("aria-expanded")) !== "true") {
+    const openMenus = page.locator(
+      'button[aria-label="Row actions"][aria-expanded="true"]',
+    );
+    const openMenuCount = await openMenus.count();
+    for (let index = 0; index < openMenuCount; index += 1) {
+      const openMenu = openMenus.nth(index);
+      if ((await openMenu.getAttribute("data-testid")) !== actionMenuTestId) {
+        await openMenu.click();
+      }
+    }
+    await actionMenu.click();
+  }
+}
+
+export async function clickTimelineRowAction(
+  page: Page,
+  recordId: string,
+  actionTestId: string,
+) {
+  await openTimelineRowActions(page, recordId);
+  await page.getByTestId(actionTestId).click();
 }
 
 export function waitForTimelinePatch(page: Page, recordId: string) {
@@ -824,7 +856,10 @@ export async function expectTimelineContinuity(
     .poll(() => new URL(page.url()).searchParams.get("surface"))
     .toBeNull();
   await assertGridFocusContinuity({
-    focusTestId: rowInspectButtonTestId(recordId),
+    focusTestId: workbookRowActionMenuButtonTestId(
+      timelineViewSchemaId,
+      recordId,
+    ),
     page,
     preservedScroll,
     requireExactHorizontalScroll: options.requireExactHorizontalScroll ?? false,
@@ -902,6 +937,7 @@ export async function editGenericCell(
   fieldKey: string,
   value: string | string[],
 ) {
+  await page.getByTestId(workbookInspectorToggleTestId(viewSchemaId)).click();
   await page
     .getByTestId(genericEditRecordSelectTestId(viewSchemaId))
     .selectOption(recordId);

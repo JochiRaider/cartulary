@@ -24,6 +24,7 @@ import {
   assertGridRows,
   buildGridPresentationRows,
   type GridActionsColumn,
+  type GridChrome,
   type GridColumn,
   type GridDensity,
   type GridPresentationRow,
@@ -43,6 +44,7 @@ export {
   type GridAdapterCleanup,
   type GridCellAnchor,
   type GridCellSelection,
+  type GridChrome,
   type GridColumn,
   type GridDensity,
   type GridEditorAdapter,
@@ -102,15 +104,16 @@ const gridDensityMetrics = {
 
 export const GridViewport = forwardRef<HTMLDivElement, GridViewportProps>(
   function GridViewport(
-    { children, className, style, testId }: GridViewportProps,
+    { children, chrome = "sheet", className, style, testId }: GridViewportProps,
     ref: ForwardedRef<HTMLDivElement>,
   ) {
     return (
       <div
         className={className}
+        data-grid-chrome={chrome}
         data-testid={testId}
         ref={ref}
-        style={resolveViewportStyle(style)}
+        style={resolveViewportStyle(style, chrome)}
       >
         {children}
       </div>
@@ -629,9 +632,12 @@ function resolveGridInlineSize<Row>(
   return Math.max(defaultGridMinWidth, gutterWidth + dataWidth + actionsWidth);
 }
 
-function resolveViewportStyle(style?: CSSProperties): CSSProperties {
+function resolveViewportStyle(
+  style?: CSSProperties,
+  chrome: GridChrome = "sheet",
+): CSSProperties {
   return {
-    ...viewportStyle,
+    ...(chrome === "framed" ? framedViewportStyle : sheetViewportStyle),
     ...style,
   };
 }
@@ -744,14 +750,19 @@ function resolveRowGutterWidth(rowGutter: GridRowGutter): number {
   );
 }
 
-const viewportStyle = {
+const sheetViewportStyle = {
   overflow: "hidden",
   overflowAnchor: "none" as const,
-  borderRadius: "var(--ct-rounded-lg)",
+  borderRadius: 0,
   border: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-1)",
   blockSize: "min(70vh, 46rem)",
   minBlockSize: "18rem",
+};
+
+const framedViewportStyle = {
+  ...sheetViewportStyle,
+  borderRadius: "var(--ct-rounded-sm)",
 };
 
 const gridStyle = {
@@ -769,7 +780,7 @@ const gridStyle = {
   "--rdg-border-color": "var(--ct-colors-hairline)",
   "--rdg-color": "var(--ct-colors-ink)",
   "--rdg-header-background-color": "var(--ct-colors-surface-2)",
-  "--rdg-row-hover-background-color": "var(--ct-colors-surface-2)",
+  "--rdg-row-hover-background-color": "rgba(250, 204, 21, 0.04)",
   "--rdg-row-selected-background-color": "var(--ct-colors-surface-3)",
   "--rdg-row-selected-hover-background-color": "var(--ct-colors-surface-3)",
 } satisfies CSSProperties & Record<string, string | number>;
@@ -787,11 +798,14 @@ const headerCellBaseStyle = {
   alignItems: "center",
   minWidth: 0,
   minBlockSize: gridHeaderHeight,
-  padding: "0.3rem 0.5rem",
-  borderBottom: "var(--ct-border-hairline)",
+  padding: "0.25rem 0.45rem",
+  borderBottom: "1px solid var(--ct-colors-hairline-strong)",
+  borderInlineEnd: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-2)",
-  color: "var(--ct-colors-ink)",
+  color: "var(--ct-colors-ink-muted)",
   fontWeight: 650,
+  fontSize: "0.78rem",
+  textTransform: "none" as const,
 };
 
 const rowGutterHeaderStyle = {
@@ -838,9 +852,13 @@ const bodyCellStyle = {
   minBlockSize: "var(--cartulary-grid-row-height)",
   padding: "var(--cartulary-grid-cell-padding)",
   borderBottom: "var(--ct-border-hairline)",
+  borderInlineEnd: "var(--ct-border-hairline)",
   lineHeight: "var(--ct-typography-grid-cell-lineHeight)",
   overflowWrap: "anywhere" as const,
   verticalAlign: "top" as const,
+  backgroundClip: "padding-box",
+  transition:
+    "background var(--ct-motion-duration-fast) var(--ct-motion-easing-standard)",
 };
 
 function rowGutterCellStyle(

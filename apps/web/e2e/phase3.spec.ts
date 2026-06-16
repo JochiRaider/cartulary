@@ -14,7 +14,6 @@ import {
 import type { Route } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
-
 import {
   apiBase,
   createIncident,
@@ -32,6 +31,7 @@ import {
   waitForCommittedRowSummary,
   webBase,
 } from "./helpers";
+import { clickTimelineRowAction, openTimelineInspector } from "./phase4Helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
@@ -175,9 +175,11 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
     reviewerPage.getByTestId(currentIncidentRoleTestId()),
   ).toHaveText("Current incident role: reviewer");
 
-  await reviewerPage
-    .getByTestId(timelineRowMarkReviewedButtonTestId(recordId))
-    .click();
+  await clickTimelineRowAction(
+    reviewerPage,
+    recordId,
+    timelineRowMarkReviewedButtonTestId(recordId),
+  );
   await expect(
     reviewerPage.getByTestId(rowCellTestId(recordId, "timeline.capture_state")),
   ).toHaveText("reviewed");
@@ -185,6 +187,7 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
     reviewerPage.getByTestId(timelineRowVersionTestId(recordId)),
   ).toHaveText("2");
 
+  await openTimelineInspector(reviewerPage, recordId);
   const detailsInput = reviewerPage.getByTestId(
     rowInspectorFieldTestId(recordId, "timeline.details"),
   );

@@ -166,7 +166,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     fireEvent.click(screen.getByTestId(rowInspectButtonTestId("record-2")));
 
     expect(screen.getByTestId("timeline-inspector").textContent).toContain(
-      "Timeline row record-2",
+      "Phase 9 selected row",
     );
     expect(
       (
@@ -206,7 +206,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
       "record-1",
     ]);
     expect(screen.getByTestId("timeline-inspector").textContent).toContain(
-      "Timeline row record-2",
+      "Phase 9 selected row",
     );
     await waitFor(() => {
       expect(
@@ -238,7 +238,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId("timeline-inspector").textContent,
-      ).not.toContain("Timeline row record-2");
+      ).not.toContain("Phase 9 selected row");
       expect(document.activeElement).toBe(
         screen.getByTestId(rowCellTestId("record-3", "timeline.summary")),
       );

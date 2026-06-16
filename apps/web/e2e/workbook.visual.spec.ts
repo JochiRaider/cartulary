@@ -8,6 +8,7 @@ import {
   assertMarkerAnchoredToGridTarget,
   changeGrouping,
   createSavedViewFromCurrentSurface,
+  scrollGridTargetIntoView,
   setCurrentSavedViewAsDefault,
   setCurrentSavedViewAsHome,
   setSavedViewDraftName,
@@ -24,7 +25,6 @@ import {
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
   evidencePreviewPanelTestId,
-  gridActionsHeaderTestId,
   gridGroupRowTestId,
   gridRowGutterTestId,
   gridSavedRowsSelector,
@@ -52,7 +52,6 @@ import {
   rowHistoryRollbackCancelButtonTestId,
   rowHistoryRollbackConfirmButtonTestId,
   rowHistoryRollbackPreviewTestId,
-  rowInspectButtonTestId,
   rowPresenceMarkerTestId,
   savedViewSelectorTestId,
   savedViewStatusTestId,
@@ -64,6 +63,10 @@ import {
   timelineRowMarkReviewedButtonTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
+  workbookInlineDraftRowTestId,
+  workbookInspectorCloseButtonTestId,
+  workbookInspectorToggleTestId,
+  workbookRowActionMenuButtonTestId,
   workbookShellReadyTestId,
   workbookShellSlots,
   workbookShellSlotTestId,
@@ -280,6 +283,42 @@ function gridShellSelector(surface: string): string {
   return dataTestIdSelector(gridShellTestId(surface));
 }
 
+async function openTimelineRowActions(page: Page, recordId: string) {
+  const actionMenuTestId = workbookRowActionMenuButtonTestId(
+    timelineViewSchemaId,
+    recordId,
+  );
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: actionMenuTestId,
+  });
+  const actionMenu = page.getByTestId(actionMenuTestId);
+  if ((await actionMenu.getAttribute("aria-expanded")) === "true") {
+    return;
+  }
+  const openMenus = page.locator(
+    'button[aria-label="Row actions"][aria-expanded="true"]',
+  );
+  const openMenuCount = await openMenus.count();
+  for (let index = 0; index < openMenuCount; index += 1) {
+    const openMenu = openMenus.nth(index);
+    if ((await openMenu.getAttribute("data-testid")) !== actionMenuTestId) {
+      await openMenu.click();
+    }
+  }
+  await actionMenu.click();
+}
+
+async function clickTimelineRowAction(
+  page: Page,
+  recordId: string,
+  actionTestId: string,
+) {
+  await openTimelineRowActions(page, recordId);
+  await page.getByTestId(actionTestId).click();
+}
+
 function tagActionsPayload(tagNames: string[]) {
   return {
     kind: "collection_actions_v1",
@@ -299,7 +338,7 @@ type GridVisualRegressionOptions = {
 );
 
 test.describe("FE-P2 workbook visual readiness", () => {
-  test("FE-V-P2-01 Capture Default Timeline workbook shell with top bar, view bar, dense Timeline grid, row-context inspector, and status strip.", async ({
+  test("FE-V-P2-01 Capture Default Timeline workbook shell with top bar, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -372,6 +411,12 @@ test.describe("FE-P2 workbook visual readiness", () => {
       timelineViewSchemaId,
     );
     for (const slot of workbookShellSlots) {
+      if (slot === "inspector") {
+        await expect(
+          shell.locator(dataTestIdSelector(workbookShellSlotTestId(slot))),
+        ).toHaveCount(0);
+        continue;
+      }
       await expect(
         shell.locator(dataTestIdSelector(workbookShellSlotTestId(slot))),
       ).toBeVisible();
@@ -463,9 +508,21 @@ test.describe("FE-P2 workbook visual readiness", () => {
       ),
     ).toHaveValue(rowSummariesById.get(selectedRow.record_id) ?? "");
 
+    await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+    await expect(
+      page.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await page
+      .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
+      .click();
     await expect(page.getByTestId("timeline-inspector")).toBeVisible();
+    await expect(
+      page.getByTestId(
+        workbookInspectorCloseButtonTestId(timelineViewSchemaId),
+      ),
+    ).toBeVisible();
     await expect(page.getByTestId("timeline-inspector")).toContainText(
-      selectedRow.record_id,
+      rowSummariesById.get(selectedRow.record_id) ?? "Selected timeline row",
     );
     for (const section of [
       "details",
@@ -489,6 +546,10 @@ test.describe("FE-P2 workbook visual readiness", () => {
         rowCellTestId(selectedRow.record_id, "timeline.evidence_count"),
       ),
     ).toHaveText("1");
+    await page
+      .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
+      .click();
+    await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
 
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
@@ -694,9 +755,11 @@ test.describe("Phase 3 workbook visual evidence", () => {
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
-    await page
-      .getByTestId(timelineRowMarkReviewedButtonTestId(firstRow.record_id))
-      .click();
+    await clickTimelineRowAction(
+      page,
+      firstRow.record_id,
+      timelineRowMarkReviewedButtonTestId(firstRow.record_id),
+    );
     await expect(
       page.getByTestId(
         rowCellTestId(firstRow.record_id, "timeline.capture_state"),
@@ -864,9 +927,11 @@ test.describe("FE-P4 visual readiness", () => {
       )
       .toBe(0);
     await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(0);
-    await expect(page.getByText("Draft timeline row")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Create blank row" }),
+      page.getByTestId(workbookInlineDraftRowTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Commit row" }),
     ).toBeVisible();
     await assertWorkbookGridVisualRegression(
       page,
@@ -1263,9 +1328,7 @@ test.describe("Phase 5 workbook visual evidence", () => {
     await expect(
       page.getByTestId(gridShellTestId(timelineViewSchemaId)),
     ).toBeVisible();
-    await page
-      .getByTestId(rowInspectButtonTestId(timelineRow.record_id))
-      .click();
+    await openTimelineInspector(page, timelineRow.record_id);
     await page
       .getByTestId(timelineEvidenceFileInputTestId(timelineRow.record_id))
       .setInputFiles({
@@ -1283,9 +1346,9 @@ test.describe("Phase 5 workbook visual evidence", () => {
         rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
       ),
     ).toHaveText("true");
-    await expect(page.getByTestId("timeline-inspector")).toContainText(
-      timelineRow.record_id,
-    );
+    await expect(
+      page.getByTestId(timelineInspectorSectionTestId("evidence")),
+    ).toBeVisible();
     await page.evaluate(() => {
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -1504,6 +1567,7 @@ test.describe("FE-P6 visual readiness", () => {
     await assertEvidenceAccessVisualRegression(
       page,
       "fe-v-p6-01-evidence-affordance-states",
+      availablePreview.record_id,
     );
 
     await page.goto(
@@ -1515,9 +1579,7 @@ test.describe("FE-P6 visual readiness", () => {
     await expect(
       page.getByTestId(gridShellTestId(timelineViewSchemaId)),
     ).toBeVisible();
-    await page
-      .getByTestId(rowInspectButtonTestId(timelineRow.record_id))
-      .click();
+    await openTimelineInspector(page, timelineRow.record_id);
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
     ).toContainText("Evidence");
@@ -1538,9 +1600,9 @@ test.describe("FE-P6 visual readiness", () => {
         rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
       ),
     ).toHaveText("true");
-    await expect(page.getByTestId("timeline-inspector")).toContainText(
-      timelineRow.record_id,
-    );
+    await expect(
+      page.getByTestId(timelineInspectorSectionTestId("evidence")),
+    ).toBeVisible();
     await page.evaluate(() => {
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -1790,9 +1852,11 @@ test.describe("FE-P8 workbook visual readiness", () => {
       page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
     ).toBeVisible();
 
-    await page
-      .getByTestId(timelineRowMarkReviewedButtonTestId(reviewedRow.record_id))
-      .click();
+    await clickTimelineRowAction(
+      page,
+      reviewedRow.record_id,
+      timelineRowMarkReviewedButtonTestId(reviewedRow.record_id),
+    );
     await expect(
       page.getByTestId(
         rowCellTestId(reviewedRow.record_id, "timeline.capture_state"),
@@ -1866,7 +1930,9 @@ test.describe("FE-P8 workbook visual readiness", () => {
       )
       .toBe(0);
     await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(0);
-    await expect(page.getByText("Draft timeline row")).toBeVisible();
+    await expect(
+      page.getByTestId(workbookInlineDraftRowTestId(timelineViewSchemaId)),
+    ).toBeVisible();
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
     });
@@ -1981,9 +2047,11 @@ test.describe("FE-P9 workbook visual readiness", () => {
     await page
       .getByTestId(timelineInspectorSectionTestId("history"))
       .scrollIntoViewIfNeeded();
-    await page
-      .getByTestId(rowHistoryOpenButtonTestId(target.record_id))
-      .click();
+    await clickTimelineRowAction(
+      page,
+      target.record_id,
+      rowHistoryOpenButtonTestId(target.record_id),
+    );
     await expect(page.getByTestId(rowHistoryPanelTestId())).toBeVisible();
     await expect(
       page.getByTestId(
@@ -3621,7 +3689,11 @@ async function assertWorkbookGridVisualRegression(
   }
 }
 
-async function assertEvidenceAccessVisualRegression(page: Page, name: string) {
+async function assertEvidenceAccessVisualRegression(
+  page: Page,
+  name: string,
+  actionRecordId: string,
+) {
   try {
     await installFeP6EvidenceAccessVisualStyle(page);
     await prepareVisualRegressionState(page);
@@ -3630,11 +3702,11 @@ async function assertEvidenceAccessVisualRegression(page: Page, name: string) {
       left: "left",
     });
     await page
-      .getByTestId(gridActionsHeaderTestId(evidenceViewSchemaId))
+      .getByTestId(evidencePreviewButtonTestId(actionRecordId))
       .scrollIntoViewIfNeeded();
     await waitForVisualLayoutFrame(page);
     await expect(
-      page.getByTestId(gridActionsHeaderTestId(evidenceViewSchemaId)),
+      page.getByTestId(evidencePreviewButtonTestId(actionRecordId)),
     ).toBeVisible();
     await assertVisualRegression(
       page,
@@ -4131,26 +4203,17 @@ function buildWorkbookGridAnchorSelectors(
   switch (anchor.kind) {
     case "timelineEvidenceActions":
       return {
-        fieldKeys: [
+        fieldKeys: ["timeline.evidence_count"],
+        scrollTargetTestId: rowCellTestId(
+          anchor.rowId,
           "timeline.evidence_count",
-          "timeline.tags",
-          "timeline.edited_at",
-        ],
+        ),
         requiredTestIds: {
-          actionButton: rowInspectButtonTestId(anchor.rowId),
-          actionsHeader: gridActionsHeaderTestId(surface),
-          editedCell: rowCellTestId(anchor.rowId, "timeline.edited_at"),
-          editedHeader: gridSortHeaderTestId(surface, "timeline.edited_at"),
           evidenceCell: rowCellTestId(anchor.rowId, "timeline.evidence_count"),
           evidenceHeader: gridSortHeaderTestId(
             surface,
             "timeline.evidence_count",
           ),
-          hasEvidenceBadge: rowCellTestId(
-            anchor.rowId,
-            "timeline.has_evidence",
-          ),
-          tagsHeader: gridSortHeaderTestId(surface, "timeline.tags"),
         },
       };
   }
@@ -4193,12 +4256,12 @@ async function setWorkbookGridAnchor(
       shell.scrollTop = 0;
       shell.scrollLeft = 0;
       scrollport.scrollTop = expectedTop;
-      const actionButton = byTestId(selectors.requiredTestIds.actionButton);
-      if (actionButton === null) {
+      const scrollTarget = byTestId(selectors.scrollTargetTestId);
+      if (scrollTarget === null) {
         shell.scrollLeft = Math.max(0, shell.scrollWidth - shell.clientWidth);
         scrollport.scrollLeft = maxLeft;
       } else {
-        actionButton.scrollIntoView({ block: "nearest", inline: "end" });
+        scrollTarget.scrollIntoView({ block: "nearest", inline: "center" });
       }
       shell.scrollTop = 0;
 

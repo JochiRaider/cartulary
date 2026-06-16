@@ -8,7 +8,6 @@ import {
   gridGroupRowTestId,
   gridSortHeaderTestId,
   rowCellTestId,
-  rowInspectButtonTestId,
   savedViewCreateButtonTestId,
   savedViewNameInputTestId,
   savedViewSelectorTestId,
@@ -23,6 +22,7 @@ import {
   timelineInspectorSectionTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineScalarEditorTestId,
+  workbookRowActionMenuButtonTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
@@ -37,6 +37,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
+import { clickTimelineRowAction, openTimelineInspector } from "./phase4Helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 const p8AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
@@ -205,9 +206,11 @@ test.describe("FE-P8 accessibility preflight", () => {
     await page.keyboard.press("Enter");
     await expect(summarySortHeader).toContainText("Asc");
 
-    await page
-      .getByTestId(timelineRowMarkReviewedButtonTestId(reviewedRow.record_id))
-      .click();
+    await clickTimelineRowAction(
+      page,
+      reviewedRow.record_id,
+      timelineRowMarkReviewedButtonTestId(reviewedRow.record_id),
+    );
     await expect(
       page.getByTestId(
         rowCellTestId(reviewedRow.record_id, "timeline.capture_state"),
@@ -383,17 +386,19 @@ test.describe("FE-P11 accessibility preflight", () => {
     await expect(summaryCell).toBeVisible();
 
     const inspectButton = page.getByTestId(
-      rowInspectButtonTestId(row.record_id),
+      workbookRowActionMenuButtonTestId(timelineViewSchemaId, row.record_id),
     );
     await expectKeyboardReachable(inspectButton);
-    await inspectButton.press("Enter");
+    await openTimelineInspector(page, row.record_id);
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("details")),
     ).toBeVisible();
 
-    await page
-      .getByTestId(timelineRowMarkReviewedButtonTestId(reviewedRow.record_id))
-      .click();
+    await clickTimelineRowAction(
+      page,
+      reviewedRow.record_id,
+      timelineRowMarkReviewedButtonTestId(reviewedRow.record_id),
+    );
     const groupingSelect = page.getByTestId(
       gridGroupingSelectTestId(timelineViewSchemaId),
     );

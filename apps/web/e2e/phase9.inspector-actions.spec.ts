@@ -32,6 +32,7 @@ import {
   uniqueTxn,
 } from "./helpers";
 import {
+  clickTimelineRowAction,
   collectionActionsPayload,
   collectionItems,
   evidenceViewSchemaId,
@@ -155,7 +156,11 @@ test("FE-I-P9-01 Verify history and rollback preview/action use public route con
   const rollbackAnchor = rollbackPreviewAnchor(rollbackItem, "history_entry");
 
   await openTimelineSurface(page, incidentId);
-  await page.getByTestId(rowHistoryOpenButtonTestId(row.record_id)).click();
+  await clickTimelineRowAction(
+    page,
+    row.record_id,
+    rowHistoryOpenButtonTestId(row.record_id),
+  );
   await expect(page.getByTestId(rowHistoryPanelTestId())).toBeVisible();
   await page
     .getByTestId(historyActionTestId(rollbackItem, "history_entry"))
@@ -306,7 +311,11 @@ test("FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rol
     page.getByTestId(timelineInspectorSectionTestId("evidence")),
   ).toContainText("Attached evidence count: 0");
 
-  await page.getByTestId(rowHistoryOpenButtonTestId(target.record_id)).click();
+  await clickTimelineRowAction(
+    page,
+    target.record_id,
+    rowHistoryOpenButtonTestId(target.record_id),
+  );
   await expect(
     page.getByTestId(historyActionTestId(rollbackItem, "history_entry")),
   ).toBeVisible();
@@ -401,9 +410,11 @@ test("FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rol
       "history_entry",
     );
     await openTimelineSurface(memberPage, incidentId);
-    await memberPage
-      .getByTestId(rowHistoryOpenButtonTestId(target.record_id))
-      .click();
+    await clickTimelineRowAction(
+      memberPage,
+      target.record_id,
+      rowHistoryOpenButtonTestId(target.record_id),
+    );
     await expect(
       memberPage.getByTestId(
         historyActionTestId(retainedRollbackItem, "history_entry"),

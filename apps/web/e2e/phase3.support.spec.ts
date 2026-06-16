@@ -29,6 +29,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
+import { clickTimelineRowAction } from "./phase4Helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
@@ -54,9 +55,11 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
     page.getByTestId(rowCellTestId(alphaRow.record_id, "timeline.summary")),
   ).toHaveValue("Alpha summary");
 
-  await page
-    .getByTestId(timelineRowMarkReviewedButtonTestId(betaRow.record_id))
-    .click();
+  await clickTimelineRowAction(
+    page,
+    betaRow.record_id,
+    timelineRowMarkReviewedButtonTestId(betaRow.record_id),
+  );
   await expect(
     page.getByTestId(
       rowCellTestId(betaRow.record_id, "timeline.capture_state"),
@@ -253,9 +256,11 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await page
-    .getByTestId(timelineRowMarkReviewedButtonTestId(betaRow.record_id))
-    .click();
+  await clickTimelineRowAction(
+    page,
+    betaRow.record_id,
+    timelineRowMarkReviewedButtonTestId(betaRow.record_id),
+  );
   await expect(
     page.getByTestId(
       rowCellTestId(betaRow.record_id, "timeline.capture_state"),

@@ -16,6 +16,7 @@ import {
   saveStateTestId,
   timelineCollectionInputTestId,
   timelineRowVersionTestId,
+  workbookRowActionMenuButtonTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -1695,7 +1696,9 @@ async function expectTimelineFocusAndScroll(
 ) {
   await waitFor(() => {
     expect(document.activeElement).toBe(
-      screen.getByTestId(rowInspectButtonTestId(recordId)),
+      screen.getByTestId(
+        workbookRowActionMenuButtonTestId(timelineViewSchemaId, recordId),
+      ),
     );
     const grid = timelineGridScrollport();
     expect(grid.scrollTop).toBe(options.expectedTop ?? preservedScroll.top);
@@ -1719,7 +1722,10 @@ function installTimelineInspectGeometry(
     targetWidth: number;
   },
 ) {
-  const inspectTestId = rowInspectButtonTestId(recordId);
+  const inspectTestId = workbookRowActionMenuButtonTestId(
+    timelineViewSchemaId,
+    recordId,
+  );
   const original = HTMLElement.prototype.getBoundingClientRect;
 
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
@@ -1768,7 +1774,9 @@ function installTimelineGridScrollClamp(maxTop: () => number) {
 function isInspectButtonFullyVisibleWithinGrid(recordId: string) {
   const tolerancePx = 1;
   const grid = timelineGridScrollport();
-  const inspectButton = screen.getByTestId(rowInspectButtonTestId(recordId));
+  const inspectButton = screen.getByTestId(
+    workbookRowActionMenuButtonTestId(timelineViewSchemaId, recordId),
+  );
   const gridRect = grid.getBoundingClientRect();
   const inspectRect = inspectButton.getBoundingClientRect();
 
