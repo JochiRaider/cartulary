@@ -139,6 +139,15 @@ describe("Incident landing", () => {
     expect((adminShell as HTMLElement).style.width).toBe("100%");
     expect((adminShell as HTMLElement).style.margin).toBe("");
     expect((adminShell as HTMLElement).style.borderRadius).toBe("");
+    expect(window.getComputedStyle(document.body).margin).toBe("0px");
+    expect(
+      Array.from(document.querySelectorAll("style")).some((style) =>
+        Boolean(
+          style.textContent?.includes("#root") &&
+            style.textContent.includes("margin: 0"),
+        ),
+      ),
+    ).toBe(true);
     expect(
       screen.getByTestId(landingAdminShellTestId("menu")).getAttribute("role"),
     ).toBe(null);
