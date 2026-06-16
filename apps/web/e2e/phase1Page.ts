@@ -1,4 +1,6 @@
 import {
+  type LandingAdminPanelToken,
+  landingAdminTabTestId,
   landingIncidentOpenButtonTestId,
   phase1AccountTestId,
   phase1AdminTestId,
@@ -47,6 +49,12 @@ export class Phase1Page {
     await this.page.getByTestId(phase1AuthTestId("login-submit")).click();
   }
 
+  async selectAdminPanel(panel: LandingAdminPanelToken) {
+    const tab = this.page.getByTestId(landingAdminTabTestId(panel));
+    await tab.click();
+    await expect(tab).toHaveAttribute("aria-selected", "true");
+  }
+
   async requireText(testId: StableTestId) {
     const locator = this.page.getByTestId(testId);
     await expect
@@ -71,6 +79,7 @@ export class Phase1Page {
   }
 
   async refreshAccount() {
+    await this.selectAdminPanel("account-security");
     await this.page.getByTestId(phase1AccountTestId("refresh-state")).click();
   }
 
@@ -124,6 +133,7 @@ export class Phase1Page {
     nextPassword: string,
     factorCode: string,
   ) {
+    await this.selectAdminPanel("account-security");
     await this.page
       .getByTestId(phase1AccountTestId("password-current"))
       .fill(currentPassword);
@@ -143,6 +153,7 @@ export class Phase1Page {
     mfaRequired?: boolean;
     password: string;
   }) {
+    await this.selectAdminPanel("deployment-users");
     await this.page
       .getByTestId(phase1AdminTestId("create-email"))
       .fill(options.email);
@@ -164,6 +175,7 @@ export class Phase1Page {
   }
 
   async loadTargetUser(userId: string) {
+    await this.selectAdminPanel("deployment-users");
     const targetPath = `/api/v1/users/${userId}`;
     await this.page
       .getByTestId(phase1AdminTestId("target-user-id-input"))

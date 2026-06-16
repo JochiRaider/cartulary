@@ -1,4 +1,5 @@
 import {
+  deploymentUserRowTestId,
   phase1AccountTestId,
   phase1AdminTestId,
   phase1AuthTestId,
@@ -7,7 +8,13 @@ import {
   phase1LandingTestId,
   phase1RouteTestId,
 } from "@cartulary/ui-contracts";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../workbook/WorkbookShell", () => ({
@@ -25,6 +32,7 @@ import {
 } from "../testing/appShellTestSupport";
 import { AppRoot } from "./AppRoot";
 import { Phase1AccountPanel, Phase1AdminPanel } from "./Phase1Surface";
+import type { UserResource } from "./phase1Client";
 
 describe("Phase 1 ordinary shell support", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -125,6 +133,83 @@ describe("Phase 1 ordinary shell support", () => {
     ).toBeTruthy();
   });
 
+  it("loads, filters, selects, and pages deployment users", async () => {
+    const usersPageOne = [
+      userResource({
+        user_id: "user-alpha",
+        email: "alpha@example.test",
+        display_name: "Alpha Admin",
+        is_deployment_admin: true,
+      }),
+      userResource({
+        user_id: "user-bravo",
+        email: "bravo@example.test",
+        display_name: "Bravo Analyst",
+      }),
+    ];
+    const usersPageTwo = [
+      userResource({
+        user_id: "user-charlie",
+        email: "charlie@example.test",
+        display_name: "Charlie Reviewer",
+      }),
+    ];
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/users?limit=100" && method === "GET") {
+        return Promise.resolve(
+          userListResponse(usersPageOne, "cursor-2", true),
+        );
+      }
+      if (
+        url === "/api/v1/users?limit=100&cursor_token=cursor-2" &&
+        method === "GET"
+      ) {
+        return Promise.resolve(userListResponse(usersPageTwo, null, false));
+      }
+      throw new Error(`unexpected fetch: ${method} ${url}`);
+    });
+
+    render(
+      <Phase1AdminPanel
+        autoLoadUsers
+        onRefreshShell={() => undefined}
+        session={sessionResource({ is_deployment_admin: true })}
+      />,
+    );
+
+    expect(
+      await screen.findByTestId(deploymentUserRowTestId("user-alpha")),
+    ).toBeTruthy();
+    expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
+      "Deployment users loaded",
+    );
+    fireEvent.change(screen.getByTestId(phase1AdminTestId("user-filter")), {
+      target: { value: "bravo" },
+    });
+    expect(
+      screen.queryByTestId(deploymentUserRowTestId("user-alpha")),
+    ).toBeNull();
+    const bravoRow = screen.getByTestId(deploymentUserRowTestId("user-bravo"));
+    expect(bravoRow.textContent).toContain("Bravo Analyst");
+    fireEvent.click(bravoRow);
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(phase1AdminTestId("target-user-id")).textContent,
+      ).toBe("user-bravo");
+    });
+
+    fireEvent.change(screen.getByTestId(phase1AdminTestId("user-filter")), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByTestId(phase1AdminTestId("load-more-users")));
+    expect(
+      await screen.findByTestId(deploymentUserRowTestId("user-charlie")),
+    ).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps account and deployment-admin panels on design tokens without overflowing inputs", () => {
     const session = sessionResource({ is_deployment_admin: true });
 
@@ -186,6 +271,39 @@ function installAnonymousSessionRequiredFetch(
       );
     }
     throw new Error(`unexpected fetch: ${String(input)}`);
+  });
+}
+
+function userResource(overrides: Partial<UserResource>): UserResource {
+  return {
+    user_id: "user-default",
+    email: "default@example.test",
+    display_name: "Default User",
+    user_version: 1,
+    is_active: true,
+    mfa_required: true,
+    is_deployment_admin: false,
+    ...overrides,
+  };
+}
+
+function userListResponse(
+  users: UserResource[],
+  nextCursor: string | null,
+  hasMore: boolean,
+) {
+  return jsonResponse({
+    data: {
+      users,
+    },
+    meta: {
+      paging: {
+        limit: 100,
+        has_more: hasMore,
+        next_cursor: nextCursor,
+      },
+      request_id: "req-users",
+    },
   });
 }
 

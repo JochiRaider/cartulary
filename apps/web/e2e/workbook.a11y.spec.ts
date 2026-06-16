@@ -28,6 +28,7 @@ import {
   gridSortHeaderTestId,
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
+  landingAdminTabTestId,
   landingIncidentCardTestId,
   mentionDismissButtonTestId,
   mentionItemTestId,
@@ -2726,8 +2727,6 @@ test.describe("FE-P1 accessibility readiness", () => {
           phase1LandingTestId("incident-key"),
           phase1LandingTestId("incident-title"),
           phase1LandingTestId("create-button"),
-          phase1AccountTestId("refresh-state"),
-          phase1AccountTestId("logout"),
         ],
       });
       await sessionTracker.captureCurrentSession(page, {
@@ -2874,10 +2873,6 @@ test.describe("FE-P1 accessibility readiness", () => {
         phase1LandingTestId("incident-key"),
         phase1LandingTestId("incident-title"),
         phase1LandingTestId("create-button"),
-        phase1AccountTestId("refresh-state"),
-        phase1AccountTestId("logout"),
-        phase1AdminTestId("create-email"),
-        phase1AdminTestId("create-user"),
       ],
     });
   });
@@ -3055,12 +3050,7 @@ test.describe("FE-P1 accessibility readiness", () => {
     );
     await expectP1SurfaceA11y(page, {
       focusTestId: phase1LandingTestId("refresh"),
-      tabStops: [
-        phase1LandingTestId("refresh"),
-        phase1AccountTestId("refresh-state"),
-        phase1AccountTestId("logout"),
-        phase1AdminTestId("create-email"),
-      ],
+      tabStops: [phase1LandingTestId("refresh")],
     });
 
     await safeUnroute(page, routePattern, routeHandler);
@@ -3158,6 +3148,7 @@ test.describe("FE-P1 accessibility readiness", () => {
 
     await page.route(routePattern, routeHandler);
     await page.goto("/");
+    await page.getByTestId(landingAdminTabTestId("account-security")).click();
     await expect(page.getByTestId(phase1ErrorCodeTestId("account"))).toHaveText(
       "credential_state_unavailable",
     );
@@ -3180,7 +3171,6 @@ test.describe("FE-P1 accessibility readiness", () => {
     await expectP1SurfaceA11y(page, {
       focusTestId: phase1AccountTestId("refresh-state"),
       tabStops: [
-        phase1LandingTestId("refresh"),
         phase1AccountTestId("refresh-state"),
         phase1AccountTestId("logout"),
       ],

@@ -129,6 +129,7 @@ export type Phase1AdminSelector =
   | "create-mfa-required"
   | "create-password"
   | "create-user"
+  | "load-more-users"
   | "load-user"
   | "new-password"
   | "password-reset"
@@ -146,7 +147,9 @@ export type Phase1AdminSelector =
   | "target-user-id"
   | "target-user-id-input"
   | "target-user-version"
-  | "totp-reset";
+  | "totp-reset"
+  | "user-filter"
+  | "user-list";
 
 export type Phase1LandingSelector =
   | "create-button"
@@ -161,6 +164,25 @@ export type Phase1LandingSelector =
   | "return"
   | "shell"
   | "status";
+
+export type LandingAdminPanelToken =
+  | "account-security"
+  | "deployment-users"
+  | "incidents"
+  | "reference-packs";
+
+export const landingAdminPanelTokens = [
+  "incidents",
+  "account-security",
+  "deployment-users",
+  "reference-packs",
+] as const satisfies readonly LandingAdminPanelToken[];
+
+export type LandingAdminShellSelector =
+  | "command-strip"
+  | "shell"
+  | "status-strip"
+  | "tablist";
 
 export type Phase1RouteSelector =
   | "app-shell"
@@ -283,6 +305,7 @@ const phase1AdminTestIds = Object.freeze({
   "create-mfa-required": "admin-create-mfa-required",
   "create-password": "admin-create-password",
   "create-user": "admin-create-user",
+  "load-more-users": "admin-load-more-users",
   "load-user": "admin-load-user",
   "new-password": "admin-new-password",
   "password-reset": "admin-password-reset",
@@ -301,6 +324,8 @@ const phase1AdminTestIds = Object.freeze({
   "target-user-id-input": "admin-target-user-id-input",
   "target-user-version": "admin-target-user-version",
   "totp-reset": "admin-totp-reset",
+  "user-filter": "admin-user-filter",
+  "user-list": "admin-user-list",
 } satisfies Record<Phase1AdminSelector, string>);
 
 const phase1LandingTestIds = Object.freeze({
@@ -317,6 +342,17 @@ const phase1LandingTestIds = Object.freeze({
   shell: "incident-landing",
   status: "landing-status",
 } satisfies Record<Phase1LandingSelector, string>);
+
+const landingAdminShellTestIds = Object.freeze({
+  "command-strip": "landing-admin-command-strip",
+  shell: "landing-admin-shell",
+  "status-strip": "landing-admin-status-strip",
+  tablist: "landing-admin-tablist",
+} satisfies Record<LandingAdminShellSelector, string>);
+
+const landingAdminPanelTokenSet = Object.freeze(
+  new Set<LandingAdminPanelToken>(landingAdminPanelTokens),
+);
 
 const phase1RouteTestIds = Object.freeze({
   "app-shell": "app-shell",
@@ -362,6 +398,39 @@ export function phase1LandingTestId(
     phase1LandingTestIds,
     selector,
     "phase1 landing selector",
+  );
+}
+
+export function landingAdminShellTestId(
+  selector: LandingAdminShellSelector,
+): StableTestId {
+  return stableSelectorTokenTestId(
+    landingAdminShellTestIds,
+    selector,
+    "landing admin shell selector",
+  );
+}
+
+export function landingAdminTabTestId(
+  panel: LandingAdminPanelToken,
+): StableTestId {
+  return stableTestId(`landing-admin-tab-${requireLandingAdminPanel(panel)}`);
+}
+
+export function landingAdminPanelTestId(
+  panel: LandingAdminPanelToken,
+): StableTestId {
+  return stableTestId(`landing-admin-panel-${requireLandingAdminPanel(panel)}`);
+}
+
+export function landingAdminCommandTestId(
+  panel: LandingAdminPanelToken,
+  command: string,
+): StableTestId {
+  return stableEncodedTestId(
+    `landing-admin-command-${requireLandingAdminPanel(panel)}`,
+    command,
+    "landing admin command",
   );
 }
 
@@ -473,6 +542,10 @@ export function landingIncidentOpenButtonTestId(
   incidentId: string,
 ): StableTestId {
   return stableEncodedTestId("landing-open", incidentId, "incident_id");
+}
+
+export function deploymentUserRowTestId(userId: string): StableTestId {
+  return stableEncodedTestId("deployment-user-row", userId, "user_id");
 }
 
 export function incidentMembershipEmailInputTestId(): string {
@@ -1221,6 +1294,15 @@ function encodedTestId(prefix: string, value: string, label: string): string {
 
 function userScopedTestId(prefix: string, userId: string): string {
   return encodedTestId(prefix, userId, "user_id");
+}
+
+function requireLandingAdminPanel(
+  panel: LandingAdminPanelToken,
+): LandingAdminPanelToken {
+  if (landingAdminPanelTokenSet.has(panel)) {
+    return panel;
+  }
+  throw new Error(`Invalid landing admin panel token: ${String(panel)}`);
 }
 
 const incidentMembershipControlPrefixes = {

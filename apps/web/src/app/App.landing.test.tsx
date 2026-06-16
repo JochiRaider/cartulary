@@ -1,6 +1,12 @@
 import {
+  deploymentUserRowTestId,
+  landingAdminCommandTestId,
+  landingAdminPanelTestId,
+  landingAdminShellTestId,
+  landingAdminTabTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
+  phase1AdminTestId,
   phase1AuthTestId,
   phase1LandingTestId,
 } from "@cartulary/ui-contracts";
@@ -97,6 +103,7 @@ import {
 import {
   abortablePendingResponse,
   expectStableFetchCount,
+  jsonResponse,
 } from "../testing/fetchMockTestSupport";
 import { AppRoot } from "./AppRoot";
 
@@ -128,6 +135,34 @@ describe("Incident landing", () => {
       (await screen.findByTestId(phase1LandingTestId("empty-state")))
         .textContent,
     ).toContain("No incidents are visible");
+    expect(screen.getByTestId(landingAdminShellTestId("shell"))).toBeTruthy();
+    expect(
+      screen
+        .getByTestId(landingAdminShellTestId("tablist"))
+        .getAttribute("role"),
+    ).toBe("tablist");
+    expect(
+      screen
+        .getByTestId(landingAdminTabTestId("incidents"))
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(
+      screen
+        .getByTestId(landingAdminPanelTestId("incidents"))
+        .getAttribute("role"),
+    ).toBe("tabpanel");
+    expect(
+      (
+        screen.getByTestId(
+          landingAdminCommandTestId("incidents", "open selected"),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      screen.getByTestId(
+        landingAdminCommandTestId("incidents", "new incident"),
+      ),
+    ).toBeTruthy();
     expect(
       screen.getByTestId(phase1LandingTestId("incidents-count")).textContent,
     ).toBe("0");
@@ -135,6 +170,151 @@ describe("Incident landing", () => {
       screen.getByTestId(phase1LandingTestId("current-user")).textContent,
     ).toBe("Bootstrap Admin · deployment admin");
     await expectStableFetchCount(fetchMock, 3);
+  });
+
+  it("switches ribbon panels and exposes contextual commands", async () => {
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Operator",
+      }),
+    });
+
+    renderApp();
+
+    await screen.findByTestId(phase1LandingTestId("empty-state"));
+    fireEvent.click(
+      screen.getByTestId(landingAdminTabTestId("account-security")),
+    );
+    expect(
+      screen
+        .getByTestId(landingAdminTabTestId("account-security"))
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(
+      screen
+        .getByTestId(landingAdminPanelTestId("account-security"))
+        .getAttribute("aria-labelledby"),
+    ).toBe(landingAdminTabTestId("account-security"));
+    expect(
+      screen.getByTestId(
+        landingAdminCommandTestId("account-security", "refresh account"),
+      ),
+    ).toBeTruthy();
+
+    fireEvent.keyDown(screen.getByTestId(landingAdminShellTestId("tablist")), {
+      key: "End",
+    });
+    await waitFor(() => {
+      expect(
+        screen
+          .getByTestId(landingAdminTabTestId("reference-packs"))
+          .getAttribute("aria-selected"),
+      ).toBe("true");
+    });
+    expect(
+      (
+        screen.getByTestId(
+          landingAdminCommandTestId("reference-packs", "import"),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+
+    fireEvent.click(
+      screen.getByTestId(landingAdminTabTestId("deployment-users")),
+    );
+    expect(
+      screen.getByTestId(phase1AdminTestId("access-note")).textContent,
+    ).toContain("Deployment admin access is required");
+    expect(
+      (
+        screen.getByTestId(
+          landingAdminCommandTestId("deployment-users", "save target"),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+  });
+
+  it("enables deployment-user ribbon target commands after selecting a loaded user", async () => {
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Deployment Admin",
+        is_deployment_admin: true,
+      }),
+      extraRoutes: [
+        {
+          method: "GET",
+          url: "/api/v1/users?limit=100",
+          handler: () =>
+            jsonResponse({
+              data: {
+                users: [
+                  {
+                    user_id: "user-2",
+                    email: "target@example.test",
+                    display_name: "Target User",
+                    user_version: 3,
+                    is_active: true,
+                    mfa_required: true,
+                    is_deployment_admin: false,
+                  },
+                ],
+              },
+              meta: {
+                paging: {
+                  limit: 100,
+                  has_more: false,
+                  next_cursor: null,
+                },
+                request_id: "req-users",
+              },
+            }),
+        },
+      ],
+    });
+
+    renderApp();
+
+    await screen.findByTestId(phase1LandingTestId("empty-state"));
+    fireEvent.click(
+      screen.getByTestId(landingAdminTabTestId("deployment-users")),
+    );
+    expect(
+      (
+        screen.getByTestId(
+          landingAdminCommandTestId("deployment-users", "save target"),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    const userRow = await screen.findByTestId(
+      deploymentUserRowTestId("user-2"),
+    );
+    fireEvent.click(userRow);
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(phase1AdminTestId("target-user-id")).textContent,
+      ).toBe("user-2");
+    });
+    expect(
+      (
+        screen.getByTestId(
+          landingAdminCommandTestId("deployment-users", "save target"),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+    expect(
+      (
+        screen.getByTestId(
+          landingAdminCommandTestId("deployment-users", "reset password"),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+    expect(
+      (
+        screen.getByTestId(
+          landingAdminCommandTestId("deployment-users", "revoke sessions"),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
   });
 
   it("renders one or many visible incidents on the landing screen", async () => {
@@ -162,7 +342,36 @@ describe("Incident landing", () => {
     expect(
       screen.getByTestId(landingIncidentCardTestId("incident-2")).textContent,
     ).toContain("Second Incident");
-    await expectStableFetchCount(fetchMock, 3);
+    await waitFor(() => {
+      expect(
+        screen
+          .getByTestId(landingIncidentCardTestId("incident-1"))
+          .getAttribute("data-selected"),
+      ).toBe("true");
+    });
+
+    const secondIncidentSelector = screen
+      .getByTestId(landingIncidentCardTestId("incident-2"))
+      .querySelector("button");
+    if (secondIncidentSelector === null) {
+      throw new Error("Missing incident selection button");
+    }
+    fireEvent.click(secondIncidentSelector);
+    expect(
+      screen
+        .getByTestId(landingIncidentCardTestId("incident-2"))
+        .getAttribute("data-selected"),
+    ).toBe("true");
+    const openSelectedCommand = screen.getByTestId(
+      landingAdminCommandTestId("incidents", "open selected"),
+    ) as HTMLButtonElement;
+    expect(openSelectedCommand.disabled).toBe(false);
+    fireEvent.click(openSelectedCommand);
+
+    expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
+    expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
+      "incident-2",
+    );
   });
 
   it("Phase 2 U-2-11 ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible", async () => {

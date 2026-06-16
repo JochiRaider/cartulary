@@ -12,8 +12,10 @@ import {
 } from "@cartulary/ui-contracts";
 import {
   type CSSProperties,
+  forwardRef,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -65,22 +67,54 @@ type ReferencePackAdminPanelProps = {
   session: SessionData;
 };
 
+export type ReferencePackAdminPanelHandle = {
+  cancelJob: () => Promise<void>;
+  importBundle: () => Promise<void>;
+  refreshAll: () => Promise<void>;
+  refreshPacks: () => Promise<void>;
+  refreshSelected: () => Promise<void>;
+};
+
 const terminalJobStates = new Set(["succeeded", "failed", "canceled"]);
 
-export function ReferencePackAdminPanel({
-  session,
-}: ReferencePackAdminPanelProps) {
+export const ReferencePackAdminPanel = forwardRef<
+  ReferencePackAdminPanelHandle,
+  ReferencePackAdminPanelProps
+>(function ReferencePackAdminPanel({ session }, ref) {
   const [packs, setPacks] = useState<ReferencePackVersion[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [file, setFile] = useState<File | null>(null);
   const [job, setJob] = useState<JobResource | null>(null);
   const [error, setError] = useState<APIError | null>(null);
+  const [packFilter, setPackFilter] = useState("");
   const [status, setStatus] = useState("Idle");
   const pollTimer = useRef<number | null>(null);
 
+  const visiblePacks = useMemo(() => {
+    const query = packFilter.trim().toLowerCase();
+    if (query === "") {
+      return packs;
+    }
+    return packs.filter((pack) =>
+      [
+        pack.pack_key,
+        pack.pack_kind,
+        pack.pack_version,
+        pack.pack_version_state,
+        pack.verification_result,
+        pack.active ? "active" : "inactive",
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [packFilter, packs]);
+
   const activePackKeys = useMemo(() => {
-    return Array.from(new Set(packs.map((pack) => pack.pack_key))).sort();
-  }, [packs]);
+    return Array.from(
+      new Set(visiblePacks.map((pack) => pack.pack_key)),
+    ).sort();
+  }, [visiblePacks]);
 
   const loadPacks = useCallback(async () => {
     const result = await fetchJSON<ReferencePackListEnvelope>(
@@ -128,8 +162,29 @@ export function ReferencePackAdminPanel({
     };
   }, [job, loadJob]);
 
+  useImperativeHandle(ref, () => ({
+    cancelJob,
+    importBundle: submitUpload,
+    refreshAll: () => refreshSelected(true),
+    refreshPacks: loadPacks,
+    refreshSelected: () => refreshSelected(false),
+  }));
+
   if (!session.is_deployment_admin) {
-    return null;
+    return (
+      <section data-testid={referencePackAdminPanelTestId()} style={panelStyle}>
+        <div style={panelHeaderStyle}>
+          <div>
+            <p style={eyebrowStyle}>Reference packs</p>
+            <h2 style={titleStyle}>Pack operations</h2>
+          </div>
+        </div>
+        <p style={emptyStyle}>
+          Deployment admin access is required for reference-pack import,
+          refresh, activation, and verification actions.
+        </p>
+      </section>
+    );
   }
 
   async function submitUpload() {
@@ -207,6 +262,10 @@ export function ReferencePackAdminPanel({
   }
 
   async function refreshSelected(all: boolean) {
+    if (!all && selectedKeys.size === 0) {
+      setStatus("Select packs first");
+      return;
+    }
     const packKeys = all ? [] : Array.from(selectedKeys).sort();
     const body: Record<string, unknown> = {
       client_txn_id: clientTxnID("reference-pack-refresh"),
@@ -275,6 +334,18 @@ export function ReferencePackAdminPanel({
       </div>
 
       <div style={uploadRowStyle}>
+        <label style={srOnlyLabelStyle} htmlFor="reference-pack-filter">
+          Filter reference packs
+        </label>
+        <input
+          id="reference-pack-filter"
+          style={filterInputStyle}
+          value={packFilter}
+          onChange={(event) => {
+            setPackFilter(event.target.value);
+          }}
+          placeholder="Filter packs"
+        />
         <input
           aria-label="Reference pack bundle file"
           data-testid={referencePackFileInputTestId()}
@@ -336,7 +407,7 @@ export function ReferencePackAdminPanel({
       </div>
 
       <div style={packListStyle}>
-        {packs.map((pack) => (
+        {visiblePacks.map((pack) => (
           <div
             key={`${pack.pack_key}/${pack.pack_version}`}
             style={packRowStyle}
@@ -392,6 +463,9 @@ export function ReferencePackAdminPanel({
           </div>
         ))}
         {packs.length === 0 ? <p style={emptyStyle}>No packs loaded</p> : null}
+        {packs.length > 0 && visiblePacks.length === 0 ? (
+          <p style={emptyStyle}>No packs match this filter</p>
+        ) : null}
       </div>
 
       <p data-testid={referencePackErrorTestId()} style={errorStyle}>
@@ -400,7 +474,7 @@ export function ReferencePackAdminPanel({
       <p style={emptyStyle}>{activePackKeys.length} pack keys visible</p>
     </section>
   );
-}
+});
 
 const panelStyle = {
   boxSizing: "border-box" as const,
@@ -433,11 +507,34 @@ const titleStyle = {
 
 const uploadRowStyle = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gridTemplateColumns: "minmax(10rem, 0.7fr) minmax(0, 1fr) auto",
   gap: "0.75rem",
   marginTop: "1rem",
   minWidth: 0,
 };
+
+const srOnlyLabelStyle = {
+  position: "absolute",
+  width: "1px",
+  height: "1px",
+  padding: 0,
+  margin: "-1px",
+  overflow: "hidden",
+  clip: "rect(0, 0, 0, 0)",
+  whiteSpace: "nowrap",
+  border: 0,
+} satisfies CSSProperties;
+
+const filterInputStyle = {
+  boxSizing: "border-box" as const,
+  minWidth: 0,
+  width: "100%",
+  borderRadius: "var(--ct-component-text-input-rounded)",
+  border: "var(--ct-component-text-input-border)",
+  background: "var(--ct-component-text-input-backgroundColor)",
+  color: "var(--ct-component-text-input-textColor)",
+  padding: "var(--ct-component-text-input-padding)",
+} satisfies CSSProperties;
 
 const fileInputStyle = {
   boxSizing: "border-box" as const,

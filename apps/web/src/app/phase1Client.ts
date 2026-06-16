@@ -47,6 +47,22 @@ export type UserResource = {
   auth_bindings?: AuthBindingSummary[];
 };
 
+export type PagingMeta = {
+  limit: number;
+  has_more: boolean;
+  next_cursor: string | null;
+};
+
+export type UserListEnvelope = {
+  data: {
+    users: UserResource[];
+  };
+  meta: {
+    paging: PagingMeta;
+    request_id: string;
+  };
+};
+
 export type TotpAuthMode = "bootstrap" | "session";
 
 export type AuthBindingSummary =
@@ -350,6 +366,30 @@ export function createLocalUser(options: {
         is_deployment_admin: options.isDeploymentAdmin,
       }),
     },
+  );
+}
+
+export function listUsers(options?: {
+  apiBase?: string | undefined;
+  cursorToken?: string | null;
+  limit?: number | undefined;
+  signal?: AbortSignal | undefined;
+}) {
+  const params = new URLSearchParams();
+  params.set("limit", String(options?.limit ?? 100));
+  const cursorToken = options?.cursorToken?.trim() ?? "";
+  if (cursorToken !== "") {
+    params.set("cursor_token", cursorToken);
+  }
+  const requestInit =
+    typeof options?.signal === "undefined"
+      ? undefined
+      : {
+          signal: options.signal,
+        };
+  return fetchJSON<UserListEnvelope>(
+    apiPath(options?.apiBase, `/api/v1/users?${params.toString()}`),
+    requestInit,
   );
 }
 

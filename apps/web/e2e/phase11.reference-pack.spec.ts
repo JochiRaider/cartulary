@@ -1,4 +1,5 @@
 import {
+  landingAdminTabTestId,
   phase1LandingTestId,
   referencePackAdminPanelTestId,
   referencePackCancelButtonTestId,
@@ -54,10 +55,8 @@ test("E-11-01 shows Reference Pack progress and cancel controls without blocking
   );
 
   await page.goto("/");
+  await page.getByTestId(landingAdminTabTestId("reference-packs")).click();
   await expect(page.getByTestId(referencePackAdminPanelTestId())).toBeVisible();
-  await expect(
-    page.getByTestId(phase1LandingTestId("incident-key")),
-  ).toBeVisible();
 
   await page.getByTestId(referencePackRefreshAllButtonTestId()).click();
   await expect(page.getByTestId(referencePackJobStatusTestId())).toContainText(
@@ -70,6 +69,10 @@ test("E-11-01 shows Reference Pack progress and cancel controls without blocking
     },
   );
 
+  await page.getByTestId(landingAdminTabTestId("incidents")).click();
+  await expect(
+    page.getByTestId(phase1LandingTestId("incident-key")),
+  ).toBeVisible();
   await page
     .getByTestId(phase1LandingTestId("incident-key"))
     .fill("IR-E-11-01");
@@ -77,6 +80,7 @@ test("E-11-01 shows Reference Pack progress and cancel controls without blocking
     page.getByTestId(phase1LandingTestId("incident-key")),
   ).toHaveValue("IR-E-11-01");
 
+  await page.getByTestId(landingAdminTabTestId("reference-packs")).click();
   await page.getByTestId(referencePackCancelButtonTestId()).click();
   await expect(page.getByTestId(referencePackJobStatusTestId())).toContainText(
     "cancel_requested",

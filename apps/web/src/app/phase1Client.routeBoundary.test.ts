@@ -10,6 +10,7 @@ import {
   changePassword,
   completeTotpEnrollment,
   createLocalUser,
+  listUsers,
   loadCredentialState,
   loadSession,
   loadUser,
@@ -67,6 +68,8 @@ describe("Phase 1 API route boundaries", () => {
       isDeploymentAdmin: false,
       mfaRequired: true,
     });
+    await listUsers();
+    await listUsers({ cursorToken: " cursor-2 ", limit: 50 });
     await loadUser({ userId: "user-2" });
     await patchLocalUser({
       baseUserVersion: 7,
@@ -168,6 +171,18 @@ describe("Phase 1 API route boundaries", () => {
         csrfHeader: "session-csrf",
         method: "POST",
         url: "/api/v1/users",
+      },
+      {
+        body: null,
+        csrfHeader: "",
+        method: "GET",
+        url: "/api/v1/users?limit=100",
+      },
+      {
+        body: null,
+        csrfHeader: "",
+        method: "GET",
+        url: "/api/v1/users?limit=50&cursor_token=cursor-2",
       },
       {
         body: null,

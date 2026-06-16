@@ -1,11 +1,21 @@
 import {
+  deploymentUserRowTestId,
   phase1AccountTestId,
   phase1AdminTestId,
   phase1AuthTestId,
   phase1ErrorCodeTestId,
   phase1ErrorSummaryTestIds,
 } from "@cartulary/ui-contracts";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   type APIError,
@@ -24,11 +34,13 @@ import {
   createLocalUser,
   type EnterpriseAuthProvider,
   listEnterpriseAuthProviders,
+  listUsers,
   loadUser,
   loginLocal,
   logoutCurrentSession,
   patchLocalUser,
   type SessionData,
+  type UserListEnvelope,
   type UserResource,
 } from "./phase1Client";
 
@@ -58,8 +70,35 @@ type Phase1AccountPanelProps = {
 };
 
 type Phase1AdminPanelProps = {
+  autoLoadUsers?: boolean | undefined;
+  onCommandStateChange?:
+    | ((state: Phase1AdminPanelCommandState) => void)
+    | undefined;
   onRefreshShell: (options?: RefreshOptions) => Promise<void> | void;
   session: SessionData;
+};
+
+export type Phase1AccountPanelHandle = {
+  refreshAccount: () => Promise<void>;
+  signOut: () => Promise<void>;
+};
+
+export type Phase1AdminPanelHandle = {
+  createUser: () => Promise<void>;
+  loadTargetUser: () => Promise<void>;
+  refreshUsers: () => Promise<void>;
+  resetPassword: () => Promise<void>;
+  resetTotp: () => Promise<void>;
+  revokeAllSessions: () => Promise<void>;
+  saveTargetUser: () => Promise<void>;
+};
+
+export type Phase1AdminPanelCommandState = {
+  canLoadTargetUser: boolean;
+  canSubmitTargetAction: boolean;
+  canSubmitVersionedTargetAction: boolean;
+  hasSelectedUser: boolean;
+  targetOperationPending: boolean;
 };
 
 type TargetAdminOperation = "loading" | "mutating";
@@ -489,12 +528,13 @@ export function Phase1AuthSurface({
   );
 }
 
-export function Phase1AccountPanel({
-  credentialState,
-  credentialStateError,
-  onRefreshShell,
-  session,
-}: Phase1AccountPanelProps) {
+export const Phase1AccountPanel = forwardRef<
+  Phase1AccountPanelHandle,
+  Phase1AccountPanelProps
+>(function Phase1AccountPanel(
+  { credentialState, credentialStateError, onRefreshShell, session },
+  ref,
+) {
   const [statusText, setStatusText] = useState("Account security is current.");
   const [error, setError] = useState<APIError | null>(null);
 
@@ -585,6 +625,11 @@ export function Phase1AccountPanel({
       anonymousMessage: "TOTP enrollment completed. Sign in again.",
     });
   }
+
+  useImperativeHandle(ref, () => ({
+    refreshAccount: handleRefreshAccount,
+    signOut: handleLogout,
+  }));
 
   return (
     <section style={cardStyle}>
@@ -893,12 +938,39 @@ export function Phase1AccountPanel({
       />
     </section>
   );
+});
+
+function upsertUserResource(
+  users: UserResource[],
+  nextUser: UserResource,
+): UserResource[] {
+  const existingIndex = users.findIndex(
+    (user) => user.user_id === nextUser.user_id,
+  );
+  if (existingIndex === -1) {
+    return [...users, nextUser].sort((a, b) =>
+      a.user_id.localeCompare(b.user_id),
+    );
+  }
+  const next = [...users];
+  next[existingIndex] = nextUser;
+  return next;
 }
 
-export function Phase1AdminPanel({
-  onRefreshShell,
-  session,
-}: Phase1AdminPanelProps) {
+function mergeUserResources(
+  users: UserResource[],
+  nextUsers: UserResource[],
+): UserResource[] {
+  return nextUsers.reduce(upsertUserResource, users);
+}
+
+export const Phase1AdminPanel = forwardRef<
+  Phase1AdminPanelHandle,
+  Phase1AdminPanelProps
+>(function Phase1AdminPanel(
+  { autoLoadUsers = false, onCommandStateChange, onRefreshShell, session },
+  ref,
+) {
   const [statusText, setStatusText] = useState(
     session.is_deployment_admin
       ? "Deployment user administration is ready."
@@ -906,6 +978,10 @@ export function Phase1AdminPanel({
   );
   const [error, setError] = useState<APIError | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserResource | null>(null);
+  const [users, setUsers] = useState<UserResource[]>([]);
+  const [userFilter, setUserFilter] = useState("");
+  const [usersNextCursor, setUsersNextCursor] = useState<string | null>(null);
+  const [usersHasMore, setUsersHasMore] = useState(false);
 
   const [createEmail, setCreateEmail] = useState("");
   const [createDisplayName, setCreateDisplayName] = useState("");
@@ -941,6 +1017,23 @@ export function Phase1AdminPanel({
     !targetOperationPending && loadedTargetIsCurrent;
   const canSubmitVersionedTargetAction =
     canSubmitTargetAction && targetBaseVersionIsValid;
+
+  useEffect(() => {
+    onCommandStateChange?.({
+      canLoadTargetUser,
+      canSubmitTargetAction,
+      canSubmitVersionedTargetAction,
+      hasSelectedUser: selectedUser !== null,
+      targetOperationPending,
+    });
+  }, [
+    canLoadTargetUser,
+    canSubmitTargetAction,
+    canSubmitVersionedTargetAction,
+    onCommandStateChange,
+    selectedUser,
+    targetOperationPending,
+  ]);
 
   function beginTargetAdminOperation(kind: TargetAdminOperation) {
     if (targetAdminOperationRef.current !== null) {
@@ -979,6 +1072,7 @@ export function Phase1AdminPanel({
 
   function applySelectedUser(user: UserResource) {
     setSelectedUser(user);
+    setUsers((current) => upsertUserResource(current, user));
     setTargetUserId(user.user_id);
     setTargetBaseVersion(String(user.user_version));
     setPatchDisplayName(user.display_name);
@@ -986,6 +1080,78 @@ export function Phase1AdminPanel({
     setPatchIsActive(user.is_active);
     setPatchIsDeploymentAdmin(user.is_deployment_admin);
   }
+
+  const filteredUsers = useMemo(() => {
+    const query = userFilter.trim().toLowerCase();
+    if (query === "") {
+      return users;
+    }
+    return users.filter((user) =>
+      [
+        user.user_id,
+        user.email,
+        user.display_name,
+        user.is_active ? "active" : "disabled",
+        user.is_deployment_admin ? "deployment admin" : "standard user",
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [userFilter, users]);
+
+  const refreshUsers = useCallback(async () => {
+    if (!session.is_deployment_admin) {
+      return;
+    }
+    setStatusText("Refreshing deployment users");
+    setError(null);
+    const result = await listUsers({ limit: 100 });
+    const nextError = extractError(result.payload);
+    setError(nextError);
+    if (!result.ok) {
+      setUsers([]);
+      setUsersNextCursor(null);
+      setUsersHasMore(false);
+      setStatusText("Deployment users unavailable");
+      return;
+    }
+    const payload = result.payload as UserListEnvelope;
+    setUsers(payload.data.users);
+    setUsersNextCursor(payload.meta.paging.next_cursor);
+    setUsersHasMore(payload.meta.paging.has_more);
+    setStatusText("Deployment users loaded");
+  }, [session.is_deployment_admin]);
+
+  const loadMoreUsers = useCallback(async () => {
+    if (!session.is_deployment_admin || !usersHasMore) {
+      return;
+    }
+    setStatusText("Loading more deployment users");
+    setError(null);
+    const result = await listUsers({
+      cursorToken: usersNextCursor,
+      limit: 100,
+    });
+    const nextError = extractError(result.payload);
+    setError(nextError);
+    if (!result.ok) {
+      setStatusText("Load more users failed");
+      return;
+    }
+    const payload = result.payload as UserListEnvelope;
+    setUsers((current) => mergeUserResources(current, payload.data.users));
+    setUsersNextCursor(payload.meta.paging.next_cursor);
+    setUsersHasMore(payload.meta.paging.has_more);
+    setStatusText("Loaded more deployment users");
+  }, [session.is_deployment_admin, usersHasMore, usersNextCursor]);
+
+  useEffect(() => {
+    if (!autoLoadUsers || !session.is_deployment_admin) {
+      return;
+    }
+    void refreshUsers();
+  }, [autoLoadUsers, refreshUsers, session.is_deployment_admin]);
 
   async function loadSelectedUser(
     userId: string,
@@ -1227,6 +1393,16 @@ export function Phase1AdminPanel({
     }
   }
 
+  useImperativeHandle(ref, () => ({
+    createUser: handleCreateUser,
+    loadTargetUser: () => loadSelectedUser(targetUserId),
+    refreshUsers,
+    resetPassword: handleAdminPasswordReset,
+    resetTotp: handleAdminTotpReset,
+    revokeAllSessions: handleAdminRevokeAll,
+    saveTargetUser: handlePatchUser,
+  }));
+
   if (!session.is_deployment_admin) {
     return (
       <section style={cardStyle}>
@@ -1254,300 +1430,390 @@ export function Phase1AdminPanel({
         </div>
       </div>
 
-      <section style={subsectionStyle}>
-        <p style={subsectionTitleStyle}>Create local user</p>
-        <div style={formGridStyle}>
-          <label htmlFor="admin-create-email" style={labelBlockStyle}>
-            Email
-          </label>
-          <input
-            data-testid={phase1AdminTestId("create-email")}
-            id="admin-create-email"
-            disabled={targetOperationPending}
-            style={inputStyle}
-            value={createEmail}
-            onChange={(event) => {
-              setCreateEmail(event.target.value);
-            }}
-          />
-          <label htmlFor="admin-create-display-name" style={labelBlockStyle}>
-            Display name
-          </label>
-          <input
-            data-testid={phase1AdminTestId("create-display-name")}
-            id="admin-create-display-name"
-            disabled={targetOperationPending}
-            style={inputStyle}
-            value={createDisplayName}
-            onChange={(event) => {
-              setCreateDisplayName(event.target.value);
-            }}
-          />
-          <label htmlFor="admin-create-password" style={labelBlockStyle}>
-            Initial password
-          </label>
-          <input
-            data-testid={phase1AdminTestId("create-password")}
-            id="admin-create-password"
-            disabled={targetOperationPending}
-            style={inputStyle}
-            type="password"
-            value={createInitialPassword}
-            onChange={(event) => {
-              setCreateInitialPassword(event.target.value);
-            }}
-          />
-        </div>
-        <div style={checkboxRowStyle}>
-          <label style={checkboxLabelStyle}>
-            <input
-              data-testid={phase1AdminTestId("create-mfa-required")}
-              type="checkbox"
-              disabled={targetOperationPending}
-              checked={createMfaRequired}
-              onChange={(event) => {
-                setCreateMfaRequired(event.target.checked);
+      <div style={adminWorkspaceStyle}>
+        <section style={userListPaneStyle}>
+          <div style={compactPanelHeaderStyle}>
+            <div>
+              <p style={sectionEyebrowStyle}>Directory</p>
+              <h3 style={subsectionTitleStyle}>Loaded users</h3>
+            </div>
+            <button
+              style={secondaryButtonStyle}
+              type="button"
+              onClick={() => {
+                void refreshUsers();
               }}
-            />
-            MFA required
+            >
+              Refresh users
+            </button>
+          </div>
+          <label htmlFor="admin-user-filter" style={labelBlockStyle}>
+            Search users
           </label>
-          <label style={checkboxLabelStyle}>
-            <input
-              data-testid={phase1AdminTestId("create-is-deployment-admin")}
-              type="checkbox"
-              disabled={targetOperationPending}
-              checked={createIsDeploymentAdmin}
-              onChange={(event) => {
-                setCreateIsDeploymentAdmin(event.target.checked);
-              }}
-            />
-            Deployment admin
-          </label>
-        </div>
-        <div style={buttonRowStyle}>
-          <button
-            data-testid={phase1AdminTestId("create-user")}
-            disabled={targetOperationPending}
-            style={buttonStyle}
-            type="button"
-            onClick={() => {
-              void handleCreateUser();
+          <input
+            data-testid={phase1AdminTestId("user-filter")}
+            id="admin-user-filter"
+            style={inputStyle}
+            value={userFilter}
+            onChange={(event) => {
+              setUserFilter(event.target.value);
             }}
+            placeholder="Name, email, id, status"
+          />
+          <div
+            data-testid={phase1AdminTestId("user-list")}
+            style={userListStyle}
           >
-            Create user
-          </button>
-        </div>
-      </section>
-
-      <section style={subsectionStyle}>
-        <p style={subsectionTitleStyle}>Load target user</p>
-        <div style={formGridStyle}>
-          <label htmlFor="admin-target-user-id-input" style={labelBlockStyle}>
-            User id
-          </label>
-          <input
-            data-testid={phase1AdminTestId("target-user-id-input")}
-            id="admin-target-user-id-input"
-            disabled={targetOperationPending}
-            style={inputStyle}
-            value={targetUserId}
-            onChange={(event) => {
-              setTargetUserId(event.target.value);
-            }}
-          />
-        </div>
-        <div style={buttonRowStyle}>
+            {filteredUsers.map((user) => {
+              const selected = selectedUser?.user_id === user.user_id;
+              return (
+                <button
+                  key={user.user_id}
+                  aria-pressed={selected}
+                  data-testid={deploymentUserRowTestId(user.user_id)}
+                  style={
+                    selected ? selectedUserRowButtonStyle : userRowButtonStyle
+                  }
+                  type="button"
+                  onClick={() => {
+                    applySelectedUser(user);
+                    setStatusText("Selected deployment user");
+                  }}
+                >
+                  <span style={userRowPrimaryStyle}>{user.display_name}</span>
+                  <span style={userRowSecondaryStyle}>{user.email}</span>
+                  <span style={userRowMetaStyle}>
+                    v{user.user_version} ·{" "}
+                    {user.is_active ? "active" : "disabled"} ·{" "}
+                    {user.is_deployment_admin
+                      ? "deployment admin"
+                      : "standard user"}
+                  </span>
+                </button>
+              );
+            })}
+            {filteredUsers.length === 0 ? (
+              <p style={bodyStyle}>No deployment users match this filter.</p>
+            ) : null}
+          </div>
           <button
-            data-testid={phase1AdminTestId("load-user")}
-            disabled={!canLoadTargetUser}
+            data-testid={phase1AdminTestId("load-more-users")}
+            disabled={!usersHasMore || targetOperationPending}
             style={secondaryButtonStyle}
             type="button"
             onClick={() => {
-              void loadSelectedUser(targetUserId);
+              void loadMoreUsers();
             }}
           >
-            Load user
+            Load more users
           </button>
-        </div>
-        <div style={detailGridStyle}>
-          <div>
-            <span style={labelStyle}>Loaded user id</span>
-            <div
-              data-testid={phase1AdminTestId("target-user-id")}
-              style={monoTextStyle}
-            >
-              {selectedUser?.user_id ?? ""}
-            </div>
-          </div>
-          <div>
-            <span style={labelStyle}>User version</span>
-            <div data-testid={phase1AdminTestId("target-user-version")}>
-              {selectedUser?.user_version ?? ""}
-            </div>
-          </div>
-          <div>
-            <span style={labelStyle}>Is active</span>
-            <div data-testid={phase1AdminTestId("target-is-active")}>
-              {selectedUser ? String(selectedUser.is_active) : ""}
-            </div>
-          </div>
-          <div>
-            <span style={labelStyle}>Deployment admin</span>
-            <div data-testid={phase1AdminTestId("target-is-deployment-admin")}>
-              {selectedUser ? String(selectedUser.is_deployment_admin) : ""}
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <section style={subsectionStyle}>
-        <p style={subsectionTitleStyle}>Patch target user</p>
-        <div style={formGridStyle}>
-          <label htmlFor="admin-patch-base-version" style={labelBlockStyle}>
-            Base user version
-          </label>
-          <input
-            data-testid={phase1AdminTestId("patch-base-version")}
-            id="admin-patch-base-version"
-            disabled={!canSubmitTargetAction}
-            style={inputStyle}
-            value={targetBaseVersion}
-            onChange={(event) => {
-              setTargetBaseVersion(event.target.value);
-            }}
-          />
-          <label htmlFor="admin-patch-display-name" style={labelBlockStyle}>
-            Display name
-          </label>
-          <input
-            data-testid={phase1AdminTestId("patch-display-name")}
-            id="admin-patch-display-name"
-            disabled={!canSubmitTargetAction}
-            style={inputStyle}
-            value={patchDisplayName}
-            onChange={(event) => {
-              setPatchDisplayName(event.target.value);
-            }}
-          />
-        </div>
-        <div style={checkboxRowStyle}>
-          <label style={checkboxLabelStyle}>
-            <input
-              data-testid={phase1AdminTestId("patch-mfa-required")}
-              type="checkbox"
-              disabled={!canSubmitTargetAction}
-              checked={patchMfaRequired}
-              onChange={(event) => {
-                setPatchMfaRequired(event.target.checked);
-              }}
-            />
-            MFA required
-          </label>
-          <label style={checkboxLabelStyle}>
-            <input
-              data-testid={phase1AdminTestId("patch-is-active")}
-              type="checkbox"
-              disabled={!canSubmitTargetAction}
-              checked={patchIsActive}
-              onChange={(event) => {
-                setPatchIsActive(event.target.checked);
-              }}
-            />
-            Active
-          </label>
-          <label style={checkboxLabelStyle}>
-            <input
-              data-testid={phase1AdminTestId("patch-is-deployment-admin")}
-              type="checkbox"
-              disabled={!canSubmitTargetAction}
-              checked={patchIsDeploymentAdmin}
-              onChange={(event) => {
-                setPatchIsDeploymentAdmin(event.target.checked);
-              }}
-            />
-            Deployment admin
-          </label>
-        </div>
-        <div style={buttonRowStyle}>
-          <button
-            data-testid={phase1AdminTestId("patch-user")}
-            disabled={!canSubmitVersionedTargetAction}
-            style={buttonStyle}
-            type="button"
-            onClick={() => {
-              void handlePatchUser();
-            }}
-          >
-            Patch user
-          </button>
-        </div>
-      </section>
+        <div style={userInspectorPaneStyle}>
+          <section style={subsectionStyle}>
+            <p style={subsectionTitleStyle}>Create local user</p>
+            <div style={formGridStyle}>
+              <label htmlFor="admin-create-email" style={labelBlockStyle}>
+                Email
+              </label>
+              <input
+                data-testid={phase1AdminTestId("create-email")}
+                id="admin-create-email"
+                disabled={targetOperationPending}
+                style={inputStyle}
+                value={createEmail}
+                onChange={(event) => {
+                  setCreateEmail(event.target.value);
+                }}
+              />
+              <label
+                htmlFor="admin-create-display-name"
+                style={labelBlockStyle}
+              >
+                Display name
+              </label>
+              <input
+                data-testid={phase1AdminTestId("create-display-name")}
+                id="admin-create-display-name"
+                disabled={targetOperationPending}
+                style={inputStyle}
+                value={createDisplayName}
+                onChange={(event) => {
+                  setCreateDisplayName(event.target.value);
+                }}
+              />
+              <label htmlFor="admin-create-password" style={labelBlockStyle}>
+                Initial password
+              </label>
+              <input
+                data-testid={phase1AdminTestId("create-password")}
+                id="admin-create-password"
+                disabled={targetOperationPending}
+                style={inputStyle}
+                type="password"
+                value={createInitialPassword}
+                onChange={(event) => {
+                  setCreateInitialPassword(event.target.value);
+                }}
+              />
+            </div>
+            <div style={checkboxRowStyle}>
+              <label style={checkboxLabelStyle}>
+                <input
+                  data-testid={phase1AdminTestId("create-mfa-required")}
+                  type="checkbox"
+                  disabled={targetOperationPending}
+                  checked={createMfaRequired}
+                  onChange={(event) => {
+                    setCreateMfaRequired(event.target.checked);
+                  }}
+                />
+                MFA required
+              </label>
+              <label style={checkboxLabelStyle}>
+                <input
+                  data-testid={phase1AdminTestId("create-is-deployment-admin")}
+                  type="checkbox"
+                  disabled={targetOperationPending}
+                  checked={createIsDeploymentAdmin}
+                  onChange={(event) => {
+                    setCreateIsDeploymentAdmin(event.target.checked);
+                  }}
+                />
+                Deployment admin
+              </label>
+            </div>
+            <div style={buttonRowStyle}>
+              <button
+                data-testid={phase1AdminTestId("create-user")}
+                disabled={targetOperationPending}
+                style={buttonStyle}
+                type="button"
+                onClick={() => {
+                  void handleCreateUser();
+                }}
+              >
+                Create user
+              </button>
+            </div>
+          </section>
 
-      <section style={subsectionStyle}>
-        <p style={subsectionTitleStyle}>Credential actions</p>
-        <div style={formGridStyle}>
-          <label htmlFor="admin-new-password" style={labelBlockStyle}>
-            New password
-          </label>
-          <input
-            data-testid={phase1AdminTestId("new-password")}
-            id="admin-new-password"
-            style={inputStyle}
-            type="password"
-            value={adminNewPassword}
-            onChange={(event) => {
-              setAdminNewPassword(event.target.value);
-            }}
-          />
-          <label htmlFor="admin-reason" style={labelBlockStyle}>
-            Reason
-          </label>
-          <input
-            data-testid={phase1AdminTestId("reason")}
-            id="admin-reason"
-            style={inputStyle}
-            value={adminReason}
-            onChange={(event) => {
-              setAdminReason(event.target.value);
-            }}
-          />
+          <section style={subsectionStyle}>
+            <p style={subsectionTitleStyle}>Load target user</p>
+            <div style={formGridStyle}>
+              <label
+                htmlFor="admin-target-user-id-input"
+                style={labelBlockStyle}
+              >
+                User id
+              </label>
+              <input
+                data-testid={phase1AdminTestId("target-user-id-input")}
+                id="admin-target-user-id-input"
+                disabled={targetOperationPending}
+                style={inputStyle}
+                value={targetUserId}
+                onChange={(event) => {
+                  setTargetUserId(event.target.value);
+                }}
+              />
+            </div>
+            <div style={buttonRowStyle}>
+              <button
+                data-testid={phase1AdminTestId("load-user")}
+                disabled={!canLoadTargetUser}
+                style={secondaryButtonStyle}
+                type="button"
+                onClick={() => {
+                  void loadSelectedUser(targetUserId);
+                }}
+              >
+                Load user
+              </button>
+            </div>
+            <div style={detailGridStyle}>
+              <div>
+                <span style={labelStyle}>Loaded user id</span>
+                <div
+                  data-testid={phase1AdminTestId("target-user-id")}
+                  style={monoTextStyle}
+                >
+                  {selectedUser?.user_id ?? ""}
+                </div>
+              </div>
+              <div>
+                <span style={labelStyle}>User version</span>
+                <div data-testid={phase1AdminTestId("target-user-version")}>
+                  {selectedUser?.user_version ?? ""}
+                </div>
+              </div>
+              <div>
+                <span style={labelStyle}>Is active</span>
+                <div data-testid={phase1AdminTestId("target-is-active")}>
+                  {selectedUser ? String(selectedUser.is_active) : ""}
+                </div>
+              </div>
+              <div>
+                <span style={labelStyle}>Deployment admin</span>
+                <div
+                  data-testid={phase1AdminTestId("target-is-deployment-admin")}
+                >
+                  {selectedUser ? String(selectedUser.is_deployment_admin) : ""}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section style={subsectionStyle}>
+            <p style={subsectionTitleStyle}>Patch target user</p>
+            <div style={formGridStyle}>
+              <label htmlFor="admin-patch-base-version" style={labelBlockStyle}>
+                Base user version
+              </label>
+              <input
+                data-testid={phase1AdminTestId("patch-base-version")}
+                id="admin-patch-base-version"
+                disabled={!canSubmitTargetAction}
+                style={inputStyle}
+                value={targetBaseVersion}
+                onChange={(event) => {
+                  setTargetBaseVersion(event.target.value);
+                }}
+              />
+              <label htmlFor="admin-patch-display-name" style={labelBlockStyle}>
+                Display name
+              </label>
+              <input
+                data-testid={phase1AdminTestId("patch-display-name")}
+                id="admin-patch-display-name"
+                disabled={!canSubmitTargetAction}
+                style={inputStyle}
+                value={patchDisplayName}
+                onChange={(event) => {
+                  setPatchDisplayName(event.target.value);
+                }}
+              />
+            </div>
+            <div style={checkboxRowStyle}>
+              <label style={checkboxLabelStyle}>
+                <input
+                  data-testid={phase1AdminTestId("patch-mfa-required")}
+                  type="checkbox"
+                  disabled={!canSubmitTargetAction}
+                  checked={patchMfaRequired}
+                  onChange={(event) => {
+                    setPatchMfaRequired(event.target.checked);
+                  }}
+                />
+                MFA required
+              </label>
+              <label style={checkboxLabelStyle}>
+                <input
+                  data-testid={phase1AdminTestId("patch-is-active")}
+                  type="checkbox"
+                  disabled={!canSubmitTargetAction}
+                  checked={patchIsActive}
+                  onChange={(event) => {
+                    setPatchIsActive(event.target.checked);
+                  }}
+                />
+                Active
+              </label>
+              <label style={checkboxLabelStyle}>
+                <input
+                  data-testid={phase1AdminTestId("patch-is-deployment-admin")}
+                  type="checkbox"
+                  disabled={!canSubmitTargetAction}
+                  checked={patchIsDeploymentAdmin}
+                  onChange={(event) => {
+                    setPatchIsDeploymentAdmin(event.target.checked);
+                  }}
+                />
+                Deployment admin
+              </label>
+            </div>
+            <div style={buttonRowStyle}>
+              <button
+                data-testid={phase1AdminTestId("patch-user")}
+                disabled={!canSubmitVersionedTargetAction}
+                style={buttonStyle}
+                type="button"
+                onClick={() => {
+                  void handlePatchUser();
+                }}
+              >
+                Patch user
+              </button>
+            </div>
+          </section>
+
+          <section style={subsectionStyle}>
+            <p style={subsectionTitleStyle}>Credential actions</p>
+            <div style={formGridStyle}>
+              <label htmlFor="admin-new-password" style={labelBlockStyle}>
+                New password
+              </label>
+              <input
+                data-testid={phase1AdminTestId("new-password")}
+                id="admin-new-password"
+                style={inputStyle}
+                type="password"
+                value={adminNewPassword}
+                onChange={(event) => {
+                  setAdminNewPassword(event.target.value);
+                }}
+              />
+              <label htmlFor="admin-reason" style={labelBlockStyle}>
+                Reason
+              </label>
+              <input
+                data-testid={phase1AdminTestId("reason")}
+                id="admin-reason"
+                style={inputStyle}
+                value={adminReason}
+                onChange={(event) => {
+                  setAdminReason(event.target.value);
+                }}
+              />
+            </div>
+            <div style={buttonRowStyle}>
+              <button
+                data-testid={phase1AdminTestId("password-reset")}
+                disabled={!canSubmitVersionedTargetAction}
+                style={buttonStyle}
+                type="button"
+                onClick={() => {
+                  void handleAdminPasswordReset();
+                }}
+              >
+                Reset password
+              </button>
+              <button
+                data-testid={phase1AdminTestId("totp-reset")}
+                disabled={!canSubmitVersionedTargetAction}
+                style={buttonStyle}
+                type="button"
+                onClick={() => {
+                  void handleAdminTotpReset();
+                }}
+              >
+                Reset TOTP
+              </button>
+              <button
+                data-testid={phase1AdminTestId("revoke-all")}
+                disabled={!canSubmitTargetAction}
+                style={buttonStyle}
+                type="button"
+                onClick={() => {
+                  void handleAdminRevokeAll();
+                }}
+              >
+                Revoke all sessions
+              </button>
+            </div>
+          </section>
         </div>
-        <div style={buttonRowStyle}>
-          <button
-            data-testid={phase1AdminTestId("password-reset")}
-            disabled={!canSubmitVersionedTargetAction}
-            style={buttonStyle}
-            type="button"
-            onClick={() => {
-              void handleAdminPasswordReset();
-            }}
-          >
-            Reset password
-          </button>
-          <button
-            data-testid={phase1AdminTestId("totp-reset")}
-            disabled={!canSubmitVersionedTargetAction}
-            style={buttonStyle}
-            type="button"
-            onClick={() => {
-              void handleAdminTotpReset();
-            }}
-          >
-            Reset TOTP
-          </button>
-          <button
-            data-testid={phase1AdminTestId("revoke-all")}
-            disabled={!canSubmitTargetAction}
-            style={buttonStyle}
-            type="button"
-            onClick={() => {
-              void handleAdminRevokeAll();
-            }}
-          >
-            Revoke all sessions
-          </button>
-        </div>
-      </section>
+      </div>
 
       <p
         aria-live="polite"
@@ -1571,7 +1837,7 @@ export function Phase1AdminPanel({
       />
     </section>
   );
-}
+});
 
 function PublicErrorSummary({
   error,
@@ -1676,6 +1942,14 @@ const cardHeaderStyle: CSSProperties = {
   marginBottom: "1rem",
 };
 
+const compactPanelHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  alignItems: "center",
+  marginBottom: "1rem",
+};
+
 const sectionEyebrowStyle: CSSProperties = {
   margin: 0,
   fontSize: "0.72rem",
@@ -1693,6 +1967,25 @@ const subsectionStyle: CSSProperties = {
   marginTop: "1.5rem",
   paddingTop: "1.25rem",
   borderTop: "var(--ct-border-hairline)",
+  minWidth: 0,
+};
+
+const adminWorkspaceStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 24rem), 1fr))",
+  gap: "var(--ct-spacing-lg)",
+  alignItems: "start",
+};
+
+const userListPaneStyle: CSSProperties = {
+  minWidth: 0,
+  padding: "var(--ct-spacing-md)",
+  borderRadius: "var(--ct-rounded-md)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-1)",
+};
+
+const userInspectorPaneStyle: CSSProperties = {
   minWidth: 0,
 };
 
@@ -1716,6 +2009,48 @@ const detailGridStyle: CSSProperties = {
   gap: "0.85rem",
   marginTop: "1rem",
   minWidth: 0,
+};
+
+const userListStyle: CSSProperties = {
+  display: "grid",
+  gap: "var(--ct-spacing-sm)",
+  margin: "var(--ct-spacing-md) 0",
+};
+
+const userRowButtonStyle: CSSProperties = {
+  display: "grid",
+  gap: "var(--ct-spacing-xs)",
+  width: "100%",
+  minWidth: 0,
+  padding: "var(--ct-spacing-sm)",
+  borderRadius: "var(--ct-rounded-sm)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink)",
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const selectedUserRowButtonStyle: CSSProperties = {
+  ...userRowButtonStyle,
+  border: "var(--ct-border-strong)",
+  background: "var(--ct-colors-surface-3)",
+  boxShadow: "inset 3px 0 0 var(--ct-colors-accent)",
+};
+
+const userRowPrimaryStyle: CSSProperties = {
+  fontWeight: 700,
+  overflowWrap: "anywhere",
+};
+
+const userRowSecondaryStyle: CSSProperties = {
+  color: "var(--ct-colors-ink-muted)",
+  overflowWrap: "anywhere",
+};
+
+const userRowMetaStyle: CSSProperties = {
+  color: "var(--ct-colors-ink-subtle)",
+  fontSize: "0.82rem",
 };
 
 const labelStyle: CSSProperties = {

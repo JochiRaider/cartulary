@@ -10,6 +10,7 @@ import {
   currentIncidentRoleTestId,
   dataTestIdPrefixSelector,
   dataTestIdSelector,
+  deploymentUserRowTestId,
   draftCellTestId,
   draftRelationshipItemsTestId,
   draftTimelineCollectionInputTestId,
@@ -61,6 +62,10 @@ import {
   incidentMembershipRoleSelectTestId,
   incidentMembershipRowTestId,
   incidentMembershipVersionTestId,
+  landingAdminCommandTestId,
+  landingAdminPanelTestId,
+  landingAdminShellTestId,
+  landingAdminTabTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
   mentionCreateEntityButtonTestId,
@@ -964,6 +969,25 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       ["return", "landing-return"],
     ]);
 
+    expectSelectorCases(landingAdminShellTestId, [
+      ["shell", "landing-admin-shell"],
+      ["tablist", "landing-admin-tablist"],
+      ["command-strip", "landing-admin-command-strip"],
+      ["status-strip", "landing-admin-status-strip"],
+    ]);
+    expect(landingAdminTabTestId("incidents")).toBe(
+      "landing-admin-tab-incidents",
+    );
+    expect(landingAdminPanelTestId("deployment-users")).toBe(
+      "landing-admin-panel-deployment-users",
+    );
+    expect(landingAdminCommandTestId("incidents", "open selected")).toBe(
+      "landing-admin-command-incidents-open%20selected",
+    );
+    expect(deploymentUserRowTestId("user:1")).toBe(
+      "deployment-user-row-user%3A1",
+    );
+
     expectSelectorCases(phase1RouteTestId, [
       ["app-shell", "app-shell"],
       ["workbook-current-user", "workbook-current-user"],
@@ -1016,6 +1040,9 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       ["create-mfa-required", "admin-create-mfa-required"],
       ["create-is-deployment-admin", "admin-create-is-deployment-admin"],
       ["create-user", "admin-create-user"],
+      ["user-filter", "admin-user-filter"],
+      ["user-list", "admin-user-list"],
+      ["load-more-users", "admin-load-more-users"],
       ["target-user-id-input", "admin-target-user-id-input"],
       ["load-user", "admin-load-user"],
       ["target-user-id", "admin-target-user-id"],
@@ -1110,6 +1137,12 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(() => phase1LandingTestId("incident-card" as never)).toThrow(
       "Invalid phase1 landing selector token: incident-card",
+    );
+    expect(() => landingAdminShellTestId("tabs" as never)).toThrow(
+      "Invalid landing admin shell selector token: tabs",
+    );
+    expect(() => landingAdminTabTestId("users" as never)).toThrow(
+      "Invalid landing admin panel token: users",
     );
     expect(() => phase1RouteTestId("shell" as never)).toThrow(
       "Invalid phase1 route selector token: shell",

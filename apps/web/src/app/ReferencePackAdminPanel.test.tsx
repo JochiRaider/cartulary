@@ -35,7 +35,10 @@ describe("ReferencePackAdminPanel", () => {
 
   it("Phase 11 U-11-REFERENCE-PACK-04 hides deployment Reference Pack controls from non-admin sessions", () => {
     render(<ReferencePackAdminPanel session={session(false)} />);
-    expect(screen.queryByTestId(referencePackAdminPanelTestId())).toBeNull();
+    expect(
+      screen.getByTestId(referencePackAdminPanelTestId()).textContent,
+    ).toContain("Deployment admin access is required");
+    expect(screen.queryByTestId(referencePackFileInputTestId())).toBeNull();
   });
 
   it("Phase 11 U-11-REFERENCE-PACK-06 shows job progress and cancel controls for deployment-admin Reference Pack work", async () => {
@@ -54,6 +57,14 @@ describe("ReferencePackAdminPanel", () => {
                   pack_version_state: "verified_available",
                   active: true,
                   verification_result: "passed",
+                },
+                {
+                  pack_key: "type_registry.identity",
+                  pack_version: "1",
+                  pack_kind: "type_registry",
+                  pack_version_state: "draft",
+                  active: false,
+                  verification_result: "pending",
                 },
               ],
             },
@@ -99,6 +110,22 @@ describe("ReferencePackAdminPanel", () => {
       referencePackRowTestId("type_registry.host", "1"),
     );
     expect(packRow.textContent).toContain("type_registry.host@1");
+    expect(
+      screen.getByTestId(referencePackRowTestId("type_registry.identity", "1")),
+    ).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Filter reference packs"), {
+      target: { value: "identity" },
+    });
+    expect(
+      screen.queryByTestId(referencePackRowTestId("type_registry.host", "1")),
+    ).toBeNull();
+    expect(
+      screen.getByTestId(referencePackRowTestId("type_registry.identity", "1")),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Filter reference packs"), {
+      target: { value: "" },
+    });
 
     fireEvent.click(screen.getByTestId(referencePackRefreshAllButtonTestId()));
     await waitFor(() => {
