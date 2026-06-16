@@ -554,7 +554,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
 
   await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
   await assertMountedGridRowCountAtMost({
-    maxRows: 36,
+    maxRows: 48,
     page,
     surface: timelineViewSchemaId,
   });

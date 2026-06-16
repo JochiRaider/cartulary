@@ -1,5 +1,5 @@
 import {
-  landingAdminTabTestId,
+  landingAdminMenuItemTestId,
   phase1AccountTestId,
   phase1AdminTestId,
   phase1AuthTestId,
@@ -25,14 +25,18 @@ test("FE-S-P1-01 Verify bootstrap route selectors and error-state selectors use 
   await expect(
     page.getByTestId(phase1ErrorSummaryTestIds("landing").container),
   ).toBeAttached();
-  await page.getByTestId(landingAdminTabTestId("account-security")).click();
+  await page
+    .getByTestId(landingAdminMenuItemTestId("account-security"))
+    .click();
   await expect(
     page.getByTestId(phase1AccountTestId("session-user-id")),
   ).not.toHaveText("");
   await expect(
     page.getByTestId(phase1ErrorSummaryTestIds("account").message),
   ).toBeAttached();
-  await page.getByTestId(landingAdminTabTestId("deployment-users")).click();
+  await page
+    .getByTestId(landingAdminMenuItemTestId("deployment-users"))
+    .click();
   await expect(page.getByTestId(phase1AdminTestId("status"))).toBeVisible();
   expect(phase1AuthTestId("bootstrap-token")).toBe("auth-bootstrap-token");
 

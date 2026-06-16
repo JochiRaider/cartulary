@@ -1,5 +1,5 @@
 import {
-  landingAdminTabTestId,
+  landingAdminMenuItemTestId,
   phase1AccountTestId,
   phase1AdminTestId,
   phase1AuthTestId,
@@ -139,13 +139,13 @@ describe("Phase 1 ordinary app shell", () => {
         .getAttribute("data-bootstrap-state"),
     ).toBe("authenticated");
     fireEvent.click(
-      screen.getByTestId(landingAdminTabTestId("account-security")),
+      screen.getByTestId(landingAdminMenuItemTestId("account-security")),
     );
     expect(
       screen.getByTestId(phase1AccountTestId("session-user-id")).textContent,
     ).toBe("user-1");
     fireEvent.click(
-      screen.getByTestId(landingAdminTabTestId("deployment-users")),
+      screen.getByTestId(landingAdminMenuItemTestId("deployment-users")),
     );
     expect(
       screen.getByTestId(phase1AdminTestId("access-note")).textContent,

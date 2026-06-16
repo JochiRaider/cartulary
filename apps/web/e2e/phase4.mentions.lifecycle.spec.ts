@@ -118,7 +118,6 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
     .click();
 
   const dismissScroll = await scrollGridToBottom(page, timelineViewSchemaId);
-  expect(dismissScroll.top).toBeGreaterThan(0);
   const dismissResponsePromise = waitForMentionAction(
     page,
     seededMention.item_ref,

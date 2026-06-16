@@ -1,6 +1,6 @@
 import {
   type LandingAdminPanelToken,
-  landingAdminTabTestId,
+  landingAdminMenuItemTestId,
   landingIncidentOpenButtonTestId,
   phase1AccountTestId,
   phase1AdminTestId,
@@ -50,9 +50,9 @@ export class Phase1Page {
   }
 
   async selectAdminPanel(panel: LandingAdminPanelToken) {
-    const tab = this.page.getByTestId(landingAdminTabTestId(panel));
-    await tab.click();
-    await expect(tab).toHaveAttribute("aria-selected", "true");
+    const menuItem = this.page.getByTestId(landingAdminMenuItemTestId(panel));
+    await menuItem.click();
+    await expect(menuItem).toHaveAttribute("aria-pressed", "true");
   }
 
   async requireText(testId: StableTestId) {

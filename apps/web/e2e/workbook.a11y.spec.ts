@@ -28,7 +28,7 @@ import {
   gridSortHeaderTestId,
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
-  landingAdminTabTestId,
+  landingAdminMenuItemTestId,
   landingIncidentCardTestId,
   mentionDismissButtonTestId,
   mentionItemTestId,
@@ -2718,11 +2718,21 @@ test.describe("FE-P1 accessibility readiness", () => {
       await expect(
         page.getByTestId(phase1LandingTestId("shell")),
       ).toBeVisible();
+      await expect(
+        page.getByTestId(landingAdminMenuItemTestId("incidents")),
+      ).toHaveAttribute("aria-pressed", "true");
+      await expectVisibleFocus(
+        page.getByTestId(landingAdminMenuItemTestId("incidents")),
+      );
       await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
       await expectStatusRole(page.getByTestId(phase1AccountTestId("status")));
       await expectP1SurfaceA11y(page, {
         focusTestId: phase1LandingTestId("refresh"),
         tabStops: [
+          landingAdminMenuItemTestId("incidents"),
+          landingAdminMenuItemTestId("account-security"),
+          landingAdminMenuItemTestId("deployment-users"),
+          landingAdminMenuItemTestId("reference-packs"),
           phase1LandingTestId("refresh"),
           phase1LandingTestId("incident-key"),
           phase1LandingTestId("incident-title"),
@@ -2863,12 +2873,22 @@ test.describe("FE-P1 accessibility readiness", () => {
     await expect(
       page.getByTestId(landingIncidentCardTestId(incidentId)),
     ).toBeVisible();
+    await expect(
+      page.getByTestId(landingAdminMenuItemTestId("incidents")),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expectVisibleFocus(
+      page.getByTestId(landingAdminMenuItemTestId("incidents")),
+    );
     await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
     await expectStatusRole(page.getByTestId(phase1AccountTestId("status")));
     await expectStatusRole(page.getByTestId(phase1AdminTestId("status")));
     await expectP1SurfaceA11y(page, {
       focusTestId: phase1LandingTestId("create-button"),
       tabStops: [
+        landingAdminMenuItemTestId("incidents"),
+        landingAdminMenuItemTestId("account-security"),
+        landingAdminMenuItemTestId("deployment-users"),
+        landingAdminMenuItemTestId("reference-packs"),
         phase1LandingTestId("refresh"),
         phase1LandingTestId("incident-key"),
         phase1LandingTestId("incident-title"),
@@ -3048,9 +3068,21 @@ test.describe("FE-P1 accessibility readiness", () => {
     await expectNoPrivateDiagnostics(
       page.getByTestId(phase1ErrorSummaryTestIds("landing").container),
     );
+    await expect(
+      page.getByTestId(landingAdminMenuItemTestId("incidents")),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expectVisibleFocus(
+      page.getByTestId(landingAdminMenuItemTestId("incidents")),
+    );
     await expectP1SurfaceA11y(page, {
       focusTestId: phase1LandingTestId("refresh"),
-      tabStops: [phase1LandingTestId("refresh")],
+      tabStops: [
+        landingAdminMenuItemTestId("incidents"),
+        landingAdminMenuItemTestId("account-security"),
+        landingAdminMenuItemTestId("deployment-users"),
+        landingAdminMenuItemTestId("reference-packs"),
+        phase1LandingTestId("refresh"),
+      ],
     });
 
     await safeUnroute(page, routePattern, routeHandler);
@@ -3148,7 +3180,15 @@ test.describe("FE-P1 accessibility readiness", () => {
 
     await page.route(routePattern, routeHandler);
     await page.goto("/");
-    await page.getByTestId(landingAdminTabTestId("account-security")).click();
+    await page
+      .getByTestId(landingAdminMenuItemTestId("account-security"))
+      .click();
+    await expect(
+      page.getByTestId(landingAdminMenuItemTestId("account-security")),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expectVisibleFocus(
+      page.getByTestId(landingAdminMenuItemTestId("account-security")),
+    );
     await expect(page.getByTestId(phase1ErrorCodeTestId("account"))).toHaveText(
       "credential_state_unavailable",
     );
@@ -3171,6 +3211,10 @@ test.describe("FE-P1 accessibility readiness", () => {
     await expectP1SurfaceA11y(page, {
       focusTestId: phase1AccountTestId("refresh-state"),
       tabStops: [
+        landingAdminMenuItemTestId("incidents"),
+        landingAdminMenuItemTestId("account-security"),
+        landingAdminMenuItemTestId("deployment-users"),
+        landingAdminMenuItemTestId("reference-packs"),
         phase1AccountTestId("refresh-state"),
         phase1AccountTestId("logout"),
       ],

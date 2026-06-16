@@ -178,11 +178,7 @@ export const landingAdminPanelTokens = [
   "reference-packs",
 ] as const satisfies readonly LandingAdminPanelToken[];
 
-export type LandingAdminShellSelector =
-  | "command-strip"
-  | "shell"
-  | "status-strip"
-  | "tablist";
+export type LandingAdminShellSelector = "menu" | "shell" | "status-strip";
 
 export type Phase1RouteSelector =
   | "app-shell"
@@ -344,10 +340,9 @@ const phase1LandingTestIds = Object.freeze({
 } satisfies Record<Phase1LandingSelector, string>);
 
 const landingAdminShellTestIds = Object.freeze({
-  "command-strip": "landing-admin-command-strip",
+  menu: "landing-admin-menu",
   shell: "landing-admin-shell",
   "status-strip": "landing-admin-status-strip",
-  tablist: "landing-admin-tablist",
 } satisfies Record<LandingAdminShellSelector, string>);
 
 const landingAdminPanelTokenSet = Object.freeze(
@@ -411,27 +406,18 @@ export function landingAdminShellTestId(
   );
 }
 
-export function landingAdminTabTestId(
+export function landingAdminMenuItemTestId(
   panel: LandingAdminPanelToken,
 ): StableTestId {
-  return stableTestId(`landing-admin-tab-${requireLandingAdminPanel(panel)}`);
+  return stableTestId(
+    `landing-admin-menu-item-${requireLandingAdminPanel(panel)}`,
+  );
 }
 
 export function landingAdminPanelTestId(
   panel: LandingAdminPanelToken,
 ): StableTestId {
   return stableTestId(`landing-admin-panel-${requireLandingAdminPanel(panel)}`);
-}
-
-export function landingAdminCommandTestId(
-  panel: LandingAdminPanelToken,
-  command: string,
-): StableTestId {
-  return stableEncodedTestId(
-    `landing-admin-command-${requireLandingAdminPanel(panel)}`,
-    command,
-    "landing admin command",
-  );
 }
 
 export function phase1RouteTestId(selector: Phase1RouteSelector): StableTestId {

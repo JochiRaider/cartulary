@@ -1,10 +1,8 @@
 import {
-  dataTestIdSelector,
   type LandingAdminPanelToken,
-  landingAdminCommandTestId,
+  landingAdminMenuItemTestId,
   landingAdminPanelTestId,
   landingAdminShellTestId,
-  landingAdminTabTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
   phase1ErrorCodeTestId,
@@ -36,10 +34,7 @@ import {
 } from "../services/browserApi";
 import {
   Phase1AccountPanel,
-  type Phase1AccountPanelHandle,
   Phase1AdminPanel,
-  type Phase1AdminPanelCommandState,
-  type Phase1AdminPanelHandle,
   Phase1AuthSurface,
 } from "./Phase1Surface";
 import {
@@ -48,10 +43,7 @@ import {
   loadSession,
   type SessionData,
 } from "./phase1Client";
-import {
-  ReferencePackAdminPanel,
-  type ReferencePackAdminPanelHandle,
-} from "./ReferencePackAdminPanel";
+import { ReferencePackAdminPanel } from "./ReferencePackAdminPanel";
 
 const LazyWorkbookShell = lazy(async () => {
   const module = await import("../workbook/WorkbookShell");
@@ -100,7 +92,6 @@ type IncidentLandingProps = {
   bootstrapState: AppBootstrapState;
   createIncidentKey: string;
   createIncidentTitle: string;
-  currentUserLabel: string;
   error: APIError | null;
   incidents: IncidentData[];
   isRefreshing: boolean;
@@ -109,8 +100,6 @@ type IncidentLandingProps = {
   onCreateIncidentTitleChange: (value: string) => void;
   onOpenIncident: (incidentId: string) => void;
   onRefresh: () => Promise<void> | void;
-  onSelectIncident: (incidentId: string) => void;
-  selectedIncidentId: string | null;
   statusText: string;
 };
 
@@ -119,30 +108,13 @@ type AppProps = {
   readonly themeId?: string | undefined;
 };
 
-type LandingAdminCommand = {
-  id: string;
-  label: string;
-  onClick: () => Promise<void> | void;
-  disabled?: boolean;
-  variant?: "danger" | "primary" | "secondary";
-};
-
 type LandingAdminShellProps = {
   activePanel: LandingAdminPanelToken;
   children: ReactNode;
-  commands: LandingAdminCommand[];
   currentUserLabel: string;
   incidentCount: number;
   onActivePanelChange: (panel: LandingAdminPanelToken) => void;
   statusText: string;
-};
-
-const defaultAdminCommandState: Phase1AdminPanelCommandState = {
-  canLoadTargetUser: false,
-  canSubmitTargetAction: false,
-  canSubmitVersionedTargetAction: false,
-  hasSelectedUser: false,
-  targetOperationPending: false,
 };
 
 export type CartularyReadingProfile = "default" | "hyperlegible";
@@ -226,7 +198,6 @@ export function IncidentLanding({
   bootstrapState,
   createIncidentKey,
   createIncidentTitle,
-  currentUserLabel,
   error,
   incidents,
   isRefreshing,
@@ -235,8 +206,6 @@ export function IncidentLanding({
   onCreateIncidentTitleChange,
   onOpenIncident,
   onRefresh,
-  onSelectIncident,
-  selectedIncidentId,
   statusText,
 }: IncidentLandingProps) {
   const incidentKeyFieldId = useId();
@@ -269,170 +238,105 @@ export function IncidentLanding({
       data-testid={phase1LandingTestId("shell")}
       style={landingPanelStyle}
     >
-      <div style={landingHeroStyle}>
-        <p style={landingEyebrowStyle}>Cartulary</p>
-        <h1 style={landingHeadlineStyle}>Incident landing</h1>
-        <p style={landingBodyStyle}>
-          Open a visible incident or create a new one to enter the workbook. The
-          debug harness remains available behind `?debug=harness`.
-        </p>
-      </div>
-
-      <div style={landingToolbarStyle}>
+      <header style={landingPanelHeaderStyle}>
         <div>
-          <p style={landingToolbarLabelStyle}>Current session</p>
-          <p style={landingToolbarValueStyle}>{currentUserLabel}</p>
+          <p style={landingSectionEyebrowStyle}>Incidents</p>
+          <h2 style={landingSectionTitleStyle}>Workbook access</h2>
         </div>
-        <button
-          data-testid={phase1LandingTestId("refresh")}
-          style={landingSecondaryButtonStyle}
-          type="button"
-          onClick={() => {
-            void onRefresh();
-          }}
-        >
-          Refresh incidents
-        </button>
-      </div>
-
-      <section style={landingSectionStyle}>
-        <div style={landingSectionHeaderStyle}>
-          <div>
-            <p style={landingSectionEyebrowStyle}>Create</p>
-            <h2 style={landingSectionTitleStyle}>New incident</h2>
-          </div>
-        </div>
-        <div style={landingFormGridStyle}>
-          <label htmlFor={incidentKeyFieldId} style={landingLabelStyle}>
-            Incident key
-          </label>
-          <input
-            data-testid={phase1LandingTestId("incident-key")}
-            id={incidentKeyFieldId}
-            style={landingInputStyle}
-            value={createIncidentKey}
-            onChange={(event) => {
-              onCreateIncidentKeyChange(event.target.value);
-            }}
-            placeholder="IR-2026-001"
-          />
-          <label htmlFor={incidentTitleFieldId} style={landingLabelStyle}>
-            Title
-          </label>
-          <input
-            data-testid={phase1LandingTestId("incident-title")}
-            id={incidentTitleFieldId}
-            style={landingInputStyle}
-            value={createIncidentTitle}
-            onChange={(event) => {
-              onCreateIncidentTitleChange(event.target.value);
-            }}
-            placeholder="Credential theft investigation"
-          />
-        </div>
-        <button
-          data-testid={phase1LandingTestId("create-button")}
-          style={landingPrimaryButtonStyle}
-          type="button"
-          onClick={() => {
-            void onCreate();
-          }}
-        >
-          Create and open
-        </button>
-      </section>
-
-      <section style={landingSectionStyle}>
-        <div style={landingSectionHeaderStyle}>
-          <div>
-            <p style={landingSectionEyebrowStyle}>Visible incidents</p>
-            <h2 style={landingSectionTitleStyle}>Workbook access</h2>
-          </div>
+        <div style={landingPanelHeaderActionsStyle}>
           <p
             data-testid={phase1LandingTestId("incidents-count")}
             style={landingCountStyle}
           >
             {visibleIncidents.length}
           </p>
+          <button
+            data-testid={phase1LandingTestId("refresh")}
+            style={landingSecondaryButtonStyle}
+            type="button"
+            onClick={() => {
+              void onRefresh();
+            }}
+          >
+            Refresh
+          </button>
         </div>
+      </header>
 
-        <label htmlFor="incident-filter" style={landingLabelStyle}>
-          Search visible incidents
-        </label>
-        <input
-          id="incident-filter"
-          style={landingInputStyle}
-          value={incidentFilter}
-          onChange={(event) => {
-            setIncidentFilter(event.target.value);
-          }}
-          placeholder="Key, title, phase, TLP, external case"
-        />
+      <div style={landingWorkspaceStyle}>
+        <section style={landingIncidentListPanelStyle}>
+          <div style={landingSectionHeaderStyle}>
+            <div>
+              <p style={landingSectionEyebrowStyle}>Visible incidents</p>
+              <h3 style={landingSubsectionTitleStyle}>Open workbook</h3>
+            </div>
+          </div>
 
-        {isRefreshing ? (
-          <p
-            aria-live="polite"
-            data-testid={phase1LandingTestId("loading")}
-            role="status"
-            style={landingBodyStyle}
-          >
-            Loading visible incidents…
-          </p>
-        ) : null}
+          <label htmlFor="incident-filter" style={landingLabelStyle}>
+            Search visible incidents
+          </label>
+          <input
+            id="incident-filter"
+            style={landingInputStyle}
+            value={incidentFilter}
+            onChange={(event) => {
+              setIncidentFilter(event.target.value);
+            }}
+            placeholder="Key, title, phase, TLP, external case"
+          />
 
-        {!isRefreshing && !hasIncidents ? (
-          <p
-            data-testid={phase1LandingTestId("empty-state")}
-            style={landingBodyStyle}
-          >
-            No incidents are visible for this session yet.
-          </p>
-        ) : null}
+          {isRefreshing ? (
+            <p
+              aria-live="polite"
+              data-testid={phase1LandingTestId("loading")}
+              role="status"
+              style={landingBodyStyle}
+            >
+              Loading visible incidents…
+            </p>
+          ) : null}
 
-        {!isRefreshing && hasIncidents && visibleIncidents.length === 0 ? (
-          <p style={landingBodyStyle}>
-            No visible incidents match this filter.
-          </p>
-        ) : null}
+          {!isRefreshing && !hasIncidents ? (
+            <p
+              data-testid={phase1LandingTestId("empty-state")}
+              style={landingBodyStyle}
+            >
+              No incidents are visible for this session yet.
+            </p>
+          ) : null}
 
-        {hasIncidents && visibleIncidents.length > 0 ? (
-          <div
-            data-testid={phase1LandingTestId("incident-list")}
-            style={landingListStyle}
-          >
-            {visibleIncidents.map((incident) => {
-              const selected = selectedIncidentId === incident.incident_id;
-              return (
+          {!isRefreshing && hasIncidents && visibleIncidents.length === 0 ? (
+            <p style={landingBodyStyle}>
+              No visible incidents match this filter.
+            </p>
+          ) : null}
+
+          {hasIncidents && visibleIncidents.length > 0 ? (
+            <div
+              data-testid={phase1LandingTestId("incident-list")}
+              style={landingListStyle}
+            >
+              {visibleIncidents.map((incident) => (
                 <article
                   key={incident.incident_id}
                   data-testid={landingIncidentCardTestId(incident.incident_id)}
-                  data-selected={selected ? "true" : undefined}
-                  style={
-                    selected
-                      ? selectedLandingIncidentCardStyle
-                      : landingIncidentCardStyle
-                  }
+                  style={landingIncidentCardStyle}
                 >
-                  <button
-                    aria-pressed={selected}
-                    style={landingIncidentSelectButtonStyle}
-                    type="button"
-                    onClick={() => {
-                      onSelectIncident(incident.incident_id);
-                    }}
-                  >
+                  <div style={landingIncidentSummaryStyle}>
                     <p style={landingIncidentKeyStyle}>
                       {incident.incident_key}
                     </p>
                     <h3 style={landingIncidentTitleStyle}>{incident.title}</h3>
-                    <p style={landingIncidentMetaStyle}>
-                      Version {incident.incident_version}
-                      {incident.current_phase
-                        ? ` · ${incident.current_phase}`
-                        : ""}
-                      {incident.tlp ? ` · ${incident.tlp}` : ""}
-                    </p>
-                  </button>
+                    <div style={landingIncidentMetaGridStyle}>
+                      <span>v{incident.incident_version}</span>
+                      <span>{incident.current_phase ?? "No phase"}</span>
+                      <span>{incident.tlp ?? "No TLP"}</span>
+                      <span>
+                        {incident.primary_external_case_ref ??
+                          "No external case"}
+                      </span>
+                    </div>
+                  </div>
                   <button
                     data-testid={landingIncidentOpenButtonTestId(
                       incident.incident_id,
@@ -446,11 +350,58 @@ export function IncidentLanding({
                     Open workbook
                   </button>
                 </article>
-              );
-            })}
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+        <section style={landingCreatePanelStyle}>
+          <div style={landingSectionHeaderStyle}>
+            <div>
+              <p style={landingSectionEyebrowStyle}>Create</p>
+              <h3 style={landingSubsectionTitleStyle}>New incident</h3>
+            </div>
           </div>
-        ) : null}
-      </section>
+          <div style={landingFormGridStyle}>
+            <label htmlFor={incidentKeyFieldId} style={landingLabelStyle}>
+              Incident key
+            </label>
+            <input
+              data-testid={phase1LandingTestId("incident-key")}
+              id={incidentKeyFieldId}
+              style={landingInputStyle}
+              value={createIncidentKey}
+              onChange={(event) => {
+                onCreateIncidentKeyChange(event.target.value);
+              }}
+              placeholder="IR-2026-001"
+            />
+            <label htmlFor={incidentTitleFieldId} style={landingLabelStyle}>
+              Title
+            </label>
+            <input
+              data-testid={phase1LandingTestId("incident-title")}
+              id={incidentTitleFieldId}
+              style={landingInputStyle}
+              value={createIncidentTitle}
+              onChange={(event) => {
+                onCreateIncidentTitleChange(event.target.value);
+              }}
+              placeholder="Credential theft investigation"
+            />
+          </div>
+          <button
+            data-testid={phase1LandingTestId("create-button")}
+            style={landingPrimaryButtonStyle}
+            type="button"
+            onClick={() => {
+              void onCreate();
+            }}
+          >
+            Create and open
+          </button>
+        </section>
+      </div>
 
       <p
         aria-live="polite"
@@ -492,18 +443,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const [authPrompt, setAuthPrompt] = useState(defaultAuthPrompt);
   const [activeAdminPanel, setActiveAdminPanel] =
     useState<LandingAdminPanelToken>("incidents");
-  const [adminCommandState, setAdminCommandState] =
-    useState<Phase1AdminPanelCommandState>(defaultAdminCommandState);
-  const [selectedLandingIncidentId, setSelectedLandingIncidentId] = useState<
-    string | null
-  >(null);
   const [createIncidentKey, setCreateIncidentKey] = useState("");
   const [createIncidentTitle, setCreateIncidentTitle] = useState("");
-  const accountPanelRef = useRef<Phase1AccountPanelHandle | null>(null);
-  const adminPanelRef = useRef<Phase1AdminPanelHandle | null>(null);
-  const referencePackPanelRef = useRef<ReferencePackAdminPanelHandle | null>(
-    null,
-  );
   const routeRef = useRef(route);
   const sessionRef = useRef(session);
   const activeRefreshRef = useRef<{
@@ -773,21 +714,6 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     });
   }, [route.debugHarness, refreshShell]);
 
-  useEffect(() => {
-    if (incidents.length === 0) {
-      setSelectedLandingIncidentId(null);
-      return;
-    }
-    if (
-      selectedLandingIncidentId === null ||
-      !incidents.some(
-        (incident) => incident.incident_id === selectedLandingIncidentId,
-      )
-    ) {
-      setSelectedLandingIncidentId(incidents[0]?.incident_id ?? null);
-    }
-  }, [incidents, selectedLandingIncidentId]);
-
   const currentUserLabel = useMemo(() => {
     if (session === null) {
       return "Anonymous";
@@ -905,186 +831,6 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     });
   }, [route.debugHarness]);
 
-  const selectedLandingIncident = useMemo(
-    () =>
-      selectedLandingIncidentId === null
-        ? null
-        : (incidents.find(
-            (incident) => incident.incident_id === selectedLandingIncidentId,
-          ) ?? null),
-    [incidents, selectedLandingIncidentId],
-  );
-  const sessionIsDeploymentAdmin = session?.is_deployment_admin ?? false;
-  const handleAdminCommandStateChange = useCallback(
-    (state: Phase1AdminPanelCommandState) => {
-      setAdminCommandState(state);
-    },
-    [],
-  );
-
-  const activeAdminPanelCommands = useMemo<LandingAdminCommand[]>(() => {
-    switch (activeAdminPanel) {
-      case "incidents":
-        return [
-          {
-            id: "refresh",
-            label: "Refresh",
-            variant: "secondary",
-            onClick: () =>
-              refreshShell({
-                routeSnapshot: routeRef.current,
-                landingNotice: null,
-              }),
-          },
-          {
-            id: "new incident",
-            label: "New incident",
-            variant: "secondary",
-            onClick: () => {
-              const input = document.querySelector<HTMLInputElement>(
-                dataTestIdSelector(phase1LandingTestId("incident-key")),
-              );
-              input?.focus();
-            },
-          },
-          {
-            id: "open selected",
-            label: "Open selected",
-            variant: "primary",
-            disabled: selectedLandingIncident === null,
-            onClick: () => {
-              if (selectedLandingIncident !== null) {
-                openIncident(selectedLandingIncident.incident_id);
-              }
-            },
-          },
-        ];
-      case "account-security":
-        return [
-          {
-            id: "refresh account",
-            label: "Refresh account",
-            variant: "secondary",
-            onClick: () => accountPanelRef.current?.refreshAccount(),
-          },
-          {
-            id: "sign out",
-            label: "Sign out",
-            variant: "secondary",
-            onClick: () => accountPanelRef.current?.signOut(),
-          },
-        ];
-      case "deployment-users":
-        return [
-          {
-            id: "refresh users",
-            label: "Refresh users",
-            variant: "secondary",
-            disabled: !sessionIsDeploymentAdmin,
-            onClick: () => adminPanelRef.current?.refreshUsers(),
-          },
-          {
-            id: "create user",
-            label: "Create user",
-            variant: "primary",
-            disabled: !sessionIsDeploymentAdmin,
-            onClick: () => adminPanelRef.current?.createUser(),
-          },
-          {
-            id: "load by id",
-            label: "Load by ID",
-            variant: "secondary",
-            disabled:
-              !sessionIsDeploymentAdmin || !adminCommandState.canLoadTargetUser,
-            onClick: () => adminPanelRef.current?.loadTargetUser(),
-          },
-          {
-            id: "save target",
-            label: "Save target",
-            variant: "secondary",
-            disabled:
-              !sessionIsDeploymentAdmin ||
-              !adminCommandState.canSubmitVersionedTargetAction,
-            onClick: () => adminPanelRef.current?.saveTargetUser(),
-          },
-          {
-            id: "reset password",
-            label: "Reset password",
-            variant: "danger",
-            disabled:
-              !sessionIsDeploymentAdmin ||
-              !adminCommandState.canSubmitVersionedTargetAction,
-            onClick: () => adminPanelRef.current?.resetPassword(),
-          },
-          {
-            id: "reset totp",
-            label: "Reset TOTP",
-            variant: "danger",
-            disabled:
-              !sessionIsDeploymentAdmin ||
-              !adminCommandState.canSubmitVersionedTargetAction,
-            onClick: () => adminPanelRef.current?.resetTotp(),
-          },
-          {
-            id: "revoke sessions",
-            label: "Revoke sessions",
-            variant: "danger",
-            disabled:
-              !sessionIsDeploymentAdmin ||
-              !adminCommandState.canSubmitTargetAction,
-            onClick: () => adminPanelRef.current?.revokeAllSessions(),
-          },
-        ];
-      case "reference-packs":
-        return [
-          {
-            id: "refresh",
-            label: "Refresh",
-            variant: "secondary",
-            disabled: !sessionIsDeploymentAdmin,
-            onClick: () => referencePackPanelRef.current?.refreshPacks(),
-          },
-          {
-            id: "import",
-            label: "Import",
-            variant: "primary",
-            disabled: !sessionIsDeploymentAdmin,
-            onClick: () => referencePackPanelRef.current?.importBundle(),
-          },
-          {
-            id: "refresh all",
-            label: "Refresh all",
-            variant: "secondary",
-            disabled: !sessionIsDeploymentAdmin,
-            onClick: () => referencePackPanelRef.current?.refreshAll(),
-          },
-          {
-            id: "refresh selected",
-            label: "Refresh selected",
-            variant: "secondary",
-            disabled: !sessionIsDeploymentAdmin,
-            onClick: () => referencePackPanelRef.current?.refreshSelected(),
-          },
-          {
-            id: "cancel job",
-            label: "Cancel job",
-            variant: "secondary",
-            disabled: !sessionIsDeploymentAdmin,
-            onClick: () => referencePackPanelRef.current?.cancelJob(),
-          },
-        ];
-      default:
-        return [];
-    }
-  }, [
-    activeAdminPanel,
-    adminCommandState,
-    openIncident,
-    refreshShell,
-    selectedLandingIncident,
-    sessionIsDeploymentAdmin,
-  ]);
-
   if (route.incidentId !== "" && session !== null) {
     return (
       <main
@@ -1130,7 +876,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         data-reading-profile={readingProfileAttribute}
         style={rootPageStyle}
       >
-        <section style={landingPanelStyle}>
+        <section style={utilityPanelStyle}>
           <div style={landingHeroStyle}>
             <p style={landingEyebrowStyle}>Cartulary</p>
             <h1 style={landingHeadlineStyle}>Debug harness shell</h1>
@@ -1196,18 +942,22 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     >
       <LandingAdminShell
         activePanel={activeAdminPanel}
-        commands={activeAdminPanelCommands}
         currentUserLabel={currentUserLabel}
         incidentCount={incidents.length}
         onActivePanelChange={setActiveAdminPanel}
         statusText={landingStatusText}
       >
-        {activeAdminPanel === "incidents" ? (
+        <section
+          id={landingAdminPanelTestId("incidents")}
+          aria-labelledby={landingAdminMenuItemTestId("incidents")}
+          data-testid={landingAdminPanelTestId("incidents")}
+          hidden={activeAdminPanel !== "incidents"}
+          style={landingAdminPanelRegionStyle}
+        >
           <IncidentLanding
             bootstrapState={appBootstrapState}
             createIncidentKey={createIncidentKey}
             createIncidentTitle={createIncidentTitle}
-            currentUserLabel={currentUserLabel}
             error={error}
             incidents={incidents}
             isRefreshing={landingRefreshState === "loading"}
@@ -1221,35 +971,45 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
                 landingNotice: null,
               });
             }}
-            onSelectIncident={setSelectedLandingIncidentId}
-            selectedIncidentId={selectedLandingIncidentId}
             statusText={landingStatusText}
           />
-        ) : null}
-        <div hidden={activeAdminPanel !== "account-security"}>
+        </section>
+        <section
+          id={landingAdminPanelTestId("account-security")}
+          aria-labelledby={landingAdminMenuItemTestId("account-security")}
+          data-testid={landingAdminPanelTestId("account-security")}
+          hidden={activeAdminPanel !== "account-security"}
+          style={landingAdminPanelRegionStyle}
+        >
           <Phase1AccountPanel
-            ref={accountPanelRef}
             credentialState={credentialState}
             credentialStateError={credentialError}
             onRefreshShell={refreshCurrentShell}
             session={session}
           />
-        </div>
-        <div hidden={activeAdminPanel !== "deployment-users"}>
+        </section>
+        <section
+          id={landingAdminPanelTestId("deployment-users")}
+          aria-labelledby={landingAdminMenuItemTestId("deployment-users")}
+          data-testid={landingAdminPanelTestId("deployment-users")}
+          hidden={activeAdminPanel !== "deployment-users"}
+          style={landingAdminPanelRegionStyle}
+        >
           <Phase1AdminPanel
-            ref={adminPanelRef}
             autoLoadUsers={activeAdminPanel === "deployment-users"}
-            onCommandStateChange={handleAdminCommandStateChange}
             onRefreshShell={refreshCurrentShell}
             session={session}
           />
-        </div>
-        <div hidden={activeAdminPanel !== "reference-packs"}>
-          <ReferencePackAdminPanel
-            ref={referencePackPanelRef}
-            session={session}
-          />
-        </div>
+        </section>
+        <section
+          id={landingAdminPanelTestId("reference-packs")}
+          aria-labelledby={landingAdminMenuItemTestId("reference-packs")}
+          data-testid={landingAdminPanelTestId("reference-packs")}
+          hidden={activeAdminPanel !== "reference-packs"}
+          style={landingAdminPanelRegionStyle}
+        >
+          <ReferencePackAdminPanel session={session} />
+        </section>
       </LandingAdminShell>
     </main>
   );
@@ -1315,22 +1075,18 @@ const landingAdminPanels = [
 function LandingAdminShell({
   activePanel,
   children,
-  commands,
   currentUserLabel,
   incidentCount,
   onActivePanelChange,
   statusText,
 }: LandingAdminShellProps) {
-  const tabRefs = useRef(new Map<LandingAdminPanelToken, HTMLButtonElement>());
-  const activePanelMeta =
-    landingAdminPanels.find((panel) => panel.token === activePanel) ??
-    landingAdminPanels[0];
-  const panelId = landingAdminPanelTestId(activePanel);
-  const tabId = landingAdminTabTestId(activePanel);
+  const menuItemRefs = useRef(
+    new Map<LandingAdminPanelToken, HTMLButtonElement>(),
+  );
 
-  function focusPanelTab(panel: LandingAdminPanelToken) {
+  function focusPanelMenuItem(panel: LandingAdminPanelToken) {
     const focus = () => {
-      tabRefs.current.get(panel)?.focus();
+      menuItemRefs.current.get(panel)?.focus();
     };
     if (typeof window.requestAnimationFrame === "function") {
       window.requestAnimationFrame(focus);
@@ -1342,11 +1098,11 @@ function LandingAdminShell({
   function selectPanel(panel: LandingAdminPanelToken, focus = false) {
     onActivePanelChange(panel);
     if (focus) {
-      focusPanelTab(panel);
+      focusPanelMenuItem(panel);
     }
   }
 
-  function handleTabKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+  function handleMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const currentIndex = landingAdminPanels.findIndex(
       (panel) => panel.token === activePanel,
     );
@@ -1357,9 +1113,11 @@ function LandingAdminShell({
     };
 
     switch (event.key) {
+      case "ArrowUp":
       case "ArrowLeft":
         selectByIndex(currentIndex <= 0 ? lastIndex : currentIndex - 1);
         return;
+      case "ArrowDown":
       case "ArrowRight":
         selectByIndex(currentIndex >= lastIndex ? 0 : currentIndex + 1);
         return;
@@ -1401,84 +1159,53 @@ function LandingAdminShell({
         </dl>
       </header>
 
-      <nav style={landingAdminRibbonStyle} aria-label="Admin panels">
-        <div
-          data-testid={landingAdminShellTestId("tablist")}
-          role="tablist"
+      <div style={landingAdminWorkspaceStyle}>
+        <nav
+          data-testid={landingAdminShellTestId("menu")}
+          style={landingAdminMenuStyle}
           aria-label="Incident administration panels"
-          style={landingAdminTabsStyle}
-          onKeyDown={handleTabKeyDown}
+          onKeyDown={handleMenuKeyDown}
         >
-          {landingAdminPanels.map((panel) => {
-            const selected = panel.token === activePanel;
-            return (
-              <button
-                key={panel.token}
-                id={landingAdminTabTestId(panel.token)}
-                ref={(element) => {
-                  if (element === null) {
-                    tabRefs.current.delete(panel.token);
-                    return;
+          <div style={landingAdminMenuItemsStyle}>
+            {landingAdminPanels.map((panel) => {
+              const selected = panel.token === activePanel;
+              return (
+                <button
+                  key={panel.token}
+                  id={landingAdminMenuItemTestId(panel.token)}
+                  ref={(element) => {
+                    if (element === null) {
+                      menuItemRefs.current.delete(panel.token);
+                      return;
+                    }
+                    menuItemRefs.current.set(panel.token, element);
+                  }}
+                  aria-controls={landingAdminPanelTestId(panel.token)}
+                  aria-pressed={selected}
+                  data-testid={landingAdminMenuItemTestId(panel.token)}
+                  style={
+                    selected
+                      ? landingAdminMenuItemSelectedStyle
+                      : landingAdminMenuItemStyle
                   }
-                  tabRefs.current.set(panel.token, element);
-                }}
-                aria-controls={landingAdminPanelTestId(panel.token)}
-                aria-selected={selected}
-                data-testid={landingAdminTabTestId(panel.token)}
-                role="tab"
-                style={
-                  selected ? landingAdminTabSelectedStyle : landingAdminTabStyle
-                }
-                tabIndex={selected ? 0 : -1}
-                type="button"
-                onClick={() => {
-                  selectPanel(panel.token);
-                }}
-              >
-                <span style={landingAdminTabLabelStyle}>{panel.label}</span>
-                <span style={landingAdminTabDescriptionStyle}>
-                  {panel.description}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div
-          data-testid={landingAdminShellTestId("command-strip")}
-          style={landingAdminCommandStripStyle}
-        >
-          <div style={landingAdminCommandLabelStyle}>
-            {activePanelMeta.label}
+                  type="button"
+                  onClick={() => {
+                    selectPanel(panel.token);
+                  }}
+                >
+                  <span style={landingAdminMenuItemLabelStyle}>
+                    {panel.label}
+                  </span>
+                  <span style={landingAdminMenuItemDescriptionStyle}>
+                    {panel.description}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <div style={landingAdminCommandButtonsStyle}>
-            {commands.map((command) => (
-              <button
-                key={command.id}
-                data-testid={landingAdminCommandTestId(activePanel, command.id)}
-                disabled={command.disabled}
-                style={commandButtonStyle(command.variant)}
-                type="button"
-                onClick={() => {
-                  void command.onClick();
-                }}
-              >
-                {command.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </nav>
-
-      <section
-        id={panelId}
-        aria-labelledby={tabId}
-        data-testid={panelId}
-        role="tabpanel"
-        style={landingAdminPanelRegionStyle}
-      >
-        {children}
-      </section>
+        </nav>
+        <div style={landingAdminContentStyle}>{children}</div>
+      </div>
 
       <footer
         aria-live="polite"
@@ -1493,29 +1220,12 @@ function LandingAdminShell({
   );
 }
 
-function commandButtonStyle(
-  variant: LandingAdminCommand["variant"] = "secondary",
-): CSSProperties {
-  if (variant === "primary") {
-    return landingAdminPrimaryCommandStyle;
-  }
-  if (variant === "danger") {
-    return landingAdminDangerCommandStyle;
-  }
-  return landingAdminSecondaryCommandStyle;
-}
-
 const landingAdminShellStyle: CSSProperties = {
-  width: "min(96rem, 100%)",
-  minHeight: "calc(100vh - 4rem)",
-  margin: "0 auto",
+  width: "100%",
+  minHeight: "100vh",
   display: "grid",
-  gridTemplateRows:
-    "auto auto minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-lg)",
-  background: "var(--ct-colors-surface-1)",
-  boxShadow: "var(--ct-elevation-panel)",
+  gridTemplateRows: "auto minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+  background: "var(--ct-colors-canvas)",
   overflow: "hidden",
 };
 
@@ -1549,76 +1259,67 @@ const landingAdminMetaValueStyle: CSSProperties = {
   fontWeight: 700,
 };
 
-const landingAdminRibbonStyle: CSSProperties = {
+const landingAdminWorkspaceStyle: CSSProperties = {
+  minHeight: 0,
   display: "grid",
-  gap: "var(--ct-spacing-xs)",
-  padding: "var(--ct-spacing-sm) var(--ct-spacing-lg)",
-  borderBottom: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
+  gridTemplateColumns: "18rem minmax(0, 1fr)",
+  background: "var(--ct-colors-canvas)",
 };
 
-const landingAdminTabsStyle: CSSProperties = {
-  display: "flex",
-  gap: "var(--ct-spacing-xs)",
-  overflowX: "auto",
+const landingAdminMenuStyle: CSSProperties = {
+  minHeight: 0,
+  padding: "var(--ct-spacing-md)",
+  borderRight: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-1)",
+  overflow: "auto",
 };
 
-const landingAdminTabStyle: CSSProperties = {
+const landingAdminMenuItemsStyle: CSSProperties = {
   display: "grid",
-  gap: "var(--ct-spacing-xxs)",
-  minWidth: "11rem",
+  gap: "var(--ct-spacing-sm)",
+};
+
+const landingAdminMenuItemStyle: CSSProperties = {
+  display: "grid",
+  gap: "var(--ct-spacing-xs)",
+  width: "100%",
+  minWidth: 0,
   padding: "var(--ct-spacing-sm) var(--ct-spacing-md)",
   border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-md)",
-  background: "var(--ct-colors-surface-1)",
+  borderRadius: "var(--ct-rounded-sm)",
+  background: "var(--ct-colors-surface-2)",
   color: "var(--ct-colors-ink-muted)",
   textAlign: "left",
   cursor: "pointer",
 };
 
-const landingAdminTabSelectedStyle: CSSProperties = {
-  ...landingAdminTabStyle,
+const landingAdminMenuItemSelectedStyle: CSSProperties = {
+  ...landingAdminMenuItemStyle,
   border: "var(--ct-border-strong)",
   background: "var(--ct-colors-surface-3)",
   color: "var(--ct-colors-ink)",
-  boxShadow: "inset 0 -2px 0 var(--ct-colors-accent)",
+  boxShadow: "inset 3px 0 0 var(--ct-colors-accent)",
 };
 
-const landingAdminTabLabelStyle: CSSProperties = {
+const landingAdminMenuItemLabelStyle: CSSProperties = {
   fontWeight: 700,
 };
 
-const landingAdminTabDescriptionStyle: CSSProperties = {
+const landingAdminMenuItemDescriptionStyle: CSSProperties = {
   color: "var(--ct-colors-ink-subtle)",
   fontSize: "0.78rem",
 };
 
-const landingAdminCommandStripStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "var(--ct-spacing-md)",
-  minHeight: "var(--ct-layout-viewBarHeight)",
-};
-
-const landingAdminCommandLabelStyle: CSSProperties = {
-  color: "var(--ct-colors-ink-muted)",
-  fontSize: "var(--ct-typography-metadata-fontSize)",
-  fontWeight: 700,
-};
-
-const landingAdminCommandButtonsStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  justifyContent: "flex-end",
-  gap: "var(--ct-spacing-xs)",
+const landingAdminContentStyle: CSSProperties = {
+  minWidth: 0,
+  minHeight: 0,
+  overflow: "auto",
 };
 
 const landingAdminPanelRegionStyle: CSSProperties = {
   minWidth: 0,
   minHeight: 0,
-  padding: "var(--ct-spacing-lg)",
-  overflow: "auto",
+  padding: "var(--ct-spacing-md)",
 };
 
 const landingAdminStatusStripStyle: CSSProperties = {
@@ -1645,33 +1346,10 @@ const landingAdminStatusSecondaryStyle: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const landingAdminSecondaryCommandStyle: CSSProperties = {
-  borderRadius: "var(--ct-component-button-secondary-rounded)",
-  border: "var(--ct-component-button-secondary-border)",
-  padding: "var(--ct-component-button-secondary-padding)",
-  background: "var(--ct-component-button-secondary-backgroundColor)",
-  color: "var(--ct-component-button-secondary-textColor)",
-  font: "inherit",
-  fontWeight: 700,
-  cursor: "pointer",
-};
-
-const landingAdminPrimaryCommandStyle: CSSProperties = {
-  ...landingAdminSecondaryCommandStyle,
-  border: "none",
-  background: "var(--ct-component-button-primary-backgroundColor)",
-  color: "var(--ct-component-button-primary-textColor)",
-};
-
-const landingAdminDangerCommandStyle: CSSProperties = {
-  ...landingAdminSecondaryCommandStyle,
-  color: "var(--ct-colors-semantic-destructive)",
-};
-
 const pageStyle = {
   minHeight: "100vh",
   margin: 0,
-  padding: "2rem",
+  padding: 0,
   background: "var(--ct-colors-canvas)",
   color: "var(--ct-colors-ink)",
   fontFamily: "var(--ct-typography-ui-fontFamily)",
@@ -1680,8 +1358,19 @@ const pageStyle = {
 };
 
 const landingPanelStyle = {
+  minHeight: "100%",
+  minWidth: 0,
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr) auto auto auto",
+  gap: "var(--ct-spacing-md)",
+  padding: "var(--ct-spacing-md)",
+  background: "var(--ct-colors-surface-1)",
+  color: "var(--ct-colors-ink)",
+};
+
+const utilityPanelStyle = {
   width: "min(78rem, 100%)",
-  margin: "0 auto",
+  margin: "2rem auto",
   padding: "2rem",
   borderRadius: "var(--ct-rounded-lg)",
   background: "var(--ct-colors-surface-1)",
@@ -1690,8 +1379,8 @@ const landingPanelStyle = {
 };
 
 const workbookFrameStyle = {
-  width: "min(96rem, 100%)",
-  margin: "0 auto",
+  minWidth: 0,
+  minHeight: "100vh",
 };
 
 const landingHeroStyle = {
@@ -1719,15 +1408,21 @@ const landingBodyStyle = {
   color: "var(--ct-colors-ink-muted)",
 };
 
-const landingToolbarStyle = {
+const landingPanelHeaderStyle = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  gap: "1rem",
-  marginBottom: "1.5rem",
-  padding: "1rem 1.2rem",
-  borderRadius: "var(--ct-rounded-lg)",
+  gap: "var(--ct-spacing-md)",
+  padding: "var(--ct-spacing-md)",
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-md)",
   background: "var(--ct-colors-surface-2)",
+};
+
+const landingPanelHeaderActionsStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "var(--ct-spacing-sm)",
 };
 
 const landingToolbarLabelStyle = {
@@ -1738,17 +1433,30 @@ const landingToolbarLabelStyle = {
   color: "var(--ct-colors-ink-subtle)",
 };
 
-const landingToolbarValueStyle = {
-  margin: "0.3rem 0 0",
-  fontWeight: 600,
+const landingWorkspaceStyle = {
+  minWidth: 0,
+  minHeight: 0,
+  display: "grid",
+  gridTemplateColumns: "minmax(28rem, 1fr) minmax(20rem, 24rem)",
+  gap: "var(--ct-spacing-md)",
+  alignItems: "start",
 };
 
-const landingSectionStyle = {
-  marginTop: "1.5rem",
-  padding: "1.25rem",
-  borderRadius: "var(--ct-rounded-lg)",
-  background: "var(--ct-colors-surface-2)",
+const landingIncidentListPanelStyle = {
+  minWidth: 0,
+  minHeight: 0,
+  padding: "var(--ct-spacing-md)",
+  borderRadius: "var(--ct-rounded-md)",
   border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+};
+
+const landingCreatePanelStyle = {
+  minWidth: 0,
+  padding: "var(--ct-spacing-md)",
+  borderRadius: "var(--ct-rounded-md)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
 };
 
 const landingSectionHeaderStyle = {
@@ -1770,6 +1478,12 @@ const landingSectionEyebrowStyle = {
 const landingSectionTitleStyle = {
   margin: "0.25rem 0 0",
   fontSize: "1.35rem",
+};
+
+const landingSubsectionTitleStyle = {
+  margin: "0.25rem 0 0",
+  fontSize: "var(--ct-typography-section-heading-fontSize)",
+  lineHeight: "var(--ct-typography-section-heading-lineHeight)",
 };
 
 const landingCountStyle = {
@@ -1824,36 +1538,24 @@ const landingSecondaryButtonStyle = {
 
 const landingListStyle = {
   display: "grid",
-  gap: "0.9rem",
+  gap: "var(--ct-spacing-sm)",
+  marginTop: "var(--ct-spacing-md)",
 };
 
 const landingIncidentCardStyle = {
-  display: "flex",
-  justifyContent: "space-between",
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
   alignItems: "center",
-  gap: "1rem",
-  padding: "1rem",
-  borderRadius: "var(--ct-rounded-lg)",
+  gap: "var(--ct-spacing-md)",
+  minWidth: 0,
+  padding: "var(--ct-spacing-md)",
+  borderRadius: "var(--ct-rounded-md)",
   background: "var(--ct-colors-surface-1)",
   border: "var(--ct-border-hairline)",
 };
 
-const selectedLandingIncidentCardStyle = {
-  ...landingIncidentCardStyle,
-  border: "var(--ct-border-strong)",
-  background: "var(--ct-colors-surface-3)",
-  boxShadow: "inset 3px 0 0 var(--ct-colors-accent)",
-};
-
-const landingIncidentSelectButtonStyle = {
+const landingIncidentSummaryStyle = {
   minWidth: 0,
-  flex: "1 1 auto",
-  padding: 0,
-  border: "none",
-  background: "transparent",
-  color: "inherit",
-  textAlign: "left" as const,
-  cursor: "pointer",
 };
 
 const landingIncidentKeyStyle = {
@@ -1869,9 +1571,13 @@ const landingIncidentTitleStyle = {
   fontSize: "1.05rem",
 };
 
-const landingIncidentMetaStyle = {
+const landingIncidentMetaGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, auto))",
+  gap: "var(--ct-spacing-sm)",
   margin: "0.4rem 0 0",
   color: "var(--ct-colors-ink-muted)",
+  fontSize: "var(--ct-typography-metadata-fontSize)",
 };
 
 const landingStatusStyle = {

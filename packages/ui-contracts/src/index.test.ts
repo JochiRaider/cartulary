@@ -62,10 +62,9 @@ import {
   incidentMembershipRoleSelectTestId,
   incidentMembershipRowTestId,
   incidentMembershipVersionTestId,
-  landingAdminCommandTestId,
+  landingAdminMenuItemTestId,
   landingAdminPanelTestId,
   landingAdminShellTestId,
-  landingAdminTabTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
   mentionCreateEntityButtonTestId,
@@ -971,18 +970,14 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
 
     expectSelectorCases(landingAdminShellTestId, [
       ["shell", "landing-admin-shell"],
-      ["tablist", "landing-admin-tablist"],
-      ["command-strip", "landing-admin-command-strip"],
+      ["menu", "landing-admin-menu"],
       ["status-strip", "landing-admin-status-strip"],
     ]);
-    expect(landingAdminTabTestId("incidents")).toBe(
-      "landing-admin-tab-incidents",
+    expect(landingAdminMenuItemTestId("incidents")).toBe(
+      "landing-admin-menu-item-incidents",
     );
     expect(landingAdminPanelTestId("deployment-users")).toBe(
       "landing-admin-panel-deployment-users",
-    );
-    expect(landingAdminCommandTestId("incidents", "open selected")).toBe(
-      "landing-admin-command-incidents-open%20selected",
     );
     expect(deploymentUserRowTestId("user:1")).toBe(
       "deployment-user-row-user%3A1",
@@ -1141,7 +1136,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(() => landingAdminShellTestId("tabs" as never)).toThrow(
       "Invalid landing admin shell selector token: tabs",
     );
-    expect(() => landingAdminTabTestId("users" as never)).toThrow(
+    expect(() => landingAdminMenuItemTestId("users" as never)).toThrow(
       "Invalid landing admin panel token: users",
     );
     expect(() => phase1RouteTestId("shell" as never)).toThrow(

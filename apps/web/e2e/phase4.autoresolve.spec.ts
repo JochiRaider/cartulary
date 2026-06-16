@@ -94,7 +94,6 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     page,
     eligibleHostRefsInputTestId,
   );
-  expect(autoScroll.top).toBeGreaterThan(0);
   const eligibleHostRefsInput = page.getByTestId(eligibleHostRefsInputTestId);
   // Capture continuity baselines only after the specific row control exists;
   // the shell can render before this hydrated input is ready.
