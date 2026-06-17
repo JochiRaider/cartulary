@@ -287,6 +287,68 @@ export function timelineColumnWidth(fieldKey: string): number {
   }
 }
 
+const timelineColumnExpansionWeights: Record<string, number> = {
+  "timeline.summary": 3,
+  "timeline.host_refs": 2,
+  "timeline.identity_refs": 2,
+  "timeline.tags": 1,
+  "timeline.edited_at": 2,
+};
+
+export function buildExpandedTimelineColumnWidths({
+  actionsColumnWidth,
+  fieldKeys,
+  gridShellWidth,
+  rowGutterWidth,
+}: {
+  readonly actionsColumnWidth: number;
+  readonly fieldKeys: readonly string[];
+  readonly gridShellWidth: number;
+  readonly rowGutterWidth: number;
+}): Record<string, number> {
+  const baseWidths: Record<string, number> = Object.fromEntries(
+    fieldKeys.map((fieldKey) => [fieldKey, timelineColumnWidth(fieldKey)]),
+  );
+  const availableDataWidth =
+    Math.floor(gridShellWidth) - rowGutterWidth - actionsColumnWidth;
+  const baseDataWidth = fieldKeys.reduce(
+    (sum, fieldKey) => sum + (baseWidths[fieldKey] ?? 0),
+    0,
+  );
+  const extraWidth = Math.max(0, availableDataWidth - baseDataWidth);
+  if (extraWidth < 1) {
+    return baseWidths;
+  }
+
+  const expandableFields = fieldKeys
+    .map((fieldKey) => ({
+      fieldKey,
+      weight: timelineColumnExpansionWeights[fieldKey] ?? 0,
+    }))
+    .filter((entry) => entry.weight > 0);
+  const totalWeight = expandableFields.reduce(
+    (sum, entry) => sum + entry.weight,
+    0,
+  );
+  if (totalWeight < 1) {
+    return baseWidths;
+  }
+
+  const expandedWidths = { ...baseWidths };
+  let assignedWidth = 0;
+  expandableFields.forEach((entry, index) => {
+    const isLast = index === expandableFields.length - 1;
+    const addedWidth = isLast
+      ? extraWidth - assignedWidth
+      : Math.floor((extraWidth * entry.weight) / totalWeight);
+    assignedWidth += addedWidth;
+    expandedWidths[entry.fieldKey] =
+      (expandedWidths[entry.fieldKey] ?? timelineColumnWidth(entry.fieldKey)) +
+      addedWidth;
+  });
+  return expandedWidths;
+}
+
 function emptyValues(): RowValues {
   return {
     occurredAt: "",

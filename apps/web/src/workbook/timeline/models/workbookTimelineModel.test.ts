@@ -6,6 +6,7 @@ import {
   buildAttachedEvidenceCreatePayload,
   buildAttachedEvidencePatchPayload,
   buildCollectionPatchIntent,
+  buildExpandedTimelineColumnWidths,
   buildScalarPatchIntent,
   createDraftRow,
   createDraftRowForKey,
@@ -26,6 +27,28 @@ import {
   timelineVisibleBindings,
   validateTimelineViewSchemaId,
 } from "./workbookTimelineModel";
+
+const timelineWidthFieldKeys = [
+  "timeline.occurred_at",
+  "timeline.summary",
+  "timeline.host_refs",
+  "timeline.identity_refs",
+  "timeline.evidence_count",
+  "timeline.tags",
+  "timeline.edited_at",
+] as const;
+const timelineWidthFixedChrome = {
+  actionsColumnWidth: 44,
+  rowGutterWidth: 58,
+};
+const timelineBaseDataWidth = timelineWidthFieldKeys.reduce(
+  (sum, fieldKey) => sum + timelineColumnWidth(fieldKey),
+  0,
+);
+const timelineBaseShellWidth =
+  timelineBaseDataWidth +
+  timelineWidthFixedChrome.actionsColumnWidth +
+  timelineWidthFixedChrome.rowGutterWidth;
 
 function timelineRow(cells: Record<string, { value: unknown }> = {}) {
   return {
@@ -99,6 +122,68 @@ describe("workbookTimelineModel", () => {
     expect(timelineRelationshipLabel("timeline.identity_refs")).toBe(
       "Identities",
     );
+  });
+
+  it("expands Timeline columns only when the shell has surplus width", () => {
+    const baseWidths = Object.fromEntries(
+      timelineWidthFieldKeys.map((fieldKey) => [
+        fieldKey,
+        timelineColumnWidth(fieldKey),
+      ]),
+    );
+
+    expect(
+      buildExpandedTimelineColumnWidths({
+        ...timelineWidthFixedChrome,
+        fieldKeys: timelineWidthFieldKeys,
+        gridShellWidth: timelineBaseShellWidth - 24,
+      }),
+    ).toEqual(baseWidths);
+
+    const expandedWidths = buildExpandedTimelineColumnWidths({
+      ...timelineWidthFixedChrome,
+      fieldKeys: timelineWidthFieldKeys,
+      gridShellWidth: timelineBaseShellWidth + 100,
+    });
+    expect(expandedWidths["timeline.occurred_at"]).toBe(
+      timelineColumnWidth("timeline.occurred_at"),
+    );
+    expect(expandedWidths["timeline.evidence_count"]).toBe(
+      timelineColumnWidth("timeline.evidence_count"),
+    );
+    expect(expandedWidths["timeline.summary"]).toBe(
+      timelineColumnWidth("timeline.summary") + 30,
+    );
+    expect(expandedWidths["timeline.host_refs"]).toBe(
+      timelineColumnWidth("timeline.host_refs") + 20,
+    );
+    expect(expandedWidths["timeline.identity_refs"]).toBe(
+      timelineColumnWidth("timeline.identity_refs") + 20,
+    );
+    expect(expandedWidths["timeline.tags"]).toBe(
+      timelineColumnWidth("timeline.tags") + 10,
+    );
+    expect(expandedWidths["timeline.edited_at"]).toBe(
+      timelineColumnWidth("timeline.edited_at") + 20,
+    );
+  });
+
+  it("uses the full measured Timeline grid width when distributing surplus pixels", () => {
+    const shellWidth = timelineBaseShellWidth + 137;
+    const widths = buildExpandedTimelineColumnWidths({
+      ...timelineWidthFixedChrome,
+      fieldKeys: timelineWidthFieldKeys,
+      gridShellWidth: shellWidth,
+    });
+    const totalWidth =
+      timelineWidthFieldKeys.reduce(
+        (sum, fieldKey) => sum + (widths[fieldKey] ?? 0),
+        0,
+      ) +
+      timelineWidthFixedChrome.actionsColumnWidth +
+      timelineWidthFixedChrome.rowGutterWidth;
+
+    expect(totalWidth).toBe(shellWidth);
   });
 
   it("normalizes rows, tag collections, grouping, and sparse live patches", () => {

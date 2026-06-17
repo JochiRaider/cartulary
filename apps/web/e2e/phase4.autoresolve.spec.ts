@@ -92,11 +92,12 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
   );
   const autoScroll = await ensureTimelineGridTargetVisible(
     page,
-    eligibleHostRefsInputTestId,
+    relationshipItemsTestId(eligibleRow.record_id, hostRefsFieldKey),
   );
   const eligibleHostRefsInput = page.getByTestId(eligibleHostRefsInputTestId);
   // Capture continuity baselines only after the specific row control exists;
   // the shell can render before this hydrated input is ready.
+  await eligibleHostRefsInput.focus();
   await expect(eligibleHostRefsInput).toBeVisible();
 
   const eligibleResponsePromise = waitForTimelinePatch(

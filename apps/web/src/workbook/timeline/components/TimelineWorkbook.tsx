@@ -110,7 +110,10 @@ import {
   type WorkbookPresenceInput,
   type WorkbookPresenceMode,
 } from "../../utils/workbookPresence";
-import { statusStripStyle } from "../../utils/workbookStyles";
+import {
+  statusStripStyle,
+  visuallyHiddenStyle,
+} from "../../utils/workbookStyles";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
 import { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows";
 import { useTimelineConflicts } from "../hooks/useTimelineConflicts";
@@ -146,6 +149,7 @@ import {
 } from "../models/workbookMentionChips";
 import {
   applyViewRowPatch,
+  buildExpandedTimelineColumnWidths,
   buildAssessmentCreatePayload,
   buildAttachedEvidenceCreatePayload,
   buildAttachedEvidencePatchPayload,
@@ -208,6 +212,7 @@ import {
 import {
   mentionChipStateForItem,
   RelationshipChip,
+  relationshipItemLabel,
   relationshipChipBaseStyle,
   TimelineScalarEditor,
 } from "./TimelineCellEditors";
@@ -245,6 +250,11 @@ export {
 };
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
+const timelineActionsColumnWidth = 44;
+const timelineRowGutterWidth = 58;
+const timelineVisibleFieldKeys = timelineVisibleBindings.map(
+  (binding) => binding.fieldKey,
+);
 
 export type SaveState = "Syncing" | "Saved" | "Conflict";
 type FilterDraftSetter = Dispatch<SetStateAction<FilterDraft>>;
@@ -1047,6 +1057,7 @@ export function TimelineWorkbook({
   );
   const timelineAnchorRowsRef = useRef<readonly GridRow<WorkbookRow>[]>([]);
   const gridShellRef = useRef<HTMLDivElement | null>(null);
+  const [timelineGridShellWidth, setTimelineGridShellWidth] = useState(0);
   const viewportContinuityTokenRef = useRef(1);
   const timelineGridInteractionRefs: TimelineGridInteractionRefs = {
     gridShellRef,
@@ -1065,10 +1076,52 @@ export function TimelineWorkbook({
     timelineGridInteractions.snapshot;
   const { setViewportContinuityRequest, setWorkbookFocusAnchor } =
     timelineGridInteractions.commands;
+
+  useLayoutEffect(() => {
+    const gridShell = gridShellRef.current;
+    if (gridShell === null) {
+      return;
+    }
+    const updateGridShellWidth = (width: number) => {
+      const measuredWidth = Math.max(0, Math.floor(width));
+      setTimelineGridShellWidth((current) =>
+        current === measuredWidth ? current : measuredWidth,
+      );
+    };
+    const updateFromElement = () => {
+      updateGridShellWidth(gridShell.clientWidth);
+    };
+
+    updateFromElement();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateFromElement);
+      return () => {
+        window.removeEventListener("resize", updateFromElement);
+      };
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry === undefined) {
+        updateFromElement();
+        return;
+      }
+      updateGridShellWidth(entry.contentRect.width);
+    });
+    observer.observe(gridShell);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
   const [replacementDrafts, setReplacementDrafts] = useState<
     Record<string, string>
   >({});
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [activeCollectionInputKey, setActiveCollectionInputKey] = useState<
+    string | null
+  >(null);
   const timelineInspectorSelection = useTimelineInspectorSelection({
     currentIncidentRole,
     dismissedMentionsByRow,
@@ -5237,8 +5290,50 @@ export function TimelineWorkbook({
         row.recordId === null
           ? draftTimelineCollectionInputTestId(binding.fieldKey)
           : timelineCollectionInputTestId(row.recordId, binding.fieldKey);
+      const collectionFocusKey = inputFocusKey(
+        row.key,
+        binding.draftKey,
+        "grid",
+      );
+      const isCollectionInputActive =
+        activeCollectionInputKey === collectionFocusKey ||
+        row.collectionDrafts[binding.draftKey] !== "";
+      const visibleItemLimit = binding.collectionKind === "tag" ? 2 : 1;
+      const visibleItems = items.slice(0, visibleItemLimit);
+      const hiddenItems = items.slice(visibleItemLimit);
+      const hiddenItemCount = Math.max(0, items.length - visibleItems.length);
+      const activateCollectionInput = () => {
+        setActiveCollectionInputKey(collectionFocusKey);
+        window.requestAnimationFrame(() => {
+          document
+            .querySelector<HTMLInputElement>(
+              dataTestIdSelector(collectionInputTestId),
+            )
+            ?.focus({ preventScroll: true });
+        });
+      };
       return (
-        <>
+        <div
+          aria-label={`${label} collection cell`}
+          style={collectionCellStyle}
+          onClick={(event) => {
+            const target = event.target;
+            if (
+              target instanceof HTMLElement &&
+              target.closest("[data-relationship-chip='true']") !== null
+            ) {
+              return;
+            }
+            activateCollectionInput();
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== "F2") {
+              return;
+            }
+            event.preventDefault();
+            activateCollectionInput();
+          }}
+        >
           <div
             data-testid={
               row.recordId === null
@@ -5249,7 +5344,7 @@ export function TimelineWorkbook({
           >
             {items.length > 0 ? (
               binding.collectionKind === "relationship" ? (
-                items.map((item) => (
+                visibleItems.map((item) => (
                   <RelationshipChip
                     key={item.itemRef}
                     entityIndex={entityIndex}
@@ -5262,8 +5357,12 @@ export function TimelineWorkbook({
                   />
                 ))
               ) : (
-                items.map((item) => (
-                  <span key={item.itemRef} style={tagChipStyle}>
+                visibleItems.map((item) => (
+                  <span
+                    key={item.itemRef}
+                    style={tagChipStyle}
+                    title={(item as TagCollectionItem).displayText}
+                  >
                     {(item as TagCollectionItem).displayText}
                   </span>
                 ))
@@ -5271,6 +5370,29 @@ export function TimelineWorkbook({
             ) : (
               <span style={emptyRelationshipStyle}>No items</span>
             )}
+            {hiddenItemCount > 0 ? (
+              <>
+                <span
+                  aria-label={`${hiddenItemCount} more ${label.toLowerCase()}`}
+                  style={collectionOverflowStyle}
+                  title={`${hiddenItemCount} more ${label.toLowerCase()}`}
+                >
+                  +{hiddenItemCount}
+                </span>
+                <span aria-hidden="true" style={visuallyHiddenStyle}>
+                  {hiddenItems
+                    .map((item) =>
+                      binding.collectionKind === "relationship"
+                        ? relationshipItemLabel(
+                            item as CollectionItem,
+                            entityIndex,
+                          )
+                        : (item as TagCollectionItem).displayText,
+                    )
+                    .join(" ")}
+                </span>
+              </>
+            ) : null}
           </div>
           <input
             aria-label={`${label} ${row.recordId ?? "draft row"}`}
@@ -5285,7 +5407,12 @@ export function TimelineWorkbook({
                 element,
               );
             }}
-            style={gridCellInputStyle}
+            tabIndex={isCollectionInputActive ? 0 : -1}
+            style={
+              isCollectionInputActive
+                ? collectionCellInputStyle
+                : collectionCellInactiveInputStyle
+            }
             type="text"
             defaultValue={row.collectionDrafts[binding.draftKey]}
             onChange={(event) => {
@@ -5304,8 +5431,14 @@ export function TimelineWorkbook({
                 binding.draftKey,
                 event.currentTarget.value,
               );
+              if (event.currentTarget.value.trim() === "") {
+                setActiveCollectionInputKey((current) =>
+                  current === collectionFocusKey ? null : current,
+                );
+              }
             }}
             onFocus={() => {
+              setActiveCollectionInputKey(collectionFocusKey);
               updateTimelineFocusAnchor(row.recordId, binding.fieldKey);
               if (row.recordId) {
                 handleSelectRow(row.recordId);
@@ -5319,21 +5452,38 @@ export function TimelineWorkbook({
                 binding.draftKey,
               );
             }}
-            placeholder={`Add ${label.toLowerCase()} token`}
+            placeholder={
+              isCollectionInputActive
+                ? `Add ${label.toLowerCase()} token`
+                : undefined
+            }
           />
-        </>
+        </div>
       );
     },
     [
+      activeCollectionInputKey,
       entityIndex,
       handleCollectionKeyDown,
       handleSelectRow,
       handleSelectMention,
       registerInput,
+      setActiveCollectionInputKey,
       timelineBindingLabel,
       queueCollectionSave,
       updateTimelineFocusAnchor,
     ],
+  );
+
+  const timelineColumnWidths = useMemo(
+    () =>
+      buildExpandedTimelineColumnWidths({
+        actionsColumnWidth: timelineActionsColumnWidth,
+        fieldKeys: timelineVisibleFieldKeys,
+        gridShellWidth: timelineGridShellWidth,
+        rowGutterWidth: timelineRowGutterWidth,
+      }),
+    [timelineGridShellWidth],
   );
 
   const timelineColumns = useMemo<readonly GridColumn<WorkbookRow>[]>(
@@ -5346,7 +5496,9 @@ export function TimelineWorkbook({
             binding.fieldKey,
           ),
           label: timelineBindingLabel(binding.fieldKey),
-          width: timelineColumnWidth(binding.fieldKey),
+          width:
+            timelineColumnWidths[binding.fieldKey] ??
+            timelineColumnWidth(binding.fieldKey),
           renderCell: (row) => {
             if (binding.kind === "scalar") {
               return renderTimelineGridEditor(row, binding);
@@ -5427,6 +5579,7 @@ export function TimelineWorkbook({
     [
       renderTimelineCollectionInput,
       renderTimelineGridEditor,
+      timelineColumnWidths,
       timelineBindingLabel,
     ],
   );
@@ -5434,8 +5587,8 @@ export function TimelineWorkbook({
   const timelineRowGutter = useMemo(
     () => ({
       label: "",
-      width: 58,
-      minWidth: 58,
+      width: timelineRowGutterWidth,
+      minWidth: timelineRowGutterWidth,
     }),
     [],
   );
@@ -5444,8 +5597,8 @@ export function TimelineWorkbook({
     () => ({
       headerTestId: gridActionsHeaderTestId(timelineViewSchemaId),
       label: "",
-      minWidth: 44,
-      width: 44,
+      minWidth: timelineActionsColumnWidth,
+      width: timelineActionsColumnWidth,
       renderCell: ({ data: row }) => (
         <TimelineRowActions
           replacementDraft={replacementDrafts[row.key] ?? ""}
@@ -5824,17 +5977,13 @@ export function TimelineWorkbook({
       <TimelineWorkbookNotices
         autoResolutionNotices={autoResolutionNotices}
         entityIndex={entityIndex}
+        inspectorOpen={isInspectorOpen}
         onReviewAutoResolution={handleSelectMention}
         onUndoAutoResolution={handleUndoAutoResolutionNotice}
         pendingQueueSnapshot={pendingQueueSnapshot}
       />
 
-      <div
-        style={{
-          ...splitShellStyle,
-          ...(isInspectorOpen ? splitShellWithInspectorStyle : null),
-        }}
-      >
+      <div style={splitShellStyle}>
         <div style={timelineMainColumnStyle}>
           <div style={timelineMainHeaderStyle}>
             {visibleRefreshError !== null ? (
@@ -5979,8 +6128,10 @@ const panelStyle = {
 const workbookStyle = {
   position: "relative" as const,
   display: "grid",
-  gridTemplateRows: "auto minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
-  minHeight: "calc(100vh - var(--ct-layout-topBarHeight))",
+  gridTemplateRows: "minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+  blockSize: "calc(100vh - var(--ct-layout-topBarHeight))",
+  minBlockSize: 0,
+  overflow: "hidden",
 };
 
 const blurSurfaceButtonStyle = {
@@ -6020,30 +6171,26 @@ const bodyStyle = {
 };
 
 const splitShellStyle = {
+  position: "relative" as const,
   display: "grid",
-  gap: "var(--ct-spacing-shell-gap)",
+  gap: 0,
   alignItems: "stretch",
   gridTemplateColumns: "minmax(0, 1fr)",
-  gridRow: 2,
+  gridRow: 1,
   minHeight: 0,
   minWidth: 0,
   overflow: "hidden",
-  padding: "var(--ct-spacing-sm)",
+  padding: 0,
   boxSizing: "border-box" as const,
 };
-
-const splitShellWithInspectorStyle = {
-  gridTemplateColumns:
-    "minmax(0, 1fr) minmax(var(--ct-layout-inspectorMinWidth), var(--ct-layout-inspectorDefaultWidth))",
-} satisfies CSSProperties;
 
 const viewBarStyle = {
   position: "relative" as const,
   zIndex: 4,
   display: "block",
   minHeight: "var(--ct-layout-viewBarHeight)",
-  marginBottom: "var(--ct-spacing-sm)",
-  border: "var(--ct-border-hairline)",
+  marginBottom: 0,
+  border: 0,
   borderRadius: 0,
   background: "var(--ct-colors-surface-1)",
   overflowX: "visible" as const,
@@ -6059,8 +6206,9 @@ const timelineMainColumnStyle = {
 
 const timelineMainHeaderStyle = {
   display: "grid",
-  gap: "var(--ct-spacing-sm)",
+  gap: 0,
   minWidth: 0,
+  position: "relative" as const,
 };
 
 const primaryGridSlotStyle = {
@@ -6070,15 +6218,24 @@ const primaryGridSlotStyle = {
 };
 
 const inspectorSlotStyle = {
+  position: "absolute" as const,
+  zIndex: 8,
+  insetBlockStart: 0,
+  insetBlockEnd: 0,
+  insetInlineEnd: 0,
+  inlineSize:
+    "min(var(--ct-layout-inspectorDefaultWidth), calc(100% - var(--ct-spacing-xl)))",
+  maxInlineSize: "var(--ct-layout-inspectorMaxWidth)",
   minHeight: 0,
-  minWidth: 0,
   overflow: "hidden",
+  boxShadow: "var(--ct-elevation-drawer)",
+  boxSizing: "border-box" as const,
 };
 
 const gridShellStyle = {
   overflow: "hidden",
   overflowAnchor: "none" as const,
-  borderRadius: "var(--ct-rounded-sm)",
+  borderRadius: 0,
   border: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-1)",
 };
@@ -6091,7 +6248,7 @@ const timelineGridShellStyle = {
 
 const timelineStatusStripStyle = {
   ...statusStripStyle,
-  gridRow: 3,
+  gridRow: 2,
 } satisfies CSSProperties;
 
 const inputStyle = {
@@ -6197,23 +6354,80 @@ const sectionTitleStyle = {
 
 const relationshipItemsWrapStyle = {
   display: "flex",
-  flexWrap: "wrap" as const,
-  gap: "0.4rem",
-  marginBottom: "0.55rem",
+  alignItems: "center",
+  flex: "0 1 auto",
+  flexWrap: "nowrap" as const,
+  gap: "0.25rem",
+  marginBottom: 0,
   maxWidth: "100%",
   minWidth: 0,
+  overflow: "hidden",
+  whiteSpace: "nowrap" as const,
 };
 
 const tagChipStyle = {
   ...relationshipChipBaseStyle,
+  flex: "0 1 auto",
   border: "var(--ct-component-chip-border)",
   background: "var(--ct-component-chip-backgroundColor)",
   color: "var(--ct-component-chip-textColor)",
 };
 
 const emptyRelationshipStyle = {
+  display: "inline-block",
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
   color: "var(--ct-colors-ink-tertiary)",
-  fontSize: "0.9rem",
+  fontSize: "0.78rem",
+};
+
+const collectionCellStyle = {
+  position: "relative" as const,
+  display: "flex",
+  alignItems: "center",
+  gap: "0.35rem",
+  minWidth: 0,
+  maxWidth: "100%",
+  minBlockSize: "1.25rem",
+  overflow: "hidden",
+  whiteSpace: "nowrap" as const,
+};
+
+const collectionCellInputStyle = {
+  ...gridCellInputStyle,
+  flex: "1 1 6.5rem",
+  minWidth: "5.5rem",
+  inlineSize: "auto",
+  minHeight: "1.25rem",
+  paddingInline: "0.15rem",
+};
+
+const collectionCellInactiveInputStyle = {
+  ...gridCellInputStyle,
+  position: "absolute" as const,
+  insetBlockStart: 0,
+  insetInlineStart: 0,
+  inlineSize: 1,
+  blockSize: 1,
+  minHeight: 0,
+  padding: 0,
+  opacity: 0,
+  pointerEvents: "none" as const,
+};
+
+const collectionOverflowStyle = {
+  flex: "0 0 auto",
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-pill)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink-muted)",
+  fontFamily: "var(--ct-typography-mono-fontFamily)",
+  fontSize: "0.68rem",
+  fontWeight: 700,
+  lineHeight: 1.1,
+  padding: "0.12rem 0.35rem",
 };
 
 const inspectorActionStackStyle = {
@@ -6222,10 +6436,16 @@ const inspectorActionStackStyle = {
 };
 
 const noticeCardStyle = {
-  borderRadius: "var(--ct-rounded-lg)",
+  position: "absolute" as const,
+  zIndex: 7,
+  insetBlockStart: "calc(var(--ct-layout-viewBarHeight) + var(--ct-spacing-sm))",
+  insetInlineEnd: "var(--ct-spacing-sm)",
+  maxInlineSize: "min(36rem, calc(100% - var(--ct-spacing-xl)))",
+  borderRadius: "var(--ct-rounded-sm)",
   border: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-2)",
   padding: "0.85rem 1rem",
   display: "grid",
   gap: "0.5rem",
+  boxShadow: "var(--ct-elevation-popover)",
 };

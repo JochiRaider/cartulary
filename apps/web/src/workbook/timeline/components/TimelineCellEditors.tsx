@@ -4,6 +4,7 @@ import {
 } from "@cartulary/ui-contracts";
 import {
   type ClipboardEvent as ReactClipboardEvent,
+  type CSSProperties,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -11,6 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { visuallyHiddenStyle } from "../../utils/workbookStyles";
 import type {
   CollectionItem,
   InspectorMention,
@@ -105,7 +107,6 @@ export function RelationshipChip({
       isAutoResolved={isAutoResolved}
       isDismissed={isDismissed}
       isManualResolution={isManualResolution}
-      isResolved={isResolved}
       label={label}
     />
   );
@@ -113,6 +114,7 @@ export function RelationshipChip({
   return onSelect ? (
     <button
       aria-label={accessibleLabel}
+      data-relationship-chip="true"
       data-testid={relationshipChipTestId(item.itemRef)}
       tabIndex={0}
       style={chipStyle}
@@ -124,6 +126,7 @@ export function RelationshipChip({
   ) : (
     <span
       aria-label={accessibleLabel}
+      data-relationship-chip="true"
       data-testid={relationshipChipTestId(item.itemRef)}
       role="note"
       style={chipStyle}
@@ -138,44 +141,42 @@ function RelationshipChipContent({
   isAutoResolved,
   isDismissed,
   isManualResolution,
-  isResolved,
   label,
 }: {
   chipState: MentionChipState;
   isAutoResolved: boolean;
   isDismissed: boolean;
   isManualResolution: boolean;
-  isResolved: boolean;
   label: string;
 }) {
+  const stateMarker = isAutoResolved
+    ? "A"
+    : isManualResolution
+      ? "M"
+      : chipState === "resolved"
+        ? "R"
+        : isDismissed
+          ? "D"
+          : "!";
+  const stateText = isAutoResolved
+    ? "Auto"
+    : isManualResolution
+      ? "Manual"
+      : chipState === "resolved"
+        ? "Resolved"
+        : isDismissed
+          ? "Dismissed"
+          : "Unresolved";
+
   return (
     <>
-      <span>{label}</span>
-      {isAutoResolved ? (
-        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
-          Auto
-        </span>
-      ) : null}
-      {isManualResolution ? (
-        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
-          Manual
-        </span>
-      ) : null}
-      {chipState === "resolved" && !isManualResolution ? (
-        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
-          Resolved
-        </span>
-      ) : null}
-      {!isResolved && !isDismissed ? (
-        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
-          Unresolved
-        </span>
-      ) : null}
-      {isDismissed ? (
-        <span data-density-role="narrow-metadata" style={chipMetaStyle}>
-          Dismissed
-        </span>
-      ) : null}
+      <span aria-hidden="true" style={chipStateMarkerStyle}>
+        {stateMarker}
+      </span>
+      <span style={chipLabelStyle}>{label}</span>
+      <span data-density-role="narrow-metadata" style={visuallyHiddenStyle}>
+        {stateText}
+      </span>
     </>
   );
 }
@@ -445,14 +446,16 @@ const gridCellTextareaStyle = {
 export const relationshipChipBaseStyle = {
   display: "inline-flex",
   alignItems: "center",
-  gap: "0.35rem",
+  gap: "0.25rem",
   borderRadius: "var(--ct-component-chip-rounded)",
   padding: "var(--ct-component-chip-padding)",
   font: "inherit",
   lineHeight: 1.2,
   maxWidth: "100%",
   minWidth: 0,
-  overflowWrap: "anywhere" as const,
+  overflow: "hidden",
+  overflowWrap: "normal" as const,
+  whiteSpace: "nowrap" as const,
 };
 
 const relationshipChipStyle = relationshipChipBaseStyle;
@@ -485,8 +488,23 @@ const selectedChipStyle = {
   boxShadow: "0 0 0 2px var(--ct-colors-accent)",
 };
 
-const chipMetaStyle = {
-  fontSize: "0.72rem",
-  textTransform: "uppercase" as const,
-  letterSpacing: "0.04em",
-};
+const chipStateMarkerStyle = {
+  display: "inline-grid",
+  placeItems: "center",
+  flex: "0 0 auto",
+  inlineSize: "1.05rem",
+  blockSize: "1.05rem",
+  borderRadius: "var(--ct-rounded-pill)",
+  border: "var(--ct-border-hairline)",
+  fontFamily: "var(--ct-typography-mono-fontFamily)",
+  fontSize: "0.62rem",
+  fontWeight: 700,
+  lineHeight: 1,
+} satisfies CSSProperties;
+
+const chipLabelStyle = {
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+} satisfies CSSProperties;

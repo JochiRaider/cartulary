@@ -283,6 +283,77 @@ function gridShellSelector(surface: string): string {
   return dataTestIdSelector(gridShellTestId(surface));
 }
 
+async function readTimelineGridFirstLayout(page: Page) {
+  return page.evaluate(
+    ({
+      gridSelector,
+      inspectorSelector,
+      scrollportSelector,
+      topBarSelector,
+      viewBarSelector,
+    }) => {
+      const roundedRect = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector);
+        if (element === null) {
+          throw new Error(`Expected ${selector} to exist`);
+        }
+        const rect = element.getBoundingClientRect();
+        return {
+          bottom: Math.round(rect.bottom),
+          height: Math.round(rect.height),
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          top: Math.round(rect.top),
+          width: Math.round(rect.width),
+        };
+      };
+      const optionalRoundedRect = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector);
+        if (element === null) {
+          return null;
+        }
+        const rect = element.getBoundingClientRect();
+        return {
+          bottom: Math.round(rect.bottom),
+          height: Math.round(rect.height),
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          top: Math.round(rect.top),
+          width: Math.round(rect.width),
+        };
+      };
+      const scrollport = document.querySelector<HTMLElement>(
+        scrollportSelector,
+      );
+      if (scrollport === null) {
+        throw new Error(`Expected ${scrollportSelector} to exist`);
+      }
+      return {
+        grid: roundedRect(gridSelector),
+        innerGrid: roundedRect(scrollportSelector),
+        inspector: optionalRoundedRect(inspectorSelector),
+        scrollport: {
+          clientHeight: scrollport.clientHeight,
+          clientWidth: scrollport.clientWidth,
+          scrollTop: Math.round(scrollport.scrollTop),
+        },
+        topBar: roundedRect(topBarSelector),
+        viewBar: roundedRect(viewBarSelector),
+        windowY: Math.round(window.scrollY),
+      };
+    },
+    {
+      gridSelector: gridShellSelector(timelineViewSchemaId),
+      inspectorSelector: dataTestIdSelector(timelineInspectorTestId),
+      scrollportSelector: `${gridShellSelector(
+        timelineViewSchemaId,
+      )} ${gridScrollportSelector()}`,
+      topBarSelector: dataTestIdSelector(workbookShellSlotTestId("top-bar")),
+      viewBarSelector: dataTestIdSelector(workbookShellSlotTestId("view-bar")),
+    },
+  );
+}
+
 async function openTimelineRowActions(page: Page, recordId: string) {
   const actionMenuTestId = workbookRowActionMenuButtonTestId(
     timelineViewSchemaId,
@@ -370,6 +441,10 @@ test.describe("FE-P2 workbook visual readiness", () => {
       "Cloud sign-in risk elevated",
       "Analyst comment added",
       "Final verification queued",
+      ...Array.from(
+        { length: 28 },
+        (_, index) => `Follow-up chronology detail ${index + 1}`,
+      ),
     ];
     for (const [index, summary] of fixtureRows.entries()) {
       rows.push(
@@ -508,6 +583,18 @@ test.describe("FE-P2 workbook visual readiness", () => {
       ),
     ).toHaveValue(rowSummariesById.get(selectedRow.record_id) ?? "");
 
+    await expect
+      .poll(async () => {
+        const layout = await readTimelineGridFirstLayout(page);
+        return layout.innerGrid.right >= layout.grid.right - 2;
+      })
+      .toBe(true);
+    const closedLayout = await readTimelineGridFirstLayout(page);
+    expect(closedLayout.windowY).toBe(0);
+    expect(closedLayout.inspector).toBeNull();
+    expect(closedLayout.innerGrid.right).toBeGreaterThanOrEqual(
+      closedLayout.grid.right - 2,
+    );
     await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
     await expect(
       page.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
@@ -516,6 +603,22 @@ test.describe("FE-P2 workbook visual readiness", () => {
       .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
       .click();
     await expect(page.getByTestId("timeline-inspector")).toBeVisible();
+    const drawerOpenLayout = await readTimelineGridFirstLayout(page);
+    expect(drawerOpenLayout.grid).toEqual(closedLayout.grid);
+    expect(drawerOpenLayout.innerGrid).toEqual(closedLayout.innerGrid);
+    expect(drawerOpenLayout.viewBar).toEqual(closedLayout.viewBar);
+    expect(drawerOpenLayout.topBar).toEqual(closedLayout.topBar);
+    expect(drawerOpenLayout.inspector).not.toBeNull();
+    expect(drawerOpenLayout.inspector?.top).toBeGreaterThanOrEqual(
+      drawerOpenLayout.topBar.bottom,
+    );
+    expect(drawerOpenLayout.inspector?.top).toBeLessThanOrEqual(
+      drawerOpenLayout.viewBar.top + 1,
+    );
+    expect(drawerOpenLayout.inspector?.bottom).toBeLessThanOrEqual(
+      drawerOpenLayout.grid.bottom,
+    );
+    expect(drawerOpenLayout.windowY).toBe(0);
     await expect(
       page.getByTestId(
         workbookInspectorCloseButtonTestId(timelineViewSchemaId),
@@ -551,6 +654,20 @@ test.describe("FE-P2 workbook visual readiness", () => {
       .click();
     await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
 
+    const timelineScrollportSelector = `${dataTestIdSelector(
+      gridShellTestId(timelineViewSchemaId),
+    )} ${gridScrollportSelector()}`;
+    await page.evaluate((selector) => {
+      document.querySelector<HTMLElement>(selector)?.scrollTo({ top: 240 });
+    }, timelineScrollportSelector);
+    await expect
+      .poll(async () => (await readTimelineGridFirstLayout(page)).scrollport)
+      .toMatchObject({ scrollTop: 240 });
+    const scrolledLayout = await readTimelineGridFirstLayout(page);
+    expect(scrolledLayout.topBar).toEqual(closedLayout.topBar);
+    expect(scrolledLayout.viewBar).toEqual(closedLayout.viewBar);
+    expect(scrolledLayout.windowY).toBe(0);
+
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
     });
@@ -559,9 +676,6 @@ test.describe("FE-P2 workbook visual readiness", () => {
     );
     await summaryCell.focus();
     await expect(summaryCell).toBeFocused();
-    const timelineScrollportSelector = `${dataTestIdSelector(
-      gridShellTestId(timelineViewSchemaId),
-    )} ${gridScrollportSelector()}`;
     await expect
       .poll(() =>
         page.evaluate(

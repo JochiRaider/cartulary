@@ -80,13 +80,13 @@ describe("FE-U-P4-02 WorkbookShell save-state status strip", () => {
       timelineMutationSubstrateReadyTestId(),
     );
     expect(workbookShell.style.gridTemplateRows).toBe(
-      "auto minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+      "minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
     );
 
     const statusStrip = screen.getByTestId(
       workbookShellSlotTestId("status-strip"),
     );
-    expect(statusStrip.style.gridRow).toBe("3");
+    expect(statusStrip.style.gridRow).toBe("2");
     expect(statusStrip.style.overflow).toBe("hidden");
     expect(
       screen.getByTestId(workbookShellSlotTestId("primary-grid")).style
@@ -173,10 +173,13 @@ describe("FE-U-P4-02 WorkbookShell save-state status strip", () => {
     expect(pendingNotice.style.display).toBe("flex");
     expect(pendingNotice.style.alignItems).toBe("center");
     expect(pendingNotice.style.overflow).toBe("hidden");
+    expect(pendingNotice.parentElement?.style.position).toBe("absolute");
     expect(pendingNotice.parentElement?.style.maxBlockSize).toBe(
-      "min(8rem, 20vh)",
+      "min(14rem, 32vh)",
     );
     expect(pendingNotice.parentElement?.style.overflowY).toBe("auto");
+    expect(pendingNotice.parentElement?.style.pointerEvents).toBe("none");
+    expect(pendingNotice.style.pointerEvents).toBe("auto");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

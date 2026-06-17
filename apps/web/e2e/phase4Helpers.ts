@@ -21,6 +21,7 @@ import {
   timelineCollectionInputTestId,
   timelinePreviewRowTestId,
   timelineRowVersionTestId,
+  workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
   workbookRowActionMenuButtonTestId,
   workbookShellReadyTestId,
@@ -594,8 +595,13 @@ export async function addRelationshipTokenViaUI(
   const fieldKey =
     draftKey === "identityRefs" ? identityRefsFieldKey : hostRefsFieldKey;
   const inputTestId = timelineCollectionInputTestId(recordId, fieldKey);
-  await ensureTimelineGridTargetVisible(page, inputTestId);
+  await ensureTimelineGridTargetVisible(
+    page,
+    relationshipItemsTestId(recordId, fieldKey),
+  );
   const input = page.getByTestId(inputTestId);
+  await input.focus();
+  await expect(input).toBeVisible();
   const responsePromise = waitForTimelinePatch(page, recordId);
   await input.fill(rawText);
   await input.press("Enter");
@@ -655,6 +661,13 @@ export async function addRelationshipTokenViaUI(
 }
 
 export async function openTimelineInspector(page: Page, recordId: string) {
+  const closeInspector = page.getByTestId(
+    workbookInspectorCloseButtonTestId(timelineViewSchemaId),
+  );
+  if ((await closeInspector.count()) > 0) {
+    await closeInspector.click();
+    await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  }
   const inspectButtonTestId = rowInspectButtonTestId(recordId);
   await clickTimelineRowAction(page, recordId, inspectButtonTestId);
   await expect(page.getByTestId("timeline-inspector")).toBeVisible();

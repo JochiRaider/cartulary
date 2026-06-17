@@ -11,7 +11,9 @@ import {
   rowHistoryRollbackPreviewTestId,
   rowInspectButtonTestId,
   timelineInspectorSectionTestId,
+  timelineCollectionInputTestId,
   timelineScalarEditorTestId,
+  workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -81,6 +83,101 @@ describe("FE-P9 inspector and row-local action coverage", () => {
   afterEach(() => {
     cleanup();
     cleanupTimelineWorkbookTestGlobals();
+  });
+
+  it("keeps the Timeline inspector unmounted until explicit activation", async () => {
+    fetchMock.mockResolvedValueOnce(
+      timelineRowsEnvelope([
+        timelineRow({
+          recordId: "record-1",
+          rowVersion: 1,
+          summary: "Grid-first default",
+          captureState: "rough",
+        }),
+      ]),
+    );
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+
+    expect(screen.queryByTestId("timeline-inspector")).toBeNull();
+
+    fireEvent.click(
+      screen.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("timeline-inspector")).toBeTruthy();
+    });
+  });
+
+  it("renders Timeline collection cells compactly until inline edit activation", async () => {
+    fetchMock.mockResolvedValueOnce(
+      timelineRowsEnvelope([
+        timelineRow({
+          recordId: "record-1",
+          rowVersion: 1,
+          summary: "Compact collections",
+          captureState: "rough",
+          hostRefs: [
+            {
+              item_kind: "unresolved_ref",
+              item_ref: "host-ref-1",
+              raw_text: "wide-host-token-1",
+              entity_type: "host",
+              resolution_status: "unresolved",
+            },
+            {
+              item_kind: "unresolved_ref",
+              item_ref: "host-ref-2",
+              raw_text: "wide-host-token-2",
+              entity_type: "host",
+              resolution_status: "unresolved",
+            },
+          ],
+          identityRefs: [
+            {
+              item_kind: "unresolved_ref",
+              item_ref: "identity-ref-1",
+              raw_text: "wide-identity-token",
+              entity_type: "identity",
+              resolution_status: "unresolved",
+            },
+          ],
+          tags: ["tag-one", "tag-two", "tag-three"],
+        }),
+      ]),
+    );
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+
+    const hostItems = screen.getByTestId(
+      relationshipItemsTestId("record-1", "timeline.host_refs"),
+    );
+    expect(hostItems.textContent).toContain("wide-host-token-1");
+    expect(hostItems.textContent).toContain("+1");
+
+    for (const fieldKey of [
+      "timeline.host_refs",
+      "timeline.identity_refs",
+      "timeline.tags",
+    ] as const) {
+      expect(
+        screen
+          .getByTestId(timelineCollectionInputTestId("record-1", fieldKey))
+          .getAttribute("placeholder"),
+      ).toBeNull();
+    }
+
+    const hostInput = screen.getByTestId(
+      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
+    ) as HTMLInputElement;
+    hostInput.focus();
+    fireEvent.focus(hostInput);
+    await waitFor(() => {
+      expect(hostInput.getAttribute("placeholder")).toBe("Add hosts token");
+    });
   });
 
   it("FE-U-P9-01 Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh.", async () => {

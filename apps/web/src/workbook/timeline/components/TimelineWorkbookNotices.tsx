@@ -33,12 +33,14 @@ export function timelinePendingQueueMessage(
 export function TimelineWorkbookNotices({
   autoResolutionNotices,
   entityIndex,
+  inspectorOpen = false,
   onReviewAutoResolution,
   onUndoAutoResolution,
   pendingQueueSnapshot,
 }: {
   readonly autoResolutionNotices: readonly AutoResolutionNotice[];
   readonly entityIndex: Record<string, { label: string }>;
+  readonly inspectorOpen?: boolean | undefined;
   readonly onReviewAutoResolution: (
     rowRecordId: string,
     itemRef: string,
@@ -55,7 +57,13 @@ export function TimelineWorkbookNotices({
   }
 
   return (
-    <aside aria-label="Workbook notices" style={noticeStackStyle}>
+    <aside
+      aria-label="Workbook notices"
+      style={{
+        ...noticeStackStyle,
+        ...(inspectorOpen ? noticeStackWithInspectorStyle : null),
+      }}
+    >
       {autoResolutionNotices.map((notice) => (
         <div
           key={notice.itemRef}
@@ -162,16 +170,27 @@ const inlineButtonRowStyle = {
 } satisfies CSSProperties;
 
 const noticeStackStyle = {
+  position: "absolute",
+  zIndex: 6,
+  insetBlockStart: "calc(var(--ct-layout-viewBarHeight) + var(--ct-spacing-sm))",
+  insetInlineEnd: "var(--ct-spacing-sm)",
   display: "grid",
   gap: "0.5rem",
-  marginBottom: "0.5rem",
+  inlineSize: "min(34rem, calc(100% - var(--ct-spacing-xl)))",
   minWidth: 0,
-  maxBlockSize: "min(8rem, 20vh)",
+  maxBlockSize: "min(14rem, 32vh)",
   overflowY: "auto",
+  pointerEvents: "none",
+} satisfies CSSProperties;
+
+const noticeStackWithInspectorStyle = {
+  insetInlineEnd:
+    "calc(var(--ct-layout-inspectorDefaultWidth) + var(--ct-spacing-sm))",
+  inlineSize: "min(28rem, 50vw)",
 } satisfies CSSProperties;
 
 const noticeCardStyle = {
-  borderRadius: "var(--ct-rounded-lg)",
+  borderRadius: "var(--ct-rounded-sm)",
   border: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-2)",
   padding: "0.85rem 1rem",
@@ -179,6 +198,8 @@ const noticeCardStyle = {
   gap: "0.5rem",
   minWidth: 0,
   alignSelf: "start",
+  boxShadow: "var(--ct-elevation-popover)",
+  pointerEvents: "auto",
 } satisfies CSSProperties;
 
 const pendingQueueNoticeCardStyle = {
@@ -191,6 +212,8 @@ const pendingQueueNoticeCardStyle = {
   gap: "0.75rem",
   minWidth: 0,
   overflow: "hidden",
+  boxShadow: "var(--ct-elevation-popover)",
+  pointerEvents: "auto",
 } satisfies CSSProperties;
 
 const pendingQueueTitleStyle = {

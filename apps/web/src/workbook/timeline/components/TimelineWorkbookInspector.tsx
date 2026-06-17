@@ -167,15 +167,15 @@ const bodyStyle = {
 } satisfies CSSProperties;
 
 const inspectorShellStyle = {
-  borderRadius: "var(--ct-rounded-sm)",
+  boxSizing: "border-box",
+  blockSize: "100%",
+  maxBlockSize: "100%",
+  borderRadius: "var(--ct-rounded-sm) 0 0 var(--ct-rounded-sm)",
   border: "var(--ct-component-inspector-border)",
+  borderInlineEnd: 0,
   background: "var(--ct-component-inspector-backgroundColor)",
   color: "var(--ct-component-inspector-textColor)",
   padding: "var(--ct-spacing-panel-padding)",
-  position: "sticky",
-  top: "calc(var(--ct-layout-topBarHeight) + var(--ct-spacing-sm))",
-  maxHeight:
-    "calc(100vh - var(--ct-layout-topBarHeight) - var(--ct-layout-statusStripHeight) - 16px)",
   overflow: "auto",
 } satisfies CSSProperties;
 
