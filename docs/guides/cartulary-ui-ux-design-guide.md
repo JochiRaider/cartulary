@@ -520,7 +520,11 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 
 *Core behavior.* Core 01 and Core 03 define row-centric history and rollback target kinds. Available rollback actions draw only from `history_entry`, `change_set`, and `row_restore`.[^4][^5]
 
+*Core behavior.* Core 03 requires inspector Details, Relationships, Evidence, History, and row-local actions to share one active `record_id` subject. When history is open and the active saved row changes, the History section retargets to the new active row rather than continuing to display the prior row's history.
+
 *Core behavior.* The rollback target kinds have different reversal scopes. `history_entry` reverses one individually reversible mutation target. `change_set` reverses every reversible mutation entry in the addressed `change_set` in reverse deterministic order. `row_restore` restores only the authoritative row-backed fields of the selected record revision. Whole-row restore does not implicitly recreate, delete, or repoint non-row-backed associations such as `record_links`, `record_tags`, `entity_mentions`, `indicator_observations`, or evidence associations.[^5][^6]
+
+*Design direction.* When the History section retargets, the inspector SHOULD preserve the drawer and show loading, empty, or public error state in the History section for the active row. It MUST NOT present rollback, delete, restore, or confirmation controls for a stale row.
 
 *Design direction.* The history UI MUST present those three rollback target kinds as different actions, not as aliases for “restore this row.” Whole-row restore affordances MUST label the row-field-only scope before confirmation.
 

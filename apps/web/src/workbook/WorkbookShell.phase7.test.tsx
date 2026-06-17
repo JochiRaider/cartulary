@@ -5,11 +5,13 @@ import {
   rowHistoryDeleteButtonTestId,
   rowHistoryDestructiveConfirmButtonTestId,
   rowHistoryItemTestId,
+  rowHistoryLoadingTestId,
   rowHistoryMessageTestId,
   rowHistoryOpenButtonTestId,
   rowHistoryPanelTestId,
   rowHistoryRestoreButtonTestId,
   rowHistoryRollbackConfirmButtonTestId,
+  rowHistoryRollbackPreviewTestId,
   saveStateTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -23,6 +25,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
+  deferred,
   errorEnvelope,
   extractTimelineConflictResolutionBody,
   extractTimelineJSONBody,
@@ -196,6 +199,184 @@ describe("Phase 7 workbook history support coverage", () => {
     expect(historyActionTestId(renamedHistoryRecord, "change_set")).toBe(
       historyActionTestId(advertisedItem, "change_set"),
     );
+  });
+
+  it("retargets open row history to the newly selected inspector row", async () => {
+    const record1History = historyItem({
+      change_set_id: "change-set-record-1",
+      history_entry_ref: "href_record_1",
+      history_item_ref: "hitem_record_1",
+      operation: "field_update_record_1",
+    });
+    const record2History = historyItem({
+      change_set_id: "change-set-record-2",
+      history_entry_ref: "href_record_2",
+      history_item_ref: "hitem_record_2",
+      operation: "field_update_record_2",
+    });
+    const record2HistoryResponse = deferred<Response>();
+    fetchMock
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "record-1",
+              rowVersion: 4,
+              summary: "History row one",
+              captureState: "rough",
+            }),
+            timelineRow({
+              recordId: "record-2",
+              rowVersion: 7,
+              summary: "History row two",
+              captureState: "rough",
+            }),
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        historyEnvelope({
+          items: [record1History],
+          recordId: "record-1",
+          rowVersion: 4,
+        }),
+      )
+      .mockImplementationOnce(() => record2HistoryResponse.promise);
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    );
+    const record2Summary = await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-2",
+      "timeline.summary",
+    );
+    fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
+    await screen.findByTestId(historyItemTestId(record1History));
+
+    fireEvent.focus(record2Summary);
+
+    await screen.findByTestId(rowHistoryLoadingTestId());
+    expect(screen.getByTestId(rowHistoryPanelTestId()).textContent).toContain(
+      "Record record-2",
+    );
+    expect(screen.queryByTestId(historyItemTestId(record1History))).toBeNull();
+    expect(
+      screen.getByTestId(rowHistoryPanelTestId()).textContent,
+    ).not.toContain("field_update_record_1");
+
+    record2HistoryResponse.resolve(
+      historyEnvelope({
+        items: [record2History],
+        recordId: "record-2",
+        rowVersion: 7,
+      }),
+    );
+    await screen.findByTestId(historyItemTestId(record2History));
+    expect(screen.queryByTestId(historyItemTestId(record1History))).toBeNull();
+    expect(screen.getByTestId(rowHistoryPanelTestId()).textContent).toContain(
+      "field_update_record_2",
+    );
+  });
+
+  it("clears stale rollback previews when open history retargets", async () => {
+    const record1History = historyItem({
+      change_set_id: "change-set-record-1",
+      history_entry_ref: "href_record_1",
+      history_item_ref: "hitem_record_1",
+    });
+    const record2History = historyItem({
+      change_set_id: "change-set-record-2",
+      history_entry_ref: "href_record_2",
+      history_item_ref: "hitem_record_2",
+    });
+    const record2HistoryResponse = deferred<Response>();
+    fetchMock
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "incident-1",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "record-1",
+              rowVersion: 4,
+              summary: "Pending rollback row one",
+              captureState: "rough",
+            }),
+            timelineRow({
+              recordId: "record-2",
+              rowVersion: 7,
+              summary: "Pending rollback row two",
+              captureState: "rough",
+            }),
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        historyEnvelope({
+          items: [record1History],
+          recordId: "record-1",
+          rowVersion: 4,
+        }),
+      )
+      .mockImplementationOnce(() => record2HistoryResponse.promise);
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-1",
+      "timeline.summary",
+    );
+    const record2Summary = await findWorkbookCell(
+      document.body,
+      timelineViewSchemaId,
+      "record-2",
+      "timeline.summary",
+    );
+    fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
+    await screen.findByTestId(
+      historyActionTestId(record1History, "history_entry"),
+    );
+    fireEvent.click(
+      screen.getByTestId(historyActionTestId(record1History, "history_entry")),
+    );
+    expect(
+      screen.getByTestId(
+        rowHistoryRollbackPreviewTestId({
+          action: "history_entry",
+          historyItemRef: record1History.history_item_ref,
+        }),
+      ),
+    ).toBeTruthy();
+
+    fireEvent.focus(record2Summary);
+
+    await screen.findByTestId(rowHistoryLoadingTestId());
+    expect(
+      screen.queryByTestId(
+        rowHistoryRollbackPreviewTestId({
+          action: "history_entry",
+          historyItemRef: record1History.history_item_ref,
+        }),
+      ),
+    ).toBeNull();
+
+    record2HistoryResponse.resolve(
+      historyEnvelope({
+        items: [record2History],
+        recordId: "record-2",
+        rowVersion: 7,
+      }),
+    );
+    await screen.findByTestId(historyItemTestId(record2History));
   });
 
   it.each([
@@ -421,6 +602,12 @@ describe("Phase 7 workbook history support coverage", () => {
               summary: "Delete me",
               captureState: "rough",
             }),
+            timelineRow({
+              recordId: "record-2",
+              rowVersion: 2,
+              summary: "Keep me visible",
+              captureState: "rough",
+            }),
           ],
         }),
       )
@@ -441,7 +628,14 @@ describe("Phase 7 workbook history support coverage", () => {
         successEnvelope({
           incident_id: "incident-1",
           view_schema_id: timelineViewSchemaId,
-          rows: [],
+          rows: [
+            timelineRow({
+              recordId: "record-2",
+              rowVersion: 2,
+              summary: "Keep me visible",
+              captureState: "rough",
+            }),
+          ],
         }),
       )
       .mockResolvedValueOnce(
@@ -467,6 +661,12 @@ describe("Phase 7 workbook history support coverage", () => {
               summary: "Delete me",
               captureState: "rough",
             }),
+            timelineRow({
+              recordId: "record-2",
+              rowVersion: 2,
+              summary: "Keep me visible",
+              captureState: "rough",
+            }),
           ],
         }),
       );
@@ -489,8 +689,14 @@ describe("Phase 7 workbook history support coverage", () => {
 
     await screen.findByTestId(rowHistoryRestoreButtonTestId());
     await waitFor(() => {
-      expect(visibleGridRowRecordIds(container)).toEqual([]);
+      expect(visibleGridRowRecordIds(container)).toEqual(["record-2"]);
     });
+    expect(screen.getByTestId(rowHistoryPanelTestId()).textContent).toContain(
+      "Record record-1",
+    );
+    expect(
+      screen.getByTestId(rowHistoryPanelTestId()).textContent,
+    ).not.toContain("Record record-2");
     const deleteCallIndex = fetchMock.mock.calls.findIndex(
       ([url, init]) =>
         String(url).endsWith("/api/v1/records/record-1") &&

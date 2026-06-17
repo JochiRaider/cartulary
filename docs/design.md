@@ -578,7 +578,7 @@ Design contract. Primary workflows MUST use the design treatments in the table b
 | Preview or download evidence | Keep the workbook shell present; blocked preview remains inline and does not silently fall back to download. |
 | Filter, sort, group, and save views | Treat the current view as a workbook working set; saved views remain configurations over one `view_schema_id`. |
 | Resolve same-field conflict | Mark only the affected cell, keep the saved value visible, retain the local draft separately, and open a resolver from that cell. |
-| Review history or rollback | Use row-local history and scoped destructive-action presentation in the inspector; routine editing MUST NOT feel like approval workflow. |
+| Review history or rollback | Use row-local history and scoped destructive-action presentation in the inspector; when history is already open, it follows the active saved row and shows in-drawer loading or error state for that row. Routine editing MUST NOT feel like approval workflow. |
 | Coordinate tasks, decisions, handoffs, status reviews, and lessons | Keep these as workbook-native surfaces, not separate task-management or workflow modules. |
 
 ## 5. Visual design principles

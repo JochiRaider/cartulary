@@ -262,6 +262,19 @@ export type SaveState = "Syncing" | "Saved" | "Conflict";
 type FilterDraftSetter = Dispatch<SetStateAction<FilterDraft>>;
 type WorkbookQueryStateSetter = Dispatch<SetStateAction<WorkbookQueryState>>;
 export type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
+type TimelineInspectorHistorySubject =
+  | {
+      readonly kind: "live";
+      readonly recordId: string;
+      readonly rowVersion: number | null;
+    }
+  | {
+      readonly kind: "deleted";
+      readonly recordId: string;
+      readonly rowVersion: number;
+    }
+  | { readonly kind: "draft" }
+  | { readonly kind: "none" };
 
 function rowStillHasAutoResolvedNotice(
   row: WorkbookRow,
@@ -1158,6 +1171,8 @@ export function TimelineWorkbook({
   const { rowHistory, rowHistoryPendingAction } = timelineHistoryState.snapshot;
   const { setRowHistory, setRowHistoryPendingAction } =
     timelineHistoryState.commands;
+  const currentHistoryRecordIdRef = useRef<string | null>(null);
+  const rowHistoryRequestSeqRef = useRef(0);
   const clientTxnRef = useRef(1);
   const timelineCommittedRows = useTimelineCommittedRows({ rowsRef });
   const {
@@ -2406,24 +2421,39 @@ export function TimelineWorkbook({
       return;
     }
     if (!rows.some((row) => row.recordId === selectedRowId)) {
+      const deletedHistoryMatchesSelectedRow =
+        rowHistory.data?.deleted === true &&
+        rowHistory.data.record_id === selectedRowId;
       const previousAnchor = workbookFocusAnchorRef.current;
       setSelectedRowId(null);
       setSelectedMentionRef(null);
       setSelectedResolveTargetId("");
-      setRowHistory((current) =>
-        current.recordId === selectedRowId && current.data?.deleted !== true
-          ? {
-              recordId: null,
-              status: "idle",
-              data: null,
-              message: null,
-            }
-          : current,
-      );
+      setRowHistory((current) => {
+        if (
+          current.recordId !== selectedRowId ||
+          current.data?.deleted === true
+        ) {
+          return current;
+        }
+        rowHistoryRequestSeqRef.current += 1;
+        return {
+          recordId: null,
+          status: "idle",
+          data: null,
+          message: null,
+        };
+      });
       setRowHistoryPendingAction((current) =>
         current?.recordId === selectedRowId ? null : current,
       );
-      setInspectorMessage("Selected row is no longer available.");
+      setInspectorMessage(
+        deletedHistoryMatchesSelectedRow
+          ? "Selected row was deleted."
+          : "Selected row is no longer available.",
+      );
+      if (deletedHistoryMatchesSelectedRow) {
+        return;
+      }
       window.setTimeout(() => {
         const fallbackFieldKey =
           previousAnchor?.surface === timelineViewSchemaId
@@ -2451,6 +2481,7 @@ export function TimelineWorkbook({
     }
   }, [
     restoreTimelineFocusAnchor,
+    rowHistory.data,
     rows,
     selectedRowId,
     setSelectedMentionRef,
@@ -3796,10 +3827,33 @@ export function TimelineWorkbook({
   );
 
   const fetchRecordHistory = useCallback(
-    async (recordId: string): Promise<RecordHistoryData | null> => {
+    async (
+      recordId: string,
+      options: {
+        readonly retainedData?: RecordHistoryData | null;
+        readonly setLoading?: boolean;
+      } = {},
+    ): Promise<RecordHistoryData | null> => {
+      const requestSeq = rowHistoryRequestSeqRef.current + 1;
+      rowHistoryRequestSeqRef.current = requestSeq;
+      if (options.setLoading === true) {
+        setRowHistoryPendingAction(null);
+        setRowHistory({
+          recordId,
+          status: "loading",
+          data:
+            options.retainedData?.record_id === recordId
+              ? options.retainedData
+              : null,
+          message: null,
+        });
+      }
       const result = await fetchJSON<RecordHistoryEnvelope>(
         apiPath(apiBase, `/api/v1/records/${recordId}/history`),
       );
+      if (rowHistoryRequestSeqRef.current !== requestSeq) {
+        return null;
+      }
       if (!result.ok) {
         setRowHistoryPendingAction(null);
         setRowHistory({
@@ -3814,7 +3868,13 @@ export function TimelineWorkbook({
       try {
         const envelope = readEnvelope<RecordHistoryEnvelope>(result.payload);
         historyData = normalizeRecordHistoryData(envelope.data);
+        if (historyData.record_id !== recordId) {
+          throw new Error("row history response record mismatch");
+        }
       } catch {
+        if (rowHistoryRequestSeqRef.current !== requestSeq) {
+          return null;
+        }
         setRowHistoryPendingAction(null);
         setRowHistory({
           recordId,
@@ -3822,6 +3882,9 @@ export function TimelineWorkbook({
           data: null,
           message: "Invalid row history response.",
         });
+        return null;
+      }
+      if (rowHistoryRequestSeqRef.current !== requestSeq) {
         return null;
       }
       acceptTimelineRecordVersion(recordId, historyData.row_version);
@@ -3846,36 +3909,97 @@ export function TimelineWorkbook({
     (recordId: string) => {
       setSelectedRowId(recordId);
       setIsInspectorOpen(true);
-      setRowHistoryPendingAction(null);
-      setRowHistory({
-        recordId,
-        status: "loading",
-        data: rowHistory.recordId === recordId ? rowHistory.data : null,
-        message: null,
+      void fetchRecordHistory(recordId, {
+        retainedData: rowHistory.recordId === recordId ? rowHistory.data : null,
+        setLoading: true,
       });
-      void fetchRecordHistory(recordId);
     },
     [
       fetchRecordHistory,
       rowHistory.data,
       rowHistory.recordId,
-      setRowHistory,
-      setRowHistoryPendingAction,
       setSelectedRowId,
     ],
   );
 
+  const matchedRowHistoryData =
+    rowHistory.data !== null &&
+    rowHistory.data.record_id === rowHistory.recordId
+      ? rowHistory.data
+      : null;
+  const deletedRowHistoryData =
+    matchedRowHistoryData?.deleted === true ? matchedRowHistoryData : null;
+  const selectedLiveRecordId = selectedRow?.recordId ?? null;
+  const deletedRowIsActiveSubject =
+    deletedRowHistoryData !== null &&
+    (selectedLiveRecordId === null ||
+      selectedLiveRecordId === deletedRowHistoryData.record_id);
+  const inspectorHistorySubject: TimelineInspectorHistorySubject =
+    deletedRowIsActiveSubject && deletedRowHistoryData !== null
+      ? {
+          kind: "deleted",
+          recordId: deletedRowHistoryData.record_id,
+          rowVersion: deletedRowHistoryData.row_version,
+        }
+      : selectedLiveRecordId !== null
+        ? {
+            kind: "live",
+            recordId: selectedLiveRecordId,
+            rowVersion: selectedRow?.rowVersion ?? null,
+          }
+        : draftRow !== null
+          ? { kind: "draft" }
+          : { kind: "none" };
   const currentHistoryRecordId =
-    rowHistory.data?.deleted === true
-      ? rowHistory.data.record_id
-      : (selectedRow?.recordId ??
-        rowHistory.data?.record_id ??
-        rowHistory.recordId);
+    inspectorHistorySubject.kind === "live" ||
+    inspectorHistorySubject.kind === "deleted"
+      ? inspectorHistorySubject.recordId
+      : null;
+  currentHistoryRecordIdRef.current = currentHistoryRecordId;
   const currentHistoryRowVersion =
-    rowHistory.data?.deleted === true
-      ? rowHistory.data.row_version
-      : (selectedRow?.rowVersion ?? rowHistory.data?.row_version ?? null);
-  const currentHistoryDeleted = rowHistory.data?.deleted === true;
+    inspectorHistorySubject.kind === "live" ||
+    inspectorHistorySubject.kind === "deleted"
+      ? inspectorHistorySubject.rowVersion
+      : null;
+  const currentHistoryDeleted = inspectorHistorySubject.kind === "deleted";
+  const activeHistoryLiveRecordId =
+    inspectorHistorySubject.kind === "live"
+      ? inspectorHistorySubject.recordId
+      : null;
+
+  useEffect(() => {
+    if (
+      activeHistoryLiveRecordId === null ||
+      rowHistory.status === "idle" ||
+      rowHistory.recordId === activeHistoryLiveRecordId
+    ) {
+      return;
+    }
+    void fetchRecordHistory(activeHistoryLiveRecordId, {
+      retainedData:
+        rowHistory.recordId === activeHistoryLiveRecordId
+          ? rowHistory.data
+          : null,
+      setLoading: true,
+    });
+  }, [
+    activeHistoryLiveRecordId,
+    fetchRecordHistory,
+    rowHistory.data,
+    rowHistory.recordId,
+    rowHistory.status,
+  ]);
+
+  const clearRowHistory = useCallback(() => {
+    rowHistoryRequestSeqRef.current += 1;
+    setRowHistoryPendingAction(null);
+    setRowHistory({
+      recordId: null,
+      status: "idle",
+      data: null,
+      message: null,
+    });
+  }, [setRowHistory, setRowHistoryPendingAction]);
 
   const submitRowHistoryMutation = useCallback(
     ({
@@ -3908,7 +4032,9 @@ export function TimelineWorkbook({
       );
       beginSave();
       setRowHistoryPendingAction(null);
-      setRowHistory((current) => ({ ...current, message: null }));
+      setRowHistory((current) =>
+        current.recordId === recordId ? { ...current, message: null } : current,
+      );
       saveQueueRef.current = saveQueueRef.current
         .catch(() => undefined)
         .then(async () => {
@@ -3918,10 +4044,14 @@ export function TimelineWorkbook({
           );
           if (idleRecord === null) {
             clearViewportContinuity(viewportContinuityToken);
-            setRowHistory((current) => ({
-              ...current,
-              message: missingVersionMessage,
-            }));
+            setRowHistory((current) =>
+              current.recordId === recordId
+                ? {
+                    ...current,
+                    message: missingVersionMessage,
+                  }
+                : current,
+            );
             finishSave("Conflict");
             return;
           }
@@ -3930,10 +4060,14 @@ export function TimelineWorkbook({
           if (!result.ok) {
             resolvePendingSocketTxn(clientTxnId);
             clearViewportContinuity(viewportContinuityToken);
-            setRowHistory((current) => ({
-              ...current,
-              message: parseErrorMessage(result.payload),
-            }));
+            setRowHistory((current) =>
+              current.recordId === recordId
+                ? {
+                    ...current,
+                    message: parseErrorMessage(result.payload),
+                  }
+                : current,
+            );
             finishSave("Conflict");
             return;
           }
@@ -3967,10 +4101,7 @@ export function TimelineWorkbook({
           : { kind: "scroll-only" };
       submitRowHistoryMutation({
         idleOptions: {
-          fallbackRowVersion:
-            operation === "restore"
-              ? rowHistory.data?.row_version
-              : currentHistoryRowVersion,
+          fallbackRowVersion: currentHistoryRowVersion,
           refreshIfMissing: operation !== "restore",
         },
         missingVersionMessage: "Missing row version for destructive action.",
@@ -3999,7 +4130,9 @@ export function TimelineWorkbook({
         onSuccess: async (payload, viewportContinuityToken) => {
           const envelope = readEnvelope<RecordDeleteRestoreEnvelope>(payload);
           acceptTimelineRecordVersion(recordId, envelope.data.row_version);
-          await fetchRecordHistory(recordId);
+          if (currentHistoryRecordIdRef.current === recordId) {
+            await fetchRecordHistory(recordId);
+          }
           if (operation === "restore") {
             setSelectedRowId(recordId);
           }
@@ -4016,7 +4149,6 @@ export function TimelineWorkbook({
       currentHistoryRecordId,
       currentHistoryRowVersion,
       fetchRecordHistory,
-      rowHistory.data?.row_version,
       selectedRow?.recordId,
       setSelectedRowId,
       submitRowHistoryMutation,
@@ -4061,7 +4193,9 @@ export function TimelineWorkbook({
         onSuccess: async (payload, viewportContinuityToken) => {
           const envelope = readEnvelope<RecordRollbackEnvelope>(payload);
           acceptTimelineRecordVersion(recordId, envelope.data.row_version);
-          await fetchRecordHistory(recordId);
+          if (currentHistoryRecordIdRef.current === recordId) {
+            await fetchRecordHistory(recordId);
+          }
           await loadRowsRef.current({
             showLoading: false,
             viewportContinuityToken,
@@ -4090,17 +4224,15 @@ export function TimelineWorkbook({
         kind: "destructive",
         operation,
         recordId,
-        rowVersion:
-          operation === "restore"
-            ? (rowHistory.data?.row_version ?? currentHistoryRowVersion)
-            : currentHistoryRowVersion,
+        rowVersion: currentHistoryRowVersion,
       });
-      setRowHistory((current) => ({ ...current, message: null }));
+      setRowHistory((current) =>
+        current.recordId === recordId ? { ...current, message: null } : current,
+      );
     },
     [
       currentHistoryRecordId,
       currentHistoryRowVersion,
-      rowHistory.data,
       setRowHistory,
       setRowHistoryPendingAction,
     ],
@@ -4124,7 +4256,9 @@ export function TimelineWorkbook({
         rowVersion: currentHistoryRowVersion,
         target,
       });
-      setRowHistory((current) => ({ ...current, message: null }));
+      setRowHistory((current) =>
+        current.recordId === recordId ? { ...current, message: null } : current,
+      );
     },
     [
       currentHistoryRecordId,
@@ -4517,13 +4651,7 @@ export function TimelineWorkbook({
         setSelectedRowId(null);
         setSelectedMentionRef(null);
         setInspectorMessage(null);
-        setRowHistoryPendingAction(null);
-        setRowHistory({
-          recordId: null,
-          status: "idle",
-          data: null,
-          message: null,
-        });
+        clearRowHistory();
         restoreTimelineFocusAnchor(anchor);
         return true;
       }
@@ -4539,12 +4667,11 @@ export function TimelineWorkbook({
       return false;
     },
     [
+      clearRowHistory,
       openRowHistory,
       restoreTimelineFocusAnchor,
       setSelectedMentionRef,
       setInspectorMessage,
-      setRowHistory,
-      setRowHistoryPendingAction,
       setSelectedRowId,
     ],
   );
@@ -5832,10 +5959,8 @@ export function TimelineWorkbook({
         history={rowHistory}
         pendingAction={rowHistoryPendingAction}
         selectedActiveRowRecordId={
-          currentHistoryRecordId !== null &&
-          currentHistoryRecordId !== undefined &&
-          selectedRow?.recordId === currentHistoryRecordId
-            ? selectedRow.recordId
+          inspectorHistorySubject.kind === "live"
+            ? inspectorHistorySubject.recordId
             : null
         }
         onCancelPendingAction={() => {
@@ -6173,6 +6298,7 @@ export function TimelineWorkbook({
                   inspectorMentions={inspectorMentions}
                   onClose={() => {
                     setIsInspectorOpen(false);
+                    clearRowHistory();
                   }}
                   onResolveTargetChange={handleResolveTargetChange}
                   onSelectMention={handleSelectMention}
@@ -6181,7 +6307,9 @@ export function TimelineWorkbook({
                   renderEvidenceAttachSection={renderEvidenceAttachSection}
                   renderInspectorFieldEditors={renderInspectorFieldEditors}
                   renderRowHistorySection={renderRowHistorySection}
-                  rowHistoryRecordId={rowHistory.data?.record_id ?? null}
+                  rowHistoryRecordId={
+                    currentHistoryDeleted ? currentHistoryRecordId : null
+                  }
                   selectedMention={selectedMention}
                   selectedResolveTargetId={selectedResolveTargetId}
                   selectedRow={selectedRow}

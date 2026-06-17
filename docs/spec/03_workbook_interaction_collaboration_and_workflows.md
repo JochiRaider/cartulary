@@ -1071,6 +1071,11 @@ The history experience MUST remain row-centric.
 Profiles: base
 Verified by: AC-007, AC-231
 
+**REQ-03-285**
+When a row history surface is rendered inside the inspector, the inspector's Details, Relationships, Evidence, History, and row-local action sections MUST share one active `record_id` subject. If the active saved row changes while history is open, the History section MUST retarget to the new active `record_id`, render a loading or error state for that target until its history response is accepted, and MUST NOT continue displaying history items, rollback previews, delete or restore confirmations, or row-local history actions from the previously active row. A deleted-row restore surface MAY remain bound to the deleted row only while no different live saved row is active.
+Profiles: base
+Verified by: AC-007, AC-215, AC-231
+
 ### 10.2 Minimum history presentation
 
 **REQ-03-139**

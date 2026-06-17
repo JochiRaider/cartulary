@@ -120,6 +120,78 @@ test("E-7-01 opens row history from the workbook surface with legal rollback act
   }
 });
 
+test("E-7-01b retargets open inspector history when row focus changes", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E701B"),
+    "Phase 7 E-7-01b row history retarget",
+  );
+  const firstRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e701b-first"),
+      "timeline.summary": "E-7-01b first original",
+    },
+  )) as unknown as ViewRow;
+  const secondRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e701b-second"),
+      "timeline.summary": "E-7-01b second original",
+    },
+  )) as unknown as ViewRow;
+  await patchTimelineRecord(page, firstRow.record_id, {
+    view_schema_id: timelineViewSchemaId,
+    base_row_version: firstRow.row_version,
+    client_txn_id: uniqueTxn("e701b-first-update"),
+    changes: [
+      { field_key: "timeline.summary", value: "E-7-01b first updated" },
+    ],
+  });
+  await patchTimelineRecord(page, secondRow.record_id, {
+    view_schema_id: timelineViewSchemaId,
+    base_row_version: secondRow.row_version,
+    client_txn_id: uniqueTxn("e701b-second-update"),
+    changes: [
+      { field_key: "timeline.summary", value: "E-7-01b second updated" },
+    ],
+  });
+
+  await openTimelineSurface(page, incidentId);
+  await clickTimelineRowAction(
+    page,
+    firstRow.record_id,
+    rowHistoryOpenButtonTestId(firstRow.record_id),
+  );
+  await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
+    `Record ${firstRow.record_id}`,
+  );
+
+  const secondHistoryResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" &&
+      response.url().endsWith(`/api/v1/records/${secondRow.record_id}/history`),
+  );
+  await page
+    .getByTestId(rowCellTestId(secondRow.record_id, "timeline.summary"))
+    .focus();
+  const response = await secondHistoryResponse;
+  expect(response.ok()).toBeTruthy();
+
+  await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
+    `Record ${secondRow.record_id}`,
+  );
+  await expect(page.getByTestId(rowHistoryPanelTestId())).not.toContainText(
+    `Record ${firstRow.record_id}`,
+  );
+});
+
 test("E-7-02 rolls back one attached-evidence mutation without reverting later unrelated edits", async ({
   page,
 }) => {

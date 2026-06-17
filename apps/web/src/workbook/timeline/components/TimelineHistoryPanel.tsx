@@ -95,12 +95,22 @@ export function TimelineHistoryPanel({
   onPreviewDeleteRestore,
   onPreviewRollback,
 }: TimelineHistoryPanelProps) {
-  const recordId = currentRecordId;
-  const historyData = history.data;
-  const pendingHistoryAction =
+  const recordId = currentRecordId ?? null;
+  const historyMatchesActiveRecord =
+    recordId !== null && history.recordId === recordId;
+  const historyData =
+    recordId !== null && history.data?.record_id === recordId
+      ? history.data
+      : null;
+  const historyStatus =
     recordId !== null &&
-    recordId !== undefined &&
-    pendingAction?.recordId === recordId
+    history.status !== "idle" &&
+    !historyMatchesActiveRecord
+      ? "loading"
+      : history.status;
+  const historyMessage = historyMatchesActiveRecord ? history.message : null;
+  const pendingHistoryAction =
+    recordId !== null && pendingAction?.recordId === recordId
       ? pendingAction
       : null;
 
@@ -127,10 +137,10 @@ export function TimelineHistoryPanel({
             </button>
           ) : null}
         </div>
-        {recordId !== null && recordId !== undefined ? (
+        {recordId !== null ? (
           <p style={historyMetaStyle}>Record {recordId}</p>
         ) : null}
-        {history.status === "idle" && selectedActiveRowRecordId !== null ? (
+        {historyStatus === "idle" && selectedActiveRowRecordId !== null ? (
           <button
             data-testid={rowHistoryOpenSelectedButtonTestId()}
             style={actionButtonStyle}
@@ -142,19 +152,19 @@ export function TimelineHistoryPanel({
             Open history
           </button>
         ) : null}
-        {history.status === "loading" ? (
+        {historyStatus === "loading" ? (
           <p data-testid={rowHistoryLoadingTestId()} style={bodyStyle}>
             Loading history...
           </p>
         ) : null}
-        {history.message ? (
+        {historyMessage ? (
           <p
             aria-live="assertive"
             data-testid={rowHistoryMessageTestId()}
             role="alert"
             style={genericErrorTextStyle}
           >
-            {history.message}
+            {historyMessage}
           </p>
         ) : null}
         {historyData !== null ? (

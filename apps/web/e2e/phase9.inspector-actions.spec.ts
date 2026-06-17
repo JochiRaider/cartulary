@@ -229,15 +229,10 @@ test("FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rol
     uniqueIncidentKey("FEEP901"),
     "FE-E-P9-01 inspector row-local actions",
   );
-  const fallbackRow = (await createViewRow(
-    page,
-    incidentId,
-    timelineViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("feep901-fallback"),
-      "timeline.summary": "FE-E-P9 fallback row",
-    },
-  )) as unknown as ViewRow;
+  await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("feep901-fallback"),
+    "timeline.summary": "FE-E-P9 fallback row",
+  });
   const evidence = (await createViewRow(
     page,
     incidentId,
@@ -356,12 +351,9 @@ test("FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rol
   await expect(
     page.getByTestId(rowCellTestId(target.record_id, "timeline.summary")),
   ).toHaveCount(0);
-  await expect
-    .poll(() =>
-      page.evaluate(() => document.activeElement?.getAttribute("data-testid")),
-    )
-    .toBe(rowCellTestId(fallbackRow.record_id, "timeline.summary"));
-
+  await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
+    `Record ${target.record_id}`,
+  );
   await expect(page.getByTestId(rowHistoryRestoreButtonTestId())).toBeVisible();
   const restoreResponse = page.waitForResponse(
     (response) =>
