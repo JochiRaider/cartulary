@@ -322,9 +322,8 @@ async function readTimelineGridFirstLayout(page: Page) {
           width: Math.round(rect.width),
         };
       };
-      const scrollport = document.querySelector<HTMLElement>(
-        scrollportSelector,
-      );
+      const scrollport =
+        document.querySelector<HTMLElement>(scrollportSelector);
       if (scrollport === null) {
         throw new Error(`Expected ${scrollportSelector} to exist`);
       }

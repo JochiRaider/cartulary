@@ -340,6 +340,29 @@ TASK_SURFACE_MANIFEST="${sequence_manifest}" \
 assert_output_budget "${sequence_manifest}" alpha "${leaf_budget_dir}/stdout.log" "${leaf_budget_dir}/stderr.log" "leaf success budget"
 assert_contains "$(cat "${leaf_budget_dir}/stdout.log")" "[RESULT] target=alpha status=pass" "leaf success budget result"
 
+retained_biome_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-retained-biome.XXXXXX")"
+cleanup_paths+=("${retained_biome_dir}")
+cat >"${retained_biome_dir}/Makefile" <<EOF
+lint-biome:
+	@CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_TEST_TARGET=lint-biome CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/scripts/lib/run-phase.sh" "lint biome" -- bash -lc 'printf "%s\n" "apps/web/src/example.ts:12:8 lint/style/noNonNullAssertion" "  ! Forbidden non-null assertion."; exit 1'; status=\$\$?; if [ "\$\$status" -eq 0 ]; then CARTULARY_OUTPUT_MODE=quiet CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/scripts/lib/test-output.sh" target-summary lint-biome pass --quiet-success --suppress-machine-output --preserve-existing-tool-summary; summary_status=\$\$?; else CARTULARY_OUTPUT_MODE=quiet CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/scripts/lib/test-output.sh" target-summary lint-biome fail --quiet-success --suppress-machine-output --preserve-existing-tool-summary; summary_status=\$\$?; fi; if [ "\$\$summary_status" -ne 0 ]; then exit "\$\$summary_status"; fi; exit "\$\$status"
+EOF
+set +e
+make --no-print-directory -f "${retained_biome_dir}/Makefile" lint-biome \
+  >"${retained_biome_dir}/stdout.log" \
+  2>"${retained_biome_dir}/stderr.log"
+retained_biome_status=$?
+set -e
+assert_equals "${retained_biome_status}" "2" "retained biome outer Make status"
+assert_equals "$(cat "${retained_biome_dir}/stdout.log")" "" "retained biome stdout"
+retained_biome_stderr="$(cat "${retained_biome_dir}/stderr.log")"
+assert_contains "${retained_biome_stderr}" "[FAIL] target=lint-biome exit_code=1 failure_class=harness reason=tool_diagnostic_failure" "retained biome failure line"
+assert_contains "${retained_biome_stderr}" "[ARTIFACTS] target=lint-biome" "retained biome artifact line"
+assert_contains "${retained_biome_stderr}" "[RERUN] command=\"make lint-biome\"" "retained biome rerun line"
+assert_contains "${retained_biome_stderr}" "[INVESTIGATE] command=\"make explain-target TARGET=lint-biome DETAIL=artifacts\"" "retained biome investigation line"
+retained_biome_summary="${retained_biome_dir}/results/retained-biome/lint-biome/tool-run-summary.json"
+assert_equals "$(json_field "${retained_biome_summary}" "failure_reason")" "tool_diagnostic_failure" "retained biome summary reason"
+assert_equals "$(json_field "${retained_biome_summary}" "exit_code")" "1" "retained biome summary exit code"
+
 suppressed_machine_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-suppressed-machine.XXXXXX")"
 cleanup_paths+=("${suppressed_machine_dir}")
 CARTULARY_OUTPUT_MODE=machine \

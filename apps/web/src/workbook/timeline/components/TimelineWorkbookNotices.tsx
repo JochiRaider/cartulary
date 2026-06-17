@@ -172,7 +172,8 @@ const inlineButtonRowStyle = {
 const noticeStackStyle = {
   position: "absolute",
   zIndex: 6,
-  insetBlockStart: "calc(var(--ct-layout-viewBarHeight) + var(--ct-spacing-sm))",
+  insetBlockStart:
+    "calc(var(--ct-layout-viewBarHeight) + var(--ct-spacing-sm))",
   insetInlineEnd: "var(--ct-spacing-sm)",
   display: "grid",
   gap: "0.5rem",

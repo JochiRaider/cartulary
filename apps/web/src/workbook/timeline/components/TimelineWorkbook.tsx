@@ -4392,13 +4392,14 @@ export function TimelineWorkbook({
           : { anchor: null, targetResolution };
       }
 
-      if (row?.recordId === undefined) {
+      const recordId = row?.recordId;
+      if (recordId === undefined || recordId === null) {
         return null;
       }
 
       const anchor = {
         fieldKey,
-        recordId: row.recordId,
+        recordId,
       };
       const presentationRows = buildGridPresentationRows({
         getGroupLabel: (candidate, groupFieldKey) =>

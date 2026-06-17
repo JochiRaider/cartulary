@@ -389,7 +389,7 @@ Every Make-owned public wrapper that is not `interactive_raw` MUST execute this 
 8. select the primary failure using Section 9.1;
 9. run required cleanup or finalizers;
 10. emit the target's public output according to Section 7;
-11. exit with the normalized public exit code.
+11. expose the normalized public exit code through retained summaries and failure output, and exit nonzero on failure.
 
 A target MAY skip a step only when its output class or target row explicitly declares that the step does not apply. A skipped step MUST NOT be implemented as an implicit child-command side effect.
 
@@ -1028,12 +1028,12 @@ Check scheduler summaries that include service sessions MUST report service-suit
 ## 9. Failure Classes and Exit Codes
 
 **TH-HARNESS-REQ-300**
-Public Make-owned wrappers MUST expose exact public exit codes according to the failure-reason table below. Raw child process exit codes MAY be preserved in summaries but MUST NOT define the public wrapper exit code except where `child_target_failure` explicitly delegates to a normalized child failure class.
+Public Make-owned wrappers MUST expose exact normalized public exit codes according to the failure-reason table below in retained summaries and compact failure output. Raw child process exit codes MAY be preserved in summaries but MUST NOT define the normalized public exit code except where `child_target_failure` explicitly delegates to a normalized child failure class.
 Verified by: TH-HARNESS-AC-014
 
 Public exit-code selection is reason-based. Wrappers MUST derive the
-process exit status from the normalized `failure_reason` and primary-failure
-rules in this section, not from the raw process status of a child command.
+normalized public exit code from the normalized `failure_reason` and primary-failure
+rules in this section, not from the raw process status of a child command. The current GNU Make invocation binding may return GNU Make's executor failure status for a failed recipe; callers that require reason-specific failure codes MUST read the retained `tool-run-summary.json` or compact failure line rather than treating the outer `make` process status as the normalized public exit code.
 
 Scheduler summaries MUST propagate the normalized primary failure from a failed child target summary when that retained child summary is available. The scheduler's own fallback classification is used only when no child summary exists, the child summary is unreadable, or the failure belongs to scheduler orchestration rather than completed child target work. A child target assertion failure therefore remains `failure_class=product` and `failure_reason=test_assertion_failure` at the scheduler summary layer.
 
@@ -1081,7 +1081,7 @@ Failure classification uses two layers:
 | `cancelled_or_interrupted`    | `interrupted` | Signal, cancellation, abort                                        | `130` for SIGINT, `143` for SIGTERM, otherwise `15` |
 | `unknown_failure`             | `unknown`     | Failure cannot be classified                                       |                                                 `1` |
 
-Default human output SHOULD expose dense failure fields and avoid full failure records unless verbose output is requested. The canonical compact shape is:
+Default human output MUST expose bounded failure fields for a failed public target before GNU Make's generic recipe failure line can be the only visible diagnostic. It SHOULD avoid full failure records unless verbose output is requested. The canonical compact shape is:
 
 ```text
 failure_class=infra reason=service_readiness_timeout failed=<unit>

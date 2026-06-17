@@ -1,6 +1,6 @@
 import {
-  gridShellTestId,
   gridScrollportSelector,
+  gridShellTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
   rowCellTestId,
@@ -127,9 +127,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     ) as HTMLElement | null;
     expect(scrollport).toBeInstanceOf(HTMLElement);
     expect((scrollport as HTMLElement).style.width).toBe("100%");
-    expect(["0", "0px"]).toContain(
-      (scrollport as HTMLElement).style.minWidth,
-    );
+    expect(["0", "0px"]).toContain((scrollport as HTMLElement).style.minWidth);
 
     fireEvent.click(
       screen.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
@@ -148,9 +146,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     expect(gridShell.style.inlineSize).toBe("100%");
     expect(gridShell.style.blockSize).toBe("100%");
     expect((scrollport as HTMLElement).style.width).toBe("100%");
-    expect(["0", "0px"]).toContain(
-      (scrollport as HTMLElement).style.minWidth,
-    );
+    expect(["0", "0px"]).toContain((scrollport as HTMLElement).style.minWidth);
   });
 
   it("renders Timeline collection cells compactly until inline edit activation", async () => {

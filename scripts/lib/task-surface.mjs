@@ -1854,7 +1854,7 @@ export function renderTaskSurfaceMake(manifest) {
     "RUN_TARGET_SUMMARY = $(Q)$(call RUN_TARGET_SUMMARY_COMMAND,$(1),$(2),)",
   );
   lines.push(
-    "RUN_RETAINED_TARGET_SUMMARY = CARTULARY_OUTPUT_MODE=quiet $(call RUN_TARGET_SUMMARY_COMMAND,$(1),$(2),--quiet-success --quiet-failure --suppress-machine-output --preserve-existing-tool-summary)",
+    "RUN_RETAINED_TARGET_SUMMARY = CARTULARY_OUTPUT_MODE=quiet $(call RUN_TARGET_SUMMARY_COMMAND,$(1),$(2),--quiet-success --suppress-machine-output --preserve-existing-tool-summary)",
   );
   lines.push("");
   for (const recipe of makeRecipeEntries(manifest)) {

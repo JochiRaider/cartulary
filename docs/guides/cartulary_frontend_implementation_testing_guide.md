@@ -241,6 +241,8 @@ The following targets were found in the repository task surface and may be refer
 | `make check` | Developer verification gate. |
 | `make release-check` | Release verification gate. |
 
+`make lint-biome` checks the full curated authored frontend scope, not only files changed in the current worktree. Formatting or import-order drift anywhere in that scope should be repaired through the Make-owned formatter path, usually `make format` or frontend-only `make format-frontend`, rather than by narrowing the lint scope. Inspect retained diagnostics with `make explain-run RESULTS_DIR=<run-root> TARGET=lint-biome DETAIL=logs`.
+
 Frontend phase command surface:
 
 - `tools/frontend_phase_registry.json` owns the frontend phase catalog under `phase_namespace="frontend"`.

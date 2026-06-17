@@ -4,7 +4,6 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../.." && pwd)"
 PACKAGE_DIR="$ROOT_DIR/deploy/mvp"
 NODE="${NODE_BIN:-node}"
-PUBLIC_ORIGIN_PATH="/ws/v1/incidents/00000000-0000-0000-0000-000000000000"
 
 require_command() {
   local name="$1"
