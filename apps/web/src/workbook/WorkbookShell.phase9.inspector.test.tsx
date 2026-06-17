@@ -96,6 +96,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
           rowVersion: 1,
           summary: "Grid-first default",
           captureState: "rough",
+          editedAt: "2026-06-17T14:18:51.837049343Z",
         }),
       ]),
     );
@@ -128,6 +129,14 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     expect(scrollport).toBeInstanceOf(HTMLElement);
     expect((scrollport as HTMLElement).style.width).toBe("100%");
     expect(["0", "0px"]).toContain((scrollport as HTMLElement).style.minWidth);
+    const editedCell = screen.getByTestId(
+      rowCellTestId("record-1", "timeline.edited_at"),
+    );
+    expect(editedCell.textContent).toBe("2026-06-17T14:18:51.837049343Z");
+    expect(editedCell.style.whiteSpace).toBe("nowrap");
+    expect(editedCell.style.overflow).toBe("hidden");
+    expect(editedCell.style.textOverflow).toBe("ellipsis");
+    expect(editedCell.style.overflowWrap).toBe("normal");
 
     fireEvent.click(
       screen.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
@@ -140,6 +149,9 @@ describe("FE-P9 inspector and row-local action coverage", () => {
       .parentElement as HTMLElement;
     expect(inspectorSlot.style.position).toBe("absolute");
     expect(["0", "0px"]).toContain(inspectorSlot.style.top);
+    expect(["0", "0px"]).toContain(inspectorSlot.style.right);
+    expect(["0", "0px"]).toContain(inspectorSlot.style.bottom);
+    expect(inspectorSlot.style.zIndex).toBe("8");
     expect((splitShell as HTMLElement).style.gridTemplateColumns).toBe(
       "minmax(0, 1fr)",
     );

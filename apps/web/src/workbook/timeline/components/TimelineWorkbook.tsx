@@ -1088,6 +1088,7 @@ export function TimelineWorkbook({
   const timelineAnchorRowsRef = useRef<readonly GridRow<WorkbookRow>[]>([]);
   const gridShellRef = useRef<HTMLDivElement | null>(null);
   const [timelineGridShellWidth, setTimelineGridShellWidth] = useState(0);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const viewportContinuityTokenRef = useRef(1);
   const timelineGridInteractionRefs: TimelineGridInteractionRefs = {
     gridShellRef,
@@ -1121,26 +1122,36 @@ export function TimelineWorkbook({
     const updateFromElement = () => {
       updateGridShellWidth(gridShell.clientWidth);
     };
+    const scheduleUpdateFromElement = () => {
+      updateFromElement();
+      window.requestAnimationFrame(updateFromElement);
+    };
 
     updateFromElement();
+    window.addEventListener("resize", scheduleUpdateFromElement);
+    window.visualViewport?.addEventListener("resize", scheduleUpdateFromElement);
 
     if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", updateFromElement);
       return () => {
-        window.removeEventListener("resize", updateFromElement);
+        window.removeEventListener("resize", scheduleUpdateFromElement);
+        window.visualViewport?.removeEventListener(
+          "resize",
+          scheduleUpdateFromElement,
+        );
       };
     }
 
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry === undefined) {
-        updateFromElement();
-        return;
-      }
-      updateGridShellWidth(entry.contentRect.width);
+    const observer = new ResizeObserver(() => {
+      scheduleUpdateFromElement();
     });
     observer.observe(gridShell);
+    observer.observe(document.documentElement);
     return () => {
+      window.removeEventListener("resize", scheduleUpdateFromElement);
+      window.visualViewport?.removeEventListener(
+        "resize",
+        scheduleUpdateFromElement,
+      );
       observer.disconnect();
     };
   }, []);
@@ -1148,7 +1159,17 @@ export function TimelineWorkbook({
   const [replacementDrafts, setReplacementDrafts] = useState<
     Record<string, string>
   >({});
-  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  useLayoutEffect(() => {
+    const gridShell = gridShellRef.current;
+    if (gridShell === null) {
+      return;
+    }
+    const measuredWidth = Math.max(0, Math.floor(gridShell.clientWidth));
+    setTimelineGridShellWidth((current) =>
+      current === measuredWidth ? current : measuredWidth,
+    );
+  }, [isInspectorOpen]);
+
   const [activeCollectionInputKey, setActiveCollectionInputKey] = useState<
     string | null
   >(null);
@@ -5798,7 +5819,11 @@ export function TimelineWorkbook({
                     ? undefined
                     : rowCellTestId(row.recordId, binding.fieldKey)
                 }
-                style={bodyStyle}
+                style={
+                  binding.fieldKey === "timeline.edited_at"
+                    ? timelineTimestampCellStyle
+                    : bodyStyle
+                }
               >
                 {text === "" ? "—" : text}
               </span>
@@ -6377,6 +6402,20 @@ const headlineStyle = {
 const bodyStyle = {
   margin: 0,
   lineHeight: 1.5,
+  color: "var(--ct-colors-ink-muted)",
+};
+
+const timelineTimestampCellStyle = {
+  display: "block",
+  minWidth: 0,
+  maxWidth: "100%",
+  margin: 0,
+  overflow: "hidden",
+  overflowWrap: "normal" as const,
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+  wordBreak: "normal" as const,
+  lineHeight: "var(--ct-typography-grid-cell-lineHeight)",
   color: "var(--ct-colors-ink-muted)",
 };
 

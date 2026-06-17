@@ -270,8 +270,9 @@ export function timelineFocusFieldForFieldKey(
 export function timelineColumnWidth(fieldKey: string): number {
   switch (fieldKey) {
     case "timeline.occurred_at":
-    case "timeline.edited_at":
       return 180;
+    case "timeline.edited_at":
+      return 248;
     case "timeline.summary":
       return 320;
     case "timeline.host_refs":

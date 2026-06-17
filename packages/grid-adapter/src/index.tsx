@@ -195,8 +195,14 @@ export function GridTable<Row>({
     refreshViewportState();
   }, [refreshViewportState]);
   const gridTemplateColumns = useMemo(
-    () => buildGridTemplateColumns(columns, actionsColumn, rowGutter),
-    [actionsColumn, columns, rowGutter],
+    () =>
+      buildGridTemplateColumns(
+        columns,
+        actionsColumn,
+        rowGutter,
+        fillViewportInline,
+      ),
+    [actionsColumn, columns, fillViewportInline, rowGutter],
   );
   const gridInlineSize = useMemo(
     () => resolveGridInlineSize(columns, actionsColumn, rowGutter),
@@ -583,11 +589,15 @@ function buildGridTemplateColumns<Row>(
   columns: readonly GridColumn<Row>[],
   actionsColumn: GridActionsColumn<Row> | undefined,
   rowGutter: GridRowGutter | undefined,
+  fillViewportInline: boolean,
 ): string {
   const widths =
     rowGutter === undefined ? [] : [`${resolveRowGutterWidth(rowGutter)}px`];
   widths.push(
-    ...columns.map((column) => `${resolveDataColumnWidth(column)}px`),
+    ...columns.map((column) => {
+      const width = resolveDataColumnWidth(column);
+      return fillViewportInline ? `minmax(${width}px, 1fr)` : `${width}px`;
+    }),
   );
   if (actionsColumn !== undefined) {
     widths.push(`${resolveActionsColumnWidth(actionsColumn)}px`);

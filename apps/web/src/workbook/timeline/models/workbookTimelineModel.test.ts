@@ -116,6 +116,7 @@ describe("workbookTimelineModel", () => {
     ]);
     expect(timelineVisibleBindings.length).toBeGreaterThan(0);
     expect(timelineColumnWidth("timeline.evidence_count")).toBe(112);
+    expect(timelineColumnWidth("timeline.edited_at")).toBe(248);
     expect(inputFocusKey("timeline-1", "summary", "inspector")).toBe(
       "timeline-1:summary:inspector",
     );

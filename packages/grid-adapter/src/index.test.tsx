@@ -236,7 +236,9 @@ describe("grid-adapter", () => {
       </GridViewport>,
     );
 
-    expect(grid.style.gridTemplateColumns).toBe("224px 224px 176px");
+    expect(grid.style.gridTemplateColumns).toBe(
+      "minmax(224px, 1fr) minmax(224px, 1fr) 176px",
+    );
     expect(["0", "0px"]).toContain(grid.style.minWidth);
     expect(grid.style.width).toBe("100%");
   });

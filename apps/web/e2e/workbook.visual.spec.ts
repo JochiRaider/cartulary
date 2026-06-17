@@ -292,11 +292,7 @@ async function readTimelineGridFirstLayout(page: Page) {
       topBarSelector,
       viewBarSelector,
     }) => {
-      const roundedRect = (selector: string) => {
-        const element = document.querySelector<HTMLElement>(selector);
-        if (element === null) {
-          throw new Error(`Expected ${selector} to exist`);
-        }
+      const rectFor = (element: HTMLElement) => {
         const rect = element.getBoundingClientRect();
         return {
           bottom: Math.round(rect.bottom),
@@ -306,31 +302,42 @@ async function readTimelineGridFirstLayout(page: Page) {
           top: Math.round(rect.top),
           width: Math.round(rect.width),
         };
+      };
+      const roundedRect = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector);
+        if (element === null) {
+          throw new Error(`Expected ${selector} to exist`);
+        }
+        return rectFor(element);
       };
       const optionalRoundedRect = (selector: string) => {
         const element = document.querySelector<HTMLElement>(selector);
         if (element === null) {
           return null;
         }
-        const rect = element.getBoundingClientRect();
-        return {
-          bottom: Math.round(rect.bottom),
-          height: Math.round(rect.height),
-          left: Math.round(rect.left),
-          right: Math.round(rect.right),
-          top: Math.round(rect.top),
-          width: Math.round(rect.width),
-        };
+        return rectFor(element);
       };
       const scrollport =
         document.querySelector<HTMLElement>(scrollportSelector);
       if (scrollport === null) {
         throw new Error(`Expected ${scrollportSelector} to exist`);
       }
+      const columnHeaders = Array.from(
+        scrollport.querySelectorAll<HTMLElement>('[role="columnheader"]'),
+      );
+      const lastColumnElement =
+        columnHeaders.length === 0
+          ? null
+          : columnHeaders[columnHeaders.length - 1];
+      const lastColumn =
+        lastColumnElement === null || lastColumnElement === undefined
+          ? null
+          : rectFor(lastColumnElement);
       return {
         grid: roundedRect(gridSelector),
         innerGrid: roundedRect(scrollportSelector),
         inspector: optionalRoundedRect(inspectorSelector),
+        lastColumn,
         scrollport: {
           clientHeight: scrollport.clientHeight,
           clientWidth: scrollport.clientWidth,
@@ -587,7 +594,11 @@ test.describe("FE-P2 workbook visual readiness", () => {
     await expect
       .poll(async () => {
         const layout = await readTimelineGridFirstLayout(page);
-        return layout.innerGrid.right >= layout.grid.right - 2;
+        return (
+          layout.innerGrid.right >= layout.grid.right - 2 &&
+          layout.lastColumn !== null &&
+          layout.lastColumn.right >= layout.grid.right - 2
+        );
       })
       .toBe(true);
     const wideLayout = await readTimelineGridFirstLayout(page);
@@ -595,6 +606,36 @@ test.describe("FE-P2 workbook visual readiness", () => {
     expect(wideLayout.innerGrid.right).toBeGreaterThanOrEqual(
       wideLayout.grid.right - 2,
     );
+    const wideLastColumn = wideLayout.lastColumn;
+    expect(wideLastColumn).not.toBeNull();
+    if (wideLastColumn === null) {
+      throw new Error("Expected wide Timeline grid to render a last column");
+    }
+    expect(wideLastColumn.right).toBeGreaterThanOrEqual(
+      wideLayout.grid.right - 2,
+    );
+    await page
+      .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
+      .click();
+    await expect(page.getByTestId("timeline-inspector")).toBeVisible();
+    const wideDrawerOpenLayout = await readTimelineGridFirstLayout(page);
+    expect(wideDrawerOpenLayout.grid).toEqual(wideLayout.grid);
+    expect(wideDrawerOpenLayout.innerGrid).toEqual(wideLayout.innerGrid);
+    expect(wideDrawerOpenLayout.inspector).not.toBeNull();
+    const wideDrawerLastColumn = wideDrawerOpenLayout.lastColumn;
+    expect(wideDrawerLastColumn).not.toBeNull();
+    if (wideDrawerLastColumn === null) {
+      throw new Error(
+        "Expected wide Timeline grid with inspector to render a last column",
+      );
+    }
+    expect(wideDrawerLastColumn.right).toBeGreaterThanOrEqual(
+      wideDrawerOpenLayout.grid.right - 2,
+    );
+    await page
+      .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
+      .click();
+    await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
     await page.setViewportSize(fixtureViewport);
     await expect
       .poll(async () => {
@@ -623,10 +664,10 @@ test.describe("FE-P2 workbook visual readiness", () => {
     expect(drawerOpenLayout.topBar).toEqual(closedLayout.topBar);
     expect(drawerOpenLayout.inspector).not.toBeNull();
     expect(drawerOpenLayout.inspector?.top).toBeGreaterThanOrEqual(
-      drawerOpenLayout.topBar.bottom,
+      drawerOpenLayout.viewBar.bottom - 1,
     );
     expect(drawerOpenLayout.inspector?.top).toBeLessThanOrEqual(
-      drawerOpenLayout.viewBar.top + 1,
+      drawerOpenLayout.grid.top + 1,
     );
     expect(drawerOpenLayout.inspector?.bottom).toBeLessThanOrEqual(
       drawerOpenLayout.grid.bottom,
