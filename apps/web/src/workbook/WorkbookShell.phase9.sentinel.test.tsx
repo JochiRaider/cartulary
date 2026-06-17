@@ -12,7 +12,13 @@ import {
   saveStateTestId,
   timelineCollectionInputTestId,
 } from "@cartulary/ui-contracts";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
@@ -594,15 +600,18 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
     const draftTime = screen.getByTestId(
       draftCellTestId("timeline.occurred_at"),
     );
-    fireEvent.paste(draftTime, {
+    const pasteEvent = createEvent.paste(draftTime, {
       clipboardData: {
         getData: () => "2026-06-14,test1,host2",
       },
     });
+    fireEvent(draftTime, pasteEvent);
+    expect(pasteEvent.defaultPrevented).toBe(true);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
     });
+    expect(draftTime).not.toHaveProperty("value", "2026-06-14,test1,host2");
     expect(extractTimelineJSONBody(fetchMock, 1)).toMatchObject({
       view_schema_id: timelineViewSchemaId,
       clipboard_text: "2026-06-14,test1,host2",
@@ -614,6 +623,79 @@ describe("Phase 9 Sprint 1 keyboard and grid anchor coverage", () => {
         "timeline.host_refs",
       ],
       targets: [{ kind: "create" }],
+    });
+  });
+
+  it("dispatches multi-row CSV pasted into the draft Time cell as create-row targets", async () => {
+    const createdRows = [
+      timelineRow({
+        recordId: "record-1",
+        rowVersion: 1,
+        occurredAt: "2026-06-14",
+        summary: "test1",
+        captureState: "rough",
+      }),
+      timelineRow({
+        recordId: "record-2",
+        rowVersion: 1,
+        occurredAt: "2026-06-15",
+        summary: "test2",
+        captureState: "rough",
+      }),
+    ];
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-draft-csv-paste-multi-row",
+        rows: createdRows,
+        conflicts: [],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: createdRows,
+      }),
+    );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+    await screen.findByTestId(saveStateTestId());
+
+    const clipboardText = "2026-06-14,test1,host1\n2026-06-15,test2,host2";
+    const draftTime = screen.getByTestId(
+      draftCellTestId("timeline.occurred_at"),
+    );
+    const pasteEvent = createEvent.paste(draftTime, {
+      clipboardData: {
+        getData: () => clipboardText,
+      },
+    });
+    fireEvent(draftTime, pasteEvent);
+    expect(pasteEvent.defaultPrevented).toBe(true);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+    expect(draftTime).not.toHaveProperty("value", clipboardText);
+    expect(extractTimelineJSONBody(fetchMock, 1)).toMatchObject({
+      view_schema_id: timelineViewSchemaId,
+      clipboard_text: clipboardText,
+      format: "csv",
+      start_field_key: "timeline.occurred_at",
+      columns: [
+        "timeline.occurred_at",
+        "timeline.summary",
+        "timeline.host_refs",
+      ],
+      targets: [{ kind: "create" }, { kind: "create" }],
     });
   });
 

@@ -343,6 +343,11 @@ type TimelineClipboardPasteEnvelope = {
   };
 };
 
+type TimelinePasteTargetResolution = {
+  anchor: GridCellAnchor | null;
+  targetResolution: GridPasteTargetResolution;
+};
+
 type PendingReplayRuntimeMeta = {
   focusField: FocusFieldKey;
   focusKey: string;
@@ -4358,6 +4363,66 @@ export function TimelineWorkbook({
     [updateTimelineFocusAnchor, updateWorkbookFocusAnchor],
   );
 
+  const resolveTimelinePasteTargetResolution = useCallback(
+    (
+      rowKey: string,
+      fieldKey: string,
+      clipboardText: string,
+    ): TimelinePasteTargetResolution | null => {
+      if (!timelineClipboardShouldDispatchTabular(fieldKey, clipboardText)) {
+        return null;
+      }
+
+      const dimensions = clipboardGridDimensions(clipboardText);
+      const row = rowsRef.current.find((candidate) => candidate.key === rowKey);
+      const isDraftTarget =
+        row?.recordId === null ||
+        (row === undefined && rowKey.startsWith("draft-"));
+
+      if (isDraftTarget) {
+        updateWorkbookFocusAnchor(null);
+        const targetResolution = resolveDraftTimelinePasteTargets({
+          columns: timelineAnchorColumnsRef.current,
+          pastedColumnCount: dimensions.columnCount,
+          pastedRowCount: dimensions.rowCount,
+          startFieldKey: fieldKey,
+        });
+        return targetResolution === null
+          ? null
+          : { anchor: null, targetResolution };
+      }
+
+      if (row?.recordId === undefined) {
+        return null;
+      }
+
+      const anchor = {
+        fieldKey,
+        recordId: row.recordId,
+      };
+      const presentationRows = buildGridPresentationRows({
+        getGroupLabel: (candidate, groupFieldKey) =>
+          timelineGroupLabel(candidate, groupFieldKey),
+        groupBy: queryState.groupBy,
+        rows: timelineAnchorRowsRef.current,
+      });
+      const targetResolution = resolveGridPasteTargets({
+        columns: timelineAnchorColumnsRef.current,
+        current: anchor,
+        pastedColumnCount: dimensions.columnCount,
+        pastedRowCount: dimensions.rowCount,
+        presentationRows,
+      });
+      if (targetResolution === null) {
+        return null;
+      }
+
+      updateTimelineFocusAnchor(anchor.recordId, anchor.fieldKey);
+      return { anchor, targetResolution };
+    },
+    [queryState.groupBy, updateTimelineFocusAnchor, updateWorkbookFocusAnchor],
+  );
+
   const navigateTimelineFocusAnchor = useCallback(
     (current: GridCellAnchor, intent: GridNavigationIntent) => {
       const nextAnchor = navigateGridCellAnchor({
@@ -4658,41 +4723,15 @@ export function TimelineWorkbook({
         (candidate) => candidate.key === focusField,
       );
       const fieldKey = binding?.fieldKey ?? focusField;
-      if (
-        surface === "grid" &&
-        binding !== undefined &&
-        timelineClipboardShouldDispatchTabular(fieldKey, clipboardText)
-      ) {
-        const anchor = currentTimelineAnchorFor(rowKey, fieldKey);
-        const dimensions = clipboardGridDimensions(clipboardText);
-        const targetResolution =
-          anchor !== null
-            ? (() => {
-                const presentationRows = buildGridPresentationRows({
-                  getGroupLabel: (row, groupFieldKey) =>
-                    timelineGroupLabel(row, groupFieldKey),
-                  groupBy: queryState.groupBy,
-                  rows: timelineAnchorRowsRef.current,
-                });
-                return resolveGridPasteTargets({
-                  columns: timelineAnchorColumnsRef.current,
-                  current: anchor,
-                  pastedColumnCount: dimensions.columnCount,
-                  pastedRowCount: dimensions.rowCount,
-                  presentationRows,
-                });
-              })()
-            : rowsRef.current.find((row) => row.key === rowKey)?.recordId ===
-                null
-              ? resolveDraftTimelinePasteTargets({
-                  columns: timelineAnchorColumnsRef.current,
-                  pastedColumnCount: dimensions.columnCount,
-                  pastedRowCount: dimensions.rowCount,
-                  startFieldKey: fieldKey,
-                })
-              : null;
-        if (targetResolution !== null) {
+      if (surface === "grid" && binding !== undefined) {
+        const pasteTargetResolution = resolveTimelinePasteTargetResolution(
+          rowKey,
+          fieldKey,
+          clipboardText,
+        );
+        if (pasteTargetResolution !== null) {
           event.preventDefault();
+          const { anchor, targetResolution } = pasteTargetResolution;
           const clientTxnId = nextClientTxnId();
           const viewportContinuityToken = beginViewportContinuity(
             anchor === null
@@ -4824,14 +4863,13 @@ export function TimelineWorkbook({
       beginSave,
       beginViewportContinuity,
       clearViewportContinuity,
-      currentTimelineAnchorFor,
       finishSave,
       incidentId,
       nextClientTxnId,
-      queryState.groupBy,
       queueScalarSave,
       registerSameFieldConflict,
       resolvePendingSocketTxn,
+      resolveTimelinePasteTargetResolution,
       restoreTimelineFocusAnchor,
       setScalarEditorDraftValue,
       trackPendingSocketTxn,
