@@ -251,6 +251,11 @@ For editable collection controls, an Enter or Tab commit and the blur event caus
 Profiles: base
 Verified by: AC-009, AC-013, AC-047, AC-231
 
+**REQ-03-283**
+After a successful same-surface row mutation that refreshes or replaces the rendered row, the workbook client MUST preserve the selected `record_id`, restore the owned grid scroll position, and restore focus to a deterministic same-surface continuity target. If the original editor remains active and visible, that editor MAY be the continuity target. If the original editor is removed, hidden, inert, compacted behind an overflow presentation, or otherwise unsuitable for visible focus, the continuity target MUST be a visible row-local fallback such as the row action or inspector affordance for the same `record_id`. This requirement applies to autosave-originated collection actions, inline scalar edits, reviewer lifecycle actions, mention-resolution actions, and other row-local inspector actions that complete without leaving the current workbook surface.
+Profiles: base
+Verified by: AC-005, AC-006, AC-188, AC-190, AC-205, AC-231
+
 ### 3.2 Server-side conflict behavior
 
 **REQ-03-036**
@@ -1992,6 +1997,11 @@ Verified by: AC-006, AC-020, AC-023, AC-072, AC-073, AC-074, AC-075, AC-186, AC-
 The inspector is the enrichment surface. It MUST NOT be required for the common path of timeline row creation and editing.
 Profiles: base
 Verified by: AC-006, AC-020, AC-023, AC-072, AC-073, AC-074, AC-075, AC-186, AC-187, AC-209, AC-210, AC-231
+
+**REQ-03-284**
+When a compact Timeline relationship cell cannot show every active relationship item inline, the compact overflow indicator MUST be keyboard and pointer reachable and MUST provide a same-surface path to inspect the hidden relationship items in the row's Relationships inspector context. The compact overflow indicator MUST NOT become relationship authority; authoritative relationship and mention state remains the source-backed collection value and inspector actions defined by Core 01 and Core 02.
+Profiles: base
+Verified by: AC-006, AC-188, AC-190, AC-205, AC-231
 
 **REQ-03-249**
 For authorized users, the inspector MUST support explicit host and identity merge initiation. Merge MUST NOT be a bulk grid action in the base profile. The merge UI MUST require explicit survivor and loser selection and a final destructive-action confirmation that identifies both `record_id` values before submission. Before submission, that confirmation MUST show a deterministic plan derived from the currently loaded survivor and loser state, including exact-match identifiers that will be promoted into empty survivor canonical fields, exact-match identifiers that will be preserved on the survivor as additional active `exact_match_reuse` values, suggestion-only aliases that will be copied, and a statement that `provenance_only` values remain preserved on the historical loser and do not affect future reuse. When the selected host or identity has active secondary `exact_match_reuse` values, the inspector MUST show them in a read-only reusable-identifier section that is visually distinct from ordinary aliases. If merge submission fails with `error.code='merge_precondition_failed'` and `error.details.reason_code='carry_forward_identifier_collision'`, the same inspector flow MUST display the returned `identifier_class`, `normalized_value`, and `blocking_record_id`.

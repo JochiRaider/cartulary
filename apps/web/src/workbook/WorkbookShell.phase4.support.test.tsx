@@ -12,9 +12,11 @@ import {
   mentionRestoreUnresolvedButtonTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
+  relationshipOverflowButtonTestId,
   rowInspectButtonTestId,
   saveStateTestId,
   timelineCollectionInputTestId,
+  timelineInspectorSectionTestId,
   timelineRowVersionTestId,
   workbookRowActionMenuButtonTestId,
 } from "@cartulary/ui-contracts";
@@ -1253,6 +1255,59 @@ describe("Support Phase 4 TimelineWorkbook", () => {
           relationshipItemsTestId("record-1", "timeline.host_refs"),
         ).textContent,
       ).toContain("WS-024");
+    });
+  });
+
+  it("opens the Relationships inspector from compact relationship overflow", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "reviewed",
+            hostRefs: [
+              unresolvedItem({
+                itemRef: "mention-host-1",
+                entityType: "host",
+                rawText: "WS-023",
+              }),
+              unresolvedItem({
+                itemRef: "mention-host-2",
+                entityType: "host",
+                rawText: "WS-024",
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    render(
+      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+    );
+
+    const overflowButton = await screen.findByTestId(
+      relationshipOverflowButtonTestId("record-1", "timeline.host_refs"),
+    );
+    expect(overflowButton.textContent).toBe("+1");
+
+    fireEvent.click(overflowButton);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("timeline-inspector")).toBeTruthy();
+      expect(
+        screen.getByTestId(timelineInspectorSectionTestId("relationships"))
+          .textContent,
+      ).toContain("WS-024");
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByTestId(mentionItemTestId("mention-host-2")),
+      );
     });
   });
 

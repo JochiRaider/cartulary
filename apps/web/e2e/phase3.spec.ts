@@ -3,7 +3,6 @@ import {
   draftCellTestId,
   draftRowCreateButtonTestId,
   rowCellTestId,
-  rowInspectorFieldTestId,
   saveStateTestId,
   timelineMutationSubstrateReadyTestId,
   timelineRowMarkReviewedButtonTestId,
@@ -31,7 +30,11 @@ import {
   waitForCommittedRowSummary,
   webBase,
 } from "./helpers";
-import { clickTimelineRowAction, openTimelineInspector } from "./phase4Helpers";
+import {
+  clickTimelineRowAction,
+  commitInspectorScalarEdit,
+  openTimelineInspector,
+} from "./phase4Helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
@@ -188,11 +191,12 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
   ).toHaveText("2");
 
   await openTimelineInspector(reviewerPage, recordId);
-  const detailsInput = reviewerPage.getByTestId(
-    rowInspectorFieldTestId(recordId, "timeline.details"),
+  await commitInspectorScalarEdit(
+    reviewerPage,
+    recordId,
+    "timeline.details",
+    "Material edit after review",
   );
-  await detailsInput.fill("Material edit after review");
-  await reviewerPage.getByTestId("timeline-blur-surface").click();
   await expect(
     reviewerPage.getByTestId(rowCellTestId(recordId, "timeline.capture_state")),
   ).toHaveText("enriched");

@@ -965,6 +965,13 @@ export function relationshipItemsTestId(
   return timelineCollectionFieldControlTestId(recordId, fieldKey, "items");
 }
 
+export function relationshipOverflowButtonTestId(
+  recordId: string,
+  fieldKey: string,
+): string {
+  return timelineCollectionFieldControlTestId(recordId, fieldKey, "overflow");
+}
+
 export function draftRelationshipItemsTestId(fieldKey: string): string {
   return timelineCollectionFieldControlTestId(null, fieldKey, "items");
 }
@@ -1435,7 +1442,7 @@ function draftFieldTestId(fieldKey: string, suffix?: string): string {
 function timelineCollectionFieldControlTestId(
   recordId: string | null,
   fieldKey: string,
-  suffix: "items" | "input",
+  suffix: "items" | "input" | "overflow",
 ): string {
   return recordId === null
     ? draftFieldTestId(fieldKey, suffix)

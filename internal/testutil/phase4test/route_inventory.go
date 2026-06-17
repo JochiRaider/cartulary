@@ -135,6 +135,13 @@ const (
 	RouteWebSocketRecordChanged RouteWebSocketExpectation = "record_changed"
 )
 
+type RouteWebSocketChangeExpectation struct {
+	ViewSchemaID  string
+	BuildRecordID func(RouteInventoryContext) string
+	RowVersion    int64
+	ChangedKeys   []string
+}
+
 type RouteInventoryContext struct {
 	IncidentID            string
 	ActorUserID           string
@@ -181,11 +188,12 @@ type RouteInventoryEntry struct {
 	AuthorizationStatus int
 	AuthorizationCode   string
 
-	ProjectionTarget       RouteProjectionTarget
-	WebSocketExpectation   RouteWebSocketExpectation
-	WebSocketViewSchemaID  string
-	BuildWebSocketRecordID func(RouteInventoryContext) string
-	WebSocketRowVersion    int64
+	ProjectionTarget           RouteProjectionTarget
+	WebSocketExpectation       RouteWebSocketExpectation
+	WebSocketViewSchemaID      string
+	BuildWebSocketRecordID     func(RouteInventoryContext) string
+	WebSocketRowVersion        int64
+	AdditionalWebSocketChanges []RouteWebSocketChangeExpectation
 
 	HarnessRequirements map[RouteHarnessClass]RouteHarnessRequirement
 }
@@ -288,6 +296,11 @@ func ValidateRouteInventory(t testing.TB, routes []RouteInventoryEntry) {
 				t.Fatalf("phase4 route %s missing websocket expectation metadata", route.Key)
 			}
 		}
+		for index, change := range route.AdditionalWebSocketChanges {
+			if change.ViewSchemaID == "" || change.BuildRecordID == nil || change.RowVersion == 0 {
+				t.Fatalf("phase4 route %s missing additional websocket expectation metadata at index %d", route.Key, index)
+			}
+		}
 	}
 }
 
@@ -339,6 +352,16 @@ func Phase4RouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 				return fixture.TimelineRecordID
 			},
 			WebSocketRowVersion: 2,
+			AdditionalWebSocketChanges: []RouteWebSocketChangeExpectation{
+				{
+					ViewSchemaID: golden.Phase4HostsViewSchemaID,
+					BuildRecordID: func(fixture RouteInventoryContext) string {
+						return fixture.HostRecordID
+					},
+					RowVersion:  1,
+					ChangedKeys: []string{"host.linked_event_count"},
+				},
+			},
 			HarnessRequirements: requiredPhase4Harnesses(
 				RouteHarnessSurfaceEnvelope,
 				RouteHarnessCSRF,

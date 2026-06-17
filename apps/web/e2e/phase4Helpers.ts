@@ -17,6 +17,7 @@ import {
   relationshipChipTestId,
   relationshipItemsTestId,
   rowInspectButtonTestId,
+  rowInspectorFieldTestId,
   saveStateTestId,
   timelineCollectionInputTestId,
   timelinePreviewRowTestId,
@@ -590,6 +591,7 @@ export async function addRelationshipTokenViaUI(
   rawText: string,
   options: {
     onPatchRequest?: (payload: TimelinePatchRequestPayload) => void;
+    requireVisibleChip?: boolean;
   } = {},
 ) {
   const fieldKey =
@@ -613,11 +615,13 @@ export async function addRelationshipTokenViaUI(
     collectionItems(envelope.data.row, fieldKey),
     rawText,
   );
-  await expect(
-    page
-      .getByTestId(relationshipItemsTestId(recordId, fieldKey))
-      .getByTestId(relationshipChipTestId(String(item.item_ref))),
-  ).toBeVisible();
+  if (options.requireVisibleChip === true) {
+    await expect(
+      page
+        .getByTestId(relationshipItemsTestId(recordId, fieldKey))
+        .getByTestId(relationshipChipTestId(String(item.item_ref))),
+    ).toBeVisible();
+  }
   await expect
     .poll(
       async () => ({
@@ -657,6 +661,26 @@ export async function addRelationshipTokenViaUI(
       renderedRowVersion: String(envelope.data.row.row_version),
       saveState: "Saved",
     });
+  return envelope;
+}
+
+export async function commitInspectorScalarEdit(
+  page: Page,
+  recordId: string,
+  fieldKey: string,
+  value: string,
+) {
+  const input = page.getByTestId(rowInspectorFieldTestId(recordId, fieldKey));
+  await expect(input).toBeVisible();
+  const responsePromise = waitForTimelinePatch(page, recordId);
+  await input.fill(value);
+  await input.press("Tab");
+  const response = await responsePromise;
+  const envelope = await readTimelineMutation(response);
+  await expect(page.getByTestId(timelineRowVersionTestId(recordId))).toHaveText(
+    String(envelope.data.row.row_version),
+  );
+  await waitForSaveState(page, "Saved");
   return envelope;
 }
 

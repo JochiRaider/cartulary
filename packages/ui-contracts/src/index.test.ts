@@ -101,6 +101,7 @@ import {
   referencePackRowTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
+  relationshipOverflowButtonTestId,
   rowCellTestId,
   rowHistoryActionTestId,
   rowHistoryDeleteButtonTestId,
@@ -666,6 +667,9 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(relationshipItemsTestId("record-1", "timeline.host_refs")).toBe(
       "row-record-1-timeline.host_refs-items",
     );
+    expect(
+      relationshipOverflowButtonTestId("record-1", "timeline.host_refs"),
+    ).toBe("row-record-1-timeline.host_refs-overflow");
     expect(draftRelationshipItemsTestId("timeline.host_refs")).toBe(
       "draft-row-timeline.host_refs-items",
     );

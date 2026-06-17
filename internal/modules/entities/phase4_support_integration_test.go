@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -158,8 +159,15 @@ func TestSupportPhase4Integration_ProjectionAndWebsocketConsequences(t *testing.
 					route.BuildWebSocketRecordID(scenario.routeCtx),
 					route.WebSocketRowVersion,
 				)
-				if changeSetID, ok := data["change_set_id"].(string); ok && changeSetID != "" && socketChange.ChangeSetID != changeSetID {
-					t.Fatalf("expected websocket change_set_id to match route response for %s: payload=%#v response=%#v", route.Key, socketChange, data)
+				requireRouteSocketChange(t, route.Key, data, socketChange, route.WebSocketViewSchemaID, nil)
+				for _, expectation := range route.AdditionalWebSocketChanges {
+					additionalChange := phase4test.RequireRecordChanged(
+						t,
+						wsClient,
+						expectation.BuildRecordID(scenario.routeCtx),
+						expectation.RowVersion,
+					)
+					requireRouteSocketChange(t, route.Key, data, additionalChange, expectation.ViewSchemaID, expectation.ChangedKeys)
 				}
 				phase4test.ExpectNoSocketMessage(t, wsClient)
 			}
@@ -171,6 +179,30 @@ func TestSupportPhase4Integration_ProjectionAndWebsocketConsequences(t *testing.
 			httptestx.RequireProjectionDeterminism(t, rowBefore["cells"], rowAfter["cells"])
 		})
 	}
+}
+
+func requireRouteSocketChange(t testing.TB, routeKey phase4test.RouteKey, responseData map[string]any, socketChange phase4test.RecordChangeSocketPayload, viewSchemaID string, changedKeys []string) {
+	t.Helper()
+	if changeSetID, ok := responseData["change_set_id"].(string); ok && changeSetID != "" && socketChange.ChangeSetID != changeSetID {
+		t.Fatalf("expected websocket change_set_id to match route response for %s: payload=%#v response=%#v", routeKey, socketChange, responseData)
+	}
+	if viewSchemaID != "" && !socketChangeIncludesView(socketChange, viewSchemaID) {
+		t.Fatalf("expected websocket affected view %s for %s, got %#v", viewSchemaID, routeKey, socketChange)
+	}
+	for _, key := range changedKeys {
+		if !slices.Contains(socketChange.ChangedFieldKeys, key) {
+			t.Fatalf("expected websocket changed key %s for %s, got %#v", key, routeKey, socketChange)
+		}
+	}
+}
+
+func socketChangeIncludesView(socketChange phase4test.RecordChangeSocketPayload, viewSchemaID string) bool {
+	for _, view := range socketChange.AffectedViews {
+		if view.ViewSchemaID == viewSchemaID {
+			return true
+		}
+	}
+	return false
 }
 
 func TestSupportPhase4Integration_RecordEnvelopeHeadSchema(t *testing.T) {

@@ -22,7 +22,9 @@ import {
   gridRowTestId,
   gridScrollportSelector,
   gridSortHeaderTestId,
+  mentionItemTestId,
   relationshipItemsTestId,
+  relationshipOverflowButtonTestId,
   rowCellTestId,
   timelineCollectionInputTestId,
   timelineInspectorSectionTestId,
@@ -604,6 +606,16 @@ type ViewportContinuityRequest = {
   baselineHostEntities: EntityRow[];
   baselineIdentityEntities: EntityRow[];
 };
+
+function isCollectionDraftKey(
+  focusField: FocusFieldKey,
+): focusField is CollectionDraftKey {
+  return (
+    focusField === "hostRefs" ||
+    focusField === "identityRefs" ||
+    focusField === "tags"
+  );
+}
 
 type LoadRowsOptions = {
   showLoading: boolean;
@@ -1554,17 +1566,9 @@ export function TimelineWorkbook({
 
   const restoreGridViewportForElement = useCallback(
     (
-      resolveElement: () =>
-        | HTMLButtonElement
-        | HTMLInputElement
-        | HTMLTextAreaElement
-        | null,
+      resolveElement: () => HTMLElement | null,
       preservedViewport: ViewportSnapshot | null,
     ) => {
-      const element = resolveElement();
-      if (element === null) {
-        return false;
-      }
       // Continuity restores the previous scroll position first, then applies
       // only the extra delta needed to keep the target fully visible.
       const currentViewport =
@@ -1574,8 +1578,19 @@ export function TimelineWorkbook({
           anchor: null,
         } satisfies ViewportSnapshot);
       const preservedScroll = currentViewport.scroll;
+      const focusResolvedElement = () => {
+        const element = resolveElement();
+        if (element === null || !element.isConnected) {
+          return false;
+        }
+        if (!element.hasAttribute("tabindex")) {
+          element.tabIndex = -1;
+        }
+        element.focus({ preventScroll: true });
+        return document.activeElement === element;
+      };
       window.focus();
-      element.focus({ preventScroll: true });
+      const focusedNow = focusResolvedElement();
       restoreGridScroll(preservedScroll);
       const restoreViewportGeometryNow = () => {
         const currentGridShell = gridShellRef.current;
@@ -1612,13 +1627,14 @@ export function TimelineWorkbook({
         ) {
           return false;
         }
-        return isRectFullyVisibleWithinContainer(
+        const fullyVisible = isRectFullyVisibleWithinContainer(
           resolveGridScrollElement(
             updatedGridShell,
             "timeline",
           ).getBoundingClientRect(),
           updatedElement.getBoundingClientRect(),
         );
+        return focusResolvedElement() && fullyVisible;
       };
       const restoredNow = restoreViewportGeometryNow();
       const restoreViewportGeometry = (attempt: number) => {
@@ -1632,7 +1648,7 @@ export function TimelineWorkbook({
         });
       };
       restoreViewportGeometry(0);
-      return document.activeElement === element && restoredNow;
+      return focusedNow && restoredNow;
     },
     [currentGridScrollSnapshot, restoreGridScroll],
   );
@@ -1863,6 +1879,7 @@ export function TimelineWorkbook({
       envelope: TimelineMutationEnvelope,
       options: {
         continueOnFreshDraft?: boolean;
+        clearActiveCollectionFocusKey?: string | undefined;
         detectAutoResolution?: boolean;
         promoteToCommittedRowInspect?: boolean;
         viewportContinuityToken?: number;
@@ -1929,6 +1946,11 @@ export function TimelineWorkbook({
           rowsRef.current = hydrated.rows;
           return hydrated.rows;
         });
+        if (options.clearActiveCollectionFocusKey !== undefined) {
+          setActiveCollectionInputKey((current) =>
+            current === options.clearActiveCollectionFocusKey ? null : current,
+          );
+        }
       });
 
       if (committed.recordId !== null) {
@@ -3032,6 +3054,10 @@ export function TimelineWorkbook({
         meta.rowSnapshot.values,
       );
       applyRowMutation(dispatchedUnit.rowKey, envelope, {
+        clearActiveCollectionFocusKey:
+          meta.surface === "grid" && isCollectionDraftKey(meta.focusField)
+            ? meta.focusKey
+            : undefined,
         continueOnFreshDraft:
           meta.continueOnFreshDraft && meta.rowSnapshot.recordId === null,
         detectAutoResolution: meta.detectAutoResolution,
@@ -4959,6 +4985,15 @@ export function TimelineWorkbook({
       setSelectedMentionRef(itemRef);
       setInspectorMessage(null);
       setIsInspectorOpen(true);
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          document
+            .querySelector<HTMLButtonElement>(
+              dataTestIdSelector(mentionItemTestId(itemRef)),
+            )
+            ?.focus({ preventScroll: true });
+        });
+      });
     },
     [setSelectedMentionRef, setInspectorMessage, setSelectedRowId],
   );
@@ -5351,6 +5386,8 @@ export function TimelineWorkbook({
             ?.focus({ preventScroll: true });
         });
       };
+      const relationshipOverflowRecordId =
+        binding.collectionKind === "relationship" ? row.recordId : null;
       return (
         <fieldset
           aria-label={`${label} collection cell`}
@@ -5411,14 +5448,44 @@ export function TimelineWorkbook({
             )}
             {hiddenItemCount > 0 ? (
               <>
-                <span
-                  aria-label={`${hiddenItemCount} more ${label.toLowerCase()}`}
-                  role="note"
-                  style={collectionOverflowStyle}
-                  title={`${hiddenItemCount} more ${label.toLowerCase()}`}
-                >
-                  +{hiddenItemCount}
-                </span>
+                {relationshipOverflowRecordId !== null ? (
+                  <button
+                    aria-label={`Inspect ${hiddenItemCount} more ${label.toLowerCase()}`}
+                    data-testid={relationshipOverflowButtonTestId(
+                      relationshipOverflowRecordId,
+                      binding.fieldKey,
+                    )}
+                    style={collectionOverflowButtonStyle}
+                    title={`Inspect ${hiddenItemCount} more ${label.toLowerCase()}`}
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const firstHiddenItem = hiddenItems[0];
+                      if (firstHiddenItem !== undefined) {
+                        handleSelectMention(
+                          relationshipOverflowRecordId,
+                          firstHiddenItem.itemRef,
+                        );
+                      } else {
+                        openInspectorForRow(relationshipOverflowRecordId);
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      event.stopPropagation();
+                    }}
+                  >
+                    +{hiddenItemCount}
+                  </button>
+                ) : (
+                  <span
+                    aria-label={`${hiddenItemCount} more ${label.toLowerCase()}`}
+                    role="note"
+                    style={collectionOverflowStyle}
+                    title={`${hiddenItemCount} more ${label.toLowerCase()}`}
+                  >
+                    +{hiddenItemCount}
+                  </span>
+                )}
                 <span style={visuallyHiddenStyle}>
                   {hiddenItems
                     .map((item) =>
@@ -5507,6 +5574,7 @@ export function TimelineWorkbook({
       handleCollectionKeyDown,
       handleSelectRow,
       handleSelectMention,
+      openInspectorForRow,
       registerInput,
       timelineBindingLabel,
       queueCollectionSave,
@@ -6002,17 +6070,6 @@ export function TimelineWorkbook({
       data-testid={timelineMutationSubstrateReadyTestId()}
       style={workbookStyle}
     >
-      <button
-        aria-label="Blur timeline inputs"
-        data-testid="timeline-blur-surface"
-        tabIndex={-1}
-        type="button"
-        style={blurSurfaceButtonStyle}
-        onMouseDown={(event) => {
-          event.currentTarget.focus();
-        }}
-      />
-
       <TimelineWorkbookNotices
         autoResolutionNotices={autoResolutionNotices}
         entityIndex={entityIndex}
@@ -6173,22 +6230,6 @@ const workbookStyle = {
   blockSize: "calc(100vh - var(--ct-layout-topBarHeight))",
   minBlockSize: 0,
   overflow: "hidden",
-};
-
-const blurSurfaceButtonStyle = {
-  position: "absolute" as const,
-  insetBlockStart: 0,
-  insetInlineStart: 0,
-  zIndex: 2,
-  border: 0,
-  padding: 0,
-  margin: 0,
-  inlineSize: 1,
-  blockSize: 1,
-  opacity: 0,
-  background: "transparent",
-  color: "transparent",
-  cursor: "default",
 };
 
 const eyebrowStyle = {
@@ -6490,6 +6531,12 @@ const collectionOverflowStyle = {
   fontWeight: 700,
   lineHeight: 1.1,
   padding: "0.12rem 0.35rem",
+};
+
+const collectionOverflowButtonStyle = {
+  ...collectionOverflowStyle,
+  appearance: "none" as const,
+  cursor: "pointer",
 };
 
 const inspectorActionStackStyle = {
