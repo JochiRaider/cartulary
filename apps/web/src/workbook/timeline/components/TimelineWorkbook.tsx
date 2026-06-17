@@ -149,12 +149,12 @@ import {
 } from "../models/workbookMentionChips";
 import {
   applyViewRowPatch,
-  buildExpandedTimelineColumnWidths,
   buildAssessmentCreatePayload,
   buildAttachedEvidenceCreatePayload,
   buildAttachedEvidencePatchPayload,
   buildCollectionPatchIntent,
   buildCreatePayload,
+  buildExpandedTimelineColumnWidths,
   buildScalarPatchIntent,
   type CollectionDraftKey,
   type CollectionFieldKey,
@@ -212,8 +212,8 @@ import {
 import {
   mentionChipStateForItem,
   RelationshipChip,
-  relationshipItemLabel,
   relationshipChipBaseStyle,
+  relationshipItemLabel,
   TimelineScalarEditor,
 } from "./TimelineCellEditors";
 import { TimelineConflictResolver } from "./TimelineConflictResolver";
@@ -5298,7 +5298,7 @@ export function TimelineWorkbook({
       const isCollectionInputActive =
         activeCollectionInputKey === collectionFocusKey ||
         row.collectionDrafts[binding.draftKey] !== "";
-      const visibleItemLimit = binding.collectionKind === "tag" ? 2 : 1;
+      const visibleItemLimit = 1;
       const visibleItems = items.slice(0, visibleItemLimit);
       const hiddenItems = items.slice(visibleItemLimit);
       const hiddenItemCount = Math.max(0, items.length - visibleItems.length);
@@ -5313,7 +5313,7 @@ export function TimelineWorkbook({
         });
       };
       return (
-        <div
+        <fieldset
           aria-label={`${label} collection cell`}
           style={collectionCellStyle}
           onClick={(event) => {
@@ -5374,12 +5374,13 @@ export function TimelineWorkbook({
               <>
                 <span
                   aria-label={`${hiddenItemCount} more ${label.toLowerCase()}`}
+                  role="note"
                   style={collectionOverflowStyle}
                   title={`${hiddenItemCount} more ${label.toLowerCase()}`}
                 >
                   +{hiddenItemCount}
                 </span>
-                <span aria-hidden="true" style={visuallyHiddenStyle}>
+                <span style={visuallyHiddenStyle}>
                   {hiddenItems
                     .map((item) =>
                       binding.collectionKind === "relationship"
@@ -5458,7 +5459,7 @@ export function TimelineWorkbook({
                 : undefined
             }
           />
-        </div>
+        </fieldset>
       );
     },
     [
@@ -5468,7 +5469,6 @@ export function TimelineWorkbook({
       handleSelectRow,
       handleSelectMention,
       registerInput,
-      setActiveCollectionInputKey,
       timelineBindingLabel,
       queueCollectionSave,
       updateTimelineFocusAnchor,
@@ -6025,73 +6025,75 @@ export function TimelineWorkbook({
               />
             </WorkbookShellSlotRegion>
           </div>
-          <TimelineGridSurface
-            actionsColumn={timelineActionsColumn}
-            columns={timelineColumns}
-            getGroupLabel={getTimelineGroupLabel}
-            getGroupRowTestId={getTimelineGroupRowTestId}
-            groupBy={queryState.groupBy}
-            onToggleSort={handleQuerySortToggle}
-            ref={gridShellRef}
-            rowGutter={timelineRowGutter}
-            rows={rows}
-            slotStyle={primaryGridSlotStyle}
-            sort={queryState.sort}
-            style={timelineGridShellStyle}
-            timelineGridRows={timelineGridRows}
-          />
-          {activeConflict ? (
-            <TimelineConflictResolver
-              activeConflict={activeConflict}
-              activeConflictKey={activeConflictKey}
-              activePasteConflictIndex={activePasteConflictIndex}
-              activePasteConflictKeys={activePasteConflictKeys}
-              conflictQueue={conflictQueue}
-              getFieldLabel={timelineBindingLabel}
-              onClose={closeConflictResolver}
-              onMergedDraftChange={handleConflictMergedDraftChange}
-              onSelectConflictKey={(conflictKey) => {
-                setActiveConflictKey(conflictKey);
-              }}
-              onSubmit={submitConflictResolution}
-              showPasteConflictNavigator={showPasteConflictNavigator}
+          <div style={timelineGridOverlayShellStyle}>
+            <TimelineGridSurface
+              actionsColumn={timelineActionsColumn}
+              columns={timelineColumns}
+              getGroupLabel={getTimelineGroupLabel}
+              getGroupRowTestId={getTimelineGroupRowTestId}
+              groupBy={queryState.groupBy}
+              onToggleSort={handleQuerySortToggle}
+              ref={gridShellRef}
+              rowGutter={timelineRowGutter}
+              rows={rows}
+              slotStyle={primaryGridSlotStyle}
+              sort={queryState.sort}
+              style={timelineGridShellStyle}
+              timelineGridRows={timelineGridRows}
             />
-          ) : null}
-        </div>
+            {activeConflict ? (
+              <TimelineConflictResolver
+                activeConflict={activeConflict}
+                activeConflictKey={activeConflictKey}
+                activePasteConflictIndex={activePasteConflictIndex}
+                activePasteConflictKeys={activePasteConflictKeys}
+                conflictQueue={conflictQueue}
+                getFieldLabel={timelineBindingLabel}
+                onClose={closeConflictResolver}
+                onMergedDraftChange={handleConflictMergedDraftChange}
+                onSelectConflictKey={(conflictKey) => {
+                  setActiveConflictKey(conflictKey);
+                }}
+                onSubmit={submitConflictResolution}
+                showPasteConflictNavigator={showPasteConflictNavigator}
+              />
+            ) : null}
 
-        {isInspectorOpen ? (
-          <WorkbookShellSlotRegion
-            slot="inspector"
-            style={inspectorSlotStyle}
-            viewSchemaId={timelineViewSchemaId}
-          >
-            <TimelineWorkbookInspector
-              canManageMentions={canManageMentions}
-              currentHistoryDeleted={currentHistoryDeleted}
-              draftRow={draftRow}
-              entityIndex={entityIndex}
-              getRelationshipLabel={timelineRelationshipLabel}
-              hostEntities={hostEntities}
-              identityEntities={identityEntities}
-              inspectorMessage={inspectorMessage}
-              inspectorMentions={inspectorMentions}
-              onClose={() => {
-                setIsInspectorOpen(false);
-              }}
-              onResolveTargetChange={handleResolveTargetChange}
-              onSelectMention={handleSelectMention}
-              onSetInspectorMessage={setInspectorMessage}
-              onSubmitMentionAction={submitMentionAction}
-              renderEvidenceAttachSection={renderEvidenceAttachSection}
-              renderInspectorFieldEditors={renderInspectorFieldEditors}
-              renderRowHistorySection={renderRowHistorySection}
-              rowHistoryRecordId={rowHistory.data?.record_id ?? null}
-              selectedMention={selectedMention}
-              selectedResolveTargetId={selectedResolveTargetId}
-              selectedRow={selectedRow}
-            />
-          </WorkbookShellSlotRegion>
-        ) : null}
+            {isInspectorOpen ? (
+              <WorkbookShellSlotRegion
+                slot="inspector"
+                style={inspectorSlotStyle}
+                viewSchemaId={timelineViewSchemaId}
+              >
+                <TimelineWorkbookInspector
+                  canManageMentions={canManageMentions}
+                  currentHistoryDeleted={currentHistoryDeleted}
+                  draftRow={draftRow}
+                  entityIndex={entityIndex}
+                  getRelationshipLabel={timelineRelationshipLabel}
+                  hostEntities={hostEntities}
+                  identityEntities={identityEntities}
+                  inspectorMessage={inspectorMessage}
+                  inspectorMentions={inspectorMentions}
+                  onClose={() => {
+                    setIsInspectorOpen(false);
+                  }}
+                  onResolveTargetChange={handleResolveTargetChange}
+                  onSelectMention={handleSelectMention}
+                  onSetInspectorMessage={setInspectorMessage}
+                  onSubmitMentionAction={submitMentionAction}
+                  renderEvidenceAttachSection={renderEvidenceAttachSection}
+                  renderInspectorFieldEditors={renderInspectorFieldEditors}
+                  renderRowHistorySection={renderRowHistorySection}
+                  rowHistoryRecordId={rowHistory.data?.record_id ?? null}
+                  selectedMention={selectedMention}
+                  selectedResolveTargetId={selectedResolveTargetId}
+                  selectedRow={selectedRow}
+                />
+              </WorkbookShellSlotRegion>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       <WorkbookShellSlotRegion
@@ -6198,7 +6200,7 @@ const viewBarStyle = {
 
 const timelineMainColumnStyle = {
   display: "grid",
-  gridTemplateRows: "auto minmax(0, 1fr) auto",
+  gridTemplateRows: "auto minmax(0, 1fr)",
   minHeight: 0,
   minWidth: 0,
   overflow: "hidden",
@@ -6212,6 +6214,19 @@ const timelineMainHeaderStyle = {
 };
 
 const primaryGridSlotStyle = {
+  inlineSize: "100%",
+  blockSize: "100%",
+  minHeight: 0,
+  minWidth: 0,
+  overflow: "hidden",
+};
+
+const timelineGridOverlayShellStyle = {
+  position: "relative" as const,
+  display: "grid",
+  gridTemplateRows: "minmax(0, 1fr) auto",
+  inlineSize: "100%",
+  blockSize: "100%",
   minHeight: 0,
   minWidth: 0,
   overflow: "hidden",
@@ -6220,11 +6235,13 @@ const primaryGridSlotStyle = {
 const inspectorSlotStyle = {
   position: "absolute" as const,
   zIndex: 8,
-  insetBlockStart: 0,
-  insetBlockEnd: 0,
-  insetInlineEnd: 0,
+  top: 0,
+  right: 0,
+  bottom: 0,
   inlineSize:
     "min(var(--ct-layout-inspectorDefaultWidth), calc(100% - var(--ct-spacing-xl)))",
+  minInlineSize:
+    "min(var(--ct-layout-inspectorMinWidth), calc(100% - var(--ct-spacing-xl)))",
   maxInlineSize: "var(--ct-layout-inspectorMaxWidth)",
   minHeight: 0,
   overflow: "hidden",
@@ -6242,6 +6259,7 @@ const gridShellStyle = {
 
 const timelineGridShellStyle = {
   ...gridShellStyle,
+  inlineSize: "100%",
   blockSize: "100%",
   minBlockSize: 0,
 };
@@ -6357,7 +6375,7 @@ const relationshipItemsWrapStyle = {
   alignItems: "center",
   flex: "0 1 auto",
   flexWrap: "nowrap" as const,
-  gap: "0.25rem",
+  gap: "0.2rem",
   marginBottom: 0,
   maxWidth: "100%",
   minWidth: 0,
@@ -6368,9 +6386,11 @@ const relationshipItemsWrapStyle = {
 const tagChipStyle = {
   ...relationshipChipBaseStyle,
   flex: "0 1 auto",
+  minWidth: 0,
   border: "var(--ct-component-chip-border)",
   background: "var(--ct-component-chip-backgroundColor)",
   color: "var(--ct-component-chip-textColor)",
+  textOverflow: "ellipsis",
 };
 
 const emptyRelationshipStyle = {
@@ -6387,21 +6407,24 @@ const collectionCellStyle = {
   position: "relative" as const,
   display: "flex",
   alignItems: "center",
-  gap: "0.35rem",
+  gap: "0.25rem",
+  margin: 0,
   minWidth: 0,
   maxWidth: "100%",
-  minBlockSize: "1.25rem",
+  minBlockSize: "1.2rem",
+  padding: 0,
+  border: 0,
   overflow: "hidden",
   whiteSpace: "nowrap" as const,
 };
 
 const collectionCellInputStyle = {
   ...gridCellInputStyle,
-  flex: "1 1 6.5rem",
-  minWidth: "5.5rem",
+  flex: "1 1 4.5rem",
+  minWidth: "4.25rem",
   inlineSize: "auto",
-  minHeight: "1.25rem",
-  paddingInline: "0.15rem",
+  minHeight: "1.2rem",
+  paddingInline: "0.1rem",
 };
 
 const collectionCellInactiveInputStyle = {
@@ -6438,7 +6461,8 @@ const inspectorActionStackStyle = {
 const noticeCardStyle = {
   position: "absolute" as const,
   zIndex: 7,
-  insetBlockStart: "calc(var(--ct-layout-viewBarHeight) + var(--ct-spacing-sm))",
+  insetBlockStart:
+    "calc(var(--ct-layout-viewBarHeight) + var(--ct-spacing-sm))",
   insetInlineEnd: "var(--ct-spacing-sm)",
   maxInlineSize: "min(36rem, calc(100% - var(--ct-spacing-xl)))",
   borderRadius: "var(--ct-rounded-sm)",

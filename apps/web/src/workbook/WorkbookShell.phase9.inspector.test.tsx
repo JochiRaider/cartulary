@@ -1,4 +1,6 @@
 import {
+  gridShellTestId,
+  gridScrollportSelector,
   relationshipChipTestId,
   relationshipItemsTestId,
   rowCellTestId,
@@ -10,10 +12,11 @@ import {
   rowHistoryRollbackConfirmButtonTestId,
   rowHistoryRollbackPreviewTestId,
   rowInspectButtonTestId,
-  timelineInspectorSectionTestId,
   timelineCollectionInputTestId,
+  timelineInspectorSectionTestId,
   timelineScalarEditorTestId,
   workbookInspectorToggleTestId,
+  workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -101,6 +104,32 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     await waitForVisibleGridRowRecordIds(container, ["record-1"]);
 
     expect(screen.queryByTestId("timeline-inspector")).toBeNull();
+    const primaryGridSlot = screen.getByTestId(
+      workbookShellSlotTestId("primary-grid"),
+    );
+    const gridOverlayShell = primaryGridSlot.parentElement;
+    expect(gridOverlayShell).toBeInstanceOf(HTMLElement);
+    expect((gridOverlayShell as HTMLElement).style.position).toBe("relative");
+    expect((gridOverlayShell as HTMLElement).style.inlineSize).toBe("100%");
+    expect((gridOverlayShell as HTMLElement).style.blockSize).toBe("100%");
+    expect(primaryGridSlot.style.inlineSize).toBe("100%");
+    expect(primaryGridSlot.style.blockSize).toBe("100%");
+    const splitShell = gridOverlayShell?.parentElement?.parentElement;
+    expect(splitShell).toBeInstanceOf(HTMLElement);
+    expect((splitShell as HTMLElement).style.gridTemplateColumns).toBe(
+      "minmax(0, 1fr)",
+    );
+    const gridShell = screen.getByTestId(gridShellTestId(timelineViewSchemaId));
+    expect(gridShell.style.inlineSize).toBe("100%");
+    expect(gridShell.style.blockSize).toBe("100%");
+    const scrollport = gridShell.querySelector(
+      gridScrollportSelector(),
+    ) as HTMLElement | null;
+    expect(scrollport).toBeInstanceOf(HTMLElement);
+    expect((scrollport as HTMLElement).style.width).toBe("100%");
+    expect(["0", "0px"]).toContain(
+      (scrollport as HTMLElement).style.minWidth,
+    );
 
     fireEvent.click(
       screen.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
@@ -109,6 +138,19 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("timeline-inspector")).toBeTruthy();
     });
+    const inspectorSlot = screen.getByTestId("timeline-inspector")
+      .parentElement as HTMLElement;
+    expect(inspectorSlot.style.position).toBe("absolute");
+    expect(["0", "0px"]).toContain(inspectorSlot.style.top);
+    expect((splitShell as HTMLElement).style.gridTemplateColumns).toBe(
+      "minmax(0, 1fr)",
+    );
+    expect(gridShell.style.inlineSize).toBe("100%");
+    expect(gridShell.style.blockSize).toBe("100%");
+    expect((scrollport as HTMLElement).style.width).toBe("100%");
+    expect(["0", "0px"]).toContain(
+      (scrollport as HTMLElement).style.minWidth,
+    );
   });
 
   it("renders Timeline collection cells compactly until inline edit activation", async () => {
@@ -157,6 +199,19 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     );
     expect(hostItems.textContent).toContain("wide-host-token-1");
     expect(hostItems.textContent).toContain("+1");
+    expect(hostItems.style.flexWrap).toBe("nowrap");
+    expect(hostItems.style.overflow).toBe("hidden");
+
+    const identityItems = screen.getByTestId(
+      relationshipItemsTestId("record-1", "timeline.identity_refs"),
+    );
+    expect(identityItems.textContent).toContain("wide-identity-token");
+
+    const tagItems = screen.getByTestId(
+      relationshipItemsTestId("record-1", "timeline.tags"),
+    );
+    expect(tagItems.textContent).toContain("tag-one");
+    expect(tagItems.textContent).toContain("+2");
 
     for (const fieldKey of [
       "timeline.host_refs",
@@ -170,14 +225,19 @@ describe("FE-P9 inspector and row-local action coverage", () => {
       ).toBeNull();
     }
 
-    const hostInput = screen.getByTestId(
-      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
-    ) as HTMLInputElement;
-    hostInput.focus();
-    fireEvent.focus(hostInput);
-    await waitFor(() => {
-      expect(hostInput.getAttribute("placeholder")).toBe("Add hosts token");
-    });
+    for (const [fieldKey, placeholder] of [
+      ["timeline.host_refs", "Add hosts token"],
+      ["timeline.identity_refs", "Add identities token"],
+      ["timeline.tags", "Add tags token"],
+    ] as const) {
+      const input = screen.getByTestId(
+        timelineCollectionInputTestId("record-1", fieldKey),
+      ) as HTMLInputElement;
+      fireEvent.click(input.parentElement as HTMLElement);
+      await waitFor(() => {
+        expect(input.getAttribute("placeholder")).toBe(placeholder);
+      });
+    }
   });
 
   it("FE-U-P9-01 Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh.", async () => {

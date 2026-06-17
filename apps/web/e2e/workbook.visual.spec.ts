@@ -583,6 +583,20 @@ test.describe("FE-P2 workbook visual readiness", () => {
       ),
     ).toHaveValue(rowSummariesById.get(selectedRow.record_id) ?? "");
 
+    const fixtureViewport = page.viewportSize() ?? { width: 1440, height: 900 };
+    await page.setViewportSize({ width: 2048, height: fixtureViewport.height });
+    await expect
+      .poll(async () => {
+        const layout = await readTimelineGridFirstLayout(page);
+        return layout.innerGrid.right >= layout.grid.right - 2;
+      })
+      .toBe(true);
+    const wideLayout = await readTimelineGridFirstLayout(page);
+    expect(wideLayout.grid.width).toBeGreaterThan(1600);
+    expect(wideLayout.innerGrid.right).toBeGreaterThanOrEqual(
+      wideLayout.grid.right - 2,
+    );
+    await page.setViewportSize(fixtureViewport);
     await expect
       .poll(async () => {
         const layout = await readTimelineGridFirstLayout(page);

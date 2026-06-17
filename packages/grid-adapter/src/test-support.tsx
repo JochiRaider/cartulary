@@ -1,6 +1,7 @@
 // biome-ignore-all lint/a11y/noNoninteractiveElementToInteractiveRole: The test grid intentionally preserves RDG role attributes for selector compatibility.
 // biome-ignore-all lint/a11y/noRedundantRoles: Explicit roles keep workbook tests independent of native accessibility-role inference.
 // biome-ignore-all lint/a11y/useFocusableInteractive: This test renderer mirrors RDG's query surface, not a production interaction model.
+import { gridScrollportClassName } from "@cartulary/ui-contracts";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 
 import {
@@ -50,6 +51,7 @@ export function GridTable<Row>({
   actionsColumn,
   columns,
   emptyMessage = "No rows",
+  fillViewportInline = false,
   getGroupLabel,
   getGroupRowTestId,
   groupBy = null,
@@ -72,7 +74,11 @@ export function GridTable<Row>({
     (actionsColumn === undefined ? 0 : 1);
 
   return (
-    <table role="grid">
+    <table
+      className={gridScrollportClassName()}
+      role="grid"
+      style={fillViewportInline ? { minWidth: 0, width: "100%" } : undefined}
+    >
       <thead>
         <tr role="row">
           {rowGutter === undefined ? null : (

@@ -191,6 +191,56 @@ describe("grid-adapter", () => {
     expect(onToggleSort).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps fixed-width scrollport sizing by default and can fill available inline space on demand", async () => {
+    const rows: readonly GridRow<HarnessRow>[] = [
+      {
+        key: "record-1",
+        recordId: "record-1",
+        data: {
+          label: "Alpha",
+          state: "open",
+        },
+      },
+    ];
+
+    const { rerender } = render(
+      <GridViewport testId="fill-grid-shell">
+        <GridTable
+          actionsColumn={{
+            label: "Actions",
+            renderCell: (row) => <span>{row.recordId}</span>,
+          }}
+          columns={columns}
+          rows={rows}
+        />
+      </GridViewport>,
+    );
+
+    const gridShell = await screen.findByTestId("fill-grid-shell");
+    const grid = gridShell.querySelector('[role="grid"]') as HTMLElement;
+    expect(grid.style.gridTemplateColumns).toBe("224px 224px 176px");
+    expect(grid.style.minWidth).toBe("1248px");
+    expect(grid.style.width).toBe("1248px");
+
+    rerender(
+      <GridViewport testId="fill-grid-shell">
+        <GridTable
+          actionsColumn={{
+            label: "Actions",
+            renderCell: (row) => <span>{row.recordId}</span>,
+          }}
+          columns={columns}
+          fillViewportInline
+          rows={rows}
+        />
+      </GridViewport>,
+    );
+
+    expect(grid.style.gridTemplateColumns).toBe("224px 224px 176px");
+    expect(["0", "0px"]).toContain(grid.style.minWidth);
+    expect(grid.style.width).toBe("100%");
+  });
+
   it("keeps rows mounted when the real scroll position exceeds the fixed row-height estimate", async () => {
     const rows: readonly GridRow<HarnessRow>[] = Array.from(
       { length: 10 },

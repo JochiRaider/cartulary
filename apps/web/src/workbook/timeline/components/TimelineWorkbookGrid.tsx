@@ -58,6 +58,7 @@ export const TimelineWorkbookGrid = forwardRef<
         actionsColumn={actionsColumn}
         columns={columns}
         density="compact"
+        fillViewportInline
         getGroupLabel={getGroupLabel}
         getGroupRowTestId={getGroupRowTestId}
         groupBy={groupBy}

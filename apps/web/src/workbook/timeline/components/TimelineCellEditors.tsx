@@ -3,8 +3,8 @@ import {
   relationshipChipTestId,
 } from "@cartulary/ui-contracts";
 import {
-  type ClipboardEvent as ReactClipboardEvent,
   type CSSProperties,
+  type ClipboardEvent as ReactClipboardEvent,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -118,6 +118,7 @@ export function RelationshipChip({
       data-testid={relationshipChipTestId(item.itemRef)}
       tabIndex={0}
       style={chipStyle}
+      title={label}
       type="button"
       onClick={onSelect}
     >
@@ -130,6 +131,7 @@ export function RelationshipChip({
       data-testid={relationshipChipTestId(item.itemRef)}
       role="note"
       style={chipStyle}
+      title={label}
     >
       {content}
     </span>
@@ -446,6 +448,7 @@ const gridCellTextareaStyle = {
 export const relationshipChipBaseStyle = {
   display: "inline-flex",
   alignItems: "center",
+  flex: "0 1 auto",
   gap: "0.25rem",
   borderRadius: "var(--ct-component-chip-rounded)",
   padding: "var(--ct-component-chip-padding)",

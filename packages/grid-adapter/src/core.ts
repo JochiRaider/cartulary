@@ -85,6 +85,7 @@ export type GridTableProps<Row> = {
   readonly columns: readonly GridColumn<Row>[];
   readonly density?: GridDensity | undefined;
   readonly emptyMessage?: ReactNode | undefined;
+  readonly fillViewportInline?: boolean | undefined;
   readonly getGroupLabel?: (
     row: Row,
     fieldKey: string,

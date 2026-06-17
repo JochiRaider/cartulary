@@ -858,13 +858,7 @@ function EntityWorkbookSurface({
       </header>
       <WorkbookFocusAnchorStatus anchor={entityFocus.anchor} />
 
-      <div
-        style={
-          isInspectorOpen
-            ? { ...splitShellStyle, ...splitShellWithInspectorStyle }
-            : splitShellStyle
-        }
-      >
+      <div style={splitShellStyle}>
         <div>
           <WorkbookShellSlotRegion
             slot="view-bar"
@@ -886,289 +880,296 @@ function EntityWorkbookSurface({
               surface={surface}
             />
           </WorkbookShellSlotRegion>
-          <GridViewport
-            style={gridShellStyle}
-            testId={gridShellTestId(surface)}
-          >
-            <GridTable
-              actionsColumn={entityActionsColumn}
-              columns={entityColumns}
-              getGroupLabel={(row, fieldKey) => entityGroupLabel(row, fieldKey)}
-              getGroupRowTestId={(fieldKey, value) =>
-                gridGroupRowTestId(surface, fieldKey, value)
-              }
-              groupBy={queryState.groupBy}
-              onToggleSort={onToggleSort}
-              rows={entityGridRows}
-              sort={queryState.sort}
-            />
-          </GridViewport>
-        </div>
+          <div style={gridOverlayShellStyle}>
+            <GridViewport
+              style={gridShellStyle}
+              testId={gridShellTestId(surface)}
+            >
+              <GridTable
+                actionsColumn={entityActionsColumn}
+                columns={entityColumns}
+                getGroupLabel={(row, fieldKey) =>
+                  entityGroupLabel(row, fieldKey)
+                }
+                getGroupRowTestId={(fieldKey, value) =>
+                  gridGroupRowTestId(surface, fieldKey, value)
+                }
+                groupBy={queryState.groupBy}
+                onToggleSort={onToggleSort}
+                rows={entityGridRows}
+                sort={queryState.sort}
+              />
+            </GridViewport>
 
-        {isInspectorOpen ? (
-          <aside
-            data-testid={entityInspectorTestId(entityType)}
-            style={inspectorShellStyle}
-          >
-            <div style={inspectorHeaderStyle}>
-              <div style={inspectorTitleRowStyle}>
-                <div>
-                  <p style={eyebrowStyle}>Inspector</p>
-                  <h2 style={inspectorTitleStyle}>{survivorLabel}</h2>
+            {isInspectorOpen ? (
+              <aside
+                data-testid={entityInspectorTestId(entityType)}
+                style={inspectorShellStyle}
+              >
+                <div style={inspectorHeaderStyle}>
+                  <div style={inspectorTitleRowStyle}>
+                    <div>
+                      <p style={eyebrowStyle}>Inspector</p>
+                      <h2 style={inspectorTitleStyle}>{survivorLabel}</h2>
+                    </div>
+                    <button
+                      aria-label="Close inspector"
+                      data-testid={workbookInspectorCloseButtonTestId(surface)}
+                      style={inspectorCloseButtonStyle}
+                      type="button"
+                      onClick={() => {
+                        setIsInspectorOpen(false);
+                      }}
+                    >
+                      <X aria-hidden="true" size={16} />
+                    </button>
+                  </div>
+                  <p style={bodyStyle}>
+                    Merge review stays inside the workbook shell.
+                  </p>
                 </div>
-                <button
-                  aria-label="Close inspector"
-                  data-testid={workbookInspectorCloseButtonTestId(surface)}
-                  style={inspectorCloseButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    setIsInspectorOpen(false);
-                  }}
-                >
-                  <X aria-hidden="true" size={16} />
-                </button>
-              </div>
-              <p style={bodyStyle}>
-                Merge review stays inside the workbook shell.
-              </p>
-            </div>
-            {editableEntityFields.length > 0 && rows.length > 0 ? (
-              <section style={inspectorSectionStyle}>
-                <h3 style={sectionTitleStyle}>Edit cell</h3>
-                <div style={inspectorControlStackStyle}>
-                  <select
-                    data-testid={genericEditRecordSelectTestId(
-                      contract.viewSchemaId,
-                    )}
-                    style={selectStyle}
-                    value={editRecordId}
-                    onChange={(event) => {
-                      setEditRecordId(event.target.value);
-                    }}
-                  >
-                    <option value="">Row</option>
-                    {rows.map((row) => (
-                      <option key={row.recordId} value={row.recordId}>
-                        {genericRowLabel(contract, row.rawRow)}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    data-testid={genericEditFieldSelectTestId(
-                      contract.viewSchemaId,
-                    )}
-                    style={selectStyle}
-                    value={editFieldKey}
-                    onChange={(event) => {
-                      setEditFieldKey(event.target.value);
-                    }}
-                  >
-                    <option value="">Field</option>
-                    {editableEntityFields.map((field) => (
-                      <option key={field.fieldKey} value={field.fieldKey}>
-                        {field.label}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedEditField ? (
-                    <GenericMutationControl
-                      collectionMode="add"
-                      field={selectedEditField}
-                      referenceOptions={entityReferenceOptions}
-                      testId={genericEditValueTestId(contract.viewSchemaId)}
-                      value={editValue}
-                      onChange={setEditValue}
-                    />
-                  ) : null}
-                  <button
-                    data-testid={genericEditSubmitTestId(contract.viewSchemaId)}
-                    disabled={mutationState === "Syncing"}
-                    style={actionButtonStyle}
-                    type="button"
-                    onClick={() => {
-                      void submitEntityEdit();
-                    }}
-                  >
-                    Update
-                  </button>
-                </div>
-                {mutationError ? (
-                  <p style={bodyStyle}>{mutationError}</p>
-                ) : null}
-              </section>
-            ) : null}
-            {selectedEntity ? (
-              <>
-                <section style={inspectorSectionStyle}>
-                  <h3 style={sectionTitleStyle}>Identifiers</h3>
-                  <ul style={flatListStyle}>
-                    {selectedEntity.identifiers.length > 0 ? (
-                      selectedEntity.identifiers.map((identifier) => (
-                        <li key={identifier.key}>
-                          {identifier.label}: {identifier.value}
-                        </li>
-                      ))
-                    ) : (
-                      <li>No exact-match identifiers visible.</li>
-                    )}
-                  </ul>
-                </section>
-
-                {canMerge ? (
+                {editableEntityFields.length > 0 && rows.length > 0 ? (
                   <section style={inspectorSectionStyle}>
-                    <h3 style={sectionTitleStyle}>Merge</h3>
-                    <label style={labelStyle}>
-                      Merge loser
+                    <h3 style={sectionTitleStyle}>Edit cell</h3>
+                    <div style={inspectorControlStackStyle}>
                       <select
-                        data-testid="merge-loser-record"
+                        data-testid={genericEditRecordSelectTestId(
+                          contract.viewSchemaId,
+                        )}
                         style={selectStyle}
-                        value={mergeCandidateId}
+                        value={editRecordId}
                         onChange={(event) => {
-                          setMergeCandidateId(event.target.value);
-                          setMergeMessage(null);
+                          setEditRecordId(event.target.value);
                         }}
                       >
-                        <option value="">Select duplicate</option>
-                        {rows
-                          .filter(
-                            (row) => row.recordId !== selectedEntity.recordId,
-                          )
-                          .map((row) => (
-                            <option key={row.recordId} value={row.recordId}>
-                              {row.label}
-                            </option>
-                          ))}
+                        <option value="">Row</option>
+                        {rows.map((row) => (
+                          <option key={row.recordId} value={row.recordId}>
+                            {genericRowLabel(contract, row.rawRow)}
+                          </option>
+                        ))}
                       </select>
-                    </label>
-                    <label style={labelStyle}>
-                      Merge reason
-                      <input
-                        data-testid="merge-reason"
-                        style={inputStyle}
-                        type="text"
-                        value={mergeReason}
+                      <select
+                        data-testid={genericEditFieldSelectTestId(
+                          contract.viewSchemaId,
+                        )}
+                        style={selectStyle}
+                        value={editFieldKey}
                         onChange={(event) => {
-                          setMergeReason(event.target.value);
+                          setEditFieldKey(event.target.value);
                         }}
-                      />
-                    </label>
-                    {loserEntity && mergePlan ? (
-                      <div data-testid="merge-plan" style={mergePlanStyle}>
-                        <p style={noticeTitleStyle}>
-                          Survivor {selectedEntity.label} absorbs loser{" "}
-                          {loserEntity.label}
-                        </p>
-                        <p style={bodyStyle}>
-                          Survivor record {selectedEntity.recordId}
-                          <br />
-                          Loser record {loserEntity.recordId}
-                        </p>
-                        <ul style={flatListStyle}>
-                          {mergePlan.identifierLines.map((line) => (
-                            <li key={`${line.label}:${line.outcome}`}>
-                              {line.label}: {line.outcome}
-                            </li>
-                          ))}
-                          <li>
-                            Aliases to copy:{" "}
-                            {mergePlan.aliasesToCopy.length > 0
-                              ? mergePlan.aliasesToCopy.join(", ")
-                              : "none"}
-                          </li>
-                          <li>
-                            Alias duplicate no-op:{" "}
-                            {mergePlan.duplicateAliases.length > 0
-                              ? mergePlan.duplicateAliases.join(", ")
-                              : "none"}
-                          </li>
-                          <li>
-                            Provenance-only values:{" "}
-                            {mergePlan.provenanceOnlySummary}
-                          </li>
-                          <li>{mergePlan.dependencySummary}</li>
-                        </ul>
-                        <button
-                          data-testid="merge-confirm"
-                          style={secondaryActionButtonStyle}
-                          type="button"
-                          onClick={() => {
-                            void confirmMerge();
-                          }}
-                        >
-                          Confirm merge
-                        </button>
-                      </div>
-                    ) : (
+                      >
+                        <option value="">Field</option>
+                        {editableEntityFields.map((field) => (
+                          <option key={field.fieldKey} value={field.fieldKey}>
+                            {field.label}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedEditField ? (
+                        <GenericMutationControl
+                          collectionMode="add"
+                          field={selectedEditField}
+                          referenceOptions={entityReferenceOptions}
+                          testId={genericEditValueTestId(contract.viewSchemaId)}
+                          value={editValue}
+                          onChange={setEditValue}
+                        />
+                      ) : null}
                       <button
-                        data-testid="merge-start"
-                        style={secondaryActionButtonStyle}
+                        data-testid={genericEditSubmitTestId(
+                          contract.viewSchemaId,
+                        )}
+                        disabled={mutationState === "Syncing"}
+                        style={actionButtonStyle}
                         type="button"
                         onClick={() => {
-                          setMergeMessage(
-                            "Select a loser to review the merge plan.",
-                          );
+                          void submitEntityEdit();
                         }}
                       >
-                        Start merge
+                        Update
                       </button>
-                    )}
-                  </section>
-                ) : (
-                  <section style={inspectorSectionStyle}>
-                    <h3 style={sectionTitleStyle}>Merge</h3>
-                    <p style={bodyStyle}>
-                      Merge is available to reviewer or admin roles.
-                    </p>
-                  </section>
-                )}
-
-                {timelinePreviewRows.length > 0 ? (
-                  <section style={inspectorSectionStyle}>
-                    <h3 style={sectionTitleStyle}>Dependent Timeline</h3>
-                    <div style={timelinePreviewStackStyle}>
-                      {timelinePreviewRows.map((row) => (
-                        <article
-                          key={row.recordId ?? row.key}
-                          data-testid={
-                            row.recordId === null
-                              ? undefined
-                              : timelinePreviewRowTestId(row.recordId)
-                          }
-                          style={timelinePreviewCardStyle}
-                        >
-                          <p style={noticeTitleStyle}>
-                            {row.values.summary || "Untitled row"}
-                          </p>
-                          <div style={relationshipItemsWrapStyle}>
-                            {row.collectionValues[
-                              entityType === "host"
-                                ? "hostRefs"
-                                : "identityRefs"
-                            ].map((item) => (
-                              <RelationshipChip
-                                key={item.itemRef}
-                                entityIndex={entityIndex}
-                                item={item}
-                              />
-                            ))}
-                          </div>
-                        </article>
-                      ))}
                     </div>
+                    {mutationError ? (
+                      <p style={bodyStyle}>{mutationError}</p>
+                    ) : null}
                   </section>
                 ) : null}
+                {selectedEntity ? (
+                  <>
+                    <section style={inspectorSectionStyle}>
+                      <h3 style={sectionTitleStyle}>Identifiers</h3>
+                      <ul style={flatListStyle}>
+                        {selectedEntity.identifiers.length > 0 ? (
+                          selectedEntity.identifiers.map((identifier) => (
+                            <li key={identifier.key}>
+                              {identifier.label}: {identifier.value}
+                            </li>
+                          ))
+                        ) : (
+                          <li>No exact-match identifiers visible.</li>
+                        )}
+                      </ul>
+                    </section>
 
-                {mergeMessage ? (
-                  <p data-testid="merge-message" style={bodyStyle}>
-                    {mergeMessage}
-                  </p>
-                ) : null}
-              </>
-            ) : (
-              <p style={bodyStyle}>No active records on this surface.</p>
-            )}
-          </aside>
-        ) : null}
+                    {canMerge ? (
+                      <section style={inspectorSectionStyle}>
+                        <h3 style={sectionTitleStyle}>Merge</h3>
+                        <label style={labelStyle}>
+                          Merge loser
+                          <select
+                            data-testid="merge-loser-record"
+                            style={selectStyle}
+                            value={mergeCandidateId}
+                            onChange={(event) => {
+                              setMergeCandidateId(event.target.value);
+                              setMergeMessage(null);
+                            }}
+                          >
+                            <option value="">Select duplicate</option>
+                            {rows
+                              .filter(
+                                (row) =>
+                                  row.recordId !== selectedEntity.recordId,
+                              )
+                              .map((row) => (
+                                <option key={row.recordId} value={row.recordId}>
+                                  {row.label}
+                                </option>
+                              ))}
+                          </select>
+                        </label>
+                        <label style={labelStyle}>
+                          Merge reason
+                          <input
+                            data-testid="merge-reason"
+                            style={inputStyle}
+                            type="text"
+                            value={mergeReason}
+                            onChange={(event) => {
+                              setMergeReason(event.target.value);
+                            }}
+                          />
+                        </label>
+                        {loserEntity && mergePlan ? (
+                          <div data-testid="merge-plan" style={mergePlanStyle}>
+                            <p style={noticeTitleStyle}>
+                              Survivor {selectedEntity.label} absorbs loser{" "}
+                              {loserEntity.label}
+                            </p>
+                            <p style={bodyStyle}>
+                              Survivor record {selectedEntity.recordId}
+                              <br />
+                              Loser record {loserEntity.recordId}
+                            </p>
+                            <ul style={flatListStyle}>
+                              {mergePlan.identifierLines.map((line) => (
+                                <li key={`${line.label}:${line.outcome}`}>
+                                  {line.label}: {line.outcome}
+                                </li>
+                              ))}
+                              <li>
+                                Aliases to copy:{" "}
+                                {mergePlan.aliasesToCopy.length > 0
+                                  ? mergePlan.aliasesToCopy.join(", ")
+                                  : "none"}
+                              </li>
+                              <li>
+                                Alias duplicate no-op:{" "}
+                                {mergePlan.duplicateAliases.length > 0
+                                  ? mergePlan.duplicateAliases.join(", ")
+                                  : "none"}
+                              </li>
+                              <li>
+                                Provenance-only values:{" "}
+                                {mergePlan.provenanceOnlySummary}
+                              </li>
+                              <li>{mergePlan.dependencySummary}</li>
+                            </ul>
+                            <button
+                              data-testid="merge-confirm"
+                              style={secondaryActionButtonStyle}
+                              type="button"
+                              onClick={() => {
+                                void confirmMerge();
+                              }}
+                            >
+                              Confirm merge
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            data-testid="merge-start"
+                            style={secondaryActionButtonStyle}
+                            type="button"
+                            onClick={() => {
+                              setMergeMessage(
+                                "Select a loser to review the merge plan.",
+                              );
+                            }}
+                          >
+                            Start merge
+                          </button>
+                        )}
+                      </section>
+                    ) : (
+                      <section style={inspectorSectionStyle}>
+                        <h3 style={sectionTitleStyle}>Merge</h3>
+                        <p style={bodyStyle}>
+                          Merge is available to reviewer or admin roles.
+                        </p>
+                      </section>
+                    )}
+
+                    {timelinePreviewRows.length > 0 ? (
+                      <section style={inspectorSectionStyle}>
+                        <h3 style={sectionTitleStyle}>Dependent Timeline</h3>
+                        <div style={timelinePreviewStackStyle}>
+                          {timelinePreviewRows.map((row) => (
+                            <article
+                              key={row.recordId ?? row.key}
+                              data-testid={
+                                row.recordId === null
+                                  ? undefined
+                                  : timelinePreviewRowTestId(row.recordId)
+                              }
+                              style={timelinePreviewCardStyle}
+                            >
+                              <p style={noticeTitleStyle}>
+                                {row.values.summary || "Untitled row"}
+                              </p>
+                              <div style={relationshipItemsWrapStyle}>
+                                {row.collectionValues[
+                                  entityType === "host"
+                                    ? "hostRefs"
+                                    : "identityRefs"
+                                ].map((item) => (
+                                  <RelationshipChip
+                                    key={item.itemRef}
+                                    entityIndex={entityIndex}
+                                    item={item}
+                                  />
+                                ))}
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      </section>
+                    ) : null}
+
+                    {mergeMessage ? (
+                      <p data-testid="merge-message" style={bodyStyle}>
+                        {mergeMessage}
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <p style={bodyStyle}>No active records on this surface.</p>
+                )}
+              </aside>
+            ) : null}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -1340,13 +1341,7 @@ function AssessmentWorkbookSurface({
       </header>
       <WorkbookFocusAnchorStatus anchor={assessmentFocus.anchor} />
 
-      <div
-        style={
-          isInspectorOpen
-            ? { ...splitShellStyle, ...splitShellWithInspectorStyle }
-            : splitShellStyle
-        }
-      >
+      <div style={splitShellStyle}>
         <div>
           <WorkbookShellSlotRegion
             slot="view-bar"
@@ -1377,230 +1372,237 @@ function AssessmentWorkbookSurface({
               {loadError}
             </p>
           ) : null}
-          <GridViewport
-            style={gridShellStyle}
-            testId={gridShellTestId(assessmentsViewSchemaId)}
-          >
-            <GridTable
-              columns={columns}
-              getGroupLabel={(row, fieldKey) =>
-                genericCellLabel(row.cells[fieldKey]?.value)
-              }
-              getGroupRowTestId={(fieldKey, value) =>
-                gridGroupRowTestId(assessmentsViewSchemaId, fieldKey, value)
-              }
-              groupBy={queryState.groupBy}
-              onToggleSort={onToggleSort}
-              rows={gridRows}
-              sort={queryState.sort}
-            />
-          </GridViewport>
-        </div>
+          <div style={gridOverlayShellStyle}>
+            <GridViewport
+              style={gridShellStyle}
+              testId={gridShellTestId(assessmentsViewSchemaId)}
+            >
+              <GridTable
+                columns={columns}
+                getGroupLabel={(row, fieldKey) =>
+                  genericCellLabel(row.cells[fieldKey]?.value)
+                }
+                getGroupRowTestId={(fieldKey, value) =>
+                  gridGroupRowTestId(assessmentsViewSchemaId, fieldKey, value)
+                }
+                groupBy={queryState.groupBy}
+                onToggleSort={onToggleSort}
+                rows={gridRows}
+                sort={queryState.sort}
+              />
+            </GridViewport>
 
-        {isInspectorOpen ? (
-          <aside
-            data-testid={assessmentCreatePanelTestId()}
-            style={inspectorShellStyle}
-          >
-            <div style={inspectorHeaderStyle}>
-              <div style={inspectorTitleRowStyle}>
-                <div>
-                  <p style={eyebrowStyle}>Create</p>
-                  <h2 style={inspectorTitleStyle}>Append assessment</h2>
-                </div>
-                <button
-                  aria-label="Close inspector"
-                  data-testid={workbookInspectorCloseButtonTestId(
-                    assessmentsViewSchemaId,
-                  )}
-                  style={inspectorCloseButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    setIsInspectorOpen(false);
-                  }}
-                >
-                  <X aria-hidden="true" size={16} />
-                </button>
-              </div>
-            </div>
-            <div style={inspectorSectionStyle}>
-              <label style={labelStyle}>
-                Subject type
-                <select
-                  data-testid="assessment-create-subject-type"
-                  style={selectStyle}
-                  value={draft.subjectType}
-                  onChange={(event) => {
-                    const subjectType =
-                      event.target.value === "identity" ? "identity" : "host";
-                    const nextRows =
-                      subjectType === "host" ? hostRows : identityRows;
-                    setDraft((current) => ({
-                      ...current,
-                      subjectType,
-                      subjectRecordId: nextRows[0]?.recordId ?? "",
-                    }));
-                  }}
-                >
-                  {enumValuesFor(
-                    assessmentsContract,
-                    "assessment.subject_type",
-                    ["host", "identity"],
-                  ).map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={labelStyle}>
-                Subject
-                <select
-                  data-testid="assessment-create-subject"
-                  style={selectStyle}
-                  value={draft.subjectRecordId}
-                  onChange={(event) => {
-                    setDraft((current) => ({
-                      ...current,
-                      subjectRecordId: event.target.value,
-                    }));
-                  }}
-                >
-                  <option value="">Select subject</option>
-                  {subjectRows.map((row) => (
-                    <option key={row.recordId} value={row.recordId}>
-                      {row.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={labelStyle}>
-                State
-                <select
-                  data-testid="assessment-create-state"
-                  style={selectStyle}
-                  value={draft.assessmentState}
-                  onChange={(event) => {
-                    setDraft((current) => ({
-                      ...current,
-                      assessmentState: event.target.value,
-                    }));
-                  }}
-                >
-                  {stateOptions.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={labelStyle}>
-                Confidence
-                <select
-                  data-testid="assessment-create-confidence-band"
-                  style={selectStyle}
-                  value={draft.confidenceBand}
-                  onChange={(event) => {
-                    const confidenceBand = isAssessmentConfidenceBand(
-                      event.target.value,
-                    )
-                      ? event.target.value
-                      : "unset";
-                    setDraft((current) => ({
-                      ...current,
-                      confidenceBand,
-                    }));
-                  }}
-                >
-                  {confidenceBandOptions.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={labelStyle}>
-                Rationale
-                <textarea
-                  data-testid="assessment-create-rationale"
-                  rows={4}
-                  style={textareaStyle}
-                  value={draft.rationale}
-                  onChange={(event) => {
-                    setDraft((current) => ({
-                      ...current,
-                      rationale: event.target.value,
-                    }));
-                  }}
-                />
-              </label>
-
-              <label style={labelStyle}>
-                Assessed
-                <input
-                  data-testid="assessment-create-assessed-at"
-                  placeholder="RFC3339 timestamp"
-                  style={inputStyle}
-                  type="text"
-                  value={draft.assessedAt}
-                  onChange={(event) => {
-                    setDraft((current) => ({
-                      ...current,
-                      assessedAt: event.target.value,
-                    }));
-                  }}
-                />
-              </label>
-
-              <label style={labelStyle}>
-                Support refs
-                <select
-                  data-testid="assessment-create-support-refs"
-                  multiple
-                  size={Math.min(Math.max(supportRows.length, 2), 5)}
-                  style={selectStyle}
-                  value={draft.supportRecordIds}
-                  onChange={(event) => {
-                    const supportRecordIds = Array.from(
-                      event.currentTarget.selectedOptions,
-                    ).map((option) => option.value);
-                    setDraft((current) => ({
-                      ...current,
-                      supportRecordIds,
-                    }));
-                  }}
-                >
-                  {supportRows.map((row) => (
-                    <option key={row.record_id} value={row.record_id}>
-                      {supportRowLabel(row)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <button
-                data-testid="assessment-create-submit"
-                disabled={!canCreate || isSubmitting}
-                style={secondaryActionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void submitAssessment();
-                }}
+            {isInspectorOpen ? (
+              <aside
+                data-testid={assessmentCreatePanelTestId()}
+                style={inspectorShellStyle}
               >
-                Create assessment
-              </button>
-              {message ? (
-                <p data-testid="assessment-create-message" style={bodyStyle}>
-                  {message}
-                </p>
-              ) : null}
-            </div>
-          </aside>
-        ) : null}
+                <div style={inspectorHeaderStyle}>
+                  <div style={inspectorTitleRowStyle}>
+                    <div>
+                      <p style={eyebrowStyle}>Create</p>
+                      <h2 style={inspectorTitleStyle}>Append assessment</h2>
+                    </div>
+                    <button
+                      aria-label="Close inspector"
+                      data-testid={workbookInspectorCloseButtonTestId(
+                        assessmentsViewSchemaId,
+                      )}
+                      style={inspectorCloseButtonStyle}
+                      type="button"
+                      onClick={() => {
+                        setIsInspectorOpen(false);
+                      }}
+                    >
+                      <X aria-hidden="true" size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div style={inspectorSectionStyle}>
+                  <label style={labelStyle}>
+                    Subject type
+                    <select
+                      data-testid="assessment-create-subject-type"
+                      style={selectStyle}
+                      value={draft.subjectType}
+                      onChange={(event) => {
+                        const subjectType =
+                          event.target.value === "identity"
+                            ? "identity"
+                            : "host";
+                        const nextRows =
+                          subjectType === "host" ? hostRows : identityRows;
+                        setDraft((current) => ({
+                          ...current,
+                          subjectType,
+                          subjectRecordId: nextRows[0]?.recordId ?? "",
+                        }));
+                      }}
+                    >
+                      {enumValuesFor(
+                        assessmentsContract,
+                        "assessment.subject_type",
+                        ["host", "identity"],
+                      ).map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label style={labelStyle}>
+                    Subject
+                    <select
+                      data-testid="assessment-create-subject"
+                      style={selectStyle}
+                      value={draft.subjectRecordId}
+                      onChange={(event) => {
+                        setDraft((current) => ({
+                          ...current,
+                          subjectRecordId: event.target.value,
+                        }));
+                      }}
+                    >
+                      <option value="">Select subject</option>
+                      {subjectRows.map((row) => (
+                        <option key={row.recordId} value={row.recordId}>
+                          {row.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label style={labelStyle}>
+                    State
+                    <select
+                      data-testid="assessment-create-state"
+                      style={selectStyle}
+                      value={draft.assessmentState}
+                      onChange={(event) => {
+                        setDraft((current) => ({
+                          ...current,
+                          assessmentState: event.target.value,
+                        }));
+                      }}
+                    >
+                      {stateOptions.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label style={labelStyle}>
+                    Confidence
+                    <select
+                      data-testid="assessment-create-confidence-band"
+                      style={selectStyle}
+                      value={draft.confidenceBand}
+                      onChange={(event) => {
+                        const confidenceBand = isAssessmentConfidenceBand(
+                          event.target.value,
+                        )
+                          ? event.target.value
+                          : "unset";
+                        setDraft((current) => ({
+                          ...current,
+                          confidenceBand,
+                        }));
+                      }}
+                    >
+                      {confidenceBandOptions.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label style={labelStyle}>
+                    Rationale
+                    <textarea
+                      data-testid="assessment-create-rationale"
+                      rows={4}
+                      style={textareaStyle}
+                      value={draft.rationale}
+                      onChange={(event) => {
+                        setDraft((current) => ({
+                          ...current,
+                          rationale: event.target.value,
+                        }));
+                      }}
+                    />
+                  </label>
+
+                  <label style={labelStyle}>
+                    Assessed
+                    <input
+                      data-testid="assessment-create-assessed-at"
+                      placeholder="RFC3339 timestamp"
+                      style={inputStyle}
+                      type="text"
+                      value={draft.assessedAt}
+                      onChange={(event) => {
+                        setDraft((current) => ({
+                          ...current,
+                          assessedAt: event.target.value,
+                        }));
+                      }}
+                    />
+                  </label>
+
+                  <label style={labelStyle}>
+                    Support refs
+                    <select
+                      data-testid="assessment-create-support-refs"
+                      multiple
+                      size={Math.min(Math.max(supportRows.length, 2), 5)}
+                      style={selectStyle}
+                      value={draft.supportRecordIds}
+                      onChange={(event) => {
+                        const supportRecordIds = Array.from(
+                          event.currentTarget.selectedOptions,
+                        ).map((option) => option.value);
+                        setDraft((current) => ({
+                          ...current,
+                          supportRecordIds,
+                        }));
+                      }}
+                    >
+                      {supportRows.map((row) => (
+                        <option key={row.record_id} value={row.record_id}>
+                          {supportRowLabel(row)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <button
+                    data-testid="assessment-create-submit"
+                    disabled={!canCreate || isSubmitting}
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void submitAssessment();
+                    }}
+                  >
+                    Create assessment
+                  </button>
+                  {message ? (
+                    <p
+                      data-testid="assessment-create-message"
+                      style={bodyStyle}
+                    >
+                      {message}
+                    </p>
+                  ) : null}
+                </div>
+              </aside>
+            ) : null}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -1971,7 +1973,11 @@ function GenericWorkbookSurface({
         if (row.record_id === draftRowRecordId) {
           return (
             <button
-              data-testid={genericCreateSubmitTestId(contract.viewSchemaId)}
+              data-testid={
+                isInspectorOpen
+                  ? undefined
+                  : genericCreateSubmitTestId(contract.viewSchemaId)
+              }
               disabled={mutationState === "Syncing"}
               style={secondaryActionButtonStyle}
               type="button"
@@ -2061,6 +2067,7 @@ function GenericWorkbookSurface({
     draftRowRecordId,
     evidenceMessageByRecordID,
     isEvidenceSurface,
+    isInspectorOpen,
     issueEvidenceHandle,
     mutationState,
     surface,
@@ -2379,487 +2386,510 @@ function GenericWorkbookSurface({
       </header>
       <WorkbookFocusAnchorStatus anchor={genericFocus.anchor} />
 
-      {isInspectorOpen && writableFields.length > 0 ? (
-        <section style={genericMutationPanelStyle}>
-          <div style={inspectorTitleRowStyle}>
-            <div>
-              <p style={eyebrowStyle}>Inspector</p>
-              <h2 style={inspectorTitleStyle}>Workbook actions</h2>
-            </div>
-            <button
-              aria-label="Close inspector"
-              data-testid={workbookInspectorCloseButtonTestId(surface)}
-              style={inspectorCloseButtonStyle}
-              type="button"
-              onClick={() => {
-                setIsInspectorOpen(false);
-              }}
-            >
-              <X aria-hidden="true" size={16} />
-            </button>
-          </div>
-          {isNotesSurface ? (
-            <label
-              htmlFor="generic-create-note-source-record"
-              style={labelStyle}
-            >
-              Linked source for draft row
-              <select
-                data-testid="generic-create-note-source-record"
-                id="generic-create-note-source-record"
-                style={selectStyle}
-                value={linkedNoteSourceRecordId}
-                onChange={(event) => {
-                  setLinkedNoteSourceRecordId(event.target.value);
-                }}
-              >
-                <option value="">None</option>
-                {referenceOptions.noteSourceRecords.map((option) => (
-                  <option key={option.recordId} value={option.recordId}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
+      <div style={splitShellStyle}>
+        <WorkbookShellSlotRegion
+          slot="view-bar"
+          style={viewBarStyle}
+          viewSchemaId={surface}
+        >
+          <WorkbookSheetToolbar
+            addRowDisabled={writableFields.length === 0}
+            contract={contract}
+            filterDraft={filterDraft}
+            leading={savedViewSelector}
+            onApplyFilter={onApplyFilter}
+            onAddRow={focusDraftRow}
+            onFilterDraftChange={onFilterDraftChange}
+            onGroupByChange={onGroupByChange}
+            onInspectorToggle={() => {
+              setIsInspectorOpen(true);
+            }}
+            onRemoveFilter={onRemoveFilter}
+            queryState={queryState}
+            surface={surface}
+          />
+        </WorkbookShellSlotRegion>
 
-          {draftInspectorFields.length > 0 ? (
-            <div style={genericDraftInspectorFieldsStyle}>
-              {draftInspectorFields.map((field) => {
-                const controlId = `generic-create-inspector-${field.fieldKey}`;
-                return (
-                  <label
-                    htmlFor={controlId}
-                    key={field.fieldKey}
-                    style={labelStyle}
-                  >
-                    {field.label}
-                    <GenericMutationControl
-                      collectionMode="add"
-                      field={field}
-                      id={controlId}
-                      referenceOptions={referenceOptions}
-                      testId={genericCreateFieldTestId(field.fieldKey)}
-                      value={createDraft[field.fieldKey] ?? ""}
-                      onChange={(value) => {
-                        setCreateDraft((current) => ({
-                          ...current,
-                          [field.fieldKey]: value,
-                        }));
-                      }}
-                    />
-                  </label>
-                );
-              })}
-            </div>
-          ) : null}
-
-          {rows.length > 0 && selectedEditField !== null ? (
-            <div style={genericEditRowStyle}>
-              <select
-                data-testid={genericEditRecordSelectTestId(
-                  contract.viewSchemaId,
-                )}
-                style={selectStyle}
-                value={editRecordId}
-                onChange={(event) => {
-                  setEditRecordId(event.target.value);
-                }}
-              >
-                <option value="">Row</option>
-                {rows.map((row) => (
-                  <option key={row.record_id} value={row.record_id}>
-                    {genericRowLabel(contract, row)}
-                  </option>
-                ))}
-              </select>
-              <select
-                data-testid={genericEditFieldSelectTestId(
-                  contract.viewSchemaId,
-                )}
-                style={selectStyle}
-                value={editFieldKey}
-                onChange={(event) => {
-                  setEditFieldKey(event.target.value);
-                }}
-              >
-                <option value="">Field</option>
-                {writableFields.map((field) => (
-                  <option key={field.fieldKey} value={field.fieldKey}>
-                    {field.label}
-                  </option>
-                ))}
-              </select>
-              {selectedEditField.writeKind === "action_payload" &&
-              genericCollectionSupportsRemove(selectedEditField.fieldKey) ? (
-                <select
-                  aria-label="Collection edit action"
-                  data-testid={genericEditActionSelectTestId(
-                    contract.viewSchemaId,
-                  )}
-                  style={selectStyle}
-                  value={editCollectionMode}
-                  onChange={(event) => {
-                    setEditCollectionMode(
-                      event.target.value === "remove" ? "remove" : "add",
-                    );
-                    setEditValue("");
+        <div style={gridOverlayShellStyle}>
+          {isInspectorOpen && writableFields.length > 0 ? (
+            <section style={genericMutationPanelStyle}>
+              <div style={inspectorTitleRowStyle}>
+                <div>
+                  <p style={eyebrowStyle}>Inspector</p>
+                  <h2 style={inspectorTitleStyle}>Workbook actions</h2>
+                </div>
+                <button
+                  aria-label="Close inspector"
+                  data-testid={workbookInspectorCloseButtonTestId(surface)}
+                  style={inspectorCloseButtonStyle}
+                  type="button"
+                  onClick={() => {
+                    setIsInspectorOpen(false);
                   }}
                 >
-                  <option value="add">Add</option>
-                  <option value="remove">Remove</option>
-                </select>
+                  <X aria-hidden="true" size={16} />
+                </button>
+              </div>
+              {isNotesSurface ? (
+                <label
+                  htmlFor="generic-create-note-source-record"
+                  style={labelStyle}
+                >
+                  Linked source for draft row
+                  <select
+                    data-testid="generic-create-note-source-record"
+                    id="generic-create-note-source-record"
+                    style={selectStyle}
+                    value={linkedNoteSourceRecordId}
+                    onChange={(event) => {
+                      setLinkedNoteSourceRecordId(event.target.value);
+                    }}
+                  >
+                    <option value="">None</option>
+                    {referenceOptions.noteSourceRecords.map((option) => (
+                      <option key={option.recordId} value={option.recordId}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               ) : null}
-              <GenericMutationControl
-                collectionItems={selectedEditCollectionItems}
-                collectionMode={editCollectionMode}
-                field={selectedEditField}
-                referenceOptions={referenceOptions}
-                testId={genericEditValueTestId(contract.viewSchemaId)}
-                value={editValue}
-                onChange={setEditValue}
-              />
+
+              {draftInspectorFields.length > 0 ? (
+                <div style={genericDraftInspectorFieldsStyle}>
+                  {draftInspectorFields.map((field) => {
+                    const controlId = `generic-create-inspector-${field.fieldKey}`;
+                    return (
+                      <label
+                        htmlFor={controlId}
+                        key={field.fieldKey}
+                        style={labelStyle}
+                      >
+                        {field.label}
+                        <GenericMutationControl
+                          collectionMode="add"
+                          field={field}
+                          id={controlId}
+                          referenceOptions={referenceOptions}
+                          testId={genericCreateFieldTestId(field.fieldKey)}
+                          value={createDraft[field.fieldKey] ?? ""}
+                          onChange={(value) => {
+                            setCreateDraft((current) => ({
+                              ...current,
+                              [field.fieldKey]: value,
+                            }));
+                          }}
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : null}
+
               <button
-                data-testid={genericEditSubmitTestId(contract.viewSchemaId)}
+                data-testid={genericCreateSubmitTestId(contract.viewSchemaId)}
                 disabled={mutationState === "Syncing"}
-                style={actionButtonStyle}
+                style={secondaryActionButtonStyle}
                 type="button"
                 onClick={() => {
-                  void submitEdit();
+                  void submitCreate();
                 }}
               >
-                Update
+                Commit draft row
               </button>
-            </div>
+
+              {rows.length > 0 && selectedEditField !== null ? (
+                <div style={genericEditRowStyle}>
+                  <select
+                    data-testid={genericEditRecordSelectTestId(
+                      contract.viewSchemaId,
+                    )}
+                    style={selectStyle}
+                    value={editRecordId}
+                    onChange={(event) => {
+                      setEditRecordId(event.target.value);
+                    }}
+                  >
+                    <option value="">Row</option>
+                    {rows.map((row) => (
+                      <option key={row.record_id} value={row.record_id}>
+                        {genericRowLabel(contract, row)}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    data-testid={genericEditFieldSelectTestId(
+                      contract.viewSchemaId,
+                    )}
+                    style={selectStyle}
+                    value={editFieldKey}
+                    onChange={(event) => {
+                      setEditFieldKey(event.target.value);
+                    }}
+                  >
+                    <option value="">Field</option>
+                    {writableFields.map((field) => (
+                      <option key={field.fieldKey} value={field.fieldKey}>
+                        {field.label}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedEditField.writeKind === "action_payload" &&
+                  genericCollectionSupportsRemove(
+                    selectedEditField.fieldKey,
+                  ) ? (
+                    <select
+                      aria-label="Collection edit action"
+                      data-testid={genericEditActionSelectTestId(
+                        contract.viewSchemaId,
+                      )}
+                      style={selectStyle}
+                      value={editCollectionMode}
+                      onChange={(event) => {
+                        setEditCollectionMode(
+                          event.target.value === "remove" ? "remove" : "add",
+                        );
+                        setEditValue("");
+                      }}
+                    >
+                      <option value="add">Add</option>
+                      <option value="remove">Remove</option>
+                    </select>
+                  ) : null}
+                  <GenericMutationControl
+                    collectionItems={selectedEditCollectionItems}
+                    collectionMode={editCollectionMode}
+                    field={selectedEditField}
+                    referenceOptions={referenceOptions}
+                    testId={genericEditValueTestId(contract.viewSchemaId)}
+                    value={editValue}
+                    onChange={setEditValue}
+                  />
+                  <button
+                    data-testid={genericEditSubmitTestId(contract.viewSchemaId)}
+                    disabled={mutationState === "Syncing"}
+                    style={actionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void submitEdit();
+                    }}
+                  >
+                    Update
+                  </button>
+                </div>
+              ) : null}
+
+              {partyLinkPairs.length > 0 && selectedEditRow !== null ? (
+                <div style={genericEditRowStyle}>
+                  <select
+                    aria-label="Party link field"
+                    data-testid="party-link-pair"
+                    style={selectStyle}
+                    value={selectedPartyLinkPair?.key ?? ""}
+                    onChange={(event) => {
+                      setPartyLinkPairKey(event.target.value);
+                    }}
+                  >
+                    {partyLinkPairs.map((pair) => (
+                      <option key={pair.key} value={pair.key}>
+                        {pair.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="Existing party"
+                    data-testid="party-link-existing-party"
+                    style={selectStyle}
+                    value={partyLinkExistingPartyId}
+                    onChange={(event) => {
+                      setPartyLinkExistingPartyId(event.target.value);
+                    }}
+                  >
+                    <option value="">Party</option>
+                    {referenceOptions.parties.map((option) => (
+                      <option key={option.recordId} value={option.recordId}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    data-testid="party-link-create-from-text"
+                    disabled={mutationState === "Syncing"}
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void createPartyFromText();
+                    }}
+                  >
+                    Create party from text
+                  </button>
+                  <button
+                    data-testid="party-link-link-existing"
+                    disabled={mutationState === "Syncing"}
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void linkExistingParty();
+                    }}
+                  >
+                    Link existing party
+                  </button>
+                  <button
+                    data-testid="party-link-clear-link"
+                    disabled={mutationState === "Syncing"}
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void clearPartyLink();
+                    }}
+                  >
+                    Clear party link
+                  </button>
+                  <button
+                    data-testid="party-link-clear-text"
+                    disabled={mutationState === "Syncing"}
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void clearPartyText();
+                    }}
+                  >
+                    Clear party text
+                  </button>
+                  <button
+                    data-testid="party-link-clear-both"
+                    disabled={mutationState === "Syncing"}
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void clearPartyBoth();
+                    }}
+                  >
+                    Clear both
+                  </button>
+                </div>
+              ) : null}
+
+              {isTaskRequestSurface && rows.length > 0 ? (
+                <div style={genericEditRowStyle}>
+                  <select
+                    aria-label="Task lifecycle row"
+                    data-testid="task-lifecycle-target"
+                    style={selectStyle}
+                    value={taskLifecycleRecordId}
+                    onChange={(event) => {
+                      setTaskLifecycleRecordId(event.target.value);
+                    }}
+                  >
+                    <option value="">Task</option>
+                    {rows.map((row) => (
+                      <option key={row.record_id} value={row.record_id}>
+                        {genericRowLabel(contract, row)}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="Task lifecycle status"
+                    data-testid="task-lifecycle-status"
+                    style={selectStyle}
+                    value={taskLifecycleStatus}
+                    onChange={(event) => {
+                      setTaskLifecycleStatus(event.target.value);
+                    }}
+                  >
+                    <option value="open">open</option>
+                    <option value="in_progress">in_progress</option>
+                    <option value="blocked">blocked</option>
+                    <option value="done">done</option>
+                    <option value="canceled">canceled</option>
+                  </select>
+                  <input
+                    aria-label="Blocked reason"
+                    data-testid="task-lifecycle-blocked-reason"
+                    disabled={taskLifecycleStatus !== "blocked"}
+                    style={inputStyle}
+                    type="text"
+                    value={taskLifecycleBlockedReason}
+                    onChange={(event) => {
+                      setTaskLifecycleBlockedReason(event.target.value);
+                    }}
+                  />
+                  <button
+                    data-testid="task-lifecycle-submit"
+                    disabled={mutationState === "Syncing"}
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void submitTaskLifecyclePatch();
+                    }}
+                  >
+                    Apply task status
+                  </button>
+                </div>
+              ) : null}
+
+              {isDecisionSurface && rows.length > 1 ? (
+                <div style={genericEditRowStyle}>
+                  <select
+                    aria-label="Superseded decision"
+                    data-testid="decision-supersede-target"
+                    style={selectStyle}
+                    value={decisionSupersedeTargetId}
+                    onChange={(event) => {
+                      setDecisionSupersedeTargetId(event.target.value);
+                    }}
+                  >
+                    <option value="">Target</option>
+                    {rows.map((row) => (
+                      <option key={row.record_id} value={row.record_id}>
+                        {genericRowLabel(contract, row)}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="Superseding decision"
+                    data-testid="decision-supersede-replacement"
+                    style={selectStyle}
+                    value={decisionSupersedeReplacementId}
+                    onChange={(event) => {
+                      setDecisionSupersedeReplacementId(event.target.value);
+                    }}
+                  >
+                    <option value="">Superseding</option>
+                    {referenceOptions.decisions.map((option) => (
+                      <option key={option.recordId} value={option.recordId}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    aria-label="Decision supersession reason"
+                    data-testid="decision-supersede-reason"
+                    style={inputStyle}
+                    type="text"
+                    value={decisionSupersedeReason}
+                    onChange={(event) => {
+                      setDecisionSupersedeReason(event.target.value);
+                    }}
+                  />
+                  <button
+                    data-testid="decision-supersede-submit"
+                    disabled={mutationState === "Syncing"}
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void submitDecisionSupersede();
+                    }}
+                  >
+                    Supersede decision
+                  </button>
+                </div>
+              ) : null}
+
+              {referenceLoadError ? (
+                <p data-testid="generic-reference-load-error" style={bodyStyle}>
+                  {referenceLoadError}
+                </p>
+              ) : null}
+
+              {mutationError ? (
+                <p style={genericErrorTextStyle}>{mutationError}</p>
+              ) : null}
+            </section>
           ) : null}
 
-          {partyLinkPairs.length > 0 && selectedEditRow !== null ? (
-            <div style={genericEditRowStyle}>
-              <select
-                aria-label="Party link field"
-                data-testid="party-link-pair"
-                style={selectStyle}
-                value={selectedPartyLinkPair?.key ?? ""}
-                onChange={(event) => {
-                  setPartyLinkPairKey(event.target.value);
-                }}
-              >
-                {partyLinkPairs.map((pair) => (
-                  <option key={pair.key} value={pair.key}>
-                    {pair.label}
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label="Existing party"
-                data-testid="party-link-existing-party"
-                style={selectStyle}
-                value={partyLinkExistingPartyId}
-                onChange={(event) => {
-                  setPartyLinkExistingPartyId(event.target.value);
-                }}
-              >
-                <option value="">Party</option>
-                {referenceOptions.parties.map((option) => (
-                  <option key={option.recordId} value={option.recordId}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                data-testid="party-link-create-from-text"
-                disabled={mutationState === "Syncing"}
-                style={secondaryActionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void createPartyFromText();
-                }}
-              >
-                Create party from text
-              </button>
-              <button
-                data-testid="party-link-link-existing"
-                disabled={mutationState === "Syncing"}
-                style={secondaryActionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void linkExistingParty();
-                }}
-              >
-                Link existing party
-              </button>
-              <button
-                data-testid="party-link-clear-link"
-                disabled={mutationState === "Syncing"}
-                style={secondaryActionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void clearPartyLink();
-                }}
-              >
-                Clear party link
-              </button>
-              <button
-                data-testid="party-link-clear-text"
-                disabled={mutationState === "Syncing"}
-                style={secondaryActionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void clearPartyText();
-                }}
-              >
-                Clear party text
-              </button>
-              <button
-                data-testid="party-link-clear-both"
-                disabled={mutationState === "Syncing"}
-                style={secondaryActionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void clearPartyBoth();
-                }}
-              >
-                Clear both
-              </button>
-            </div>
-          ) : null}
-
-          {isTaskRequestSurface && rows.length > 0 ? (
-            <div style={genericEditRowStyle}>
-              <select
-                aria-label="Task lifecycle row"
-                data-testid="task-lifecycle-target"
-                style={selectStyle}
-                value={taskLifecycleRecordId}
-                onChange={(event) => {
-                  setTaskLifecycleRecordId(event.target.value);
-                }}
-              >
-                <option value="">Task</option>
-                {rows.map((row) => (
-                  <option key={row.record_id} value={row.record_id}>
-                    {genericRowLabel(contract, row)}
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label="Task lifecycle status"
-                data-testid="task-lifecycle-status"
-                style={selectStyle}
-                value={taskLifecycleStatus}
-                onChange={(event) => {
-                  setTaskLifecycleStatus(event.target.value);
-                }}
-              >
-                <option value="open">open</option>
-                <option value="in_progress">in_progress</option>
-                <option value="blocked">blocked</option>
-                <option value="done">done</option>
-                <option value="canceled">canceled</option>
-              </select>
-              <input
-                aria-label="Blocked reason"
-                data-testid="task-lifecycle-blocked-reason"
-                disabled={taskLifecycleStatus !== "blocked"}
-                style={inputStyle}
-                type="text"
-                value={taskLifecycleBlockedReason}
-                onChange={(event) => {
-                  setTaskLifecycleBlockedReason(event.target.value);
-                }}
-              />
-              <button
-                data-testid="task-lifecycle-submit"
-                disabled={mutationState === "Syncing"}
-                style={secondaryActionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void submitTaskLifecyclePatch();
-                }}
-              >
-                Apply task status
-              </button>
-            </div>
-          ) : null}
-
-          {isDecisionSurface && rows.length > 1 ? (
-            <div style={genericEditRowStyle}>
-              <select
-                aria-label="Superseded decision"
-                data-testid="decision-supersede-target"
-                style={selectStyle}
-                value={decisionSupersedeTargetId}
-                onChange={(event) => {
-                  setDecisionSupersedeTargetId(event.target.value);
-                }}
-              >
-                <option value="">Target</option>
-                {rows.map((row) => (
-                  <option key={row.record_id} value={row.record_id}>
-                    {genericRowLabel(contract, row)}
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label="Superseding decision"
-                data-testid="decision-supersede-replacement"
-                style={selectStyle}
-                value={decisionSupersedeReplacementId}
-                onChange={(event) => {
-                  setDecisionSupersedeReplacementId(event.target.value);
-                }}
-              >
-                <option value="">Superseding</option>
-                {referenceOptions.decisions.map((option) => (
-                  <option key={option.recordId} value={option.recordId}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                aria-label="Decision supersession reason"
-                data-testid="decision-supersede-reason"
-                style={inputStyle}
-                type="text"
-                value={decisionSupersedeReason}
-                onChange={(event) => {
-                  setDecisionSupersedeReason(event.target.value);
-                }}
-              />
-              <button
-                data-testid="decision-supersede-submit"
-                disabled={mutationState === "Syncing"}
-                style={secondaryActionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void submitDecisionSupersede();
-                }}
-              >
-                Supersede decision
-              </button>
-            </div>
-          ) : null}
-
-          {referenceLoadError ? (
-            <p data-testid="generic-reference-load-error" style={bodyStyle}>
-              {referenceLoadError}
+          {loadError ? (
+            <p data-testid="generic-surface-load-error" style={bodyStyle}>
+              {loadError}
             </p>
           ) : null}
 
-          {mutationError ? (
-            <p style={genericErrorTextStyle}>{mutationError}</p>
-          ) : null}
-        </section>
-      ) : null}
-
-      <WorkbookShellSlotRegion
-        slot="view-bar"
-        style={viewBarStyle}
-        viewSchemaId={surface}
-      >
-        <WorkbookSheetToolbar
-          addRowDisabled={writableFields.length === 0}
-          contract={contract}
-          filterDraft={filterDraft}
-          leading={savedViewSelector}
-          onApplyFilter={onApplyFilter}
-          onAddRow={focusDraftRow}
-          onFilterDraftChange={onFilterDraftChange}
-          onGroupByChange={onGroupByChange}
-          onInspectorToggle={() => {
-            setIsInspectorOpen(true);
-          }}
-          onRemoveFilter={onRemoveFilter}
-          queryState={queryState}
-          surface={surface}
-        />
-      </WorkbookShellSlotRegion>
-
-      {loadError ? (
-        <p data-testid="generic-surface-load-error" style={bodyStyle}>
-          {loadError}
-        </p>
-      ) : null}
-
-      {isEvidenceSurface && evidencePreview ? (
-        <section
-          data-testid={evidencePreviewPanelTestId()}
-          style={evidencePreviewPanelStyle}
-        >
-          <div style={evidencePreviewHeaderStyle}>
-            <div>
-              <p style={eyebrowStyle}>Preview</p>
-              <h2 style={sectionTitleStyle}>{evidencePreview.title}</h2>
-            </div>
-            <button
-              style={secondaryActionButtonStyle}
-              type="button"
-              onClick={() => {
-                setEvidencePreview(null);
-              }}
+          {isEvidenceSurface && evidencePreview ? (
+            <section
+              data-testid={evidencePreviewPanelTestId()}
+              style={evidencePreviewPanelStyle}
             >
-              Close
-            </button>
-          </div>
-          <iframe
-            data-testid={evidencePreviewFrameTestId(evidencePreview.recordId)}
-            src={evidencePreview.href}
-            style={evidencePreviewFrameStyle}
-            title={`Evidence preview ${evidencePreview.title}`}
-          />
-          {evidencePreview.previewKind ? (
-            <p style={evidenceAccessMessageStyle}>
-              {evidencePreview.previewKind}
-            </p>
+              <div style={evidencePreviewHeaderStyle}>
+                <div>
+                  <p style={eyebrowStyle}>Preview</p>
+                  <h2 style={sectionTitleStyle}>{evidencePreview.title}</h2>
+                </div>
+                <button
+                  style={secondaryActionButtonStyle}
+                  type="button"
+                  onClick={() => {
+                    setEvidencePreview(null);
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+              <iframe
+                data-testid={evidencePreviewFrameTestId(
+                  evidencePreview.recordId,
+                )}
+                src={evidencePreview.href}
+                style={evidencePreviewFrameStyle}
+                title={`Evidence preview ${evidencePreview.title}`}
+              />
+              {evidencePreview.previewKind ? (
+                <p style={evidenceAccessMessageStyle}>
+                  {evidencePreview.previewKind}
+                </p>
+              ) : null}
+            </section>
           ) : null}
-        </section>
-      ) : null}
 
-      <GridViewport style={gridShellStyle} testId={gridShellTestId(surface)}>
-        <GridTable
-          actionsColumn={rowActionsColumn}
-          columns={columns}
-          getGroupLabel={(row, fieldKey) =>
-            genericCellLabel(row.cells[fieldKey]?.value)
-          }
-          getGroupRowTestId={(fieldKey, value) =>
-            gridGroupRowTestId(surface, fieldKey, value)
-          }
-          groupBy={queryState.groupBy}
-          onToggleSort={onToggleSort}
-          rows={gridRows}
-          sort={queryState.sort}
-        />
-      </GridViewport>
+          <GridViewport
+            style={gridShellStyle}
+            testId={gridShellTestId(surface)}
+          >
+            <GridTable
+              actionsColumn={rowActionsColumn}
+              columns={columns}
+              getGroupLabel={(row, fieldKey) =>
+                genericCellLabel(row.cells[fieldKey]?.value)
+              }
+              getGroupRowTestId={(fieldKey, value) =>
+                gridGroupRowTestId(surface, fieldKey, value)
+              }
+              groupBy={queryState.groupBy}
+              onToggleSort={onToggleSort}
+              rows={gridRows}
+              sort={queryState.sort}
+            />
+          </GridViewport>
+        </div>
 
-      <WorkbookShellSlotRegion
-        slot="status-strip"
-        style={statusStripStyle}
-        viewSchemaId={surface}
-      >
-        <span style={statusStripItemStyle}>
-          <span aria-hidden="true" style={statusIconStyle(mutationState)} />
-          <strong
-            aria-live="polite"
-            aria-label="Save state"
-            data-density-role="narrow-metadata"
-            data-testid={saveStateTestId()}
-            role="status"
-          >
-            {mutationState}
-          </strong>
-        </span>
-        {mutationError ? (
-          <span
-            aria-live="polite"
-            data-testid="generic-mutation-error"
-            role="status"
-            style={statusStripErrorStyle}
-          >
-            {mutationError}
+        <WorkbookShellSlotRegion
+          slot="status-strip"
+          style={statusStripStyle}
+          viewSchemaId={surface}
+        >
+          <span style={statusStripItemStyle}>
+            <span aria-hidden="true" style={statusIconStyle(mutationState)} />
+            <strong
+              aria-live="polite"
+              aria-label="Save state"
+              data-density-role="narrow-metadata"
+              data-testid={saveStateTestId()}
+              role="status"
+            >
+              {mutationState}
+            </strong>
           </span>
-        ) : null}
-      </WorkbookShellSlotRegion>
+          {mutationError ? (
+            <span
+              aria-live="polite"
+              data-testid="generic-mutation-error"
+              role="status"
+              style={statusStripErrorStyle}
+            >
+              {mutationError}
+            </span>
+          ) : null}
+        </WorkbookShellSlotRegion>
+      </div>
     </section>
   );
 }
@@ -4050,17 +4080,40 @@ const bodyStyle = {
 };
 
 const splitShellStyle = {
+  position: "relative" as const,
   display: "grid",
   gap: "var(--ct-spacing-shell-gap)",
   alignItems: "stretch",
   gridTemplateColumns: "minmax(0, 1fr)",
   minHeight: 0,
+  minWidth: 0,
+  overflow: "hidden",
   padding: "0",
 };
 
-const splitShellWithInspectorStyle = {
-  gridTemplateColumns:
-    "minmax(0, 1fr) minmax(var(--ct-layout-inspectorMinWidth), var(--ct-layout-inspectorDefaultWidth))",
+const inspectorOverlayFrameStyle = {
+  position: "absolute" as const,
+  zIndex: 8,
+  top: 0,
+  right: 0,
+  bottom: 0,
+  inlineSize:
+    "min(var(--ct-layout-inspectorDefaultWidth), calc(100% - var(--ct-spacing-xl)))",
+  minInlineSize:
+    "min(var(--ct-layout-inspectorMinWidth), calc(100% - var(--ct-spacing-xl)))",
+  maxInlineSize: "var(--ct-layout-inspectorMaxWidth)",
+  minHeight: 0,
+  overflow: "auto",
+  boxShadow: "var(--ct-elevation-drawer)",
+  boxSizing: "border-box" as const,
+};
+
+const gridOverlayShellStyle = {
+  position: "relative" as const,
+  display: "grid",
+  minHeight: 0,
+  minWidth: 0,
+  overflow: "hidden",
 };
 
 const viewBarStyle = {
@@ -4090,22 +4143,22 @@ const actionStackStyle = {
 };
 
 const genericMutationPanelStyle = {
-  position: "relative" as const,
-  zIndex: 2,
+  ...inspectorOverlayFrameStyle,
   display: "grid",
+  alignContent: "start",
   gap: "0.75rem",
   padding: "1rem",
-  borderRadius: "var(--ct-rounded-sm)",
+  borderRadius: "var(--ct-rounded-sm) 0 0 var(--ct-rounded-sm)",
   border: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink)",
 };
 
 const genericEditRowStyle = {
   display: "grid",
-  gridTemplateColumns:
-    "minmax(10rem, 1fr) minmax(10rem, 1fr) minmax(14rem, 2fr) auto",
-  gap: "0.75rem",
-  alignItems: "end",
+  gridTemplateColumns: "minmax(0, 1fr)",
+  gap: "0.6rem",
+  alignItems: "stretch",
 };
 
 const genericDraftInspectorFieldsStyle = {
@@ -4219,16 +4272,12 @@ const labelStyle = {
 };
 
 const inspectorShellStyle = {
+  ...inspectorOverlayFrameStyle,
   borderRadius: "var(--ct-rounded-sm)",
   border: "var(--ct-component-inspector-border)",
   background: "var(--ct-component-inspector-backgroundColor)",
   color: "var(--ct-component-inspector-textColor)",
   padding: "var(--ct-spacing-panel-padding)",
-  position: "sticky" as const,
-  top: "calc(var(--ct-layout-topBarHeight) + var(--ct-spacing-sm))",
-  maxHeight:
-    "calc(100vh - var(--ct-layout-topBarHeight) - var(--ct-layout-statusStripHeight) - 16px)",
-  overflow: "auto",
 };
 
 const inspectorHeaderStyle = {
