@@ -1041,12 +1041,24 @@ describe("WorkbookShell surface selection", () => {
     expect(patchBody).not.toHaveProperty("saved_view_id");
     expect(patchBody).not.toHaveProperty("owner_user_id");
 
-    fireEvent.click(
-      screen.getByTestId(savedViewSetHomeButtonTestId(timelineViewSchemaId)),
+    const createButton = screen.getByTestId(
+      savedViewCreateButtonTestId(timelineViewSchemaId),
     );
-    fireEvent.click(
-      screen.getByTestId(savedViewSetDefaultButtonTestId(timelineViewSchemaId)),
+    const homeButton = screen.getByTestId(
+      savedViewSetHomeButtonTestId(timelineViewSchemaId),
     );
+    const defaultButton = screen.getByTestId(
+      savedViewSetDefaultButtonTestId(timelineViewSchemaId),
+    );
+    expect(createButton.parentElement).toBe(homeButton.parentElement);
+    expect(defaultButton.parentElement).toBe(createButton.parentElement);
+    expect((createButton.parentElement as HTMLElement | null)?.style.flexWrap)
+      .toBe("nowrap");
+    expect((createButton.parentElement as HTMLElement | null)?.style.whiteSpace)
+      .toBe("nowrap");
+
+    fireEvent.click(homeButton);
+    fireEvent.click(defaultButton);
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("/workbook-preferences/me"),

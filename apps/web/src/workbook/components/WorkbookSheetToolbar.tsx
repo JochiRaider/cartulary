@@ -22,6 +22,8 @@ type WorkbookSheetToolbarProps = {
   readonly onInspectorToggle?: (() => void) | undefined;
   readonly onRemoveFilter: (fieldKey: string) => void;
   readonly queryState: WorkbookQueryState;
+  readonly showQueryControls?: boolean | undefined;
+  readonly showSurfaceStatus?: boolean | undefined;
   readonly surface: string;
 };
 
@@ -39,6 +41,8 @@ export function WorkbookSheetToolbar({
   onInspectorToggle,
   onRemoveFilter,
   queryState,
+  showQueryControls = true,
+  showSurfaceStatus = true,
   surface,
 }: WorkbookSheetToolbarProps) {
   const activeControlCount =
@@ -46,30 +50,36 @@ export function WorkbookSheetToolbar({
     queryState.filters.length +
     (queryState.groupBy === null ? 0 : 1);
   return (
-    <div style={toolbarStyle}>
+    <div style={showQueryControls ? toolbarStyle : savedViewToolbarStyle}>
       <div style={leftRailStyle}>
         {leading}
-        <span style={toolbarDividerStyle} />
-        <span style={toolbarStatusStyle}>
-          <Rows3 aria-hidden="true" size={16} />
-          {contract.title}
-        </span>
-        <span style={toolbarStatusStyle}>
-          <Filter aria-hidden="true" size={16} />
-          {activeControlCount}
-        </span>
+        {showSurfaceStatus ? (
+          <>
+            <span style={toolbarDividerStyle} />
+            <span style={toolbarStatusStyle}>
+              <Rows3 aria-hidden="true" size={16} />
+              {contract.title}
+            </span>
+            <span style={toolbarStatusStyle}>
+              <Filter aria-hidden="true" size={16} />
+              {activeControlCount}
+            </span>
+          </>
+        ) : null}
       </div>
-      <WorkbookGridControls
-        contract={contract}
-        filterDraft={filterDraft}
-        onApplyFilter={onApplyFilter}
-        onClearAll={onClearAll}
-        onFilterDraftChange={onFilterDraftChange}
-        onGroupByChange={onGroupByChange}
-        onRemoveFilter={onRemoveFilter}
-        queryState={queryState}
-        surface={surface}
-      />
+      {showQueryControls ? (
+        <WorkbookGridControls
+          contract={contract}
+          filterDraft={filterDraft}
+          onApplyFilter={onApplyFilter}
+          onClearAll={onClearAll}
+          onFilterDraftChange={onFilterDraftChange}
+          onGroupByChange={onGroupByChange}
+          onRemoveFilter={onRemoveFilter}
+          queryState={queryState}
+          surface={surface}
+        />
+      ) : null}
       <div style={rightRailStyle}>
         {onInspectorToggle ? (
           <button
@@ -138,6 +148,11 @@ const toolbarStyle = {
   padding: "0 var(--ct-spacing-sm)",
   borderBlockEnd: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-1)",
+} satisfies CSSProperties;
+
+const savedViewToolbarStyle = {
+  ...toolbarStyle,
+  gridTemplateColumns: "minmax(0, 1fr) auto",
 } satisfies CSSProperties;
 
 const leftRailStyle = {

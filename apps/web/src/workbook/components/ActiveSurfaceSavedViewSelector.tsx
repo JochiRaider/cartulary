@@ -111,168 +111,172 @@ export function ActiveSurfaceSavedViewSelector({
 
   return (
     <div style={savedViewControlGroupStyle}>
-      <label style={savedViewSelectorFrameStyle}>
-        <span style={savedViewSelectorLabelStyle}>View:</span>
-        <select
-          aria-label="Saved view"
-          data-active-view-schema-id={activeViewSchemaId}
-          data-selected-saved-view-id={selectedSavedViewId}
-          data-selected-sheet-ref-kind={
-            selectedSavedViewId === "" ? "view_schema" : "saved_view"
-          }
-          data-testid={savedViewSelectorTestId(activeViewSchemaId)}
-          style={savedViewSelectStyle}
-          value={selectedSavedViewId}
+      <div style={savedViewInputGroupStyle}>
+        <label style={savedViewSelectorFrameStyle}>
+          <span style={savedViewSelectorLabelStyle}>View:</span>
+          <select
+            aria-label="Saved view"
+            data-active-view-schema-id={activeViewSchemaId}
+            data-selected-saved-view-id={selectedSavedViewId}
+            data-selected-sheet-ref-kind={
+              selectedSavedViewId === "" ? "view_schema" : "saved_view"
+            }
+            data-testid={savedViewSelectorTestId(activeViewSchemaId)}
+            style={savedViewSelectStyle}
+            value={selectedSavedViewId}
+            onChange={(event) => {
+              const nextSavedViewId = event.currentTarget.value;
+              setStatus("");
+              if (nextSavedViewId === "") {
+                onSelectBaseSurface(activeViewSchemaId);
+                return;
+              }
+              const savedView = activeSavedViews.find(
+                (candidate) => candidate.saved_view_id === nextSavedViewId,
+              );
+              if (savedView !== undefined) {
+                onSelectSavedView(savedView);
+              }
+            }}
+          >
+            <option value="">Base view</option>
+            {activeSavedViews.map((savedView) => (
+              <option
+                key={savedView.saved_view_id}
+                data-saved-view-id={savedView.saved_view_id}
+                data-testid={savedViewOptionTestId(
+                  activeViewSchemaId,
+                  savedView.saved_view_id,
+                )}
+                data-view-schema-id={activeViewSchemaId}
+                value={savedView.saved_view_id}
+              >
+                {savedView.display_name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <input
+          aria-label="Saved view name"
+          data-testid={savedViewNameInputTestId(activeViewSchemaId)}
+          style={savedViewNameInputStyle}
+          type="text"
+          value={displayName}
           onChange={(event) => {
-            const nextSavedViewId = event.currentTarget.value;
-            setStatus("");
-            if (nextSavedViewId === "") {
-              onSelectBaseSurface(activeViewSchemaId);
-              return;
-            }
-            const savedView = activeSavedViews.find(
-              (candidate) => candidate.saved_view_id === nextSavedViewId,
+            setDisplayName(event.currentTarget.value);
+          }}
+        />
+        <select
+          aria-label="Saved view scope"
+          data-testid={savedViewScopeSelectTestId(activeViewSchemaId)}
+          style={savedViewScopeSelectStyle}
+          value={scope}
+          onChange={(event) => {
+            setScope(
+              event.currentTarget.value === "shared" ? "shared" : "private",
             );
-            if (savedView !== undefined) {
-              onSelectSavedView(savedView);
-            }
           }}
         >
-          <option value="">Base view</option>
-          {activeSavedViews.map((savedView) => (
-            <option
-              key={savedView.saved_view_id}
-              data-saved-view-id={savedView.saved_view_id}
-              data-testid={savedViewOptionTestId(
-                activeViewSchemaId,
-                savedView.saved_view_id,
-              )}
-              data-view-schema-id={activeViewSchemaId}
-              value={savedView.saved_view_id}
-            >
-              {savedView.display_name}
-            </option>
-          ))}
+          <option value="private">Private</option>
+          <option value="shared">Shared</option>
         </select>
-      </label>
-      <input
-        aria-label="Saved view name"
-        data-testid={savedViewNameInputTestId(activeViewSchemaId)}
-        style={savedViewNameInputStyle}
-        type="text"
-        value={displayName}
-        onChange={(event) => {
-          setDisplayName(event.currentTarget.value);
-        }}
-      />
-      <select
-        aria-label="Saved view scope"
-        data-testid={savedViewScopeSelectTestId(activeViewSchemaId)}
-        style={savedViewScopeSelectStyle}
-        value={scope}
-        onChange={(event) => {
-          setScope(
-            event.currentTarget.value === "shared" ? "shared" : "private",
-          );
-        }}
-      >
-        <option value="private">Private</option>
-        <option value="shared">Shared</option>
-      </select>
-      <button
-        data-testid={savedViewCreateButtonTestId(activeViewSchemaId)}
-        disabled={trimmedDisplayName === ""}
-        style={secondaryActionButtonStyle}
-        type="button"
-        onClick={() => {
-          void runSavedViewAction(async () => {
-            await onCreateSavedView({
-              displayName: trimmedDisplayName,
-              scope,
-            });
-          }, "Saved view created.");
-        }}
-      >
-        Create
-      </button>
-      {selectedSavedView ? (
-        <>
-          <button
-            data-testid={savedViewDuplicateButtonTestId(
-              activeViewSchemaId,
-              selectedSavedView.saved_view_id,
-            )}
-            style={secondaryActionButtonStyle}
-            type="button"
-            onClick={() => {
-              void runSavedViewAction(async () => {
-                await onDuplicateSavedView(selectedSavedView);
-              }, "Saved view duplicated.");
-            }}
-          >
-            Duplicate
-          </button>
-          <button
-            data-testid={savedViewUpdateButtonTestId(
-              activeViewSchemaId,
-              selectedSavedView.saved_view_id,
-            )}
-            disabled={!selectedSavedViewMutable || trimmedDisplayName === ""}
-            style={secondaryActionButtonStyle}
-            type="button"
-            onClick={() => {
-              void runSavedViewAction(async () => {
-                await onUpdateSavedView(selectedSavedView, {
-                  displayName: trimmedDisplayName,
-                  scope,
-                });
-              }, "Saved view updated.");
-            }}
-          >
-            Update
-          </button>
-          <button
-            data-testid={savedViewDeleteButtonTestId(
-              activeViewSchemaId,
-              selectedSavedView.saved_view_id,
-            )}
-            disabled={!selectedSavedViewMutable}
-            style={secondaryActionButtonStyle}
-            type="button"
-            onClick={() => {
-              void runSavedViewAction(async () => {
-                await onDeleteSavedView(selectedSavedView);
-              }, "Saved view deleted.");
-            }}
-          >
-            Delete
-          </button>
-        </>
-      ) : null}
-      <button
-        data-testid={savedViewSetHomeButtonTestId(activeViewSchemaId)}
-        style={secondaryActionButtonStyle}
-        type="button"
-        onClick={() => {
-          void runSavedViewAction(onSetHomeSheetRef, "Home view updated.");
-        }}
-      >
-        Home
-      </button>
-      <button
-        data-testid={savedViewSetDefaultButtonTestId(activeViewSchemaId)}
-        disabled={currentIncidentRole !== "admin"}
-        style={secondaryActionButtonStyle}
-        type="button"
-        onClick={() => {
-          void runSavedViewAction(
-            onSetDefaultSheetRef,
-            "Default view updated.",
-          );
-        }}
-      >
-        Default
-      </button>
+      </div>
+      <div style={savedViewActionGroupStyle}>
+        <button
+          data-testid={savedViewCreateButtonTestId(activeViewSchemaId)}
+          disabled={trimmedDisplayName === ""}
+          style={secondaryActionButtonStyle}
+          type="button"
+          onClick={() => {
+            void runSavedViewAction(async () => {
+              await onCreateSavedView({
+                displayName: trimmedDisplayName,
+                scope,
+              });
+            }, "Saved view created.");
+          }}
+        >
+          Create
+        </button>
+        {selectedSavedView ? (
+          <>
+            <button
+              data-testid={savedViewDuplicateButtonTestId(
+                activeViewSchemaId,
+                selectedSavedView.saved_view_id,
+              )}
+              style={secondaryActionButtonStyle}
+              type="button"
+              onClick={() => {
+                void runSavedViewAction(async () => {
+                  await onDuplicateSavedView(selectedSavedView);
+                }, "Saved view duplicated.");
+              }}
+            >
+              Duplicate
+            </button>
+            <button
+              data-testid={savedViewUpdateButtonTestId(
+                activeViewSchemaId,
+                selectedSavedView.saved_view_id,
+              )}
+              disabled={!selectedSavedViewMutable || trimmedDisplayName === ""}
+              style={secondaryActionButtonStyle}
+              type="button"
+              onClick={() => {
+                void runSavedViewAction(async () => {
+                  await onUpdateSavedView(selectedSavedView, {
+                    displayName: trimmedDisplayName,
+                    scope,
+                  });
+                }, "Saved view updated.");
+              }}
+            >
+              Update
+            </button>
+            <button
+              data-testid={savedViewDeleteButtonTestId(
+                activeViewSchemaId,
+                selectedSavedView.saved_view_id,
+              )}
+              disabled={!selectedSavedViewMutable}
+              style={secondaryActionButtonStyle}
+              type="button"
+              onClick={() => {
+                void runSavedViewAction(async () => {
+                  await onDeleteSavedView(selectedSavedView);
+                }, "Saved view deleted.");
+              }}
+            >
+              Delete
+            </button>
+          </>
+        ) : null}
+        <button
+          data-testid={savedViewSetHomeButtonTestId(activeViewSchemaId)}
+          style={secondaryActionButtonStyle}
+          type="button"
+          onClick={() => {
+            void runSavedViewAction(onSetHomeSheetRef, "Home view updated.");
+          }}
+        >
+          Home
+        </button>
+        <button
+          data-testid={savedViewSetDefaultButtonTestId(activeViewSchemaId)}
+          disabled={currentIncidentRole !== "admin"}
+          style={secondaryActionButtonStyle}
+          type="button"
+          onClick={() => {
+            void runSavedViewAction(
+              onSetDefaultSheetRef,
+              "Default view updated.",
+            );
+          }}
+        >
+          Default
+        </button>
+      </div>
       <span
         aria-live="polite"
         data-testid={savedViewStatusTestId(activeViewSchemaId)}
@@ -331,6 +335,23 @@ const savedViewControlGroupStyle = {
   flexWrap: "wrap" as const,
   gap: "0.4rem",
   flex: "0 0 auto",
+  minWidth: 0,
+};
+
+const savedViewInputGroupStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  flexWrap: "wrap" as const,
+  gap: "0.4rem",
+  minWidth: 0,
+};
+
+const savedViewActionGroupStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  flexWrap: "nowrap" as const,
+  gap: "0.4rem",
+  whiteSpace: "nowrap" as const,
   minWidth: 0,
 };
 

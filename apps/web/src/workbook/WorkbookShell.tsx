@@ -55,7 +55,7 @@ import {
   type ViewContract,
   visibleFields,
 } from "@cartulary/view-contracts";
-import { MoreHorizontal, X } from "lucide-react";
+import { Filter, MoreHorizontal, Rows3, X } from "lucide-react";
 import {
   type Dispatch,
   type ClipboardEvent as ReactClipboardEvent,
@@ -88,6 +88,7 @@ import {
 import { ActiveSurfaceSavedViewSelector } from "./components/ActiveSurfaceSavedViewSelector";
 import { GenericMutationControl } from "./components/GenericMutationControl";
 import { SystemViewSwitcher } from "./components/SystemViewSwitcher";
+import { WorkbookGridControls } from "./components/WorkbookGridControls";
 import { WorkbookSheetToolbar } from "./components/WorkbookSheetToolbar";
 import {
   WorkbookShellSlotRegion,
@@ -877,6 +878,8 @@ function EntityWorkbookSurface({
               }}
               onRemoveFilter={onRemoveFilter}
               queryState={queryState}
+              showQueryControls={false}
+              showSurfaceStatus={false}
               surface={surface}
             />
           </WorkbookShellSlotRegion>
@@ -1364,6 +1367,8 @@ function AssessmentWorkbookSurface({
               }}
               onRemoveFilter={onRemoveFilter}
               queryState={queryState}
+              showQueryControls={false}
+              showSurfaceStatus={false}
               surface={assessmentsViewSchemaId}
             />
           </WorkbookShellSlotRegion>
@@ -2406,6 +2411,8 @@ function GenericWorkbookSurface({
             }}
             onRemoveFilter={onRemoveFilter}
             queryState={queryState}
+            showQueryControls={false}
+            showSurfaceStatus={false}
             surface={surface}
           />
         </WorkbookShellSlotRegion>
@@ -3336,6 +3343,14 @@ export function WorkbookShell({
     queryEntityView,
   ]);
 
+  const applyTimelineFilter = useCallback(() => {
+    applyFilterDraftToQuery(
+      setTimelineQueryState,
+      setTimelineFilterDraft,
+      timelineFilterDraft,
+    );
+  }, [timelineFilterDraft]);
+
   const applyHostFilter = useCallback(() => {
     applyFilterDraftToQuery(
       setHostQueryState,
@@ -3351,6 +3366,47 @@ export function WorkbookShell({
       identityFilterDraft,
     );
   }, [identityFilterDraft]);
+
+  const applyAssessmentFilter = useCallback(() => {
+    applyFilterDraftToQuery(
+      setAssessmentQueryState,
+      setAssessmentFilterDraft,
+      assessmentFilterDraft,
+    );
+  }, [assessmentFilterDraft]);
+
+  const applyGenericFilter = useCallback(() => {
+    applyFilterDraftToQuery(
+      setGenericQueryState,
+      setGenericFilterDraft,
+      genericFilterDraft,
+    );
+  }, [genericFilterDraft]);
+
+  const clearActiveQueryControls = useCallback(() => {
+    if (surface === timelineViewSchemaId) {
+      setTimelineQueryState(emptyWorkbookQueryState());
+      setTimelineFilterDraft(defaultFilterDraft(timelineContract));
+      return;
+    }
+    if (surface === hostsViewSchemaId) {
+      setHostQueryState(emptyWorkbookQueryState());
+      setHostFilterDraft(defaultFilterDraft(hostsContract));
+      return;
+    }
+    if (surface === identitiesViewSchemaId) {
+      setIdentityQueryState(emptyWorkbookQueryState());
+      setIdentityFilterDraft(defaultFilterDraft(identitiesContract));
+      return;
+    }
+    if (surface === assessmentsViewSchemaId) {
+      setAssessmentQueryState(emptyWorkbookQueryState());
+      setAssessmentFilterDraft(defaultFilterDraft(assessmentsContract));
+      return;
+    }
+    setGenericQueryState(emptyWorkbookQueryState());
+    setGenericFilterDraft(defaultFilterDraft(activeContract));
+  }, [activeContract, surface]);
 
   const isSpecializedSurface =
     surface === timelineViewSchemaId ||
@@ -3683,6 +3739,111 @@ export function WorkbookShell({
     };
   }, [pendingGridFocusSurface, setPendingGridFocusSurface, surface]);
 
+  const activeQueryControls =
+    surface === timelineViewSchemaId
+      ? {
+          contract: timelineContract,
+          filterDraft: timelineFilterDraft,
+          onApplyFilter: applyTimelineFilter,
+          onClearAll: clearActiveQueryControls,
+          onFilterDraftChange: setTimelineFilterDraft,
+          onGroupByChange: (groupBy: string | null) => {
+            setTimelineQueryState((current) =>
+              updateGroupBy(timelineContract, current, groupBy),
+            );
+          },
+          onRemoveFilter: (fieldKey: string) => {
+            setTimelineQueryState((current) =>
+              removeFilterField(current, fieldKey),
+            );
+          },
+          queryState: timelineQueryState,
+          surface: timelineViewSchemaId as WorkbookSurface,
+        }
+      : surface === hostsViewSchemaId
+        ? {
+            contract: hostsContract,
+            filterDraft: hostFilterDraft,
+            onApplyFilter: applyHostFilter,
+            onClearAll: clearActiveQueryControls,
+            onFilterDraftChange: setHostFilterDraft,
+            onGroupByChange: (groupBy: string | null) => {
+              setHostQueryState((current) =>
+                updateGroupBy(hostsContract, current, groupBy),
+              );
+            },
+            onRemoveFilter: (fieldKey: string) => {
+              setHostQueryState((current) =>
+                removeFilterField(current, fieldKey),
+              );
+            },
+            queryState: hostQueryState,
+            surface: hostsViewSchemaId as WorkbookSurface,
+          }
+        : surface === identitiesViewSchemaId
+          ? {
+              contract: identitiesContract,
+              filterDraft: identityFilterDraft,
+              onApplyFilter: applyIdentityFilter,
+              onClearAll: clearActiveQueryControls,
+              onFilterDraftChange: setIdentityFilterDraft,
+              onGroupByChange: (groupBy: string | null) => {
+                setIdentityQueryState((current) =>
+                  updateGroupBy(identitiesContract, current, groupBy),
+                );
+              },
+              onRemoveFilter: (fieldKey: string) => {
+                setIdentityQueryState((current) =>
+                  removeFilterField(current, fieldKey),
+                );
+              },
+              queryState: identityQueryState,
+              surface: identitiesViewSchemaId as WorkbookSurface,
+            }
+          : surface === assessmentsViewSchemaId
+            ? {
+                contract: assessmentsContract,
+                filterDraft: assessmentFilterDraft,
+                onApplyFilter: applyAssessmentFilter,
+                onClearAll: clearActiveQueryControls,
+                onFilterDraftChange: setAssessmentFilterDraft,
+                onGroupByChange: (groupBy: string | null) => {
+                  setAssessmentQueryState((current) =>
+                    updateGroupBy(assessmentsContract, current, groupBy),
+                  );
+                },
+                onRemoveFilter: (fieldKey: string) => {
+                  setAssessmentQueryState((current) =>
+                    removeFilterField(current, fieldKey),
+                  );
+                },
+                queryState: assessmentQueryState,
+                surface: assessmentsViewSchemaId as WorkbookSurface,
+              }
+            : {
+                contract: activeContract,
+                filterDraft: genericFilterDraft,
+                onApplyFilter: applyGenericFilter,
+                onClearAll: clearActiveQueryControls,
+                onFilterDraftChange: setGenericFilterDraft,
+                onGroupByChange: (groupBy: string | null) => {
+                  setGenericQueryState((current) =>
+                    updateGroupBy(activeContract, current, groupBy),
+                  );
+                },
+                onRemoveFilter: (fieldKey: string) => {
+                  setGenericQueryState((current) =>
+                    removeFilterField(current, fieldKey),
+                  );
+                },
+                queryState: genericQueryState,
+                surface: surface as WorkbookSurface,
+              };
+  const activeControlCount =
+    activeQueryControls.queryState.sort.length +
+    activeQueryControls.queryState.filters.length +
+    (activeQueryControls.queryState.groupBy === null ? 0 : 1);
+
   const activeSavedViewSelector = (
     <ActiveSurfaceSavedViewSelector
       activeViewSchemaId={surface}
@@ -3744,6 +3905,27 @@ export function WorkbookShell({
             );
           })}
         </nav>
+        <div style={shellTopBarQueryStyle}>
+          <span style={shellTopBarQueryStatusStyle}>
+            <Rows3 aria-hidden="true" size={16} />
+            {activeQueryControls.contract.title}
+          </span>
+          <span style={shellTopBarQueryStatusStyle}>
+            <Filter aria-hidden="true" size={16} />
+            {activeControlCount}
+          </span>
+          <WorkbookGridControls
+            contract={activeQueryControls.contract}
+            filterDraft={activeQueryControls.filterDraft}
+            onApplyFilter={activeQueryControls.onApplyFilter}
+            onClearAll={activeQueryControls.onClearAll}
+            onFilterDraftChange={activeQueryControls.onFilterDraftChange}
+            onGroupByChange={activeQueryControls.onGroupByChange}
+            onRemoveFilter={activeQueryControls.onRemoveFilter}
+            queryState={activeQueryControls.queryState}
+            surface={activeQueryControls.surface}
+          />
+        </div>
         <div style={systemViewSlotStyle}>
           <SystemViewSwitcher
             activeViewSchemaId={surface}
@@ -3810,6 +3992,7 @@ export function WorkbookShell({
           onRefreshEntities={loadEntities}
           queryState={timelineQueryState}
           reloadToken={sheetReloadToken}
+          renderInlineQueryControls={false}
           savedViewSelector={activeSavedViewSelector}
           sheetRef={startupSheetRef}
         />
@@ -3988,9 +4171,10 @@ const panelStyle = {
 const shellTopBarStyle = {
   display: "flex",
   alignItems: "center",
+  flexWrap: "wrap" as const,
   gap: "0.75rem",
   minHeight: "var(--ct-layout-topBarHeight)",
-  padding: "0 1rem",
+  padding: "0.25rem 1rem",
   borderBottom: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-1)",
 };
@@ -4016,6 +4200,25 @@ const shellTopBarValueStyle = {
   color: "var(--ct-colors-ink)",
   overflow: "hidden",
   textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+};
+
+const shellTopBarQueryStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flex: "1 1 36rem",
+  gap: "0.45rem",
+  minWidth: "min(36rem, 100%)",
+};
+
+const shellTopBarQueryStatusStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.3rem",
+  flex: "0 0 auto",
+  color: "var(--ct-colors-ink-muted)",
+  fontSize: "0.82rem",
   whiteSpace: "nowrap" as const,
 };
 
@@ -4378,7 +4581,7 @@ const tabStripStyle = {
   display: "flex",
   alignItems: "stretch",
   gap: "0.2rem",
-  flex: "1 1 auto",
+  flex: "0 1 auto",
   minWidth: 0,
   overflow: "hidden",
 };

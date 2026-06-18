@@ -300,6 +300,7 @@ export type TimelineWorkbookProps = {
   apiBase?: string | undefined;
   sheetRef?: WorkbookSheetRef | undefined;
   reloadToken?: number | undefined;
+  renderInlineQueryControls?: boolean | undefined;
   savedViewSelector?: ReactNode | undefined;
   filterDraft?: FilterDraft | undefined;
   onFilterDraftChange?: FilterDraftSetter | undefined;
@@ -934,6 +935,7 @@ export function TimelineWorkbook({
   apiBase,
   sheetRef,
   reloadToken = 0,
+  renderInlineQueryControls = true,
   savedViewSelector,
   filterDraft: controlledFilterDraft,
   onFilterDraftChange,
@@ -6355,6 +6357,8 @@ export function TimelineWorkbook({
                   );
                 }}
                 queryState={queryState}
+                showQueryControls={renderInlineQueryControls}
+                showSurfaceStatus={renderInlineQueryControls}
                 surface={timelineViewSchemaId}
               />
             </WorkbookShellSlotRegion>
