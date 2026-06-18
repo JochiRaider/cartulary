@@ -83,6 +83,7 @@ describe("IncidentAdminPanel", () => {
 
     const view = render(
       <IncidentAdminPanel
+        activeSection="incident-fields"
         currentIncidentRole="viewer"
         incidentId="incident-1"
         onIncidentAccessLost={onIncidentAccessLost}
@@ -94,6 +95,15 @@ describe("IncidentAdminPanel", () => {
     expect(
       screen.getByTestId("incident-patch-readonly-note").textContent,
     ).toContain("read-only");
+
+    view.rerender(
+      <IncidentAdminPanel
+        activeSection="memberships"
+        currentIncidentRole="viewer"
+        incidentId="incident-1"
+        onIncidentAccessLost={onIncidentAccessLost}
+      />,
+    );
     expect(
       screen.queryByTestId(incidentMembershipCreateButtonTestId()),
     ).toBeNull();
@@ -107,12 +117,22 @@ describe("IncidentAdminPanel", () => {
 
     view.rerender(
       <IncidentAdminPanel
+        activeSection="incident-fields"
         currentIncidentRole="reviewer"
         incidentId="incident-1"
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
     expect(screen.getByTestId("incident-patch-button")).toBeTruthy();
+
+    view.rerender(
+      <IncidentAdminPanel
+        activeSection="memberships"
+        currentIncidentRole="reviewer"
+        incidentId="incident-1"
+        onIncidentAccessLost={onIncidentAccessLost}
+      />,
+    );
     expect(
       screen.queryByTestId(incidentMembershipCreateButtonTestId()),
     ).toBeNull();
@@ -122,12 +142,12 @@ describe("IncidentAdminPanel", () => {
 
     view.rerender(
       <IncidentAdminPanel
+        activeSection="memberships"
         currentIncidentRole="admin"
         incidentId="incident-1"
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
-    expect(screen.getByTestId("incident-patch-button")).toBeTruthy();
     expect(
       screen.getByTestId(incidentMembershipCreateButtonTestId()),
     ).toBeTruthy();
@@ -143,6 +163,17 @@ describe("IncidentAdminPanel", () => {
 
     view.rerender(
       <IncidentAdminPanel
+        activeSection="incident-fields"
+        currentIncidentRole="admin"
+        incidentId="incident-1"
+        onIncidentAccessLost={onIncidentAccessLost}
+      />,
+    );
+    expect(screen.getByTestId("incident-patch-button")).toBeTruthy();
+
+    view.rerender(
+      <IncidentAdminPanel
+        activeSection="summary"
         currentIncidentRole="admin"
         incidentId="incident-lost"
         onIncidentAccessLost={onIncidentAccessLost}
@@ -284,6 +315,7 @@ describe("IncidentAdminPanel", () => {
 
     render(
       <IncidentAdminPanel
+        activeSection="memberships"
         currentIncidentRole="admin"
         incidentId="incident-1"
         onSessionRoleChange={onSessionRoleChange}

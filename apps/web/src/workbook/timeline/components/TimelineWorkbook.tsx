@@ -64,8 +64,12 @@ import {
   evidencePublicErrorMessage,
 } from "../../../services/workbookEvidence";
 import { WorkbookSheetToolbar } from "../../components/WorkbookSheetToolbar";
-import { WorkbookShellSlotRegion } from "../../components/WorkbookShellSlots";
 import { WorkbookStatusStrip } from "../../components/WorkbookStatusStrip";
+import {
+  WorkbookSurfaceFrame,
+  workbookSurfaceGridShellStyle,
+  workbookSurfaceOverlayPanelStyle,
+} from "../../components/WorkbookSurfaceFrame";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
 import {
   buildQueryRequest,
@@ -110,10 +114,7 @@ import {
   type WorkbookPresenceInput,
   type WorkbookPresenceMode,
 } from "../../utils/workbookPresence";
-import {
-  statusStripStyle,
-  visuallyHiddenStyle,
-} from "../../utils/workbookStyles";
+import { visuallyHiddenStyle } from "../../utils/workbookStyles";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
 import { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows";
 import { useTimelineConflicts } from "../hooks/useTimelineConflicts";
@@ -6306,174 +6307,55 @@ export function TimelineWorkbook({
   }
 
   return (
-    <section
-      data-testid={timelineMutationSubstrateReadyTestId()}
-      style={workbookStyle}
-    >
-      <TimelineWorkbookNotices
-        autoResolutionNotices={autoResolutionNotices}
-        entityIndex={entityIndex}
-        inspectorOpen={isInspectorOpen}
-        onReviewAutoResolution={handleSelectMention}
-        onUndoAutoResolution={handleUndoAutoResolutionNotice}
-        pendingQueueSnapshot={pendingQueueSnapshot}
-      />
-
-      <div style={splitShellStyle}>
-        <div style={timelineMainColumnStyle}>
-          <div style={timelineMainHeaderStyle}>
-            {visibleRefreshError !== null ? (
-              <aside
-                data-testid="timeline-refresh-error"
-                role="status"
-                style={noticeCardStyle}
-              >
-                <p style={bodyStyle}>{visibleRefreshError}</p>
-              </aside>
-            ) : null}
-            <WorkbookShellSlotRegion
-              slot="view-bar"
-              style={viewBarStyle}
-              viewSchemaId={timelineViewSchemaId}
-            >
-              <WorkbookSheetToolbar
-                leading={savedViewSelector}
-                contract={timelineContract}
-                filterDraft={filterDraft}
-                onAddRow={focusDraftRow}
-                onApplyFilter={applyQueryFilter}
-                onClearAll={() => {
-                  setQueryState(emptyWorkbookQueryState());
-                  setFilterDraft(defaultFilterDraft(timelineContract));
-                }}
-                onFilterDraftChange={setFilterDraft}
-                onGroupByChange={handleQueryGroupByChange}
-                onInspectorToggle={() => {
-                  setIsInspectorOpen(true);
-                }}
-                onRemoveFilter={(fieldKey) => {
-                  setQueryState((current) =>
-                    removeFilterField(current, fieldKey),
-                  );
-                }}
-                queryState={queryState}
-                showQueryControls={renderInlineQueryControls}
-                showSurfaceStatus={renderInlineQueryControls}
-                surface={timelineViewSchemaId}
-              />
-            </WorkbookShellSlotRegion>
-          </div>
-          <section
-            aria-label="Timeline row interaction layer"
-            style={timelineGridOverlayShellStyle}
-            onContextMenu={handleTimelineGridContextMenu}
-            onKeyDown={handleTimelineGridContextKeyDown}
-          >
-            <TimelineGridSurface
-              columns={timelineColumns}
-              getGroupLabel={getTimelineGroupLabel}
-              getGroupRowTestId={getTimelineGroupRowTestId}
-              groupBy={queryState.groupBy}
-              onToggleSort={handleQuerySortToggle}
-              ref={gridShellRef}
-              rowGutter={timelineRowGutter}
-              rows={rows}
-              slotStyle={primaryGridSlotStyle}
-              sort={queryState.sort}
-              style={timelineGridShellStyle}
-              timelineGridRows={timelineGridRows}
-            />
-            {rowContextMenu === null ? null : (
-              <TimelineRowContextMenu
-                position={rowContextMenu.position}
-                replacementDraft={
-                  activeRowContextMenuRow === null
-                    ? ""
-                    : (replacementDrafts[activeRowContextMenuRow.key] ?? "")
-                }
-                row={activeRowContextMenuRow}
-                onClose={() => {
-                  setRowContextMenu(null);
-                }}
-                onInspectRow={openInspectorForRow}
-                onMarkReviewed={(rowKey) => {
-                  queueAction(rowKey, "mark-reviewed");
-                }}
-                onOpenHistory={openRowHistory}
-                onReplacementDraftChange={(rowKey, value) => {
-                  setReplacementDrafts((current) => ({
-                    ...current,
-                    [rowKey]: value,
-                  }));
-                }}
-                onSupersede={(rowKey) => {
-                  queueAction(rowKey, "supersede");
-                }}
-              />
-            )}
-            {activeConflict ? (
-              <TimelineConflictResolver
-                activeConflict={activeConflict}
-                activeConflictKey={activeConflictKey}
-                activePasteConflictIndex={activePasteConflictIndex}
-                activePasteConflictKeys={activePasteConflictKeys}
-                conflictQueue={conflictQueue}
-                getFieldLabel={timelineBindingLabel}
-                onClose={closeConflictResolver}
-                onMergedDraftChange={handleConflictMergedDraftChange}
-                onSelectConflictKey={(conflictKey) => {
-                  setActiveConflictKey(conflictKey);
-                }}
-                onSubmit={submitConflictResolution}
-                showPasteConflictNavigator={showPasteConflictNavigator}
-              />
-            ) : null}
-
-            {isInspectorOpen ? (
-              <WorkbookShellSlotRegion
-                slot="inspector"
-                style={inspectorSlotStyle}
-                viewSchemaId={timelineViewSchemaId}
-              >
-                <TimelineWorkbookInspector
-                  canManageMentions={canManageMentions}
-                  currentHistoryDeleted={currentHistoryDeleted}
-                  draftRow={draftRow}
-                  entityIndex={entityIndex}
-                  getRelationshipLabel={timelineRelationshipLabel}
-                  hostEntities={hostEntities}
-                  identityEntities={identityEntities}
-                  inspectorMessage={inspectorMessage}
-                  inspectorMentions={inspectorMentions}
-                  onClose={() => {
-                    setIsInspectorOpen(false);
-                    clearRowHistory();
-                  }}
-                  onResolveTargetChange={handleResolveTargetChange}
-                  onSelectMention={handleSelectMention}
-                  onSetInspectorMessage={setInspectorMessage}
-                  onSubmitMentionAction={submitMentionAction}
-                  renderEvidenceAttachSection={renderEvidenceAttachSection}
-                  renderInspectorFieldEditors={renderInspectorFieldEditors}
-                  renderRowHistorySection={renderRowHistorySection}
-                  rowHistoryRecordId={
-                    currentHistoryDeleted ? currentHistoryRecordId : null
-                  }
-                  selectedMention={selectedMention}
-                  selectedResolveTargetId={selectedResolveTargetId}
-                  selectedRow={selectedRow}
-                />
-              </WorkbookShellSlotRegion>
-            ) : null}
-          </section>
-        </div>
-      </div>
-
-      <WorkbookShellSlotRegion
-        slot="status-strip"
-        style={timelineStatusStripStyle}
-        viewSchemaId={timelineViewSchemaId}
-      >
+    <WorkbookSurfaceFrame
+      inspector={
+        isInspectorOpen ? (
+          <TimelineWorkbookInspector
+            canManageMentions={canManageMentions}
+            currentHistoryDeleted={currentHistoryDeleted}
+            draftRow={draftRow}
+            entityIndex={entityIndex}
+            getRelationshipLabel={timelineRelationshipLabel}
+            hostEntities={hostEntities}
+            identityEntities={identityEntities}
+            inspectorMessage={inspectorMessage}
+            inspectorMentions={inspectorMentions}
+            onClose={() => {
+              setIsInspectorOpen(false);
+              clearRowHistory();
+            }}
+            onResolveTargetChange={handleResolveTargetChange}
+            onSelectMention={handleSelectMention}
+            onSetInspectorMessage={setInspectorMessage}
+            onSubmitMentionAction={submitMentionAction}
+            renderEvidenceAttachSection={renderEvidenceAttachSection}
+            renderInspectorFieldEditors={renderInspectorFieldEditors}
+            renderRowHistorySection={renderRowHistorySection}
+            rowHistoryRecordId={
+              currentHistoryDeleted ? currentHistoryRecordId : null
+            }
+            selectedMention={selectedMention}
+            selectedResolveTargetId={selectedResolveTargetId}
+            selectedRow={selectedRow}
+          />
+        ) : undefined
+      }
+      primaryGrid={
+        <TimelineGridSurface
+          columns={timelineColumns}
+          getGroupLabel={getTimelineGroupLabel}
+          getGroupRowTestId={getTimelineGroupRowTestId}
+          groupBy={queryState.groupBy}
+          onToggleSort={handleQuerySortToggle}
+          ref={gridShellRef}
+          rowGutter={timelineRowGutter}
+          rows={rows}
+          sort={queryState.sort}
+          style={timelineGridShellStyle}
+          timelineGridRows={timelineGridRows}
+        />
+      }
+      statusStrip={
         <WorkbookStatusStrip
           activeSheetPresenceRecords={activeSheetPresenceRecords}
           incidentId={incidentId}
@@ -6483,8 +6365,104 @@ export function TimelineWorkbook({
           saveStateSecondaryMessage={saveStateSecondaryMessage}
           workbookFocusAnchor={workbookFocusAnchor}
         />
-      </WorkbookShellSlotRegion>
-    </section>
+      }
+      testId={timelineMutationSubstrateReadyTestId()}
+      viewBar={
+        <WorkbookSheetToolbar
+          leading={savedViewSelector}
+          contract={timelineContract}
+          filterDraft={filterDraft}
+          onAddRow={focusDraftRow}
+          onApplyFilter={applyQueryFilter}
+          onClearAll={() => {
+            setQueryState(emptyWorkbookQueryState());
+            setFilterDraft(defaultFilterDraft(timelineContract));
+          }}
+          onFilterDraftChange={setFilterDraft}
+          onGroupByChange={handleQueryGroupByChange}
+          onInspectorToggle={() => {
+            setIsInspectorOpen(true);
+          }}
+          onRemoveFilter={(fieldKey) => {
+            setQueryState((current) => removeFilterField(current, fieldKey));
+          }}
+          queryState={queryState}
+          showQueryControls={renderInlineQueryControls}
+          showSurfaceStatus={renderInlineQueryControls}
+          surface={timelineViewSchemaId}
+        />
+      }
+      viewSchemaId={timelineViewSchemaId}
+      workAreaAriaLabel="Timeline row interaction layer"
+      workAreaOverlays={
+        <>
+          <TimelineWorkbookNotices
+            autoResolutionNotices={autoResolutionNotices}
+            entityIndex={entityIndex}
+            inspectorOpen={isInspectorOpen}
+            onReviewAutoResolution={handleSelectMention}
+            onUndoAutoResolution={handleUndoAutoResolutionNotice}
+            pendingQueueSnapshot={pendingQueueSnapshot}
+          />
+          {visibleRefreshError !== null ? (
+            <aside
+              data-testid="timeline-refresh-error"
+              role="status"
+              style={timelineNoticeOverlayStyle}
+            >
+              <p style={bodyStyle}>{visibleRefreshError}</p>
+            </aside>
+          ) : null}
+          {rowContextMenu === null ? null : (
+            <TimelineRowContextMenu
+              position={rowContextMenu.position}
+              replacementDraft={
+                activeRowContextMenuRow === null
+                  ? ""
+                  : (replacementDrafts[activeRowContextMenuRow.key] ?? "")
+              }
+              row={activeRowContextMenuRow}
+              onClose={() => {
+                setRowContextMenu(null);
+              }}
+              onInspectRow={openInspectorForRow}
+              onMarkReviewed={(rowKey) => {
+                queueAction(rowKey, "mark-reviewed");
+              }}
+              onOpenHistory={openRowHistory}
+              onReplacementDraftChange={(rowKey, value) => {
+                setReplacementDrafts((current) => ({
+                  ...current,
+                  [rowKey]: value,
+                }));
+              }}
+              onSupersede={(rowKey) => {
+                queueAction(rowKey, "supersede");
+              }}
+            />
+          )}
+          {activeConflict ? (
+            <TimelineConflictResolver
+              activeConflict={activeConflict}
+              activeConflictKey={activeConflictKey}
+              activePasteConflictIndex={activePasteConflictIndex}
+              activePasteConflictKeys={activePasteConflictKeys}
+              conflictQueue={conflictQueue}
+              getFieldLabel={timelineBindingLabel}
+              onClose={closeConflictResolver}
+              onMergedDraftChange={handleConflictMergedDraftChange}
+              onSelectConflictKey={(conflictKey) => {
+                setActiveConflictKey(conflictKey);
+              }}
+              onSubmit={submitConflictResolution}
+              showPasteConflictNavigator={showPasteConflictNavigator}
+            />
+          ) : null}
+        </>
+      }
+      onWorkAreaContextMenu={handleTimelineGridContextMenu}
+      onWorkAreaKeyDown={handleTimelineGridContextKeyDown}
+    />
   );
 }
 
@@ -6499,15 +6477,6 @@ const panelStyle = {
   background: "var(--ct-colors-canvas)",
   boxShadow: "none",
   border: 0,
-};
-
-const workbookStyle = {
-  position: "relative" as const,
-  display: "grid",
-  gridTemplateRows: "minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
-  blockSize: "100%",
-  minBlockSize: 0,
-  overflow: "hidden",
 };
 
 const eyebrowStyle = {
@@ -6544,103 +6513,8 @@ const timelineTimestampCellStyle = {
   color: "var(--ct-colors-ink-muted)",
 };
 
-const splitShellStyle = {
-  position: "relative" as const,
-  display: "grid",
-  gap: 0,
-  alignItems: "stretch",
-  gridTemplateColumns: "minmax(0, 1fr)",
-  gridRow: 1,
-  blockSize: "100%",
-  minBlockSize: 0,
-  minHeight: 0,
-  minWidth: 0,
-  overflow: "hidden",
-  padding: 0,
-  boxSizing: "border-box" as const,
-};
-
-const viewBarStyle = {
-  position: "relative" as const,
-  zIndex: 4,
-  display: "block",
-  minHeight: "var(--ct-layout-viewBarHeight)",
-  marginBottom: 0,
-  border: 0,
-  borderRadius: 0,
-  background: "var(--ct-colors-surface-1)",
-  overflowX: "visible" as const,
-};
-
-const timelineMainColumnStyle = {
-  display: "grid",
-  gridTemplateRows: "auto minmax(0, 1fr)",
-  minHeight: 0,
-  minWidth: 0,
-  overflow: "hidden",
-};
-
-const timelineMainHeaderStyle = {
-  display: "grid",
-  gap: 0,
-  minWidth: 0,
-  position: "relative" as const,
-};
-
-const primaryGridSlotStyle = {
-  inlineSize: "100%",
-  blockSize: "100%",
-  minHeight: 0,
-  minWidth: 0,
-  overflow: "hidden",
-};
-
-const timelineGridOverlayShellStyle = {
-  position: "relative" as const,
-  display: "grid",
-  gridTemplateRows: "minmax(0, 1fr) auto",
-  inlineSize: "100%",
-  blockSize: "100%",
-  minHeight: 0,
-  minWidth: 0,
-  overflow: "hidden",
-};
-
-const inspectorSlotStyle = {
-  position: "absolute" as const,
-  zIndex: 8,
-  top: 0,
-  right: 0,
-  bottom: 0,
-  inlineSize:
-    "min(var(--ct-layout-inspectorDefaultWidth), calc(100% - var(--ct-spacing-xl)))",
-  minInlineSize:
-    "min(var(--ct-layout-inspectorMinWidth), calc(100% - var(--ct-spacing-xl)))",
-  maxInlineSize: "var(--ct-layout-inspectorMaxWidth)",
-  minHeight: 0,
-  overflow: "hidden",
-  boxShadow: "var(--ct-elevation-drawer)",
-  boxSizing: "border-box" as const,
-};
-
-const gridShellStyle = {
-  overflow: "hidden",
-  overflowAnchor: "none" as const,
-  borderRadius: 0,
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-1)",
-};
-
 const timelineGridShellStyle = {
-  ...gridShellStyle,
-  inlineSize: "100%",
-  blockSize: "100%",
-  minBlockSize: 0,
-};
-
-const timelineStatusStripStyle = {
-  ...statusStripStyle,
-  gridRow: 2,
+  ...workbookSurfaceGridShellStyle,
 } satisfies CSSProperties;
 
 const inputStyle = {
@@ -6853,3 +6727,10 @@ const noticeCardStyle = {
   gap: "0.5rem",
   boxShadow: "var(--ct-elevation-popover)",
 };
+
+const timelineNoticeOverlayStyle = {
+  ...noticeCardStyle,
+  ...workbookSurfaceOverlayPanelStyle,
+  insetBlockStart: "var(--ct-spacing-sm)",
+  insetInlineEnd: "auto",
+} satisfies CSSProperties;

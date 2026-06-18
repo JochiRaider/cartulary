@@ -154,9 +154,7 @@ describe("grid-adapter", () => {
       "calc(var(--ct-layout-statusStripHeight) + var(--ct-spacing-sm))",
     );
     expect(
-      grid.style.getPropertyValue(
-        "--cartulary-grid-scroll-margin-block-start",
-      ),
+      grid.style.getPropertyValue("--cartulary-grid-scroll-margin-block-start"),
     ).toBe("calc(32px + var(--ct-spacing-sm))");
     expect(
       grid.style.getPropertyValue("--cartulary-grid-scroll-margin-block-end"),
@@ -255,6 +253,44 @@ describe("grid-adapter", () => {
     );
     expect(["0", "0px"]).toContain(grid.style.minWidth);
     expect(grid.style.width).toBe("100%");
+  });
+
+  it("keeps standalone block sizing by default and supports shell-owned fill block sizing", async () => {
+    const rows: readonly GridRow<HarnessRow>[] = [
+      {
+        key: "record-1",
+        recordId: "record-1",
+        data: {
+          label: "Alpha",
+          state: "open",
+        },
+      },
+    ];
+
+    const { rerender } = render(
+      <GridViewport testId="block-sizing-grid-shell">
+        <GridTable columns={columns} rows={rows} />
+      </GridViewport>,
+    );
+
+    const gridShell = await screen.findByTestId("block-sizing-grid-shell");
+    const grid = gridShell.querySelector('[role="grid"]') as HTMLElement;
+    expect(gridShell.style.blockSize).toBe("min(70vh, 46rem)");
+    expect(gridShell.style.minBlockSize).toBe("18rem");
+    expect(grid.style.blockSize).toBe("100%");
+    expect(grid.style.overflow).toBe("auto");
+
+    rerender(
+      <GridViewport blockSizing="fill" testId="block-sizing-grid-shell">
+        <GridTable columns={columns} rows={rows} />
+      </GridViewport>,
+    );
+
+    expect(gridShell.style.blockSize).toBe("100%");
+    expect(gridShell.style.boxSizing).toBe("border-box");
+    expect(["0", "0px"]).toContain(gridShell.style.minBlockSize);
+    expect(grid.style.blockSize).toBe("100%");
+    expect(grid.style.overflow).toBe("auto");
   });
 
   it("keeps rows mounted when the real scroll position exceeds the fixed row-height estimate", async () => {

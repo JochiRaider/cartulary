@@ -49,7 +49,11 @@ import {
   gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
+  incidentControlsCloseButtonTestId,
+  incidentControlsMenuItemTestId,
+  incidentControlsMenuTestId,
   incidentControlsPanelTestId,
+  incidentControlsSections,
   incidentControlsTriggerTestId,
   incidentMembershipAdminNoteTestId,
   incidentMembershipCreateButtonTestId,
@@ -870,7 +874,26 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(currentIncidentRoleTestId()).toBe("current-incident-role");
     expect(incidentControlsTriggerTestId()).toBe("incident-controls-trigger");
+    expect(incidentControlsMenuTestId()).toBe("incident-controls-menu");
+    expect(incidentControlsSections).toEqual([
+      "summary",
+      "incident-fields",
+      "memberships",
+    ]);
+    expect(incidentControlsMenuItemTestId("summary")).toBe(
+      "incident-controls-menu-item-summary",
+    );
+    expect(incidentControlsMenuItemTestId("incident-fields")).toBe(
+      "incident-controls-menu-item-incident-fields",
+    );
+    expect(incidentControlsMenuItemTestId("memberships")).toBe(
+      "incident-controls-menu-item-memberships",
+    );
+    expect(() => incidentControlsMenuItemTestId("audit" as never)).toThrow(
+      "Invalid incident controls section token: audit",
+    );
     expect(incidentControlsPanelTestId()).toBe("incident-controls-panel");
+    expect(incidentControlsCloseButtonTestId()).toBe("incident-controls-close");
     expect(timelineInspectorSections).toEqual([
       "details",
       "relationships",

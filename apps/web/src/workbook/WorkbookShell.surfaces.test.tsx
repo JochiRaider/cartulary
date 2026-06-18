@@ -11,6 +11,12 @@ import {
   gridFilterValueTestId,
   gridSavedRowsSelector,
   gridShellTestId,
+  incidentControlsCloseButtonTestId,
+  incidentControlsMenuItemTestId,
+  incidentControlsMenuTestId,
+  incidentControlsPanelTestId,
+  incidentControlsTriggerTestId,
+  incidentMembershipCreateButtonTestId,
   rowCellTestId,
   rowInspectButtonTestId,
   savedViewCreateButtonTestId,
@@ -464,6 +470,68 @@ describe("WorkbookShell surface selection", () => {
     vi.unstubAllGlobals();
   });
 
+  it("opens incident controls from a menu into a bounded drawer without mounting all controls from the trigger", async () => {
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    const trigger = screen.getByTestId(incidentControlsTriggerTestId());
+    expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+    expect(screen.queryByTestId(incidentControlsPanelTestId())).toBeNull();
+
+    fireEvent.click(trigger);
+    const menu = await screen.findByTestId(incidentControlsMenuTestId());
+    expect(menu.getAttribute("role")).toBe("menu");
+    expect(screen.queryByTestId(incidentControlsPanelTestId())).toBeNull();
+    expect(
+      screen
+        .getByTestId(incidentControlsMenuItemTestId("incident-fields"))
+        .getAttribute("role"),
+    ).toBe("menuitem");
+
+    fireEvent.click(
+      screen.getByTestId(incidentControlsMenuItemTestId("summary")),
+    );
+    const panel = await screen.findByTestId(incidentControlsPanelTestId());
+    expect(panel.getAttribute("role")).toBe("dialog");
+    expect(panel.textContent).toContain("Summary and preferences");
+    expect(screen.queryByTestId(incidentControlsMenuTestId())).toBeNull();
+    expect(
+      (await screen.findByTestId("incident-summary-key")).textContent,
+    ).toBe("IR-1");
+
+    fireEvent.keyDown(panel, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByTestId(incidentControlsPanelTestId())).toBeNull();
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    fireEvent.click(trigger);
+    fireEvent.click(
+      await screen.findByTestId(
+        incidentControlsMenuItemTestId("incident-fields"),
+      ),
+    );
+    expect(await screen.findByTestId("incident-patch-button")).toBeTruthy();
+    expect(screen.queryByTestId("incident-summary-key")).toBeNull();
+    fireEvent.click(screen.getByTestId(incidentControlsCloseButtonTestId()));
+    await waitFor(() => {
+      expect(screen.queryByTestId(incidentControlsPanelTestId())).toBeNull();
+    });
+
+    fireEvent.click(trigger);
+    fireEvent.click(
+      await screen.findByTestId(incidentControlsMenuItemTestId("memberships")),
+    );
+    expect(
+      await screen.findByTestId(incidentMembershipCreateButtonTestId()),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByTestId(incidentControlsCloseButtonTestId()));
+    await waitFor(() => {
+      expect(screen.queryByTestId(incidentControlsPanelTestId())).toBeNull();
+    });
+  });
+
   it("selects required built-in and system view surfaces by view_schema_id", async () => {
     genericRowsByView[indicatorsViewSchemaId] = [
       indicatorRow("indicator-1", 1, "ipv4_addr", "203.0.113.42"),
@@ -473,12 +541,22 @@ describe("WorkbookShell surface selection", () => {
 
     const workbookShell = screen.getByTestId(workbookShellReadyTestId());
     expect(workbookShell.style.display).toBe("grid");
-    expect(workbookShell.style.gridTemplateRows).toBe(
-      "auto minmax(0, 1fr)",
-    );
+    expect(workbookShell.style.gridTemplateRows).toBe("auto minmax(0, 1fr)");
     expect(workbookShell.style.blockSize).toBe("100%");
     expect(["0", "0px"]).toContain(workbookShell.style.minBlockSize);
     expect(workbookShell.style.overflow).toBe("hidden");
+    const shellContentRegion = workbookShell.children[1];
+    expect(shellContentRegion).toBeInstanceOf(HTMLElement);
+    if (!(shellContentRegion instanceof HTMLElement)) {
+      throw new Error("Expected workbook shell content region to exist");
+    }
+    expect(shellContentRegion.style.blockSize).toBe("100%");
+    const shellActiveSurface = shellContentRegion.children[0];
+    expect(shellActiveSurface).toBeInstanceOf(HTMLElement);
+    expect((shellActiveSurface as HTMLElement).style.gridTemplateRows).toBe(
+      "minmax(0, 1fr)",
+    );
+    expect((shellActiveSurface as HTMLElement).style.blockSize).toBe("100%");
 
     const topBar = document.querySelector(
       dataTestIdSelector(workbookShellSlotTestId("top-bar")),
@@ -1080,10 +1158,12 @@ describe("WorkbookShell surface selection", () => {
     );
     expect(createButton.parentElement).toBe(homeButton.parentElement);
     expect(defaultButton.parentElement).toBe(createButton.parentElement);
-    expect((createButton.parentElement as HTMLElement | null)?.style.flexWrap)
-      .toBe("nowrap");
-    expect((createButton.parentElement as HTMLElement | null)?.style.whiteSpace)
-      .toBe("nowrap");
+    expect(
+      (createButton.parentElement as HTMLElement | null)?.style.flexWrap,
+    ).toBe("nowrap");
+    expect(
+      (createButton.parentElement as HTMLElement | null)?.style.whiteSpace,
+    ).toBe("nowrap");
 
     fireEvent.click(homeButton);
     fireEvent.click(defaultButton);

@@ -363,17 +363,21 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       gridShellTestId(hostsViewSchemaId),
     ).parentElement;
     expect(hostGridOverlayShell).toBeInstanceOf(HTMLElement);
-    expect((hostGridOverlayShell as HTMLElement).style.position).toBe(
-      "relative",
-    );
-    const hostSplitShell = hostGridOverlayShell?.parentElement?.parentElement;
-    expect(hostSplitShell).toBeInstanceOf(HTMLElement);
-    expect((hostSplitShell as HTMLElement).style.gridTemplateColumns).toBe(
+    expect((hostGridOverlayShell as HTMLElement).style.blockSize).toBe("100%");
+    const hostWorkArea = hostGridOverlayShell?.parentElement;
+    expect(hostWorkArea).toBeInstanceOf(HTMLElement);
+    expect((hostWorkArea as HTMLElement).style.position).toBe("relative");
+    expect((hostWorkArea as HTMLElement).style.gridTemplateRows).toBe(
       "minmax(0, 1fr)",
     );
     const hostInspector = screen.getByTestId(entityInspectorTestId("host"));
-    expect(hostInspector.style.position).toBe("absolute");
-    expect(["0", "0px"]).toContain(hostInspector.style.top);
+    const hostInspectorSlot = hostInspector.parentElement as HTMLElement;
+    expect(hostInspectorSlot.style.position).toBe("absolute");
+    expect(["0", "0px"]).toContain(
+      hostInspectorSlot.style.getPropertyValue("inset-block"),
+    );
+    expect(hostInspector.style.blockSize).toBe("100%");
+    expect(hostInspector.style.overflow).toBe("auto");
     fireEvent.change(
       screen.getByTestId(genericEditRecordSelectTestId(hostsViewSchemaId)),
       { target: { value: "host-1" } },

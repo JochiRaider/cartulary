@@ -1,4 +1,5 @@
 import {
+  type IncidentControlsSection,
   incidentMembershipAdminNoteTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,
@@ -51,6 +52,7 @@ type WorkbookPreferences = {
 type IncidentAdminPanelProps = {
   incidentId: string;
   currentIncidentRole: IncidentRole | null;
+  activeSection?: IncidentControlsSection | undefined;
   apiBase?: string | undefined;
   onIncidentAccessLost?: (() => void) | undefined;
   onIncidentSnapshot?: ((incident: IncidentSummary) => void) | undefined;
@@ -78,6 +80,7 @@ function upsertMembershipRoleDrafts(records: MembershipRecord[]) {
 export function IncidentAdminPanel({
   incidentId,
   currentIncidentRole,
+  activeSection = "summary",
   apiBase,
   onIncidentAccessLost,
   onIncidentSnapshot,
@@ -311,16 +314,19 @@ export function IncidentAdminPanel({
     setStatusText("Removed membership.");
   }
 
+  const activeSectionMeta = incidentControlsSectionMeta[activeSection];
+
   return (
-    <section aria-busy={incident === null} style={panelStyle}>
+    <section
+      aria-busy={incident === null}
+      data-incident-controls-section={activeSection}
+      style={panelStyle}
+    >
       <div style={headerStyle}>
         <div>
           <p style={eyebrowStyle}>Incident shell</p>
-          <h2 style={titleStyle}>Summary and admin controls</h2>
-          <p style={bodyStyle}>
-            The ordinary workbook route now carries visible Phase 2 summary,
-            preference, patch, and membership behavior.
-          </p>
+          <h2 style={titleStyle}>{activeSectionMeta.title}</h2>
+          <p style={bodyStyle}>{activeSectionMeta.description}</p>
         </div>
         <div style={statusCardStyle}>
           <span style={labelStyle}>Status</span>
@@ -349,96 +355,18 @@ export function IncidentAdminPanel({
         </p>
       )}
 
-      <div style={gridStyle}>
-        <section style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <div>
-              <p style={cardEyebrowStyle}>Direct retrieval</p>
-              <h3 style={cardTitleStyle}>Incident summary</h3>
-            </div>
-            <span
-              data-testid="incident-summary-version"
-              style={versionBadgeStyle}
-            >
-              Version {incident?.incident_version ?? "?"}
-            </span>
-          </div>
+      {activeSection === "summary" ? (
+        <div style={gridStyle}>
+          {renderIncidentSummary({
+            currentIncidentRole,
+            defaultPrefs,
+            incident,
+            userPrefs,
+          })}
+        </div>
+      ) : null}
 
-          <dl style={definitionGridStyle}>
-            <div>
-              <dt style={labelStyle}>Incident key</dt>
-              <dd data-testid="incident-summary-key" style={valueStyle}>
-                {incident?.incident_key ?? "Loading…"}
-              </dd>
-            </div>
-            <div>
-              <dt style={labelStyle}>Title</dt>
-              <dd data-testid="incident-summary-title" style={valueStyle}>
-                {incident?.title ?? "Loading…"}
-              </dd>
-            </div>
-            <div>
-              <dt style={labelStyle}>TLP</dt>
-              <dd data-testid="incident-summary-tlp" style={valueStyle}>
-                {displayValue(incident?.tlp)}
-              </dd>
-            </div>
-            <div>
-              <dt style={labelStyle}>Current phase</dt>
-              <dd
-                data-testid="incident-summary-current-phase"
-                style={valueStyle}
-              >
-                {displayValue(incident?.current_phase)}
-              </dd>
-            </div>
-            <div>
-              <dt style={labelStyle}>Primary external case</dt>
-              <dd
-                data-testid="incident-summary-primary-external-case-ref"
-                style={valueStyle}
-              >
-                {displayValue(incident?.primary_external_case_ref)}
-              </dd>
-            </div>
-            <div>
-              <dt style={labelStyle}>Current role</dt>
-              <dd data-testid="incident-summary-role" style={valueStyle}>
-                {currentIncidentRole || "viewer"}
-              </dd>
-            </div>
-          </dl>
-        </section>
-
-        <section style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <div>
-              <p style={cardEyebrowStyle}>Workbook preferences</p>
-              <h3 style={cardTitleStyle}>Bootstrap defaults</h3>
-            </div>
-          </div>
-
-          <dl style={definitionGridStyle}>
-            <div>
-              <dt style={labelStyle}>Incident default sheet</dt>
-              <dd
-                data-testid="incident-pref-default-sheet-ref"
-                style={valueStyle}
-              >
-                {displayValue(defaultPrefs?.default_sheet_ref)}
-              </dd>
-            </div>
-            <div>
-              <dt style={labelStyle}>My home sheet</dt>
-              <dd data-testid="incident-pref-home-sheet-ref" style={valueStyle}>
-                {displayValue(userPrefs?.home_sheet_ref)}
-              </dd>
-            </div>
-          </dl>
-        </section>
-      </div>
-
-      <div style={gridStyle}>
+      {activeSection === "incident-fields" ? (
         <section style={cardStyle}>
           <div style={cardHeaderStyle}>
             <div>
@@ -505,7 +433,9 @@ export function IncidentAdminPanel({
             </p>
           )}
         </section>
+      ) : null}
 
+      {activeSection === "memberships" ? (
         <section style={cardStyle}>
           <div style={cardHeaderStyle}>
             <div>
@@ -650,8 +580,127 @@ export function IncidentAdminPanel({
             ))}
           </div>
         </section>
-      </div>
+      ) : null}
     </section>
+  );
+}
+
+const incidentControlsSectionMeta = {
+  summary: {
+    title: "Summary and preferences",
+    description:
+      "Read incident summary fields and workbook bootstrap defaults.",
+  },
+  "incident-fields": {
+    title: "Promoted fields",
+    description: "Update promoted incident fields when your role allows edits.",
+  },
+  memberships: {
+    title: "Memberships",
+    description: "Review incident membership roles and manage access.",
+  },
+} satisfies Record<
+  IncidentControlsSection,
+  { readonly description: string; readonly title: string }
+>;
+
+function renderIncidentSummary({
+  currentIncidentRole,
+  defaultPrefs,
+  incident,
+  userPrefs,
+}: {
+  readonly currentIncidentRole: IncidentRole | null;
+  readonly defaultPrefs: WorkbookPreferences | null;
+  readonly incident: IncidentSummary | null;
+  readonly userPrefs: WorkbookPreferences | null;
+}) {
+  return (
+    <>
+      <section style={cardStyle}>
+        <div style={cardHeaderStyle}>
+          <div>
+            <p style={cardEyebrowStyle}>Direct retrieval</p>
+            <h3 style={cardTitleStyle}>Incident summary</h3>
+          </div>
+          <span
+            data-testid="incident-summary-version"
+            style={versionBadgeStyle}
+          >
+            Version {incident?.incident_version ?? "?"}
+          </span>
+        </div>
+
+        <dl style={definitionGridStyle}>
+          <div>
+            <dt style={labelStyle}>Incident key</dt>
+            <dd data-testid="incident-summary-key" style={valueStyle}>
+              {incident?.incident_key ?? "Loading…"}
+            </dd>
+          </div>
+          <div>
+            <dt style={labelStyle}>Title</dt>
+            <dd data-testid="incident-summary-title" style={valueStyle}>
+              {incident?.title ?? "Loading…"}
+            </dd>
+          </div>
+          <div>
+            <dt style={labelStyle}>TLP</dt>
+            <dd data-testid="incident-summary-tlp" style={valueStyle}>
+              {displayValue(incident?.tlp)}
+            </dd>
+          </div>
+          <div>
+            <dt style={labelStyle}>Current phase</dt>
+            <dd data-testid="incident-summary-current-phase" style={valueStyle}>
+              {displayValue(incident?.current_phase)}
+            </dd>
+          </div>
+          <div>
+            <dt style={labelStyle}>Primary external case</dt>
+            <dd
+              data-testid="incident-summary-primary-external-case-ref"
+              style={valueStyle}
+            >
+              {displayValue(incident?.primary_external_case_ref)}
+            </dd>
+          </div>
+          <div>
+            <dt style={labelStyle}>Current role</dt>
+            <dd data-testid="incident-summary-role" style={valueStyle}>
+              {currentIncidentRole || "viewer"}
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section style={cardStyle}>
+        <div style={cardHeaderStyle}>
+          <div>
+            <p style={cardEyebrowStyle}>Workbook preferences</p>
+            <h3 style={cardTitleStyle}>Bootstrap defaults</h3>
+          </div>
+        </div>
+
+        <dl style={definitionGridStyle}>
+          <div>
+            <dt style={labelStyle}>Incident default sheet</dt>
+            <dd
+              data-testid="incident-pref-default-sheet-ref"
+              style={valueStyle}
+            >
+              {displayValue(defaultPrefs?.default_sheet_ref)}
+            </dd>
+          </div>
+          <div>
+            <dt style={labelStyle}>My home sheet</dt>
+            <dd data-testid="incident-pref-home-sheet-ref" style={valueStyle}>
+              {displayValue(userPrefs?.home_sheet_ref)}
+            </dd>
+          </div>
+        </dl>
+      </section>
+    </>
   );
 }
 

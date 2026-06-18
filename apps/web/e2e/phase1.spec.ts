@@ -1,5 +1,8 @@
 import {
   currentIncidentRoleTestId,
+  type IncidentControlsSection,
+  incidentControlsMenuItemTestId,
+  incidentControlsMenuTestId,
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
   incidentMembershipDeleteButtonTestId,
@@ -39,8 +42,17 @@ import {
 } from "./helpers";
 import { Phase1Page } from "./phase1Page";
 
-async function openIncidentControls(page: Page) {
-  await page.getByTestId(incidentControlsTriggerTestId()).click();
+async function openIncidentControls(
+  page: Page,
+  section: IncidentControlsSection = "summary",
+) {
+  const trigger = page.getByTestId(incidentControlsTriggerTestId());
+  await expect(trigger).toHaveAttribute("aria-haspopup", "menu");
+  await trigger.click();
+  await expect(page.getByTestId(incidentControlsMenuTestId())).toBeVisible();
+  const menuItem = page.getByTestId(incidentControlsMenuItemTestId(section));
+  await expect(menuItem).toHaveAttribute("role", "menuitem");
+  await menuItem.click();
   await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
 }
 
@@ -717,7 +729,7 @@ test("E-1-10 clears a stale selected incident after membership removal while pre
   await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
     "Current incident role: admin",
   );
-  await openIncidentControls(page);
+  await openIncidentControls(page, "memberships");
   await expect(
     page.getByTestId(incidentMembershipRowTestId(targetUser.user_id)),
   ).toBeVisible();
@@ -807,11 +819,12 @@ test("E-1-11 observes current-role authorization on a stale reviewer edit throug
   await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
     "Current incident role: reviewer",
   );
-  await openIncidentControls(page);
-  await expect(page.getByTestId("incident-patch-button")).toBeVisible();
+  await openIncidentControls(page, "memberships");
   await expect(
     page.getByTestId(incidentMembershipRoleDisplayTestId(targetUser.user_id)),
   ).toHaveText("reviewer");
+  await openIncidentControls(page, "incident-fields");
+  await expect(page.getByTestId("incident-patch-button")).toBeVisible();
 
   const reviewerMembership = await loadIncidentMembership(
     workerAdminRequest,
@@ -850,7 +863,7 @@ test("E-1-11 observes current-role authorization on a stale reviewer edit throug
   await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
     "Current incident role: editor",
   );
-  await openIncidentControls(page);
+  await openIncidentControls(page, "incident-fields");
   await expect(page.getByTestId("incident-patch-readonly-note")).toBeVisible();
 });
 

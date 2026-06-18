@@ -4,9 +4,7 @@ import type {
   GridRowGutter,
 } from "@cartulary/grid-adapter";
 import { type CSSProperties, forwardRef } from "react";
-import { WorkbookShellSlotRegion } from "../../components/WorkbookShellSlots";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
-import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 import { TimelineWorkbookGrid } from "./TimelineWorkbookGrid";
 
@@ -18,7 +16,6 @@ export type TimelineGridSurfaceProps = {
   readonly onToggleSort: (fieldKey: string) => void;
   readonly rowGutter: GridRowGutter;
   readonly rows: readonly WorkbookRow[];
-  readonly slotStyle?: CSSProperties;
   readonly sort: WorkbookQueryState["sort"];
   readonly style: CSSProperties;
   readonly timelineGridRows: readonly GridRow<WorkbookRow>[];
@@ -36,7 +33,6 @@ export const TimelineGridSurface = forwardRef<
     onToggleSort,
     rowGutter,
     rows,
-    slotStyle,
     sort,
     style,
     timelineGridRows,
@@ -44,24 +40,18 @@ export const TimelineGridSurface = forwardRef<
   ref,
 ) {
   return (
-    <WorkbookShellSlotRegion
-      slot="primary-grid"
-      style={slotStyle}
-      viewSchemaId={timelineViewSchemaId}
-    >
-      <TimelineWorkbookGrid
-        columns={columns}
-        getGroupLabel={getGroupLabel}
-        getGroupRowTestId={getGroupRowTestId}
-        groupBy={groupBy}
-        onToggleSort={onToggleSort}
-        ref={ref}
-        rowGutter={rowGutter}
-        rows={rows}
-        sort={sort}
-        style={style}
-        timelineGridRows={timelineGridRows}
-      />
-    </WorkbookShellSlotRegion>
+    <TimelineWorkbookGrid
+      columns={columns}
+      getGroupLabel={getGroupLabel}
+      getGroupRowTestId={getGroupRowTestId}
+      groupBy={groupBy}
+      onToggleSort={onToggleSort}
+      ref={ref}
+      rowGutter={rowGutter}
+      rows={rows}
+      sort={sort}
+      style={style}
+      timelineGridRows={timelineGridRows}
+    />
   );
 });

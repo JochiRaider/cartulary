@@ -24,6 +24,11 @@ The implementation MUST preserve the spreadsheet mental model at the view layer 
 Profiles: base
 Verified by: AC-001, AC-002, AC-005, AC-043, AC-231
 
+**REQ-03-286**
+Every workbook surface MUST render inside a shell-owned work area between the active surface view bar and the status strip. That work area MUST fill the available workbook shell block size. The primary grid and, when open, the inspector MUST fill that same work area while allowing grid content and inspector content to scroll independently. Workbook layout MUST NOT introduce document-level vertical scrolling. Work-area and inspector block geometry MUST be independent of rendered row count and MUST remain stable for zero, one, three, and many rendered rows, including empty, loading, error, and draft-row states. Implementations MUST NOT satisfy this requirement by inserting synthetic rows, calculating surface height from row count, applying fixed `100vh - Npx` offsets, or adding surface-specific minimum-height workarounds.
+Profiles: base
+Verified by: AC-005, AC-043, AC-231
+
 ## 2. Workbook surface
 
 ### 2.1 Built-in tabs

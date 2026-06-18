@@ -108,18 +108,30 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     const primaryGridSlot = screen.getByTestId(
       workbookShellSlotTestId("primary-grid"),
     );
-    const gridOverlayShell = primaryGridSlot.parentElement;
-    expect(gridOverlayShell).toBeInstanceOf(HTMLElement);
-    expect((gridOverlayShell as HTMLElement).style.position).toBe("relative");
-    expect((gridOverlayShell as HTMLElement).style.inlineSize).toBe("100%");
-    expect((gridOverlayShell as HTMLElement).style.blockSize).toBe("100%");
-    expect(primaryGridSlot.style.inlineSize).toBe("100%");
-    expect(primaryGridSlot.style.blockSize).toBe("100%");
-    const splitShell = gridOverlayShell?.parentElement?.parentElement;
-    expect(splitShell).toBeInstanceOf(HTMLElement);
-    expect((splitShell as HTMLElement).style.gridTemplateColumns).toBe(
+    const workArea = primaryGridSlot.parentElement;
+    expect(workArea).toBeInstanceOf(HTMLElement);
+    expect((workArea as HTMLElement).style.position).toBe("relative");
+    expect((workArea as HTMLElement).style.display).toBe("grid");
+    expect((workArea as HTMLElement).style.gridTemplateRows).toBe(
       "minmax(0, 1fr)",
     );
+    expect((workArea as HTMLElement).style.inlineSize).toBe("100%");
+    expect((workArea as HTMLElement).style.blockSize).toBe("100%");
+    expect((workArea as HTMLElement).style.overflow).toBe("hidden");
+    expect(primaryGridSlot.style.inlineSize).toBe("100%");
+    expect(primaryGridSlot.style.blockSize).toBe("100%");
+    const workbookShell = workArea?.parentElement;
+    expect(workbookShell).toBeInstanceOf(HTMLElement);
+    expect((workbookShell as HTMLElement).style.gridTemplateRows).toBe(
+      "auto var(--ct-layout-viewBarHeight) minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+    );
+    expect(
+      screen.getByTestId(workbookShellSlotTestId("view-bar")).style.gridRow,
+    ).toBe("2");
+    expect((workArea as HTMLElement).style.gridRow).toBe("3");
+    expect(
+      screen.getByTestId(workbookShellSlotTestId("status-strip")).style.gridRow,
+    ).toBe("4");
     const gridShell = screen.getByTestId(gridShellTestId(timelineViewSchemaId));
     expect(gridShell.style.inlineSize).toBe("100%");
     expect(gridShell.style.blockSize).toBe("100%");
@@ -148,11 +160,18 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     const inspectorSlot = screen.getByTestId("timeline-inspector")
       .parentElement as HTMLElement;
     expect(inspectorSlot.style.position).toBe("absolute");
-    expect(["0", "0px"]).toContain(inspectorSlot.style.top);
-    expect(["0", "0px"]).toContain(inspectorSlot.style.right);
-    expect(["0", "0px"]).toContain(inspectorSlot.style.bottom);
+    expect(["0", "0px"]).toContain(
+      inspectorSlot.style.getPropertyValue("inset-block"),
+    );
+    expect(["0", "0px"]).toContain(
+      inspectorSlot.style.getPropertyValue("inset-inline-end"),
+    );
     expect(inspectorSlot.style.zIndex).toBe("8");
-    expect((splitShell as HTMLElement).style.gridTemplateColumns).toBe(
+    expect(inspectorSlot.style.inlineSize).toBe(
+      "min(var(--ct-layout-inspectorDefaultWidth), calc(100% - var(--ct-spacing-xl)))",
+    );
+    expect(inspectorSlot.style.overflow).toBe("hidden");
+    expect((workArea as HTMLElement).style.gridTemplateRows).toBe(
       "minmax(0, 1fr)",
     );
     expect(gridShell.style.inlineSize).toBe("100%");

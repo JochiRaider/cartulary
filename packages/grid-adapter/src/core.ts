@@ -72,8 +72,10 @@ export type GridActionsColumn<Row> = {
 };
 
 export type GridChrome = "sheet" | "framed";
+export type GridBlockSizing = "standalone" | "fill";
 
 export type GridViewportProps = PropsWithChildren<{
+  readonly blockSizing?: GridBlockSizing | undefined;
   readonly className?: string | undefined;
   readonly chrome?: GridChrome | undefined;
   readonly style?: CSSProperties | undefined;

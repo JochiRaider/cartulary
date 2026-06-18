@@ -686,6 +686,8 @@ Design contract. The application shell MUST contain the regions in the table bel
 
 Design contract. The default Timeline workbook shell at `{layout.baseViewport}` MUST show the top bar, compact sheet toolbar, active Timeline grid, explicit inspector opener, bottom draft row when creation is allowed, and status strip as the dominant first-viewport structure. The inspector MUST be closed by default and MUST open only through explicit controls such as the toolbar inspector control, row action menu, history action, mention action, or equivalent keyboard-accessible command. Incident summary, bootstrap defaults, membership management, promoted-field patch forms, or other administration/control surfaces MUST NOT dominate the default Timeline path above the active grid; those controls are valid only inside an explicitly opened secondary surface or a distinct administration context.
 
+Design contract. The active surface work area between the view bar and status strip MUST own workbook vertical sizing. The grid and an open inspector MUST fill that same work area regardless of whether the surface renders zero, one, three, or many rows, and the same geometry MUST hold for empty, loading, error, and draft-row states. Grid content and inspector content MUST scroll independently inside the work area, the status strip MUST remain anchored at the bottom of the shell, and the workbook layout MUST NOT create document-level vertical scrolling. Synthetic filler rows, row-count height calculations, fixed `100vh - Npx` offsets, and surface-specific minimum-height workarounds are not valid design strategies.
+
 Design contract. A shell region MAY be visually collapsed only when the responsive algorithm in §7.5 assigns its controls to another reachable region. Omission behavior: a collapsed region with no assigned controls renders no visible container.
 
 ### 7.2 Shell-exposure surface registry
@@ -740,6 +742,8 @@ Design contract. The inspector MUST use the following default and bounds.
 | Close affordance | Visible control with accessible name `Close inspector`. |
 | Pin affordance | Visible control with accessible name `Pin inspector` or `Unpin inspector`. |
 
+Design contract. Inspector height is the work-area height defined in §7.1, not the rendered grid-body height. Long inspector content MUST scroll inside the inspector panel without changing the inspector slot boundaries, grid height, or status-strip position.
+
 Design contract. If the inspector opens as an overlay in a narrower viewport band, the grid behind the overlay MUST be inert to pointer and keyboard until the overlay closes.
 
 ### 7.4 Responsive band selection
@@ -765,6 +769,8 @@ Design contract. Each viewport band MUST render according to this table.
 | `narrow_desktop` | Selected by algorithm above. | Incident identity, `Surfaces`, active-surface query controls, `System views`, current surface title, presence summary. | Saved-view and row-action controls. | Primary; visible when overlays are closed. | Full-height right overlay; grid inert behind overlay. | Visible primary save label and secondary message. | Claimed. |
 | `compact_desktop` | Selected by algorithm above. | Incident identity, `Surfaces`, `System views`, current surface title, active-surface controls with chips in `Filters` popover. | Saved-view and row-action controls remain reachable. | Primary when overlays are closed. | Full-screen or full-height overlay; grid inert behind overlay. | Visible primary save label; presence summary assigned here. | Claimed. |
 | `below_supported_minimum` | Selected by algorithm above. | Safe navigation and session controls remain reachable. | Not required except safe save/conflict path. | Degraded; horizontal scroll or supported-viewport message permitted. | Not required. | Primary save label MUST remain visible when unsaved work exists. | Not claimed. |
+
+Design contract. Responsive overlay modes MUST preserve the same shell-owned work-area block bounds as adjacent inspector mode. Overlay placement MAY change with the viewport band, but it MUST NOT move save-state out of the status strip, make inspector height depend on grid rows, or push the shell into document-level vertical scrolling.
 
 Design contract. Below the supported minimum, keyboard session logout and safe navigation MUST remain available. Omission of mobile/touch-specific gestures is conformant.
 

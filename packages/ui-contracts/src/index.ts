@@ -180,6 +180,17 @@ export const landingAdminPanelTokens = [
 
 export type LandingAdminShellSelector = "menu" | "shell" | "status-strip";
 
+export type IncidentControlsSection =
+  | "incident-fields"
+  | "memberships"
+  | "summary";
+
+export const incidentControlsSections = [
+  "summary",
+  "incident-fields",
+  "memberships",
+] as const satisfies readonly IncidentControlsSection[];
+
 export type Phase1RouteSelector =
   | "app-shell"
   | "debug-harness-loading"
@@ -556,8 +567,24 @@ export function incidentControlsTriggerTestId(): StableTestId {
   return stableTestId("incident-controls-trigger");
 }
 
+export function incidentControlsMenuTestId(): StableTestId {
+  return stableTestId("incident-controls-menu");
+}
+
+export function incidentControlsMenuItemTestId(
+  section: IncidentControlsSection,
+): StableTestId {
+  return stableTestId(
+    `incident-controls-menu-item-${requireIncidentControlsSection(section)}`,
+  );
+}
+
 export function incidentControlsPanelTestId(): StableTestId {
   return stableTestId("incident-controls-panel");
+}
+
+export function incidentControlsCloseButtonTestId(): StableTestId {
+  return stableTestId("incident-controls-close");
 }
 
 export function timelineInspectorSectionTestId(
@@ -1344,6 +1371,16 @@ function requireLandingAdminPanel(
     return panel;
   }
   throw new Error(`Invalid landing admin panel token: ${String(panel)}`);
+}
+
+function requireIncidentControlsSection(
+  section: IncidentControlsSection,
+): IncidentControlsSection {
+  return requireClosedToken(
+    incidentControlsSections,
+    section,
+    "incident controls section",
+  );
 }
 
 const incidentMembershipControlPrefixes = {

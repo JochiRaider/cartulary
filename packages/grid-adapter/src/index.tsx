@@ -24,6 +24,7 @@ import {
   assertGridRows,
   buildGridPresentationRows,
   type GridActionsColumn,
+  type GridBlockSizing,
   type GridChrome,
   type GridColumn,
   type GridDensity,
@@ -42,6 +43,7 @@ export {
   cleanupGridAdapters,
   type GridActionsColumn,
   type GridAdapterCleanup,
+  type GridBlockSizing,
   type GridCellAnchor,
   type GridCellSelection,
   type GridChrome,
@@ -107,7 +109,14 @@ const gridDensityMetrics = {
 
 export const GridViewport = forwardRef<HTMLDivElement, GridViewportProps>(
   function GridViewport(
-    { children, chrome = "sheet", className, style, testId }: GridViewportProps,
+    {
+      blockSizing = "standalone",
+      children,
+      chrome = "sheet",
+      className,
+      style,
+      testId,
+    }: GridViewportProps,
     ref: ForwardedRef<HTMLDivElement>,
   ) {
     return (
@@ -116,7 +125,7 @@ export const GridViewport = forwardRef<HTMLDivElement, GridViewportProps>(
         data-grid-chrome={chrome}
         data-testid={testId}
         ref={ref}
-        style={resolveViewportStyle(style, chrome)}
+        style={resolveViewportStyle(style, chrome, blockSizing)}
       >
         {children}
       </div>
@@ -650,9 +659,11 @@ function resolveGridInlineSize<Row>(
 function resolveViewportStyle(
   style?: CSSProperties,
   chrome: GridChrome = "sheet",
+  blockSizing: GridBlockSizing = "standalone",
 ): CSSProperties {
   return {
     ...(chrome === "framed" ? framedViewportStyle : sheetViewportStyle),
+    ...(blockSizing === "fill" ? fillViewportBlockSizingStyle : null),
     ...style,
   };
 }
@@ -779,6 +790,12 @@ const framedViewportStyle = {
   ...sheetViewportStyle,
   borderRadius: "var(--ct-rounded-sm)",
 };
+
+const fillViewportBlockSizingStyle = {
+  boxSizing: "border-box" as const,
+  blockSize: "100%",
+  minBlockSize: 0,
+} satisfies CSSProperties;
 
 const gridStyle = {
   display: "grid",

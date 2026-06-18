@@ -26,6 +26,8 @@ import {
   gridGroupRowTestId,
   gridShellTestId,
   gridSortHeaderTestId,
+  incidentControlsMenuItemTestId,
+  incidentControlsMenuTestId,
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
   landingAdminMenuItemTestId,
@@ -2998,6 +3000,12 @@ test.describe("FE-P1 accessibility readiness", () => {
       );
       await page.getByTestId(incidentControlsTriggerTestId()).click();
       await expect(
+        page.getByTestId(incidentControlsMenuTestId()),
+      ).toBeVisible();
+      await page
+        .getByTestId(incidentControlsMenuItemTestId("incident-fields"))
+        .click();
+      await expect(
         page.getByTestId(incidentControlsPanelTestId()),
       ).toBeVisible();
       await expectStatusRole(page.getByTestId("incident-admin-status"));
@@ -3043,6 +3051,12 @@ test.describe("FE-P1 accessibility readiness", () => {
         "admin",
       );
       await page.getByTestId(incidentControlsTriggerTestId()).click();
+      await expect(
+        page.getByTestId(incidentControlsMenuTestId()),
+      ).toBeVisible();
+      await page
+        .getByTestId(incidentControlsMenuItemTestId("incident-fields"))
+        .click();
       await expect(
         page.getByTestId(incidentControlsPanelTestId()),
       ).toBeVisible();

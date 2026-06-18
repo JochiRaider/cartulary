@@ -165,6 +165,8 @@ A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to stat
 
 *Design direction.* The default Timeline route MUST be grid-first: the first-viewport composition centers the active Timeline grid, compact sheet toolbar, explicit inspector opener, bottom draft row when creation is allowed, and status strip. The inspector MUST be closed by default and MUST open only through explicit controls such as the toolbar inspector control, row action menu, history action, mention action, or equivalent keyboard-accessible command. Incident summary, bootstrap defaults, membership management, promoted-field patch forms, or other incident administration controls MUST NOT appear as a dominant card stack above the active grid unless the user explicitly opens a secondary incident-control surface or navigates to a distinct administration context.
 
+*Design direction.* The workbook work area between the view bar and status strip MUST own vertical sizing. The active grid and an open inspector MUST fill that same work area for zero, one, three, and many rendered rows, including empty, loading, error, and draft-row states. Grid content and inspector content MUST scroll independently, the status strip MUST remain at the bottom of the shell, and the workbook layout MUST NOT create document-level vertical scrolling. Synthetic filler rows, row-count height calculations, fixed `100vh - Npx` offsets, and surface-specific minimum-height patches are rejected because they make future workbook surfaces brittle.
+
 ### 5.2 Surface composition in the shell
 
 *Core behavior.* Core 03 requires five built-in tabs in the base profile: Timeline, Hosts, Identities, Evidence, and Notes. It also requires additional contract-backed system views and keeps structured coordination artifacts workbook-native rather than separate modules.[^4]
@@ -231,6 +233,8 @@ A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to stat
 ```
 
 When opened explicitly, the inspector is mounted adjacent to the grid at base viewport and exposes Details, Relationships, Evidence, History, and specialized row actions without replacing ordinary grid editing.
+
+*Design direction.* Inspector height MUST follow the shell-owned work area shown in the wireframe, not the number of rows currently rendered in the grid. Long inspector content MUST scroll inside the inspector while the grid scrolls independently.
 
 ### 5.7 Status-strip density budget
 

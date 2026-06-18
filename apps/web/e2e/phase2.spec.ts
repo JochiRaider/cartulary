@@ -3,6 +3,9 @@ import {
   dataTestIdSelector,
   genericCreateFieldTestId,
   gridShellTestId,
+  type IncidentControlsSection,
+  incidentControlsMenuItemTestId,
+  incidentControlsMenuTestId,
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
   incidentMembershipAdminNoteTestId,
@@ -52,14 +55,63 @@ import {
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
-async function openIncidentControls(page: Page) {
-  await page.getByTestId(incidentControlsTriggerTestId()).click();
+async function openIncidentControls(
+  page: Page,
+  section: IncidentControlsSection = "summary",
+) {
+  const trigger = page.getByTestId(incidentControlsTriggerTestId());
+  await expect(trigger).toHaveAttribute("aria-haspopup", "menu");
+  await trigger.click();
+  await expect(page.getByTestId(incidentControlsMenuTestId())).toBeVisible();
+  const menuItem = page.getByTestId(incidentControlsMenuItemTestId(section));
+  await expect(menuItem).toHaveAttribute("role", "menuitem");
+  await menuItem.click();
   await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
+}
+
+async function readWorkbookLayoutRects(page: Page) {
+  return page.evaluate(
+    ({ gridSelector, primaryGridSelector, statusStripSelector }) => {
+      const roundRect = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector);
+        if (element === null) {
+          throw new Error(`Expected ${selector} to exist`);
+        }
+        const rect = element.getBoundingClientRect();
+        return {
+          bottom: Math.round(rect.bottom),
+          height: Math.round(rect.height),
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          top: Math.round(rect.top),
+          width: Math.round(rect.width),
+        };
+      };
+      return {
+        grid: roundRect(gridSelector),
+        primaryGrid: roundRect(primaryGridSelector),
+        statusStrip: roundRect(statusStripSelector),
+      };
+    },
+    {
+      gridSelector: dataTestIdSelector(gridShellTestId(timelineViewSchemaId)),
+      primaryGridSelector: dataTestIdSelector(
+        workbookShellSlotTestId("primary-grid"),
+      ),
+      statusStripSelector: dataTestIdSelector(
+        workbookShellSlotTestId("status-strip"),
+      ),
+    },
+  );
 }
 
 test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface", async ({
   page,
 }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => {
+    pageErrors.push(error.message);
+  });
   await page.goto("/");
 
   const incidentKey = uniqueIncidentKey("E201");
@@ -136,7 +188,15 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
     "Current incident role: admin",
   );
+  const closedLayout = await readWorkbookLayoutRects(page);
   await openIncidentControls(page);
+  const openLayout = await readWorkbookLayoutRects(page);
+  expect(pageErrors).toEqual([]);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  expect(openLayout).toEqual(closedLayout);
   await expect(page.getByTestId("incident-summary-key")).toHaveText(
     incidentKey,
   );
@@ -451,6 +511,7 @@ test("E-2-02 shows incident discovery, raw querystring deep-link retrieval, and 
     page.getByTestId("incident-summary-primary-external-case-ref"),
   ).toHaveText("Unset");
 
+  await openIncidentControls(page, "incident-fields");
   await page.getByTestId("incident-patch-tlp").fill("amber");
   await page.getByTestId("incident-patch-current-phase").fill("containment");
   await page
@@ -458,6 +519,7 @@ test("E-2-02 shows incident discovery, raw querystring deep-link retrieval, and 
     .fill("CASE-E202-PRIMARY");
   await page.getByTestId("incident-patch-button").click();
 
+  await openIncidentControls(page);
   await expect(page.getByTestId("incident-summary-version")).toHaveText(
     "Version 2",
   );
@@ -497,7 +559,7 @@ test("E-2-03 lets incident admins manage memberships and hides those controls fr
   );
 
   await openIncidentFromLanding(page, incidentId);
-  await openIncidentControls(page);
+  await openIncidentControls(page, "memberships");
 
   await page
     .getByTestId(incidentMembershipEmailInputTestId())
@@ -537,7 +599,7 @@ test("E-2-03 lets incident admins manage memberships and hides those controls fr
     userId: memberUser.user_id,
   });
 
-  await openIncidentControls(memberPage);
+  await openIncidentControls(memberPage, "memberships");
   await expect(
     memberPage.getByTestId(incidentMembershipAdminNoteTestId()),
   ).toBeVisible();

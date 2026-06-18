@@ -16,6 +16,7 @@ export {
   assertGridRows,
   buildGridPresentationRows,
   type GridActionsColumn,
+  type GridBlockSizing,
   type GridCellAnchor,
   type GridCellSelection,
   type GridColumn,

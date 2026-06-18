@@ -47,6 +47,7 @@ export const TimelineWorkbookGrid = forwardRef<
 ) {
   return (
     <GridViewport
+      blockSizing="fill"
       ref={ref}
       style={style}
       testId={gridShellTestId(timelineViewSchemaId)}
