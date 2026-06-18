@@ -28,6 +28,7 @@ import {
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   workbookInspectorToggleTestId,
+  workbookShellReadyTestId,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -469,6 +470,15 @@ describe("WorkbookShell surface selection", () => {
     ];
 
     render(<WorkbookShell incidentId="incident-1" />);
+
+    const workbookShell = screen.getByTestId(workbookShellReadyTestId());
+    expect(workbookShell.style.display).toBe("grid");
+    expect(workbookShell.style.gridTemplateRows).toBe(
+      "auto minmax(0, 1fr)",
+    );
+    expect(workbookShell.style.blockSize).toBe("100%");
+    expect(["0", "0px"]).toContain(workbookShell.style.minBlockSize);
+    expect(workbookShell.style.overflow).toBe("hidden");
 
     const topBar = document.querySelector(
       dataTestIdSelector(workbookShellSlotTestId("top-bar")),

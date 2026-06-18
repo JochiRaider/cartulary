@@ -147,6 +147,20 @@ describe("grid-adapter", () => {
     expect(grid.style.gridTemplateColumns).toBe("224px 224px 176px");
     expect(grid.style.minWidth).toBe("1248px");
     expect(grid.style.width).toBe("1248px");
+    expect(grid.style.scrollPaddingBlockStart).toBe(
+      "calc(32px + var(--ct-spacing-sm))",
+    );
+    expect(grid.style.scrollPaddingBlockEnd).toBe(
+      "calc(var(--ct-layout-statusStripHeight) + var(--ct-spacing-sm))",
+    );
+    expect(
+      grid.style.getPropertyValue(
+        "--cartulary-grid-scroll-margin-block-start",
+      ),
+    ).toBe("calc(32px + var(--ct-spacing-sm))");
+    expect(
+      grid.style.getPropertyValue("--cartulary-grid-scroll-margin-block-end"),
+    ).toBe("calc(var(--ct-layout-statusStripHeight) + var(--ct-spacing-sm))");
     expect(grid.querySelectorAll('[class*="rdg-resize-handle"]')).toHaveLength(
       0,
     );

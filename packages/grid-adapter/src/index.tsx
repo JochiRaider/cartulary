@@ -81,6 +81,9 @@ const defaultActionsColumnWidth = 176;
 const defaultRowGutterMinWidth = 48;
 const defaultRowGutterWidth = 56;
 const gridHeaderHeight = 32;
+const gridScrollPaddingBlockStart = `calc(${gridHeaderHeight}px + var(--ct-spacing-sm))`;
+const gridScrollPaddingBlockEnd =
+  "calc(var(--ct-layout-statusStripHeight) + var(--ct-spacing-sm))";
 const gridDensityMetrics = {
   compact: {
     cellPaddingVar: "--ct-density-compact-cellPadding",
@@ -783,6 +786,8 @@ const gridStyle = {
   blockSize: "100%",
   overflow: "auto",
   overflowAnchor: "none" as const,
+  scrollPaddingBlockStart: gridScrollPaddingBlockStart,
+  scrollPaddingBlockEnd: gridScrollPaddingBlockEnd,
   fontFamily: "var(--ct-typography-grid-cell-fontFamily)",
   fontSize: "var(--ct-typography-grid-cell-fontSize)",
   fontVariantNumeric: "tabular-nums",
@@ -795,6 +800,8 @@ const gridStyle = {
   "--rdg-row-hover-background-color": "rgba(250, 204, 21, 0.04)",
   "--rdg-row-selected-background-color": "var(--ct-colors-surface-3)",
   "--rdg-row-selected-hover-background-color": "var(--ct-colors-surface-3)",
+  "--cartulary-grid-scroll-margin-block-start": gridScrollPaddingBlockStart,
+  "--cartulary-grid-scroll-margin-block-end": gridScrollPaddingBlockEnd,
 } satisfies CSSProperties & Record<string, string | number>;
 
 const rowContentsStyle = {

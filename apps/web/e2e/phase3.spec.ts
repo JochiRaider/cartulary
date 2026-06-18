@@ -34,6 +34,7 @@ import {
   clickTimelineRowAction,
   commitInspectorScalarEdit,
   openTimelineInspector,
+  openTimelineRowActions,
 } from "./phase4Helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
@@ -204,6 +205,7 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
     reviewerPage.getByTestId(timelineRowVersionTestId(recordId)),
   ).toHaveText("3");
 
+  await openTimelineRowActions(reviewerPage, recordId);
   await reviewerPage
     .getByTestId(timelineRowReplacementInputTestId(recordId))
     .fill(replacementId);
@@ -226,6 +228,7 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
   await expect(
     reviewerPage.getByTestId(timelineRowVersionTestId(recordId)),
   ).toHaveText("4");
+  await openTimelineRowActions(reviewerPage, recordId);
   await expect(
     reviewerPage.getByTestId(timelineRowMarkReviewedButtonTestId(recordId)),
   ).toBeDisabled();

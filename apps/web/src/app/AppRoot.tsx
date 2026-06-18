@@ -16,9 +16,20 @@ export function AppRoot({ readingProfile = "default" }: AppRootProps = {}) {
       <style>{cartularyDesignThemeCssText}</style>
       <style>
         {`
+          :root {
+            --ct-app-viewport-block-size: 100vh;
+          }
+
+          @supports (height: 100dvh) {
+            :root {
+              --ct-app-viewport-block-size: 100dvh;
+            }
+          }
+
           html,
           body,
           #root {
+            block-size: 100%;
             min-height: 100%;
             margin: 0;
           }
@@ -28,7 +39,12 @@ export function AppRoot({ readingProfile = "default" }: AppRootProps = {}) {
           }
 
           #root {
-            min-height: 100vh;
+            min-height: var(--ct-app-viewport-block-size);
+          }
+
+          .cartulary-grid :where(button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])) {
+            scroll-margin-block-start: var(--cartulary-grid-scroll-margin-block-start);
+            scroll-margin-block-end: var(--cartulary-grid-scroll-margin-block-end);
           }
 
           .cartulary-shell :where(button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])):focus {

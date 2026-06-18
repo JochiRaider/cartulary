@@ -8,6 +8,7 @@ import {
   sortByHeader,
 } from "@cartulary/test-utils";
 import {
+  dataTestIdSelector,
   gridGroupRowTestId,
   gridRowGutterTestId,
   gridScrollportSelector,
@@ -18,6 +19,7 @@ import {
   saveStateTestId,
   timelineCollectionInputTestId,
   timelineMutationSubstrateReadyTestId,
+  workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
 
@@ -118,6 +120,102 @@ async function waitForBrowserQueryWithRow(
       )}`,
     );
   }
+}
+
+async function readWorkbookDocumentLayout(page: Page) {
+  return page.evaluate(
+    ({ inspectorSelector, scrollportSelector, shellSelector }) => {
+      const shell = document.querySelector<HTMLElement>(shellSelector);
+      if (shell === null) {
+        throw new Error(`Expected ${shellSelector} to exist`);
+      }
+      const scrollport = shell.querySelector<HTMLElement>(scrollportSelector);
+      if (scrollport === null) {
+        throw new Error(`Expected ${scrollportSelector} to exist`);
+      }
+      const shellRect = shell.getBoundingClientRect();
+      const scrollportRect = scrollport.getBoundingClientRect();
+      const inspector = document.querySelector<HTMLElement>(inspectorSelector);
+      const inspectorRect = inspector?.getBoundingClientRect() ?? null;
+
+      return {
+        body: {
+          clientHeight: document.body.clientHeight,
+          scrollHeight: document.body.scrollHeight,
+        },
+        documentElement: {
+          clientHeight: document.documentElement.clientHeight,
+          scrollHeight: document.documentElement.scrollHeight,
+        },
+        grid: {
+          clientHeight: scrollport.clientHeight,
+          scrollHeight: scrollport.scrollHeight,
+          maxTop: Math.max(0, scrollport.scrollHeight - scrollport.clientHeight),
+          rect: {
+            bottom: Math.round(scrollportRect.bottom),
+            height: Math.round(scrollportRect.height),
+            top: Math.round(scrollportRect.top),
+          },
+        },
+        inspector:
+          inspectorRect === null
+            ? null
+            : {
+                bottom: Math.round(inspectorRect.bottom),
+                height: Math.round(inspectorRect.height),
+                scrollHeight: inspector?.scrollHeight ?? 0,
+                top: Math.round(inspectorRect.top),
+              },
+        shell: {
+          clientHeight: shell.clientHeight,
+          scrollHeight: shell.scrollHeight,
+          maxTop: Math.max(0, shell.scrollHeight - shell.clientHeight),
+          rect: {
+            bottom: Math.round(shellRect.bottom),
+            height: Math.round(shellRect.height),
+            top: Math.round(shellRect.top),
+          },
+        },
+        viewport: {
+          innerHeight: window.innerHeight,
+          innerWidth: window.innerWidth,
+          scrollY: window.scrollY,
+        },
+      };
+    },
+    {
+      inspectorSelector: dataTestIdSelector("timeline-inspector"),
+      scrollportSelector: gridScrollportSelector(),
+      shellSelector: dataTestIdSelector(gridShellTestId(timelineViewSchemaId)),
+    },
+  );
+}
+
+function expectWorkbookDocumentBounded(
+  layout: Awaited<ReturnType<typeof readWorkbookDocumentLayout>>,
+  label: string,
+) {
+  expect(layout.viewport.scrollY, `${label}: window scrollY`).toBe(0);
+  expect(
+    layout.documentElement.scrollHeight,
+    `${label}: document element scroll height`,
+  ).toBeLessThanOrEqual(layout.viewport.innerHeight + 1);
+  expect(
+    layout.body.scrollHeight,
+    `${label}: body scroll height`,
+  ).toBeLessThanOrEqual(layout.viewport.innerHeight + 1);
+  expect(layout.shell.maxTop, `${label}: grid shell vertical scroll`).toBe(0);
+  expect(layout.shell.rect.bottom, `${label}: shell bottom`).toBeLessThanOrEqual(
+    layout.viewport.innerHeight + 1,
+  );
+  expect(
+    layout.grid.maxTop,
+    `${label}: grid scrollport overflow`,
+  ).toBeGreaterThan(0);
+  expect(
+    layout.grid.rect.bottom,
+    `${label}: grid scrollport bottom`,
+  ).toBeLessThanOrEqual(layout.viewport.innerHeight + 1);
 }
 
 async function openSharedGridAnchorCell({
@@ -319,6 +417,65 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.host_refs`,
   );
   expect(page.url()).toBe(initialURL);
+});
+
+test("FE-B-P9-LAYOUT-01 keeps the incident workbook inside the browser viewport and delegates overflow to workbook panels", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E9LAYOUT"),
+    "Phase 9 bounded workbook layout",
+  );
+  await createTimelineFillers(page, incidentId, "Phase 9 layout row", 72);
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
+
+  await expect
+    .poll(async () => {
+      const layout = await readWorkbookDocumentLayout(page);
+      return layout.grid.maxTop > 0;
+    })
+    .toBe(true);
+
+  await page.evaluate(() => window.scrollTo(0, 10_000));
+  expectWorkbookDocumentBounded(
+    await readWorkbookDocumentLayout(page),
+    "initial 1280x720",
+  );
+
+  await page
+    .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
+    .click();
+  await expect(page.getByTestId("timeline-inspector")).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 10_000));
+  const inspectorLayout = await readWorkbookDocumentLayout(page);
+  expectWorkbookDocumentBounded(inspectorLayout, "inspector open");
+  expect(inspectorLayout.inspector?.bottom ?? 0).toBeLessThanOrEqual(
+    inspectorLayout.viewport.innerHeight + 1,
+  );
+
+  await page.setViewportSize({ width: 1024, height: 640 });
+  await expect
+    .poll(async () => {
+      const layout = await readWorkbookDocumentLayout(page);
+      return (
+        layout.viewport.innerHeight === 640 &&
+        layout.documentElement.scrollHeight <= layout.viewport.innerHeight + 1 &&
+        layout.body.scrollHeight <= layout.viewport.innerHeight + 1 &&
+        layout.grid.maxTop > 0
+      );
+    })
+    .toBe(true);
+  await page.evaluate(() => window.scrollTo(0, 10_000));
+  expectWorkbookDocumentBounded(
+    await readWorkbookDocumentLayout(page),
+    "resized 1024x640",
+  );
 });
 
 test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-down, frozen columns, virtual scroll, group rows, focus restoration, and Esc priority ladder.", async ({

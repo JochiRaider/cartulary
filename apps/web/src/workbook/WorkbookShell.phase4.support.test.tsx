@@ -19,6 +19,7 @@ import {
   saveStateTestId,
   timelineCollectionInputTestId,
   timelineInspectorSectionTestId,
+  timelineRowReplacementInputTestId,
   timelineRowVersionTestId,
   workbookInlineDraftRowTestId,
   workbookRowContextMenuTestId,
@@ -432,8 +433,33 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
     expect(contextMenu.getAttribute("role")).toBe("dialog");
     expect(screen.getByTestId(rowInspectButtonTestId("record-1"))).toBeTruthy();
+    const replacementInput = screen.getByTestId(
+      timelineRowReplacementInputTestId("record-1"),
+    );
+    replacementInput.focus();
+    fireEvent.scroll(window);
+    expect(
+      screen.getByTestId(
+        workbookRowContextMenuTestId(timelineViewSchemaId, "record-1"),
+      ),
+    ).toBeTruthy();
 
-    fireEvent.keyDown(contextMenu, { key: "Escape" });
+    replacementInput.blur();
+    fireEvent.scroll(window);
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId(
+          workbookRowContextMenuTestId(timelineViewSchemaId, "record-1"),
+        ),
+      ).toBeNull();
+    });
+
+    fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
+    const reopenedContextMenu = await screen.findByTestId(
+      workbookRowContextMenuTestId(timelineViewSchemaId, "record-1"),
+    );
+
+    fireEvent.keyDown(reopenedContextMenu, { key: "Escape" });
     await waitFor(() => {
       expect(
         screen.queryByTestId(

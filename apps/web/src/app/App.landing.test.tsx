@@ -9,6 +9,7 @@ import {
   phase1AdminTestId,
   phase1AuthTestId,
   phase1LandingTestId,
+  phase1RouteTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -144,7 +145,12 @@ describe("Incident landing", () => {
       Array.from(document.querySelectorAll("style")).some((style) =>
         Boolean(
           style.textContent?.includes("#root") &&
-            style.textContent.includes("margin: 0"),
+            style.textContent.includes("margin: 0") &&
+            style.textContent.includes("--ct-app-viewport-block-size: 100vh") &&
+            style.textContent.includes("@supports (height: 100dvh)") &&
+            style.textContent.includes(
+              "scroll-margin-block-start: var(--cartulary-grid-scroll-margin-block-start)",
+            ),
         ),
       ),
     ).toBe(true);
@@ -435,6 +441,18 @@ describe("Incident landing", () => {
     expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
       "incident-5",
     );
+    const appShell = screen.getByTestId(phase1RouteTestId("app-shell"));
+    expect(appShell.style.blockSize).toBe(
+      "var(--ct-app-viewport-block-size)",
+    );
+    expect(appShell.style.overflow).toBe("hidden");
+    expect(["0", "0px"]).toContain(appShell.style.minBlockSize);
+    expect(["0", "0px"]).toContain(appShell.style.minHeight);
+    const workbookFrame = screen.getByTestId("mock-workbook").parentElement;
+    expect(workbookFrame).toBeInstanceOf(HTMLElement);
+    expect((workbookFrame as HTMLElement).style.display).toBe("grid");
+    expect((workbookFrame as HTMLElement).style.blockSize).toBe("100%");
+    expect((workbookFrame as HTMLElement).style.overflow).toBe("hidden");
     await expectStableFetchCount(fetchMock, 5);
   });
 

@@ -860,7 +860,7 @@ function EntityWorkbookSurface({
       <WorkbookFocusAnchorStatus anchor={entityFocus.anchor} />
 
       <div style={splitShellStyle}>
-        <div>
+        <div style={surfaceBodyColumnStyle}>
           <WorkbookShellSlotRegion
             slot="view-bar"
             style={viewBarStyle}
@@ -1345,7 +1345,7 @@ function AssessmentWorkbookSurface({
       <WorkbookFocusAnchorStatus anchor={assessmentFocus.anchor} />
 
       <div style={splitShellStyle}>
-        <div>
+        <div style={surfaceBodyColumnStyle}>
           <WorkbookShellSlotRegion
             slot="view-bar"
             style={viewBarStyle}
@@ -3909,6 +3909,16 @@ export function WorkbookShell({
             );
           })}
         </nav>
+        <div style={systemViewSlotStyle}>
+          <SystemViewSwitcher
+            activeViewSchemaId={surface}
+            onSelect={(viewSchemaId) => {
+              selectWorkbookSurface(viewSchemaId, {
+                focusFirstGridTarget: true,
+              });
+            }}
+          />
+        </div>
         <div style={shellTopBarQueryStyle}>
           {showActiveSurfaceTitleInQueryRail ? (
             <span
@@ -3933,16 +3943,6 @@ export function WorkbookShell({
             onRemoveFilter={activeQueryControls.onRemoveFilter}
             queryState={activeQueryControls.queryState}
             surface={activeQueryControls.surface}
-          />
-        </div>
-        <div style={systemViewSlotStyle}>
-          <SystemViewSwitcher
-            activeViewSchemaId={surface}
-            onSelect={(viewSchemaId) => {
-              selectWorkbookSurface(viewSchemaId, {
-                focusFirstGridTarget: true,
-              });
-            }}
           />
         </div>
         <div style={shellTopBarActionsStyle}>
@@ -3981,200 +3981,210 @@ export function WorkbookShell({
         </div>
       </WorkbookShellSlotRegion>
 
-      {entityLoadError ? (
-        <p data-testid="entity-load-error" style={bodyStyle}>
-          {entityLoadError}
-        </p>
-      ) : null}
+      <div style={shellContentRegionStyle}>
+        {entityLoadError ? (
+          <p data-testid="entity-load-error" style={shellContentNoticeStyle}>
+            {entityLoadError}
+          </p>
+        ) : null}
 
-      {surface === timelineViewSchemaId ? (
-        <TimelineWorkbook
-          apiBase={apiBase}
-          currentIncidentRole={currentIncidentRole}
-          entityIndex={entityIndex}
-          hostEntities={hostRows}
-          identityEntities={identityRows}
-          incidentId={incidentId}
-          filterDraft={timelineFilterDraft}
-          onFilterDraftChange={setTimelineFilterDraft}
-          onQueryStateChange={setTimelineQueryState}
-          onRefreshEntities={loadEntities}
-          queryState={timelineQueryState}
-          reloadToken={sheetReloadToken}
-          renderInlineQueryControls={false}
-          savedViewSelector={activeSavedViewSelector}
-          sheetRef={startupSheetRef}
-        />
-      ) : surface === hostsViewSchemaId ||
-        surface === identitiesViewSchemaId ? (
-        <EntityWorkbookSurface
-          apiBase={apiBase}
-          currentIncidentRole={currentIncidentRole}
-          entityIndex={entityIndex}
-          entityType={surface === hostsViewSchemaId ? "host" : "identity"}
-          filterDraft={
-            surface === hostsViewSchemaId
-              ? hostFilterDraft
-              : identityFilterDraft
-          }
-          incidentId={incidentId}
-          onApplyFilter={
-            surface === hostsViewSchemaId
-              ? applyHostFilter
-              : applyIdentityFilter
-          }
-          onFilterDraftChange={
-            surface === hostsViewSchemaId
-              ? setHostFilterDraft
-              : setIdentityFilterDraft
-          }
-          onGroupByChange={(groupBy) => {
-            if (surface === hostsViewSchemaId) {
-              setHostQueryState((current) =>
-                updateGroupBy(hostsContract, current, groupBy),
-              );
-              return;
-            }
-            setIdentityQueryState((current) =>
-              updateGroupBy(identitiesContract, current, groupBy),
-            );
-          }}
-          onRemoveFilter={(fieldKey) => {
-            if (surface === hostsViewSchemaId) {
-              setHostQueryState((current) =>
-                removeFilterField(current, fieldKey),
-              );
-              return;
-            }
-            setIdentityQueryState((current) =>
-              removeFilterField(current, fieldKey),
-            );
-          }}
-          onRefreshEntities={loadEntities}
-          onToggleSort={(fieldKey) => {
-            if (surface === hostsViewSchemaId) {
-              setHostQueryState((current) =>
-                toggleSortField(hostsContract, current, fieldKey),
-              );
-              return;
-            }
-            setIdentityQueryState((current) =>
-              toggleSortField(identitiesContract, current, fieldKey),
-            );
-          }}
-          queryState={
-            surface === hostsViewSchemaId ? hostQueryState : identityQueryState
-          }
-          rows={surface === hostsViewSchemaId ? hostRows : identityRows}
-          savedViewSelector={activeSavedViewSelector}
-        />
-      ) : surface === assessmentsViewSchemaId ? (
-        <AssessmentWorkbookSurface
-          apiBase={apiBase}
-          assessmentRows={assessmentRows}
-          currentIncidentRole={currentIncidentRole}
-          filterDraft={assessmentFilterDraft}
-          hostRows={hostRows}
-          identityRows={identityRows}
-          incidentId={incidentId}
-          loadError={assessmentLoadError}
-          onApplyFilter={() => {
-            applyFilterDraftToQuery(
-              setAssessmentQueryState,
-              setAssessmentFilterDraft,
-              assessmentFilterDraft,
-            );
-          }}
-          onFilterDraftChange={setAssessmentFilterDraft}
-          onGroupByChange={(groupBy) => {
-            setAssessmentQueryState((current) =>
-              updateGroupBy(assessmentsContract, current, groupBy),
-            );
-          }}
-          onRefreshAssessmentRows={loadAssessmentSurface}
-          onRemoveFilter={(fieldKey) => {
-            setAssessmentQueryState((current) =>
-              removeFilterField(current, fieldKey),
-            );
-          }}
-          onToggleSort={(fieldKey) => {
-            setAssessmentQueryState((current) =>
-              toggleSortField(assessmentsContract, current, fieldKey),
-            );
-          }}
-          queryState={assessmentQueryState}
-          savedViewSelector={activeSavedViewSelector}
-        />
-      ) : (
-        <GenericWorkbookSurface
-          key={activeContract.viewSchemaId}
-          apiBase={apiBase}
-          contract={activeContract}
-          currentUserId={currentUserId}
-          filterDraft={genericFilterDraft}
-          incidentId={incidentId}
-          loadError={genericLoadError}
-          onApplyFilter={() => {
-            applyFilterDraftToQuery(
-              setGenericQueryState,
-              setGenericFilterDraft,
-              genericFilterDraft,
-            );
-          }}
-          onFilterDraftChange={setGenericFilterDraft}
-          onGroupByChange={(groupBy) => {
-            setGenericQueryState((current) =>
-              updateGroupBy(activeContract, current, groupBy),
-            );
-          }}
-          onRemoveFilter={(fieldKey) => {
-            setGenericQueryState((current) =>
-              removeFilterField(current, fieldKey),
-            );
-          }}
-          onRefresh={loadGenericSurface}
-          onToggleSort={(fieldKey) => {
-            setGenericQueryState((current) =>
-              toggleSortField(activeContract, current, fieldKey),
-            );
-          }}
-          queryState={genericQueryState}
-          rows={genericRows}
-          savedViewSelector={activeSavedViewSelector}
-        />
-      )}
+        <div style={shellActiveSurfaceStyle}>
+          {surface === timelineViewSchemaId ? (
+            <TimelineWorkbook
+              apiBase={apiBase}
+              currentIncidentRole={currentIncidentRole}
+              entityIndex={entityIndex}
+              hostEntities={hostRows}
+              identityEntities={identityRows}
+              incidentId={incidentId}
+              filterDraft={timelineFilterDraft}
+              onFilterDraftChange={setTimelineFilterDraft}
+              onQueryStateChange={setTimelineQueryState}
+              onRefreshEntities={loadEntities}
+              queryState={timelineQueryState}
+              reloadToken={sheetReloadToken}
+              renderInlineQueryControls={false}
+              savedViewSelector={activeSavedViewSelector}
+              sheetRef={startupSheetRef}
+            />
+          ) : surface === hostsViewSchemaId ||
+            surface === identitiesViewSchemaId ? (
+            <EntityWorkbookSurface
+              apiBase={apiBase}
+              currentIncidentRole={currentIncidentRole}
+              entityIndex={entityIndex}
+              entityType={surface === hostsViewSchemaId ? "host" : "identity"}
+              filterDraft={
+                surface === hostsViewSchemaId
+                  ? hostFilterDraft
+                  : identityFilterDraft
+              }
+              incidentId={incidentId}
+              onApplyFilter={
+                surface === hostsViewSchemaId
+                  ? applyHostFilter
+                  : applyIdentityFilter
+              }
+              onFilterDraftChange={
+                surface === hostsViewSchemaId
+                  ? setHostFilterDraft
+                  : setIdentityFilterDraft
+              }
+              onGroupByChange={(groupBy) => {
+                if (surface === hostsViewSchemaId) {
+                  setHostQueryState((current) =>
+                    updateGroupBy(hostsContract, current, groupBy),
+                  );
+                  return;
+                }
+                setIdentityQueryState((current) =>
+                  updateGroupBy(identitiesContract, current, groupBy),
+                );
+              }}
+              onRemoveFilter={(fieldKey) => {
+                if (surface === hostsViewSchemaId) {
+                  setHostQueryState((current) =>
+                    removeFilterField(current, fieldKey),
+                  );
+                  return;
+                }
+                setIdentityQueryState((current) =>
+                  removeFilterField(current, fieldKey),
+                );
+              }}
+              onRefreshEntities={loadEntities}
+              onToggleSort={(fieldKey) => {
+                if (surface === hostsViewSchemaId) {
+                  setHostQueryState((current) =>
+                    toggleSortField(hostsContract, current, fieldKey),
+                  );
+                  return;
+                }
+                setIdentityQueryState((current) =>
+                  toggleSortField(identitiesContract, current, fieldKey),
+                );
+              }}
+              queryState={
+                surface === hostsViewSchemaId
+                  ? hostQueryState
+                  : identityQueryState
+              }
+              rows={surface === hostsViewSchemaId ? hostRows : identityRows}
+              savedViewSelector={activeSavedViewSelector}
+            />
+          ) : surface === assessmentsViewSchemaId ? (
+            <AssessmentWorkbookSurface
+              apiBase={apiBase}
+              assessmentRows={assessmentRows}
+              currentIncidentRole={currentIncidentRole}
+              filterDraft={assessmentFilterDraft}
+              hostRows={hostRows}
+              identityRows={identityRows}
+              incidentId={incidentId}
+              loadError={assessmentLoadError}
+              onApplyFilter={() => {
+                applyFilterDraftToQuery(
+                  setAssessmentQueryState,
+                  setAssessmentFilterDraft,
+                  assessmentFilterDraft,
+                );
+              }}
+              onFilterDraftChange={setAssessmentFilterDraft}
+              onGroupByChange={(groupBy) => {
+                setAssessmentQueryState((current) =>
+                  updateGroupBy(assessmentsContract, current, groupBy),
+                );
+              }}
+              onRefreshAssessmentRows={loadAssessmentSurface}
+              onRemoveFilter={(fieldKey) => {
+                setAssessmentQueryState((current) =>
+                  removeFilterField(current, fieldKey),
+                );
+              }}
+              onToggleSort={(fieldKey) => {
+                setAssessmentQueryState((current) =>
+                  toggleSortField(assessmentsContract, current, fieldKey),
+                );
+              }}
+              queryState={assessmentQueryState}
+              savedViewSelector={activeSavedViewSelector}
+            />
+          ) : (
+            <GenericWorkbookSurface
+              key={activeContract.viewSchemaId}
+              apiBase={apiBase}
+              contract={activeContract}
+              currentUserId={currentUserId}
+              filterDraft={genericFilterDraft}
+              incidentId={incidentId}
+              loadError={genericLoadError}
+              onApplyFilter={() => {
+                applyFilterDraftToQuery(
+                  setGenericQueryState,
+                  setGenericFilterDraft,
+                  genericFilterDraft,
+                );
+              }}
+              onFilterDraftChange={setGenericFilterDraft}
+              onGroupByChange={(groupBy) => {
+                setGenericQueryState((current) =>
+                  updateGroupBy(activeContract, current, groupBy),
+                );
+              }}
+              onRemoveFilter={(fieldKey) => {
+                setGenericQueryState((current) =>
+                  removeFilterField(current, fieldKey),
+                );
+              }}
+              onRefresh={loadGenericSurface}
+              onToggleSort={(fieldKey) => {
+                setGenericQueryState((current) =>
+                  toggleSortField(activeContract, current, fieldKey),
+                );
+              }}
+              queryState={genericQueryState}
+              rows={genericRows}
+              savedViewSelector={activeSavedViewSelector}
+            />
+          )}
+        </div>
 
-      {incidentControlsOpen ? (
-        <section
-          data-testid={incidentControlsPanelTestId()}
-          data-workbook-shell-region="support"
-          id={incidentControlsPanelTestId()}
-          style={supportRegionStyle}
-        >
-          <IncidentAdminPanel
-            apiBase={apiBase}
-            currentIncidentRole={currentIncidentRole}
-            incidentId={incidentId}
-            onIncidentAccessLost={onIncidentAccessLost}
-            onIncidentSnapshot={onIncidentSnapshot}
-            onSessionRoleChange={loadSessionRole}
-          />
-        </section>
-      ) : null}
+        {incidentControlsOpen ? (
+          <section
+            data-testid={incidentControlsPanelTestId()}
+            data-workbook-shell-region="support"
+            id={incidentControlsPanelTestId()}
+            style={supportRegionStyle}
+          >
+            <IncidentAdminPanel
+              apiBase={apiBase}
+              currentIncidentRole={currentIncidentRole}
+              incidentId={incidentId}
+              onIncidentAccessLost={onIncidentAccessLost}
+              onIncidentSnapshot={onIncidentSnapshot}
+              onSessionRoleChange={loadSessionRole}
+            />
+          </section>
+        ) : null}
+      </div>
     </section>
   );
 }
 
 const panelStyle = {
   boxSizing: "border-box" as const,
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr)",
   width: "100%",
-  minHeight: "100vh",
+  blockSize: "100%",
+  minBlockSize: 0,
   margin: 0,
   padding: 0,
   borderRadius: 0,
   background: "var(--ct-colors-canvas)",
   boxShadow: "none",
   border: 0,
+  overflow: "hidden",
 };
 
 const shellTopBarStyle = {
@@ -4195,6 +4205,7 @@ const shellTopBarActionsStyle = {
   gap: "0.45rem",
   flex: "0 1 auto",
   minWidth: 0,
+  order: 5,
 };
 
 const shellTopBarLabelStyle = {
@@ -4219,6 +4230,7 @@ const shellTopBarQueryStyle = {
   flex: "1 1 36rem",
   gap: "0.45rem",
   minWidth: "min(36rem, 100%)",
+  order: 3,
 };
 
 const shellTopBarQueryStatusStyle = {
@@ -4254,12 +4266,45 @@ const currentUserChipStyle = {
   fontWeight: 700,
 };
 
+const shellContentRegionStyle = {
+  position: "relative" as const,
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr)",
+  minBlockSize: 0,
+  minHeight: 0,
+  minWidth: 0,
+  overflow: "hidden",
+};
+
+const shellContentNoticeStyle = {
+  gridRow: 1,
+  margin: 0,
+  lineHeight: 1.5,
+  color: "var(--ct-colors-ink-muted)",
+  padding: "0.35rem 0.75rem",
+  borderBottom: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+};
+
+const shellActiveSurfaceStyle = {
+  display: "grid",
+  gridRow: 2,
+  minBlockSize: 0,
+  minHeight: 0,
+  minWidth: 0,
+  overflow: "hidden",
+};
+
 const surfaceStackStyle = {
   position: "relative" as const,
   display: "grid",
   gap: "0.45rem",
-  minHeight: "calc(100vh - var(--ct-layout-topBarHeight))",
-  alignContent: "start",
+  gridTemplateRows: "auto auto minmax(0, 1fr)",
+  blockSize: "100%",
+  minBlockSize: 0,
+  minHeight: 0,
+  minWidth: 0,
+  overflow: "hidden",
 };
 
 const headerStyle = {
@@ -4297,10 +4342,23 @@ const splitShellStyle = {
   gap: "var(--ct-spacing-shell-gap)",
   alignItems: "stretch",
   gridTemplateColumns: "minmax(0, 1fr)",
+  gridTemplateRows: "auto minmax(0, 1fr) auto",
+  blockSize: "100%",
+  minBlockSize: 0,
   minHeight: 0,
   minWidth: 0,
   overflow: "hidden",
   padding: "0",
+};
+
+const surfaceBodyColumnStyle = {
+  display: "grid",
+  gridRow: "1 / -1",
+  gridTemplateRows: "auto minmax(0, 1fr)",
+  minBlockSize: 0,
+  minHeight: 0,
+  minWidth: 0,
+  overflow: "hidden",
 };
 
 const inspectorOverlayFrameStyle = {
@@ -4323,6 +4381,9 @@ const inspectorOverlayFrameStyle = {
 const gridOverlayShellStyle = {
   position: "relative" as const,
   display: "grid",
+  gridTemplateRows: "auto auto minmax(0, 1fr)",
+  blockSize: "100%",
+  minBlockSize: 0,
   minHeight: 0,
   minWidth: 0,
   overflow: "hidden",
@@ -4342,6 +4403,10 @@ const viewBarStyle = {
 };
 
 const gridShellStyle = {
+  gridRow: 3,
+  inlineSize: "100%",
+  blockSize: "100%",
+  minBlockSize: 0,
   overflow: "hidden",
   overflowAnchor: "none" as const,
   borderRadius: 0,
@@ -4459,6 +4524,8 @@ const evidencePreviewPanelStyle = {
   borderRadius: "var(--ct-rounded-lg)",
   border: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-1)",
+  maxBlockSize: "min(32rem, 44vh)",
+  overflow: "auto",
 };
 
 const evidencePreviewHeaderStyle = {
@@ -4470,7 +4537,8 @@ const evidencePreviewHeaderStyle = {
 
 const evidencePreviewFrameStyle = {
   width: "100%",
-  minHeight: "28rem",
+  blockSize: "min(28rem, 34vh)",
+  minHeight: "12rem",
   border: "var(--ct-border-hairline)",
   borderRadius: "var(--ct-rounded-md)",
   background: "var(--ct-colors-surface-2)",
@@ -4616,6 +4684,7 @@ const surfaceTabActiveStyle = {
 const systemViewSlotStyle = {
   flex: "0 0 11rem",
   minWidth: "10rem",
+  order: 4,
 };
 
 const roleBadgeStyle = {
@@ -4630,7 +4699,20 @@ const roleBadgeStyle = {
 };
 
 const supportRegionStyle = {
-  marginTop: "1rem",
+  position: "absolute" as const,
+  zIndex: 12,
+  top: "var(--ct-spacing-md)",
+  right: "var(--ct-spacing-md)",
+  bottom: "var(--ct-spacing-md)",
+  inlineSize: "min(52rem, calc(100% - var(--ct-spacing-xl)))",
+  maxInlineSize: "calc(100% - var(--ct-spacing-xl))",
+  minBlockSize: 0,
+  overflow: "auto",
+  boxSizing: "border-box" as const,
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-sm)",
+  background: "var(--ct-colors-surface-1)",
+  boxShadow: "var(--ct-elevation-drawer)",
 };
 
 const selectStyle = {

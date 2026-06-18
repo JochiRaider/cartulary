@@ -6491,7 +6491,8 @@ export function TimelineWorkbook({
 const panelStyle = {
   boxSizing: "border-box" as const,
   width: "100%",
-  minHeight: "100vh",
+  blockSize: "100%",
+  minBlockSize: 0,
   margin: 0,
   padding: 0,
   borderRadius: 0,
@@ -6504,7 +6505,7 @@ const workbookStyle = {
   position: "relative" as const,
   display: "grid",
   gridTemplateRows: "minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
-  blockSize: "calc(100vh - var(--ct-layout-topBarHeight))",
+  blockSize: "100%",
   minBlockSize: 0,
   overflow: "hidden",
 };
@@ -6550,6 +6551,8 @@ const splitShellStyle = {
   alignItems: "stretch",
   gridTemplateColumns: "minmax(0, 1fr)",
   gridRow: 1,
+  blockSize: "100%",
+  minBlockSize: 0,
   minHeight: 0,
   minWidth: 0,
   overflow: "hidden",

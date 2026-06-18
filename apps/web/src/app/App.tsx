@@ -743,6 +743,13 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           fontFamily: "var(--ct-typography-accessible-reading-fontFamily)",
         }
       : pageStyle;
+  const workbookRootPageStyle =
+    readingProfile === "hyperlegible"
+      ? {
+          ...workbookRoutePageStyle,
+          fontFamily: "var(--ct-typography-accessible-reading-fontFamily)",
+        }
+      : workbookRoutePageStyle;
 
   const openIncident = useCallback(
     (incidentId: string) => {
@@ -840,7 +847,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         data-cartulary-theme={themeId}
         data-reading-profile={readingProfileAttribute}
         data-testid={phase1RouteTestId("app-shell")}
-        style={rootPageStyle}
+        style={workbookRootPageStyle}
       >
         <section style={workbookFrameStyle}>
           <Suspense
@@ -1357,6 +1364,14 @@ const pageStyle = {
   lineHeight: "var(--ct-typography-ui-lineHeight)",
 };
 
+const workbookRoutePageStyle = {
+  ...pageStyle,
+  blockSize: "var(--ct-app-viewport-block-size)",
+  minBlockSize: 0,
+  minHeight: 0,
+  overflow: "hidden",
+};
+
 const landingPanelStyle = {
   minHeight: "100%",
   minWidth: 0,
@@ -1379,8 +1394,12 @@ const utilityPanelStyle = {
 };
 
 const workbookFrameStyle = {
+  display: "grid",
+  gridTemplateRows: "minmax(0, 1fr)",
+  blockSize: "100%",
+  minBlockSize: 0,
   minWidth: 0,
-  minHeight: "100vh",
+  overflow: "hidden",
 };
 
 const landingHeroStyle = {

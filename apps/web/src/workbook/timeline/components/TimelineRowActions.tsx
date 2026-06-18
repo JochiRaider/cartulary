@@ -68,16 +68,32 @@ export function TimelineRowContextMenu({
         onClose();
       }
     };
-    const closeForViewportChange = () => {
+    const closeForResize = () => {
+      onClose();
+    };
+    const closeForScroll = (event: Event) => {
+      const menu = menuRef.current;
+      if (menu === null) {
+        onClose();
+        return;
+      }
+      const activeElement = document.activeElement;
+      if (activeElement instanceof Node && menu.contains(activeElement)) {
+        return;
+      }
+      const scrollTarget = event.target;
+      if (scrollTarget instanceof Node && menu.contains(scrollTarget)) {
+        return;
+      }
       onClose();
     };
     window.addEventListener("pointerdown", closeForPointer, true);
-    window.addEventListener("resize", closeForViewportChange);
-    window.addEventListener("scroll", closeForViewportChange, true);
+    window.addEventListener("resize", closeForResize);
+    window.addEventListener("scroll", closeForScroll, true);
     return () => {
       window.removeEventListener("pointerdown", closeForPointer, true);
-      window.removeEventListener("resize", closeForViewportChange);
-      window.removeEventListener("scroll", closeForViewportChange, true);
+      window.removeEventListener("resize", closeForResize);
+      window.removeEventListener("scroll", closeForScroll, true);
     };
   }, [onClose]);
 
