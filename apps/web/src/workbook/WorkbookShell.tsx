@@ -3843,6 +3843,10 @@ export function WorkbookShell({
     activeQueryControls.queryState.sort.length +
     activeQueryControls.queryState.filters.length +
     (activeQueryControls.queryState.groupBy === null ? 0 : 1);
+  const showActiveSurfaceTitleInQueryRail =
+    !requiredBuiltInWorkbookSurfaceIds.some((viewSchemaId) => {
+      return viewSchemaId === surface;
+    });
 
   const activeSavedViewSelector = (
     <ActiveSurfaceSavedViewSelector
@@ -3906,10 +3910,15 @@ export function WorkbookShell({
           })}
         </nav>
         <div style={shellTopBarQueryStyle}>
-          <span style={shellTopBarQueryStatusStyle}>
-            <Rows3 aria-hidden="true" size={16} />
-            {activeQueryControls.contract.title}
-          </span>
+          {showActiveSurfaceTitleInQueryRail ? (
+            <span
+              data-workbook-query-surface-title="true"
+              style={shellTopBarQueryStatusStyle}
+            >
+              <Rows3 aria-hidden="true" size={16} />
+              {activeQueryControls.contract.title}
+            </span>
+          ) : null}
           <span style={shellTopBarQueryStatusStyle}>
             <Filter aria-hidden="true" size={16} />
             {activeControlCount}

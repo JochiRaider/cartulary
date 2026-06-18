@@ -326,7 +326,7 @@ const savedViewSelectorFrameStyle = {
   alignItems: "center",
   gap: "0.4rem",
   flex: "0 0 auto",
-  minWidth: "10rem",
+  minWidth: 0,
 };
 
 const savedViewControlGroupStyle = {
@@ -341,9 +341,10 @@ const savedViewControlGroupStyle = {
 const savedViewInputGroupStyle = {
   display: "inline-flex",
   alignItems: "center",
-  flexWrap: "wrap" as const,
+  flexWrap: "nowrap" as const,
   gap: "0.4rem",
   minWidth: 0,
+  whiteSpace: "nowrap" as const,
 };
 
 const savedViewActionGroupStyle = {
@@ -371,8 +372,8 @@ const savedViewSelectStyle = {
 
 const savedViewNameInputStyle = {
   ...inputStyle,
-  width: "10rem",
-  minWidth: "8rem",
+  width: "7.5rem",
+  minWidth: "6rem",
   padding: "0.42rem 0.55rem",
 };
 

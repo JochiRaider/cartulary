@@ -678,7 +678,7 @@ Design contract. The application shell MUST contain the regions in the table bel
 
 | Region | Required contents | Boundary |
 | --- | --- | --- |
-| Top bar | Incident identity, built-in tabs or `Surfaces`, active-surface title, sort, group, filter controls, active chips or overflow controls, `System views`, presence summary when assigned by §7.5. | Persistent chrome, not a dashboard. |
+| Top bar | Incident identity, built-in tabs or `Surfaces`, active-surface title when not already represented by a selected built-in tab, sort, group, filter controls, active chips or overflow controls, `System views`, presence summary when assigned by §7.5. | Persistent chrome, not a dashboard. |
 | View bar | Saved-view selector, saved-view actions, inspector opener, and add-row control when allowed. | Belongs to active surface only. |
 | Grid | Active workbook surface with `record_id`-bound rows and `field_key`-bound cells. | Primary work surface. |
 | Inspector | Details, Relationships, Evidence, History, destructive and specialized row actions. | Conditional adjacent or overlay secondary surface opened through explicit controls. |
@@ -777,7 +777,7 @@ Design contract. Responsive overflow MUST use the region assignment table below.
 | Incident identity | Top bar, visible text | Top bar, visible text | Top bar, visible text | Top bar, visible text |
 | Built-in surfaces | Top bar primary tabs | `Surfaces` menu in top bar | `Surfaces` menu in top bar | `Surfaces` menu optional; safe navigation required |
 | Required system views | `System views` control in top bar | `System views` control in top bar | `System views` control in top bar | `System views` optional; safe navigation required |
-| Current surface title | Top bar | Top bar | Top bar | Top bar if active surface is shown |
+| Current surface title | Top bar when not already represented by a selected built-in tab | Top bar when not already represented by a selected built-in tab | Top bar when not already represented by a selected built-in tab | Top bar if active surface is shown |
 | Presence summary | Top bar | Top bar | Status strip | Status strip only if space remains after save label |
 | Saved-view selector | View bar | View bar | View bar | Not required |
 | Sort control | Top bar | Top bar | Top bar | Not required |
@@ -842,11 +842,11 @@ Design contract. `invalidate_or_refresh_required` is row-block state, not a cell
 
 ### 8.3 Top-bar query and view-bar controls
 
-Design contract. Sort, filter, and group controls live in the Top bar and apply to the active surface only. Saved-view controls live in the View bar and apply to the active surface only.
+Design contract. Sort, filter, and group controls live in the Top bar and apply to the active surface only. Saved-view controls live in the View bar and apply to the active surface only. The active surface title is omitted from the query rail when the selected built-in tab already provides the same visible title.
 
 | Control | Default state | Active state | Invalid state | Clear behavior | Ordering |
 | --- | --- | --- | --- | --- | ---: |
-| Active surface title | Current `view_schema_id` display label. | Same. | Surface unavailable error. | Not clearable. | 1 |
+| Active surface title | Current `view_schema_id` display label when not duplicated by the selected built-in tab. | Same. | Surface unavailable error. | Not clearable. | 1 |
 | Sort control | No user sort override. | Sort chips shown. | Invalid sort field blocked before persistence. | Clears all user sort overrides. | 2 |
 | Group control | `Group: None`. | One group chip. | Unsupported group disabled with explanation. | Sets grouping inactive. | 3 |
 | Filter control | No filters. | Filter chips shown or `Filters` overflow. | Invalid filter chip marked and excluded from query submission. | Clears all filters or one selected chip. | 4 |

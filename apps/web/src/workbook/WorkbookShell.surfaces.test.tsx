@@ -28,6 +28,7 @@ import {
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   workbookInspectorToggleTestId,
+  workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
@@ -469,6 +470,15 @@ describe("WorkbookShell surface selection", () => {
 
     render(<WorkbookShell incidentId="incident-1" />);
 
+    const topBar = document.querySelector(
+      dataTestIdSelector(workbookShellSlotTestId("top-bar")),
+    );
+    expect(topBar).toBeInstanceOf(HTMLElement);
+    expect(topBar?.textContent?.match(/Timeline/g) ?? []).toHaveLength(1);
+    expect(
+      topBar?.querySelector("[data-workbook-query-surface-title='true']"),
+    ).toBeNull();
+
     const builtInTabIds = screen
       .getAllByRole("button")
       .map((button) => button.getAttribute("data-testid") ?? "")
@@ -564,6 +574,10 @@ describe("WorkbookShell surface selection", () => {
     expect(
       screen.getByTestId(gridShellTestId(evidenceViewSchemaId)),
     ).toBeTruthy();
+    expect(topBar?.textContent?.match(/Evidence/g) ?? []).toHaveLength(1);
+    expect(
+      topBar?.querySelector("[data-workbook-query-surface-title='true']"),
+    ).toBeNull();
 
     fireEvent.click(screen.getByTestId(systemViewSwitcherTriggerTestId()));
     fireEvent.click(
@@ -591,6 +605,10 @@ describe("WorkbookShell surface selection", () => {
         ),
       );
     });
+    expect(
+      topBar?.querySelector("[data-workbook-query-surface-title='true']")
+        ?.textContent,
+    ).toContain("Indicators");
 
     fireEvent.click(screen.getByTestId(systemViewSwitcherTriggerTestId()));
     const commLogOption = screen.getByTestId(

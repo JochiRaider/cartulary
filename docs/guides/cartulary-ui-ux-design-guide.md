@@ -157,7 +157,7 @@ A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to stat
 
 | Region       | Required contents                                                                                       | Boundary                              |
 | ------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| Top bar      | Incident identity, built-in tabs, active-surface title, sort, group, filters, active chips, `System views` switcher, current system-view title, presence summary. | Persistent chrome, not a dashboard.   |
+| Top bar      | Incident identity, built-in tabs, active-surface title when not already represented by the selected built-in tab, sort, group, filters, active chips, `System views` switcher, current system-view title, presence summary. | Persistent chrome, not a dashboard.   |
 | View bar     | Compact sheet toolbar with saved-view selector, saved-view actions, inspector opener, and add-row control when allowed. | Belongs to active surface only.       |
 | Grid         | Active workbook surface with `record_id`-bound rows and `field_key`-bound cells.                        | Primary work surface.                 |
 | Inspector    | Details, Relationships, Evidence, History, destructive and specialized row actions.                     | Closed by default; adjacent or overlay secondary surface only after explicit open. |
@@ -217,7 +217,7 @@ A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to stat
 ```text
 +--------------------------------------------------------------------------------+
 | Incident: INC-2026-0418   [Timeline] [Hosts] [Identities] [Evidence] [Notes]   |
-| Timeline  Filters 0   Sort ▾   Group ▾   Filter ▾ [System views ▾] A B +3    |
+| Filters 0   Sort ▾   Group ▾   Filter ▾        [System views ▾] A B +3       |
 +--------------------------------------------------------------------------------+
 | View: Default ▾   Saved view name   Private   Create  Home  Default Inspector Add |
 +--------------------------------------------------------------------------------+
