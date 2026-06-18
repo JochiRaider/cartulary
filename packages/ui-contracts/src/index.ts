@@ -532,6 +532,18 @@ export function workbookRowActionMenuButtonTestId(
   );
 }
 
+export function workbookRowContextMenuTestId(
+  viewSchemaId: WorkbookSurface,
+  recordId: string,
+): StableTestId {
+  return stableTestId(
+    viewFirstTestId(
+      viewSchemaId,
+      `row-context-menu-${requireRecordId(recordId)}`,
+    ),
+  );
+}
+
 export function timelineMutationSubstrateReadyTestId(): string {
   return "timeline-mutation-substrate-ready";
 }

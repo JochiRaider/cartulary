@@ -38,7 +38,7 @@ const timelineWidthFieldKeys = [
   "timeline.edited_at",
 ] as const;
 const timelineWidthFixedChrome = {
-  actionsColumnWidth: 44,
+  actionsColumnWidth: 0,
   rowGutterWidth: 58,
 };
 const timelineBaseDataWidth = timelineWidthFieldKeys.reduce(

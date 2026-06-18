@@ -22,7 +22,6 @@ import {
   timelineInspectorSectionTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineScalarEditorTestId,
-  workbookRowActionMenuButtonTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
@@ -385,10 +384,7 @@ test.describe("FE-P11 accessibility preflight", () => {
     await page.keyboard.press("Escape");
     await expect(summaryCell).toBeVisible();
 
-    const inspectButton = page.getByTestId(
-      workbookRowActionMenuButtonTestId(timelineViewSchemaId, row.record_id),
-    );
-    await expectKeyboardReachable(inspectButton);
+    await expectKeyboardReachable(summaryCell);
     await openTimelineInspector(page, row.record_id);
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("details")),

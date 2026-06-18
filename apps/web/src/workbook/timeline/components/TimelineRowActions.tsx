@@ -4,18 +4,28 @@ import {
   timelineRowMarkReviewedButtonTestId,
   timelineRowReplacementInputTestId,
   timelineRowSupersedeButtonTestId,
-  workbookRowActionMenuButtonTestId,
+  workbookRowContextMenuTestId,
 } from "@cartulary/ui-contracts";
-import { MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import {
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
-import { DraftRowCreateButton } from "./TimelineCellEditors";
 
-export type TimelineRowActionsProps = {
+export type TimelineRowContextMenuPosition = {
+  readonly x: number;
+  readonly y: number;
+};
+
+export type TimelineRowContextMenuProps = {
+  readonly position: TimelineRowContextMenuPosition;
   readonly replacementDraft: string;
-  readonly row: WorkbookRow;
-  readonly onCreateBlankDraftRow: (row: WorkbookRow) => void;
+  readonly row: WorkbookRow | null;
+  readonly onClose: () => void;
   readonly onInspectRow: (recordId: string) => void;
   readonly onMarkReviewed: (rowKey: string) => void;
   readonly onOpenHistory: (recordId: string) => void;
@@ -23,153 +33,182 @@ export type TimelineRowActionsProps = {
   readonly onSupersede: (rowKey: string) => void;
 };
 
-export function TimelineRowActions({
+export function TimelineRowContextMenu({
+  position,
   replacementDraft,
   row,
-  onCreateBlankDraftRow,
+  onClose,
   onInspectRow,
   onMarkReviewed,
   onOpenHistory,
   onReplacementDraftChange,
   onSupersede,
-}: TimelineRowActionsProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  if (row.recordId === null) {
-    return (
-      <div style={actionStackStyle}>
-        <DraftRowCreateButton onCreate={onCreateBlankDraftRow} row={row} />
-      </div>
+}: TimelineRowContextMenuProps) {
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuStyle = useMemo(
+    () => ({
+      ...actionPopoverStyle,
+      ...clampedContextMenuPosition(position),
+    }),
+    [position],
+  );
+
+  useEffect(() => {
+    const menu = menuRef.current;
+    const firstAction = menu?.querySelector<HTMLButtonElement>(
+      "button:not(:disabled)",
     );
+    firstAction?.focus({ preventScroll: true });
+  }, []);
+
+  useEffect(() => {
+    const closeForPointer = (event: PointerEvent) => {
+      const menu = menuRef.current;
+      if (menu !== null && !menu.contains(event.target as Node | null)) {
+        onClose();
+      }
+    };
+    const closeForViewportChange = () => {
+      onClose();
+    };
+    window.addEventListener("pointerdown", closeForPointer, true);
+    window.addEventListener("resize", closeForViewportChange);
+    window.addEventListener("scroll", closeForViewportChange, true);
+    return () => {
+      window.removeEventListener("pointerdown", closeForPointer, true);
+      window.removeEventListener("resize", closeForViewportChange);
+      window.removeEventListener("scroll", closeForViewportChange, true);
+    };
+  }, [onClose]);
+
+  if (row?.recordId === null || row?.recordId === undefined) {
+    return null;
   }
 
+  const recordId = row.recordId;
+  const closeAfterAction = (action: () => void) => {
+    action();
+    onClose();
+  };
+
   return (
-    <div style={menuShellStyle}>
+    <div
+      aria-label="Timeline row actions"
+      data-testid={workbookRowContextMenuTestId(timelineViewSchemaId, recordId)}
+      ref={menuRef}
+      role="dialog"
+      style={menuStyle}
+      onContextMenu={(event) => {
+        event.preventDefault();
+      }}
+      onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+        }
+      }}
+    >
       <button
-        aria-expanded={isOpen}
-        aria-label="Row actions"
-        data-testid={workbookRowActionMenuButtonTestId(
-          timelineViewSchemaId,
-          row.recordId,
-        )}
-        style={rowMenuButtonStyle}
+        data-testid={rowInspectButtonTestId(recordId)}
+        style={timelineActionButtonStyle}
         type="button"
         onClick={() => {
-          setIsOpen((current) => !current);
+          closeAfterAction(() => {
+            onInspectRow(recordId);
+          });
         }}
       >
-        <MoreHorizontal aria-hidden="true" size={16} />
+        Inspect
       </button>
-      <div
-        aria-hidden={!isOpen}
-        style={{
-          ...actionPopoverStyle,
-          ...(isOpen ? null : hiddenActionPopoverStyle),
+      <button
+        data-testid={rowHistoryOpenButtonTestId(recordId)}
+        style={timelineActionButtonStyle}
+        type="button"
+        onClick={() => {
+          closeAfterAction(() => {
+            onOpenHistory(recordId);
+          });
         }}
       >
-        <button
-          data-testid={rowInspectButtonTestId(row.recordId)}
-          style={timelineActionButtonStyle}
-          type="button"
-          onClick={() => {
-            onInspectRow(row.recordId ?? "");
-          }}
-        >
-          Inspect
-        </button>
-        <button
-          data-testid={rowHistoryOpenButtonTestId(row.recordId ?? "")}
-          style={timelineActionButtonStyle}
-          type="button"
-          onClick={() => {
-            onOpenHistory(row.recordId ?? "");
-          }}
-        >
-          History
-        </button>
-        <button
-          data-testid={timelineRowMarkReviewedButtonTestId(row.recordId)}
-          disabled={
-            row.captureState === "reviewed" || row.captureState === "superseded"
-          }
-          style={timelineActionButtonStyle}
-          type="button"
-          onClick={() => {
+        History
+      </button>
+      <button
+        data-testid={timelineRowMarkReviewedButtonTestId(recordId)}
+        disabled={
+          row.captureState === "reviewed" || row.captureState === "superseded"
+        }
+        style={timelineActionButtonStyle}
+        type="button"
+        onClick={() => {
+          closeAfterAction(() => {
             onMarkReviewed(row.key);
-          }}
-        >
-          Mark reviewed
-        </button>
-        <input
-          data-testid={timelineRowReplacementInputTestId(row.recordId)}
-          placeholder="Replacement record id"
-          style={timelineReplacementInputStyle}
-          type="text"
-          value={replacementDraft}
-          onChange={(event) => {
-            onReplacementDraftChange(row.key, event.target.value);
-          }}
-        />
-        <button
-          data-testid={timelineRowSupersedeButtonTestId(row.recordId)}
-          disabled={
-            row.captureState === "superseded" || replacementDraft.trim() === ""
-          }
-          style={timelineActionButtonStyle}
-          type="button"
-          onClick={() => {
+          });
+        }}
+      >
+        Mark reviewed
+      </button>
+      <input
+        aria-label="Replacement record id"
+        data-testid={timelineRowReplacementInputTestId(recordId)}
+        placeholder="Replacement record id"
+        style={timelineReplacementInputStyle}
+        type="text"
+        value={replacementDraft}
+        onChange={(event) => {
+          onReplacementDraftChange(row.key, event.target.value);
+        }}
+      />
+      <button
+        data-testid={timelineRowSupersedeButtonTestId(recordId)}
+        disabled={
+          row.captureState === "superseded" || replacementDraft.trim() === ""
+        }
+        style={timelineActionButtonStyle}
+        type="button"
+        onClick={() => {
+          closeAfterAction(() => {
             onSupersede(row.key);
-          }}
-        >
-          Supersede
-        </button>
-      </div>
+          });
+        }}
+      >
+        Supersede
+      </button>
     </div>
   );
 }
 
-const actionStackStyle = {
-  display: "grid",
-  gap: "0.5rem",
-};
+function clampedContextMenuPosition(
+  position: TimelineRowContextMenuPosition,
+): Pick<CSSProperties, "left" | "top"> {
+  const viewportWidth =
+    typeof window === "undefined"
+      ? position.x + contextMenuWidthPx
+      : window.innerWidth;
+  const viewportHeight =
+    typeof window === "undefined"
+      ? position.y + contextMenuHeightPx
+      : window.innerHeight;
+  const left = Math.max(
+    contextMenuMarginPx,
+    Math.min(
+      position.x,
+      viewportWidth - contextMenuWidthPx - contextMenuMarginPx,
+    ),
+  );
+  const top = Math.max(
+    contextMenuMarginPx,
+    Math.min(
+      position.y,
+      viewportHeight - contextMenuHeightPx - contextMenuMarginPx,
+    ),
+  );
+  return { left, top };
+}
 
-const menuShellStyle = {
-  position: "relative" as const,
-  display: "grid",
-  placeItems: "center",
-  minWidth: 0,
-};
-
-const rowMenuButtonStyle = {
-  display: "inline-grid",
-  placeItems: "center",
-  inlineSize: "1.75rem",
-  blockSize: "1.75rem",
-  borderRadius: "var(--ct-rounded-sm)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
-  color: "var(--ct-colors-ink-muted)",
-  cursor: "pointer",
-};
-
-const actionPopoverStyle = {
-  position: "absolute" as const,
-  insetBlockStart: "calc(100% + 0.25rem)",
-  insetInlineEnd: 0,
-  zIndex: 20,
-  display: "grid",
-  gap: "0.35rem",
-  minWidth: "13rem",
-  padding: "0.45rem",
-  borderRadius: "var(--ct-rounded-sm)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
-  boxShadow: "var(--ct-elevation-popover)",
-};
-
-const hiddenActionPopoverStyle = {
-  visibility: "hidden" as const,
-  pointerEvents: "none" as const,
-};
+const contextMenuWidthPx = 240;
+const contextMenuHeightPx = 248;
+const contextMenuMarginPx = 8;
 
 const inputStyle = {
   boxSizing: "border-box" as const,
@@ -184,13 +223,8 @@ const inputStyle = {
   color: "var(--ct-component-text-input-textColor)",
 };
 
-const replacementInputStyle = {
-  ...inputStyle,
-  fontSize: "0.9rem",
-};
-
 const timelineReplacementInputStyle = {
-  ...replacementInputStyle,
+  ...inputStyle,
   boxSizing: "border-box" as const,
   fontSize: "0.82rem",
   width: "100%",
@@ -204,6 +238,21 @@ const actionButtonStyle = {
   padding: "0.55rem 0.9rem",
   font: "inherit",
   cursor: "pointer",
+};
+
+const actionPopoverStyle = {
+  position: "fixed" as const,
+  zIndex: 30,
+  display: "grid",
+  gap: "0.35rem",
+  inlineSize: `${contextMenuWidthPx}px`,
+  maxBlockSize: "calc(100vh - 1rem)",
+  overflowY: "auto" as const,
+  padding: "0.45rem",
+  borderRadius: "var(--ct-rounded-sm)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  boxShadow: "var(--ct-elevation-popover)",
 };
 
 const timelineActionButtonStyle = {

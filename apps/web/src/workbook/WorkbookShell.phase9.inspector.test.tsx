@@ -328,6 +328,10 @@ describe("FE-P9 inspector and row-local action coverage", () => {
       <TimelineWorkbook incidentId="incident-1" reloadToken={0} />,
     );
     await waitForVisibleGridRowRecordIds(container, ["record-1", "record-2"]);
+    fireEvent.contextMenu(
+      screen.getByTestId(rowCellTestId("record-2", "timeline.summary")),
+      { clientX: 32, clientY: 48 },
+    );
     fireEvent.click(screen.getByTestId(rowInspectButtonTestId("record-2")));
 
     expect(screen.getByTestId("timeline-inspector").textContent).toContain(
@@ -443,6 +447,10 @@ describe("FE-P9 inspector and row-local action coverage", () => {
         <TimelineWorkbook incidentId="incident-1" />,
       );
       await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+      fireEvent.contextMenu(
+        screen.getByTestId(rowCellTestId("record-1", "timeline.summary")),
+        { clientX: 32, clientY: 48 },
+      );
       fireEvent.click(
         screen.getByTestId(rowHistoryOpenButtonTestId("record-1")),
       );

@@ -162,6 +162,7 @@ import {
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
   workbookRowActionMenuButtonTestId,
+  workbookRowContextMenuTestId,
   workbookShellReadyTestId,
   workbookShellSlotLabel,
   workbookShellSlots,
@@ -547,6 +548,9 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
         "record-1",
       ),
     ).toBe("cartulary.view.timeline.v1-row-action-menu-record-1");
+    expect(
+      workbookRowContextMenuTestId("cartulary.view.timeline.v1", "record-1"),
+    ).toBe("cartulary.view.timeline.v1-row-context-menu-record-1");
   });
 
   it("derives stable Phase 6 collaboration and status selectors", () => {

@@ -1,5 +1,4 @@
 import type {
-  GridActionsColumn,
   GridColumn,
   GridRow,
   GridRowGutter,
@@ -12,7 +11,6 @@ import type { WorkbookRow } from "../models/workbookTimelineModel";
 import { TimelineWorkbookGrid } from "./TimelineWorkbookGrid";
 
 export type TimelineGridSurfaceProps = {
-  readonly actionsColumn: GridActionsColumn<WorkbookRow>;
   readonly columns: readonly GridColumn<WorkbookRow>[];
   readonly getGroupLabel: (row: WorkbookRow, fieldKey: string) => string;
   readonly getGroupRowTestId: (fieldKey: string, value: string) => string;
@@ -31,7 +29,6 @@ export const TimelineGridSurface = forwardRef<
   TimelineGridSurfaceProps
 >(function TimelineGridSurface(
   {
-    actionsColumn,
     columns,
     getGroupLabel,
     getGroupRowTestId,
@@ -53,7 +50,6 @@ export const TimelineGridSurface = forwardRef<
       viewSchemaId={timelineViewSchemaId}
     >
       <TimelineWorkbookGrid
-        actionsColumn={actionsColumn}
         columns={columns}
         getGroupLabel={getGroupLabel}
         getGroupRowTestId={getGroupRowTestId}

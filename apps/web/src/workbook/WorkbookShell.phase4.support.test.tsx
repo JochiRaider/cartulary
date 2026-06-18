@@ -2,6 +2,7 @@ import {
   autoResolutionNoticeFamilySelector,
   autoResolutionNoticeTestId,
   autoResolutionUndoButtonTestId,
+  gridActionsHeaderTestId,
   gridScrollportSelector,
   gridShellTestId,
   mentionCreateEntityButtonTestId,
@@ -13,12 +14,14 @@ import {
   relationshipChipTestId,
   relationshipItemsTestId,
   relationshipOverflowButtonTestId,
+  rowCellTestId,
   rowInspectButtonTestId,
   saveStateTestId,
   timelineCollectionInputTestId,
   timelineInspectorSectionTestId,
   timelineRowVersionTestId,
-  workbookRowActionMenuButtonTestId,
+  workbookInlineDraftRowTestId,
+  workbookRowContextMenuTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -396,6 +399,92 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     vi.unstubAllGlobals();
   });
 
+  it("opens Timeline row actions from the committed row context menu", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 2,
+            summary: "Alpha",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+
+    render(
+      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+    );
+
+    const summaryCell = await screen.findByTestId(
+      rowCellTestId("record-1", "timeline.summary"),
+    );
+    expect(
+      screen.queryByTestId(gridActionsHeaderTestId(timelineViewSchemaId)),
+    ).toBeNull();
+
+    fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
+    const contextMenu = await screen.findByTestId(
+      workbookRowContextMenuTestId(timelineViewSchemaId, "record-1"),
+    );
+    expect(contextMenu.getAttribute("role")).toBe("dialog");
+    expect(screen.getByTestId(rowInspectButtonTestId("record-1"))).toBeTruthy();
+
+    fireEvent.keyDown(contextMenu, { key: "Escape" });
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId(
+          workbookRowContextMenuTestId(timelineViewSchemaId, "record-1"),
+        ),
+      ).toBeNull();
+    });
+  });
+
+  it("opens Timeline row actions from the keyboard and ignores draft rows", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 2,
+            summary: "Alpha",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+
+    render(
+      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+    );
+
+    const draftRow = await screen.findByTestId(
+      workbookInlineDraftRowTestId(timelineViewSchemaId),
+    );
+    fireEvent.contextMenu(draftRow, { clientX: 12, clientY: 24 });
+    expect(
+      screen.queryByTestId(
+        workbookRowContextMenuTestId(timelineViewSchemaId, "record-1"),
+      ),
+    ).toBeNull();
+
+    const summaryCell = await screen.findByTestId(
+      rowCellTestId("record-1", "timeline.summary"),
+    );
+    summaryCell.focus();
+    fireEvent.keyDown(summaryCell, { key: "F10", shiftKey: true });
+    expect(
+      await screen.findByTestId(
+        workbookRowContextMenuTestId(timelineViewSchemaId, "record-1"),
+      ),
+    ).toBeTruthy();
+  });
+
   it("renders auto-resolved chips distinctly from manual resolved chips", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
@@ -551,9 +640,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       />,
     );
 
-    fireEvent.click(
-      await screen.findByTestId(rowInspectButtonTestId("record-1")),
-    );
+    await openTimelineInspectorFromContext("record-1");
     fireEvent.click(
       screen.getByTestId(
         mentionItemTestId(
@@ -682,9 +769,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
     rerenderTimelineWorkbook = renderResult.rerender;
 
-    const inspectButton = await screen.findByTestId(
-      rowInspectButtonTestId("record-1"),
-    );
+    await screen.findByTestId(rowCellTestId("record-1", "timeline.summary"));
     installTimelineGridScrollClamp(() => maxScrollTop);
     installTimelineInspectGeometry("record-1", {
       containerHeight: 300,
@@ -697,10 +782,10 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       targetWidth: 80,
     });
 
-    fireEvent.click(inspectButton);
+    await openTimelineInspectorFromContext("record-1");
     fireEvent.click(screen.getByTestId(mentionItemTestId("identity-create")));
     const preservedScroll = setTimelineGridScroll(400, 175);
-    expect(isInspectButtonFullyVisibleWithinGrid("record-1")).toBe(true);
+    expect(isTimelineFocusTargetFullyVisibleWithinGrid("record-1")).toBe(true);
     fireEvent.click(
       screen.getByTestId(mentionCreateEntityButtonTestId("identity")),
     );
@@ -784,7 +869,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
 
     const preservedScroll = setTimelineGridScroll(240, 18);
 
-    expect(isInspectButtonFullyVisibleWithinGrid("record-1")).toBe(false);
+    expect(isTimelineFocusTargetFullyVisibleWithinGrid("record-1")).toBe(false);
 
     fireEvent.change(relationshipInput, {
       target: { value: " vpn   gateway " },
@@ -992,6 +1077,10 @@ describe("Support Phase 4 TimelineWorkbook", () => {
         relationshipItemsTestId("record-1", "timeline.host_refs"),
       ).textContent,
     ).toContain("WS-023");
+    fireEvent.contextMenu(
+      screen.getByTestId(rowCellTestId("record-1", "timeline.summary")),
+      { clientX: 32, clientY: 48 },
+    );
     expect(screen.getByTestId(rowInspectButtonTestId("record-1"))).toBeTruthy();
   });
 
@@ -1323,9 +1412,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
-    fireEvent.click(
-      await screen.findByTestId(rowInspectButtonTestId("record-1")),
-    );
+    await openTimelineInspectorFromContext("record-1");
     await screen.findByTestId(mentionDismissButtonTestId());
     const dismissScroll = setTimelineGridScroll(320, 180);
     fireEvent.click(screen.getByTestId(mentionDismissButtonTestId()));
@@ -1369,9 +1456,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
-    const inspectButton = await screen.findByTestId(
-      rowInspectButtonTestId("record-1"),
-    );
+    await screen.findByTestId(rowCellTestId("record-1", "timeline.summary"));
     installTimelineInspectGeometry("record-1", {
       containerHeight: 300,
       containerLeft: 40,
@@ -1383,11 +1468,11 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       targetWidth: 80,
     });
 
-    fireEvent.click(inspectButton);
+    await openTimelineInspectorFromContext("record-1");
     await screen.findByTestId(mentionDismissButtonTestId());
 
     const dismissScroll = setTimelineGridScroll(320, 18);
-    expect(isInspectButtonFullyVisibleWithinGrid("record-1")).toBe(false);
+    expect(isTimelineFocusTargetFullyVisibleWithinGrid("record-1")).toBe(false);
     fireEvent.click(screen.getByTestId(mentionDismissButtonTestId()));
 
     await waitFor(() => {
@@ -1402,7 +1487,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     ).toBeTruthy();
 
     const restoreScroll = setTimelineGridScroll(340, 18);
-    expect(isInspectButtonFullyVisibleWithinGrid("record-1")).toBe(false);
+    expect(isTimelineFocusTargetFullyVisibleWithinGrid("record-1")).toBe(false);
     fireEvent.click(screen.getByTestId(mentionRestoreUnresolvedButtonTestId()));
 
     await waitFor(() => {
@@ -1740,6 +1825,14 @@ function setTimelineGridScroll(top: number, left: number) {
   return { top, left };
 }
 
+async function openTimelineInspectorFromContext(recordId: string) {
+  const summaryCell = await screen.findByTestId(
+    rowCellTestId(recordId, "timeline.summary"),
+  );
+  fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
+  fireEvent.click(await screen.findByTestId(rowInspectButtonTestId(recordId)));
+}
+
 async function expectTimelineFocusAndScroll(
   recordId: string,
   preservedScroll: { top: number; left: number },
@@ -1751,15 +1844,13 @@ async function expectTimelineFocusAndScroll(
 ) {
   await waitFor(() => {
     expect(document.activeElement).toBe(
-      screen.getByTestId(
-        workbookRowActionMenuButtonTestId(timelineViewSchemaId, recordId),
-      ),
+      screen.getByTestId(rowCellTestId(recordId, "timeline.summary")),
     );
     const grid = timelineGridScrollport();
     expect(grid.scrollTop).toBe(options.expectedTop ?? preservedScroll.top);
     expect(grid.scrollLeft).toBe(options.expectedLeft ?? preservedScroll.left);
     if (options.requireVisibleWithinGrid) {
-      expect(isInspectButtonFullyVisibleWithinGrid(recordId)).toBe(true);
+      expect(isTimelineFocusTargetFullyVisibleWithinGrid(recordId)).toBe(true);
     }
   });
 }
@@ -1777,10 +1868,7 @@ function installTimelineInspectGeometry(
     targetWidth: number;
   },
 ) {
-  const inspectTestId = workbookRowActionMenuButtonTestId(
-    timelineViewSchemaId,
-    recordId,
-  );
+  const focusTargetTestId = rowCellTestId(recordId, "timeline.summary");
   const original = HTMLElement.prototype.getBoundingClientRect;
 
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
@@ -1794,7 +1882,7 @@ function installTimelineInspectGeometry(
           width: options.containerWidth,
         });
       }
-      if (testId === inspectTestId) {
+      if (testId === focusTargetTestId) {
         const grid = timelineGridScrollport();
         const contentTop =
           typeof options.contentTop === "function"
@@ -1826,14 +1914,14 @@ function installTimelineGridScrollClamp(maxTop: () => number) {
   });
 }
 
-function isInspectButtonFullyVisibleWithinGrid(recordId: string) {
+function isTimelineFocusTargetFullyVisibleWithinGrid(recordId: string) {
   const tolerancePx = 1;
   const grid = timelineGridScrollport();
-  const inspectButton = screen.getByTestId(
-    workbookRowActionMenuButtonTestId(timelineViewSchemaId, recordId),
+  const focusTarget = screen.getByTestId(
+    rowCellTestId(recordId, "timeline.summary"),
   );
   const gridRect = grid.getBoundingClientRect();
-  const inspectRect = inspectButton.getBoundingClientRect();
+  const inspectRect = focusTarget.getBoundingClientRect();
 
   return (
     inspectRect.top >= gridRect.top - tolerancePx &&

@@ -6,8 +6,8 @@ import {
   autoResolutionUndoButtonTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
+  rowCellTestId,
   timelineCollectionInputTestId,
-  workbookRowActionMenuButtonTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Response } from "@playwright/test";
@@ -138,12 +138,7 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     ),
   ).toBeVisible();
   await expect(
-    page.getByTestId(
-      workbookRowActionMenuButtonTestId(
-        timelineViewSchemaId,
-        eligibleRow.record_id,
-      ),
-    ),
+    page.getByTestId(rowCellTestId(eligibleRow.record_id, "timeline.summary")),
   ).toBeFocused();
   await expectTimelineContinuity(page, eligibleRow.record_id, autoScroll);
 
@@ -161,12 +156,7 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     "Auto",
   );
   await expect(
-    page.getByTestId(
-      workbookRowActionMenuButtonTestId(
-        timelineViewSchemaId,
-        eligibleRow.record_id,
-      ),
-    ),
+    page.getByTestId(rowCellTestId(eligibleRow.record_id, "timeline.summary")),
   ).toBeFocused();
   await expectTimelineContinuity(page, eligibleRow.record_id, undoScroll);
   expect(undoBody).toMatchObject({

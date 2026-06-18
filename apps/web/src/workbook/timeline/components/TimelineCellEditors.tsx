@@ -205,9 +205,10 @@ export function DraftRowCreateButton({
 
   return (
     <button
+      aria-label="Create timeline row"
       data-testid={draftRowCreateButtonTestId()}
       disabled={row.pendingSignature !== null}
-      style={actionButtonStyle}
+      style={draftRowCreateButtonStyle}
       type="button"
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -216,7 +217,7 @@ export function DraftRowCreateButton({
       }}
       onMouseDown={createBlankRow}
     >
-      Commit row
+      +
     </button>
   );
 }
@@ -409,6 +410,19 @@ const actionButtonStyle = {
   padding: "0.55rem 0.9rem",
   font: "inherit",
   cursor: "pointer",
+};
+
+const draftRowCreateButtonStyle = {
+  ...actionButtonStyle,
+  display: "inline-grid",
+  placeItems: "center",
+  inlineSize: "1.4rem",
+  blockSize: "1.4rem",
+  minInlineSize: "1.4rem",
+  padding: 0,
+  fontSize: "0.9rem",
+  fontWeight: 700,
+  lineHeight: 1,
 };
 
 const inputStyle = {

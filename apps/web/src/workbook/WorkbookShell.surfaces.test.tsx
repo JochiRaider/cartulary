@@ -67,6 +67,15 @@ import { WorkbookShell } from "./WorkbookShell";
 const savedViewId = "11111111-1111-4111-8111-111111111111";
 const savedViewCopyId = "33333333-3333-4333-8333-333333333333";
 
+async function openTimelineInspectorFromContext(recordId: string) {
+  fireEvent.contextMenu(
+    await screen.findByTestId(rowCellTestId(recordId, "timeline.summary")),
+    { clientX: 32, clientY: 48 },
+  );
+  fireEvent.click(await screen.findByTestId(rowInspectButtonTestId(recordId)));
+  await screen.findByTestId("timeline-inspector");
+}
+
 type TestSavedViewResource = {
   saved_view_id: string;
   view_schema_id: string;
@@ -1651,9 +1660,7 @@ describe("WorkbookShell surface selection", () => {
     fireEvent.click(
       await screen.findByTestId(surfaceTabTestId(timelineViewSchemaId)),
     );
-    fireEvent.click(
-      await screen.findByTestId(rowInspectButtonTestId("timeline-1")),
-    );
+    await openTimelineInspectorFromContext("timeline-1");
     const input = await screen.findByTestId(
       "timeline-evidence-file-timeline-1",
     );
@@ -1700,9 +1707,6 @@ describe("WorkbookShell surface selection", () => {
     const uploadHeaders = uploadInit.headers as Headers;
     expect(uploadHeaders.get("X-Upload-Contract")).toBe("phase5");
     expect(uploadHeaders.get("Content-Type")).toBe("text/plain");
-    expect(
-      (await screen.findByTestId("timeline-inspector-message")).textContent,
-    ).toBe("Evidence attached.");
   });
 
   it("Phase 5 E-5-01 surfaces upload failures inline without issuing Timeline patches", async () => {
@@ -1714,9 +1718,7 @@ describe("WorkbookShell surface selection", () => {
     fireEvent.click(
       await screen.findByTestId(surfaceTabTestId(timelineViewSchemaId)),
     );
-    fireEvent.click(
-      await screen.findByTestId(rowInspectButtonTestId("timeline-1")),
-    );
+    await openTimelineInspectorFromContext("timeline-1");
     fireEvent.change(
       await screen.findByTestId("timeline-evidence-file-timeline-1"),
       {

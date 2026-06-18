@@ -27,6 +27,7 @@ import {
   evidencePreviewPanelTestId,
   gridGroupRowTestId,
   gridRowGutterTestId,
+  gridRowTestId,
   gridSavedRowsSelector,
   gridScrollportSelector,
   gridShellTestId,
@@ -66,7 +67,6 @@ import {
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
-  workbookRowActionMenuButtonTestId,
   workbookShellReadyTestId,
   workbookShellSlots,
   workbookShellSlotTestId,
@@ -361,30 +361,13 @@ async function readTimelineGridFirstLayout(page: Page) {
 }
 
 async function openTimelineRowActions(page: Page, recordId: string) {
-  const actionMenuTestId = workbookRowActionMenuButtonTestId(
-    timelineViewSchemaId,
-    recordId,
-  );
+  const rowTestId = gridRowTestId(timelineViewSchemaId, recordId);
   await scrollGridTargetIntoView({
     page,
     surface: timelineViewSchemaId,
-    targetTestId: actionMenuTestId,
+    targetTestId: rowTestId,
   });
-  const actionMenu = page.getByTestId(actionMenuTestId);
-  if ((await actionMenu.getAttribute("aria-expanded")) === "true") {
-    return;
-  }
-  const openMenus = page.locator(
-    'button[aria-label="Row actions"][aria-expanded="true"]',
-  );
-  const openMenuCount = await openMenus.count();
-  for (let index = 0; index < openMenuCount; index += 1) {
-    const openMenu = openMenus.nth(index);
-    if ((await openMenu.getAttribute("data-testid")) !== actionMenuTestId) {
-      await openMenu.click();
-    }
-  }
-  await actionMenu.click();
+  await page.getByTestId(rowTestId).click({ button: "right" });
 }
 
 async function clickTimelineRowAction(
@@ -1099,7 +1082,7 @@ test.describe("FE-P4 visual readiness", () => {
       page.getByTestId(workbookInlineDraftRowTestId(timelineViewSchemaId)),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Commit row" }),
+      page.getByRole("button", { name: "Create timeline row" }),
     ).toBeVisible();
     await assertWorkbookGridVisualRegression(
       page,

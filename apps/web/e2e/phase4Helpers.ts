@@ -16,6 +16,7 @@ import {
   pendingQueueNoticeTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
+  rowCellTestId,
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
   saveStateTestId,
@@ -24,7 +25,6 @@ import {
   timelineRowVersionTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
-  workbookRowActionMenuButtonTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Response } from "@playwright/test";
@@ -698,25 +698,9 @@ export async function openTimelineInspector(page: Page, recordId: string) {
 }
 
 export async function openTimelineRowActions(page: Page, recordId: string) {
-  const actionMenuTestId = workbookRowActionMenuButtonTestId(
-    timelineViewSchemaId,
-    recordId,
-  );
-  await ensureTimelineGridTargetVisible(page, actionMenuTestId);
-  const actionMenu = page.getByTestId(actionMenuTestId);
-  if ((await actionMenu.getAttribute("aria-expanded")) !== "true") {
-    const openMenus = page.locator(
-      'button[aria-label="Row actions"][aria-expanded="true"]',
-    );
-    const openMenuCount = await openMenus.count();
-    for (let index = 0; index < openMenuCount; index += 1) {
-      const openMenu = openMenus.nth(index);
-      if ((await openMenu.getAttribute("data-testid")) !== actionMenuTestId) {
-        await openMenu.click();
-      }
-    }
-    await actionMenu.click();
-  }
+  const rowTestId = gridRowTestId(timelineViewSchemaId, recordId);
+  await ensureTimelineGridTargetVisible(page, rowTestId);
+  await page.getByTestId(rowTestId).click({ button: "right" });
 }
 
 export async function clickTimelineRowAction(
@@ -893,10 +877,7 @@ export async function expectTimelineContinuity(
     .poll(() => new URL(page.url()).searchParams.get("surface"))
     .toBeNull();
   await assertGridFocusContinuity({
-    focusTestId: workbookRowActionMenuButtonTestId(
-      timelineViewSchemaId,
-      recordId,
-    ),
+    focusTestId: rowCellTestId(recordId, "timeline.summary"),
     page,
     preservedScroll,
     requireExactHorizontalScroll: options.requireExactHorizontalScroll ?? false,

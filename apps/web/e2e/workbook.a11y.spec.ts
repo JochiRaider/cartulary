@@ -75,7 +75,6 @@ import {
   timelineRowMarkReviewedButtonTestId,
   timelineScalarEditorTestId,
   workbookInspectorToggleTestId,
-  workbookRowActionMenuButtonTestId,
   workbookShellReadyTestId,
   workbookShellSlotLabel,
   workbookShellSlots,
@@ -1179,14 +1178,11 @@ test.describe("FE-P2 accessibility readiness", () => {
       page.getByTestId(gridGroupingSelectTestId(timelineViewSchemaId)),
     ).toBeVisible();
 
-    const inspectButton = page.getByTestId(
-      workbookRowActionMenuButtonTestId(
-        timelineViewSchemaId,
-        timelineRow.record_id,
-      ),
+    const summaryCell = page.getByTestId(
+      rowCellTestId(timelineRow.record_id, "timeline.summary"),
     );
-    await expect(inspectButton).toBeVisible();
-    await expectVisibleFocus(inspectButton);
+    await expect(summaryCell).toBeVisible();
+    await expectVisibleFocus(summaryCell);
     await openTimelineInspector(page, timelineRow.record_id);
 
     const inspector = page.getByTestId("timeline-inspector");
@@ -1210,10 +1206,7 @@ test.describe("FE-P2 accessibility readiness", () => {
       systemViewSwitcherTriggerTestId(),
       savedViewSelectorTestId(timelineViewSchemaId),
       gridFilterApplyTestId(timelineViewSchemaId),
-      workbookRowActionMenuButtonTestId(
-        timelineViewSchemaId,
-        timelineRow.record_id,
-      ),
+      rowCellTestId(timelineRow.record_id, "timeline.summary"),
       saveStateTestId(),
     ]);
   });
@@ -1259,22 +1252,24 @@ test.describe("FE-P3 accessibility readiness", () => {
     const betaMarkReviewed = page.getByTestId(
       timelineRowMarkReviewedButtonTestId(betaRow.record_id),
     );
-    await page
-      .getByTestId(
-        workbookRowActionMenuButtonTestId(
-          timelineViewSchemaId,
-          betaRow.record_id,
-        ),
-      )
-      .click();
+    const betaSummaryControl = page.getByTestId(
+      rowCellTestId(betaRow.record_id, "timeline.summary"),
+    );
+    await expectVisibleFocus(betaSummaryControl);
+    await page.keyboard.press("Shift+F10");
     await expectVisibleFocus(betaMarkReviewed);
     await betaMarkReviewed.click();
-    await expect(betaMarkReviewed).toBeDisabled();
     await expect(
       page.getByTestId(
         rowCellTestId(betaRow.record_id, "timeline.capture_state"),
       ),
     ).toHaveText("reviewed");
+    await expectVisibleFocus(betaSummaryControl);
+    await page.keyboard.press("Shift+F10");
+    await expect(
+      page.getByTestId(timelineRowMarkReviewedButtonTestId(betaRow.record_id)),
+    ).toBeDisabled();
+    await page.keyboard.press("Escape");
 
     await page
       .getByTestId(gridGroupingSelectTestId(timelineViewSchemaId))
@@ -1317,10 +1312,6 @@ test.describe("FE-P3 accessibility readiness", () => {
       ),
       gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
       rowCellTestId(betaRow.record_id, "timeline.summary"),
-      workbookRowActionMenuButtonTestId(
-        timelineViewSchemaId,
-        betaRow.record_id,
-      ),
       saveStateTestId(),
     ]);
   });
@@ -1384,10 +1375,7 @@ test.describe("FE-P4 accessibility readiness", () => {
       gridFilterFieldTestId(timelineViewSchemaId),
       gridFilterApplyTestId(timelineViewSchemaId),
       gridGroupingSelectTestId(timelineViewSchemaId),
-      workbookRowActionMenuButtonTestId(
-        timelineViewSchemaId,
-        editRow.record_id,
-      ),
+      rowCellTestId(editRow.record_id, "timeline.summary"),
     ]);
 
     const editSummary = page.getByTestId(
@@ -1445,13 +1433,6 @@ test.describe("FE-P4 accessibility readiness", () => {
       rowCellTestId(editRow.record_id, "timeline.summary"),
     );
     await expectVisibleFocus(originSummary);
-    const inspectButton = page.getByTestId(
-      workbookRowActionMenuButtonTestId(
-        timelineViewSchemaId,
-        editRow.record_id,
-      ),
-    );
-    await expectVisibleFocus(inspectButton);
     await openTimelineInspector(page, editRow.record_id);
     const inspectorDetails = page.getByTestId(
       rowInspectorFieldTestId(editRow.record_id, "timeline.details"),
@@ -1486,10 +1467,6 @@ test.describe("FE-P4 accessibility readiness", () => {
       gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
       rowCellTestId(editRow.record_id, "timeline.summary"),
       rowCellTestId(validationRow.record_id, "timeline.occurred_at"),
-      workbookRowActionMenuButtonTestId(
-        timelineViewSchemaId,
-        editRow.record_id,
-      ),
       pendingQueueNoticeTestId(),
       saveStateTestId(),
     ]);
@@ -1648,26 +1625,11 @@ test.describe("FE-P5 accessibility readiness", () => {
     );
 
     await expectTabOrderIncludes(page, [
-      workbookRowActionMenuButtonTestId(
-        timelineViewSchemaId,
-        unresolvedRow.record_id,
-      ),
-      workbookRowActionMenuButtonTestId(
-        timelineViewSchemaId,
-        resolvedRow.record_id,
-      ),
-      workbookRowActionMenuButtonTestId(
-        timelineViewSchemaId,
-        manualRow.record_id,
-      ),
-      workbookRowActionMenuButtonTestId(
-        timelineViewSchemaId,
-        autoRow.record_id,
-      ),
-      workbookRowActionMenuButtonTestId(
-        timelineViewSchemaId,
-        dismissedRow.record_id,
-      ),
+      rowCellTestId(unresolvedRow.record_id, "timeline.summary"),
+      rowCellTestId(resolvedRow.record_id, "timeline.summary"),
+      rowCellTestId(manualRow.record_id, "timeline.summary"),
+      rowCellTestId(autoRow.record_id, "timeline.summary"),
+      rowCellTestId(dismissedRow.record_id, "timeline.summary"),
     ]);
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
@@ -2244,10 +2206,10 @@ test.describe("FE-P9 accessibility readiness", () => {
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-    const inspectButton = page.getByTestId(
-      workbookRowActionMenuButtonTestId(timelineViewSchemaId, row.record_id),
+    const summaryCell = page.getByTestId(
+      rowCellTestId(row.record_id, "timeline.summary"),
     );
-    await expectVisibleFocus(inspectButton);
+    await expectVisibleFocus(summaryCell);
     await openTimelineInspector(page, row.record_id);
 
     for (const section of [
@@ -2276,6 +2238,8 @@ test.describe("FE-P9 accessibility readiness", () => {
     await expect(relationshipChip).toContainText("Unresolved");
     await expectVisibleFocus(relationshipChip);
 
+    await expectVisibleFocus(summaryCell);
+    await page.keyboard.press("Shift+F10");
     const openHistory = page.getByTestId(
       rowHistoryOpenButtonTestId(row.record_id),
     );
@@ -2341,7 +2305,7 @@ test.describe("FE-P9 accessibility readiness", () => {
     await expectVisibleFocus(deleteConfirm);
     await expectVisibleFocus(deleteCancel);
     await expectAndRecordContrast(page, [
-      workbookRowActionMenuButtonTestId(timelineViewSchemaId, row.record_id),
+      rowCellTestId(row.record_id, "timeline.summary"),
       timelineScalarEditorTestId({
         fieldKey: "timeline.details",
         recordId: row.record_id,

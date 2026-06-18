@@ -1,5 +1,4 @@
 import {
-  type GridActionsColumn,
   type GridColumn,
   type GridRow,
   type GridRowGutter,
@@ -20,7 +19,6 @@ import type { WorkbookRow } from "../models/workbookTimelineModel";
 export const TimelineWorkbookGrid = forwardRef<
   HTMLDivElement,
   {
-    readonly actionsColumn: GridActionsColumn<WorkbookRow>;
     readonly columns: readonly GridColumn<WorkbookRow>[];
     readonly getGroupLabel: (row: WorkbookRow, fieldKey: string) => string;
     readonly getGroupRowTestId: (fieldKey: string, value: string) => string;
@@ -34,7 +32,6 @@ export const TimelineWorkbookGrid = forwardRef<
   }
 >(function TimelineWorkbookGrid(
   {
-    actionsColumn,
     columns,
     getGroupLabel,
     getGroupRowTestId,
@@ -55,7 +52,6 @@ export const TimelineWorkbookGrid = forwardRef<
       testId={gridShellTestId(timelineViewSchemaId)}
     >
       <GridTable
-        actionsColumn={actionsColumn}
         columns={columns}
         density="compact"
         fillViewportInline

@@ -116,6 +116,16 @@ describe("Phase 7 workbook history support coverage", () => {
     cleanupTimelineWorkbookTestGlobals();
   });
 
+  async function openTimelineHistoryFromContext(recordId: string) {
+    const summaryCell = await screen.findByTestId(
+      rowCellTestId(recordId, "timeline.summary"),
+    );
+    fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
+    fireEvent.click(
+      await screen.findByTestId(rowHistoryOpenButtonTestId(recordId)),
+    );
+  }
+
   it("opens row-centric history from a selected workbook row and renders server metadata only", async () => {
     const historyRecord = historyItem({
       available_rollback_actions: ["change_set", "row_restore"],
@@ -150,7 +160,7 @@ describe("Phase 7 workbook history support coverage", () => {
       "record-1",
       "timeline.summary",
     );
-    fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
+    await openTimelineHistoryFromContext("record-1");
 
     await screen.findByTestId(historyItemTestId(historyRecord));
     expect(fetchMock).toHaveBeenCalledWith(
@@ -258,7 +268,7 @@ describe("Phase 7 workbook history support coverage", () => {
       "record-2",
       "timeline.summary",
     );
-    fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
+    await openTimelineHistoryFromContext("record-1");
     await screen.findByTestId(historyItemTestId(record1History));
 
     fireEvent.focus(record2Summary);
@@ -341,7 +351,7 @@ describe("Phase 7 workbook history support coverage", () => {
       "record-2",
       "timeline.summary",
     );
-    fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
+    await openTimelineHistoryFromContext("record-1");
     await screen.findByTestId(
       historyActionTestId(record1History, "history_entry"),
     );
@@ -462,7 +472,7 @@ describe("Phase 7 workbook history support coverage", () => {
       "record-1",
       "timeline.summary",
     );
-    fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
+    await openTimelineHistoryFromContext("record-1");
 
     expect(
       (await screen.findByTestId(rowHistoryMessageTestId())).textContent,
@@ -549,7 +559,7 @@ describe("Phase 7 workbook history support coverage", () => {
       "timeline.summary",
     );
     const rollbackItem = historyItem();
-    fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
+    await openTimelineHistoryFromContext("record-1");
     await screen.findByTestId(
       historyActionTestId(rollbackItem, "history_entry"),
     );
@@ -678,7 +688,7 @@ describe("Phase 7 workbook history support coverage", () => {
       "record-1",
       "timeline.summary",
     );
-    fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
+    await openTimelineHistoryFromContext("record-1");
     await screen.findByTestId(rowHistoryDeleteButtonTestId());
     fireEvent.click(screen.getByTestId(rowHistoryDeleteButtonTestId()));
     fireEvent.click(
@@ -775,7 +785,7 @@ describe("Phase 7 workbook history support coverage", () => {
       "record-1",
       "timeline.summary",
     );
-    fireEvent.click(screen.getByTestId(rowHistoryOpenButtonTestId("record-1")));
+    await openTimelineHistoryFromContext("record-1");
     await screen.findByTestId(historyItemTestId(historyRecord));
 
     latestTimelineWebSocket()?.emit({

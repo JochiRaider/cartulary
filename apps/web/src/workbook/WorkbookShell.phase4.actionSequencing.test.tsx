@@ -43,6 +43,23 @@ describe("Phase 4 Timeline workbook action sequencing", () => {
     cleanupTimelineWorkbookTestGlobals();
   });
 
+  async function openTimelineInspectorFromContext(recordId: string) {
+    const summaryCell = await screen.findByTestId(
+      rowCellTestId(recordId, "timeline.summary"),
+    );
+    fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
+    fireEvent.click(
+      await screen.findByTestId(rowInspectButtonTestId(recordId)),
+    );
+  }
+
+  async function openTimelineRowContextMenu(recordId: string) {
+    const summaryCell = await screen.findByTestId(
+      rowCellTestId(recordId, "timeline.summary"),
+    );
+    fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
+  }
+
   function queueTwoRowInitialState(options: {
     recordOneCaptureState: string;
     recordOneDetails?: string;
@@ -165,6 +182,7 @@ describe("Phase 4 Timeline workbook action sequencing", () => {
     );
 
     await screen.findByTestId(saveStateTestId());
+    await openTimelineRowContextMenu("record-1");
     fireEvent.click(await screen.findByTestId("row-record-1-mark-reviewed"));
 
     await waitForTimelineRecordActionCalls(fetchMock, "mark-reviewed", 1);
@@ -181,9 +199,7 @@ describe("Phase 4 Timeline workbook action sequencing", () => {
       ).toBe("2");
     });
 
-    fireEvent.click(
-      await screen.findByTestId(rowInspectButtonTestId("record-1")),
-    );
+    await openTimelineInspectorFromContext("record-1");
     const detailsInput = (await screen.findByTestId(
       rowInspectorFieldTestId("record-1", "timeline.details"),
     )) as HTMLTextAreaElement;
@@ -207,6 +223,7 @@ describe("Phase 4 Timeline workbook action sequencing", () => {
       ).toBe("3");
     });
 
+    await openTimelineRowContextMenu("record-1");
     fireEvent.change(await screen.findByTestId("row-record-1-replacement-id"), {
       target: { value: "record-2" },
     });
@@ -291,9 +308,7 @@ describe("Phase 4 Timeline workbook action sequencing", () => {
       />,
     );
 
-    fireEvent.click(
-      await screen.findByTestId(rowInspectButtonTestId("record-1")),
-    );
+    await openTimelineInspectorFromContext("record-1");
     const detailsInput = (await screen.findByTestId(
       rowInspectorFieldTestId("record-1", "timeline.details"),
     )) as HTMLTextAreaElement;
@@ -316,6 +331,7 @@ describe("Phase 4 Timeline workbook action sequencing", () => {
       { method: "POST", body: JSON.stringify({}) },
     );
 
+    await openTimelineRowContextMenu("record-1");
     fireEvent.change(await screen.findByTestId("row-record-1-replacement-id"), {
       target: { value: "record-2" },
     });
@@ -451,6 +467,7 @@ describe("Phase 4 Timeline workbook action sequencing", () => {
       />,
     );
 
+    await openTimelineRowContextMenu("record-1");
     fireEvent.click(await screen.findByTestId("row-record-1-mark-reviewed"));
 
     await waitForTimelineRecordActionCalls(fetchMock, "mark-reviewed", 1);
@@ -466,6 +483,7 @@ describe("Phase 4 Timeline workbook action sequencing", () => {
       ).toBe("2");
     });
 
+    await openTimelineRowContextMenu("record-1");
     fireEvent.change(await screen.findByTestId("row-record-1-replacement-id"), {
       target: { value: "record-2" },
     });

@@ -102,6 +102,16 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     )) as HTMLInputElement;
   }
 
+  async function openTimelineInspectorFromContext(recordId: string) {
+    const summaryCell = await screen.findByTestId(
+      rowCellTestId(recordId, "timeline.summary"),
+    );
+    fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
+    fireEvent.click(
+      await screen.findByTestId(rowInspectButtonTestId(recordId)),
+    );
+  }
+
   async function expectSavedRowVersion(rowVersion: number) {
     await waitFor(() => {
       expect(
@@ -244,9 +254,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     mockInitialTimelineRow();
     mockSourceTextPatchResponse("Pasted transcript");
     await renderSingleTimelineRow();
-    fireEvent.click(
-      await screen.findByTestId(rowInspectButtonTestId("record-1")),
-    );
+    await openTimelineInspectorFromContext("record-1");
     const sourceText = (await screen.findByLabelText(
       "Source Text",
     )) as HTMLTextAreaElement;

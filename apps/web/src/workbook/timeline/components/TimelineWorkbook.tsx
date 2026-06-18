@@ -1,6 +1,5 @@
 import {
   buildGridPresentationRows,
-  type GridActionsColumn,
   type GridCellAnchor,
   type GridColumn,
   type GridNavigationIntent,
@@ -16,7 +15,6 @@ import {
   draftCellTestId,
   draftRelationshipItemsTestId,
   draftTimelineCollectionInputTestId,
-  gridActionsHeaderTestId,
   gridGroupRowTestId,
   gridRowGutterTestId,
   gridRowTestId,
@@ -33,7 +31,6 @@ import {
   timelineScalarEditorTestId,
   type WorkbookSurface,
   workbookInlineDraftRowTestId,
-  workbookRowActionMenuButtonTestId,
 } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
@@ -44,6 +41,7 @@ import {
   type Dispatch,
   type ClipboardEvent as ReactClipboardEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type SetStateAction,
   startTransition,
@@ -212,6 +210,7 @@ import {
   type WorkbookSocketLifecycleEffect,
 } from "../services/workbookSocketLifecycle";
 import {
+  DraftRowCreateButton,
   mentionChipStateForItem,
   RelationshipChip,
   relationshipChipBaseStyle,
@@ -232,7 +231,10 @@ import {
   TimelineCellPresenceMarker,
   TimelineRowGutterContent,
 } from "./TimelinePresenceMarkers";
-import { TimelineRowActions } from "./TimelineRowActions";
+import {
+  TimelineRowContextMenu,
+  type TimelineRowContextMenuPosition,
+} from "./TimelineRowActions";
 import { TimelineWorkbookInspector } from "./TimelineWorkbookInspector";
 import {
   TimelineWorkbookNotices,
@@ -252,7 +254,6 @@ export {
 };
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
-const timelineActionsColumnWidth = 44;
 const timelineRowGutterWidth = 58;
 const timelineVisibleFieldKeys = timelineVisibleBindings.map(
   (binding) => binding.fieldKey,
@@ -608,6 +609,11 @@ type ViewportContinuityTarget =
   | { kind: "row-inspect"; recordId: string }
   | { kind: "input"; focusKey: string }
   | { kind: "scroll-only" };
+
+type TimelineRowContextMenuState = {
+  readonly position: TimelineRowContextMenuPosition;
+  readonly recordId: string;
+};
 
 type ViewportContinuityRequest = {
   token: number;
@@ -1129,7 +1135,10 @@ export function TimelineWorkbook({
 
     updateFromElement();
     window.addEventListener("resize", scheduleUpdateFromElement);
-    window.visualViewport?.addEventListener("resize", scheduleUpdateFromElement);
+    window.visualViewport?.addEventListener(
+      "resize",
+      scheduleUpdateFromElement,
+    );
 
     if (typeof ResizeObserver === "undefined") {
       return () => {
@@ -1159,6 +1168,8 @@ export function TimelineWorkbook({
   const [replacementDrafts, setReplacementDrafts] = useState<
     Record<string, string>
   >({});
+  const [rowContextMenu, setRowContextMenu] =
+    useState<TimelineRowContextMenuState | null>(null);
   useLayoutEffect(() => {
     const gridShell = gridShellRef.current;
     if (gridShell === null) {
@@ -1168,7 +1179,7 @@ export function TimelineWorkbook({
     setTimelineGridShellWidth((current) =>
       current === measuredWidth ? current : measuredWidth,
     );
-  }, [isInspectorOpen]);
+  }, []);
 
   const [activeCollectionInputKey, setActiveCollectionInputKey] = useState<
     string | null
@@ -1774,13 +1785,17 @@ export function TimelineWorkbook({
     (target: ViewportContinuityTarget) => {
       switch (target.kind) {
         case "row-inspect":
-          return document.querySelector<HTMLButtonElement>(
-            dataTestIdSelector(
-              workbookRowActionMenuButtonTestId(
-                timelineViewSchemaId,
-                target.recordId,
+          return (
+            document.querySelector<HTMLElement>(
+              dataTestIdSelector(
+                rowCellTestId(target.recordId, "timeline.summary"),
               ),
-            ),
+            ) ??
+            document.querySelector<HTMLElement>(
+              dataTestIdSelector(
+                gridRowGutterTestId(timelineViewSchemaId, target.recordId),
+              ),
+            )
           );
         case "input":
           return resolveInputElement(target.focusKey);
@@ -5104,6 +5119,95 @@ export function TimelineWorkbook({
     [handleSelectRow],
   );
 
+  const timelineRowForEventTarget = useCallback(
+    (target: EventTarget | null) => {
+      if (!(target instanceof Element)) {
+        return null;
+      }
+      const rowElement = target.closest<HTMLElement>("[data-grid-record-id]");
+      const recordId = rowElement?.dataset.gridRecordId ?? "";
+      if (recordId === "") {
+        return null;
+      }
+      return (
+        rowsRef.current.find((candidate) => candidate.recordId === recordId) ??
+        null
+      );
+    },
+    [],
+  );
+
+  const openTimelineRowContextMenu = useCallback(
+    (row: WorkbookRow, position: TimelineRowContextMenuPosition) => {
+      if (row.recordId === null) {
+        return;
+      }
+      handleSelectRow(row.recordId);
+      setRowContextMenu({
+        position,
+        recordId: row.recordId,
+      });
+    },
+    [handleSelectRow],
+  );
+
+  const handleTimelineGridContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      const row = timelineRowForEventTarget(event.target);
+      if (row?.recordId === null || row?.recordId === undefined) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      openTimelineRowContextMenu(row, {
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    [openTimelineRowContextMenu, timelineRowForEventTarget],
+  );
+
+  const handleTimelineGridContextKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (
+        !(
+          event.key === "ContextMenu" ||
+          (event.key === "F10" && event.shiftKey)
+        )
+      ) {
+        return;
+      }
+      const row = timelineRowForEventTarget(event.target);
+      if (row?.recordId === null || row?.recordId === undefined) {
+        return;
+      }
+      const targetElement =
+        event.target instanceof Element
+          ? event.target.closest<HTMLElement>(
+              "[role='gridcell'], [role='rowheader'], [data-grid-record-id]",
+            )
+          : null;
+      const targetRect = targetElement?.getBoundingClientRect();
+      const fallbackRect = event.currentTarget.getBoundingClientRect();
+      event.preventDefault();
+      event.stopPropagation();
+      openTimelineRowContextMenu(row, {
+        x: targetRect ? targetRect.left + 12 : fallbackRect.left + 16,
+        y: targetRect ? targetRect.top + 12 : fallbackRect.top + 16,
+      });
+    },
+    [openTimelineRowContextMenu, timelineRowForEventTarget],
+  );
+
+  useEffect(() => {
+    if (rowContextMenu === null) {
+      return;
+    }
+    if (!rows.some((row) => row.recordId === rowContextMenu.recordId)) {
+      setRowContextMenu(null);
+    }
+  }, [rowContextMenu, rows]);
+
   const focusDraftRow = useCallback(() => {
     const draftSummary = document.querySelector<HTMLInputElement>(
       dataTestIdSelector(draftCellTestId("timeline.summary")),
@@ -5733,7 +5837,7 @@ export function TimelineWorkbook({
   const timelineColumnWidths = useMemo(
     () =>
       buildExpandedTimelineColumnWidths({
-        actionsColumnWidth: timelineActionsColumnWidth,
+        actionsColumnWidth: 0,
         fieldKeys: timelineVisibleFieldKeys,
         gridShellWidth: timelineGridShellWidth,
         rowGutterWidth: timelineRowGutterWidth,
@@ -5852,43 +5956,6 @@ export function TimelineWorkbook({
     [],
   );
 
-  const timelineActionsColumn = useMemo<GridActionsColumn<WorkbookRow>>(
-    () => ({
-      headerTestId: gridActionsHeaderTestId(timelineViewSchemaId),
-      label: "",
-      minWidth: timelineActionsColumnWidth,
-      width: timelineActionsColumnWidth,
-      renderCell: ({ data: row }) => (
-        <TimelineRowActions
-          replacementDraft={replacementDrafts[row.key] ?? ""}
-          row={row}
-          onCreateBlankDraftRow={handleCreateBlankDraftRow}
-          onInspectRow={openInspectorForRow}
-          onMarkReviewed={(rowKey) => {
-            queueAction(rowKey, "mark-reviewed");
-          }}
-          onOpenHistory={openRowHistory}
-          onReplacementDraftChange={(rowKey, value) => {
-            setReplacementDrafts((current) => ({
-              ...current,
-              [rowKey]: value,
-            }));
-          }}
-          onSupersede={(rowKey) => {
-            queueAction(rowKey, "supersede");
-          }}
-        />
-      ),
-    }),
-    [
-      handleCreateBlankDraftRow,
-      openInspectorForRow,
-      openRowHistory,
-      queueAction,
-      replacementDrafts,
-    ],
-  );
-
   const timelineGridRows = useMemo<readonly GridRow<WorkbookRow>[]>(
     () =>
       rows.map((row, index) => {
@@ -5898,13 +5965,19 @@ export function TimelineWorkbook({
           key: row.key,
           recordId: row.recordId,
           data: row,
-          gutterContent: (
-            <TimelineRowGutterContent
-              ordinal={ordinal}
-              presences={rowPresence}
-              recordId={row.recordId}
-            />
-          ),
+          gutterContent:
+            row.recordId === null ? (
+              <DraftRowCreateButton
+                row={row}
+                onCreate={handleCreateBlankDraftRow}
+              />
+            ) : (
+              <TimelineRowGutterContent
+                ordinal={ordinal}
+                presences={rowPresence}
+                recordId={row.recordId}
+              />
+            ),
           gutterLabel: ordinal,
           gutterTestId:
             row.recordId === null
@@ -5923,13 +5996,28 @@ export function TimelineWorkbook({
           variant: row.recordId === null ? "draft" : "default",
         };
       }),
-    [handleSelectRow, presenceForRow, rows, selectedRowId],
+    [
+      handleCreateBlankDraftRow,
+      handleSelectRow,
+      presenceForRow,
+      rows,
+      selectedRowId,
+    ],
   );
 
   useLayoutEffect(() => {
     timelineAnchorColumnsRef.current = timelineColumns;
     timelineAnchorRowsRef.current = timelineGridRows;
   }, [timelineColumns, timelineGridRows]);
+
+  const activeRowContextMenuRow = useMemo(
+    () =>
+      rowContextMenu === null
+        ? null
+        : (rows.find((row) => row.recordId === rowContextMenu.recordId) ??
+          null),
+    [rowContextMenu, rows],
+  );
 
   const getTimelineGroupLabel = useCallback(
     (row: WorkbookRow, fieldKey: string) => timelineGroupLabel(row, fieldKey),
@@ -6271,9 +6359,13 @@ export function TimelineWorkbook({
               />
             </WorkbookShellSlotRegion>
           </div>
-          <div style={timelineGridOverlayShellStyle}>
+          <section
+            aria-label="Timeline row interaction layer"
+            style={timelineGridOverlayShellStyle}
+            onContextMenu={handleTimelineGridContextMenu}
+            onKeyDown={handleTimelineGridContextKeyDown}
+          >
             <TimelineGridSurface
-              actionsColumn={timelineActionsColumn}
               columns={timelineColumns}
               getGroupLabel={getTimelineGroupLabel}
               getGroupRowTestId={getTimelineGroupRowTestId}
@@ -6287,6 +6379,34 @@ export function TimelineWorkbook({
               style={timelineGridShellStyle}
               timelineGridRows={timelineGridRows}
             />
+            {rowContextMenu === null ? null : (
+              <TimelineRowContextMenu
+                position={rowContextMenu.position}
+                replacementDraft={
+                  activeRowContextMenuRow === null
+                    ? ""
+                    : (replacementDrafts[activeRowContextMenuRow.key] ?? "")
+                }
+                row={activeRowContextMenuRow}
+                onClose={() => {
+                  setRowContextMenu(null);
+                }}
+                onInspectRow={openInspectorForRow}
+                onMarkReviewed={(rowKey) => {
+                  queueAction(rowKey, "mark-reviewed");
+                }}
+                onOpenHistory={openRowHistory}
+                onReplacementDraftChange={(rowKey, value) => {
+                  setReplacementDrafts((current) => ({
+                    ...current,
+                    [rowKey]: value,
+                  }));
+                }}
+                onSupersede={(rowKey) => {
+                  queueAction(rowKey, "supersede");
+                }}
+              />
+            )}
             {activeConflict ? (
               <TimelineConflictResolver
                 activeConflict={activeConflict}
@@ -6341,7 +6461,7 @@ export function TimelineWorkbook({
                 />
               </WorkbookShellSlotRegion>
             ) : null}
-          </div>
+          </section>
         </div>
       </div>
 
