@@ -23,6 +23,7 @@ var ErrPendingExpired = errors.New("authn: pending enrollment expired")
 var ErrPendingConsumed = errors.New("authn: pending enrollment consumed")
 var ErrLastDeploymentAdmin = errors.New("authn: last deployment admin")
 var ErrUserVersionConflict = errors.New("authn: user version conflict")
+var ErrPreferencesVersionConflict = errors.New("authn: preferences version conflict")
 var ErrAuthProviderNotFound = errors.New("authn: auth provider not found")
 var ErrAuthProviderDisabled = errors.New("authn: auth provider disabled")
 var ErrEnterpriseTransactionNotFound = errors.New("authn: enterprise auth transaction not found")
@@ -60,6 +61,43 @@ type UserRecord struct {
 	TOTPEnrolledAt       *time.Time
 	TOTPSecretCiphertext []byte
 	TOTPSecretNonce      []byte
+}
+
+type UserListFilter struct {
+	SearchTokens      []string
+	IsActive          *bool
+	IsDeploymentAdmin *bool
+}
+
+type AccountPreferencesRecord struct {
+	UserID             uuid.UUID
+	DensityMode        *string
+	PreferencesVersion int64
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+type AdministrativeAuditFilter struct {
+	ActorUserID   *uuid.UUID
+	ActionCode    *string
+	TargetKind    *string
+	TargetID      *string
+	OccurredAtGTE *time.Time
+	OccurredAtLT  *time.Time
+}
+
+type AdministrativeAuditRecord struct {
+	ID           uuid.UUID
+	ActorUserID  *uuid.UUID
+	TargetUserID *uuid.UUID
+	IncidentID   *uuid.UUID
+	EventSource  string
+	EventKind    string
+	ReasonCode   *string
+	RequestID    *string
+	BeforeJSON   []byte
+	AfterJSON    []byte
+	OccurredAt   time.Time
 }
 
 type SessionRecord struct {
@@ -139,6 +177,20 @@ type TOTPCompleteResult struct {
 
 type UserCreateResult struct {
 	User         UserRecord
+	ResponseJSON []byte
+	Replayed     bool
+	StatusCode   int
+}
+
+type AccountProfilePatchResult struct {
+	User         UserRecord
+	ResponseJSON []byte
+	Replayed     bool
+	StatusCode   int
+}
+
+type AccountPreferencesPutResult struct {
+	Preferences  AccountPreferencesRecord
 	ResponseJSON []byte
 	Replayed     bool
 	StatusCode   int
@@ -936,6 +988,212 @@ func ActorOnlyRouteIdempotencyKey(routeKey string, actorUserID uuid.UUID, client
 	}
 }
 
+func (s *Store) PatchAccountProfile(
+	ctx context.Context,
+	actor UserRecord,
+	baseUserVersion int64,
+	displayName string,
+	clientTxnID string,
+	requestHash []byte,
+	requestID string,
+	now time.Time,
+) (AccountProfilePatchResult, error) {
+	key := ActorOnlyRouteIdempotencyKey("account.profile.patch", actor.ID, clientTxnID)
+	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
+		if !bytes.Equal(existing.RequestHash, requestHash) {
+			return AccountProfilePatchResult{}, ErrClientTxnConflict
+		}
+		return AccountProfilePatchResult{ResponseJSON: existing.ResponseJSON, Replayed: true, StatusCode: existing.StatusCode}, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return AccountProfilePatchResult{}, err
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return AccountProfilePatchResult{}, err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	current, err := fetchUserForUpdate(ctx, tx, actor.ID)
+	if err != nil {
+		return AccountProfilePatchResult{}, err
+	}
+	if current.UserVersion != baseUserVersion {
+		return AccountProfilePatchResult{}, ErrUserVersionConflict
+	}
+
+	updated := current
+	if current.DisplayName != displayName {
+		if err := tx.QueryRow(ctx, `
+UPDATE users
+   SET display_name = $2,
+       updated_at = $3,
+       updated_by_user_id = $1,
+       user_version = user_version + 1
+ WHERE id = $1
+RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
+          created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
+`, actor.ID, displayName, now.UTC()).Scan(
+			&updated.ID,
+			&updated.Email,
+			&updated.DisplayName,
+			&updated.PasswordHash,
+			&updated.PasswordChangedAt,
+			&updated.MFARequired,
+			&updated.IsActive,
+			&updated.IsDeploymentAdmin,
+			&updated.CreatedAt,
+			&updated.UpdatedAt,
+			&updated.UpdatedByUserID,
+			&updated.LastLoginAt,
+			&updated.UserVersion,
+			&updated.TOTPEnrolledAt,
+			&updated.TOTPSecretCiphertext,
+			&updated.TOTPSecretNonce,
+		); err != nil {
+			return AccountProfilePatchResult{}, err
+		}
+
+		if _, err := tx.Exec(ctx, `
+INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, before_json, after_json)
+VALUES ($1, $1, 'account.profile.patch', 'account_profile_updated', 'account_profile_updated', $2, $3,
+        jsonb_build_object('display_name', $4::text, 'user_version', $5::bigint),
+        jsonb_build_object('display_name', $6::text, 'user_version', $7::bigint))
+`, actor.ID, clientTxnID, requestID, current.DisplayName, current.UserVersion, updated.DisplayName, updated.UserVersion); err != nil {
+			return AccountProfilePatchResult{}, err
+		}
+	}
+
+	responseJSON, err := json.Marshal(accountProfileResponse(updated))
+	if err != nil {
+		return AccountProfilePatchResult{}, err
+	}
+	if err := InsertRouteIdempotency(ctx, tx, key, &actor.ID, requestHash, http.StatusOK, responseJSON); err != nil {
+		if IsUniqueViolation(err) {
+			return AccountProfilePatchResult{}, ErrClientTxnConflict
+		}
+		return AccountProfilePatchResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return AccountProfilePatchResult{}, err
+	}
+	return AccountProfilePatchResult{User: updated, ResponseJSON: responseJSON, StatusCode: http.StatusOK}, nil
+}
+
+func (s *Store) GetOrCreateAccountPreferences(ctx context.Context, userID uuid.UUID, now time.Time) (AccountPreferencesRecord, error) {
+	row := s.pool.QueryRow(ctx, `
+INSERT INTO account_preferences (user_id, density_mode, preferences_version, created_at, updated_at)
+VALUES ($1, NULL, 1, $2, $2)
+ON CONFLICT (user_id) DO NOTHING
+RETURNING user_id, density_mode, preferences_version, created_at, updated_at
+`, userID, now.UTC())
+	record, err := scanAccountPreferences(row)
+	if err == nil {
+		return record, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return AccountPreferencesRecord{}, err
+	}
+	row = s.pool.QueryRow(ctx, `
+SELECT user_id, density_mode, preferences_version, created_at, updated_at
+  FROM account_preferences
+ WHERE user_id = $1
+`, userID)
+	return scanAccountPreferences(row)
+}
+
+func (s *Store) PutAccountPreferences(
+	ctx context.Context,
+	actor UserRecord,
+	basePreferencesVersion int64,
+	clientTxnID string,
+	densityMode *string,
+	requestHash []byte,
+	requestID string,
+	now time.Time,
+) (AccountPreferencesPutResult, error) {
+	key := ActorOnlyRouteIdempotencyKey("account.preferences.put", actor.ID, clientTxnID)
+	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
+		if !bytes.Equal(existing.RequestHash, requestHash) {
+			return AccountPreferencesPutResult{}, ErrClientTxnConflict
+		}
+		return AccountPreferencesPutResult{ResponseJSON: existing.ResponseJSON, Replayed: true, StatusCode: existing.StatusCode}, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return AccountPreferencesPutResult{}, err
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return AccountPreferencesPutResult{}, err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	if _, err := tx.Exec(ctx, `
+INSERT INTO account_preferences (user_id, density_mode, preferences_version, created_at, updated_at)
+VALUES ($1, NULL, 1, $2, $2)
+ON CONFLICT (user_id) DO NOTHING
+`, actor.ID, now.UTC()); err != nil {
+		return AccountPreferencesPutResult{}, err
+	}
+
+	row := tx.QueryRow(ctx, `
+SELECT user_id, density_mode, preferences_version, created_at, updated_at
+  FROM account_preferences
+ WHERE user_id = $1
+ FOR UPDATE
+`, actor.ID)
+	current, err := scanAccountPreferences(row)
+	if err != nil {
+		return AccountPreferencesPutResult{}, err
+	}
+	if current.PreferencesVersion != basePreferencesVersion {
+		return AccountPreferencesPutResult{}, ErrPreferencesVersionConflict
+	}
+
+	updated := current
+	if !nullableStringEqual(current.DensityMode, densityMode) {
+		row = tx.QueryRow(ctx, `
+UPDATE account_preferences
+   SET density_mode = $2,
+       preferences_version = preferences_version + 1,
+       updated_at = $3
+ WHERE user_id = $1
+RETURNING user_id, density_mode, preferences_version, created_at, updated_at
+`, actor.ID, densityMode, now.UTC())
+		updated, err = scanAccountPreferences(row)
+		if err != nil {
+			return AccountPreferencesPutResult{}, err
+		}
+		if _, err := tx.Exec(ctx, `
+INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, before_json, after_json)
+VALUES ($1, $1, 'account.preferences.put', 'account_preferences_updated', 'account_preferences_updated', $2, $3,
+        jsonb_build_object('density_mode', $4::text, 'preferences_version', $5::bigint),
+        jsonb_build_object('density_mode', $6::text, 'preferences_version', $7::bigint))
+`, actor.ID, clientTxnID, requestID, current.DensityMode, current.PreferencesVersion, updated.DensityMode, updated.PreferencesVersion); err != nil {
+			return AccountPreferencesPutResult{}, err
+		}
+	}
+
+	responseJSON, err := json.Marshal(accountPreferencesResponse(updated))
+	if err != nil {
+		return AccountPreferencesPutResult{}, err
+	}
+	if err := InsertRouteIdempotency(ctx, tx, key, &actor.ID, requestHash, http.StatusOK, responseJSON); err != nil {
+		if IsUniqueViolation(err) {
+			return AccountPreferencesPutResult{}, ErrClientTxnConflict
+		}
+		return AccountPreferencesPutResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return AccountPreferencesPutResult{}, err
+	}
+	return AccountPreferencesPutResult{Preferences: updated, ResponseJSON: responseJSON, StatusCode: http.StatusOK}, nil
+}
+
 func (s *Store) ChangePassword(
 	ctx context.Context,
 	user UserRecord,
@@ -1045,13 +1303,38 @@ SELECT COUNT(*)
 	return count, nil
 }
 
-func (s *Store) ListUsers(ctx context.Context) ([]UserRecord, error) {
+func (s *Store) ListUsers(ctx context.Context, filter UserListFilter) ([]UserRecord, error) {
+	var searchTokens any
+	if len(filter.SearchTokens) > 0 {
+		searchTokens = filter.SearchTokens
+	}
+	var isActive any
+	if filter.IsActive != nil {
+		isActive = *filter.IsActive
+	}
+	var isDeploymentAdmin any
+	if filter.IsDeploymentAdmin != nil {
+		isDeploymentAdmin = *filter.IsDeploymentAdmin
+	}
 	rows, err := s.pool.Query(ctx, `
 SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
        created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
   FROM users
+ WHERE ($1::boolean IS NULL OR is_active = $1)
+   AND ($2::boolean IS NULL OR is_deployment_admin = $2)
+   AND (
+       $3::text[] IS NULL OR NOT EXISTS (
+           SELECT 1
+             FROM unnest($3::text[]) AS search_token(value)
+            WHERE NOT (
+                lower(id::text) LIKE search_token.value || '%' OR
+                lower(email::text) LIKE search_token.value || '%' OR
+                lower(display_name) LIKE search_token.value || '%'
+            )
+       )
+   )
  ORDER BY id ASC
-`)
+`, isActive, isDeploymentAdmin, searchTokens)
 	if err != nil {
 		return nil, err
 	}
@@ -1069,6 +1352,77 @@ SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_re
 		return nil, err
 	}
 	return users, nil
+}
+
+func (s *Store) ListAdministrativeAuditEvents(ctx context.Context, filter AdministrativeAuditFilter) ([]AdministrativeAuditRecord, error) {
+	var actorUserID any
+	if filter.ActorUserID != nil {
+		actorUserID = *filter.ActorUserID
+	}
+	var actionCode any
+	if filter.ActionCode != nil {
+		actionCode = *filter.ActionCode
+	}
+	var targetKind any
+	if filter.TargetKind != nil {
+		targetKind = *filter.TargetKind
+	}
+	var targetID any
+	if filter.TargetID != nil {
+		targetID = *filter.TargetID
+	}
+	var occurredAtGTE any
+	if filter.OccurredAtGTE != nil {
+		occurredAtGTE = filter.OccurredAtGTE.UTC()
+	}
+	var occurredAtLT any
+	if filter.OccurredAtLT != nil {
+		occurredAtLT = filter.OccurredAtLT.UTC()
+	}
+	rows, err := s.pool.Query(ctx, `
+SELECT id, actor_user_id, target_user_id, incident_id, event_source, event_kind, reason_code, request_id,
+       before_json, after_json, created_at
+  FROM deployment_admin_audit_events
+ WHERE ($1::uuid IS NULL OR actor_user_id = $1)
+   AND ($2::text IS NULL OR event_source = $2 OR event_kind = $2)
+   AND ($5::timestamptz IS NULL OR created_at >= $5)
+   AND ($6::timestamptz IS NULL OR created_at < $6)
+   AND (
+       $3::text IS NULL OR
+       ($3 = 'user' AND target_user_id IS NOT NULL AND ($4::text IS NULL OR target_user_id::text = $4)) OR
+       ($3 = 'incident' AND incident_id IS NOT NULL AND ($4::text IS NULL OR incident_id::text = $4)) OR
+       ($3 = 'deployment' AND target_user_id IS NULL AND incident_id IS NULL AND $4::text IS NULL)
+   )
+ ORDER BY created_at DESC, id ASC
+`, actorUserID, actionCode, targetKind, targetID, occurredAtGTE, occurredAtLT)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	records := make([]AdministrativeAuditRecord, 0, 128)
+	for rows.Next() {
+		var record AdministrativeAuditRecord
+		if err := rows.Scan(
+			&record.ID,
+			&record.ActorUserID,
+			&record.TargetUserID,
+			&record.IncidentID,
+			&record.EventSource,
+			&record.EventKind,
+			&record.ReasonCode,
+			&record.RequestID,
+			&record.BeforeJSON,
+			&record.AfterJSON,
+			&record.OccurredAt,
+		); err != nil {
+			return nil, err
+		}
+		records = append(records, record)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return records, nil
 }
 
 func (s *Store) CreateUser(
@@ -1783,6 +2137,46 @@ func safeUserResponse(user UserRecord) map[string]any {
 			},
 		},
 	}
+}
+
+func accountProfileResponse(user UserRecord) map[string]any {
+	return map[string]any{
+		"user_id":      user.ID,
+		"email":        user.Email,
+		"display_name": user.DisplayName,
+		"user_version": user.UserVersion,
+		"created_at":   user.CreatedAt,
+		"updated_at":   user.UpdatedAt,
+	}
+}
+
+func accountPreferencesResponse(record AccountPreferencesRecord) map[string]any {
+	return map[string]any{
+		"user_id":             record.UserID,
+		"density_mode":        record.DensityMode,
+		"preferences_version": record.PreferencesVersion,
+		"created_at":          record.CreatedAt,
+		"updated_at":          record.UpdatedAt,
+	}
+}
+
+func scanAccountPreferences(row interface{ Scan(...any) error }) (AccountPreferencesRecord, error) {
+	var record AccountPreferencesRecord
+	err := row.Scan(
+		&record.UserID,
+		&record.DensityMode,
+		&record.PreferencesVersion,
+		&record.CreatedAt,
+		&record.UpdatedAt,
+	)
+	return record, err
+}
+
+func nullableStringEqual(left *string, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func IsUniqueViolation(err error) bool {

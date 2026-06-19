@@ -74,6 +74,7 @@ describe("Phase 1 API route boundaries", () => {
     await patchLocalUser({
       baseUserVersion: 7,
       displayName: "Updated User",
+      email: "user-2@example.test",
       isActive: true,
       isDeploymentAdmin: false,
       mfaRequired: true,
@@ -194,6 +195,7 @@ describe("Phase 1 API route boundaries", () => {
         body: {
           base_user_version: 7,
           display_name: "Updated User",
+          email: "user-2@example.test",
           mfa_required: true,
           is_active: true,
           is_deployment_admin: false,

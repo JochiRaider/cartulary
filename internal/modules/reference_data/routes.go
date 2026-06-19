@@ -87,6 +87,10 @@ func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, r, apiErr)
 			return
 		}
+		if apiErr := auth.RequireDeploymentAdmin(principal.User); apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
 		binding, cursor, reason := s.cursorCodec.ResolveRequest(r.URL.Query(), "reference_packs.list", principal.User.ID.String(), nil)
 		if reason != "" {
 			writeAPIError(w, r, invalidPaginationRequest(reason))
@@ -183,6 +187,10 @@ func (s *Service) handleRead(w http.ResponseWriter, r *http.Request, packKey str
 	}
 	principal, apiErr := s.authenticateSessionRequest(r, false)
 	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if apiErr := auth.RequireDeploymentAdmin(principal.User); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}

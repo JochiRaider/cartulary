@@ -170,11 +170,11 @@ describe("Incident landing", () => {
     expect(screen.queryByText("Open selected")).toBe(null);
     expect(
       screen.getByTestId(phase1LandingTestId("incidents-count")).textContent,
-    ).toBe("0");
+    ).toBe("0 loaded");
     expect(
       screen.getByTestId(phase1LandingTestId("current-user")).textContent,
     ).toBe("Bootstrap Admin · deployment admin");
-    await expectStableFetchCount(fetchMock, 3);
+    await expectStableFetchCount(fetchMock, 11);
   });
 
   it("switches menu panels and leaves actions inside each panel", async () => {
@@ -205,26 +205,12 @@ describe("Incident landing", () => {
     ).toBeTruthy();
     expect(screen.getByTestId(phase1AccountTestId("logout"))).toBeTruthy();
 
-    fireEvent.keyDown(screen.getByTestId(landingAdminShellTestId("menu")), {
-      key: "End",
-    });
-    await waitFor(() => {
-      expect(
-        screen
-          .getByTestId(landingAdminMenuItemTestId("reference-packs"))
-          .getAttribute("aria-pressed"),
-      ).toBe("true");
-    });
-    expect(document.body.textContent).toContain(
-      "Deployment admin access is required for reference-pack",
-    );
-
-    fireEvent.click(
-      screen.getByTestId(landingAdminMenuItemTestId("deployment-users")),
-    );
     expect(
-      screen.getByTestId(phase1AdminTestId("access-note")).textContent,
-    ).toContain("Deployment admin access is required");
+      screen.queryByTestId(landingAdminMenuItemTestId("reference-packs")),
+    ).toBe(null);
+    expect(
+      screen.queryByTestId(landingAdminMenuItemTestId("deployment-users")),
+    ).toBe(null);
     expect(screen.queryByTestId(phase1AdminTestId("patch-user"))).toBe(null);
   });
 
@@ -260,6 +246,22 @@ describe("Incident landing", () => {
                   next_cursor: null,
                 },
                 request_id: "req-users",
+              },
+            }),
+        },
+        {
+          method: "GET",
+          url: "/api/v1/users/user-2",
+          handler: () =>
+            jsonResponse({
+              data: {
+                user_id: "user-2",
+                email: "target@example.test",
+                display_name: "Target User",
+                user_version: 3,
+                is_active: true,
+                mfa_required: true,
+                is_deployment_admin: false,
               },
             }),
         },
@@ -320,7 +322,7 @@ describe("Incident landing", () => {
     ).toBeTruthy();
     expect(
       screen.getByTestId(phase1LandingTestId("incidents-count")).textContent,
-    ).toBe("2");
+    ).toBe("2 loaded");
     expect(
       screen.getByTestId(landingIncidentCardTestId("incident-1")).textContent,
     ).toContain("First Incident");
@@ -451,7 +453,7 @@ describe("Incident landing", () => {
     expect((workbookFrame as HTMLElement).style.display).toBe("grid");
     expect((workbookFrame as HTMLElement).style.blockSize).toBe("100%");
     expect((workbookFrame as HTMLElement).style.overflow).toBe("hidden");
-    await expectStableFetchCount(fetchMock, 5);
+    await expectStableFetchCount(fetchMock, 7);
   });
 
   it("returns to the landing screen when workbook access is lost", async () => {
@@ -479,7 +481,7 @@ describe("Incident landing", () => {
     renderApp();
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
-    await expectStableFetchCount(fetchMock, 5);
+    await expectStableFetchCount(fetchMock, 7);
     accessLost = true;
     fireEvent.click(screen.getByTestId("mock-access-lost"));
 
@@ -492,7 +494,7 @@ describe("Incident landing", () => {
       screen.getByTestId(phase1LandingTestId("status")).textContent?.trim(),
     ).not.toBe("");
     expect(window.location.search).not.toContain("incident_id=");
-    await expectStableFetchCount(fetchMock, 8);
+    await expectStableFetchCount(fetchMock, 16);
   });
 
   it("cancels an in-flight shell refresh when the app unmounts", async () => {
@@ -568,7 +570,7 @@ describe("Incident landing", () => {
     expect(
       screen.getByTestId(phase1LandingTestId("current-user")).textContent,
     ).toBe("Operator");
-    await expectStableFetchCount(fetchMock, 4);
+    await expectStableFetchCount(fetchMock, 10);
   });
 });
 

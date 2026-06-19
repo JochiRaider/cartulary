@@ -92,6 +92,11 @@ export type Phase1AuthSelector =
   | "status";
 
 export type Phase1AccountSelector =
+  | "appearance-density-mode"
+  | "appearance-save"
+  | "profile-display-name"
+  | "profile-email"
+  | "profile-save"
   | "credential-auth-kind"
   | "credential-password-changed-at"
   | "credential-pending-expires-at"
@@ -135,6 +140,7 @@ export type Phase1AdminSelector =
   | "password-reset"
   | "patch-base-version"
   | "patch-display-name"
+  | "patch-email"
   | "patch-is-active"
   | "patch-is-deployment-admin"
   | "patch-mfa-required"
@@ -149,10 +155,17 @@ export type Phase1AdminSelector =
   | "target-user-version"
   | "totp-reset"
   | "user-filter"
+  | "user-is-active-filter"
+  | "user-is-deployment-admin-filter"
   | "user-list";
 
 export type Phase1LandingSelector =
   | "create-button"
+  | "create-current-phase"
+  | "create-description"
+  | "create-external-case"
+  | "create-severity"
+  | "create-tlp"
   | "current-user"
   | "empty-state"
   | "incident-key"
@@ -162,20 +175,30 @@ export type Phase1LandingSelector =
   | "loading"
   | "refresh"
   | "return"
+  | "search"
   | "shell"
+  | "status-filter"
   | "status";
 
 export type LandingAdminPanelToken =
+  | "account-appearance"
+  | "account-profile"
   | "account-security"
+  | "administrative-audit"
   | "deployment-users"
+  | "incident-bundle-import"
   | "incidents"
   | "reference-packs";
 
 export const landingAdminPanelTokens = [
   "incidents",
+  "account-profile",
+  "account-appearance",
   "account-security",
   "deployment-users",
+  "administrative-audit",
   "reference-packs",
+  "incident-bundle-import",
 ] as const satisfies readonly LandingAdminPanelToken[];
 
 export type LandingAdminShellSelector = "menu" | "shell" | "status-strip";
@@ -274,6 +297,8 @@ const phase1AuthTestIds = Object.freeze({
 } satisfies Record<Phase1AuthSelector, string>);
 
 const phase1AccountTestIds = Object.freeze({
+  "appearance-density-mode": "account-appearance-density-mode",
+  "appearance-save": "account-appearance-save",
   "credential-auth-kind": "account-credential-auth-kind",
   "credential-password-changed-at": "account-credential-password-changed-at",
   "credential-pending-expires-at": "account-credential-pending-expires-at",
@@ -284,6 +309,9 @@ const phase1AccountTestIds = Object.freeze({
   "password-current": "account-password-current",
   "password-factor-code": "account-password-factor-code",
   "password-next": "account-password-next",
+  "profile-display-name": "account-profile-display-name",
+  "profile-email": "account-profile-email",
+  "profile-save": "account-profile-save",
   "refresh-state": "account-refresh-state",
   "session-absolute-expires-at": "account-session-absolute-expires-at",
   "session-authenticated-at": "account-session-authenticated-at",
@@ -318,6 +346,7 @@ const phase1AdminTestIds = Object.freeze({
   "password-reset": "admin-password-reset",
   "patch-base-version": "admin-patch-base-version",
   "patch-display-name": "admin-patch-display-name",
+  "patch-email": "admin-patch-email",
   "patch-is-active": "admin-patch-is-active",
   "patch-is-deployment-admin": "admin-patch-is-deployment-admin",
   "patch-mfa-required": "admin-patch-mfa-required",
@@ -332,11 +361,18 @@ const phase1AdminTestIds = Object.freeze({
   "target-user-version": "admin-target-user-version",
   "totp-reset": "admin-totp-reset",
   "user-filter": "admin-user-filter",
+  "user-is-active-filter": "admin-user-is-active-filter",
+  "user-is-deployment-admin-filter": "admin-user-is-deployment-admin-filter",
   "user-list": "admin-user-list",
 } satisfies Record<Phase1AdminSelector, string>);
 
 const phase1LandingTestIds = Object.freeze({
   "create-button": "landing-create-button",
+  "create-current-phase": "landing-create-current-phase",
+  "create-description": "landing-create-description",
+  "create-external-case": "landing-create-external-case",
+  "create-severity": "landing-create-severity",
+  "create-tlp": "landing-create-tlp",
   "current-user": "landing-current-user",
   "empty-state": "landing-empty-state",
   "incident-key": "landing-incident-key",
@@ -346,7 +382,9 @@ const phase1LandingTestIds = Object.freeze({
   loading: "landing-loading",
   refresh: "landing-refresh",
   return: "landing-return",
+  search: "landing-search",
   shell: "incident-landing",
+  "status-filter": "landing-status-filter",
   status: "landing-status",
 } satisfies Record<Phase1LandingSelector, string>);
 

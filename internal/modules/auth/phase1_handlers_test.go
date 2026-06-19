@@ -1910,7 +1910,7 @@ type authStoreStub struct {
 	activateTOTPEnrollmentFunc          func(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, time.Time) (authn.TOTPCompleteResult, error)
 	getRouteIdempotencyFunc             func(context.Context, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error)
 	changePasswordFunc                  func(context.Context, authn.UserRecord, string, []byte, string, string, time.Time) (authn.PasswordChangeResult, error)
-	listUsersFunc                       func(context.Context) ([]authn.UserRecord, error)
+	listUsersFunc                       func(context.Context, authn.UserListFilter) ([]authn.UserRecord, error)
 	createUserFunc                      func(context.Context, authn.UserRecord, string, string, string, bool, bool, string, []byte, string, time.Time) (authn.UserCreateResult, error)
 	updateUserFunc                      func(context.Context, authn.UserRecord, uuid.UUID, int64, *string, *string, *bool, *bool, *bool, string, time.Time) (authn.UserRecord, []uuid.UUID, error)
 	adminResetPasswordFunc              func(context.Context, authn.UserRecord, uuid.UUID, int64, string, string, []byte, string, time.Time) (authn.AdminPasswordResetResult, error)
@@ -1995,12 +1995,28 @@ func (s *authStoreStub) ChangePassword(ctx context.Context, user authn.UserRecor
 	return callStub6(s.changePasswordFunc, ctx, user, clientTxnID, requestHash, newPasswordHash, requestID, now)
 }
 
-func (s *authStoreStub) ListUsers(ctx context.Context) ([]authn.UserRecord, error) {
+func (s *authStoreStub) ListUsers(ctx context.Context, filter authn.UserListFilter) ([]authn.UserRecord, error) {
 	if s.listUsersFunc == nil {
 		var zero []authn.UserRecord
 		return zero, nil
 	}
-	return s.listUsersFunc(ctx)
+	return s.listUsersFunc(ctx, filter)
+}
+
+func (s *authStoreStub) ListAdministrativeAuditEvents(ctx context.Context, filter authn.AdministrativeAuditFilter) ([]authn.AdministrativeAuditRecord, error) {
+	return nil, nil
+}
+
+func (s *authStoreStub) PatchAccountProfile(ctx context.Context, actor authn.UserRecord, baseUserVersion int64, displayName string, clientTxnID string, requestHash []byte, requestID string, now time.Time) (authn.AccountProfilePatchResult, error) {
+	return authn.AccountProfilePatchResult{ResponseJSON: []byte(`{}`), StatusCode: http.StatusOK}, nil
+}
+
+func (s *authStoreStub) GetOrCreateAccountPreferences(ctx context.Context, userID uuid.UUID, now time.Time) (authn.AccountPreferencesRecord, error) {
+	return authn.AccountPreferencesRecord{UserID: userID, PreferencesVersion: 1, CreatedAt: now, UpdatedAt: now}, nil
+}
+
+func (s *authStoreStub) PutAccountPreferences(ctx context.Context, actor authn.UserRecord, basePreferencesVersion int64, clientTxnID string, densityMode *string, requestHash []byte, requestID string, now time.Time) (authn.AccountPreferencesPutResult, error) {
+	return authn.AccountPreferencesPutResult{ResponseJSON: []byte(`{}`), StatusCode: http.StatusOK}, nil
 }
 
 func (s *authStoreStub) CreateUser(ctx context.Context, actor authn.UserRecord, email string, displayName string, passwordHash string, mfaRequired bool, isDeploymentAdmin bool, clientTxnID string, requestHash []byte, requestID string, now time.Time) (authn.UserCreateResult, error) {

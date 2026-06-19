@@ -47,6 +47,31 @@ export type UserResource = {
   auth_bindings?: AuthBindingSummary[];
 };
 
+export type AccountProfileResource = {
+  user_id: string;
+  email: string;
+  display_name: string;
+  user_version: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DensityMode = "compact" | "comfortable" | "default";
+
+export type AccountPreferencesResource = {
+  user_id: string;
+  density_mode: DensityMode | null;
+  preferences_version: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ExtensionProfileResource = {
+  profile_id: string;
+  claimed: boolean;
+  route_families: string[];
+};
+
 export type PagingMeta = {
   limit: number;
   has_more: boolean;
@@ -216,6 +241,79 @@ export function loadCredentialState(
   );
 }
 
+export function loadAccountProfile(options?: ShellGetOptions) {
+  return fetchJSON<DataEnvelope<AccountProfileResource>>(
+    apiPath(options?.apiBase, "/api/v1/account/profile"),
+    typeof options?.signal === "undefined"
+      ? undefined
+      : {
+          signal: options.signal,
+        },
+  );
+}
+
+export function patchAccountProfile(options: {
+  apiBase?: string | undefined;
+  baseUserVersion: number;
+  clientTxnId?: string;
+  displayName: string;
+}) {
+  return fetchJSON<DataEnvelope<AccountProfileResource>>(
+    apiPath(options.apiBase, "/api/v1/account/profile"),
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        base_user_version: options.baseUserVersion,
+        client_txn_id:
+          options.clientTxnId ?? clientTxnID("account-profile-patch"),
+        display_name: options.displayName,
+      }),
+    },
+  );
+}
+
+export function loadAccountPreferences(options?: ShellGetOptions) {
+  return fetchJSON<DataEnvelope<AccountPreferencesResource>>(
+    apiPath(options?.apiBase, "/api/v1/account/preferences"),
+    typeof options?.signal === "undefined"
+      ? undefined
+      : {
+          signal: options.signal,
+        },
+  );
+}
+
+export function putAccountPreferences(options: {
+  apiBase?: string | undefined;
+  basePreferencesVersion: number;
+  clientTxnId?: string;
+  densityMode: DensityMode | null;
+}) {
+  return fetchJSON<DataEnvelope<AccountPreferencesResource>>(
+    apiPath(options.apiBase, "/api/v1/account/preferences"),
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        base_preferences_version: options.basePreferencesVersion,
+        client_txn_id:
+          options.clientTxnId ?? clientTxnID("account-preferences-put"),
+        density_mode: options.densityMode,
+      }),
+    },
+  );
+}
+
+export function loadExtensions(options?: ShellGetOptions) {
+  return fetchJSON<DataEnvelope<{ extensions: ExtensionProfileResource[] }>>(
+    apiPath(options?.apiBase, "/api/v1/extensions"),
+    typeof options?.signal === "undefined"
+      ? undefined
+      : {
+          signal: options.signal,
+        },
+  );
+}
+
 export function loginLocal(options: {
   apiBase?: string | undefined;
   password: string;
@@ -372,7 +470,10 @@ export function createLocalUser(options: {
 export function listUsers(options?: {
   apiBase?: string | undefined;
   cursorToken?: string | null;
+  isActive?: boolean | null | undefined;
+  isDeploymentAdmin?: boolean | null | undefined;
   limit?: number | undefined;
+  search?: string | undefined;
   signal?: AbortSignal | undefined;
 }) {
   const params = new URLSearchParams();
@@ -380,6 +481,16 @@ export function listUsers(options?: {
   const cursorToken = options?.cursorToken?.trim() ?? "";
   if (cursorToken !== "") {
     params.set("cursor_token", cursorToken);
+  }
+  const search = options?.search?.trim() ?? "";
+  if (search !== "") {
+    params.set("search", search);
+  }
+  if (typeof options?.isActive === "boolean") {
+    params.set("is_active", String(options.isActive));
+  }
+  if (typeof options?.isDeploymentAdmin === "boolean") {
+    params.set("is_deployment_admin", String(options.isDeploymentAdmin));
   }
   const requestInit =
     typeof options?.signal === "undefined"
@@ -406,6 +517,7 @@ export function patchLocalUser(options: {
   apiBase?: string | undefined;
   baseUserVersion: number;
   displayName: string;
+  email: string;
   isActive: boolean;
   isDeploymentAdmin: boolean;
   mfaRequired: boolean;
@@ -417,6 +529,7 @@ export function patchLocalUser(options: {
       method: "PATCH",
       body: JSON.stringify({
         base_user_version: options.baseUserVersion,
+        email: options.email,
         display_name: options.displayName,
         mfa_required: options.mfaRequired,
         is_active: options.isActive,

@@ -24,6 +24,8 @@ var (
 	ErrMembershipExistsUsePatch  = errors.New("incidents: membership exists use patch")
 	ErrMembershipVersionConflict = errors.New("incidents: membership version conflict")
 	ErrLastIncidentAdmin         = errors.New("incidents: last incident admin")
+	ErrIncidentClosed            = errors.New("incidents: incident closed")
+	ErrIncidentIllegalTransition = errors.New("incidents: illegal incident transition")
 )
 
 type Store struct {
@@ -65,6 +67,8 @@ type IncidentListPageRequest struct {
 	AnchorUpdatedAt *time.Time
 	After           *IncidentListPosition
 	Limit           int
+	SearchTokens    []string
+	Status          *string
 }
 
 type IncidentRecord struct {
@@ -126,6 +130,13 @@ type MembershipCreateResult struct {
 	StatusCode int
 }
 
+type IncidentLifecycleResult struct {
+	Incident   IncidentRecord
+	Payload    map[string]any
+	StatusCode int
+	Replayed   bool
+}
+
 func NewStore(pool postgres.DB) *Store {
 	return NewStoreWithHooks(pool, currentStoreHooks())
 }
@@ -152,6 +163,14 @@ func (s *Store) ListVisibleIncidents(ctx context.Context, userID uuid.UUID, page
 		afterUpdatedAt = page.After.UpdatedAt.UTC()
 		afterID = page.After.ID
 	}
+	var searchTokens any
+	if len(page.SearchTokens) > 0 {
+		searchTokens = page.SearchTokens
+	}
+	var status any
+	if page.Status != nil {
+		status = *page.Status
+	}
 	rows, err := s.pool.Query(ctx, `
 SELECT i.id, i.incident_key, i.title, i.description, i.status, i.severity, i.tlp, i.current_phase,
        i.primary_external_case_ref, i.created_by_user_id, i.created_at, i.updated_at, i.updated_by_user_id,
@@ -161,9 +180,24 @@ SELECT i.id, i.incident_key, i.title, i.description, i.status, i.severity, i.tlp
  WHERE m.user_id = $1
    AND ($2::timestamptz IS NULL OR i.updated_at <= $2)
    AND ($3::timestamptz IS NULL OR $4::uuid IS NULL OR i.updated_at < $3 OR (i.updated_at = $3 AND i.id > $4))
+   AND ($6::text IS NULL OR i.status = $6)
+   AND (
+       $7::text[] IS NULL OR NOT EXISTS (
+           SELECT 1
+             FROM unnest($7::text[]) AS search_token(value)
+            WHERE NOT (
+                lower(i.incident_key) LIKE search_token.value || '%' OR
+                lower(i.title) LIKE search_token.value || '%' OR
+                lower(coalesce(i.severity, '')) LIKE search_token.value || '%' OR
+                lower(coalesce(i.tlp, '')) LIKE search_token.value || '%' OR
+                lower(coalesce(i.current_phase, '')) LIKE search_token.value || '%' OR
+                lower(coalesce(i.primary_external_case_ref, '')) LIKE search_token.value || '%'
+            )
+       )
+   )
  ORDER BY i.updated_at DESC, i.id ASC
  LIMIT $5
-`, userID, anchorUpdatedAt, afterUpdatedAt, afterID, page.Limit)
+`, userID, anchorUpdatedAt, afterUpdatedAt, afterID, page.Limit, status, searchTokens)
 	if err != nil {
 		return nil, fmt.Errorf("list visible incidents: %w", err)
 	}
@@ -508,6 +542,9 @@ SELECT id, incident_key, title, description, status, severity, tlp, current_phas
 			CurrentIncidentVersion: current.IncidentVersion,
 		}
 	}
+	if current.Status == "closed" {
+		return IncidentRecord{}, false, ErrIncidentClosed
+	}
 
 	next, changed := ApplyIncidentPatch(current, request, actor.ID, now)
 	if !changed {
@@ -520,16 +557,18 @@ SELECT id, incident_key, title, description, status, severity, tlp, current_phas
 	var updated IncidentRecord
 	if err := tx.QueryRow(ctx, `
 UPDATE incidents
-   SET tlp = $2,
-       current_phase = $3,
-       primary_external_case_ref = $4,
-       updated_at = $5,
-       updated_by_user_id = $6,
+   SET description = $2,
+       severity = $3,
+       tlp = $4,
+       current_phase = $5,
+       primary_external_case_ref = $6,
+       updated_at = $7,
+       updated_by_user_id = $8,
        incident_version = incident_version + 1
  WHERE id = $1
 RETURNING id, incident_key, title, description, status, severity, tlp, current_phase, primary_external_case_ref,
           created_by_user_id, created_at, updated_at, updated_by_user_id, incident_version, closed_at
-`, incidentID, next.TLP, next.CurrentPhase, next.PrimaryExternalCaseRef, next.UpdatedAt, actor.ID).Scan(
+`, incidentID, next.Description, next.Severity, next.TLP, next.CurrentPhase, next.PrimaryExternalCaseRef, next.UpdatedAt, actor.ID).Scan(
 		&updated.ID,
 		&updated.IncidentKey,
 		&updated.Title,
@@ -569,6 +608,147 @@ RETURNING id, incident_key, title, description, status, severity, tlp, current_p
 		return IncidentRecord{}, false, fmt.Errorf("commit incident patch transaction: %w", err)
 	}
 	return updated, true, nil
+}
+
+func (s *Store) TransitionIncidentLifecycle(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, action string, request IncidentLifecycleRequest, requestHash []byte, requestID string, now time.Time) (IncidentLifecycleResult, error) {
+	routeKey := "incidents." + action
+	key := authn.RouteIdempotencyKey{
+		RouteKey:    routeKey,
+		ActorUserID: actor.ID,
+		ScopeKey:    incidentID.String(),
+		ClientTxnID: request.ClientTxnID,
+	}
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, key); err == nil {
+		if !hashesEqual(existing.RequestHash, requestHash) {
+			return IncidentLifecycleResult{}, authn.ErrClientTxnConflict
+		}
+		payload, err := decodeStoredResponse(existing.ResponseJSON)
+		if err != nil {
+			return IncidentLifecycleResult{}, fmt.Errorf("decode replayed incident lifecycle payload: %w", err)
+		}
+		return IncidentLifecycleResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true}, nil
+	} else if !errors.Is(err, authn.ErrNotFound) {
+		return IncidentLifecycleResult{}, fmt.Errorf("query incident lifecycle idempotency: %w", err)
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return IncidentLifecycleResult{}, fmt.Errorf("begin incident lifecycle transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	row := tx.QueryRow(ctx, `
+SELECT id, incident_key, title, description, status, severity, tlp, current_phase, primary_external_case_ref,
+       created_by_user_id, created_at, updated_at, updated_by_user_id, incident_version, closed_at
+  FROM incidents
+ WHERE id = $1
+ FOR UPDATE
+`, incidentID)
+	current, err := scanIncident(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return IncidentLifecycleResult{}, ErrIncidentNotFound
+	}
+	if err != nil {
+		return IncidentLifecycleResult{}, fmt.Errorf("query incident for lifecycle: %w", err)
+	}
+	if current.IncidentVersion != request.BaseIncidentVersion {
+		return IncidentLifecycleResult{}, &IncidentVersionConflictError{
+			IncidentID:             incidentID,
+			BaseIncidentVersion:    request.BaseIncidentVersion,
+			CurrentIncidentVersion: current.IncidentVersion,
+		}
+	}
+
+	nextStatus := ""
+	var nextClosedAt any
+	switch action {
+	case "close":
+		if current.Status != "active" {
+			return IncidentLifecycleResult{}, ErrIncidentIllegalTransition
+		}
+		nextStatus = "closed"
+		nextClosedAt = now.UTC()
+	case "reopen":
+		if current.Status != "closed" {
+			return IncidentLifecycleResult{}, ErrIncidentIllegalTransition
+		}
+		nextStatus = "active"
+		nextClosedAt = nil
+	default:
+		return IncidentLifecycleResult{}, ErrIncidentIllegalTransition
+	}
+
+	var updated IncidentRecord
+	if err := tx.QueryRow(ctx, `
+UPDATE incidents
+   SET status = $2,
+       closed_at = $3,
+       updated_at = $4,
+       updated_by_user_id = $5,
+       incident_version = incident_version + 1
+ WHERE id = $1
+RETURNING id, incident_key, title, description, status, severity, tlp, current_phase, primary_external_case_ref,
+          created_by_user_id, created_at, updated_at, updated_by_user_id, incident_version, closed_at
+`, incidentID, nextStatus, nextClosedAt, now.UTC(), actor.ID).Scan(
+		&updated.ID,
+		&updated.IncidentKey,
+		&updated.Title,
+		&updated.Description,
+		&updated.Status,
+		&updated.Severity,
+		&updated.TLP,
+		&updated.CurrentPhase,
+		&updated.PrimaryExternalCaseRef,
+		&updated.CreatedByUserID,
+		&updated.CreatedAt,
+		&updated.UpdatedAt,
+		&updated.UpdatedByUserID,
+		&updated.IncidentVersion,
+		&updated.ClosedAt,
+	); err != nil {
+		return IncidentLifecycleResult{}, fmt.Errorf("update incident lifecycle: %w", err)
+	}
+
+	payload := BuildIncidentResource(updated)
+	if err := insertAuditEvent(ctx, tx, auditEvent{
+		ActorUserID:  &actor.ID,
+		TargetUserID: &actor.ID,
+		IncidentID:   &incidentID,
+		EventSource:  "incidents",
+		EventKind:    "incident_" + action,
+		ReasonCode:   &request.Reason,
+		ClientTxnID:  &request.ClientTxnID,
+		RequestID:    &requestID,
+		BeforeJSON:   BuildIncidentResource(current),
+		AfterJSON:    payload,
+	}); err != nil {
+		return IncidentLifecycleResult{}, err
+	}
+
+	responseJSON, err := json.Marshal(payload)
+	if err != nil {
+		return IncidentLifecycleResult{}, fmt.Errorf("marshal incident lifecycle payload: %w", err)
+	}
+	if err := authn.InsertRouteIdempotency(ctx, tx, key, &actor.ID, requestHash, http.StatusOK, responseJSON); err != nil {
+		if authn.IsUniqueViolation(err) {
+			return IncidentLifecycleResult{}, authn.ErrClientTxnConflict
+		}
+		return IncidentLifecycleResult{}, fmt.Errorf("insert incident lifecycle idempotency: %w", err)
+	}
+
+	if err := s.beforeCommit(routeKey, incidentID); err != nil {
+		return IncidentLifecycleResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return IncidentLifecycleResult{}, fmt.Errorf("commit incident lifecycle transaction: %w", err)
+	}
+	return IncidentLifecycleResult{
+		Incident:   updated,
+		Payload:    payload,
+		StatusCode: http.StatusOK,
+	}, nil
 }
 
 func (s *Store) CreateMembership(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, targetUser authn.UserRecord, request MembershipCreateRequest, requestHash []byte, requestID string, now time.Time) (MembershipCreateResult, error) {

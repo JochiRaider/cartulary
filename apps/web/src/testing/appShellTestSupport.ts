@@ -1,6 +1,7 @@
 import type {
   CredentialState,
   EnterpriseAuthProvider,
+  ExtensionProfileResource,
   SessionData,
 } from "../app/phase1Client";
 import { jsonResponse } from "./fetchMockTestSupport";
@@ -18,6 +19,8 @@ type RouteRequest = {
   input: RequestInfo | URL;
   init: RequestInit | undefined;
   method: string;
+  path: string;
+  query: URLSearchParams;
   url: string;
 };
 
@@ -36,18 +39,22 @@ type ExtraRoute = {
 export type IncidentResource = {
   current_phase: string | null;
   description: string | null;
+  closed_at?: string | null;
   incident_id: string;
   incident_key: string;
   incident_version: number;
   primary_external_case_ref: string | null;
   severity: string | null;
+  status?: "active" | "closed";
   title: string;
   tlp: string | null;
+  updated_at?: string;
 };
 
 type InstallLandingShellFetchOptions = {
   credentialState?: MaybeHandler<CredentialState>;
   enterpriseProviders?: MaybeHandler<{ providers: EnterpriseAuthProvider[] }>;
+  extensions?: MaybeHandler<{ extensions: ExtensionProfileResource[] }>;
   extraRoutes?: ExtraRoute[];
   incidents?: MaybeHandler<IncidentResource[]>;
   onCreateIncident?: MaybeHandler<IncidentResource>;
@@ -78,6 +85,9 @@ export function installLandingShellFetch(
         request,
       );
     }
+    if (request.path === "/api/v1/extensions" && request.method === "GET") {
+      return dataResponse(options.extensions ?? { extensions: [] }, request);
+    }
     if (
       request.url === "/api/v1/auth/credential-state" &&
       request.method === "GET"
@@ -87,7 +97,7 @@ export function installLandingShellFetch(
         request,
       );
     }
-    if (request.url === "/api/v1/incidents" && request.method === "GET") {
+    if (request.path === "/api/v1/incidents" && request.method === "GET") {
       const incidents = await resolveMaybeHandler(
         options.incidents ?? [],
         request,
@@ -95,9 +105,41 @@ export function installLandingShellFetch(
       if (incidents instanceof Response) {
         return incidents;
       }
+      const limit = Number.parseInt(request.query.get("limit") ?? "100", 10);
+      const boundedLimit = Number.isFinite(limit) && limit > 0 ? limit : 100;
+      const status = request.query.get("status");
+      const search = (request.query.get("search") ?? "").trim().toLowerCase();
+      const filteredIncidents = incidents.filter((incident) => {
+        if (status === "active" && (incident.status ?? "active") !== "active") {
+          return false;
+        }
+        if (status === "closed" && incident.status !== "closed") {
+          return false;
+        }
+        if (search === "") {
+          return true;
+        }
+        return [
+          incident.incident_key,
+          incident.title,
+          incident.severity,
+          incident.tlp,
+          incident.current_phase,
+          incident.primary_external_case_ref,
+        ].some((value) => value?.toLowerCase().includes(search) ?? false);
+      });
+      const visibleIncidents = filteredIncidents.slice(0, boundedLimit);
+      const hasMore = filteredIncidents.length > visibleIncidents.length;
       return jsonResponse({
         data: {
-          incidents,
+          incidents: visibleIncidents,
+        },
+        meta: {
+          paging: {
+            limit: boundedLimit,
+            has_more: hasMore,
+            next_cursor: hasMore ? "cursor-next" : null,
+          },
         },
       });
     }
@@ -173,11 +215,15 @@ function routeRequest(
   input: RequestInfo | URL,
   init: RequestInit | undefined,
 ): RouteRequest {
+  const rawURL = String(input);
+  const parsedURL = new URL(rawURL, "http://cartulary.test");
   return {
     input,
     init,
     method: (init?.method ?? "GET").toUpperCase(),
-    url: String(input),
+    path: parsedURL.pathname,
+    query: parsedURL.searchParams,
+    url: rawURL,
   };
 }
 
@@ -185,11 +231,37 @@ async function dataResponse<TValue extends object>(
   source: MaybeHandler<TValue>,
   request: RouteRequest,
 ) {
+  await waitForAbortWindow(request.init?.signal ?? undefined);
   const value = await resolveMaybeHandler(source, request);
   if (value instanceof Response) {
     return value;
   }
   return jsonResponse({ data: value });
+}
+
+function waitForAbortWindow(signal: AbortSignal | undefined) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    const cleanup = () => {
+      if (timeout !== null) {
+        clearTimeout(timeout);
+      }
+      signal?.removeEventListener("abort", abort);
+    };
+    const abort = () => {
+      cleanup();
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    timeout = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, 0);
+    signal?.addEventListener("abort", abort, { once: true });
+  });
 }
 
 function resolveMaybeHandler<TValue extends object>(

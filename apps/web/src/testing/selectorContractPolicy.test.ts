@@ -53,7 +53,7 @@ const appLocalSelectorOwnership = [
   },
   {
     owner: "apps/web incident administration",
-    pattern: /^incident-(?:admin|summary|pref|patch)-/u,
+    pattern: /^incident-(?:admin|summary|pref|patch|lifecycle|close|reopen)-/u,
     reason:
       "Incident admin selectors are app-local to the incident admin panel and phase 2 coverage.",
     scope: "apps/web IncidentAdminPanel and phase2 browser coverage",

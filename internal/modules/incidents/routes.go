@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -95,8 +96,36 @@ func (s *Service) handleExtensionsCollection(w http.ResponseWriter, r *http.Requ
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildExtensionsResponseData(profiles))
 }
 
+func parseIncidentListScope(query url.Values) (map[string]string, *auth.APIError) {
+	for key, values := range query {
+		switch key {
+		case "limit", "cursor_token", "search", "status":
+		default:
+			return nil, invalidPaginationRequest("unsupported_query_parameter")
+		}
+		if len(values) > 1 {
+			return nil, invalidPaginationRequest("repeated_query_parameter")
+		}
+	}
+	search := strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(query.Get("search"))), " "))
+	status := strings.TrimSpace(query.Get("status"))
+	if status != "" && status != "active" && status != "closed" {
+		return nil, invalidPaginationRequest("invalid_status")
+	}
+	return map[string]string{
+		"search": search,
+		"status": status,
+	}, nil
+}
+
 func (s *Service) incidentListPageRequest(binding pagination.Binding, cursor *pagination.Cursor) (IncidentListPageRequest, string) {
-	request := IncidentListPageRequest{Limit: binding.Limit + 1}
+	request := IncidentListPageRequest{
+		Limit:        binding.Limit + 1,
+		SearchTokens: strings.Fields(binding.Scope["search"]),
+	}
+	if status := binding.Scope["status"]; status != "" {
+		request.Status = &status
+	}
 	if cursor == nil {
 		return request, ""
 	}
@@ -145,7 +174,7 @@ func buildIncidentListPage(binding pagination.Binding, anchor time.Time, records
 		Route:       binding.Route,
 		ActorUserID: binding.ActorUserID,
 		Limit:       binding.Limit,
-		Scope:       nil,
+		Scope:       binding.Scope,
 		Position: map[string]string{
 			"anchor_updated_at": anchor.UTC().Format(time.RFC3339Nano),
 			"last_updated_at":   last.UpdatedAt.UTC().Format(time.RFC3339Nano),
@@ -162,11 +191,16 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 			writeAPIError(w, r, apiErr)
 			return
 		}
+		scope, apiErr := parseIncidentListScope(r.URL.Query())
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
 		binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
 			r.URL.Query(),
 			"incidents.list",
 			principal.User.ID.String(),
-			nil,
+			scope,
 		)
 		if reasonCode != "" {
 			writeAPIError(w, r, invalidPaginationRequest(reasonCode))
@@ -317,6 +351,9 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 			case errors.As(err, &versionConflict):
 				writeAPIError(w, r, incidentVersionConflictError(versionConflict))
 				return
+			case errors.Is(err, ErrIncidentClosed):
+				writeAPIError(w, r, incidentClosedError())
+				return
 			case err != nil:
 				writeAPIError(w, r, internalAPIError(err))
 				return
@@ -330,6 +367,11 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
+		return
+	}
+
+	if len(segments) == 2 && (segments[1] == "close" || segments[1] == "reopen") {
+		s.handleIncidentLifecycle(w, r, incidentID, segments[1])
 		return
 	}
 
@@ -359,6 +401,60 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 	}
 
 	http.NotFound(w, r)
+}
+
+func (s *Service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, action string) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	principal, apiErr := s.authenticateSessionRequest(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	request, apiErr := DecodeIncidentLifecycleRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	result, err := s.store.TransitionIncidentLifecycle(
+		r.Context(),
+		principal.User,
+		incidentID,
+		action,
+		request,
+		IncidentLifecycleRequestHash(request),
+		httpapi.RequestIDFromContext(r.Context()),
+		s.now(),
+	)
+	var versionConflict *IncidentVersionConflictError
+	switch {
+	case errors.Is(err, authn.ErrClientTxnConflict):
+		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, ErrIncidentNotFound):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case errors.As(err, &versionConflict):
+		writeAPIError(w, r, incidentVersionConflictError(versionConflict))
+		return
+	case errors.Is(err, ErrIncidentIllegalTransition):
+		writeAPIError(w, r, incidentIllegalTransitionError(action))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
 func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {

@@ -38,7 +38,18 @@ type ReferencePackVersion = {
   pack_kind: string;
   pack_version_state: string;
   active: boolean;
+  source_identifier: string | null;
+  manifest_sha256: string;
+  payload_sha256: string;
+  pack_contract_version: string;
+  verification_method: string;
   verification_result: string;
+  signer_key_id: string | null;
+  previous_active_version: string | null;
+  imported_by_user_id: string | null;
+  imported_at: string;
+  activated_by_user_id: string | null;
+  activated_at: string | null;
 };
 
 type JobResource = {
@@ -56,6 +67,12 @@ type JobResource = {
 type ReferencePackListEnvelope = {
   data: {
     pack_versions: ReferencePackVersion[];
+  };
+  meta?: {
+    paging?: {
+      has_more: boolean;
+      next_cursor: string | null;
+    };
   };
 };
 
@@ -117,16 +134,31 @@ export const ReferencePackAdminPanel = forwardRef<
   }, [visiblePacks]);
 
   const loadPacks = useCallback(async () => {
-    const result = await fetchJSON<ReferencePackListEnvelope>(
-      "/api/v1/reference-packs?limit=100",
-    );
-    if (!result.ok) {
-      setError(extractError(result.payload));
-      setStatus("Reference packs unavailable");
-      return;
+    let cursorToken: string | null = null;
+    const loaded: ReferencePackVersion[] = [];
+    for (;;) {
+      const params = new URLSearchParams({ limit: "100" });
+      if (cursorToken !== null) {
+        params.set("cursor_token", cursorToken);
+      }
+      const result = await fetchJSON<ReferencePackListEnvelope>(
+        `/api/v1/reference-packs?${params.toString()}`,
+      );
+      if (!result.ok) {
+        setError(extractError(result.payload));
+        setStatus("Reference packs unavailable");
+        return;
+      }
+      const envelope = result.payload as ReferencePackListEnvelope;
+      loaded.push(...envelope.data.pack_versions);
+      const paging = envelope.meta?.paging;
+      if (!paging?.has_more || paging.next_cursor === null) {
+        break;
+      }
+      cursorToken = paging.next_cursor;
     }
     setError(null);
-    setPacks((result.payload as ReferencePackListEnvelope).data.pack_versions);
+    setPacks(loaded);
     setStatus("Reference packs loaded");
   }, []);
 

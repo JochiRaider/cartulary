@@ -33,6 +33,18 @@ type UserPatchRequest struct {
 	IsDeploymentAdmin *bool
 }
 
+type AccountProfilePatchRequest struct {
+	BaseUserVersion int64
+	ClientTxnID     string
+	DisplayName     string
+}
+
+type AccountPreferencesPutRequest struct {
+	BasePreferencesVersion int64
+	ClientTxnID            string
+	DensityMode            *string
+}
+
 type AdminPasswordResetRequest struct {
 	BaseUserVersion int64
 	ClientTxnID     string
@@ -71,6 +83,27 @@ func BuildSafeUserResource(user authn.UserRecord) map[string]any {
 
 func BuildSafeUserResourceWithEnterpriseBindings(user authn.UserRecord, bindings []authn.EnterpriseAuthBindingSummary) map[string]any {
 	return authn.SafeUserResponseWithEnterpriseBindings(user, bindings)
+}
+
+func BuildAccountProfileResource(user authn.UserRecord) map[string]any {
+	return map[string]any{
+		"user_id":      user.ID,
+		"email":        user.Email,
+		"display_name": user.DisplayName,
+		"user_version": user.UserVersion,
+		"created_at":   user.CreatedAt,
+		"updated_at":   user.UpdatedAt,
+	}
+}
+
+func BuildAccountPreferencesResource(record authn.AccountPreferencesRecord) map[string]any {
+	return map[string]any{
+		"user_id":             record.UserID,
+		"density_mode":        record.DensityMode,
+		"preferences_version": record.PreferencesVersion,
+		"created_at":          record.CreatedAt,
+		"updated_at":          record.UpdatedAt,
+	}
 }
 
 func WouldLeaveNoActiveDeploymentAdmins(currentIsAdmin bool, currentIsActive bool, activeAdminCount int, nextIsAdmin bool, nextIsActive bool) bool {
@@ -271,6 +304,95 @@ func DecodeUserPatchRequest(reader io.Reader) (UserPatchRequest, *APIError) {
 		request.IsDeploymentAdmin = &flag
 	}
 	return request, nil
+}
+
+func DecodeAccountProfilePatchRequest(reader io.Reader) (AccountProfilePatchRequest, *APIError) {
+	raw, apiErr := decodeObject(reader)
+	if apiErr != nil {
+		return AccountProfilePatchRequest{}, invalidMutationPayload("", "request_not_object")
+	}
+	allowed := map[string]struct{}{
+		"base_user_version": {},
+		"client_txn_id":     {},
+		"display_name":      {},
+	}
+	for key := range raw {
+		if _, ok := allowed[key]; !ok {
+			return AccountProfilePatchRequest{}, invalidMutationPayload(key, "unknown_field")
+		}
+	}
+	var request AccountProfilePatchRequest
+	if value, ok := raw["base_user_version"]; !ok {
+		return request, invalidMutationPayload("base_user_version", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.BaseUserVersion); err != nil || request.BaseUserVersion < 1 {
+		return request, invalidMutationPayload("base_user_version", "invalid_base_user_version")
+	}
+	if value, ok := raw["client_txn_id"]; !ok {
+		return request, invalidMutationPayload("client_txn_id", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
+		return request, invalidMutationPayload("client_txn_id", "missing_required_field")
+	}
+	if value, ok := raw["display_name"]; !ok {
+		return request, invalidMutationPayload("display_name", "missing_required_field")
+	} else {
+		var displayName string
+		if err := json.Unmarshal(value, &displayName); err != nil {
+			return request, invalidMutationPayload("display_name", "field_not_nullable")
+		}
+		normalized, ok := authn.NormalizeDisplayNameLine(displayName)
+		if !ok {
+			return request, invalidMutationPayload("display_name", "invalid_display_name")
+		}
+		request.DisplayName = normalized
+	}
+	return request, nil
+}
+
+func DecodeAccountPreferencesPutRequest(reader io.Reader) (AccountPreferencesPutRequest, *APIError) {
+	raw, apiErr := decodeObject(reader)
+	if apiErr != nil {
+		return AccountPreferencesPutRequest{}, invalidMutationPayload("", "request_not_object")
+	}
+	allowed := map[string]struct{}{
+		"base_preferences_version": {},
+		"client_txn_id":            {},
+		"density_mode":             {},
+	}
+	for key := range raw {
+		if _, ok := allowed[key]; !ok {
+			return AccountPreferencesPutRequest{}, invalidMutationPayload(key, "unknown_field")
+		}
+	}
+	var request AccountPreferencesPutRequest
+	if value, ok := raw["base_preferences_version"]; !ok {
+		return request, invalidMutationPayload("base_preferences_version", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.BasePreferencesVersion); err != nil || request.BasePreferencesVersion < 1 {
+		return request, invalidMutationPayload("base_preferences_version", "invalid_base_preferences_version")
+	}
+	if value, ok := raw["client_txn_id"]; !ok {
+		return request, invalidMutationPayload("client_txn_id", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
+		return request, invalidMutationPayload("client_txn_id", "missing_required_field")
+	}
+	value, ok := raw["density_mode"]
+	if !ok {
+		return request, invalidMutationPayload("density_mode", "missing_required_field")
+	}
+	if string(value) == "null" {
+		request.DensityMode = nil
+		return request, nil
+	}
+	var densityMode string
+	if err := json.Unmarshal(value, &densityMode); err != nil {
+		return request, invalidMutationPayload("density_mode", "invalid_value")
+	}
+	switch densityMode {
+	case "compact", "default", "comfortable":
+		request.DensityMode = &densityMode
+		return request, nil
+	default:
+		return request, invalidMutationPayload("density_mode", "invalid_value")
+	}
 }
 
 func DecodeAdminPasswordResetRequest(reader io.Reader) (AdminPasswordResetRequest, *APIError) {

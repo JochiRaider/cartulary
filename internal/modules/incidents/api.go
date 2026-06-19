@@ -63,9 +63,17 @@ type OptionalNullableString struct {
 
 type IncidentPatchRequest struct {
 	BaseIncidentVersion    int64
+	Description            OptionalNullableString
+	Severity               OptionalNullableString
 	TLP                    OptionalNullableString
 	CurrentPhase           OptionalNullableString
 	PrimaryExternalCaseRef OptionalNullableString
+}
+
+type IncidentLifecycleRequest struct {
+	BaseIncidentVersion int64
+	ClientTxnID         string
+	Reason              string
 }
 
 func DecodeIncidentCreateRequest(reader io.Reader) (CreateIncidentRequest, *auth.APIError) {
@@ -161,6 +169,8 @@ func DecodeIncidentPatchRequest(reader io.Reader) (IncidentPatchRequest, *auth.A
 
 	allowed := map[string]struct{}{
 		"base_incident_version":     {},
+		"description":               {},
+		"severity":                  {},
 		"tlp":                       {},
 		"current_phase":             {},
 		"primary_external_case_ref": {},
@@ -169,9 +179,7 @@ func DecodeIncidentPatchRequest(reader io.Reader) (IncidentPatchRequest, *auth.A
 		"incident_id":                  {},
 		"incident_key":                 {},
 		"title":                        {},
-		"description":                  {},
 		"status":                       {},
-		"severity":                     {},
 		"created_at":                   {},
 		"created_by_user_id":           {},
 		"updated_at":                   {},
@@ -202,6 +210,12 @@ func DecodeIncidentPatchRequest(reader io.Reader) (IncidentPatchRequest, *auth.A
 	}
 
 	var ok bool
+	if request.Description, ok = decodeOptionalNullableNoteField(raw, "description"); !ok {
+		return IncidentPatchRequest{}, invalidIncidentPatch("description", "invalid_value")
+	}
+	if request.Severity, ok = decodeOptionalNullableLineField(raw, "severity"); !ok {
+		return IncidentPatchRequest{}, invalidIncidentPatch("severity", "invalid_value")
+	}
 	if request.TLP, ok = decodeOptionalNullableLineField(raw, "tlp"); !ok {
 		return IncidentPatchRequest{}, invalidIncidentPatch("tlp", "invalid_value")
 	}
@@ -210,6 +224,50 @@ func DecodeIncidentPatchRequest(reader io.Reader) (IncidentPatchRequest, *auth.A
 	}
 	if request.PrimaryExternalCaseRef, ok = decodeOptionalNullableLineField(raw, "primary_external_case_ref"); !ok {
 		return IncidentPatchRequest{}, invalidIncidentPatch("primary_external_case_ref", "invalid_value")
+	}
+	return request, nil
+}
+
+func DecodeIncidentLifecycleRequest(reader io.Reader) (IncidentLifecycleRequest, *auth.APIError) {
+	raw, apiErr := decodeObject(reader, invalidMutationPayload)
+	if apiErr != nil {
+		return IncidentLifecycleRequest{}, apiErr
+	}
+
+	allowed := map[string]struct{}{
+		"base_incident_version": {},
+		"client_txn_id":         {},
+		"reason":                {},
+	}
+	for key := range raw {
+		if _, ok := allowed[key]; !ok {
+			return IncidentLifecycleRequest{}, invalidMutationPayload(key, "unknown_field")
+		}
+	}
+
+	var request IncidentLifecycleRequest
+	if value, ok := raw["base_incident_version"]; !ok {
+		return IncidentLifecycleRequest{}, invalidMutationPayload("base_incident_version", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.BaseIncidentVersion); err != nil || request.BaseIncidentVersion < 1 {
+		return IncidentLifecycleRequest{}, invalidMutationPayload("base_incident_version", "invalid_base_incident_version")
+	}
+	if value, ok := raw["client_txn_id"]; !ok {
+		return IncidentLifecycleRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
+		return IncidentLifecycleRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	}
+	if value, ok := raw["reason"]; !ok {
+		return IncidentLifecycleRequest{}, invalidMutationPayload("reason", "missing_required_field")
+	} else {
+		var reason string
+		if err := json.Unmarshal(value, &reason); err != nil {
+			return IncidentLifecycleRequest{}, invalidMutationPayload("reason", "field_not_nullable")
+		}
+		normalized := normalizeReasonLine(reason)
+		if normalized == "" {
+			return IncidentLifecycleRequest{}, invalidMutationPayload("reason", "invalid_value")
+		}
+		request.Reason = normalized
 	}
 	return request, nil
 }
@@ -584,6 +642,26 @@ func incidentVersionConflictError(conflict *IncidentVersionConflictError) *auth.
 	return &auth.APIError{Status: http.StatusConflict, Code: "incident_version_conflict", Details: conflict.Details()}
 }
 
+func incidentClosedError() *auth.APIError {
+	return &auth.APIError{
+		Status:  http.StatusConflict,
+		Code:    "incident_closed",
+		Message: "incident closed",
+		Details: map[string]any{},
+	}
+}
+
+func incidentIllegalTransitionError(action string) *auth.APIError {
+	return &auth.APIError{
+		Status:  http.StatusConflict,
+		Code:    "illegal_transition",
+		Message: "illegal transition",
+		Details: map[string]any{
+			"action": action,
+		},
+	}
+}
+
 func membershipNotFoundError() *auth.APIError {
 	return &auth.APIError{Status: http.StatusNotFound, Code: "membership_not_found", Details: map[string]any{}}
 }
@@ -794,6 +872,25 @@ func decodeOptionalNullableLineField(raw map[string]json.RawMessage, field strin
 	return OptionalNullableString{Present: true, Value: &normalized}, true
 }
 
+func decodeOptionalNullableNoteField(raw map[string]json.RawMessage, field string) (OptionalNullableString, bool) {
+	value, ok := raw[field]
+	if !ok {
+		return OptionalNullableString{}, true
+	}
+	if string(value) == "null" {
+		return OptionalNullableString{Present: true, Value: nil}, true
+	}
+	var note string
+	if err := json.Unmarshal(value, &note); err != nil {
+		return OptionalNullableString{}, false
+	}
+	normalized, ok := normalizeNote(note)
+	if !ok {
+		return OptionalNullableString{}, false
+	}
+	return OptionalNullableString{Present: true, Value: &normalized}, true
+}
+
 func normalizeLine(raw string) (string, bool) {
 	normalized := norm.NFC.String(strings.TrimFunc(raw, unicode.IsSpace))
 	if normalized == "" {
@@ -823,4 +920,12 @@ func normalizeNote(raw string) (string, bool) {
 		}
 	}
 	return normalized, true
+}
+
+func normalizeReasonLine(raw string) string {
+	normalized, ok := normalizeLine(raw)
+	if !ok {
+		return ""
+	}
+	return normalized
 }

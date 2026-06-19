@@ -292,6 +292,8 @@ type WorkbookShellProps = {
         current_phase: string | null;
         primary_external_case_ref: string | null;
         incident_version: number;
+        status?: "active" | "closed";
+        closed_at?: string | null;
       }) => void)
     | undefined;
   onIncidentAccessLost?: (() => void) | undefined;

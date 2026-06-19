@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -46,12 +48,16 @@ type authStore interface {
 	ActivateTOTPEnrollment(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, time.Time) (authn.TOTPCompleteResult, error)
 	GetRouteIdempotency(context.Context, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error)
 	ChangePassword(context.Context, authn.UserRecord, string, []byte, string, string, time.Time) (authn.PasswordChangeResult, error)
-	ListUsers(context.Context) ([]authn.UserRecord, error)
+	ListUsers(context.Context, authn.UserListFilter) ([]authn.UserRecord, error)
+	ListAdministrativeAuditEvents(context.Context, authn.AdministrativeAuditFilter) ([]authn.AdministrativeAuditRecord, error)
 	CreateUser(context.Context, authn.UserRecord, string, string, string, bool, bool, string, []byte, string, time.Time) (authn.UserCreateResult, error)
 	UpdateUser(context.Context, authn.UserRecord, uuid.UUID, int64, *string, *string, *bool, *bool, *bool, string, time.Time) (authn.UserRecord, []uuid.UUID, error)
 	AdminResetPassword(context.Context, authn.UserRecord, uuid.UUID, int64, string, string, []byte, string, time.Time) (authn.AdminPasswordResetResult, error)
 	AdminResetTOTP(context.Context, authn.UserRecord, uuid.UUID, int64, string, []byte, string, time.Time) (authn.AdminTOTPResetResult, error)
 	AdminRevokeAllSessions(context.Context, authn.UserRecord, uuid.UUID, string, []byte, string, time.Time) (authn.AdminRevokeAllResult, error)
+	PatchAccountProfile(context.Context, authn.UserRecord, int64, string, string, []byte, string, time.Time) (authn.AccountProfilePatchResult, error)
+	GetOrCreateAccountPreferences(context.Context, uuid.UUID, time.Time) (authn.AccountPreferencesRecord, error)
+	PutAccountPreferences(context.Context, authn.UserRecord, int64, string, *string, []byte, string, time.Time) (authn.AccountPreferencesPutResult, error)
 	ListEnterpriseAuthProviders(context.Context) ([]authn.EnterpriseAuthProviderRecord, error)
 	GetEnterpriseAuthProviderByKey(context.Context, string) (authn.EnterpriseAuthProviderRecord, error)
 	CreateEnterpriseAuthTransaction(context.Context, authn.EnterpriseAuthProviderRecord, string, *string, *string, []byte, *string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
@@ -101,6 +107,9 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		mux.HandleFunc("/api/v1/auth/password/change", service.handlePasswordChange)
 		mux.HandleFunc("/api/v1/auth/mfa/totp/begin", service.handleTOTPBegin)
 		mux.HandleFunc("/api/v1/auth/mfa/totp/complete", service.handleTOTPComplete)
+		mux.HandleFunc("/api/v1/account/profile", service.handleAccountProfile)
+		mux.HandleFunc("/api/v1/account/preferences", service.handleAccountPreferences)
+		mux.HandleFunc("/api/v1/administrative-audit-events", service.handleAdministrativeAuditEvents)
 		mux.HandleFunc("/api/v1/users", service.handleUsersCollection)
 		mux.HandleFunc("/api/v1/users/", service.handleUsersMember)
 		return nil
@@ -645,6 +654,372 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Service) handleAccountProfile(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		if apiErr := ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		principal, apiErr := s.authenticateSessionRequest(r, false)
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildAccountProfileResource(principal.User))
+	case http.MethodPatch:
+		principal, apiErr := s.authenticateSessionRequest(r, true)
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		request, apiErr := DecodeAccountProfilePatchRequest(r.Body)
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		requestHash := hashRequestPayload(map[string]any{
+			"base_user_version": request.BaseUserVersion,
+			"client_txn_id":     request.ClientTxnID,
+			"display_name":      request.DisplayName,
+		})
+		result, err := s.store.PatchAccountProfile(r.Context(), principal.User, request.BaseUserVersion, request.DisplayName, request.ClientTxnID, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+		switch {
+		case errors.Is(err, authn.ErrClientTxnConflict):
+			writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))
+			return
+		case errors.Is(err, authn.ErrUserVersionConflict):
+			writeAPIError(w, r, &APIError{Status: http.StatusConflict, Code: "user_version_conflict", Details: map[string]any{}})
+			return
+		case err != nil:
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		payload, err := decodeStoredResponse(result.ResponseJSON)
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		_ = httpapi.WriteSuccess(w, r, result.StatusCode, payload)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Service) handleAccountPreferences(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		if apiErr := ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		principal, apiErr := s.authenticateSessionRequest(r, false)
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		record, err := s.store.GetOrCreateAccountPreferences(r.Context(), principal.User.ID, s.now())
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildAccountPreferencesResource(record))
+	case http.MethodPut:
+		principal, apiErr := s.authenticateSessionRequest(r, true)
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		request, apiErr := DecodeAccountPreferencesPutRequest(r.Body)
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		requestHash := hashRequestPayload(map[string]any{
+			"base_preferences_version": request.BasePreferencesVersion,
+			"client_txn_id":            request.ClientTxnID,
+			"density_mode":             request.DensityMode,
+		})
+		result, err := s.store.PutAccountPreferences(r.Context(), principal.User, request.BasePreferencesVersion, request.ClientTxnID, request.DensityMode, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+		switch {
+		case errors.Is(err, authn.ErrClientTxnConflict):
+			writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))
+			return
+		case errors.Is(err, authn.ErrPreferencesVersionConflict):
+			writeAPIError(w, r, &APIError{Status: http.StatusConflict, Code: "preferences_version_conflict", Details: map[string]any{}})
+			return
+		case err != nil:
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		payload, err := decodeStoredResponse(result.ResponseJSON)
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		_ = httpapi.WriteSuccess(w, r, result.StatusCode, payload)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func parseUsersListScope(query url.Values) (map[string]string, *APIError) {
+	for key, values := range query {
+		switch key {
+		case "limit", "cursor_token", "search", "is_active", "is_deployment_admin":
+		default:
+			return nil, userPaginationError("unsupported_query_parameter")
+		}
+		if len(values) > 1 {
+			return nil, userPaginationError("repeated_query_parameter")
+		}
+	}
+	search := strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(query.Get("search"))), " "))
+	isActive := strings.TrimSpace(query.Get("is_active"))
+	if isActive != "" && isActive != "true" && isActive != "false" {
+		return nil, userPaginationError("invalid_is_active")
+	}
+	isDeploymentAdmin := strings.TrimSpace(query.Get("is_deployment_admin"))
+	if isDeploymentAdmin != "" && isDeploymentAdmin != "true" && isDeploymentAdmin != "false" {
+		return nil, userPaginationError("invalid_is_deployment_admin")
+	}
+	return map[string]string{
+		"search":              search,
+		"is_active":           isActive,
+		"is_deployment_admin": isDeploymentAdmin,
+	}, nil
+}
+
+func userListFilterFromScope(scope map[string]string) authn.UserListFilter {
+	filter := authn.UserListFilter{SearchTokens: strings.Fields(scope["search"])}
+	if value := scope["is_active"]; value != "" {
+		parsed := value == "true"
+		filter.IsActive = &parsed
+	}
+	if value := scope["is_deployment_admin"]; value != "" {
+		parsed := value == "true"
+		filter.IsDeploymentAdmin = &parsed
+	}
+	return filter
+}
+
+func parseAdministrativeAuditScope(query url.Values) (map[string]string, *APIError) {
+	for key, values := range query {
+		switch key {
+		case "limit", "cursor_token", "actor_user_id", "action_code", "target_kind", "target_id", "occurred_at_gte", "occurred_at_lt":
+		default:
+			return nil, userPaginationError("unsupported_query_parameter")
+		}
+		if len(values) > 1 {
+			return nil, userPaginationError("repeated_query_parameter")
+		}
+	}
+	targetKind := strings.TrimSpace(query.Get("target_kind"))
+	if targetKind != "" && targetKind != "user" && targetKind != "incident" && targetKind != "deployment" {
+		return nil, userPaginationError("invalid_target_kind")
+	}
+	if strings.TrimSpace(query.Get("target_id")) != "" && targetKind == "" {
+		return nil, userPaginationError("target_kind_required")
+	}
+	for _, key := range []string{"occurred_at_gte", "occurred_at_lt"} {
+		value := strings.TrimSpace(query.Get(key))
+		if value == "" {
+			continue
+		}
+		if _, err := time.Parse(time.RFC3339, value); err != nil {
+			return nil, userPaginationError("invalid_" + key)
+		}
+	}
+	if actorUserID := strings.TrimSpace(query.Get("actor_user_id")); actorUserID != "" {
+		if _, err := uuid.Parse(actorUserID); err != nil {
+			return nil, userPaginationError("invalid_actor_user_id")
+		}
+	}
+	return map[string]string{
+		"actor_user_id":   strings.TrimSpace(query.Get("actor_user_id")),
+		"action_code":     strings.TrimSpace(query.Get("action_code")),
+		"target_kind":     targetKind,
+		"target_id":       strings.TrimSpace(query.Get("target_id")),
+		"occurred_at_gte": strings.TrimSpace(query.Get("occurred_at_gte")),
+		"occurred_at_lt":  strings.TrimSpace(query.Get("occurred_at_lt")),
+	}, nil
+}
+
+func administrativeAuditFilterFromScope(scope map[string]string) authn.AdministrativeAuditFilter {
+	var filter authn.AdministrativeAuditFilter
+	if value := scope["actor_user_id"]; value != "" {
+		parsed := uuid.MustParse(value)
+		filter.ActorUserID = &parsed
+	}
+	if value := scope["action_code"]; value != "" {
+		filter.ActionCode = &value
+	}
+	if value := scope["target_kind"]; value != "" {
+		filter.TargetKind = &value
+	}
+	if value := scope["target_id"]; value != "" {
+		filter.TargetID = &value
+	}
+	if value := scope["occurred_at_gte"]; value != "" {
+		parsed, _ := time.Parse(time.RFC3339, value)
+		parsed = parsed.UTC()
+		filter.OccurredAtGTE = &parsed
+	}
+	if value := scope["occurred_at_lt"]; value != "" {
+		parsed, _ := time.Parse(time.RFC3339, value)
+		parsed = parsed.UTC()
+		filter.OccurredAtLT = &parsed
+	}
+	return filter
+}
+
+func buildAdministrativeAuditResource(record authn.AdministrativeAuditRecord) map[string]any {
+	targetKind := "deployment"
+	var targetID any
+	if record.IncidentID != nil {
+		targetKind = "incident"
+		targetID = record.IncidentID.String()
+	} else if record.TargetUserID != nil {
+		targetKind = "user"
+		targetID = record.TargetUserID.String()
+	}
+	return map[string]any{
+		"audit_event_id": record.ID,
+		"scope_kind":     "deployment",
+		"scope_id":       nil,
+		"occurred_at":    record.OccurredAt,
+		"actor_kind":     "user",
+		"actor_user_id":  record.ActorUserID,
+		"source":         record.EventSource,
+		"action_code":    record.EventSource,
+		"target_kind":    targetKind,
+		"target_id":      targetID,
+		"changes":        auditChanges(record.BeforeJSON, record.AfterJSON),
+		"reason_code":    record.ReasonCode,
+	}
+}
+
+func auditChanges(beforeRaw []byte, afterRaw []byte) []map[string]any {
+	before := auditJSONObject(beforeRaw)
+	after := auditJSONObject(afterRaw)
+	keys := make(map[string]struct{}, len(before)+len(after))
+	for key := range before {
+		keys[key] = struct{}{}
+	}
+	for key := range after {
+		keys[key] = struct{}{}
+	}
+	fieldPaths := make([]string, 0, len(keys))
+	for key := range keys {
+		fieldPaths = append(fieldPaths, key)
+	}
+	sort.Strings(fieldPaths)
+	changes := make([]map[string]any, 0, len(fieldPaths))
+	for _, fieldPath := range fieldPaths {
+		changes = append(changes, map[string]any{
+			"field_path":  fieldPath,
+			"value_state": "visible",
+			"before":      before[fieldPath],
+			"after":       after[fieldPath],
+		})
+	}
+	return changes
+}
+
+func auditJSONObject(raw []byte) map[string]any {
+	if len(raw) == 0 {
+		return map[string]any{}
+	}
+	var object map[string]any
+	if err := json.Unmarshal(raw, &object); err != nil {
+		return map[string]any{}
+	}
+	return object
+}
+
+func (s *Service) handleAdministrativeAuditEvents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	principal, apiErr := s.authenticateSessionRequest(r, false)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if apiErr := RequireDeploymentAdmin(principal.User); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	scope, apiErr := parseAdministrativeAuditScope(r.URL.Query())
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
+		r.URL.Query(),
+		"administrative_audit_events.list",
+		principal.User.ID.String(),
+		scope,
+	)
+	if reasonCode != "" {
+		writeAPIError(w, r, userPaginationError(reasonCode))
+		return
+	}
+	records, err := s.store.ListAdministrativeAuditEvents(r.Context(), administrativeAuditFilterFromScope(binding.Scope))
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	resources := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		resources = append(resources, buildAdministrativeAuditResource(record))
+	}
+	rows, nextCursor, err := pagination.PageResources(binding, cursor, resources)
+	switch {
+	case errors.Is(err, pagination.ErrInvalidCursorToken):
+		writeAPIError(w, r, userPaginationError(pagination.ReasonInvalidCursorToken))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	var nextCursorToken *string
+	if nextCursor != nil {
+		token, err := s.cursorCodec.Encode(*nextCursor)
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		nextCursorToken = &token
+	}
+	_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"administrative_audit_events": rows}, httpapi.PagingMeta{
+		Limit:      binding.Limit,
+		HasMore:    nextCursorToken != nil,
+		NextCursor: nextCursorToken,
+	})
+}
+
 func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -657,18 +1032,23 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 			writeAPIError(w, r, apiErr)
 			return
 		}
+		scope, apiErr := parseUsersListScope(r.URL.Query())
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
 		binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
 			r.URL.Query(),
 			"users.list",
 			principal.User.ID.String(),
-			nil,
+			scope,
 		)
 		if reasonCode != "" {
 			writeAPIError(w, r, userPaginationError(reasonCode))
 			return
 		}
 
-		users, listErr := s.store.ListUsers(r.Context())
+		users, listErr := s.store.ListUsers(r.Context(), userListFilterFromScope(binding.Scope))
 		if listErr != nil {
 			writeAPIError(w, r, internalAPIError(listErr))
 			return

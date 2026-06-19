@@ -1,4 +1,5 @@
 import {
+  deploymentUserRowTestId,
   landingAdminMenuItemTestId,
   phase1AccountTestId,
   phase1AdminTestId,
@@ -144,12 +145,10 @@ describe("Phase 1 ordinary app shell", () => {
     expect(
       screen.getByTestId(phase1AccountTestId("session-user-id")).textContent,
     ).toBe("user-1");
-    fireEvent.click(
-      screen.getByTestId(landingAdminMenuItemTestId("deployment-users")),
-    );
     expect(
-      screen.getByTestId(phase1AdminTestId("access-note")).textContent,
-    ).toContain("Deployment admin access is required");
+      screen.queryByTestId(landingAdminMenuItemTestId("deployment-users")),
+    ).toBe(null);
+    expect(screen.queryByTestId(phase1AdminTestId("access-note"))).toBe(null);
     const loginRequest = requireJSONRequest(
       fetchMock,
       "/api/v1/auth/login",
@@ -159,7 +158,7 @@ describe("Phase 1 ordinary app shell", () => {
       username: "operator@example.test",
       password: "OperatorPass1!",
     });
-    await expectStableFetchCount(fetchMock, 6);
+    await expectStableFetchCount(fetchMock, 12);
   });
 
   it("Phase 11 U-11-ENTERPRISE-AUTH-01 enterprise auth discovery renders provider sign-in and begins with a relative return_to", async () => {
@@ -262,7 +261,7 @@ describe("Phase 1 ordinary app shell", () => {
     );
     expect(credentialErrorText).not.toContain("req-private-credential-detail");
     expect(credentialErrorText).not.toContain("/var/lib/cartulary");
-    await expectStableFetchCount(fetchMock, 3);
+    await expectStableFetchCount(fetchMock, 9);
   });
 
   it("FE-I-P1-01 route-boundary auth login errors render public envelopes without private details", async () => {
@@ -350,7 +349,7 @@ describe("Phase 1 ordinary app shell", () => {
         .textContent,
     ).toContain("Reason: not_allowed_for_route");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 3);
+    await expectStableFetchCount(fetchMock, 9);
   });
 
   it("Phase 1 U-1-15 ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session", async () => {
@@ -714,7 +713,7 @@ describe("Phase 1 ordinary app shell", () => {
         },
       },
     });
-    await expectStableFetchCount(fetchMock, 9);
+    await expectStableFetchCount(fetchMock, 15);
   });
 
   it("FE-I-P1-01 route-boundary account password and TOTP errors render public envelopes without private details", async () => {
@@ -830,7 +829,7 @@ describe("Phase 1 ordinary app shell", () => {
         .textContent,
     ).toContain("Field: current_password");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 5);
+    await expectStableFetchCount(fetchMock, 11);
   });
 
   it("FE-I-P1-01 route-boundary logout failures render public envelopes without ending the visible session", async () => {
@@ -879,7 +878,7 @@ describe("Phase 1 ordinary app shell", () => {
     ).toBe("user-1");
     expect(screen.queryByTestId(phase1AuthTestId("login-username"))).toBeNull();
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 4);
+    await expectStableFetchCount(fetchMock, 10);
   });
 
   it("FE-I-P1-01 route-boundary bootstrap TOTP complete errors render public envelopes without private details", async () => {
@@ -1090,7 +1089,7 @@ describe("Phase 1 ordinary app shell", () => {
         .textContent,
     ).toContain("Field: code");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 5);
+    await expectStableFetchCount(fetchMock, 11);
   });
 
   it("Phase 1 U-1-17 ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell", async () => {
@@ -1134,6 +1133,23 @@ describe("Phase 1 ordinary app shell", () => {
           403,
         ),
       extraRoutes: [
+        {
+          method: "GET",
+          url: "/api/v1/users?limit=100",
+          handler: () =>
+            jsonResponse({
+              data: {
+                users: [adminTarget],
+              },
+              meta: {
+                paging: {
+                  limit: 100,
+                  has_more: false,
+                  next_cursor: null,
+                },
+              },
+            }),
+        },
         {
           method: "POST",
           url: "/api/v1/users",
@@ -1201,6 +1217,9 @@ describe("Phase 1 ordinary app shell", () => {
     expect(forbiddenText).not.toContain("/var/lib/cartulary");
     expect(forbiddenText).not.toContain("select * from sessions");
     expect(forbiddenText).not.toContain("forbidden-bootstrap-token");
+    fireEvent.click(
+      screen.getByTestId(landingAdminMenuItemTestId("deployment-users")),
+    );
     fireEvent.change(screen.getByTestId(phase1AdminTestId("create-email")), {
       target: { value: createdUser.email },
     });
@@ -1224,6 +1243,15 @@ describe("Phase 1 ordinary app shell", () => {
     expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
       "Created local user",
     );
+    await waitFor(() => {
+      expect(
+        (
+          screen.getByTestId(
+            phase1AdminTestId("patch-user"),
+          ) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false);
+    });
     const createRequest = requireJSONRequest(
       fetchMock,
       "/api/v1/users",
@@ -1240,12 +1268,6 @@ describe("Phase 1 ordinary app shell", () => {
       is_deployment_admin: false,
     });
 
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("load-user")));
-    await waitFor(() => {
-      expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
-        "Loaded target user",
-      );
-    });
     fireEvent.click(screen.getByTestId(phase1AdminTestId("patch-user")));
 
     await waitFor(() => {
@@ -1261,23 +1283,29 @@ describe("Phase 1 ordinary app shell", () => {
     expect(patchConflictRequest.body).toEqual({
       base_user_version: 1,
       display_name: "Phase 1 Admin Target",
+      email: "phase1-admin@example.test",
       mfa_required: true,
       is_active: true,
       is_deployment_admin: false,
     });
 
-    fireEvent.change(
-      screen.getByTestId(phase1AdminTestId("target-user-id-input")),
-      {
-        target: { value: "user-1" },
-      },
+    fireEvent.click(
+      await screen.findByTestId(deploymentUserRowTestId("user-1")),
     );
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("load-user")));
     await waitFor(() => {
       expect(
         screen.getByTestId(phase1AdminTestId("target-user-version"))
           .textContent,
       ).toBe("9");
+    });
+    await waitFor(() => {
+      expect(
+        (
+          screen.getByTestId(
+            phase1AdminTestId("patch-user"),
+          ) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false);
     });
     fireEvent.click(
       screen.getByTestId(phase1AdminTestId("patch-is-deployment-admin")),
@@ -1297,6 +1325,7 @@ describe("Phase 1 ordinary app shell", () => {
     expect(lastAdminPatchRequest.body).toEqual({
       base_user_version: 9,
       display_name: "Deployment Admin",
+      email: "deployment-admin@example.test",
       mfa_required: true,
       is_active: true,
       is_deployment_admin: false,
@@ -1304,7 +1333,7 @@ describe("Phase 1 ordinary app shell", () => {
     expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
       "Patch local user failed",
     );
-    await expectStableFetchCount(fetchMock, 11);
+    await expectStableFetchCount(fetchMock, 21);
   });
 
   it("keeps deployment-admin target actions disabled until a target load completes and leaves version-conflict status stable", async () => {
@@ -1324,6 +1353,23 @@ describe("Phase 1 ordinary app shell", () => {
       extraRoutes: [
         {
           method: "GET",
+          url: "/api/v1/users?limit=100",
+          handler: () =>
+            jsonResponse({
+              data: {
+                users: [loadedUser],
+              },
+              meta: {
+                paging: {
+                  limit: 100,
+                  has_more: false,
+                  next_cursor: null,
+                },
+              },
+            }),
+        },
+        {
+          method: "GET",
           url: "/api/v1/users/user-2",
           handler: () => pendingLoad.promise,
         },
@@ -1338,6 +1384,9 @@ describe("Phase 1 ordinary app shell", () => {
     renderApp();
 
     await screen.findByTestId(phase1LandingTestId("current-user"));
+    fireEvent.click(
+      screen.getByTestId(landingAdminMenuItemTestId("deployment-users")),
+    );
     expect(
       (screen.getByTestId(phase1AdminTestId("patch-user")) as HTMLButtonElement)
         .disabled,
@@ -1350,13 +1399,9 @@ describe("Phase 1 ordinary app shell", () => {
       ).disabled,
     ).toBe(true);
 
-    fireEvent.change(
-      screen.getByTestId(phase1AdminTestId("target-user-id-input")),
-      {
-        target: { value: "user-2" },
-      },
+    fireEvent.click(
+      await screen.findByTestId(deploymentUserRowTestId("user-2")),
     );
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("load-user")));
     await waitFor(() => {
       expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
         "Loading target user",
@@ -1398,12 +1443,6 @@ describe("Phase 1 ordinary app shell", () => {
         .disabled,
     ).toBe(false);
 
-    fireEvent.change(
-      screen.getByTestId(phase1AdminTestId("patch-base-version")),
-      {
-        target: { value: "1" },
-      },
-    );
     fireEvent.click(screen.getByTestId(phase1AdminTestId("patch-user")));
 
     await waitFor(() => {
@@ -1419,8 +1458,8 @@ describe("Phase 1 ordinary app shell", () => {
       "/api/v1/users/user-2",
       "PATCH",
     );
-    expect(patchRequest.body.base_user_version).toBe(1);
-    await expectStableFetchCount(fetchMock, 5);
+    expect(patchRequest.body.base_user_version).toBe(7);
+    await expectStableFetchCount(fetchMock, 14);
     expect(
       findFetchCalls(fetchMock, "/api/v1/users/user-2", "GET"),
     ).toHaveLength(1);
@@ -1445,6 +1484,23 @@ describe("Phase 1 ordinary app shell", () => {
         is_deployment_admin: true,
       }),
       extraRoutes: [
+        {
+          method: "GET",
+          url: "/api/v1/users?limit=100",
+          handler: () =>
+            jsonResponse({
+              data: {
+                users: [loadedUser],
+              },
+              meta: {
+                paging: {
+                  limit: 100,
+                  has_more: false,
+                  next_cursor: null,
+                },
+              },
+            }),
+        },
         {
           method: "POST",
           url: "/api/v1/users",
@@ -1532,6 +1588,9 @@ describe("Phase 1 ordinary app shell", () => {
     renderApp();
 
     await screen.findByTestId(phase1LandingTestId("current-user"));
+    fireEvent.click(
+      screen.getByTestId(landingAdminMenuItemTestId("deployment-users")),
+    );
     fireEvent.change(screen.getByTestId(phase1AdminTestId("create-email")), {
       target: { value: "invalid-admin-target@example.test" },
     });
@@ -1565,13 +1624,9 @@ describe("Phase 1 ordinary app shell", () => {
     ).toContain("Field: email");
     expectPrivateErrorProbeNotRendered();
 
-    fireEvent.change(
-      screen.getByTestId(phase1AdminTestId("target-user-id-input")),
-      {
-        target: { value: "user-2" },
-      },
+    fireEvent.click(
+      await screen.findByTestId(deploymentUserRowTestId("user-2")),
     );
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("load-user")));
 
     await waitFor(() => {
       expect(
@@ -1605,7 +1660,7 @@ describe("Phase 1 ordinary app shell", () => {
     ).toBe(true);
     expectPrivateErrorProbeNotRendered();
 
-    fireEvent.click(screen.getByTestId(phase1AdminTestId("load-user")));
+    fireEvent.click(screen.getByTestId(deploymentUserRowTestId("user-2")));
     await waitFor(() => {
       expect(
         screen.getByTestId(phase1AdminTestId("target-user-version"))
@@ -1704,7 +1759,7 @@ describe("Phase 1 ordinary app shell", () => {
         .textContent,
     ).toContain("Required role: deployment_admin");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 10);
+    await expectStableFetchCount(fetchMock, 19);
   });
 
   it("FE-I-P1-01 route-boundary incident landing uses /api/v1/incidents with closed create bodies and public errors", async () => {
@@ -1751,17 +1806,22 @@ describe("Phase 1 ordinary app shell", () => {
     expect(
       findFetchCalls(fetchMock, "/api/v1/auth/credential-state", "GET"),
     ).toHaveLength(1);
-    expect(findFetchCalls(fetchMock, "/api/v1/incidents", "GET")).toHaveLength(
-      1,
-    );
-    const listIncidentRequest = findFetchCalls(
-      fetchMock,
-      "/api/v1/incidents",
-      "GET",
-    )[0]?.[1];
-    expect(listIncidentRequest?.credentials).toBe("include");
-    expect(readHeader(listIncidentRequest, "Authorization")).toBe("");
-    expect(readHeader(listIncidentRequest, csrfHeaderName)).toBe("");
+    const listIncidentRequests = fetchMock.mock.calls
+      .filter(([input, init]) => {
+        const method = ((init as RequestInit | undefined)?.method ?? "GET")
+          .toString()
+          .toUpperCase();
+        return (
+          method === "GET" && String(input).startsWith("/api/v1/incidents?")
+        );
+      })
+      .map(([, init]) => init as RequestInit | undefined);
+    expect(listIncidentRequests).toHaveLength(2);
+    for (const listIncidentRequest of listIncidentRequests) {
+      expect(listIncidentRequest?.credentials).toBe("include");
+      expect(readHeader(listIncidentRequest, "Authorization")).toBe("");
+      expect(readHeader(listIncidentRequest, csrfHeaderName)).toBe("");
+    }
 
     fireEvent.change(screen.getByTestId(phase1LandingTestId("incident-key")), {
       target: { value: "IR-2026-003" },
@@ -1826,7 +1886,7 @@ describe("Phase 1 ordinary app shell", () => {
     expect(renderedText).not.toContain("otpauth://create-private");
     expect(renderedText).not.toContain("private stack");
     expect(renderedText).not.toContain("private-create-detail");
-    await expectStableFetchCount(fetchMock, 4);
+    await expectStableFetchCount(fetchMock, 10);
   });
 });
 

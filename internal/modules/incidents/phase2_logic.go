@@ -41,8 +41,22 @@ func IncidentCreateRequestHash(request CreateIncidentRequest) []byte {
 	})
 }
 
+func IncidentLifecycleRequestHash(request IncidentLifecycleRequest) []byte {
+	return hashRequestPayload(map[string]any{
+		"base_incident_version": request.BaseIncidentVersion,
+		"client_txn_id":         request.ClientTxnID,
+		"reason":                request.Reason,
+	})
+}
+
 func ApplyIncidentPatch(current IncidentRecord, request IncidentPatchRequest, actorUserID uuid.UUID, updatedAt time.Time) (IncidentRecord, bool) {
 	next := current
+	if request.Description.Present {
+		next.Description = request.Description.Value
+	}
+	if request.Severity.Present {
+		next.Severity = request.Severity.Value
+	}
 	if request.TLP.Present {
 		next.TLP = request.TLP.Value
 	}
@@ -53,7 +67,9 @@ func ApplyIncidentPatch(current IncidentRecord, request IncidentPatchRequest, ac
 		next.PrimaryExternalCaseRef = request.PrimaryExternalCaseRef.Value
 	}
 
-	if stringPointersEqual(current.TLP, next.TLP) &&
+	if stringPointersEqual(current.Description, next.Description) &&
+		stringPointersEqual(current.Severity, next.Severity) &&
+		stringPointersEqual(current.TLP, next.TLP) &&
 		stringPointersEqual(current.CurrentPhase, next.CurrentPhase) &&
 		stringPointersEqual(current.PrimaryExternalCaseRef, next.PrimaryExternalCaseRef) {
 		return current, false

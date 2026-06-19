@@ -107,7 +107,7 @@ describe("Phase 1 ordinary shell support", () => {
     expect(
       screen.getByTestId(phase1AccountTestId("session-user-id")).textContent,
     ).not.toBe("");
-    expect(screen.getByTestId(phase1AdminTestId("access-note"))).toBeTruthy();
+    expect(screen.queryByTestId(phase1AdminTestId("access-note"))).toBe(null);
     expect(screen.getByTestId(phase1ErrorCodeTestId("landing"))).toBeTruthy();
     expect(
       screen.getByTestId(phase1ErrorSummaryTestIds("landing").container),
@@ -147,6 +147,7 @@ describe("Phase 1 ordinary shell support", () => {
         display_name: "Bravo Analyst",
       }),
     ];
+    const bravoUser = usersPageOne[1] ?? userResource({});
     const usersPageTwo = [
       userResource({
         user_id: "user-charlie",
@@ -161,6 +162,12 @@ describe("Phase 1 ordinary shell support", () => {
         return Promise.resolve(
           userListResponse(usersPageOne, "cursor-2", true),
         );
+      }
+      if (url === "/api/v1/users?limit=100&search=bravo" && method === "GET") {
+        return Promise.resolve(userListResponse([bravoUser], null, false));
+      }
+      if (url === "/api/v1/users/user-bravo" && method === "GET") {
+        return Promise.resolve(jsonResponse({ data: bravoUser }));
       }
       if (
         url === "/api/v1/users?limit=100&cursor_token=cursor-2" &&
@@ -188,10 +195,14 @@ describe("Phase 1 ordinary shell support", () => {
     fireEvent.change(screen.getByTestId(phase1AdminTestId("user-filter")), {
       target: { value: "bravo" },
     });
-    expect(
-      screen.queryByTestId(deploymentUserRowTestId("user-alpha")),
-    ).toBeNull();
-    const bravoRow = screen.getByTestId(deploymentUserRowTestId("user-bravo"));
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId(deploymentUserRowTestId("user-alpha")),
+      ).toBeNull();
+    });
+    const bravoRow = await screen.findByTestId(
+      deploymentUserRowTestId("user-bravo"),
+    );
     expect(bravoRow.textContent).toContain("Bravo Analyst");
     fireEvent.click(bravoRow);
     await waitFor(() => {
@@ -203,11 +214,12 @@ describe("Phase 1 ordinary shell support", () => {
     fireEvent.change(screen.getByTestId(phase1AdminTestId("user-filter")), {
       target: { value: "" },
     });
+    await screen.findByTestId(deploymentUserRowTestId("user-alpha"));
     fireEvent.click(screen.getByTestId(phase1AdminTestId("load-more-users")));
     expect(
       await screen.findByTestId(deploymentUserRowTestId("user-charlie")),
     ).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
   it("keeps account and deployment-admin panels reachable through stable selectors", () => {
@@ -238,8 +250,9 @@ describe("Phase 1 ordinary shell support", () => {
       phase1AdminTestId("create-user"),
       phase1AdminTestId("user-filter"),
       phase1AdminTestId("user-list"),
-      phase1AdminTestId("target-user-id-input"),
-      phase1AdminTestId("load-user"),
+      phase1AdminTestId("target-user-id"),
+      phase1AdminTestId("target-user-version"),
+      phase1AdminTestId("patch-email"),
       phase1AdminTestId("status"),
     ]) {
       expect(screen.getByTestId(testId)).toBeTruthy();

@@ -12,7 +12,6 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -980,6 +979,8 @@ export const Phase1AdminPanel = forwardRef<
   const [selectedUser, setSelectedUser] = useState<UserResource | null>(null);
   const [users, setUsers] = useState<UserResource[]>([]);
   const [userFilter, setUserFilter] = useState("");
+  const [userActiveFilter, setUserActiveFilter] = useState("all");
+  const [userAdminFilter, setUserAdminFilter] = useState("all");
   const [usersNextCursor, setUsersNextCursor] = useState<string | null>(null);
   const [usersHasMore, setUsersHasMore] = useState(false);
 
@@ -991,6 +992,7 @@ export const Phase1AdminPanel = forwardRef<
 
   const [targetUserId, setTargetUserId] = useState("");
   const [targetBaseVersion, setTargetBaseVersion] = useState("");
+  const [patchEmail, setPatchEmail] = useState("");
   const [patchDisplayName, setPatchDisplayName] = useState("");
   const [patchMfaRequired, setPatchMfaRequired] = useState(true);
   const [patchIsActive, setPatchIsActive] = useState(true);
@@ -1006,17 +1008,14 @@ export const Phase1AdminPanel = forwardRef<
   const nextTargetAdminOperationID = useRef(0);
 
   const targetOperationPending = targetAdminOperation !== null;
-  const loadedTargetIsCurrent =
-    selectedUser !== null && targetUserId.trim() === selectedUser.user_id;
-  const trimmedTargetBaseVersion = targetBaseVersion.trim();
-  const targetBaseVersionIsValid = /^[1-9]\d*$/.test(trimmedTargetBaseVersion);
-  const parsedTargetBaseVersion = Number.parseInt(trimmedTargetBaseVersion, 10);
+  const loadedTargetIsCurrent = selectedUser !== null;
+  const parsedTargetBaseVersion = selectedUser?.user_version ?? 0;
   const canLoadTargetUser =
     !targetOperationPending && targetUserId.trim() !== "";
   const canSubmitTargetAction =
     !targetOperationPending && loadedTargetIsCurrent;
   const canSubmitVersionedTargetAction =
-    canSubmitTargetAction && targetBaseVersionIsValid;
+    canSubmitTargetAction && selectedUser !== null;
 
   useEffect(() => {
     onCommandStateChange?.({
@@ -1064,6 +1063,7 @@ export const Phase1AdminPanel = forwardRef<
   function clearSelectedUser() {
     setSelectedUser(null);
     setTargetBaseVersion("");
+    setPatchEmail("");
     setPatchDisplayName("");
     setPatchMfaRequired(true);
     setPatchIsActive(true);
@@ -1075,30 +1075,12 @@ export const Phase1AdminPanel = forwardRef<
     setUsers((current) => upsertUserResource(current, user));
     setTargetUserId(user.user_id);
     setTargetBaseVersion(String(user.user_version));
+    setPatchEmail(user.email);
     setPatchDisplayName(user.display_name);
     setPatchMfaRequired(user.mfa_required);
     setPatchIsActive(user.is_active);
     setPatchIsDeploymentAdmin(user.is_deployment_admin);
   }
-
-  const filteredUsers = useMemo(() => {
-    const query = userFilter.trim().toLowerCase();
-    if (query === "") {
-      return users;
-    }
-    return users.filter((user) =>
-      [
-        user.user_id,
-        user.email,
-        user.display_name,
-        user.is_active ? "active" : "disabled",
-        user.is_deployment_admin ? "deployment admin" : "standard user",
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(query),
-    );
-  }, [userFilter, users]);
 
   const refreshUsers = useCallback(async () => {
     if (!session.is_deployment_admin) {
@@ -1106,7 +1088,13 @@ export const Phase1AdminPanel = forwardRef<
     }
     setStatusText("Refreshing deployment users");
     setError(null);
-    const result = await listUsers({ limit: 100 });
+    const result = await listUsers({
+      limit: 100,
+      search: userFilter,
+      isActive: userActiveFilter === "all" ? null : userActiveFilter === "true",
+      isDeploymentAdmin:
+        userAdminFilter === "all" ? null : userAdminFilter === "true",
+    });
     const nextError = extractError(result.payload);
     setError(nextError);
     if (!result.ok) {
@@ -1121,7 +1109,12 @@ export const Phase1AdminPanel = forwardRef<
     setUsersNextCursor(payload.meta.paging.next_cursor);
     setUsersHasMore(payload.meta.paging.has_more);
     setStatusText("Deployment users loaded");
-  }, [session.is_deployment_admin]);
+  }, [
+    session.is_deployment_admin,
+    userActiveFilter,
+    userAdminFilter,
+    userFilter,
+  ]);
 
   const loadMoreUsers = useCallback(async () => {
     if (!session.is_deployment_admin || !usersHasMore) {
@@ -1132,6 +1125,10 @@ export const Phase1AdminPanel = forwardRef<
     const result = await listUsers({
       cursorToken: usersNextCursor,
       limit: 100,
+      search: userFilter,
+      isActive: userActiveFilter === "all" ? null : userActiveFilter === "true",
+      isDeploymentAdmin:
+        userAdminFilter === "all" ? null : userAdminFilter === "true",
     });
     const nextError = extractError(result.payload);
     setError(nextError);
@@ -1144,7 +1141,14 @@ export const Phase1AdminPanel = forwardRef<
     setUsersNextCursor(payload.meta.paging.next_cursor);
     setUsersHasMore(payload.meta.paging.has_more);
     setStatusText("Loaded more deployment users");
-  }, [session.is_deployment_admin, usersHasMore, usersNextCursor]);
+  }, [
+    session.is_deployment_admin,
+    userActiveFilter,
+    userAdminFilter,
+    userFilter,
+    usersHasMore,
+    usersNextCursor,
+  ]);
 
   useEffect(() => {
     if (!autoLoadUsers || !session.is_deployment_admin) {
@@ -1252,6 +1256,7 @@ export const Phase1AdminPanel = forwardRef<
       const result = await patchLocalUser({
         userId: targetUserID,
         baseUserVersion: parsedTargetBaseVersion,
+        email: patchEmail,
         displayName: patchDisplayName,
         mfaRequired: patchMfaRequired,
         isActive: patchIsActive,
@@ -1460,11 +1465,45 @@ export const Phase1AdminPanel = forwardRef<
             }}
             placeholder="Name, email, id, status"
           />
+          <div style={checkboxRowStyle}>
+            <label style={labelBlockStyle}>
+              Active
+              <select
+                data-testid={phase1AdminTestId("user-is-active-filter")}
+                style={inputStyle}
+                value={userActiveFilter}
+                onChange={(event) => {
+                  setUserActiveFilter(event.target.value);
+                }}
+              >
+                <option value="all">All</option>
+                <option value="true">Active</option>
+                <option value="false">Disabled</option>
+              </select>
+            </label>
+            <label style={labelBlockStyle}>
+              Deployment admin
+              <select
+                data-testid={phase1AdminTestId(
+                  "user-is-deployment-admin-filter",
+                )}
+                style={inputStyle}
+                value={userAdminFilter}
+                onChange={(event) => {
+                  setUserAdminFilter(event.target.value);
+                }}
+              >
+                <option value="all">All</option>
+                <option value="true">Admins</option>
+                <option value="false">Standard users</option>
+              </select>
+            </label>
+          </div>
           <div
             data-testid={phase1AdminTestId("user-list")}
             style={userListStyle}
           >
-            {filteredUsers.map((user) => {
+            {users.map((user) => {
               const selected = selectedUser?.user_id === user.user_id;
               return (
                 <button
@@ -1476,8 +1515,7 @@ export const Phase1AdminPanel = forwardRef<
                   }
                   type="button"
                   onClick={() => {
-                    applySelectedUser(user);
-                    setStatusText("Selected deployment user");
+                    void loadSelectedUser(user.user_id);
                   }}
                 >
                   <span style={userRowPrimaryStyle}>{user.display_name}</span>
@@ -1492,8 +1530,8 @@ export const Phase1AdminPanel = forwardRef<
                 </button>
               );
             })}
-            {filteredUsers.length === 0 ? (
-              <p style={bodyStyle}>No deployment users match this filter.</p>
+            {users.length === 0 ? (
+              <p style={bodyStyle}>No deployment users loaded.</p>
             ) : null}
           </div>
           <button
@@ -1599,38 +1637,7 @@ export const Phase1AdminPanel = forwardRef<
           </section>
 
           <section style={subsectionStyle}>
-            <p style={subsectionTitleStyle}>Load target user</p>
-            <div style={formGridStyle}>
-              <label
-                htmlFor="admin-target-user-id-input"
-                style={labelBlockStyle}
-              >
-                User id
-              </label>
-              <input
-                data-testid={phase1AdminTestId("target-user-id-input")}
-                id="admin-target-user-id-input"
-                disabled={targetOperationPending}
-                style={inputStyle}
-                value={targetUserId}
-                onChange={(event) => {
-                  setTargetUserId(event.target.value);
-                }}
-              />
-            </div>
-            <div style={buttonRowStyle}>
-              <button
-                data-testid={phase1AdminTestId("load-user")}
-                disabled={!canLoadTargetUser}
-                style={secondaryButtonStyle}
-                type="button"
-                onClick={() => {
-                  void loadSelectedUser(targetUserId);
-                }}
-              >
-                Load user
-              </button>
-            </div>
+            <p style={subsectionTitleStyle}>Patch target user</p>
             <div style={detailGridStyle}>
               <div>
                 <span style={labelStyle}>Loaded user id</span>
@@ -1661,23 +1668,25 @@ export const Phase1AdminPanel = forwardRef<
                   {selectedUser ? String(selectedUser.is_deployment_admin) : ""}
                 </div>
               </div>
+              <div>
+                <span style={labelStyle}>Base user version</span>
+                <div data-testid={phase1AdminTestId("patch-base-version")}>
+                  {targetBaseVersion}
+                </div>
+              </div>
             </div>
-          </section>
-
-          <section style={subsectionStyle}>
-            <p style={subsectionTitleStyle}>Patch target user</p>
             <div style={formGridStyle}>
-              <label htmlFor="admin-patch-base-version" style={labelBlockStyle}>
-                Base user version
+              <label htmlFor="admin-patch-email" style={labelBlockStyle}>
+                Email
               </label>
               <input
-                data-testid={phase1AdminTestId("patch-base-version")}
-                id="admin-patch-base-version"
+                data-testid={phase1AdminTestId("patch-email")}
+                id="admin-patch-email"
                 disabled={!canSubmitTargetAction}
                 style={inputStyle}
-                value={targetBaseVersion}
+                value={patchEmail}
                 onChange={(event) => {
-                  setTargetBaseVersion(event.target.value);
+                  setPatchEmail(event.target.value);
                 }}
               />
               <label htmlFor="admin-patch-display-name" style={labelBlockStyle}>

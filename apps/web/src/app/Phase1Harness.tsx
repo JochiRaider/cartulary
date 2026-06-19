@@ -411,6 +411,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
         apiBase,
         userId: targetUserID,
         baseUserVersion: parsedTargetBaseVersion,
+        email: selectedUser.email,
         displayName: patchDisplayName,
         mfaRequired: patchMFARequired,
         isActive: patchIsActive,

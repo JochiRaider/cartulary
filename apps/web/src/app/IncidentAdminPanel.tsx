@@ -39,6 +39,8 @@ type IncidentSummary = {
   current_phase: string | null;
   primary_external_case_ref: string | null;
   incident_version: number;
+  status: "active" | "closed";
+  closed_at: string | null;
 };
 
 type MembershipRecord = {
@@ -167,6 +169,9 @@ export function IncidentAdminPanel({
   const [patchTLP, setPatchTLP] = useState("");
   const [patchCurrentPhase, setPatchCurrentPhase] = useState("");
   const [patchExternalCase, setPatchExternalCase] = useState("");
+  const [lifecycleReason, setLifecycleReason] = useState(
+    "ordinary lifecycle action",
+  );
   const [membershipEmail, setMembershipEmail] = useState("");
   const [membershipRole, setMembershipRole] =
     useState<MembershipRole>("viewer");
@@ -177,7 +182,8 @@ export function IncidentAdminPanel({
   const [error, setError] = useState<APIError | null>(null);
 
   const canEditIncident =
-    currentIncidentRole === "reviewer" || currentIncidentRole === "admin";
+    incident?.status !== "closed" &&
+    (currentIncidentRole === "reviewer" || currentIncidentRole === "admin");
   const canManageMemberships = currentIncidentRole === "admin";
 
   const refreshSessionRole = useCallback(async () => {
@@ -342,6 +348,40 @@ export function IncidentAdminPanel({
     setStatusText("Saved promoted incident fields.");
   }
 
+  async function handleLifecycle(action: "close" | "reopen") {
+    if (!incident || currentIncidentRole !== "admin") {
+      return;
+    }
+    setStatusText(
+      action === "close" ? "Closing incident…" : "Reopening incident…",
+    );
+    const result = await fetchJSON<{ data: IncidentSummary }>(
+      apiPath(apiBase, `/api/v1/incidents/${incident.incident_id}/${action}`),
+      {
+        method: "POST",
+        body: JSON.stringify({
+          base_incident_version: incident.incident_version,
+          client_txn_id: clientTxnID(`incident-${action}`),
+          reason: lifecycleReason,
+        }),
+      },
+    );
+    if (!result.ok) {
+      setError(extractError(result.payload));
+      setStatusText(
+        action === "close"
+          ? "Incident close failed."
+          : "Incident reopen failed.",
+      );
+      return;
+    }
+    setError(null);
+    await Promise.all([loadIncidentSurface(), refreshSessionRole()]);
+    setStatusText(
+      action === "close" ? "Incident closed." : "Incident reopened.",
+    );
+  }
+
   async function handleCreateMembership() {
     if (!incident) {
       return;
@@ -477,7 +517,11 @@ export function IncidentAdminPanel({
           {renderIncidentSummary({
             currentIncidentRole,
             defaultPreference,
+            lifecycleReason,
             incident,
+            onLifecycleReasonChange: setLifecycleReason,
+            onClose: () => handleLifecycle("close"),
+            onReopen: () => handleLifecycle("reopen"),
             userPreference,
           })}
         </div>
@@ -724,14 +768,23 @@ const incidentControlsSectionMeta = {
 function renderIncidentSummary({
   currentIncidentRole,
   defaultPreference,
+  lifecycleReason,
   incident,
+  onClose,
+  onLifecycleReasonChange,
+  onReopen,
   userPreference,
 }: {
   readonly currentIncidentRole: IncidentRole | null;
   readonly defaultPreference: PreferenceSlot;
+  readonly lifecycleReason: string;
   readonly incident: IncidentSummary | null;
+  readonly onClose: () => Promise<void> | void;
+  readonly onLifecycleReasonChange: (value: string) => void;
+  readonly onReopen: () => Promise<void> | void;
   readonly userPreference: PreferenceSlot;
 }) {
+  const canLifecycle = currentIncidentRole === "admin" && incident !== null;
   return (
     <>
       <section style={cardStyle}>
@@ -762,6 +815,20 @@ function renderIncidentSummary({
             </dd>
           </div>
           <div>
+            <dt style={labelStyle}>Status</dt>
+            <dd data-testid="incident-summary-status" style={valueStyle}>
+              {incident?.status === "closed"
+                ? "Closed, read-only"
+                : (incident?.status ?? "Loading…")}
+            </dd>
+          </div>
+          <div>
+            <dt style={labelStyle}>Closed at</dt>
+            <dd data-testid="incident-summary-closed-at" style={valueStyle}>
+              {incident?.closed_at ?? "Unset"}
+            </dd>
+          </div>
+          <div>
             <dt style={labelStyle}>TLP</dt>
             <dd data-testid="incident-summary-tlp" style={valueStyle}>
               {displayValue(incident?.tlp)}
@@ -789,6 +856,50 @@ function renderIncidentSummary({
             </dd>
           </div>
         </dl>
+      </section>
+
+      <section style={cardStyle}>
+        <div style={cardHeaderStyle}>
+          <div>
+            <p style={cardEyebrowStyle}>Lifecycle</p>
+            <h3 style={cardTitleStyle}>Close or reopen</h3>
+          </div>
+        </div>
+        <div style={inlineFormStyle}>
+          <label style={fieldLabelStyle}>
+            Reason
+            <input
+              data-testid="incident-lifecycle-reason"
+              style={inputStyle}
+              value={lifecycleReason}
+              onChange={(event) => {
+                onLifecycleReasonChange(event.target.value);
+              }}
+            />
+          </label>
+          <button
+            data-testid="incident-close-button"
+            disabled={!canLifecycle || incident?.status !== "active"}
+            style={primaryButtonStyle}
+            type="button"
+            onClick={() => {
+              void onClose();
+            }}
+          >
+            Close incident
+          </button>
+          <button
+            data-testid="incident-reopen-button"
+            disabled={!canLifecycle || incident?.status !== "closed"}
+            style={secondaryButtonStyle}
+            type="button"
+            onClick={() => {
+              void onReopen();
+            }}
+          >
+            Reopen incident
+          </button>
+        </div>
       </section>
 
       <section style={cardStyle}>
