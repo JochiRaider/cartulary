@@ -442,9 +442,7 @@ describe("Incident landing", () => {
       "incident-5",
     );
     const appShell = screen.getByTestId(phase1RouteTestId("app-shell"));
-    expect(appShell.style.blockSize).toBe(
-      "var(--ct-app-viewport-block-size)",
-    );
+    expect(appShell.style.blockSize).toBe("var(--ct-app-viewport-block-size)");
     expect(appShell.style.overflow).toBe("hidden");
     expect(["0", "0px"]).toContain(appShell.style.minBlockSize);
     expect(["0", "0px"]).toContain(appShell.style.minHeight);

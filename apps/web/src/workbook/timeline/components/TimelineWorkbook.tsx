@@ -142,6 +142,16 @@ import { useTimelineRows } from "../hooks/useTimelineRows";
 import { useTimelineWorkbookRuntime } from "../hooks/useTimelineWorkbookRuntime";
 import { parseSameFieldConflict } from "../models/timelineConflictModel";
 import {
+  beginTimelineEntityRefreshBarrier,
+  settleTimelineViewportContinuityBarrier,
+  type TimelineEntityCatalogInput,
+  type TimelineEntityRefreshSettleState,
+  type TimelineViewportContinuityBarrier,
+  timelineEntityRefreshExpectationForMention,
+  timelineViewportContinuityBarrierSatisfied,
+  withTimelineEntityRefreshExpectation,
+} from "../models/timelineViewportContinuityModel";
+import {
   type AutoResolutionNotice,
   buildAutoResolutionNotices,
   type CollectionItem,
@@ -605,8 +615,6 @@ type EntityRow = {
   }>;
 };
 
-type ViewportContinuityFollowup = "none" | "entity-refresh";
-
 type ViewportContinuityTarget =
   | { kind: "row-inspect"; recordId: string }
   | { kind: "input"; focusKey: string }
@@ -622,10 +630,7 @@ type ViewportContinuityRequest = {
   attemptVersion: number;
   target: ViewportContinuityTarget;
   preservedViewport: ViewportSnapshot | null;
-  followup: ViewportContinuityFollowup;
-  followupSettled: boolean;
-  baselineHostEntities: EntityRow[];
-  baselineIdentityEntities: EntityRow[];
+  barrier: TimelineViewportContinuityBarrier;
 };
 
 function isCollectionDraftKey(
@@ -948,6 +953,14 @@ export function TimelineWorkbook({
   currentIncidentRole = "",
   onRefreshEntities,
 }: TimelineWorkbookProps) {
+  const entityCatalogInput = useMemo(
+    () =>
+      ({
+        hostEntities,
+        identityEntities,
+      }) satisfies TimelineEntityCatalogInput,
+    [hostEntities, identityEntities],
+  );
   const timelineRuntime = useTimelineWorkbookRuntime({
     controlledFilterDraft,
     controlledQueryState,
@@ -1812,11 +1825,10 @@ export function TimelineWorkbook({
   const beginViewportContinuity = useCallback(
     (
       target: ViewportContinuityTarget,
-      options: { followup?: ViewportContinuityFollowup } = {},
+      options: { barrier?: TimelineViewportContinuityBarrier } = {},
     ) => {
       const token = viewportContinuityTokenRef.current;
       viewportContinuityTokenRef.current += 1;
-      const followup = options.followup ?? "none";
       setViewportContinuityRequest({
         token,
         attemptVersion: 0,
@@ -1824,17 +1836,12 @@ export function TimelineWorkbook({
         preservedViewport: currentGridViewportSnapshot(
           resolveViewportContinuityElement(target),
         ),
-        followup,
-        followupSettled: followup === "none",
-        baselineHostEntities: hostEntities,
-        baselineIdentityEntities: identityEntities,
+        barrier: options.barrier ?? null,
       });
       return token;
     },
     [
       currentGridViewportSnapshot,
-      hostEntities,
-      identityEntities,
       resolveViewportContinuityElement,
       setViewportContinuityRequest,
     ],
@@ -1842,15 +1849,18 @@ export function TimelineWorkbook({
   const beginViewportContinuityRef = useRef(beginViewportContinuity);
   beginViewportContinuityRef.current = beginViewportContinuity;
 
-  const settleViewportContinuityFollowup = useCallback(
-    (token: number) => {
+  const settleViewportContinuityBarrier = useCallback(
+    (token: number, refreshState: TimelineEntityRefreshSettleState) => {
       setViewportContinuityRequest((current) => {
         if (!current || current.token !== token) {
           return current;
         }
         return {
           ...current,
-          followupSettled: true,
+          barrier: settleTimelineViewportContinuityBarrier(
+            current.barrier,
+            refreshState,
+          ),
           attemptVersion: current.attemptVersion + 1,
         };
       });
@@ -1871,6 +1881,7 @@ export function TimelineWorkbook({
     (
       token: number | undefined,
       options: {
+        barrier?: TimelineViewportContinuityBarrier;
         target?: ViewportContinuityTarget | null;
       } = {},
     ) => {
@@ -1884,6 +1895,8 @@ export function TimelineWorkbook({
         return {
           ...current,
           attemptVersion: current.attemptVersion + 1,
+          barrier:
+            options.barrier === undefined ? current.barrier : options.barrier,
           target: options.target ?? current.target,
         };
       });
@@ -1913,18 +1926,12 @@ export function TimelineWorkbook({
 
   const shouldHoldViewportContinuity = useCallback(
     (continuity: ViewportContinuityRequest) => {
-      if (continuity.followup !== "entity-refresh") {
-        return false;
-      }
-      if (!continuity.followupSettled) {
-        return true;
-      }
-      return (
-        continuity.baselineHostEntities === hostEntities &&
-        continuity.baselineIdentityEntities === identityEntities
+      return !timelineViewportContinuityBarrierSatisfied(
+        continuity.barrier,
+        entityCatalogInput,
       );
     },
-    [hostEntities, identityEntities],
+    [entityCatalogInput],
   );
 
   const applyRowMutation = useCallback(
@@ -2058,6 +2065,7 @@ export function TimelineWorkbook({
         recordId: committed.recordId,
         rowVersion: committed.rowVersion,
       });
+      return committed;
     },
     [
       acceptCommittedTimelineRow,
@@ -2403,7 +2411,23 @@ export function TimelineWorkbook({
       if (shouldHoldViewportContinuity(viewportContinuityRequest)) {
         return;
       }
-      clearViewportContinuity(viewportContinuityRequest.token);
+      window.requestAnimationFrame(() => {
+        if (cancelled) {
+          return;
+        }
+        if (shouldHoldViewportContinuity(viewportContinuityRequest)) {
+          return;
+        }
+        if (!tryRestoreViewportContinuity(viewportContinuityRequest)) {
+          if (attempt < 60) {
+            window.setTimeout(() => {
+              restoreTarget(attempt + 1);
+            }, 50);
+          }
+          return;
+        }
+        clearViewportContinuity(viewportContinuityRequest.token);
+      });
     };
     restoreTarget(0);
     return () => {
@@ -4337,16 +4361,18 @@ export function TimelineWorkbook({
 
     const recordId = snapshot.recordId;
     const clientTxnId = nextClientTxnId();
+    const requiresEntityRefresh =
+      action === "resolve_item" && resolvedRecordId === undefined;
+    const entityRefreshBarrier = requiresEntityRefresh
+      ? beginTimelineEntityRefreshBarrier(entityCatalogInput)
+      : null;
     const viewportContinuityToken = beginViewportContinuity(
       {
         kind: "row-inspect",
         recordId,
       },
       {
-        followup:
-          action === "resolve_item" && resolvedRecordId === undefined
-            ? "entity-refresh"
-            : "none",
+        barrier: entityRefreshBarrier,
       },
     );
     beginSave();
@@ -4361,7 +4387,7 @@ export function TimelineWorkbook({
           return;
         }
         const currentRow = idleRecord.row;
-        if (action === "resolve_item" && resolvedRecordId === undefined) {
+        if (requiresEntityRefresh) {
           const payload = buildMentionPatchPayload(
             currentRow,
             mention,
@@ -4393,15 +4419,38 @@ export function TimelineWorkbook({
           const envelope = readEnvelope<TimelineMutationEnvelope>(
             result.payload,
           );
-          applyRowMutation(currentRow.key, envelope, {
+          const committed = applyRowMutation(currentRow.key, envelope, {
             detectAutoResolution: false,
             viewportContinuityToken,
           });
+          const expectedEntity = timelineEntityRefreshExpectationForMention(
+            committed,
+            mention.itemRef,
+          );
+          if (expectedEntity !== null) {
+            advanceViewportContinuity(viewportContinuityToken, {
+              barrier: withTimelineEntityRefreshExpectation(
+                entityRefreshBarrier,
+                expectedEntity,
+              ),
+            });
+          }
           finishSave("Saved");
+          let refreshState: TimelineEntityRefreshSettleState = "complete";
           try {
-            await onRefreshEntities?.();
+            if (onRefreshEntities === undefined) {
+              refreshState = "terminal";
+            } else {
+              await onRefreshEntities();
+            }
+          } catch (error) {
+            refreshState = "terminal";
+            throw error;
           } finally {
-            settleViewportContinuityFollowup(viewportContinuityToken);
+            settleViewportContinuityBarrier(
+              viewportContinuityToken,
+              refreshState,
+            );
           }
           return;
         }

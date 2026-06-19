@@ -772,18 +772,29 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     let rerenderTimelineWorkbook:
       | ReturnType<typeof render>["rerender"]
       | undefined;
+    const refreshGate = deferred<void>();
     const onRefreshEntities = vi.fn(async () => {
+      const renderRefreshedWorkbook = (identity: EntityRowFixture) => {
+        rerenderTimelineWorkbook?.(
+          <TimelineWorkbook
+            incidentId="incident-1"
+            currentIncidentRole="admin"
+            identityEntities={[identity]}
+            entityIndex={buildEntityIndex(identity)}
+            onRefreshEntities={onRefreshEntities}
+          />,
+        );
+      };
+      await refreshGate.promise;
       inspectContentTop = 80;
       maxScrollTop = 120;
-      rerenderTimelineWorkbook?.(
-        <TimelineWorkbook
-          incidentId="incident-1"
-          currentIncidentRole="admin"
-          identityEntities={[createdIdentity]}
-          entityIndex={buildEntityIndex(createdIdentity)}
-          onRefreshEntities={onRefreshEntities}
-        />,
-      );
+      renderRefreshedWorkbook(createdIdentity);
+      await waitForPostRenderFrame();
+      renderRefreshedWorkbook({
+        ...createdIdentity,
+        aliasTexts: [...createdIdentity.aliasTexts],
+        identifiers: [...createdIdentity.identifiers],
+      });
     });
 
     const renderResult = render(
@@ -822,11 +833,13 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     await waitFor(() => {
       expect(onRefreshEntities).toHaveBeenCalledTimes(1);
     });
+    refreshGate.resolve();
     await waitFor(() => {
       expect(screen.getByTestId("timeline-inspector").textContent).toContain(
         "VPN User",
       );
     });
+    await waitForPostRenderFrame();
     await expectTimelineFocusAndScroll("record-1", preservedScroll, {
       expectedTop: 0,
       requireVisibleWithinGrid: true,
@@ -1878,6 +1891,15 @@ async function expectTimelineFocusAndScroll(
     if (options.requireVisibleWithinGrid) {
       expect(isTimelineFocusTargetFullyVisibleWithinGrid(recordId)).toBe(true);
     }
+  });
+}
+
+async function waitForPostRenderFrame() {
+  await new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => resolve());
+  });
+  await new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => resolve());
   });
 }
 

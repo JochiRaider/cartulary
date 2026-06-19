@@ -258,6 +258,8 @@ Verified by: AC-009, AC-013, AC-047, AC-231
 
 **REQ-03-283**
 After a successful same-surface row mutation that refreshes or replaces the rendered row, the workbook client MUST preserve the selected `record_id`, restore the owned grid scroll position, and restore focus to a deterministic same-surface continuity target. If the original editor remains active and visible, that editor MAY be the continuity target. If the original editor is removed, hidden, inert, compacted behind an overflow presentation, or otherwise unsuitable for visible focus, the continuity target MUST be a visible row-local fallback such as the row action or inspector affordance for the same `record_id`. This requirement applies to autosave-originated collection actions, inline scalar edits, reviewer lifecycle actions, mention-resolution actions, and other row-local inspector actions that complete without leaving the current workbook surface.
+
+When a row-local mutation requires follow-up same-surface refresh or render work before the workbook can show the mutation's canonical consequences, the mutation's continuity boundary includes that follow-up work. The client MUST NOT treat continuity as settled solely because the mutation response rendered. It MUST preserve the row-local continuity target until the required follow-up has rendered, or until that follow-up reaches a terminal failure state and the client restores a deterministic row-local fallback.
 Profiles: base
 Verified by: AC-005, AC-006, AC-188, AC-190, AC-205, AC-231
 

@@ -150,7 +150,10 @@ async function readWorkbookDocumentLayout(page: Page) {
         grid: {
           clientHeight: scrollport.clientHeight,
           scrollHeight: scrollport.scrollHeight,
-          maxTop: Math.max(0, scrollport.scrollHeight - scrollport.clientHeight),
+          maxTop: Math.max(
+            0,
+            scrollport.scrollHeight - scrollport.clientHeight,
+          ),
           rect: {
             bottom: Math.round(scrollportRect.bottom),
             height: Math.round(scrollportRect.height),
@@ -205,9 +208,10 @@ function expectWorkbookDocumentBounded(
     `${label}: body scroll height`,
   ).toBeLessThanOrEqual(layout.viewport.innerHeight + 1);
   expect(layout.shell.maxTop, `${label}: grid shell vertical scroll`).toBe(0);
-  expect(layout.shell.rect.bottom, `${label}: shell bottom`).toBeLessThanOrEqual(
-    layout.viewport.innerHeight + 1,
-  );
+  expect(
+    layout.shell.rect.bottom,
+    `${label}: shell bottom`,
+  ).toBeLessThanOrEqual(layout.viewport.innerHeight + 1);
   expect(
     layout.grid.maxTop,
     `${label}: grid scrollport overflow`,
@@ -465,7 +469,8 @@ test("FE-B-P9-LAYOUT-01 keeps the incident workbook inside the browser viewport 
       const layout = await readWorkbookDocumentLayout(page);
       return (
         layout.viewport.innerHeight === 640 &&
-        layout.documentElement.scrollHeight <= layout.viewport.innerHeight + 1 &&
+        layout.documentElement.scrollHeight <=
+          layout.viewport.innerHeight + 1 &&
         layout.body.scrollHeight <= layout.viewport.innerHeight + 1 &&
         layout.grid.maxTop > 0
       );
