@@ -1255,7 +1255,7 @@ Command wiring should normalize implementation-owned aliases to the logical comm
 | Logical command | Implementation note |
 | --- | --- |
 | `operator backup inspect latest` | Reads effective source config and validates the latest successful retained backup before reporting it. |
-| `operator backup create` | Creates one candidate `backup_set`; compatibility aliases such as older `backup capture` commands should map here if retained. |
+| `operator backup create` | Creates and publishes one successful retained `backup_set` through the Core 01 admission/publication algorithm; compatibility aliases such as older `backup capture` commands should map here if retained. |
 | `operator restore latest` | Requires an absolute `--target-config-file` and exact `--confirm-backup-set-id`. |
 | `operator restore-verify latest` | Requires an absolute `--target-config-file` for an isolated verification target. |
 | `operator restore-verify due` | Uses the same target-config handling and verifies due backups in owner-defined order. |
@@ -1268,11 +1268,15 @@ CLI output handling should be strict:
 - exit codes map to `0` for success or no-op, `2` for invalid invocation or local config, `3` for admission/secret/artifact/preflight failure, and `4` for admitted operation failure or timeout;
 - subprocess helpers must propagate context cancellation, timeout, terminal errors, and the safe operator error code rather than printing raw backend command lines with DSNs, object keys, hosts, or secret references.
 
+Deployment-owned schedulers may use systemd timers, cron, Kubernetes CronJobs, container jobs, or another local orchestration mechanism. The application must not grow a browser scheduler, editable backup cadence setting, `Backup now` HTTP action, or common-job route for current-profile backup creation. Scheduling examples must invoke the deployment-local operator command or a package-local wrapper for that command often enough to satisfy the 24-hour retained-success requirement.
+
 Deployment examples should keep source and target configs physically distinct. Restore and verification targets should use fresh database and object-store bindings, explicit target markers, and service-manager or deployment-local checks proving target listeners are not serving traffic before mutation. A timed-out target remains not-ready and should be reinitialized, not retried in place.
 
 Operational backup baseline:
 
 - each successful operational backup produces one retained `backup_set` bound to exactly one declared `consistency_point_at`,
+- `operator backup create` acquires the recovery-operation exclusion boundary, allocates one candidate identity and point, stages Postgres and object-store restore artifacts or anchors for that same point, verifies integrity proofs and artifact readability, writes default unverified attestation state with a 30-day retention floor, and atomically publishes the candidate as successful only after those checks pass,
+- failure before successful publication leaves latest-success inspection unchanged and may retain staged material only as diagnostic non-restore material,
 - a successful `backup_set` includes restoreable Postgres state, restoreable object-store state for that same point, and a durable attestation record that includes at minimum `backup_set_id`, `consistency_point_at`, `postgres_restore_anchor`, `object_store_restore_anchor`, `created_at`, `retained_until`, `verification_state`, and `last_verified_restore_at`,
 - `verification_state` uses exactly `unverified`, `verified`, or `failed`, and `last_verified_restore_at` MAY be `null` only while `verification_state='unverified'`,
 - at least one successful retained `backup_set` MUST have `consistency_point_at` no older than 24 hours,

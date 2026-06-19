@@ -11,7 +11,7 @@ It is not disconnected-profile conformance. Operational recovery for this packag
 - `config.toml.example` is the deployment config template mounted at `/etc/cartulary/config.toml`.
 - `.env.example` carries service-binding environment names and placeholder values.
 - `bootstrap-admin.json.example` is the first deployment-admin bootstrap manifest template.
-- `scripts/backup-capture.sh` runs a deployment-local backup capture through the package image.
+- `scripts/backup-capture.sh` runs deployment-local backup creation through the package image.
 - `scripts/restore-verify-due.sh` runs due restore verification against an isolated target.
 - `restore-verification-target.toml.example` and `restore-verification-target.marker.json.example` are the isolated target examples.
 - `systemd/` contains non-secret service and timer templates for package-local scheduling.
@@ -98,18 +98,20 @@ The image pre-creates the app runtime-root mount targets as non-root-owned direc
 
 ## Operational Recovery
 
-Backup capture and restore verification run through `cartulary-operator` inside the package image. They require `CARTULARY_RECOVERY_MASTER_KEY` and an active `deployment_admin` whose email is set in `CARTULARY_RECOVERY_DEPLOYMENT_ADMIN_EMAIL`.
+Backup creation and restore verification run through `cartulary-operator` inside the package image. The Core logical backup creation command is `operator backup create`; this MVP package script currently wraps the package-local `backup capture` compatibility alias for that logical command. They require `CARTULARY_RECOVERY_MASTER_KEY` and an active `deployment_admin` whose email is set in `CARTULARY_RECOVERY_DEPLOYMENT_ADMIN_EMAIL`.
 
-Manual backup capture:
+Manual backup creation:
 
 ```sh
 mkdir -p deploy/mvp/runtime
 deploy/mvp/scripts/backup-capture.sh > deploy/mvp/runtime/backup-capture.json
 ```
 
-The backup script stops the `app` service, writes a local quiescence proof, runs `cartulary-operator backup capture`, and restarts `app` in cleanup. The JSON result includes the `backup_set_id`, `consistency_point_at`, restore anchors, artifact hashes, integrity manifest proof, and retention timestamps. If the recovery key is missing, or if existing encrypted backup artifacts cannot be read with the supplied key, the operator fails closed.
+The backup script stops the `app` service, writes a local quiescence proof, runs the package compatibility alias for logical `operator backup create`, and restarts `app` in cleanup. The JSON result includes the `backup_set_id`, `consistency_point_at`, restore anchors, artifact hashes, integrity manifest proof, and retention timestamps. If the recovery key is missing, if existing encrypted backup artifacts cannot be read with the supplied key, or if publication fails before success, the operator fails closed and any candidate remains diagnostic-only rather than a successful retained backup.
 
 Inspect latest backup metadata:
+
+The direct example below uses the current package compatibility alias for logical `operator backup inspect latest`.
 
 ```sh
 set -a
@@ -149,7 +151,35 @@ sudo systemctl enable --now cartulary-backup.timer cartulary-restore-verify.time
 systemctl list-timers 'cartulary-*'
 ```
 
-`cartulary-backup.timer` runs backup capture every 6 hours. `cartulary-restore-verify.timer` runs due restore verification daily.
+`cartulary-backup.timer` runs backup creation every 6 hours. That interval is recommended operator practice, not a Core conformance interval. Deployment-owned scheduling must still run `operator backup create` or this package wrapper often enough to keep at least one successful retained backup no older than 24 hours. `cartulary-restore-verify.timer` runs due restore verification daily.
+
+## Cron Scheduling
+
+A cron deployment can run the package-local wrapper instead of systemd. Keep the secret environment file outside the checkout and point the script at that file explicitly:
+
+```cron
+SHELL=/bin/sh
+0 */6 * * * cartulary CARTULARY_MVP_DIR=/opt/cartulary/deploy/mvp CARTULARY_MVP_ENV_FILE=/etc/cartulary/mvp.env CARTULARY_SOURCE_CONFIG=/opt/cartulary/deploy/mvp/config.toml /opt/cartulary/deploy/mvp/scripts/backup-capture.sh >>/var/log/cartulary/backup-create.log 2>&1
+```
+
+Use the same restore-verification target isolation described above before adding a cron entry for `scripts/restore-verify-due.sh`.
+
+## Container-Job Scheduling
+
+Container schedulers should run either the package-local wrapper or the Core logical command shape. A generic one-shot backup creation container job should resolve the effective source deployment configuration through the mounted deployment config and secret references, then run:
+
+```sh
+/usr/local/bin/cartulary-operator backup create --output=json --progress=jsonl
+```
+
+For the MVP Compose package, prefer the host-side wrapper because it stops and restarts the `app` service and writes the quiescence proof required by the current package realization:
+
+```sh
+CARTULARY_MVP_DIR=/opt/cartulary/deploy/mvp \
+CARTULARY_MVP_ENV_FILE=/etc/cartulary/mvp.env \
+CARTULARY_SOURCE_CONFIG=/opt/cartulary/deploy/mvp/config.toml \
+/opt/cartulary/deploy/mvp/scripts/backup-capture.sh
+```
 
 ## Package Validation
 
@@ -169,7 +199,7 @@ The operational recovery smoke gate is:
 make standup-operational-recovery-smoke
 ```
 
-It builds and runs the MVP Compose package, captures a backup, inspects latest metadata, checks the retention floor, runs due restore verification against an isolated target, proves the public backup/restore route families are absent, and retains summary artifacts. It is operational package evidence only and is not disconnected-profile conformance.
+It builds and runs the MVP Compose package, creates a backup, inspects latest metadata, checks the retention floor, runs due restore verification against an isolated target, proves the public backup/restore route families are absent, and retains summary artifacts. It is operational package evidence only and is not disconnected-profile conformance.
 
 ## Troubleshooting
 
@@ -178,6 +208,6 @@ It builds and runs the MVP Compose package, captures a backup, inspects latest m
 - If `/readyz` returns a non-200 response, inspect the structured readiness status and the `postgres` and `seaweedfs-s3` service health.
 - If migration fails, inspect `docker compose logs migrate postgres` and verify `CARTULARY_POSTGRES_PRIMARY_DSN` resolves to the package Postgres service.
 - If browser WebSocket requests fail with HTTP 403, verify `CARTULARY_PUBLIC_ORIGIN` exactly matches the browser origin used to reach the app.
-- If backup capture fails, inspect the script stderr and confirm the configured deployment admin is active, the app service can be stopped and restarted, and `CARTULARY_RECOVERY_MASTER_KEY` matches existing encrypted backup artifacts.
+- If backup creation fails, inspect the script stderr and confirm the configured deployment admin is active, the app service can be stopped and restarted, and `CARTULARY_RECOVERY_MASTER_KEY` matches existing encrypted backup artifacts.
 - If restore verification fails before mutation, confirm the target config differs from the source config, the target database and object-store bucket are isolated, and the target marker JSON is present under the target backup root.
 - If restore verification reports a failed item, retain the JSON output and inspect the target `postgres`, object-store, migration, and operator logs before deleting target state.

@@ -52,7 +52,7 @@ It records where the content of the exploratory source artifact was carried into
 | Deployment-admin application-level capability and public-route authorization closure | Core 04 §2 and §9.10; Core 01 §3.3.3, §17, and §20 | Appendix E | `docs/domain.md`; UI/UX guide; developer guide | owner-level authorization matrix and reference-pack route-family traceability only |
 | Shared authenticated post-login landing and visible-incident directory selection | Core 00 §5.1, Core 01 §3.3.2.1A and §3.3.5.3.1, Core 03 §2.4, Core 04 §9.10 | Appendix D, Appendix E | UI/UX guide | owner navigation and composition only |
 | Deployment topology, application-unit boundary, and authoritative service separation | Core 00 §5.1, Core 01 §1, Core 04 §5.2-§8 | Appendix B | — | illustration only |
-| `4. Backup, restore, portability, failure modes` - operational backup, coherent restore, and recovery operator interface | Core 00 §5.1, Core 01 §12.1-§12.2, Core 04 §2, §4.4, §4.5, §6, §9.0.1, §9.14, and §12 | Appendix B, Appendix E | Appendix H; development guide | illustration and operator-practice guidance only |
+| `4. Backup, restore, portability, failure modes` - operational backup, backup creation admission/publication, coherent restore, and recovery operator interface | Core 00 §5.1, Core 01 §12.1-§12.2, Core 04 §2, §4.4, §4.5, §6, §9.0.1, §9.14, and §12 | Appendix B, Appendix E | Appendix H; development guide | illustration and operator-practice guidance only |
 | `4. Backup, restore, portability, failure modes` - incident portability | Core 00 §4.2 and §6, Core 01 §12.3, Core 04 §4.2 and §9.11 | Appendix E, Appendix G | — | illustration only |
 | Deployment configuration surface | Core 00 §5.1, Core 01 §14, Core 04 §6, §9.12, and §12 | Appendix B, Appendix E | — | history only |
 | Resource-limit registry and numeric safety boundaries | Core 00 §5.1, Core 01 §3.3.8, §16, §17.2, §17.4, and §12.3.6, Core 04 §9.13 and §12.3.1 | Appendix B, Appendix E | — | history only |
@@ -713,6 +713,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-01-570 | Core 01 §3.3.3 Route families | base | AC-402 |
 | REQ-01-571 | Core 01 §12.1 Backup | base | AC-398..AC-399 |
 | REQ-01-572 | Core 01 §12.1 Backup | base | AC-398, AC-401 |
+| REQ-01-596 | Core 01 §12.1 Backup | base | AC-398, AC-428 |
 | REQ-01-573 | Core 01 §12.1 Backup | base | AC-398 |
 | REQ-01-574 | Core 01 §12.1 Backup | base | AC-398..AC-399, AC-401 |
 | REQ-01-575 | Core 01 §12.2 Restore | base | AC-399..AC-400 |

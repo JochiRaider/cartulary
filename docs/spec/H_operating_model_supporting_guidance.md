@@ -182,6 +182,13 @@ Recommended practice:
 
 Core 01 and Core 04 own the recovery CLI contract. This section is only operator practice.
 
+Recommended backup creation practice:
+
+- invoke `operator backup create` through deployment-owned orchestration often enough to keep at least one successful retained backup no older than 24 hours;
+- use a six-hour backup creation interval as the ordinary operational starting point unless the deployment has a stricter local recovery objective;
+- preserve the final JSON result, any JSONL progress stream, and the encrypted recovery journal reference for every backup creation attempt;
+- treat any failed candidate as diagnostic-only material that cannot be selected for restore, latest-backup inspection, or restore verification.
+
 Recommended backup inspection practice:
 
 - run `operator backup inspect latest` before any restore or verification drill;
@@ -204,5 +211,6 @@ Recommended failure recovery:
 
 - if preflight fails with `unsafe_restore_target`, stop and reinitialize the target before retrying;
 - if a restore or verification times out, leave the target not-ready and rebuild it from a fresh database and object namespace before reuse;
+- if backup creation fails after staging artifacts, do not copy the diagnostic artifact reference into a restore command or runbook selector;
 - preserve the final result JSON, any JSONL progress stream, the encrypted recovery journal reference, and the safe administrative-audit summary for incident-independent operational review;
 - do not paste raw DSNs, bucket names, object keys, recovery keys, secret references, or incident content into runbook notes.

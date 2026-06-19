@@ -541,7 +541,7 @@ sequenceDiagram
     CLI->>Out: cartulary.operator_recovery_result.v1
 ```
 
-Create one backup candidate:
+Create and publish one backup:
 
 ```mermaid
 sequenceDiagram
@@ -553,11 +553,22 @@ sequenceDiagram
     participant Journal as Encrypted journal
 
     Op->>CLI: operator backup create
-    CLI->>SrcDB: capture structured restore artifact or anchor
-    CLI->>SrcObj: capture object-store restore artifact or anchor
-    CLI->>Backup: write backup_set artifacts and attestation
-    CLI->>Journal: append admission and terminal records
-    CLI-->>Op: final JSON result
+    CLI->>CLI: acquire recovery-operation exclusion
+    CLI->>CLI: allocate backup_set_id and consistency_point_at
+    CLI->>SrcDB: stage structured restore artifact or anchor
+    CLI->>SrcObj: stage object-store restore artifact or anchor for same point
+    CLI->>Backup: compute proofs and verify staged artifacts are readable
+    alt proofs and readback pass
+        CLI->>Backup: create unverified attestation with 30-day retention floor
+        CLI->>Backup: atomically publish successful retained backup_set
+        CLI->>Journal: append terminal succeeded record
+        CLI-->>Op: final JSON result
+    else failure before publication
+        CLI->>Backup: remove staging or retain diagnostic non-restore material
+        CLI->>Journal: append terminal failed record
+        CLI-->>Op: failed JSON result; latest successful backup unchanged
+    end
+    CLI->>CLI: release recovery-operation exclusion
 ```
 
 Restore latest with confirmation:

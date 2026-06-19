@@ -5369,6 +5369,27 @@ For a SeaweedFS S3 object-store realization, an operator-private `cartulary.obje
 Profiles: base
 Verified by: AC-398, AC-401
 
+**REQ-01-596**
+`operator backup create` is the mandatory deployment-local control for creating a current-profile operational backup. Backup scheduling is deployment-owned external orchestration; the base profile does not prescribe cron, systemd, Kubernetes, container jobs, or another scheduler.
+
+An admitted `backup_create` operation MUST execute the following publication algorithm:
+
+1. acquire the deployment recovery-operation exclusion boundary defined by Core 04;
+2. allocate one new `backup_set_id` and one `consistency_point_at`;
+3. stage the Postgres restore artifact set or restore anchor;
+4. stage the object-store restore artifact set or restore anchor for the same `consistency_point_at`;
+5. compute and verify every required integrity proof for the staged artifacts or anchors;
+6. verify every required artifact is readable from configured backup storage;
+7. create the `backup_attestation` with `verification_state='unverified'`, `last_verified_restore_at=null`, and `retained_until >= created_at + 30 days`;
+8. atomically publish the candidate as a successful retained `backup_set`;
+9. release the deployment recovery-operation exclusion boundary.
+
+Step 8 is the only success-publication point. A timeout or failure before step 8 MUST leave latest-successful-retained backup selection unchanged, MUST expose no candidate as a successful retained `backup_set`, MUST emit a failed operator result, MUST append the required recovery journal entry under Core 04, and MUST either remove staged artifacts or retain them only as non-success diagnostic material that cannot be selected for restore, inspection, or restore verification. If no prior successful retained backup exists, failure before step 8 leaves latest-successful-retained backup selection absent. If a prior successful retained backup exists, failure before step 8 MUST NOT replace, invalidate, or sort ahead of that backup when the prior backup still satisfies freshness, retention, artifact-readability, and proof checks.
+
+The current profile includes no browser scheduler, editable backup cadence setting, "Backup now" HTTP action, public route, WebSocket action, workbook action, common-job action, operator-supplied timestamp selector, operator-supplied scheduler flag, or Cartulary-managed internal scheduler for backup creation. Deployment tooling MUST invoke `operator backup create` frequently enough to satisfy REQ-01-573.
+Profiles: base
+Verified by: AC-398, AC-402, AC-428
+
 **REQ-01-573**
 The base profile MUST retain at least one successful retained `backup_set` whose `consistency_point_at` is no older than 24 hours, and each successful `backup_set` plus its restoreable artifacts MUST be retained for at least 30 days before disposal.
 Profiles: base
@@ -5427,12 +5448,12 @@ The Base Profile recovery operator interface is a deployment-local logical CLI. 
 | Logical command | `operation` token | Purpose |
 | --- | --- | --- |
 | `operator backup inspect latest` | `backup_inspect_latest` | Inspect and validate the latest successful retained backup. |
-| `operator backup create` | `backup_create` | Create one candidate `backup_set`. |
+| `operator backup create` | `backup_create` | Create and publish one successful retained `backup_set` through §12.1. |
 | `operator restore latest` | `restore_latest` | Restore the latest successful retained backup into a fresh target. |
 | `operator restore-verify latest` | `restore_verify_latest` | Verify the latest successful retained backup in an isolated target. |
 | `operator restore-verify due` | `restore_verify_due` | Select and verify every retained backup due by verification age or verification-basis change. |
 
-The source deployment is the deployment identified by the effective deployment configuration selected under Core 04 §12. Implementation-owned source-config selection flags MAY exist only when they resolve to the same Core 04 configuration contract and do not change the logical command grammar.
+The source deployment is the deployment identified by the effective deployment configuration selected under Core 04 §12. Implementation-owned source-config selection flags MAY exist only when they resolve to the same Core 04 configuration contract and do not change the logical command grammar. Implementation-owned compatibility aliases MAY exist only when conformance evidence maps each alias to exactly one logical command above. Such aliases MUST NOT create additional backup creation behavior, backup selection behavior, scheduler behavior, output schemas, exit-code mappings, or public route surfaces.
 
 `--output` is optional. Omission resolves to `json`. If supplied, the only valid value is exactly `json`. For every invocation that reaches the operator process, stdout MUST contain exactly one final UTF-8 JSON object conforming to `cartulary.operator_recovery_result.v1` followed by LF and no other stdout bytes. `--progress` is optional. Omission means no progress records are emitted. If supplied, the only valid value is exactly `jsonl`, and progress records MUST be emitted to stderr as UTF-8 JSON Lines conforming to `cartulary.operator_recovery_progress.v1`.
 
@@ -5467,6 +5488,8 @@ The final result object schema ID MUST be exactly `cartulary.operator_recovery_r
 | `consistency_point_at` | RFC 3339 UTC timestamp or JSON `null`. |
 | `artifact_refs` | Array of `operator_recovery_artifact_ref_v1` items. |
 | `error` | `operator_recovery_error_v1` object or JSON `null`. |
+
+For failed `backup_create` results before candidate allocation, `backup_set_id` and `consistency_point_at` MUST be JSON `null`. For failed `backup_create` results after candidate allocation and before successful publication, those fields MAY identify the allocated candidate only as diagnostic state; that candidate MUST remain non-success material and MUST NOT be selectable for restore, inspection, restore verification, or latest-successful-retained backup selection.
 
 `operator_recovery_artifact_ref_v1` items MUST contain exactly `{ "kind", "schema_id", "ref_id", "backup_set_id" }`. `backup_set_id` is nullable. `ref_id` is a non-secret logical artifact identifier and MUST NOT be a filesystem path, endpoint host, bucket name, object key, raw DSN, raw storage path, credential, recovery key, or secret reference. `artifact_refs[]` MUST be serialized in deterministic order by `kind ASC`, then `schema_id ASC`, then `ref_id ASC`. JSON object member order is not semantic.
 
@@ -5510,7 +5533,7 @@ Operator recovery errors MUST use only the following `code` and `reason_code` co
 | `unsafe_restore_target` | `3` | `same_database_binding`, `same_object_store_binding`, `target_database_not_fresh`, `target_object_namespace_not_fresh`, `target_serving_traffic`, `target_marker_missing`, `target_marker_invalid` |
 | `recovery_operation_in_progress` | `3` | `operation_lock_unavailable` |
 | `operation_timed_out` | `4` | `timeout_elapsed` |
-| `backup_create_failed` | `4` | `postgres_backup_failed`, `object_backup_failed`, `attestation_write_failed`, `journal_write_failed` |
+| `backup_create_failed` | `4` | `postgres_backup_failed`, `object_backup_failed`, `integrity_proof_failed`, `artifact_readback_failed`, `attestation_write_failed`, `backup_publication_failed`, `journal_write_failed` |
 | `restore_failed` | `4` | `postgres_restore_failed`, `object_restore_failed`, `projection_rebuild_failed`, `invariant_check_failed`, `journal_write_failed` |
 | `verification_failed` | `4` | `postgres_restore_failed`, `object_restore_failed`, `projection_rebuild_failed`, `invariant_check_failed`, `workbook_probe_failed`, `attestation_update_failed`, `journal_write_failed` |
 
