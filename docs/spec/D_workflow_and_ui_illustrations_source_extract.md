@@ -842,6 +842,33 @@ sequenceDiagram
     end
 ```
 
+### 3A.3 Restart-required enterprise-provider configuration
+
+This sequence is illustrative only. Core 04 §12.3.4 owns provider-manifest validation and reconciliation. Core 01 §20 owns the public route consequences. No browser route creates, edits, deletes, uploads, or rotates provider definitions or provider secrets.
+
+```mermaid
+sequenceDiagram
+    participant Op as Local operator
+    participant FS as Deployment-local files
+    participant App as App startup
+    participant PG as Postgres
+    participant UI as Browser UI
+
+    Op->>FS: Edit provider manifest and referenced cert or secret environment
+    Op->>App: Restart deployment
+    App->>FS: Load enterprise_authentication.provider_manifest_path
+    App->>FS: Validate UTF-8 JSON, secret_ref_v1, and referenced certificates
+    alt manifest or referenced input invalid
+        App-->>Op: invalid_deployment_config before readiness
+    else manifest valid
+        App->>PG: Reconcile providers by provider_key ascending
+        PG-->>App: Provider state committed or startup rejected
+        App-->>UI: Listeners become ready after reconciliation
+        UI->>App: GET /api/v1/auth/providers
+        App-->>UI: Safe enabled-provider discovery only
+    end
+```
+
 ### 3B. Lost-device recovery through administrator TOTP reset
 
 ```mermaid

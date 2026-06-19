@@ -221,6 +221,17 @@ binding_kind = "filesystem_root"
 path = "/var/lib/cartulary/exports"
 ```
 
+#### Example 2a: enterprise-auth provider manifest binding
+
+This example is valid only when the Enterprise Authentication Extension Profile is claimed.
+
+```toml
+[enterprise_authentication]
+provider_manifest_path = "/run/secrets/cartulary-enterprise-auth-providers.json"
+```
+
+The manifest path points to deployment-local configuration read during startup. Browser routes do not create, edit, delete, upload, or rotate provider definitions or secrets.
+
 #### Example 3: disconnected container mounts
 
 ```yaml
@@ -229,6 +240,8 @@ services:
     volumes:
       - /etc/cartulary/config.toml:/etc/cartulary/config.toml:ro
       - /var/lib/cartulary/bootstrap/cartulary-bootstrap-admin.json:/run/secrets/cartulary-bootstrap-admin.json:ro
+      - /var/lib/cartulary/auth/cartulary-enterprise-auth-providers.json:/run/secrets/cartulary-enterprise-auth-providers.json:ro
+      - /var/lib/cartulary/auth/saml/idp-signing-2026.pem:/run/secrets/cartulary-saml-idp-signing-2026.pem:ro
       - /var/lib/cartulary/backups:/var/lib/cartulary/backups
       - /var/lib/cartulary/reference-packs:/var/lib/cartulary/reference-packs
       - /var/lib/cartulary/tmp:/var/lib/cartulary/tmp
@@ -259,6 +272,52 @@ The read-only bootstrap manifest mount above remains conformant because one-time
   "mfa_required": true
 }
 ```
+
+#### Example 3b: illustrative enterprise-auth provider manifest
+
+```json
+{
+  "provider_manifest_schema_id": "cartulary.enterprise_auth_providers.v1",
+  "providers": [
+    {
+      "provider_key": "corp_oidc",
+      "provider_type": "oidc",
+      "display_name": "Corporate OIDC",
+      "issuer": "https://idp.example.com/oauth2/default",
+      "authorization_endpoint": "https://idp.example.com/oauth2/default/v1/authorize",
+      "token_endpoint": "https://idp.example.com/oauth2/default/v1/token",
+      "jwks_uri": "https://idp.example.com/oauth2/default/v1/keys",
+      "client_id": "cartulary-prod",
+      "client_secret_ref": {
+        "kind": "env",
+        "name": "corp_oidc_client_secret"
+      },
+      "additional_scopes": [
+        "profile",
+        "email"
+      ]
+    },
+    {
+      "provider_key": "legacy_saml",
+      "provider_type": "saml",
+      "display_name": "Legacy SAML",
+      "enabled": false,
+      "idp_entity_id": "https://saml.example.com/idp",
+      "sso_url": "https://saml.example.com/sso",
+      "idp_signing_certificate_paths": [
+        "/run/secrets/cartulary-saml-idp-signing-2026.pem"
+      ],
+      "sp_entity_id": "https://cartulary.example.com/saml/sp",
+      "subject_source": {
+        "kind": "attribute",
+        "attribute_name": "NameID"
+      }
+    }
+  ]
+}
+```
+
+The OIDC provider above relies on the server adding `openid`. The SAML provider is retained but disabled for interactive discovery because `enabled=false`; existing bindings are not deleted by that manifest state.
 
 #### Illustrative operator note: bootstrap failure modes
 

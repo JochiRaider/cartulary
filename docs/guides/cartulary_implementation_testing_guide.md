@@ -1006,6 +1006,7 @@ Each extension claim still requires the **base profile first**. The AC groups li
 
 - Core 01 §20 Enterprise Authentication Extension Profile public contract
 - Core 04 §1.2 enterprise-auth model
+- Core 04 §12.3.4 enterprise-auth provider manifest binding
 
 **Extension delta ACs**
 
@@ -1013,14 +1014,19 @@ Each extension claim still requires the **base profile first**. The AC groups li
 - `AC-235`
 - `AC-288..AC-293`
 - `AC-348..AC-352`
+- `AC-433..AC-436`
 
 **Key boundaries to test**
 
+- provider-manifest path validation before readiness,
+- closed OIDC and SAML manifest schema validation, including defaults, explicit `null`, bounds, duplicate members, secret references, and referenced certificate files,
+- startup reconciliation for new, updated, disabled, omitted, and type-changed providers,
 - providers list and provider begin routes,
 - OIDC callback and SAML ACS completion,
 - provider-backed sign-in terminating into the same opaque session contract as base auth,
 - deployment-admin binding create, rotate, and retire routes,
-- no auto-provisioning of local users or incident memberships.
+- no auto-provisioning of local users or incident memberships,
+- no runtime provider-definition or provider-secret mutation route.
 
 ---
 
@@ -1328,7 +1334,7 @@ Service-backed Go unit helper starts are manifest-authorized, not phase-hardcode
 | Snapshot and Reporting    | `AC-030..AC-032`, `AC-056..AC-062`, `AC-071`, `AC-091`, `AC-104..AC-106`, `AC-113..AC-115`, `AC-233`, `AC-266..AC-269`, `AC-305..AC-307`, `AC-333` | Phase 11           |
 | Reference Pack            | `AC-033..AC-035`, `AC-092..AC-096`, `AC-234`, `AC-270..AC-272`, `AC-308..AC-310`, `AC-326`, `AC-369`                                               | Phase 11           |
 | Incident Portability      | `AC-164..AC-169`, `AC-236`, `AC-273..AC-276`, `AC-327..AC-328`, `AC-332`, `AC-386`, `AC-409`                                                       | Phase 11           |
-| Enterprise Authentication | `AC-036`, `AC-235`, `AC-288..AC-293`, `AC-348..AC-352`                                                                                             | Phase 11           |
+| Enterprise Authentication | `AC-036`, `AC-235`, `AC-288..AC-293`, `AC-348..AC-352`, `AC-433..AC-436`                                                                            | Phase 11           |
 
 ### 16.4 Conditional surface note
 

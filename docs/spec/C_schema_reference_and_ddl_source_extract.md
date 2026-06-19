@@ -517,9 +517,16 @@ CREATE UNIQUE INDEX auth_identities_active_user_provider_uniq
 -- persistence and active-binding uniqueness contract. Equivalent helper
 -- columns, partial indexes, triggers, or storage-engine-specific constraints
 -- are also conformant when they preserve the same public invariants.
--- Informative: `auth_providers.config_json` is the natural home for protocol
--- type and subject-mapping configuration sufficient to declare one stable
--- authoritative SAML subject source and browser-interactive provider behavior.
+-- Informative: `auth_providers.config_json` is the natural home for normalized
+-- startup provider-manifest configuration sufficient to declare OIDC endpoints,
+-- secret references, SAML certificate references, one stable authoritative SAML
+-- subject source, and browser-interactive provider behavior. A conformant
+-- realization treats `provider_type` as immutable for an existing
+-- `provider_key`; startup reconciliation updates mutable provider configuration
+-- when the type is unchanged, fails closed when the type changes, and marks
+-- persisted provider keys omitted from the manifest as disabled rather than
+-- deleting them. Provider-definition reconciliation preserves users,
+-- memberships, active and retired auth bindings, and binding lineage.
 -- `auth_identities.provider_subject` is the authoritative external bind key.
 -- Public `auth_binding_id` can be the safe stable exposure of
 -- `auth_identities.id`. Rotation is realized as retire-plus-create in one

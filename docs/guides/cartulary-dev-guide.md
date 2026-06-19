@@ -1193,6 +1193,8 @@ The guide baseline requires code support for:
 
 This guide intentionally does not restate the full operator-facing configuration artifact or discovery precedence as a second owner. Core 04 §12 remains the owner for those details.
 
+When the Enterprise Authentication Extension Profile is claimed, `internal/platform/config` also owns loading and validating `enterprise_authentication.provider_manifest_path` before readiness. Provider-manifest parsing, duplicate-key rejection, `secret_ref_v1` resolution, referenced certificate validation, and provider-definition reconciliation belong to startup configuration handling rather than HTTP handlers or frontend state.
+
 ### 12.3 Security boundaries
 
 **Section class:** `Derived behavioral summary`
@@ -1231,9 +1233,11 @@ The bootstrap-created admin then enters the ordinary local TOTP bootstrap flow o
 | `snapshot_reporting`        | Self-contained render assets, release-state handling, artifact approval gates, redaction-driven rendering     |
 | `incident_portability`      | Staging under temporary-work roots, checksum verification before visibility, authoritative-source-only export |
 | `reference_pack`            | Offline bundle import, activation state, attestation metadata, pack storage roots                             |
-| `enterprise_authentication` | Server-side provider configuration, correlation-state storage, provider-to-session convergence                |
+| `enterprise_authentication` | Startup-only provider manifest validation and reconciliation, correlation-state storage, provider-to-session convergence |
 
 Extension-specific code paths MUST remain off by default unless the deployment explicitly claims the corresponding profile.
+
+Enterprise-auth provider definitions are not runtime resources in the current profile. Do not add provider create, edit, delete, metadata-upload, certificate-upload, secret-management, redirect-URI, ACS-URL, or provider-policy routes or forms. Browser discovery remains `GET /api/v1/auth/providers`, which lists only enabled interactive providers after a validated restart.
 
 Runtime claim-state discovery for those deployment-gated families is `GET /api/v1/extensions`. That route returns the current extension registry plus reserved `route_families[]` roots. Requests under a reserved but unclaimed family fail with `404` and `error.code = extension_profile_not_claimed`; they are not treated as ordinary unknown routes. Frontend routing, deployment-gated feature flags, and integration tests SHOULD key off that discovery contract rather than ad hoc route probes.
 

@@ -1917,7 +1917,7 @@ Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-128, AC-154, AC-
 ### 14.1 Persistence realization status and deployment-local invariants
 
 **REQ-02-202**
-The current profile does **not** standardize one exact physical persistence schema, table set, column set, index set, migration topology, or storage-engine-specific realization. The schema MUST instead realize the exact persistence invariants defined in this section and in the owner requirements it references, including mention and indicator provenance, record links, assessments, reference-pack lifecycle state, incident operational fields, deployment-local user, account-preference, credential, bootstrap-completion, auth-binding, and membership state, saved views and workbook preferences, and host, identity, party, task-request, evidence, and coordination-artifact state. Appendix C is illustrative only and does not define current-profile conformance.
+The current profile does **not** standardize one exact physical persistence schema, table set, column set, index set, migration topology, or storage-engine-specific realization. The schema MUST instead realize the exact persistence invariants defined in this section and in the owner requirements it references, including mention and indicator provenance, record links, assessments, reference-pack lifecycle state, incident operational fields, deployment-local user, account-preference, credential, bootstrap-completion, enterprise-auth provider-definition, auth-binding, and membership state, saved views and workbook preferences, and host, identity, party, task-request, evidence, and coordination-artifact state. Appendix C is illustrative only and does not define current-profile conformance.
 Profiles: base, import, snapshot_reporting, reference_pack
 Verified by: AC-017, AC-018, AC-072, AC-073, AC-074, AC-075, AC-118, AC-128, AC-154, AC-155, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-231, AC-232, AC-233, AC-234, AC-277, AC-278, AC-280
 
@@ -1954,6 +1954,11 @@ Verified by: AC-343, AC-344, AC-346, AC-231
 Reference-pack persistence MUST be sufficient to realize the public lifecycle, durable-condition, activation, and attestation contracts owned by Core 01 §11.3, §11.3.1, §11.4, and Core 04 §4.1. At minimum, the authoritative structured state MUST persist `pack_key`, `pack_kind`, `pack_version`, source identifier when available, `manifest_sha256`, one or more payload SHA-256 digests in deterministic member order or an equivalent canonical aggregate digest, `verification_method`, signer-key or trusted-source identifier, imported and activated actor attribution with timestamps, `previous_active_version`, `verification_result`, and one active-version pointer per `pack_key`. Public durable conditions such as `verified_available` and `active` MAY be derived from that state and need not be stored as raw status tokens.
 Profiles: reference_pack
 Verified by: AC-093, AC-094, AC-095, AC-234
+
+**REQ-02-256**
+Enterprise-auth provider-definition persistence MUST persist, at minimum, one stable provider anchor, `provider_key`, immutable `provider_type`, mutable `display_name`, mutable enabled state, and enough normalized protocol configuration to realize Core 01 §20 and Core 04 §12.3.4 behavior. Persisted provider state MUST retain a provider omitted from the current startup manifest and represent it as disabled rather than deleting the provider row or changing its stable provider anchor. Provider definitions remain deployment-local administrative state. They MUST NOT be record-envelope rows, MUST NOT be workbook-row mutation targets, MUST NOT be serialized as incident-portability content, and MUST NOT be created, edited, or deleted by browser routes.
+Profiles: enterprise_authentication
+Verified by: AC-435, AC-436
 
 **REQ-02-234**
 The enterprise-auth binding persistence model MUST persist, at minimum:

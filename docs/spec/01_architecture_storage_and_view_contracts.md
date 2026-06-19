@@ -7302,8 +7302,10 @@ The Enterprise Authentication Extension Profile MUST expose exactly this minimum
 - `GET /api/v1/auth/oidc/{provider_key}/callback`,
 - `POST /api/v1/auth/saml/{provider_key}/acs`,
 - `GET /api/v1/auth/saml/{provider_key}/acs/complete`.
+
+Core 04 §12.3.4 owns enterprise-auth provider definitions, startup validation, secret references, referenced-file validation, and provider-definition reconciliation. The public enterprise-auth surface defined here MUST NOT expose a runtime provider create, edit, delete, metadata-upload, SAML certificate-upload, OIDC metadata-override, secret-management, redirect-URI configuration, ACS-URL configuration, or provider-policy mutation route. Runtime mutation in the current profile is limited to the deployment-admin binding-management routes in REQ-01-537..REQ-01-541, which bind configured providers to existing local users and do not mutate provider definitions or secrets.
 Profiles: enterprise_authentication
-Verified by: AC-235, AC-288, AC-290, AC-291
+Verified by: AC-235, AC-288, AC-290, AC-291, AC-436
 
 Contract tables. The tables in §20 compact the enterprise-auth public contract into owner-local route, request, callback, and binding summaries. The surrounding prose remains authoritative for protocol-security details, callback validation, and provider-subject semantics that do not compress well into cells.
 
@@ -7321,7 +7323,7 @@ Contract tables. The tables in §20 compact the enterprise-auth public contract 
 
 | Member or rule | Requirement |
 | --- | --- |
-| `GET /api/v1/auth/providers` item shape | Exactly `provider_key`, `provider_type`, and `display_name`; only enabled interactive providers are listed |
+| `GET /api/v1/auth/providers` item shape | Exactly `provider_key`, `provider_type`, and `display_name`; only enabled interactive providers from reconciled startup configuration are listed |
 | `provider_type` vocabulary | Exactly `oidc` or `saml` on this route |
 | `begin` request members | Optional `return_to` only |
 | `return_to` rules | Same-origin relative-path reference only; omitted or explicit `null` normalize to `/` |
@@ -7352,11 +7354,11 @@ Contract tables. The tables in §20 compact the enterprise-auth public contract 
 
 
 **REQ-01-511**
-`GET /api/v1/auth/providers` MUST return the common success envelope with `data.providers[]`, sorted by `display_name asc`, then `provider_key asc`. Each item MUST contain exactly `provider_key`, `provider_type`, and `display_name`; `provider_type` on this route MUST be `oidc` or `saml`. The route MUST list only enabled interactive providers and MUST NOT expose provider secrets, raw metadata, claim maps, or provider-side policy. The route MUST reject `limit`, `cursor_token`, and pagination aliases with `400`, `error.code = invalid_pagination_request`, and `error.details.reason_code = pagination_not_supported`.
+`GET /api/v1/auth/providers` MUST return the common success envelope with `data.providers[]`, sorted by `display_name asc`, then `provider_key asc`. Each item MUST contain exactly `provider_key`, `provider_type`, and `display_name`; `provider_type` on this route MUST be `oidc` or `saml`. The route MUST list only enabled interactive providers from the reconciled startup provider configuration defined by Core 04 §12.3.4 and MUST NOT expose provider secrets, raw metadata, signing certificates, claim maps, provider-side policy, redirect URI configuration, ACS URL configuration, or provider-definition mutation affordances. The route MUST reject `limit`, `cursor_token`, and pagination aliases with `400`, `error.code = invalid_pagination_request`, and `error.details.reason_code = pagination_not_supported`.
 
 `POST /api/v1/auth/providers/{provider_key}/begin` MUST accept only a JSON object with optional `return_to`. Omitted or explicit JSON `null` `return_to` MUST normalize to `/`. The shared Base Profile authenticated root landing contract in §3.3.2.1A owns `/` behavior after successful provider authentication; the Enterprise Authentication Extension Profile MUST NOT define a separate post-login landing algorithm. `return_to` MUST be a same-origin relative-path reference. Unknown top-level members, including `client_txn_id`, MUST fail with `400` and `error.code = invalid_enterprise_auth_request`. A successful `begin` response MUST return the common success envelope with `data.provider_key`, `data.provider_type`, `data.redirect_url`, and `data.expires_at`; it MUST create no public durable auth-transaction resource.
 Profiles: enterprise_authentication
-Verified by: AC-235, AC-288, AC-289
+Verified by: AC-235, AC-288, AC-289, AC-436
 
 **REQ-01-512**
 The OIDC callback, SAML ACS, and SAML ACS completion routes are browser protocol endpoints and are the only Enterprise Authentication family exception to the otherwise JSON-shaped public API. On successful OIDC callback or successful SAML ACS completion they MUST issue the same server-managed session family defined by §3.3.2.1 and MUST complete with `303 See Other` to the validated `return_to`. The SAML ACS route itself MUST NOT issue the session directly; after successful SAML response verification it MUST stage only the verified provider subject and an opaque same-origin completion token, then return `303 See Other` to `/api/v1/auth/saml/{provider_key}/acs/complete?completion=<opaque>`. When the validated `return_to` resolves to a workbook surface, startup-surface selection inside that workbook MUST use the ordered fallback in Core 03 §2.4. When the validated `return_to` resolves to `/`, the shared authenticated root landing contract in §3.3.2.1A applies. The Enterprise Authentication Extension Profile MUST NOT define a separate workbook-startup fallback order or post-login landing algorithm. On failure they MUST create no session and MUST use the common error envelope. The current profile standardizes OIDC authorization-code flow only, with PKCE `S256` and `nonce` required. Implicit and hybrid OIDC flows are non-conformant. The current profile standardizes SAML SP-initiated flow only. IdP-initiated SAML is non-conformant.
