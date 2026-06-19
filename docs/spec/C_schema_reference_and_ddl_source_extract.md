@@ -441,6 +441,77 @@ In that realization, `artifact_sha256` is computed from the exact raw manifest
 bytes consumed, and the same commit would also append one deployment-local
 administrative audit event for bootstrap consumption.
 
+### Informative note on administrative audit projection realization
+
+Core 01 §3.3.5.1A, Core 02 §14.1, and Core 04 §§2-3 own the administrative
+audit read contract. This appendix is non-normative: the table names, column
+names, index names, partitioning choices, and JSON-versus-column layout below
+are illustrative only.
+
+One conformant realization is an append-only administrative audit event store
+with separate change rows. The event store can persist the common event
+envelope fields, while the change rows preserve one row per `field_path`,
+including `value_state` and redacted `null` before/after values. A uniqueness
+constraint on `(audit_event_id, field_path)` or an equivalent invariant keeps
+duplicate field paths out of the serialized `changes[]` projection.
+
+```sql
+CREATE TABLE administrative_audit_events_illustrative (
+    audit_event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    scope_kind text NOT NULL CHECK (scope_kind IN ('deployment', 'incident')),
+    scope_id uuid,
+    occurred_at timestamptz NOT NULL,
+    actor_kind text NOT NULL CHECK (actor_kind IN ('user', 'system', 'operator')),
+    actor_user_id uuid REFERENCES users(id),
+    source text NOT NULL CHECK (source IN ('ui', 'api', 'startup', 'operator', 'system')),
+    action_code text NOT NULL,
+    target_kind text NOT NULL,
+    target_id text,
+    reason_code text,
+    CHECK ((scope_kind = 'deployment' AND scope_id IS NULL) OR (scope_kind = 'incident' AND scope_id IS NOT NULL)),
+    CHECK ((actor_kind = 'user' AND actor_user_id IS NOT NULL) OR (actor_kind <> 'user' AND actor_user_id IS NULL))
+);
+
+CREATE TABLE administrative_audit_event_changes_illustrative (
+    audit_event_id uuid NOT NULL REFERENCES administrative_audit_events_illustrative(audit_event_id),
+    field_path text NOT NULL,
+    value_state text NOT NULL CHECK (value_state IN ('visible', 'redacted')),
+    before_value jsonb,
+    after_value jsonb,
+    PRIMARY KEY (audit_event_id, field_path),
+    CHECK (value_state = 'visible' OR (before_value IS NULL AND after_value IS NULL))
+);
+```
+
+For deployment audit paging, an implementation can use an index ordered by
+`occurred_at DESC, audit_event_id DESC` over deployment-scope events. For
+incident membership audit paging, an implementation can use an index beginning
+with the incident scope identifier and the same keyset continuation columns.
+Additional projection indexes can pair the projection scope with
+`actor_user_id`, `action_code`, `target_kind`, `target_id`, or timestamp bounds
+before the keyset tuple. Equivalent composite, partial, covering, materialized,
+or storage-engine-native indexes are conformant when they preserve the Core 01
+ordering and cursor semantics.
+
+```sql
+CREATE INDEX administrative_audit_deployment_page_illustrative
+ON administrative_audit_events_illustrative (occurred_at DESC, audit_event_id DESC)
+WHERE scope_kind = 'deployment';
+
+CREATE INDEX administrative_audit_incident_page_illustrative
+ON administrative_audit_events_illustrative (scope_id, occurred_at DESC, audit_event_id DESC)
+WHERE scope_kind = 'incident';
+
+CREATE INDEX administrative_audit_actor_filter_illustrative
+ON administrative_audit_events_illustrative (scope_kind, scope_id, actor_user_id, occurred_at DESC, audit_event_id DESC);
+
+CREATE INDEX administrative_audit_action_filter_illustrative
+ON administrative_audit_events_illustrative (scope_kind, scope_id, action_code, occurred_at DESC, audit_event_id DESC);
+
+CREATE INDEX administrative_audit_target_filter_illustrative
+ON administrative_audit_events_illustrative (scope_kind, scope_id, target_kind, target_id, occurred_at DESC, audit_event_id DESC);
+```
+
 ### Informative note on operator recovery journal realization
 
 The current core requires an encrypted, append-only operator recovery journal

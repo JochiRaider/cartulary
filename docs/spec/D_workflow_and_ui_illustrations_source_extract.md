@@ -639,6 +639,63 @@ sequenceDiagram
     end
 ```
 
+### 3.0B Administrative audit inspection sequences
+
+These examples are illustrative only. Core 01 §3.3.5.1A owns routes,
+resource shape, filters, pagination, and cursor binding. Core 04 §§2-3 own
+authorization, denial behavior, redaction, and retention.
+
+Deployment administration audit read:
+
+```mermaid
+sequenceDiagram
+    participant Admin as Deployment admin
+    participant Other as Authenticated non-admin
+    participant UI as Deployment audit UI
+    participant App as App API
+    participant Audit as Administrative audit substrate
+
+    Admin->>UI: Open account and recovery audit
+    UI->>App: GET /api/v1/administrative-audit-events with filters
+    App->>App: verify current deployment_admin
+    App->>Audit: page deployment-scope events only
+    Audit-->>App: occurred_at desc, audit_event_id desc
+    App-->>UI: data.audit_events[] + meta.paging
+    UI->>UI: show visible and redacted changes distinctly
+
+    Other->>App: GET /api/v1/administrative-audit-events
+    App->>App: verify current deployment_admin
+    App-->>Other: 403 authorization_denied
+```
+
+Incident membership audit read:
+
+```mermaid
+sequenceDiagram
+    participant IA as Incident admin
+    participant DA as Deployment admin without membership
+    participant Member as Visible non-admin member
+    participant UI as Membership audit UI
+    participant App as App API
+    participant Audit as Administrative audit substrate
+
+    IA->>UI: Open membership audit for incident X
+    UI->>App: GET /api/v1/incidents/X/membership-audit-events with filters
+    App->>App: verify current membership in X with role admin
+    App->>Audit: page incident-scope membership events for X only
+    Audit-->>App: occurred_at desc, audit_event_id desc
+    App-->>UI: data.audit_events[] + meta.paging
+    UI->>UI: show visible and redacted changes distinctly
+
+    DA->>App: GET /api/v1/incidents/X/membership-audit-events
+    App->>App: no current membership in X
+    App-->>DA: 404 hidden incident behavior
+
+    Member->>App: GET /api/v1/incidents/X/membership-audit-events
+    App->>App: visible membership, role not admin
+    App-->>Member: 403 authorization_denied
+```
+
 ### 3A. First login requiring TOTP setup
 
 ```mermaid

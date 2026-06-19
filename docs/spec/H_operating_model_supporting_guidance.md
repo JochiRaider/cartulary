@@ -214,3 +214,24 @@ Recommended failure recovery:
 - if backup creation fails after staging artifacts, do not copy the diagnostic artifact reference into a restore command or runbook selector;
 - preserve the final result JSON, any JSONL progress stream, the encrypted recovery journal reference, and the safe administrative-audit summary for incident-independent operational review;
 - do not paste raw DSNs, bucket names, object keys, recovery keys, secret references, or incident content into runbook notes.
+
+## 13. Administrative audit review guidance
+
+Core 01, Core 02, and Core 04 own the administrative audit read projections,
+storage invariants, authorization split, and redaction rules. This section is
+only operating practice.
+
+Recommended deployment audit review practice:
+
+- use the deployment administrative-audit view for account administration, credential recovery, bootstrap, backup, and restore review;
+- start with bounded timestamp filters and then narrow by actor, action code, target kind, or target identifier;
+- use the server filters rather than free-text search, screenshots, exported spreadsheets, or copied database excerpts as the primary review path;
+- treat redacted before/after values as evidence that a sensitive field changed, not as missing evidence;
+- keep account-recovery runbooks free of passwords, password hashes, TOTP secrets, bootstrap tokens, session tokens, recovery keys, raw DSNs, object keys, object-store credentials, and storage secrets.
+
+Recommended incident membership audit review practice:
+
+- use the incident membership-audit view only from the addressed incident and only for membership create, role-change, and delete review;
+- do not ask deployment administrators without incident membership to inspect membership activity for an incident they cannot otherwise access;
+- preserve the incident identifier, applied filters, relevant event identifiers, and redacted-value status when recording review notes;
+- keep membership audit review separate from incident content review unless the reviewer also has ordinary incident access for that content.

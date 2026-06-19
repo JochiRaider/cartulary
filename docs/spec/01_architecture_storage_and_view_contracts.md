@@ -583,6 +583,7 @@ The base-profile route set MUST include stable route families for:
 - incident discovery, creation, retrieval, incident metadata mutation, and incident lifecycle actions: `POST /api/v1/incidents`, `GET /api/v1/incidents`, `GET /api/v1/incidents/{incident_id}`, `PATCH /api/v1/incidents/{incident_id}`, `POST /api/v1/incidents/{incident_id}/close`, `POST /api/v1/incidents/{incident_id}/reopen`,
 - deployment-local user account inspection and administration: `GET /api/v1/users`, `POST /api/v1/users`, `GET /api/v1/users/{user_id}`, `PATCH /api/v1/users/{user_id}`, `POST /api/v1/users/{user_id}/password/reset`, `POST /api/v1/users/{user_id}/mfa/totp/reset`, `POST /api/v1/users/{user_id}/sessions/revoke-all`,
 - incident membership inspection and administration: `GET /api/v1/incidents/{incident_id}/memberships`, `POST /api/v1/incidents/{incident_id}/memberships`, `PATCH /api/v1/incidents/{incident_id}/memberships/{user_id}`, `DELETE /api/v1/incidents/{incident_id}/memberships/{user_id}`,
+- administrative audit read projections: `GET /api/v1/administrative-audit-events`, `GET /api/v1/incidents/{incident_id}/membership-audit-events`,
 - view-schema discovery: `GET /api/v1/view-schemas`, `GET /api/v1/view-schemas/{view_schema_id}`,
 - extension-claim discovery: `GET /api/v1/extensions`,
 - saved-view discovery and persistence: `GET /api/v1/incidents/{incident_id}/saved-views`, `POST /api/v1/incidents/{incident_id}/saved-views`, `PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`, `DELETE /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`,
@@ -595,7 +596,7 @@ The base-profile route set MUST include stable route families for:
 - background-job status and cancellation: `GET /api/v1/jobs/{job_id}`, `POST /api/v1/jobs/{job_id}/cancel`.
 The base profile defines no public WebAuthn or passkey routes under `/api/v1/auth/*` or `/api/v1/users/{user_id}/mfa/*`. Registration, assertion, credential enumeration, credential deletion, and reset semantics for WebAuthn or passkeys are reserved for future specification work and MUST NOT be claimed by base-profile implementations.
 Profiles: base
-Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-231, AC-251, AC-252, AC-253, AC-254, AC-255, AC-340, AC-341, AC-342, AC-334, AC-335, AC-336, AC-337, AC-338, AC-339, AC-370, AC-371, AC-418, AC-429, AC-430, AC-431, AC-432
+Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-231, AC-251, AC-252, AC-253, AC-254, AC-255, AC-340, AC-341, AC-342, AC-334, AC-335, AC-336, AC-337, AC-338, AC-339, AC-370, AC-371, AC-418, AC-429, AC-430, AC-431, AC-432, AC-437, AC-438, AC-439
 
 **REQ-01-033**
 Implementations that claim an extension profile MUST add that profile's route family under the same versioned root rather than overloading base workbook routes. This includes, at minimum, `/api/v1/import-sessions/*`, `/api/v1/reference-packs/*`, `/api/v1/snapshots/*` and `/api/v1/releases/*`, `/api/v1/incident-bundles/*`, `/api/v1/auth/providers/*`, `/api/v1/auth/oidc/*`, `/api/v1/auth/saml/*`, and `/api/v1/users/{user_id}/auth-bindings*` for the corresponding claimed extension profiles.
@@ -1893,6 +1894,116 @@ A membership create, role change, or delete that would leave the incident withou
 Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
+#### 3.3.5.1A Administrative audit read projections
+
+**REQ-01-603**
+The base profile MUST expose exactly two public administrative audit read projections:
+
+- `GET /api/v1/administrative-audit-events` for deployment-scoped administrative audit events;
+- `GET /api/v1/incidents/{incident_id}/membership-audit-events` for incident-scoped membership administrative audit events for the addressed incident.
+
+The deployment route MUST return only events with `scope_kind='deployment'` and `scope_id=null`. It MUST NOT return incident membership events. The incident membership route MUST return only events with `scope_kind='incident'`, `scope_id` equal to the addressed `incident_id`, and `action_code` in the incident membership action-code set in REQ-01-606. Both routes MUST return the common success envelope with `data` containing exactly `audit_events[]` and with `meta.paging` present under §3.3.7.
+Profiles: base
+Verified by: AC-437, AC-438, AC-439
+
+**REQ-01-604**
+Each `audit_events[]` item returned by either administrative audit read projection MUST contain exactly:
+
+- `audit_event_id`,
+- `scope_kind`,
+- nullable `scope_id`,
+- `occurred_at`,
+- `actor_kind`,
+- nullable `actor_user_id`,
+- `source`,
+- `action_code`,
+- `target_kind`,
+- nullable `target_id`,
+- `changes[]`,
+- nullable `reason_code`.
+
+`scope_kind` MUST use exactly `deployment` or `incident`. `scope_id` MUST be JSON `null` when `scope_kind='deployment'`; it MUST be the addressed incident identifier when `scope_kind='incident'`. `occurred_at` MUST serialize as an RFC 3339 UTC timestamp. `actor_kind` MUST use exactly `user`, `system`, or `operator`. `actor_user_id` MUST be non-null when `actor_kind='user'` and MUST be JSON `null` otherwise. `source` MUST use exactly `ui`, `api`, `startup`, `operator`, or `system`.
+
+`changes[]` MUST always be present. It MAY be empty only for `action_code='legacy_administrative_event'` when no safe field-level mapping exists. Each `changes[]` item MUST contain exactly `field_path`, `value_state`, `before`, and `after`. `value_state` MUST use exactly `visible` or `redacted`. When `value_state='redacted'`, `before` and `after` MUST both serialize as JSON `null`. `changes[]` MUST be serialized by exact `field_path asc` order, MUST contain no duplicate `field_path`, and MUST NOT use locale collation, case folding, or display-label ordering. Clients MUST tolerate unknown additive future `action_code` values and unknown additive future `target_kind` values on reads without rejecting the whole response.
+Profiles: base
+Verified by: AC-437, AC-440
+
+**REQ-01-605**
+Administrative audit read projections MUST use these current-profile `target_kind` mappings:
+
+| Action group | `target_kind` | `target_id` |
+| --- | --- | --- |
+| `bootstrap_admin_created`, `user_created`, `user_profile_updated`, `user_status_changed`, `deployment_admin_granted`, `deployment_admin_revoked`, `password_changed`, `password_reset`, `totp_enrollment_begun`, `totp_enrollment_completed`, `totp_reset`, `sessions_revoked` | `user` | Affected `user_id`; non-null. |
+| `account_preferences_updated` | `account_preferences` | Affected `user_id`; non-null. |
+| `auth_binding_created` | `auth_binding` | Created `auth_binding_id`; non-null. |
+| `auth_binding_rotated` | `auth_binding` | Retired `auth_binding_id` that was rotated from; non-null. Replacement binding identity, when needed, belongs in `changes[]`. |
+| `auth_binding_retired` | `auth_binding` | Retired `auth_binding_id`; non-null. |
+| `backup_created` | `backup_set` | Created `backup_set_id`; non-null. |
+| `restore_started`, `restore_completed`, `restore_failed`, `restore_verification_completed` | `restore_operation` | Recovery operation identifier; non-null. |
+| `membership_created`, `membership_role_changed`, `membership_deleted` | `incident_membership` | Affected member `user_id`; non-null because `scope_id` already carries the incident. |
+| `legacy_administrative_event` | `legacy_administrative_event` | JSON `null`. |
+
+No other current-profile `target_kind` values are emitted by these routes. Future target kinds are additive read-side values only and do not alter the current server emission set.
+Profiles: base
+Verified by: AC-437
+
+**REQ-01-606**
+Current-profile administrative audit events MUST use only the action codes listed here. Current-profile servers MUST NOT emit unregistered action codes. Clients MUST tolerate unknown additive future action codes in responses.
+
+Deployment-scope action codes are:
+
+- `bootstrap_admin_created`,
+- `user_created`,
+- `user_profile_updated`,
+- `user_status_changed`,
+- `deployment_admin_granted`,
+- `deployment_admin_revoked`,
+- `password_changed`,
+- `password_reset`,
+- `totp_enrollment_begun`,
+- `totp_enrollment_completed`,
+- `totp_reset`,
+- `sessions_revoked`,
+- `auth_binding_created`,
+- `auth_binding_rotated`,
+- `auth_binding_retired`,
+- `account_preferences_updated`,
+- `backup_created`,
+- `restore_started`,
+- `restore_completed`,
+- `restore_failed`,
+- `restore_verification_completed`,
+- `legacy_administrative_event`.
+
+Incident-scope action codes are:
+
+- `membership_created`,
+- `membership_role_changed`,
+- `membership_deleted`,
+- `legacy_administrative_event`.
+
+`legacy_administrative_event` is compatibility-only for pre-contract records that can be safely assigned to exactly one projection. New current-profile events MUST NOT use it.
+Profiles: base, enterprise_authentication
+Verified by: AC-437, AC-440
+
+**REQ-01-607**
+Both administrative audit read projections MUST order results by `occurred_at desc, audit_event_id desc`, MUST use the common cursor-pagination contract in §3.3.7, and MUST accept exactly these query members:
+
+- `limit`,
+- `cursor_token`,
+- `actor_user_id`,
+- `action_code`,
+- `target_kind`,
+- `target_id`,
+- `occurred_at_gte`,
+- `occurred_at_lt`.
+
+Search is not supported. A `search` query member is an unknown query member for these routes. Omitted filters mean no predicate for that field. `actor_user_id`, `action_code`, `target_kind`, and `target_id` are exact-value filters; empty values, comma lists, array encodings, explicit `null` spellings, alternate spellings, and values outside the current route registry for `action_code` or `target_kind` are invalid. `target_id` MUST NOT be supplied unless `target_kind` is also supplied. `occurred_at_gte` and `occurred_at_lt` MUST parse and normalize under the instant rules of `timestamp_instant_v1`; `occurred_at_gte` is inclusive and `occurred_at_lt` is exclusive. When both timestamp filters are present, normalized `occurred_at_gte` MUST be earlier than normalized `occurred_at_lt`.
+
+The default `limit` is `100`, and the maximum `limit` is `500` under §3.3.7. Duplicate raw query members MUST fail before unknown-member validation with `400`, `error.code=invalid_list_query`, and `error.details.reason_code=duplicate_query_member`. Unknown non-pagination query members MUST fail with `400`, `error.code=invalid_list_query`, and `error.details.reason_code=unknown_query_member`. Malformed exact-value filters MUST fail with `400`, `error.code=invalid_list_query`, and `error.details.reason_code=invalid_filter_value`. Malformed or contradictory timestamp filters MUST fail with `400`, `error.code=invalid_list_query`, and `error.details.reason_code=invalid_filter_range`. Pagination failures MUST fail with `400`, `error.code=invalid_pagination_request`, and a reason code from §3.3.6.2. Cursor binding MUST include the authenticated actor, route, route-scoping identifiers, normalized filters, effective limit, ordering tuple, and continuation position.
+Profiles: base
+Verified by: AC-438
+
 #### 3.3.5.2 View-schema, saved-view, and workbook-preference contracts
 
 The public `view_schema` discovery-route shape is owned by REQ-01-288 in §6. This subsection owns saved-view and workbook-preference resources that bind to those schemas.
@@ -2774,7 +2885,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | --- | --- | --- | --- | --- | --- | --- |
 | `invalid_view_query` | `400` | `false` | The view-query request is malformed, uses a page-size member or page-size value not allowed by the route, replays a cursor against a different bound query contract, or uses a `field_key`, filter operator, or operand shape not allowed by the active `view_schema_id`. |  |  |  |
 | `invalid_pagination_request` | `400` | `false` | A non-view pageable or singleton route uses a page-size member or page-size value not allowed by the route, replays a cursor against a different bound route contract, or supplies pagination members to a route that does not support pagination. |  |  |  |
-| `invalid_list_query` | `400` | `false` | A GET collection list request uses a duplicate or unknown query member, malformed `search` value, too many normalized search tokens, or a route-owned filter value or range outside the route contract. |  |  |  |
+| `invalid_list_query` | `400` | `false` | A GET collection list request uses a duplicate or unknown query member, malformed `search` value, too many normalized search tokens, or a route-owned filter value or range outside the route contract. | REQ-01-607 | base | AC-438 |
 | `invalid_mutation_payload` | `400` | `false` | A mutation request body is malformed, omits a route-required member, includes an unknown or forbidden member, uses an unknown `kind`, `op`, or `action`, targets a field/action or mention-action combination that is not allowed, or carries an invalid, foreign, or type-incompatible mutation target reference. |  |  |  |
 | `invalid_evidence_handle_request` | `400` | `false` | A preview-handle or download-handle issuance request is malformed, uses a non-object JSON body, omits the required JSON object wrapper, or includes an unknown top-level member. |  |  |  |
 | `invalid_blob_create_request` | `400` | `false` | A blob-slot create request is malformed, omits required members, violates create-time field validation, attempts to set server-managed state, or includes an unknown top-level member. |  |  |  |
@@ -3071,7 +3182,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `invalid_search` | The `search` member is not valid UTF-8 after percent decoding, contains a C0 or C1 control code point, exceeds the `list_search_v1` scalar bound, or is non-empty after normalization but yields zero search tokens. |
 | `search_token_count_exceeded` | The normalized `search` member yields more than `16` unique normalized tokens. |
 | `invalid_filter_value` | A route-owned exact-value filter is present with a value outside that filter's closed wire-token set. |
-| `invalid_filter_range` | A route-owned range filter is malformed, contradictory, or outside its declared bound. This reason is reserved in the current base profile and is not reachable from the exact-value filters on `GET /api/v1/incidents` or `GET /api/v1/users`. |
+| `invalid_filter_range` | A route-owned range filter is malformed, contradictory, or outside its declared bound. In the current base profile this is reachable from `occurred_at_gte` and `occurred_at_lt` on the administrative audit read projections. |
 
 `credential_bootstrap_rejected` `error.details.reason_code` values:
 
@@ -3366,17 +3477,17 @@ Boundary values that are syntactically valid but do not equal the current commit
 **REQ-01-240**
 Any public list or query route that MAY exceed one response page MUST use opaque cursor pagination under this subsection. In `/api/v1/`, GET collection routes MUST accept `limit`, `cursor_token`, and only additional query members declared by that route's owner requirement; GET singleton routes MUST reject pagination members as stated by their owner requirement; and POST query routes MUST accept only `limit` and `cursor_token` as JSON-body members. `limit` MUST be an integer in the inclusive range `1..500`. When `cursor_token` is absent, omitted `limit` MUST mean `100`. When `cursor_token` is present, omitted `limit` MUST mean reuse the cursor-bound effective `limit` from the request that produced that cursor. The `/api/v1/` contract MUST reject `page`, `offset`, `page_size`, `block_size`, or any other pagination alias rather than silently accepting or translating it.
 Profiles: base
-Verified by: AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-238, AC-239, AC-240, AC-415, AC-416, AC-417
+Verified by: AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-238, AC-239, AC-240, AC-415, AC-416, AC-417, AC-438
 
 **REQ-01-241**
-A `cursor_token` MUST be bound to the authenticated actor, route family, every route-scoping identifier present for that route, the normalized list search and filter state when the route defines a GET collection list-query contract, the normalized effective `sort[]`, the normalized `filters[]`, the optional normalized `group_by`, and the effective `limit` when the route defines a view-query contract. This includes binding history cursors to `record_id`, membership and saved-view cursors to `incident_id`, incident-list and user-list cursors to their normalized list-query state, and workbook-query cursors to `incident_id`, `view_schema_id`, and the normalized applied view-query contract. The server MUST reject a cursor that is replayed against a different bound route contract, including a different effective `limit`, rather than reinterpret it.
+A `cursor_token` MUST be bound to the authenticated actor, route family, every route-scoping identifier present for that route, the normalized list search and filter state when the route defines a GET collection list-query contract, the normalized effective `sort[]`, the normalized `filters[]`, the optional normalized `group_by`, and the effective `limit` when the route defines a view-query contract. This includes binding history cursors to `record_id`, membership and saved-view cursors to `incident_id`, administrative audit cursors to their route, scope, normalized filters, ordering tuple, and effective limit, incident-list and user-list cursors to their normalized list-query state, and workbook-query cursors to `incident_id`, `view_schema_id`, and the normalized applied view-query contract. The server MUST reject a cursor that is replayed against a different bound route contract, including a different effective `limit`, rather than reinterpret it.
 Profiles: base
-Verified by: AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-239, AC-416, AC-417
+Verified by: AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-239, AC-416, AC-417, AC-438
 
 **REQ-01-242**
 The envelope for paged responses MUST include `meta.paging.limit`, `meta.paging.has_more`, and `meta.paging.next_cursor`. `meta.paging.limit` MUST equal the effective page size bound to the current page. When another page is available, `meta.paging.has_more=true` and `meta.paging.next_cursor` MUST be a non-null opaque cursor. A terminal page, including a first page with zero matching rows, MUST use `meta.paging.has_more=false` and `meta.paging.next_cursor=null`. Non-view routes that are not declared pageable in their owner section MUST reject `limit`, `cursor_token`, and any pagination alias with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=pagination_not_supported` rather than ignoring them. Clients MUST treat `meta.paging.has_more` and `meta.paging.next_cursor` as the authoritative continuation contract and MUST NOT infer terminal state from `rows.length < meta.paging.limit` alone. Hot workbook views MUST NOT require deep `OFFSET` pagination.
 Profiles: base
-Verified by: AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-238, AC-239, AC-241, AC-242
+Verified by: AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-238, AC-239, AC-241, AC-242, AC-438
 
 **REQ-01-554**
 The current base profile cursor-continuation mode for live operational list and query routes is `live_authorized_keyset`. Page 2 and every later page in a live cursor chain MUST re-derive the caller's current session validity, route authorization, and route-scoped visibility before returning rows. The cursor token MUST remain opaque to clients and MUST cryptographically protect the bound route contract and server-owned continuation position from client tampering. A cursor MUST NOT preserve access after session expiry, account revocation, loss of incident membership, loss of route visibility, or any other authorization change that would make the row or route unavailable on a fresh request.
@@ -3433,14 +3544,14 @@ Profiles: base
 Verified by: AC-415, AC-416, AC-417
 
 **REQ-01-583**
-GET collection list-query validation MUST be deterministic. The server MUST parse the query string preserving member names and duplicates before applying typed coercion. On routes that declare list-query members, any repeated raw query member name, including an otherwise unknown name, MUST fail with `400`, `error.code=invalid_list_query`, and `error.details.reason_code=duplicate_query_member` before unknown-member or value validation. Pagination aliases `page`, `offset`, `page_size`, and `block_size` remain pagination failures under REQ-01-240 and MUST fail with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=invalid_limit`. Any non-duplicate query member outside `limit`, `cursor_token`, and the owner-declared list-query member set MUST fail with `400`, `error.code=invalid_list_query`, and `error.details.reason_code=unknown_query_member`. Malformed `search` values and search bound failures MUST use `invalid_search` or `search_token_count_exceeded` as specified by REQ-01-581. A present route-owned exact-value filter whose decoded value is outside that filter's closed wire-token set, including an empty value, explicit `null` spelling, comma list, array encoding, or alternate spelling, MUST fail with `400`, `error.code=invalid_list_query`, and `error.details.reason_code=invalid_filter_value`. `invalid_filter_range` is registered for future route-owned range filters but has no reachable condition on `GET /api/v1/incidents` or `GET /api/v1/users`.
+GET collection list-query validation MUST be deterministic. The server MUST parse the query string preserving member names and duplicates before applying typed coercion. On routes that declare list-query members, any repeated raw query member name, including an otherwise unknown name, MUST fail with `400`, `error.code=invalid_list_query`, and `error.details.reason_code=duplicate_query_member` before unknown-member or value validation. Pagination aliases `page`, `offset`, `page_size`, and `block_size` remain pagination failures under REQ-01-240 and MUST fail with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=invalid_limit`. Any non-duplicate query member outside `limit`, `cursor_token`, and the owner-declared list-query member set MUST fail with `400`, `error.code=invalid_list_query`, and `error.details.reason_code=unknown_query_member`. Malformed `search` values and search bound failures MUST use `invalid_search` or `search_token_count_exceeded` as specified by REQ-01-581. A present route-owned exact-value filter whose decoded value is outside that filter's closed wire-token set, including an empty value, explicit `null` spelling, comma list, array encoding, or alternate spelling, MUST fail with `400`, `error.code=invalid_list_query`, and `error.details.reason_code=invalid_filter_value`. A route-owned range filter that is malformed, contradictory, or outside its declared bound MUST fail with `400`, `error.code=invalid_list_query`, and `error.details.reason_code=invalid_filter_range`.
 Profiles: base
-Verified by: AC-415, AC-416, AC-417
+Verified by: AC-415, AC-416, AC-417, AC-438
 
 **REQ-01-584**
 For GET collection routes that declare `search` or filters, the normalized list-query state is part of the cursor-bound route contract under REQ-01-241. The canonical list-query state MUST include the canonical search predicate from REQ-01-581 and the canonical owner-declared filter state, using explicit no-predicate sentinels for omitted filters. Raw query text changes that normalize to the same canonical search predicate and filter state MUST NOT be treated as cursor mismatches. Reusing a `cursor_token` with a different canonical search predicate or filter state MUST fail with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=cursor_query_mismatch`. Authorization and route visibility MUST be applied before search matching, filter matching, result counting, `has_more` calculation, `next_cursor` creation, and cursor continuation positioning. Hidden resources MUST NOT influence matches, counts, `has_more`, `next_cursor`, or the continuation position. A first-page search request MUST evaluate the full current authorized collection before pagination; it MUST be able to return matching authorized resources that would have fallen on any later page of the corresponding unsearched cursor chain.
 Profiles: base
-Verified by: AC-416, AC-417
+Verified by: AC-416, AC-417, AC-438
 
 #### 3.3.8 Evidence and blob routes
 
@@ -5463,9 +5574,9 @@ Only the affected overlay labels, enrichment semantics, non-canonical analytical
 Operational backup and restore remain deployment-local recovery behavior. They are distinct from whole-incident portability.
 
 **REQ-01-571**
-Each successful operational backup MUST produce one retained `backup_set` bound to exactly one declared `consistency_point_at`. A coherent restore of one `backup_set` means that, after projection rebuild, the restored deployment contains all authoritative structured source rows as of that `consistency_point_at`, all required blob bytes for any blob whose authoritative state at that point requires durable object bytes, and no evidence/blob invariant violations introduced by the restore. Projections, search indexes, sessions, presigned URLs, temporary work files, client-local drafts, export artifacts, and other deployment-local caches are not part of the authoritative backup set.
+Each successful operational backup MUST produce one retained `backup_set` bound to exactly one declared `consistency_point_at`. A coherent restore of one `backup_set` means that, after projection rebuild, the restored deployment contains all authoritative structured source rows as of that `consistency_point_at`, all deployment-local administrative audit state as of that `consistency_point_at`, all required blob bytes for any blob whose authoritative state at that point requires durable object bytes, and no evidence/blob invariant violations introduced by the restore. Projections, search indexes, sessions, presigned URLs, temporary work files, client-local drafts, export artifacts, and other deployment-local caches are not part of the authoritative backup set.
 Profiles: base
-Verified by: AC-398, AC-399
+Verified by: AC-398, AC-399, AC-440
 
 **REQ-01-572**
 A `backup_set` counts as successful only when all of the following are durably captured for the same `consistency_point_at`:
@@ -5749,9 +5860,9 @@ A portability bundle MUST NOT include:
 - client-local draft queues or same-field-conflict queues,
 - sessions, presigned URLs, locks, temporary caches, or other ephemeral runtime files,
 - login-capable local user accounts, deployment-admin flags, auth-binding state, password hashes, MFA secrets, external provider configuration, or object-store credentials,
-- incident memberships, current permissions, deployment-local administrative audit history, or other deployment-local authorization state.
+- incident memberships, current permissions, deployment-local administrative audit history including deployment and incident-membership administrative audit events, or other deployment-local authorization state.
 Profiles: incident_portability
-Verified by: AC-164, AC-167, AC-236
+Verified by: AC-164, AC-167, AC-236, AC-440
 
 Reference-pack attestation metadata remains incident-external state. When the Incident Portability Extension Profile embeds reference-pack payloads, the bundle MAY include only the optional embedded-pack payloads and their bundle-local descriptors, not deployment-global activation or attestation history.
 

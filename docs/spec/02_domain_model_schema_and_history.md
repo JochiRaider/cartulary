@@ -1917,9 +1917,9 @@ Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-128, AC-154, AC-
 ### 14.1 Persistence realization status and deployment-local invariants
 
 **REQ-02-202**
-The current profile does **not** standardize one exact physical persistence schema, table set, column set, index set, migration topology, or storage-engine-specific realization. The schema MUST instead realize the exact persistence invariants defined in this section and in the owner requirements it references, including mention and indicator provenance, record links, assessments, reference-pack lifecycle state, incident operational fields, deployment-local user, account-preference, credential, bootstrap-completion, enterprise-auth provider-definition, auth-binding, and membership state, saved views and workbook preferences, and host, identity, party, task-request, evidence, and coordination-artifact state. Appendix C is illustrative only and does not define current-profile conformance.
+The current profile does **not** standardize one exact physical persistence schema, table set, column set, index set, migration topology, or storage-engine-specific realization. The schema MUST instead realize the exact persistence invariants defined in this section and in the owner requirements it references, including mention and indicator provenance, record links, assessments, reference-pack lifecycle state, incident operational fields, deployment-local user, account-preference, credential, bootstrap-completion, enterprise-auth provider-definition, auth-binding, administrative-audit, and membership state, saved views and workbook preferences, and host, identity, party, task-request, evidence, and coordination-artifact state. Appendix C is illustrative only and does not define current-profile conformance.
 Profiles: base, import, snapshot_reporting, reference_pack
-Verified by: AC-017, AC-018, AC-072, AC-073, AC-074, AC-075, AC-118, AC-128, AC-154, AC-155, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-231, AC-232, AC-233, AC-234, AC-277, AC-278, AC-280
+Verified by: AC-017, AC-018, AC-072, AC-073, AC-074, AC-075, AC-118, AC-128, AC-154, AC-155, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-231, AC-232, AC-233, AC-234, AC-277, AC-278, AC-280, AC-440
 
 **REQ-02-243**
 Incident persistence MUST realize the exact `incident_key` canonicalization and deployment-wide uniqueness contract in REQ-02-016 and the first-class incident persistence minima in REQ-02-203. A conformant realization MAY use a stored helper column, a generated column, or a functional unique index, but those are realization choices rather than additional normative schema shape.
@@ -1959,6 +1959,13 @@ Verified by: AC-093, AC-094, AC-095, AC-234
 Enterprise-auth provider-definition persistence MUST persist, at minimum, one stable provider anchor, `provider_key`, immutable `provider_type`, mutable `display_name`, mutable enabled state, and enough normalized protocol configuration to realize Core 01 §20 and Core 04 §12.3.4 behavior. Persisted provider state MUST retain a provider omitted from the current startup manifest and represent it as disabled rather than deleting the provider row or changing its stable provider anchor. Provider definitions remain deployment-local administrative state. They MUST NOT be record-envelope rows, MUST NOT be workbook-row mutation targets, MUST NOT be serialized as incident-portability content, and MUST NOT be created, edited, or deleted by browser routes.
 Profiles: enterprise_authentication
 Verified by: AC-435, AC-436
+
+**REQ-02-257**
+Administrative audit state is immutable deployment-local authorization and audit state. Persistence MUST retain enough structured data to realize both administrative audit read projections in Core 01 §3.3.5.1A, including stable event identity, scope kind and scope identifier, occurrence timestamp, actor classification, source, action code, target kind and target identifier, reason code, ordered changed-field entries, and per-change visible-versus-redacted state. A conformant realization MAY denormalize fields, store append-only payload fragments, or maintain projection-specific indexes, but it MUST NOT depend on incident `change_set`, `record_revisions`, workbook-row history, or portable incident content as the authoritative source for administrative audit reads.
+
+Administrative audit state MUST be retained for the deployment lifetime, MUST be included in operational backup state, and MUST be excluded from whole-incident portability content. Existing pre-contract records that cannot be mapped safely to one Core 01 §3.3.5.1A projection without exposing forbidden values or crossing the deployment-versus-incident authorization boundary MUST fail closed under Core 04 §3 rather than being discarded or exposed through the wrong projection.
+Profiles: base
+Verified by: AC-437, AC-439, AC-440
 
 **REQ-02-234**
 The enterprise-auth binding persistence model MUST persist, at minimum:
@@ -2000,14 +2007,14 @@ Profiles: base
 Verified by: AC-170, AC-231
 
 **REQ-02-204**
-Internal-user, account-profile, account-preference, session, auth-binding, bootstrap-completion, and incident-membership state MUST remain deployment-local authorization, user, and credential state. Whole-incident portability import MAY map historical actor descriptors to existing local users, but import MUST NOT synthesize login-capable users, account preferences, password hashes, active or pending TOTP state, bootstrap-token lookup state, deployment-admin flags, auth bindings, bootstrap-completion markers, active sessions, deployment-local administrative audit or idempotency state, or active memberships without explicit deployment-local administrative action.
+Internal-user, account-profile, account-preference, session, auth-binding, bootstrap-completion, administrative-audit, and incident-membership state MUST remain deployment-local authorization, user, credential, and audit state. Whole-incident portability import MAY map historical actor descriptors to existing local users, but import MUST NOT synthesize login-capable users, account preferences, password hashes, active or pending TOTP state, bootstrap-token lookup state, deployment-admin flags, auth bindings, bootstrap-completion markers, active sessions, deployment-local administrative audit or idempotency state, or active memberships without explicit deployment-local administrative action.
 Profiles: base, incident_portability
-Verified by: AC-231, AC-236, AC-409, AC-432
+Verified by: AC-231, AC-236, AC-409, AC-432, AC-440
 
 **REQ-02-249**
-Whole-incident portability content MUST exclude deployment-local authorization, user, and credential state, including internal-user rows, account profile and account-preference state, local-account credential lifecycle state such as password-hash state, active or pending TOTP state, bootstrap-token lookup state, auth bindings, bootstrap-completion markers, active sessions, active memberships, deployment-admin flags, and deployment-local administrative audit or idempotency state.
+Whole-incident portability content MUST exclude deployment-local authorization, user, credential, and audit state, including internal-user rows, account profile and account-preference state, local-account credential lifecycle state such as password-hash state, active or pending TOTP state, bootstrap-token lookup state, auth bindings, bootstrap-completion markers, active sessions, active memberships, deployment-admin flags, and deployment-local administrative audit or idempotency state.
 Profiles: incident_portability
-Verified by: AC-236, AC-409, AC-432
+Verified by: AC-236, AC-409, AC-432, AC-440
 
 ### 14.2 Rollback granularity substrate
 

@@ -190,7 +190,8 @@ For the current profile, `deployment_admin` authorization is exactly:
 | User list/get/create/patch | Required. |
 | Administrative password reset, TOTP reset, revoke-all | Required. |
 | Current-account profile/preferences under `/api/v1/account/*` | Not required and not sufficient for cross-user access; these routes are current authenticated user only. |
-| Deployment administrative-audit read | Required when such a read surface is exposed. This row does not create a public audit route. |
+| Deployment administrative-audit read at `GET /api/v1/administrative-audit-events` | Required. |
+| Incident membership audit read at `GET /api/v1/incidents/{incident_id}/membership-audit-events` | Insufficient by itself; current membership in that incident with role `admin` is required. |
 | Enterprise-auth binding create/rotate/retire | Required when the extension is claimed. |
 | Every reference-pack list, singleton get, import, activate, disable, reverify, and refresh route in Core 01 §17.4 | Required when the extension is claimed; the current profile defines no non-admin raw reference-pack metadata view. |
 | Incident-bundle import | Required when the extension is claimed. |
@@ -207,7 +208,7 @@ For the current profile, `deployment_admin` authorization is exactly:
 
 This matrix is exhaustive for current-profile public route families and deployment-local operator families that reference `deployment_admin`. Future granular deployment capabilities require a later profile or an explicit versioned capability registry. A current v1 implementation MUST NOT silently narrow or widen `deployment_admin` by local policy. Holding `deployment_admin` MUST continue not to disclose incident content without ordinary incident membership.
 Profiles: base
-Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-343, AC-344, AC-345, AC-346, AC-414, AC-427, AC-432
+Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-343, AC-344, AC-345, AC-346, AC-414, AC-427, AC-432, AC-439
 
 **REQ-04-114**
 `/api/v1/account/profile` and `/api/v1/account/preferences` MUST authorize against the current authenticated session only. Ordinary authenticated users may read and mutate only their own current-account profile and account-preference resources through those routes. `deployment_admin` is neither required for those routes nor a cross-user bypass through those routes. Incident membership, incident role, provider claim content, visible incident count, and bootstrap-token possession MUST NOT widen current-account profile/preference access. Cross-user account administration, including email or local-login-identifier changes, remains under the deployment-admin user route family.
@@ -217,7 +218,7 @@ Verified by: AC-429, AC-430, AC-431, AC-432
 **REQ-04-029**
 Holding `deployment_admin` MUST NOT by itself grant incident read, write, preview, download, export, incident-scoped job, or incident WebSocket access. A caller who is `deployment_admin=true` but lacks current membership in incident X MUST have no incident-data or incident-scoped job access to incident X until granted ordinary incident membership.
 Profiles: base
-Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-261, AC-414, AC-427
+Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-261, AC-414, AC-427, AC-439
 
 **REQ-04-106**
 The Base Profile recovery operator interface is a deployment-local CLI only. It MUST run as a local process and MUST create no network listener. Invocation authority is possession of deployment-local OS execution permission plus access to the effective source deployment configuration, any required target deployment configuration, and required recovery secret references. Browser sessions, incident roles, `deployment_admin`, CSRF tokens, browser `Origin` values, cookies, bearer tokens, common-job authorization, and WebSocket authorization MUST NOT authorize the recovery CLI. CSRF and browser-origin rules are not applicable to the recovery CLI because the interface has no browser, HTTP, or WebSocket surface.
@@ -250,7 +251,12 @@ Verified by: AC-428
 **REQ-04-030**
 Incident membership create, role-change, and delete routes remain incident-scoped authorization decisions. In the base profile, those routes MUST require current incident role `admin`; `deployment_admin` alone MUST NOT bypass that requirement.
 Profiles: base
-Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-427
+Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-427, AC-439
+
+**REQ-04-123**
+Administrative audit read authorization MUST fail closed before evaluating query filters, pagination cursor contents, event existence, or event counts. `GET /api/v1/administrative-audit-events` MUST require the current caller to hold `deployment_admin`; an authenticated caller without that capability MUST receive `403` with `error.code='authorization_denied'`. `GET /api/v1/incidents/{incident_id}/membership-audit-events` MUST require current membership in the addressed incident with role `admin`; a caller without current membership or without incident visibility MUST receive the ordinary hidden-incident `404`, and a visible current incident member whose role is not `admin` MUST receive `403` with `error.code='authorization_denied'`. Holding `deployment_admin` without current membership in the addressed incident MUST NOT grant incident membership-audit access and MUST use the same hidden-incident `404` behavior as any other non-member.
+Profiles: base
+Verified by: AC-438, AC-439
 
 **REQ-04-105**
 `GET /api/v1/extensions` is deployment-scoped discovery. Any authenticated session MAY read it. It is not incident-scoped and does not require `deployment_admin`. The route MUST expose only extension-claim state and reserved family roots and MUST NOT expose provider secrets, provider assertions, provider claim maps, or other deployment-local secret-bearing state.
@@ -342,17 +348,27 @@ Verified by: AC-231, AC-408
 **REQ-04-038**
 User-account, current-account profile, account-preference, incident-membership, and successful first-deployment-admin bootstrap administration mutations MUST be captured with the same minimum actor, timestamp, source, and before/after fidelity even when they are stored outside incident `change_set` or `record_revisions` rows. For current-account profile/preference mutations, audit and idempotency records MAY record normalized old and new `display_name` or `density_mode` values, `null` density-clearing state, version tokens, route identifiers, and result status, but they MUST NOT reclassify that state as incident content. Deployment-local administrative audit records and any deployment-local idempotency substrate for user-account administration MUST NOT retain `initial_password` or any equivalent secret-bearing bootstrap or auth input in cleartext; they MAY retain only redacted placeholders or non-reversible derived metadata. Those administrative audit records and any current-account route idempotency records are deployment-local state and MUST NOT be serialized into whole-incident portability bundles.
 Profiles: base, incident_portability
-Verified by: AC-175, AC-231, AC-236, AC-343, AC-344, AC-346, AC-409, AC-430, AC-432
+Verified by: AC-175, AC-231, AC-236, AC-343, AC-344, AC-346, AC-409, AC-430, AC-432, AC-440
 
 **REQ-04-086**
 Password change, password reset, TOTP begin, TOTP complete, TOTP reset, and explicit revoke-all session actions MUST be auditable deployment-local administrative events. Deployment-local audit or idempotency state for these routes MUST NOT retain `current_password`, `new_password`, `secret_base32`, `otpauth_uri`, or raw `bootstrap_token` in cleartext.
 Profiles: base
-Verified by: AC-336..AC-338, AC-340..AC-342
+Verified by: AC-336..AC-338, AC-340..AC-342, AC-440
 
 **REQ-04-096**
 Enterprise-auth binding create, rotate, and retire actions MUST be auditable deployment-local administrative events. Those audit records MUST preserve the target stable `user_id`, `provider_key`, and any old or new `provider_subject` values needed to reconstruct binding lifecycle, but they MUST NOT retain any member of this closed forbidden set: provider assertions, provider tokens, raw SAML responses, ID tokens, and access tokens.
 Profiles: enterprise_authentication
-Verified by: AC-352
+Verified by: AC-352, AC-440
+
+**REQ-04-124**
+Neither stored administrative audit values nor values returned by the administrative audit read projections in Core 01 §3.3.5.1A may contain any member of this forbidden set: current passwords, new passwords, initial passwords, reset passwords, password hashes, TOTP secrets, `otpauth_uri`, bootstrap tokens, session tokens, provider assertions, provider tokens, raw SAML responses, ID tokens, access tokens, recovery keys, object-store credentials, raw DSNs, object keys, and storage secrets. When an audited field would otherwise contain a forbidden value, the audit event MUST preserve the existence of the changed field with `value_state='redacted'` and JSON `null` for both `before` and `after` under Core 01 §3.3.5.1A. Implementations MUST NOT satisfy this requirement by dropping the entire audit event, substituting masked substrings of the forbidden value, hashing the forbidden value into a returned audit value, or moving the forbidden value into an auxiliary audit field.
+Profiles: base, enterprise_authentication
+Verified by: AC-437, AC-440
+
+**REQ-04-125**
+Administrative audit events are immutable once committed. The current profile exposes no public delete, purge, compact, rewrite, or retention-shortening route for administrative audit events. Administrative audit retention lasts for the deployment lifetime, is included in operational backup, and remains excluded from whole-incident portability. During migration from a pre-contract administrative audit substrate, safely mappable records MUST be exposed through exactly one Core 01 §3.3.5.1A projection, using `legacy_administrative_event` and redacted changes when exact action or field mapping is unavailable but projection scope is safe. Ambiguous legacy records, records containing forbidden values that cannot be redacted with before/after fidelity, and records whose deployment-versus-incident projection cannot be determined MUST fail closed: they MUST NOT be discarded silently, MUST NOT be exposed through both projections, and MUST NOT be exposed through the wrong projection.
+Profiles: base
+Verified by: AC-437, AC-439, AC-440
 
 **REQ-04-039**
 Security choices MUST NOT add friction to the primary capture path. MFA belongs at login and session establishment, not during routine row creation or evidence preview.
@@ -610,7 +626,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-440`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -672,7 +688,7 @@ Definition of Done:
 
 - prerequisite claim: Base
 - additional requirement selector: `profile:incident_portability`
-- additional acceptance criteria: `AC-164..AC-169`, `AC-236`, `AC-273..AC-276`, `AC-327..AC-328`, `AC-332`, `AC-386`, `AC-409`
+- additional acceptance criteria: `AC-164..AC-169`, `AC-236`, `AC-273..AC-276`, `AC-327..AC-328`, `AC-332`, `AC-386`, `AC-409`, `AC-440`
 - **AC-236**: An Incident Portability claim is conformant only when a Base claim passes, every requirement selected by `profile:incident_portability` is implemented, and every additional acceptance criterion listed in this manifest passes.
   - Verifies: `profile:incident_portability`
 
@@ -1224,6 +1240,14 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-600..REQ-01-601, REQ-02-255, REQ-03-289, REQ-04-016, REQ-04-114
 - **AC-432**: Binary closure evidence proves that an ordinary authenticated user can change only their own display name and declared density override through `/api/v1/account/*`, cannot list, read, create, patch, reset, or revoke users through `/api/v1/users*`, and gains no deployment-user administration, email or login-identifier change, locale, time-zone, notification, theme-selection, global default incident, global `home_sheet_ref`, custom-density, or row-height capability. The same evidence proves that an admin still uses admin routes for email or login-identifier changes; password and TOTP behavior remains only under existing `/api/v1/auth/*` or deployment-admin user-action routes; account preferences are deployment-local normalized user state, not incident records or per-incident workbook preferences; incident portability excludes account preferences and imports do not synthesize them from bundles; and deployment-local audit/idempotency records for these routes remain outside incident portability.
   - Verifies: REQ-00-054, REQ-01-597..REQ-01-602, REQ-02-204, REQ-02-249, REQ-02-255, REQ-03-289, REQ-04-028, REQ-04-038, REQ-04-114
+- **AC-437**: Administrative audit route conformance proves that the Base Profile exposes `GET /api/v1/administrative-audit-events` and `GET /api/v1/incidents/{incident_id}/membership-audit-events`; both routes return the common success envelope with `data.audit_events[]` and `meta.paging`; each event and each `changes[]` item contains exactly the member set owned by Core 01 §3.3.5.1A; closed `scope_kind`, `actor_kind`, `source`, and `value_state` vocabularies are enforced; deployment and incident `scope_id` nullability is exact; `changes[]` is sorted by exact `field_path asc` with no duplicates; current action codes and target kinds follow the registry and mapping table; current servers emit only registered current codes; new current-profile events do not use `legacy_administrative_event`; and clients tolerate additive future action codes without failing response parsing.
+  - Verifies: REQ-00-056, REQ-01-032, REQ-01-603..REQ-01-606, REQ-02-257, REQ-04-124..REQ-04-125
+- **AC-438**: Administrative audit list-query conformance proves ordering by `occurred_at desc, audit_event_id desc`; omitted `limit` defaults to `100`; `limit` is bounded to `1..500`; only `limit`, `cursor_token`, `actor_user_id`, `action_code`, `target_kind`, `target_id`, `occurred_at_gte`, and `occurred_at_lt` are accepted as query members; omitted filters mean no predicate; exact filters reject malformed, empty, repeated, comma-list, array, explicit-`null`, or out-of-registry values as specified; `search` and other unknown query members are rejected; duplicate raw query members fail before unknown-member validation with `duplicate_query_member`; timestamp filters parse and normalize under `timestamp_instant_v1`; `occurred_at_gte` is inclusive, `occurred_at_lt` is exclusive, and both present require `gte < lt`; cursor replay with a different actor, route, scope, normalized filter set, effective limit, ordering tuple, or continuation contract fails with `cursor_query_mismatch` or the most specific pagination reason; and authorization failure is evaluated before filter, count, and cursor-position disclosure.
+  - Verifies: REQ-01-234, REQ-01-238, REQ-01-240..REQ-01-242, REQ-01-583..REQ-01-584, REQ-01-607, REQ-04-123
+- **AC-439**: Administrative audit authorization conformance proves the binary closure criterion: a current `deployment_admin` can inspect deployment/account/recovery administrative audit through `GET /api/v1/administrative-audit-events` without receiving incident membership events for incidents where they lack ordinary membership, while an incident `admin` can inspect membership changes only for that addressed incident through `GET /api/v1/incidents/{incident_id}/membership-audit-events`. An authenticated non-deployment-admin receives `403 authorization_denied` for the deployment audit route; a deployment admin without current membership in the addressed incident receives the ordinary hidden-incident `404` for the membership-audit route; a non-member receives the same hidden-incident `404`; and a visible non-admin incident member receives `403 authorization_denied`.
+  - Verifies: REQ-00-056, REQ-01-603, REQ-02-257, REQ-04-028..REQ-04-030, REQ-04-123, REQ-04-125
+- **AC-440**: Administrative audit retention and redaction conformance proves that neither stored nor returned administrative audit values contain current, new, initial, or reset passwords, password hashes, TOTP secrets or `otpauth_uri`, bootstrap or session tokens, provider assertions or provider tokens, raw SAML responses, ID tokens, access tokens, recovery keys, object-store credentials, raw DSNs, object keys, or storage secrets; redacted changed fields preserve field identity with `value_state='redacted'` and JSON `null` before/after values; audit events are immutable; no current public delete or purge route exists; retention lasts for the deployment lifetime; operational backup includes administrative audit state; whole-incident portability excludes deployment-local administrative audit state; and pre-contract records are exposed as `legacy_administrative_event` only when they can be safely assigned to exactly one projection with redacted changes, while ambiguous or unsafe legacy records fail closed rather than being dropped or exposed through the wrong projection.
+  - Verifies: REQ-00-056, REQ-01-432, REQ-01-571, REQ-01-604..REQ-01-606, REQ-02-202, REQ-02-204, REQ-02-249, REQ-02-257, REQ-04-038, REQ-04-086, REQ-04-096, REQ-04-124..REQ-04-125
 - **AC-244**: `POST /api/v1/auth/login` with valid email-form `username` and `password` for a non-MFA local account whose stored password includes non-ASCII characters and significant leading or trailing whitespace succeeds, returns the same session resource exposed by `GET /api/v1/auth/session`, and requires no `client_txn_id`.
   - Verifies: REQ-01-025, REQ-01-120, REQ-01-521
 - **AC-245**: `POST /api/v1/auth/login` with unknown email-form `username`, wrong `password`, or an inactive local account returns `401 error.code='invalid_credentials'`, sets no session cookie, and does not expose `required_second_factor_kinds` or other evidence that primary credentials were valid; for a non-MFA local account whose stored password includes non-ASCII characters and significant leading or trailing whitespace, a `password` value that differs from the stored secret only by Unicode normalization or by trimmed surrounding whitespace also returns `401 error.code='invalid_credentials'`.
@@ -1607,7 +1631,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
 
 ### 9.11 Incident Portability Extension Profile criteria
 
-- **AC-164**: Whole-incident export produces a bundle whose logical layout, manifest, checksum file, structured JSON or NDJSON files, and blob paths satisfy Core 01 §12.3, and the bundle excludes projections, search indexes, sessions, presigned URLs, locks, client-local drafts, login-capable local users, deployment-admin flags, auth-binding state, memberships, permissions, deployment-local administrative audit history, password hashes, MFA secrets, external-provider configuration, and object-store credentials.
+- **AC-164**: Whole-incident export produces a bundle whose logical layout, manifest, checksum file, structured JSON or NDJSON files, and blob paths satisfy Core 01 §12.3, and the bundle excludes projections, search indexes, sessions, presigned URLs, locks, client-local drafts, login-capable local users, deployment-admin flags, auth-binding state, memberships, permissions, deployment-local administrative audit history including deployment and incident-membership administrative audit events, password hashes, MFA secrets, external-provider configuration, and object-store credentials.
   - Verifies: REQ-01-425..REQ-01-442, REQ-04-044..REQ-04-047, REQ-04-065
 - **AC-165**: Exporting an incident and importing that bundle into an empty deployment preserves the exported `incident_id`, `record_id`, `row_version`, change-set count, revision count, record-link count, record-tag attachments, evidence custody events, entity-mention count, indicator-observation count, and blob hashes, and the imported incident opens normally after projection rebuild.
   - Verifies: REQ-01-425..REQ-01-426, REQ-01-439..REQ-01-442, REQ-01-447..REQ-01-450, REQ-04-044..REQ-04-047,
@@ -1639,7 +1663,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
 - **AC-276**: Incident-bundle routes use only `invalid_incident_bundle_request`, `incident_bundle_not_found`, `incident_bundle_export_rejected`, and `incident_bundle_import_rejected`; `invalid_incident_bundle_request` uses only `unsupported_upload_envelope`, `missing_required_part`, `duplicate_part`, `unexpected_part`, `invalid_part_content_type`, `invalid_metadata_encoding`, `malformed_metadata_json`, `request_not_object`, `missing_required_field`, `field_not_nullable`, `unknown_field`, `invalid_reference_pack_mode`, `invalid_optional_sections`, `invalid_required_capabilities`, `history_mode_not_supported`, `blob_mode_not_supported`, and `invalid_value`; multipart part-related failures populate `error.details.part_name`, and `invalid_part_content_type` also includes `error.details.received_content_type` plus `error.details.allowed_content_types[]`; export rejections surface only `missing_required_file` or `missing_required_blob`; and import rejections surface only `invalid_member_path`, `unsupported_member_type`, `checksum_mismatch`, `signature_mismatch`, `blob_hash_mismatch`, `duplicate_incident_id`, `unsupported_required_capability`, `remote_fetch_required`, `missing_required_file`, `missing_required_blob`, `malformed_manifest`, `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`, or `archive_member_count_exceeded`.
   - Verifies: REQ-01-471, REQ-01-486, REQ-01-553
 
-- **AC-409**: Whole-incident portability preserves the boundary between incident data and deployment-local auth state: the exported bundle contains no login-capable local users, local-account credential lifecycle state such as password-hash state, active or pending TOTP state, bootstrap-token lookup state, auth bindings, bootstrap-completion markers, active sessions, active memberships, deployment-admin flags, or deployment-local administrative audit or idempotency state; importing that bundle into another deployment does not synthesize any of those states without explicit deployment-local administrative action; and historical actors import only as inert imported actors or historical descriptors, never as login-capable principals.
+- **AC-409**: Whole-incident portability preserves the boundary between incident data and deployment-local auth state: the exported bundle contains no login-capable local users, local-account credential lifecycle state such as password-hash state, active or pending TOTP state, bootstrap-token lookup state, auth bindings, bootstrap-completion markers, active sessions, active memberships, deployment-admin flags, deployment-local administrative audit state including deployment and incident-membership administrative audit events, or idempotency state; importing that bundle into another deployment does not synthesize any of those states without explicit deployment-local administrative action; and historical actors import only as inert imported actors or historical descriptors, never as login-capable principals.
   - Verifies: REQ-02-204, REQ-02-249, REQ-04-038
 
 ### 9.12 Additional Base Profile criteria for deployment configuration contract
