@@ -1740,6 +1740,21 @@ stateDiagram-v2
     disabled --> missing: payload unavailable
 ```
 
+### Reference-pack version action menu
+
+This menu sketch is explanatory only. Core 01 §17.4 owns the route contract, authorization, and state preconditions. Core 04 §2 owns the `deployment_admin` authorization boundary.
+
+| Version state | Active pointer | Version-level actions shown as enabled |
+| --- | --- | --- |
+| `staged` | Either | None |
+| `verified_available` | `false` | `activate`, `disable`, `reverify` |
+| `verified_available` | `true` | `disable`, `reverify`; `activate` is disabled as already active |
+| `disabled` | Either | `reverify` |
+| `failed` | Either | `reverify` |
+| `missing` | Either | `reverify` |
+
+`import` and `refresh` are group-level Reference Packs actions rather than version-level actions. When the Reference Pack profile is claimed, the group and every action shown here are deployment-admin surfaces; incident members consume activated-pack effects only through ordinary workbook and view contracts.
+
 ### Snapshot artifact lifecycle sketch
 
 The diagram below is explanatory only. The authoritative contract is Core 01 §10.2 through §10.5 and Core 04 §2.1.

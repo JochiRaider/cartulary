@@ -1237,6 +1237,8 @@ Extension-specific code paths MUST remain off by default unless the deployment e
 
 Runtime claim-state discovery for those deployment-gated families is `GET /api/v1/extensions`. That route returns the current extension registry plus reserved `route_families[]` roots. Requests under a reserved but unclaimed family fail with `404` and `error.code = extension_profile_not_claimed`; they are not treated as ordinary unknown routes. Frontend routing, deployment-gated feature flags, and integration tests SHOULD key off that discovery contract rather than ad hoc route probes.
 
+For claimed Reference Pack deployments, every `/api/v1/reference-packs/*` endpoint is deployment-admin-only. Clients and integration tests SHOULD combine `GET /api/v1/extensions` with the session `is_deployment_admin` value rather than probing reference-pack routes; a claimed non-admin receives `403` with `error.code = authorization_denied`, while an unclaimed family returns `extension_profile_not_claimed` first.
+
 ### 12.5 Backup, restore, and failure modes
 
 The implementation baseline remains:
