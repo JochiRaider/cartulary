@@ -409,6 +409,44 @@ In that realization, `artifact_sha256` is computed from the exact raw manifest
 bytes consumed, and the same commit would also append one deployment-local
 administrative audit event for bootstrap consumption.
 
+### Informative note on operator recovery journal realization
+
+The current core requires an encrypted, append-only operator recovery journal
+for admitted mutating recovery operations and a safe administrative-audit
+summary once a writable database exists. The physical schema is intentionally
+not prescribed here.
+
+One conformant realization is an append-only journal table or log stream whose
+payload bytes are encrypted before persistence. The cleartext payload can use a
+small safe envelope with operation ID, operation token, phase, result, started
+and completed timestamps, nullable `backup_set_id`, nullable
+`consistency_point_at`, safe artifact-reference counts and kinds, and nullable
+error code and reason code. It must not store raw DSNs, endpoint hosts, bucket
+names, object keys, raw paths, credentials, recovery keys, secret references,
+or incident content.
+
+Illustrative table shape:
+
+```sql
+CREATE TABLE operator_recovery_journal_records (
+    journal_record_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    operation_id uuid NOT NULL,
+    record_sequence bigint NOT NULL,
+    operation text NOT NULL,
+    encrypted_payload bytea NOT NULL,
+    payload_schema_id text NOT NULL,
+    payload_sha256 bytea NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (operation_id, record_sequence)
+);
+```
+
+The corresponding administrative-audit summary can be a row in the existing
+deployment-local administrative audit substrate with `event_source` such as
+`operator_recovery` and safe JSON containing only the fields allowed by Core 04.
+That summary is not a substitute for the encrypted recovery journal because it
+is intentionally redacted.
+
 ```sql
 CREATE TABLE auth_providers (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

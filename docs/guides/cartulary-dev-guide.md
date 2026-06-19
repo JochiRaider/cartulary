@@ -484,7 +484,7 @@ The implementation sequence for a behavior-affecting change MUST be:
 
 `/cmd/migrate` is the migration entry point. Schema DDL changes MUST move through `/db/migrations/*` and MUST NOT be embedded ad hoc inside application startup.
 
-`/cmd/operator` is deployment-local operational tooling. Keep it thin; backup inspection, restore, and verification behavior belongs under `internal/app` and `internal/modules/*`.
+`/cmd/operator` is deployment-local operational tooling. Keep it thin; backup inspection, backup creation, restore, and verification behavior belongs under `internal/app` and `internal/modules/*`. The binary name and wrapper scripts are implementation-owned, but command wiring should expose or alias the Core 01 logical recovery commands `operator backup inspect latest`, `operator backup create`, `operator restore latest`, `operator restore-verify latest`, and `operator restore-verify due`.
 
 ### 5.2 Platform layer
 
@@ -1247,6 +1247,28 @@ The implementation baseline remains:
 - object-storage snapshot or versioning for blobs and optional generated artifacts,
 - projection tables rebuilt after restore as needed,
 - backup execution, restore execution, and restore verification remain deployment-local operator-facing concerns; the current profile defines no public `/api/v1/backups*`, `/api/v1/restores*`, or `/api/v1/restore-verifications*` route family and no workbook-surface equivalent.
+
+The recovery operator binary is local-process tooling, not an application route. Do not require browser sessions, incident roles, CSRF material, or `deployment_admin` to invoke it. Admission should depend on local OS execution permission plus access to the effective deployment configuration, target configuration where required, and recovery secret references. Logs, stdout, stderr, journals, and audit summaries must use the Core 04 safe-output boundary.
+
+Command wiring should normalize implementation-owned aliases to the logical commands owned by Core 01:
+
+| Logical command | Implementation note |
+| --- | --- |
+| `operator backup inspect latest` | Reads effective source config and validates the latest successful retained backup before reporting it. |
+| `operator backup create` | Creates one candidate `backup_set`; compatibility aliases such as older `backup capture` commands should map here if retained. |
+| `operator restore latest` | Requires an absolute `--target-config-file` and exact `--confirm-backup-set-id`. |
+| `operator restore-verify latest` | Requires an absolute `--target-config-file` for an isolated verification target. |
+| `operator restore-verify due` | Uses the same target-config handling and verifies due backups in owner-defined order. |
+
+CLI output handling should be strict:
+
+- stdout is reserved for exactly one final `cartulary.operator_recovery_result.v1` JSON object plus LF;
+- successful human-readable logs go to structured logs or stderr, never stdout;
+- `--progress=jsonl` emits `cartulary.operator_recovery_progress.v1` records to stderr only;
+- exit codes map to `0` for success or no-op, `2` for invalid invocation or local config, `3` for admission/secret/artifact/preflight failure, and `4` for admitted operation failure or timeout;
+- subprocess helpers must propagate context cancellation, timeout, terminal errors, and the safe operator error code rather than printing raw backend command lines with DSNs, object keys, hosts, or secret references.
+
+Deployment examples should keep source and target configs physically distinct. Restore and verification targets should use fresh database and object-store bindings, explicit target markers, and service-manager or deployment-local checks proving target listeners are not serving traffic before mutation. A timed-out target remains not-ready and should be reinitialized, not retried in place.
 
 Operational backup baseline:
 

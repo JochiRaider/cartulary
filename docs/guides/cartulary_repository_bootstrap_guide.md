@@ -193,7 +193,7 @@ Recommended first compile target:
 
 - `cmd/server/main.go` boots config loading, logger creation, Postgres wiring, object-store wiring, and HTTP route registration.
 - `cmd/migrate/main.go` loads config, opens Postgres, and applies `goose` migrations.
-- `cmd/operator/main.go` stays thin and delegates recovery inspection/control to application and module code.
+- `cmd/operator/main.go` stays thin and delegates recovery inspection/control to application and module code. Operator recovery invocation is local-process tooling authorized by OS execution permission plus deployment-local configuration and recovery secret access, not by browser sessions or `deployment_admin`.
 - all three binaries compile before any domain module is implemented.
 
 ## 7. Step 4: pin the backend dependency baseline

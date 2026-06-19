@@ -428,6 +428,33 @@ Illustrative restore-drill checklist:
 
 Arbitrary cross-store point-in-time restore to an operator-supplied timestamp is future scope rather than a base requirement. The current profile standardizes coherent restore of retained `backup_set` objects. That keeps the contract portable across filesystem, snapshot, and managed-service realizations without forcing one vendor-specific PITR mechanism.
 
+Illustrative recovery trust boundary and configuration flow:
+
+```mermaid
+flowchart LR
+    Operator["Local operator process"] --> SourceCfg["Effective source deployment config"]
+    Operator --> TargetCfg["Target config file for restore or verification"]
+    Operator --> Secrets["Recovery secret references"]
+    SourceCfg --> SourceDB["Source Postgres binding"]
+    SourceCfg --> SourceObj["Source object-store binding"]
+    SourceCfg --> BackupRoot["Backup storage binding"]
+    TargetCfg --> TargetDB["Fresh target Postgres binding"]
+    TargetCfg --> TargetObj["Fresh target object namespace"]
+    TargetCfg --> TargetMarker["Restore or verification target marker"]
+    Secrets --> BackupRoot
+    BackupRoot --> Operator
+    Operator --> TargetDB
+    Operator --> TargetObj
+    Operator --> Journal["Encrypted append-only recovery journal"]
+    TargetDB --> SafeAudit["Safe admin-audit summary after writable DB exists"]
+    Browser["Browser session"] -. no path .- Operator
+    PublicAPI["/api/v1 and /ws/v1"] -. no path .- Operator
+    IncidentRole["Incident role"] -. no path .- Operator
+    DeploymentAdmin["deployment_admin"] -. no path .- Operator
+```
+
+In this model, possession of local execution permission plus access to the required configuration and recovery secret references is the recovery boundary. Browser sessions, incident roles, and deployment-admin application state do not authorize recovery operations.
+
 - **Portability**: the exploratory source treated whole-incident export/import as a manifest plus NDJSON/CSV plus referenced blobs archive. Portability bundles remained distinct from retained `backup_set` recovery artifacts.
 - **Failure modes**:
   - App container down: sessions drop, no data loss.

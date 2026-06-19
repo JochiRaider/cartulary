@@ -520,6 +520,114 @@ sequenceDiagram
 
 The bootstrap-created user's first login then follows the existing TOTP setup flow in **3A. First login requiring TOTP setup** unchanged.
 
+### 3.0A Deployment-local recovery operator sequences
+
+These examples are illustrative only. Core 01 §12.2.1 owns the logical command grammar, output schemas, timeout rules, exit codes, and operator error vocabulary. Core 04 §2 owns local operator authorization, target preflight, redaction, recovery journal, and safe administrative-audit requirements.
+
+Inspect the latest retained backup:
+
+```mermaid
+sequenceDiagram
+    participant Op as Local operator
+    participant CLI as Recovery CLI process
+    participant Cfg as Effective source config
+    participant Backup as Backup storage
+    participant Out as Stdout JSON
+
+    Op->>CLI: operator backup inspect latest
+    CLI->>Cfg: load source deployment config
+    CLI->>Backup: select latest retained backup_set
+    CLI->>Backup: verify artifacts and integrity proofs
+    CLI->>Out: cartulary.operator_recovery_result.v1
+```
+
+Create one backup candidate:
+
+```mermaid
+sequenceDiagram
+    participant Op as Local operator
+    participant CLI as Recovery CLI process
+    participant SrcDB as Source Postgres
+    participant SrcObj as Source object store
+    participant Backup as Backup storage
+    participant Journal as Encrypted journal
+
+    Op->>CLI: operator backup create
+    CLI->>SrcDB: capture structured restore artifact or anchor
+    CLI->>SrcObj: capture object-store restore artifact or anchor
+    CLI->>Backup: write backup_set artifacts and attestation
+    CLI->>Journal: append admission and terminal records
+    CLI-->>Op: final JSON result
+```
+
+Restore latest with confirmation:
+
+```mermaid
+sequenceDiagram
+    participant Op as Local operator
+    participant CLI as Recovery CLI process
+    participant Backup as Backup storage
+    participant Target as Fresh target
+    participant Journal as Encrypted journal
+    participant Audit as Safe admin audit
+
+    Op->>CLI: operator restore latest --target-config-file ... --confirm-backup-set-id ...
+    CLI->>Backup: select latest successful retained backup_set
+    CLI->>CLI: compare selected id to confirmation id
+    CLI->>Target: preflight distinct bindings, freshness, listener state, marker, keys, artifacts
+    CLI->>Target: restore Postgres
+    CLI->>Target: restore object bytes
+    CLI->>Target: rebuild projections and check invariants
+    CLI->>Journal: append terminal recovery record
+    CLI->>Audit: write safe summary once writable
+    CLI-->>Op: final JSON result
+```
+
+Restore verification:
+
+```mermaid
+sequenceDiagram
+    participant Op as Local operator
+    participant CLI as Recovery CLI process
+    participant Backup as Backup storage
+    participant Target as Isolated verification target
+    participant Source as Source metadata
+
+    alt latest
+        Op->>CLI: operator restore-verify latest --target-config-file ...
+        CLI->>Backup: select latest successful retained backup_set
+    else due
+        Op->>CLI: operator restore-verify due --target-config-file ...
+        CLI->>Source: select due backups by age or basis change
+    end
+    CLI->>Target: preflight verification target
+    loop selected backups
+        CLI->>Target: restore, rebuild, invariant check, workbook probe
+        CLI->>Source: update verification state and basis
+    end
+    CLI-->>Op: final JSON result or no_op
+```
+
+Preflight failure and timeout handling:
+
+```mermaid
+sequenceDiagram
+    participant Op as Local operator
+    participant CLI as Recovery CLI process
+    participant Target as Target
+    participant Out as Result JSON
+
+    Op->>CLI: restore or restore-verify command
+    CLI->>Target: preflight before mutation
+    alt unsafe target
+        CLI-->>Out: failed unsafe_restore_target
+    else admitted then timeout
+        CLI->>Target: begin restore mutation
+        CLI-->>Out: failed operation_timed_out
+        CLI->>Target: leave not-ready until reinitialized
+    end
+```
+
 ### 3A. First login requiring TOTP setup
 
 ```mermaid

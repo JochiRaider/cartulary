@@ -177,3 +177,32 @@ Recommended practice:
 - link each actionable lesson to one or more follow-up task requests;
 - close the lesson only when the linked follow-up work is complete or explicitly retired;
 - keep retrospective facilitation style in SOPs or training material rather than embedding it in the product contract.
+
+## 12. Recovery operator runbook guidance
+
+Core 01 and Core 04 own the recovery CLI contract. This section is only operator practice.
+
+Recommended backup inspection practice:
+
+- run `operator backup inspect latest` before any restore or verification drill;
+- copy the exact selected `backup_set_id` from the final JSON result when preparing a real restore;
+- treat a failed inspect result as a recovery readiness issue, not as permission to choose an older timestamp manually.
+
+Recommended restore confirmation practice:
+
+- use `operator restore latest --confirm-backup-set-id <exact-id>` with the ID selected by the latest inspect result;
+- do not substitute an interactive `yes`, a timestamp, a local note, or a guessed backup identifier for the confirmation ID;
+- keep the source and target configuration files visible in the runbook step so an operator can verify they are distinct before invocation.
+
+Recommended restore-verification practice:
+
+- keep an isolated target configuration ready for `operator restore-verify latest` and `operator restore-verify due`;
+- mark verification targets explicitly and keep them outside ordinary traffic-serving paths;
+- treat `restore-verify due` returning `no_op` as a successful cadence check only when the final JSON result is preserved.
+
+Recommended failure recovery:
+
+- if preflight fails with `unsafe_restore_target`, stop and reinitialize the target before retrying;
+- if a restore or verification times out, leave the target not-ready and rebuild it from a fresh database and object namespace before reuse;
+- preserve the final result JSON, any JSONL progress stream, the encrypted recovery journal reference, and the safe administrative-audit summary for incident-independent operational review;
+- do not paste raw DSNs, bucket names, object keys, recovery keys, secret references, or incident content into runbook notes.

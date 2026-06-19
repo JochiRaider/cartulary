@@ -848,8 +848,8 @@ This phase completes deployment-local recovery behavior for the base profile:
 ### 12.10.2 Primary owner sections
 
 - Core 01 §12.1 backup
-- Core 01 §12.2 restore
-- Core 04 §2 deployment-admin authorization boundary
+- Core 01 §12.2 restore and operator recovery CLI contract
+- Core 04 §2 deployment-admin and local operator authorization boundaries
 - Core 04 §6 runtime roots and Core 04 §12.3.3 backup storage binding
 - Core 04 §9.14 additional Base Profile criteria for backup and restore contract
 
@@ -860,7 +860,7 @@ This phase completes deployment-local recovery behavior for the base profile:
 | U-10-01 | Retained `backup_set` metadata uses the exact `verification_state` vocabulary, preserves one coherent `consistency_point_at`, verifies required artifact durability with redacted diagnostics before latest-success classification, and enforces the latest-success plus 30-day retention floors.       | REQ-01-571..REQ-01-574                                                             | AC-398         |
 | U-10-02 | Restore readiness requires selection of exactly one retained `backup_set`, restore of Postgres and object storage from the same declared point, and projection rebuild before the target environment is ready.                                                               | REQ-01-575, REQ-01-423..REQ-01-424, REQ-01-577                                     | AC-399         |
 | U-10-03 | Missing required Postgres or object-storage artifacts, or missing required checksum or integrity proof, fails selected-backup restore before readiness; due restore verification updates `verification_state` and `last_verified_restore_at` only according to the isolated verification result. | REQ-01-576, REQ-01-578                                                             | AC-400, AC-401 |
-| U-10-04 | The public route inventory exposes no `/api/v1/backups*`, `/api/v1/restores*`, or `/api/v1/restore-verifications*` family, any built-in runtime backup, restore, or restore-verification control surface is deployment-local and `deployment_admin`-gated, and recovery CLI invocation is locally authorized outside runtime capability. | REQ-01-570, REQ-04-106                                                             | AC-402         |
+| U-10-04 | The public route inventory exposes no `/api/v1/backups*`, `/api/v1/restores*`, `/api/v1/restore-verifications*`, or matching `/ws/v1/*` family, and no browser, workbook, incident, common-job, HTTP, WebSocket, session, CSRF, Origin, or `deployment_admin` state authorizes recovery CLI invocation. | REQ-01-570, REQ-04-106                                                             | AC-402         |
 | U-10-05 | `roots.backup_storage` is a required persistent runtime root with only the allowed binding kinds, distinct from `roots.export_outputs` and `roots.temporary_work`, and bound to encrypted storage when it carries incident data.                                             | REQ-04-053, REQ-04-058, REQ-04-071..REQ-04-073, REQ-04-076, REQ-04-107..REQ-04-108 | AC-403         |
 
 ### 12.10.4 Integration tests
@@ -877,7 +877,7 @@ This phase completes deployment-local recovery behavior for the base profile:
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | -------------- |
 | E-10-01 | A deployment-local operator can inspect the latest durable successful retained `backup_set` with redacted durability diagnostics, restore the latest durable retained backup, and run due restore verification from a marked isolated target.           | REQ-01-572..REQ-01-573, REQ-01-578                         | AC-398, AC-401 |
 | E-10-02 | Restoring the latest successful retained `backup_set` into a fresh deployment recovers the workbook surface and executes at least one built-in workbook query successfully.                     | REQ-01-575..REQ-01-578                                     | AC-399, AC-401 |
-| E-10-03 | Public `/api/v1/*` and `/ws/v1/*` surfaces expose no backup, restore, or restore-verification families; any built-in runtime backup, restore, or restore-verification operator control remains deployment-local and requires `deployment_admin`; recovery CLI invocation remains locally authorized outside runtime capability. | REQ-01-570, REQ-04-106                                     | AC-402         |
+| E-10-03 | Public `/api/v1/*` and `/ws/v1/*` surfaces expose no backup, restore, restore-verification, or backup-inspection families; no browser, workbook, incident, common-job, HTTP, WebSocket, session, CSRF, Origin, or `deployment_admin` state authorizes recovery CLI invocation. | REQ-01-570, REQ-04-106                                     | AC-402         |
 | E-10-04 | Effective deployment configuration requires `roots.backup_storage` with allowed binding kinds and rejects attempts to satisfy backup storage with export or temporary-work roots.               | REQ-04-058, REQ-04-071..REQ-04-073, REQ-04-107..REQ-04-108 | AC-403         |
 
 ---
