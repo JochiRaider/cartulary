@@ -25,6 +25,9 @@ import {
   savedViewFamilySelector,
   savedViewOptionTestId,
   savedViewSelectorTestId,
+  savedViewSetDefaultButtonTestId,
+  savedViewSetHomeButtonTestId,
+  savedViewStatusTestId,
   surfaceTabTestId,
   systemViewSwitcherMenuTestId,
   systemViewSwitcherOptionTestId,
@@ -188,6 +191,18 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
     "Current incident role: admin",
   );
+  await page
+    .getByTestId(savedViewSetHomeButtonTestId(timelineViewSchemaId))
+    .click();
+  await expect(
+    page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
+  ).toHaveText("Home view updated.");
+  await page
+    .getByTestId(savedViewSetDefaultButtonTestId(timelineViewSchemaId))
+    .click();
+  await expect(
+    page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
+  ).toHaveText("Default view updated.");
   const closedLayout = await readWorkbookLayoutRects(page);
   await openIncidentControls(page);
   const openLayout = await readWorkbookLayoutRects(page);
@@ -205,10 +220,10 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   );
   await expect(page.getByTestId("incident-summary-role")).toHaveText("admin");
   await expect(page.getByTestId("incident-pref-default-sheet-ref")).toHaveText(
-    "Unset",
+    "View schema: Timeline (cartulary.view.timeline.v1)",
   );
   await expect(page.getByTestId("incident-pref-home-sheet-ref")).toHaveText(
-    "Unset",
+    "View schema: Timeline (cartulary.view.timeline.v1)",
   );
 });
 

@@ -142,6 +142,14 @@ describe("WorkbookShell surface selection", () => {
     }>
   >;
   let savedViews: TestSavedViewResource[];
+  let workbookDefaultSheetRef: {
+    kind: "saved_view" | "view_schema";
+    id: string;
+  } | null;
+  let workbookHomeSheetRef: {
+    kind: "saved_view" | "view_schema";
+    id: string;
+  } | null;
   let queryResponseOverride:
     | ((
         viewSchemaId: string,
@@ -177,6 +185,8 @@ describe("WorkbookShell surface selection", () => {
     timelineRows = [];
     genericRowsByView = {};
     savedViews = [];
+    workbookDefaultSheetRef = null;
+    workbookHomeSheetRef = null;
     queryResponseOverride = null;
     startupResponseOverride = null;
     recordPatchResponseOverride = null;
@@ -225,10 +235,20 @@ describe("WorkbookShell surface selection", () => {
           ],
         });
       }
-      if (url.includes("/api/v1/incidents/incident-1/workbook-preferences/")) {
+      if (
+        url.endsWith(
+          "/api/v1/incidents/incident-1/workbook-preferences/default",
+        )
+      ) {
         return successEnvelope({
-          default_sheet_ref: null,
-          home_sheet_ref: null,
+          default_sheet_ref: workbookDefaultSheetRef,
+        });
+      }
+      if (
+        url.endsWith("/api/v1/incidents/incident-1/workbook-preferences/me")
+      ) {
+        return successEnvelope({
+          home_sheet_ref: workbookHomeSheetRef,
         });
       }
       if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
@@ -471,6 +491,15 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("opens incident controls from a menu into a bounded drawer without mounting all controls from the trigger", async () => {
+    workbookDefaultSheetRef = {
+      kind: "view_schema",
+      id: timelineViewSchemaId,
+    };
+    workbookHomeSheetRef = {
+      kind: "saved_view",
+      id: savedViewId,
+    };
+
     render(<WorkbookShell incidentId="incident-1" />);
 
     const trigger = screen.getByTestId(incidentControlsTriggerTestId());
@@ -497,6 +526,12 @@ describe("WorkbookShell surface selection", () => {
     expect(
       (await screen.findByTestId("incident-summary-key")).textContent,
     ).toBe("IR-1");
+    expect(
+      screen.getByTestId("incident-pref-default-sheet-ref").textContent,
+    ).toBe("View schema: Timeline (cartulary.view.timeline.v1)");
+    expect(screen.getByTestId("incident-pref-home-sheet-ref").textContent).toBe(
+      `Saved view: ${savedViewId}`,
+    );
 
     fireEvent.keyDown(panel, { key: "Escape" });
     await waitFor(() => {

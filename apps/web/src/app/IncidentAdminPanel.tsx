@@ -12,6 +12,7 @@ import {
   incidentMembershipRowTestId,
   incidentMembershipVersionTestId,
 } from "@cartulary/ui-contracts";
+import { getViewContract } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -20,6 +21,10 @@ import {
   extractError,
   fetchJSON,
 } from "../services/browserApi";
+import {
+  isWorkbookSheetRef,
+  type WorkbookSheetRef,
+} from "../workbook/models/workbookStartup";
 
 type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
 type MembershipRole = Exclude<IncidentRole, "">;
@@ -45,9 +50,16 @@ type MembershipRecord = {
 };
 
 type WorkbookPreferences = {
-  default_sheet_ref?: string | null;
-  home_sheet_ref?: string | null;
+  default_sheet_ref?: WorkbookSheetRef | null;
+  home_sheet_ref?: WorkbookSheetRef | null;
 };
+
+type PreferenceSlot = {
+  readonly sheetRef: WorkbookSheetRef | null;
+  readonly status: "loading" | "loaded" | "unavailable";
+};
+
+type WorkbookPreferenceField = "default_sheet_ref" | "home_sheet_ref";
 
 type IncidentAdminPanelProps = {
   incidentId: string;
@@ -71,6 +83,64 @@ function displayValue(value: string | null | undefined): string {
   return value && value.trim() !== "" ? value : "Unset";
 }
 
+function unavailablePreferenceSlot(): PreferenceSlot {
+  return { sheetRef: null, status: "unavailable" };
+}
+
+function loadingPreferenceSlot(): PreferenceSlot {
+  return { sheetRef: null, status: "loading" };
+}
+
+function loadedPreferenceSlot(
+  sheetRef: WorkbookSheetRef | null,
+): PreferenceSlot {
+  return { sheetRef, status: "loaded" };
+}
+
+function preferenceSlotFromPayload(
+  payload: unknown,
+  field: WorkbookPreferenceField,
+): PreferenceSlot {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return unavailablePreferenceSlot();
+  }
+  const data = (payload as { readonly data?: unknown }).data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return unavailablePreferenceSlot();
+  }
+  const record = data as Record<string, unknown>;
+  if (!Object.hasOwn(record, field)) {
+    return unavailablePreferenceSlot();
+  }
+  const value = record[field];
+  if (value === null) {
+    return loadedPreferenceSlot(null);
+  }
+  if (isWorkbookSheetRef(value)) {
+    return loadedPreferenceSlot({ ...value });
+  }
+  return unavailablePreferenceSlot();
+}
+
+function formatWorkbookSheetRef(slot: PreferenceSlot): string {
+  if (slot.status === "loading") {
+    return "Loading…";
+  }
+  if (slot.status === "unavailable") {
+    return "Unavailable";
+  }
+  const sheetRef = slot.sheetRef;
+  if (sheetRef === null) {
+    return "Unset";
+  }
+  if (sheetRef.kind === "view_schema") {
+    const contract = getViewContract(sheetRef.id);
+    const label = contract?.title ?? sheetRef.id;
+    return `View schema: ${label} (${sheetRef.id})`;
+  }
+  return `Saved view: ${sheetRef.id}`;
+}
+
 function upsertMembershipRoleDrafts(records: MembershipRecord[]) {
   return Object.fromEntries(
     records.map((record) => [record.user_id, record.role]),
@@ -88,10 +158,12 @@ export function IncidentAdminPanel({
 }: IncidentAdminPanelProps) {
   const [incident, setIncident] = useState<IncidentSummary | null>(null);
   const [memberships, setMemberships] = useState<MembershipRecord[]>([]);
-  const [defaultPrefs, setDefaultPrefs] = useState<WorkbookPreferences | null>(
-    null,
+  const [defaultPreference, setDefaultPreference] = useState<PreferenceSlot>(
+    loadingPreferenceSlot,
   );
-  const [userPrefs, setUserPrefs] = useState<WorkbookPreferences | null>(null);
+  const [userPreference, setUserPreference] = useState<PreferenceSlot>(
+    loadingPreferenceSlot,
+  );
   const [patchTLP, setPatchTLP] = useState("");
   const [patchCurrentPhase, setPatchCurrentPhase] = useState("");
   const [patchExternalCase, setPatchExternalCase] = useState("");
@@ -113,30 +185,50 @@ export function IncidentAdminPanel({
   }, [onSessionRoleChange]);
 
   const loadIncidentSurface = useCallback(async () => {
+    setStatusText("Loading incident controls…");
+    if (activeSection === "summary") {
+      setDefaultPreference(loadingPreferenceSlot());
+      setUserPreference(loadingPreferenceSlot());
+    }
+
+    const incidentRequest = fetchJSON<{ data: IncidentSummary }>(
+      apiPath(apiBase, `/api/v1/incidents/${incidentId}`),
+    );
+    const membershipsRequest =
+      activeSection === "memberships"
+        ? fetchJSON<{ data: { memberships: MembershipRecord[] } }>(
+            apiPath(apiBase, `/api/v1/incidents/${incidentId}/memberships`),
+          )
+        : Promise.resolve(null);
+    const defaultPrefsRequest =
+      activeSection === "summary"
+        ? fetchJSON<{ data: WorkbookPreferences }>(
+            apiPath(
+              apiBase,
+              `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
+            ),
+          )
+        : Promise.resolve(null);
+    const userPrefsRequest =
+      activeSection === "summary"
+        ? fetchJSON<{ data: WorkbookPreferences }>(
+            apiPath(
+              apiBase,
+              `/api/v1/incidents/${incidentId}/workbook-preferences/me`,
+            ),
+          )
+        : Promise.resolve(null);
+
     const [
       incidentResult,
       membershipsResult,
       defaultPrefsResult,
       userPrefsResult,
     ] = await Promise.all([
-      fetchJSON<{ data: IncidentSummary }>(
-        apiPath(apiBase, `/api/v1/incidents/${incidentId}`),
-      ),
-      fetchJSON<{ data: { memberships: MembershipRecord[] } }>(
-        apiPath(apiBase, `/api/v1/incidents/${incidentId}/memberships`),
-      ),
-      fetchJSON<{ data: WorkbookPreferences }>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
-        ),
-      ),
-      fetchJSON<{ data: WorkbookPreferences }>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/workbook-preferences/me`,
-        ),
-      ),
+      incidentRequest,
+      membershipsRequest,
+      defaultPrefsRequest,
+      userPrefsRequest,
     ]);
 
     if (!incidentResult.ok) {
@@ -144,8 +236,9 @@ export function IncidentAdminPanel({
       setError(incidentError);
       setIncident(null);
       setMemberships([]);
-      setDefaultPrefs(null);
-      setUserPrefs(null);
+      setMembershipRoleDrafts({});
+      setDefaultPreference(unavailablePreferenceSlot());
+      setUserPreference(unavailablePreferenceSlot());
       setStatusText("Incident controls unavailable.");
       if (
         incidentError?.code === "incident_not_found" ||
@@ -164,32 +257,56 @@ export function IncidentAdminPanel({
     setPatchCurrentPhase(nextIncident.current_phase ?? "");
     setPatchExternalCase(nextIncident.primary_external_case_ref ?? "");
 
-    if (membershipsResult.ok) {
-      const nextMemberships = (
-        membershipsResult.payload as {
-          data: { memberships: MembershipRecord[] };
-        }
-      ).data.memberships;
-      setMemberships(nextMemberships);
-      setMembershipRoleDrafts(upsertMembershipRoleDrafts(nextMemberships));
-    } else {
-      setMemberships([]);
-      setMembershipRoleDrafts({});
+    let partialFailure = false;
+
+    if (activeSection === "memberships") {
+      if (membershipsResult?.ok) {
+        const nextMemberships = (
+          membershipsResult.payload as {
+            data: { memberships: MembershipRecord[] };
+          }
+        ).data.memberships;
+        setMemberships(nextMemberships);
+        setMembershipRoleDrafts(upsertMembershipRoleDrafts(nextMemberships));
+      } else {
+        partialFailure = true;
+        setMemberships([]);
+        setMembershipRoleDrafts({});
+      }
     }
 
-    setDefaultPrefs(
-      defaultPrefsResult.ok
-        ? (defaultPrefsResult.payload as { data: WorkbookPreferences }).data
-        : null,
-    );
-    setUserPrefs(
-      userPrefsResult.ok
-        ? (userPrefsResult.payload as { data: WorkbookPreferences }).data
-        : null,
-    );
+    if (activeSection === "summary") {
+      const nextDefaultPreference = defaultPrefsResult?.ok
+        ? preferenceSlotFromPayload(
+            defaultPrefsResult.payload,
+            "default_sheet_ref",
+          )
+        : unavailablePreferenceSlot();
+      const nextUserPreference = userPrefsResult?.ok
+        ? preferenceSlotFromPayload(userPrefsResult.payload, "home_sheet_ref")
+        : unavailablePreferenceSlot();
+      setDefaultPreference(nextDefaultPreference);
+      setUserPreference(nextUserPreference);
+      partialFailure =
+        nextDefaultPreference.status === "unavailable" ||
+        nextUserPreference.status === "unavailable";
+    }
+
     setError(null);
-    setStatusText("Incident controls synced.");
-  }, [apiBase, incidentId, onIncidentAccessLost, onIncidentSnapshot]);
+    setStatusText(
+      partialFailure
+        ? activeSection === "summary"
+          ? "Incident summary synced; workbook preferences unavailable."
+          : "Incident controls synced; memberships unavailable."
+        : "Incident controls synced.",
+    );
+  }, [
+    activeSection,
+    apiBase,
+    incidentId,
+    onIncidentAccessLost,
+    onIncidentSnapshot,
+  ]);
 
   useEffect(() => {
     void loadIncidentSurface();
@@ -359,9 +476,9 @@ export function IncidentAdminPanel({
         <div style={gridStyle}>
           {renderIncidentSummary({
             currentIncidentRole,
-            defaultPrefs,
+            defaultPreference,
             incident,
-            userPrefs,
+            userPreference,
           })}
         </div>
       ) : null}
@@ -606,14 +723,14 @@ const incidentControlsSectionMeta = {
 
 function renderIncidentSummary({
   currentIncidentRole,
-  defaultPrefs,
+  defaultPreference,
   incident,
-  userPrefs,
+  userPreference,
 }: {
   readonly currentIncidentRole: IncidentRole | null;
-  readonly defaultPrefs: WorkbookPreferences | null;
+  readonly defaultPreference: PreferenceSlot;
   readonly incident: IncidentSummary | null;
-  readonly userPrefs: WorkbookPreferences | null;
+  readonly userPreference: PreferenceSlot;
 }) {
   return (
     <>
@@ -689,13 +806,13 @@ function renderIncidentSummary({
               data-testid="incident-pref-default-sheet-ref"
               style={valueStyle}
             >
-              {displayValue(defaultPrefs?.default_sheet_ref)}
+              {formatWorkbookSheetRef(defaultPreference)}
             </dd>
           </div>
           <div>
             <dt style={labelStyle}>My home sheet</dt>
             <dd data-testid="incident-pref-home-sheet-ref" style={valueStyle}>
-              {displayValue(userPrefs?.home_sheet_ref)}
+              {formatWorkbookSheetRef(userPreference)}
             </dd>
           </div>
         </dl>

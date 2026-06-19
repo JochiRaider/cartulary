@@ -104,6 +104,7 @@ describe("IncidentAdminPanel", () => {
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
+    await screen.findByTestId(incidentMembershipRoleDisplayTestId("user-2"));
     expect(
       screen.queryByTestId(incidentMembershipCreateButtonTestId()),
     ).toBeNull();
@@ -148,6 +149,7 @@ describe("IncidentAdminPanel", () => {
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
+    await screen.findByTestId(incidentMembershipPatchButtonTestId("user-2"));
     expect(
       screen.getByTestId(incidentMembershipCreateButtonTestId()),
     ).toBeTruthy();
@@ -182,6 +184,162 @@ describe("IncidentAdminPanel", () => {
     await waitFor(() => {
       expect(onIncidentAccessLost).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("renders null and view-schema workbook preference sheet refs without treating refs as strings", async () => {
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url === "/api/v1/incidents/incident-1") {
+        return Promise.resolve(jsonResponse({ data: incidentSummary() }));
+      }
+      if (url === "/api/v1/incidents/incident-1/workbook-preferences/default") {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              incident_id: "incident-1",
+              default_sheet_ref: null,
+            },
+          }),
+        );
+      }
+      if (url === "/api/v1/incidents/incident-1/workbook-preferences/me") {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              incident_id: "incident-1",
+              user_id: "user-1",
+              home_sheet_ref: {
+                kind: "view_schema",
+                id: "cartulary.view.timeline.v1",
+              },
+            },
+          }),
+        );
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    render(
+      <IncidentAdminPanel
+        activeSection="summary"
+        currentIncidentRole="admin"
+        incidentId="incident-1"
+      />,
+    );
+
+    await screen.findByText("Incident controls synced.");
+    expect(
+      screen.getByTestId("incident-pref-default-sheet-ref").textContent,
+    ).toBe("Unset");
+    expect(screen.getByTestId("incident-pref-home-sheet-ref").textContent).toBe(
+      "View schema: Timeline (cartulary.view.timeline.v1)",
+    );
+  });
+
+  it("renders saved-view workbook preference sheet refs and marks malformed refs unavailable", async () => {
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url === "/api/v1/incidents/incident-1") {
+        return Promise.resolve(jsonResponse({ data: incidentSummary() }));
+      }
+      if (url === "/api/v1/incidents/incident-1/workbook-preferences/default") {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              incident_id: "incident-1",
+              default_sheet_ref: {
+                kind: "saved_view",
+                id: "saved-view-1",
+              },
+            },
+          }),
+        );
+      }
+      if (url === "/api/v1/incidents/incident-1/workbook-preferences/me") {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              incident_id: "incident-1",
+              user_id: "user-1",
+              home_sheet_ref: {
+                kind: "legacy_workspace",
+                id: "legacy-1",
+              },
+            },
+          }),
+        );
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    render(
+      <IncidentAdminPanel
+        activeSection="summary"
+        currentIncidentRole="admin"
+        incidentId="incident-1"
+      />,
+    );
+
+    await screen.findByText(
+      "Incident summary synced; workbook preferences unavailable.",
+    );
+    expect(screen.getByTestId("incident-summary-key").textContent).toBe(
+      "IR-201",
+    );
+    expect(
+      screen.getByTestId("incident-pref-default-sheet-ref").textContent,
+    ).toBe("Saved view: saved-view-1");
+    expect(screen.getByTestId("incident-pref-home-sheet-ref").textContent).toBe(
+      "Unavailable",
+    );
+    expect(screen.getByTestId("incident-admin-error-code").textContent).toBe(
+      "",
+    );
+  });
+
+  it("keeps incident summary visible when a workbook preference route fails", async () => {
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url === "/api/v1/incidents/incident-1") {
+        return Promise.resolve(jsonResponse({ data: incidentSummary() }));
+      }
+      if (url === "/api/v1/incidents/incident-1/workbook-preferences/default") {
+        return Promise.resolve(errorResponse("preference_unavailable", 500));
+      }
+      if (url === "/api/v1/incidents/incident-1/workbook-preferences/me") {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              incident_id: "incident-1",
+              user_id: "user-1",
+              home_sheet_ref: null,
+            },
+          }),
+        );
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    render(
+      <IncidentAdminPanel
+        activeSection="summary"
+        currentIncidentRole="admin"
+        incidentId="incident-1"
+      />,
+    );
+
+    await screen.findByText(
+      "Incident summary synced; workbook preferences unavailable.",
+    );
+    expect(screen.getByTestId("incident-summary-title").textContent).toBe(
+      "Incident 201",
+    );
+    expect(
+      screen.getByTestId("incident-pref-default-sheet-ref").textContent,
+    ).toBe("Unavailable");
+    expect(screen.getByTestId("incident-pref-home-sheet-ref").textContent).toBe(
+      "Unset",
+    );
   });
 
   it("Phase 2 U-2-13 ordinary incident shell issues membership create, patch, and delete requests with versioned payloads and refreshes session role after each mutation", async () => {
