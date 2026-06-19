@@ -366,27 +366,34 @@ export const ReferencePackAdminPanel = forwardRef<
       </div>
 
       <div style={uploadRowStyle}>
-        <label style={srOnlyLabelStyle} htmlFor="reference-pack-filter">
-          Filter reference packs
+        <label style={filterFieldStyle} htmlFor="reference-pack-filter">
+          Filter loaded packs
+          <input
+            aria-label="Filter reference packs"
+            id="reference-pack-filter"
+            style={filterInputStyle}
+            value={packFilter}
+            onChange={(event) => {
+              setPackFilter(event.target.value);
+            }}
+            placeholder="Filter loaded packs"
+          />
+          <span style={filterHintStyle}>
+            Local filter over loaded pack versions.
+          </span>
         </label>
-        <input
-          id="reference-pack-filter"
-          style={filterInputStyle}
-          value={packFilter}
-          onChange={(event) => {
-            setPackFilter(event.target.value);
-          }}
-          placeholder="Filter packs"
-        />
-        <input
-          aria-label="Reference pack bundle file"
-          data-testid={referencePackFileInputTestId()}
-          style={fileInputStyle}
-          type="file"
-          onChange={(event) => {
-            setFile(event.currentTarget.files?.[0] ?? null);
-          }}
-        />
+        <label style={filterFieldStyle}>
+          Bundle file
+          <input
+            aria-label="Reference pack bundle file"
+            data-testid={referencePackFileInputTestId()}
+            style={fileInputStyle}
+            type="file"
+            onChange={(event) => {
+              setFile(event.currentTarget.files?.[0] ?? null);
+            }}
+          />
+        </label>
         <button
           data-testid={referencePackImportButtonTestId()}
           type="button"
@@ -439,64 +446,102 @@ export const ReferencePackAdminPanel = forwardRef<
       </div>
 
       <div style={packListStyle}>
-        {visiblePacks.map((pack) => (
-          <div
-            key={`${pack.pack_key}/${pack.pack_version}`}
-            style={packRowStyle}
-            data-testid={referencePackRowTestId(
-              pack.pack_key,
-              pack.pack_version,
-            )}
-          >
-            <label style={packLabelStyle}>
-              <input
-                type="checkbox"
-                checked={selectedKeys.has(pack.pack_key)}
-                onChange={(event) => {
-                  setSelectedKeys((current) => {
-                    const next = new Set(current);
-                    if (event.currentTarget.checked) {
-                      next.add(pack.pack_key);
-                    } else {
-                      next.delete(pack.pack_key);
-                    }
-                    return next;
-                  });
-                }}
-              />
-              <span>
-                {pack.pack_key}@{pack.pack_version}
-              </span>
-            </label>
-            <span>{pack.pack_version_state}</span>
-            <span>{pack.active ? "active" : ""}</span>
-            <button
-              type="button"
-              style={buttonStyle}
-              disabled={pack.active}
-              onClick={() => void runPackAction(pack, "activate")}
-            >
-              Activate
-            </button>
-            <button
-              type="button"
-              style={buttonStyle}
-              onClick={() => void runPackAction(pack, "disable")}
-            >
-              Disable
-            </button>
-            <button
-              type="button"
-              style={buttonStyle}
-              onClick={() => void runPackAction(pack, "reverify")}
-            >
-              Reverify
-            </button>
-          </div>
-        ))}
+        <table style={packTableStyle}>
+          <thead>
+            <tr>
+              <th style={tableHeaderCellStyle}>Pack</th>
+              <th style={tableHeaderCellStyle}>State</th>
+              <th style={tableHeaderCellStyle}>Verification</th>
+              <th style={tableHeaderCellStyle}>Active</th>
+              <th style={tableHeaderActionCellStyle}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visiblePacks.map((pack) => {
+              const canActivate =
+                pack.pack_version_state === "verified_available" &&
+                !pack.active;
+              const canDisable =
+                pack.pack_version_state === "verified_available";
+              const canReverify = pack.pack_version_state !== "staged";
+              return (
+                <tr
+                  key={`${pack.pack_key}/${pack.pack_version}`}
+                  style={packRowStyle}
+                  data-testid={referencePackRowTestId(
+                    pack.pack_key,
+                    pack.pack_version,
+                  )}
+                >
+                  <td style={primaryCellStyle}>
+                    <label style={packLabelStyle}>
+                      <input
+                        type="checkbox"
+                        checked={selectedKeys.has(pack.pack_key)}
+                        onChange={(event) => {
+                          setSelectedKeys((current) => {
+                            const next = new Set(current);
+                            if (event.currentTarget.checked) {
+                              next.add(pack.pack_key);
+                            } else {
+                              next.delete(pack.pack_key);
+                            }
+                            return next;
+                          });
+                        }}
+                      />
+                      <span>
+                        <strong>{pack.pack_key}</strong>
+                        <span style={mutedTextStyle}>
+                          @{pack.pack_version} · {pack.pack_kind}
+                        </span>
+                      </span>
+                    </label>
+                  </td>
+                  <td style={tableCellStyle}>{pack.pack_version_state}</td>
+                  <td style={tableCellStyle}>
+                    {pack.verification_result}
+                    <span style={mutedTextStyle}>
+                      {pack.verification_method}
+                    </span>
+                  </td>
+                  <td style={tableCellStyle}>{pack.active ? "Yes" : "No"}</td>
+                  <td style={tableActionCellStyle}>
+                    <span style={actionButtonsStyle}>
+                      <button
+                        type="button"
+                        style={buttonStyle}
+                        disabled={!canActivate}
+                        onClick={() => void runPackAction(pack, "activate")}
+                      >
+                        Activate
+                      </button>
+                      <button
+                        type="button"
+                        style={buttonStyle}
+                        disabled={!canDisable}
+                        onClick={() => void runPackAction(pack, "disable")}
+                      >
+                        Disable
+                      </button>
+                      <button
+                        type="button"
+                        style={buttonStyle}
+                        disabled={!canReverify}
+                        onClick={() => void runPackAction(pack, "reverify")}
+                      >
+                        Reverify
+                      </button>
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
         {packs.length === 0 ? <p style={emptyStyle}>No packs loaded</p> : null}
         {packs.length > 0 && visiblePacks.length === 0 ? (
-          <p style={emptyStyle}>No packs match this filter</p>
+          <p style={emptyStyle}>No packs match this loaded-data filter</p>
         ) : null}
       </div>
 
@@ -539,22 +584,20 @@ const titleStyle = {
 
 const uploadRowStyle = {
   display: "grid",
-  gridTemplateColumns: "minmax(10rem, 0.7fr) minmax(0, 1fr) auto",
+  gridTemplateColumns: "minmax(14rem, 1fr) minmax(16rem, 1fr) auto",
   gap: "0.75rem",
   marginTop: "1rem",
   minWidth: 0,
+  alignItems: "end",
 };
 
-const srOnlyLabelStyle = {
-  position: "absolute",
-  width: "1px",
-  height: "1px",
-  padding: 0,
-  margin: "-1px",
-  overflow: "hidden",
-  clip: "rect(0, 0, 0, 0)",
-  whiteSpace: "nowrap",
-  border: 0,
+const filterFieldStyle = {
+  display: "grid",
+  gap: "0.35rem",
+  minWidth: 0,
+  color: "var(--ct-colors-ink-muted)",
+  fontSize: "0.82rem",
+  fontWeight: 700,
 } satisfies CSSProperties;
 
 const filterInputStyle = {
@@ -566,6 +609,12 @@ const filterInputStyle = {
   background: "var(--ct-component-text-input-backgroundColor)",
   color: "var(--ct-component-text-input-textColor)",
   padding: "var(--ct-component-text-input-padding)",
+} satisfies CSSProperties;
+
+const filterHintStyle = {
+  color: "var(--ct-colors-ink-subtle)",
+  fontSize: "0.76rem",
+  fontWeight: 400,
 } satisfies CSSProperties;
 
 const fileInputStyle = {
@@ -593,20 +642,23 @@ const jobStyle = {
 };
 
 const packListStyle = {
-  display: "grid",
-  gap: "0.45rem",
   marginTop: "0.75rem",
   minWidth: 0,
+  overflowX: "auto" as const,
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-sm)",
+  background: "var(--ct-colors-surface-1)",
 };
 
+const packTableStyle = {
+  width: "100%",
+  minWidth: "58rem",
+  borderCollapse: "collapse" as const,
+} satisfies CSSProperties;
+
 const packRowStyle = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) auto auto repeat(3, auto)",
-  gap: "0.5rem",
-  alignItems: "center",
-  minHeight: "2.25rem",
+  borderBottom: "var(--ct-border-hairline)",
   fontSize: "0.82rem",
-  minWidth: 0,
 };
 
 const packLabelStyle = {
@@ -615,6 +667,52 @@ const packLabelStyle = {
   gap: "0.4rem",
   minWidth: 0,
 };
+
+const tableHeaderCellStyle = {
+  padding: "0.7rem 0.85rem",
+  borderBottom: "var(--ct-border-hairline)",
+  color: "var(--ct-colors-ink-subtle)",
+  fontSize: "0.68rem",
+  letterSpacing: "0.12em",
+  textTransform: "uppercase" as const,
+  textAlign: "left" as const,
+  whiteSpace: "nowrap" as const,
+} satisfies CSSProperties;
+
+const tableHeaderActionCellStyle = {
+  ...tableHeaderCellStyle,
+  textAlign: "right" as const,
+} satisfies CSSProperties;
+
+const tableCellStyle = {
+  padding: "0.75rem 0.85rem",
+  color: "var(--ct-colors-ink-muted)",
+  verticalAlign: "top" as const,
+} satisfies CSSProperties;
+
+const primaryCellStyle = {
+  ...tableCellStyle,
+  color: "var(--ct-colors-ink)",
+} satisfies CSSProperties;
+
+const tableActionCellStyle = {
+  ...tableCellStyle,
+  textAlign: "right" as const,
+} satisfies CSSProperties;
+
+const actionButtonsStyle = {
+  display: "inline-flex",
+  flexWrap: "wrap" as const,
+  justifyContent: "flex-end",
+  gap: "0.45rem",
+} satisfies CSSProperties;
+
+const mutedTextStyle = {
+  display: "block",
+  color: "var(--ct-colors-ink-subtle)",
+  fontSize: "0.76rem",
+  fontWeight: 400,
+} satisfies CSSProperties;
 
 const buttonStyle = {
   border: "var(--ct-component-button-secondary-border)",

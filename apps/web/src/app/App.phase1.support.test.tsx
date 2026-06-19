@@ -192,9 +192,11 @@ describe("Phase 1 ordinary shell support", () => {
     expect(
       screen.getByTestId(phase1AdminTestId("status")).textContent?.trim(),
     ).not.toBe("");
-    fireEvent.change(screen.getByTestId(phase1AdminTestId("user-filter")), {
+    const userFilter = screen.getByTestId(phase1AdminTestId("user-filter"));
+    fireEvent.change(userFilter, {
       target: { value: "bravo" },
     });
+    fireEvent.keyDown(userFilter, { key: "Enter" });
     await waitFor(() => {
       expect(
         screen.queryByTestId(deploymentUserRowTestId("user-alpha")),
@@ -211,9 +213,10 @@ describe("Phase 1 ordinary shell support", () => {
       ).toBe("user-bravo");
     });
 
-    fireEvent.change(screen.getByTestId(phase1AdminTestId("user-filter")), {
+    fireEvent.change(userFilter, {
       target: { value: "" },
     });
+    fireEvent.keyDown(userFilter, { key: "Enter" });
     await screen.findByTestId(deploymentUserRowTestId("user-alpha"));
     fireEvent.click(screen.getByTestId(phase1AdminTestId("load-more-users")));
     expect(
@@ -257,6 +260,180 @@ describe("Phase 1 ordinary shell support", () => {
     ]) {
       expect(screen.getByTestId(testId)).toBeTruthy();
     }
+    expect(
+      (screen.getByTestId(phase1AdminTestId("reason")) as HTMLInputElement)
+        .value,
+    ).toBe("");
+  });
+
+  it("renders claimed enterprise binding controls only inside the selected-user inspector and calls binding routes", async () => {
+    const loadedUser = userResource({
+      user_id: "user-enterprise",
+      email: "enterprise@example.test",
+      display_name: "Enterprise User",
+      user_version: 5,
+      auth_bindings: [
+        {
+          provider_type: "local",
+          provider_key: "local",
+          username: "enterprise@example.test",
+          created_at: "2026-06-18T12:00:00Z",
+        },
+        {
+          auth_binding_id: "binding-1",
+          provider_type: "oidc",
+          provider_key: "corp-oidc",
+          provider_subject: "subject-1",
+          created_at: "2026-06-18T13:00:00Z",
+          last_auth_at: null,
+        },
+      ],
+    });
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/users?limit=100" && method === "GET") {
+        return Promise.resolve(userListResponse([loadedUser], null, false));
+      }
+      if (url === "/api/v1/auth/providers" && method === "GET") {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              providers: [
+                {
+                  provider_key: "corp-oidc",
+                  provider_type: "oidc",
+                  display_name: "Corporate OIDC",
+                },
+              ],
+            },
+          }),
+        );
+      }
+      if (url === "/api/v1/users/user-enterprise" && method === "GET") {
+        return Promise.resolve(jsonResponse({ data: loadedUser }));
+      }
+      if (
+        url === "/api/v1/users/user-enterprise/auth-bindings" &&
+        method === "POST"
+      ) {
+        return Promise.resolve(
+          jsonResponse({ data: { ...loadedUser, user_version: 6 } }, 201),
+        );
+      }
+      if (
+        url ===
+          "/api/v1/users/user-enterprise/auth-bindings/binding-1/rotate" &&
+        method === "POST"
+      ) {
+        return Promise.resolve(
+          jsonResponse({ data: { ...loadedUser, user_version: 7 } }),
+        );
+      }
+      if (
+        url === "/api/v1/users/user-enterprise/auth-bindings/binding-1" &&
+        method === "DELETE"
+      ) {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              ...loadedUser,
+              user_version: 8,
+              auth_bindings: loadedUser.auth_bindings?.slice(0, 1),
+            },
+          }),
+        );
+      }
+      throw new Error(`unexpected fetch: ${method} ${url}`);
+    });
+
+    render(
+      <Phase1AdminPanel
+        autoLoadUsers
+        enterpriseAuthClaimed
+        onRefreshShell={() => undefined}
+        session={sessionResource({ is_deployment_admin: true })}
+      />,
+    );
+
+    const row = await screen.findByTestId(
+      deploymentUserRowTestId("user-enterprise"),
+    );
+    fireEvent.click(row);
+    await screen.findByText("Subject: subject-1");
+    expect(screen.queryByText(/provider configuration/i)).toBeNull();
+    expect(screen.queryByText(/client secret/i)).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Provider key"), {
+      target: { value: "corp-oidc" },
+    });
+    fireEvent.change(screen.getByLabelText("Provider subject"), {
+      target: { value: "subject-2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create binding" }));
+    await waitFor(() => {
+      expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
+        "Created enterprise auth binding",
+      );
+    });
+
+    fireEvent.change(screen.getByLabelText("New provider subject"), {
+      target: { value: "subject-rotated" },
+    });
+    const bindingReasonInput = screen.getAllByLabelText("Reason").at(-1);
+    if (typeof bindingReasonInput === "undefined") {
+      throw new Error("missing enterprise binding reason input");
+    }
+    fireEvent.change(bindingReasonInput, {
+      target: { value: "identity correction" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Rotate subject" }));
+    await waitFor(() => {
+      expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
+        "Rotated enterprise auth binding",
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Retire binding" }));
+    await waitFor(() => {
+      expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
+        "Retired enterprise auth binding",
+      );
+    });
+
+    expect(
+      jsonRequestBody(
+        fetchMock,
+        "/api/v1/users/user-enterprise/auth-bindings",
+        "POST",
+      ),
+    ).toMatchObject({
+      base_user_version: 5,
+      provider_key: "corp-oidc",
+      provider_subject: "subject-2",
+      reason: "",
+    });
+    expect(
+      jsonRequestBody(
+        fetchMock,
+        "/api/v1/users/user-enterprise/auth-bindings/binding-1/rotate",
+        "POST",
+      ),
+    ).toMatchObject({
+      base_user_version: 6,
+      new_provider_subject: "subject-rotated",
+      reason: "identity correction",
+    });
+    expect(
+      jsonRequestBody(
+        fetchMock,
+        "/api/v1/users/user-enterprise/auth-bindings/binding-1",
+        "DELETE",
+      ),
+    ).toMatchObject({
+      base_user_version: 7,
+      reason: "identity correction",
+    });
   });
 });
 
@@ -282,6 +459,25 @@ function installAnonymousSessionRequiredFetch(
     }
     throw new Error(`unexpected fetch: ${String(input)}`);
   });
+}
+
+function jsonRequestBody(
+  fetchMock: ReturnType<typeof vi.fn>,
+  url: string,
+  method: string,
+) {
+  const call = fetchMock.mock.calls.find(([input, init]) => {
+    const requestMethod = (init?.method ?? "GET").toUpperCase();
+    return String(input) === url && requestMethod === method;
+  });
+  if (typeof call === "undefined") {
+    throw new Error(`missing request: ${method} ${url}`);
+  }
+  const body = call[1]?.body;
+  if (typeof body !== "string") {
+    throw new Error(`missing JSON body: ${method} ${url}`);
+  }
+  return JSON.parse(body) as Record<string, unknown>;
 }
 
 function userResource(overrides: Partial<UserResource>): UserResource {

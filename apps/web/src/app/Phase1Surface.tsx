@@ -30,6 +30,7 @@ import {
   type CredentialState,
   changePassword,
   completeTotpEnrollment,
+  createEnterpriseAuthBinding,
   createLocalUser,
   type EnterpriseAuthProvider,
   listEnterpriseAuthProviders,
@@ -38,6 +39,8 @@ import {
   loginLocal,
   logoutCurrentSession,
   patchLocalUser,
+  retireEnterpriseAuthBinding,
+  rotateEnterpriseAuthBinding,
   type SessionData,
   type UserListEnvelope,
   type UserResource,
@@ -70,6 +73,7 @@ type Phase1AccountPanelProps = {
 
 type Phase1AdminPanelProps = {
   autoLoadUsers?: boolean | undefined;
+  enterpriseAuthClaimed?: boolean | undefined;
   onCommandStateChange?:
     | ((state: Phase1AdminPanelCommandState) => void)
     | undefined;
@@ -103,6 +107,20 @@ export type Phase1AdminPanelCommandState = {
 type TargetAdminOperation = "loading" | "mutating";
 
 type AuthChallengeState = "mfa_required" | "mfa_setup_required";
+
+type SafeAuthBindingSummary = NonNullable<
+  UserResource["auth_bindings"]
+>[number];
+type EnterpriseAuthBindingSummary = Extract<
+  SafeAuthBindingSummary,
+  { provider_type: "oidc" | "saml" }
+>;
+
+function isEnterpriseAuthBinding(
+  binding: SafeAuthBindingSummary,
+): binding is EnterpriseAuthBindingSummary {
+  return binding.provider_type !== "local";
+}
 
 let enterpriseAuthNavigate = (redirectURL: string) => {
   window.location.assign(redirectURL);
@@ -967,7 +985,13 @@ export const Phase1AdminPanel = forwardRef<
   Phase1AdminPanelHandle,
   Phase1AdminPanelProps
 >(function Phase1AdminPanel(
-  { autoLoadUsers = false, onCommandStateChange, onRefreshShell, session },
+  {
+    autoLoadUsers = false,
+    enterpriseAuthClaimed = false,
+    onCommandStateChange,
+    onRefreshShell,
+    session,
+  },
   ref,
 ) {
   const [statusText, setStatusText] = useState(
@@ -998,7 +1022,15 @@ export const Phase1AdminPanel = forwardRef<
   const [patchIsActive, setPatchIsActive] = useState(true);
   const [patchIsDeploymentAdmin, setPatchIsDeploymentAdmin] = useState(false);
   const [adminNewPassword, setAdminNewPassword] = useState("");
-  const [adminReason, setAdminReason] = useState("ordinary admin action");
+  const [adminReason, setAdminReason] = useState("");
+  const [enterpriseProviders, setEnterpriseProviders] = useState<
+    EnterpriseAuthProvider[]
+  >([]);
+  const [bindingProviderKey, setBindingProviderKey] = useState("");
+  const [bindingProviderSubject, setBindingProviderSubject] = useState("");
+  const [bindingTargetID, setBindingTargetID] = useState("");
+  const [bindingNewSubject, setBindingNewSubject] = useState("");
+  const [bindingReason, setBindingReason] = useState("");
   const [targetAdminOperation, setTargetAdminOperation] =
     useState<TargetAdminOperation | null>(null);
   const targetAdminOperationRef = useRef<{
@@ -1006,6 +1038,9 @@ export const Phase1AdminPanel = forwardRef<
     kind: TargetAdminOperation;
   } | null>(null);
   const nextTargetAdminOperationID = useRef(0);
+  const userListRequestIDRef = useRef(0);
+  const userFiltersTouchedRef = useRef(false);
+  const autoLoadUsersStartedRef = useRef(false);
 
   const targetOperationPending = targetAdminOperation !== null;
   const loadedTargetIsCurrent = selectedUser !== null;
@@ -1068,9 +1103,14 @@ export const Phase1AdminPanel = forwardRef<
     setPatchMfaRequired(true);
     setPatchIsActive(true);
     setPatchIsDeploymentAdmin(false);
+    setBindingTargetID("");
+    setBindingNewSubject("");
   }
 
   function applySelectedUser(user: UserResource) {
+    const firstEnterpriseBinding = user.auth_bindings?.find(
+      isEnterpriseAuthBinding,
+    );
     setSelectedUser(user);
     setUsers((current) => upsertUserResource(current, user));
     setTargetUserId(user.user_id);
@@ -1080,13 +1120,25 @@ export const Phase1AdminPanel = forwardRef<
     setPatchMfaRequired(user.mfa_required);
     setPatchIsActive(user.is_active);
     setPatchIsDeploymentAdmin(user.is_deployment_admin);
+    setBindingTargetID(firstEnterpriseBinding?.auth_binding_id ?? "");
+    setBindingNewSubject("");
   }
 
   const refreshUsers = useCallback(async () => {
     if (!session.is_deployment_admin) {
       return;
     }
-    setStatusText("Refreshing deployment users");
+    const requestID = userListRequestIDRef.current + 1;
+    userListRequestIDRef.current = requestID;
+    const filterActive =
+      userFilter.trim() !== "" ||
+      userActiveFilter !== "all" ||
+      userAdminFilter !== "all";
+    setStatusText(
+      filterActive
+        ? "Searching deployment users"
+        : "Refreshing deployment users",
+    );
     setError(null);
     const result = await listUsers({
       limit: 100,
@@ -1095,12 +1147,12 @@ export const Phase1AdminPanel = forwardRef<
       isDeploymentAdmin:
         userAdminFilter === "all" ? null : userAdminFilter === "true",
     });
+    if (userListRequestIDRef.current !== requestID) {
+      return;
+    }
     const nextError = extractError(result.payload);
     setError(nextError);
     if (!result.ok) {
-      setUsers([]);
-      setUsersNextCursor(null);
-      setUsersHasMore(false);
       setStatusText("Deployment users unavailable");
       return;
     }
@@ -1108,6 +1160,7 @@ export const Phase1AdminPanel = forwardRef<
     setUsers(payload.data.users);
     setUsersNextCursor(payload.meta.paging.next_cursor);
     setUsersHasMore(payload.meta.paging.has_more);
+    userFiltersTouchedRef.current = false;
     setStatusText("Deployment users loaded");
   }, [
     session.is_deployment_admin,
@@ -1152,10 +1205,58 @@ export const Phase1AdminPanel = forwardRef<
 
   useEffect(() => {
     if (!autoLoadUsers || !session.is_deployment_admin) {
+      autoLoadUsersStartedRef.current = false;
       return;
     }
+    if (autoLoadUsersStartedRef.current) {
+      return;
+    }
+    autoLoadUsersStartedRef.current = true;
     void refreshUsers();
   }, [autoLoadUsers, refreshUsers, session.is_deployment_admin]);
+
+  useEffect(() => {
+    if (
+      !autoLoadUsers ||
+      !session.is_deployment_admin ||
+      !userFiltersTouchedRef.current
+    ) {
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      void refreshUsers();
+    }, 180);
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [autoLoadUsers, refreshUsers, session.is_deployment_admin]);
+
+  useEffect(() => {
+    if (!session.is_deployment_admin || !enterpriseAuthClaimed) {
+      setEnterpriseProviders([]);
+      return;
+    }
+    const controller = new AbortController();
+    void (async () => {
+      const result = await listEnterpriseAuthProviders({
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) {
+        return;
+      }
+      if (!result.ok) {
+        setEnterpriseProviders([]);
+        return;
+      }
+      const data = (
+        result.payload as { data: { providers: EnterpriseAuthProvider[] } }
+      ).data;
+      setEnterpriseProviders(data.providers);
+    })();
+    return () => {
+      controller.abort();
+    };
+  }, [enterpriseAuthClaimed, session.is_deployment_admin]);
 
   async function loadSelectedUser(
     userId: string,
@@ -1398,6 +1499,145 @@ export const Phase1AdminPanel = forwardRef<
     }
   }
 
+  async function handleCreateEnterpriseBinding() {
+    if (!canSubmitVersionedTargetAction || selectedUser === null) {
+      return;
+    }
+    const providerKey = bindingProviderKey.trim();
+    const providerSubject = bindingProviderSubject.trim();
+    if (providerKey === "" || providerSubject === "") {
+      setStatusText("Provider key and provider subject are required.");
+      return;
+    }
+    const operationID = beginTargetAdminOperation("mutating");
+    if (operationID === null) {
+      return;
+    }
+    setStatusText("Creating enterprise auth binding");
+    setError(null);
+
+    try {
+      const result = await createEnterpriseAuthBinding({
+        userId: selectedUser.user_id,
+        baseUserVersion: parsedTargetBaseVersion,
+        providerKey,
+        providerSubject,
+        reason: bindingReason,
+      });
+      if (!isCurrentTargetAdminOperation(operationID)) {
+        return;
+      }
+
+      const nextError = extractError(result.payload);
+      setError(nextError);
+      if (!result.ok) {
+        setStatusText("Create enterprise auth binding failed");
+        return;
+      }
+
+      const user = (result.payload as { data: UserResource }).data;
+      applySelectedUser(user);
+      setBindingProviderSubject("");
+      setStatusText("Created enterprise auth binding");
+      setError(null);
+      await onRefreshShell();
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
+  }
+
+  async function handleRotateEnterpriseBinding() {
+    if (
+      !canSubmitVersionedTargetAction ||
+      selectedUser === null ||
+      bindingTargetID.trim() === ""
+    ) {
+      return;
+    }
+    const newProviderSubject = bindingNewSubject.trim();
+    if (newProviderSubject === "") {
+      setStatusText("New provider subject is required.");
+      return;
+    }
+    const operationID = beginTargetAdminOperation("mutating");
+    if (operationID === null) {
+      return;
+    }
+    setStatusText("Rotating enterprise auth binding");
+    setError(null);
+
+    try {
+      const result = await rotateEnterpriseAuthBinding({
+        userId: selectedUser.user_id,
+        authBindingId: bindingTargetID.trim(),
+        baseUserVersion: parsedTargetBaseVersion,
+        newProviderSubject,
+        reason: bindingReason,
+      });
+      if (!isCurrentTargetAdminOperation(operationID)) {
+        return;
+      }
+
+      const nextError = extractError(result.payload);
+      setError(nextError);
+      if (!result.ok) {
+        setStatusText("Rotate enterprise auth binding failed");
+        return;
+      }
+
+      const user = (result.payload as { data: UserResource }).data;
+      applySelectedUser(user);
+      setStatusText("Rotated enterprise auth binding");
+      setError(null);
+      await onRefreshShell();
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
+  }
+
+  async function handleRetireEnterpriseBinding() {
+    if (
+      !canSubmitVersionedTargetAction ||
+      selectedUser === null ||
+      bindingTargetID.trim() === ""
+    ) {
+      return;
+    }
+    const operationID = beginTargetAdminOperation("mutating");
+    if (operationID === null) {
+      return;
+    }
+    setStatusText("Retiring enterprise auth binding");
+    setError(null);
+
+    try {
+      const result = await retireEnterpriseAuthBinding({
+        userId: selectedUser.user_id,
+        authBindingId: bindingTargetID.trim(),
+        baseUserVersion: parsedTargetBaseVersion,
+        reason: bindingReason,
+      });
+      if (!isCurrentTargetAdminOperation(operationID)) {
+        return;
+      }
+
+      const nextError = extractError(result.payload);
+      setError(nextError);
+      if (!result.ok) {
+        setStatusText("Retire enterprise auth binding failed");
+        return;
+      }
+
+      const user = (result.payload as { data: UserResource }).data;
+      applySelectedUser(user);
+      setStatusText("Retired enterprise auth binding");
+      setError(null);
+      await onRefreshShell();
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
+  }
+
   useImperativeHandle(ref, () => ({
     createUser: handleCreateUser,
     loadTargetUser: () => loadSelectedUser(targetUserId),
@@ -1425,6 +1665,13 @@ export const Phase1AdminPanel = forwardRef<
       </section>
     );
   }
+
+  const selectedEnterpriseBindings =
+    selectedUser?.auth_bindings?.filter(isEnterpriseAuthBinding) ?? [];
+  const selectedLocalBindings =
+    selectedUser?.auth_bindings?.filter(
+      (binding) => binding.provider_type === "local",
+    ) ?? [];
 
   return (
     <section style={cardStyle}>
@@ -1463,6 +1710,11 @@ export const Phase1AdminPanel = forwardRef<
             onChange={(event) => {
               setUserFilter(event.target.value);
             }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                void refreshUsers();
+              }
+            }}
             placeholder="Name, email, id, status"
           />
           <div style={checkboxRowStyle}>
@@ -1473,6 +1725,7 @@ export const Phase1AdminPanel = forwardRef<
                 style={inputStyle}
                 value={userActiveFilter}
                 onChange={(event) => {
+                  userFiltersTouchedRef.current = true;
                   setUserActiveFilter(event.target.value);
                 }}
               >
@@ -1490,6 +1743,7 @@ export const Phase1AdminPanel = forwardRef<
                 style={inputStyle}
                 value={userAdminFilter}
                 onChange={(event) => {
+                  userFiltersTouchedRef.current = true;
                   setUserAdminFilter(event.target.value);
                 }}
               >
@@ -1821,6 +2075,196 @@ export const Phase1AdminPanel = forwardRef<
               </button>
             </div>
           </section>
+
+          {enterpriseAuthClaimed ? (
+            <section style={subsectionStyle}>
+              <p style={subsectionTitleStyle}>Enterprise bindings</p>
+              <div style={detailGridStyle}>
+                <div>
+                  <span style={labelStyle}>Local identity</span>
+                  <div style={monoTextStyle}>
+                    {selectedLocalBindings.length === 0
+                      ? "No local binding loaded"
+                      : selectedLocalBindings
+                          .map((binding) =>
+                            binding.provider_type === "local"
+                              ? `${binding.provider_key}: ${binding.username}`
+                              : "",
+                          )
+                          .filter((value) => value !== "")
+                          .join(", ")}
+                  </div>
+                </div>
+                <div>
+                  <span style={labelStyle}>Enterprise bindings</span>
+                  <div style={monoTextStyle}>
+                    {selectedEnterpriseBindings.length}
+                  </div>
+                </div>
+                <div>
+                  <span style={labelStyle}>
+                    Configured providers discovered
+                  </span>
+                  <div style={monoTextStyle}>{enterpriseProviders.length}</div>
+                </div>
+              </div>
+
+              <div style={userListStyle}>
+                {selectedEnterpriseBindings.map((binding) => (
+                  <label
+                    key={binding.auth_binding_id}
+                    style={
+                      bindingTargetID === binding.auth_binding_id
+                        ? selectedUserRowButtonStyle
+                        : userRowButtonStyle
+                    }
+                  >
+                    <span style={checkboxLabelStyle}>
+                      <input
+                        type="radio"
+                        name="enterprise-auth-binding-target"
+                        checked={bindingTargetID === binding.auth_binding_id}
+                        disabled={!canSubmitTargetAction}
+                        onChange={() => {
+                          setBindingTargetID(binding.auth_binding_id);
+                        }}
+                      />
+                      <span style={userRowPrimaryStyle}>
+                        {binding.provider_type.toUpperCase()} ·{" "}
+                        {binding.provider_key}
+                      </span>
+                    </span>
+                    <span style={userRowSecondaryStyle}>
+                      Subject: {binding.provider_subject}
+                    </span>
+                    <span style={userRowMetaStyle}>
+                      Created {binding.created_at}; last authenticated{" "}
+                      {binding.last_auth_at ?? "not recorded"}
+                    </span>
+                  </label>
+                ))}
+                {selectedUser === null ? (
+                  <p style={bodyStyle}>
+                    Select a loaded user before changing enterprise bindings.
+                  </p>
+                ) : selectedEnterpriseBindings.length === 0 ? (
+                  <p style={bodyStyle}>
+                    No enterprise bindings are attached to this user.
+                  </p>
+                ) : null}
+              </div>
+
+              <datalist id="admin-enterprise-provider-options">
+                {enterpriseProviders.map((provider) => (
+                  <option
+                    key={provider.provider_key}
+                    value={provider.provider_key}
+                  >
+                    {provider.display_name} ({provider.provider_type})
+                  </option>
+                ))}
+              </datalist>
+
+              <div style={formGridStyle}>
+                <label
+                  htmlFor="admin-enterprise-provider-key"
+                  style={labelBlockStyle}
+                >
+                  Provider key
+                  <input
+                    id="admin-enterprise-provider-key"
+                    list="admin-enterprise-provider-options"
+                    disabled={!canSubmitTargetAction}
+                    style={inputStyle}
+                    value={bindingProviderKey}
+                    onChange={(event) => {
+                      setBindingProviderKey(event.target.value);
+                    }}
+                  />
+                </label>
+                <label
+                  htmlFor="admin-enterprise-provider-subject"
+                  style={labelBlockStyle}
+                >
+                  Provider subject
+                  <input
+                    id="admin-enterprise-provider-subject"
+                    disabled={!canSubmitTargetAction}
+                    style={inputStyle}
+                    value={bindingProviderSubject}
+                    onChange={(event) => {
+                      setBindingProviderSubject(event.target.value);
+                    }}
+                  />
+                </label>
+                <label
+                  htmlFor="admin-enterprise-new-subject"
+                  style={labelBlockStyle}
+                >
+                  New provider subject
+                  <input
+                    id="admin-enterprise-new-subject"
+                    disabled={!canSubmitTargetAction || bindingTargetID === ""}
+                    style={inputStyle}
+                    value={bindingNewSubject}
+                    onChange={(event) => {
+                      setBindingNewSubject(event.target.value);
+                    }}
+                  />
+                </label>
+                <label
+                  htmlFor="admin-enterprise-binding-reason"
+                  style={labelBlockStyle}
+                >
+                  Reason
+                  <input
+                    id="admin-enterprise-binding-reason"
+                    style={inputStyle}
+                    value={bindingReason}
+                    onChange={(event) => {
+                      setBindingReason(event.target.value);
+                    }}
+                  />
+                </label>
+              </div>
+              <div style={buttonRowStyle}>
+                <button
+                  disabled={!canSubmitVersionedTargetAction}
+                  style={buttonStyle}
+                  type="button"
+                  onClick={() => {
+                    void handleCreateEnterpriseBinding();
+                  }}
+                >
+                  Create binding
+                </button>
+                <button
+                  disabled={
+                    !canSubmitVersionedTargetAction || bindingTargetID === ""
+                  }
+                  style={buttonStyle}
+                  type="button"
+                  onClick={() => {
+                    void handleRotateEnterpriseBinding();
+                  }}
+                >
+                  Rotate subject
+                </button>
+                <button
+                  disabled={
+                    !canSubmitVersionedTargetAction || bindingTargetID === ""
+                  }
+                  style={secondaryButtonStyle}
+                  type="button"
+                  onClick={() => {
+                    void handleRetireEnterpriseBinding();
+                  }}
+                >
+                  Retire binding
+                </button>
+              </div>
+            </section>
+          ) : null}
         </div>
       </div>
 

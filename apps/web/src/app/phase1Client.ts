@@ -45,6 +45,10 @@ export type UserResource = {
   mfa_required: boolean;
   is_deployment_admin: boolean;
   auth_bindings?: AuthBindingSummary[];
+  created_at?: string;
+  updated_at?: string;
+  updated_by_user_id?: string | null;
+  last_login_at?: string | null;
 };
 
 export type AccountProfileResource = {
@@ -534,6 +538,83 @@ export function patchLocalUser(options: {
         mfa_required: options.mfaRequired,
         is_active: options.isActive,
         is_deployment_admin: options.isDeploymentAdmin,
+      }),
+    },
+  );
+}
+
+export function createEnterpriseAuthBinding(options: {
+  apiBase?: string | undefined;
+  baseUserVersion: number;
+  clientTxnId?: string;
+  providerKey: string;
+  providerSubject: string;
+  reason: string;
+  userId: string;
+}) {
+  return fetchJSON<DataEnvelope<UserResource>>(
+    apiPath(options.apiBase, `/api/v1/users/${options.userId}/auth-bindings`),
+    {
+      method: "POST",
+      body: JSON.stringify({
+        base_user_version: options.baseUserVersion,
+        client_txn_id:
+          options.clientTxnId ?? clientTxnID("phase1-ui-auth-binding-create"),
+        provider_key: options.providerKey,
+        provider_subject: options.providerSubject,
+        reason: options.reason,
+      }),
+    },
+  );
+}
+
+export function rotateEnterpriseAuthBinding(options: {
+  apiBase?: string | undefined;
+  authBindingId: string;
+  baseUserVersion: number;
+  clientTxnId?: string;
+  newProviderSubject: string;
+  reason: string;
+  userId: string;
+}) {
+  return fetchJSON<DataEnvelope<UserResource>>(
+    apiPath(
+      options.apiBase,
+      `/api/v1/users/${options.userId}/auth-bindings/${options.authBindingId}/rotate`,
+    ),
+    {
+      method: "POST",
+      body: JSON.stringify({
+        base_user_version: options.baseUserVersion,
+        client_txn_id:
+          options.clientTxnId ?? clientTxnID("phase1-ui-auth-binding-rotate"),
+        new_provider_subject: options.newProviderSubject,
+        reason: options.reason,
+      }),
+    },
+  );
+}
+
+export function retireEnterpriseAuthBinding(options: {
+  apiBase?: string | undefined;
+  authBindingId: string;
+  baseUserVersion: number;
+  clientTxnId?: string;
+  reason: string;
+  userId: string;
+}) {
+  return fetchJSON<DataEnvelope<UserResource>>(
+    apiPath(
+      options.apiBase,
+      `/api/v1/users/${options.userId}/auth-bindings/${options.authBindingId}`,
+    ),
+    {
+      method: "DELETE",
+      body: JSON.stringify({
+        base_user_version: options.baseUserVersion,
+        client_txn_id:
+          options.clientTxnId ?? clientTxnID("phase1-ui-auth-binding-retire"),
+        reason: options.reason,
       }),
     },
   );

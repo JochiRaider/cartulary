@@ -9,6 +9,7 @@ import {
   beginTotpEnrollment,
   changePassword,
   completeTotpEnrollment,
+  createEnterpriseAuthBinding,
   createLocalUser,
   listUsers,
   loadCredentialState,
@@ -17,6 +18,8 @@ import {
   loginLocal,
   logoutCurrentSession,
   patchLocalUser,
+  retireEnterpriseAuthBinding,
+  rotateEnterpriseAuthBinding,
 } from "./phase1Client";
 
 describe("Phase 1 API route boundaries", () => {
@@ -78,6 +81,29 @@ describe("Phase 1 API route boundaries", () => {
       isActive: true,
       isDeploymentAdmin: false,
       mfaRequired: true,
+      userId: "user-2",
+    });
+    await createEnterpriseAuthBinding({
+      baseUserVersion: 8,
+      clientTxnId: "txn-auth-binding-create",
+      providerKey: "corp-oidc",
+      providerSubject: "subject-1",
+      reason: "",
+      userId: "user-2",
+    });
+    await rotateEnterpriseAuthBinding({
+      authBindingId: "binding-1",
+      baseUserVersion: 9,
+      clientTxnId: "txn-auth-binding-rotate",
+      newProviderSubject: "subject-2",
+      reason: "subject rotation",
+      userId: "user-2",
+    });
+    await retireEnterpriseAuthBinding({
+      authBindingId: "binding-1",
+      baseUserVersion: 10,
+      clientTxnId: "txn-auth-binding-retire",
+      reason: "",
       userId: "user-2",
     });
     await adminResetPassword({
@@ -203,6 +229,39 @@ describe("Phase 1 API route boundaries", () => {
         csrfHeader: "session-csrf",
         method: "PATCH",
         url: "/api/v1/users/user-2",
+      },
+      {
+        body: {
+          base_user_version: 8,
+          client_txn_id: "txn-auth-binding-create",
+          provider_key: "corp-oidc",
+          provider_subject: "subject-1",
+          reason: "",
+        },
+        csrfHeader: "session-csrf",
+        method: "POST",
+        url: "/api/v1/users/user-2/auth-bindings",
+      },
+      {
+        body: {
+          base_user_version: 9,
+          client_txn_id: "txn-auth-binding-rotate",
+          new_provider_subject: "subject-2",
+          reason: "subject rotation",
+        },
+        csrfHeader: "session-csrf",
+        method: "POST",
+        url: "/api/v1/users/user-2/auth-bindings/binding-1/rotate",
+      },
+      {
+        body: {
+          base_user_version: 10,
+          client_txn_id: "txn-auth-binding-retire",
+          reason: "",
+        },
+        csrfHeader: "session-csrf",
+        method: "DELETE",
+        url: "/api/v1/users/user-2/auth-bindings/binding-1",
       },
       {
         body: {
