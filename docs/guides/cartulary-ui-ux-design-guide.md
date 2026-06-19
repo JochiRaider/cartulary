@@ -256,6 +256,20 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 
 *Design direction.* Persistent shell chrome and the status strip MUST NOT show incident-level KPIs, time-to-resolution counters, team throughput, external ticket counts, or management dashboard metrics. Those metrics MAY appear inside explicitly opened workbook-native coordination, reporting, or status-review surfaces when otherwise allowed.
 
+### 5.8 Authenticated root landing compositions
+
+*Core behavior.* Core 01 owns authenticated `/` landing selection for every authentication kind. Core 03 owns workbook-startup selection only after Core 01 opens a workbook without an explicit launch `sheet_ref`.
+
+*Design direction.* All rows in the following table inherit `*Design direction.*`; the table describes visible composition only and does not redefine the Core 01 selection algorithm.
+
+| Visible incident state | Landing composition |
+| ---------------------- | ------------------- |
+| Zero visible incidents | Remain on `/` with an empty visible-incident directory. Present the ordinary create-incident affordance for an active authenticated account using the same placement and tone as the populated directory action. |
+| Exactly one visible incident | Transition directly into the incident workbook. During bootstrap, show workbook-shell loading structure rather than a directory interstitial. If visibility disappears before bootstrap completes, return to `/` and render the current directory state. |
+| Two or more visible incidents | Remain on `/` with a scan-friendly visible-incident directory. Present stable incident identity, title, status, and updated-time summaries, plus the ordinary create affordance when allowed. |
+
+*Design direction.* Directory sorting, filtering, and presentation memory are directory-display concerns after the directory is shown; they are not incident-selection inputs.
+
 ### Acceptance criteria
 
 - **R2-AC-017:** §5.2 defines primary tabs, the `System views` switcher, optional surfaces, and saved-view placement.
@@ -268,6 +282,7 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 - **R2-AC-024:** The primary slot permits exactly one save-state label.
 - **R2-AC-025:** Overflow uses a same-surface overflow affordance rather than silently dropping messages.
 - **R2-AC-026:** KPI and dashboard metrics are banned from persistent shell chrome but not over-banned from opened coordination or reporting surfaces.
+- **R2-AC-097:** §5.8 defines zero-, one-, and many-incident landing compositions while deferring selection behavior to Core 01.
 
 ## 6. Workbook Surface Model
 
@@ -1117,7 +1132,7 @@ Cell: timeline.summary  B editing
 | Authority              | §2 directly states Core 00 precedence and subordinate implementation-support context.                                         |
 | Statement classes      | §§3 through 19 use the four closed markers.                                                                                   |
 | Core restatements      | `*Core behavior.*` paragraphs are descriptive and do not issue guide-owned imperatives.                                       |
-| Shell composition      | §5.2 defines tabs, switcher, ordering, optional surfaces, saved-view placement, keyboard behavior, and rejected alternatives. |
+| Shell composition      | §5.2 defines tabs, switcher, ordering, optional surfaces, saved-view placement, keyboard behavior, and rejected alternatives; §5.8 defines authenticated root landing compositions. |
 | Status strip           | §5.7 defines three slots, priority, overflow, and KPI exclusion boundary.                                                     |
 | `Esc` behavior         | §7.2 and §7.4 define the same priority ladder.                                                                                |
 | Save state             | §7.4 includes replay-paused `Syncing` and presence non-effect.                                                                |
@@ -1149,6 +1164,7 @@ Cell: timeline.summary  B editing
 | P1-1    | P1       | §2, §§3-19                 | Core behavior, Design direction, Baseline context, Later scope | design-direction   | Added closed statement-class grammar and marker scope.                                                           | R2-AC-005..R2-AC-009             |
 | P1-2    | P1       | §5                         | Design direction                                               | design-direction   | Closed shell composition, switcher ordering, keyboard behavior, saved-view placement, and rejected alternatives. | R2-AC-017..R2-AC-022             |
 | P1-3    | P1       | §16                        | Design direction                                               | design-direction   | Added visual-language bounds for chips, conflict, presence, inspector, typography, density, color, and icons.    | R2-AC-073..R2-AC-079             |
+| P1-4    | P1       | §5.8                       | Core behavior, Design direction                                | design-direction   | Added authenticated root landing compositions while deferring selection behavior to Core 01.                     | R2-AC-097                        |
 | P2-1    | P2       | §6                         | Design direction                                               | coherence          | Made §6.2 the only guide-local canonical surface enumeration.                                                    | R2-AC-027..R2-AC-032             |
 | P2-2    | P2       | §11                        | Design direction                                               | coherence          | Reduced coordination section to UX posture and must-not-become guidance.                                         | R2-AC-055..R2-AC-058             |
 | P2-3    | P2       | §14                        | Baseline context                                               | baseline-context   | Reshaped implementation baseline into baseline consequences only.                                                | R2-AC-065..R2-AC-068             |
@@ -1158,7 +1174,7 @@ Cell: timeline.summary  B editing
 | P3-4    | P3       | §15.4                      | Design direction                                               | design-direction   | Added positive-pattern reviewer table.                                                                           | R2-AC-071..R2-AC-072             |
 | P3-5    | P3       | §5.7                       | Design direction                                               | design-direction   | Added numeric status-strip capacity and KPI exclusion boundary.                                                  | R2-AC-023..R2-AC-026             |
 | P4-1    | P4       | Revision 2 editorial audit | N/A                                                            | editorial          | Added temporary normative-voice audit.                                                                           | Verification matrix, audit table |
-| P4-2    | P4       | All acceptance criteria    | N/A                                                            | editorial          | Normalized acceptance-criteria heading and binary style.                                                         | R2-AC-001..R2-AC-096             |
+| P4-2    | P4       | All acceptance criteria    | N/A                                                            | editorial          | Normalized acceptance-criteria heading and binary style.                                                         | R2-AC-001..R2-AC-097             |
 | P4-3    | P4       | Sources                    | N/A                                                            | editorial          | Cleaned citations to load-bearing source groups.                                                                 | Sources block                    |
 | P4-4    | P4       | §§10.2, 14.1, 16.4, 16.7   | Design direction, Baseline context                             | baseline-context   | Added RDG adapter, treegrid/group-row, fixed-height density, and generated-class styling boundaries.             | R2-RDG-AC-001..R2-RDG-AC-010     |
 

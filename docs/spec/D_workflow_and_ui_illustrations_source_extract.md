@@ -416,6 +416,91 @@ sequenceDiagram
 
 This keeps the base profile on an administrator-assisted recovery model while still making first-time MFA enrollment deterministic and interoperable.
 
+### 3A.1 Local login to shared authenticated root landing
+
+This sequence is illustrative only. Core 01 §3.3.2.1A owns the authenticated `/` landing behavior, and Core 03 §2.4 owns workbook-internal startup after a workbook open begins.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant UI as Login and shell UI
+    participant App as App API
+    participant PG as Postgres
+
+    U->>UI: Submit valid local credentials
+    UI->>App: POST /api/v1/auth/login
+    App->>PG: verify local account and MFA state
+    PG-->>App: local account authenticated
+    App-->>UI: authenticated session
+    UI->>UI: Navigate to /
+    UI->>App: Load authenticated root landing
+    App->>PG: evaluate current visible incident collection
+    PG-->>App: visible incident collection
+    alt zero visible incidents
+        App-->>UI: visible directory data is empty
+        UI->>UI: remain on / with empty directory and ordinary create-incident affordance
+    else exactly one visible incident
+        UI->>App: open sole incident workbook with no explicit launch sheet_ref
+        App->>PG: bootstrap workbook and recheck incident visibility
+        alt incident still visible
+            App-->>UI: workbook bootstrap with Core 03 startup selection
+        else incident no longer visible
+            App-->>UI: return to current visible directory
+            UI->>UI: remain on / and render current directory
+        end
+    else two or more visible incidents
+        App-->>UI: visible directory data
+        UI->>UI: remain on / and render visible incident directory
+    end
+```
+
+### 3A.2 Provider login to shared authenticated root landing
+
+This sequence is illustrative only. Provider-specific begin, callback, and ACS mechanics remain owned by Core 01 §20. The `/` branch after session issuance is the shared Base Profile contract in Core 01 §3.3.2.1A; provider claims and `deployment_admin` status do not choose or widen visible incidents.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant UI as Login and shell UI
+    participant App as App API
+    participant IdP as Provider
+    participant PG as Postgres
+
+    U->>UI: Choose enterprise provider
+    UI->>App: POST /api/v1/auth/providers/{provider_key}/begin
+    App->>PG: create single-use auth transaction with return_to or default /
+    PG-->>App: transaction committed
+    App-->>UI: redirect_url
+    UI->>IdP: Browser redirect
+    IdP-->>App: OIDC callback or SAML ACS/complete
+    App->>PG: validate transaction and resolve linked internal user
+    PG-->>App: linked active user
+    App-->>UI: 303 See Other to validated return_to
+    alt return_to is /
+        UI->>App: Load authenticated root landing
+        App->>PG: evaluate current visible incident collection
+        PG-->>App: visible incident collection
+        alt zero visible incidents
+            App-->>UI: visible directory data is empty
+            UI->>UI: remain on / with empty directory and ordinary create-incident affordance
+        else exactly one visible incident
+            UI->>App: open sole incident workbook with no explicit launch sheet_ref
+            App->>PG: bootstrap workbook and recheck incident visibility
+            alt incident still visible
+                App-->>UI: workbook bootstrap with Core 03 startup selection
+            else incident no longer visible
+                App-->>UI: return to current visible directory
+                UI->>UI: remain on / and render current directory
+            end
+        else two or more visible incidents
+            App-->>UI: visible directory data
+            UI->>UI: remain on / and render visible incident directory
+        end
+    else return_to names another validated same-origin surface
+        UI->>UI: Navigate to that surface
+    end
+```
+
 ### 3B. Lost-device recovery through administrator TOTP reset
 
 ```mermaid
