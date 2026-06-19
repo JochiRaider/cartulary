@@ -714,6 +714,18 @@ A client that originated the mutation MUST reconcile against the same echoed `re
 Profiles: base
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-231
 
+#### 4.3.2 Closed incident workbook mode
+
+**REQ-03-287**
+When the incident resource exposes `status='closed'`, the workbook MUST remain visible and readable to current incident members, render a persistent incident-lifecycle state labeled exactly `Closed, read-only`, and treat that lifecycle state as separate from the compact save-state labels defined in §4.2. The client MUST disable or hide authoritative source-state write affordances, including row creation, cell editing, destructive actions, same-field conflict resolution, mention resolution, evidence attachment, and incident metadata patch controls. The client MUST retain read affordances and allowed derived operations, including incident list/get navigation, workbook queries, record history, evidence preview/download, saved views, workbook preferences, and extension-authorized snapshot, report, release, or incident-export actions.
+Profiles: base, snapshot_reporting, incident_portability
+Verified by: AC-424
+
+**REQ-03-288**
+When an in-flight or queued workbook source-state mutation receives `incident_closed` from HTTP replay or the collaboration stream terminates with `error.payload.code = incident_closed`, the client MUST treat the condition as terminal for that queued source-state work, not as a retryable transport outage. Queued or unsent source-state mutations for the closed incident MUST become non-authoritative rejected drafts that MAY remain locally visible and copyable, but they MUST NOT be auto-replayed while the incident is closed and MUST NOT auto-replay after a later successful reopen. After reopen, committing any retained draft requires a fresh user action that dispatches a new current-profile mutation request subject to ordinary authorization, lifecycle, version, and conflict checks.
+Profiles: base
+Verified by: AC-424, AC-426
+
 **REQ-03-275**
 When the client continues a pageable workbook surface with `cursor_token`, it MUST treat every page obtained from that cursor chain as an ordered live-authorized continuation, not as an immutable content snapshot. The client MUST NOT parse, alter, or manufacture cursor tokens. On explicit refresh, or on `400` with `error.code='invalid_view_query'` and a pagination `reason_code`, the client MUST discard the old chain and restart from page 1 without `cursor_token`. Where practical, that restart SHOULD preserve the same workbook surface, focus target, and viewport anchor rather than forcing full-page navigation.
 Profiles: base

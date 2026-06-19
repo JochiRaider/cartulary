@@ -2208,7 +2208,7 @@ Verified by: AC-231, AC-234
 **REQ-02-222**
 This section owns the exact token sets for closed vocabularies that are persisted in structured state or surfaced through contract-backed views, portability bundles, or public API payloads. Earlier descriptive wording is resolved here, but conformant public-boundary sections MUST already use the exact tokens listed here rather than relying on this registry for disambiguation. A conformant implementation MUST persist and emit the exact tokens listed here.
 Profiles: base, incident_portability
-Verified by: AC-076, AC-077, AC-078, AC-079, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-122, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-236, AC-252, AC-253, AC-277, AC-284, AC-285, AC-287
+Verified by: AC-076, AC-077, AC-078, AC-079, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-122, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-236, AC-252, AC-253, AC-277, AC-284, AC-285, AC-287, AC-425
 
 Where an earlier section also defines lifecycle rules, semantic meanings, or guard behavior for a token family, that earlier section remains authoritative for those semantics. This registry owns the exact token spellings and membership of the token set.
 
@@ -2251,9 +2251,12 @@ A token family listed here MAY be emitted by deriving from authoritative metadat
 **REQ-02-223**
 A current-profile implementation MUST NOT persist alternate spellings, display labels, or semantically equivalent synonyms for any token listed here in authoritative structured state. Client and export presentation layers MAY map these tokens to display labels, but the canonical token value MUST remain stable in stored state and machine-readable payloads.
 Profiles: base
-Verified by: AC-076, AC-077, AC-078, AC-079, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-122, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-252, AC-253, AC-277
+Verified by: AC-076, AC-077, AC-078, AC-079, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-122, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-252, AC-253, AC-277, AC-425
 
-For incident status, migration MUST accept only exact stored values `active` or `closed`. A migrated incident with `status='active'` MUST have `closed_at=NULL`; a migrated incident with `status='closed'` MUST have non-null `closed_at`. Any other status value or status/`closed_at` invariant violation MUST fail migration with an explicit remediation report rather than being silently retained or rewritten.
+**REQ-02-254**
+For incident status, migration MUST accept only exact stored values `active` or `closed`. A migrated incident with `status='active'` MUST have `closed_at=NULL`; a migrated incident with `status='closed'` MUST have non-null `closed_at`. Any other status value or status/`closed_at` invariant violation MUST fail migration with a row-level remediation report rather than being silently retained, rewritten, mapped to a display label, inferred from timestamps, or otherwise coerced. The remediation report MUST identify at minimum the affected `incident_id`, `field`, raw value or raw value pair, `reason_code`, and remediation hint. Valid incident-status remediation reason codes are `unknown_status`, `active_with_closed_at`, and `closed_without_closed_at`.
+Profiles: base
+Verified by: AC-425
 
 For incident TLP, migration MAY normalize only the following legacy inputs after trimming and ASCII uppercasing:
 

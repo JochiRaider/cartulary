@@ -169,6 +169,12 @@ A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to stat
 
 *Design direction.* When an explicitly opened secondary incident-control surface displays workbook bootstrap defaults, it MUST preserve the Core-owned `sheet_ref` identity as a structured pointer to a base view schema or saved view. Such displays MAY add readable labels, but MUST NOT treat visible labels, saved-view names, or stringified objects as the authoritative preference value.
 
+*Core behavior.* Core 01 defines closed incidents as visible and readable to current members while blocking authoritative source-state mutations except reopen. Core 03 requires the workbook to render a persistent `Closed, read-only` lifecycle state and to keep local source-mutation drafts rejected by closure non-authoritative.[^4][^5]
+
+*Design direction.* A closed workbook MUST render a persistent banner or shell-level state using the existing banner/read-only primitives and the exact visible label `Closed, read-only`. The state belongs in persistent shell chrome, not in a transient toast and not as a replacement for the `Syncing`, `Saved`, or `Conflict` save-state labels.
+
+*Design direction.* When the incident is closed, source-state write controls MUST be disabled or hidden: add-row, direct cell edit, paste-to-mutate, row delete/restore/rollback/merge/supersede, conflict resolution, mention resolution, incident metadata patch, blob-slot creation, and evidence attachment. Read and derived-output affordances SHOULD remain available when their ordinary authorization allows them, including workbook queries, history, evidence preview/download, saved views, workbook preferences, snapshots, reports, releases, and incident export. Reopen MAY remain available to current incident admins through a secondary incident-control surface.
+
 *Design direction.* The workbook work area between the view bar and status strip MUST own vertical sizing. The active grid and an open inspector MUST fill that same work area for zero, one, three, and many rendered rows, including empty, loading, error, and draft-row states. Grid content and inspector content MUST scroll independently, the status strip MUST remain at the bottom of the shell, and the workbook layout MUST NOT create document-level vertical scrolling. Synthetic filler rows, row-count height calculations, fixed `100vh - Npx` offsets, and surface-specific minimum-height patches are rejected because they make future workbook surfaces brittle.
 
 ### 5.2 Surface composition in the shell
@@ -290,6 +296,8 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 - **R2-AC-098:** §5.8 states that incident-directory and deployment-admin list search use authoritative server-side search, preserve prior visible results while pending, show `Searching`, submit immediately on Enter, and discard stale responses.
 - **R2-AC-099:** §5.1 allows optional incident-create metadata behind compact disclosure without hiding the post-create reviewer/admin controls for `description`, `severity`, `tlp`, `current_phase`, and `primary_external_case_ref`.
 - **R2-AC-100:** §5.1 distinguishes TLP canonical machine tokens from labels and severity or phase suggestions from closed vocabularies.
+- **R2-AC-101:** §5.1 defines the persistent `Closed, read-only` shell state and separates it from save-state labels.
+- **R2-AC-102:** §5.1 disables or hides source-state write affordances while retaining allowed read and reporting actions for closed incidents.
 
 ## 6. Workbook Surface Model
 
@@ -560,6 +568,8 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 
 *Core behavior.* Core 03 defines the local pending queue as a same-runtime recovery mechanism for transient transport failure, auth failure on queued write, and `session_revoked` in the same runtime. It does not define reload durability, tab-close survival, cross-tab transfer, restart survival, or crash survival.[^4]
 
+*Core behavior.* Core 03 treats `incident_closed` as terminal for queued or unsent source mutations. Those rejected drafts can remain locally visible and copyable, but they are not authoritative and must not auto-replay while closed or after reopen.[^4]
+
 *Design direction.* All rows in the following table inherit `*Design direction.*` while restating the owner boundary.
 
 | Property           | Base-profile UI requirement                                                                                                                                                                                           |
@@ -568,9 +578,12 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 | Durability         | Survives transient transport failure, auth failure on queued write, and `session_revoked` in the same runtime; does not survive full reload, tab close, cross-tab transfer, browser or application restart, or crash. |
 | Overflow           | Refuses admission visibly and moves save state to `Conflict` or an equivalent attention state.                                                                                                                        |
 | Re-authentication  | Preserves queued work in the same runtime while the user completes required re-authentication.                                                                                                                        |
+| Closed incident    | Stops source-mutation replay, marks affected queued work as rejected local drafts, and requires a fresh user action after reopen before any retained draft can be submitted.                                          |
 | Cross-tab behavior | No cross-tab replay or queue-transfer guarantee is implied.                                                                                                                                                           |
 
 *Design direction.* Cross-tab transfer is named explicitly because general-purpose client-state libraries often synchronize or rehydrate state across tabs. Cartulary’s base-profile pending queue MUST NOT be inferred to survive or replay through such cross-tab mechanisms.
+
+*Design direction.* A draft rejected because the incident closed SHOULD stay near its original row or cell context when that context still exists. The UI SHOULD offer copy or discard actions and SHOULD avoid presenting the draft as pending authoritative work. Reopen MUST NOT automatically restart those rejected mutations; the user must make a fresh edit or explicit submit action against reopened current state.
 
 ### Acceptance criteria
 
@@ -580,6 +593,8 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 - **R2-AC-048:** Whole-row restore is described as row-backed fields only.
 - **R2-AC-049:** §7.4 and §9.5 both name cross-tab transfer as a pending-queue non-survival condition.
 - **R2-AC-050:** §9.5 states that pending queue durability is same-runtime only.
+- **R2-AC-103:** §9.5 states that `incident_closed` turns queued source mutations into rejected local drafts, not retryable pending work.
+- **R2-AC-104:** §9.5 states that reopen does not automatically replay drafts rejected by closure.
 
 ## 10. Sorting, Filtering, Grouping, and View State
 
@@ -1181,10 +1196,11 @@ Cell: timeline.summary  B editing
 | P3-4    | P3       | §15.4                      | Design direction                                               | design-direction   | Added positive-pattern reviewer table.                                                                           | R2-AC-071..R2-AC-072             |
 | P3-5    | P3       | §5.7                       | Design direction                                               | design-direction   | Added numeric status-strip capacity and KPI exclusion boundary.                                                  | R2-AC-023..R2-AC-026             |
 | P4-1    | P4       | Revision 2 editorial audit | N/A                                                            | editorial          | Added temporary normative-voice audit.                                                                           | Verification matrix, audit table |
-| P4-2    | P4       | All acceptance criteria    | N/A                                                            | editorial          | Normalized acceptance-criteria heading and binary style.                                                         | R2-AC-001..R2-AC-100             |
+| P4-2    | P4       | All acceptance criteria    | N/A                                                            | editorial          | Normalized acceptance-criteria heading and binary style.                                                         | R2-AC-001..R2-AC-104             |
 | P4-3    | P4       | §5.1                       | Design direction                                               | incident-metadata  | Added compact create metadata and complete post-create incident-control guidance.                                | R2-AC-099..R2-AC-100             |
 | P4-3    | P4       | Sources                    | N/A                                                            | editorial          | Cleaned citations to load-bearing source groups.                                                                 | Sources block                    |
 | P4-4    | P4       | §§10.2, 14.1, 16.4, 16.7   | Design direction, Baseline context                             | baseline-context   | Added RDG adapter, treegrid/group-row, fixed-height density, and generated-class styling boundaries.             | R2-RDG-AC-001..R2-RDG-AC-010     |
+| P4-5    | P4       | §5.1, §9.5                 | Core behavior, Design direction                                | incident-lifecycle | Added closed incident read-only shell guidance and rejected-draft non-replay behavior.                           | R2-AC-101..R2-AC-104             |
 
 ## Revision 2 editorial audit
 
@@ -1199,6 +1215,8 @@ The audit is temporary reviewer scaffolding, not product direction. It SHOULD be
 | §4.2    | Cartulary MUST reject spreadsheet behaviors that conflict with auditable incident state: row-position identity, silent overwrites, hidden formulas as business logic, evidence paths as authoritative references, unmanaged binary storage, and unversioned relationship semantics. | Design direction | Defines rejection boundary.                            | Restates UI implications of owner contracts.              |
 | §5.1    | After creation, an explicitly opened secondary incident-control surface for current `reviewer` or `admin` users MUST expose all Core-owned patchable incident metadata: `description`, `severity`, `tlp`, `current_phase`, and `primary_external_case_ref`. | Design direction | Prevents optional create fields from disappearing after creation. | Restates UI consequence of Core 01 incident PATCH. |
 | §5.1    | The TLP control MAY show readable labels, but it MUST bind to exact canonical machine tokens or `null`; severity and phase controls MAY show suggestions, but MUST preserve otherwise valid bounded text. | Design direction | Keeps labels and suggestions separate from stored metadata. | Core 01/Core 02 own validation and token membership. |
+| §5.1    | A closed workbook MUST render a persistent banner or shell-level state using the existing banner/read-only primitives and the exact visible label `Closed, read-only`. | Design direction | Defines the persistent closed-state affordance. | Restates UI consequence of Core 01/Core 03 lifecycle behavior. |
+| §5.1    | When the incident is closed, source-state write controls MUST be disabled or hidden: add-row, direct cell edit, paste-to-mutate, row delete/restore/rollback/merge/supersede, conflict resolution, mention resolution, incident metadata patch, blob-slot creation, and evidence attachment. | Design direction | Prevents closed incidents from looking writable. | Core 01 owns the operation matrix. |
 | §5.2    | The base shell MUST expose built-in tabs as always-visible primary tabs at the base viewport.                                                                                                                                                                                       | Design direction | Closes IA decision.                                    | Does not change required surface inventory.               |
 | §5.2    | Required system views MUST be reachable through an adjacent switcher with accessible name `System views`.                                                                                                                                                                           | Design direction | Closes IA decision.                                    | Does not change surface identity.                         |
 | §5.2    | Saved views MUST appear under the active surface’s view selector, not as primary tabs by default.                                                                                                                                                                                   | Design direction | Prevents saved-view identity drift.                    | Uses Core saved-view model.                               |
@@ -1242,6 +1260,7 @@ The audit is temporary reviewer scaffolding, not product direction. It SHOULD be
 | §9.4    | The history UI MUST present those three rollback target kinds as different actions, not as aliases for “restore this row.”                                                                                                                                                          | Design direction | Prevents rollback ambiguity.                           | Presents Core 01 scope.                                   |
 | §9.4    | Whole-row restore affordances MUST label the row-field-only scope before confirmation.                                                                                                                                                                                              | Design direction | Prevents destructive misunderstanding.                 | UI consequence only.                                      |
 | §9.5    | Cartulary’s base-profile pending queue MUST NOT be inferred to survive or replay through such cross-tab mechanisms.                                                                                                                                                                 | Design direction | Closes client-state ambiguity.                         | Does not alter Core 03 queue contract.                    |
+| §9.5    | Reopen MUST NOT automatically restart those rejected mutations; the user must make a fresh edit or explicit submit action against reopened current state.                                                                                                                           | Design direction | Prevents stale local drafts from becoming authoritative after reopen. | Core 03 owns rejected-draft behavior.                    |
 | §10.2   | Grouping MUST remain a view-state operation, not a data-model mutation.                                                                                                                                                                                                             | Design direction | Prevents grouping/write confusion.                     | UI consequence of Core 01.                                |
 | §10.2   | Dragging, expanding, or collapsing groups MUST NOT create, delete, or mutate incident records.                                                                                                                                                                                      | Design direction | Prevents accidental mutation semantics.                | UI consequence only.                                      |
 | §10.2   | When grouping is rendered through a treegrid pattern, group rows MUST be presented as navigation and summarization affordances, not ordinary incident records.                                                                                                                      | Design direction | Prevents writable-record ambiguity.                    | UI consequence of adapter and grouping contract.          |

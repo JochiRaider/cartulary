@@ -68,6 +68,77 @@ Attempting to patch incident identity or lifecycle-managed members remains inval
 }
 ```
 
+## Incident lifecycle close/reopen illustrations
+
+These examples are illustrative only. Core 01 owns close/reopen routes, request validation, lifecycle transitions, idempotency, closed-operation behavior, commit serialization, and WebSocket termination semantics. Core 03 owns workbook read-only and local-draft consequences.
+
+### Close success
+
+```mermaid
+sequenceDiagram
+    participant A as Incident admin
+    participant UI as Browser workbook
+    participant App as App API
+    participant PG as Postgres
+    participant WS as Incident WebSockets
+
+    A->>UI: Close incident with required reason
+    UI->>App: POST /api/v1/incidents/{incident_id}/close
+    App->>PG: validate version and read status='active'
+    App->>PG: set status='closed', closed_at=commit_ts
+    App->>PG: increment incident_version and write before/after audit
+    PG-->>App: commit
+    App-->>UI: 200 OK resulting incident resource
+    App->>WS: terminal error code=incident_closed
+    WS-->>UI: close socket
+    UI->>UI: Render Closed, read-only state
+```
+
+### Reopen success
+
+```mermaid
+sequenceDiagram
+    participant A as Incident admin
+    participant UI as Browser workbook
+    participant App as App API
+    participant PG as Postgres
+
+    A->>UI: Reopen incident with required reason
+    UI->>App: POST /api/v1/incidents/{incident_id}/reopen
+    App->>PG: validate version and read status='closed'
+    App->>PG: set status='active', clear closed_at
+    App->>PG: increment incident_version and write before/after audit
+    PG-->>App: commit
+    App-->>UI: 200 OK resulting incident resource
+    UI->>App: Establish fresh writable collaboration subscription
+```
+
+### Pending edit versus close race
+
+```mermaid
+sequenceDiagram
+    participant E as Editor client
+    participant A as Admin client
+    participant App as App API
+    participant PG as Per-incident serialization boundary
+
+    E->>App: Source mutation with client_txn_id
+    A->>App: Close incident with client_txn_id
+    alt source mutation commits before close
+        App->>PG: re-read lifecycle status='active'
+        App->>PG: commit source mutation and change_set
+        App-->>E: 200 OK mutation result
+        App->>PG: close observes committed source state
+        App-->>A: 200 OK closed incident
+    else close commits first
+        App->>PG: set status='closed' and commit
+        App-->>A: 200 OK closed incident
+        App->>PG: source mutation re-reads status='closed'
+        App-->>E: 409 incident_closed
+        E->>E: Keep rejected draft copyable, do not auto-replay after reopen
+    end
+```
+
 ## 8. Record lifecycle and IR workflow model
 
 ### Lifecycle

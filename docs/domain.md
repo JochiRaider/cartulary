@@ -145,6 +145,7 @@ The following decisions resolve overloaded or easily-confused language for curre
 | Reference pack versus incident data | Reference packs are versioned optional vocabularies, frameworks, or enrichment datasets outside incident source records. | Treating reference-pack activation as incident record mutation or blocking core capture on pack availability. | Core 01 §11; Core 02 §17 |
 | Incident TLP token versus display label | `tlp` machine state stores and exchanges only the canonical Core 02 token or `null`. UI labels, colors, and localized text are presentation. | Persisting display labels, aliases such as `WHITE`, or case variants as incident TLP state. | Core 01 §3.3.5.3; Core 02 §18 |
 | Incident severity or phase suggestion versus stored metadata | `severity` and `current_phase` are organization-specific bounded incident metadata text; reference packs may suggest values or labels only. | Rejecting otherwise valid bounded text, reinterpreting stored values, requiring a reference pack, or blocking incident creation or capture because a value is outside a suggested list. | Core 01 §3.3.5.3; Core 02 §4.5 |
+| Incident lifecycle state versus archive/delete/purge | `incident.status` is the current-profile lifecycle state vocabulary for the active or closed incident workspace. Closure is a read-only source-state boundary, not an incident-removal model. | Treating `closed` as archived, deleted, purged, hidden from current members, or equivalent to any future retention/tombstone behavior. | Core 01 §3.3.5.3.2; Core 02 §18; Core 03 §4.3.2 |
 | Snapshot/report versus live workbook | Snapshot/report artifacts are immutable export or publication inputs under extension rules. Live workbook state is the operational incident workspace. | Applying recipient-specific export redaction by hiding live workbook rows from incident members. | Core 01 §10; Core 04 §2.1, §4.2 |
 
 ## 6. Domain versus implementation detail
@@ -628,6 +629,7 @@ Declared scope: token families named in current `domain.md` because the family i
 
 | Token family | Exact-token source | Domain use | Mirror policy |
 | --- | --- | --- | --- |
+| `incident.status` | Core 02 closed-vocabulary registry; lifecycle semantics in Core 01 | Incident lifecycle visibility and source-state boundary. | Pointer-only. |
 | `entity_mentions.resolution_status` | Core 02 closed-vocabulary registry | Mention resolution state. | Pointer-only. |
 | `entity_mentions.origin_kind` and `indicator_observation.origin_kind` | Core 02 closed-vocabulary registry | Source of mention or indicator observation. | Pointer-only. |
 | `host.entity_origin` and `identity.entity_origin` | Core 02 closed-vocabulary registry | Host/identity creation provenance. | Pointer-only. |

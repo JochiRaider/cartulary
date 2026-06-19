@@ -468,7 +468,7 @@ Verified by: AC-337, AC-339
 The base-profile route set MUST include stable route families for:
 
 - authentication and bounded credential-lifecycle routes: `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/session`, `GET /api/v1/auth/credential-state`, `POST /api/v1/auth/password/change`, `POST /api/v1/auth/mfa/totp/begin`, `POST /api/v1/auth/mfa/totp/complete`,
-- incident discovery, creation, retrieval, and incident metadata mutation: `POST /api/v1/incidents`, `GET /api/v1/incidents`, `GET /api/v1/incidents/{incident_id}`, `PATCH /api/v1/incidents/{incident_id}`,
+- incident discovery, creation, retrieval, incident metadata mutation, and incident lifecycle actions: `POST /api/v1/incidents`, `GET /api/v1/incidents`, `GET /api/v1/incidents/{incident_id}`, `PATCH /api/v1/incidents/{incident_id}`, `POST /api/v1/incidents/{incident_id}/close`, `POST /api/v1/incidents/{incident_id}/reopen`,
 - deployment-local user account inspection and administration: `GET /api/v1/users`, `POST /api/v1/users`, `GET /api/v1/users/{user_id}`, `PATCH /api/v1/users/{user_id}`, `POST /api/v1/users/{user_id}/password/reset`, `POST /api/v1/users/{user_id}/mfa/totp/reset`, `POST /api/v1/users/{user_id}/sessions/revoke-all`,
 - incident membership inspection and administration: `GET /api/v1/incidents/{incident_id}/memberships`, `POST /api/v1/incidents/{incident_id}/memberships`, `PATCH /api/v1/incidents/{incident_id}/memberships/{user_id}`, `DELETE /api/v1/incidents/{incident_id}/memberships/{user_id}`,
 - view-schema discovery: `GET /api/v1/view-schemas`, `GET /api/v1/view-schemas/{view_schema_id}`,
@@ -483,7 +483,7 @@ The base-profile route set MUST include stable route families for:
 - background-job status and cancellation: `GET /api/v1/jobs/{job_id}`, `POST /api/v1/jobs/{job_id}/cancel`.
 The base profile defines no public WebAuthn or passkey routes under `/api/v1/auth/*` or `/api/v1/users/{user_id}/mfa/*`. Registration, assertion, credential enumeration, credential deletion, and reset semantics for WebAuthn or passkeys are reserved for future specification work and MUST NOT be claimed by base-profile implementations.
 Profiles: base
-Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-231, AC-251, AC-252, AC-253, AC-254, AC-255, AC-340, AC-341, AC-342, AC-334, AC-335, AC-336, AC-337, AC-338, AC-339, AC-370, AC-371
+Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-231, AC-251, AC-252, AC-253, AC-254, AC-255, AC-340, AC-341, AC-342, AC-334, AC-335, AC-336, AC-337, AC-338, AC-339, AC-370, AC-371, AC-418
 
 **REQ-01-033**
 Implementations that claim an extension profile MUST add that profile's route family under the same versioned root rather than overloading base workbook routes. This includes, at minimum, `/api/v1/import-sessions/*`, `/api/v1/reference-packs/*`, `/api/v1/snapshots/*` and `/api/v1/releases/*`, `/api/v1/incident-bundles/*`, `/api/v1/auth/providers/*`, `/api/v1/auth/oidc/*`, `/api/v1/auth/saml/*`, and `/api/v1/users/{user_id}/auth-bindings*` for the corresponding claimed extension profiles.
@@ -2044,7 +2044,7 @@ Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-
 **REQ-01-168**
 `GET /api/v1/incidents` MUST return only incidents for which the caller currently has membership, MUST use the common success envelope with `data.incidents[]` plus `meta.paging`, MUST order results by `updated_at desc, incident_id asc`, and MUST accept only `limit`, `cursor_token`, `search`, and `status` as query members under §3.3.7. The `search` member, when present, MUST use `list_search_v1` from REQ-01-581 with exactly these source fields: `incident_key`, `title`, `severity`, `tlp`, `current_phase`, and `primary_external_case_ref`. The `status` filter MUST accept only the exact decoded lowercase wire tokens `active` and `closed`; omission means both states are eligible, and no comma list, array encoding, repeated member, empty value, alternate status spelling, or storage-specific status token is valid. Omitted `search`, omitted `status`, and `search` that normalizes to the empty string mean no search predicate and no status predicate. List-query validation failures on this route MUST fail with `400`, `error.code=invalid_list_query`, and `error.details.reason_code` from the `invalid_list_query` registry in §3.3.6.2. Pagination failures on this route MUST fail with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code` from the `invalid_pagination_request` registry in §3.3.6.2. `GET /api/v1/incidents/{incident_id}` MUST return the common success envelope with `data` equal to the requested incident resource, any current incident member MAY call this route, and because it is singleton the route MUST reject `limit`, `cursor_token`, and pagination aliases with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=pagination_not_supported`.
 Profiles: base
-Verified by: AC-127, AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231, AC-416
+Verified by: AC-127, AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231, AC-416, AC-424
 
 **REQ-01-169**
 `incident_version` MUST equal `1` on a first-time successful create and MUST be monotonically increasing per `incident_id`.
@@ -2112,6 +2112,74 @@ Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-
 A caller who lacks visibility to the incident MUST receive `404`. A caller who can see the incident but lacks sufficient role MUST receive `403`.
 Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
+
+##### 3.3.5.3.2 Incident lifecycle close/reopen contract
+
+**REQ-01-585**
+The base profile defines exactly two incident lifecycle states for `incident.status`: `active` and `closed`. `active` means the incident accepts authorized current-profile source-state mutations. `closed` means the incident remains visible and readable to current members but is read-only for authoritative incident source state except for the `reopen` action. The current profile defines no archive, hard deletion, soft deletion, purge, or equivalent incident-removal lifecycle action, state, route, or public token.
+Profiles: base
+Verified by: AC-418, AC-422, AC-425
+
+**REQ-01-586**
+The base-profile incident lifecycle action routes are exactly:
+
+| Route | Required request body | Role gate | Success |
+| --- | --- | --- | --- |
+| `POST /api/v1/incidents/{incident_id}/close` | JSON object containing exactly `base_incident_version`, `client_txn_id`, and `reason` | Current incident role `admin` | `200 OK` with the resulting incident resource |
+| `POST /api/v1/incidents/{incident_id}/reopen` | JSON object containing exactly `base_incident_version`, `client_txn_id`, and `reason` | Current incident role `admin` | `200 OK` with the resulting incident resource |
+
+The request namespace is closed. Omitted required members, explicit JSON `null` for any required member, unknown top-level members, non-object bodies, malformed `base_incident_version`, malformed `client_txn_id`, or malformed `reason` MUST fail with `400` and `error.code = invalid_incident_lifecycle_request`. `base_incident_version` MUST be a positive incident-version integer. `client_txn_id` MUST be a stable client transaction token and MUST be non-null. `reason` is required and MUST bind to `string_contract_id=reason_note_v1` as a required binding: omitted, explicit `null`, normalized-empty, longer than 4096 Unicode scalar values after normalization, rejected-control, or non-string input is invalid.
+Profiles: base
+Verified by: AC-418, AC-421
+
+**REQ-01-587**
+Incident lifecycle action idempotency MUST be keyed by `(actor_user_id, incident_id, action_route, client_txn_id)`. After request-shape validation and current incident visibility plus `admin` authorization have succeeded, the server MUST check for a previously committed lifecycle-action success for that exact idempotency key before fresh `base_incident_version` or lifecycle-transition evaluation. An exact committed replay MUST return the original `200 OK` success envelope and the original resulting incident resource, even if the incident's current status or version has changed since that success. A reused key with a different normalized input MUST fail with `409` and `error.code = client_txn_conflict`; for normalized comparison, the lifecycle action request consists exactly of `action_route`, `base_incident_version`, and normalized `reason`.
+Profiles: base
+Verified by: AC-421
+
+**REQ-01-588**
+A fresh lifecycle action with no exact committed replay MUST validate `base_incident_version` against the current `incident_version` before transition evaluation. A stale `base_incident_version` MUST fail with `409` and `error.code = incident_version_conflict`. The lifecycle transition matrix is:
+
+| Current state | `close` | `reopen` |
+| --- | --- | --- |
+| `active` | Set `status='closed'` and set `closed_at` to the commit timestamp. | `409` with `error.code = illegal_transition` and `error.details.reason_code = incident_not_closed`. |
+| `closed` | `409` with `error.code = illegal_transition` and `error.details.reason_code = incident_already_closed`. | Set `status='active'` and clear `closed_at` to JSON `null`. |
+
+The current-profile state invariants are: `status='active'` requires `closed_at=NULL`; `status='closed'` requires non-null `closed_at`; any other `status` value or inconsistent `status`/`closed_at` pair is invalid current-profile state and MUST NOT be silently coerced by a lifecycle action.
+Profiles: base
+Verified by: AC-419, AC-420, AC-421, AC-425
+
+**REQ-01-589**
+On a first-time successful `close` or `reopen`, the server MUST commit one transaction that updates `status` and `closed_at` as required by REQ-01-588, increments `incident_version`, sets `updated_at` to the same commit timestamp used for any lifecycle timestamp change, sets `updated_by_user_id` to the authenticated actor, persists attributed before/after audit history sufficient to reconstruct `status`, `closed_at`, `incident_version`, `updated_at`, and `updated_by_user_id`, and stores the committed idempotency result for replay. A successful `close` MUST use one commit timestamp for both `updated_at` and `closed_at`. A successful `reopen` MUST return an incident resource whose `closed_at` serializes as JSON `null`.
+Profiles: base
+Verified by: AC-419, AC-420, AC-421
+
+**REQ-01-590**
+When an incident is `closed`, current-profile operation families MUST behave as follows:
+
+| Operation family | Closed-incident behavior |
+| --- | --- |
+| Incident list/get, workbook queries, and record history | Allowed. |
+| Evidence preview and download | Allowed. |
+| Saved views and workbook preferences | Allowed. |
+| Incident membership administration | Allowed under ordinary incident-admin authorization. |
+| Snapshot, report, release, and incident export | Allowed when the corresponding extension profile is claimed and the corresponding authorization requirements are satisfied. |
+| Reopen | Allowed for incident admins. |
+| Incident metadata patch | Rejected with `409` and `error.code = incident_closed`. |
+| Row creation and record mutation actions | Rejected with `409` and `error.code = incident_closed`. |
+| Delete, restore, rollback, merge, supersede, and conflict resolution | Rejected with `409` and `error.code = incident_closed`. |
+| Mention resolution | Rejected with `409` and `error.code = incident_closed`. |
+| Blob-slot creation or evidence attachment for the incident | Rejected with `409` and `error.code = incident_closed`. |
+| Import apply or any job that commits authoritative incident source state | Rejected or terminally failed with `error.code = incident_closed`. |
+
+This matrix constrains authoritative incident source-state mutation only. Authorized reads and derived reporting operations continue to work according to their ordinary route and extension-profile requirements.
+Profiles: base, import, snapshot_reporting, incident_portability
+Verified by: AC-422, AC-424
+
+**REQ-01-591**
+Every route, background job, or worker path that commits authoritative incident source state MUST re-read the addressed incident lifecycle state inside the same per-incident serialization boundary used for that source-state commit. After a `close` action commits, no fresh non-replay source-state mutation may commit until a successful `reopen` action commits. Therefore, for any race between closure and a source-state mutation, exactly one of these outcomes is valid: the source-state mutation commits before closure and the later close observes that committed state, or closure commits first and the source-state mutation fails with `incident_closed` or reaches a terminal failed job state whose public error summary uses `incident_closed`. A committed idempotent replay may return its original prior source-mutation success after closure, but it MUST NOT create a new mutation, change set, row revision, authoritative blob/evidence attachment, import apply result, or collaboration event.
+Profiles: base, import
+Verified by: AC-421, AC-422, AC-423
 
 #### 3.3.5.4 Entity-merge contract
 
@@ -2588,7 +2656,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 **REQ-01-234**
 The public API surface defined by this core MUST use the following stable `error.code` tokens for the listed conditions. A route or conformance criterion covered by this registry MUST NOT assign a second stable token to the same condition.
 Profiles: base
-Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240, AC-245, AC-246, AC-247, AC-249, AC-250, AC-251, AC-252, AC-253, AC-254, AC-255, AC-260, AC-261, AC-293, AC-321, AC-323, AC-324, AC-325, AC-326, AC-328, AC-340, AC-341, AC-342, AC-334, AC-335, AC-336, AC-337, AC-338, AC-339, AC-371, AC-415, AC-416, AC-417
+Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240, AC-245, AC-246, AC-247, AC-249, AC-250, AC-251, AC-252, AC-253, AC-254, AC-255, AC-260, AC-261, AC-293, AC-321, AC-323, AC-324, AC-325, AC-326, AC-328, AC-340, AC-341, AC-342, AC-334, AC-335, AC-336, AC-337, AC-338, AC-339, AC-371, AC-415, AC-416, AC-417, AC-418, AC-421, AC-422, AC-423, AC-424, AC-426
 
 | `error.code` | Required `error.status` | Required `error.retryable` | Canonical meaning | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -2601,6 +2669,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `blob_create_rejected` | `413` | `false` | A blob-slot create request is structurally valid but exceeds the configured declared-size ceiling for `POST /api/v1/object-blobs`. `error.details.reason_code` MUST use the `blob_create_rejected` registry in §3.3.6.2. |  |  |  |
 | `invalid_incident_create` | `400` | `false` | An incident-create request is malformed, omits required members, includes an unknown top-level member, violates create-time field validation, attempts to set server-managed state, or includes a rejected collaborator-seeding payload. |  |  |  |
 | `invalid_incident_patch` | `400` | `false` | An incident-metadata patch request is malformed, omits or malforms required `base_incident_version`, violates mutable-field validation, attempts to mutate an immutable or server-managed incident field, or includes unknown top-level members. |  |  |  |
+| `invalid_incident_lifecycle_request` | `400` | `false` | An incident lifecycle action request is malformed, omits a required member, supplies `null` for a required member, violates required reason validation, includes unknown top-level members, or malforms `base_incident_version` or `client_txn_id`. | REQ-01-586 | base | AC-418, AC-421 |
 | `invalid_rollback_request` | `400` | `false` | A rollback request is malformed, uses an unknown or unsupported `target.kind`, omits the selector required for that `kind`, includes unknown request members, or supplies a selector whose JSON type does not match the declared shape. |  |  |  |
 | `invalid_auth_request` | `400` | `false` | A local-account login request is malformed, omits a required member, includes an unknown or forbidden member, supplies `null` where forbidden, uses an unsupported `second_factor.kind`, or carries an invalid TOTP assertion shape. |  |  |  |
 | `invalid_enterprise_auth_request` | `400` | `false` | An enterprise-auth discovery or initiation request is malformed, omits a required member, includes an unknown or forbidden member, supplies `null` where forbidden, or uses a `return_to` value not allowed by the current profile. |  |  |  |
@@ -2622,8 +2691,9 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `row_version_conflict` | `409` | `false` | The supplied `base_row_version` or `base_mention_row_version` is stale relative to authoritative current state on a strict row-version route, or an ordinary record patch could not evaluate its field-level stale window because required revision history was missing or unusable. For restore, this includes a stale tombstone `row_version`. |  |  |  |
 | `incident_key_conflict` | `409` | `false` | The normalized `incident_key` conflicts with an existing incident. |  |  |  |
 | `incident_version_conflict` | `409` | `false` | The supplied `base_incident_version` is stale. |  |  |  |
+| `incident_closed` | `409` | `false` | The addressed incident is currently closed and the route is not allowed to commit authoritative incident source state while closed. | REQ-01-590, REQ-01-591 | base | AC-422, AC-423, AC-424, AC-426 |
 | `same_field_conflict` | `409` | `false` | Another committed write touched the same writable `field_key`; the response MUST include the conflict object defined by Core 03 §3.3.4. | REQ-01-235 | base | AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231 |
-| `illegal_transition` | `409` | `false` | The requested lifecycle transition is not allowed for the current persisted state or guard condition. |  |  |  |
+| `illegal_transition` | `409` | `false` | The requested lifecycle transition is not allowed for the current persisted state or guard condition. | REQ-01-588 | base | AC-421 |
 | `record_deleted_use_restore` | `409` | `false` | The caller targeted a currently soft-deleted record with an operation that requires the record to be restored first. |  |  |  |
 | `record_already_deleted` | `409` | `false` | The caller attempted to soft-delete an already soft-deleted record outside an idempotent replay of the original delete. |  |  |  |
 | `record_delete_blocked` | `409` | `false` | The caller attempted to soft-delete a record whose type-specific owner preconditions reject deletion while active incoming references or equivalent integrity dependencies exist. `error.details.reason_code` MUST identify the blocking precondition. |  |  |  |
@@ -2688,7 +2758,7 @@ For public evidence and blob routes, `object_store_invalid_request` applies only
 **REQ-01-238**
 When the public API or collaboration stream uses a structured `reason_code` family listed below, it MUST use one of the exact tokens shown. A listed `reason_code` family MUST NOT define alternate tokens for the same meaning elsewhere in the core.
 Profiles: base
-Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240, AC-252, AC-255, AC-260, AC-293, AC-321, AC-322, AC-323, AC-324, AC-325, AC-326, AC-327, AC-328, AC-341, AC-336, AC-337, AC-339, AC-375, AC-415, AC-416, AC-417
+Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240, AC-252, AC-255, AC-260, AC-293, AC-321, AC-322, AC-323, AC-324, AC-325, AC-326, AC-327, AC-328, AC-341, AC-336, AC-337, AC-339, AC-375, AC-415, AC-416, AC-417, AC-418, AC-421
 
 `invalid_incident_create` `error.details.reason_code` values:
 
@@ -2719,6 +2789,28 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `immutable_field` | The request attempted to mutate a create-time-only incident identity field. |
 | `server_managed_field` | The request attempted to mutate server-managed incident state. |
 | `unknown_field` | The request includes a top-level member not declared by the incident-patch contract. |
+
+`invalid_incident_lifecycle_request` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `request_not_object` | The request body is not a JSON object. |
+| `missing_required_field` | A required incident lifecycle action field is absent. |
+| `field_not_nullable` | The request supplies `null` for a required incident lifecycle action field. |
+| `invalid_base_incident_version` | `base_incident_version` is not a valid positive incident-version integer. |
+| `invalid_client_txn_id` | `client_txn_id` is not a valid stable client transaction token. |
+| `invalid_reason` | `reason` has the wrong JSON type or otherwise cannot be normalized under `reason_note_v1`. |
+| `reason_empty_after_normalization` | `reason` is empty after required normalization and trimming. |
+| `reason_too_long` | `reason` exceeds the `reason_note_v1` length limit after normalization. |
+| `control_character_not_allowed` | `reason` contains a rejected control character. |
+| `unknown_field` | The request includes a top-level member not declared by the incident lifecycle action contract. |
+
+`illegal_transition` `error.details.reason_code` values for incident lifecycle actions:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `incident_already_closed` | The caller requested `close` while the incident is already `closed`. |
+| `incident_not_closed` | The caller requested `reopen` while the incident is not `closed`. |
 
 `invalid_blob_create_request` `error.details.reason_code` values:
 
@@ -3531,6 +3623,11 @@ Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-
 For cookie-authenticated browser connections, the WebSocket upgrade and any session-establishment message MUST validate `Origin` against the configured application origin. The server MUST re-derive incident authorization on initial connect and on `resume`. WebSocket `ping` or `pong`, passive server push, and automatic reconnect or replay MUST NOT extend session idle expiry. If incident membership or session validity is revoked after connection establishment, or if the underlying session expires while the socket remains connected, the server MUST send `session_revoked` and close the socket. After session expiry or revocation, a later connection MUST establish a new authenticated session and use `hello`; `resume` alone is insufficient.
 Profiles: base
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
+
+**REQ-01-592**
+When an incident `close` action commits, every currently connected `/ws/v1/incidents/{incident_id}` collaboration socket for that incident MUST receive one terminal `error` message with `payload.code = incident_closed`, `payload.retryable = false`, and then close. A new connection or resume attempt for an already closed incident MAY authenticate and authorize the member for ordinary HTTP reads, but it MUST NOT establish a writable collaboration subscription, MUST NOT emit `hello_ack` or `resume_ack` that advertises writable collaboration state, and MUST terminate with the same terminal `error` family using `code = incident_closed`.
+Profiles: base
+Verified by: AC-419, AC-426
 
 ## 4. Storage boundary
 
@@ -6534,7 +6631,7 @@ Verified by: AC-118, AC-202, AC-231
 - when the binding is optional, omission, explicit JSON `null`, and normalized-empty input MUST compare equal and MUST persist as authoritative `null`,
 - when the binding is required, `null` or normalized-empty input is invalid.
 Profiles: base
-Verified by: AC-085, AC-118, AC-181, AC-182, AC-186, AC-194, AC-196, AC-216, AC-221, AC-225, AC-231, AC-305, AC-308
+Verified by: AC-085, AC-118, AC-181, AC-182, AC-186, AC-194, AC-196, AC-216, AC-221, AC-225, AC-231, AC-305, AC-308, AC-418
 
 **REQ-01-497**
 `email_address_v1` is the optional bounded email-address contract.

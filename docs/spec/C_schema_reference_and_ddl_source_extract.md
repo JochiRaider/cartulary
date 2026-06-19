@@ -78,9 +78,9 @@ One conformant non-normative realization of `list_search_v1` can store generated
 
 A different conformant realization can use generated columns containing precomputed normalized token arrays or `tsvector`/trigram indexes as acceleration structures. These structures are examples only. PostgreSQL text-search parsers, `tsvector` dictionaries, trigram behavior, generated-column expressions, database collations, and locale settings are never authoritative for `list_search_v1`; they are conformant only when the externally observable tokenization, case folding, diacritic significance, prefix matching, duplicate-token handling, and cursor binding exactly reproduce Core 01 §3.3.7.1.
 
-### Non-normative migration examples for incident metadata closure
+### Non-normative migration examples for incident metadata and lifecycle closure
 
-The examples below illustrate one way to realize the Core 01/Core 02 incident metadata closure during migration. Core 01 remains authoritative for public create and patch validation; Core 02 §18 remains authoritative for closed token families.
+The examples below illustrate one way to realize the Core 01/Core 02 incident metadata and lifecycle closure during migration. Core 01 remains authoritative for public create, patch, close, reopen, idempotency, and closed-operation behavior; Core 02 §18 remains authoritative for closed token families and lifecycle migration acceptance.
 
 - **Status invariant check.** A migration can scan existing incidents and accept only exact `status='active'` with `closed_at IS NULL` or exact `status='closed'` with `closed_at IS NOT NULL`. Any other status spelling, legacy alias, active incident with a close timestamp, or closed incident without a close timestamp fails migration with remediation instead of being rewritten silently.
 - **TLP alias normalization.** A migration can trim and ASCII-uppercase legacy TLP input, then apply only the Core 02 alias table. For example, `white`, ` TLP:WHITE `, and `clear` normalize to `TLP:CLEAR`; `amber+strict` normalizes to `TLP:AMBER+STRICT`; already canonical tokens remain unchanged.
@@ -88,6 +88,44 @@ The examples below illustrate one way to realize the Core 01/Core 02 incident me
 - **Text-contract remediation.** Existing `description` values normalize under `multiline_body_v1`; existing `severity`, `current_phase`, and `primary_external_case_ref` values normalize under `incident_metadata_text_v1`. C0/C1 controls or values over the post-normalization scalar limit require explicit remediation.
 
 A deterministic remediation report can include at least `incident_id`, `field`, `raw_value`, `reason_code`, and `remediation_hint`. Implementations can include storage keys, source bundle names, or operator ticket references as additional diagnostic context.
+
+One conformant realization can express the lifecycle invariant as a physical check constraint:
+
+```sql
+ALTER TABLE incidents
+  ADD CONSTRAINT incidents_status_closed_at_chk
+  CHECK (
+    (status = 'active' AND closed_at IS NULL)
+    OR (status = 'closed' AND closed_at IS NOT NULL)
+  );
+```
+
+Status/list access paths can use ordinary indexes such as:
+
+```sql
+CREATE INDEX incidents_visible_order_idx
+  ON incidents (updated_at DESC, incident_id ASC);
+
+CREATE INDEX incidents_status_visible_order_idx
+  ON incidents (status, updated_at DESC, incident_id ASC);
+```
+
+Lifecycle action idempotency can be realized with a route-scoped table keyed by the actor, incident, route, and transaction id:
+
+```sql
+CREATE TABLE incident_lifecycle_idempotency (
+  actor_user_id text NOT NULL,
+  incident_id text NOT NULL,
+  action_route text NOT NULL,
+  client_txn_id text NOT NULL,
+  normalized_request_sha256 bytea NOT NULL,
+  response_body_json jsonb NOT NULL,
+  committed_at timestamptz NOT NULL,
+  PRIMARY KEY (actor_user_id, incident_id, action_route, client_txn_id)
+);
+```
+
+The `action_route` column must distinguish `close` from `reopen`; the normalized request digest must be computed from the owner-defined normalized request, not from raw JSON member order.
 
 ### Illustrative realization notes for live-authorized cursor pagination
 
