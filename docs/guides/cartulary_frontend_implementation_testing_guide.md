@@ -533,6 +533,7 @@ Shared harnesses apply across every phase that introduces or changes the covered
 | FE-H-15 | Same-origin evidence preview and download handles | P6, P9 | Core 01 Section 3.3.9; Core 04 Sections 5 and 6 | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | Evidence preview/download redeems same-origin handles; raw storage paths are not UI handles; current auth is re-derived. |
 | FE-H-16 | Frontend error-state rendering | P1 through P10 | Core 01 Section 3.3.1; Core 04 Sections 2, 3, 5 | `make frontend-unit`; `make browser-e2e-webserver-backed` | Errors render public envelopes and user-visible states without relying on private server details. |
 | FE-H-17 | Generated contract drift | P0 through P11 | Core 00 Section 1; development guide Sections 2, 6.6, 7.1 | `make generated-artifact-policy-check`; `make generate-drift` | Generated TypeScript protocol surfaces are not hand-edited and drift checks pass before completion claims. |
+| FE-H-18 | List-search request sequencing | P1 through P2 | Core 01 Sections 3.3.5.1, 3.3.5.3.1, and 3.3.7.1; UI/UX guide Section 5.8 | `make frontend-unit`; `make browser-e2e-webserver-backed` | Incident-directory and deployment-admin user-list search preserve prior visible results while pending, show `Searching`, submit immediately on Enter, discard stale responses by monotonic request sequence, and never present client-side filtering over partial cursor data as exhaustive. |
 
 ### 5.1 Visual fixture matrix
 
@@ -687,6 +688,7 @@ This guide is complete enough for frontend implementation planning when all crit
 | FE-GUIDE-AC-034 | JSON validation rejects duplicate object members before schema validation. |
 | FE-GUIDE-AC-035 | Exact owner-reference validation fails unresolved or non-existent Core owner IDs unless the row is blocked with an explicit blocker. |
 | FE-GUIDE-AC-036 | Frontend row closure fails target-summary generation with `failure_reason="frontend_row_accounting"` when an implemented required row inside the accounting scope is missing, stale, or not closed. |
+| FE-GUIDE-AC-037 | Shared harness coverage includes list-search request sequencing for the incident directory and deployment-admin user list. |
 
 ## 9. Sources
 

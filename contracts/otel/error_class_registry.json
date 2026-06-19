@@ -5,7 +5,7 @@
   "public_error_classes": [
     {
       "error_class": "request_invalid",
-      "error_codes": ["invalid_view_query", "invalid_pagination_request", "invalid_mutation_payload", "invalid_evidence_handle_request", "invalid_blob_create_request", "invalid_incident_create", "invalid_incident_patch", "invalid_rollback_request", "invalid_auth_request", "invalid_enterprise_auth_request", "invalid_import_request", "invalid_snapshot_request", "invalid_release_request", "invalid_reference_pack_request", "invalid_incident_bundle_request"]
+      "error_codes": ["invalid_view_query", "invalid_pagination_request", "invalid_list_query", "invalid_mutation_payload", "invalid_evidence_handle_request", "invalid_blob_create_request", "invalid_incident_create", "invalid_incident_patch", "invalid_rollback_request", "invalid_auth_request", "invalid_enterprise_auth_request", "invalid_import_request", "invalid_snapshot_request", "invalid_release_request", "invalid_reference_pack_request", "invalid_incident_bundle_request"]
     },
     {
       "error_class": "authentication",

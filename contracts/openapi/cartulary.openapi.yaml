@@ -111,7 +111,65 @@
           "deployment-users"
         ],
         "operationId": "listDeploymentUsers",
-        "summary": "List deployment-scoped local users."
+        "summary": "List deployment-scoped local users.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Cursor page size. Omission defaults to 100 without cursor_token and reuses the cursor-bound limit with cursor_token."
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque cursor returned by a prior page for the same normalized user-list query."
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "description": "Optional list_search_v1 search text over user_id, email, and display_name. Omission or normalized-empty means no search predicate."
+          },
+          {
+            "name": "is_active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "Optional exact lowercase boolean filter. Omission means no is_active predicate."
+          },
+          {
+            "name": "is_deployment_admin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "Optional exact lowercase boolean filter. Omission means no is_deployment_admin predicate."
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -197,7 +255,52 @@
           "incidents"
         ],
         "operationId": "listVisibleIncidents",
-        "summary": "List incidents for which the caller currently has membership."
+        "summary": "List incidents for which the caller currently has membership.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Cursor page size. Omission defaults to 100 without cursor_token and reuses the cursor-bound limit with cursor_token."
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque cursor returned by a prior page for the same normalized incident-list query."
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "description": "Optional list_search_v1 search text over incident_key, title, severity, tlp, current_phase, and primary_external_case_ref. Omission or normalized-empty means no search predicate."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "closed"
+              ]
+            },
+            "description": "Optional exact incident status filter. Omission means both active and closed incidents are eligible."
+          }
+        ]
       },
       "post": {
         "tags": [

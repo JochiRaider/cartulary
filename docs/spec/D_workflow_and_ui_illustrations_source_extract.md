@@ -454,6 +454,31 @@ sequenceDiagram
     end
 ```
 
+### 3A.1A Incident directory and user-admin list search
+
+This sequence is illustrative only. Core 01 §3.3.5.1, §3.3.5.3.1, and §3.3.7.1 own the authoritative server-side list-search contract; this appendix illustrates one browser interaction pattern that keeps the interface responsive while preserving that contract.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant UI as Directory or admin list UI
+    participant App as App API
+
+    U->>UI: Type search text or change an exact filter
+    UI->>UI: Keep prior result set visible and show Searching
+    UI->>UI: Increment client request sequence
+    UI->>App: GET list route with search/filter and no stale cursor_token
+    U->>UI: Press Enter before debounce completes
+    UI->>UI: Increment client request sequence again
+    UI->>App: Submit newest search/filter immediately
+    App-->>UI: Older response arrives
+    UI->>UI: Discard response whose sequence is not current
+    App-->>UI: Newest response arrives
+    UI->>UI: Replace visible list, update paging, clear Searching
+```
+
+The same pattern applies to the authenticated root incident directory and deployment-admin user list. Client-side filtering over a partially loaded cursor collection is only local display refinement; it is not exhaustive search and must not be presented as authoritative.
+
 ### 3A.2 Provider login to shared authenticated root landing
 
 This sequence is illustrative only. Provider-specific begin, callback, and ACS mechanics remain owned by Core 01 §20. The `/` branch after session issuance is the shared Base Profile contract in Core 01 §3.3.2.1A; provider claims and `deployment_admin` status do not choose or widen visible incidents.

@@ -429,6 +429,8 @@ The guide MUST NOT refer to `/contracts/*` as the product “source of truth.”
 | View schemas and write-back contracts       | Core 01 view-schema registry and addenda, with field semantics from Core 02 and workflow consequences from Core 03 | `/contracts/view-schemas/*.json`            | Grid wrapper, filter builders, write routing, saved-view normalization   | Change owner contract first, then view schemas     |
 | Error registries and reason-code registries | Core 01 error-envelope owner sections                                                                              | `/contracts/errors/*.json`                  | Go error helpers, TypeScript enums, test fixtures                        | Change owner contract first, then error registries |
 
+Route query types MUST derive from `/contracts/openapi/cartulary.openapi.yaml` and the generated protocol artifacts. When a Core 01 route owner adds query members such as incident/user list `search`, `status`, `is_active`, or `is_deployment_admin`, handwritten backend or frontend request types may wrap generated types but MUST NOT omit, rename, or independently redefine those members.
+
 ### 4.3 Generated artifact rules
 
 The following paths are generated and MUST NOT be hand-edited:
@@ -567,6 +569,7 @@ This guide intentionally places `party`, `task_request`, `decision`, and artifac
 - `/db/migrations/*.sql` are numbered migrations applied by `goose`.
 - Projection tables are disposable caches and MUST be rebuildable from authoritative source state.
 - Every mutable user-visible record MUST be addressed by stable `record_id` plus `row_version`. No backend API may rely on visible row position or display labels for mutation targeting.
+- List-search SQL and query helpers MUST consume route-normalized list-query state, including canonical search tokens and exact filter wire tokens. Storage-engine search strings, database tokenizer output, collation behavior, `tsvector` syntax, trigram syntax, or generated-column text MUST remain adapter internals and MUST NOT become the cursor-bound query contract.
 
 ### Verification
 

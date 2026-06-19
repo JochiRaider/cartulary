@@ -67,6 +67,17 @@ One conformant non-normative realization of the current sort and grouping contra
 
 One additional non-normative realization note is now explicit: generated comparison columns, expression indexes, token tables, or `tsvector`-style realizations are conformant only when they reproduce the Core 01 comparison and tokenization contract exactly. Database-default locale, collation, or tokenizer behavior is not authoritative when it differs from the normative contract.
 
+### Illustrative realization notes for incident and user list search
+
+One conformant non-normative realization of `list_search_v1` can store generated search-token rows for `GET /api/v1/incidents` and `GET /api/v1/users`:
+
+- `incident_list_search_tokens(incident_id, source_field, token)` populated from `incident_key`, `title`, `severity`, `tlp`, `current_phase`, and `primary_external_case_ref`,
+- `user_list_search_tokens(user_id, source_field, token)` populated from `user_id`, `email`, and `display_name`,
+- b-tree indexes on `(token, incident_id)` or `(token, user_id)` plus the route's deterministic ordering columns,
+- a query helper that intersects prefix matches for every normalized query token after authorization and visibility predicates are applied.
+
+A different conformant realization can use generated columns containing precomputed normalized token arrays or `tsvector`/trigram indexes as acceleration structures. These structures are examples only. PostgreSQL text-search parsers, `tsvector` dictionaries, trigram behavior, generated-column expressions, database collations, and locale settings are never authoritative for `list_search_v1`; they are conformant only when the externally observable tokenization, case folding, diacritic significance, prefix matching, duplicate-token handling, and cursor binding exactly reproduce Core 01 §3.3.7.1.
+
 ### Illustrative realization notes for live-authorized cursor pagination
 
 One conformant non-normative realization of `live_authorized_keyset` cursor continuation needs:

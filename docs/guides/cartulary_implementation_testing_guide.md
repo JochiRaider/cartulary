@@ -215,6 +215,8 @@ Shared harness owners for this phase are explicit:
 | E-1-11 | A reviewer-visible incident edit submitted after current-role demotion fails through the public `authorization_denied` envelope, renders only the public error code, and reloads with the lower current role.                 | REQ-01-127..REQ-01-137, REQ-04-021..REQ-04-026 | AC-175..AC-180, AC-231         |
 | E-1-12 | Deployment-admin revoke-all invalidates a target browser session, the next public session refresh returns the ordinary shell to login, and fresh login preserves unchanged incident membership access.                      | REQ-01-029, REQ-01-529, REQ-04-016, REQ-04-085 | AC-131, AC-136, AC-340..AC-342 |
 
+Phase 1 list-search implementation addendum: when `GET /api/v1/users` implementation work lands, promote manifest rows for user-list search/filter validation, cursor query mismatch, deployment-admin gating, the `limit=1` later-page match fixture, and deployment-admin frontend stale-response handling. Those rows should map to REQ-01-117, REQ-01-234, REQ-01-238, REQ-01-240..REQ-01-242, REQ-01-581..REQ-01-584, REQ-04-038, AC-415, and AC-417.
+
 ---
 
 ## 4. Phase 2 — Incidents, memberships, and the incident-scoped control envelope
@@ -294,6 +296,8 @@ Shared harness owners for this phase are explicit:
 | E-2-01 | An authenticated user creates an incident, is bootstrapped as incident `admin`, and lands on the ordinary workbook shell with visible workbook-preference bootstrap state.          | REQ-01-154..REQ-01-160, REQ-04-021..REQ-04-026 | AC-170..AC-174                 |
 | E-2-02 | The same incident appears in incident discovery, is retrieved into the ordinary incident shell through a raw `/?incident_id=...` deep link, and patches only the allowed promoted fields through visible default-path controls. | REQ-01-168..REQ-01-180, REQ-02-015             | AC-170..AC-174, AC-211..AC-214 |
 | E-2-03 | An incident admin adds, changes, and removes memberships on the ordinary shell. A non-admin incident member sees the same membership state but not the admin controls.              | REQ-01-127..REQ-01-137, REQ-04-021..REQ-04-030 | AC-175..AC-180                 |
+
+Phase 2 list-search implementation addendum: when `GET /api/v1/incidents` implementation work lands, promote manifest rows for incident-list search/filter validation, cursor query mismatch, hidden-resource pagination, the `limit=1` later-page match fixture, and incident-directory frontend stale-response handling. Those rows should map to REQ-01-168, REQ-01-234, REQ-01-238, REQ-01-240..REQ-01-242, REQ-01-581..REQ-01-584, AC-415, and AC-416.
 
 Phase 2 still keeps browser-authenticated request probes for route-owned validation errors, extension singleton discovery semantics, and reserved-family precedence, but those belong to supplemental browser support coverage rather than the authoritative E2E completion map. The debug-only `Phase2Harness` remains a probe-only support surface rather than completion evidence, while process smoke checks are supplemental Go rows selected through the `backend-process` execution family.
 
@@ -1284,8 +1288,8 @@ Service-backed Go unit helper starts are manifest-authorized, not phase-hardcode
 | Phase    | Primary owner sections                                                                                                    |
 | -------- | ------------------------------------------------------------------------------------------------------------------------- |
 | Phase 0  | Core 01 §1; Core 01 §3.3.5.1 bootstrap-admin manifest contract; Core 04 §5–§8; Core 04 §12                                |
-| Phase 1  | Core 01 §3.3.2; Core 01 §3.3.2.2; Core 01 §3.3.5.1; Core 01 §3.3.10; Core 04 §1; Core 04 §3                               |
-| Phase 2  | Core 01 §3.3.1; Core 01 §3.3.3; Core 01 §3.3.5.1–§3.3.5.3; Core 02 §4.5; Core 04 §2–§3                                    |
+| Phase 1  | Core 01 §3.3.2; Core 01 §3.3.2.2; Core 01 §3.3.5.1; Core 01 §3.3.7.1; Core 01 §3.3.10; Core 04 §1; Core 04 §3              |
+| Phase 2  | Core 01 §3.3.1; Core 01 §3.3.3; Core 01 §3.3.5.1–§3.3.5.3; Core 01 §3.3.7.1; Core 02 §4.5; Core 04 §2–§3                  |
 | Phase 3  | Core 01 §3.3.5; Core 01 §7.4; Core 01 §8; Core 02 §5 and §14; Core 03 §1, §4, §6, §7, and §15                             |
 | Phase 4  | Core 01 §3.3.5 mention and merge routes; Core 02 §6–§10, §13, and §19; Core 03 §8.4, §9, §16, and §20                    |
 | Phase 5  | Core 01 §3.3.8; Core 01 §16; Core 02 §4.5 and §13; Core 03 §8 and §16; Core 04 §4.3 and §4.5                              |

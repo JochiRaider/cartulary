@@ -129,6 +129,11 @@
       "summary": "The request used unsupported pagination members or an invalid opaque cursor_token."
     },
     {
+      "code": "invalid_list_query",
+      "http_status": 400,
+      "summary": "A GET collection list query failed route-owned validation."
+    },
+    {
       "code": "invalid_view_query",
       "http_status": 400,
       "summary": "The view query request body failed route-owned validation."
@@ -1330,6 +1335,35 @@
         {
           "code": "duplicate_field_key",
           "summary": "The request contains duplicate normalized field keys."
+        }
+      ]
+    },
+    {
+      "error_code": "invalid_list_query",
+      "reason_codes": [
+        {
+          "code": "unknown_query_member",
+          "summary": "The request includes a query member outside the route's declared GET collection query contract."
+        },
+        {
+          "code": "duplicate_query_member",
+          "summary": "The raw query string repeats any query member name."
+        },
+        {
+          "code": "invalid_search",
+          "summary": "The search query member is malformed or outside the list_search_v1 scalar and tokenization contract."
+        },
+        {
+          "code": "search_token_count_exceeded",
+          "summary": "The normalized search query contains more than 16 unique normalized tokens."
+        },
+        {
+          "code": "invalid_filter_value",
+          "summary": "A route-owned exact-value filter uses a value outside its closed wire-token set."
+        },
+        {
+          "code": "invalid_filter_range",
+          "summary": "A route-owned range filter is malformed, contradictory, or outside its declared bound."
         }
       ]
     },
