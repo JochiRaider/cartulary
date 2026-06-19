@@ -156,7 +156,7 @@ Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-280
 **REQ-04-023**
 API routes, preview or download handle issuance and redemption, job polling, job cancellation, and WebSocket incident subscriptions MUST re-derive authorization from the caller's current scope membership and role at request time. Incident-scoped jobs MUST use current incident membership and role. If an incident-scoped job is admitted by a route that also requires `deployment_admin`, job polling MUST require both current `deployment_admin` and current incident membership, and job cancellation MUST require current `deployment_admin` plus either the submitter relationship or current incident role `admin`. Deployment-scoped jobs MUST use the owning route family's deployment-scoped authorization contract. Reference Pack deployment-scoped jobs are owned by the `/api/v1/reference-packs` route family and therefore require current `deployment_admin` for polling and cancellation; the submitting user relationship alone is not sufficient unless that caller still holds `deployment_admin`. Incident Bundle export jobs are incident-scoped jobs with the combined deployment-admin-and-incident-membership policy; Incident Bundle import jobs remain deployment-scoped `deployment_admin` jobs because no target incident exists before successful import.
 Profiles: base
-Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-254, AC-255, AC-257, AC-260, AC-261
+Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-254, AC-255, AC-257, AC-260, AC-261, AC-427
 
 **REQ-04-024**
 `party`, `task_request`, `decision`, and coordination artifacts such as `comm_log`, `handoff`, `status_review`, and `lesson` MUST inherit the same incident-level authorization model. The base profile MUST NOT introduce record-specific ACLs or hidden sub-workspaces for these objects.
@@ -181,39 +181,62 @@ Profiles: base, snapshot_reporting
 Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-233
 
 **REQ-04-028**
-The base profile MUST separate deployment-local account administration from incident-scoped data authorization. A conformant deployment MUST define one narrow deployment-scoped capability named `deployment_admin`. This capability authorizes only deployment-local user-account inspection and administration, including local-user creation, user patching, and any explicit revoke-all action the deployment exposes. The first holder of this capability MUST be provisioned only through the deployment-local bootstrap-admin manifest mechanism defined by Core 01 §3.3.5.1 and Core 04 §12.3.2, not through a public or incident-scoped surface.
+The base profile MUST separate application-level deployment administration from incident-scoped data authorization. A conformant deployment MUST define one current-profile boolean capability named `deployment_admin`. The first holder of this capability MUST be provisioned only through the deployment-local bootstrap-admin manifest mechanism defined by Core 01 §3.3.5.1 and Core 04 §12.3.2, not through a public or incident-scoped surface.
+
+For the current profile, `deployment_admin` authorization is exactly:
+
+| Route or operation family | `deployment_admin` requirement |
+| --- | --- |
+| User list/get/create/patch | Required. |
+| Administrative password reset, TOTP reset, revoke-all | Required. |
+| Deployment administrative-audit read | Required when such a read surface is exposed. This row does not create a public audit route. |
+| Enterprise-auth binding create/rotate/retire | Required when the extension is claimed. |
+| Every reference-pack list and mutation route | Required when the extension is claimed. |
+| Incident-bundle import | Required when the extension is claimed. |
+| Incident-bundle export | Required and current membership in the exported incident. |
+| Poll/cancel a deployment-scoped job admitted under one of these families | Required. |
+| Poll an incident-scoped job that also requires deployment administration | Required plus current incident membership. |
+| Cancel such an incident-scoped job | Required plus submitter status or current incident role `admin`. |
+| Create an incident | Not required. Any active authenticated account may create one. |
+| Read or modify incident data | Insufficient by itself; ordinary incident membership and role remain required. |
+| Manage incident memberships | Insufficient by itself; current incident role `admin` is required. |
+| Read extension-claim discovery | Not required; any authenticated session may read it. |
+| Configure enterprise providers | Not a runtime capability; startup configuration only. |
+| Invoke recovery CLI | Not a runtime capability; local operator authorization applies. |
+
+This matrix is exhaustive for current-profile public route families and deployment-local operator families that reference `deployment_admin`. Future granular deployment capabilities require a later profile or an explicit versioned capability registry. A current v1 implementation MUST NOT silently narrow or widen `deployment_admin` by local policy. Holding `deployment_admin` MUST continue not to disclose incident content without ordinary incident membership.
 Profiles: base
-Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-343, AC-344, AC-345, AC-346, AC-414
+Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-343, AC-344, AC-345, AC-346, AC-414, AC-427
 
 **REQ-04-029**
 Holding `deployment_admin` MUST NOT by itself grant incident read, write, preview, download, export, incident-scoped job, or incident WebSocket access. A caller who is `deployment_admin=true` but lacks current membership in incident X MUST have no incident-data or incident-scoped job access to incident X until granted ordinary incident membership.
 Profiles: base
-Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-261, AC-414
+Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-261, AC-414, AC-427
 
 **REQ-04-106**
-Any built-in backup, restore, or restore-verification control surface MUST remain deployment-local and operator-facing. In the base profile, such a surface MUST require `deployment_admin`, MUST NOT be incident-scoped, and MUST preflight destructive restore targets before mutation so source and target storage bindings are separated and the target is fresh.
+Any built-in runtime backup, restore, or restore-verification control surface MUST remain deployment-local and operator-facing. In the base profile, such a runtime surface MUST require `deployment_admin`, MUST NOT be incident-scoped, and MUST preflight destructive restore targets before mutation so source and target storage bindings are separated and the target is fresh. Invoking a recovery CLI is not a runtime capability and is governed by local operator authorization rather than `deployment_admin`.
 Profiles: base
-Verified by: AC-402
+Verified by: AC-402, AC-427
 
 **REQ-04-030**
 Incident membership create, role-change, and delete routes remain incident-scoped authorization decisions. In the base profile, those routes MUST require current incident role `admin`; `deployment_admin` alone MUST NOT bypass that requirement.
 Profiles: base
-Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231
+Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-427
 
 **REQ-04-105**
 `GET /api/v1/extensions` is deployment-scoped discovery. Any authenticated session MAY read it. It is not incident-scoped and does not require `deployment_admin`. The route MUST expose only extension-claim state and reserved family roots and MUST NOT expose provider secrets, provider assertions, provider claim maps, or other deployment-local secret-bearing state.
 Profiles: base
-Verified by: AC-370, AC-371
+Verified by: AC-370, AC-371, AC-427
 
 **REQ-04-085**
 Only `deployment_admin` may call the deployment-local credential action routes `POST /api/v1/users/{user_id}/password/reset`, `POST /api/v1/users/{user_id}/mfa/totp/reset`, and `POST /api/v1/users/{user_id}/sessions/revoke-all`. Incident membership or incident role `admin` alone MUST NOT authorize those routes.
 Profiles: base
-Verified by: AC-340..AC-342
+Verified by: AC-340..AC-342, AC-427
 
 **REQ-04-094**
 Only `deployment_admin` may call `POST /api/v1/users/{user_id}/auth-bindings`, `POST /api/v1/users/{user_id}/auth-bindings/{auth_binding_id}/rotate`, and `DELETE /api/v1/users/{user_id}/auth-bindings/{auth_binding_id}`. Incident membership or incident role `admin` alone MUST NOT authorize those routes.
 Profiles: enterprise_authentication
-Verified by: AC-352
+Verified by: AC-352, AC-427
 
 ### 2.1 Snapshot and Reporting Extension Profile release gate
 
@@ -558,7 +581,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-426`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-427`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -1154,6 +1177,8 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-00-014, REQ-01-023..REQ-01-031, REQ-04-001..REQ-04-017
 - **AC-414**: After successful local authentication, default browser navigation to `/` evaluates only the caller's current visible incident collection: with zero visible incidents it remains on `/`, renders the empty visible-incident directory, and exposes the ordinary create-incident affordance to an active authenticated account; with exactly one visible incident it opens that incident workbook without an explicit launch `sheet_ref` and then uses the Core 03 §2.4 startup fallback; with two or more visible incidents it remains on `/` and renders the visible-incident directory. If the sole visible incident loses visibility before workbook bootstrap completes, the browser returns to `/` and renders the current visible-incident directory. The same fixtures MUST prove that recency, sort order, prior visit state, client cache, and `deployment_admin` status do not select or widen incidents; when the Enterprise Authentication Extension Profile is claimed, AC-289 through AC-291 additionally prove that provider claim content and provider authentication do not change the outcome for the same visible memberships.
   - Verifies: REQ-00-053, REQ-01-025, REQ-01-168, REQ-01-580, REQ-03-030..REQ-03-031, REQ-04-028..REQ-04-029
+- **AC-427**: A current-profile route-inventory audit classifies every public route family declared by Core 01 §3.3.3, §17, and §20, plus every deployment-local operator family that references `deployment_admin`, as exactly one of: `deployment_admin required`, `deployment_admin insufficient without incident authorization`, or `deployment_admin irrelevant`. The audit MUST match the matrix in REQ-04-028, MUST prove that no current public route relies on an undeclared granular deployment capability, MUST prove that `deployment_admin` alone cannot disclose incident content without current incident membership, and MUST prove that reserved but unclaimed extension-family paths return `404 error.code='extension_profile_not_claimed'` before family-specific authorization or policy evaluation.
+  - Verifies: REQ-01-032..REQ-01-033, REQ-01-542..REQ-01-548, REQ-04-023, REQ-04-028..REQ-04-030, REQ-04-085, REQ-04-094, REQ-04-105..REQ-04-106
 - **AC-244**: `POST /api/v1/auth/login` with valid email-form `username` and `password` for a non-MFA local account whose stored password includes non-ASCII characters and significant leading or trailing whitespace succeeds, returns the same session resource exposed by `GET /api/v1/auth/session`, and requires no `client_txn_id`.
   - Verifies: REQ-01-025, REQ-01-120, REQ-01-521
 - **AC-245**: `POST /api/v1/auth/login` with unknown email-form `username`, wrong `password`, or an inactive local account returns `401 error.code='invalid_credentials'`, sets no session cookie, and does not expose `required_second_factor_kinds` or other evidence that primary credentials were valid; for a non-MFA local account whose stored password includes non-ASCII characters and significant leading or trailing whitespace, a `password` value that differs from the stored secret only by Unicode normalization or by trimmed surrounding whitespace also returns `401 error.code='invalid_credentials'`.
@@ -1652,7 +1677,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-575..REQ-01-576
 - **AC-401**: Full restore verification runs in an isolated environment at least every 7 days and after a change to the backup mechanism, `roots.database_storage`, `roots.object_storage`, or `roots.backup_storage` binding; the implementation records or derives a non-secret verification-basis digest for those mechanism and root-binding inputs; a deployment-local due-verification runner selects and executes backups due by age or basis change rather than relying only on a manual latest-verification command; a successful verification sets `verification_state='verified'` with non-null `last_verified_restore_at`; a failed verification sets `verification_state='failed'` with non-null `last_verified_restore_at`; and a failed verification is never represented as verified or ready.
   - Verifies: REQ-01-572, REQ-01-578
-- **AC-402**: The public route inventory under `/api/v1/` and `/ws/v1/` exposes no backup, restore, or restore-verification family; and any built-in operator-facing backup or restore control surface is deployment-local, requires `deployment_admin`, is not incident-scoped, and rejects unsafe restore targets before mutation.
+- **AC-402**: The public route inventory under `/api/v1/` and `/ws/v1/` exposes no backup, restore, or restore-verification family; any built-in runtime operator-facing backup, restore, or restore-verification control surface is deployment-local, requires `deployment_admin`, is not incident-scoped, and rejects unsafe restore targets before mutation; and recovery CLI invocation is not classified as a runtime `deployment_admin` capability.
   - Verifies: REQ-01-570, REQ-04-106
 - **AC-403**: `roots.backup_storage` is present in the effective deployment configuration; the disconnected binding uses `binding_kind='filesystem_root'`; the on-prem or cloud binding uses only `filesystem_root` or `managed_service`; `/var/lib/cartulary/backups` is the canonical disconnected example path; `roots.export_outputs` and `roots.temporary_work` are not treated as authoritative backup roots; and backup artifacts or restore-verification extracts that carry incident data remain on encrypted storage, with the current filesystem-backed realization proving this through authenticated encrypted artifact envelopes and fail-closed missing-key behavior.
   - Verifies: REQ-04-053, REQ-04-058, REQ-04-071..REQ-04-073, REQ-04-076, REQ-04-107..REQ-04-108

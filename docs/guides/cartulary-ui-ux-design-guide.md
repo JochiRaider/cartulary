@@ -280,6 +280,10 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 
 *Design direction.* Incident-directory search and deployment-admin user-list search MUST treat the server-side list route as authoritative. Client-side filtering over a partially loaded cursor collection is a local display refinement only and MUST NOT be presented as exhaustive. While a newer search or filter request is pending, the UI MUST keep the prior result set visible, display `Searching`, submit the current search immediately on Enter, and discard stale responses by a monotonically increasing client request sequence.
 
+*Core behavior.* Core 04 owns the `deployment_admin` authorization matrix. Core 01 owns `GET /api/v1/extensions` claim-state discovery and reserved unclaimed extension-family behavior.
+
+*Design direction.* Deployment-administration menu items MUST be rendered from the current session's `deployment_admin` status, the Core 04 matrix, and `GET /api/v1/extensions` claimed-state results. Incident membership controls MUST remain incident-role driven and MUST NOT be exposed solely because the current user holds `deployment_admin`.
+
 ### Acceptance criteria
 
 - **R2-AC-017:** §5.2 defines primary tabs, the `System views` switcher, optional surfaces, and saved-view placement.
@@ -298,6 +302,7 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 - **R2-AC-100:** §5.1 distinguishes TLP canonical machine tokens from labels and severity or phase suggestions from closed vocabularies.
 - **R2-AC-101:** §5.1 defines the persistent `Closed, read-only` shell state and separates it from save-state labels.
 - **R2-AC-102:** §5.1 disables or hides source-state write affordances while retaining allowed read and reporting actions for closed incidents.
+- **R2-AC-105:** §5.8 derives deployment-administration menu items from the Core 04 matrix plus extension claimed state and keeps incident membership controls incident-role driven.
 
 ## 6. Workbook Surface Model
 
@@ -1154,7 +1159,7 @@ Cell: timeline.summary  B editing
 | Authority              | §2 directly states Core 00 precedence and subordinate implementation-support context.                                         |
 | Statement classes      | §§3 through 19 use the four closed markers.                                                                                   |
 | Core restatements      | `*Core behavior.*` paragraphs are descriptive and do not issue guide-owned imperatives.                                       |
-| Shell composition      | §5.2 defines tabs, switcher, ordering, optional surfaces, saved-view placement, keyboard behavior, and rejected alternatives; §5.8 defines authenticated root landing compositions. |
+| Shell composition      | §5.2 defines tabs, switcher, ordering, optional surfaces, saved-view placement, keyboard behavior, and rejected alternatives; §5.8 defines authenticated root landing compositions and deployment-administration menu derivation. |
 | Status strip           | §5.7 defines three slots, priority, overflow, and KPI exclusion boundary.                                                     |
 | `Esc` behavior         | §7.2 and §7.4 define the same priority ladder.                                                                                |
 | Save state             | §7.4 includes replay-paused `Syncing` and presence non-effect.                                                                |
@@ -1196,11 +1201,12 @@ Cell: timeline.summary  B editing
 | P3-4    | P3       | §15.4                      | Design direction                                               | design-direction   | Added positive-pattern reviewer table.                                                                           | R2-AC-071..R2-AC-072             |
 | P3-5    | P3       | §5.7                       | Design direction                                               | design-direction   | Added numeric status-strip capacity and KPI exclusion boundary.                                                  | R2-AC-023..R2-AC-026             |
 | P4-1    | P4       | Revision 2 editorial audit | N/A                                                            | editorial          | Added temporary normative-voice audit.                                                                           | Verification matrix, audit table |
-| P4-2    | P4       | All acceptance criteria    | N/A                                                            | editorial          | Normalized acceptance-criteria heading and binary style.                                                         | R2-AC-001..R2-AC-104             |
+| P4-2    | P4       | All acceptance criteria    | N/A                                                            | editorial          | Normalized acceptance-criteria heading and binary style.                                                         | R2-AC-001..R2-AC-105             |
 | P4-3    | P4       | §5.1                       | Design direction                                               | incident-metadata  | Added compact create metadata and complete post-create incident-control guidance.                                | R2-AC-099..R2-AC-100             |
 | P4-3    | P4       | Sources                    | N/A                                                            | editorial          | Cleaned citations to load-bearing source groups.                                                                 | Sources block                    |
 | P4-4    | P4       | §§10.2, 14.1, 16.4, 16.7   | Design direction, Baseline context                             | baseline-context   | Added RDG adapter, treegrid/group-row, fixed-height density, and generated-class styling boundaries.             | R2-RDG-AC-001..R2-RDG-AC-010     |
 | P4-5    | P4       | §5.1, §9.5                 | Core behavior, Design direction                                | incident-lifecycle | Added closed incident read-only shell guidance and rejected-draft non-replay behavior.                           | R2-AC-101..R2-AC-104             |
+| P4-6    | P4       | §5.8                       | Core behavior, Design direction                                | deployment-admin   | Added deployment-administration menu derivation from the Core 04 matrix and extension claimed state.             | R2-AC-105                        |
 
 ## Revision 2 editorial audit
 
@@ -1234,6 +1240,8 @@ The audit is temporary reviewer scaffolding, not product direction. It SHOULD be
 | §5.7    | Persistent shell chrome and the status strip MUST NOT show incident-level KPIs, time-to-resolution counters, team throughput, external ticket counts, or management dashboard metrics.                                                                                              | Design direction | Prevents dashboard sprawl.                             | Does not ban metrics inside opened surfaces.              |
 | §5.8    | Incident-directory search and deployment-admin user-list search MUST treat the server-side list route as authoritative.                                                                                                                                                             | Design direction | Prevents partial-cursor filtering from being presented as exhaustive search. | Restates UI consequence of Core 01 list search.           |
 | §5.8    | While a newer search or filter request is pending, the UI MUST keep the prior result set visible, display `Searching`, submit the current search immediately on Enter, and discard stale responses by a monotonically increasing client request sequence.                            | Design direction | Defines responsive list-search state.                  | UI request handling only.                                 |
+| §5.8    | Deployment-administration menu items MUST be rendered from the current session's `deployment_admin` status, the Core 04 matrix, and `GET /api/v1/extensions` claimed-state results.                                                                                                 | Design direction | Prevents guide-local deployment-role drift.            | Presentation of owner-owned authorization only.           |
+| §5.8    | Incident membership controls MUST remain incident-role driven and MUST NOT be exposed solely because the current user holds `deployment_admin`.                                                                                                                                      | Design direction | Keeps deployment and incident administration separate.  | UI consequence of Core 04 authorization.                  |
 | §6.3    | When exposed, the optional standardized surfaces MUST inherit the same shell, row, query, filter, grouping, saved-view, history, and inspector grammar as other workbook surfaces.                                                                                                  | Design direction | Keeps optional surfaces workbook-native.               | Conditional on owner-allowed optional surfaces.           |
 | §7.1    | Selecting a cell and typing MUST edit it immediately.                                                                                                                                                                                                                               | Design direction | Defines direct edit posture.                           | UI behavior only.                                         |
 | §7.1    | The user MUST NOT have to enter a separate form edit mode for the common row-editing path.                                                                                                                                                                                          | Design direction | Prevents form-first drift.                             | UI behavior only.                                         |

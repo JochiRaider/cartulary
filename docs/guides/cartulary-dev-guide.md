@@ -1221,7 +1221,7 @@ Implementation summary:
 
 The bootstrap-created admin then enters the ordinary local TOTP bootstrap flow on first valid password login. Because the created user starts with `mfa_required=true` and no active TOTP factor, the first login follows the existing `mfa_setup_required` -> `bootstrap_token` -> `POST /api/v1/auth/mfa/totp/begin` -> `POST /api/v1/auth/mfa/totp/complete` flow.
 
-`deployment_admin` is deployment-scoped only. It authorizes deployment-local user-account inspection and administration, but it MUST NOT by itself grant incident read, write, preview, download, export, incident-scoped job, or incident WebSocket access. Incident access still requires ordinary incident membership and the incident-role model.
+`deployment_admin` is deployment-scoped application-level deployment administration. Core 04 REQ-04-028 owns the exact authorization matrix, including deployment-user administration, administrative credential actions, claimed extension administration for enterprise bindings, reference packs, and incident bundles, and deployment-admin job polling or cancellation. It MUST NOT by itself grant incident read, write, preview, download, export, incident-scoped job, incident WebSocket access, or incident-membership administration. Frontend routing, deployment-gated feature flags, and integration tests should combine that matrix with the `GET /api/v1/extensions` claim-state contract rather than inferring authorization from route probes.
 
 ### 12.4 Profile-specific deployment concerns
 
