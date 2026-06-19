@@ -377,6 +377,38 @@ CREATE TABLE users (
 -- over the same `email_address_v1` comparison substrate is also
 -- conformant; `citext` itself is not required.
 
+CREATE TABLE account_preferences (
+    user_id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    density_mode text CHECK (density_mode IN ('compact', 'default', 'comfortable')),
+    preferences_version bigint NOT NULL DEFAULT 1,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Informative: one conformant realization creates exactly one logical
+-- `account_preferences` row per login-capable user. `density_mode NULL`
+-- means no persisted override; Timeline then renders as `compact`, and
+-- every other workbook surface renders as `default`.
+-- This illustrative table intentionally has no locale, time-zone,
+-- notification, theme, custom-density, custom-row-height, global-default-
+-- incident, or global `home_sheet_ref` columns.
+
+CREATE TABLE account_route_idempotency (
+    actor_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    route_key text NOT NULL,
+    client_txn_id text NOT NULL,
+    normalized_request_sha256 bytea NOT NULL,
+    response_body jsonb NOT NULL,
+    committed_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (actor_user_id, route_key, client_txn_id)
+);
+
+-- Informative: the same route-idempotency sketch can serve
+-- `account.profile.patch` and `account.preferences.put` if it stores only
+-- normalized request digests and replay-safe response bodies. It is
+-- deployment-local support state, not incident data and not portability
+-- content.
+
 ### Informative note on deployment-local credential lifecycle realization
 
 One conformant realization is to keep credential lifecycle state in deployment-local
@@ -1242,6 +1274,8 @@ CREATE TABLE incident_workbook_preferences (
 -- `{ "default_sheet_ref": <sheet_ref|null> }`. Both routes create the
 -- preference object if absent, replace only the named pointer if present,
 -- and leave `updated_at` unchanged on no-op updates.
+-- These per-incident workbook preferences remain separate from the
+-- deployment-local account density preference in `account_preferences`.
 --
 -- Informative: for required base coordination surfaces
 -- `cartulary.view.comm_log.v1`, `cartulary.view.handoff.v1`,

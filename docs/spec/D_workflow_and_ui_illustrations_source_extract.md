@@ -733,6 +733,68 @@ sequenceDiagram
 
 The same pattern applies to the authenticated root incident directory and deployment-admin user list. Client-side filtering over a partially loaded cursor collection is only local display refinement; it is not exhaustive search and must not be presented as authoritative.
 
+### 3A.1B Current-account Profile, Appearance, and Security flows
+
+These sequences are illustrative only. Core 01 §3.3.2.3 owns the current-account route contracts, Core 04 §2 owns authorization, and Core 04 §1.1.1 owns session-revocation consequences.
+
+Account settings are presented as three bounded areas:
+
+- Profile: show email as read-only local login identity and allow display-name editing only.
+- Appearance: allow exactly one persisted density override, with clear restoring `density_mode=null`.
+- Security: link to existing password and TOTP flows under `/api/v1/auth/*`; it does not define new profile routes.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant UI as Account Profile UI
+    participant App as App API
+    participant PG as Postgres
+
+    U->>UI: Open Account / Profile
+    UI->>App: GET /api/v1/account/profile
+    App->>PG: load current user only
+    PG-->>App: user_id, email, display_name, user_version, timestamps
+    App-->>UI: account_profile
+    UI->>UI: Render email read-only and display-name editor
+    U->>UI: Save new display name
+    UI->>App: PATCH /api/v1/account/profile
+    App->>PG: validate shape, idempotency, base_user_version, no-op, commit if changed
+    PG-->>App: committed or current account_profile
+    App-->>UI: account_profile
+    UI->>UI: Update visible account label; keep session active
+```
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant UI as Account Appearance UI
+    participant App as App API
+    participant PG as Postgres
+    participant WB as Workbook shell
+
+    U->>UI: Open Account / Appearance
+    UI->>App: GET /api/v1/account/preferences
+    App->>PG: load current user's preference resource
+    PG-->>App: density_mode, preferences_version, timestamps
+    App-->>UI: account_preferences
+    UI->>UI: Show Use surface default, Compact, Default, Comfortable
+    U->>UI: Select Comfortable or clear override
+    UI->>App: PUT /api/v1/account/preferences
+    App->>PG: validate required density_mode, replay, version, no-op, commit if changed
+    PG-->>App: committed or current account_preferences
+    App-->>UI: account_preferences
+    UI->>WB: Recompute effective density
+    alt density_mode is null and active surface is Timeline
+        WB->>WB: Render Compact density
+    else density_mode is null and active surface is not Timeline
+        WB->>WB: Render Default density
+    else density_mode is compact, default, or comfortable
+        WB->>WB: Render selected density
+    end
+```
+
+Security panel links are composition only: password change opens the existing self-service `POST /api/v1/auth/password/change` flow, and TOTP setup or replacement opens the existing `POST /api/v1/auth/mfa/totp/begin` and `POST /api/v1/auth/mfa/totp/complete` flow. Email or login-identifier changes remain deployment-admin managed through the user-administration route family.
+
 ### 3A.2 Provider login to shared authenticated root landing
 
 This sequence is illustrative only. Provider-specific begin, callback, and ACS mechanics remain owned by Core 01 §20. The `/` branch after session issuance is the shared Base Profile contract in Core 01 §3.3.2.1A; provider claims and `deployment_admin` status do not choose or widen visible incidents.

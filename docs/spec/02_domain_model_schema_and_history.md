@@ -1917,7 +1917,7 @@ Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-128, AC-154, AC-
 ### 14.1 Persistence realization status and deployment-local invariants
 
 **REQ-02-202**
-The current profile does **not** standardize one exact physical persistence schema, table set, column set, index set, migration topology, or storage-engine-specific realization. The schema MUST instead realize the exact persistence invariants defined in this section and in the owner requirements it references, including mention and indicator provenance, record links, assessments, reference-pack lifecycle state, incident operational fields, deployment-local user, credential, bootstrap-completion, auth-binding, and membership state, saved views and workbook preferences, and host, identity, party, task-request, evidence, and coordination-artifact state. Appendix C is illustrative only and does not define current-profile conformance.
+The current profile does **not** standardize one exact physical persistence schema, table set, column set, index set, migration topology, or storage-engine-specific realization. The schema MUST instead realize the exact persistence invariants defined in this section and in the owner requirements it references, including mention and indicator provenance, record links, assessments, reference-pack lifecycle state, incident operational fields, deployment-local user, account-preference, credential, bootstrap-completion, auth-binding, and membership state, saved views and workbook preferences, and host, identity, party, task-request, evidence, and coordination-artifact state. Appendix C is illustrative only and does not define current-profile conformance.
 Profiles: base, import, snapshot_reporting, reference_pack
 Verified by: AC-017, AC-018, AC-072, AC-073, AC-074, AC-075, AC-118, AC-128, AC-154, AC-155, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-231, AC-232, AC-233, AC-234, AC-277, AC-278, AC-280
 
@@ -1935,6 +1935,15 @@ Verified by: AC-175, AC-176, AC-178, AC-231
 Deployment-local credential lifecycle state for a login-capable local user MUST persist enough authoritative structured state to realize the public credential-management and session-revocation contracts in Core 01 §3.3.2.2 and Core 04 §1.1.1, including password-hash state, `password.changed_at`, `mfa_required`, active TOTP enrollment state, at most one pending TOTP enrollment, one non-reversible bootstrap-token lookup substrate with expiry and consumption state, `is_active`, `is_deployment_admin`, timestamps, `last_login_at`, and monotonically increasing `user_version` or an equivalent deterministic concurrency token. Cleartext passwords, cleartext TOTP seeds, raw bootstrap tokens, `secret_base32`, and `otpauth_uri` MUST NOT be authoritative stored state.
 Profiles: base
 Verified by: AC-175, AC-177, AC-335, AC-336, AC-337, AC-338, AC-339, AC-340, AC-341, AC-342, AC-231
+
+**REQ-02-255**
+Deployment-local current-account profile and account-preference state MUST persist enough authoritative structured state to realize the public current-account contract in Core 01 §3.3.2.3. The account profile resource MAY be realized from the authoritative local user row, but it MUST preserve stable `user_id`, authoritative `email`, `display_name`, `user_version`, `created_at`, and `updated_at` values. `email` remains the deployment-local login identifier and MUST NOT become self-service writable through the current-account profile route.
+
+The account-preference resource MUST have exactly one logical resource per login-capable user. It MUST persist, at minimum, `user_id`, nullable `density_mode`, `preferences_version`, `created_at`, and `updated_at`. `density_mode` MUST be either null or exactly one of `compact`, `default`, and `comfortable`. New users, and existing users before conformant serving, MUST be initialized with `density_mode=null`, `preferences_version=1`, and stable timestamps. The account-preference resource MUST NOT persist locale, time zone, notification settings, theme selection, global default incident, global `home_sheet_ref`, custom density values, or custom row heights in the current profile.
+
+Account profile and account-preference state are deployment-local normalized user state. They MUST NOT be record-envelope rows, MUST NOT be workbook-row mutation targets, MUST NOT be saved-view state, MUST NOT be incident-scoped workbook preference state, and MUST NOT be serialized as incident-portability content. The per-incident `user_workbook_preferences.home_sheet_ref` remains a distinct incident-scoped workbook preference keyed by `(incident_id, user_id)`.
+Profiles: base
+Verified by: AC-429, AC-431, AC-432
 
 **REQ-02-246**
 The deployment-local bootstrap-completion marker MUST persist exactly one consumed first-deployment-admin bootstrap record per deployment with `bootstrap_schema_id`, `bootstrap_artifact_id`, `artifact_sha256` computed from the exact raw manifest bytes consumed, `created_user_id`, and `consumed_at`. This marker remains deployment-local administrative state, is not a record-envelope row, is not workbook mutation state, and is not incident-portability content.
@@ -1986,14 +1995,14 @@ Profiles: base
 Verified by: AC-170, AC-231
 
 **REQ-02-204**
-Internal-user, session, auth-binding, bootstrap-completion, and incident-membership state MUST remain deployment-local authorization and credential state. Whole-incident portability import MAY map historical actor descriptors to existing local users, but import MUST NOT synthesize login-capable users, password hashes, active or pending TOTP state, bootstrap-token lookup state, deployment-admin flags, auth bindings, bootstrap-completion markers, active sessions, deployment-local administrative audit or idempotency state, or active memberships without explicit deployment-local administrative action.
+Internal-user, account-profile, account-preference, session, auth-binding, bootstrap-completion, and incident-membership state MUST remain deployment-local authorization, user, and credential state. Whole-incident portability import MAY map historical actor descriptors to existing local users, but import MUST NOT synthesize login-capable users, account preferences, password hashes, active or pending TOTP state, bootstrap-token lookup state, deployment-admin flags, auth bindings, bootstrap-completion markers, active sessions, deployment-local administrative audit or idempotency state, or active memberships without explicit deployment-local administrative action.
 Profiles: base, incident_portability
-Verified by: AC-231, AC-236, AC-409
+Verified by: AC-231, AC-236, AC-409, AC-432
 
 **REQ-02-249**
-Whole-incident portability content MUST exclude deployment-local authorization and credential state, including internal-user rows, local-account credential lifecycle state such as password-hash state, active or pending TOTP state, bootstrap-token lookup state, auth bindings, bootstrap-completion markers, active sessions, active memberships, deployment-admin flags, and deployment-local administrative audit or idempotency state.
+Whole-incident portability content MUST exclude deployment-local authorization, user, and credential state, including internal-user rows, account profile and account-preference state, local-account credential lifecycle state such as password-hash state, active or pending TOTP state, bootstrap-token lookup state, auth bindings, bootstrap-completion markers, active sessions, active memberships, deployment-admin flags, and deployment-local administrative audit or idempotency state.
 Profiles: incident_portability
-Verified by: AC-236, AC-409
+Verified by: AC-236, AC-409, AC-432
 
 ### 14.2 Rollback granularity substrate
 

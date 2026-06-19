@@ -462,12 +462,124 @@ Verified by: AC-336, AC-339
 Profiles: base
 Verified by: AC-337, AC-339
 
+##### 3.3.2.3 Current-account profile and preference routes
+
+Contract tables. The tables in this subsection are the compact owner-local contract for current-account profile and account-preference reads and mutations. The route family is self-service only: it addresses the authenticated actor's current account and never another user selected by path, query, body, email address, or deployment-admin capability.
+
+**Table 3.3.2.3-A. Current-account route index**
+
+| Route | Auth context | Request contract summary | Omission and default summary | Replay and idempotency | Success response or effect | Primary error codes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `GET /api/v1/account/profile` | Current authenticated session | Singleton read; no body members | Pagination members are rejected with `invalid_pagination_request` and `reason_code=pagination_not_supported` | Read route | Returns one `account_profile` resource for the current user | Ordinary auth failures; `invalid_pagination_request` |
+| `PATCH /api/v1/account/profile` | Current authenticated session | Required `base_user_version`, `client_txn_id`, and `display_name` | No create-time defaults apply; email and all other profile-like members are forbidden | Route-scoped idempotency keyed by `(actor_user_id, 'account.profile.patch', client_txn_id)`; exact committed replay wins before fresh version evaluation | Returns the committed or current `account_profile` resource | `invalid_mutation_payload`, `client_txn_conflict`, `user_version_conflict` |
+| `GET /api/v1/account/preferences` | Current authenticated session | Singleton read; no body members | Pagination members are rejected with `invalid_pagination_request` and `reason_code=pagination_not_supported` | Read route | Returns one `account_preferences` resource for the current user | Ordinary auth failures; `invalid_pagination_request` |
+| `PUT /api/v1/account/preferences` | Current authenticated session | Required `base_preferences_version`, `client_txn_id`, and `density_mode` | `density_mode` is required; explicit `null` clears the override; omission is invalid | Route-scoped idempotency keyed by `(actor_user_id, 'account.preferences.put', client_txn_id)`; exact committed replay wins before fresh version evaluation | Returns the committed or current `account_preferences` resource | `invalid_mutation_payload`, `client_txn_conflict`, `preferences_version_conflict` |
+
+**Table 3.3.2.3-B. Current-account resources**
+
+| Resource | Required members | Nullable members | Closed values and defaults | Forbidden adjacent state |
+| --- | --- | --- | --- | --- |
+| `account_profile` | `user_id`, `email`, `display_name`, `user_version`, `created_at`, `updated_at` | None | `email` is the authoritative local login identifier and is read-only on this route. `display_name` uses `display_name_line_v1`. | Password state, TOTP state, locale, time zone, notification settings, theme selection, global defaults, incident membership, and admin-only fields |
+| `account_preferences` | `user_id`, `density_mode`, `preferences_version`, `created_at`, `updated_at` | `density_mode` only | `density_mode=null` means no user override; allowed non-null values are exactly `compact`, `default`, and `comfortable`. New and existing users start at `density_mode=null` and `preferences_version=1`. | Locale, time zone, notification settings, theme selection, custom density values, custom row heights, global incident defaults, and global `home_sheet_ref` |
+
+**Table 3.3.2.3-C. Effective density defaults**
+
+| Condition | Effective density |
+| --- | --- |
+| `account_preferences.density_mode` is `compact`, `default`, or `comfortable` | That exact density mode on every workbook surface |
+| `account_preferences.density_mode` is `null` and the active workbook surface is Timeline | `compact` |
+| `account_preferences.density_mode` is `null` and the active workbook surface is any other workbook surface | `default` |
+
+**REQ-01-597**
+The base profile MUST expose the current-account route family:
+
+- `GET /api/v1/account/profile`,
+- `PATCH /api/v1/account/profile`,
+- `GET /api/v1/account/preferences`,
+- `PUT /api/v1/account/preferences`.
+
+These routes MUST require a current authenticated session and MUST address only the authenticated actor's own account. They MUST NOT accept a `{user_id}` path parameter, user selector query member, body-selected user identifier, email selector, bootstrap token, anonymous auth mode, or provider claim as an account selector. Holding `deployment_admin` MUST NOT widen these routes into cross-user reads or writes; deployment-user administration remains under `/api/v1/users*`. Password and TOTP operations remain under the credential routes in §3.3.2.2 and the deployment-admin user-action routes in §3.3.5.1.
+Profiles: base
+Verified by: AC-429, AC-430, AC-431, AC-432
+
+**REQ-01-598**
+`GET /api/v1/account/profile` MUST return the common success envelope with `data` equal to exactly one `account_profile` resource for the current authenticated user. The resource MUST include the required members `user_id`, `email`, `display_name`, `user_version`, `created_at`, and `updated_at`. These members MUST be non-null. `email` is read-only on this route and remains the authoritative local login identifier for the local-account login namespace. `display_name` MUST satisfy `string_contract_id=display_name_line_v1`.
+
+Because this route is singleton, it MUST reject `limit`, `cursor_token`, and pagination aliases such as `page`, `offset`, `page_size`, and `block_size` with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=pagination_not_supported`.
+Profiles: base
+Verified by: AC-429, AC-432
+
+**REQ-01-599**
+`PATCH /api/v1/account/profile` MUST accept only a JSON object with exactly these required top-level members:
+
+- `base_user_version`,
+- `client_txn_id`,
+- `display_name`.
+
+`base_user_version` MUST be a positive integer concurrency token and MUST NOT be omitted or `null`. `client_txn_id` MUST be a non-null idempotency key. `display_name` MUST be a non-null string and MUST satisfy `display_name_line_v1`. A non-object body, a missing required member, explicit `null` for any non-nullable member, invalid member type, an unknown top-level member, or any attempt to include `email`, login identifier state, locale, time zone, notification settings, theme selection, password, TOTP, global incident default, global `home_sheet_ref`, density, or row-height state MUST fail with `400` and `error.code=invalid_mutation_payload`. When one member is attributable, `error.details.field` MUST identify that member; when the failure is a forbidden or unknown member, `error.details.reason_code` MUST be `unknown_field` or `forbidden_field`.
+
+The route MUST evaluate a valid request in this order:
+
+1. validate request shape, closed members, non-nullability, and string contracts;
+2. authorize the current authenticated session for the current actor only;
+3. check for an exact committed idempotency replay in the route scope `(actor_user_id, 'account.profile.patch', client_txn_id)`;
+4. reject the same route-scoped key with different normalized input using `409` and `error.code=client_txn_conflict`;
+5. reject a stale `base_user_version` using `409` and `error.code=user_version_conflict`;
+6. evaluate normalized no-op behavior;
+7. commit any material display-name change.
+
+For normalized request comparison, `display_name` MUST compare after `display_name_line_v1` normalization and `base_user_version` MUST compare exactly. Exact committed replay MUST return the original committed success result before any fresh `user_version` evaluation. Reuse of the same route-scoped key for different normalized input MUST fail with `client_txn_conflict` even when `base_user_version` is stale. If no prior committed idempotency hit exists and the current `user_version` differs from `base_user_version`, the route MUST fail with `user_version_conflict`.
+
+A normalized no-op, where the normalized `display_name` equals the current normalized display name, MUST return `200 OK` with the current `account_profile` resource, MUST be recorded as the successful idempotency result for that route-scoped key, and MUST NOT advance `user_version`, `updated_at`, or any session-revocation timestamp. A material success MUST return `200 OK` with the resulting `account_profile` resource and MUST advance `user_version` and `updated_at` exactly once. Success on this route MUST NOT revoke active sessions. Subsequent session reads and newly emitted presence payloads MUST use the new display name; already emitted session payloads, presence payloads, history entries, audit records, and other historical display snapshots MUST NOT be rewritten.
+Profiles: base
+Verified by: AC-429, AC-430, AC-432
+
+**REQ-01-600**
+`GET /api/v1/account/preferences` MUST return the common success envelope with `data` equal to exactly one `account_preferences` resource for the current authenticated user. The resource MUST include the required members `user_id`, `density_mode`, `preferences_version`, `created_at`, and `updated_at`. `user_id`, `preferences_version`, `created_at`, and `updated_at` MUST be non-null. `density_mode` MUST be either JSON `null` or exactly one of the closed lowercase tokens `compact`, `default`, or `comfortable`.
+
+Every existing and new login-capable user MUST have exactly one logical account-preference resource. The initialized value MUST be `density_mode=null`, `preferences_version=1`, and stable `created_at` and `updated_at` timestamps. If an implementation materializes this resource lazily for an existing user, the first conformant read MUST make the initialized resource durable and later reads MUST return the same `preferences_version`, `created_at`, and `updated_at` until a successful mutation changes it.
+
+Because this route is singleton, it MUST reject `limit`, `cursor_token`, and pagination aliases such as `page`, `offset`, `page_size`, and `block_size` with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=pagination_not_supported`.
+Profiles: base
+Verified by: AC-431, AC-432
+
+**REQ-01-601**
+`PUT /api/v1/account/preferences` MUST accept only a JSON object with exactly these required top-level members:
+
+- `base_preferences_version`,
+- `client_txn_id`,
+- `density_mode`.
+
+`base_preferences_version` MUST be a positive integer concurrency token and MUST NOT be omitted or `null`. `client_txn_id` MUST be a non-null idempotency key. `density_mode` is required; explicit JSON `null` clears the persisted override; omitted `density_mode` is invalid; and the only valid non-null strings are exactly `compact`, `default`, and `comfortable`. A non-object body, a missing required member, explicit `null` for any non-nullable member, invalid member type, an unknown top-level member, or any attempt to include locale, time zone, notification settings, theme selection, custom density tokens, row height, global default incident, global `home_sheet_ref`, profile display name, email, password, or TOTP state MUST fail with `400` and `error.code=invalid_mutation_payload`. When one member is attributable, `error.details.field` MUST identify that member; when the failure is a forbidden or unknown member, `error.details.reason_code` MUST be `unknown_field` or `forbidden_field`.
+
+The route MUST evaluate a valid request in this order:
+
+1. validate request shape, closed members, non-nullability, and closed density vocabulary;
+2. authorize the current authenticated session for the current actor only;
+3. check for an exact committed idempotency replay in the route scope `(actor_user_id, 'account.preferences.put', client_txn_id)`;
+4. reject the same route-scoped key with different normalized input using `409` and `error.code=client_txn_conflict`;
+5. reject a stale `base_preferences_version` using `409` and `error.code=preferences_version_conflict`;
+6. evaluate no-op behavior;
+7. commit any material density override change.
+
+For normalized request comparison, `density_mode` MUST compare as either the exact token or JSON `null`, and `base_preferences_version` MUST compare exactly. Exact committed replay MUST return the original committed success result before any fresh `preferences_version` evaluation. Reuse of the same route-scoped key for different normalized input MUST fail with `client_txn_conflict` even when `base_preferences_version` is stale. If no prior committed idempotency hit exists and the current `preferences_version` differs from `base_preferences_version`, the route MUST fail with `preferences_version_conflict`.
+
+A no-op, where the requested `density_mode` equals the current persisted `density_mode`, MUST return `200 OK` with the current `account_preferences` resource, MUST be recorded as the successful idempotency result for that route-scoped key, and MUST NOT advance `preferences_version` or `updated_at`. A material success MUST return `200 OK` with the resulting `account_preferences` resource and MUST advance `preferences_version` and `updated_at` exactly once. Success on this route MUST NOT revoke active sessions.
+Profiles: base
+Verified by: AC-431, AC-432
+
+**REQ-01-602**
+The current-account route family MUST NOT expose or accept self-service email change, login-identifier change, locale, time zone, notification settings, theme selection, global default incident, global `home_sheet_ref`, custom density values, or custom row heights. Per-incident `home_sheet_ref` remains owned by `GET /api/v1/incidents/{incident_id}/workbook-preferences/me` and `PUT /api/v1/incidents/{incident_id}/workbook-preferences/me`. Account preference state is deployment-local normalized user state; it is not an incident record, not workbook mutation state, not saved-view state, not a per-incident workbook preference, and not incident-portability content.
+Profiles: base
+Verified by: AC-432
+
 #### 3.3.3 Route families
 
 **REQ-01-032**
 The base-profile route set MUST include stable route families for:
 
 - authentication and bounded credential-lifecycle routes: `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/session`, `GET /api/v1/auth/credential-state`, `POST /api/v1/auth/password/change`, `POST /api/v1/auth/mfa/totp/begin`, `POST /api/v1/auth/mfa/totp/complete`,
+- current-account profile and account-preference routes: `GET /api/v1/account/profile`, `PATCH /api/v1/account/profile`, `GET /api/v1/account/preferences`, `PUT /api/v1/account/preferences`,
 - incident discovery, creation, retrieval, incident metadata mutation, and incident lifecycle actions: `POST /api/v1/incidents`, `GET /api/v1/incidents`, `GET /api/v1/incidents/{incident_id}`, `PATCH /api/v1/incidents/{incident_id}`, `POST /api/v1/incidents/{incident_id}/close`, `POST /api/v1/incidents/{incident_id}/reopen`,
 - deployment-local user account inspection and administration: `GET /api/v1/users`, `POST /api/v1/users`, `GET /api/v1/users/{user_id}`, `PATCH /api/v1/users/{user_id}`, `POST /api/v1/users/{user_id}/password/reset`, `POST /api/v1/users/{user_id}/mfa/totp/reset`, `POST /api/v1/users/{user_id}/sessions/revoke-all`,
 - incident membership inspection and administration: `GET /api/v1/incidents/{incident_id}/memberships`, `POST /api/v1/incidents/{incident_id}/memberships`, `PATCH /api/v1/incidents/{incident_id}/memberships/{user_id}`, `DELETE /api/v1/incidents/{incident_id}/memberships/{user_id}`,
@@ -483,7 +595,7 @@ The base-profile route set MUST include stable route families for:
 - background-job status and cancellation: `GET /api/v1/jobs/{job_id}`, `POST /api/v1/jobs/{job_id}/cancel`.
 The base profile defines no public WebAuthn or passkey routes under `/api/v1/auth/*` or `/api/v1/users/{user_id}/mfa/*`. Registration, assertion, credential enumeration, credential deletion, and reset semantics for WebAuthn or passkeys are reserved for future specification work and MUST NOT be claimed by base-profile implementations.
 Profiles: base
-Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-231, AC-251, AC-252, AC-253, AC-254, AC-255, AC-340, AC-341, AC-342, AC-334, AC-335, AC-336, AC-337, AC-338, AC-339, AC-370, AC-371, AC-418
+Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-231, AC-251, AC-252, AC-253, AC-254, AC-255, AC-340, AC-341, AC-342, AC-334, AC-335, AC-336, AC-337, AC-338, AC-339, AC-370, AC-371, AC-418, AC-429, AC-430, AC-431, AC-432
 
 **REQ-01-033**
 Implementations that claim an extension profile MUST add that profile's route family under the same versioned root rather than overloading base workbook routes. This includes, at minimum, `/api/v1/import-sessions/*`, `/api/v1/reference-packs/*`, `/api/v1/snapshots/*` and `/api/v1/releases/*`, `/api/v1/incident-bundles/*`, `/api/v1/auth/providers/*`, `/api/v1/auth/oidc/*`, `/api/v1/auth/saml/*`, and `/api/v1/users/{user_id}/auth-bindings*` for the corresponding claimed extension profiles.
@@ -2656,7 +2768,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 **REQ-01-234**
 The public API surface defined by this core MUST use the following stable `error.code` tokens for the listed conditions. A route or conformance criterion covered by this registry MUST NOT assign a second stable token to the same condition.
 Profiles: base
-Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240, AC-245, AC-246, AC-247, AC-249, AC-250, AC-251, AC-252, AC-253, AC-254, AC-255, AC-260, AC-261, AC-293, AC-321, AC-323, AC-324, AC-325, AC-326, AC-328, AC-340, AC-341, AC-342, AC-334, AC-335, AC-336, AC-337, AC-338, AC-339, AC-371, AC-415, AC-416, AC-417, AC-418, AC-421, AC-422, AC-423, AC-424, AC-426, AC-427
+Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240, AC-245, AC-246, AC-247, AC-249, AC-250, AC-251, AC-252, AC-253, AC-254, AC-255, AC-260, AC-261, AC-293, AC-321, AC-323, AC-324, AC-325, AC-326, AC-328, AC-340, AC-341, AC-342, AC-334, AC-335, AC-336, AC-337, AC-338, AC-339, AC-371, AC-415, AC-416, AC-417, AC-418, AC-421, AC-422, AC-423, AC-424, AC-426, AC-427, AC-429, AC-430, AC-431, AC-432
 
 | `error.code` | Required `error.status` | Required `error.retryable` | Canonical meaning | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -2715,6 +2827,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `handle_consumed` | `410` | `false` | A single-use handle was already consumed by a prior successful redeem and cannot be redeemed again. |  |  |  |
 | `rollback_precondition_failed` | `409` | `false` | A rollback target exists but cannot be safely reversed against current authoritative state; `error.details.reason_code` MUST use the rollback-precondition registry in §3.3.6.2. | REQ-01-236 | base | AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231 |
 | `user_version_conflict` | `409` | `false` | The supplied `base_user_version` is stale. |  |  |  |
+| `preferences_version_conflict` | `409` | `false` | The supplied `base_preferences_version` is stale. | REQ-01-601 | base | AC-431 |
 | `auth_binding_conflict` | `409` | `false` | A create, rotate, or retire request against an enterprise-auth binding cannot commit because current active binding state conflicts. `error.details.reason_code` MUST use the `auth_binding_conflict` registry in §3.3.6.2. |  |  |  |
 | `auth_binding_not_found` | `404` | `false` | A binding-management route targeted no current enterprise-auth binding for the supplied `{user_id, auth_binding_id}` pair. |  |  |  |
 | `last_deployment_admin` | `409` | `false` | The requested user mutation would leave the deployment with no active `is_deployment_admin=true` user. |  |  |  |

@@ -458,7 +458,9 @@ Design contract. Browser or operating-system forced-color modes MAY alter render
 
 Design contract. Density selection is closed to `compact`, `default`, and `comfortable`. The default density is `{density.default-mode}`.
 
-Design contract. Workbook surfaces MUST use density modes from the shared density registry. The default workbook density remains `{density.default-mode}`, except the default Timeline grid uses `compact` density from the same shared tokens to preserve first-viewport incident-response scanning. User-selected density is valid as client or user preference only when it maps to a declared shared density mode; surfaces MUST NOT invent private row-height or padding systems.
+Core restatement. Core 01 §3.3.2.3 owns the persisted account density preference. `density_mode` is nullable; `null` means no persisted override, with Timeline rendering as `compact` and every other workbook surface rendering as `default`. Non-null persisted values are exactly `compact`, `default`, and `comfortable`.
+
+Design contract. Workbook surfaces MUST use density modes from the shared density registry. The default workbook density remains `{density.default-mode}`, except the default Timeline grid uses `compact` density from the same shared tokens to preserve first-viewport incident-response scanning. User-selected density is valid only when it maps to one of the declared shared density modes; surfaces MUST NOT invent private row-height, padding, or per-surface density persistence systems.
 
 Design contract. Large incident grids use fixed-height rows by default. Variable-height rows are valid only in inspector sections, preview areas, or non-grid detail regions. Omission of variable-height grid rows is conformant.
 
@@ -580,6 +582,22 @@ Design contract. Primary workflows MUST use the design treatments in the table b
 | Resolve same-field conflict | Mark only the affected cell, keep the saved value visible, retain the local draft separately, and open a resolver from that cell. |
 | Review history or rollback | Use row-local history and scoped destructive-action presentation in the inspector; when history is already open, it follows the active saved row and shows in-drawer loading or error state for that row. Routine editing MUST NOT feel like approval workflow. |
 | Coordinate tasks, decisions, handoffs, status reviews, and lessons | Keep these as workbook-native surfaces, not separate task-management or workflow modules. |
+
+### 4.4 Account settings composition
+
+Core restatement. Core 01 §3.3.2.3 and Core 04 §2 own the current-account profile/preference route contract and authorization boundary. This design section supplies only UI composition guidance and does not create Base Profile or extension-profile conformance evidence by itself.
+
+Design contract. The Account settings surface MUST be organized into exactly these first-level areas for the current profile:
+
+| Area | Required content | Forbidden content |
+| --- | --- | --- |
+| Profile | Read-only email display and display-name editing. | Self-service email or login-identifier change, locale, time zone, notification settings, theme selection, global default incident, or global `home_sheet_ref`. |
+| Appearance | One density control with `Use surface default`, `Compact`, `Default`, and `Comfortable` choices. `Use surface default` maps to the Core-owned `density_mode=null` state. | Custom density values, custom row heights, per-surface density persistence, or theme switching. |
+| Security | Links or affordances that enter the existing password-change and TOTP setup or replacement flows. | New security routes, email recovery, SMS recovery, backup codes, self-service factor disablement, or provider-mediated recovery. |
+
+Design contract. The Profile area MUST present email as inspection-only deployment-managed login identity. It MUST NOT style email as an editable form field, suggest that ordinary users can change it from this surface, or hide the fact that display name is the only self-service profile field.
+
+Design contract. The Appearance area MUST expose density as a single segmented control or equivalent closed selector over the four UI choices in the table above. It MUST NOT present a theme selector in the current profile. The only supported theme remains `dark_graphite`.
 
 ## 5. Visual design principles
 
@@ -1498,6 +1516,7 @@ Non-goal. The items in this table are intentionally outside this revision. Omiss
 | --- | --- | --- |
 | Light theme | Not supported. | No theme switcher entry; omission is conformant. |
 | Dedicated high-contrast theme | Not supported as a separate theme. | Omission is conformant; required `dark_graphite` accessibility criteria still apply. |
+| Account profile fields beyond display name | Not supported. | No editable email/login identifier, locale, time-zone, notification, theme, global default incident, global `home_sheet_ref`, custom density, or row-height controls. |
 | Mobile/touch-specific design | Not supported. | Below-minimum viewport behavior follows §7.4 and does not claim design conformance. |
 | Report/export visual design | Not owned by this design contract. | Snapshot/reporting UI requires a separate design artifact or future section. |
 | External visual reference board | Non-authoritative. | Inspiration only; it cannot override token, state, or surface contracts. |
@@ -1643,3 +1662,4 @@ Design contract. This `design.md` is ready to guide design implementation only w
 | `D-AC-071` | §16.3 | Boundary review | Future-profile candidates do not define current behavior. | Future profile is treated as current requirement. |
 | `D-AC-072` | §17.2 | Boundary review | The document forbids behavior inference from labels, row order, SQL names, projection names, vendor grid coordinates, component names, and styling classes. | Implementation coordinate becomes design authority. |
 | `D-AC-073` | §16.1 | Owner-boundary review | No added section creates route, schema, authorization, lifecycle, storage, or Core conformance behavior. | Design document defines Core-owned behavior. |
+| `D-AC-074` | §3.9 and §4.4 | Account settings boundary review | Account settings exposes only Profile display-name editing, Appearance density override or clear, and Security links to existing auth flows; no theme switcher or forbidden profile field appears. | Account settings implies self-service email/login change, theme selection, generalized preferences, global home/default incident, custom density, custom row height, or new security routes. |

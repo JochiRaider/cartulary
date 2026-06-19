@@ -229,6 +229,13 @@ Any incident member MUST be able to set or clear their own `home_sheet_ref`. Onl
 Profiles: base
 Verified by: AC-150, AC-153, AC-231
 
+**REQ-03-289**
+Workbook rendering MUST apply the effective density computed by the account-preference contract in Core 01 §3.3.2.3. When the caller's `account_preferences.density_mode` is `null`, the Timeline surface uses `compact` and every other workbook surface uses `default`; when it is non-null, the exact token `compact`, `default`, or `comfortable` applies as the user's density override. Implementations MUST NOT invent custom density tokens, custom row-height persistence, or per-surface density overrides in the current profile.
+
+Changing account density is a presentation preference only. It MUST NOT alter `view_schema` definitions, saved-view objects, saved-view `query_json`, saved-view `layout_json`, query request JSON, row data, row versions, collaboration ordering, `presence_snapshot` or `presence_delta` ordering, per-incident `user_workbook_preferences.home_sheet_ref`, `incident_workbook_preferences.default_sheet_ref`, workbook-startup selection, or incident portability content.
+Profiles: base
+Verified by: AC-431, AC-432
+
 ## 3. Collaboration and concurrency model
 
 ### 3.1 Concurrency strategy

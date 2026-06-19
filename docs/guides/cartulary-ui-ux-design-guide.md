@@ -286,6 +286,20 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 
 *Design direction.* The Reference Packs administration group MUST be hidden when `GET /api/v1/extensions` reports `reference_pack.claimed=false`. When that profile is claimed but the current authenticated session lacks `deployment_admin`, direct navigation to a Reference Packs administration surface MUST render an authorization failure rather than an empty pack list, and the client MUST NOT route-probe `/api/v1/reference-packs/*` to infer pack state for a non-admin.
 
+### 5.9 Account settings composition
+
+*Core behavior.* Core 01 §3.3.2.3 owns `/api/v1/account/profile` and `/api/v1/account/preferences`; Core 04 §2 owns current-user-only authorization. This guide describes UI organization only.
+
+*Design direction.* Account settings SHOULD use three top-level areas:
+
+| Area | Current-profile controls |
+| ---- | ------------------------ |
+| Profile | Read-only email plus display-name edit. |
+| Appearance | One density selector with `Use surface default`, `Compact`, `Default`, and `Comfortable`. |
+| Security | Entrypoints to existing password-change and TOTP setup or replacement flows. |
+
+*Design direction.* The Profile area MUST NOT present email or login identifier as self-service editable. The Appearance area MUST NOT present theme selection, custom density tokens, custom row height, locale, time-zone, notification, global default incident, or global `home_sheet_ref` controls. The Security area MUST route to existing `/api/v1/auth/*` behavior and MUST NOT imply new account-profile security routes.
+
 ### Acceptance criteria
 
 - **R2-AC-017:** §5.2 defines primary tabs, the `System views` switcher, optional surfaces, and saved-view placement.
@@ -304,6 +318,7 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 - **R2-AC-100:** §5.1 distinguishes TLP canonical machine tokens from labels and severity or phase suggestions from closed vocabularies.
 - **R2-AC-101:** §5.1 defines the persistent `Closed, read-only` shell state and separates it from save-state labels.
 - **R2-AC-102:** §5.1 disables or hides source-state write affordances while retaining allowed read and reporting actions for closed incidents.
+- **R2-AC-106:** §5.9 defines Account settings as Profile, Appearance, and Security while omitting unsupported profile, theme, global-home, custom-density, row-height, and new security-route controls.
 - **R2-AC-105:** §5.8 derives deployment-administration menu items from the Core 04 matrix plus extension claimed state and keeps incident membership controls incident-role driven.
 
 ## 6. Workbook Surface Model
@@ -629,13 +644,14 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 
 *Design direction.* All rows in the following table inherit `*Design direction.*`.
 
-| State layer            | Persistence                    | Examples                                                                                 |
-| ---------------------- | ------------------------------ | ---------------------------------------------------------------------------------------- |
-| Contract state         | Owner core.                    | `view_schema_id`, fields, sorting eligibility, filter eligibility, grouping keys.        |
-| Saved-view state       | Saved view object.             | `query_json`, portable `layout_json`, display name, scope.                               |
-| Client-local state     | Runtime only.                  | Selection, scroll, focused cell, open inspector, local popover, preview state, presence. |
-| User preference state  | Workbook preferences.          | Home surface pointer.                                                                    |
-| Incident default state | Incident workbook preferences. | Default surface pointer.                                                                 |
+| State layer                    | Persistence                    | Examples                                                                                 |
+| ------------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------- |
+| Contract state                 | Owner core.                    | `view_schema_id`, fields, sorting eligibility, filter eligibility, grouping keys.        |
+| Saved-view state               | Saved view object.             | `query_json`, portable `layout_json`, display name, scope.                               |
+| Client-local state             | Runtime only.                  | Selection, scroll, focused cell, open inspector, local popover, preview state, presence. |
+| Account preference state       | Current-account preferences.   | Density override only.                                                                   |
+| Incident user preference state | Workbook preferences.          | Home surface pointer.                                                                    |
+| Incident default state         | Incident workbook preferences. | Default surface pointer.                                                                 |
 
 *Design direction.* The UI MUST NOT persist client-local state into saved views. Saved views are portable surface configurations, not runtime snapshots.
 
@@ -643,7 +659,7 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 
 - **R2-AC-051:** §10 states that sorting and filtering serialize through stable field identifiers.
 - **R2-AC-052:** §10 states that grouping is view state and not a data mutation.
-- **R2-AC-053:** §10.3 separates contract, saved-view, client-local, user preference, and incident default state.
+- **R2-AC-053:** §10.3 separates contract, saved-view, client-local, account preference, incident user preference, and incident default state.
 - **R2-AC-054:** §10 says client-local state is not saved-view state.
 - **R2-RDG-AC-001:** §10.2 states that grouped or treegrid rows are navigation and summarization affordances, not ordinary incident records.
 - **R2-RDG-AC-002:** §10.2 forbids paste, drag fill, editor entry, entity resolution, evidence attach, and destructive record actions on group rows.
@@ -855,6 +871,8 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 
 *Later scope.* The base UI guide does not define field-level ACL UX, generalized approval workflows, cross-incident analytics, workflow-engine UX, generalized ticketing UX, or pack-dependent framework overlays as workbook-native base surfaces.
 
+*Later scope.* The base UI guide does not define self-service email or login-identifier changes, locale, time-zone, notification settings, theme selection, global default incident, global `home_sheet_ref`, custom density values, or custom row-height controls.
+
 ### 15.4 Positive patterns
 
 *Design direction.* All rows in the following table inherit `*Design direction.*`.
@@ -945,7 +963,9 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 | Default     | `36px`.    | `4px` vertical, `8px` horizontal.  |
 | Comfortable | `44px`.    | `6px` vertical, `10px` horizontal. |
 
-*Design direction.* The default workbook density is `Default`. The default Timeline grid uses `Compact` density from the shared density table to keep the first incident-response viewport grid-first. Hosts, Identities, Evidence, Notes, required system views, and any user-selected density preference MUST use the same shared density classes and MUST NOT invent separate row-height or padding models.
+*Core behavior.* Core 01 §3.3.2.3 owns the persisted account density preference. `density_mode=null` means no user override; effective density is `Compact` for Timeline and `Default` for every other workbook surface. Non-null persisted values are exactly `Compact`, `Default`, or `Comfortable` as UI labels for `compact`, `default`, and `comfortable`.
+
+*Design direction.* The default workbook density is `Default`. The default Timeline grid uses `Compact` density from the shared density table to keep the first incident-response viewport grid-first. Hosts, Identities, Evidence, Notes, required system views, and the account density preference MUST use the same shared density classes and MUST NOT invent separate row-height or padding models.
 
 *Design direction.* These density row heights are fixed-height defaults. Large incident grids MUST use fixed-height density rows unless a later design revision explicitly approves variable-height behavior for a bounded surface.[^15]
 
@@ -1013,6 +1033,7 @@ Cell: timeline.summary  B editing
 - **R2-AC-077:** §16 defines semantic color roles and the non-color-only rule.
 - **R2-AC-078:** §16 requires one icon family for named workbook affordances.
 - **R2-AC-079:** §16 includes four schematic figures.
+- **R2-AC-080:** §5.9, §10.3, and §16.4 keep account density preference separate from incident workbook preferences and omit unsupported account-profile controls.
 - **R2-RDG-AC-006:** §16.4 says fixed density row heights are the default.
 - **R2-RDG-AC-007:** §16.4 prohibits variable row height as the default for Timeline, Hosts, Identities, Evidence, Notes, or required system views.
 - **R2-RDG-AC-008:** §16.4 requires focused evidence before variable row height becomes ordinary behavior.
@@ -1203,7 +1224,7 @@ Cell: timeline.summary  B editing
 | P3-4    | P3       | §15.4                      | Design direction                                               | design-direction   | Added positive-pattern reviewer table.                                                                           | R2-AC-071..R2-AC-072             |
 | P3-5    | P3       | §5.7                       | Design direction                                               | design-direction   | Added numeric status-strip capacity and KPI exclusion boundary.                                                  | R2-AC-023..R2-AC-026             |
 | P4-1    | P4       | Revision 2 editorial audit | N/A                                                            | editorial          | Added temporary normative-voice audit.                                                                           | Verification matrix, audit table |
-| P4-2    | P4       | All acceptance criteria    | N/A                                                            | editorial          | Normalized acceptance-criteria heading and binary style.                                                         | R2-AC-001..R2-AC-105             |
+| P4-2    | P4       | All acceptance criteria    | N/A                                                            | editorial          | Normalized acceptance-criteria heading and binary style.                                                         | R2-AC-001..R2-AC-106             |
 | P4-3    | P4       | §5.1                       | Design direction                                               | incident-metadata  | Added compact create metadata and complete post-create incident-control guidance.                                | R2-AC-099..R2-AC-100             |
 | P4-3    | P4       | Sources                    | N/A                                                            | editorial          | Cleaned citations to load-bearing source groups.                                                                 | Sources block                    |
 | P4-4    | P4       | §§10.2, 14.1, 16.4, 16.7   | Design direction, Baseline context                             | baseline-context   | Added RDG adapter, treegrid/group-row, fixed-height density, and generated-class styling boundaries.             | R2-RDG-AC-001..R2-RDG-AC-010     |

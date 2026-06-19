@@ -49,6 +49,7 @@ It records where the content of the exploratory source artifact was carried into
 | `9. How denormalized entity/evidence views are composed` | Core 01 §7.4, §18, and §19, Core 02 §8.2, §18, and §19, Core 03 §20, Core 04 §9.1 | Appendix D, Appendix E, Appendix G | — | illustration only |
 | `11. Reference-pack and export trust boundaries` | Core 04 §4 | Appendix G | — | history only |
 | `11. Local users, incident roles, and admin surfaces` | Core 01 §3.3.2, §3.3.3, §3.3.5.1, and §18, Core 02 §3 and §14.1, Core 04 §1-§3 and §9.10, §9.12, and §12 | Appendix C, Appendix E, Appendix G | — | history only |
+| Current-account profile and density preference boundary | Core 00 §5.1, Core 01 §3.3.2.3, Core 02 §14.1, Core 03 §2.4, Core 04 §1.1.1, §2, §3, and §9.10 | Appendix C, Appendix D, Appendix E | `docs/domain.md`; `docs/design.md`; UI/UX guide | owner-level self-service account and density closure only |
 | Deployment-admin application-level capability and public-route authorization closure | Core 04 §2 and §9.10; Core 01 §3.3.3, §17, and §20 | Appendix E | `docs/domain.md`; UI/UX guide; developer guide | owner-level authorization matrix and reference-pack route-family traceability only |
 | Shared authenticated post-login landing and visible-incident directory selection | Core 00 §5.1, Core 01 §3.3.2.1A and §3.3.5.3.1, Core 03 §2.4, Core 04 §9.10 | Appendix D, Appendix E | UI/UX guide | owner navigation and composition only |
 | Deployment topology, application-unit boundary, and authoritative service separation | Core 00 §5.1, Core 01 §1, Core 04 §5.2-§8 | Appendix B | — | illustration only |
@@ -141,6 +142,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-00-051 | Core 00 §1 Status | base | AC-231 |
 | REQ-00-052 | Core 00 §5.1 Contract-owner matrix | base | AC-231 |
 | REQ-00-053 | Core 00 §5.1 Contract-owner matrix | base | AC-414 |
+| REQ-00-054 | Core 00 §5.1 Contract-owner matrix | base | AC-429..AC-432 |
 | REQ-01-001 | Core 01 §1 Architecture pattern | base | AC-231, AC-404 |
 | REQ-01-002 | Core 01 §1 Architecture pattern | base | AC-231, AC-404, AC-405 |
 | REQ-01-003 | Core 01 §1 Architecture pattern | base | AC-231, AC-404 |
@@ -173,7 +175,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-01-030 | Core 01 §3.3.2.1 Session resource and expiry contract | base | AC-123, AC-130, AC-156..AC-162, AC-231 |
 | REQ-01-031 | Core 01 §3.3.2.1 Session resource and expiry contract | base, enterprise_authentication | AC-123, AC-130, AC-156..AC-162, AC-231, AC-235, AC-250, AC-290..AC-291 |
 | REQ-01-580 | Core 01 §3.3.2.1A Authenticated root landing contract | base | AC-289..AC-291, AC-414 |
-| REQ-01-032 | Core 01 §3.3.3 Route families | base | AC-175..AC-180, AC-186..AC-187, AC-231, AC-251..AC-255, AC-418, AC-427 |
+| REQ-01-032 | Core 01 §3.3.3 Route families | base | AC-175..AC-180, AC-186..AC-187, AC-231, AC-251..AC-255, AC-418, AC-427, AC-429..AC-432 |
 | REQ-01-033 | Core 01 §3.3.3 Route families | base, import, snapshot_reporting, incident_portability, reference_pack, enterprise_authentication | AC-175..AC-180, AC-186..AC-187, AC-231..AC-236, AC-427 |
 | REQ-01-034 | Core 01 §3.3.4 View-shaped read contract | base | AC-124, AC-127, AC-184..AC-185, AC-231, AC-366..AC-368 |
 | REQ-01-035 | Core 01 §3.3.4 View-shaped read contract | base | AC-124, AC-127, AC-184..AC-185, AC-231, AC-238..AC-240, AC-243, AC-372..AC-375, AC-387 |
@@ -728,6 +730,12 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-01-524 | Core 01 §3.3.2.2 Credential lifecycle and TOTP bootstrap routes | base | AC-338..AC-339 |
 | REQ-01-525 | Core 01 §3.3.2.2 Credential lifecycle and TOTP bootstrap routes | base | AC-336, AC-339 |
 | REQ-01-526 | Core 01 §3.3.2.2 Credential lifecycle and TOTP bootstrap routes | base | AC-337, AC-339 |
+| REQ-01-597 | Core 01 §3.3.2.3 Current-account profile and preference routes | base | AC-429..AC-432 |
+| REQ-01-598 | Core 01 §3.3.2.3 Current-account profile and preference routes | base | AC-429, AC-432 |
+| REQ-01-599 | Core 01 §3.3.2.3 Current-account profile and preference routes | base | AC-429..AC-430, AC-432 |
+| REQ-01-600 | Core 01 §3.3.2.3 Current-account profile and preference routes | base | AC-431..AC-432 |
+| REQ-01-601 | Core 01 §3.3.2.3 Current-account profile and preference routes | base | AC-431..AC-432 |
+| REQ-01-602 | Core 01 §3.3.2.3 Current-account profile and preference routes | base | AC-432 |
 | REQ-01-527 | Core 01 §3.3.5.1 Deployment-local user-account and incident-membership administration contracts | base | AC-340..AC-341 |
 | REQ-01-528 | Core 01 §3.3.5.1 Deployment-local user-account and incident-membership administration contracts | base | AC-341 |
 | REQ-01-529 | Core 01 §3.3.5.1 Deployment-local user-account and incident-membership administration contracts | base | AC-342 |
@@ -943,16 +951,17 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-02-243 | Core 02 §14.1 Persistence realization status and deployment-local invariants | base | AC-170, AC-174, AC-231 |
 | REQ-02-244 | Core 02 §14.1 Persistence realization status and deployment-local invariants | base | AC-175..AC-176, AC-178, AC-231 |
 | REQ-02-245 | Core 02 §14.1 Persistence realization status and deployment-local invariants | base | AC-175, AC-177, AC-335..AC-342, AC-231 |
+| REQ-02-255 | Core 02 §14.1 Persistence realization status and deployment-local invariants | base | AC-429, AC-431, AC-432 |
 | REQ-02-246 | Core 02 §14.1 Persistence realization status and deployment-local invariants | base | AC-231, AC-343..AC-344, AC-346 |
 | REQ-02-247 | Core 02 §14.1 Persistence realization status and deployment-local invariants | reference_pack | AC-093..AC-095, AC-234 |
 | REQ-02-248 | Core 02 §12.3 Link metadata semantics | base | AC-394..AC-397 |
-| REQ-02-249 | Core 02 §14.1 Persistence realization status and deployment-local invariants | incident_portability | AC-236, AC-409 |
+| REQ-02-249 | Core 02 §14.1 Persistence realization status and deployment-local invariants | incident_portability | AC-236, AC-409, AC-432 |
 | REQ-02-250 | Core 02 §10.4.4A Tagged-variant registry for artifact-backed notes, coordination artifacts, and structured findings | base | AC-410 |
 | REQ-02-251 | Core 02 §10.4.4A Tagged-variant registry for artifact-backed notes, coordination artifacts, and structured findings | base | AC-410 |
 | REQ-02-252 | Core 02 §10.4.4A Tagged-variant registry for artifact-backed notes, coordination artifacts, and structured findings | base | AC-410 |
 | REQ-02-253 | Core 02 §10.4.4A Tagged-variant registry for artifact-backed notes, coordination artifacts, and structured findings | base | AC-410 |
 | REQ-02-203 | Core 02 §14.1 Persistence realization status and deployment-local invariants | base | AC-170, AC-231 |
-| REQ-02-204 | Core 02 §14.1 Persistence realization status and deployment-local invariants | base, incident_portability | AC-231, AC-236, AC-409 |
+| REQ-02-204 | Core 02 §14.1 Persistence realization status and deployment-local invariants | base, incident_portability | AC-231, AC-236, AC-409, AC-432 |
 | REQ-02-205 | Core 02 §14.2 Rollback granularity substrate | base | AC-215..AC-218, AC-231 |
 | REQ-02-206 | Core 02 §14.2 Rollback granularity substrate | base, snapshot_reporting | AC-215..AC-218, AC-231, AC-233 |
 | REQ-02-207 | Core 02 §14.2 Rollback granularity substrate | base, snapshot_reporting | AC-215..AC-218, AC-231, AC-233 |
@@ -1024,6 +1033,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-03-030 | Core 03 §2.4 Startup and default surface selection | base | AC-150, AC-153, AC-231, AC-290..AC-291, AC-414 |
 | REQ-03-031 | Core 03 §2.4 Startup and default surface selection | base | AC-150, AC-153, AC-231, AC-290..AC-291, AC-414 |
 | REQ-03-032 | Core 03 §2.4 Startup and default surface selection | base | AC-150, AC-153, AC-231 |
+| REQ-03-289 | Core 03 §2.4 Startup and default surface selection | base | AC-431, AC-432 |
 | REQ-03-033 | Core 03 §3.1 Concurrency strategy | base | AC-009, AC-013, AC-047, AC-231 |
 | REQ-03-034 | Core 03 §3.1 Concurrency strategy | base | AC-009, AC-013, AC-047, AC-231 |
 | REQ-03-035 | Core 03 §3.1 Concurrency strategy | base | AC-009, AC-013, AC-047, AC-231 |
@@ -1291,7 +1301,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-04-013 | Core 04 §1.1.1 Session lifecycle boundaries | base | AC-123, AC-131, AC-136, AC-156..AC-163, AC-231 |
 | REQ-04-014 | Core 04 §1.1.1 Session lifecycle boundaries | base | AC-123, AC-131, AC-136, AC-156..AC-163, AC-231 |
 | REQ-04-015 | Core 04 §1.1.1 Session lifecycle boundaries | base | AC-123, AC-131, AC-136, AC-156..AC-163, AC-231 |
-| REQ-04-016 | Core 04 §1.1.1 Session lifecycle boundaries | base | AC-123, AC-131, AC-136, AC-156..AC-163, AC-231 |
+| REQ-04-016 | Core 04 §1.1.1 Session lifecycle boundaries | base | AC-123, AC-131, AC-136, AC-156..AC-163, AC-231, AC-430..AC-431 |
 | REQ-04-095 | Core 04 §1.1.1 Session lifecycle boundaries | enterprise_authentication | AC-350..AC-352 |
 | REQ-04-017 | Core 04 §1.1.1 Session lifecycle boundaries | base | AC-123, AC-131, AC-136, AC-156..AC-163, AC-231 |
 | REQ-04-018 | Core 04 §1.2 Enterprise Authentication Extension Profile | enterprise_authentication | AC-036, AC-235, AC-288..AC-291, AC-293 |
@@ -1305,9 +1315,10 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-04-025 | Core 04 §2 Authorization model | base | AC-054, AC-149, AC-178..AC-180, AC-231 |
 | REQ-04-026 | Core 04 §2 Authorization model | base | AC-054, AC-149, AC-178..AC-180, AC-231 |
 | REQ-04-027 | Core 04 §2 Authorization model | base, snapshot_reporting | AC-054, AC-149, AC-178..AC-180, AC-231, AC-233 |
-| REQ-04-028 | Core 04 §2 Authorization model | base | AC-054, AC-149, AC-178..AC-180, AC-231, AC-343..AC-346, AC-414, AC-427 |
+| REQ-04-028 | Core 04 §2 Authorization model | base | AC-054, AC-149, AC-178..AC-180, AC-231, AC-343..AC-346, AC-414, AC-427, AC-432 |
 | REQ-04-029 | Core 04 §2 Authorization model | base | AC-054, AC-149, AC-178..AC-180, AC-231, AC-261, AC-414, AC-427 |
 | REQ-04-030 | Core 04 §2 Authorization model | base | AC-054, AC-149, AC-178..AC-180, AC-231, AC-427 |
+| REQ-04-114 | Core 04 §2 Authorization model | base | AC-429..AC-432 |
 | REQ-04-031 | Core 04 §2.1 Snapshot and Reporting Extension Profile release gate | snapshot_reporting | AC-059..AC-060, AC-104..AC-106, AC-233 |
 | REQ-04-032 | Core 04 §2.1 Snapshot and Reporting Extension Profile release gate | snapshot_reporting | AC-059..AC-060, AC-104..AC-106, AC-233 |
 | REQ-04-033 | Core 04 §2.1 Snapshot and Reporting Extension Profile release gate | snapshot_reporting | AC-059..AC-060, AC-104..AC-106, AC-233 |
@@ -1315,7 +1326,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-04-035 | Core 04 §2.1 Snapshot and Reporting Extension Profile release gate | snapshot_reporting | AC-059..AC-060, AC-104..AC-106, AC-233 |
 | REQ-04-036 | Core 04 §3 Attribution and audit requirements | base | AC-231, AC-407 |
 | REQ-04-037 | Core 04 §3 Attribution and audit requirements | base | AC-231, AC-408 |
-| REQ-04-038 | Core 04 §3 Attribution and audit requirements | base, incident_portability | AC-175, AC-231, AC-236, AC-343..AC-344, AC-346, AC-409 |
+| REQ-04-038 | Core 04 §3 Attribution and audit requirements | base, incident_portability | AC-175, AC-231, AC-236, AC-343..AC-344, AC-346, AC-409, AC-430, AC-432 |
 | REQ-04-039 | Core 04 §3 Attribution and audit requirements | base | AC-231 |
 | REQ-04-040 | Core 04 §4.1 Reference packs | reference_pack | AC-033, AC-035, AC-052, AC-092..AC-096, AC-234 |
 | REQ-04-041 | Core 04 §4.1 Reference packs | reference_pack | AC-033, AC-035, AC-052, AC-092..AC-096, AC-234 |
@@ -1797,6 +1808,10 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | AC-401 | REQ-01-572, REQ-01-578 |
 | AC-402 | REQ-01-570, REQ-04-106 |
 | AC-428 | REQ-01-593..REQ-01-595, REQ-04-106, REQ-04-113 |
+| AC-429 | REQ-00-054, REQ-01-032, REQ-01-597..REQ-01-599, REQ-02-255, REQ-04-114 |
+| AC-430 | REQ-01-599, REQ-04-016, REQ-04-038, REQ-04-114 |
+| AC-431 | REQ-01-600..REQ-01-601, REQ-02-255, REQ-03-289, REQ-04-016, REQ-04-114 |
+| AC-432 | REQ-00-054, REQ-01-597..REQ-01-602, REQ-02-204, REQ-02-249, REQ-02-255, REQ-03-289, REQ-04-028, REQ-04-038, REQ-04-114 |
 | AC-403 | REQ-04-053, REQ-04-058, REQ-04-071..REQ-04-073, REQ-04-076, REQ-04-107..REQ-04-108 |
 | AC-404 | REQ-01-001..REQ-01-003 |
 | AC-405 | REQ-01-002, REQ-01-278..REQ-01-280 |
@@ -1821,7 +1836,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | AC-424 | REQ-01-168, REQ-01-585, REQ-01-590, REQ-03-287..REQ-03-288 |
 | AC-425 | REQ-01-585, REQ-01-588, REQ-02-222..REQ-02-223, REQ-02-254 |
 | AC-426 | REQ-01-592, REQ-03-288 |
-| AC-427 | REQ-01-032..REQ-01-033, REQ-01-234, REQ-01-471, REQ-01-480..REQ-01-481, REQ-01-542..REQ-01-548, REQ-04-023, REQ-04-028..REQ-04-030, REQ-04-085, REQ-04-094, REQ-04-105..REQ-04-106 |
+| AC-427 | REQ-01-032..REQ-01-033, REQ-01-234, REQ-01-471, REQ-01-480..REQ-01-481, REQ-01-542..REQ-01-548, REQ-04-023, REQ-04-028..REQ-04-030, REQ-04-085, REQ-04-094, REQ-04-105..REQ-04-106, REQ-04-114 |
 | PC-001 | REQ-05-003, REQ-05-006, REQ-05-009 |
 | PC-002 | REQ-05-003, REQ-05-006..REQ-05-008, REQ-05-012..REQ-05-013 |
 | PC-003 | REQ-05-004..REQ-05-005, REQ-05-011..REQ-05-012 |
@@ -1833,10 +1848,10 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 
 | Profile or companion claim | Prerequisite claim | Required REQs | Required ACs |
 | --- | --- | --- | --- |
-| base | — | REQ-00-001..REQ-00-003, REQ-00-005..REQ-00-008, REQ-00-013..REQ-00-017, REQ-00-019..REQ-00-020, REQ-00-022..REQ-00-027, REQ-00-029..REQ-00-042, REQ-00-044..REQ-00-046, REQ-00-049..REQ-00-053, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-465, REQ-01-487..REQ-01-509, REQ-01-516..REQ-01-536, REQ-01-542..REQ-01-548, REQ-01-554..REQ-01-563, REQ-01-565..REQ-01-578, REQ-01-580..REQ-01-595, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-233, REQ-02-238..REQ-02-246, REQ-02-248, REQ-02-250..REQ-02-254, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-288, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-048..REQ-04-061, REQ-04-065..REQ-04-081, REQ-04-083..REQ-04-092, REQ-04-105..REQ-04-108, REQ-04-113 | AC-001..AC-026, AC-037..AC-055, AC-068..AC-070, AC-072..AC-090, AC-097..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-231, AC-238..AC-261, AC-277..AC-287, AC-294..AC-304, AC-311..AC-322, AC-329..AC-331, AC-334..AC-347, AC-353..AC-354, AC-359..AC-368, AC-370..AC-385, AC-387..AC-392, AC-394..AC-408, AC-410..AC-428 |
-| import | base | REQ-00-001..REQ-00-008, REQ-00-013..REQ-00-017, REQ-00-019..REQ-00-020, REQ-00-022..REQ-00-027, REQ-00-029..REQ-00-042, REQ-00-044..REQ-00-047, REQ-00-049..REQ-00-053, REQ-01-001..REQ-01-368, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-475, REQ-01-487..REQ-01-509, REQ-01-516..REQ-01-536, REQ-01-542..REQ-01-563, REQ-01-565..REQ-01-578, REQ-01-580..REQ-01-584, REQ-02-001..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-233, REQ-02-238..REQ-02-246, REQ-02-248, REQ-02-250..REQ-02-253, REQ-03-001..REQ-03-281, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-048..REQ-04-061, REQ-04-065..REQ-04-081, REQ-04-083..REQ-04-092, REQ-04-105..REQ-04-108 | AC-001..AC-029, AC-037..AC-055, AC-063..AC-070, AC-072..AC-090, AC-097..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-232, AC-238..AC-265, AC-277..AC-287, AC-294..AC-304, AC-311..AC-325, AC-329..AC-331, AC-334..AC-347, AC-353..AC-354, AC-359..AC-368, AC-370..AC-385, AC-387..AC-408, AC-410..AC-417 |
-| snapshot_reporting | base | REQ-00-001..REQ-00-008, REQ-00-013..REQ-00-017, REQ-00-019..REQ-00-020, REQ-00-022..REQ-00-027, REQ-00-029..REQ-00-042, REQ-00-044..REQ-00-047, REQ-00-049..REQ-00-053, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-398, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-471, REQ-01-476..REQ-01-479, REQ-01-487..REQ-01-509, REQ-01-516..REQ-01-536, REQ-01-542..REQ-01-548, REQ-01-554..REQ-01-563, REQ-01-565..REQ-01-578, REQ-01-580..REQ-01-584, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-233, REQ-02-238..REQ-02-246, REQ-02-248, REQ-02-250..REQ-02-253, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-282, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-039, REQ-04-044..REQ-04-061, REQ-04-065..REQ-04-081, REQ-04-083..REQ-04-092, REQ-04-105..REQ-04-108 | AC-001..AC-026, AC-030..AC-032, AC-037..AC-062, AC-068..AC-091, AC-097..AC-163, AC-170..AC-231, AC-233, AC-238..AC-261, AC-266..AC-269, AC-277..AC-287, AC-294..AC-307, AC-311..AC-322, AC-329..AC-331, AC-333..AC-347, AC-353..AC-354, AC-359..AC-368, AC-370..AC-385, AC-387..AC-392, AC-394..AC-408, AC-410..AC-417 |
-| reference_pack | base | REQ-00-001..REQ-00-008, REQ-00-013..REQ-00-017, REQ-00-019..REQ-00-020, REQ-00-022..REQ-00-027, REQ-00-029..REQ-00-047, REQ-00-049..REQ-00-053, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-399..REQ-01-424, REQ-01-451..REQ-01-471, REQ-01-480..REQ-01-482, REQ-01-487..REQ-01-509, REQ-01-516..REQ-01-536, REQ-01-542..REQ-01-563, REQ-01-565..REQ-01-578, REQ-01-580..REQ-01-584, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-233, REQ-02-238..REQ-02-248, REQ-02-250..REQ-02-253, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-282, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-043, REQ-04-048..REQ-04-061, REQ-04-065..REQ-04-081, REQ-04-083..REQ-04-092, REQ-04-105..REQ-04-108 | AC-001..AC-026, AC-033..AC-035, AC-037..AC-055, AC-068..AC-070, AC-072..AC-090, AC-092..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-231, AC-234, AC-238..AC-261, AC-270..AC-272, AC-277..AC-287, AC-294..AC-304, AC-308..AC-322, AC-326, AC-329..AC-331, AC-334..AC-347, AC-353..AC-354, AC-359..AC-385, AC-387..AC-392, AC-394..AC-408, AC-410..AC-417, AC-427 |
-| incident_portability | base | REQ-00-001..REQ-00-008, REQ-00-013..REQ-00-017, REQ-00-019..REQ-00-020, REQ-00-022..REQ-00-027, REQ-00-029..REQ-00-042, REQ-00-044..REQ-00-047, REQ-00-049..REQ-00-053, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-423..REQ-01-471, REQ-01-483..REQ-01-509, REQ-01-516..REQ-01-536, REQ-01-542..REQ-01-578, REQ-01-580..REQ-01-584, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-233, REQ-02-238..REQ-02-246, REQ-02-248..REQ-02-249, REQ-02-250..REQ-02-253, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-282, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-044..REQ-04-061, REQ-04-065..REQ-04-081, REQ-04-083..REQ-04-092, REQ-04-105..REQ-04-108 | AC-001..AC-026, AC-037..AC-055, AC-068..AC-070, AC-072..AC-090, AC-097..AC-103, AC-107..AC-112, AC-116..AC-231, AC-236, AC-238..AC-261, AC-273..AC-287, AC-294..AC-304, AC-311..AC-322, AC-327..AC-332, AC-334..AC-347, AC-353..AC-354, AC-359..AC-368, AC-370..AC-392, AC-394..AC-417 |
+| base | — | REQ-00-001..REQ-00-003, REQ-00-005..REQ-00-008, REQ-00-013..REQ-00-017, REQ-00-019..REQ-00-020, REQ-00-022..REQ-00-027, REQ-00-029..REQ-00-042, REQ-00-044..REQ-00-046, REQ-00-049..REQ-00-054, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-465, REQ-01-487..REQ-01-509, REQ-01-516..REQ-01-536, REQ-01-542..REQ-01-548, REQ-01-554..REQ-01-563, REQ-01-565..REQ-01-578, REQ-01-580..REQ-01-602, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-233, REQ-02-238..REQ-02-246, REQ-02-248, REQ-02-250..REQ-02-255, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-289, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-048..REQ-04-061, REQ-04-065..REQ-04-081, REQ-04-083..REQ-04-092, REQ-04-105..REQ-04-108, REQ-04-113..REQ-04-114 | AC-001..AC-026, AC-037..AC-055, AC-068..AC-070, AC-072..AC-090, AC-097..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-231, AC-238..AC-261, AC-277..AC-287, AC-294..AC-304, AC-311..AC-322, AC-329..AC-331, AC-334..AC-347, AC-353..AC-354, AC-359..AC-368, AC-370..AC-385, AC-387..AC-392, AC-394..AC-408, AC-410..AC-432 |
+| import | base | REQ-00-001..REQ-00-008, REQ-00-013..REQ-00-017, REQ-00-019..REQ-00-020, REQ-00-022..REQ-00-027, REQ-00-029..REQ-00-042, REQ-00-044..REQ-00-047, REQ-00-049..REQ-00-054, REQ-01-001..REQ-01-368, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-475, REQ-01-487..REQ-01-509, REQ-01-516..REQ-01-536, REQ-01-542..REQ-01-563, REQ-01-565..REQ-01-578, REQ-01-580..REQ-01-584, REQ-02-001..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-233, REQ-02-238..REQ-02-246, REQ-02-248, REQ-02-250..REQ-02-253, REQ-03-001..REQ-03-281, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-048..REQ-04-061, REQ-04-065..REQ-04-081, REQ-04-083..REQ-04-092, REQ-04-105..REQ-04-108 | AC-001..AC-029, AC-037..AC-055, AC-063..AC-070, AC-072..AC-090, AC-097..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-232, AC-238..AC-265, AC-277..AC-287, AC-294..AC-304, AC-311..AC-325, AC-329..AC-331, AC-334..AC-347, AC-353..AC-354, AC-359..AC-368, AC-370..AC-385, AC-387..AC-408, AC-410..AC-417 |
+| snapshot_reporting | base | REQ-00-001..REQ-00-008, REQ-00-013..REQ-00-017, REQ-00-019..REQ-00-020, REQ-00-022..REQ-00-027, REQ-00-029..REQ-00-042, REQ-00-044..REQ-00-047, REQ-00-049..REQ-00-054, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-398, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-471, REQ-01-476..REQ-01-479, REQ-01-487..REQ-01-509, REQ-01-516..REQ-01-536, REQ-01-542..REQ-01-548, REQ-01-554..REQ-01-563, REQ-01-565..REQ-01-578, REQ-01-580..REQ-01-584, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-233, REQ-02-238..REQ-02-246, REQ-02-248, REQ-02-250..REQ-02-253, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-282, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-039, REQ-04-044..REQ-04-061, REQ-04-065..REQ-04-081, REQ-04-083..REQ-04-092, REQ-04-105..REQ-04-108 | AC-001..AC-026, AC-030..AC-032, AC-037..AC-062, AC-068..AC-091, AC-097..AC-163, AC-170..AC-231, AC-233, AC-238..AC-261, AC-266..AC-269, AC-277..AC-287, AC-294..AC-307, AC-311..AC-322, AC-329..AC-331, AC-333..AC-347, AC-353..AC-354, AC-359..AC-368, AC-370..AC-385, AC-387..AC-392, AC-394..AC-408, AC-410..AC-417 |
+| reference_pack | base | REQ-00-001..REQ-00-008, REQ-00-013..REQ-00-017, REQ-00-019..REQ-00-020, REQ-00-022..REQ-00-027, REQ-00-029..REQ-00-047, REQ-00-049..REQ-00-054, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-399..REQ-01-424, REQ-01-451..REQ-01-471, REQ-01-480..REQ-01-482, REQ-01-487..REQ-01-509, REQ-01-516..REQ-01-536, REQ-01-542..REQ-01-563, REQ-01-565..REQ-01-578, REQ-01-580..REQ-01-584, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-233, REQ-02-238..REQ-02-248, REQ-02-250..REQ-02-253, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-282, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-043, REQ-04-048..REQ-04-061, REQ-04-065..REQ-04-081, REQ-04-083..REQ-04-092, REQ-04-105..REQ-04-108 | AC-001..AC-026, AC-033..AC-035, AC-037..AC-055, AC-068..AC-070, AC-072..AC-090, AC-092..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-231, AC-234, AC-238..AC-261, AC-270..AC-272, AC-277..AC-287, AC-294..AC-304, AC-308..AC-322, AC-326, AC-329..AC-331, AC-334..AC-347, AC-353..AC-354, AC-359..AC-385, AC-387..AC-392, AC-394..AC-408, AC-410..AC-417, AC-427 |
+| incident_portability | base | REQ-00-001..REQ-00-008, REQ-00-013..REQ-00-017, REQ-00-019..REQ-00-020, REQ-00-022..REQ-00-027, REQ-00-029..REQ-00-042, REQ-00-044..REQ-00-047, REQ-00-049..REQ-00-054, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-423..REQ-01-471, REQ-01-483..REQ-01-509, REQ-01-516..REQ-01-536, REQ-01-542..REQ-01-578, REQ-01-580..REQ-01-584, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-233, REQ-02-238..REQ-02-246, REQ-02-248..REQ-02-249, REQ-02-250..REQ-02-253, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-282, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-044..REQ-04-061, REQ-04-065..REQ-04-081, REQ-04-083..REQ-04-092, REQ-04-105..REQ-04-108 | AC-001..AC-026, AC-037..AC-055, AC-068..AC-070, AC-072..AC-090, AC-097..AC-103, AC-107..AC-112, AC-116..AC-231, AC-236, AC-238..AC-261, AC-273..AC-287, AC-294..AC-304, AC-311..AC-322, AC-327..AC-332, AC-334..AC-347, AC-353..AC-354, AC-359..AC-368, AC-370..AC-392, AC-394..AC-417 |
 | enterprise_authentication | base | REQ-00-001..REQ-00-008, REQ-00-013..REQ-00-017, REQ-00-019..REQ-00-027, REQ-00-029..REQ-00-042, REQ-00-044..REQ-00-046, REQ-00-048..REQ-00-053, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-465, REQ-01-487..REQ-01-548, REQ-01-554..REQ-01-563, REQ-01-565..REQ-01-578, REQ-01-580..REQ-01-584, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-246, REQ-02-248, REQ-02-250..REQ-02-253, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-282, REQ-04-001..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-048..REQ-04-061, REQ-04-065..REQ-04-081, REQ-04-083..REQ-04-096, REQ-04-105..REQ-04-108 | AC-001..AC-026, AC-036..AC-055, AC-068..AC-070, AC-072..AC-090, AC-097..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-231, AC-235, AC-238..AC-261, AC-277..AC-304, AC-311..AC-322, AC-329..AC-331, AC-334..AC-354, AC-359..AC-368, AC-370..AC-385, AC-387..AC-392, AC-394..AC-408, AC-410..AC-417 |
 | claim_publication | relevant implementation claim for each published timed or fixture-sensitive criterion | REQ-00-028, REQ-05-001..REQ-05-013 | PC-001..PC-006 |
