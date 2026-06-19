@@ -790,7 +790,82 @@ sequenceDiagram
 
 The same pattern applies to the authenticated root incident directory and deployment-admin user list. Client-side filtering over a partially loaded cursor collection is only local display refinement; it is not exhaustive search and must not be presented as authoritative.
 
-### 3A.1B Current-account Profile, Appearance, and Security flows
+### 3A.1B Deployment administration entry and import completion
+
+These sequences are illustrative only. Core 01 §3.3.2.1B owns the Deployment administration browser context, Core 04 §2 owns authorization and capability-loss behavior, Core 01 §12.3.6 and §17.5 own incident-bundle import publication, and Core 03 §2.4 owns imported-incident workbook startup after open.
+
+```mermaid
+sequenceDiagram
+    participant U as Deployment admin
+    participant UI as Browser shell
+    participant App as App API
+
+    U->>UI: Open global account/application menu
+    UI->>App: GET /api/v1/auth/session
+    App-->>UI: session with is_deployment_admin=true
+    UI->>UI: Show Deployment administration entry
+    U->>UI: Activate Deployment administration
+    UI->>UI: Navigate to /deployment-administration
+    UI->>App: Load Users panel through owner-backed admin routes
+    App-->>UI: Administrative data authorized by current deployment_admin
+```
+
+```mermaid
+sequenceDiagram
+    participant Other as Authenticated non-admin
+    participant UI as Browser shell
+    participant App as App API
+
+    Other->>UI: Navigate directly to /deployment-administration
+    UI->>App: Request administrative route data
+    App-->>UI: authorization_denied or no administrative data
+    UI->>UI: Discard administration state and navigate to /
+```
+
+```mermaid
+sequenceDiagram
+    participant A as Deployment admin importer
+    participant UI as Deployment administration
+    participant App as App API
+    participant PG as Postgres
+
+    A->>UI: Submit incident bundle import
+    UI->>App: POST /api/v1/incident-bundles/import
+    App->>PG: persist job with submitting user_id
+    App-->>UI: 202 common job resource
+    App->>PG: stage, verify, reconstruct, rebuild projections
+    App->>PG: publish incident with importer admin membership and preferences
+    App-->>UI: terminal job result with incident resource_ref
+    UI->>UI: Stay in Deployment administration and show Open imported incident
+    A->>UI: Activate Open imported incident
+    UI->>App: Open incident workbook with no explicit sheet_ref
+    App-->>UI: workbook bootstrap using Core 03 startup selection
+```
+
+### 3A.1C Reference Pack search request supersession
+
+This sequence is illustrative only. Core 01 §17.4 owns the authoritative Reference Pack list-query contract; this appendix illustrates the same request-supersession pattern for the Reference Packs panel.
+
+```mermaid
+sequenceDiagram
+    participant A as Deployment admin
+    participant UI as Reference Packs panel
+    participant App as App API
+
+    A->>UI: Type in Search reference packs or change an exact filter
+    UI->>UI: Keep prior pack list visible and show Searching
+    UI->>UI: Clear stale cursor_token and increment request sequence
+    UI->>App: GET /api/v1/reference-packs with current search/filter
+    A->>UI: Change filter before first response arrives
+    UI->>UI: Clear cursor_token again and increment request sequence
+    UI->>App: GET /api/v1/reference-packs with newest search/filter
+    App-->>UI: Older response arrives
+    UI->>UI: Discard stale response
+    App-->>UI: Newest response arrives
+    UI->>UI: Replace pack list and paging from newest response
+```
+
+### 3A.1D Current-account Profile, Appearance, and Security flows
 
 These sequences are illustrative only. Core 01 §3.3.2.3 owns the current-account route contracts, Core 04 §2 owns authorization, and Core 04 §1.1.1 owns session-revocation consequences.
 

@@ -599,6 +599,30 @@ Design contract. The Profile area MUST present email as inspection-only deployme
 
 Design contract. The Appearance area MUST expose density as a single segmented control or equivalent closed selector over the four UI choices in the table above. It MUST NOT present a theme selector in the current profile. The only supported theme remains `dark_graphite`.
 
+### 4.5 Deployment administration composition
+
+Core restatement. Core 01 §3.3.2.1B owns the Deployment administration browser context, canonical path, panel availability, and prohibited aggregate-administration concepts. Core 01 §12.3.6 and §17.5 own imported-incident initial access. Core 01 §17.4 owns Reference Pack list-query search and filters. Core 03 §2.4 owns the imported-incident launch boundary. Core 04 §2 owns deployment-administrator authorization and capability-loss behavior. This section supplies UI composition guidance only and does not create Base Profile or extension-profile conformance evidence by itself.
+
+Design contract. The Deployment administration entry MUST be a menu item labeled `Deployment administration` inside the upper-right account/application menu at every supported viewport band. The menu item MUST NOT appear in built-in workbook tabs, `System views`, saved-view selectors, workbook sheet navigation, incident metadata panels, or incident membership surfaces. When `/deployment-administration` is active, the entry MUST carry the selected-navigation state and an accessible current-state cue.
+
+Design contract. The upper-right account/application menu MUST remain reachable from the incident directory and workbook shell. Its trigger MUST have a visible focus indicator, an accessible name that identifies account and application navigation, and keyboard operation for open, close, item movement, and item activation. When viewport pressure requires overflow, workbook query controls, chips, and optional navigation groups collapse before this menu; safe account/application navigation remains available even below the supported minimum viewport.
+
+Design contract. The Deployment administration page MUST use a deployment-local administration layout, not the workbook grid shell. The default selected panel MUST be `Users`. Panel tabs, sidebar entries, or equivalent navigation MUST use visible focus state, active selected state, and stable accessible labels matching the panel names below.
+
+| Panel | Availability | Required UI content | Required states and boundaries |
+| --- | --- | --- | --- |
+| Users | Base. | User list, create/update affordances, password reset, TOTP reset, session revocation, and safe user details. | Loading state preserves shell navigation; error state exposes retry without leaking incident data; incident membership controls are absent. |
+| Administrative audit | Base. | Deployment-scoped administrative audit events with Core-owned filters. | Empty and error states distinguish no matching events from unavailable audit data; no incident membership-audit shortcut is implied by `deployment_admin`. |
+| Reference packs | `reference_pack` claimed. | Pack lifecycle controls for import, activate, disable, reverify, refresh, and a search input labeled `Search reference packs`. | Search uses server-authoritative results; stale responses are discarded; unclaimed profile hides the panel. |
+| Incident import | `incident_portability` claimed. | Whole-incident bundle import job list, upload/progress affordances, terminal result state, and a successful-result action labeled `Open imported incident`. | The action opens the imported incident without an explicit `sheet_ref`; no initial-admin selector, adoption route, or portable-membership editor appears. |
+| Enterprise authentication bindings | `enterprise_authentication` claimed. | Selected-user binding operations only. | No provider-definition editor, provider-wide mutation form, recovery console, or incident access editor appears. |
+
+Design contract. Reference Pack search controls inside Deployment administration MUST present server search as exhaustive over the authorized collection. While a newer search or filter request is pending, the panel MUST keep prior visible results, show `Searching`, bind pagination controls to the pending query only after the response is accepted, and discard stale responses by a monotonically increasing client request sequence. Error presentation MUST distinguish invalid query shape from ordinary load failure without revealing unauthorized pack metadata.
+
+Design contract. A successful incident-import terminal state MUST offer exactly one primary incident-entry action labeled `Open imported incident` for the imported incident. The action MUST leave Deployment administration and launch the incident through the ordinary workbook startup chain with no explicit `sheet_ref`. It MUST NOT write or expose `home_sheet_ref`, `default_sheet_ref`, saved-view ownership, source-role mapping, or historical-actor membership decisions.
+
+Non-goal. Deployment administration is not a general deployment console. It MUST NOT contain `General settings`, all-incident catalog/search/count/metadata controls, generic cross-incident policy-default editors, provider-definition editors, provider-wide recovery controls, or incident membership controls whose only authorization basis is `deployment_admin`.
+
 ## 5. Visual design principles
 
 ### 5.1 Dense graphite forensic workspace
@@ -696,7 +720,7 @@ Design contract. The application shell MUST contain the regions in the table bel
 
 | Region | Required contents | Boundary |
 | --- | --- | --- |
-| Top bar | Incident identity, built-in tabs or `Surfaces`, active-surface title when not already represented by a selected built-in tab, sort, group, filter controls, active chips or overflow controls, `System views`, presence summary when assigned by §7.5. | Persistent chrome, not a dashboard. |
+| Top bar | Incident identity, built-in tabs or `Surfaces`, active-surface title when not already represented by a selected built-in tab, sort, group, filter controls, active chips or overflow controls, `System views`, presence summary when assigned by §7.5, and the upper-right account/application menu. | Persistent chrome, not a dashboard. |
 | View bar | Saved-view selector, saved-view actions, inspector opener, and add-row control when allowed. | Belongs to active surface only. |
 | Grid | Active workbook surface with `record_id`-bound rows and `field_key`-bound cells. | Primary work surface. |
 | Inspector | Details, Relationships, Evidence, History, destructive and specialized row actions. | Conditional adjacent or overlay secondary surface opened through explicit controls. |
@@ -808,6 +832,7 @@ Design contract. Responsive overflow MUST use the region assignment table below.
 | Group control | Top bar | Top bar | Top bar | Not required |
 | Filter control | Top bar | Top bar | Top bar as `Filters` popover | Not required |
 | Active group/sort/filter chips | Top bar in one row, then `Filters` overflow if capacity exceeded | Top bar in at most two rows, then `Filters` overflow | Always inside `Filters` popover | Not required |
+| Account/application menu | Upper-right top bar | Upper-right top bar | Upper-right top bar | Safe navigation location |
 | Primary save label | Status strip | Status strip | Status strip | Status strip when unsaved work exists |
 | Secondary status message | Status strip | Status strip with truncation rule | Accessible-only summary after primary label | Not required |
 
@@ -1522,6 +1547,8 @@ Non-goal. The items in this table are intentionally outside this revision. Omiss
 | External visual reference board | Non-authoritative. | Inspiration only; it cannot override token, state, or surface contracts. |
 | All-surfaces-as-primary-tabs shell | Rejected for this revision. | Required system views remain in `System views`; built-in tabs remain primary at base viewport. |
 | Command-palette-only system-view access | Rejected for this revision. | Required system views MUST be reachable from the shell. |
+| General deployment settings and all-incident catalog | Rejected for this revision. | Deployment administration exposes only the panels in §4.5; no `General settings`, all-incident catalog/search/count/metadata, or cross-incident policy-default editor appears. |
+| Deployment-admin-driven incident membership | Rejected for this revision. | Incident membership controls remain incident-role authorized and are not exposed solely because the user is a deployment administrator. |
 
 ### 16.3 Future-profile candidates
 
@@ -1663,3 +1690,4 @@ Design contract. This `design.md` is ready to guide design implementation only w
 | `D-AC-072` | §17.2 | Boundary review | The document forbids behavior inference from labels, row order, SQL names, projection names, vendor grid coordinates, component names, and styling classes. | Implementation coordinate becomes design authority. |
 | `D-AC-073` | §16.1 | Owner-boundary review | No added section creates route, schema, authorization, lifecycle, storage, or Core conformance behavior. | Design document defines Core-owned behavior. |
 | `D-AC-074` | §3.9 and §4.4 | Account settings boundary review | Account settings exposes only Profile display-name editing, Appearance density override or clear, and Security links to existing auth flows; no theme switcher or forbidden profile field appears. | Account settings implies self-service email/login change, theme selection, generalized preferences, global home/default incident, custom density, custom row height, or new security routes. |
+| `D-AC-075` | §4.5, §7.1, §7.5, and §16.2 | Deployment-administration design review | Deployment administration is reachable through the upper-right account/application menu, uses only the allowed panels and labels, shows required loading/error/search/import-completion states, and omits prohibited aggregate administration controls. | The design implies a workbook surface, post-login default, general settings console, all-incident catalog, provider-definition editor, or deployment-admin-only incident membership control. |

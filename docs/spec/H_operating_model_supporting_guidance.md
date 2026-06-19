@@ -235,3 +235,15 @@ Recommended incident membership audit review practice:
 - do not ask deployment administrators without incident membership to inspect membership activity for an incident they cannot otherwise access;
 - preserve the incident identifier, applied filters, relevant event identifiers, and redacted-value status when recording review notes;
 - keep membership audit review separate from incident content review unless the reviewer also has ordinary incident access for that content.
+
+## 14. Incident-bundle import operations guidance
+
+Core 01 owns incident-bundle import admission, final publication, initial importer membership, failure reasons, and terminal job results. Core 03 owns workbook startup after an imported incident is opened. This section is only operating practice.
+
+Recommended import handoff practice:
+
+- keep the importer account active and deployment-admin eligible until the import job reaches a terminal state;
+- after success, use the **Open imported incident** action from Deployment administration rather than waiting for background completion to navigate away automatically;
+- after opening the incident, add the intended local incident team through the ordinary incident membership route or UI;
+- verify that historical actors imported as historical context only and are not mistaken for current incident members;
+- record any team-admission notes in ordinary incident coordination surfaces once the imported incident is open.

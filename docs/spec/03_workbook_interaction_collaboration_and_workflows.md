@@ -224,6 +224,13 @@ Startup request-validation failures and persisted-pointer clearing reasons MUST 
 
 For authenticated root landing flows that open a workbook without an explicit valid launch `sheet_ref`, Core 01 §3.3.2.1A reuses this same ordered fallback chain rather than defining a separate workbook-startup order.
 
+**REQ-03-290**
+Deployment administration is not a workbook startup surface. The `/deployment-administration` browser context defined by Core 01 §3.3.2.1B MUST NOT be represented as a `sheet_ref`, saved view, system view, built-in tab, `home_sheet_ref`, `default_sheet_ref`, startup fallback candidate, or workbook-surface registry entry.
+
+When a successful incident-bundle import exposes an `Open imported incident` action, activating that action MUST open the imported incident without an explicit launch `sheet_ref` and MUST use the ordinary startup chain in REQ-03-030. The action MUST preserve the imported incident's actual lifecycle state; if the imported incident is `closed`, ordinary closed/read-only behavior applies after open.
+Profiles: base, incident_portability
+Verified by: AC-441, AC-442
+
 **REQ-03-032**
 Any incident member MUST be able to set or clear their own `home_sheet_ref`. Only incident admins MUST be able to set or clear `incident_workbook_preferences.default_sheet_ref`.
 Profiles: base

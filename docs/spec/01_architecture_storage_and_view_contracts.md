@@ -375,6 +375,58 @@ If a sole visible incident is selected for workbook open but the caller loses vi
 Profiles: base
 Verified by: AC-414
 
+##### 3.3.2.1B Deployment administration browser context
+
+**REQ-01-608**
+The base browser application MUST define one distinct deployment-local administration browser context with the following canonical contract:
+
+| Property | Requirement |
+| --- | --- |
+| Canonical label | `Deployment administration` |
+| Canonical path | `/deployment-administration` |
+| Authorization | Current authenticated session with `is_deployment_admin=true`, as owned by Core 04 §2 |
+| Default panel | `Users` |
+| Scope | Deployment-local administration only |
+| Surface class | Distinct application context, not a workbook surface |
+
+The Deployment administration context MUST be reachable independently of the authenticated root landing algorithm in REQ-01-580. It MUST NOT become the post-login default for deployment administrators, MUST NOT cause `/` to branch by `deployment_admin`, and MUST NOT affect visible-incident selection. It MUST NOT be an incident route, built-in tab, system view, saved view, `sheet_ref`, possible `home_sheet_ref`, possible `default_sheet_ref`, or input to the incident workbook startup-selection algorithm.
+
+The browser shell MUST expose one globally reachable Deployment administration entry for sessions whose current session resource reports `is_deployment_admin=true`. That entry MUST be reachable from the visible-incident directory and from every opened incident workbook, including a workbook opened automatically by the exactly-one-visible-incident branch in REQ-01-580. The entry MUST remain outside built-in-tab navigation, the `System views` control, saved-view navigation, incident workbook startup pointers, and incident membership controls.
+
+The Deployment administration context MUST compose only owner-backed route families. It MUST NOT define a new aggregate deployment-settings API or all-incidents API. The allowed panels are exactly:
+
+| Panel | Availability | Permitted contents |
+| --- | --- | --- |
+| Users | Base profile | User list, user create/update, password reset, TOTP reset, session revocation, and safe user details under the user-account route family. |
+| Administrative audit | Base profile | Deployment-scoped administrative audit events only. |
+| Reference packs | Reference Pack Extension Profile claimed | Reference-pack versions, import, activate, disable, reverify, refresh, and exhaustive search/filter under §17.4. |
+| Incident import | Incident Portability Extension Profile claimed | Whole-incident bundle import and its deployment-scoped jobs under §17.5. |
+| Enterprise authentication bindings | Enterprise Authentication Extension Profile claimed | Binding operations within a selected user's detail surface under §20. Provider definitions remain startup configuration. |
+
+Incident-bundle export MUST NOT appear as a deployment-wide administration operation. Export remains an incident-context operation because it requires both current `deployment_admin` and current membership in the exported incident.
+
+The current profile defines no deployment-scoped all-incident list, search, count, or metadata route. Deployment administration MUST NOT derive or display such a catalog from storage, administrative audit events, jobs, object-store contents, projection tables, search indexes, or implementation-private queries. `GET /api/v1/incidents` remains the only ordinary incident collection and remains membership-derived.
+
+The current profile defines no generic deployment-settings resource and no browser-editable cross-incident policy-default object. Deployment administration MAY expose only the owner-backed concerns in this table:
+
+| Concern | Required home |
+| --- | --- |
+| Display name and density | Current-account profile/preferences. |
+| Password and TOTP lifecycle | Current-account security routes or deployment-admin user actions. |
+| Incident metadata such as severity, phase, and TLP | The addressed incident. |
+| Incident membership | The addressed incident, requiring current incident `admin`. |
+| Per-user workbook home surface | Per-user, per-incident workbook preference. |
+| Incident-wide workbook default surface | The addressed incident, requiring incident `admin`. |
+| Reference-pack lifecycle | Reference Pack administration panel when claimed. |
+| Whole-incident import | Incident Portability administration panel when claimed. |
+| Whole-incident export | The addressed incident, with both required authorization dimensions. |
+| Enterprise provider definitions | Startup deployment configuration. |
+| Recovery | Deployment-local recovery CLI. |
+
+Notifications, retention defaults, membership templates, naming policies, default TLP, default severity, default phase, cross-incident workbook-startup defaults, MFA policy defaults, and other generalized deployment policy controls are not current-profile administration controls unless a later owner contract defines their data shape, defaults, validation, authorization, persistence, and inheritance behavior.
+Profiles: base
+Verified by: AC-414, AC-427, AC-441
+
 ##### 3.3.2.2 Credential lifecycle and TOTP bootstrap routes
 
 Contract tables. The tables in §3.3.2.2 compact the credential-state, password-change, and TOTP bootstrap surfaces without restating Core 04 session-lifecycle or secret-storage rules.
@@ -5993,9 +6045,9 @@ A conformant import MUST execute the following phases in order:
 4. stage blob bytes and verify every required blob hash,
 5. import the structured incident state,
 6. rebuild projections,
-7. mark the imported incident visible only after the structured import and projection rebuild succeed.
+7. perform final publication under REQ-01-609 and mark the imported incident visible only after the structured import, importer bootstrap membership, required workbook-preference objects, membership audit event, and projection rebuild succeed.
 Profiles: incident_portability
-Verified by: AC-165, AC-166, AC-167, AC-169, AC-236, AC-327, AC-328, AC-332
+Verified by: AC-165, AC-166, AC-167, AC-169, AC-236, AC-327, AC-328, AC-332, AC-442
 
 **REQ-01-449**
 Import MUST fail closed on any of the following:
@@ -6010,14 +6062,37 @@ Import MUST fail closed on any of the following:
 - extracted regular-file member count exceeding `limits.archives.max_members`,
 - unsupported `required_capabilities[]` entry,
 - duplicate `incident_id`,
+- submitter missing, inactive, or no longer holding `deployment_admin` immediately before final publication,
 - any import path that would require a live remote fetch to complete.
 Profiles: incident_portability
-Verified by: AC-165, AC-166, AC-167, AC-169, AC-236, AC-327, AC-328, AC-332
+Verified by: AC-165, AC-166, AC-167, AC-169, AC-236, AC-327, AC-328, AC-332, AC-442
 
 **REQ-01-450**
 If import fails after staging begins, the target deployment MUST leave no partially visible incident. Staged bytes MAY be retained only in a non-visible administrative quarantine or temporary-work area.
 Profiles: incident_portability
-Verified by: AC-165, AC-166, AC-167, AC-169, AC-236
+Verified by: AC-165, AC-166, AC-167, AC-169, AC-236, AC-442
+
+**REQ-01-609**
+At incident-bundle import-job admission, the server MUST persist the authenticated submitting internal `user_id` as `import_submitted_by_user_id`. That identity is server-derived. `POST /api/v1/incident-bundles/import` metadata MUST NOT accept `import_submitted_by_user_id`, initial-admin selectors, membership objects, provider subjects, email hints, or any equivalent caller-supplied initial-access member.
+
+During staging, verification, and reconstruction, import MUST create no incident membership and MUST expose no imported incident through ordinary incident routes. Immediately before final publication, the server MUST re-read `import_submitted_by_user_id`. Final publication may proceed only when that user still exists, has `is_active=true`, and still has `is_deployment_admin=true`.
+
+Final publication MUST be one atomic operation that commits all of the following before the imported incident becomes query-visible:
+
+1. imported incident source state,
+2. rebuilt projections required for ordinary visibility,
+3. exactly one target-local incident membership for the imported incident with `user_id=import_submitted_by_user_id`, `role='admin'`, `membership_version=1`, `added_by_user_id=import_submitted_by_user_id`, `updated_by_user_id=import_submitted_by_user_id`, and `joined_at` plus `updated_at` equal to the publication commit timestamp,
+4. one incident-wide workbook-preference object with `default_sheet_ref=null`,
+5. one importer per-user workbook-preference object with `home_sheet_ref=null`,
+6. one attributed `membership_created` administrative audit event for the bootstrap membership.
+
+Import MUST create no other membership. Email hints, provider-subject hints, saved-view owners, historical actors, source-system role information, and actor match hints MUST NOT create or imply incident membership.
+
+If the submitter no longer exists, is inactive, or no longer holds `deployment_admin` immediately before final publication, the import job MUST terminate as failed with `incident_bundle_import_rejected` and `error.details.reason_code='initial_admin_unavailable'`. No imported incident may become visible, no membership or workbook-preference object may remain, and no successful membership audit event may be emitted. Staged bytes MAY remain only under the existing non-visible quarantine or temporary-work rules.
+
+Exact replay of an already successful import MUST return the original job or result and MUST NOT create another membership, workbook-preference object, administrative audit event, or visible incident.
+Profiles: incident_portability
+Verified by: AC-442
 
 ### 12.4 Failure handling
 
@@ -6711,7 +6786,7 @@ When the `reference_pack` profile is claimed, every route in this family root an
 
 | Route | Request contract summary | Success resource or body | Long-running | Primary family errors |
 | --- | --- | --- | --- | --- |
-| `GET /api/v1/reference-packs` | List read under common paging | `{ pack_versions[] }` plus `meta.paging` | No | `reference_pack_not_found` only when a concrete pack version is addressed elsewhere |
+| `GET /api/v1/reference-packs` | List read under common paging with the search and exact filters in REQ-01-610 | `{ pack_versions[] }` plus `meta.paging` | No | `invalid_list_query`, `invalid_pagination_request`; `reference_pack_not_found` only when a concrete pack version is addressed elsewhere |
 | `GET /api/v1/reference-packs/{pack_key}/{pack_version}` | Singleton read | `reference_pack_version` resource | No | `reference_pack_not_found`, `invalid_pagination_request` |
 | `POST /api/v1/reference-packs/import` | Shared upload envelope with required `client_txn_id`; optional `activation_policy` defaulting to `staged_only` and auto-activation forbidden | Common job resource; terminal success emits one `reference_pack_version` ref | Yes | `invalid_reference_pack_request`, `reference_pack_verification_failed` |
 | `POST /api/v1/reference-packs/{pack_key}/{pack_version}/activate` | JSON object with required `client_txn_id` and optional `reason` | Either inline `200 OK` with `data.pack_version` or common job resource | Maybe | `reference_pack_activation_rejected`, `reference_pack_state_conflict` |
@@ -6779,7 +6854,7 @@ For `reference_pack_version resource` serialization:
 - object-member order is not part of the wire contract; array order is;
 - the resource MUST NOT inline bundle bytes, extracted member lists, raw signatures, object-store paths, staging paths, or attestation-history arrays.
 
-`data.pack_versions[]` MUST be exhaustive over pack versions visible to the authorized deployment-admin caller for this route family and MUST sort by `pack_key asc`, then exact `pack_version asc`.
+`data.pack_versions[]` MUST be exhaustive over pack versions visible to the authorized deployment-admin caller for this route family and MUST sort by `pack_key asc`, then exact `pack_version asc`. The list-query contract for this route is defined by REQ-01-610.
 
 `POST /api/v1/reference-packs/import` MUST use the shared upload-envelope contract in §17.1.1. Within that contract, metadata MUST contain required `client_txn_id`. It MAY include optional `activation_policy`. For this route, the `file` part media type MUST be one of the exact values declared for `POST /api/v1/reference-packs/import` in REQ-01-552. Those media-type values are envelope gates only; bundle integrity, content screening, and archive validation remain byte-based and continue to use the route's existing verification rules. Route-scoped normalized request comparison for idempotency MUST include normalized `activation_policy` and SHA-256 of the exact uploaded file bytes. Multipart boundary text, part order, advisory filename, and non-semantic part headers or parameters MUST NOT affect normalized comparison. For this member, omission means `staged_only`, explicit JSON `null` is invalid, omission and explicit `staged_only` MUST compare equal for idempotency and replay, and the only accepted current-profile non-null token is `staged_only`. The current profile MUST reject any request that attempts auto-activation at import time. A non-null string token other than `staged_only` MUST fail with `400`, `error.code = invalid_reference_pack_request`, and `error.details.reason_code = auto_activation_not_supported`; any other malformed non-null form for `activation_policy` MUST fail with `reason_code = invalid_activation_policy`. `POST /api/v1/reference-packs/{pack_key}/{pack_version}/activate`, `disable`, and `reverify` MUST require an exact path `pack_version`; the current profile defines no implicit latest-version action route. Each of those action routes MUST accept only a JSON object with required `client_txn_id` and optional `reason`. If present, `reason` MUST be a JSON string or JSON `null` and MUST normalize under `string_contract_id=reason_note_v1`. For idempotency comparison, omission, explicit JSON `null`, and any `reason` value that normalizes to empty under `reason_note_v1` MUST compare equal. Unknown top-level members, a non-object body, missing `client_txn_id`, or `null` for a non-nullable member MUST fail with `400` and `error.code = invalid_reference_pack_request`. Route-scoped idempotency for these three action routes MUST be keyed by `(actor_user_id, pack_key, pack_version, action_route, client_txn_id)` and MUST compare the exact action route plus normalized `reason`. Exact replay of a previously committed success or accepted job MUST return the original committed result before any fresh state evaluation runs. Reuse of the same route-scoped key with a different normalized request MUST fail with `409` and `error.code = client_txn_conflict`. `activate` is legal only when the addressed version is in durable condition `verified_available` and is not currently active for its `pack_key`. `disable` is legal only when the addressed version is in durable condition `verified_available`; the action remains legal whether or not that version is currently active through the activation pointer. `reverify` is legal only when the addressed version is in durable condition `verified_available`, `disabled`, `failed`, or `missing`; it is not legal while still `staged`. `POST /api/v1/reference-packs/refresh` MUST accept required `client_txn_id` and optional `pack_keys[]`. For this member, omission means all currently imported `pack_key` values visible to the authorized deployment-admin caller resolved once at refresh-job admission, explicit JSON `null` is invalid, explicit `[]` is invalid and MUST use `reason_code = empty_pack_keys`, and any supplied `pack_keys[]` value MUST be an array of exact visible `pack_key` strings. `pack_keys[]` is a set-like selector: caller order is non-semantic, duplicate members coalesce by exact token equality, and the canonical normalized form used for idempotency and replay is the unique exact-token set sorted by `pack_key asc`; omission MUST compare using the resolved admission-time set rather than later visibility state. If omitted `pack_keys[]` resolves to zero visible imported pack keys, refresh MUST still be admitted and MUST complete as a deterministic no-op background job rather than fail. Any non-string, unknown, or non-visible supplied `pack_key` MUST fail with `400`, `error.code = invalid_reference_pack_request`, and `reason_code = invalid_pack_keys`. Import, reverify, and refresh MUST enforce `limits.reference_packs.max_extracted_bytes`, `limits.archives.max_compression_ratio`, and `limits.archives.max_members` before a candidate version can remain or become `verified_available` or before refresh can keep or move the active pointer. A breach of any of those limits MUST fail closed using `reference_pack_verification_failed` and the exact corresponding archive-limit `reason_code`. Import, reverify, and refresh MUST run as background jobs. `activate` and `disable` MAY complete synchronously with `200 OK` using the common success envelope and `data.pack_version` equal to the post-commit durable `reference_pack_version resource`; if either action performs long-running work, it MUST return `202 Accepted` with the common job resource. `reverify` MUST always return `202 Accepted` with the common job resource. When a reverify job reaches a terminal state, its public result or error summary MUST use the same family-specific stable codes rather than ad hoc worker strings. The durable version conditions exposed to the public surface remain exactly `staged`, `verified_available`, `disabled`, `failed`, and `missing`. `active` MUST remain a derived boolean obtained from the activation pointer for `(pack_key, pack_version)`, not an additional stored version-state token.
 
@@ -6795,12 +6870,52 @@ For terminal common-job summaries produced by this family:
 
 These success-code rules apply only when the route completes through the common job resource. Inline `200 OK` `activate` or `disable` success continues to use `data.pack_version` equal to the exact `reference_pack_version resource` defined here.
 Profiles: reference_pack
-Verified by: AC-270, AC-271, AC-308, AC-309, AC-326, AC-369, AC-427
+Verified by: AC-270, AC-271, AC-308, AC-309, AC-326, AC-369, AC-427, AC-443
 
 **REQ-01-482**
 The reference-pack route family MUST use only `invalid_reference_pack_request`, `reference_pack_not_found`, `reference_pack_state_conflict`, `reference_pack_verification_failed`, and `reference_pack_activation_rejected`. `invalid_reference_pack_request` MUST use only the shared upload-envelope reasons from REQ-01-553 plus `request_not_object`, `missing_required_field`, `field_not_nullable`, `unknown_field`, `invalid_activation_policy`, `pack_version_required`, `auto_activation_not_supported`, `invalid_pack_keys`, and `empty_pack_keys`. `reference_pack_verification_failed` MUST use only `checksum_mismatch`, `signature_mismatch`, `missing_integrity_metadata`, `contract_incompatible`, `path_traversal`, `disallowed_content`, `payload_missing`, `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`, and `archive_member_count_exceeded`. `reference_pack_activation_rejected` MUST use only `already_active` and `not_verified_available`, and it is reserved for `activate`. `reference_pack_state_conflict` MUST use only `already_disabled`, `not_disableable`, and `verification_pending`.
 Profiles: reference_pack
 Verified by: AC-272, AC-310, AC-326
+
+**REQ-01-610**
+`GET /api/v1/reference-packs` MUST accept exactly these query members:
+
+- `limit`,
+- `cursor_token`,
+- `search`,
+- `pack_version_state`,
+- `verification_result`,
+- `active`.
+
+No other query member is valid on this route in the current profile.
+
+When present, `search` MUST use `list_search_v1` from REQ-01-581 with exactly these source fields:
+
+- `pack_key`,
+- `pack_kind`,
+- `pack_version`,
+- `source_identifier`,
+- `manifest_sha256`,
+- `payload_sha256`,
+- `signer_key_id`.
+
+Nullable source fields contribute no tokens when null. Omitted `search` and a present `search` value that normalizes to the empty string under `list_search_v1` mean no search predicate.
+
+Exact filters MUST use this closed contract:
+
+| Member | Accepted values | Omission |
+| --- | --- | --- |
+| `pack_version_state` | `staged`, `verified_available`, `disabled`, `failed`, `missing` | No state predicate. |
+| `verification_result` | `pending`, `passed`, `failed` | No verification predicate. |
+| `active` | Exact decoded lowercase wire tokens `true` or `false` | No active predicate. |
+
+For each filter, an explicit JSON-style `null` spelling, empty value, repeated query member, comma list, array encoding, alternate spelling, or implicit truthy/falsy value is invalid and MUST fail with `400`, `error.code='invalid_list_query'`, and `error.details.reason_code='invalid_filter_value'`. Duplicate raw query members, unknown query members, malformed search values, and search token bound failures MUST use the shared `invalid_list_query` reason-code rules in REQ-01-581 through REQ-01-583. Pagination failures MUST use `400`, `error.code='invalid_pagination_request'`, and the relevant `invalid_pagination_request` reason code.
+
+Reference-pack authorization in §17.4 MUST run before route-specific query validation, search matching, filter matching, result counting, `has_more` calculation, `next_cursor` creation, or cursor continuation positioning. Search and filter predicates combine with logical AND, evaluate against the complete authorized reference-pack version collection before pagination, and preserve the route ordering `pack_key asc`, then exact `pack_version asc`. The route MUST NOT apply relevance ranking, fuzzy matching, locale-sensitive ordering, or implicit latest-version interpretation.
+
+The cursor-bound normalized list-query state MUST include the canonical search predicate, the canonical `pack_version_state` predicate or no-predicate sentinel, the canonical `verification_result` predicate or no-predicate sentinel, the canonical `active` predicate or no-predicate sentinel, the effective limit, the caller, and the route scope. Reusing a `cursor_token` with a different canonical search or filter state MUST fail with `400`, `error.code='invalid_pagination_request'`, and `error.details.reason_code='cursor_query_mismatch'`.
+Profiles: reference_pack
+Verified by: AC-443
 
 ### 17.5 Incident Portability Extension Profile public contract
 
@@ -6829,7 +6944,7 @@ Verified by: AC-273, AC-274, AC-275
 | `optional_sections[]` omission rule | Omitted means `[]`; explicit `null` is invalid; explicit `[]` compares equal to omission; allowed tokens are exactly `snapshots` and `reference_packs`; order is non-semantic and canonicalized ascending |
 | `required_capabilities[]` omission rule | Omitted means `[]`; explicit `null` is invalid; explicit `[]` compares equal to omission; allowed tokens are exactly `snapshots` and `reference_packs`; order is non-semantic and canonicalized ascending |
 | Durable export descriptor | `bundle_id`, `incident_id`, `exported_at`, `manifest_sha256`, `reference_pack_mode`, `optional_sections[]`, `required_capabilities[]`, fixed `history_mode='full'`, fixed `blob_mode='full'` |
-| Import boundary | No durable import resource exists in the current profile; import is create-only into an empty incident namespace |
+| Import boundary | No durable import resource exists in the current profile; import is create-only into an empty incident namespace; successful publication creates the importer bootstrap membership under REQ-01-609 |
 
 **Table 17.5-C. Incident-bundle terminal results and primary errors**
 
@@ -6839,7 +6954,7 @@ Verified by: AC-273, AC-274, AC-275
 | Import success | `result_summary.code='incident_bundle_imported'` and exactly one imported `incident` ref |
 | Invalid request registry | `invalid_incident_bundle_request` with shared upload-envelope reasons plus the export and import request-shape reasons in REQ-01-486 |
 | Export rejection registry | `incident_bundle_export_rejected` with `missing_required_file` and `missing_required_blob` |
-| Import rejection registry | `incident_bundle_import_rejected` with member-path, member-type, integrity, blob-hash, duplicate-incident, capability, remote-fetch, and archive-limit reasons |
+| Import rejection registry | `incident_bundle_import_rejected` with member-path, member-type, integrity, blob-hash, duplicate-incident, capability, remote-fetch, archive-limit, and initial-admin-unavailable reasons |
 
 
 **REQ-01-484**
@@ -6848,14 +6963,14 @@ Profiles: incident_portability
 Verified by: AC-273, AC-274
 
 **REQ-01-485**
-`POST /api/v1/incident-bundles/import` MUST use the shared upload-envelope contract in §17.1.1. Within that contract, metadata MUST contain required `client_txn_id`. For this route, the `file` part media type MUST be one of the exact values declared for `POST /api/v1/incident-bundles/import` in REQ-01-552. Those media-type values are envelope gates only; bundle-member validation, integrity verification, and archive-limit enforcement remain byte-based. Route-scoped normalized request comparison for idempotency MUST include SHA-256 of the exact uploaded file bytes. Multipart boundary text, part order, advisory filename, and non-semantic part headers or parameters MUST NOT affect normalized comparison. Import MUST run as a deployment-scoped `deployment_admin` background job because no target incident exists until a successful import transaction commits. The current profile defines no durable import resource; on success the terminal job result summary MUST use `result_summary.code='incident_bundle_imported'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'incident', id: <incident_id>, route: '/api/v1/incidents/{incident_id}' }`. Import remains create-only into an empty incident namespace. The current profile MUST reject clone, merge, identifier-remap, remote-fetch, or equivalent alternative import modes.
+`POST /api/v1/incident-bundles/import` MUST use the shared upload-envelope contract in §17.1.1. Within that contract, metadata MUST contain required `client_txn_id`. For this route, the `file` part media type MUST be one of the exact values declared for `POST /api/v1/incident-bundles/import` in REQ-01-552. Those media-type values are envelope gates only; bundle-member validation, integrity verification, and archive-limit enforcement remain byte-based. Route-scoped normalized request comparison for idempotency MUST include SHA-256 of the exact uploaded file bytes. Multipart boundary text, part order, advisory filename, and non-semantic part headers or parameters MUST NOT affect normalized comparison. Import MUST run as a deployment-scoped `deployment_admin` background job because no target incident exists until a successful import transaction commits. Import-job admission MUST bind the job to the server-derived submitting internal `user_id`, and final publication MUST create the target-local initial-admin membership, workbook-preference objects, and membership audit event under REQ-01-609. The current profile defines no durable import resource; on success the terminal job result summary MUST use `result_summary.code='incident_bundle_imported'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'incident', id: <incident_id>, route: '/api/v1/incidents/{incident_id}' }`. Import remains create-only into an empty incident namespace. The current profile MUST reject clone, merge, identifier-remap, remote-fetch, initial-admin selection, adoption workflow, or equivalent alternative import modes.
 Profiles: incident_portability
-Verified by: AC-275
+Verified by: AC-275, AC-442
 
 **REQ-01-486**
-The incident-bundle route family MUST use only `invalid_incident_bundle_request`, `incident_bundle_not_found`, `incident_bundle_export_rejected`, and `incident_bundle_import_rejected`. `invalid_incident_bundle_request` MUST use only the shared upload-envelope reasons from REQ-01-553 plus `request_not_object`, `missing_required_field`, `field_not_nullable`, `unknown_field`, `invalid_reference_pack_mode`, `invalid_optional_sections`, `invalid_required_capabilities`, `history_mode_not_supported`, `blob_mode_not_supported`, and `invalid_value`. `incident_bundle_export_rejected` MUST use only `missing_required_file` and `missing_required_blob`. `incident_bundle_import_rejected` MUST use only `invalid_member_path`, `unsupported_member_type`, `checksum_mismatch`, `signature_mismatch`, `blob_hash_mismatch`, `duplicate_incident_id`, `unsupported_required_capability`, `remote_fetch_required`, `missing_required_file`, `missing_required_blob`, `malformed_manifest`, `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`, and `archive_member_count_exceeded`.
+The incident-bundle route family MUST use only `invalid_incident_bundle_request`, `incident_bundle_not_found`, `incident_bundle_export_rejected`, and `incident_bundle_import_rejected`. `invalid_incident_bundle_request` MUST use only the shared upload-envelope reasons from REQ-01-553 plus `request_not_object`, `missing_required_field`, `field_not_nullable`, `unknown_field`, `invalid_reference_pack_mode`, `invalid_optional_sections`, `invalid_required_capabilities`, `history_mode_not_supported`, `blob_mode_not_supported`, and `invalid_value`. `incident_bundle_export_rejected` MUST use only `missing_required_file` and `missing_required_blob`. `incident_bundle_import_rejected` MUST use only `invalid_member_path`, `unsupported_member_type`, `checksum_mismatch`, `signature_mismatch`, `blob_hash_mismatch`, `duplicate_incident_id`, `unsupported_required_capability`, `remote_fetch_required`, `missing_required_file`, `missing_required_blob`, `malformed_manifest`, `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`, `archive_member_count_exceeded`, and `initial_admin_unavailable`. `initial_admin_unavailable` means the import submitter no longer exists, is inactive, or no longer holds `deployment_admin` when final publication is attempted, so the target deployment cannot establish the required initial incident administrator.
 Profiles: incident_portability
-Verified by: AC-276, AC-327, AC-328, AC-332
+Verified by: AC-276, AC-327, AC-328, AC-332, AC-442
 
 ## 18. Writable-string contract registry
 
