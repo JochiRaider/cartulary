@@ -78,6 +78,17 @@ One conformant non-normative realization of `list_search_v1` can store generated
 
 A different conformant realization can use generated columns containing precomputed normalized token arrays or `tsvector`/trigram indexes as acceleration structures. These structures are examples only. PostgreSQL text-search parsers, `tsvector` dictionaries, trigram behavior, generated-column expressions, database collations, and locale settings are never authoritative for `list_search_v1`; they are conformant only when the externally observable tokenization, case folding, diacritic significance, prefix matching, duplicate-token handling, and cursor binding exactly reproduce Core 01 §3.3.7.1.
 
+### Non-normative migration examples for incident metadata closure
+
+The examples below illustrate one way to realize the Core 01/Core 02 incident metadata closure during migration. Core 01 remains authoritative for public create and patch validation; Core 02 §18 remains authoritative for closed token families.
+
+- **Status invariant check.** A migration can scan existing incidents and accept only exact `status='active'` with `closed_at IS NULL` or exact `status='closed'` with `closed_at IS NOT NULL`. Any other status spelling, legacy alias, active incident with a close timestamp, or closed incident without a close timestamp fails migration with remediation instead of being rewritten silently.
+- **TLP alias normalization.** A migration can trim and ASCII-uppercase legacy TLP input, then apply only the Core 02 alias table. For example, `white`, ` TLP:WHITE `, and `clear` normalize to `TLP:CLEAR`; `amber+strict` normalizes to `TLP:AMBER+STRICT`; already canonical tokens remain unchanged.
+- **Unknown TLP failure.** Values such as `yellow`, `TLP:YELLOW`, `amber strict`, or deployment-local labels such as `partners` are remediation failures when non-null. They are not retained, guessed, or converted to `null`.
+- **Text-contract remediation.** Existing `description` values normalize under `multiline_body_v1`; existing `severity`, `current_phase`, and `primary_external_case_ref` values normalize under `incident_metadata_text_v1`. C0/C1 controls or values over the post-normalization scalar limit require explicit remediation.
+
+A deterministic remediation report can include at least `incident_id`, `field`, `raw_value`, `reason_code`, and `remediation_hint`. Implementations can include storage keys, source bundle names, or operator ticket references as additional diagnostic context.
+
 ### Illustrative realization notes for live-authorized cursor pagination
 
 One conformant non-normative realization of `live_authorized_keyset` cursor continuation needs:
@@ -426,7 +437,7 @@ CREATE TABLE incidents (
     incident_key_canonical text NOT NULL,
     title text NOT NULL,
     description text,
-    status text NOT NULL DEFAULT 'active',
+    status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','closed')),
     severity text,
     tlp text,
     current_phase text,
@@ -442,12 +453,17 @@ CREATE TABLE incidents (
     CHECK (char_length(title) <= 512),
     CHECK (description IS NULL OR char_length(description) <= 16384),
     CHECK (severity IS NULL OR char_length(severity) <= 128),
-    CHECK (tlp IS NULL OR char_length(tlp) <= 128),
+    CHECK (tlp IS NULL OR tlp IN ('TLP:CLEAR','TLP:GREEN','TLP:AMBER','TLP:AMBER+STRICT','TLP:RED')),
     CHECK (current_phase IS NULL OR char_length(current_phase) <= 128),
     CHECK (primary_external_case_ref IS NULL OR char_length(primary_external_case_ref) <= 128),
+    CHECK ((status = 'active' AND closed_at IS NULL) OR (status = 'closed' AND closed_at IS NOT NULL)),
     UNIQUE (incident_key_canonical)
 );
 
+-- The status and TLP checks above are illustrative storage guardrails only.
+-- Public API acceptance, normalization, omission semantics, lifecycle status
+-- changes, and migration remediation remain owned by Core 01 and Core 02.
+--
 -- Public `POST /api/v1/incidents` uses one committed create timestamp for
 -- both `created_at` and `updated_at`, initializes `incident_version` to 1,
 -- sets `status='active'`, leaves `closed_at NULL`, and binds both

@@ -181,6 +181,8 @@ Verified by: AC-097, AC-098, AC-099, AC-100, AC-101, AC-211, AC-212, AC-213, AC-
 **REQ-02-015**
 The incident record MUST expose, as structured state:
 
+- `description`,
+- `severity`,
 - `tlp`,
 - `current_phase`,
 - `primary_external_case_ref`.
@@ -192,7 +194,7 @@ An incident MUST also persist a first-class `incident_key`. The deployment MUST 
 Profiles: base
 Verified by: AC-097, AC-098, AC-099, AC-100, AC-101, AC-211, AC-212, AC-213, AC-214, AC-231
 
-Core 01 §3.3.5.3 owns the public incident resource and create contract. That contract also fixes `title`, `description`, `status`, `severity`, attribution fields, timestamps, `incident_version`, and `closed_at` as first-class incident state. This section governs only the additional incident-specific operational fields that were open in the source artifact.
+Core 01 §3.3.5.3 owns the public incident resource, create contract, metadata patch contract, writable-string bindings, and omitted-versus-`null` behavior. That contract also fixes `title`, `status`, attribution fields, timestamps, `incident_version`, and `closed_at` as first-class incident state. This section owns only the persistence minimum that these incident metadata fields remain structured state rather than JSON-only payload.
 
 **REQ-02-017**
 The `task_request` model MUST expose, as structured state:
@@ -2212,6 +2214,8 @@ Where an earlier section also defines lifecycle rules, semantic meanings, or gua
 
 | Structured field or token family | Exact tokens |
 | --- | --- |
+| `incident.status` | `active`, `closed` |
+| `incident.tlp` / `cartulary.tlp.v1` | `TLP:CLEAR`, `TLP:GREEN`, `TLP:AMBER`, `TLP:AMBER+STRICT`, `TLP:RED` |
 | `entity_mentions.resolution_status` | `unresolved`, `resolved`, `dismissed` |
 | `entity_mentions.origin_kind` and `indicator_observation.origin_kind` | `manual_entry`, `clipboard_paste`, `csv_import`, `xlsx_import`, `api_import`, `extraction`, `system` |
 | `host.entity_origin` and `identity.entity_origin` | `entity_sheet`, `entity_import`, `created_from_mention`, `system_upsert` |
@@ -2248,6 +2252,25 @@ A token family listed here MAY be emitted by deriving from authoritative metadat
 A current-profile implementation MUST NOT persist alternate spellings, display labels, or semantically equivalent synonyms for any token listed here in authoritative structured state. Client and export presentation layers MAY map these tokens to display labels, but the canonical token value MUST remain stable in stored state and machine-readable payloads.
 Profiles: base
 Verified by: AC-076, AC-077, AC-078, AC-079, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-122, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-252, AC-253, AC-277
+
+For incident status, migration MUST accept only exact stored values `active` or `closed`. A migrated incident with `status='active'` MUST have `closed_at=NULL`; a migrated incident with `status='closed'` MUST have non-null `closed_at`. Any other status value or status/`closed_at` invariant violation MUST fail migration with an explicit remediation report rather than being silently retained or rewritten.
+
+For incident TLP, migration MAY normalize only the following legacy inputs after trimming and ASCII uppercasing:
+
+| Legacy input | Canonical value |
+| --- | --- |
+| `CLEAR` | `TLP:CLEAR` |
+| `WHITE` | `TLP:CLEAR` |
+| `TLP:WHITE` | `TLP:CLEAR` |
+| `GREEN` | `TLP:GREEN` |
+| `AMBER` | `TLP:AMBER` |
+| `AMBER+STRICT` | `TLP:AMBER+STRICT` |
+| `RED` | `TLP:RED` |
+| any canonical `incident.tlp` token | unchanged |
+
+Unknown non-null TLP values MUST fail migration. They MUST NOT be silently retained, mapped heuristically, or converted to `null`. Valid existing `description`, `severity`, `current_phase`, and `primary_external_case_ref` values MUST be preserved after the Core 01 string-contract normalization bound to each field. Invalid controls or overlength values MUST fail migration with explicit remediation. A remediation report for this migration family MUST identify at minimum `incident_id`, field, raw value, reason code, and remediation hint.
+
+A future incompatible TLP vocabulary MUST use a new vocabulary version or new API major semantics. Existing `cartulary.tlp.v1` token meanings MUST NOT be silently reinterpreted.
 
 
 ## 19. Incident-scoped party model

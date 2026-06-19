@@ -1978,12 +1978,12 @@ Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
 
 **REQ-01-157**
-`incident_key` MUST be client-supplied. The server MUST NOT auto-generate or overwrite it. `incident_key` MUST be trimmed of leading and trailing Unicode whitespace, Unicode NFC-normalized, non-empty, at most 128 UTF-8 bytes after that normalization, and unique within the deployment after that same normalization. The incident resource returned by the public API MUST serialize `incident_key` in that trimmed Unicode-NFC-normalized form. `title` MUST be trimmed of leading and trailing Unicode whitespace, non-empty, and at most 512 Unicode scalar values after trimming. The incident resource returned by the public API MUST serialize `title` in that trimmed form. If present, `description` MUST be at most 16384 Unicode scalar values. If present, `severity`, `tlp`, `current_phase`, and `primary_external_case_ref` MUST each be at most 128 Unicode scalar values. The server MUST reject control characters in `incident_key` and `title`.
+`incident_key` MUST be client-supplied. The server MUST NOT auto-generate or overwrite it. `incident_key` MUST be trimmed of leading and trailing Unicode whitespace, Unicode NFC-normalized, non-empty, at most 128 UTF-8 bytes after that normalization, and unique within the deployment after that same normalization. The incident resource returned by the public API MUST serialize `incident_key` in that trimmed Unicode-NFC-normalized form. `title` MUST be trimmed of leading and trailing Unicode whitespace, non-empty, and at most 512 Unicode scalar values after trimming. The incident resource returned by the public API MUST serialize `title` in that trimmed form. The server MUST reject control characters in `incident_key` and `title`. When `description` is supplied as a non-null JSON string, it MUST normalize and validate under `string_contract_id=multiline_body_v1`. When `severity`, `current_phase`, or `primary_external_case_ref` is supplied as a non-null JSON string, it MUST normalize and validate under `string_contract_id=incident_metadata_text_v1`. When `tlp` is supplied as a non-null value, it MUST be one exact JSON string token from the `incident.tlp` / `cartulary.tlp.v1` token family defined by Core 02 §18; aliases, display labels, empty strings, whitespace-only strings, non-string values, and case variants are invalid on the public create and patch routes. The incident resource returned by the public API MUST emit `tlp` only as one exact canonical token or JSON `null`.
 Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
 
 **REQ-01-158**
-If `description`, `severity`, `tlp`, `current_phase`, or `primary_external_case_ref` are omitted or explicitly `null`, the initial incident resource MUST expose that field as `null`. The base profile MUST NOT synthesize an implicit non-null default for any of those optional fields. In the base profile, `severity` is optional at create time. `status` is server-managed on create and MUST NOT be client-settable. In the base profile, `incident_key`, `title`, `description`, `status`, and `severity` are create-time-only incident fields. After create, later metadata mutation is limited to the fields defined in §3.3.5.3.1.
+If `description`, `severity`, `tlp`, `current_phase`, or `primary_external_case_ref` are omitted or explicitly `null`, the initial incident resource MUST expose that field as `null`. The base profile MUST NOT synthesize an implicit non-null default for any of those optional fields. On create, `status` is server-managed and MUST default to `active`, and `closed_at` is server-managed and MUST default to JSON `null`. `status` MUST NOT be client-settable on create. In the base profile, `description` and `severity` are optional at create time and remain patchable after creation through §3.3.5.3.1. `incident_key` and `title` are create-time-only incident identity fields. `status` and `closed_at` are server-managed lifecycle fields and MUST NOT be mutated through `PATCH /api/v1/incidents/{incident_id}`. After create, later metadata mutation is limited to the fields defined in §3.3.5.3.1.
 Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
 
@@ -2067,19 +2067,19 @@ Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
 
 **REQ-01-173**
-The request body MUST be a JSON object and MUST accept `base_incident_version` plus changed mutable fields only. In the base profile, mutable fields are `tlp`, `current_phase`, and `primary_external_case_ref`. This mutable-field list is exhaustive for post-create incident-metadata mutation in the base profile.
+The request body MUST be a JSON object and MUST accept required `base_incident_version` plus changed mutable fields only. In the base profile, mutable fields are `description`, `severity`, `tlp`, `current_phase`, and `primary_external_case_ref`. This mutable-field list is exhaustive for post-create incident-metadata mutation in the base profile.
 Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
 
 **REQ-01-174**
-The server MUST apply the same normalization and validation rules defined for those fields on `POST /api/v1/incidents`.
+The server MUST apply the same normalization and validation rules defined for those fields on `POST /api/v1/incidents`. `description` MUST use `multiline_body_v1`. `severity`, `current_phase`, and `primary_external_case_ref` MUST use `incident_metadata_text_v1`. `tlp` MUST be accepted only as one exact canonical token from Core 02 §18 or JSON `null`.
 Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
 
-For nullable mutable fields, omission means no change and explicit JSON `null` means clear the field.
+For nullable mutable fields, omission means no change and explicit JSON `null` means clear the field. For `description`, `severity`, `current_phase`, and `primary_external_case_ref`, any supplied string value that normalizes to empty under the bound string contract MUST also clear the field to authoritative `null`. For `tlp`, empty strings and whitespace-only strings are invalid rather than clear operations; explicit JSON `null` is the only public clear operation.
 
 **REQ-01-175**
-The route MUST reject attempted mutation of `incident_id`, `incident_key`, `title`, `description`, `status`, `severity`, `created_by_user_id`, `created_at`, `updated_at`, `updated_by_user_id`, `incident_version`, `closed_at`, any membership object, any saved-view object, and any workbook-preference object. The route MUST reject unknown top-level request members with `400` and `error.code = invalid_incident_patch`.
+The route MUST reject attempted mutation of `incident_id`, `incident_key`, `title`, `status`, `created_by_user_id`, `created_at`, `updated_at`, `updated_by_user_id`, `incident_version`, `closed_at`, any membership object, any saved-view object, and any workbook-preference object. The route MUST reject unknown top-level request members with `400` and `error.code = invalid_incident_patch`.
 Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
 
@@ -2600,7 +2600,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `invalid_blob_create_request` | `400` | `false` | A blob-slot create request is malformed, omits required members, violates create-time field validation, attempts to set server-managed state, or includes an unknown top-level member. |  |  |  |
 | `blob_create_rejected` | `413` | `false` | A blob-slot create request is structurally valid but exceeds the configured declared-size ceiling for `POST /api/v1/object-blobs`. `error.details.reason_code` MUST use the `blob_create_rejected` registry in §3.3.6.2. |  |  |  |
 | `invalid_incident_create` | `400` | `false` | An incident-create request is malformed, omits required members, includes an unknown top-level member, violates create-time field validation, attempts to set server-managed state, or includes a rejected collaborator-seeding payload. |  |  |  |
-| `invalid_incident_patch` | `400` | `false` | An incident-metadata patch request is malformed, omits required `base_incident_version`, attempts to mutate an immutable or server-managed incident field, or includes unknown top-level members. |  |  |  |
+| `invalid_incident_patch` | `400` | `false` | An incident-metadata patch request is malformed, omits or malforms required `base_incident_version`, violates mutable-field validation, attempts to mutate an immutable or server-managed incident field, or includes unknown top-level members. |  |  |  |
 | `invalid_rollback_request` | `400` | `false` | A rollback request is malformed, uses an unknown or unsupported `target.kind`, omits the selector required for that `kind`, includes unknown request members, or supplies a selector whose JSON type does not match the declared shape. |  |  |  |
 | `invalid_auth_request` | `400` | `false` | A local-account login request is malformed, omits a required member, includes an unknown or forbidden member, supplies `null` where forbidden, uses an unsupported `second_factor.kind`, or carries an invalid TOTP assertion shape. |  |  |  |
 | `invalid_enterprise_auth_request` | `400` | `false` | An enterprise-auth discovery or initiation request is malformed, omits a required member, includes an unknown or forbidden member, supplies `null` where forbidden, or uses a `return_to` value not allowed by the current profile. |  |  |  |
@@ -2699,10 +2699,26 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `field_not_nullable` | The request supplies `null` for a non-nullable incident-create field. |
 | `field_empty_after_normalization` | `incident_key` or `title` is empty after required normalization and trimming. |
 | `field_too_long` | A create field exceeds its declared maximum length. |
-| `control_character_not_allowed` | `incident_key` or `title` contains a rejected control character. |
+| `control_character_not_allowed` | A create field contains a rejected control character. |
+| `invalid_value` | A create field value has the wrong JSON type or is outside its closed token set. |
 | `unknown_field` | The request includes a top-level member not declared by the incident-create contract. |
 | `server_managed_field` | The request attempted to set server-managed incident state. |
 | `collaborator_seeding_not_supported` | The request supplied `initial_memberships[]`. |
+
+`invalid_incident_patch` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `request_not_object` | The request body is not a JSON object. |
+| `missing_required_field` | The required `base_incident_version` member is absent. |
+| `invalid_base_incident_version` | `base_incident_version` is not a valid positive incident-version integer. |
+| `field_not_nullable` | The request supplies `null` for a non-nullable incident-patch field. |
+| `field_too_long` | A mutable incident metadata field exceeds its declared maximum length. |
+| `control_character_not_allowed` | A mutable incident metadata field contains a rejected control character. |
+| `invalid_value` | A supplied mutable field value has the wrong JSON type or is outside its closed token set. |
+| `immutable_field` | The request attempted to mutate a create-time-only incident identity field. |
+| `server_managed_field` | The request attempted to mutate server-managed incident state. |
+| `unknown_field` | The request includes a top-level member not declared by the incident-patch contract. |
 
 `invalid_blob_create_request` `error.details.reason_code` values:
 
@@ -6456,6 +6472,19 @@ Verified by: AC-015, AC-068, AC-085, AC-086, AC-112, AC-118, AC-231
 - when the binding is required, `null` or normalized-empty input is invalid.
 Profiles: base
 Verified by: AC-068, AC-085, AC-086, AC-112, AC-118, AC-216, AC-231
+
+**REQ-01-491.1**
+`incident_metadata_text_v1` is the optional bounded incident-metadata text contract.
+
+- apply Unicode NFC normalization,
+- trim leading and trailing Unicode whitespace,
+- preserve interior whitespace exactly,
+- reject every C0 or C1 control code point,
+- do not case-fold for authoritative storage,
+- enforce a maximum length of 128 Unicode scalar values after normalization,
+- normalized-empty input MUST clear to authoritative `null`.
+Profiles: base
+Verified by: AC-099, AC-170, AC-212, AC-214, AC-219, AC-220, AC-231
 
 **REQ-01-492**
 `party_text_v1` is the optional bounded source-preserving party-label contract.

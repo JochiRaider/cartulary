@@ -4,6 +4,70 @@ This appendix is **non-normative**.
 
 It preserves the workflow sequence diagrams, UI mockups, and explanatory interaction notes from the exploratory source artifact.
 
+## Incident-details metadata illustrations
+
+These examples are illustrative only. Core 01 owns the incident resource, create defaults, PATCH validation, omission semantics, concurrency behavior, and audit behavior. Core 02 owns the closed `incident.status` and `incident.tlp` token families.
+
+### Compact create, complete post-create controls
+
+An implementation can keep the create-incident dialog focused on `incident_key` and `title`, with optional metadata behind a compact disclosure. If the disclosure is closed, omitted `description`, `severity`, `tlp`, `current_phase`, and `primary_external_case_ref` create as `null`. If the disclosure is opened, `description` uses a multiline text area; `tlp` uses a selector whose stored values are canonical tokens; and `severity`, `current_phase`, and `primary_external_case_ref` use bounded text inputs that can show suggestions without closing the vocabulary.
+
+After creation, the incident-details or secondary controls surface should expose the same patchable metadata fields to callers with current incident role `reviewer` or `admin`: `description`, `severity`, `tlp`, `current_phase`, and `primary_external_case_ref`. The controls stay secondary to the grid-first workbook shell, but they cannot omit `description` or `severity` merely because those fields were optional at creation.
+
+### Canonical tokens and labels
+
+TLP display labels can vary by product language or visual treatment, but stored and exchanged values remain exact canonical tokens:
+
+| UI label example | Stored token |
+| --- | --- |
+| Clear | `TLP:CLEAR` |
+| Green | `TLP:GREEN` |
+| Amber | `TLP:AMBER` |
+| Amber Strict | `TLP:AMBER+STRICT` |
+| Red | `TLP:RED` |
+
+Severity and phase controls can show organization-specific suggestions such as `Low`, `Medium`, `High`, `Containment`, or `Recovery`, but valid bounded text that is not in a suggestion list remains acceptable. Reference packs can provide labels or suggestions only; they do not reject otherwise valid input or block incident capture.
+
+### Patch examples
+
+Set or replace mutable metadata:
+
+```json
+{
+  "base_incident_version": 7,
+  "description": "Customer-facing credential abuse investigation.",
+  "severity": "High",
+  "tlp": "TLP:AMBER",
+  "current_phase": "Containment",
+  "primary_external_case_ref": "EXT-2026-017"
+}
+```
+
+Clear nullable text-bound metadata with explicit `null` or normalized-empty string input, and clear TLP only with explicit JSON `null`:
+
+```json
+{
+  "base_incident_version": 8,
+  "description": "",
+  "severity": null,
+  "tlp": null,
+  "current_phase": "   ",
+  "primary_external_case_ref": null
+}
+```
+
+Attempting to patch incident identity or lifecycle-managed members remains invalid:
+
+```json
+{
+  "base_incident_version": 9,
+  "incident_key": "INC-2026-999",
+  "title": "Renamed incident",
+  "status": "closed",
+  "closed_at": "2026-03-14T12:00:00Z"
+}
+```
+
 ## 8. Record lifecycle and IR workflow model
 
 ### Lifecycle
