@@ -743,10 +743,11 @@ func TestPhase7_RetainedHistoryAcrossRestartAndClosure_I_7_04(t *testing.T) {
 		t.Fatalf("history_item_ref changed across restart: before=%q after=%q", itemRefBefore, itemRefAfterRestart)
 	}
 	if _, err := db.Exec(`
-UPDATE incidents
-   SET closed_at = $1
- WHERE id = $2
-`, base.Add(time.Minute), incidentID); err != nil {
+	UPDATE incidents
+	   SET status = 'closed',
+	       closed_at = $1
+	 WHERE id = $2
+	`, base.Add(time.Minute), incidentID); err != nil {
 		t.Fatalf("seed incident closure: %v", err)
 	}
 	seedHistoryChangeSet(t, db, historySeed{

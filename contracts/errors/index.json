@@ -99,6 +99,11 @@
       "summary": "The requested deployment-user mutation used a stale base_user_version."
     },
     {
+      "code": "preferences_version_conflict",
+      "http_status": 409,
+      "summary": "The requested account-preferences mutation used a stale base_preferences_version."
+    },
+    {
       "code": "auth_provider_not_found",
       "http_status": 404,
       "summary": "The requested Enterprise Authentication provider is not configured."
@@ -164,6 +169,11 @@
       "summary": "The incident patch request body failed route-owned validation."
     },
     {
+      "code": "invalid_incident_lifecycle_request",
+      "http_status": 400,
+      "summary": "The incident lifecycle action request body failed route-owned validation."
+    },
+    {
       "code": "incident_key_conflict",
       "http_status": 409,
       "summary": "The normalized incident_key conflicts with an existing incident."
@@ -172,6 +182,11 @@
       "code": "incident_version_conflict",
       "http_status": 409,
       "summary": "The incident patch used a stale base_incident_version."
+    },
+    {
+      "code": "incident_closed",
+      "http_status": 409,
+      "summary": "The addressed incident is closed and the route cannot commit authoritative incident source state."
     },
     {
       "code": "membership_exists_use_patch",
@@ -1335,6 +1350,51 @@
         {
           "code": "duplicate_field_key",
           "summary": "The request contains duplicate normalized field keys."
+        }
+      ]
+    },
+    {
+      "error_code": "invalid_incident_lifecycle_request",
+      "reason_codes": [
+        {
+          "code": "request_not_object",
+          "summary": "The request body is not a JSON object."
+        },
+        {
+          "code": "missing_required_field",
+          "summary": "A required incident lifecycle action field is absent."
+        },
+        {
+          "code": "field_not_nullable",
+          "summary": "The request supplies null for a required incident lifecycle action field."
+        },
+        {
+          "code": "invalid_base_incident_version",
+          "summary": "base_incident_version is not a valid positive incident-version integer."
+        },
+        {
+          "code": "invalid_client_txn_id",
+          "summary": "client_txn_id is not a valid stable client transaction token."
+        },
+        {
+          "code": "invalid_reason",
+          "summary": "reason has the wrong JSON type or otherwise cannot be normalized under reason_note_v1."
+        },
+        {
+          "code": "reason_empty_after_normalization",
+          "summary": "reason is empty after required normalization and trimming."
+        },
+        {
+          "code": "reason_too_long",
+          "summary": "reason exceeds the reason_note_v1 length limit after normalization."
+        },
+        {
+          "code": "control_character_not_allowed",
+          "summary": "reason contains a rejected control character."
+        },
+        {
+          "code": "unknown_field",
+          "summary": "The request includes a top-level member not declared by the incident lifecycle action contract."
         }
       ]
     },

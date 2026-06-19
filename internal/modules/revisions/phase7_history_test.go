@@ -211,7 +211,12 @@ UPDATE records
 `, recordID); err != nil {
 		t.Fatalf("seed restore cycle: %v", err)
 	}
-	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incidents SET closed_at = $1 WHERE id = $2`, base.Add(3*time.Minute), incidentID); err != nil {
+	if _, err := harness.DB.ExecContext(context.Background(), `
+	UPDATE incidents
+	   SET status = 'closed',
+	       closed_at = $1
+	 WHERE id = $2
+	`, base.Add(3*time.Minute), incidentID); err != nil {
 		t.Fatalf("seed incident closure: %v", err)
 	}
 

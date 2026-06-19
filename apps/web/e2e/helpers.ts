@@ -1255,11 +1255,20 @@ export async function reconcileSuiteAdminTotpState(
 
 export async function openIncidentFromLanding(page: Page, incidentId: string) {
   await page.goto("/");
-  await expect(
-    page.getByTestId(landingIncidentCardTestId(incidentId)),
-  ).toBeVisible();
-  await page.getByTestId(landingIncidentOpenButtonTestId(incidentId)).click();
+  const incidentCard = page.getByTestId(landingIncidentCardTestId(incidentId));
+  const routed = await Promise.race([
+    page
+      .waitForURL(new RegExp(`incident_id=${incidentId}`), { timeout: 5000 })
+      .then(() => "workbook" as const),
+    incidentCard
+      .waitFor({ state: "visible", timeout: 5000 })
+      .then(() => "landing" as const),
+  ]).catch(() => "unknown" as const);
+  if (routed === "landing") {
+    await page.getByTestId(landingIncidentOpenButtonTestId(incidentId)).click();
+  }
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 }
 
 export async function openIncidentAsTrackedUser(

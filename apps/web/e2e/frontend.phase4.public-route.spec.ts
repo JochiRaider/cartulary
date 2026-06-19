@@ -19,6 +19,7 @@ import {
   createViewRow,
   csrfHeaders,
   gridSavedRows,
+  openIncidentFromLanding,
   patchTimelineRecord,
   queryViewRows,
   safeUnroute,
@@ -206,6 +207,16 @@ async function disableWorkbookSockets(page: Page) {
 
 function summaryValue(row: ViewApiRow | undefined) {
   return row?.cells["timeline.summary"]?.value;
+}
+
+async function openTimelineIncident(page: Page, incidentId: string) {
+  await openIncidentFromLanding(page, incidentId);
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
 }
 
 test(
@@ -825,6 +836,7 @@ test(
     });
 
     await test.step("public validation errors preserve local drafts without private details", async () => {
+      await openTimelineIncident(page, incidentId);
       const validationResponse = page.waitForResponse(
         (response) =>
           response.request().method() === "PATCH" &&
@@ -851,6 +863,7 @@ test(
         await dialog.accept();
       });
       await page.reload();
+      await openTimelineIncident(page, incidentId);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     });
 
@@ -912,6 +925,7 @@ test(
         await dialog.accept();
       });
       await page.reload();
+      await openTimelineIncident(page, incidentId);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     });
 

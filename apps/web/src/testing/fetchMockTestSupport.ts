@@ -58,6 +58,25 @@ export function findFetchCalls(
   });
 }
 
+export function findFetchCallsByPath(
+  fetchMock: FetchMock,
+  path: string,
+  method: string,
+): FetchCall[] {
+  const expectedMethod = method.toUpperCase();
+  return fetchMock.mock.calls.flatMap((call, index) => {
+    const nextCall = asFetchCall(call, `fetch call #${index}`);
+    const [input, init] = nextCall;
+    const requestMethod = (init?.method ?? "GET").toUpperCase();
+    const requestPath = new URL(String(input), "http://cartulary.test")
+      .pathname;
+    if (requestPath !== path || requestMethod !== expectedMethod) {
+      return [];
+    }
+    return [nextCall];
+  });
+}
+
 export function requireFetchCall(
   fetchMock: FetchMock,
   index: number,

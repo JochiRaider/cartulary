@@ -5,11 +5,15 @@
   "public_error_classes": [
     {
       "error_class": "request_invalid",
-      "error_codes": ["invalid_view_query", "invalid_pagination_request", "invalid_list_query", "invalid_mutation_payload", "invalid_evidence_handle_request", "invalid_blob_create_request", "invalid_incident_create", "invalid_incident_patch", "invalid_rollback_request", "invalid_auth_request", "invalid_enterprise_auth_request", "invalid_import_request", "invalid_snapshot_request", "invalid_release_request", "invalid_reference_pack_request", "invalid_incident_bundle_request"]
+      "error_codes": ["invalid_view_query", "invalid_pagination_request", "invalid_list_query", "invalid_mutation_payload", "invalid_evidence_handle_request", "invalid_blob_create_request", "invalid_incident_create", "invalid_incident_patch", "invalid_incident_lifecycle_request", "invalid_rollback_request", "invalid_auth_request", "invalid_enterprise_auth_request", "invalid_import_request", "invalid_snapshot_request", "invalid_release_request", "invalid_reference_pack_request", "invalid_incident_bundle_request"]
     },
     {
       "error_class": "authentication",
       "error_codes": ["invalid_credentials", "mfa_required", "mfa_setup_required", "credential_bootstrap_rejected", "invalid_current_password", "invalid_second_factor", "totp_setup_not_pending", "enterprise_auth_transaction_rejected", "provider_response_rejected", "provider_identity_rejected"]
+    },
+    {
+      "error_class": "authorization",
+      "error_codes": ["authorization_denied"]
     },
     {
       "error_class": "capability_unavailable",
@@ -17,11 +21,11 @@
     },
     {
       "error_class": "concurrency_conflict",
-      "error_codes": ["client_txn_conflict", "row_version_conflict", "incident_key_conflict", "incident_version_conflict", "same_field_conflict", "user_version_conflict", "membership_version_conflict", "auth_binding_conflict"]
+      "error_codes": ["client_txn_conflict", "row_version_conflict", "incident_key_conflict", "incident_version_conflict", "same_field_conflict", "user_version_conflict", "preferences_version_conflict", "membership_version_conflict", "auth_binding_conflict"]
     },
     {
       "error_class": "lifecycle_conflict",
-      "error_codes": ["job_cancel_rejected", "illegal_transition", "record_deleted_use_restore", "record_already_deleted", "record_delete_blocked", "record_not_deleted", "record_locked", "rollback_precondition_failed", "last_deployment_admin", "user_inactive", "membership_exists_use_patch", "last_incident_admin", "merge_precondition_failed", "import_state_conflict", "import_apply_blocked", "release_state_conflict", "release_approval_rejected", "reference_pack_state_conflict", "reference_pack_activation_rejected"]
+      "error_codes": ["job_cancel_rejected", "incident_closed", "illegal_transition", "record_deleted_use_restore", "record_already_deleted", "record_delete_blocked", "record_not_deleted", "record_locked", "rollback_precondition_failed", "last_deployment_admin", "user_inactive", "membership_exists_use_patch", "last_incident_admin", "merge_precondition_failed", "import_state_conflict", "import_apply_blocked", "release_state_conflict", "release_approval_rejected", "reference_pack_state_conflict", "reference_pack_activation_rejected"]
     },
     {
       "error_class": "not_found",

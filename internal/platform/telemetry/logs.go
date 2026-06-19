@@ -191,7 +191,7 @@ func knownResult(result string) bool {
 
 func knownErrorClass(errorClass string) bool {
 	switch errorClass {
-	case "request_invalid", "authentication", "capability_unavailable", "concurrency_conflict", "lifecycle_conflict", "not_found",
+	case "request_invalid", "authentication", "authorization", "capability_unavailable", "concurrency_conflict", "lifecycle_conflict", "not_found",
 		"expired_or_consumed", "policy_rejected", "dependency_unavailable", "invariant_violation", "timeout", "serialization_conflict",
 		"constraint_violation", "exporter_transient", "exporter_permanent", "redaction_rejected", "queue_full", "shutdown_timeout",
 		"recursion_guard", "internal_error":

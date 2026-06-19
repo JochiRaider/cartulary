@@ -1333,7 +1333,26 @@ describe("Phase 1 ordinary app shell", () => {
     expect(screen.getByTestId(phase1AdminTestId("status")).textContent).toBe(
       "Patch local user failed",
     );
-    await expectStableFetchCount(fetchMock, 21);
+    expect(findFetchCalls(fetchMock, "/api/v1/users", "POST")).toHaveLength(1);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/users/user-2", "PATCH"),
+    ).toHaveLength(1);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/users/user-1", "PATCH"),
+    ).toHaveLength(1);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/users/user-2/password/reset", "POST"),
+    ).toHaveLength(0);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/users/user-2/mfa/totp/reset", "POST"),
+    ).toHaveLength(0);
+    expect(
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/users/user-2/sessions/revoke-all",
+        "POST",
+      ),
+    ).toHaveLength(0);
   });
 
   it("keeps deployment-admin target actions disabled until a target load completes and leaves version-conflict status stable", async () => {
@@ -1459,7 +1478,9 @@ describe("Phase 1 ordinary app shell", () => {
       "PATCH",
     );
     expect(patchRequest.body.base_user_version).toBe(7);
-    await expectStableFetchCount(fetchMock, 14);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/users/user-2", "PATCH"),
+    ).toHaveLength(1);
     expect(
       findFetchCalls(fetchMock, "/api/v1/users/user-2", "GET"),
     ).toHaveLength(1);
@@ -1759,7 +1780,29 @@ describe("Phase 1 ordinary app shell", () => {
         .textContent,
     ).toContain("Required role: deployment_admin");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 19);
+    expect(findFetchCalls(fetchMock, "/api/v1/users", "POST")).toHaveLength(1);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/users/user-2", "GET"),
+    ).toHaveLength(2);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/users/user-2", "PATCH"),
+    ).toHaveLength(1);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/users/user-2/password/reset", "POST"),
+    ).toHaveLength(1);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/users/user-2/mfa/totp/reset", "POST"),
+    ).toHaveLength(1);
+    expect(
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/users/user-2/sessions/revoke-all",
+        "POST",
+      ),
+    ).toHaveLength(1);
+    for (const call of fetchMock.mock.calls) {
+      expect(String(call[0]).startsWith("/api/v1/")).toBe(true);
+    }
   });
 
   it("FE-I-P1-01 route-boundary incident landing uses /api/v1/incidents with closed create bodies and public errors", async () => {

@@ -16,7 +16,7 @@ func TestSafeAttributesPreservesAdoptedLowCardinalityAttributes(t *testing.T) {
 		attribute.String("cartulary.module", "workbook"),
 		attribute.String("cartulary.operation", "query"),
 		attribute.String("cartulary.result", "success"),
-		attribute.String("cartulary.error_class", "request_invalid"),
+		attribute.String("cartulary.error_class", "authorization"),
 		attribute.String("cartulary.profile.claims", "base,import"),
 		attribute.String("cartulary.incident.hash64", "0123456789abcdef"),
 	)

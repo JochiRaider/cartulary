@@ -23,8 +23,8 @@ func TestLogCorrelationSafeFields(t *testing.T) {
 		RouteFamily: "incidents",
 		Operation:   "query",
 		Result:      "success",
-		ErrorCode:   "invalid_view_query",
-		ErrorClass:  "request_invalid",
+		ErrorCode:   "authorization_denied",
+		ErrorClass:  "authorization",
 	})
 
 	if fields["trace_id"] != traceID.String() || fields["span_id"] != spanID.String() || fields["trace_flags"] != "sampled" {

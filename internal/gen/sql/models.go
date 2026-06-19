@@ -8,6 +8,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AccountPreference struct {
+	UserID             pgtype.UUID        `json:"user_id"`
+	DensityMode        pgtype.Text        `json:"density_mode"`
+	PreferencesVersion int64              `json:"preferences_version"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Artifact struct {
 	RecordID            pgtype.UUID        `json:"record_id"`
 	IncidentID          pgtype.UUID        `json:"incident_id"`

@@ -199,7 +199,7 @@ test("E-11-03 handles enterprise session root landing for zero, one, multiple, a
   ).toBeVisible();
   await expect(
     page.getByTestId(phase1LandingTestId("incidents-count")),
-  ).toHaveText("2");
+  ).toHaveText("2 loaded");
   await expect(page).not.toHaveURL(/incident_id=/);
 
   await sessionTracker.loginTrackedUser(page, {
@@ -213,8 +213,12 @@ test("E-11-03 handles enterprise session root landing for zero, one, multiple, a
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
-  await page.route("**/api/v1/incidents", async (route) => {
-    if (route.request().method().toUpperCase() !== "GET") {
+  await page.route("**/api/v1/incidents**", async (route) => {
+    const requestURL = new URL(route.request().url());
+    if (
+      route.request().method().toUpperCase() !== "GET" ||
+      requestURL.pathname !== "/api/v1/incidents"
+    ) {
       await route.fallback();
       return;
     }

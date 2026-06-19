@@ -10,6 +10,7 @@ import {
   incidentMembershipRoleDisplayTestId,
   incidentMembershipRoleInputTestId,
   incidentMembershipRowTestId,
+  landingAdminMenuItemTestId,
   landingIncidentCardTestId,
   phase1AccountTestId,
   phase1AdminTestId,
@@ -25,6 +26,7 @@ import {
   createLocalUser,
   deploymentAdminMutationClient,
   loadUser,
+  patchUser,
   resetUserTotp,
   revokeAllSessions,
   withOnlyActiveDeploymentAdmin,
@@ -54,6 +56,25 @@ async function openIncidentControls(
   await expect(menuItem).toHaveAttribute("role", "menuitem");
   await menuItem.click();
   await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
+}
+
+async function expectLandingAccountSession(page: Page) {
+  const accountProvider = page.getByTestId(
+    phase1AccountTestId("session-provider-type"),
+  );
+  const workbookReturn = page.getByTestId(phase1LandingTestId("return"));
+  const shell = await Promise.race([
+    accountProvider
+      .waitFor({ state: "visible", timeout: 5000 })
+      .then(() => "landing" as const),
+    workbookReturn
+      .waitFor({ state: "visible", timeout: 5000 })
+      .then(() => "workbook" as const),
+  ]).catch(() => "unknown" as const);
+  if (shell === "workbook") {
+    await workbookReturn.click();
+  }
+  await expect(accountProvider).toHaveText("local");
 }
 
 test("E-1-01 signs in as a local user and inspects the ordinary session surface", async ({
@@ -243,6 +264,12 @@ test("E-1-05 lets deployment admins create and patch users, rejects stale versio
   await expect(
     page.getByTestId(phase1AdminTestId("target-user-version")),
   ).toHaveText("1");
+  const createdUserID = await page
+    .getByTestId(phase1AdminTestId("target-user-id"))
+    .textContent();
+  if (!createdUserID) {
+    throw new Error("missing created user id");
+  }
 
   await page
     .getByTestId(phase1AdminTestId("patch-display-name"))
@@ -252,7 +279,10 @@ test("E-1-05 lets deployment admins create and patch users, rejects stale versio
     page.getByTestId(phase1AdminTestId("target-user-version")),
   ).toHaveText("2");
 
-  await page.getByTestId(phase1AdminTestId("patch-base-version")).fill("1");
+  await patchUser(workerAdminRequest, createdUserID, {
+    base_user_version: 2,
+    display_name: "Phase 1 E105 Concurrent",
+  });
   await phase1.patchTargetUser();
   await expect(page.getByTestId(phase1ErrorCodeTestId("admin"))).toHaveText(
     "user_version_conflict",
@@ -518,9 +548,7 @@ test("E-1-08 keeps deployment-user administration on deployment-admin sessions a
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(incidentAdminEmail, incidentAdminPassword);
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-provider-type")),
-  ).toHaveText("local");
+  await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email: incidentAdminEmail,
@@ -528,9 +556,10 @@ test("E-1-08 keeps deployment-user administration on deployment-admin sessions a
     userId: incidentAdminUser.user_id,
   });
   await expect(
-    page.getByTestId(phase1AdminTestId("access-note")),
-  ).toContainText(
-    "Incident-admin membership alone does not unlock these controls",
+    page.getByTestId(landingAdminMenuItemTestId("deployment-users")),
+  ).toHaveCount(0);
+  await expect(page.getByTestId(phase1AdminTestId("access-note"))).toHaveCount(
+    0,
   );
   await expect(
     page.getByTestId(phase1AdminTestId("password-reset")),
@@ -615,9 +644,7 @@ test("E-1-08 keeps deployment-user administration on deployment-admin sessions a
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(incidentAdminEmail, incidentAdminPassword);
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-provider-type")),
-  ).toHaveText("local");
+  await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email: incidentAdminEmail,
@@ -714,6 +741,7 @@ test("E-1-10 clears a stale selected incident after membership removal while pre
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(targetEmail, targetPassword);
+  await expectLandingAccountSession(page);
   await expect(
     page.getByTestId(phase1AccountTestId("session-user-id")),
   ).toHaveText(targetUser.user_id);
@@ -804,6 +832,7 @@ test("E-1-11 observes current-role authorization on a stale reviewer edit throug
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(targetEmail, targetPassword);
+  await expectLandingAccountSession(page);
   await expect(
     page.getByTestId(phase1AccountTestId("session-user-id")),
   ).toHaveText(targetUser.user_id);
@@ -878,6 +907,11 @@ test("E-1-12 returns a revoked target browser to login and allows re-authenticat
     uniqueIncidentKey("E112"),
     "Phase 1 E-1-12",
   );
+  const alternateIncidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E112B"),
+    "Phase 1 E-1-12 alternate",
+  );
   const targetEmail = uniqueEmail("phase1-e112-target");
   const targetPassword = "Phase1E112Pass!";
   const targetUser = await createLocalUser(workerAdminRequest, {
@@ -887,10 +921,17 @@ test("E-1-12 returns a revoked target browser to login and allows re-authenticat
     mfa_required: false,
   });
   await createIncidentMembership(page, incidentId, targetEmail, "viewer");
+  await createIncidentMembership(
+    page,
+    alternateIncidentId,
+    targetEmail,
+    "viewer",
+  );
 
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(targetEmail, targetPassword);
+  await expectLandingAccountSession(page);
   await expect(
     page.getByTestId(phase1AccountTestId("session-user-id")),
   ).toHaveText(targetUser.user_id);

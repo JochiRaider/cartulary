@@ -104,6 +104,8 @@ import {
 import {
   abortablePendingResponse,
   expectStableFetchCount,
+  findFetchCalls,
+  findFetchCallsByPath,
   jsonResponse,
 } from "../testing/fetchMockTestSupport";
 import { AppRoot } from "./AppRoot";
@@ -174,7 +176,23 @@ describe("Incident landing", () => {
     expect(
       screen.getByTestId(phase1LandingTestId("current-user")).textContent,
     ).toBe("Bootstrap Admin · deployment admin");
-    await expectStableFetchCount(fetchMock, 11);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/auth/session", "GET"),
+    ).toHaveLength(1);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/auth/credential-state", "GET"),
+    ).toHaveLength(1);
+    expect(
+      findFetchCallsByPath(fetchMock, "/api/v1/incidents", "GET"),
+    ).toHaveLength(2);
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => {
+        const method = ((init as RequestInit | undefined)?.method ?? "GET")
+          .toString()
+          .toUpperCase();
+        return method !== "GET";
+      }),
+    ).toHaveLength(0);
   });
 
   it("switches menu panels and leaves actions inside each panel", async () => {

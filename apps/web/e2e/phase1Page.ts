@@ -1,4 +1,5 @@
 import {
+  deploymentUserRowTestId,
   type LandingAdminPanelToken,
   landingAdminMenuItemTestId,
   landingIncidentOpenButtonTestId,
@@ -7,6 +8,7 @@ import {
   phase1AuthTestId,
   phase1LandingTestId,
   type StableTestId,
+  workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
 
@@ -98,9 +100,21 @@ export class Phase1Page {
   }
 
   async openIncident(incidentId: string) {
+    if (
+      new URL(this.page.url()).searchParams.get("incident_id") === incidentId
+    ) {
+      await expect(
+        this.page.getByTestId(workbookShellReadyTestId()),
+      ).toBeVisible();
+      return;
+    }
     await this.page
       .getByTestId(landingIncidentOpenButtonTestId(incidentId))
       .click();
+    await expect(this.page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
+    await expect(
+      this.page.getByTestId(workbookShellReadyTestId()),
+    ).toBeVisible();
   }
 
   async returnToLanding() {
@@ -177,9 +191,31 @@ export class Phase1Page {
   async loadTargetUser(userId: string) {
     await this.selectAdminPanel("deployment-users");
     const targetPath = `/api/v1/users/${userId}`;
-    await this.page
-      .getByTestId(phase1AdminTestId("target-user-id-input"))
-      .fill(userId);
+    const legacyUserIdInput = this.page.getByTestId(
+      phase1AdminTestId("target-user-id-input"),
+    );
+    if ((await legacyUserIdInput.count()) > 0) {
+      await legacyUserIdInput.fill(userId);
+      const [response] = await Promise.all([
+        this.page.waitForResponse((candidate) => {
+          const method = candidate.request().method().toUpperCase();
+          if (method !== "GET") {
+            return false;
+          }
+          return new URL(candidate.url()).pathname === targetPath;
+        }),
+        this.page.getByTestId(phase1AdminTestId("load-user")).click(),
+      ]);
+      expect(response.ok()).toBeTruthy();
+      await expect(
+        this.page.getByTestId(phase1AdminTestId("target-user-id")),
+      ).toHaveText(userId);
+      await this.requireText(phase1AdminTestId("target-user-version"));
+      return;
+    }
+    await this.page.getByTestId(phase1AdminTestId("user-filter")).fill(userId);
+    const targetRow = this.page.getByTestId(deploymentUserRowTestId(userId));
+    await expect(targetRow).toBeVisible();
     const [response] = await Promise.all([
       this.page.waitForResponse((candidate) => {
         const method = candidate.request().method().toUpperCase();
@@ -188,7 +224,7 @@ export class Phase1Page {
         }
         return new URL(candidate.url()).pathname === targetPath;
       }),
-      this.page.getByTestId(phase1AdminTestId("load-user")).click(),
+      targetRow.click(),
     ]);
     expect(response.ok()).toBeTruthy();
     await expect(
