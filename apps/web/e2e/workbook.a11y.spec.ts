@@ -2791,12 +2791,9 @@ test.describe("FE-P1 accessibility readiness", () => {
         focusTestId: phase1LandingTestId("refresh"),
         tabStops: [
           landingAdminMenuItemTestId("incidents"),
-          landingAdminMenuItemTestId("account-security"),
           landingAdminMenuItemTestId("deployment-users"),
           landingAdminMenuItemTestId("reference-packs"),
           phase1LandingTestId("refresh"),
-          phase1LandingTestId("incident-key"),
-          phase1LandingTestId("incident-title"),
           phase1LandingTestId("create-button"),
         ],
       });
@@ -2951,12 +2948,9 @@ test.describe("FE-P1 accessibility readiness", () => {
       focusTestId: phase1LandingTestId("create-button"),
       tabStops: [
         landingAdminMenuItemTestId("incidents"),
-        landingAdminMenuItemTestId("account-security"),
         landingAdminMenuItemTestId("deployment-users"),
         landingAdminMenuItemTestId("reference-packs"),
         phase1LandingTestId("refresh"),
-        phase1LandingTestId("incident-key"),
-        phase1LandingTestId("incident-title"),
         phase1LandingTestId("create-button"),
       ],
     });
@@ -3135,7 +3129,6 @@ test.describe("FE-P1 accessibility readiness", () => {
       focusTestId: phase1LandingTestId("refresh"),
       tabStops: [
         landingAdminMenuItemTestId("incidents"),
-        landingAdminMenuItemTestId("account-security"),
         landingAdminMenuItemTestId("deployment-users"),
         landingAdminMenuItemTestId("reference-packs"),
         phase1LandingTestId("refresh"),
@@ -3235,16 +3228,13 @@ test.describe("FE-P1 accessibility readiness", () => {
       });
     };
 
+    const phase1 = new Phase1Page(page);
     await page.route(routePattern, routeHandler);
     await page.goto("/");
-    await page
-      .getByTestId(landingAdminMenuItemTestId("account-security"))
-      .click();
-    await expect(
-      page.getByTestId(landingAdminMenuItemTestId("account-security")),
-    ).toHaveAttribute("aria-pressed", "true");
+    await phase1.openAccountSettings("account-security");
+    await page.getByTestId(phase1AccountTestId("refresh-state")).focus();
     await expectVisibleFocus(
-      page.getByTestId(landingAdminMenuItemTestId("account-security")),
+      page.getByTestId(phase1AccountTestId("refresh-state")),
     );
     await expect(page.getByTestId(phase1ErrorCodeTestId("account"))).toHaveText(
       "credential_state_unavailable",
@@ -3269,7 +3259,6 @@ test.describe("FE-P1 accessibility readiness", () => {
       focusTestId: phase1AccountTestId("refresh-state"),
       tabStops: [
         landingAdminMenuItemTestId("incidents"),
-        landingAdminMenuItemTestId("account-security"),
         landingAdminMenuItemTestId("deployment-users"),
         landingAdminMenuItemTestId("reference-packs"),
         phase1AccountTestId("refresh-state"),

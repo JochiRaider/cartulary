@@ -74,8 +74,8 @@ import {
   timelineViewSchemaId,
 } from "./models/workbookSurfaceRegistry";
 import {
-  WorkbookShell,
   type WorkbookAccountApplicationMenuProps,
+  WorkbookShell,
 } from "./WorkbookShell";
 
 const savedViewId = "11111111-1111-4111-8111-111111111111";
@@ -110,6 +110,7 @@ function TestAccountApplicationMenu({
             aria-disabled="true"
             data-testid={currentIncidentRoleTestId()}
             role="menuitem"
+            tabIndex={0}
           >
             Current incident role: {currentIncidentRole || "viewer"}
           </div>

@@ -398,10 +398,7 @@ export async function exerciseEntityMerge(
   );
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   if (options.expectAdminRole === true) {
-    await expectCurrentIncidentRole(
-      page,
-      "Current incident role: admin",
-    );
+    await expectCurrentIncidentRole(page, "Current incident role: admin");
   }
   await expect(
     page.getByTestId(

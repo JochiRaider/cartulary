@@ -6,6 +6,7 @@ import {
   phase1ErrorCodeTestId,
   phase1ErrorSummaryTestIds,
 } from "@cartulary/ui-contracts";
+import { X } from "lucide-react";
 import {
   type CSSProperties,
   forwardRef,
@@ -105,6 +106,7 @@ export type Phase1AdminPanelCommandState = {
 };
 
 type TargetAdminOperation = "loading" | "mutating";
+type CredentialDialogKind = "password" | "revoke" | "totp";
 
 type AuthChallengeState = "mfa_required" | "mfa_setup_required";
 
@@ -1013,6 +1015,7 @@ export const Phase1AdminPanel = forwardRef<
   const [createInitialPassword, setCreateInitialPassword] = useState("");
   const [createMfaRequired, setCreateMfaRequired] = useState(true);
   const [createIsDeploymentAdmin, setCreateIsDeploymentAdmin] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const [targetUserId, setTargetUserId] = useState("");
   const [targetBaseVersion, setTargetBaseVersion] = useState("");
@@ -1023,6 +1026,8 @@ export const Phase1AdminPanel = forwardRef<
   const [patchIsDeploymentAdmin, setPatchIsDeploymentAdmin] = useState(false);
   const [adminNewPassword, setAdminNewPassword] = useState("");
   const [adminReason, setAdminReason] = useState("");
+  const [credentialDialog, setCredentialDialog] =
+    useState<CredentialDialogKind | null>(null);
   const [enterpriseProviders, setEnterpriseProviders] = useState<
     EnterpriseAuthProvider[]
   >([]);
@@ -1039,6 +1044,11 @@ export const Phase1AdminPanel = forwardRef<
   } | null>(null);
   const nextTargetAdminOperationID = useRef(0);
   const userListRequestIDRef = useRef(0);
+  const acceptedUserQueryRef = useRef({
+    isActive: "all",
+    isDeploymentAdmin: "all",
+    search: "",
+  });
   const userFiltersTouchedRef = useRef(false);
   const autoLoadUsersStartedRef = useRef(false);
 
@@ -1103,6 +1113,9 @@ export const Phase1AdminPanel = forwardRef<
     setPatchMfaRequired(true);
     setPatchIsActive(true);
     setPatchIsDeploymentAdmin(false);
+    setAdminNewPassword("");
+    setAdminReason("");
+    setCredentialDialog(null);
     setBindingTargetID("");
     setBindingNewSubject("");
   }
@@ -1122,6 +1135,9 @@ export const Phase1AdminPanel = forwardRef<
     setPatchIsDeploymentAdmin(user.is_deployment_admin);
     setBindingTargetID(firstEnterpriseBinding?.auth_binding_id ?? "");
     setBindingNewSubject("");
+    setAdminNewPassword("");
+    setAdminReason("");
+    setCredentialDialog(null);
   }
 
   const refreshUsers = useCallback(async () => {
@@ -1160,6 +1176,11 @@ export const Phase1AdminPanel = forwardRef<
     setUsers(payload.data.users);
     setUsersNextCursor(payload.meta.paging.next_cursor);
     setUsersHasMore(payload.meta.paging.has_more);
+    acceptedUserQueryRef.current = {
+      isActive: userActiveFilter,
+      isDeploymentAdmin: userAdminFilter,
+      search: userFilter.trim(),
+    };
     userFiltersTouchedRef.current = false;
     setStatusText("Deployment users loaded");
   }, [
@@ -1175,13 +1196,19 @@ export const Phase1AdminPanel = forwardRef<
     }
     setStatusText("Loading more deployment users");
     setError(null);
+    const acceptedQuery = acceptedUserQueryRef.current;
     const result = await listUsers({
       cursorToken: usersNextCursor,
       limit: 100,
-      search: userFilter,
-      isActive: userActiveFilter === "all" ? null : userActiveFilter === "true",
+      search: acceptedQuery.search,
+      isActive:
+        acceptedQuery.isActive === "all"
+          ? null
+          : acceptedQuery.isActive === "true",
       isDeploymentAdmin:
-        userAdminFilter === "all" ? null : userAdminFilter === "true",
+        acceptedQuery.isDeploymentAdmin === "all"
+          ? null
+          : acceptedQuery.isDeploymentAdmin === "true",
     });
     const nextError = extractError(result.payload);
     setError(nextError);
@@ -1194,14 +1221,7 @@ export const Phase1AdminPanel = forwardRef<
     setUsersNextCursor(payload.meta.paging.next_cursor);
     setUsersHasMore(payload.meta.paging.has_more);
     setStatusText("Loaded more deployment users");
-  }, [
-    session.is_deployment_admin,
-    userActiveFilter,
-    userAdminFilter,
-    userFilter,
-    usersHasMore,
-    usersNextCursor,
-  ]);
+  }, [session.is_deployment_admin, usersHasMore, usersNextCursor]);
 
   useEffect(() => {
     if (!autoLoadUsers || !session.is_deployment_admin) {
@@ -1326,6 +1346,7 @@ export const Phase1AdminPanel = forwardRef<
 
       const nextError = extractError(result.payload);
       setError(nextError);
+      setCreateInitialPassword("");
       if (!result.ok) {
         setStatusText("Create local user failed");
         return;
@@ -1335,6 +1356,7 @@ export const Phase1AdminPanel = forwardRef<
       applySelectedUser(user);
       setStatusText("Created local user");
       setError(null);
+      setCreateDialogOpen(false);
       await onRefreshShell();
     } finally {
       finishTargetAdminOperation(operationID);
@@ -1409,6 +1431,7 @@ export const Phase1AdminPanel = forwardRef<
 
       const nextError = extractError(result.payload);
       setError(nextError);
+      setAdminNewPassword("");
       if (!result.ok) {
         setStatusText("Reset user password failed");
         return;
@@ -1418,6 +1441,8 @@ export const Phase1AdminPanel = forwardRef<
       applySelectedUser(user);
       setStatusText("Reset user password");
       setError(null);
+      setAdminReason("");
+      setCredentialDialog(null);
       await onRefreshShell();
     } finally {
       finishTargetAdminOperation(operationID);
@@ -1457,6 +1482,9 @@ export const Phase1AdminPanel = forwardRef<
       applySelectedUser(user);
       setStatusText("Reset user TOTP");
       setError(null);
+      setAdminNewPassword("");
+      setAdminReason("");
+      setCredentialDialog(null);
       await onRefreshShell();
     } finally {
       finishTargetAdminOperation(operationID);
@@ -1493,6 +1521,9 @@ export const Phase1AdminPanel = forwardRef<
 
       setStatusText("Revoked every user session");
       setError(null);
+      setAdminNewPassword("");
+      setAdminReason("");
+      setCredentialDialog(null);
       await onRefreshShell();
     } finally {
       finishTargetAdminOperation(operationID);
@@ -1680,6 +1711,19 @@ export const Phase1AdminPanel = forwardRef<
           <p style={sectionEyebrowStyle}>Deployment users</p>
           <h2 style={sectionTitleStyle}>User administration</h2>
         </div>
+        <button
+          data-testid={
+            createDialogOpen ? undefined : phase1AdminTestId("create-user")
+          }
+          disabled={targetOperationPending}
+          style={buttonStyle}
+          type="button"
+          onClick={() => {
+            setCreateDialogOpen(true);
+          }}
+        >
+          Create user
+        </button>
       </div>
 
       <div style={adminWorkspaceStyle}>
@@ -1708,6 +1752,7 @@ export const Phase1AdminPanel = forwardRef<
             style={inputStyle}
             value={userFilter}
             onChange={(event) => {
+              userFiltersTouchedRef.current = true;
               setUserFilter(event.target.value);
             }}
             onKeyDown={(event) => {
@@ -1802,52 +1847,476 @@ export const Phase1AdminPanel = forwardRef<
         </section>
 
         <div style={userInspectorPaneStyle}>
-          <section style={subsectionStyle}>
-            <p style={subsectionTitleStyle}>Create local user</p>
+          {selectedUser === null ? (
+            <section style={emptyInspectorStyle}>
+              <p style={subsectionTitleStyle}>User detail</p>
+              <p style={bodyStyle}>
+                Select a user from the directory to view profile fields, account
+                state, credential actions, and extension-owned bindings.
+              </p>
+            </section>
+          ) : (
+            <>
+              <section style={inspectorSectionStyle}>
+                <div style={compactPanelHeaderStyle}>
+                  <div>
+                    <p style={sectionEyebrowStyle}>Selected user</p>
+                    <h3 style={subsectionTitleStyle}>
+                      {selectedUser.display_name}
+                    </h3>
+                  </div>
+                  <button
+                    style={secondaryButtonStyle}
+                    type="button"
+                    onClick={clearSelectedUser}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div style={detailGridStyle}>
+                  <div>
+                    <span style={labelStyle}>Loaded user id</span>
+                    <div
+                      data-testid={phase1AdminTestId("target-user-id")}
+                      style={monoTextStyle}
+                    >
+                      {selectedUser.user_id}
+                    </div>
+                  </div>
+                  <div>
+                    <span style={labelStyle}>User version</span>
+                    <div data-testid={phase1AdminTestId("target-user-version")}>
+                      {selectedUser.user_version}
+                    </div>
+                  </div>
+                  <div>
+                    <span style={labelStyle}>Is active</span>
+                    <div data-testid={phase1AdminTestId("target-is-active")}>
+                      {String(selectedUser.is_active)}
+                    </div>
+                  </div>
+                  <div>
+                    <span style={labelStyle}>Deployment admin</span>
+                    <div
+                      data-testid={phase1AdminTestId(
+                        "target-is-deployment-admin",
+                      )}
+                    >
+                      {String(selectedUser.is_deployment_admin)}
+                    </div>
+                  </div>
+                  <div>
+                    <span style={labelStyle}>Base user version</span>
+                    <div data-testid={phase1AdminTestId("patch-base-version")}>
+                      {targetBaseVersion}
+                    </div>
+                  </div>
+                </div>
+                <div style={formGridStyle}>
+                  <label htmlFor="admin-patch-email" style={labelBlockStyle}>
+                    Email
+                    <input
+                      data-testid={phase1AdminTestId("patch-email")}
+                      id="admin-patch-email"
+                      disabled={!canSubmitTargetAction}
+                      style={inputStyle}
+                      value={patchEmail}
+                      onChange={(event) => {
+                        setPatchEmail(event.target.value);
+                      }}
+                    />
+                  </label>
+                  <label
+                    htmlFor="admin-patch-display-name"
+                    style={labelBlockStyle}
+                  >
+                    Display name
+                    <input
+                      data-testid={phase1AdminTestId("patch-display-name")}
+                      id="admin-patch-display-name"
+                      disabled={!canSubmitTargetAction}
+                      style={inputStyle}
+                      value={patchDisplayName}
+                      onChange={(event) => {
+                        setPatchDisplayName(event.target.value);
+                      }}
+                    />
+                  </label>
+                </div>
+                <div style={checkboxRowStyle}>
+                  <label style={checkboxLabelStyle}>
+                    <input
+                      data-testid={phase1AdminTestId("patch-mfa-required")}
+                      type="checkbox"
+                      disabled={!canSubmitTargetAction}
+                      checked={patchMfaRequired}
+                      onChange={(event) => {
+                        setPatchMfaRequired(event.target.checked);
+                      }}
+                    />
+                    MFA required
+                  </label>
+                  <label style={checkboxLabelStyle}>
+                    <input
+                      data-testid={phase1AdminTestId("patch-is-active")}
+                      type="checkbox"
+                      disabled={!canSubmitTargetAction}
+                      checked={patchIsActive}
+                      onChange={(event) => {
+                        setPatchIsActive(event.target.checked);
+                      }}
+                    />
+                    Active
+                  </label>
+                  <label style={checkboxLabelStyle}>
+                    <input
+                      data-testid={phase1AdminTestId(
+                        "patch-is-deployment-admin",
+                      )}
+                      type="checkbox"
+                      disabled={!canSubmitTargetAction}
+                      checked={patchIsDeploymentAdmin}
+                      onChange={(event) => {
+                        setPatchIsDeploymentAdmin(event.target.checked);
+                      }}
+                    />
+                    Deployment admin
+                  </label>
+                </div>
+                <div style={buttonRowStyle}>
+                  <button
+                    data-testid={phase1AdminTestId("patch-user")}
+                    disabled={!canSubmitVersionedTargetAction}
+                    style={buttonStyle}
+                    type="button"
+                    onClick={() => {
+                      void handlePatchUser();
+                    }}
+                  >
+                    Save user
+                  </button>
+                </div>
+              </section>
+
+              <section style={inspectorSectionStyle}>
+                <p style={subsectionTitleStyle}>Credential actions</p>
+                <p style={bodyStyle}>
+                  Credential actions run only after confirmation and may revoke
+                  active sessions for the selected user.
+                </p>
+                <div style={buttonRowStyle}>
+                  <button
+                    data-testid={
+                      credentialDialog === "password"
+                        ? undefined
+                        : phase1AdminTestId("password-reset")
+                    }
+                    disabled={!canSubmitVersionedTargetAction}
+                    style={destructiveButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      setCredentialDialog("password");
+                    }}
+                  >
+                    Reset password
+                  </button>
+                  <button
+                    data-testid={
+                      credentialDialog === "totp"
+                        ? undefined
+                        : phase1AdminTestId("totp-reset")
+                    }
+                    disabled={!canSubmitVersionedTargetAction}
+                    style={destructiveButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      setCredentialDialog("totp");
+                    }}
+                  >
+                    Reset TOTP
+                  </button>
+                  <button
+                    data-testid={
+                      credentialDialog === "revoke"
+                        ? undefined
+                        : phase1AdminTestId("revoke-all")
+                    }
+                    disabled={!canSubmitTargetAction}
+                    style={destructiveButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      setCredentialDialog("revoke");
+                    }}
+                  >
+                    Revoke all sessions
+                  </button>
+                </div>
+              </section>
+
+              {enterpriseAuthClaimed ? (
+                <section style={inspectorSectionStyle}>
+                  <p style={subsectionTitleStyle}>Enterprise bindings</p>
+                  <div style={detailGridStyle}>
+                    <div>
+                      <span style={labelStyle}>Local identity</span>
+                      <div style={monoTextStyle}>
+                        {selectedLocalBindings.length === 0
+                          ? "No local binding loaded"
+                          : selectedLocalBindings
+                              .map((binding) =>
+                                binding.provider_type === "local"
+                                  ? `${binding.provider_key}: ${binding.username}`
+                                  : "",
+                              )
+                              .filter((value) => value !== "")
+                              .join(", ")}
+                      </div>
+                    </div>
+                    <div>
+                      <span style={labelStyle}>Enterprise bindings</span>
+                      <div style={monoTextStyle}>
+                        {selectedEnterpriseBindings.length}
+                      </div>
+                    </div>
+                    <div>
+                      <span style={labelStyle}>
+                        Configured providers discovered
+                      </span>
+                      <div style={monoTextStyle}>
+                        {enterpriseProviders.length}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={userListStyle}>
+                    {selectedEnterpriseBindings.map((binding) => (
+                      <label
+                        key={binding.auth_binding_id}
+                        style={
+                          bindingTargetID === binding.auth_binding_id
+                            ? selectedUserRowButtonStyle
+                            : userRowButtonStyle
+                        }
+                      >
+                        <span style={checkboxLabelStyle}>
+                          <input
+                            type="radio"
+                            name="enterprise-auth-binding-target"
+                            checked={
+                              bindingTargetID === binding.auth_binding_id
+                            }
+                            disabled={!canSubmitTargetAction}
+                            onChange={() => {
+                              setBindingTargetID(binding.auth_binding_id);
+                            }}
+                          />
+                          <span style={userRowPrimaryStyle}>
+                            {binding.provider_type.toUpperCase()} ·{" "}
+                            {binding.provider_key}
+                          </span>
+                        </span>
+                        <span style={userRowSecondaryStyle}>
+                          Subject: {binding.provider_subject}
+                        </span>
+                        <span style={userRowMetaStyle}>
+                          Created {binding.created_at}; last authenticated{" "}
+                          {binding.last_auth_at ?? "not recorded"}
+                        </span>
+                      </label>
+                    ))}
+                    {selectedEnterpriseBindings.length === 0 ? (
+                      <p style={bodyStyle}>
+                        No enterprise bindings are attached to this user.
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <datalist id="admin-enterprise-provider-options">
+                    {enterpriseProviders.map((provider) => (
+                      <option
+                        key={provider.provider_key}
+                        value={provider.provider_key}
+                      >
+                        {provider.display_name} ({provider.provider_type})
+                      </option>
+                    ))}
+                  </datalist>
+
+                  <div style={formGridStyle}>
+                    <label
+                      htmlFor="admin-enterprise-provider-key"
+                      style={labelBlockStyle}
+                    >
+                      Provider key
+                      <input
+                        id="admin-enterprise-provider-key"
+                        list="admin-enterprise-provider-options"
+                        disabled={!canSubmitTargetAction}
+                        style={inputStyle}
+                        value={bindingProviderKey}
+                        onChange={(event) => {
+                          setBindingProviderKey(event.target.value);
+                        }}
+                      />
+                    </label>
+                    <label
+                      htmlFor="admin-enterprise-provider-subject"
+                      style={labelBlockStyle}
+                    >
+                      Provider subject
+                      <input
+                        id="admin-enterprise-provider-subject"
+                        disabled={!canSubmitTargetAction}
+                        style={inputStyle}
+                        value={bindingProviderSubject}
+                        onChange={(event) => {
+                          setBindingProviderSubject(event.target.value);
+                        }}
+                      />
+                    </label>
+                    <label
+                      htmlFor="admin-enterprise-new-subject"
+                      style={labelBlockStyle}
+                    >
+                      New provider subject
+                      <input
+                        id="admin-enterprise-new-subject"
+                        disabled={
+                          !canSubmitTargetAction || bindingTargetID === ""
+                        }
+                        style={inputStyle}
+                        value={bindingNewSubject}
+                        onChange={(event) => {
+                          setBindingNewSubject(event.target.value);
+                        }}
+                      />
+                    </label>
+                    <label
+                      htmlFor="admin-enterprise-binding-reason"
+                      style={labelBlockStyle}
+                    >
+                      Reason
+                      <input
+                        id="admin-enterprise-binding-reason"
+                        style={inputStyle}
+                        value={bindingReason}
+                        onChange={(event) => {
+                          setBindingReason(event.target.value);
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <div style={buttonRowStyle}>
+                    <button
+                      disabled={!canSubmitVersionedTargetAction}
+                      style={buttonStyle}
+                      type="button"
+                      onClick={() => {
+                        void handleCreateEnterpriseBinding();
+                      }}
+                    >
+                      Create binding
+                    </button>
+                    <button
+                      disabled={
+                        !canSubmitVersionedTargetAction ||
+                        bindingTargetID === ""
+                      }
+                      style={buttonStyle}
+                      type="button"
+                      onClick={() => {
+                        void handleRotateEnterpriseBinding();
+                      }}
+                    >
+                      Rotate subject
+                    </button>
+                    <button
+                      disabled={
+                        !canSubmitVersionedTargetAction ||
+                        bindingTargetID === ""
+                      }
+                      style={secondaryButtonStyle}
+                      type="button"
+                      onClick={() => {
+                        void handleRetireEnterpriseBinding();
+                      }}
+                    >
+                      Retire binding
+                    </button>
+                  </div>
+                </section>
+              ) : null}
+            </>
+          )}
+        </div>
+      </div>
+
+      {createDialogOpen ? (
+        <div style={dialogBackdropStyle}>
+          <section
+            aria-label="Create local user"
+            aria-modal="true"
+            role="dialog"
+            style={dialogStyle}
+          >
+            <header style={dialogHeaderStyle}>
+              <div>
+                <p style={sectionEyebrowStyle}>Deployment users</p>
+                <h3 style={subsectionTitleStyle}>Create local user</h3>
+              </div>
+              <button
+                aria-label="Close create user"
+                style={iconButtonStyle}
+                type="button"
+                onClick={() => setCreateDialogOpen(false)}
+              >
+                <X aria-hidden="true" size={16} />
+              </button>
+            </header>
             <div style={formGridStyle}>
               <label htmlFor="admin-create-email" style={labelBlockStyle}>
                 Email
+                <input
+                  data-testid={phase1AdminTestId("create-email")}
+                  id="admin-create-email"
+                  disabled={targetOperationPending}
+                  style={inputStyle}
+                  value={createEmail}
+                  onChange={(event) => {
+                    setCreateEmail(event.target.value);
+                  }}
+                />
               </label>
-              <input
-                data-testid={phase1AdminTestId("create-email")}
-                id="admin-create-email"
-                disabled={targetOperationPending}
-                style={inputStyle}
-                value={createEmail}
-                onChange={(event) => {
-                  setCreateEmail(event.target.value);
-                }}
-              />
               <label
                 htmlFor="admin-create-display-name"
                 style={labelBlockStyle}
               >
                 Display name
+                <input
+                  data-testid={phase1AdminTestId("create-display-name")}
+                  id="admin-create-display-name"
+                  disabled={targetOperationPending}
+                  style={inputStyle}
+                  value={createDisplayName}
+                  onChange={(event) => {
+                    setCreateDisplayName(event.target.value);
+                  }}
+                />
               </label>
-              <input
-                data-testid={phase1AdminTestId("create-display-name")}
-                id="admin-create-display-name"
-                disabled={targetOperationPending}
-                style={inputStyle}
-                value={createDisplayName}
-                onChange={(event) => {
-                  setCreateDisplayName(event.target.value);
-                }}
-              />
               <label htmlFor="admin-create-password" style={labelBlockStyle}>
                 Initial password
+                <input
+                  data-testid={phase1AdminTestId("create-password")}
+                  id="admin-create-password"
+                  disabled={targetOperationPending}
+                  style={inputStyle}
+                  type="password"
+                  value={createInitialPassword}
+                  onChange={(event) => {
+                    setCreateInitialPassword(event.target.value);
+                  }}
+                />
               </label>
-              <input
-                data-testid={phase1AdminTestId("create-password")}
-                id="admin-create-password"
-                disabled={targetOperationPending}
-                style={inputStyle}
-                type="password"
-                value={createInitialPassword}
-                onChange={(event) => {
-                  setCreateInitialPassword(event.target.value);
-                }}
-              />
             </div>
             <div style={checkboxRowStyle}>
               <label style={checkboxLabelStyle}>
@@ -1875,7 +2344,14 @@ export const Phase1AdminPanel = forwardRef<
                 Deployment admin
               </label>
             </div>
-            <div style={buttonRowStyle}>
+            <div style={dialogButtonRowStyle}>
+              <button
+                style={secondaryButtonStyle}
+                type="button"
+                onClick={() => setCreateDialogOpen(false)}
+              >
+                Cancel
+              </button>
               <button
                 data-testid={phase1AdminTestId("create-user")}
                 disabled={targetOperationPending}
@@ -1889,384 +2365,114 @@ export const Phase1AdminPanel = forwardRef<
               </button>
             </div>
           </section>
+        </div>
+      ) : null}
 
-          <section style={subsectionStyle}>
-            <p style={subsectionTitleStyle}>Patch target user</p>
-            <div style={detailGridStyle}>
+      {credentialDialog !== null && selectedUser !== null ? (
+        <div style={dialogBackdropStyle}>
+          <section
+            aria-label="Confirm credential action"
+            aria-modal="true"
+            role="dialog"
+            style={dialogStyle}
+          >
+            <header style={dialogHeaderStyle}>
               <div>
-                <span style={labelStyle}>Loaded user id</span>
-                <div
-                  data-testid={phase1AdminTestId("target-user-id")}
-                  style={monoTextStyle}
-                >
-                  {selectedUser?.user_id ?? ""}
-                </div>
+                <p style={sectionEyebrowStyle}>Credential action</p>
+                <h3 style={subsectionTitleStyle}>
+                  {credentialDialog === "password"
+                    ? "Reset password"
+                    : credentialDialog === "totp"
+                      ? "Reset TOTP"
+                      : "Revoke all sessions"}
+                </h3>
               </div>
-              <div>
-                <span style={labelStyle}>User version</span>
-                <div data-testid={phase1AdminTestId("target-user-version")}>
-                  {selectedUser?.user_version ?? ""}
-                </div>
-              </div>
-              <div>
-                <span style={labelStyle}>Is active</span>
-                <div data-testid={phase1AdminTestId("target-is-active")}>
-                  {selectedUser ? String(selectedUser.is_active) : ""}
-                </div>
-              </div>
-              <div>
-                <span style={labelStyle}>Deployment admin</span>
-                <div
-                  data-testid={phase1AdminTestId("target-is-deployment-admin")}
-                >
-                  {selectedUser ? String(selectedUser.is_deployment_admin) : ""}
-                </div>
-              </div>
-              <div>
-                <span style={labelStyle}>Base user version</span>
-                <div data-testid={phase1AdminTestId("patch-base-version")}>
-                  {targetBaseVersion}
-                </div>
-              </div>
-            </div>
-            <div style={formGridStyle}>
-              <label htmlFor="admin-patch-email" style={labelBlockStyle}>
-                Email
-              </label>
-              <input
-                data-testid={phase1AdminTestId("patch-email")}
-                id="admin-patch-email"
-                disabled={!canSubmitTargetAction}
-                style={inputStyle}
-                value={patchEmail}
-                onChange={(event) => {
-                  setPatchEmail(event.target.value);
-                }}
-              />
-              <label htmlFor="admin-patch-display-name" style={labelBlockStyle}>
-                Display name
-              </label>
-              <input
-                data-testid={phase1AdminTestId("patch-display-name")}
-                id="admin-patch-display-name"
-                disabled={!canSubmitTargetAction}
-                style={inputStyle}
-                value={patchDisplayName}
-                onChange={(event) => {
-                  setPatchDisplayName(event.target.value);
-                }}
-              />
-            </div>
-            <div style={checkboxRowStyle}>
-              <label style={checkboxLabelStyle}>
-                <input
-                  data-testid={phase1AdminTestId("patch-mfa-required")}
-                  type="checkbox"
-                  disabled={!canSubmitTargetAction}
-                  checked={patchMfaRequired}
-                  onChange={(event) => {
-                    setPatchMfaRequired(event.target.checked);
-                  }}
-                />
-                MFA required
-              </label>
-              <label style={checkboxLabelStyle}>
-                <input
-                  data-testid={phase1AdminTestId("patch-is-active")}
-                  type="checkbox"
-                  disabled={!canSubmitTargetAction}
-                  checked={patchIsActive}
-                  onChange={(event) => {
-                    setPatchIsActive(event.target.checked);
-                  }}
-                />
-                Active
-              </label>
-              <label style={checkboxLabelStyle}>
-                <input
-                  data-testid={phase1AdminTestId("patch-is-deployment-admin")}
-                  type="checkbox"
-                  disabled={!canSubmitTargetAction}
-                  checked={patchIsDeploymentAdmin}
-                  onChange={(event) => {
-                    setPatchIsDeploymentAdmin(event.target.checked);
-                  }}
-                />
-                Deployment admin
-              </label>
-            </div>
-            <div style={buttonRowStyle}>
               <button
-                data-testid={phase1AdminTestId("patch-user")}
-                disabled={!canSubmitVersionedTargetAction}
-                style={buttonStyle}
+                aria-label="Close credential action"
+                style={iconButtonStyle}
                 type="button"
-                onClick={() => {
-                  void handlePatchUser();
-                }}
+                onClick={() => setCredentialDialog(null)}
               >
-                Patch user
+                <X aria-hidden="true" size={16} />
               </button>
-            </div>
-          </section>
-
-          <section style={subsectionStyle}>
-            <p style={subsectionTitleStyle}>Credential actions</p>
+            </header>
+            <p style={bodyStyle}>
+              {credentialDialog === "password"
+                ? "This resets the selected user's local password, revokes active sessions, and invalidates any pending TOTP bootstrap."
+                : credentialDialog === "totp"
+                  ? "This clears the selected user's active TOTP credential and revokes active sessions."
+                  : "This revokes every active session for the selected user."}
+            </p>
             <div style={formGridStyle}>
-              <label htmlFor="admin-new-password" style={labelBlockStyle}>
-                New password
-              </label>
-              <input
-                data-testid={phase1AdminTestId("new-password")}
-                id="admin-new-password"
-                style={inputStyle}
-                type="password"
-                value={adminNewPassword}
-                onChange={(event) => {
-                  setAdminNewPassword(event.target.value);
-                }}
-              />
+              {credentialDialog === "password" ? (
+                <label htmlFor="admin-new-password" style={labelBlockStyle}>
+                  New password
+                  <input
+                    data-testid={phase1AdminTestId("new-password")}
+                    id="admin-new-password"
+                    style={inputStyle}
+                    type="password"
+                    value={adminNewPassword}
+                    onChange={(event) => {
+                      setAdminNewPassword(event.target.value);
+                    }}
+                  />
+                </label>
+              ) : null}
               <label htmlFor="admin-reason" style={labelBlockStyle}>
                 Reason
+                <input
+                  data-testid={phase1AdminTestId("reason")}
+                  id="admin-reason"
+                  style={inputStyle}
+                  value={adminReason}
+                  onChange={(event) => {
+                    setAdminReason(event.target.value);
+                  }}
+                />
               </label>
-              <input
-                data-testid={phase1AdminTestId("reason")}
-                id="admin-reason"
-                style={inputStyle}
-                value={adminReason}
-                onChange={(event) => {
-                  setAdminReason(event.target.value);
-                }}
-              />
             </div>
-            <div style={buttonRowStyle}>
+            <div style={dialogButtonRowStyle}>
               <button
-                data-testid={phase1AdminTestId("password-reset")}
-                disabled={!canSubmitVersionedTargetAction}
-                style={buttonStyle}
+                style={secondaryButtonStyle}
                 type="button"
-                onClick={() => {
-                  void handleAdminPasswordReset();
-                }}
+                onClick={() => setCredentialDialog(null)}
               >
-                Reset password
+                Cancel
               </button>
               <button
-                data-testid={phase1AdminTestId("totp-reset")}
-                disabled={!canSubmitVersionedTargetAction}
-                style={buttonStyle}
+                data-testid={
+                  credentialDialog === "password"
+                    ? phase1AdminTestId("password-reset")
+                    : credentialDialog === "totp"
+                      ? phase1AdminTestId("totp-reset")
+                      : phase1AdminTestId("revoke-all")
+                }
+                disabled={
+                  credentialDialog === "revoke"
+                    ? !canSubmitTargetAction
+                    : !canSubmitVersionedTargetAction
+                }
+                style={destructiveButtonStyle}
                 type="button"
                 onClick={() => {
-                  void handleAdminTotpReset();
-                }}
-              >
-                Reset TOTP
-              </button>
-              <button
-                data-testid={phase1AdminTestId("revoke-all")}
-                disabled={!canSubmitTargetAction}
-                style={buttonStyle}
-                type="button"
-                onClick={() => {
+                  if (credentialDialog === "password") {
+                    void handleAdminPasswordReset();
+                    return;
+                  }
+                  if (credentialDialog === "totp") {
+                    void handleAdminTotpReset();
+                    return;
+                  }
                   void handleAdminRevokeAll();
                 }}
               >
-                Revoke all sessions
+                Confirm
               </button>
             </div>
           </section>
-
-          {enterpriseAuthClaimed ? (
-            <section style={subsectionStyle}>
-              <p style={subsectionTitleStyle}>Enterprise bindings</p>
-              <div style={detailGridStyle}>
-                <div>
-                  <span style={labelStyle}>Local identity</span>
-                  <div style={monoTextStyle}>
-                    {selectedLocalBindings.length === 0
-                      ? "No local binding loaded"
-                      : selectedLocalBindings
-                          .map((binding) =>
-                            binding.provider_type === "local"
-                              ? `${binding.provider_key}: ${binding.username}`
-                              : "",
-                          )
-                          .filter((value) => value !== "")
-                          .join(", ")}
-                  </div>
-                </div>
-                <div>
-                  <span style={labelStyle}>Enterprise bindings</span>
-                  <div style={monoTextStyle}>
-                    {selectedEnterpriseBindings.length}
-                  </div>
-                </div>
-                <div>
-                  <span style={labelStyle}>
-                    Configured providers discovered
-                  </span>
-                  <div style={monoTextStyle}>{enterpriseProviders.length}</div>
-                </div>
-              </div>
-
-              <div style={userListStyle}>
-                {selectedEnterpriseBindings.map((binding) => (
-                  <label
-                    key={binding.auth_binding_id}
-                    style={
-                      bindingTargetID === binding.auth_binding_id
-                        ? selectedUserRowButtonStyle
-                        : userRowButtonStyle
-                    }
-                  >
-                    <span style={checkboxLabelStyle}>
-                      <input
-                        type="radio"
-                        name="enterprise-auth-binding-target"
-                        checked={bindingTargetID === binding.auth_binding_id}
-                        disabled={!canSubmitTargetAction}
-                        onChange={() => {
-                          setBindingTargetID(binding.auth_binding_id);
-                        }}
-                      />
-                      <span style={userRowPrimaryStyle}>
-                        {binding.provider_type.toUpperCase()} ·{" "}
-                        {binding.provider_key}
-                      </span>
-                    </span>
-                    <span style={userRowSecondaryStyle}>
-                      Subject: {binding.provider_subject}
-                    </span>
-                    <span style={userRowMetaStyle}>
-                      Created {binding.created_at}; last authenticated{" "}
-                      {binding.last_auth_at ?? "not recorded"}
-                    </span>
-                  </label>
-                ))}
-                {selectedUser === null ? (
-                  <p style={bodyStyle}>
-                    Select a loaded user before changing enterprise bindings.
-                  </p>
-                ) : selectedEnterpriseBindings.length === 0 ? (
-                  <p style={bodyStyle}>
-                    No enterprise bindings are attached to this user.
-                  </p>
-                ) : null}
-              </div>
-
-              <datalist id="admin-enterprise-provider-options">
-                {enterpriseProviders.map((provider) => (
-                  <option
-                    key={provider.provider_key}
-                    value={provider.provider_key}
-                  >
-                    {provider.display_name} ({provider.provider_type})
-                  </option>
-                ))}
-              </datalist>
-
-              <div style={formGridStyle}>
-                <label
-                  htmlFor="admin-enterprise-provider-key"
-                  style={labelBlockStyle}
-                >
-                  Provider key
-                  <input
-                    id="admin-enterprise-provider-key"
-                    list="admin-enterprise-provider-options"
-                    disabled={!canSubmitTargetAction}
-                    style={inputStyle}
-                    value={bindingProviderKey}
-                    onChange={(event) => {
-                      setBindingProviderKey(event.target.value);
-                    }}
-                  />
-                </label>
-                <label
-                  htmlFor="admin-enterprise-provider-subject"
-                  style={labelBlockStyle}
-                >
-                  Provider subject
-                  <input
-                    id="admin-enterprise-provider-subject"
-                    disabled={!canSubmitTargetAction}
-                    style={inputStyle}
-                    value={bindingProviderSubject}
-                    onChange={(event) => {
-                      setBindingProviderSubject(event.target.value);
-                    }}
-                  />
-                </label>
-                <label
-                  htmlFor="admin-enterprise-new-subject"
-                  style={labelBlockStyle}
-                >
-                  New provider subject
-                  <input
-                    id="admin-enterprise-new-subject"
-                    disabled={!canSubmitTargetAction || bindingTargetID === ""}
-                    style={inputStyle}
-                    value={bindingNewSubject}
-                    onChange={(event) => {
-                      setBindingNewSubject(event.target.value);
-                    }}
-                  />
-                </label>
-                <label
-                  htmlFor="admin-enterprise-binding-reason"
-                  style={labelBlockStyle}
-                >
-                  Reason
-                  <input
-                    id="admin-enterprise-binding-reason"
-                    style={inputStyle}
-                    value={bindingReason}
-                    onChange={(event) => {
-                      setBindingReason(event.target.value);
-                    }}
-                  />
-                </label>
-              </div>
-              <div style={buttonRowStyle}>
-                <button
-                  disabled={!canSubmitVersionedTargetAction}
-                  style={buttonStyle}
-                  type="button"
-                  onClick={() => {
-                    void handleCreateEnterpriseBinding();
-                  }}
-                >
-                  Create binding
-                </button>
-                <button
-                  disabled={
-                    !canSubmitVersionedTargetAction || bindingTargetID === ""
-                  }
-                  style={buttonStyle}
-                  type="button"
-                  onClick={() => {
-                    void handleRotateEnterpriseBinding();
-                  }}
-                >
-                  Rotate subject
-                </button>
-                <button
-                  disabled={
-                    !canSubmitVersionedTargetAction || bindingTargetID === ""
-                  }
-                  style={secondaryButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void handleRetireEnterpriseBinding();
-                  }}
-                >
-                  Retire binding
-                </button>
-              </div>
-            </section>
-          ) : null}
         </div>
-      </div>
+      ) : null}
 
       <p
         aria-live="polite"
@@ -2423,6 +2629,23 @@ const subsectionStyle: CSSProperties = {
   minWidth: 0,
 };
 
+const inspectorSectionStyle: CSSProperties = {
+  marginTop: "0",
+  marginBottom: "1rem",
+  padding: "var(--ct-spacing-md)",
+  borderRadius: "var(--ct-rounded-md)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-1)",
+  minWidth: 0,
+};
+
+const emptyInspectorStyle: CSSProperties = {
+  ...inspectorSectionStyle,
+  minHeight: "12rem",
+  display: "grid",
+  alignContent: "center",
+};
+
 const adminWorkspaceStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 24rem), 1fr))",
@@ -2558,6 +2781,63 @@ const secondaryButtonStyle: CSSProperties = {
   background: "var(--ct-component-button-secondary-backgroundColor)",
   color: "var(--ct-component-button-secondary-textColor)",
   border: "var(--ct-component-button-secondary-border)",
+};
+
+const destructiveButtonStyle: CSSProperties = {
+  ...buttonStyle,
+  background: "var(--ct-colors-semantic-conflict)",
+  color: "var(--ct-colors-surface-1)",
+  border: "none",
+};
+
+const dialogBackdropStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 40,
+  display: "grid",
+  placeItems: "center",
+  padding: "1.5rem",
+  background: "rgba(10, 13, 18, 0.68)",
+};
+
+const dialogStyle: CSSProperties = {
+  width: "min(44rem, 100%)",
+  maxHeight: "calc(100vh - 3rem)",
+  overflow: "auto",
+  display: "grid",
+  gap: "1rem",
+  padding: "1.25rem",
+  borderRadius: "var(--ct-rounded-md)",
+  border: "var(--ct-border-strong)",
+  background: "var(--ct-colors-surface-1)",
+  boxShadow: "var(--ct-elevation-panel)",
+};
+
+const dialogHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "1rem",
+  alignItems: "flex-start",
+};
+
+const iconButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "2rem",
+  height: "2rem",
+  borderRadius: "var(--ct-rounded-sm)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink)",
+  cursor: "pointer",
+};
+
+const dialogButtonRowStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  flexWrap: "wrap",
+  gap: "0.75rem",
 };
 
 const monoTextStyle: CSSProperties = {

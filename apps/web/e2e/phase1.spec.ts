@@ -601,6 +601,7 @@ test("E-1-08 keeps deployment-user administration on deployment-admin sessions a
   await expect(
     page.getByTestId(phase1AdminTestId("target-user-version")),
   ).toHaveText(String(targetUserVersion));
+  await page.getByTestId(phase1AdminTestId("password-reset")).click();
   await page
     .getByTestId(phase1AdminTestId("new-password"))
     .fill("Phase1E108Changed!");
@@ -617,6 +618,10 @@ test("E-1-08 keeps deployment-user administration on deployment-admin sessions a
   ).toHaveText(String(targetUserVersion + 1));
 
   await page.getByTestId(phase1AdminTestId("totp-reset")).click();
+  await page
+    .getByTestId(phase1AdminTestId("reason"))
+    .fill("deployment admin action");
+  await page.getByTestId(phase1AdminTestId("totp-reset")).click();
   await expect(page.getByTestId(phase1AdminTestId("status"))).toHaveText(
     "Reset user TOTP",
   );
@@ -624,6 +629,10 @@ test("E-1-08 keeps deployment-user administration on deployment-admin sessions a
     page.getByTestId(phase1AdminTestId("target-user-version")),
   ).toHaveText(String(targetUserVersion + 2));
 
+  await page.getByTestId(phase1AdminTestId("revoke-all")).click();
+  await page
+    .getByTestId(phase1AdminTestId("reason"))
+    .fill("deployment admin action");
   await page.getByTestId(phase1AdminTestId("revoke-all")).click();
   await expect(page.getByTestId(phase1AdminTestId("status"))).toHaveText(
     "Revoked every user session",
@@ -673,10 +682,7 @@ test("E-1-09 creates an incident from the landing screen, lists it, and opens th
 
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await expectCurrentIncidentRole(
-    page,
-    "Current incident role: admin",
-  );
+  await expectCurrentIncidentRole(page, "Current incident role: admin");
   await openIncidentControls(page);
   await expect(page.getByTestId("incident-summary-key")).toHaveText(
     incidentKey,
@@ -756,10 +762,7 @@ test("E-1-10 clears a stale selected incident after membership removal while pre
 
   await phase1.openIncident(selectedIncidentId);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await expectCurrentIncidentRole(
-    page,
-    "Current incident role: admin",
-  );
+  await expectCurrentIncidentRole(page, "Current incident role: admin");
   await openIncidentControls(page, "memberships");
   await expect(
     page.getByTestId(incidentMembershipRowTestId(targetUser.user_id)),
@@ -794,10 +797,7 @@ test("E-1-10 clears a stale selected incident after membership removal while pre
     new RegExp(`incident_id=${alternateIncidentId}`),
   );
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await expectCurrentIncidentRole(
-    page,
-    "Current incident role: viewer",
-  );
+  await expectCurrentIncidentRole(page, "Current incident role: viewer");
   await expectLandingAccountSession(page);
   await expect(
     page.getByTestId(phase1AccountTestId("session-user-id")),
@@ -805,10 +805,7 @@ test("E-1-10 clears a stale selected incident after membership removal while pre
 
   await phase1.openIncident(alternateIncidentId);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await expectCurrentIncidentRole(
-    page,
-    "Current incident role: viewer",
-  );
+  await expectCurrentIncidentRole(page, "Current incident role: viewer");
 });
 
 test("E-1-11 observes current-role authorization on a stale reviewer edit through the public incident error envelope", async ({
@@ -848,10 +845,7 @@ test("E-1-11 observes current-role authorization on a stale reviewer edit throug
 
   await phase1.openIncident(incidentId);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await expectCurrentIncidentRole(
-    page,
-    "Current incident role: reviewer",
-  );
+  await expectCurrentIncidentRole(page, "Current incident role: reviewer");
   await openIncidentControls(page, "memberships");
   await expect(
     page.getByTestId(incidentMembershipRoleDisplayTestId(targetUser.user_id)),
@@ -893,10 +887,7 @@ test("E-1-11 observes current-role authorization on a stale reviewer edit throug
   await expect(page.locator("body")).not.toContainText("traceback");
 
   await page.reload();
-  await expectCurrentIncidentRole(
-    page,
-    "Current incident role: editor",
-  );
+  await expectCurrentIncidentRole(page, "Current incident role: editor");
   await openIncidentControls(page, "incident-fields");
   await expect(page.getByTestId("incident-patch-readonly-note")).toBeVisible();
 });
@@ -992,10 +983,7 @@ test("E-1-12 returns a revoked target browser to login and allows re-authenticat
 
   await phase1.openIncident(incidentId);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await expectCurrentIncidentRole(
-    page,
-    "Current incident role: viewer",
-  );
+  await expectCurrentIncidentRole(page, "Current incident role: viewer");
 });
 
 async function createIncident(page: Page, incidentKey: string, title: string) {

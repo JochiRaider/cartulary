@@ -192,10 +192,7 @@ describe("Incident landing", () => {
       screen.getByTestId(incidentControlsMenuItemTestId("memberships")),
     );
 
-    expect(selectControlsSection).toHaveBeenCalledWith(
-      "memberships",
-      trigger,
-    );
+    expect(selectControlsSection).toHaveBeenCalledWith("memberships", trigger);
     expect(screen.queryByTestId(incidentControlsMenuTestId())).toBe(null);
 
     fireEvent.click(trigger);
@@ -423,6 +420,7 @@ describe("Incident landing", () => {
     expect(document.body.textContent ?? "").not.toContain(
       "Imported incident navigation is intentionally withheld",
     );
+    fireEvent.click(screen.getByRole("button", { name: "Import incident" }));
     fireEvent.change(screen.getByLabelText("Incident bundle file"), {
       target: {
         files: [
@@ -430,7 +428,7 @@ describe("Incident landing", () => {
         ],
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start import" }));
 
     fireEvent.click(await screen.findByText("Open imported incident"));
 
@@ -501,7 +499,7 @@ describe("Incident landing", () => {
       screen.getByLabelText("Account and application navigation"),
     );
     expect(screen.queryByText("Deployment administration")).toBe(null);
-    fireEvent.click(screen.getByRole("menuitem", { name: "Profile" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }));
     expect(
       await screen.findByTestId(phase1AccountTestId("profile-email")),
     ).toBeTruthy();
@@ -599,10 +597,7 @@ describe("Incident landing", () => {
 
     await screen.findByTestId(phase1LandingTestId("empty-state"));
     await openDeploymentAdministration();
-    expect(
-      (screen.getByTestId(phase1AdminTestId("patch-user")) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    expect(screen.queryByTestId(phase1AdminTestId("patch-user"))).toBe(null);
     const userRow = await screen.findByTestId(
       deploymentUserRowTestId("user-2"),
     );
@@ -694,7 +689,9 @@ describe("Incident landing", () => {
       screen.getByTestId(phase1LandingTestId("incidents-count")).textContent,
     ).toBe("100 loaded +");
 
-    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load more incidents" }),
+    );
 
     expect(
       await screen.findByTestId(landingIncidentCardTestId("incident-101")),
@@ -736,6 +733,7 @@ describe("Incident landing", () => {
     renderApp();
 
     await screen.findByTestId(phase1LandingTestId("empty-state"));
+    fireEvent.click(screen.getByTestId(phase1LandingTestId("create-button")));
     fireEvent.change(screen.getByTestId(phase1LandingTestId("incident-key")), {
       target: { value: "IR-203" },
     });

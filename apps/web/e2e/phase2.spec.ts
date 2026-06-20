@@ -130,6 +130,7 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await page.goto("/");
 
   const incidentKey = uniqueIncidentKey("E201");
+  await page.getByTestId(phase1LandingTestId("create-button")).click();
   await page.getByTestId(phase1LandingTestId("incident-key")).fill(incidentKey);
   await page
     .getByTestId(phase1LandingTestId("incident-title"))
@@ -200,10 +201,7 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await expect(
     page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
   ).toBeVisible();
-  await expectCurrentIncidentRole(
-    page,
-    "Current incident role: admin",
-  );
+  await expectCurrentIncidentRole(page, "Current incident role: admin");
   await page
     .getByTestId(savedViewSetHomeButtonTestId(timelineViewSchemaId))
     .click();

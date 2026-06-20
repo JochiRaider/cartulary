@@ -10,6 +10,7 @@ import {
   referencePackReloadButtonTestId,
   referencePackRowTestId,
 } from "@cartulary/ui-contracts";
+import { X } from "lucide-react";
 import {
   type CSSProperties,
   forwardRef,
@@ -111,6 +112,7 @@ export const ReferencePackAdminPanel = forwardRef<
   const [packs, setPacks] = useState<ReferencePackVersion[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [file, setFile] = useState<File | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [internalJob, setInternalJob] =
     useState<ReferencePackJobResource | null>(null);
   const [error, setError] = useState<APIError | null>(null);
@@ -123,6 +125,12 @@ export const ReferencePackAdminPanel = forwardRef<
   const pollTimer = useRef<number | null>(null);
   const requestSeqRef = useRef(0);
   const initialLoadRef = useRef(false);
+  const acceptedPackQueryRef = useRef({
+    active: "",
+    packVersionState: "",
+    search: "",
+    verificationResult: "",
+  });
   const job = activeJob === undefined ? internalJob : activeJob;
 
   const activePackKeys = useMemo(() => {
@@ -135,21 +143,29 @@ export const ReferencePackAdminPanel = forwardRef<
       requestSeqRef.current = sequence;
       const params = new URLSearchParams({ limit: "100" });
       const cursorToken = options?.cursorToken?.trim() ?? "";
-      const search = packSearch.trim();
+      const query =
+        options?.append === true
+          ? acceptedPackQueryRef.current
+          : {
+              active: activeFilter,
+              packVersionState: packVersionStateFilter,
+              search: packSearch.trim(),
+              verificationResult: verificationResultFilter,
+            };
       if (cursorToken !== "") {
         params.set("cursor_token", cursorToken);
       }
-      if (search !== "") {
-        params.set("search", search);
+      if (query.search !== "") {
+        params.set("search", query.search);
       }
-      if (packVersionStateFilter !== "") {
-        params.set("pack_version_state", packVersionStateFilter);
+      if (query.packVersionState !== "") {
+        params.set("pack_version_state", query.packVersionState);
       }
-      if (verificationResultFilter !== "") {
-        params.set("verification_result", verificationResultFilter);
+      if (query.verificationResult !== "") {
+        params.set("verification_result", query.verificationResult);
       }
-      if (activeFilter !== "") {
-        params.set("active", activeFilter);
+      if (query.active !== "") {
+        params.set("active", query.active);
       }
 
       setStatus(
@@ -170,6 +186,9 @@ export const ReferencePackAdminPanel = forwardRef<
       }
       const envelope = result.payload as ReferencePackListEnvelope;
       const nextPacks = envelope.data.pack_versions;
+      if (options?.append !== true) {
+        acceptedPackQueryRef.current = query;
+      }
       setError(null);
       setPacks((current) =>
         options?.append === true ? [...current, ...nextPacks] : nextPacks,
@@ -299,6 +318,8 @@ export const ReferencePackAdminPanel = forwardRef<
     setError(null);
     updateJob(nextJob);
     setStatus("Import queued");
+    setImportDialogOpen(false);
+    setFile(null);
     void loadJob(nextJob.job_id);
   }
 
@@ -394,14 +415,26 @@ export const ReferencePackAdminPanel = forwardRef<
           <p style={eyebrowStyle}>Reference packs</p>
           <h2 style={titleStyle}>Pack operations</h2>
         </div>
-        <button
-          data-testid={referencePackReloadButtonTestId()}
-          type="button"
-          style={buttonStyle}
-          onClick={() => void loadPacks()}
-        >
-          Refresh
-        </button>
+        <div style={headerActionRowStyle}>
+          <button
+            data-testid={
+              importDialogOpen ? undefined : referencePackImportButtonTestId()
+            }
+            type="button"
+            style={primaryButtonStyle}
+            onClick={() => setImportDialogOpen(true)}
+          >
+            Import pack
+          </button>
+          <button
+            data-testid={referencePackReloadButtonTestId()}
+            type="button"
+            style={buttonStyle}
+            onClick={() => void loadPacks()}
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div style={searchRowStyle}>
@@ -414,6 +447,11 @@ export const ReferencePackAdminPanel = forwardRef<
             value={packSearch}
             onChange={(event) => {
               setPackSearch(event.target.value);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                void loadPacks();
+              }
             }}
             placeholder="Pack key, kind, version, source"
           />
@@ -479,29 +517,6 @@ export const ReferencePackAdminPanel = forwardRef<
           onClick={() => void loadPacks()}
         >
           Search
-        </button>
-      </div>
-
-      <div style={uploadRowStyle}>
-        <label style={filterFieldStyle}>
-          Bundle file
-          <input
-            aria-label="Reference pack bundle file"
-            data-testid={referencePackFileInputTestId()}
-            style={fileInputStyle}
-            type="file"
-            onChange={(event) => {
-              setFile(event.currentTarget.files?.[0] ?? null);
-            }}
-          />
-        </label>
-        <button
-          data-testid={referencePackImportButtonTestId()}
-          type="button"
-          style={primaryButtonStyle}
-          onClick={() => void submitUpload()}
-        >
-          Import
         </button>
       </div>
 
@@ -661,6 +676,60 @@ export const ReferencePackAdminPanel = forwardRef<
         {error?.code ?? ""}
       </p>
       <p style={emptyStyle}>{activePackKeys.length} pack keys loaded</p>
+      {importDialogOpen ? (
+        <div style={dialogBackdropStyle}>
+          <section
+            aria-label="Import reference pack"
+            aria-modal="true"
+            role="dialog"
+            style={dialogStyle}
+          >
+            <header style={dialogHeaderStyle}>
+              <div>
+                <p style={eyebrowStyle}>Reference packs</p>
+                <h3 style={titleStyle}>Import pack</h3>
+              </div>
+              <button
+                aria-label="Close reference pack import"
+                style={iconButtonStyle}
+                type="button"
+                onClick={() => setImportDialogOpen(false)}
+              >
+                <X aria-hidden="true" size={16} />
+              </button>
+            </header>
+            <label style={filterFieldStyle}>
+              Bundle file
+              <input
+                aria-label="Reference pack bundle file"
+                data-testid={referencePackFileInputTestId()}
+                style={fileInputStyle}
+                type="file"
+                onChange={(event) => {
+                  setFile(event.currentTarget.files?.[0] ?? null);
+                }}
+              />
+            </label>
+            <div style={dialogButtonRowStyle}>
+              <button
+                type="button"
+                style={buttonStyle}
+                onClick={() => setImportDialogOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                data-testid={referencePackImportButtonTestId()}
+                type="button"
+                style={primaryButtonStyle}
+                onClick={() => void submitUpload()}
+              >
+                Import
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 });
@@ -692,15 +761,6 @@ const eyebrowStyle = {
 const titleStyle = {
   margin: "0.2rem 0 0",
   fontSize: "1.05rem",
-};
-
-const uploadRowStyle = {
-  display: "grid",
-  gridTemplateColumns: "minmax(16rem, 1fr) auto",
-  gap: "0.75rem",
-  marginTop: "1rem",
-  minWidth: 0,
-  alignItems: "end",
 };
 
 const searchRowStyle = {
@@ -740,6 +800,13 @@ const fileInputStyle = {
   color: "var(--ct-colors-ink-muted)",
 } satisfies CSSProperties;
 
+const headerActionRowStyle = {
+  display: "flex",
+  flexWrap: "wrap" as const,
+  gap: "0.5rem",
+  justifyContent: "flex-end",
+};
+
 const actionBarStyle = {
   display: "flex",
   flexWrap: "wrap" as const,
@@ -756,6 +823,54 @@ const jobStyle = {
   marginTop: "0.75rem",
   fontSize: "0.85rem",
 };
+
+const dialogBackdropStyle = {
+  position: "fixed" as const,
+  inset: 0,
+  zIndex: 40,
+  display: "grid",
+  placeItems: "center",
+  padding: "1.5rem",
+  background: "rgba(10, 13, 18, 0.68)",
+} satisfies CSSProperties;
+
+const dialogStyle = {
+  width: "min(42rem, 100%)",
+  display: "grid",
+  gap: "1rem",
+  padding: "1.25rem",
+  borderRadius: "var(--ct-rounded-md)",
+  border: "var(--ct-border-strong)",
+  background: "var(--ct-colors-surface-1)",
+  boxShadow: "var(--ct-elevation-panel)",
+} satisfies CSSProperties;
+
+const dialogHeaderStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "1rem",
+  alignItems: "flex-start",
+} satisfies CSSProperties;
+
+const iconButtonStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "2rem",
+  height: "2rem",
+  borderRadius: "var(--ct-rounded-sm)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink)",
+  cursor: "pointer",
+} satisfies CSSProperties;
+
+const dialogButtonRowStyle = {
+  display: "flex",
+  justifyContent: "flex-end",
+  flexWrap: "wrap" as const,
+  gap: "0.5rem",
+} satisfies CSSProperties;
 
 const packListStyle = {
   marginTop: "0.75rem",

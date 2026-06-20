@@ -71,6 +71,7 @@ test("E-11-01 shows Reference Pack progress and cancel controls without blocking
   );
 
   await phase1.openIncidentDirectory();
+  await page.getByTestId(phase1LandingTestId("create-button")).click();
   await expect(
     page.getByTestId(phase1LandingTestId("incident-key")),
   ).toBeVisible();
@@ -80,6 +81,7 @@ test("E-11-01 shows Reference Pack progress and cancel controls without blocking
   await expect(
     page.getByTestId(phase1LandingTestId("incident-key")),
   ).toHaveValue("IR-E-11-01");
+  await page.getByRole("button", { name: "Close new incident" }).click();
 
   await phase1.selectAdminPanel("reference-packs");
   await page.getByTestId(referencePackCancelButtonTestId()).click();

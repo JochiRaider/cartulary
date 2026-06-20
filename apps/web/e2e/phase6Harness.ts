@@ -384,10 +384,7 @@ export async function exerciseRevokedPendingReplay({
         rowCellTestId(firstReplayItem.recordId, "timeline.summary"),
       ),
     ).toHaveValue(`Phase 6 ${createdBy} ${scenario} 1 base`);
-    await expectCurrentIncidentRole(
-      page,
-      "Current incident role: editor",
-    );
+    await expectCurrentIncidentRole(page, "Current incident role: editor");
 
     const heldPatch = patchController.holdNextPatch();
     await editTimelineSummary(

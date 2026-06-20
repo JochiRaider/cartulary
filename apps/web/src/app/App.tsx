@@ -788,8 +788,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       incidentListURL({
         limit: incidentsPaging.limit,
         cursorToken,
-        search: incidentSearchRef.current,
-        statusFilter: incidentStatusFilterRef.current,
+        search: lastLoadedIncidentDirectoryScopeRef.current.search,
+        statusFilter: lastLoadedIncidentDirectoryScopeRef.current.statusFilter,
       }),
     );
     const nextError = extractError(result.payload);
@@ -1431,7 +1431,7 @@ const accountSettingsBackdropStyle: CSSProperties = {
 };
 
 const accountSettingsDialogStyle: CSSProperties = {
-  width: "min(64rem, 100%)",
+  width: "min(60rem, calc(100vw - 2rem))",
   maxHeight: "min(52rem, calc(100vh - 2rem))",
   display: "grid",
   gridTemplateRows: "auto auto minmax(0, 1fr)",

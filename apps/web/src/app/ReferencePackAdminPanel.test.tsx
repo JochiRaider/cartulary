@@ -118,7 +118,10 @@ describe("ReferencePackAdminPanel", () => {
 
     render(<ReferencePackAdminPanel session={session(true)} />);
     expect(screen.getByTestId(referencePackAdminPanelTestId())).toBeTruthy();
+    expect(screen.queryByTestId(referencePackFileInputTestId())).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Import pack" }));
     expect(screen.getByTestId(referencePackFileInputTestId())).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByText("Filter loaded packs")).toBeNull();
 
     const packRow = await screen.findByTestId(

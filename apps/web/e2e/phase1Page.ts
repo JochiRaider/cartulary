@@ -105,7 +105,10 @@ export class Phase1Page {
       // No account settings modal is visible yet; open it through the menu.
     }
     await this.openAccountMenu();
-    await this.page.getByRole("menuitem", { name: panelLabel }).click();
+    await this.page.getByRole("menuitem", { name: "Account settings" }).click();
+    if (panel !== "account-profile") {
+      await this.page.getByRole("tab", { name: panelLabel }).click();
+    }
     await expect(expectedControlLocator).toBeVisible();
   }
 
@@ -186,6 +189,7 @@ export class Phase1Page {
 
   async createAndOpenIncident(incidentKey: string, title: string) {
     await this.closeAccountSettingsIfOpen();
+    await this.page.getByTestId(phase1LandingTestId("create-button")).click();
     await this.page
       .getByTestId(phase1LandingTestId("incident-key"))
       .fill(incidentKey);
@@ -267,6 +271,7 @@ export class Phase1Page {
     password: string;
   }) {
     await this.selectAdminPanel("deployment-users");
+    await this.page.getByTestId(phase1AdminTestId("create-user")).click();
     await this.page
       .getByTestId(phase1AdminTestId("create-email"))
       .fill(options.email);

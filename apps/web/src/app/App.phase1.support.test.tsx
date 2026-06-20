@@ -249,22 +249,24 @@ describe("Phase 1 ordinary shell support", () => {
       phase1AccountTestId("password-change"),
       phase1AccountTestId("totp-begin"),
       phase1AccountTestId("status"),
-      phase1AdminTestId("create-email"),
-      phase1AdminTestId("create-display-name"),
       phase1AdminTestId("create-user"),
       phase1AdminTestId("user-filter"),
       phase1AdminTestId("user-list"),
-      phase1AdminTestId("target-user-id"),
-      phase1AdminTestId("target-user-version"),
-      phase1AdminTestId("patch-email"),
       phase1AdminTestId("status"),
     ]) {
       expect(screen.getByTestId(testId)).toBeTruthy();
     }
-    expect(
-      (screen.getByTestId(phase1AdminTestId("reason")) as HTMLInputElement)
-        .value,
-    ).toBe("");
+    expect(screen.queryByTestId(phase1AdminTestId("patch-email"))).toBe(null);
+    expect(screen.queryByTestId(phase1AdminTestId("reason"))).toBe(null);
+
+    fireEvent.click(screen.getByTestId(phase1AdminTestId("create-user")));
+    for (const testId of [
+      phase1AdminTestId("create-email"),
+      phase1AdminTestId("create-display-name"),
+      phase1AdminTestId("create-user"),
+    ]) {
+      expect(screen.getByTestId(testId)).toBeTruthy();
+    }
   });
 
   it("renders claimed enterprise binding controls only inside the selected-user inspector and calls binding routes", async () => {
@@ -442,7 +444,8 @@ async function openAccountSecurity() {
   fireEvent.click(
     await screen.findByLabelText("Account and application navigation"),
   );
-  fireEvent.click(screen.getByRole("menuitem", { name: "Security" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }));
+  fireEvent.click(screen.getByRole("tab", { name: "Security" }));
   await screen.findByTestId(phase1AccountTestId("session-user-id"));
 }
 

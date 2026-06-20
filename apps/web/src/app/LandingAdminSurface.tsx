@@ -28,9 +28,11 @@ import {
   Upload,
   UserRound,
   UsersRound,
+  X,
 } from "lucide-react";
 import {
   type CSSProperties,
+  Fragment,
   type KeyboardEvent,
   type MutableRefObject,
   type ReactNode,
@@ -374,15 +376,9 @@ export function LandingAdminShell({
         <div style={landingAdminContentStyle}>{children}</div>
       </div>
 
-      <footer
-        aria-live="polite"
-        data-testid={landingAdminShellTestId("status-strip")}
-        role="status"
-        style={landingAdminStatusStripStyle}
-      >
-        <span style={landingAdminStatusPrimaryStyle}>Ready</span>
-        <span style={landingAdminStatusSecondaryStyle}>{statusText}</span>
-      </footer>
+      <p aria-live="polite" role="status" style={visuallyHiddenStyle}>
+        {statusText}
+      </p>
     </section>
   );
 }
@@ -417,15 +413,9 @@ export function IncidentDirectoryShell({
         <div style={landingAccountNavStyle}>{accountMenu}</div>
       </header>
       <div style={landingAdminContentStyle}>{children}</div>
-      <footer
-        aria-live="polite"
-        data-testid={landingAdminShellTestId("status-strip")}
-        role="status"
-        style={landingAdminStatusStripStyle}
-      >
-        <span style={landingAdminStatusPrimaryStyle}>Ready</span>
-        <span style={landingAdminStatusSecondaryStyle}>{statusText}</span>
-      </footer>
+      <p aria-live="polite" role="status" style={visuallyHiddenStyle}>
+        {statusText}
+      </p>
     </section>
   );
 }
@@ -604,29 +594,7 @@ export function AccountApplicationMenu({
               onOpenAccountSettings("account-profile");
             }}
           >
-            Profile
-          </button>
-          <button
-            role="menuitem"
-            style={accountMenuItemStyle}
-            type="button"
-            onClick={() => {
-              closeMenu();
-              onOpenAccountSettings("account-appearance");
-            }}
-          >
-            Appearance
-          </button>
-          <button
-            role="menuitem"
-            style={accountMenuItemStyle}
-            type="button"
-            onClick={() => {
-              closeMenu();
-              onOpenAccountSettings("account-security");
-            }}
-          >
-            Security
+            Account settings
           </button>
         </div>
       ) : null}
@@ -763,7 +731,14 @@ export function IncidentLanding({
 }: IncidentLandingProps) {
   const incidentKeyFieldId = useId();
   const incidentTitleFieldId = useId();
+  const [createOpen, setCreateOpen] = useState(false);
   const hasIncidents = incidents.length > 0;
+  const hasActiveQuery =
+    incidentSearch.trim() !== "" || incidentStatusFilter !== "all";
+
+  async function submitCreate() {
+    await onCreate();
+  }
 
   return (
     <section
@@ -795,6 +770,18 @@ export function IncidentLanding({
             <RefreshCw size={15} />
             Refresh
           </button>
+          {!createOpen ? (
+            <button
+              data-testid={phase1LandingTestId("create-button")}
+              style={primaryButtonStyle}
+              type="button"
+              onClick={() => {
+                setCreateOpen(true);
+              }}
+            >
+              New incident
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -858,13 +845,9 @@ export function IncidentLanding({
               data-testid={phase1LandingTestId("empty-state")}
               style={emptyStateStyle}
             >
-              No incidents are visible for this session yet.
-            </p>
-          ) : null}
-
-          {!isRefreshing && !hasIncidents && incidentSearch.trim() !== "" ? (
-            <p style={emptyStateStyle}>
-              No visible incidents match this query.
+              {hasActiveQuery
+                ? "No visible incidents match this query."
+                : "No incidents are visible for this session yet."}
             </p>
           ) : null}
 
@@ -906,17 +889,23 @@ export function IncidentLanding({
                         <StatusBadge value={incident.status ?? "active"} />
                       </td>
                       <td style={tableCellStyle}>
-                        {incident.current_phase ?? "No phase"}
+                        <MutedUnset value={incident.current_phase} />
                       </td>
                       <td style={tableCellStyle}>
-                        {incident.severity ?? "No severity"}
-                      </td>
-                      <td style={tableCellStyle}>{incident.tlp ?? "No TLP"}</td>
-                      <td style={tableCellStyle}>
-                        {incident.primary_external_case_ref ??
-                          "No external case"}
+                        <MutedUnset value={incident.severity} />
                       </td>
                       <td style={tableCellStyle}>
+                        <MutedUnset value={incident.tlp} />
+                      </td>
+                      <td style={tableCellStyle}>
+                        <MutedUnset
+                          value={incident.primary_external_case_ref}
+                        />
+                      </td>
+                      <td
+                        style={tableCellStyle}
+                        title={incident.updated_at ?? undefined}
+                      >
                         {formatNullableDateTime(incident.updated_at)}
                       </td>
                       <td style={tableActionCellStyle}>
@@ -924,7 +913,7 @@ export function IncidentLanding({
                           data-testid={landingIncidentOpenButtonTestId(
                             incident.incident_id,
                           )}
-                          style={primaryButtonStyle}
+                          style={tableLinkButtonStyle}
                           type="button"
                           onClick={() => {
                             onOpenIncident(incident.incident_id);
@@ -949,139 +938,161 @@ export function IncidentLanding({
                 void onLoadMore();
               }}
             >
-              Load more
+              Load more incidents
             </button>
           ) : null}
         </section>
-
-        <section style={createPanelStyle}>
-          <div style={compactSectionHeaderStyle}>
-            <div>
-              <p style={sectionEyebrowStyle}>Create</p>
-              <h3 style={subsectionTitleStyle}>New incident</h3>
-            </div>
-          </div>
-          <div style={formGridStyle}>
-            <label htmlFor={incidentKeyFieldId} style={labelBlockStyle}>
-              Incident key
-              <input
-                data-testid={phase1LandingTestId("incident-key")}
-                id={incidentKeyFieldId}
-                style={inputStyle}
-                value={createIncidentKey}
-                onChange={(event) => {
-                  onCreateIncidentKeyChange(event.target.value);
-                }}
-                placeholder="IR-2026-001"
-              />
-            </label>
-            <label htmlFor={incidentTitleFieldId} style={labelBlockStyle}>
-              Title
-              <input
-                data-testid={phase1LandingTestId("incident-title")}
-                id={incidentTitleFieldId}
-                style={inputStyle}
-                value={createIncidentTitle}
-                onChange={(event) => {
-                  onCreateIncidentTitleChange(event.target.value);
-                }}
-                placeholder="Credential theft investigation"
-              />
-            </label>
-          </div>
-          <details style={detailsStyle}>
-            <summary style={detailsSummaryStyle}>More details</summary>
-            <div style={formGridStyle}>
-              <label
-                htmlFor="incident-create-description"
-                style={labelBlockStyle}
-              >
-                Description
-                <textarea
-                  data-testid={phase1LandingTestId("create-description")}
-                  id="incident-create-description"
-                  style={textAreaStyle}
-                  value={createIncidentDescription}
-                  onChange={(event) => {
-                    onCreateIncidentDescriptionChange(event.target.value);
-                  }}
-                />
-              </label>
-              <label htmlFor="incident-create-severity" style={labelBlockStyle}>
-                Severity
-                <input
-                  data-testid={phase1LandingTestId("create-severity")}
-                  id="incident-create-severity"
-                  style={inputStyle}
-                  value={createIncidentSeverity}
-                  onChange={(event) => {
-                    onCreateIncidentSeverityChange(event.target.value);
-                  }}
-                />
-              </label>
-              <label htmlFor="incident-create-tlp" style={labelBlockStyle}>
-                TLP
-                <select
-                  data-testid={phase1LandingTestId("create-tlp")}
-                  id="incident-create-tlp"
-                  style={inputStyle}
-                  value={createIncidentTLP}
-                  onChange={(event) => {
-                    onCreateIncidentTLPChange(event.target.value);
-                  }}
-                >
-                  <option value="">Unset</option>
-                  <option value="TLP:CLEAR">Clear</option>
-                  <option value="TLP:GREEN">Green</option>
-                  <option value="TLP:AMBER">Amber</option>
-                  <option value="TLP:AMBER+STRICT">Amber strict</option>
-                  <option value="TLP:RED">Red</option>
-                </select>
-              </label>
-              <label
-                htmlFor="incident-create-current-phase"
-                style={labelBlockStyle}
-              >
-                Current phase
-                <input
-                  data-testid={phase1LandingTestId("create-current-phase")}
-                  id="incident-create-current-phase"
-                  style={inputStyle}
-                  value={createIncidentCurrentPhase}
-                  onChange={(event) => {
-                    onCreateIncidentCurrentPhaseChange(event.target.value);
-                  }}
-                />
-              </label>
-              <label
-                htmlFor="incident-create-external-case"
-                style={labelBlockStyle}
-              >
-                External case
-                <input
-                  data-testid={phase1LandingTestId("create-external-case")}
-                  id="incident-create-external-case"
-                  style={inputStyle}
-                  value={createIncidentExternalCase}
-                  onChange={(event) => {
-                    onCreateIncidentExternalCaseChange(event.target.value);
-                  }}
-                />
-              </label>
-            </div>
-          </details>
-          <button
-            data-testid={phase1LandingTestId("create-button")}
-            style={primaryButtonStyle}
-            type="button"
-            onClick={() => {
-              void onCreate();
-            }}
-          >
-            Create and open
-          </button>
-        </section>
       </div>
+
+      {createOpen ? (
+        <div style={dialogBackdropStyle}>
+          <section
+            aria-label="New incident"
+            aria-modal="true"
+            role="dialog"
+            style={createDialogStyle}
+          >
+            <header style={dialogHeaderStyle}>
+              <div>
+                <p style={sectionEyebrowStyle}>Create</p>
+                <h3 style={subsectionTitleStyle}>New incident</h3>
+              </div>
+              <button
+                aria-label="Close new incident"
+                style={iconButtonStyle}
+                type="button"
+                onClick={() => {
+                  setCreateOpen(false);
+                }}
+              >
+                <X aria-hidden="true" size={16} />
+              </button>
+            </header>
+            <div style={formGridStyle}>
+              <label htmlFor={incidentKeyFieldId} style={labelBlockStyle}>
+                Incident key
+                <input
+                  data-testid={phase1LandingTestId("incident-key")}
+                  id={incidentKeyFieldId}
+                  style={inputStyle}
+                  value={createIncidentKey}
+                  onChange={(event) => {
+                    onCreateIncidentKeyChange(event.target.value);
+                  }}
+                  placeholder="IR-2026-001"
+                />
+              </label>
+              <label htmlFor={incidentTitleFieldId} style={labelBlockStyle}>
+                Title
+                <input
+                  data-testid={phase1LandingTestId("incident-title")}
+                  id={incidentTitleFieldId}
+                  style={inputStyle}
+                  value={createIncidentTitle}
+                  onChange={(event) => {
+                    onCreateIncidentTitleChange(event.target.value);
+                  }}
+                  placeholder="Credential theft investigation"
+                />
+              </label>
+            </div>
+            <details style={detailsStyle}>
+              <summary style={detailsSummaryStyle}>More details</summary>
+              <div style={formGridStyle}>
+                <label
+                  htmlFor="incident-create-description"
+                  style={labelBlockStyle}
+                >
+                  Description
+                  <textarea
+                    data-testid={phase1LandingTestId("create-description")}
+                    id="incident-create-description"
+                    style={textAreaStyle}
+                    value={createIncidentDescription}
+                    onChange={(event) => {
+                      onCreateIncidentDescriptionChange(event.target.value);
+                    }}
+                  />
+                </label>
+                <label
+                  htmlFor="incident-create-severity"
+                  style={labelBlockStyle}
+                >
+                  Severity
+                  <input
+                    data-testid={phase1LandingTestId("create-severity")}
+                    id="incident-create-severity"
+                    style={inputStyle}
+                    value={createIncidentSeverity}
+                    onChange={(event) => {
+                      onCreateIncidentSeverityChange(event.target.value);
+                    }}
+                  />
+                </label>
+                <label htmlFor="incident-create-tlp" style={labelBlockStyle}>
+                  TLP
+                  <select
+                    data-testid={phase1LandingTestId("create-tlp")}
+                    id="incident-create-tlp"
+                    style={inputStyle}
+                    value={createIncidentTLP}
+                    onChange={(event) => {
+                      onCreateIncidentTLPChange(event.target.value);
+                    }}
+                  >
+                    <option value="">Unset</option>
+                    <option value="TLP:CLEAR">Clear</option>
+                    <option value="TLP:GREEN">Green</option>
+                    <option value="TLP:AMBER">Amber</option>
+                    <option value="TLP:AMBER+STRICT">Amber strict</option>
+                    <option value="TLP:RED">Red</option>
+                  </select>
+                </label>
+                <label
+                  htmlFor="incident-create-current-phase"
+                  style={labelBlockStyle}
+                >
+                  Current phase
+                  <input
+                    data-testid={phase1LandingTestId("create-current-phase")}
+                    id="incident-create-current-phase"
+                    style={inputStyle}
+                    value={createIncidentCurrentPhase}
+                    onChange={(event) => {
+                      onCreateIncidentCurrentPhaseChange(event.target.value);
+                    }}
+                  />
+                </label>
+                <label
+                  htmlFor="incident-create-external-case"
+                  style={labelBlockStyle}
+                >
+                  External case
+                  <input
+                    data-testid={phase1LandingTestId("create-external-case")}
+                    id="incident-create-external-case"
+                    style={inputStyle}
+                    value={createIncidentExternalCase}
+                    onChange={(event) => {
+                      onCreateIncidentExternalCaseChange(event.target.value);
+                    }}
+                  />
+                </label>
+              </div>
+            </details>
+            <button
+              data-testid={phase1LandingTestId("create-button")}
+              style={primaryButtonStyle}
+              type="button"
+              onClick={() => {
+                void submitCreate();
+              }}
+            >
+              Create and open
+            </button>
+          </section>
+        </div>
+      ) : null}
 
       <p
         aria-live="polite"
@@ -1105,6 +1116,13 @@ export function IncidentLanding({
       />
     </section>
   );
+}
+
+function MutedUnset({ value }: { value: string | null | undefined }) {
+  if (value === null || typeof value === "undefined" || value === "") {
+    return <span style={unsetValueStyle}>Not set</span>;
+  }
+  return <span>{value}</span>;
 }
 
 export function AccountProfilePanel({
@@ -1312,6 +1330,9 @@ export function AccountAppearancePanel() {
 
 export function AdministrativeAuditPanel() {
   const [events, setEvents] = useState<AdministrativeAuditEvent[]>([]);
+  const [expandedAuditEventID, setExpandedAuditEventID] = useState<
+    string | null
+  >(null);
   const [actorUserID, setActorUserID] = useState("");
   const [actionCode, setActionCode] = useState("");
   const [targetKind, setTargetKind] = useState("");
@@ -1398,98 +1419,205 @@ export function AdministrativeAuditPanel() {
         </button>
       </div>
       <div style={auditFilterGridStyle}>
-        <input
-          aria-label="Actor user id"
-          style={inputStyle}
-          value={actorUserID}
-          onChange={(event) => setActorUserID(event.target.value)}
-          placeholder="Actor user id"
-        />
-        <input
-          aria-label="Action code"
-          style={inputStyle}
-          value={actionCode}
-          onChange={(event) => setActionCode(event.target.value)}
-          placeholder="Action code"
-        />
-        <select
-          aria-label="Target kind"
-          style={inputStyle}
-          value={targetKind}
-          onChange={(event) => setTargetKind(event.target.value)}
-        >
-          <option value="">Target kind</option>
-          <option value="user">User</option>
-          <option value="account_preferences">Account preferences</option>
-          <option value="auth_binding">Auth binding</option>
-          <option value="incident">Incident</option>
-          <option value="deployment">Deployment</option>
-        </select>
-        <input
-          aria-label="Target id"
-          style={inputStyle}
-          value={targetID}
-          onChange={(event) => setTargetID(event.target.value)}
-          placeholder="Target id"
-        />
-        <input
-          aria-label="Occurred at or after"
-          style={inputStyle}
-          value={occurredAtGTE}
-          onChange={(event) => setOccurredAtGTE(event.target.value)}
-          placeholder="Occurred at or after"
-        />
-        <input
-          aria-label="Occurred before"
-          style={inputStyle}
-          value={occurredAtLT}
-          onChange={(event) => setOccurredAtLT(event.target.value)}
-          placeholder="Occurred before"
-        />
+        <label style={labelBlockStyle}>
+          Actor user ID
+          <input
+            aria-label="Actor user id"
+            style={inputStyle}
+            value={actorUserID}
+            onChange={(event) => setActorUserID(event.target.value)}
+          />
+        </label>
+        <label style={labelBlockStyle}>
+          Action code
+          <input
+            aria-label="Action code"
+            style={inputStyle}
+            value={actionCode}
+            onChange={(event) => setActionCode(event.target.value)}
+          />
+        </label>
+        <label style={labelBlockStyle}>
+          Target kind
+          <select
+            aria-label="Target kind"
+            style={inputStyle}
+            value={targetKind}
+            onChange={(event) => setTargetKind(event.target.value)}
+          >
+            <option value="">Any target kind</option>
+            <option value="user">User</option>
+            <option value="account_preferences">Account preferences</option>
+            <option value="auth_binding">Auth binding</option>
+            <option value="backup_set">Backup set</option>
+            <option value="restore_operation">Restore operation</option>
+            <option value="legacy_administrative_event">Legacy event</option>
+          </select>
+        </label>
+        <label style={labelBlockStyle}>
+          Target ID
+          <input
+            aria-label="Target id"
+            style={inputStyle}
+            value={targetID}
+            onChange={(event) => setTargetID(event.target.value)}
+          />
+        </label>
+        <label style={labelBlockStyle}>
+          Occurred at or after
+          <input
+            aria-label="Occurred at or after"
+            style={inputStyle}
+            value={occurredAtGTE}
+            onChange={(event) => setOccurredAtGTE(event.target.value)}
+          />
+        </label>
+        <label style={labelBlockStyle}>
+          Occurred before
+          <input
+            aria-label="Occurred before"
+            style={inputStyle}
+            value={occurredAtLT}
+            onChange={(event) => setOccurredAtLT(event.target.value)}
+          />
+        </label>
       </div>
       <div style={tableShellStyle}>
         <table style={dataTableStyle}>
           <thead>
             <tr>
-              <th style={tableHeaderCellStyle}>Event</th>
+              <th style={tableHeaderCellStyle}>Occurred</th>
+              <th style={tableHeaderCellStyle}>Action</th>
               <th style={tableHeaderCellStyle}>Actor</th>
               <th style={tableHeaderCellStyle}>Target</th>
               <th style={tableHeaderCellStyle}>Reason</th>
               <th style={tableHeaderCellStyle}>Changes</th>
+              <th style={tableHeaderActionCellStyle}>Details</th>
             </tr>
           </thead>
           <tbody>
-            {events.map((event) => (
-              <tr key={event.audit_event_id} style={tableRowStyle}>
-                <td style={primaryCellStyle}>
-                  <p style={monoMutedStyle}>{event.action_code}</p>
-                  <p style={metadataTextStyle}>{event.occurred_at}</p>
-                  <p style={metadataTextStyle}>{event.source ?? ""}</p>
-                </td>
-                <td style={tableCellStyle}>
-                  {event.actor_user_id ?? event.actor_kind ?? "system"}
-                </td>
-                <td style={tableCellStyle}>
-                  {event.target_kind}: {event.target_id ?? "deployment"}
-                </td>
-                <td style={tableCellStyle}>
-                  {event.reason_code ?? "No reason"}
-                </td>
-                <td style={tableCellStyle}>
-                  <div style={changeListStyle}>
-                    {event.changes.map((change) => (
-                      <span key={change.field_path} style={changeItemStyle}>
-                        <span style={monoMutedStyle}>{change.field_path}</span>
-                        {": "}
-                        {renderAuditValue(change.value_state, change.before)}
-                        <span aria-hidden="true"> {"->"} </span>
-                        {renderAuditValue(change.value_state, change.after)}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {events.map((event) => {
+              const expanded = expandedAuditEventID === event.audit_event_id;
+              return (
+                <Fragment key={event.audit_event_id}>
+                  <tr key={event.audit_event_id} style={tableRowStyle}>
+                    <td style={primaryCellStyle}>
+                      {formatNullableDateTime(event.occurred_at)}
+                      <p style={metadataTextStyle}>{event.source ?? ""}</p>
+                    </td>
+                    <td style={tableCellStyle}>
+                      {formatAuditActionLabel(event.action_code)}
+                    </td>
+                    <td style={tableCellStyle}>
+                      {formatAuditActor(event.actor_kind, event.actor_user_id)}
+                    </td>
+                    <td style={tableCellStyle}>{formatAuditTarget(event)}</td>
+                    <td style={tableCellStyle}>
+                      {event.reason_code ?? "No reason"}
+                    </td>
+                    <td style={tableCellStyle}>{event.changes.length}</td>
+                    <td style={tableActionCellStyle}>
+                      <button
+                        aria-expanded={expanded}
+                        style={tableLinkButtonStyle}
+                        type="button"
+                        onClick={() => {
+                          setExpandedAuditEventID(
+                            expanded ? null : event.audit_event_id,
+                          );
+                        }}
+                      >
+                        {expanded ? "Hide" : "Inspect"}
+                        <ChevronRight size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                  {expanded ? (
+                    <tr key={`${event.audit_event_id}-details`}>
+                      <td colSpan={7} style={auditDetailCellStyle}>
+                        <div style={auditDetailPanelStyle}>
+                          <div style={auditDetailMetaGridStyle}>
+                            <div>
+                              <span style={definitionLabelStyle}>
+                                Audit event ID
+                              </span>
+                              <div style={monoMutedStyle}>
+                                {event.audit_event_id}
+                              </div>
+                            </div>
+                            <div>
+                              <span style={definitionLabelStyle}>
+                                Raw action code
+                              </span>
+                              <div style={monoMutedStyle}>
+                                {event.action_code}
+                              </div>
+                            </div>
+                            <div>
+                              <span style={definitionLabelStyle}>
+                                Target kind
+                              </span>
+                              <div style={monoMutedStyle}>
+                                {event.target_kind}
+                              </div>
+                            </div>
+                            <div>
+                              <span style={definitionLabelStyle}>
+                                Target ID
+                              </span>
+                              <div style={monoMutedStyle}>
+                                {event.target_id ?? "No target ID"}
+                              </div>
+                            </div>
+                          </div>
+                          {event.changes.length > 0 ? (
+                            <table style={auditChangeTableStyle}>
+                              <thead>
+                                <tr>
+                                  <th style={tableHeaderCellStyle}>Field</th>
+                                  <th style={tableHeaderCellStyle}>Before</th>
+                                  <th style={tableHeaderCellStyle}>After</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {event.changes.map((change) => (
+                                  <tr
+                                    key={`${event.audit_event_id}-${change.field_path}`}
+                                  >
+                                    <td style={primaryCellStyle}>
+                                      <span style={monoMutedStyle}>
+                                        {change.field_path}
+                                      </span>
+                                    </td>
+                                    <td style={tableCellStyle}>
+                                      {renderAuditValue(
+                                        change.value_state,
+                                        change.before,
+                                      )}
+                                    </td>
+                                    <td style={tableCellStyle}>
+                                      {renderAuditValue(
+                                        change.value_state,
+                                        change.after,
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          ) : (
+                            <p style={emptyStateStyle}>
+                              No field-level changes were published for this
+                              event.
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -1516,6 +1644,7 @@ export function IncidentImportPanel({
   onOpenImportedIncident: (incidentId: string) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [job, setJob] = useState<JobResource | null>(null);
   const [status, setStatus] = useState("Incident import idle.");
   const [error, setError] = useState<APIError | null>(null);
@@ -1599,6 +1728,8 @@ export function IncidentImportPanel({
     setStatus(
       `Incident import queued${nextJob?.job_id ? `: ${nextJob.job_id}` : "."}`,
     );
+    setImportDialogOpen(false);
+    setFile(null);
     if (nextJob?.job_id) {
       void loadJob(nextJob.job_id);
     }
@@ -1606,28 +1737,17 @@ export function IncidentImportPanel({
 
   return (
     <section style={surfacePanelStyle}>
-      <p style={sectionEyebrowStyle}>Incident portability</p>
-      <h2 style={sectionTitleStyle}>Incident import</h2>
-      <div style={portabilityGridStyle}>
-        <label style={labelBlockStyle}>
-          Bundle file
-          <input
-            aria-label="Incident bundle file"
-            style={inputStyle}
-            type="file"
-            onChange={(event) => {
-              setFile(event.currentTarget.files?.[0] ?? null);
-            }}
-          />
-        </label>
+      <div style={surfaceHeaderStyle}>
+        <div>
+          <p style={sectionEyebrowStyle}>Incident portability</p>
+          <h2 style={sectionTitleStyle}>Incident import</h2>
+        </div>
         <button
           style={primaryButtonStyle}
           type="button"
-          onClick={() => {
-            void submitImport();
-          }}
+          onClick={() => setImportDialogOpen(true)}
         >
-          Import
+          Import incident
         </button>
       </div>
       <div style={jobPanelStyle}>
@@ -1649,6 +1769,62 @@ export function IncidentImportPanel({
           </button>
         ) : null}
       </div>
+      {importDialogOpen ? (
+        <div style={dialogBackdropStyle}>
+          <section
+            aria-label="Import incident bundle"
+            aria-modal="true"
+            role="dialog"
+            style={createDialogStyle}
+          >
+            <header style={dialogHeaderStyle}>
+              <div>
+                <p style={sectionEyebrowStyle}>Staged import</p>
+                <h3 style={subsectionTitleStyle}>Select incident bundle</h3>
+              </div>
+              <button
+                aria-label="Close incident import"
+                style={iconButtonStyle}
+                type="button"
+                onClick={() => setImportDialogOpen(false)}
+              >
+                <X aria-hidden="true" size={16} />
+              </button>
+            </header>
+            <div style={formGridStyle}>
+              <label style={labelBlockStyle}>
+                Bundle file
+                <input
+                  aria-label="Incident bundle file"
+                  style={inputStyle}
+                  type="file"
+                  onChange={(event) => {
+                    setFile(event.currentTarget.files?.[0] ?? null);
+                  }}
+                />
+              </label>
+            </div>
+            <div style={buttonRowEndStyle}>
+              <button
+                style={secondaryButtonStyle}
+                type="button"
+                onClick={() => setImportDialogOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                style={primaryButtonStyle}
+                type="button"
+                onClick={() => {
+                  void submitImport();
+                }}
+              >
+                Start import
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       <p aria-live="polite" role="status" style={statusTextStyle}>
         {status}
       </p>
@@ -1702,7 +1878,7 @@ function PublicErrorSummary({
 
 function renderAuditValue(valueState: "redacted" | "visible", value: unknown) {
   if (valueState === "redacted") {
-    return <span style={redactedBadgeStyle}>redacted</span>;
+    return <span style={redactedBadgeStyle}>Redacted</span>;
   }
   if (value === null) {
     return <span style={nullValueStyle}>null</span>;
@@ -1711,6 +1887,47 @@ function renderAuditValue(valueState: "redacted" | "visible", value: unknown) {
     return <span>{value}</span>;
   }
   return <span>{JSON.stringify(value)}</span>;
+}
+
+function formatAuditActionLabel(actionCode: string) {
+  const label = auditActionLabels[actionCode];
+  return label ?? actionCode;
+}
+
+function formatAuditActor(
+  actorKind: AdministrativeAuditEvent["actor_kind"],
+  actorUserID: string | null,
+) {
+  if (actorUserID !== null && actorUserID !== "") {
+    return actorUserID;
+  }
+  return actorKind ?? "system";
+}
+
+function formatAuditTarget(event: AdministrativeAuditEvent) {
+  const targetID = event.target_id ?? "";
+  switch (event.target_kind) {
+    case "user":
+      return targetID === "" ? "User" : `User ${targetID}`;
+    case "account_preferences":
+      return targetID === ""
+        ? "Account preferences"
+        : `Account preferences for ${targetID}`;
+    case "auth_binding":
+      return targetID === "" ? "Enterprise authentication binding" : targetID;
+    case "backup_set":
+      return targetID === "" ? "Backup set" : `Backup set ${targetID}`;
+    case "restore_operation":
+      return targetID === ""
+        ? "Restore operation"
+        : `Restore operation ${targetID}`;
+    case "legacy_administrative_event":
+      return "Legacy event";
+    default:
+      return targetID === ""
+        ? event.target_kind
+        : `${event.target_kind}: ${targetID}`;
+  }
 }
 
 function formatNullableDateTime(value: string | null | undefined) {
@@ -1724,7 +1941,7 @@ const landingAdminShellStyle: CSSProperties = {
   width: "100%",
   minHeight: "100vh",
   display: "grid",
-  gridTemplateRows: "auto minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+  gridTemplateRows: "auto minmax(0, 1fr)",
   background: "var(--ct-colors-canvas)",
   overflow: "hidden",
 };
@@ -2005,30 +2222,10 @@ const landingAdminContentStyle: CSSProperties = {
   minWidth: 0,
   minHeight: 0,
   overflow: "auto",
-};
-
-const landingAdminStatusStripStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "var(--ct-spacing-md)",
-  minHeight: "var(--ct-layout-statusStripHeight)",
-  padding: "0 var(--ct-spacing-lg)",
-  borderTop: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-1)",
-  color: "var(--ct-colors-ink-muted)",
-  fontSize: "var(--ct-typography-metadata-fontSize)",
-};
-
-const landingAdminStatusPrimaryStyle: CSSProperties = {
-  color: "var(--ct-colors-semantic-success)",
-  fontWeight: 700,
-};
-
-const landingAdminStatusSecondaryStyle: CSSProperties = {
-  minWidth: 0,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
+  width: "100%",
+  maxWidth: "1600px",
+  justifySelf: "center",
+  boxSizing: "border-box",
 };
 
 const surfacePanelStyle: CSSProperties = {
@@ -2047,13 +2244,6 @@ const surfaceHeaderStyle: CSSProperties = {
   gap: "var(--ct-spacing-md)",
   padding: "0 0 var(--ct-spacing-sm)",
   borderBottom: "var(--ct-border-hairline)",
-};
-
-const compactSectionHeaderStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "var(--ct-spacing-sm)",
-  alignItems: "flex-start",
 };
 
 const headerActionRowStyle: CSSProperties = {
@@ -2084,7 +2274,7 @@ const incidentWorkspaceStyle: CSSProperties = {
   minWidth: 0,
   minHeight: 0,
   display: "grid",
-  gridTemplateColumns: "minmax(36rem, 1fr) minmax(20rem, 24rem)",
+  gridTemplateColumns: "minmax(0, 1fr)",
   gap: "var(--ct-spacing-md)",
   alignItems: "start",
 };
@@ -2093,16 +2283,6 @@ const incidentDirectoryStyle: CSSProperties = {
   minWidth: 0,
   display: "grid",
   gap: "var(--ct-spacing-md)",
-};
-
-const createPanelStyle: CSSProperties = {
-  minWidth: 0,
-  display: "grid",
-  gap: "var(--ct-spacing-md)",
-  padding: "var(--ct-spacing-md)",
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-sm)",
-  background: "var(--ct-colors-surface-2)",
 };
 
 const toolbarGridStyle: CSSProperties = {
@@ -2182,6 +2362,56 @@ const detailsSummaryStyle: CSSProperties = {
   cursor: "pointer",
   color: "var(--ct-colors-ink-muted)",
   fontWeight: 700,
+};
+
+const dialogBackdropStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 40,
+  display: "grid",
+  placeItems: "center",
+  padding: "var(--ct-spacing-lg)",
+  background: "rgba(10, 13, 18, 0.68)",
+};
+
+const createDialogStyle: CSSProperties = {
+  width: "min(48rem, 100%)",
+  maxHeight: "calc(100vh - 3rem)",
+  overflow: "auto",
+  display: "grid",
+  gap: "var(--ct-spacing-md)",
+  padding: "var(--ct-spacing-lg)",
+  border: "var(--ct-border-strong)",
+  borderRadius: "var(--ct-rounded-md)",
+  background: "var(--ct-colors-surface-1)",
+  boxShadow: "var(--ct-elevation-panel)",
+};
+
+const dialogHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "var(--ct-spacing-md)",
+};
+
+const iconButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "2rem",
+  height: "2rem",
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-sm)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink)",
+  cursor: "pointer",
+};
+
+const buttonRowEndStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  flexWrap: "wrap",
+  gap: "var(--ct-spacing-sm)",
 };
 
 const primaryButtonStyle: CSSProperties = {
@@ -2284,6 +2514,19 @@ const tableActionCellStyle: CSSProperties = {
   textAlign: "right",
 };
 
+const tableLinkButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "0.35rem",
+  padding: "0.25rem 0",
+  border: "none",
+  background: "transparent",
+  color: "var(--ct-colors-ink)",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
 const strongTextStyle: CSSProperties = {
   margin: 0,
   color: "var(--ct-colors-ink)",
@@ -2304,6 +2547,11 @@ const monoMutedStyle: CSSProperties = {
   fontFamily: "var(--ct-typography-mono-fontFamily)",
   fontSize: "0.78rem",
   overflowWrap: "anywhere",
+};
+
+const unsetValueStyle: CSSProperties = {
+  color: "var(--ct-colors-ink-subtle)",
+  fontStyle: "italic",
 };
 
 const activeBadgeStyle: CSSProperties = {
@@ -2384,14 +2632,27 @@ const auditFilterGridStyle: CSSProperties = {
   gap: "var(--ct-spacing-sm)",
 };
 
-const changeListStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.28rem",
-  minWidth: "16rem",
+const auditDetailCellStyle: CSSProperties = {
+  padding: 0,
+  borderBottom: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
 };
 
-const changeItemStyle: CSSProperties = {
-  overflowWrap: "anywhere",
+const auditDetailPanelStyle: CSSProperties = {
+  display: "grid",
+  gap: "var(--ct-spacing-md)",
+  padding: "var(--ct-spacing-md)",
+};
+
+const auditDetailMetaGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(14rem, 1fr))",
+  gap: "var(--ct-spacing-sm)",
+};
+
+const auditChangeTableStyle: CSSProperties = {
+  ...dataTableStyle,
+  minWidth: "44rem",
 };
 
 const redactedBadgeStyle: CSSProperties = {
@@ -2408,17 +2669,46 @@ const nullValueStyle: CSSProperties = {
   fontStyle: "italic",
 };
 
-const portabilityGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(18rem, 32rem) auto",
-  gap: "var(--ct-spacing-md)",
-  alignItems: "end",
-  marginTop: "var(--ct-spacing-md)",
-};
-
 const jobPanelStyle: CSSProperties = {
   padding: "var(--ct-spacing-md)",
   border: "var(--ct-border-hairline)",
   borderRadius: "var(--ct-rounded-sm)",
   background: "var(--ct-colors-surface-1)",
+};
+
+const visuallyHiddenStyle: CSSProperties = {
+  position: "absolute",
+  width: "1px",
+  height: "1px",
+  padding: 0,
+  margin: "-1px",
+  overflow: "hidden",
+  clip: "rect(0, 0, 0, 0)",
+  whiteSpace: "nowrap",
+  border: 0,
+};
+
+const auditActionLabels: Record<string, string> = {
+  account_preferences_updated: "Account preferences updated",
+  auth_binding_created: "Authentication binding created",
+  auth_binding_retired: "Authentication binding retired",
+  auth_binding_rotated: "Authentication binding rotated",
+  backup_created: "Backup created",
+  bootstrap_admin_created: "Bootstrap admin created",
+  deployment_admin_granted: "Deployment admin granted",
+  deployment_admin_revoked: "Deployment admin revoked",
+  legacy_administrative_event: "Legacy administrative event",
+  password_changed: "Password changed",
+  password_reset: "Password reset",
+  restore_completed: "Restore completed",
+  restore_failed: "Restore failed",
+  restore_started: "Restore started",
+  restore_verification_completed: "Restore verification completed",
+  sessions_revoked: "Sessions revoked",
+  totp_enrollment_begun: "TOTP enrollment begun",
+  totp_enrollment_completed: "TOTP enrollment completed",
+  totp_reset: "TOTP reset",
+  user_created: "User created",
+  user_profile_updated: "User profile updated",
+  user_status_changed: "User status changed",
 };
