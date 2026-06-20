@@ -398,7 +398,7 @@ type GridVisualRegressionOptions = {
 );
 
 test.describe("FE-P2 workbook visual readiness", () => {
-  test("FE-V-P2-01 Capture Default Timeline workbook shell with top bar, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.", async ({
+  test("FE-V-P2-01 Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });

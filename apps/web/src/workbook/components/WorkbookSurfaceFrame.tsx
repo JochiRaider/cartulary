@@ -121,7 +121,7 @@ const workbookSurfaceFrameStyle = {
   position: "relative" as const,
   display: "grid",
   gridTemplateRows:
-    "auto var(--ct-layout-viewBarHeight) minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+    "auto minmax(var(--ct-layout-viewBarHeight), auto) minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
   blockSize: "100%",
   minBlockSize: 0,
   minHeight: 0,

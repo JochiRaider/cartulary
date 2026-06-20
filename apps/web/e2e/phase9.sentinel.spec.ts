@@ -2349,10 +2349,10 @@ test("FE-B-P10-01 Verify Task Requests, Decisions, Parties, Communications Log, 
       viewBar.getByTestId(savedViewSelectorTestId(surface.viewSchemaId)),
     ).toHaveCount(1);
     await expect(
-      topBar.getByTestId(gridFilterFieldTestId(surface.viewSchemaId)),
+      viewBar.getByTestId(gridFilterFieldTestId(surface.viewSchemaId)),
     ).toBeVisible();
     await expect(
-      topBar.getByTestId(gridGroupingSelectTestId(surface.viewSchemaId)),
+      viewBar.getByTestId(gridGroupingSelectTestId(surface.viewSchemaId)),
     ).toBeVisible();
 
     const activeSelector = viewBar.getByTestId(

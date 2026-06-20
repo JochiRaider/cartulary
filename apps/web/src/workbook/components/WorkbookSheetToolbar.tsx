@@ -110,6 +110,55 @@ export function WorkbookSheetToolbar({
   );
 }
 
+type WorkbookViewBarQueryControlsProps = {
+  readonly contract: ViewContract;
+  readonly filterDraft: FilterDraft;
+  readonly onApplyFilter: () => void;
+  readonly onClearAll?: (() => void) | undefined;
+  readonly onFilterDraftChange: (draft: FilterDraft) => void;
+  readonly onGroupByChange: (groupBy: string | null) => void;
+  readonly onRemoveFilter: (fieldKey: string) => void;
+  readonly queryState: WorkbookQueryState;
+  readonly surface: string;
+};
+
+export function WorkbookViewBarQueryControls({
+  contract,
+  filterDraft,
+  onApplyFilter,
+  onClearAll,
+  onFilterDraftChange,
+  onGroupByChange,
+  onRemoveFilter,
+  queryState,
+  surface,
+}: WorkbookViewBarQueryControlsProps) {
+  const activeControlCount =
+    queryState.sort.length +
+    queryState.filters.length +
+    (queryState.groupBy === null ? 0 : 1);
+
+  return (
+    <div style={viewBarQueryControlsStyle}>
+      <span style={toolbarStatusStyle}>
+        <Filter aria-hidden="true" size={16} />
+        {activeControlCount}
+      </span>
+      <WorkbookGridControls
+        contract={contract}
+        filterDraft={filterDraft}
+        onApplyFilter={onApplyFilter}
+        onClearAll={onClearAll}
+        onFilterDraftChange={onFilterDraftChange}
+        onGroupByChange={onGroupByChange}
+        onRemoveFilter={onRemoveFilter}
+        queryState={queryState}
+        surface={surface}
+      />
+    </div>
+  );
+}
+
 export const compactInputStyle = {
   borderRadius: "var(--ct-rounded-xs)",
   border: "var(--ct-border-hairline)",
@@ -156,7 +205,7 @@ const savedViewToolbarStyle = {
 } satisfies CSSProperties;
 
 const leftRailStyle = {
-  display: "inline-flex",
+  display: "flex",
   alignItems: "center",
   gap: "0.45rem",
   minWidth: 0,
@@ -167,6 +216,15 @@ const rightRailStyle = {
   alignItems: "center",
   justifyContent: "end",
   gap: "0.45rem",
+  minWidth: 0,
+} satisfies CSSProperties;
+
+const viewBarQueryControlsStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "0.35rem",
+  flex: "1 1 auto",
   minWidth: 0,
 } satisfies CSSProperties;
 

@@ -80,7 +80,7 @@ describe("FE-U-P4-02 WorkbookShell save-state status strip", () => {
       timelineMutationSubstrateReadyTestId(),
     );
     expect(workbookShell.style.gridTemplateRows).toBe(
-      "auto var(--ct-layout-viewBarHeight) minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+      "auto minmax(var(--ct-layout-viewBarHeight), auto) minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
     );
 
     const statusStrip = screen.getByTestId(

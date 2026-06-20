@@ -11,7 +11,7 @@ import {
   savedViewStatusTestId,
   savedViewUpdateButtonTestId,
 } from "@cartulary/ui-contracts";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   canMutateSavedView,
   type SavedViewResource,
@@ -20,6 +20,7 @@ import type { WorkbookSheetRef } from "../models/workbookStartup";
 
 export function ActiveSurfaceSavedViewSelector({
   activeViewSchemaId,
+  afterActions,
   currentIncidentRole,
   currentUserId,
   savedViews,
@@ -34,6 +35,7 @@ export function ActiveSurfaceSavedViewSelector({
   onUpdateSavedView,
 }: {
   readonly activeViewSchemaId: string;
+  readonly afterActions?: ReactNode | undefined;
   readonly currentIncidentRole: string | null;
   readonly currentUserId: string | null;
   readonly savedViews: readonly SavedViewResource[];
@@ -277,6 +279,9 @@ export function ActiveSurfaceSavedViewSelector({
           Default
         </button>
       </div>
+      {afterActions === undefined || afterActions === null ? null : (
+        <div style={savedViewAfterActionsStyle}>{afterActions}</div>
+      )}
       <span
         aria-live="polite"
         data-testid={savedViewStatusTestId(activeViewSchemaId)}
@@ -334,7 +339,7 @@ const savedViewControlGroupStyle = {
   alignItems: "center",
   flexWrap: "wrap" as const,
   gap: "0.4rem",
-  flex: "0 0 auto",
+  flex: "1 1 auto",
   minWidth: 0,
 };
 
@@ -353,6 +358,13 @@ const savedViewActionGroupStyle = {
   flexWrap: "nowrap" as const,
   gap: "0.4rem",
   whiteSpace: "nowrap" as const,
+  minWidth: 0,
+};
+
+const savedViewAfterActionsStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  flex: "1 1 34rem",
   minWidth: 0,
 };
 

@@ -10,6 +10,7 @@ import {
   gridFilterApplyTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
+  gridGroupingSelectTestId,
   gridSavedRowsSelector,
   gridShellTestId,
   incidentControlsCloseButtonTestId,
@@ -35,6 +36,7 @@ import {
   systemViewSwitcherGroupTestId,
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
+  workbookAddRowButtonTestId,
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
   workbookShellSlotTestId,
@@ -708,6 +710,48 @@ describe("WorkbookShell surface selection", () => {
     expect(
       topBar?.querySelector("[data-workbook-query-surface-title='true']"),
     ).toBeNull();
+    expect(
+      topBar?.querySelector(
+        dataTestIdSelector(gridFilterFieldTestId(timelineViewSchemaId)),
+      ),
+    ).toBeNull();
+
+    const viewBar = await screen.findByTestId(
+      workbookShellSlotTestId("view-bar"),
+    );
+    expect(viewBar).toBeInstanceOf(HTMLElement);
+    expect(
+      viewBar.querySelector(
+        dataTestIdSelector(gridFilterFieldTestId(timelineViewSchemaId)),
+      ),
+    ).toBeInstanceOf(HTMLElement);
+    const defaultButton = screen.getByTestId(
+      savedViewSetDefaultButtonTestId(timelineViewSchemaId),
+    );
+    const filterField = screen.getByTestId(
+      gridFilterFieldTestId(timelineViewSchemaId),
+    );
+    const groupingSelect = screen.getByTestId(
+      gridGroupingSelectTestId(timelineViewSchemaId),
+    );
+    const inspectorButton = screen.getByTestId(
+      workbookInspectorToggleTestId(timelineViewSchemaId),
+    );
+    const addRowButton = screen.getByTestId(
+      workbookAddRowButtonTestId(timelineViewSchemaId),
+    );
+    expect(defaultButton.compareDocumentPosition(filterField)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(defaultButton.compareDocumentPosition(groupingSelect)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(filterField.compareDocumentPosition(inspectorButton)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(filterField.compareDocumentPosition(addRowButton)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
 
     const builtInTabIds = screen
       .getAllByRole("button")
@@ -808,6 +852,11 @@ describe("WorkbookShell surface selection", () => {
     expect(
       topBar?.querySelector("[data-workbook-query-surface-title='true']"),
     ).toBeNull();
+    expect(
+      topBar?.querySelector(
+        dataTestIdSelector(gridFilterFieldTestId(evidenceViewSchemaId)),
+      ),
+    ).toBeNull();
 
     fireEvent.click(screen.getByTestId(systemViewSwitcherTriggerTestId()));
     fireEvent.click(
@@ -836,8 +885,10 @@ describe("WorkbookShell surface selection", () => {
       );
     });
     expect(
-      topBar?.querySelector("[data-workbook-query-surface-title='true']")
-        ?.textContent,
+      topBar?.querySelector("[data-workbook-query-surface-title='true']"),
+    ).toBeNull();
+    expect(
+      screen.getByTestId(systemViewSwitcherTriggerTestId()).textContent,
     ).toContain("Indicators");
 
     fireEvent.click(screen.getByTestId(systemViewSwitcherTriggerTestId()));

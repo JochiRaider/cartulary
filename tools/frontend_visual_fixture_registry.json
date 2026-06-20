@@ -14,7 +14,7 @@
         "FE-V-P2-01",
         "FE-V-P9-01"
       ],
-      "playwright_scenario_title": "FE-V-P2-01 Capture Default Timeline workbook shell with top bar, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.",
+      "playwright_scenario_title": "FE-V-P2-01 Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-timeline-workbook-shell-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/fe-v-p2-01-default-timeline-workbook-shell-linux.png",

@@ -508,11 +508,11 @@
         }
       ],
       "scenario_titles": [
-        "FE-V-P2-01 Capture Default Timeline workbook shell with top bar, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip."
+        "FE-V-P2-01 Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip."
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Capture Default Timeline workbook shell with top bar, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.",
+        "statement": "Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },

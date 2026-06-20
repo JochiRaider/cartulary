@@ -494,10 +494,10 @@ Design contract. Every icon rendered for a registered meaning MUST use one seman
 | `surface_switcher` | Top bar | `label_required` | `Surfaces` | Text `Surfaces` | Icon omission conformant when label remains. | `D-VFIX-001`, `D-VFIX-010` |
 | `system_views` | Top bar | `label_required` | `System views` | Text `System views` | Icon omission conformant when label remains. | `D-VFIX-001`, `D-VFIX-010` |
 | `saved_view` | View bar | `label_optional` | `Saved view` | Text `View` | Icon omission conformant. | `D-VFIX-001` |
-| `sort` | Top bar | `label_optional` | `Sort` | Text `Sort` | Icon omission conformant. | `D-VFIX-001` |
-| `group` | Top bar | `label_optional` | `Group` | Text `Group` | Icon omission conformant. | `D-VFIX-001` |
-| `filter` | Top bar | `label_optional` | `Filter` | Text `Filter` | Icon omission conformant. | `D-VFIX-001` |
-| `filter_overflow` | Top bar | `label_required` | `Filters, <N> hidden` | Text `Filters` | Icon omission conformant when label and hidden count remain. | `D-VFIX-010`, `D-VFIX-011` |
+| `sort` | View bar | `label_optional` | `Sort` | Text `Sort` | Icon omission conformant. | `D-VFIX-001` |
+| `group` | View bar | `label_optional` | `Group` | Text `Group` | Icon omission conformant. | `D-VFIX-001` |
+| `filter` | View bar | `label_optional` | `Filter` | Text `Filter` | Icon omission conformant. | `D-VFIX-001` |
+| `filter_overflow` | View bar | `label_required` | `Filters, <N> hidden` | Text `Filters` | Icon omission conformant when label and hidden count remain. | `D-VFIX-010`, `D-VFIX-011` |
 | `inspector_open` | Grid or row action | `label_optional` | `Open inspector` | Text `Inspect` | Icon omission conformant. | `D-VFIX-001` |
 | `inspector_close` | Inspector | `label_required` | `Close inspector` | Text `Close inspector` | Icon omission conformant when label remains. | `D-VFIX-002` |
 | `inspector_pin` | Inspector | `label_required` | `Pin inspector` | Text `Pin inspector` | Icon omission conformant when label remains. | `D-VFIX-002` |
@@ -720,8 +720,8 @@ Design contract. The application shell MUST contain the regions in the table bel
 
 | Region | Required contents | Boundary |
 | --- | --- | --- |
-| Top bar | Incident identity, built-in tabs or `Surfaces`, active-surface title when not already represented by a selected built-in tab, sort, group, filter controls, active chips or overflow controls, `System views`, presence summary when assigned by §7.5, and the upper-right account/application menu. | Persistent chrome, not a dashboard. |
-| View bar | Saved-view selector, saved-view actions, inspector opener, and add-row control when allowed. | Belongs to active surface only. |
+| Top bar | Incident identity, built-in tabs or `Surfaces`, active-surface title when not already represented by a selected built-in tab, `System views`, presence summary when assigned by §7.5, and the upper-right account/application menu. | Persistent chrome, not a dashboard. |
+| View bar | Saved-view selector, saved-view actions, sort, group, filter controls, active chips or overflow controls, inspector opener, and add-row control when allowed. | Belongs to active surface only. |
 | Grid | Active workbook surface with `record_id`-bound rows and `field_key`-bound cells. | Primary work surface. |
 | Inspector | Details, Relationships, Evidence, History, destructive and specialized row actions. | Conditional adjacent or overlay secondary surface opened through explicit controls. |
 | Status strip | Save state, secondary same-surface message, presence summary or overflow when assigned by §7.5. | Capacity-limited working-state strip. |
@@ -807,9 +807,9 @@ Design contract. Each viewport band MUST render according to this table.
 
 | Viewport band | Width and height condition | Top bar | View bar | Grid | Inspector | Status strip | Design conformance |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `base` | Selected by algorithm above. | Incident identity, built-in primary tabs, active-surface query controls, `System views`, current surface title, presence summary. | Saved-view and row-action controls. | Primary and visible while inspector is open. | Adjacent right panel. | Visible primary save label and secondary message. | Claimed. |
-| `narrow_desktop` | Selected by algorithm above. | Incident identity, `Surfaces`, active-surface query controls, `System views`, current surface title, presence summary. | Saved-view and row-action controls. | Primary; visible when overlays are closed. | Full-height right overlay; grid inert behind overlay. | Visible primary save label and secondary message. | Claimed. |
-| `compact_desktop` | Selected by algorithm above. | Incident identity, `Surfaces`, `System views`, current surface title, active-surface controls with chips in `Filters` popover. | Saved-view and row-action controls remain reachable. | Primary when overlays are closed. | Full-screen or full-height overlay; grid inert behind overlay. | Visible primary save label; presence summary assigned here. | Claimed. |
+| `base` | Selected by algorithm above. | Incident identity, built-in primary tabs, `System views`, current surface title, presence summary. | Saved-view, active-surface query, and row-action controls. | Primary and visible while inspector is open. | Adjacent right panel. | Visible primary save label and secondary message. | Claimed. |
+| `narrow_desktop` | Selected by algorithm above. | Incident identity, `Surfaces`, `System views`, current surface title, presence summary. | Saved-view, active-surface query, and row-action controls. | Primary; visible when overlays are closed. | Full-height right overlay; grid inert behind overlay. | Visible primary save label and secondary message. | Claimed. |
+| `compact_desktop` | Selected by algorithm above. | Incident identity, `Surfaces`, `System views`, current surface title. | Saved-view and row-action controls remain reachable; active-surface controls use `Filters` popover when capacity requires. | Primary when overlays are closed. | Full-screen or full-height overlay; grid inert behind overlay. | Visible primary save label; presence summary assigned here. | Claimed. |
 | `below_supported_minimum` | Selected by algorithm above. | Safe navigation and session controls remain reachable. | Not required except safe save/conflict path. | Degraded; horizontal scroll or supported-viewport message permitted. | Not required. | Primary save label MUST remain visible when unsaved work exists. | Not claimed. |
 
 Design contract. Responsive overlay modes MUST preserve the same shell-owned work-area block bounds as adjacent inspector mode. Overlay placement MAY change with the viewport band, but it MUST NOT move save-state out of the status strip, make inspector height depend on grid rows, or push the shell into document-level vertical scrolling.
@@ -828,10 +828,10 @@ Design contract. Responsive overflow MUST use the region assignment table below.
 | Current surface title | Top bar when not already represented by a selected built-in tab | Top bar when not already represented by a selected built-in tab | Top bar when not already represented by a selected built-in tab | Top bar if active surface is shown |
 | Presence summary | Top bar | Top bar | Status strip | Status strip only if space remains after save label |
 | Saved-view selector | View bar | View bar | View bar | Not required |
-| Sort control | Top bar | Top bar | Top bar | Not required |
-| Group control | Top bar | Top bar | Top bar | Not required |
-| Filter control | Top bar | Top bar | Top bar as `Filters` popover | Not required |
-| Active group/sort/filter chips | Top bar in one row, then `Filters` overflow if capacity exceeded | Top bar in at most two rows, then `Filters` overflow | Always inside `Filters` popover | Not required |
+| Sort control | View bar after saved-view actions | View bar after saved-view actions | View bar after saved-view actions | Not required |
+| Group control | View bar after saved-view actions | View bar after saved-view actions | View bar after saved-view actions | Not required |
+| Filter control | View bar after saved-view actions | View bar after saved-view actions | View bar as `Filters` popover after saved-view actions | Not required |
+| Active group/sort/filter chips | View bar in one row, then `Filters` overflow if capacity exceeded | View bar in at most two rows, then `Filters` overflow | Always inside `Filters` popover | Not required |
 | Account/application menu | Upper-right top bar | Upper-right top bar | Upper-right top bar | Safe navigation location |
 | Primary save label | Status strip | Status strip | Status strip | Status strip when unsaved work exists |
 | Secondary status message | Status strip | Status strip with truncation rule | Accessible-only summary after primary label | Not required |
@@ -863,7 +863,7 @@ place_active_chips(band, chips):
 
 Design contract. Secondary status-message truncation MUST preserve the full accessible text. Visible truncation uses the first 40 Unicode scalar values followed by `…` in `narrow_desktop`; visible truncation uses the first 24 Unicode scalar values followed by `…` in `compact_desktop` only when a visible secondary summary is rendered. If no secondary message exists, no empty announcement is emitted.
 
-## 8. Grid, top-bar query controls, view bar, and workbook interaction
+## 8. Grid, view-bar query controls, and workbook interaction
 
 ### 8.1 Grid identity and addressing
 
@@ -889,9 +889,9 @@ Design contract. Cell and row visual state selection MUST use the precedence tab
 
 Design contract. `invalidate_or_refresh_required` is row-block state, not a cell-state priority. When it applies, the row or block MUST show a stale marker and MUST trigger refresh through owner behavior rather than inventing a design-local read path.
 
-### 8.3 Top-bar query and view-bar controls
+### 8.3 View-bar query and saved-view controls
 
-Design contract. Sort, filter, and group controls live in the Top bar and apply to the active surface only. Saved-view controls live in the View bar and apply to the active surface only. The active surface title is omitted from the query rail when the selected built-in tab already provides the same visible title.
+Design contract. Sort, filter, and group controls live in the View bar immediately after saved-view actions and apply to the active surface only. Saved-view controls live in the View bar and apply to the active surface only. The active surface title is omitted from the query controls when the selected built-in tab or system-view switcher already provides the same visible title.
 
 | Control | Default state | Active state | Invalid state | Clear behavior | Ordering |
 | --- | --- | --- | --- | --- | ---: |
@@ -1496,7 +1496,7 @@ Design contract. The visual fixture registry is closed to the rows below for thi
 
 | Fixture ID | Required state | Viewport | Zoom | Density | Theme | Scroll normalization | Dynamic masks | Crop rule | Pass condition |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `D-VFIX-001` | Default Timeline workbook shell with top-bar query controls, compact view bar, compact Timeline grid, row gutter, header affordances, selected row, focused Summary cell, row-context inspector, status strip, Core 01 default Timeline fields, and no admin-card dominance above the active grid. | `1440x900 CSS px` | `{layout.zoomDefault}` | `compact` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | All shell regions visible in the first viewport, admin/control content absent unless explicitly opened, and token pairs pass §14.3. |
+| `D-VFIX-001` | Default Timeline workbook shell with view-bar query controls after saved-view actions, compact view bar, compact Timeline grid, row gutter, header affordances, selected row, focused Summary cell, row-context inspector, status strip, Core 01 default Timeline fields, and no admin-card dominance above the active grid. | `1440x900 CSS px` | `{layout.zoomDefault}` | `compact` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | All shell regions visible in the first viewport, admin/control content absent unless explicitly opened, and token pairs pass §14.3. |
 | `D-VFIX-002` | Inspector open adjacent at base viewport. | `{layout.baseViewport}` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_001:timeline.summary` | Actor names, timestamps, IDs. | `full_viewport` | Grid remains visible; inspector sections in required order. |
 | `D-VFIX-003` | Same-field conflict cell and resolver. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_conflict:timeline.summary` | Actor names, timestamps, IDs. | `selector:[data-design-fixture='conflict']` | Conflict marker, local draft, saved value, and actions visible. |
 | `D-VFIX-004` | Unresolved, resolved, auto-resolved, and dismissed chips. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `row:rec_timeline_mentions` | Actor names, IDs. | `selector:[data-design-fixture='chips']` | Four chip states have distinct non-color cues. |
@@ -1643,7 +1643,7 @@ Design contract. This `design.md` is ready to guide design implementation only w
 | `D-AC-032` | §9.1 and §9.2 | Algorithm test | Chip-state selection is deterministic and rejects omitted, null, and invalid inputs according to schema. | Unhandled chip input or silent coercion. |
 | `D-AC-033` | §11.2 | Evidence matrix test | Evidence UI validity classifies every lifecycle × overlay × preview combination. | Any combination unclassified or silently coerced. |
 | `D-AC-034` | §10.2 and §10.3 | Presence algorithm test | Presence ordering and overflow are deterministic for equal timestamps and duplicate users. | Ordering depends on array order or map iteration. |
-| `D-AC-035` | §8.3 | Shell-control test | Top-bar query control order, chip order, and saved-view dirty state are deterministic. | Control ordering or dirty state differs across implementations. |
+| `D-AC-035` | §8.3 | Shell-control test | View-bar query control order, chip order, and saved-view dirty state are deterministic. | Control ordering or dirty state differs across implementations. |
 | `D-AC-036` | §8.5 | Keyboard test | `Esc` behavior follows the priority ladder and closes one layer only. | `Esc` closes multiple layers or wrong layer. |
 | `D-AC-037` | §8.5 | Focus test | Focus restoration follows the fallback ladder when the invoking element no longer exists. | Focus lost or restored to an undefined target. |
 | `D-AC-038` | §8.6 | Grid keyboard test | Grid keyboard behavior is defined for every key chord in every declared mode. | Key chord delegates to unspecified adapter behavior. |
@@ -1679,7 +1679,7 @@ Design contract. This `design.md` is ready to guide design implementation only w
 | `D-AC-061` | §15.1 | Visual fixture metadata | Dynamic fixture data is seeded or masked. | Actor names, timestamps, IDs, cursor positions, or local browser defaults are unmasked. |
 | `D-AC-062` | §15.1 | Evidence-class audit | Fixture evidence is classified as design evidence, not claim-bearing benchmark evidence. | Fixture evidence is represented as Core 05 claim evidence without Core 05 compliance. |
 | `D-AC-063` | §15.2 | Visual fixture registry | Every fixture row has exact viewport dimensions, not band-only declarations. | Fixture viewport is open-ended. |
-| `D-AC-064` | §7.1 and §15.2 | Visual fixture review | `D-VFIX-001` captures the fixed first viewport for the default Timeline workbook shell with top-bar query controls, compact view bar, compact grid, row gutter, header affordances, selected row, focused Summary cell, row-context inspector, status strip, Core 01 default Timeline fields, and no admin/control card stack above the grid. | The fixture captures a dashboard/admin-card layout, uses non-Core default Timeline columns, or lacks a required workbook shell region. |
+| `D-AC-064` | §7.1 and §15.2 | Visual fixture review | `D-VFIX-001` captures the fixed first viewport for the default Timeline workbook shell with view-bar query controls after saved-view actions, compact view bar, compact grid, row gutter, header affordances, selected row, focused Summary cell, row-context inspector, status strip, Core 01 default Timeline fields, and no admin/control card stack above the grid. | The fixture captures a dashboard/admin-card layout, uses non-Core default Timeline columns, or lacks a required workbook shell region. |
 
 ### 18.8 Boundary criteria
 

@@ -53,7 +53,7 @@ import {
   type ViewContract,
   visibleFields,
 } from "@cartulary/view-contracts";
-import { Filter, MoreHorizontal, Rows3, X } from "lucide-react";
+import { MoreHorizontal, X } from "lucide-react";
 import {
   type CSSProperties,
   type Dispatch,
@@ -87,8 +87,10 @@ import {
 import { ActiveSurfaceSavedViewSelector } from "./components/ActiveSurfaceSavedViewSelector";
 import { GenericMutationControl } from "./components/GenericMutationControl";
 import { SystemViewSwitcher } from "./components/SystemViewSwitcher";
-import { WorkbookGridControls } from "./components/WorkbookGridControls";
-import { WorkbookSheetToolbar } from "./components/WorkbookSheetToolbar";
+import {
+  WorkbookSheetToolbar,
+  WorkbookViewBarQueryControls,
+} from "./components/WorkbookSheetToolbar";
 import {
   WorkbookShellSlotRegion,
   workbookShellId,
@@ -3913,15 +3915,6 @@ export function WorkbookShell({
                 queryState: genericQueryState,
                 surface: surface as WorkbookSurface,
               };
-  const activeControlCount =
-    activeQueryControls.queryState.sort.length +
-    activeQueryControls.queryState.filters.length +
-    (activeQueryControls.queryState.groupBy === null ? 0 : 1);
-  const showActiveSurfaceTitleInQueryRail =
-    !requiredBuiltInWorkbookSurfaceIds.some((viewSchemaId) => {
-      return viewSchemaId === surface;
-    });
-
   const deferControlsFocus = useCallback(
     (resolveTarget: () => HTMLElement | null) => {
       window.setTimeout(() => {
@@ -3968,6 +3961,19 @@ export function WorkbookShell({
   const activeSavedViewSelector = (
     <ActiveSurfaceSavedViewSelector
       activeViewSchemaId={surface}
+      afterActions={
+        <WorkbookViewBarQueryControls
+          contract={activeQueryControls.contract}
+          filterDraft={activeQueryControls.filterDraft}
+          onApplyFilter={activeQueryControls.onApplyFilter}
+          onClearAll={activeQueryControls.onClearAll}
+          onFilterDraftChange={activeQueryControls.onFilterDraftChange}
+          onGroupByChange={activeQueryControls.onGroupByChange}
+          onRemoveFilter={activeQueryControls.onRemoveFilter}
+          queryState={activeQueryControls.queryState}
+          surface={activeQueryControls.surface}
+        />
+      }
       currentIncidentRole={currentIncidentRole}
       currentUserId={currentUserId}
       onCreateSavedView={createSavedView}
@@ -4042,32 +4048,6 @@ export function WorkbookShell({
                 focusFirstGridTarget: true,
               });
             }}
-          />
-        </div>
-        <div style={shellTopBarQueryStyle}>
-          {showActiveSurfaceTitleInQueryRail ? (
-            <span
-              data-workbook-query-surface-title="true"
-              style={shellTopBarQueryStatusStyle}
-            >
-              <Rows3 aria-hidden="true" size={16} />
-              {activeQueryControls.contract.title}
-            </span>
-          ) : null}
-          <span style={shellTopBarQueryStatusStyle}>
-            <Filter aria-hidden="true" size={16} />
-            {activeControlCount}
-          </span>
-          <WorkbookGridControls
-            contract={activeQueryControls.contract}
-            filterDraft={activeQueryControls.filterDraft}
-            onApplyFilter={activeQueryControls.onApplyFilter}
-            onClearAll={activeQueryControls.onClearAll}
-            onFilterDraftChange={activeQueryControls.onFilterDraftChange}
-            onGroupByChange={activeQueryControls.onGroupByChange}
-            onRemoveFilter={activeQueryControls.onRemoveFilter}
-            queryState={activeQueryControls.queryState}
-            surface={activeQueryControls.surface}
           />
         </div>
         <div style={shellTopBarActionsStyle}>
@@ -4357,26 +4337,6 @@ const shellTopBarValueStyle = {
   color: "var(--ct-colors-ink)",
   overflow: "hidden",
   textOverflow: "ellipsis",
-  whiteSpace: "nowrap" as const,
-};
-
-const shellTopBarQueryStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  flex: "1 1 36rem",
-  gap: "0.45rem",
-  minWidth: "min(36rem, 100%)",
-  order: 3,
-};
-
-const shellTopBarQueryStatusStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "0.3rem",
-  flex: "0 0 auto",
-  color: "var(--ct-colors-ink-muted)",
-  fontSize: "0.82rem",
   whiteSpace: "nowrap" as const,
 };
 
@@ -4745,6 +4705,7 @@ const surfaceTabActiveStyle = {
 const systemViewSlotStyle = {
   flex: "0 0 11rem",
   minWidth: "10rem",
+  marginInlineStart: "auto",
   order: 4,
 };
 
