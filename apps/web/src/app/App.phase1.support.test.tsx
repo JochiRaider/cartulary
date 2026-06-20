@@ -106,8 +106,9 @@ describe("Phase 1 ordinary shell support", () => {
     expect(screen.getByTestId(phase1LandingTestId("status"))).toBeTruthy();
     await openAccountSecurity();
     expect(
-      screen.getByTestId(phase1AccountTestId("session-user-id")).textContent,
+      screen.getByTestId(phase1AccountTestId("logout")).textContent,
     ).not.toBe("");
+    expect(screen.queryByText("Incident memberships")).toBe(null);
     expect(screen.queryByTestId(phase1AdminTestId("access-note"))).toBe(null);
     expect(screen.getByTestId(phase1ErrorCodeTestId("landing"))).toBeTruthy();
     expect(
@@ -232,10 +233,8 @@ describe("Phase 1 ordinary shell support", () => {
     render(
       <>
         <Phase1AccountPanel
-          credentialState={credentialStateResource()}
           credentialStateError={null}
           onRefreshShell={() => undefined}
-          session={session}
         />
         <Phase1AdminPanel onRefreshShell={() => undefined} session={session} />
       </>,
@@ -243,7 +242,7 @@ describe("Phase 1 ordinary shell support", () => {
 
     for (const testId of [
       phase1AccountTestId("refresh-state"),
-      phase1AccountTestId("session-user-id"),
+      phase1AccountTestId("logout"),
       phase1AccountTestId("password-current"),
       phase1AccountTestId("password-next"),
       phase1AccountTestId("password-change"),
@@ -446,7 +445,7 @@ async function openAccountSecurity() {
   );
   fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }));
   fireEvent.click(screen.getByRole("tab", { name: "Security" }));
-  await screen.findByTestId(phase1AccountTestId("session-user-id"));
+  await screen.findByTestId(phase1AccountTestId("password-current"));
 }
 
 function installAnonymousSessionRequiredFetch(

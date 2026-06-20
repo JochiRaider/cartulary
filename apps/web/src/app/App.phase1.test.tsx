@@ -140,9 +140,10 @@ describe("Phase 1 ordinary app shell", () => {
         .getAttribute("data-bootstrap-state"),
     ).toBe("authenticated");
     await openAccountSecurity();
-    expect(
-      screen.getByTestId(phase1AccountTestId("session-user-id")).textContent,
-    ).toBe("user-1");
+    expect(screen.getByTestId(phase1AccountTestId("logout")).textContent).toBe(
+      "Sign out",
+    );
+    expect(screen.queryByText("Incident memberships")).toBe(null);
     expect(
       screen.queryByTestId(landingAdminMenuItemTestId("deployment-users")),
     ).toBe(null);
@@ -873,9 +874,9 @@ describe("Phase 1 ordinary app shell", () => {
       screen.getByTestId(phase1ErrorSummaryTestIds("account").details)
         .textContent,
     ).toContain("Reason: csrf_token_missing");
-    expect(
-      screen.getByTestId(phase1AccountTestId("session-user-id")).textContent,
-    ).toBe("user-1");
+    expect(screen.getByTestId(phase1AccountTestId("logout")).textContent).toBe(
+      "Sign out",
+    );
     expect(screen.queryByTestId(phase1AuthTestId("login-username"))).toBeNull();
     expectPrivateErrorProbeNotRendered();
     await expectStableFetchCount(fetchMock, 8);
@@ -1933,7 +1934,7 @@ async function openAccountSecurity() {
   );
   fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }));
   fireEvent.click(screen.getByRole("tab", { name: "Security" }));
-  await screen.findByTestId(phase1AccountTestId("session-user-id"));
+  await screen.findByTestId(phase1AccountTestId("password-current"));
 }
 
 async function openDeploymentAdministration() {

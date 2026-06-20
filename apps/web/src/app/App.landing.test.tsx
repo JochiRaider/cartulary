@@ -101,12 +101,14 @@ vi.mock("./Phase2Harness", () => ({
 }));
 
 import {
+  type IncidentResource,
   incidentResource,
   installLandingShellFetch,
   sessionResource,
 } from "../testing/appShellTestSupport";
 import {
   abortablePendingResponse,
+  deferred,
   expectStableFetchCount,
   findFetchCalls,
   findFetchCallsByPath,
@@ -215,6 +217,8 @@ describe("Incident landing", () => {
     expect(
       await screen.findByTestId(phase1LandingTestId("empty-state")),
     ).toBeTruthy();
+    expect(screen.getByText("Visible incidents")).toBeTruthy();
+    expect(screen.queryByText("Workbook access")).toBe(null);
     const adminShell = screen.getByTestId(landingAdminShellTestId("shell"));
     expect(adminShell).toBeTruthy();
     expect((adminShell as HTMLElement).style.width).toBe("100%");
@@ -288,6 +292,9 @@ describe("Incident landing", () => {
     );
     expect(window.location.pathname).toBe("/");
     expect(window.location.search).toContain("incident_id=incident-one");
+    expect(new URLSearchParams(window.location.search).has("sheet_ref")).toBe(
+      false,
+    );
   });
 
   it("loads deployment administration as a separate route without incident-directory fetches", async () => {
@@ -529,6 +536,10 @@ describe("Incident landing", () => {
     ).toBeTruthy();
     expect(screen.getByTestId(phase1AccountTestId("logout"))).toBeTruthy();
     expect(document.body.textContent ?? "").not.toContain("MFA required");
+    expect(document.body.textContent ?? "").not.toContain(
+      "Incident memberships",
+    );
+    expect(document.body.textContent ?? "").not.toContain("Deployment admin");
 
     expect(
       screen.queryByTestId(landingAdminMenuItemTestId("reference-packs")),
@@ -664,6 +675,97 @@ describe("Incident landing", () => {
     );
   });
 
+  it("searches visible incidents through the owner-backed list query and discards stale directory responses", async () => {
+    const staleSearch = deferred<Response>();
+    const acceptedSearch = deferred<Response>();
+    const incidentRequestURLs: string[] = [];
+    const alpha = incidentResource("incident-alpha", "IR-301", "Alpha Case");
+    const beta = incidentResource("incident-beta", "IR-302", "Beta Case");
+    const malware = incidentResource(
+      "incident-malware",
+      "IR-303",
+      "Malware investigation",
+      {
+        current_phase: "containment",
+        primary_external_case_ref: "CASE-303",
+        severity: "high",
+        tlp: "TLP:AMBER",
+      },
+    );
+    const phish = incidentResource(
+      "incident-phish",
+      "IR-304",
+      "Phishing investigation",
+    );
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Operator",
+      }),
+      incidents: ({ query, url }) => {
+        incidentRequestURLs.push(url);
+        const search = query.get("search") ?? "";
+        if (search === "phish") {
+          return staleSearch.promise;
+        }
+        if (search === "malware") {
+          return acceptedSearch.promise;
+        }
+        return [alpha, beta];
+      },
+    });
+
+    renderApp();
+
+    await screen.findByTestId(landingIncidentCardTestId("incident-alpha"));
+    const search = screen.getByTestId(phase1LandingTestId("search"));
+    fireEvent.change(search, { target: { value: "phish" } });
+    fireEvent.keyDown(search, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(
+        incidentRequestURLs.some((url) => url.includes("search=phish")),
+      ).toBe(true);
+    });
+    expect(
+      screen.getByTestId(landingIncidentCardTestId("incident-alpha")),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(phase1LandingTestId("loading")).textContent,
+    ).toContain("Searching visible incidents");
+
+    fireEvent.change(search, { target: { value: "malware" } });
+    fireEvent.keyDown(search, { key: "Enter" });
+    await waitFor(() => {
+      expect(
+        incidentRequestURLs.some((url) => url.includes("search=malware")),
+      ).toBe(true);
+    });
+    acceptedSearch.resolve(incidentListResponse([malware]));
+
+    expect(
+      await screen.findByTestId(landingIncidentCardTestId("incident-malware")),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId(landingIncidentCardTestId("incident-phish")),
+    ).toBe(null);
+
+    staleSearch.resolve(incidentListResponse([phish]));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(
+      screen.queryByTestId(landingIncidentCardTestId("incident-phish")),
+    ).toBe(null);
+    for (const [input] of findFetchCallsByPath(
+      fetchMock,
+      "/api/v1/incidents",
+      "GET",
+    )) {
+      const params = new URL(String(input), "http://cartulary.test")
+        .searchParams;
+      expect(params.has("group_by")).toBe(false);
+    }
+  });
+
   it("loads additional visible incident rows from the server cursor", async () => {
     const visibleIncidents = Array.from({ length: 101 }, (_value, index) =>
       incidentResource(
@@ -699,6 +801,166 @@ describe("Incident landing", () => {
     expect(
       screen.getByTestId(phase1LandingTestId("incidents-count")).textContent,
     ).toBe("101 loaded");
+  });
+
+  it("loads more incidents against the accepted search and status scope", async () => {
+    const closedIncidents = Array.from({ length: 101 }, (_value, index) =>
+      incidentResource(
+        `incident-closed-${index + 1}`,
+        `IR-C-${String(index + 1).padStart(3, "0")}`,
+        `Closed Incident ${index + 1}`,
+        { status: "closed" },
+      ),
+    );
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Operator",
+      }),
+      incidents: [
+        incidentResource("incident-active-1", "IR-A-001", "Active Incident"),
+        ...closedIncidents,
+      ],
+    });
+
+    renderApp();
+
+    await screen.findByTestId(landingIncidentCardTestId("incident-active-1"));
+    const search = screen.getByTestId(phase1LandingTestId("search"));
+    fireEvent.change(search, { target: { value: "Closed" } });
+    fireEvent.change(screen.getByTestId(phase1LandingTestId("status-filter")), {
+      target: { value: "closed" },
+    });
+    fireEvent.keyDown(search, { key: "Enter" });
+
+    await screen.findByTestId(landingIncidentCardTestId("incident-closed-100"));
+    expect(
+      screen.queryByTestId(landingIncidentCardTestId("incident-active-1")),
+    ).toBe(null);
+
+    fireEvent.change(search, { target: { value: "Draft" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load more incidents" }),
+    );
+
+    expect(
+      await screen.findByTestId(
+        landingIncidentCardTestId("incident-closed-101"),
+      ),
+    ).toBeTruthy();
+    const cursorRequest = findFetchCallsByPath(
+      fetchMock,
+      "/api/v1/incidents",
+      "GET",
+    ).find(([input]) =>
+      new URL(String(input), "http://cartulary.test").searchParams.has(
+        "cursor_token",
+      ),
+    );
+    expect(cursorRequest).toBeTruthy();
+    const cursorParams = new URL(
+      String(cursorRequest?.[0] ?? ""),
+      "http://cartulary.test",
+    ).searchParams;
+    expect(cursorParams.get("search")).toBe("Closed");
+    expect(cursorParams.get("status")).toBe("closed");
+    expect(cursorParams.has("group_by")).toBe(false);
+  });
+
+  it("sends only declared optional metadata when creating an incident from the directory", async () => {
+    let createBody: Record<string, unknown> | null = null;
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Operator",
+        memberships: [
+          {
+            incident_id: "incident-created",
+            role: "admin",
+          },
+        ],
+      }),
+      onCreateIncident: ({ init }) => {
+        createBody = JSON.parse(String(init?.body ?? "{}")) as Record<
+          string,
+          unknown
+        >;
+        return incidentResource(
+          "incident-created",
+          "IR-401",
+          "Created with metadata",
+          {
+            current_phase: "triage",
+            description: "Initial notes",
+            primary_external_case_ref: "CASE-401",
+            severity: "high",
+            tlp: "TLP:AMBER",
+          },
+        );
+      },
+    });
+
+    renderApp();
+
+    await screen.findByTestId(phase1LandingTestId("empty-state"));
+    fireEvent.click(screen.getByTestId(phase1LandingTestId("create-button")));
+    fireEvent.change(screen.getByTestId(phase1LandingTestId("incident-key")), {
+      target: { value: "IR-401" },
+    });
+    fireEvent.change(
+      screen.getByTestId(phase1LandingTestId("incident-title")),
+      {
+        target: { value: "Created with metadata" },
+      },
+    );
+    fireEvent.click(screen.getByText("More details"));
+    fireEvent.change(
+      screen.getByTestId(phase1LandingTestId("create-description")),
+      {
+        target: { value: "Initial notes" },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(phase1LandingTestId("create-severity")),
+      {
+        target: { value: "high" },
+      },
+    );
+    fireEvent.change(screen.getByTestId(phase1LandingTestId("create-tlp")), {
+      target: { value: "TLP:AMBER" },
+    });
+    fireEvent.change(
+      screen.getByTestId(phase1LandingTestId("create-current-phase")),
+      {
+        target: { value: "triage" },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(phase1LandingTestId("create-external-case")),
+      {
+        target: { value: "CASE-401" },
+      },
+    );
+    fireEvent.click(screen.getByTestId(phase1LandingTestId("create-button")));
+
+    expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
+    expect(createBody).toEqual({
+      client_txn_id: expect.any(String),
+      current_phase: "triage",
+      description: "Initial notes",
+      incident_key: "IR-401",
+      primary_external_case_ref: "CASE-401",
+      severity: "high",
+      title: "Created with metadata",
+      tlp: "TLP:AMBER",
+    });
+    for (const forbidden of [
+      "default_workbook_preferences",
+      "home_sheet_ref",
+      "initial_memberships",
+      "policy_defaults",
+      "saved_views",
+    ]) {
+      expect(createBody).not.toHaveProperty(forbidden);
+    }
   });
 
   it("Phase 2 U-2-11 ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible", async () => {
@@ -934,6 +1196,19 @@ describe("Incident landing", () => {
 
 function renderApp() {
   return render(<AppRoot />);
+}
+
+function incidentListResponse(incidents: IncidentResource[]) {
+  return jsonResponse({
+    data: { incidents },
+    meta: {
+      paging: {
+        has_more: false,
+        limit: 100,
+        next_cursor: null,
+      },
+    },
+  });
 }
 
 async function openDeploymentAdministration() {

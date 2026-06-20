@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -153,19 +154,61 @@ func (s *Store) ListVisibleIncidents(ctx context.Context, userID uuid.UUID, page
 	if page.Limit < 1 {
 		page.Limit = 1
 	}
+	if len(page.SearchTokens) > 0 {
+		return s.listVisibleIncidentsWithSearch(ctx, userID, page)
+	}
+	return s.listVisibleIncidentCandidates(ctx, userID, page, page.After, page.Limit)
+}
+
+func (s *Store) listVisibleIncidentsWithSearch(ctx context.Context, userID uuid.UUID, page IncidentListPageRequest) ([]IncidentRecord, error) {
+	records := make([]IncidentRecord, 0, page.Limit)
+	after := page.After
+	candidateLimit := page.Limit
+	if candidateLimit < 100 {
+		candidateLimit = 100
+	}
+	for {
+		candidates, err := s.listVisibleIncidentCandidates(ctx, userID, page, after, candidateLimit)
+		if err != nil {
+			return nil, err
+		}
+		if len(candidates) == 0 {
+			return records, nil
+		}
+		for _, candidate := range candidates {
+			if !listquery.MatchSearchTokens(page.SearchTokens,
+				candidate.IncidentKey,
+				candidate.Title,
+				optionalStringValue(candidate.Severity),
+				optionalStringValue(candidate.TLP),
+				optionalStringValue(candidate.CurrentPhase),
+				optionalStringValue(candidate.PrimaryExternalCaseRef),
+			) {
+				continue
+			}
+			records = append(records, candidate)
+			if len(records) >= page.Limit {
+				return records, nil
+			}
+		}
+		if len(candidates) < candidateLimit {
+			return records, nil
+		}
+		last := candidates[len(candidates)-1]
+		after = &IncidentListPosition{UpdatedAt: last.UpdatedAt, ID: last.ID}
+	}
+}
+
+func (s *Store) listVisibleIncidentCandidates(ctx context.Context, userID uuid.UUID, page IncidentListPageRequest, after *IncidentListPosition, limit int) ([]IncidentRecord, error) {
 	var anchorUpdatedAt any
 	if page.AnchorUpdatedAt != nil {
 		anchorUpdatedAt = page.AnchorUpdatedAt.UTC()
 	}
 	var afterUpdatedAt any
 	var afterID any
-	if page.After != nil {
-		afterUpdatedAt = page.After.UpdatedAt.UTC()
-		afterID = page.After.ID
-	}
-	var searchTokens any
-	if len(page.SearchTokens) > 0 {
-		searchTokens = page.SearchTokens
+	if after != nil {
+		afterUpdatedAt = after.UpdatedAt.UTC()
+		afterID = after.ID
 	}
 	var status any
 	if page.Status != nil {
@@ -181,23 +224,9 @@ SELECT i.id, i.incident_key, i.title, i.description, i.status, i.severity, i.tlp
    AND ($2::timestamptz IS NULL OR i.updated_at <= $2)
    AND ($3::timestamptz IS NULL OR $4::uuid IS NULL OR i.updated_at < $3 OR (i.updated_at = $3 AND i.id > $4))
    AND ($6::text IS NULL OR i.status = $6)
-   AND (
-       $7::text[] IS NULL OR NOT EXISTS (
-           SELECT 1
-             FROM unnest($7::text[]) AS search_token(value)
-            WHERE NOT (
-                lower(i.incident_key) LIKE search_token.value || '%' OR
-                lower(i.title) LIKE search_token.value || '%' OR
-                lower(coalesce(i.severity, '')) LIKE search_token.value || '%' OR
-                lower(coalesce(i.tlp, '')) LIKE search_token.value || '%' OR
-                lower(coalesce(i.current_phase, '')) LIKE search_token.value || '%' OR
-                lower(coalesce(i.primary_external_case_ref, '')) LIKE search_token.value || '%'
-            )
-       )
-   )
  ORDER BY i.updated_at DESC, i.id ASC
  LIMIT $5
-`, userID, anchorUpdatedAt, afterUpdatedAt, afterID, page.Limit, status, searchTokens)
+`, userID, anchorUpdatedAt, afterUpdatedAt, afterID, limit, status)
 	if err != nil {
 		return nil, fmt.Errorf("list visible incidents: %w", err)
 	}
@@ -215,6 +244,13 @@ SELECT i.id, i.incident_key, i.title, i.description, i.status, i.severity, i.tlp
 		return nil, fmt.Errorf("iterate visible incidents: %w", err)
 	}
 	return records, nil
+}
+
+func optionalStringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func (s *Store) GetVisibleIncident(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (IncidentRecord, error) {

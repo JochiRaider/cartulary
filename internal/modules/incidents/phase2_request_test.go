@@ -65,6 +65,60 @@ func TestPhase2_U_2_01_IncidentCreateAcceptsDeclaredMembersAndNormalizesIncident
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "incident_version", "server_managed_field")
 }
 
+func TestSupportPhase2_IncidentListQueryUsesCoreListQueryErrors(t *testing.T) {
+	valid, apiErr := parseIncidentListScope("search=CASE+High&status=active&limit=1")
+	if apiErr != nil {
+		t.Fatalf("parse valid incident list query: %v", apiErr)
+	}
+	if valid.Scope["search"] != "case high" || valid.Scope["status"] != "active" {
+		t.Fatalf("unexpected canonical incident list scope: %#v", valid.Scope)
+	}
+
+	cases := []struct {
+		name       string
+		query      string
+		code       string
+		reasonCode string
+	}{
+		{
+			name:       "unknown query member",
+			query:      "group_by=status",
+			code:       "invalid_list_query",
+			reasonCode: "unknown_query_member",
+		},
+		{
+			name:       "duplicate member",
+			query:      "status=active&status=closed",
+			code:       "invalid_list_query",
+			reasonCode: "duplicate_query_member",
+		},
+		{
+			name:       "invalid status",
+			query:      "status=archived",
+			code:       "invalid_list_query",
+			reasonCode: "invalid_filter_value",
+		},
+		{
+			name:       "pagination alias",
+			query:      "page=2",
+			code:       "invalid_pagination_request",
+			reasonCode: "invalid_limit",
+		},
+		{
+			name:       "invalid search",
+			query:      "search=---",
+			code:       "invalid_list_query",
+			reasonCode: "invalid_search",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, apiErr := parseIncidentListScope(tc.query)
+			requireAPIError(t, apiErr, http.StatusBadRequest, tc.code, "", tc.reasonCode)
+		})
+	}
+}
+
 func TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable(t *testing.T) {
 	request, apiErr := DecodeIncidentPatchRequest(strings.NewReader(`{
 		"base_incident_version":7,

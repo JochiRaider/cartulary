@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -94,6 +95,104 @@ func TestPhase11_U_11_REFERENCE_PACK_01_RequestValidationNormalizationAndClosedR
 	}
 	if err := referencePackVerificationFailed("checksum_mismatch"); err.Status != http.StatusConflict || err.Code != "reference_pack_verification_failed" {
 		t.Fatalf("verification error shape = %#v", err)
+	}
+}
+
+func TestSupportReferencePackListQueryUsesSharedListQueryScope(t *testing.T) {
+	valid, apiErr := parseReferencePackListScope("search=host+registry&pack_version_state=staged&verification_result=pending&active=false&limit=50")
+	if apiErr != nil {
+		t.Fatalf("parse valid reference pack query: %v", apiErr)
+	}
+	if valid.Scope["search"] != "host registry" ||
+		valid.Scope["pack_version_state"] != "staged" ||
+		valid.Scope["verification_result"] != "pending" ||
+		valid.Scope["active"] != "false" {
+		t.Fatalf("unexpected reference pack scope: %#v", valid.Scope)
+	}
+
+	cases := []struct {
+		name       string
+		query      string
+		code       string
+		reasonCode string
+	}{
+		{
+			name:       "unknown member",
+			query:      "sort=pack_key",
+			code:       "invalid_list_query",
+			reasonCode: "unknown_query_member",
+		},
+		{
+			name:       "duplicate member",
+			query:      "active=true&active=false",
+			code:       "invalid_list_query",
+			reasonCode: "duplicate_query_member",
+		},
+		{
+			name:       "invalid state",
+			query:      "pack_version_state=available",
+			code:       "invalid_list_query",
+			reasonCode: "invalid_filter_value",
+		},
+		{
+			name:       "pagination alias",
+			query:      "page_size=10",
+			code:       "invalid_pagination_request",
+			reasonCode: "invalid_limit",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, apiErr := parseReferencePackListScope(tc.query)
+			if apiErr == nil || apiErr.Code != tc.code || apiErr.Details["reason_code"] != tc.reasonCode {
+				t.Fatalf("unexpected error for %s: %#v", tc.name, apiErr)
+			}
+		})
+	}
+}
+
+func TestSupportReferencePackListFilterAppliesSearchAndExactFilters(t *testing.T) {
+	now := time.Date(2026, time.April, 20, 12, 0, 0, 0, time.UTC)
+	source := "https://offline.invalid/reference-packs/host"
+	signer := "fixture-key"
+	records := []VersionRecord{
+		{
+			PackKey:             "type-registry.host",
+			PackKind:            "type_registry",
+			PackVersion:         "2026.04",
+			StoredStatus:        StoredStatusStaged,
+			Active:              false,
+			SourceIdentifier:    &source,
+			ManifestSHA256:      "manifest-host",
+			PayloadSHA256:       "payload-host",
+			PackContractVersion: PackContractVersionV1,
+			VerificationMethod:  "signed_manifest_v1",
+			VerificationResult:  VerificationPending,
+			SignerKeyID:         &signer,
+			ImportedAt:          now,
+		},
+		{
+			PackKey:             "type_registry.domain",
+			PackKind:            "type_registry",
+			PackVersion:         "1",
+			StoredStatus:        StoredStatusAvailable,
+			Active:              true,
+			ManifestSHA256:      "manifest-domain",
+			PayloadSHA256:       "payload-domain",
+			PackContractVersion: PackContractVersionV1,
+			VerificationMethod:  "manifest_sha256_v1",
+			VerificationResult:  VerificationPassed,
+			ImportedAt:          now,
+		},
+	}
+	scope, apiErr := parseReferencePackListScope("search=type-registry.host+fixture-key+2026.04&pack_version_state=staged&verification_result=pending&active=false")
+	if apiErr != nil {
+		t.Fatalf("parse valid filter query: %v", apiErr)
+	}
+
+	filtered := filterReferencePackVersions(records, scope.Scope)
+	if len(filtered) != 1 || filtered[0].PackKey != "type-registry.host" {
+		t.Fatalf("unexpected filtered records: %#v", filtered)
 	}
 }
 

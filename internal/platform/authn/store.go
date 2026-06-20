@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -1304,10 +1305,6 @@ SELECT COUNT(*)
 }
 
 func (s *Store) ListUsers(ctx context.Context, filter UserListFilter) ([]UserRecord, error) {
-	var searchTokens any
-	if len(filter.SearchTokens) > 0 {
-		searchTokens = filter.SearchTokens
-	}
 	var isActive any
 	if filter.IsActive != nil {
 		isActive = *filter.IsActive
@@ -1322,19 +1319,8 @@ SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_re
   FROM users
  WHERE ($1::boolean IS NULL OR is_active = $1)
    AND ($2::boolean IS NULL OR is_deployment_admin = $2)
-   AND (
-       $3::text[] IS NULL OR NOT EXISTS (
-           SELECT 1
-             FROM unnest($3::text[]) AS search_token(value)
-            WHERE NOT (
-                lower(id::text) LIKE search_token.value || '%' OR
-                lower(email::text) LIKE search_token.value || '%' OR
-                lower(display_name) LIKE search_token.value || '%'
-            )
-       )
-   )
  ORDER BY id ASC
-`, isActive, isDeploymentAdmin, searchTokens)
+`, isActive, isDeploymentAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -1345,6 +1331,9 @@ SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_re
 		user, err := scanUser(rows)
 		if err != nil {
 			return nil, err
+		}
+		if !listquery.MatchSearchTokens(filter.SearchTokens, user.ID.String(), user.Email, user.DisplayName) {
+			continue
 		}
 		users = append(users, user)
 	}

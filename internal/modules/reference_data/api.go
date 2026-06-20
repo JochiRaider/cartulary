@@ -416,6 +416,17 @@ func invalidPaginationRequest(reasonCode string) *auth.APIError {
 	}
 }
 
+func invalidListQuery(reasonCode string) *auth.APIError {
+	return &auth.APIError{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_list_query",
+		Message: "invalid list query",
+		Details: map[string]any{
+			"reason_code": reasonCode,
+		},
+	}
+}
+
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError) {
 	message := apiErr.Message
 	if message == "" {

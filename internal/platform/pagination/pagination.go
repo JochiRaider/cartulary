@@ -116,6 +116,14 @@ func (c *Codec) ResolveRequest(values url.Values, route string, actorUserID stri
 	return c.ResolveQuery(query, route, actorUserID, scope, ReasonInvalidCursorToken)
 }
 
+func (c *Codec) ResolveListRequest(values url.Values, route string, actorUserID string, scope map[string]string) (Binding, *Cursor, string) {
+	query, reason := ParseQuery(values)
+	if reason != "" {
+		return Binding{}, nil, reason
+	}
+	return c.ResolveQuery(query, route, actorUserID, scope, ReasonCursorQueryMismatch)
+}
+
 func (c *Codec) ResolveViewQuery(query Query, route string, actorUserID string, scope map[string]string) (Binding, *Cursor, string) {
 	return c.ResolveQuery(query, route, actorUserID, scope, ReasonCursorQueryMismatch)
 }

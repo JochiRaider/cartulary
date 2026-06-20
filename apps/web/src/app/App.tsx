@@ -270,8 +270,7 @@ function incidentCreateOptionalBody(fields: {
 export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const [route, setRoute] = useState<RouteState>(() => readRouteState());
   const [session, setSession] = useState<SessionData | null>(null);
-  const [credentialState, setCredentialState] =
-    useState<CredentialState | null>(null);
+  const [, setCredentialState] = useState<CredentialState | null>(null);
   const [credentialError, setCredentialError] = useState<APIError | null>(null);
   const [incidents, setIncidents] = useState<IncidentData[]>([]);
   const [incidentsPaging, setIncidentsPaging] =
@@ -1158,23 +1157,15 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
             ) : null}
             {accountSettingsPanel === "account-security" ? (
               <Phase1AccountPanel
-                credentialState={credentialState}
                 credentialStateError={credentialError}
                 onRefreshShell={refreshCurrentShell}
-                session={session}
               />
             ) : null}
           </div>
         </section>
       </div>
     );
-  }, [
-    accountSettingsPanel,
-    credentialError,
-    credentialState,
-    refreshCurrentShell,
-    session,
-  ]);
+  }, [accountSettingsPanel, credentialError, refreshCurrentShell, session]);
 
   if (route.incidentId !== "" && session !== null) {
     return (

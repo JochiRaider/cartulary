@@ -750,7 +750,7 @@ export function IncidentLanding({
       <header style={surfaceHeaderStyle}>
         <div>
           <p style={sectionEyebrowStyle}>Incidents</p>
-          <h2 style={sectionTitleStyle}>Workbook access</h2>
+          <h2 style={sectionTitleStyle}>Visible incidents</h2>
         </div>
         <div style={headerActionRowStyle}>
           <p
@@ -1969,7 +1969,7 @@ const brandBlockStyle: CSSProperties = {
 const landingEyebrowStyle: CSSProperties = {
   margin: 0,
   fontSize: "0.72rem",
-  letterSpacing: "0.18em",
+  letterSpacing: 0,
   textTransform: "uppercase",
   color: "var(--ct-colors-accent)",
 };
@@ -1996,7 +1996,7 @@ const landingAdminMetaValueStyle: CSSProperties = {
 const landingToolbarLabelStyle: CSSProperties = {
   margin: 0,
   fontSize: "0.68rem",
-  letterSpacing: "0.14em",
+  letterSpacing: 0,
   textTransform: "uppercase",
   color: "var(--ct-colors-ink-subtle)",
 };

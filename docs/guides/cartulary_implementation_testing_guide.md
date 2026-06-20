@@ -215,7 +215,7 @@ Shared harness owners for this phase are explicit:
 | E-1-11 | A reviewer-visible incident edit submitted after current-role demotion fails through the public `authorization_denied` envelope, renders only the public error code, and reloads with the lower current role.                 | REQ-01-127..REQ-01-137, REQ-04-021..REQ-04-026 | AC-175..AC-180, AC-231         |
 | E-1-12 | Deployment-admin revoke-all invalidates a target browser session, the next public session refresh returns the ordinary shell to login, and fresh login preserves unchanged incident membership access.                      | REQ-01-029, REQ-01-529, REQ-04-016, REQ-04-085 | AC-131, AC-136, AC-340..AC-342 |
 
-Phase 1 list-search implementation addendum: when `GET /api/v1/users` implementation work lands, promote manifest rows for user-list search/filter validation, cursor query mismatch, deployment-admin gating, the `limit=1` later-page match fixture, and deployment-admin frontend stale-response handling. Those rows should map to REQ-01-117, REQ-01-234, REQ-01-238, REQ-01-240..REQ-01-242, REQ-01-581..REQ-01-584, REQ-04-038, AC-415, and AC-417.
+Phase 1 list-search implementation addendum: when `GET /api/v1/users` implementation work lands, promote manifest rows for user-list search/filter validation, cursor query mismatch, deployment-admin gating, identifier-shaped search such as a full hyphenated `user_id` matched through ordinary `list_search_v1` source-token prefix semantics, the `limit=1` later-page match fixture, and deployment-admin frontend stale-response handling. Those rows should map to REQ-01-117, REQ-01-234, REQ-01-238, REQ-01-240..REQ-01-242, REQ-01-581..REQ-01-584, REQ-04-038, AC-415, and AC-417.
 
 ---
 

@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
@@ -91,7 +92,12 @@ func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		binding, cursor, reason := s.cursorCodec.ResolveRequest(r.URL.Query(), "reference_packs.list", principal.User.ID.String(), nil)
+		listScope, apiErr := parseReferencePackListScope(r.URL.RawQuery)
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		binding, cursor, reason := s.cursorCodec.ResolveListRequest(listScope.Values, "reference_packs.list", principal.User.ID.String(), listScope.Scope)
 		if reason != "" {
 			writeAPIError(w, r, invalidPaginationRequest(reason))
 			return
@@ -101,6 +107,7 @@ func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
+		records = filterReferencePackVersions(records, binding.Scope)
 		resources := make([]map[string]any, 0, len(records))
 		for _, record := range records {
 			resources = append(resources, record.Resource())
@@ -137,6 +144,63 @@ func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+}
+
+func parseReferencePackListScope(rawQuery string) (listquery.Result, *auth.APIError) {
+	result, queryErr := listquery.Parse(rawQuery, listquery.Config{
+		Search: true,
+		ExactFilters: map[string]listquery.ExactFilter{
+			"pack_version_state":  {Allowed: []string{ConditionStaged, ConditionVerifiedAvailable, ConditionDisabled, ConditionFailed, ConditionMissing}},
+			"verification_result": {Allowed: []string{VerificationPending, VerificationPassed, VerificationFailed}},
+			"active":              {Allowed: []string{"true", "false"}},
+		},
+	})
+	if queryErr == nil {
+		return result, nil
+	}
+	if queryErr.Kind == listquery.ErrorKindPagination {
+		return listquery.Result{}, invalidPaginationRequest(queryErr.ReasonCode)
+	}
+	return listquery.Result{}, invalidListQuery(queryErr.ReasonCode)
+}
+
+func filterReferencePackVersions(records []VersionRecord, scope map[string]string) []VersionRecord {
+	tokens := strings.Fields(scope["search"])
+	packVersionState := scope["pack_version_state"]
+	verificationResult := scope["verification_result"]
+	active := scope["active"]
+	filtered := records[:0]
+	for _, record := range records {
+		if packVersionState != "" && publicCondition(record.StoredStatus, record.VerificationResult) != packVersionState {
+			continue
+		}
+		if verificationResult != "" && record.VerificationResult != verificationResult {
+			continue
+		}
+		if active != "" && (record.Active != (active == "true")) {
+			continue
+		}
+		if !listquery.MatchSearchTokens(tokens,
+			record.PackKey,
+			record.PackKind,
+			record.PackVersion,
+			searchableOptionalString(record.SourceIdentifier),
+			record.ManifestSHA256,
+			record.PayloadSHA256,
+			searchableOptionalString(record.SignerKeyID),
+		) {
+			continue
+		}
+		filtered = append(filtered, record)
+	}
+	return filtered
+}
+
+func searchableOptionalString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func (s *Service) handleMember(w http.ResponseWriter, r *http.Request) {

@@ -30,6 +30,45 @@ func TestSupportPhase1_SessionInspectionHelpers(t *testing.T) {
 	}
 }
 
+func TestSupportPhase1_AdminListQueriesUseCoreListQueryErrors(t *testing.T) {
+	users, apiErr := parseUsersListScope("search=Admin+User&is_active=true&is_deployment_admin=false")
+	if apiErr != nil {
+		t.Fatalf("parse valid users query: %v", apiErr)
+	}
+	if users.Scope["search"] != "admin user" || users.Scope["is_active"] != "true" || users.Scope["is_deployment_admin"] != "false" {
+		t.Fatalf("unexpected users scope: %#v", users.Scope)
+	}
+
+	_, apiErr = parseUsersListScope("is_active=yes")
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_list_query", "")
+	if got := apiErr.Details["reason_code"]; got != "invalid_filter_value" {
+		t.Fatalf("unexpected users invalid filter reason: %v", got)
+	}
+	_, apiErr = parseUsersListScope("search=a&search=b")
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_list_query", "")
+	if got := apiErr.Details["reason_code"]; got != "duplicate_query_member" {
+		t.Fatalf("unexpected users duplicate reason: %v", got)
+	}
+
+	audit, apiErr := parseAdministrativeAuditScope("target_kind=user&target_id=00000000-0000-0000-0000-000000000001&occurred_at_gte=2026-04-20T12:00:00Z&occurred_at_lt=2026-04-21T12:00:00Z")
+	if apiErr != nil {
+		t.Fatalf("parse valid administrative audit query: %v", apiErr)
+	}
+	if audit.Scope["target_kind"] != "user" || audit.Scope["target_id"] == "" {
+		t.Fatalf("unexpected administrative audit scope: %#v", audit.Scope)
+	}
+	_, apiErr = parseAdministrativeAuditScope("search=user")
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_list_query", "")
+	if got := apiErr.Details["reason_code"]; got != "unknown_query_member" {
+		t.Fatalf("unexpected administrative audit unknown reason: %v", got)
+	}
+	_, apiErr = parseAdministrativeAuditScope("occurred_at_gte=2026-04-22T12:00:00Z&occurred_at_lt=2026-04-21T12:00:00Z")
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_list_query", "")
+	if got := apiErr.Details["reason_code"]; got != "invalid_filter_range" {
+		t.Fatalf("unexpected administrative audit range reason: %v", got)
+	}
+}
+
 func TestSupportPhase1_CSRFHelpers(t *testing.T) {
 	if apiErr := ValidateCSRF(http.MethodPost, AuthSourceCookie, "csrf-cookie", ""); apiErr == nil {
 		t.Fatal("expected missing csrf header to fail for cookie-authenticated state change")

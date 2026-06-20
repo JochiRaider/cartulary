@@ -519,6 +519,16 @@ func userPaginationError(reasonCode string) *APIError {
 	}
 }
 
+func userListQueryError(reasonCode string) *APIError {
+	return &APIError{
+		Status: http.StatusBadRequest,
+		Code:   "invalid_list_query",
+		Details: map[string]any{
+			"reason_code": reasonCode,
+		},
+	}
+}
+
 func invalidMutationPayload(field string, reasonCode string) *APIError {
 	details := map[string]any{}
 	if field != "" {

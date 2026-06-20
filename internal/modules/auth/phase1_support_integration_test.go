@@ -101,6 +101,77 @@ func TestSupportPhase1_UserListContinuationUsesLiveRows(t *testing.T) {
 	}
 }
 
+func TestSupportPhase1_UserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
+	runtime := phase1support.StartRuntime(t)
+
+	server, db := startPhase1Server(t, runtime, "phase1-support-user-list-search")
+	defer db.Close()
+
+	nonAdminID := seedFixedLocalUser(t, db, "10000000-0000-0000-0000-000000000711", "search-viewer@example.test", "Search Viewer", "SearchViewer1!", false)
+	adminID := seedFixedLocalUser(t, db, "d56d8685-f36e-448c-8f44-bd2978aa26d8", "uuid-admin@example.test", "UUID Admin", "UUIDAdmin1!", true)
+
+	adminSession, _ := loginLocalUser(t, server, "uuid-admin@example.test", "UUIDAdmin1!", nil)
+
+	searchResp := doJSON(
+		t,
+		http.MethodGet,
+		server.HTTP.URL+"/api/v1/users?limit=1&search="+url.QueryEscape(adminID)+"&is_active=true&is_deployment_admin=true",
+		nil,
+		withCookies(adminSession),
+	)
+	searchBody := httptestx.RequireSuccessEnvelope(t, searchResp, http.StatusOK)
+	searchRows := searchBody["data"].(map[string]any)["users"].([]any)
+	if len(searchRows) != 1 || searchRows[0].(map[string]any)["user_id"] != adminID {
+		t.Fatalf("full UUID search must find the deployment admin before pagination, got %#v", searchRows)
+	}
+
+	emailResp := doJSON(
+		t,
+		http.MethodGet,
+		server.HTTP.URL+"/api/v1/users?search="+url.QueryEscape("uuid-admin@example.test"),
+		nil,
+		withCookies(adminSession),
+	)
+	emailBody := httptestx.RequireSuccessEnvelope(t, emailResp, http.StatusOK)
+	findUserResource(t, emailBody["data"].(map[string]any)["users"].([]any), adminID)
+
+	firstPage := doJSON(
+		t,
+		http.MethodGet,
+		server.HTTP.URL+"/api/v1/users?limit=1",
+		nil,
+		withCookies(adminSession),
+	)
+	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
+	firstPageRows := firstPageBody["data"].(map[string]any)["users"].([]any)
+	if len(firstPageRows) != 1 || firstPageRows[0].(map[string]any)["user_id"] != nonAdminID {
+		t.Fatalf("expected unsearched first page to prove later-page search fixture, got %#v", firstPageRows)
+	}
+	nextCursor := requirePagingCursor(t, firstPageBody)
+	mismatchedCursor := doJSON(
+		t,
+		http.MethodGet,
+		server.HTTP.URL+"/api/v1/users?cursor_token="+url.QueryEscape(nextCursor)+"&search="+url.QueryEscape(adminID),
+		nil,
+		withCookies(adminSession),
+	)
+	mismatchBody := httptestx.RequireErrorEnvelope(t, mismatchedCursor, http.StatusBadRequest, "invalid_pagination_request")
+	details := mismatchBody["error"].(map[string]any)["details"].(map[string]any)
+	if details["reason_code"] != "cursor_query_mismatch" {
+		t.Fatalf("expected cursor_query_mismatch for changed user-list search scope, got %#v", details)
+	}
+
+	nonAdminSession, _ := loginLocalUser(t, server, "search-viewer@example.test", "SearchViewer1!", nil)
+	denied := doJSON(
+		t,
+		http.MethodGet,
+		server.HTTP.URL+"/api/v1/users?search="+url.QueryEscape(adminID),
+		nil,
+		withCookies(nonAdminSession),
+	)
+	httptestx.RequireErrorEnvelope(t, denied, http.StatusForbidden, "authorization_denied")
+}
+
 func TestSupportPhase1_Integration_SurfaceEnvelope(t *testing.T) {
 	runtime := phase1support.StartRuntime(t)
 	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-envelope")

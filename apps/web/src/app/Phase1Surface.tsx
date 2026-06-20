@@ -28,7 +28,6 @@ import {
   adminRevokeAllSessions,
   beginEnterpriseAuth,
   beginTotpEnrollment,
-  type CredentialState,
   changePassword,
   completeTotpEnrollment,
   createEnterpriseAuthBinding,
@@ -66,10 +65,8 @@ type Phase1AuthSurfaceProps = {
 };
 
 type Phase1AccountPanelProps = {
-  credentialState: CredentialState | null;
   credentialStateError: APIError | null;
   onRefreshShell: (options?: RefreshOptions) => Promise<void> | void;
-  session: SessionData;
 };
 
 type Phase1AdminPanelProps = {
@@ -550,10 +547,7 @@ export function Phase1AuthSurface({
 export const Phase1AccountPanel = forwardRef<
   Phase1AccountPanelHandle,
   Phase1AccountPanelProps
->(function Phase1AccountPanel(
-  { credentialState, credentialStateError, onRefreshShell, session },
-  ref,
-) {
+>(function Phase1AccountPanel({ credentialStateError, onRefreshShell }, ref) {
   const [statusText, setStatusText] = useState("Account security is current.");
   const [error, setError] = useState<APIError | null>(null);
 
@@ -678,110 +672,6 @@ export const Phase1AccountPanel = forwardRef<
           >
             Sign out
           </button>
-        </div>
-      </div>
-
-      <div style={detailGridStyle}>
-        <div>
-          <span style={labelStyle}>User id</span>
-          <div
-            data-testid={phase1AccountTestId("session-user-id")}
-            style={monoTextStyle}
-          >
-            {session.user_id}
-          </div>
-        </div>
-        <div>
-          <span style={labelStyle}>Provider</span>
-          <div data-testid={phase1AccountTestId("session-provider-type")}>
-            {session.provider_type}
-          </div>
-        </div>
-        <div>
-          <span style={labelStyle}>MFA state</span>
-          <div data-testid={phase1AccountTestId("session-mfa-state")}>
-            {session.mfa_state}
-          </div>
-        </div>
-        <div>
-          <span style={labelStyle}>Deployment admin</span>
-          <div data-testid={phase1AccountTestId("session-is-deployment-admin")}>
-            {String(session.is_deployment_admin)}
-          </div>
-        </div>
-        <div>
-          <span style={labelStyle}>Authenticated at</span>
-          <div data-testid={phase1AccountTestId("session-authenticated-at")}>
-            {session.authenticated_at}
-          </div>
-        </div>
-        <div>
-          <span style={labelStyle}>Idle expires at</span>
-          <div data-testid={phase1AccountTestId("session-idle-expires-at")}>
-            {session.idle_expires_at}
-          </div>
-        </div>
-        <div>
-          <span style={labelStyle}>Absolute expires at</span>
-          <div data-testid={phase1AccountTestId("session-absolute-expires-at")}>
-            {session.absolute_expires_at}
-          </div>
-        </div>
-        <div>
-          <span style={labelStyle}>Session expires at</span>
-          <div data-testid={phase1AccountTestId("session-session-expires-at")}>
-            {session.session_expires_at}
-          </div>
-        </div>
-        <div style={wideCellStyle}>
-          <span style={labelStyle}>Incident memberships</span>
-          <ul
-            data-testid={phase1AccountTestId("session-memberships")}
-            style={plainListStyle}
-          >
-            {session.memberships.map((membership) => (
-              <li key={`${membership.incident_id}:${membership.role}`}>
-                {membership.incident_id} · {membership.role}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      <div style={detailGridStyle}>
-        <div>
-          <span style={labelStyle}>Auth kind</span>
-          <div data-testid={phase1AccountTestId("credential-auth-kind")}>
-            {credentialState?.auth_kind ?? ""}
-          </div>
-        </div>
-        <div>
-          <span style={labelStyle}>Recovery model</span>
-          <div data-testid={phase1AccountTestId("credential-recovery-model")}>
-            {credentialState?.recovery_model ?? ""}
-          </div>
-        </div>
-        <div>
-          <span style={labelStyle}>Password changed at</span>
-          <div
-            data-testid={phase1AccountTestId("credential-password-changed-at")}
-          >
-            {credentialState?.password_changed_at ?? ""}
-          </div>
-        </div>
-        <div>
-          <span style={labelStyle}>TOTP state</span>
-          <div data-testid={phase1AccountTestId("credential-totp-state")}>
-            {credentialState?.totp.state ?? ""}
-          </div>
-        </div>
-        <div style={wideCellStyle}>
-          <span style={labelStyle}>Pending expires at</span>
-          <div
-            data-testid={phase1AccountTestId("credential-pending-expires-at")}
-          >
-            {credentialState?.totp.pending_expires_at ?? ""}
-          </div>
         </div>
       </div>
 
@@ -2844,11 +2734,6 @@ const monoTextStyle: CSSProperties = {
   fontFamily: "var(--ct-typography-mono-fontFamily)",
   overflowWrap: "anywhere",
   minWidth: 0,
-};
-
-const plainListStyle: CSSProperties = {
-  margin: 0,
-  paddingLeft: "1rem",
 };
 
 const wideCellStyle: CSSProperties = {

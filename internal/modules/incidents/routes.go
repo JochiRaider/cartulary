@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
@@ -96,26 +96,20 @@ func (s *Service) handleExtensionsCollection(w http.ResponseWriter, r *http.Requ
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildExtensionsResponseData(profiles))
 }
 
-func parseIncidentListScope(query url.Values) (map[string]string, *auth.APIError) {
-	for key, values := range query {
-		switch key {
-		case "limit", "cursor_token", "search", "status":
-		default:
-			return nil, invalidPaginationRequest("unsupported_query_parameter")
-		}
-		if len(values) > 1 {
-			return nil, invalidPaginationRequest("repeated_query_parameter")
-		}
+func parseIncidentListScope(rawQuery string) (listquery.Result, *auth.APIError) {
+	result, queryErr := listquery.Parse(rawQuery, listquery.Config{
+		Search: true,
+		ExactFilters: map[string]listquery.ExactFilter{
+			"status": {Allowed: []string{"active", "closed"}},
+		},
+	})
+	if queryErr == nil {
+		return result, nil
 	}
-	search := strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(query.Get("search"))), " "))
-	status := strings.TrimSpace(query.Get("status"))
-	if status != "" && status != "active" && status != "closed" {
-		return nil, invalidPaginationRequest("invalid_status")
+	if queryErr.Kind == listquery.ErrorKindPagination {
+		return listquery.Result{}, invalidPaginationRequest(queryErr.ReasonCode)
 	}
-	return map[string]string{
-		"search": search,
-		"status": status,
-	}, nil
+	return listquery.Result{}, invalidListQuery(queryErr.ReasonCode)
 }
 
 func (s *Service) incidentListPageRequest(binding pagination.Binding, cursor *pagination.Cursor) (IncidentListPageRequest, string) {
@@ -191,16 +185,16 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		scope, apiErr := parseIncidentListScope(r.URL.Query())
+		listScope, apiErr := parseIncidentListScope(r.URL.RawQuery)
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
-			r.URL.Query(),
+		binding, cursor, reasonCode := s.cursorCodec.ResolveListRequest(
+			listScope.Values,
 			"incidents.list",
 			principal.User.ID.String(),
-			scope,
+			listScope.Scope,
 		)
 		if reasonCode != "" {
 			writeAPIError(w, r, invalidPaginationRequest(reasonCode))

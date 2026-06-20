@@ -73,10 +73,13 @@ async function expectCurrentIncidentRole(page: Page, roleText: string) {
 async function expectLandingAccountSession(page: Page) {
   const phase1 = new Phase1Page(page);
   await phase1.openAccountSettings("account-security");
-  const accountProvider = page.getByTestId(
-    phase1AccountTestId("session-provider-type"),
-  );
-  await expect(accountProvider).toHaveText("local");
+  await expect(
+    page.getByTestId(phase1AccountTestId("refresh-state")),
+  ).toBeVisible();
+  await expect(page.getByTestId(phase1AccountTestId("logout"))).toBeVisible();
+  await expect(
+    page.getByTestId(phase1AccountTestId("password-current")),
+  ).toBeVisible();
 }
 
 test("E-1-01 signs in as a local user and inspects the ordinary session surface", async ({
@@ -128,24 +131,6 @@ test("E-1-01 signs in as a local user and inspects the ordinary session surface"
   ]);
 
   await expectLandingAccountSession(page);
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-user-id")),
-  ).not.toHaveText("");
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-authenticated-at")),
-  ).not.toHaveText("");
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-idle-expires-at")),
-  ).not.toHaveText("");
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-absolute-expires-at")),
-  ).not.toHaveText("");
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-session-expires-at")),
-  ).not.toHaveText("");
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-memberships")).locator("li"),
-  ).toHaveCount(0);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,
@@ -286,10 +271,7 @@ test("E-1-05 lets deployment admins create and patch users, rejects stale versio
     "user_version_conflict",
   );
 
-  await phase1.openAccountSettings("account-security");
-  const currentAdminID = await page
-    .getByTestId(phase1AccountTestId("session-user-id"))
-    .textContent();
+  const currentAdminID = (await phase1.currentSession()).user_id;
   if (!currentAdminID) {
     throw new Error("missing current admin user id");
   }
@@ -651,9 +633,6 @@ test("E-1-08 keeps deployment-user administration on deployment-admin sessions a
     purpose: "phase1 e108 incident-admin login after admin actions",
     userId: incidentAdminUser.user_id,
   });
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-user-id")),
-  ).toHaveText(incidentAdminUser.user_id);
 });
 
 test("E-1-09 creates an incident from the landing screen, lists it, and opens the workbook as incident admin", async ({
@@ -750,9 +729,6 @@ test("E-1-10 clears a stale selected incident after membership removal while pre
   await phase1.goto();
   await phase1.login(targetEmail, targetPassword);
   await expectLandingAccountSession(page);
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-user-id")),
-  ).toHaveText(targetUser.user_id);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email: targetEmail,
@@ -799,9 +775,6 @@ test("E-1-10 clears a stale selected incident after membership removal while pre
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await expectCurrentIncidentRole(page, "Current incident role: viewer");
   await expectLandingAccountSession(page);
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-user-id")),
-  ).toHaveText(targetUser.user_id);
 
   await phase1.openIncident(alternateIncidentId);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
@@ -833,9 +806,6 @@ test("E-1-11 observes current-role authorization on a stale reviewer edit throug
   await phase1.goto();
   await phase1.login(targetEmail, targetPassword);
   await expectLandingAccountSession(page);
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-user-id")),
-  ).toHaveText(targetUser.user_id);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email: targetEmail,
@@ -929,9 +899,6 @@ test("E-1-12 returns a revoked target browser to login and allows re-authenticat
   await phase1.login(targetEmail, targetPassword);
   await expectLandingAccountSession(page);
   await expect(
-    page.getByTestId(phase1AccountTestId("session-user-id")),
-  ).toHaveText(targetUser.user_id);
-  await expect(
     page.getByTestId(landingIncidentCardTestId(incidentId)),
   ).toBeVisible();
   await sessionTracker.captureCurrentSession(page, {
@@ -968,9 +935,6 @@ test("E-1-12 returns a revoked target browser to login and allows re-authenticat
 
   await phase1.login(targetEmail, targetPassword);
   await expectLandingAccountSession(page);
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-user-id")),
-  ).toHaveText(targetUser.user_id);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email: targetEmail,

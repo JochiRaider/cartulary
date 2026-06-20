@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
 
@@ -779,31 +779,21 @@ func (s *Service) handleAccountPreferences(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-func parseUsersListScope(query url.Values) (map[string]string, *APIError) {
-	for key, values := range query {
-		switch key {
-		case "limit", "cursor_token", "search", "is_active", "is_deployment_admin":
-		default:
-			return nil, userPaginationError("unsupported_query_parameter")
-		}
-		if len(values) > 1 {
-			return nil, userPaginationError("repeated_query_parameter")
-		}
+func parseUsersListScope(rawQuery string) (listquery.Result, *APIError) {
+	result, queryErr := listquery.Parse(rawQuery, listquery.Config{
+		Search: true,
+		ExactFilters: map[string]listquery.ExactFilter{
+			"is_active":           {Allowed: []string{"true", "false"}},
+			"is_deployment_admin": {Allowed: []string{"true", "false"}},
+		},
+	})
+	if queryErr == nil {
+		return result, nil
 	}
-	search := strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(query.Get("search"))), " "))
-	isActive := strings.TrimSpace(query.Get("is_active"))
-	if isActive != "" && isActive != "true" && isActive != "false" {
-		return nil, userPaginationError("invalid_is_active")
+	if queryErr.Kind == listquery.ErrorKindPagination {
+		return listquery.Result{}, userPaginationError(queryErr.ReasonCode)
 	}
-	isDeploymentAdmin := strings.TrimSpace(query.Get("is_deployment_admin"))
-	if isDeploymentAdmin != "" && isDeploymentAdmin != "true" && isDeploymentAdmin != "false" {
-		return nil, userPaginationError("invalid_is_deployment_admin")
-	}
-	return map[string]string{
-		"search":              search,
-		"is_active":           isActive,
-		"is_deployment_admin": isDeploymentAdmin,
-	}, nil
+	return listquery.Result{}, userListQueryError(queryErr.ReasonCode)
 }
 
 func userListFilterFromScope(scope map[string]string) authn.UserListFilter {
@@ -819,46 +809,50 @@ func userListFilterFromScope(scope map[string]string) authn.UserListFilter {
 	return filter
 }
 
-func parseAdministrativeAuditScope(query url.Values) (map[string]string, *APIError) {
-	for key, values := range query {
-		switch key {
-		case "limit", "cursor_token", "actor_user_id", "action_code", "target_kind", "target_id", "occurred_at_gte", "occurred_at_lt":
-		default:
-			return nil, userPaginationError("unsupported_query_parameter")
+func parseAdministrativeAuditScope(rawQuery string) (listquery.Result, *APIError) {
+	result, queryErr := listquery.Parse(rawQuery, listquery.Config{
+		ExactFilters: map[string]listquery.ExactFilter{
+			"actor_user_id": {},
+			"action_code":   {},
+			"target_kind":   {Allowed: []string{"user", "incident", "deployment"}},
+			"target_id":     {},
+		},
+		RangeFilters: map[string]listquery.RangeFilter{
+			"occurred_at_gte": {},
+			"occurred_at_lt":  {},
+		},
+	})
+	if queryErr != nil {
+		if queryErr.Kind == listquery.ErrorKindPagination {
+			return listquery.Result{}, userPaginationError(queryErr.ReasonCode)
 		}
-		if len(values) > 1 {
-			return nil, userPaginationError("repeated_query_parameter")
-		}
+		return listquery.Result{}, userListQueryError(queryErr.ReasonCode)
 	}
-	targetKind := strings.TrimSpace(query.Get("target_kind"))
-	if targetKind != "" && targetKind != "user" && targetKind != "incident" && targetKind != "deployment" {
-		return nil, userPaginationError("invalid_target_kind")
-	}
-	if strings.TrimSpace(query.Get("target_id")) != "" && targetKind == "" {
-		return nil, userPaginationError("target_kind_required")
+	if result.Scope["target_id"] != "" && result.Scope["target_kind"] == "" {
+		return listquery.Result{}, userListQueryError(listquery.ReasonInvalidFilterValue)
 	}
 	for _, key := range []string{"occurred_at_gte", "occurred_at_lt"} {
-		value := strings.TrimSpace(query.Get(key))
+		value := result.Scope[key]
 		if value == "" {
 			continue
 		}
 		if _, err := time.Parse(time.RFC3339, value); err != nil {
-			return nil, userPaginationError("invalid_" + key)
+			return listquery.Result{}, userListQueryError(listquery.ReasonInvalidFilterRange)
 		}
 	}
-	if actorUserID := strings.TrimSpace(query.Get("actor_user_id")); actorUserID != "" {
+	if result.Scope["occurred_at_gte"] != "" && result.Scope["occurred_at_lt"] != "" {
+		gte, _ := time.Parse(time.RFC3339, result.Scope["occurred_at_gte"])
+		lt, _ := time.Parse(time.RFC3339, result.Scope["occurred_at_lt"])
+		if !gte.Before(lt) {
+			return listquery.Result{}, userListQueryError(listquery.ReasonInvalidFilterRange)
+		}
+	}
+	if actorUserID := result.Scope["actor_user_id"]; actorUserID != "" {
 		if _, err := uuid.Parse(actorUserID); err != nil {
-			return nil, userPaginationError("invalid_actor_user_id")
+			return listquery.Result{}, userListQueryError(listquery.ReasonInvalidFilterValue)
 		}
 	}
-	return map[string]string{
-		"actor_user_id":   strings.TrimSpace(query.Get("actor_user_id")),
-		"action_code":     strings.TrimSpace(query.Get("action_code")),
-		"target_kind":     targetKind,
-		"target_id":       strings.TrimSpace(query.Get("target_id")),
-		"occurred_at_gte": strings.TrimSpace(query.Get("occurred_at_gte")),
-		"occurred_at_lt":  strings.TrimSpace(query.Get("occurred_at_lt")),
-	}, nil
+	return result, nil
 }
 
 func administrativeAuditFilterFromScope(scope map[string]string) authn.AdministrativeAuditFilter {
@@ -967,16 +961,16 @@ func (s *Service) handleAdministrativeAuditEvents(w http.ResponseWriter, r *http
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	scope, apiErr := parseAdministrativeAuditScope(r.URL.Query())
+	listScope, apiErr := parseAdministrativeAuditScope(r.URL.RawQuery)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
-		r.URL.Query(),
+	binding, cursor, reasonCode := s.cursorCodec.ResolveListRequest(
+		listScope.Values,
 		"administrative_audit_events.list",
 		principal.User.ID.String(),
-		scope,
+		listScope.Scope,
 	)
 	if reasonCode != "" {
 		writeAPIError(w, r, userPaginationError(reasonCode))
@@ -1032,16 +1026,16 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		scope, apiErr := parseUsersListScope(r.URL.Query())
+		listScope, apiErr := parseUsersListScope(r.URL.RawQuery)
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
-			r.URL.Query(),
+		binding, cursor, reasonCode := s.cursorCodec.ResolveListRequest(
+			listScope.Values,
 			"users.list",
 			principal.User.ID.String(),
-			scope,
+			listScope.Scope,
 		)
 		if reasonCode != "" {
 			writeAPIError(w, r, userPaginationError(reasonCode))

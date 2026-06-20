@@ -22,6 +22,7 @@ import {
 type CurrentSessionResponse = {
   data: {
     session_expires_at: string;
+    user_id: string;
   };
 };
 
@@ -87,7 +88,7 @@ export class Phase1Page {
         ? phase1AccountTestId("profile-email")
         : panel === "account-appearance"
           ? phase1AccountTestId("appearance-density-mode")
-          : phase1AccountTestId("session-provider-type");
+          : phase1AccountTestId("refresh-state");
     const expectedControlLocator = this.page.getByTestId(expectedControl);
     try {
       await expect(expectedControlLocator).toBeVisible({ timeout: 500 });
@@ -295,29 +296,27 @@ export class Phase1Page {
   async loadTargetUser(userId: string) {
     await this.selectAdminPanel("deployment-users");
     const targetPath = `/api/v1/users/${userId}`;
-    const legacyUserIdInput = this.page.getByTestId(
-      phase1AdminTestId("target-user-id-input"),
-    );
-    if ((await legacyUserIdInput.count()) > 0) {
-      await legacyUserIdInput.fill(userId);
-      const [response] = await Promise.all([
-        this.page.waitForResponse((candidate) => {
-          const method = candidate.request().method().toUpperCase();
-          if (method !== "GET") {
-            return false;
-          }
-          return new URL(candidate.url()).pathname === targetPath;
-        }),
-        this.page.getByTestId(phase1AdminTestId("load-user")).click(),
-      ]);
-      expect(response.ok()).toBeTruthy();
-      await expect(
-        this.page.getByTestId(phase1AdminTestId("target-user-id")),
-      ).toHaveText(userId);
-      await this.requireText(phase1AdminTestId("target-user-version"));
-      return;
+    const userFilter = this.page.getByTestId(phase1AdminTestId("user-filter"));
+    const previousFilter = await userFilter.inputValue();
+    const listResponsePromise =
+      previousFilter === userId
+        ? null
+        : this.page.waitForResponse((candidate) => {
+            const method = candidate.request().method().toUpperCase();
+            if (method !== "GET") {
+              return false;
+            }
+            const url = new URL(candidate.url());
+            return (
+              url.pathname === "/api/v1/users" &&
+              url.searchParams.get("search") === userId
+            );
+          });
+    await userFilter.fill(userId);
+    if (listResponsePromise !== null) {
+      const listResponse = await listResponsePromise;
+      expect(listResponse.ok()).toBeTruthy();
     }
-    await this.page.getByTestId(phase1AdminTestId("user-filter")).fill(userId);
     const targetRow = this.page.getByTestId(deploymentUserRowTestId(userId));
     await expect(targetRow).toBeVisible();
     const [response] = await Promise.all([

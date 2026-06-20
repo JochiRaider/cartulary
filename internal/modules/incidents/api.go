@@ -619,6 +619,17 @@ func invalidPaginationRequest(reasonCode string) *auth.APIError {
 	}
 }
 
+func invalidListQuery(reasonCode string) *auth.APIError {
+	return &auth.APIError{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_list_query",
+		Message: "invalid list query",
+		Details: map[string]any{
+			"reason_code": reasonCode,
+		},
+	}
+}
+
 func incidentNotFoundError() *auth.APIError {
 	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 }

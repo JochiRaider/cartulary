@@ -28,8 +28,8 @@ test("FE-S-P1-01 Verify bootstrap route selectors and error-state selectors use 
   ).toBeAttached();
   await phase1.openAccountSettings("account-security");
   await expect(
-    page.getByTestId(phase1AccountTestId("session-user-id")),
-  ).not.toHaveText("");
+    page.getByTestId(phase1AccountTestId("refresh-state")),
+  ).toBeVisible();
   await expect(
     page.getByTestId(phase1ErrorSummaryTestIds("account").message),
   ).toBeAttached();

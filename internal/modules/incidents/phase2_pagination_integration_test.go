@@ -55,6 +55,65 @@ func TestSupportPhase2_IncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *
 	}
 }
 
+func TestSupportPhase2_IncidentListSearchStatusAndCursorScope(t *testing.T) {
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServer(t, "phase2-pagination-incidents-search-status")
+
+	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	first := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id":             "txn-support-phase2-search-first",
+		"incident_key":              "IR-SEARCH-FIRST",
+		"title":                     "First Incident",
+		"severity":                  "high",
+		"primary_external_case_ref": "CASE-SEARCH-1",
+	})
+	firstID := first["incident_id"].(string)
+
+	httptestx.SetClockAfter(t, harness.Server, mustParseTimestamp(t, first["updated_at"]), time.Second)
+	phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-support-phase2-search-second",
+		"incident_key":  "IR-SEARCH-SECOND",
+		"title":         "Second Incident",
+		"severity":      "low",
+	})
+
+	searchResp := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1&search="+url.QueryEscape("CASE-SEARCH-1")+"&status=active",
+		nil,
+		phase2test.WithCookies(adminLogin.SessionCookie),
+	)
+	searchBody := httptestx.RequireSuccessEnvelope(t, searchResp, http.StatusOK)
+	searchRows := searchBody["data"].(map[string]any)["incidents"].([]any)
+	if len(searchRows) != 1 || searchRows[0].(map[string]any)["incident_id"] != firstID {
+		t.Fatalf("search must evaluate the authorized collection before pagination, got %#v", searchRows)
+	}
+
+	firstPage := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1&status=active",
+		nil,
+		phase2test.WithCookies(adminLogin.SessionCookie),
+	)
+	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
+	nextCursor := requireNextCursor(t, firstPageBody)
+
+	mismatchedCursor := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/incidents?cursor_token="+url.QueryEscape(nextCursor)+"&status=closed",
+		nil,
+		phase2test.WithCookies(adminLogin.SessionCookie),
+	)
+	mismatchBody := httptestx.RequireErrorEnvelope(t, mismatchedCursor, http.StatusBadRequest, "invalid_pagination_request")
+	details := mismatchBody["error"].(map[string]any)["details"].(map[string]any)
+	if details["reason_code"] != "cursor_query_mismatch" {
+		t.Fatalf("expected cursor_query_mismatch for changed status scope, got %#v", details)
+	}
+}
+
 func TestSupportPhase2_IncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-pagination-incidents")

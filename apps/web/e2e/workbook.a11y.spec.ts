@@ -30,7 +30,6 @@ import {
   incidentControlsMenuTestId,
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
-  landingAdminMenuItemTestId,
   landingIncidentCardTestId,
   mentionDismissButtonTestId,
   mentionItemTestId,
@@ -40,7 +39,6 @@ import {
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   phase1AccountTestId,
-  phase1AdminTestId,
   phase1AuthTestId,
   phase1ErrorCodeTestId,
   phase1ErrorSummaryTestIds,
@@ -2777,22 +2775,15 @@ test.describe("FE-P1 accessibility readiness", () => {
       await expect(
         page.getByTestId(phase1LandingTestId("shell")),
       ).toBeVisible();
-      await expect(
-        page.getByTestId(landingAdminMenuItemTestId("incidents")),
-      ).toHaveAttribute("aria-pressed", "true");
       await expectVisibleFocus(
-        page.getByTestId(landingAdminMenuItemTestId("incidents")),
+        page.getByTestId(phase1LandingTestId("refresh")),
       );
       await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
-      await expectStatusRole(page.getByTestId(phase1AccountTestId("status")), {
-        visible: false,
-      });
       await expectP1SurfaceA11y(page, {
         focusTestId: phase1LandingTestId("refresh"),
         tabStops: [
-          landingAdminMenuItemTestId("incidents"),
-          landingAdminMenuItemTestId("deployment-users"),
-          landingAdminMenuItemTestId("reference-packs"),
+          phase1LandingTestId("search"),
+          phase1LandingTestId("status-filter"),
           phase1LandingTestId("refresh"),
           phase1LandingTestId("create-button"),
         ],
@@ -2851,8 +2842,8 @@ test.describe("FE-P1 accessibility readiness", () => {
 
       await phase1.login(email, password, generateTotpCode(secretBase32));
       await expect(
-        page.getByTestId(phase1AccountTestId("session-user-id")),
-      ).toHaveText(user.user_id);
+        page.getByTestId(phase1LandingTestId("current-user")),
+      ).toContainText("A11Y P1 MFA");
       await sessionTracker.captureCurrentSession(page, {
         createdBy: "phase1 accessibility",
         email,
@@ -2931,25 +2922,15 @@ test.describe("FE-P1 accessibility readiness", () => {
     await expect(
       page.getByTestId(landingIncidentCardTestId(incidentId)),
     ).toBeVisible();
-    await expect(
-      page.getByTestId(landingAdminMenuItemTestId("incidents")),
-    ).toHaveAttribute("aria-pressed", "true");
     await expectVisibleFocus(
-      page.getByTestId(landingAdminMenuItemTestId("incidents")),
+      page.getByTestId(phase1LandingTestId("create-button")),
     );
     await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
-    await expectStatusRole(page.getByTestId(phase1AccountTestId("status")), {
-      visible: false,
-    });
-    await expectStatusRole(page.getByTestId(phase1AdminTestId("status")), {
-      visible: false,
-    });
     await expectP1SurfaceA11y(page, {
       focusTestId: phase1LandingTestId("create-button"),
       tabStops: [
-        landingAdminMenuItemTestId("incidents"),
-        landingAdminMenuItemTestId("deployment-users"),
-        landingAdminMenuItemTestId("reference-packs"),
+        phase1LandingTestId("search"),
+        phase1LandingTestId("status-filter"),
         phase1LandingTestId("refresh"),
         phase1LandingTestId("create-button"),
       ],
@@ -3036,20 +3017,14 @@ test.describe("FE-P1 accessibility readiness", () => {
         selectedMembership.membership_version,
       );
       await page.reload();
-      await expect(
-        page.getByTestId(phase1LandingTestId("shell")),
-      ).toBeVisible();
-      await expect(
-        page.getByTestId(phase1LandingTestId("status")),
-      ).toContainText("no longer visible");
-      await expect(
-        page.getByTestId(landingIncidentCardTestId(selectedIncidentId)),
-      ).toHaveCount(0);
-      await expect(
-        page.getByTestId(landingIncidentCardTestId(alternateIncidentId)),
-      ).toBeVisible();
+      await expect(page).not.toHaveURL(
+        new RegExp(`incident_id=${selectedIncidentId}`),
+      );
+      await expect(page).toHaveURL(
+        new RegExp(`incident_id=${alternateIncidentId}`),
+      );
+      await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
-      await phase1.openIncident(alternateIncidentId);
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expectCurrentIncidentRole(page, "admin");
       await openIncidentControls(page, "incident-fields");
@@ -3067,7 +3042,7 @@ test.describe("FE-P1 accessibility readiness", () => {
       await phase1.patchIncidentFields({
         currentPhase: "containment",
         externalCase: "CASE-A11Y",
-        tlp: "amber",
+        tlp: "TLP:AMBER",
       });
       await expectAlertRole(page.getByTestId("incident-admin-error-code"));
       await expect(page.getByTestId("incident-admin-error-code")).toHaveText(
@@ -3089,7 +3064,7 @@ test.describe("FE-P1 accessibility readiness", () => {
   );
 
   test(p1AccessibilityScenarioTitles[6], async ({ page }) => {
-    const routePattern = "**/api/v1/incidents";
+    const routePattern = "**/api/v1/incidents**";
     const routeHandler = async (route: Route) => {
       if (route.request().method().toUpperCase() !== "GET") {
         await route.fallback();
@@ -3119,20 +3094,10 @@ test.describe("FE-P1 accessibility readiness", () => {
     await expectNoPrivateDiagnostics(
       page.getByTestId(phase1ErrorSummaryTestIds("landing").container),
     );
-    await expect(
-      page.getByTestId(landingAdminMenuItemTestId("incidents")),
-    ).toHaveAttribute("aria-pressed", "true");
-    await expectVisibleFocus(
-      page.getByTestId(landingAdminMenuItemTestId("incidents")),
-    );
+    await expectVisibleFocus(page.getByTestId(phase1LandingTestId("refresh")));
     await expectP1SurfaceA11y(page, {
       focusTestId: phase1LandingTestId("refresh"),
-      tabStops: [
-        landingAdminMenuItemTestId("incidents"),
-        landingAdminMenuItemTestId("deployment-users"),
-        landingAdminMenuItemTestId("reference-packs"),
-        phase1LandingTestId("refresh"),
-      ],
+      tabStops: [phase1LandingTestId("refresh")],
     });
 
     await safeUnroute(page, routePattern, routeHandler);
@@ -3164,12 +3129,10 @@ test.describe("FE-P1 accessibility readiness", () => {
       await clearBrowserSession(page);
       await phase1.goto();
       await phase1.login(email, password);
+      await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expect(
-        page.getByTestId(phase1AccountTestId("session-user-id")),
-      ).toHaveText(user.user_id);
-      await expect(
-        page.getByTestId(landingIncidentCardTestId(incidentId)),
-      ).toBeVisible();
+        page.getByTestId(phase1RouteTestId("workbook-current-user")),
+      ).toContainText("A11Y P1 Revoked");
       await sessionTracker.captureCurrentSession(page, {
         createdBy: "phase1 accessibility",
         email,
@@ -3182,7 +3145,8 @@ test.describe("FE-P1 accessibility readiness", () => {
         user.user_id,
         "FE-A11Y-P1-01 revoked-session",
       );
-      await phase1.refreshLanding();
+      await page.getByLabel("Account and application navigation").click();
+      await page.getByRole("menuitem", { name: "Incidents" }).click();
       await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
         "data-bootstrap-state",
         "revoked",
@@ -3202,9 +3166,7 @@ test.describe("FE-P1 accessibility readiness", () => {
       });
 
       await phase1.login(email, password);
-      await expect(
-        page.getByTestId(phase1AccountTestId("session-user-id")),
-      ).toHaveText(user.user_id);
+      await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await sessionTracker.captureCurrentSession(page, {
         createdBy: "phase1 accessibility",
         email,
@@ -3258,9 +3220,6 @@ test.describe("FE-P1 accessibility readiness", () => {
     await expectP1SurfaceA11y(page, {
       focusTestId: phase1AccountTestId("refresh-state"),
       tabStops: [
-        landingAdminMenuItemTestId("incidents"),
-        landingAdminMenuItemTestId("deployment-users"),
-        landingAdminMenuItemTestId("reference-packs"),
         phase1AccountTestId("refresh-state"),
         phase1AccountTestId("logout"),
       ],
