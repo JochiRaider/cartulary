@@ -104,6 +104,7 @@ describe("Phase 1 ordinary shell support", () => {
     ).toBeTruthy();
     expect(screen.getByTestId(phase1LandingTestId("shell"))).toBeTruthy();
     expect(screen.getByTestId(phase1LandingTestId("status"))).toBeTruthy();
+    await openAccountSecurity();
     expect(
       screen.getByTestId(phase1AccountTestId("session-user-id")).textContent,
     ).not.toBe("");
@@ -436,6 +437,14 @@ describe("Phase 1 ordinary shell support", () => {
     });
   });
 });
+
+async function openAccountSecurity() {
+  fireEvent.click(
+    await screen.findByLabelText("Account and application navigation"),
+  );
+  fireEvent.click(screen.getByRole("menuitem", { name: "Security" }));
+  await screen.findByTestId(phase1AccountTestId("session-user-id"));
+}
 
 function installAnonymousSessionRequiredFetch(
   fetchMock: ReturnType<typeof vi.fn>,

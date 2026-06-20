@@ -186,7 +186,7 @@ export type LandingAdminPanelToken =
   | "account-security"
   | "administrative-audit"
   | "deployment-users"
-  | "incident-bundle-import"
+  | "incident-import"
   | "incidents"
   | "reference-packs";
 
@@ -198,13 +198,14 @@ export const landingAdminPanelTokens = [
   "deployment-users",
   "administrative-audit",
   "reference-packs",
-  "incident-bundle-import",
+  "incident-import",
 ] as const satisfies readonly LandingAdminPanelToken[];
 
 export type LandingAdminShellSelector = "menu" | "shell" | "status-strip";
 
 export type IncidentControlsSection =
   | "incident-fields"
+  | "membership-audit"
   | "memberships"
   | "summary";
 
@@ -212,6 +213,7 @@ export const incidentControlsSections = [
   "summary",
   "incident-fields",
   "memberships",
+  "membership-audit",
 ] as const satisfies readonly IncidentControlsSection[];
 
 export type Phase1RouteSelector =

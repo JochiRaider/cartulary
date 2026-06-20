@@ -361,6 +361,17 @@ export async function seedHostMentionStateFixture(
   };
 }
 
+async function expectCurrentIncidentRole(page: Page, roleText: string) {
+  const accountMenuTrigger = page.getByLabel(
+    "Account and application navigation",
+  );
+  await accountMenuTrigger.click();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    roleText,
+  );
+  await accountMenuTrigger.click();
+}
+
 export async function exerciseEntityMerge(
   page: Page,
   options: {
@@ -387,7 +398,8 @@ export async function exerciseEntityMerge(
   );
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   if (options.expectAdminRole === true) {
-    await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    await expectCurrentIncidentRole(
+      page,
       "Current incident role: admin",
     );
   }

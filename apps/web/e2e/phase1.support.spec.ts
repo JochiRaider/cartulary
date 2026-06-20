@@ -1,5 +1,4 @@
 import {
-  landingAdminMenuItemTestId,
   phase1AccountTestId,
   phase1AdminTestId,
   phase1AuthTestId,
@@ -10,10 +9,12 @@ import {
 } from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
+import { Phase1Page } from "./phase1Page";
 
 test("FE-S-P1-01 Verify bootstrap route selectors and error-state selectors use stable test-id builders.", async ({
   page,
 }) => {
+  const phase1 = new Phase1Page(page);
   await page.goto("/");
 
   await expect(page.getByTestId(phase1RouteTestId("app-shell"))).toBeVisible();
@@ -25,18 +26,14 @@ test("FE-S-P1-01 Verify bootstrap route selectors and error-state selectors use 
   await expect(
     page.getByTestId(phase1ErrorSummaryTestIds("landing").container),
   ).toBeAttached();
-  await page
-    .getByTestId(landingAdminMenuItemTestId("account-security"))
-    .click();
+  await phase1.openAccountSettings("account-security");
   await expect(
     page.getByTestId(phase1AccountTestId("session-user-id")),
   ).not.toHaveText("");
   await expect(
     page.getByTestId(phase1ErrorSummaryTestIds("account").message),
   ).toBeAttached();
-  await page
-    .getByTestId(landingAdminMenuItemTestId("deployment-users"))
-    .click();
+  await phase1.openDeploymentAdministration();
   await expect(page.getByTestId(phase1AdminTestId("status"))).toBeVisible();
   expect(phase1AuthTestId("bootstrap-token")).toBe("auth-bootstrap-token");
 

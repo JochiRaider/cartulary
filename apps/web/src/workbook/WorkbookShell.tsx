@@ -14,7 +14,6 @@ import type {
 } from "@cartulary/protocol-ts";
 import {
   assessmentCreatePanelTestId,
-  currentIncidentRoleTestId,
   dataTestIdSelector,
   entityInspectButtonTestId,
   entityInspectorTestId,
@@ -38,12 +37,7 @@ import {
   gridSortHeaderTestId,
   type IncidentControlsSection,
   incidentControlsCloseButtonTestId,
-  incidentControlsMenuItemTestId,
-  incidentControlsMenuTestId,
   incidentControlsPanelTestId,
-  incidentControlsTriggerTestId,
-  phase1LandingTestId,
-  phase1RouteTestId,
   saveStateTestId,
   surfaceTabTestId,
   timelinePreviewRowTestId,
@@ -256,6 +250,11 @@ const incidentControlsMenuItems = [
     label: "Memberships",
     description: "Incident access and roles",
   },
+  {
+    section: "membership-audit",
+    label: "Membership audit",
+    description: "Incident membership changes",
+  },
 ] as const satisfies ReadonlyArray<{
   readonly description: string;
   readonly label: string;
@@ -275,11 +274,32 @@ type FilterDraftSetter = Dispatch<SetStateAction<FilterDraft>>;
 type MutationErrorSetter = Dispatch<SetStateAction<string | null>>;
 type MutationStateSetter = Dispatch<SetStateAction<SaveState>>;
 type WorkbookQueryStateSetter = Dispatch<SetStateAction<WorkbookQueryState>>;
-type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
+export type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
+
+export type WorkbookIncidentControlsMenuItem = {
+  readonly description: string;
+  readonly label: string;
+  readonly section: IncidentControlsSection;
+};
+
+export type WorkbookAccountApplicationMenuProps = {
+  readonly currentIncidentRole: IncidentRole | null;
+  readonly incidentControls: {
+    readonly activeSection: IncidentControlsSection;
+    readonly items: readonly WorkbookIncidentControlsMenuItem[];
+    readonly onSelectSection: (
+      section: IncidentControlsSection,
+      returnFocusTarget?: HTMLElement | null,
+    ) => void;
+  };
+};
 
 type WorkbookShellProps = {
   incidentId: string;
   apiBase?: string | undefined;
+  accountApplicationMenu?:
+    | ((props: WorkbookAccountApplicationMenuProps) => ReactNode)
+    | undefined;
   currentUserLabel?: string | undefined;
   onIncidentSnapshot?:
     | ((incident: {
@@ -297,7 +317,6 @@ type WorkbookShellProps = {
       }) => void)
     | undefined;
   onIncidentAccessLost?: (() => void) | undefined;
-  onReturnToLanding?: (() => void) | undefined;
 };
 
 function workbookContractForViewSchemaId(viewSchemaId: string): ViewContract {
@@ -2954,10 +2973,10 @@ function SurfaceSaveStateStatusStrip({
 export function WorkbookShell({
   incidentId,
   apiBase,
+  accountApplicationMenu,
   currentUserLabel,
   onIncidentSnapshot,
   onIncidentAccessLost,
-  onReturnToLanding,
 }: WorkbookShellProps) {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const initialViewSchemaID = useMemo(() => {
@@ -2999,18 +3018,12 @@ export function WorkbookShell({
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentIncidentRole, setCurrentIncidentRole] =
     useState<IncidentRole | null>(null);
-  const [controlsMenuOpen, setControlsMenuOpen] = useState(false);
   const [controlsDrawerSection, setControlsDrawerSection] =
     useState<IncidentControlsSection | null>(null);
   const [lastControlsSection, setLastControlsSection] =
     useState<IncidentControlsSection>("summary");
-  const [activeControlsMenuIndex, setActiveControlsMenuIndex] = useState(0);
-  const controlsMenuContainerRef = useRef<HTMLFieldSetElement | null>(null);
-  const controlsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const controlsReturnFocusTargetRef = useRef<HTMLElement | null>(null);
   const controlsDrawerCloseRef = useRef<HTMLButtonElement | null>(null);
-  const controlsMenuItemRefs = useRef(
-    new Map<IncidentControlsSection, HTMLButtonElement>(),
-  );
   const [timelineQueryState, setTimelineQueryState] =
     useState<WorkbookQueryState>(() => emptyWorkbookQueryState());
   const [timelineFilterDraft, setTimelineFilterDraft] = useState<FilterDraft>(
@@ -3918,66 +3931,27 @@ export function WorkbookShell({
     [],
   );
 
-  const focusControlsMenuItem = useCallback(
-    (index: number) => {
-      const item = incidentControlsMenuItems[index];
-      if (item === undefined) {
-        return;
-      }
-      deferControlsFocus(
-        () => controlsMenuItemRefs.current.get(item.section) ?? null,
-      );
-    },
-    [deferControlsFocus],
-  );
-
-  const openControlsMenu = useCallback(() => {
-    const selectedIndex = Math.max(
-      0,
-      incidentControlsMenuItems.findIndex(
-        (item) => item.section === lastControlsSection,
-      ),
-    );
-    setActiveControlsMenuIndex(selectedIndex);
-    setControlsMenuOpen(true);
-    focusControlsMenuItem(selectedIndex);
-  }, [lastControlsSection, focusControlsMenuItem]);
-
-  const closeControlsMenu = useCallback(
-    (options: { readonly restoreTriggerFocus: boolean }) => {
-      setControlsMenuOpen(false);
-      if (options.restoreTriggerFocus) {
-        deferControlsFocus(() => controlsTriggerRef.current);
-      }
-    },
-    [deferControlsFocus],
-  );
-
-  const moveControlsMenuFocus = useCallback(
-    (nextIndex: number) => {
-      const optionCount = incidentControlsMenuItems.length;
-      const wrappedIndex = (nextIndex + optionCount) % optionCount;
-      setActiveControlsMenuIndex(wrappedIndex);
-      focusControlsMenuItem(wrappedIndex);
-    },
-    [focusControlsMenuItem],
-  );
-
   const closeControlsDrawer = useCallback(
     (options: { readonly restoreTriggerFocus: boolean }) => {
       setControlsDrawerSection(null);
       if (options.restoreTriggerFocus) {
-        deferControlsFocus(() => controlsTriggerRef.current);
+        deferControlsFocus(() => controlsReturnFocusTargetRef.current);
       }
     },
     [deferControlsFocus],
   );
 
-  const openControlsDrawer = useCallback((section: IncidentControlsSection) => {
-    setControlsMenuOpen(false);
-    setLastControlsSection(section);
-    setControlsDrawerSection(section);
-  }, []);
+  const openControlsDrawer = useCallback(
+    (
+      section: IncidentControlsSection,
+      returnFocusTarget?: HTMLElement | null,
+    ) => {
+      controlsReturnFocusTargetRef.current = returnFocusTarget ?? null;
+      setLastControlsSection(section);
+      setControlsDrawerSection(section);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (controlsDrawerSection === null) {
@@ -4008,6 +3982,14 @@ export function WorkbookShell({
       selectedSheetRef={startupSheetRef}
     />
   );
+  const workbookAccountApplicationMenu = accountApplicationMenu?.({
+    currentIncidentRole,
+    incidentControls: {
+      activeSection: lastControlsSection,
+      items: incidentControlsMenuItems,
+      onSelectSection: openControlsDrawer,
+    },
+  });
 
   return (
     <section
@@ -4089,155 +4071,16 @@ export function WorkbookShell({
           />
         </div>
         <div style={shellTopBarActionsStyle}>
-          <span
-            data-testid={phase1RouteTestId("workbook-current-user")}
-            style={currentUserChipStyle}
-            title={currentUserLabel ?? "Unknown user"}
-          >
-            {displayInitials(currentUserLabel ?? "Unknown user")}
-          </span>
-          <div data-testid={currentIncidentRoleTestId()} style={roleBadgeStyle}>
-            Current incident role: {currentIncidentRole || "viewer"}
-          </div>
-          <fieldset
-            ref={controlsMenuContainerRef}
-            aria-label="Incident controls"
-            style={controlsMenuAnchorStyle}
-            onBlur={(event) => {
-              const nextFocus = event.relatedTarget;
-              if (
-                nextFocus instanceof Node &&
-                controlsMenuContainerRef.current?.contains(nextFocus)
-              ) {
-                return;
-              }
-              setControlsMenuOpen(false);
-            }}
-          >
-            <button
-              ref={controlsTriggerRef}
-              aria-controls={
-                controlsMenuOpen ? incidentControlsMenuTestId() : undefined
-              }
-              aria-expanded={controlsMenuOpen}
-              aria-haspopup="menu"
-              data-testid={incidentControlsTriggerTestId()}
-              style={secondaryActionButtonStyle}
-              type="button"
-              onClick={() => {
-                if (controlsMenuOpen) {
-                  closeControlsMenu({ restoreTriggerFocus: false });
-                  return;
-                }
-                openControlsMenu();
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowDown" || event.key === "Enter") {
-                  event.preventDefault();
-                  openControlsMenu();
-                  return;
-                }
-                if (event.key === "ArrowUp") {
-                  event.preventDefault();
-                  const lastIndex = incidentControlsMenuItems.length - 1;
-                  setActiveControlsMenuIndex(lastIndex);
-                  setControlsMenuOpen(true);
-                  focusControlsMenuItem(lastIndex);
-                  return;
-                }
-                if (event.key === "Escape" && controlsMenuOpen) {
-                  event.preventDefault();
-                  closeControlsMenu({ restoreTriggerFocus: true });
-                }
-              }}
-            >
-              Controls
-            </button>
-            {controlsMenuOpen ? (
-              <div
-                data-testid={incidentControlsMenuTestId()}
-                id={incidentControlsMenuTestId()}
-                role="menu"
-                style={controlsMenuStyle}
+          <div style={currentUserSlotStyle}>
+            {workbookAccountApplicationMenu ?? (
+              <span
+                style={currentUserChipStyle}
+                title={currentUserLabel ?? "Unknown user"}
               >
-                {incidentControlsMenuItems.map((item, index) => (
-                  <button
-                    key={item.section}
-                    ref={(node) => {
-                      if (node === null) {
-                        controlsMenuItemRefs.current.delete(item.section);
-                        return;
-                      }
-                      controlsMenuItemRefs.current.set(item.section, node);
-                    }}
-                    data-testid={incidentControlsMenuItemTestId(item.section)}
-                    role="menuitem"
-                    style={
-                      item.section === lastControlsSection
-                        ? controlsMenuItemActiveStyle
-                        : controlsMenuItemStyle
-                    }
-                    tabIndex={index === activeControlsMenuIndex ? 0 : -1}
-                    type="button"
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                    }}
-                    onClick={() => {
-                      openControlsDrawer(item.section);
-                    }}
-                    onKeyDown={(event) => {
-                      switch (event.key) {
-                        case "ArrowDown":
-                          event.preventDefault();
-                          moveControlsMenuFocus(index + 1);
-                          break;
-                        case "ArrowUp":
-                          event.preventDefault();
-                          moveControlsMenuFocus(index - 1);
-                          break;
-                        case "Home":
-                          event.preventDefault();
-                          moveControlsMenuFocus(0);
-                          break;
-                        case "End":
-                          event.preventDefault();
-                          moveControlsMenuFocus(
-                            incidentControlsMenuItems.length - 1,
-                          );
-                          break;
-                        case "Escape":
-                          event.preventDefault();
-                          closeControlsMenu({ restoreTriggerFocus: true });
-                          break;
-                        case "Enter":
-                        case " ":
-                          event.preventDefault();
-                          openControlsDrawer(item.section);
-                          break;
-                        default:
-                          break;
-                      }
-                    }}
-                  >
-                    <span style={controlsMenuItemLabelStyle}>{item.label}</span>
-                    <span style={controlsMenuItemDescriptionStyle}>
-                      {item.description}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </fieldset>
-          {onReturnToLanding ? (
-            <button
-              data-testid={phase1LandingTestId("return")}
-              style={secondaryActionButtonStyle}
-              type="button"
-              onClick={onReturnToLanding}
-            >
-              Incidents
-            </button>
-          ) : null}
+                {displayInitials(currentUserLabel ?? "Unknown user")}
+              </span>
+            )}
+          </div>
         </div>
       </WorkbookShellSlotRegion>
 
@@ -4542,6 +4385,12 @@ const shellIncidentIdentityStyle = {
   alignItems: "center",
   gap: "0.45rem",
   flex: "0 1 18rem",
+  minWidth: 0,
+};
+
+const currentUserSlotStyle = {
+  display: "inline-flex",
+  alignItems: "center",
   minWidth: 0,
 };
 
@@ -4908,62 +4757,6 @@ const roleBadgeStyle = {
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap" as const,
-};
-
-const controlsMenuAnchorStyle = {
-  position: "relative" as const,
-  display: "inline-flex",
-  flex: "0 0 auto",
-  minInlineSize: 0,
-  margin: 0,
-  padding: 0,
-  border: 0,
-};
-
-const controlsMenuStyle = {
-  position: "absolute" as const,
-  zIndex: 20,
-  insetBlockStart: "calc(100% + 0.35rem)",
-  insetInlineEnd: 0,
-  display: "grid",
-  gap: "0.25rem",
-  inlineSize: "min(20rem, calc(100vw - var(--ct-spacing-xl)))",
-  maxBlockSize: "min(22rem, calc(100vh - var(--ct-spacing-xl)))",
-  overflow: "auto",
-  padding: "0.45rem",
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-md)",
-  background: "var(--ct-colors-surface-1)",
-  boxShadow: "var(--ct-elevation-popover)",
-};
-
-const controlsMenuItemStyle = {
-  display: "grid",
-  gap: "0.2rem",
-  minWidth: 0,
-  width: "100%",
-  border: 0,
-  borderRadius: "var(--ct-rounded-sm)",
-  background: "transparent",
-  color: "var(--ct-colors-ink)",
-  padding: "0.55rem 0.65rem",
-  font: "inherit",
-  textAlign: "left" as const,
-  cursor: "pointer",
-};
-
-const controlsMenuItemActiveStyle = {
-  ...controlsMenuItemStyle,
-  background: "var(--ct-colors-surface-3)",
-};
-
-const controlsMenuItemLabelStyle = {
-  fontWeight: 700,
-};
-
-const controlsMenuItemDescriptionStyle = {
-  color: "var(--ct-colors-ink-muted)",
-  fontSize: "0.78rem",
 };
 
 const supportRegionStyle = {

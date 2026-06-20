@@ -879,6 +879,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "summary",
       "incident-fields",
       "memberships",
+      "membership-audit",
     ]);
     expect(incidentControlsMenuItemTestId("summary")).toBe(
       "incident-controls-menu-item-summary",
@@ -888,6 +889,9 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     );
     expect(incidentControlsMenuItemTestId("memberships")).toBe(
       "incident-controls-menu-item-memberships",
+    );
+    expect(incidentControlsMenuItemTestId("membership-audit")).toBe(
+      "incident-controls-menu-item-membership-audit",
     );
     expect(() => incidentControlsMenuItemTestId("audit" as never)).toThrow(
       "Invalid incident controls section token: audit",

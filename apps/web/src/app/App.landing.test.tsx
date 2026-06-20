@@ -1,5 +1,9 @@
 import {
+  currentIncidentRoleTestId,
   deploymentUserRowTestId,
+  incidentControlsMenuItemTestId,
+  incidentControlsMenuTestId,
+  incidentControlsTriggerTestId,
   landingAdminMenuItemTestId,
   landingAdminPanelTestId,
   landingAdminShellTestId,
@@ -109,6 +113,7 @@ import {
   jsonResponse,
 } from "../testing/fetchMockTestSupport";
 import { AppRoot } from "./AppRoot";
+import { AccountApplicationMenu } from "./LandingAdminSurface";
 
 describe("Incident landing", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -122,6 +127,82 @@ describe("Incident landing", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+  });
+
+  it("renders workbook role, incidents, and expandable controls inside the account menu", () => {
+    const openAccountSettings = vi.fn();
+    const openDeploymentAdministration = vi.fn();
+    const openIncidentDirectory = vi.fn();
+    const selectControlsSection = vi.fn();
+
+    render(
+      <AccountApplicationMenu
+        canOpenDeploymentAdministration
+        currentContext="workbook"
+        currentIncidentRole="admin"
+        currentUserLabel="Dev Admin"
+        incidentControls={{
+          activeSection: "summary",
+          items: [
+            {
+              section: "summary",
+              label: "Summary and preferences",
+              description: "Incident summary and workbook defaults",
+            },
+            {
+              section: "incident-fields",
+              label: "Promoted fields",
+              description: "TLP, phase, and external case",
+            },
+            {
+              section: "memberships",
+              label: "Memberships",
+              description: "Incident access and roles",
+            },
+          ],
+          onSelectSection: selectControlsSection,
+        }}
+        onOpenAccountSettings={openAccountSettings}
+        onOpenDeploymentAdministration={openDeploymentAdministration}
+        onOpenIncidentDirectory={openIncidentDirectory}
+        triggerTestId={phase1RouteTestId("workbook-current-user")}
+      />,
+    );
+
+    const trigger = screen.getByTestId(
+      phase1RouteTestId("workbook-current-user"),
+    );
+    fireEvent.click(trigger);
+
+    expect(screen.getByTestId(currentIncidentRoleTestId()).textContent).toBe(
+      "Current incident role: admin",
+    );
+    expect(screen.getByTestId(phase1LandingTestId("return")).textContent).toBe(
+      "Incidents",
+    );
+    expect(
+      screen.getByRole("menuitem", { name: "Deployment administration" }),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId(incidentControlsTriggerTestId()));
+    expect(
+      screen.getByTestId(incidentControlsMenuTestId()).getAttribute("role"),
+    ).toBe("menu");
+    fireEvent.click(
+      screen.getByTestId(incidentControlsMenuItemTestId("memberships")),
+    );
+
+    expect(selectControlsSection).toHaveBeenCalledWith(
+      "memberships",
+      trigger,
+    );
+    expect(screen.queryByTestId(incidentControlsMenuTestId())).toBe(null);
+
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByTestId(phase1LandingTestId("return")));
+    expect(openIncidentDirectory).toHaveBeenCalledTimes(1);
+    expect(openAccountSettings).not.toHaveBeenCalled();
+    expect(openDeploymentAdministration).not.toHaveBeenCalled();
   });
 
   it("shows the zero-incident landing state", async () => {
@@ -156,14 +237,10 @@ describe("Incident landing", () => {
         ),
       ),
     ).toBe(true);
-    expect(
-      screen.getByTestId(landingAdminShellTestId("menu")).getAttribute("role"),
-    ).toBe(null);
-    expect(
-      screen
-        .getByTestId(landingAdminMenuItemTestId("incidents"))
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
+    expect(screen.queryByTestId(landingAdminShellTestId("menu"))).toBe(null);
+    expect(screen.queryByTestId(landingAdminMenuItemTestId("incidents"))).toBe(
+      null,
+    );
     expect(
       screen
         .getByTestId(landingAdminPanelTestId("incidents"))
@@ -195,7 +272,177 @@ describe("Incident landing", () => {
     ).toHaveLength(0);
   });
 
-  it("switches menu panels and leaves actions inside each panel", async () => {
+  it("opens the workbook automatically when exactly one incident is visible", async () => {
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Deployment Admin",
+        is_deployment_admin: true,
+      }),
+      incidents: [
+        incidentResource("incident-one", "IR-200", "Only visible incident"),
+      ],
+    });
+
+    renderApp();
+
+    expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
+    expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
+      "incident-one",
+    );
+    expect(window.location.pathname).toBe("/");
+    expect(window.location.search).toContain("incident_id=incident-one");
+  });
+
+  it("loads deployment administration as a separate route without incident-directory fetches", async () => {
+    window.history.replaceState({}, "", "/deployment-administration");
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Deployment Admin",
+        is_deployment_admin: true,
+      }),
+      extraRoutes: [
+        {
+          method: "GET",
+          url: "/api/v1/users?limit=100",
+          handler: () =>
+            jsonResponse({
+              data: { users: [] },
+              meta: {
+                paging: {
+                  limit: 100,
+                  has_more: false,
+                  next_cursor: null,
+                },
+              },
+            }),
+        },
+      ],
+    });
+
+    renderApp();
+
+    expect(
+      await screen.findByTestId(landingAdminMenuItemTestId("deployment-users")),
+    ).toBeTruthy();
+    expect(screen.queryByTestId(phase1LandingTestId("shell"))).toBe(null);
+    expect(
+      screen.queryByTestId(landingAdminMenuItemTestId("reference-packs")),
+    ).toBe(null);
+    expect(
+      screen.queryByTestId(landingAdminMenuItemTestId("incident-import")),
+    ).toBe(null);
+    expect(
+      findFetchCallsByPath(fetchMock, "/api/v1/incidents", "GET"),
+    ).toHaveLength(0);
+  });
+
+  it("opens an imported incident from terminal incident import job refs", async () => {
+    window.history.replaceState({}, "", "/deployment-administration");
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Deployment Admin",
+        is_deployment_admin: true,
+      }),
+      extensions: {
+        extensions: [
+          {
+            profile_id: "incident_portability",
+            claimed: true,
+            route_families: ["/api/v1/incident-bundles"],
+          },
+        ],
+      },
+      extraRoutes: [
+        {
+          method: "GET",
+          url: "/api/v1/users?limit=100",
+          handler: () =>
+            jsonResponse({
+              data: { users: [] },
+              meta: {
+                paging: {
+                  limit: 100,
+                  has_more: false,
+                  next_cursor: null,
+                },
+              },
+            }),
+        },
+        {
+          method: "POST",
+          url: "/api/v1/incident-bundles/import",
+          handler: () =>
+            jsonResponse({
+              data: {
+                job_id: "job-import-1",
+                status: "succeeded",
+                progress: { completed: 1, total: 1 },
+                result_summary: {
+                  code: "incident_imported",
+                  resource_refs: [
+                    {
+                      kind: "incident",
+                      id: "incident-imported",
+                      route: "/api/v1/incidents/incident-imported",
+                    },
+                  ],
+                },
+              },
+            }),
+        },
+        {
+          method: "GET",
+          url: "/api/v1/jobs/job-import-1",
+          handler: () =>
+            jsonResponse({
+              data: {
+                job_id: "job-import-1",
+                status: "succeeded",
+                progress: { completed: 1, total: 1 },
+                result_summary: {
+                  code: "incident_imported",
+                  resource_refs: [
+                    {
+                      kind: "incident",
+                      id: "incident-imported",
+                      route: "/api/v1/incidents/incident-imported",
+                    },
+                  ],
+                },
+              },
+            }),
+        },
+      ],
+    });
+
+    renderApp();
+
+    fireEvent.click(
+      await screen.findByTestId(landingAdminMenuItemTestId("incident-import")),
+    );
+    expect(document.body.textContent ?? "").not.toContain(
+      "Imported incident navigation is intentionally withheld",
+    );
+    fireEvent.change(screen.getByLabelText("Incident bundle file"), {
+      target: {
+        files: [
+          new File(["bundle"], "incident.zip", { type: "application/zip" }),
+        ],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+
+    fireEvent.click(await screen.findByText("Open imported incident"));
+
+    expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
+    expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
+      "incident-imported",
+    );
+    expect(window.location.search).toBe("?incident_id=incident-imported");
+  });
+
+  it("returns non-admin direct deployment administration navigation to the incident directory", async () => {
+    window.history.replaceState({}, "", "/deployment-administration");
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
         display_name: "Operator",
@@ -204,24 +451,86 @@ describe("Incident landing", () => {
 
     renderApp();
 
+    expect(
+      await screen.findByTestId(phase1LandingTestId("empty-state")),
+    ).toBeTruthy();
+    expect(window.location.pathname).toBe("/");
+    expect(
+      screen.queryByTestId(landingAdminMenuItemTestId("deployment-users")),
+    ).toBe(null);
+  });
+
+  it("opens account settings from the account menu and keeps deployment panels off the root", async () => {
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Operator",
+      }),
+      extraRoutes: [
+        {
+          method: "GET",
+          url: "/api/v1/account/profile",
+          handler: () =>
+            jsonResponse({
+              data: {
+                user_id: "user-1",
+                email: "operator@example.test",
+                display_name: "Operator",
+                user_version: 1,
+              },
+            }),
+        },
+        {
+          method: "GET",
+          url: "/api/v1/account/preferences",
+          handler: () =>
+            jsonResponse({
+              data: {
+                user_id: "user-1",
+                density_mode: null,
+                preferences_version: 1,
+              },
+            }),
+        },
+      ],
+    });
+
+    renderApp();
+
     await screen.findByTestId(phase1LandingTestId("empty-state"));
     fireEvent.click(
-      screen.getByTestId(landingAdminMenuItemTestId("account-security")),
+      screen.getByLabelText("Account and application navigation"),
+    );
+    expect(screen.queryByText("Deployment administration")).toBe(null);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Profile" }));
+    expect(
+      await screen.findByTestId(phase1AccountTestId("profile-email")),
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(phase1AccountTestId("profile-email")).textContent,
+      ).toBe("operator@example.test");
+    });
+    expect(
+      screen.getByTestId(phase1AccountTestId("profile-display-name")),
+    ).toBeTruthy();
+    expect(screen.queryByText("MFA required")).toBe(null);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Appearance" }));
+    const densityMode = await screen.findByTestId(
+      phase1AccountTestId("appearance-density-mode"),
     );
     expect(
-      screen
-        .getByTestId(landingAdminMenuItemTestId("account-security"))
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
-    expect(
-      screen
-        .getByTestId(landingAdminPanelTestId("account-security"))
-        .getAttribute("aria-labelledby"),
-    ).toBe(landingAdminMenuItemTestId("account-security"));
+      Array.from((densityMode as HTMLSelectElement).options).map(
+        (option) => option.textContent,
+      ),
+    ).toEqual(["Use surface default", "Compact", "Default", "Comfortable"]);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Security" }));
     expect(
       screen.getByTestId(phase1AccountTestId("refresh-state")),
     ).toBeTruthy();
     expect(screen.getByTestId(phase1AccountTestId("logout"))).toBeTruthy();
+    expect(document.body.textContent ?? "").not.toContain("MFA required");
 
     expect(
       screen.queryByTestId(landingAdminMenuItemTestId("reference-packs")),
@@ -289,9 +598,7 @@ describe("Incident landing", () => {
     renderApp();
 
     await screen.findByTestId(phase1LandingTestId("empty-state"));
-    fireEvent.click(
-      screen.getByTestId(landingAdminMenuItemTestId("deployment-users")),
-    );
+    await openDeploymentAdministration();
     expect(
       (screen.getByTestId(phase1AdminTestId("patch-user")) as HTMLButtonElement)
         .disabled,
@@ -360,6 +667,41 @@ describe("Incident landing", () => {
     expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
       "incident-2",
     );
+  });
+
+  it("loads additional visible incident rows from the server cursor", async () => {
+    const visibleIncidents = Array.from({ length: 101 }, (_value, index) =>
+      incidentResource(
+        `incident-${index + 1}`,
+        `IR-${String(index + 1).padStart(3, "0")}`,
+        `Incident ${index + 1}`,
+      ),
+    );
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Operator",
+      }),
+      incidents: visibleIncidents,
+    });
+
+    renderApp();
+
+    await screen.findByTestId(landingIncidentCardTestId("incident-100"));
+    expect(
+      screen.queryByTestId(landingIncidentCardTestId("incident-101")),
+    ).toBe(null);
+    expect(
+      screen.getByTestId(phase1LandingTestId("incidents-count")).textContent,
+    ).toBe("100 loaded +");
+
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+
+    expect(
+      await screen.findByTestId(landingIncidentCardTestId("incident-101")),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(phase1LandingTestId("incidents-count")).textContent,
+    ).toBe("101 loaded");
   });
 
   it("Phase 2 U-2-11 ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible", async () => {
@@ -512,7 +854,7 @@ describe("Incident landing", () => {
       screen.getByTestId(phase1LandingTestId("status")).textContent?.trim(),
     ).not.toBe("");
     expect(window.location.search).not.toContain("incident_id=");
-    await expectStableFetchCount(fetchMock, 16);
+    await expectStableFetchCount(fetchMock, 17);
   });
 
   it("cancels an in-flight shell refresh when the app unmounts", async () => {
@@ -588,10 +930,18 @@ describe("Incident landing", () => {
     expect(
       screen.getByTestId(phase1LandingTestId("current-user")).textContent,
     ).toBe("Operator");
-    await expectStableFetchCount(fetchMock, 10);
+    await expectStableFetchCount(fetchMock, 6);
   });
 });
 
 function renderApp() {
   return render(<AppRoot />);
+}
+
+async function openDeploymentAdministration() {
+  fireEvent.click(screen.getByLabelText("Account and application navigation"));
+  fireEvent.click(
+    screen.getByRole("menuitem", { name: "Deployment administration" }),
+  );
+  await screen.findByTestId(landingAdminMenuItemTestId("deployment-users"));
 }

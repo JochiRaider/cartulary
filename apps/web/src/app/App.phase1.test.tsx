@@ -139,9 +139,7 @@ describe("Phase 1 ordinary app shell", () => {
         .getByTestId(phase1RouteTestId("app-shell"))
         .getAttribute("data-bootstrap-state"),
     ).toBe("authenticated");
-    fireEvent.click(
-      screen.getByTestId(landingAdminMenuItemTestId("account-security")),
-    );
+    await openAccountSecurity();
     expect(
       screen.getByTestId(phase1AccountTestId("session-user-id")).textContent,
     ).toBe("user-1");
@@ -158,7 +156,7 @@ describe("Phase 1 ordinary app shell", () => {
       username: "operator@example.test",
       password: "OperatorPass1!",
     });
-    await expectStableFetchCount(fetchMock, 12);
+    await expectStableFetchCount(fetchMock, 8);
   });
 
   it("Phase 11 U-11-ENTERPRISE-AUTH-01 enterprise auth discovery renders provider sign-in and begins with a relative return_to", async () => {
@@ -252,6 +250,7 @@ describe("Phase 1 ordinary app shell", () => {
       screen.getByTestId(phase1ErrorSummaryTestIds("landing").details)
         .textContent,
     ).toContain("Reason: not_allowed_for_route");
+    await openAccountSecurity();
     expect(
       screen.getByTestId(phase1ErrorCodeTestId("account")).textContent,
     ).toBe("credential_bootstrap_rejected");
@@ -261,7 +260,7 @@ describe("Phase 1 ordinary app shell", () => {
     );
     expect(credentialErrorText).not.toContain("req-private-credential-detail");
     expect(credentialErrorText).not.toContain("/var/lib/cartulary");
-    await expectStableFetchCount(fetchMock, 9);
+    await expectStableFetchCount(fetchMock, 5);
   });
 
   it("FE-I-P1-01 route-boundary auth login errors render public envelopes without private details", async () => {
@@ -341,6 +340,7 @@ describe("Phase 1 ordinary app shell", () => {
       screen.getByTestId(phase1ErrorSummaryTestIds("landing").message)
         .textContent,
     ).toBe("Credential bootstrap rejected.");
+    await openAccountSecurity();
     expect(
       screen.getByTestId(phase1ErrorCodeTestId("account")).textContent,
     ).toBe("credential_bootstrap_rejected");
@@ -349,7 +349,7 @@ describe("Phase 1 ordinary app shell", () => {
         .textContent,
     ).toContain("Reason: not_allowed_for_route");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 9);
+    await expectStableFetchCount(fetchMock, 5);
   });
 
   it("Phase 1 U-1-15 ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session", async () => {
@@ -584,7 +584,7 @@ describe("Phase 1 ordinary app shell", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1AccountTestId("session-user-id"));
+    await openAccountSecurity();
 
     fireEvent.change(
       screen.getByTestId(phase1AccountTestId("totp-current-password")),
@@ -713,7 +713,7 @@ describe("Phase 1 ordinary app shell", () => {
         },
       },
     });
-    await expectStableFetchCount(fetchMock, 15);
+    await expectStableFetchCount(fetchMock, 11);
   });
 
   it("FE-I-P1-01 route-boundary account password and TOTP errors render public envelopes without private details", async () => {
@@ -759,7 +759,7 @@ describe("Phase 1 ordinary app shell", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1AccountTestId("session-user-id"));
+    await openAccountSecurity();
 
     fireEvent.change(
       screen.getByTestId(phase1AccountTestId("totp-current-password")),
@@ -829,7 +829,7 @@ describe("Phase 1 ordinary app shell", () => {
         .textContent,
     ).toContain("Field: current_password");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 11);
+    await expectStableFetchCount(fetchMock, 7);
   });
 
   it("FE-I-P1-01 route-boundary logout failures render public envelopes without ending the visible session", async () => {
@@ -854,7 +854,7 @@ describe("Phase 1 ordinary app shell", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1AccountTestId("session-user-id"));
+    await openAccountSecurity();
     fireEvent.click(screen.getByTestId(phase1AccountTestId("logout")));
 
     await waitFor(() => {
@@ -878,7 +878,7 @@ describe("Phase 1 ordinary app shell", () => {
     ).toBe("user-1");
     expect(screen.queryByTestId(phase1AuthTestId("login-username"))).toBeNull();
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 10);
+    await expectStableFetchCount(fetchMock, 6);
   });
 
   it("FE-I-P1-01 route-boundary bootstrap TOTP complete errors render public envelopes without private details", async () => {
@@ -1039,7 +1039,7 @@ describe("Phase 1 ordinary app shell", () => {
 
     renderApp();
 
-    await screen.findByTestId(phase1AccountTestId("session-user-id"));
+    await openAccountSecurity();
     fireEvent.change(
       screen.getByTestId(phase1AccountTestId("totp-current-password")),
       {
@@ -1089,7 +1089,7 @@ describe("Phase 1 ordinary app shell", () => {
         .textContent,
     ).toContain("Field: code");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 11);
+    await expectStableFetchCount(fetchMock, 7);
   });
 
   it("Phase 1 U-1-17 ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell", async () => {
@@ -1217,9 +1217,7 @@ describe("Phase 1 ordinary app shell", () => {
     expect(forbiddenText).not.toContain("/var/lib/cartulary");
     expect(forbiddenText).not.toContain("select * from sessions");
     expect(forbiddenText).not.toContain("forbidden-bootstrap-token");
-    fireEvent.click(
-      screen.getByTestId(landingAdminMenuItemTestId("deployment-users")),
-    );
+    await openDeploymentAdministration();
     fireEvent.change(screen.getByTestId(phase1AdminTestId("create-email")), {
       target: { value: createdUser.email },
     });
@@ -1403,9 +1401,7 @@ describe("Phase 1 ordinary app shell", () => {
     renderApp();
 
     await screen.findByTestId(phase1LandingTestId("current-user"));
-    fireEvent.click(
-      screen.getByTestId(landingAdminMenuItemTestId("deployment-users")),
-    );
+    await openDeploymentAdministration();
     expect(
       (screen.getByTestId(phase1AdminTestId("patch-user")) as HTMLButtonElement)
         .disabled,
@@ -1609,9 +1605,7 @@ describe("Phase 1 ordinary app shell", () => {
     renderApp();
 
     await screen.findByTestId(phase1LandingTestId("current-user"));
-    fireEvent.click(
-      screen.getByTestId(landingAdminMenuItemTestId("deployment-users")),
-    );
+    await openDeploymentAdministration();
     fireEvent.change(screen.getByTestId(phase1AdminTestId("create-email")), {
       target: { value: "invalid-admin-target@example.test" },
     });
@@ -1929,12 +1923,30 @@ describe("Phase 1 ordinary app shell", () => {
     expect(renderedText).not.toContain("otpauth://create-private");
     expect(renderedText).not.toContain("private stack");
     expect(renderedText).not.toContain("private-create-detail");
-    await expectStableFetchCount(fetchMock, 10);
+    await expectStableFetchCount(fetchMock, 6);
   });
 });
 
 function renderApp() {
   return render(<AppRoot />);
+}
+
+async function openAccountSecurity() {
+  fireEvent.click(
+    await screen.findByLabelText("Account and application navigation"),
+  );
+  fireEvent.click(screen.getByRole("menuitem", { name: "Security" }));
+  await screen.findByTestId(phase1AccountTestId("session-user-id"));
+}
+
+async function openDeploymentAdministration() {
+  fireEvent.click(
+    await screen.findByLabelText("Account and application navigation"),
+  );
+  fireEvent.click(
+    screen.getByRole("menuitem", { name: "Deployment administration" }),
+  );
+  await screen.findByTestId(landingAdminMenuItemTestId("deployment-users"));
 }
 
 function userResource(

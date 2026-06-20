@@ -33,6 +33,7 @@ test("E-1-04 advances the shared clock past idle expiry and requires a fresh log
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(email, password);
+  await phase1.openAccountSettings("account-security");
   await expect(
     page.getByTestId(phase1AccountTestId("session-provider-type")),
   ).toHaveText("local");
@@ -66,6 +67,7 @@ test("E-1-04 advances the shared clock past idle expiry and requires a fresh log
   }
 
   await phase1.login(email, password);
+  await phase1.openAccountSettings("account-security");
   await expect(
     page.getByTestId(phase1AccountTestId("session-provider-type")),
   ).toHaveText("local");

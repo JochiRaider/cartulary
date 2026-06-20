@@ -1,4 +1,9 @@
 import {
+  currentIncidentRoleTestId,
+  type IncidentControlsSection,
+  incidentControlsMenuItemTestId,
+  incidentControlsMenuTestId,
+  incidentControlsTriggerTestId,
   type LandingAdminPanelToken,
   landingAdminMenuItemTestId,
   landingAdminPanelTestId,
@@ -11,6 +16,7 @@ import {
   phase1LandingTestId,
 } from "@cartulary/ui-contracts";
 import {
+  ChevronDown,
   ChevronRight,
   FileClock,
   FolderOpen,
@@ -96,14 +102,57 @@ export type LandingAdminPanelDescriptor = {
   token: LandingAdminPanelToken;
 };
 
+export type AccountSettingsPanelToken =
+  | "account-appearance"
+  | "account-profile"
+  | "account-security";
+
+export type DeploymentAdministrationPanelToken =
+  | "administrative-audit"
+  | "deployment-users"
+  | "incident-import"
+  | "reference-packs";
+
 export type LandingAdminShellProps = {
-  activePanel: LandingAdminPanelToken;
+  accountMenu: ReactNode;
+  activePanel: DeploymentAdministrationPanelToken;
   availablePanels: ReadonlyArray<LandingAdminPanelDescriptor>;
   children: ReactNode;
   currentUserLabel: string;
-  incidentCount: number;
-  onActivePanelChange: (panel: LandingAdminPanelToken) => void;
+  onActivePanelChange: (panel: DeploymentAdministrationPanelToken) => void;
   statusText: string;
+};
+
+export type IncidentDirectoryShellProps = {
+  accountMenu: ReactNode;
+  children: ReactNode;
+  currentUserLabel: string;
+  statusText: string;
+};
+
+export type AccountApplicationMenuProps = {
+  canOpenDeploymentAdministration: boolean;
+  currentContext: "deployment-administration" | "incidents" | "workbook";
+  currentUserLabel: string;
+  currentIncidentRole?: string | null | undefined;
+  incidentControls?:
+    | {
+        readonly activeSection: IncidentControlsSection;
+        readonly items: ReadonlyArray<{
+          readonly description: string;
+          readonly label: string;
+          readonly section: IncidentControlsSection;
+        }>;
+        readonly onSelectSection: (
+          section: IncidentControlsSection,
+          returnFocusTarget?: HTMLElement | null,
+        ) => void;
+      }
+    | undefined;
+  onOpenAccountSettings: (panel: AccountSettingsPanelToken) => void;
+  onOpenDeploymentAdministration: () => void;
+  onOpenIncidentDirectory: () => void;
+  triggerTestId?: string | undefined;
 };
 
 export type IncidentLandingProps = {
@@ -129,6 +178,7 @@ export type IncidentLandingProps = {
   onCreateIncidentSeverityChange: (value: string) => void;
   onCreateIncidentTitleChange: (value: string) => void;
   onCreateIncidentTLPChange: (value: string) => void;
+  onLoadMore: () => Promise<void> | void;
   onOpenIncident: (incidentId: string) => void;
   onRefresh: () => Promise<void> | void;
   onSearchChange: (value: string) => void;
@@ -167,12 +217,17 @@ type JobResource = {
   error_summary?: { code?: string } | null;
 };
 
+type JobResourceRef = {
+  kind?: unknown;
+  id?: unknown;
+};
+
 const panelIcons: Record<LandingAdminPanelToken, typeof FolderOpen> = {
   incidents: FolderOpen,
   "deployment-users": UsersRound,
   "administrative-audit": FileClock,
   "reference-packs": Package,
-  "incident-bundle-import": Upload,
+  "incident-import": Upload,
   "account-profile": UserRound,
   "account-appearance": Palette,
   "account-security": LockKeyhole,
@@ -180,30 +235,45 @@ const panelIcons: Record<LandingAdminPanelToken, typeof FolderOpen> = {
 
 const terminalJobStates = new Set(["succeeded", "failed", "canceled"]);
 
+function importedIncidentIDFromJob(job: JobResource | null): string | null {
+  const refs = job?.result_summary?.resource_refs;
+  if (!Array.isArray(refs)) {
+    return null;
+  }
+  const incidentRefs = refs.filter((ref): ref is JobResourceRef => {
+    if (typeof ref !== "object" || ref === null || Array.isArray(ref)) {
+      return false;
+    }
+    const candidate = ref as JobResourceRef;
+    return candidate.kind === "incident" && typeof candidate.id === "string";
+  });
+  if (incidentRefs.length !== 1) {
+    return null;
+  }
+  const incidentID = incidentRefs[0]?.id;
+  return typeof incidentID === "string" && incidentID.trim() !== ""
+    ? incidentID
+    : null;
+}
+
 export function LandingAdminShell({
+  accountMenu,
   activePanel,
   availablePanels,
   children,
   currentUserLabel,
-  incidentCount,
   onActivePanelChange,
   statusText,
 }: LandingAdminShellProps) {
   const menuItemRefs = useRef(
     new Map<LandingAdminPanelToken, HTMLButtonElement>(),
   );
-  const accountPanels = availablePanels.filter(
-    (panel) => panel.group === "account",
-  );
-  const primaryPanels = availablePanels.filter(
-    (panel) => panel.group === "primary",
-  );
   const deploymentPanels = availablePanels.filter(
     (panel) => panel.group === "deployment",
   );
-  const navigationPanels = [...primaryPanels, ...deploymentPanels];
+  const navigationPanels = deploymentPanels;
 
-  function focusPanelMenuItem(panel: LandingAdminPanelToken) {
+  function focusPanelMenuItem(panel: DeploymentAdministrationPanelToken) {
     const focus = () => {
       menuItemRefs.current.get(panel)?.focus();
     };
@@ -214,7 +284,10 @@ export function LandingAdminShell({
     window.setTimeout(focus, 0);
   }
 
-  function selectPanel(panel: LandingAdminPanelToken, focus = false) {
+  function selectPanel(
+    panel: DeploymentAdministrationPanelToken,
+    focus = false,
+  ) {
     onActivePanelChange(panel);
     if (focus) {
       focusPanelMenuItem(panel);
@@ -228,7 +301,11 @@ export function LandingAdminShell({
     const lastIndex = navigationPanels.length - 1;
     const selectByIndex = (index: number) => {
       event.preventDefault();
-      selectPanel(navigationPanels[index]?.token ?? "incidents", true);
+      selectPanel(
+        (navigationPanels[index]?.token ??
+          "deployment-users") as DeploymentAdministrationPanelToken,
+        true,
+      );
     };
 
     switch (event.key) {
@@ -259,7 +336,7 @@ export function LandingAdminShell({
       <header style={landingAdminHeaderStyle}>
         <div style={brandBlockStyle}>
           <p style={landingEyebrowStyle}>Cartulary</p>
-          <h1 style={landingAdminTitleStyle}>Incidents</h1>
+          <h1 style={landingAdminTitleStyle}>Deployment administration</h1>
         </div>
         <dl style={landingAdminHeaderMetaStyle}>
           <div>
@@ -271,44 +348,21 @@ export function LandingAdminShell({
               {currentUserLabel}
             </dd>
           </div>
-          <div>
-            <dt style={landingToolbarLabelStyle}>Loaded incidents</dt>
-            <dd style={landingAdminMetaValueStyle}>{incidentCount}</dd>
-          </div>
         </dl>
-        <nav style={landingAccountNavStyle} aria-label="Account settings">
-          {accountPanels.map((panel) => (
-            <PanelButton
-              key={panel.token}
-              compact
-              panel={panel}
-              selected={panel.token === activePanel}
-              onClick={() => {
-                selectPanel(panel.token);
-              }}
-            />
-          ))}
-        </nav>
+        <div style={landingAccountNavStyle}>{accountMenu}</div>
       </header>
 
       <div style={landingAdminWorkspaceStyle}>
         <nav
           data-testid={landingAdminShellTestId("menu")}
           style={landingAdminMenuStyle}
-          aria-label="Incident and deployment administration"
+          aria-label="Deployment administration"
           onKeyDown={handleMenuKeyDown}
         >
           <div style={landingAdminMenuItemsStyle}>
-            <MenuGroup
-              title="Workspace"
-              panels={primaryPanels}
-              activePanel={activePanel}
-              menuItemRefs={menuItemRefs}
-              onSelect={selectPanel}
-            />
             {deploymentPanels.length > 0 ? (
               <MenuGroup
-                title="Deployment administration"
+                title="Administration"
                 panels={deploymentPanels}
                 activePanel={activePanel}
                 menuItemRefs={menuItemRefs}
@@ -333,6 +387,253 @@ export function LandingAdminShell({
   );
 }
 
+export function IncidentDirectoryShell({
+  accountMenu,
+  children,
+  currentUserLabel,
+  statusText,
+}: IncidentDirectoryShellProps) {
+  return (
+    <section
+      data-testid={landingAdminShellTestId("shell")}
+      style={incidentDirectoryShellStyle}
+    >
+      <header style={landingAdminHeaderStyle}>
+        <div style={brandBlockStyle}>
+          <p style={landingEyebrowStyle}>Cartulary</p>
+          <h1 style={landingAdminTitleStyle}>Incident directory</h1>
+        </div>
+        <dl style={landingAdminHeaderMetaStyle}>
+          <div>
+            <dt style={landingToolbarLabelStyle}>Session</dt>
+            <dd
+              data-testid={phase1LandingTestId("current-user")}
+              style={landingAdminMetaValueStyle}
+            >
+              {currentUserLabel}
+            </dd>
+          </div>
+        </dl>
+        <div style={landingAccountNavStyle}>{accountMenu}</div>
+      </header>
+      <div style={landingAdminContentStyle}>{children}</div>
+      <footer
+        aria-live="polite"
+        data-testid={landingAdminShellTestId("status-strip")}
+        role="status"
+        style={landingAdminStatusStripStyle}
+      >
+        <span style={landingAdminStatusPrimaryStyle}>Ready</span>
+        <span style={landingAdminStatusSecondaryStyle}>{statusText}</span>
+      </footer>
+    </section>
+  );
+}
+
+export function AccountApplicationMenu({
+  canOpenDeploymentAdministration,
+  currentContext,
+  currentUserLabel,
+  currentIncidentRole,
+  incidentControls,
+  onOpenAccountSettings,
+  onOpenDeploymentAdministration,
+  onOpenIncidentDirectory,
+  triggerTestId,
+}: AccountApplicationMenuProps) {
+  const [open, setOpen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const containerRef = useRef<HTMLFieldSetElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const closeMenu = useCallback(() => {
+    setOpen(false);
+    setControlsOpen(false);
+  }, []);
+
+  return (
+    <fieldset
+      ref={containerRef}
+      aria-label="Account and application menu"
+      style={accountMenuAnchorStyle}
+      onBlur={(event) => {
+        const nextFocus = event.relatedTarget;
+        if (
+          nextFocus instanceof Node &&
+          containerRef.current?.contains(nextFocus)
+        ) {
+          return;
+        }
+        closeMenu();
+      }}
+    >
+      <button
+        ref={triggerRef}
+        aria-controls={open ? "account-application-menu" : undefined}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label="Account and application navigation"
+        data-testid={triggerTestId}
+        style={accountMenuTriggerStyle}
+        type="button"
+        onClick={() => {
+          setOpen((current) => {
+            const nextOpen = !current;
+            if (!nextOpen) {
+              setControlsOpen(false);
+            }
+            return nextOpen;
+          });
+        }}
+      >
+        <UserRound aria-hidden="true" size={16} />
+        <span style={accountMenuTriggerTextStyle}>{currentUserLabel}</span>
+        <ChevronDown aria-hidden="true" size={15} />
+      </button>
+      {open ? (
+        <div id="account-application-menu" role="menu" style={accountMenuStyle}>
+          {currentContext === "workbook" ? (
+            <div
+              aria-disabled="true"
+              data-testid={currentIncidentRoleTestId()}
+              role="menuitem"
+              style={accountMenuStatusItemStyle}
+              tabIndex={-1}
+            >
+              Current incident role: {currentIncidentRole || "viewer"}
+            </div>
+          ) : null}
+          <button
+            aria-current={currentContext === "incidents" ? "page" : undefined}
+            data-testid={
+              currentContext === "workbook"
+                ? phase1LandingTestId("return")
+                : undefined
+            }
+            role="menuitem"
+            style={accountMenuItemStyle}
+            type="button"
+            onClick={() => {
+              closeMenu();
+              onOpenIncidentDirectory();
+            }}
+          >
+            Incidents
+          </button>
+          {canOpenDeploymentAdministration ? (
+            <button
+              aria-current={
+                currentContext === "deployment-administration"
+                  ? "page"
+                  : undefined
+              }
+              role="menuitem"
+              style={accountMenuItemStyle}
+              type="button"
+              onClick={() => {
+                closeMenu();
+                onOpenDeploymentAdministration();
+              }}
+            >
+              Deployment administration
+            </button>
+          ) : null}
+          {incidentControls ? (
+            <>
+              <button
+                aria-controls={
+                  controlsOpen ? incidentControlsMenuTestId() : undefined
+                }
+                aria-expanded={controlsOpen}
+                aria-haspopup="menu"
+                data-testid={incidentControlsTriggerTestId()}
+                role="menuitem"
+                style={accountMenuItemStyle}
+                type="button"
+                onClick={() => {
+                  setControlsOpen((current) => !current);
+                }}
+              >
+                Controls
+              </button>
+              {controlsOpen ? (
+                <div
+                  data-testid={incidentControlsMenuTestId()}
+                  id={incidentControlsMenuTestId()}
+                  role="menu"
+                  style={accountSubmenuStyle}
+                >
+                  {incidentControls.items.map((item) => (
+                    <button
+                      key={item.section}
+                      data-testid={incidentControlsMenuItemTestId(item.section)}
+                      role="menuitem"
+                      style={
+                        item.section === incidentControls.activeSection
+                          ? accountSubmenuItemSelectedStyle
+                          : accountSubmenuItemStyle
+                      }
+                      type="button"
+                      onClick={() => {
+                        const returnFocusTarget = triggerRef.current;
+                        closeMenu();
+                        incidentControls.onSelectSection(
+                          item.section,
+                          returnFocusTarget,
+                        );
+                      }}
+                    >
+                      <span style={accountSubmenuItemLabelStyle}>
+                        {item.label}
+                      </span>
+                      <span style={accountSubmenuItemDescriptionStyle}>
+                        {item.description}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          ) : null}
+          <div aria-hidden="true" style={accountMenuSeparatorStyle} />
+          <button
+            role="menuitem"
+            style={accountMenuItemStyle}
+            type="button"
+            onClick={() => {
+              closeMenu();
+              onOpenAccountSettings("account-profile");
+            }}
+          >
+            Profile
+          </button>
+          <button
+            role="menuitem"
+            style={accountMenuItemStyle}
+            type="button"
+            onClick={() => {
+              closeMenu();
+              onOpenAccountSettings("account-appearance");
+            }}
+          >
+            Appearance
+          </button>
+          <button
+            role="menuitem"
+            style={accountMenuItemStyle}
+            type="button"
+            onClick={() => {
+              closeMenu();
+              onOpenAccountSettings("account-security");
+            }}
+          >
+            Security
+          </button>
+        </div>
+      ) : null}
+    </fieldset>
+  );
+}
+
 function MenuGroup({
   activePanel,
   menuItemRefs,
@@ -340,11 +641,14 @@ function MenuGroup({
   panels,
   title,
 }: {
-  activePanel: LandingAdminPanelToken;
+  activePanel: DeploymentAdministrationPanelToken;
   menuItemRefs: MutableRefObject<
     Map<LandingAdminPanelToken, HTMLButtonElement>
   >;
-  onSelect: (panel: LandingAdminPanelToken, focus?: boolean) => void;
+  onSelect: (
+    panel: DeploymentAdministrationPanelToken,
+    focus?: boolean,
+  ) => void;
   panels: ReadonlyArray<LandingAdminPanelDescriptor>;
   title: string;
 }) {
@@ -356,7 +660,8 @@ function MenuGroup({
       <p style={menuGroupTitleStyle}>{title}</p>
       <div style={menuGroupItemsStyle}>
         {panels.map((panel) => {
-          const selected = panel.token === activePanel;
+          const token = panel.token as DeploymentAdministrationPanelToken;
+          const selected = token === activePanel;
           return (
             <PanelButton
               key={panel.token}
@@ -370,7 +675,7 @@ function MenuGroup({
                 menuItemRefs.current.set(panel.token, element);
               }}
               onClick={() => {
-                onSelect(panel.token);
+                onSelect(token);
               }}
             />
           );
@@ -448,6 +753,7 @@ export function IncidentLanding({
   onCreateIncidentSeverityChange,
   onCreateIncidentTitleChange,
   onCreateIncidentTLPChange,
+  onLoadMore,
   onOpenIncident,
   onRefresh,
   onSearchChange,
@@ -633,6 +939,18 @@ export function IncidentLanding({
                 </tbody>
               </table>
             </div>
+          ) : null}
+
+          {hasMoreIncidents ? (
+            <button
+              style={secondaryButtonStyle}
+              type="button"
+              onClick={() => {
+                void onLoadMore();
+              }}
+            >
+              Load more
+            </button>
           ) : null}
         </section>
 
@@ -1192,12 +1510,17 @@ export function AdministrativeAuditPanel() {
   );
 }
 
-export function IncidentBundleImportPanel() {
+export function IncidentImportPanel({
+  onOpenImportedIncident,
+}: {
+  onOpenImportedIncident: (incidentId: string) => void;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [job, setJob] = useState<JobResource | null>(null);
-  const [status, setStatus] = useState("Incident bundle import idle.");
+  const [status, setStatus] = useState("Incident import idle.");
   const [error, setError] = useState<APIError | null>(null);
   const pollTimer = useRef<number | null>(null);
+  const importedIncidentID = importedIncidentIDFromJob(job);
 
   const loadJob = useCallback(async (jobID: string) => {
     const result = await fetchJSON<{ data: JobResource }>(
@@ -1209,7 +1532,7 @@ export function IncidentBundleImportPanel() {
     }
     const nextJob = (result.payload as { data: JobResource }).data;
     setJob(nextJob);
-    setStatus(`Incident bundle import job ${nextJob.status ?? "updated"}.`);
+    setStatus(`Incident import job ${nextJob.status ?? "updated"}.`);
   }, []);
 
   useEffect(() => {
@@ -1242,7 +1565,7 @@ export function IncidentBundleImportPanel() {
       new Blob(
         [
           JSON.stringify({
-            client_txn_id: clientTxnID("incident-bundle-import"),
+            client_txn_id: clientTxnID("incident-import"),
           }),
         ],
         { type: "application/json" },
@@ -1254,7 +1577,7 @@ export function IncidentBundleImportPanel() {
     if (csrfToken !== null && csrfToken !== "") {
       headers.set(csrfHeaderName, csrfToken);
     }
-    setStatus("Submitting incident bundle import.");
+    setStatus("Submitting incident import.");
     const response = await fetch("/api/v1/incident-bundles/import", {
       method: "POST",
       credentials: "include",
@@ -1267,14 +1590,14 @@ export function IncidentBundleImportPanel() {
     };
     if (!response.ok) {
       setError(extractError(payload));
-      setStatus("Incident bundle import failed to start.");
+      setStatus("Incident import failed to start.");
       return;
     }
     const nextJob = payload.data ?? null;
     setError(null);
     setJob(nextJob);
     setStatus(
-      `Incident bundle import queued${nextJob?.job_id ? `: ${nextJob.job_id}` : "."}`,
+      `Incident import queued${nextJob?.job_id ? `: ${nextJob.job_id}` : "."}`,
     );
     if (nextJob?.job_id) {
       void loadJob(nextJob.job_id);
@@ -1284,7 +1607,7 @@ export function IncidentBundleImportPanel() {
   return (
     <section style={surfacePanelStyle}>
       <p style={sectionEyebrowStyle}>Incident portability</p>
-      <h2 style={sectionTitleStyle}>Import incident bundle</h2>
+      <h2 style={sectionTitleStyle}>Incident import</h2>
       <div style={portabilityGridStyle}>
         <label style={labelBlockStyle}>
           Bundle file
@@ -1304,7 +1627,7 @@ export function IncidentBundleImportPanel() {
             void submitImport();
           }}
         >
-          Import bundle
+          Import
         </button>
       </div>
       <div style={jobPanelStyle}>
@@ -1314,10 +1637,17 @@ export function IncidentBundleImportPanel() {
             ? "No import job is active."
             : `${job.status ?? "queued"} · ${job.progress?.completed ?? 0}/${job.progress?.total ?? "?"}`}
         </p>
-        <p style={metadataTextStyle}>
-          Imported incident navigation is intentionally withheld until the Core
-          post-import membership rule is resolved.
-        </p>
+        {importedIncidentID !== null ? (
+          <button
+            style={primaryButtonStyle}
+            type="button"
+            onClick={() => {
+              onOpenImportedIncident(importedIncidentID);
+            }}
+          >
+            Open imported incident
+          </button>
+        ) : null}
       </div>
       <p aria-live="polite" role="status" style={statusTextStyle}>
         {status}
@@ -1399,6 +1729,11 @@ const landingAdminShellStyle: CSSProperties = {
   overflow: "hidden",
 };
 
+const incidentDirectoryShellStyle: CSSProperties = {
+  ...landingAdminShellStyle,
+  overflow: "auto",
+};
+
 const landingAdminHeaderStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "minmax(12rem, 1fr) auto minmax(14rem, 1fr)",
@@ -1454,6 +1789,116 @@ const landingAccountNavStyle: CSSProperties = {
   flexWrap: "wrap",
   justifyContent: "flex-end",
   gap: "var(--ct-spacing-xs)",
+};
+
+const accountMenuAnchorStyle: CSSProperties = {
+  position: "relative",
+  display: "inline-flex",
+  justifyContent: "flex-end",
+  minInlineSize: 0,
+  margin: 0,
+  padding: 0,
+  border: 0,
+};
+
+const accountMenuTriggerStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  maxWidth: "min(22rem, 100%)",
+  gap: "0.45rem",
+  padding: "0.5rem 0.65rem",
+  borderRadius: "var(--ct-rounded-sm)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink)",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const accountMenuTriggerTextStyle: CSSProperties = {
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const accountMenuStyle: CSSProperties = {
+  position: "absolute",
+  insetBlockStart: "calc(100% + 0.35rem)",
+  insetInlineEnd: 0,
+  zIndex: 20,
+  minWidth: "18rem",
+  display: "grid",
+  gap: "0.2rem",
+  padding: "0.4rem",
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-sm)",
+  background: "var(--ct-colors-surface-2)",
+  boxShadow: "var(--ct-elevation-panel)",
+};
+
+const accountMenuItemStyle: CSSProperties = {
+  width: "100%",
+  padding: "0.55rem 0.65rem",
+  border: "none",
+  borderRadius: "var(--ct-rounded-sm)",
+  background: "transparent",
+  color: "var(--ct-colors-ink-muted)",
+  font: "inherit",
+  fontWeight: 700,
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const accountMenuStatusItemStyle: CSSProperties = {
+  width: "100%",
+  padding: "0.55rem 0.65rem",
+  borderRadius: "var(--ct-rounded-sm)",
+  background: "var(--ct-colors-surface-1)",
+  color: "var(--ct-colors-ink-muted)",
+  fontWeight: 700,
+  textAlign: "left",
+};
+
+const accountSubmenuStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.2rem",
+  padding: "0.2rem 0 0.25rem 0.55rem",
+};
+
+const accountSubmenuItemStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.16rem",
+  width: "100%",
+  padding: "0.5rem 0.6rem",
+  border: "none",
+  borderRadius: "var(--ct-rounded-sm)",
+  background: "transparent",
+  color: "var(--ct-colors-ink-muted)",
+  font: "inherit",
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const accountSubmenuItemSelectedStyle: CSSProperties = {
+  ...accountSubmenuItemStyle,
+  background: "var(--ct-colors-surface-3)",
+  color: "var(--ct-colors-ink)",
+};
+
+const accountSubmenuItemLabelStyle: CSSProperties = {
+  fontWeight: 700,
+};
+
+const accountSubmenuItemDescriptionStyle: CSSProperties = {
+  color: "var(--ct-colors-ink-subtle)",
+  fontSize: "0.76rem",
+};
+
+const accountMenuSeparatorStyle: CSSProperties = {
+  height: 1,
+  margin: "0.25rem 0",
+  background: "var(--ct-colors-border-muted)",
 };
 
 const landingAccountNavButtonStyle: CSSProperties = {

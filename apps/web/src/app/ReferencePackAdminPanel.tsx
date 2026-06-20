@@ -52,7 +52,7 @@ type ReferencePackVersion = {
   activated_at: string | null;
 };
 
-type JobResource = {
+export type ReferencePackJobResource = {
   job_id: string;
   status: string;
   cancelable: boolean;
@@ -69,18 +69,23 @@ type ReferencePackListEnvelope = {
     pack_versions: ReferencePackVersion[];
   };
   meta?: {
-    paging?: {
-      has_more: boolean;
-      next_cursor: string | null;
-    };
+    paging?: ReferencePackPaging;
   };
 };
 
+type ReferencePackPaging = {
+  limit?: number;
+  has_more: boolean;
+  next_cursor: string | null;
+};
+
 type JobEnvelope = {
-  data: JobResource;
+  data: ReferencePackJobResource;
 };
 
 type ReferencePackAdminPanelProps = {
+  activeJob?: ReferencePackJobResource | null;
+  onJobChange?: (job: ReferencePackJobResource | null) => void;
   session: SessionData;
 };
 
@@ -93,74 +98,100 @@ export type ReferencePackAdminPanelHandle = {
 };
 
 const terminalJobStates = new Set(["succeeded", "failed", "canceled"]);
+const defaultPackPaging: ReferencePackPaging = {
+  limit: 100,
+  has_more: false,
+  next_cursor: null,
+};
 
 export const ReferencePackAdminPanel = forwardRef<
   ReferencePackAdminPanelHandle,
   ReferencePackAdminPanelProps
->(function ReferencePackAdminPanel({ session }, ref) {
+>(function ReferencePackAdminPanel({ activeJob, onJobChange, session }, ref) {
   const [packs, setPacks] = useState<ReferencePackVersion[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [file, setFile] = useState<File | null>(null);
-  const [job, setJob] = useState<JobResource | null>(null);
+  const [internalJob, setInternalJob] =
+    useState<ReferencePackJobResource | null>(null);
   const [error, setError] = useState<APIError | null>(null);
-  const [packFilter, setPackFilter] = useState("");
+  const [packSearch, setPackSearch] = useState("");
+  const [packVersionStateFilter, setPackVersionStateFilter] = useState("");
+  const [verificationResultFilter, setVerificationResultFilter] = useState("");
+  const [activeFilter, setActiveFilter] = useState("");
+  const [packPaging, setPackPaging] = useState(defaultPackPaging);
   const [status, setStatus] = useState("Idle");
   const pollTimer = useRef<number | null>(null);
-
-  const visiblePacks = useMemo(() => {
-    const query = packFilter.trim().toLowerCase();
-    if (query === "") {
-      return packs;
-    }
-    return packs.filter((pack) =>
-      [
-        pack.pack_key,
-        pack.pack_kind,
-        pack.pack_version,
-        pack.pack_version_state,
-        pack.verification_result,
-        pack.active ? "active" : "inactive",
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(query),
-    );
-  }, [packFilter, packs]);
+  const requestSeqRef = useRef(0);
+  const initialLoadRef = useRef(false);
+  const job = activeJob === undefined ? internalJob : activeJob;
 
   const activePackKeys = useMemo(() => {
-    return Array.from(
-      new Set(visiblePacks.map((pack) => pack.pack_key)),
-    ).sort();
-  }, [visiblePacks]);
+    return Array.from(new Set(packs.map((pack) => pack.pack_key))).sort();
+  }, [packs]);
 
-  const loadPacks = useCallback(async () => {
-    let cursorToken: string | null = null;
-    const loaded: ReferencePackVersion[] = [];
-    for (;;) {
+  const loadPacks = useCallback(
+    async (options?: { append?: boolean; cursorToken?: string | null }) => {
+      const sequence = requestSeqRef.current + 1;
+      requestSeqRef.current = sequence;
       const params = new URLSearchParams({ limit: "100" });
-      if (cursorToken !== null) {
+      const cursorToken = options?.cursorToken?.trim() ?? "";
+      const search = packSearch.trim();
+      if (cursorToken !== "") {
         params.set("cursor_token", cursorToken);
       }
+      if (search !== "") {
+        params.set("search", search);
+      }
+      if (packVersionStateFilter !== "") {
+        params.set("pack_version_state", packVersionStateFilter);
+      }
+      if (verificationResultFilter !== "") {
+        params.set("verification_result", verificationResultFilter);
+      }
+      if (activeFilter !== "") {
+        params.set("active", activeFilter);
+      }
+
+      setStatus(
+        options?.append === true
+          ? "Loading more reference packs"
+          : "Searching reference packs",
+      );
       const result = await fetchJSON<ReferencePackListEnvelope>(
         `/api/v1/reference-packs?${params.toString()}`,
       );
+      if (requestSeqRef.current !== sequence) {
+        return;
+      }
       if (!result.ok) {
         setError(extractError(result.payload));
         setStatus("Reference packs unavailable");
         return;
       }
       const envelope = result.payload as ReferencePackListEnvelope;
-      loaded.push(...envelope.data.pack_versions);
-      const paging = envelope.meta?.paging;
-      if (!paging?.has_more || paging.next_cursor === null) {
-        break;
-      }
-      cursorToken = paging.next_cursor;
-    }
-    setError(null);
-    setPacks(loaded);
-    setStatus("Reference packs loaded");
-  }, []);
+      const nextPacks = envelope.data.pack_versions;
+      setError(null);
+      setPacks((current) =>
+        options?.append === true ? [...current, ...nextPacks] : nextPacks,
+      );
+      setPackPaging(envelope.meta?.paging ?? defaultPackPaging);
+      setStatus("Reference packs loaded");
+    },
+    [
+      activeFilter,
+      packSearch,
+      packVersionStateFilter,
+      verificationResultFilter,
+    ],
+  );
+
+  const updateJob = useCallback(
+    (nextJob: ReferencePackJobResource | null) => {
+      setInternalJob(nextJob);
+      onJobChange?.(nextJob);
+    },
+    [onJobChange],
+  );
 
   const loadJob = useCallback(
     async (jobID: string) => {
@@ -170,13 +201,13 @@ export const ReferencePackAdminPanel = forwardRef<
         return;
       }
       const nextJob = (result.payload as JobEnvelope).data;
-      setJob(nextJob);
+      updateJob(nextJob);
       setStatus(`Job ${nextJob.status}`);
       if (terminalJobStates.has(nextJob.status)) {
         await loadPacks();
       }
     },
-    [loadPacks],
+    [loadPacks, updateJob],
   );
 
   useEffect(() => {
@@ -193,6 +224,14 @@ export const ReferencePackAdminPanel = forwardRef<
       }
     };
   }, [job, loadJob]);
+
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      return;
+    }
+    initialLoadRef.current = true;
+    void loadPacks();
+  }, [loadPacks]);
 
   useImperativeHandle(ref, () => ({
     cancelJob,
@@ -258,7 +297,7 @@ export const ReferencePackAdminPanel = forwardRef<
     }
     const nextJob = (payload as JobEnvelope).data;
     setError(null);
-    setJob(nextJob);
+    updateJob(nextJob);
     setStatus("Import queued");
     void loadJob(nextJob.job_id);
   }
@@ -284,7 +323,7 @@ export const ReferencePackAdminPanel = forwardRef<
     setError(null);
     if (action === "reverify") {
       const nextJob = (result.payload as JobEnvelope).data;
-      setJob(nextJob);
+      updateJob(nextJob);
       setStatus("Reverify queued");
       void loadJob(nextJob.job_id);
       return;
@@ -319,7 +358,7 @@ export const ReferencePackAdminPanel = forwardRef<
     }
     const nextJob = (result.payload as JobEnvelope).data;
     setError(null);
-    setJob(nextJob);
+    updateJob(nextJob);
     setStatus("Refresh queued");
     void loadJob(nextJob.job_id);
   }
@@ -344,7 +383,7 @@ export const ReferencePackAdminPanel = forwardRef<
     }
     const nextJob = (result.payload as JobEnvelope).data;
     setError(null);
-    setJob(nextJob);
+    updateJob(nextJob);
     setStatus("Cancel requested");
   }
 
@@ -365,23 +404,85 @@ export const ReferencePackAdminPanel = forwardRef<
         </button>
       </div>
 
-      <div style={uploadRowStyle}>
-        <label style={filterFieldStyle} htmlFor="reference-pack-filter">
-          Filter loaded packs
+      <div style={searchRowStyle}>
+        <label style={filterFieldStyle} htmlFor="reference-pack-search">
+          Search reference packs
           <input
-            aria-label="Filter reference packs"
-            id="reference-pack-filter"
+            aria-label="Search reference packs"
+            id="reference-pack-search"
             style={filterInputStyle}
-            value={packFilter}
+            value={packSearch}
             onChange={(event) => {
-              setPackFilter(event.target.value);
+              setPackSearch(event.target.value);
             }}
-            placeholder="Filter loaded packs"
+            placeholder="Pack key, kind, version, source"
           />
-          <span style={filterHintStyle}>
-            Local filter over loaded pack versions.
-          </span>
         </label>
+        <label style={filterFieldStyle} htmlFor="reference-pack-state-filter">
+          State
+          <select
+            aria-label="Reference pack state"
+            id="reference-pack-state-filter"
+            style={filterInputStyle}
+            value={packVersionStateFilter}
+            onChange={(event) => {
+              setPackVersionStateFilter(event.target.value);
+            }}
+          >
+            <option value="">Any state</option>
+            <option value="staged">staged</option>
+            <option value="verified_available">verified_available</option>
+            <option value="disabled">disabled</option>
+            <option value="failed">failed</option>
+            <option value="missing">missing</option>
+          </select>
+        </label>
+        <label
+          style={filterFieldStyle}
+          htmlFor="reference-pack-verification-filter"
+        >
+          Verification
+          <select
+            aria-label="Reference pack verification result"
+            id="reference-pack-verification-filter"
+            style={filterInputStyle}
+            value={verificationResultFilter}
+            onChange={(event) => {
+              setVerificationResultFilter(event.target.value);
+            }}
+          >
+            <option value="">Any verification</option>
+            <option value="pending">pending</option>
+            <option value="passed">passed</option>
+            <option value="failed">failed</option>
+          </select>
+        </label>
+        <label style={filterFieldStyle} htmlFor="reference-pack-active-filter">
+          Active
+          <select
+            aria-label="Reference pack active state"
+            id="reference-pack-active-filter"
+            style={filterInputStyle}
+            value={activeFilter}
+            onChange={(event) => {
+              setActiveFilter(event.target.value);
+            }}
+          >
+            <option value="">Any active state</option>
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          style={buttonStyle}
+          onClick={() => void loadPacks()}
+        >
+          Search
+        </button>
+      </div>
+
+      <div style={uploadRowStyle}>
         <label style={filterFieldStyle}>
           Bundle file
           <input
@@ -457,7 +558,7 @@ export const ReferencePackAdminPanel = forwardRef<
             </tr>
           </thead>
           <tbody>
-            {visiblePacks.map((pack) => {
+            {packs.map((pack) => {
               const canActivate =
                 pack.pack_version_state === "verified_available" &&
                 !pack.active;
@@ -540,15 +641,26 @@ export const ReferencePackAdminPanel = forwardRef<
           </tbody>
         </table>
         {packs.length === 0 ? <p style={emptyStyle}>No packs loaded</p> : null}
-        {packs.length > 0 && visiblePacks.length === 0 ? (
-          <p style={emptyStyle}>No packs match this loaded-data filter</p>
+        {packPaging.has_more && packPaging.next_cursor !== null ? (
+          <button
+            type="button"
+            style={buttonStyle}
+            onClick={() =>
+              void loadPacks({
+                append: true,
+                cursorToken: packPaging.next_cursor,
+              })
+            }
+          >
+            Load more
+          </button>
         ) : null}
       </div>
 
       <p data-testid={referencePackErrorTestId()} style={errorStyle}>
         {error?.code ?? ""}
       </p>
-      <p style={emptyStyle}>{activePackKeys.length} pack keys visible</p>
+      <p style={emptyStyle}>{activePackKeys.length} pack keys loaded</p>
     </section>
   );
 });
@@ -584,12 +696,22 @@ const titleStyle = {
 
 const uploadRowStyle = {
   display: "grid",
-  gridTemplateColumns: "minmax(14rem, 1fr) minmax(16rem, 1fr) auto",
+  gridTemplateColumns: "minmax(16rem, 1fr) auto",
   gap: "0.75rem",
   marginTop: "1rem",
   minWidth: 0,
   alignItems: "end",
 };
+
+const searchRowStyle = {
+  display: "grid",
+  gridTemplateColumns:
+    "minmax(18rem, 1.4fr) repeat(3, minmax(10rem, 1fr)) auto",
+  gap: "0.75rem",
+  marginTop: "1rem",
+  minWidth: 0,
+  alignItems: "end",
+} satisfies CSSProperties;
 
 const filterFieldStyle = {
   display: "grid",
@@ -609,12 +731,6 @@ const filterInputStyle = {
   background: "var(--ct-component-text-input-backgroundColor)",
   color: "var(--ct-component-text-input-textColor)",
   padding: "var(--ct-component-text-input-padding)",
-} satisfies CSSProperties;
-
-const filterHintStyle = {
-  color: "var(--ct-colors-ink-subtle)",
-  fontSize: "0.76rem",
-  fontWeight: 400,
 } satisfies CSSProperties;
 
 const fileInputStyle = {

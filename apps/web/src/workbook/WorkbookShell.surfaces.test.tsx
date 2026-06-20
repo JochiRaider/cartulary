@@ -1,4 +1,5 @@
 import {
+  currentIncidentRoleTestId,
   dataTestIdSelector,
   evidenceAccessMessageTestId,
   evidenceAttachFileInputTestId,
@@ -17,6 +18,7 @@ import {
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
   incidentMembershipCreateButtonTestId,
+  phase1LandingTestId,
   rowCellTestId,
   rowInspectButtonTestId,
   savedViewCreateButtonTestId,
@@ -49,6 +51,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../testing/fetchMockTestSupport";
 import {
@@ -70,10 +73,95 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./models/workbookSurfaceRegistry";
-import { WorkbookShell } from "./WorkbookShell";
+import {
+  WorkbookShell,
+  type WorkbookAccountApplicationMenuProps,
+} from "./WorkbookShell";
 
 const savedViewId = "11111111-1111-4111-8111-111111111111";
 const savedViewCopyId = "33333333-3333-4333-8333-333333333333";
+const testAccountMenuTriggerTestId = "test-account-menu-trigger";
+
+function TestAccountApplicationMenu({
+  currentIncidentRole,
+  incidentControls,
+}: WorkbookAccountApplicationMenuProps) {
+  const [open, setOpen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  return (
+    <div>
+      <button
+        ref={triggerRef}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        data-testid={testAccountMenuTriggerTestId}
+        type="button"
+        onClick={() => {
+          setOpen((current) => !current);
+        }}
+      >
+        Account
+      </button>
+      {open ? (
+        <div role="menu">
+          <div
+            aria-disabled="true"
+            data-testid={currentIncidentRoleTestId()}
+            role="menuitem"
+          >
+            Current incident role: {currentIncidentRole || "viewer"}
+          </div>
+          <button
+            data-testid={phase1LandingTestId("return")}
+            role="menuitem"
+            type="button"
+          >
+            Incidents
+          </button>
+          <button
+            aria-controls={
+              controlsOpen ? incidentControlsMenuTestId() : undefined
+            }
+            aria-expanded={controlsOpen}
+            aria-haspopup="menu"
+            data-testid={incidentControlsTriggerTestId()}
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              setControlsOpen((current) => !current);
+            }}
+          >
+            Controls
+          </button>
+          {controlsOpen ? (
+            <div data-testid={incidentControlsMenuTestId()} role="menu">
+              {incidentControls.items.map((item) => (
+                <button
+                  key={item.section}
+                  data-testid={incidentControlsMenuItemTestId(item.section)}
+                  role="menuitem"
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    setControlsOpen(false);
+                    incidentControls.onSelectSection(
+                      item.section,
+                      triggerRef.current,
+                    );
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 async function openTimelineInspectorFromContext(recordId: string) {
   fireEvent.contextMenu(
@@ -500,12 +588,28 @@ describe("WorkbookShell surface selection", () => {
       id: savedViewId,
     };
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(
+      <WorkbookShell
+        accountApplicationMenu={(props) => (
+          <TestAccountApplicationMenu {...props} />
+        )}
+        incidentId="incident-1"
+      />,
+    );
 
-    const trigger = screen.getByTestId(incidentControlsTriggerTestId());
-    expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+    const accountTrigger = screen.getByTestId(testAccountMenuTriggerTestId);
+    expect(screen.queryByTestId(currentIncidentRoleTestId())).toBeNull();
+    expect(screen.queryByTestId(incidentControlsTriggerTestId())).toBeNull();
+    expect(screen.queryByTestId(phase1LandingTestId("return"))).toBeNull();
     expect(screen.queryByTestId(incidentControlsPanelTestId())).toBeNull();
 
+    fireEvent.click(accountTrigger);
+    expect(screen.getByTestId(currentIncidentRoleTestId()).textContent).toBe(
+      "Current incident role: viewer",
+    );
+    expect(screen.getByTestId(phase1LandingTestId("return"))).toBeTruthy();
+    const trigger = screen.getByTestId(incidentControlsTriggerTestId());
+    expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
     fireEvent.click(trigger);
     const menu = await screen.findByTestId(incidentControlsMenuTestId());
     expect(menu.getAttribute("role")).toBe("menu");
@@ -538,10 +642,11 @@ describe("WorkbookShell surface selection", () => {
       expect(screen.queryByTestId(incidentControlsPanelTestId())).toBeNull();
     });
     await waitFor(() => {
-      expect(document.activeElement).toBe(trigger);
+      expect(document.activeElement).toBe(accountTrigger);
     });
 
-    fireEvent.click(trigger);
+    fireEvent.click(accountTrigger);
+    fireEvent.click(screen.getByTestId(incidentControlsTriggerTestId()));
     fireEvent.click(
       await screen.findByTestId(
         incidentControlsMenuItemTestId("incident-fields"),
@@ -554,7 +659,8 @@ describe("WorkbookShell surface selection", () => {
       expect(screen.queryByTestId(incidentControlsPanelTestId())).toBeNull();
     });
 
-    fireEvent.click(trigger);
+    fireEvent.click(accountTrigger);
+    fireEvent.click(screen.getByTestId(incidentControlsTriggerTestId()));
     fireEvent.click(
       await screen.findByTestId(incidentControlsMenuItemTestId("memberships")),
     );

@@ -48,6 +48,7 @@ async function openIncidentControls(
   page: Page,
   section: IncidentControlsSection = "summary",
 ) {
+  await page.getByLabel("Account and application navigation").click();
   const trigger = page.getByTestId(incidentControlsTriggerTestId());
   await expect(trigger).toHaveAttribute("aria-haspopup", "menu");
   await trigger.click();
@@ -58,22 +59,23 @@ async function openIncidentControls(
   await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
 }
 
+async function expectCurrentIncidentRole(page: Page, roleText: string) {
+  const accountMenuTrigger = page.getByLabel(
+    "Account and application navigation",
+  );
+  await accountMenuTrigger.click();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    roleText,
+  );
+  await accountMenuTrigger.click();
+}
+
 async function expectLandingAccountSession(page: Page) {
+  const phase1 = new Phase1Page(page);
+  await phase1.openAccountSettings("account-security");
   const accountProvider = page.getByTestId(
     phase1AccountTestId("session-provider-type"),
   );
-  const workbookReturn = page.getByTestId(phase1LandingTestId("return"));
-  const shell = await Promise.race([
-    accountProvider
-      .waitFor({ state: "visible", timeout: 5000 })
-      .then(() => "landing" as const),
-    workbookReturn
-      .waitFor({ state: "visible", timeout: 5000 })
-      .then(() => "workbook" as const),
-  ]).catch(() => "unknown" as const);
-  if (shell === "workbook") {
-    await workbookReturn.click();
-  }
   await expect(accountProvider).toHaveText("local");
 }
 
@@ -125,9 +127,7 @@ test("E-1-01 signs in as a local user and inspects the ordinary session surface"
     incidentListResponse,
   ]);
 
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-provider-type")),
-  ).toHaveText("local");
+  await expectLandingAccountSession(page);
   await expect(
     page.getByTestId(phase1AccountTestId("session-user-id")),
   ).not.toHaveText("");
@@ -204,9 +204,7 @@ test("E-1-02 requires MFA on the ordinary login surface, rejects wrong codes, an
   });
   await phase1.login(email, password, generateTotpCode(secretBase32));
   await validTotpResponse;
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-provider-type")),
-  ).toHaveText("local");
+  await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,
@@ -288,6 +286,7 @@ test("E-1-05 lets deployment admins create and patch users, rejects stale versio
     "user_version_conflict",
   );
 
+  await phase1.openAccountSettings("account-security");
   const currentAdminID = await page
     .getByTestId(phase1AccountTestId("session-user-id"))
     .textContent();
@@ -374,9 +373,7 @@ test("E-1-06 follows the bootstrap-token enrollment sequence on the ordinary log
   );
 
   await phase1.login(email, password, generateTotpCode(secretBase32));
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-provider-type")),
-  ).toHaveText("local");
+  await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,
@@ -429,9 +426,7 @@ test("E-1-06 follows the bootstrap-token enrollment sequence on the ordinary log
     password,
     generateTotpCode(replacementSecretBase32),
   );
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-provider-type")),
-  ).toHaveText("local");
+  await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,
@@ -459,9 +454,7 @@ test("E-1-07 requires the current password and current TOTP code, revokes the se
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(email, password, generateTotpCode(secretBase32));
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-provider-type")),
-  ).toHaveText("local");
+  await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,
@@ -502,9 +495,7 @@ test("E-1-07 requires the current password and current TOTP code, revokes the se
     "Phase1E107Changed!",
     generateTotpCode(secretBase32),
   );
-  await expect(
-    page.getByTestId(phase1AccountTestId("session-provider-type")),
-  ).toHaveText("local");
+  await expectLandingAccountSession(page);
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "phase1 ordinary shell",
     email,
@@ -662,6 +653,8 @@ test("E-1-09 creates an incident from the landing screen, lists it, and opens th
   const phase1 = new Phase1Page(page);
   const incidentKey = uniqueIncidentKey("E109");
   const incidentTitle = "Phase 1 E-1-09";
+  const secondIncidentKey = uniqueIncidentKey("E109B");
+  const secondIncidentTitle = "Phase 1 E-1-09 companion";
 
   await phase1.goto();
   await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
@@ -680,7 +673,8 @@ test("E-1-09 creates an incident from the landing screen, lists it, and opens th
 
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+  await expectCurrentIncidentRole(
+    page,
     "Current incident role: admin",
   );
   await openIncidentControls(page);
@@ -688,6 +682,11 @@ test("E-1-09 creates an incident from the landing screen, lists it, and opens th
     incidentKey,
   );
 
+  const secondIncidentId = await createIncident(
+    page,
+    secondIncidentKey,
+    secondIncidentTitle,
+  );
   await phase1.returnToLanding();
   await expect(
     page.getByTestId(landingIncidentCardTestId(incidentId)),
@@ -695,6 +694,9 @@ test("E-1-09 creates an incident from the landing screen, lists it, and opens th
   await expect(
     page.getByTestId(landingIncidentCardTestId(incidentId)),
   ).toContainText(incidentKey);
+  await expect(
+    page.getByTestId(landingIncidentCardTestId(secondIncidentId)),
+  ).toContainText(secondIncidentTitle);
 
   await phase1.openIncident(incidentId);
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
@@ -754,7 +756,8 @@ test("E-1-10 clears a stale selected incident after membership removal while pre
 
   await phase1.openIncident(selectedIncidentId);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+  await expectCurrentIncidentRole(
+    page,
     "Current incident role: admin",
   );
   await openIncidentControls(page, "memberships");
@@ -784,26 +787,26 @@ test("E-1-10 clears a stale selected incident after membership removal while pre
   );
 
   await page.reload();
-  await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
   await expect(page).not.toHaveURL(
     new RegExp(`incident_id=${selectedIncidentId}`),
   );
-  await expect(page.getByTestId(phase1LandingTestId("status"))).toContainText(
-    "no longer visible",
+  await expect(page).toHaveURL(
+    new RegExp(`incident_id=${alternateIncidentId}`),
   );
-  await expect(
-    page.getByTestId(landingIncidentCardTestId(selectedIncidentId)),
-  ).toHaveCount(0);
-  await expect(
-    page.getByTestId(landingIncidentCardTestId(alternateIncidentId)),
-  ).toBeVisible();
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expectCurrentIncidentRole(
+    page,
+    "Current incident role: viewer",
+  );
+  await expectLandingAccountSession(page);
   await expect(
     page.getByTestId(phase1AccountTestId("session-user-id")),
   ).toHaveText(targetUser.user_id);
 
   await phase1.openIncident(alternateIncidentId);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+  await expectCurrentIncidentRole(
+    page,
     "Current incident role: viewer",
   );
 });
@@ -845,7 +848,8 @@ test("E-1-11 observes current-role authorization on a stale reviewer edit throug
 
   await phase1.openIncident(incidentId);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+  await expectCurrentIncidentRole(
+    page,
     "Current incident role: reviewer",
   );
   await openIncidentControls(page, "memberships");
@@ -874,7 +878,7 @@ test("E-1-11 observes current-role authorization on a stale reviewer edit throug
   await phase1.patchIncidentFields({
     currentPhase: "containment",
     externalCase: "CASE-E111",
-    tlp: "amber",
+    tlp: "TLP:AMBER",
   });
   const patchResponse = await forbiddenPatchResponse;
   await expect(patchResponse.json()).resolves.toMatchObject({
@@ -889,7 +893,8 @@ test("E-1-11 observes current-role authorization on a stale reviewer edit throug
   await expect(page.locator("body")).not.toContainText("traceback");
 
   await page.reload();
-  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+  await expectCurrentIncidentRole(
+    page,
     "Current incident role: editor",
   );
   await openIncidentControls(page, "incident-fields");
@@ -971,6 +976,7 @@ test("E-1-12 returns a revoked target browser to login and allows re-authenticat
   ).toContainText("Sign in again");
 
   await phase1.login(targetEmail, targetPassword);
+  await expectLandingAccountSession(page);
   await expect(
     page.getByTestId(phase1AccountTestId("session-user-id")),
   ).toHaveText(targetUser.user_id);
@@ -986,7 +992,8 @@ test("E-1-12 returns a revoked target browser to login and allows re-authenticat
 
   await phase1.openIncident(incidentId);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+  await expectCurrentIncidentRole(
+    page,
     "Current incident role: viewer",
   );
 });

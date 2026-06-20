@@ -1,5 +1,4 @@
 import {
-  type LandingAdminPanelToken,
   landingAdminMenuItemTestId,
   landingAdminPanelTestId,
   phase1RouteTestId,
@@ -23,13 +22,18 @@ import {
   fetchJSON,
   publicErrorView,
 } from "../services/browserApi";
+import type { WorkbookAccountApplicationMenuProps } from "../workbook/WorkbookShell";
 import {
   AccountAppearancePanel,
+  AccountApplicationMenu,
   AccountProfilePanel,
+  type AccountSettingsPanelToken,
   AdministrativeAuditPanel,
   type AppBootstrapState,
-  IncidentBundleImportPanel,
+  type DeploymentAdministrationPanelToken,
   type IncidentData,
+  IncidentDirectoryShell,
+  IncidentImportPanel,
   IncidentLanding,
   type IncidentStatusFilter,
   type LandingAdminPanelDescriptor,
@@ -50,7 +54,10 @@ import {
   loadSession,
   type SessionData,
 } from "./phase1Client";
-import { ReferencePackAdminPanel } from "./ReferencePackAdminPanel";
+import {
+  ReferencePackAdminPanel,
+  type ReferencePackJobResource,
+} from "./ReferencePackAdminPanel";
 
 const LazyWorkbookShell = lazy(async () => {
   const module = await import("../workbook/WorkbookShell");
@@ -74,12 +81,25 @@ type IncidentListEnvelope = {
 type RouteState = {
   incidentId: string;
   debugHarness: boolean;
+  deploymentAdministration: boolean;
 };
 
 type ShellRefreshOptions = {
   anonymousMessage?: string;
   landingNotice?: string | null;
   routeSnapshot: RouteState;
+};
+
+type AccountMenuContext =
+  | "deployment-administration"
+  | "incidents"
+  | "workbook";
+
+type AccountMenuOptions = {
+  currentIncidentRole?: WorkbookAccountApplicationMenuProps["currentIncidentRole"];
+  incidentControls?: WorkbookAccountApplicationMenuProps["incidentControls"];
+  onOpenIncidentDirectory?: (() => void) | undefined;
+  triggerTestId?: string | undefined;
 };
 
 type AppProps = {
@@ -97,17 +117,45 @@ const accessLostLandingNotice =
   "The current incident is no longer visible. Returned to the landing screen.";
 const defaultRevokedSessionMessage =
   "The current session ended. Sign in again to continue.";
+const emptyIncidentsPaging: PagingMeta = {
+  limit: 100,
+  has_more: false,
+  next_cursor: null,
+};
 
 function readRouteState(): RouteState {
   const params = new URLSearchParams(window.location.search);
+  const deploymentAdministration =
+    window.location.pathname === "/deployment-administration";
   return {
-    incidentId: (params.get("incident_id") ?? "").trim(),
-    debugHarness: params.get("debug") === "harness",
+    incidentId: deploymentAdministration
+      ? ""
+      : (params.get("incident_id") ?? "").trim(),
+    debugHarness:
+      !deploymentAdministration && params.get("debug") === "harness",
+    deploymentAdministration,
   };
 }
 
 function writeRouteState(next: RouteState, mode: "push" | "replace") {
   const params = new URLSearchParams(window.location.search);
+  if (next.deploymentAdministration) {
+    params.delete("incident_id");
+    params.delete("surface");
+    params.delete("debug");
+    const query = params.toString();
+    const url =
+      query === ""
+        ? "/deployment-administration"
+        : `/deployment-administration?${query}`;
+    if (mode === "push") {
+      window.history.pushState({}, "", url);
+      return;
+    }
+    window.history.replaceState({}, "", url);
+    return;
+  }
+
   if (next.incidentId === "") {
     params.delete("incident_id");
     params.delete("surface");
@@ -226,11 +274,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     useState<CredentialState | null>(null);
   const [credentialError, setCredentialError] = useState<APIError | null>(null);
   const [incidents, setIncidents] = useState<IncidentData[]>([]);
-  const [incidentsPaging, setIncidentsPaging] = useState<PagingMeta>({
-    limit: 100,
-    has_more: false,
-    next_cursor: null,
-  });
+  const [incidentsPaging, setIncidentsPaging] =
+    useState<PagingMeta>(emptyIncidentsPaging);
   const [extensionProfiles, setExtensionProfiles] = useState<
     ExtensionProfileResource[]
   >([]);
@@ -241,8 +286,12 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const [landingNotice, setLandingNotice] = useState<string | null>(null);
   const [error, setError] = useState<APIError | null>(null);
   const [authPrompt, setAuthPrompt] = useState(defaultAuthPrompt);
-  const [activeAdminPanel, setActiveAdminPanel] =
-    useState<LandingAdminPanelToken>("incidents");
+  const [activeDeploymentPanel, setActiveDeploymentPanel] =
+    useState<DeploymentAdministrationPanelToken>("deployment-users");
+  const [accountSettingsPanel, setAccountSettingsPanel] =
+    useState<AccountSettingsPanelToken | null>(null);
+  const [referencePackJob, setReferencePackJob] =
+    useState<ReferencePackJobResource | null>(null);
   const [incidentSearch, setIncidentSearch] = useState("");
   const [incidentStatusFilter, setIncidentStatusFilter] =
     useState<IncidentStatusFilter>("all");
@@ -322,8 +371,9 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         setCredentialState(null);
         setCredentialError(null);
         setIncidents([]);
-        setIncidentsPaging({ limit: 100, has_more: false, next_cursor: null });
+        setIncidentsPaging(emptyIncidentsPaging);
         setExtensionProfiles([]);
+        setReferencePackJob(null);
         setLandingNotice(null);
         setError(
           hadSessionAtRefreshStart ||
@@ -348,6 +398,19 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         return;
       }
 
+      const nextSession = (sessionResult.payload as { data: SessionData }).data;
+      const deploymentRouteDenied =
+        options.routeSnapshot.deploymentAdministration &&
+        !nextSession.is_deployment_admin;
+      const effectiveRouteSnapshot = deploymentRouteDenied
+        ? {
+            incidentId: "",
+            debugHarness: false,
+            deploymentAdministration: false,
+          }
+        : options.routeSnapshot;
+      const shouldLoadIncidentDirectory =
+        !effectiveRouteSnapshot.deploymentAdministration;
       const directoryScope = {
         search: incidentSearchRef.current.trim(),
         statusFilter: incidentStatusFilterRef.current,
@@ -362,30 +425,35 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           signal: controller.signal,
         }),
         loadExtensions({ signal: controller.signal }),
-        fetchJSON<IncidentListEnvelope>(
-          incidentListURL({ limit: 2, statusFilter: "all" }),
-          { signal: controller.signal },
-        ),
-        fetchJSON<IncidentListEnvelope>(
-          incidentListURL({
-            limit: 100,
-            search: directoryScope.search,
-            statusFilter: directoryScope.statusFilter,
-          }),
-          { signal: controller.signal },
-        ),
+        shouldLoadIncidentDirectory
+          ? fetchJSON<IncidentListEnvelope>(
+              incidentListURL({ limit: 2, statusFilter: "all" }),
+              { signal: controller.signal },
+            )
+          : Promise.resolve(null),
+        shouldLoadIncidentDirectory
+          ? fetchJSON<IncidentListEnvelope>(
+              incidentListURL({
+                limit: 100,
+                search: directoryScope.search,
+                statusFilter: directoryScope.statusFilter,
+              }),
+              { signal: controller.signal },
+            )
+          : Promise.resolve(null),
       ]);
       if (!canCommit()) {
         return;
       }
 
-      const incidentsError = extractError(incidentsResult.payload);
-      const bootstrapIncidentsError = extractError(
-        bootstrapIncidentsResult.payload,
-      );
+      const incidentsError =
+        incidentsResult === null ? null : extractError(incidentsResult.payload);
+      const bootstrapIncidentsError =
+        bootstrapIncidentsResult === null
+          ? null
+          : extractError(bootstrapIncidentsResult.payload);
       const extensionsError = extractError(extensionsResult.payload);
       const nextCredentialError = extractError(credentialResult.payload);
-      const nextSession = (sessionResult.payload as { data: SessionData }).data;
 
       if (
         (!credentialResult.ok &&
@@ -395,20 +463,23 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           )) ||
         (!extensionsResult.ok &&
           isSessionRequiredError(extensionsResult.status, extensionsError)) ||
-        (!bootstrapIncidentsResult.ok &&
+        (bootstrapIncidentsResult !== null &&
+          !bootstrapIncidentsResult.ok &&
           isSessionRequiredError(
             bootstrapIncidentsResult.status,
             bootstrapIncidentsError,
           )) ||
-        (!incidentsResult.ok &&
+        (incidentsResult !== null &&
+          !incidentsResult.ok &&
           isSessionRequiredError(incidentsResult.status, incidentsError))
       ) {
         setSession(null);
         setCredentialState(null);
         setCredentialError(null);
         setIncidents([]);
-        setIncidentsPaging({ limit: 100, has_more: false, next_cursor: null });
+        setIncidentsPaging(emptyIncidentsPaging);
         setExtensionProfiles([]);
+        setReferencePackJob(null);
         setLandingNotice(null);
         setError(
           nextCredentialError ??
@@ -424,8 +495,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
 
       if (
         !extensionsResult.ok ||
-        !bootstrapIncidentsResult.ok ||
-        !incidentsResult.ok
+        (bootstrapIncidentsResult !== null && !bootstrapIncidentsResult.ok) ||
+        (incidentsResult !== null && !incidentsResult.ok)
       ) {
         setSession(nextSession);
         setCredentialState(
@@ -435,13 +506,15 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         );
         setCredentialError(nextCredentialError);
         setIncidents([]);
-        setIncidentsPaging({ limit: 100, has_more: false, next_cursor: null });
+        setIncidentsPaging(emptyIncidentsPaging);
         setExtensionProfiles([]);
+        setReferencePackJob(null);
         setLandingNotice(options.landingNotice ?? null);
         setError(extensionsError ?? bootstrapIncidentsError ?? incidentsError);
         setAuthPrompt(defaultAuthPrompt);
         setAppBootstrapState(
-          isForbiddenError(incidentsResult.status, incidentsError)
+          incidentsResult !== null &&
+            isForbiddenError(incidentsResult.status, incidentsError)
             ? "forbidden"
             : "public_error_envelope",
         );
@@ -454,8 +527,9 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         setCredentialState(null);
         setCredentialError(nextCredentialError);
         setIncidents([]);
-        setIncidentsPaging({ limit: 100, has_more: false, next_cursor: null });
+        setIncidentsPaging(emptyIncidentsPaging);
         setExtensionProfiles([]);
+        setReferencePackJob(null);
         setLandingNotice(options.landingNotice ?? null);
         setError(nextCredentialError);
         setAuthPrompt(defaultAuthPrompt);
@@ -467,52 +541,77 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       const nextCredentialState = credentialResult.ok
         ? (credentialResult.payload as { data: CredentialState }).data
         : null;
-      const nextIncidents = (incidentsResult.payload as IncidentListEnvelope)
-        .data.incidents;
-      const nextIncidentsPaging = (
-        incidentsResult.payload as IncidentListEnvelope
-      ).meta.paging;
-      const nextBootstrapIncidents = (
-        bootstrapIncidentsResult.payload as IncidentListEnvelope
-      ).data.incidents;
-      const nextBootstrapPaging = (
-        bootstrapIncidentsResult.payload as IncidentListEnvelope
-      ).meta.paging;
+      const nextIncidents =
+        incidentsResult === null
+          ? []
+          : (incidentsResult.payload as IncidentListEnvelope).data.incidents;
+      const nextIncidentsPaging =
+        incidentsResult === null
+          ? emptyIncidentsPaging
+          : (incidentsResult.payload as IncidentListEnvelope).meta.paging;
+      const nextBootstrapIncidents =
+        bootstrapIncidentsResult === null
+          ? []
+          : (bootstrapIncidentsResult.payload as IncidentListEnvelope).data
+              .incidents;
+      const nextBootstrapPaging =
+        bootstrapIncidentsResult === null
+          ? emptyIncidentsPaging
+          : (bootstrapIncidentsResult.payload as IncidentListEnvelope).meta
+              .paging;
       const nextExtensionProfiles = (
         extensionsResult.payload as {
           data: { extensions: ExtensionProfileResource[] };
         }
       ).data.extensions;
-      lastLoadedIncidentDirectoryScopeRef.current = directoryScope;
-      const requestedIncidentStillVisible =
-        options.routeSnapshot.incidentId === "" ||
-        nextBootstrapIncidents.some(
-          (incident) =>
-            incident.incident_id === options.routeSnapshot.incidentId,
-        );
-      const rootIncidentID =
-        options.routeSnapshot.incidentId === "" &&
-        !options.routeSnapshot.debugHarness &&
-        nextBootstrapIncidents.length === 1 &&
-        !nextBootstrapPaging.has_more
-          ? (nextBootstrapIncidents[0]?.incident_id ?? "")
-          : "";
-      const nextRoute =
-        rootIncidentID !== ""
-          ? {
-              incidentId: rootIncidentID,
-              debugHarness: false,
-            }
-          : requestedIncidentStillVisible
-            ? null
-            : {
-                incidentId: "",
-                debugHarness: options.routeSnapshot.debugHarness,
-              };
-      const nextLandingNotice =
-        nextRoute !== null
-          ? (options.landingNotice ?? defaultStaleIncidentMessage)
-          : (options.landingNotice ?? null);
+      if (shouldLoadIncidentDirectory) {
+        lastLoadedIncidentDirectoryScopeRef.current = directoryScope;
+      }
+
+      let nextRoute: RouteState | null = null;
+      let nextLandingNotice = options.landingNotice ?? null;
+      if (deploymentRouteDenied) {
+        nextRoute = {
+          incidentId: "",
+          debugHarness: false,
+          deploymentAdministration: false,
+        };
+        nextLandingNotice =
+          options.landingNotice ??
+          "Deployment administration requires deployment admin access.";
+      } else if (shouldLoadIncidentDirectory) {
+        const requestedIncidentStillVisible =
+          effectiveRouteSnapshot.incidentId === "" ||
+          nextBootstrapIncidents.some(
+            (incident) =>
+              incident.incident_id === effectiveRouteSnapshot.incidentId,
+          );
+        const rootIncidentID =
+          effectiveRouteSnapshot.incidentId === "" &&
+          !effectiveRouteSnapshot.debugHarness &&
+          nextBootstrapIncidents.length === 1 &&
+          !nextBootstrapPaging.has_more
+            ? (nextBootstrapIncidents[0]?.incident_id ?? "")
+            : "";
+        nextRoute =
+          rootIncidentID !== ""
+            ? {
+                incidentId: rootIncidentID,
+                debugHarness: false,
+                deploymentAdministration: false,
+              }
+            : requestedIncidentStillVisible
+              ? null
+              : {
+                  incidentId: "",
+                  debugHarness: effectiveRouteSnapshot.debugHarness,
+                  deploymentAdministration: false,
+                };
+        nextLandingNotice =
+          nextRoute !== null
+            ? (options.landingNotice ?? defaultStaleIncidentMessage)
+            : (options.landingNotice ?? null);
+      }
 
       setSession(nextSession);
       setCredentialState(nextCredentialState);
@@ -520,7 +619,16 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       setIncidents(nextIncidents);
       setIncidentsPaging(nextIncidentsPaging);
       setExtensionProfiles(nextExtensionProfiles);
+      if (
+        deploymentRouteDenied ||
+        !extensionClaimed(nextExtensionProfiles, "reference_pack")
+      ) {
+        setReferencePackJob(null);
+      }
       incidentDirectoryControlsTouchedRef.current = false;
+      if (deploymentRouteDenied) {
+        setActiveDeploymentPanel("deployment-users");
+      }
       setLandingNotice(nextLandingNotice);
       setError(null);
       setAuthPrompt(defaultAuthPrompt);
@@ -542,8 +650,9 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         setCredentialState(null);
         setCredentialError(null);
         setIncidents([]);
-        setIncidentsPaging({ limit: 100, has_more: false, next_cursor: null });
+        setIncidentsPaging(emptyIncidentsPaging);
         setExtensionProfiles([]);
+        setReferencePackJob(null);
         setLandingNotice(null);
         setError(null);
         setAuthPrompt(options.anonymousMessage ?? defaultAuthPrompt);
@@ -590,18 +699,35 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   }, []);
 
   useEffect(() => {
-    if (route.debugHarness) {
+    const routeSnapshot = {
+      debugHarness: route.debugHarness,
+      deploymentAdministration: route.deploymentAdministration,
+      incidentId: route.incidentId,
+    };
+    if (routeSnapshot.debugHarness) {
       activeRefreshRef.current.controller?.abort();
       return;
     }
+    if (routeSnapshot.incidentId !== "" && sessionRef.current !== null) {
+      return;
+    }
     void refreshShell({
-      routeSnapshot: routeRef.current,
+      routeSnapshot,
       landingNotice: null,
     });
-  }, [route.debugHarness, refreshShell]);
+  }, [
+    route.debugHarness,
+    route.deploymentAdministration,
+    route.incidentId,
+    refreshShell,
+  ]);
 
   useEffect(() => {
-    if (sessionRef.current === null || routeRef.current.incidentId !== "") {
+    if (
+      sessionRef.current === null ||
+      routeRef.current.incidentId !== "" ||
+      routeRef.current.deploymentAdministration
+    ) {
       return;
     }
     if (!incidentDirectoryControlsTouchedRef.current) {
@@ -631,6 +757,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   }, [incidentSearch, incidentStatusFilter, refreshShell]);
 
   const handleIncidentSearchChange = useCallback((value: string) => {
+    incidentDirectoryControlsTouchedRef.current = true;
     setIncidentSearch(value);
   }, []);
 
@@ -651,6 +778,56 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     [],
   );
 
+  const handleLoadMoreIncidents = useCallback(async () => {
+    const cursorToken = incidentsPaging.next_cursor;
+    if (!incidentsPaging.has_more || cursorToken === null) {
+      return;
+    }
+    setLandingRefreshState("loading");
+    const result = await fetchJSON<IncidentListEnvelope>(
+      incidentListURL({
+        limit: incidentsPaging.limit,
+        cursorToken,
+        search: incidentSearchRef.current,
+        statusFilter: incidentStatusFilterRef.current,
+      }),
+    );
+    const nextError = extractError(result.payload);
+    if (!result.ok) {
+      setError(nextError);
+      setLandingNotice("Failed to load more incidents.");
+      setAppBootstrapState(
+        isSessionRequiredError(result.status, nextError)
+          ? "revoked"
+          : isForbiddenError(result.status, nextError)
+            ? "forbidden"
+            : "public_error_envelope",
+      );
+      if (isSessionRequiredError(result.status, nextError)) {
+        setSession(null);
+        setCredentialState(null);
+        setCredentialError(null);
+        setIncidents([]);
+        setIncidentsPaging(emptyIncidentsPaging);
+        setReferencePackJob(null);
+        setAuthPrompt(defaultRevokedSessionMessage);
+      }
+      setLandingRefreshState("failed");
+      return;
+    }
+    const envelope = result.payload as IncidentListEnvelope;
+    setIncidents((current) => [...current, ...envelope.data.incidents]);
+    setIncidentsPaging(envelope.meta.paging);
+    setError(null);
+    setLandingNotice(null);
+    setAppBootstrapState("authenticated");
+    setLandingRefreshState("idle");
+  }, [
+    incidentsPaging.has_more,
+    incidentsPaging.limit,
+    incidentsPaging.next_cursor,
+  ]);
+
   const currentUserLabel = useMemo(() => {
     if (session === null) {
       return "Anonymous";
@@ -659,45 +836,26 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   }, [session]);
   const landingStatusText =
     landingNotice ??
-    (appBootstrapState === "forbidden"
-      ? "Access to visible incidents is denied."
-      : appBootstrapState === "public_error_envelope" && error !== null
-        ? (publicErrorView(error)?.statusText ??
-          "Failed to load visible incidents.")
-        : landingRefreshState === "loading"
-          ? "Searching visible incidents…"
-          : landingRefreshState === "failed" || error !== null
-            ? "Failed to load visible incidents."
-            : incidents.length === 0
-              ? "No visible incidents yet."
-              : `Loaded ${incidents.length} incident${incidents.length === 1 ? "" : "s"}${incidentsPaging.has_more ? "; more available." : "."}`);
-  const availableLandingPanels = useMemo(() => {
-    const panels: LandingAdminPanelDescriptor[] = [
-      {
-        token: "incidents",
-        label: "Incidents",
-        description: "Open and create workbook access",
-        group: "primary",
-      },
-      {
-        token: "account-profile",
-        label: "Profile",
-        description: "Email and display name",
-        group: "account",
-      },
-      {
-        token: "account-appearance",
-        label: "Appearance",
-        description: "Density preference",
-        group: "account",
-      },
-      {
-        token: "account-security",
-        label: "Security",
-        description: "Session and credentials",
-        group: "account",
-      },
-    ];
+    (route.deploymentAdministration
+      ? landingRefreshState === "loading"
+        ? "Loading deployment administration."
+        : landingRefreshState === "failed" || error !== null
+          ? "Failed to load deployment administration."
+          : "Deployment administration ready."
+      : appBootstrapState === "forbidden"
+        ? "Access to visible incidents is denied."
+        : appBootstrapState === "public_error_envelope" && error !== null
+          ? (publicErrorView(error)?.statusText ??
+            "Failed to load visible incidents.")
+          : landingRefreshState === "loading"
+            ? "Searching visible incidents…"
+            : landingRefreshState === "failed" || error !== null
+              ? "Failed to load visible incidents."
+              : incidents.length === 0
+                ? "No visible incidents yet."
+                : `Loaded ${incidents.length} incident${incidents.length === 1 ? "" : "s"}${incidentsPaging.has_more ? "; more available." : "."}`);
+  const availableDeploymentPanels = useMemo(() => {
+    const panels: LandingAdminPanelDescriptor[] = [];
     if (session?.is_deployment_admin) {
       panels.push(
         {
@@ -723,8 +881,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       }
       if (extensionClaimed(extensionProfiles, "incident_portability")) {
         panels.push({
-          token: "incident-bundle-import",
-          label: "Incident bundle import",
+          token: "incident-import",
+          label: "Incident import",
           description: "Create incident from bundle",
           group: "deployment",
         });
@@ -734,11 +892,13 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   }, [extensionProfiles, session?.is_deployment_admin]);
   useEffect(() => {
     if (
-      !availableLandingPanels.some((panel) => panel.token === activeAdminPanel)
+      !availableDeploymentPanels.some(
+        (panel) => panel.token === activeDeploymentPanel,
+      )
     ) {
-      setActiveAdminPanel("incidents");
+      setActiveDeploymentPanel("deployment-users");
     }
-  }, [activeAdminPanel, availableLandingPanels]);
+  }, [activeDeploymentPanel, availableDeploymentPanels]);
   const readingProfileAttribute =
     readingProfile === "hyperlegible" ? readingProfile : undefined;
   const rootPageStyle =
@@ -756,17 +916,60 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         }
       : workbookRoutePageStyle;
 
-  const openIncident = useCallback(
-    (incidentId: string) => {
-      const nextRoute = { incidentId, debugHarness: route.debugHarness };
-      setLandingNotice(null);
-      writeRouteState(nextRoute, "push");
+  const openIncident = useCallback((incidentId: string) => {
+    const nextRoute = {
+      incidentId,
+      debugHarness: false,
+      deploymentAdministration: false,
+    };
+    setLandingNotice(null);
+    writeRouteState(nextRoute, "push");
+    startTransition(() => {
+      setRoute(nextRoute);
+    });
+  }, []);
+
+  const navigateToIncidentDirectory = useCallback(() => {
+    const nextRoute = {
+      incidentId: "",
+      debugHarness: false,
+      deploymentAdministration: false,
+    };
+    setLandingNotice(null);
+    writeRouteState(nextRoute, "push");
+    startTransition(() => {
+      setRoute(nextRoute);
+    });
+  }, []);
+
+  const navigateToDeploymentAdministration = useCallback(() => {
+    if (!sessionRef.current?.is_deployment_admin) {
+      const nextRoute = {
+        incidentId: "",
+        debugHarness: false,
+        deploymentAdministration: false,
+      };
+      setLandingNotice(
+        "Deployment administration requires deployment admin access.",
+      );
+      writeRouteState(nextRoute, "replace");
       startTransition(() => {
         setRoute(nextRoute);
       });
-    },
-    [route.debugHarness],
-  );
+      return;
+    }
+    const nextRoute = {
+      incidentId: "",
+      debugHarness: false,
+      deploymentAdministration: true,
+    };
+    setLandingNotice(null);
+    setActiveDeploymentPanel("deployment-users");
+    writeRouteState(nextRoute, "push");
+    startTransition(() => {
+      setRoute(nextRoute);
+    });
+  }, []);
 
   const handleCreateIncident = useCallback(async () => {
     const incidentKey = createIncidentKey.trim();
@@ -811,6 +1014,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         setCredentialState(null);
         setCredentialError(null);
         setIncidents([]);
+        setReferencePackJob(null);
         setAuthPrompt(defaultRevokedSessionMessage);
       }
       setLandingNotice("Incident create failed.");
@@ -855,14 +1059,122 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const handleReturnToLanding = useCallback(() => {
     const nextRoute = {
       incidentId: "",
-      debugHarness: route.debugHarness,
+      debugHarness: false,
+      deploymentAdministration: false,
     };
     setLandingNotice("Returned to incident landing.");
     writeRouteState(nextRoute, "push");
     startTransition(() => {
       setRoute(nextRoute);
     });
-  }, [route.debugHarness]);
+  }, []);
+
+  const renderAccountMenu = useCallback(
+    (currentContext: AccountMenuContext, options: AccountMenuOptions = {}) => (
+      <AccountApplicationMenu
+        canOpenDeploymentAdministration={session?.is_deployment_admin ?? false}
+        currentContext={currentContext}
+        currentIncidentRole={options.currentIncidentRole}
+        currentUserLabel={currentUserLabel}
+        incidentControls={options.incidentControls}
+        onOpenAccountSettings={setAccountSettingsPanel}
+        onOpenDeploymentAdministration={navigateToDeploymentAdministration}
+        onOpenIncidentDirectory={
+          options.onOpenIncidentDirectory ?? navigateToIncidentDirectory
+        }
+        triggerTestId={options.triggerTestId}
+      />
+    ),
+    [
+      currentUserLabel,
+      navigateToDeploymentAdministration,
+      navigateToIncidentDirectory,
+      session?.is_deployment_admin,
+    ],
+  );
+
+  const renderAccountSettings = useCallback(() => {
+    if (accountSettingsPanel === null || session === null) {
+      return null;
+    }
+    const tabs: ReadonlyArray<{
+      label: string;
+      token: AccountSettingsPanelToken;
+    }> = [
+      { token: "account-profile", label: "Profile" },
+      { token: "account-appearance", label: "Appearance" },
+      { token: "account-security", label: "Security" },
+    ];
+    return (
+      <div style={accountSettingsBackdropStyle}>
+        <section
+          aria-label="Account settings"
+          role="dialog"
+          style={accountSettingsDialogStyle}
+        >
+          <header style={accountSettingsHeaderStyle}>
+            <div>
+              <p style={accountSettingsEyebrowStyle}>Account settings</p>
+              <h2 style={accountSettingsTitleStyle}>
+                {tabs.find((tab) => tab.token === accountSettingsPanel)?.label}
+              </h2>
+            </div>
+            <button
+              style={accountSettingsCloseButtonStyle}
+              type="button"
+              onClick={() => {
+                setAccountSettingsPanel(null);
+              }}
+            >
+              Close
+            </button>
+          </header>
+          <div style={accountSettingsTabsStyle} role="tablist">
+            {tabs.map((tab) => (
+              <button
+                key={tab.token}
+                aria-selected={accountSettingsPanel === tab.token}
+                role="tab"
+                style={
+                  accountSettingsPanel === tab.token
+                    ? accountSettingsTabSelectedStyle
+                    : accountSettingsTabStyle
+                }
+                type="button"
+                onClick={() => {
+                  setAccountSettingsPanel(tab.token);
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div style={accountSettingsPanelStyle}>
+            {accountSettingsPanel === "account-profile" ? (
+              <AccountProfilePanel onRefreshShell={refreshCurrentShell} />
+            ) : null}
+            {accountSettingsPanel === "account-appearance" ? (
+              <AccountAppearancePanel />
+            ) : null}
+            {accountSettingsPanel === "account-security" ? (
+              <Phase1AccountPanel
+                credentialState={credentialState}
+                credentialStateError={credentialError}
+                onRefreshShell={refreshCurrentShell}
+                session={session}
+              />
+            ) : null}
+          </div>
+        </section>
+      </div>
+    );
+  }, [
+    accountSettingsPanel,
+    credentialError,
+    credentialState,
+    refreshCurrentShell,
+    session,
+  ]);
 
   if (route.incidentId !== "" && session !== null) {
     return (
@@ -889,14 +1201,25 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
             }
           >
             <LazyWorkbookShell
+              accountApplicationMenu={({
+                currentIncidentRole,
+                incidentControls,
+              }) =>
+                renderAccountMenu("workbook", {
+                  currentIncidentRole,
+                  incidentControls,
+                  onOpenIncidentDirectory: handleReturnToLanding,
+                  triggerTestId: phase1RouteTestId("workbook-current-user"),
+                })
+              }
               currentUserLabel={currentUserLabel}
               incidentId={route.incidentId}
               onIncidentAccessLost={handleIncidentAccessLost}
               onIncidentSnapshot={handleIncidentSnapshot}
-              onReturnToLanding={handleReturnToLanding}
             />
           </Suspense>
         </section>
+        {renderAccountSettings()}
       </main>
     );
   }
@@ -973,99 +1296,24 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       data-testid={phase1RouteTestId("app-shell")}
       style={rootPageStyle}
     >
-      <LandingAdminShell
-        activePanel={activeAdminPanel}
-        availablePanels={availableLandingPanels}
-        currentUserLabel={currentUserLabel}
-        incidentCount={incidents.length}
-        onActivePanelChange={setActiveAdminPanel}
-        statusText={landingStatusText}
-      >
-        <section
-          id={landingAdminPanelTestId("incidents")}
-          aria-labelledby={landingAdminMenuItemTestId("incidents")}
-          data-testid={landingAdminPanelTestId("incidents")}
-          hidden={activeAdminPanel !== "incidents"}
-          style={landingAdminPanelRegionStyle}
+      {route.deploymentAdministration && session.is_deployment_admin ? (
+        <LandingAdminShell
+          accountMenu={renderAccountMenu("deployment-administration")}
+          activePanel={activeDeploymentPanel}
+          availablePanels={availableDeploymentPanels}
+          currentUserLabel={currentUserLabel}
+          onActivePanelChange={setActiveDeploymentPanel}
+          statusText={landingStatusText}
         >
-          <IncidentLanding
-            bootstrapState={appBootstrapState}
-            createIncidentCurrentPhase={createIncidentCurrentPhase}
-            createIncidentDescription={createIncidentDescription}
-            createIncidentExternalCase={createIncidentExternalCase}
-            createIncidentKey={createIncidentKey}
-            createIncidentSeverity={createIncidentSeverity}
-            createIncidentTitle={createIncidentTitle}
-            createIncidentTLP={createIncidentTLP}
-            error={error}
-            hasMoreIncidents={incidentsPaging.has_more}
-            incidents={incidents}
-            incidentSearch={incidentSearch}
-            incidentStatusFilter={incidentStatusFilter}
-            isRefreshing={landingRefreshState === "loading"}
-            onCreate={handleCreateIncident}
-            onCreateIncidentCurrentPhaseChange={setCreateIncidentCurrentPhase}
-            onCreateIncidentDescriptionChange={setCreateIncidentDescription}
-            onCreateIncidentExternalCaseChange={setCreateIncidentExternalCase}
-            onCreateIncidentKeyChange={setCreateIncidentKey}
-            onCreateIncidentSeverityChange={setCreateIncidentSeverity}
-            onCreateIncidentTitleChange={setCreateIncidentTitle}
-            onCreateIncidentTLPChange={setCreateIncidentTLP}
-            onOpenIncident={openIncident}
-            onRefresh={() => {
-              void refreshShell({
-                routeSnapshot: routeRef.current,
-                landingNotice: null,
-              });
-            }}
-            onSearchChange={handleIncidentSearchChange}
-            onSearchSubmit={handleIncidentSearchSubmit}
-            onStatusFilterChange={handleIncidentStatusFilterChange}
-            statusText={landingStatusText}
-          />
-        </section>
-        <section
-          id={landingAdminPanelTestId("account-profile")}
-          aria-labelledby={landingAdminMenuItemTestId("account-profile")}
-          data-testid={landingAdminPanelTestId("account-profile")}
-          hidden={activeAdminPanel !== "account-profile"}
-          style={landingAdminPanelRegionStyle}
-        >
-          <AccountProfilePanel onRefreshShell={refreshCurrentShell} />
-        </section>
-        <section
-          id={landingAdminPanelTestId("account-appearance")}
-          aria-labelledby={landingAdminMenuItemTestId("account-appearance")}
-          data-testid={landingAdminPanelTestId("account-appearance")}
-          hidden={activeAdminPanel !== "account-appearance"}
-          style={landingAdminPanelRegionStyle}
-        >
-          <AccountAppearancePanel />
-        </section>
-        <section
-          id={landingAdminPanelTestId("account-security")}
-          aria-labelledby={landingAdminMenuItemTestId("account-security")}
-          data-testid={landingAdminPanelTestId("account-security")}
-          hidden={activeAdminPanel !== "account-security"}
-          style={landingAdminPanelRegionStyle}
-        >
-          <Phase1AccountPanel
-            credentialState={credentialState}
-            credentialStateError={credentialError}
-            onRefreshShell={refreshCurrentShell}
-            session={session}
-          />
-        </section>
-        {session.is_deployment_admin ? (
           <section
             id={landingAdminPanelTestId("deployment-users")}
             aria-labelledby={landingAdminMenuItemTestId("deployment-users")}
             data-testid={landingAdminPanelTestId("deployment-users")}
-            hidden={activeAdminPanel !== "deployment-users"}
+            hidden={activeDeploymentPanel !== "deployment-users"}
             style={landingAdminPanelRegionStyle}
           >
             <Phase1AdminPanel
-              autoLoadUsers={activeAdminPanel === "deployment-users"}
+              autoLoadUsers={activeDeploymentPanel === "deployment-users"}
               enterpriseAuthClaimed={extensionClaimed(
                 extensionProfiles,
                 "enterprise_authentication",
@@ -1074,45 +1322,94 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
               session={session}
             />
           </section>
-        ) : null}
-        {session.is_deployment_admin ? (
           <section
             id={landingAdminPanelTestId("administrative-audit")}
             aria-labelledby={landingAdminMenuItemTestId("administrative-audit")}
             data-testid={landingAdminPanelTestId("administrative-audit")}
-            hidden={activeAdminPanel !== "administrative-audit"}
+            hidden={activeDeploymentPanel !== "administrative-audit"}
             style={landingAdminPanelRegionStyle}
           >
             <AdministrativeAuditPanel />
           </section>
-        ) : null}
-        {session.is_deployment_admin &&
-        extensionClaimed(extensionProfiles, "reference_pack") ? (
+          {extensionClaimed(extensionProfiles, "reference_pack") ? (
+            <section
+              id={landingAdminPanelTestId("reference-packs")}
+              aria-labelledby={landingAdminMenuItemTestId("reference-packs")}
+              data-testid={landingAdminPanelTestId("reference-packs")}
+              hidden={activeDeploymentPanel !== "reference-packs"}
+              style={landingAdminPanelRegionStyle}
+            >
+              <ReferencePackAdminPanel
+                activeJob={referencePackJob}
+                session={session}
+                onJobChange={setReferencePackJob}
+              />
+            </section>
+          ) : null}
+          {extensionClaimed(extensionProfiles, "incident_portability") ? (
+            <section
+              id={landingAdminPanelTestId("incident-import")}
+              aria-labelledby={landingAdminMenuItemTestId("incident-import")}
+              data-testid={landingAdminPanelTestId("incident-import")}
+              hidden={activeDeploymentPanel !== "incident-import"}
+              style={landingAdminPanelRegionStyle}
+            >
+              <IncidentImportPanel onOpenImportedIncident={openIncident} />
+            </section>
+          ) : null}
+        </LandingAdminShell>
+      ) : (
+        <IncidentDirectoryShell
+          accountMenu={renderAccountMenu("incidents")}
+          currentUserLabel={currentUserLabel}
+          statusText={landingStatusText}
+        >
           <section
-            id={landingAdminPanelTestId("reference-packs")}
-            aria-labelledby={landingAdminMenuItemTestId("reference-packs")}
-            data-testid={landingAdminPanelTestId("reference-packs")}
-            hidden={activeAdminPanel !== "reference-packs"}
+            id={landingAdminPanelTestId("incidents")}
+            aria-labelledby={landingAdminMenuItemTestId("incidents")}
+            data-testid={landingAdminPanelTestId("incidents")}
             style={landingAdminPanelRegionStyle}
           >
-            <ReferencePackAdminPanel session={session} />
+            <IncidentLanding
+              bootstrapState={appBootstrapState}
+              createIncidentCurrentPhase={createIncidentCurrentPhase}
+              createIncidentDescription={createIncidentDescription}
+              createIncidentExternalCase={createIncidentExternalCase}
+              createIncidentKey={createIncidentKey}
+              createIncidentSeverity={createIncidentSeverity}
+              createIncidentTitle={createIncidentTitle}
+              createIncidentTLP={createIncidentTLP}
+              error={error}
+              hasMoreIncidents={incidentsPaging.has_more}
+              incidents={incidents}
+              incidentSearch={incidentSearch}
+              incidentStatusFilter={incidentStatusFilter}
+              isRefreshing={landingRefreshState === "loading"}
+              onCreate={handleCreateIncident}
+              onCreateIncidentCurrentPhaseChange={setCreateIncidentCurrentPhase}
+              onCreateIncidentDescriptionChange={setCreateIncidentDescription}
+              onCreateIncidentExternalCaseChange={setCreateIncidentExternalCase}
+              onCreateIncidentKeyChange={setCreateIncidentKey}
+              onCreateIncidentSeverityChange={setCreateIncidentSeverity}
+              onCreateIncidentTitleChange={setCreateIncidentTitle}
+              onCreateIncidentTLPChange={setCreateIncidentTLP}
+              onLoadMore={handleLoadMoreIncidents}
+              onOpenIncident={openIncident}
+              onRefresh={() => {
+                void refreshShell({
+                  routeSnapshot: routeRef.current,
+                  landingNotice: null,
+                });
+              }}
+              onSearchChange={handleIncidentSearchChange}
+              onSearchSubmit={handleIncidentSearchSubmit}
+              onStatusFilterChange={handleIncidentStatusFilterChange}
+              statusText={landingStatusText}
+            />
           </section>
-        ) : null}
-        {session.is_deployment_admin &&
-        extensionClaimed(extensionProfiles, "incident_portability") ? (
-          <section
-            id={landingAdminPanelTestId("incident-bundle-import")}
-            aria-labelledby={landingAdminMenuItemTestId(
-              "incident-bundle-import",
-            )}
-            data-testid={landingAdminPanelTestId("incident-bundle-import")}
-            hidden={activeAdminPanel !== "incident-bundle-import"}
-            style={landingAdminPanelRegionStyle}
-          >
-            <IncidentBundleImportPanel />
-          </section>
-        ) : null}
-      </LandingAdminShell>
+        </IncidentDirectoryShell>
+      )}
+      {renderAccountSettings()}
     </main>
   );
 }
@@ -1120,6 +1417,92 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
 const landingAdminPanelRegionStyle: CSSProperties = {
   minWidth: 0,
   minHeight: 0,
+  padding: "var(--ct-spacing-md)",
+};
+
+const accountSettingsBackdropStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 40,
+  display: "grid",
+  placeItems: "center",
+  padding: "var(--ct-spacing-lg)",
+  background: "rgba(12, 16, 24, 0.42)",
+};
+
+const accountSettingsDialogStyle: CSSProperties = {
+  width: "min(64rem, 100%)",
+  maxHeight: "min(52rem, calc(100vh - 2rem))",
+  display: "grid",
+  gridTemplateRows: "auto auto minmax(0, 1fr)",
+  minWidth: 0,
+  overflow: "hidden",
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-sm)",
+  background: "var(--ct-colors-surface-1)",
+  boxShadow: "var(--ct-elevation-panel)",
+};
+
+const accountSettingsHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "var(--ct-spacing-md)",
+  padding: "var(--ct-spacing-md)",
+  borderBottom: "var(--ct-border-hairline)",
+};
+
+const accountSettingsEyebrowStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "0.72rem",
+  letterSpacing: "0.14em",
+  textTransform: "uppercase",
+  color: "var(--ct-colors-accent)",
+};
+
+const accountSettingsTitleStyle: CSSProperties = {
+  margin: "0.2rem 0 0",
+  fontSize: "1.15rem",
+};
+
+const accountSettingsCloseButtonStyle: CSSProperties = {
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-sm)",
+  background: "var(--ct-colors-surface-2)",
+  color: "var(--ct-colors-ink)",
+  padding: "0.48rem 0.7rem",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const accountSettingsTabsStyle: CSSProperties = {
+  display: "flex",
+  gap: "0.35rem",
+  padding: "var(--ct-spacing-sm) var(--ct-spacing-md)",
+  borderBottom: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-2)",
+};
+
+const accountSettingsTabStyle: CSSProperties = {
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-sm)",
+  background: "transparent",
+  color: "var(--ct-colors-ink-muted)",
+  padding: "0.45rem 0.65rem",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const accountSettingsTabSelectedStyle: CSSProperties = {
+  ...accountSettingsTabStyle,
+  background: "var(--ct-colors-surface-1)",
+  color: "var(--ct-colors-ink)",
+};
+
+const accountSettingsPanelStyle: CSSProperties = {
+  minWidth: 0,
+  minHeight: 0,
+  overflow: "auto",
   padding: "var(--ct-spacing-md)",
 };
 

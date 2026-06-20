@@ -25,6 +25,11 @@ type CurrentSessionResponse = {
   };
 };
 
+type AccountSettingsPanel = Extract<
+  LandingAdminPanelToken,
+  "account-profile" | "account-appearance" | "account-security"
+>;
+
 export class Phase1Page {
   constructor(private readonly page: Page) {}
 
@@ -52,9 +57,98 @@ export class Phase1Page {
   }
 
   async selectAdminPanel(panel: LandingAdminPanelToken) {
+    if (
+      panel === "account-profile" ||
+      panel === "account-appearance" ||
+      panel === "account-security"
+    ) {
+      await this.openAccountSettings(panel);
+      return;
+    }
+    if (panel === "incidents") {
+      await this.openIncidentDirectory();
+      return;
+    }
+    await this.openDeploymentAdministration();
     const menuItem = this.page.getByTestId(landingAdminMenuItemTestId(panel));
     await menuItem.click();
     await expect(menuItem).toHaveAttribute("aria-pressed", "true");
+  }
+
+  async openAccountSettings(panel: AccountSettingsPanel = "account-security") {
+    const panelLabel =
+      panel === "account-profile"
+        ? "Profile"
+        : panel === "account-appearance"
+          ? "Appearance"
+          : "Security";
+    const expectedControl =
+      panel === "account-profile"
+        ? phase1AccountTestId("profile-email")
+        : panel === "account-appearance"
+          ? phase1AccountTestId("appearance-density-mode")
+          : phase1AccountTestId("session-provider-type");
+    const expectedControlLocator = this.page.getByTestId(expectedControl);
+    try {
+      await expect(expectedControlLocator).toBeVisible({ timeout: 500 });
+      return;
+    } catch {
+      // The account modal may be opening as part of the prior auth state change.
+    }
+    const closeButton = this.page.getByRole("button", { name: "Close" });
+    try {
+      await expect(closeButton).toBeVisible({ timeout: 500 });
+      await this.page.getByRole("tab", { name: panelLabel }).click();
+      await expect(expectedControlLocator).toBeVisible();
+      return;
+    } catch {
+      // No account settings modal is visible yet; open it through the menu.
+    }
+    await this.openAccountMenu();
+    await this.page.getByRole("menuitem", { name: panelLabel }).click();
+    await expect(expectedControlLocator).toBeVisible();
+  }
+
+  async openDeploymentAdministration() {
+    await this.closeAccountSettingsIfOpen();
+    if (new URL(this.page.url()).pathname !== "/deployment-administration") {
+      await this.openAccountMenu();
+      await this.page
+        .getByRole("menuitem", { name: "Deployment administration" })
+        .click();
+    }
+    await expect(
+      this.page.getByTestId(landingAdminMenuItemTestId("deployment-users")),
+    ).toBeVisible();
+  }
+
+  async openIncidentDirectory() {
+    await this.closeAccountSettingsIfOpen();
+    const url = new URL(this.page.url());
+    if (url.pathname === "/" && url.searchParams.get("incident_id") === null) {
+      return;
+    }
+    await this.openAccountMenu();
+    await this.page.getByRole("menuitem", { name: "Incidents" }).click();
+    await expect(
+      this.page.getByTestId(phase1LandingTestId("shell")),
+    ).toBeVisible();
+  }
+
+  private async openAccountMenu() {
+    const trigger = this.page.getByLabel("Account and application navigation");
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+  }
+
+  private async closeAccountSettingsIfOpen() {
+    const closeButton = this.page.getByRole("button", {
+      exact: true,
+      name: "Close",
+    });
+    if ((await closeButton.count()) > 0 && (await closeButton.isVisible())) {
+      await closeButton.click();
+    }
   }
 
   async requireText(testId: StableTestId) {
@@ -86,10 +180,12 @@ export class Phase1Page {
   }
 
   async refreshLanding() {
+    await this.closeAccountSettingsIfOpen();
     await this.page.getByTestId(phase1LandingTestId("refresh")).click();
   }
 
   async createAndOpenIncident(incidentKey: string, title: string) {
+    await this.closeAccountSettingsIfOpen();
     await this.page
       .getByTestId(phase1LandingTestId("incident-key"))
       .fill(incidentKey);
@@ -100,6 +196,7 @@ export class Phase1Page {
   }
 
   async openIncident(incidentId: string) {
+    await this.closeAccountSettingsIfOpen();
     if (
       new URL(this.page.url()).searchParams.get("incident_id") === incidentId
     ) {
@@ -118,7 +215,7 @@ export class Phase1Page {
   }
 
   async returnToLanding() {
-    await this.page.getByTestId(phase1LandingTestId("return")).click();
+    await this.openIncidentDirectory();
   }
 
   async patchIncidentFields(options: {
@@ -127,7 +224,9 @@ export class Phase1Page {
     tlp?: string;
   }) {
     if (options.tlp !== undefined) {
-      await this.page.getByTestId("incident-patch-tlp").fill(options.tlp);
+      await this.page
+        .getByTestId("incident-patch-tlp")
+        .selectOption(options.tlp);
     }
     if (options.currentPhase !== undefined) {
       await this.page

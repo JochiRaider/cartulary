@@ -62,6 +62,7 @@ async function openIncidentControls(
   page: Page,
   section: IncidentControlsSection = "summary",
 ) {
+  await page.getByLabel("Account and application navigation").click();
   const trigger = page.getByTestId(incidentControlsTriggerTestId());
   await expect(trigger).toHaveAttribute("aria-haspopup", "menu");
   await trigger.click();
@@ -70,6 +71,17 @@ async function openIncidentControls(
   await expect(menuItem).toHaveAttribute("role", "menuitem");
   await menuItem.click();
   await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
+}
+
+async function expectCurrentIncidentRole(page: Page, roleText: string) {
+  const accountMenuTrigger = page.getByLabel(
+    "Account and application navigation",
+  );
+  await accountMenuTrigger.click();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    roleText,
+  );
+  await accountMenuTrigger.click();
 }
 
 async function readWorkbookLayoutRects(page: Page) {
@@ -188,7 +200,8 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await expect(
     page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
   ).toBeVisible();
-  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+  await expectCurrentIncidentRole(
+    page,
     "Current incident role: admin",
   );
   await page
@@ -527,7 +540,7 @@ test("E-2-02 shows incident discovery, raw querystring deep-link retrieval, and 
   ).toHaveText("Unset");
 
   await openIncidentControls(page, "incident-fields");
-  await page.getByTestId("incident-patch-tlp").fill("amber");
+  await page.getByTestId("incident-patch-tlp").selectOption("TLP:AMBER");
   await page.getByTestId("incident-patch-current-phase").fill("containment");
   await page
     .getByTestId("incident-patch-external-case")
@@ -538,7 +551,9 @@ test("E-2-02 shows incident discovery, raw querystring deep-link retrieval, and 
   await expect(page.getByTestId("incident-summary-version")).toHaveText(
     "Version 2",
   );
-  await expect(page.getByTestId("incident-summary-tlp")).toHaveText("amber");
+  await expect(page.getByTestId("incident-summary-tlp")).toHaveText(
+    "TLP:AMBER",
+  );
   await expect(page.getByTestId("incident-summary-current-phase")).toHaveText(
     "containment",
   );
@@ -546,13 +561,14 @@ test("E-2-02 shows incident discovery, raw querystring deep-link retrieval, and 
     page.getByTestId("incident-summary-primary-external-case-ref"),
   ).toHaveText("CASE-E202-PRIMARY");
 
+  await page.getByLabel("Account and application navigation").click();
   await page.getByTestId(phase1LandingTestId("return")).click();
   await expect(
     page.getByTestId(landingIncidentCardTestId(incidentId)),
   ).toContainText("containment");
   await expect(
     page.getByTestId(landingIncidentCardTestId(incidentId)),
-  ).toContainText("amber");
+  ).toContainText("TLP:AMBER");
 });
 
 test("E-2-03 lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell", async ({

@@ -4,7 +4,6 @@ import {
   referencePackFileInputTestId,
   referencePackJobStatusTestId,
   referencePackRefreshAllButtonTestId,
-  referencePackReloadButtonTestId,
   referencePackRowTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -16,7 +15,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { jsonResponse } from "../testing/fetchMockTestSupport";
+import { deferred, jsonResponse } from "../testing/fetchMockTestSupport";
 import type { SessionData } from "./phase1Client";
 import { ReferencePackAdminPanel } from "./ReferencePackAdminPanel";
 
@@ -45,11 +44,22 @@ describe("ReferencePackAdminPanel", () => {
     fetchMock.mockImplementation((input, init) => {
       const url = String(input);
       const method = (init?.method ?? "GET").toUpperCase();
-      if (url === "/api/v1/reference-packs?limit=100" && method === "GET") {
-        return Promise.resolve(
-          jsonResponse({
-            data: {
-              pack_versions: [
+      if (url.startsWith("/api/v1/reference-packs?") && method === "GET") {
+        const parsed = new URL(url, "http://cartulary.test");
+        const search = parsed.searchParams.get("search");
+        const filtered =
+          search === "identity"
+            ? [
+                {
+                  pack_key: "type_registry.identity",
+                  pack_version: "1",
+                  pack_kind: "type_registry",
+                  pack_version_state: "staged",
+                  active: false,
+                  verification_result: "pending",
+                },
+              ]
+            : [
                 {
                   pack_key: "type_registry.host",
                   pack_version: "1",
@@ -62,11 +72,22 @@ describe("ReferencePackAdminPanel", () => {
                   pack_key: "type_registry.identity",
                   pack_version: "1",
                   pack_kind: "type_registry",
-                  pack_version_state: "draft",
+                  pack_version_state: "staged",
                   active: false,
                   verification_result: "pending",
                 },
-              ],
+              ];
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              pack_versions: filtered,
+            },
+            meta: {
+              paging: {
+                limit: 100,
+                has_more: false,
+                next_cursor: null,
+              },
             },
           }),
         );
@@ -98,8 +119,8 @@ describe("ReferencePackAdminPanel", () => {
     render(<ReferencePackAdminPanel session={session(true)} />);
     expect(screen.getByTestId(referencePackAdminPanelTestId())).toBeTruthy();
     expect(screen.getByTestId(referencePackFileInputTestId())).toBeTruthy();
+    expect(screen.queryByText("Filter loaded packs")).toBeNull();
 
-    fireEvent.click(screen.getByTestId(referencePackReloadButtonTestId()));
     const packRow = await screen.findByTestId(
       referencePackRowTestId("type_registry.host", "1"),
     );
@@ -108,17 +129,42 @@ describe("ReferencePackAdminPanel", () => {
       screen.getByTestId(referencePackRowTestId("type_registry.identity", "1")),
     ).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText("Filter reference packs"), {
+    fireEvent.change(screen.getByLabelText("Search reference packs"), {
       target: { value: "identity" },
     });
-    expect(
-      screen.queryByTestId(referencePackRowTestId("type_registry.host", "1")),
-    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId(referencePackRowTestId("type_registry.host", "1")),
+      ).toBeNull();
+    });
     expect(
       screen.getByTestId(referencePackRowTestId("type_registry.identity", "1")),
     ).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Filter reference packs"), {
+    fireEvent.change(screen.getByLabelText("Search reference packs"), {
       target: { value: "" },
+    });
+    fireEvent.change(screen.getByLabelText("Reference pack state"), {
+      target: { value: "verified_available" },
+    });
+    fireEvent.change(
+      screen.getByLabelText("Reference pack verification result"),
+      {
+        target: { value: "passed" },
+      },
+    );
+    fireEvent.change(screen.getByLabelText("Reference pack active state"), {
+      target: { value: "true" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([input]) =>
+            String(input) ===
+            "/api/v1/reference-packs?limit=100&pack_version_state=verified_available&verification_result=passed&active=true",
+        ),
+      ).toBe(true);
     });
 
     fireEvent.click(screen.getByTestId(referencePackRefreshAllButtonTestId()));
@@ -140,6 +186,76 @@ describe("ReferencePackAdminPanel", () => {
         "/api/v1/jobs/job-1/cancel",
         expect.objectContaining({ method: "POST" }),
       );
+    });
+  });
+
+  it("discards stale reference pack search responses", async () => {
+    const initialResponse = deferred<Response>();
+    const searchResponse = deferred<Response>();
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/reference-packs?limit=100" && method === "GET") {
+        return initialResponse.promise;
+      }
+      if (
+        url === "/api/v1/reference-packs?limit=100&search=identity" &&
+        method === "GET"
+      ) {
+        return searchResponse.promise;
+      }
+      throw new Error(`unexpected fetch ${method} ${url}`);
+    });
+
+    render(<ReferencePackAdminPanel session={session(true)} />);
+    fireEvent.change(screen.getByLabelText("Search reference packs"), {
+      target: { value: "identity" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+
+    searchResponse.resolve(
+      jsonResponse({
+        data: {
+          pack_versions: [
+            {
+              pack_key: "type_registry.identity",
+              pack_version: "1",
+              pack_kind: "type_registry",
+              pack_version_state: "staged",
+              active: false,
+              verification_result: "pending",
+            },
+          ],
+        },
+      }),
+    );
+    expect(
+      await screen.findByTestId(
+        referencePackRowTestId("type_registry.identity", "1"),
+      ),
+    ).toBeTruthy();
+
+    initialResponse.resolve(
+      jsonResponse({
+        data: {
+          pack_versions: [
+            {
+              pack_key: "type_registry.host",
+              pack_version: "1",
+              pack_kind: "type_registry",
+              pack_version_state: "verified_available",
+              active: true,
+              verification_result: "passed",
+            },
+          ],
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId(referencePackRowTestId("type_registry.host", "1")),
+      ).toBe(null);
     });
   });
 });

@@ -166,12 +166,12 @@ export function IncidentAdminPanel({
   const [userPreference, setUserPreference] = useState<PreferenceSlot>(
     loadingPreferenceSlot,
   );
+  const [patchDescription, setPatchDescription] = useState("");
+  const [patchSeverity, setPatchSeverity] = useState("");
   const [patchTLP, setPatchTLP] = useState("");
   const [patchCurrentPhase, setPatchCurrentPhase] = useState("");
   const [patchExternalCase, setPatchExternalCase] = useState("");
-  const [lifecycleReason, setLifecycleReason] = useState(
-    "ordinary lifecycle action",
-  );
+  const [lifecycleReason, setLifecycleReason] = useState("");
   const [membershipEmail, setMembershipEmail] = useState("");
   const [membershipRole, setMembershipRole] =
     useState<MembershipRole>("viewer");
@@ -259,6 +259,8 @@ export function IncidentAdminPanel({
       .data;
     setIncident(nextIncident);
     onIncidentSnapshot?.(nextIncident);
+    setPatchDescription(nextIncident.description ?? "");
+    setPatchSeverity(nextIncident.severity ?? "");
     setPatchTLP(nextIncident.tlp ?? "");
     setPatchCurrentPhase(nextIncident.current_phase ?? "");
     setPatchExternalCase(nextIncident.primary_external_case_ref ?? "");
@@ -330,10 +332,13 @@ export function IncidentAdminPanel({
         method: "PATCH",
         body: JSON.stringify({
           base_incident_version: incident.incident_version,
+          description: patchDescription.trim() === "" ? null : patchDescription,
+          severity: patchSeverity.trim() === "" ? null : patchSeverity,
           tlp: patchTLP === "" ? null : patchTLP,
-          current_phase: patchCurrentPhase === "" ? null : patchCurrentPhase,
+          current_phase:
+            patchCurrentPhase.trim() === "" ? null : patchCurrentPhase,
           primary_external_case_ref:
-            patchExternalCase === "" ? null : patchExternalCase,
+            patchExternalCase.trim() === "" ? null : patchExternalCase,
         }),
       },
     );
@@ -352,6 +357,10 @@ export function IncidentAdminPanel({
     if (!incident || currentIncidentRole !== "admin") {
       return;
     }
+    if (lifecycleReason.trim() === "") {
+      setStatusText("Lifecycle reason is required.");
+      return;
+    }
     setStatusText(
       action === "close" ? "Closing incident…" : "Reopening incident…",
     );
@@ -362,7 +371,7 @@ export function IncidentAdminPanel({
         body: JSON.stringify({
           base_incident_version: incident.incident_version,
           client_txn_id: clientTxnID(`incident-${action}`),
-          reason: lifecycleReason,
+          reason: lifecycleReason.trim(),
         }),
       },
     );
@@ -539,16 +548,45 @@ export function IncidentAdminPanel({
           {canEditIncident ? (
             <div style={formGridStyle}>
               <label style={fieldLabelStyle}>
-                TLP
+                Description
+                <textarea
+                  data-testid="incident-patch-description"
+                  style={textAreaStyle}
+                  value={patchDescription}
+                  onChange={(event) => {
+                    setPatchDescription(event.target.value);
+                  }}
+                />
+              </label>
+              <label style={fieldLabelStyle}>
+                Severity
                 <input
+                  data-testid="incident-patch-severity"
+                  style={inputStyle}
+                  value={patchSeverity}
+                  onChange={(event) => {
+                    setPatchSeverity(event.target.value);
+                  }}
+                  placeholder="high"
+                />
+              </label>
+              <label style={fieldLabelStyle}>
+                TLP
+                <select
                   data-testid="incident-patch-tlp"
                   style={inputStyle}
                   value={patchTLP}
                   onChange={(event) => {
                     setPatchTLP(event.target.value);
                   }}
-                  placeholder="amber"
-                />
+                >
+                  <option value="">Unset</option>
+                  <option value="TLP:CLEAR">TLP:CLEAR</option>
+                  <option value="TLP:GREEN">TLP:GREEN</option>
+                  <option value="TLP:AMBER">TLP:AMBER</option>
+                  <option value="TLP:AMBER+STRICT">TLP:AMBER+STRICT</option>
+                  <option value="TLP:RED">TLP:RED</option>
+                </select>
               </label>
               <label style={fieldLabelStyle}>
                 Current phase
@@ -742,6 +780,27 @@ export function IncidentAdminPanel({
           </div>
         </section>
       ) : null}
+
+      {activeSection === "membership-audit" ? (
+        <section style={cardStyle}>
+          <div style={cardHeaderStyle}>
+            <div>
+              <p style={cardEyebrowStyle}>Membership audit</p>
+              <h3 style={cardTitleStyle}>Incident membership audit</h3>
+            </div>
+          </div>
+          {canManageMemberships ? (
+            <p data-testid="membership-audit-note" style={bodyStyle}>
+              Membership audit remains an incident-scoped administration area
+              for incident admins.
+            </p>
+          ) : (
+            <p data-testid="membership-audit-note" style={mutedBodyStyle}>
+              Only incident admins can review membership audit placement.
+            </p>
+          )}
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -759,6 +818,10 @@ const incidentControlsSectionMeta = {
   memberships: {
     title: "Memberships",
     description: "Review incident membership roles and manage access.",
+  },
+  "membership-audit": {
+    title: "Membership audit",
+    description: "Review membership audit placement inside the incident shell.",
   },
 } satisfies Record<
   IncidentControlsSection,
@@ -785,6 +848,7 @@ function renderIncidentSummary({
   readonly userPreference: PreferenceSlot;
 }) {
   const canLifecycle = currentIncidentRole === "admin" && incident !== null;
+  const lifecycleReasonReady = lifecycleReason.trim() !== "";
   return (
     <>
       <section style={cardStyle}>
@@ -820,6 +884,18 @@ function renderIncidentSummary({
               {incident?.status === "closed"
                 ? "Closed, read-only"
                 : (incident?.status ?? "Loading…")}
+            </dd>
+          </div>
+          <div>
+            <dt style={labelStyle}>Description</dt>
+            <dd data-testid="incident-summary-description" style={valueStyle}>
+              {displayValue(incident?.description)}
+            </dd>
+          </div>
+          <div>
+            <dt style={labelStyle}>Severity</dt>
+            <dd data-testid="incident-summary-severity" style={valueStyle}>
+              {displayValue(incident?.severity)}
             </dd>
           </div>
           <div>
@@ -879,7 +955,11 @@ function renderIncidentSummary({
           </label>
           <button
             data-testid="incident-close-button"
-            disabled={!canLifecycle || incident?.status !== "active"}
+            disabled={
+              !canLifecycle ||
+              !lifecycleReasonReady ||
+              incident?.status !== "active"
+            }
             style={primaryButtonStyle}
             type="button"
             onClick={() => {
@@ -890,7 +970,11 @@ function renderIncidentSummary({
           </button>
           <button
             data-testid="incident-reopen-button"
-            disabled={!canLifecycle || incident?.status !== "closed"}
+            disabled={
+              !canLifecycle ||
+              !lifecycleReasonReady ||
+              incident?.status !== "closed"
+            }
             style={secondaryButtonStyle}
             type="button"
             onClick={() => {
@@ -1083,6 +1167,12 @@ const inputStyle = {
   font: "inherit",
   color: "var(--ct-component-text-input-textColor)",
   background: "var(--ct-component-text-input-backgroundColor)",
+};
+
+const textAreaStyle = {
+  ...inputStyle,
+  minHeight: "5.5rem",
+  resize: "vertical" as const,
 };
 
 const primaryButtonStyle = {

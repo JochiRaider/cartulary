@@ -45,6 +45,7 @@ import {
   phase1ErrorCodeTestId,
   phase1ErrorSummaryTestIds,
   phase1LandingTestId,
+  phase1RouteTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
   rowCellTestId,
@@ -483,6 +484,28 @@ async function expectVisibleFocus(locator: Locator) {
       }),
     )
     .toBeTruthy();
+}
+
+async function expectCurrentIncidentRole(page: Page, roleText: string) {
+  const accountMenuTrigger = page.getByLabel(
+    "Account and application navigation",
+  );
+  await accountMenuTrigger.click();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toContainText(
+    roleText,
+  );
+  await accountMenuTrigger.click();
+}
+
+async function openIncidentControls(
+  page: Page,
+  section: Parameters<typeof incidentControlsMenuItemTestId>[0],
+) {
+  await page.getByLabel("Account and application navigation").click();
+  await page.getByTestId(incidentControlsTriggerTestId()).click();
+  await expect(page.getByTestId(incidentControlsMenuTestId())).toBeVisible();
+  await page.getByTestId(incidentControlsMenuItemTestId(section)).click();
+  await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
 }
 
 async function expectStatusRole(
@@ -2497,9 +2520,7 @@ test.describe("FE-P10 accessibility readiness", () => {
       )}`,
     );
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-    await expect(page.getByTestId(currentIncidentRoleTestId())).toContainText(
-      "admin",
-    );
+    await expectCurrentIncidentRole(page, "admin");
     await expectStatusRole(page.getByTestId(saveStateTestId()));
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expectTabTraversalAdvancesFrom(
@@ -2995,26 +3016,15 @@ test.describe("FE-P1 accessibility readiness", () => {
 
       await phase1.openIncident(selectedIncidentId);
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-      await expect(page.getByTestId(currentIncidentRoleTestId())).toContainText(
-        "admin",
-      );
-      await page.getByTestId(incidentControlsTriggerTestId()).click();
-      await expect(
-        page.getByTestId(incidentControlsMenuTestId()),
-      ).toBeVisible();
-      await page
-        .getByTestId(incidentControlsMenuItemTestId("incident-fields"))
-        .click();
-      await expect(
-        page.getByTestId(incidentControlsPanelTestId()),
-      ).toBeVisible();
+      await expectCurrentIncidentRole(page, "admin");
+      await openIncidentControls(page, "incident-fields");
       await expectStatusRole(page.getByTestId("incident-admin-status"));
       await expectVisibleFocus(
         page.getByTestId(phase1A11yAppLocalTestId("incidentPatchButton")),
       );
       await expectP1SurfaceA11y(page, {
-        focusTestId: phase1LandingTestId("return"),
-        tabStops: [phase1LandingTestId("return")],
+        focusTestId: phase1RouteTestId("workbook-current-user"),
+        tabStops: [phase1RouteTestId("workbook-current-user")],
       });
 
       await phase1.returnToLanding();
@@ -3047,19 +3057,8 @@ test.describe("FE-P1 accessibility readiness", () => {
 
       await phase1.openIncident(alternateIncidentId);
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-      await expect(page.getByTestId(currentIncidentRoleTestId())).toContainText(
-        "admin",
-      );
-      await page.getByTestId(incidentControlsTriggerTestId()).click();
-      await expect(
-        page.getByTestId(incidentControlsMenuTestId()),
-      ).toBeVisible();
-      await page
-        .getByTestId(incidentControlsMenuItemTestId("incident-fields"))
-        .click();
-      await expect(
-        page.getByTestId(incidentControlsPanelTestId()),
-      ).toBeVisible();
+      await expectCurrentIncidentRole(page, "admin");
+      await openIncidentControls(page, "incident-fields");
       await expect(page.getByTestId("incident-patch-tlp")).toBeVisible();
       const alternateMembership = await loadIncidentMembership(
         workerAdminRequest,
@@ -3083,7 +3082,9 @@ test.describe("FE-P1 accessibility readiness", () => {
       await expectNoPrivateDiagnostics(
         page.getByTestId("incident-admin-error-code"),
       );
-      await expectVisibleFocus(page.getByTestId(phase1LandingTestId("return")));
+      await expectVisibleFocus(
+        page.getByTestId(phase1RouteTestId("workbook-current-user")),
+      );
       await sessionTracker.captureCurrentSession(page, {
         createdBy: "phase1 accessibility",
         email,

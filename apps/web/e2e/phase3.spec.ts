@@ -10,7 +10,7 @@ import {
   timelineRowSupersedeButtonTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
-import type { Route } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
@@ -38,6 +38,17 @@ import {
 } from "./phase4Helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
+
+async function expectCurrentIncidentRole(page: Page, roleText: string) {
+  const accountMenuTrigger = page.getByLabel(
+    "Account and application navigation",
+  );
+  await accountMenuTrigger.click();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    roleText,
+  );
+  await accountMenuTrigger.click();
+}
 
 test("E-3-01 creates a Timeline row in-grid and continues editing on the draft row", async ({
   page,
@@ -175,9 +186,10 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
     },
   );
 
-  await expect(
-    reviewerPage.getByTestId(currentIncidentRoleTestId()),
-  ).toHaveText("Current incident role: reviewer");
+  await expectCurrentIncidentRole(
+    reviewerPage,
+    "Current incident role: reviewer",
+  );
 
   await clickTimelineRowAction(
     reviewerPage,

@@ -107,6 +107,13 @@ export function installLandingShellFetch(
       }
       const limit = Number.parseInt(request.query.get("limit") ?? "100", 10);
       const boundedLimit = Number.isFinite(limit) && limit > 0 ? limit : 100;
+      const cursorToken = request.query.get("cursor_token");
+      const cursorOffset =
+        cursorToken?.startsWith("cursor-") === true
+          ? Number.parseInt(cursorToken.slice("cursor-".length), 10)
+          : 0;
+      const boundedCursorOffset =
+        Number.isFinite(cursorOffset) && cursorOffset > 0 ? cursorOffset : 0;
       const status = request.query.get("status");
       const search = (request.query.get("search") ?? "").trim().toLowerCase();
       const filteredIncidents = incidents.filter((incident) => {
@@ -128,8 +135,12 @@ export function installLandingShellFetch(
           incident.primary_external_case_ref,
         ].some((value) => value?.toLowerCase().includes(search) ?? false);
       });
-      const visibleIncidents = filteredIncidents.slice(0, boundedLimit);
-      const hasMore = filteredIncidents.length > visibleIncidents.length;
+      const visibleIncidents = filteredIncidents.slice(
+        boundedCursorOffset,
+        boundedCursorOffset + boundedLimit,
+      );
+      const nextOffset = boundedCursorOffset + visibleIncidents.length;
+      const hasMore = filteredIncidents.length > nextOffset;
       return jsonResponse({
         data: {
           incidents: visibleIncidents,
@@ -138,7 +149,7 @@ export function installLandingShellFetch(
           paging: {
             limit: boundedLimit,
             has_more: hasMore,
-            next_cursor: hasMore ? "cursor-next" : null,
+            next_cursor: hasMore ? `cursor-${nextOffset}` : null,
           },
         },
       });

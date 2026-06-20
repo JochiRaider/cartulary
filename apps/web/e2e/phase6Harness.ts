@@ -28,6 +28,17 @@ import {
 
 export const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
+async function expectCurrentIncidentRole(page: Page, roleText: string) {
+  const accountMenuTrigger = page.getByLabel(
+    "Account and application navigation",
+  );
+  await accountMenuTrigger.click();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    roleText,
+  );
+  await accountMenuTrigger.click();
+}
+
 export type PatchCall = {
   body: Record<string, unknown>;
   recordId: string;
@@ -373,7 +384,8 @@ export async function exerciseRevokedPendingReplay({
         rowCellTestId(firstReplayItem.recordId, "timeline.summary"),
       ),
     ).toHaveValue(`Phase 6 ${createdBy} ${scenario} 1 base`);
-    await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    await expectCurrentIncidentRole(
+      page,
       "Current incident role: editor",
     );
 

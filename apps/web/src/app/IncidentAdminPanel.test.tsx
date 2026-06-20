@@ -297,6 +297,101 @@ describe("IncidentAdminPanel", () => {
     );
   });
 
+  it("patches required incident metadata fields and restricts TLP to canonical tokens", async () => {
+    let patchBody: Record<string, unknown> | null = null;
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/incidents/incident-1" && method === "GET") {
+        return Promise.resolve(jsonResponse({ data: incidentSummary() }));
+      }
+      if (url === "/api/v1/incidents/incident-1" && method === "PATCH") {
+        patchBody = JSON.parse(String(init?.body ?? "{}")) as Record<
+          string,
+          unknown
+        >;
+        return Promise.resolve(
+          jsonResponse({
+            data: incidentSummary({
+              description: "Escalated investigation",
+              severity: "critical",
+              tlp: "TLP:RED",
+              current_phase: "containment",
+              primary_external_case_ref: "CASE-999",
+              incident_version: 2,
+            }),
+          }),
+        );
+      }
+      throw new Error(`unexpected fetch: ${method} ${url}`);
+    });
+
+    render(
+      <IncidentAdminPanel
+        activeSection="incident-fields"
+        currentIncidentRole="reviewer"
+        incidentId="incident-1"
+      />,
+    );
+
+    await screen.findByText("Incident controls synced.");
+    fireEvent.change(screen.getByTestId("incident-patch-description"), {
+      target: { value: "Escalated investigation" },
+    });
+    fireEvent.change(screen.getByTestId("incident-patch-severity"), {
+      target: { value: "critical" },
+    });
+    fireEvent.change(screen.getByTestId("incident-patch-tlp"), {
+      target: { value: "TLP:RED" },
+    });
+    fireEvent.change(screen.getByTestId("incident-patch-current-phase"), {
+      target: { value: "containment" },
+    });
+    fireEvent.change(screen.getByTestId("incident-patch-external-case"), {
+      target: { value: "CASE-999" },
+    });
+    fireEvent.click(screen.getByTestId("incident-patch-button"));
+
+    await waitFor(() => {
+      expect(patchBody).toEqual({
+        base_incident_version: 1,
+        description: "Escalated investigation",
+        severity: "critical",
+        tlp: "TLP:RED",
+        current_phase: "containment",
+        primary_external_case_ref: "CASE-999",
+      });
+    });
+  });
+
+  it("keeps membership audit placement inside incident admin controls", async () => {
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url === "/api/v1/incidents/incident-1") {
+        return Promise.resolve(jsonResponse({ data: incidentSummary() }));
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    render(
+      <IncidentAdminPanel
+        activeSection="membership-audit"
+        currentIncidentRole="admin"
+        incidentId="incident-1"
+      />,
+    );
+
+    expect(await screen.findByTestId("membership-audit-note")).toBeTruthy();
+    expect(screen.getByTestId("membership-audit-note").textContent).toContain(
+      "incident-scoped",
+    );
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).includes("administrative-audit"),
+      ),
+    ).toBe(false);
+  });
+
   it("keeps incident summary visible when a workbook preference route fails", async () => {
     fetchMock.mockImplementation((input) => {
       const url = String(input);
@@ -550,17 +645,20 @@ describe("IncidentAdminPanel", () => {
   });
 });
 
-function incidentSummary() {
+function incidentSummary(overrides?: Record<string, unknown>) {
   return {
     incident_id: "incident-1",
     incident_key: "IR-201",
     title: "Incident 201",
     description: null,
     severity: null,
-    tlp: "amber",
+    tlp: "TLP:AMBER",
     current_phase: "triage",
     primary_external_case_ref: "CASE-201",
     incident_version: 1,
+    status: "active",
+    closed_at: null,
+    ...overrides,
   };
 }
 

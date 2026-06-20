@@ -61,6 +61,17 @@ import {
 
 const presenceInteractionThresholdMs = 1000;
 
+async function expectCurrentIncidentRole(page: Page, roleText: string) {
+  const accountMenuTrigger = page.getByLabel(
+    "Account and application navigation",
+  );
+  await accountMenuTrigger.click();
+  await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+    roleText,
+  );
+  await accountMenuTrigger.click();
+}
+
 test("FE-I-P7-01 Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering.", async ({
   browser,
   page,
@@ -906,7 +917,8 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       await expect(
         page.getByTestId(rowCellTestId(firstId, "timeline.summary")),
       ).toHaveValue("E-6-05 FIFO A base");
-      await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+      await expectCurrentIncidentRole(
+        page,
         "Current incident role: admin",
       );
 
@@ -978,7 +990,8 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       await expect(
         page.getByTestId(rowCellTestId(firstId, "timeline.summary")),
       ).toHaveValue("E-6-05 auth A base");
-      await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+      await expectCurrentIncidentRole(
+        page,
         "Current incident role: editor",
       );
 
@@ -1045,7 +1058,8 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       await expect(
         page.getByTestId(rowCellTestId(firstId, "timeline.summary")),
       ).toHaveValue("E-6-05 halt A base");
-      await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+      await expectCurrentIncidentRole(
+        page,
         "Current incident role: admin",
       );
 
@@ -1116,7 +1130,8 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       await expect(
         page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
       ).toHaveValue("E-6-05 reload base");
-      await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
+      await expectCurrentIncidentRole(
+        page,
         "Current incident role: admin",
       );
 
