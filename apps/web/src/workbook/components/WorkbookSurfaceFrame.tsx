@@ -137,7 +137,7 @@ const workbookSurfaceViewBarStyle = {
   border: 0,
   borderRadius: 0,
   background: "var(--ct-colors-surface-1)",
-  overflowX: "visible" as const,
+  overflow: "visible",
 } satisfies CSSProperties;
 
 const workbookSurfaceWorkAreaStyle = {

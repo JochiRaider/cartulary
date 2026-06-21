@@ -93,7 +93,7 @@ const toolbarStyle = {
   padding: "0 var(--ct-spacing-sm)",
   borderBlockEnd: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-1)",
-  overflow: "hidden",
+  overflow: "visible",
 } satisfies CSSProperties;
 
 const leftRailStyle = {
@@ -101,7 +101,7 @@ const leftRailStyle = {
   alignItems: "center",
   gap: "0.45rem",
   minWidth: 0,
-  overflow: "hidden",
+  overflow: "visible",
 } satisfies CSSProperties;
 
 const rightRailStyle = {

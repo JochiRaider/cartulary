@@ -9,7 +9,11 @@ import {
   gridFilterFieldTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
+  workbookFilterPopoverTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookSortMenuTestId,
+  workbookSortMenuTriggerTestId,
+  workbookTopBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -376,17 +380,22 @@ describe("Phase 8 workbook query controls", () => {
               op: "eq",
             },
           ],
-          groupBy: "timeline.capture_state",
+          groupBy: "timeline.recorded_day",
           sort: [],
         }}
         surface={timelineViewSchemaId}
       />,
     );
 
+    const queryControls = screen.getByTestId(
+      workbookTopBarQueryControlsTestId(timelineViewSchemaId),
+    );
+    expect(queryControls.style.overflow).toBe("visible");
+
     const grouping = screen.getByTestId(
       gridGroupingSelectTestId(timelineViewSchemaId),
     ) as HTMLSelectElement;
-    expect(grouping.value).toBe("timeline.capture_state");
+    expect(grouping.value).toBe("timeline.recorded_day");
     expect([...grouping.options].map((option) => option.value)).toEqual([
       "",
       ...contract.groupingFields,
@@ -397,10 +406,20 @@ describe("Phase 8 workbook query controls", () => {
     expect(onGroupByChange).toHaveBeenCalledWith("timeline.has_evidence");
 
     fireEvent.click(
+      screen.getByTestId(workbookSortMenuTriggerTestId(timelineViewSchemaId)),
+    );
+    expect(
+      screen.getByTestId(workbookSortMenuTestId(timelineViewSchemaId)),
+    ).toBeInstanceOf(HTMLElement);
+
+    fireEvent.click(
       screen.getByTestId(
         workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
       ),
     );
+    expect(
+      screen.getByTestId(workbookFilterPopoverTestId(timelineViewSchemaId)),
+    ).toBeInstanceOf(HTMLElement);
     const fieldSelect = screen.getByTestId(
       gridFilterFieldTestId(timelineViewSchemaId),
     ) as HTMLSelectElement;
@@ -414,6 +433,13 @@ describe("Phase 8 workbook query controls", () => {
       ),
     );
     expect(onRemoveFilter).toHaveBeenCalledWith("timeline.capture_state");
+
+    const groupChip = screen.getByTitle("Group: Recorded Day");
+    expect(groupChip).toBeInstanceOf(HTMLButtonElement);
+    const groupChipLabel = groupChip.firstElementChild;
+    expect(groupChipLabel).toBeInstanceOf(HTMLElement);
+    expect((groupChipLabel as HTMLElement).style.textOverflow).toBe("ellipsis");
+    expect((groupChipLabel as HTMLElement).style.overflow).toBe("hidden");
   });
 
   it("Phase 8 U-8-GRID-01 drops non-discovery keys before building query request bodies", () => {

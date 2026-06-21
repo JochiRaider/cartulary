@@ -79,6 +79,12 @@ export function WorkbookGridControls({
     queryState.filters.length +
     queryState.sort.length +
     (queryState.groupBy === null ? 0 : 1);
+  const groupChipLabel =
+    queryState.groupBy === null
+      ? null
+      : `Group: ${
+          contract.fieldMap[queryState.groupBy]?.label ?? queryState.groupBy
+        }`;
   const draftValueMissing =
     inputMode === "boolean"
       ? draft.booleanValue === ""
@@ -306,19 +312,16 @@ export function WorkbookGridControls({
 
       <div aria-label="Active query chips" role="toolbar" style={chipRailStyle}>
         <span style={visuallyHiddenStyle}>Active query chips</span>
-        {queryState.groupBy ? (
+        {queryState.groupBy && groupChipLabel ? (
           <button
             style={chipButtonStyle}
-            title={`Group: ${
-              contract.fieldMap[queryState.groupBy]?.label ?? queryState.groupBy
-            }`}
+            title={groupChipLabel}
             type="button"
             onClick={() => {
               onGroupByChange(null);
             }}
           >
-            Group:{" "}
-            {contract.fieldMap[queryState.groupBy]?.label ?? queryState.groupBy}
+            <span style={chipLabelStyle}>{groupChipLabel}</span>
           </button>
         ) : null}
         {queryState.sort.map((sort) => {
@@ -335,7 +338,7 @@ export function WorkbookGridControls({
                 onToggleSort(sort.fieldKey);
               }}
             >
-              {label}
+              <span style={chipLabelStyle}>{label}</span>
             </button>
           );
         })}
@@ -352,7 +355,7 @@ export function WorkbookGridControls({
                 onRemoveFilter(filter.fieldKey);
               }}
             >
-              {label}
+              <span style={chipLabelStyle}>{label}</span>
             </button>
           );
         })}
@@ -409,7 +412,7 @@ const queryControlsStyle = {
   minWidth: 0,
   minInlineSize: 0,
   flex: "1 1 auto",
-  overflow: "hidden",
+  overflow: "visible",
 };
 
 const menuFrameStyle = {
@@ -559,11 +562,20 @@ const chipRailStyle = {
 const chipButtonStyle = {
   ...controlButtonStyle,
   background: "var(--ct-colors-surface-3)",
+  justifyContent: "flex-start",
   flex: "1 1 0",
   minInlineSize: 0,
   maxInlineSize: "7rem",
   overflow: "hidden",
+};
+
+const chipLabelStyle = {
+  display: "block",
+  minInlineSize: 0,
+  maxInlineSize: "100%",
+  overflow: "hidden",
   textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
 };
 
 const clearButtonStyle = {

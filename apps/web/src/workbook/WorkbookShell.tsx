@@ -4864,7 +4864,7 @@ const topBarQuerySlotStyle = {
   boxSizing: "border-box" as const,
   minWidth: 0,
   minInlineSize: 0,
-  overflow: "hidden",
+  overflow: "visible",
   order: 4,
 };
 

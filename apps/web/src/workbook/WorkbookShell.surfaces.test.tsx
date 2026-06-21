@@ -22,6 +22,7 @@ import {
   phase1LandingTestId,
   rowCellTestId,
   rowInspectButtonTestId,
+  savedViewActionMenuTestId,
   savedViewActionMenuTriggerTestId,
   savedViewCreateButtonTestId,
   savedViewDeleteButtonTestId,
@@ -43,6 +44,7 @@ import {
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
   workbookShellSlotTestId,
+  workbookTopBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
@@ -725,6 +727,13 @@ describe("WorkbookShell surface selection", () => {
         ),
       ),
     ).toBeInstanceOf(HTMLElement);
+    const topBarQueryControls = screen.getByTestId(
+      workbookTopBarQueryControlsTestId(timelineViewSchemaId),
+    );
+    expect(topBarQueryControls.style.overflow).toBe("visible");
+    const topBarQuerySlot = topBarQueryControls.parentElement;
+    expect(topBarQuerySlot).toBeInstanceOf(HTMLElement);
+    expect((topBarQuerySlot as HTMLElement).style.overflow).toBe("visible");
 
     const viewBar = await screen.findByTestId(
       workbookShellSlotTestId("view-bar"),
@@ -747,6 +756,30 @@ describe("WorkbookShell surface selection", () => {
         ),
       ),
     ).toBeInstanceOf(HTMLElement);
+    expect(viewBar.style.overflow).toBe("visible");
+    fireEvent.click(
+      screen.getByTestId(
+        savedViewActionMenuTriggerTestId(timelineViewSchemaId),
+      ),
+    );
+    const savedViewActionMenu = screen.getByTestId(
+      savedViewActionMenuTestId(timelineViewSchemaId),
+    );
+    expect(savedViewActionMenu).toBeInstanceOf(HTMLElement);
+    const savedViewControlGroup =
+      savedViewActionMenu.parentElement?.parentElement;
+    expect(savedViewControlGroup).toBeInstanceOf(HTMLElement);
+    expect((savedViewControlGroup as HTMLElement).style.overflow).toBe(
+      "visible",
+    );
+    const savedViewToolbarLeftRail = savedViewControlGroup?.parentElement;
+    expect(savedViewToolbarLeftRail).toBeInstanceOf(HTMLElement);
+    expect((savedViewToolbarLeftRail as HTMLElement).style.overflow).toBe(
+      "visible",
+    );
+    const savedViewToolbar = savedViewToolbarLeftRail?.parentElement;
+    expect(savedViewToolbar).toBeInstanceOf(HTMLElement);
+    expect((savedViewToolbar as HTMLElement).style.overflow).toBe("visible");
     expect(
       viewBar.querySelector(
         dataTestIdSelector(workbookInspectorToggleTestId(timelineViewSchemaId)),

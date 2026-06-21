@@ -476,7 +476,7 @@ const savedViewControlGroupStyle = {
   gap: "0.4rem",
   flex: "1 1 auto",
   minWidth: 0,
-  overflow: "hidden",
+  overflow: "visible",
 };
 
 const savedViewSelectorFrameStyle = {
