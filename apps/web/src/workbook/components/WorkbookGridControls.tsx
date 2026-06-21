@@ -4,11 +4,23 @@ import {
   gridFilterFieldTestId,
   gridFilterValueTestId,
   gridGroupingSelectTestId,
+  workbookFilterPopoverTestId,
+  workbookFilterPopoverTriggerTestId,
+  workbookSortMenuTestId,
+  workbookSortMenuTriggerTestId,
+  workbookSortOptionTestId,
+  workbookTopBarQueryControlsTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
-
 import type { ViewContract } from "@cartulary/view-contracts";
-import type { ChangeEvent } from "react";
+import { SlidersHorizontal } from "lucide-react";
+import {
+  type ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   type FilterDraft,
@@ -19,125 +31,290 @@ import {
 
 type WorkbookGridControlsProps = {
   readonly contract: ViewContract;
+  readonly defaultFilterPopoverOpen?: boolean | undefined;
   readonly filterDraft: FilterDraft;
-  readonly onApplyFilter: () => void;
+  readonly onApplyFilter: (draft: FilterDraft) => void;
   readonly onClearAll?: (() => void) | undefined;
   readonly onFilterDraftChange: (draft: FilterDraft) => void;
   readonly onGroupByChange: (groupBy: string | null) => void;
   readonly onRemoveFilter: (fieldKey: string) => void;
+  readonly onToggleSort: (fieldKey: string) => void;
   readonly queryState: WorkbookQueryState;
   readonly surface: WorkbookSurface;
 };
 
 export function WorkbookGridControls({
   contract,
+  defaultFilterPopoverOpen = false,
   filterDraft,
   onApplyFilter,
   onClearAll,
   onFilterDraftChange,
   onGroupByChange,
   onRemoveFilter,
+  onToggleSort,
   queryState,
   surface,
 }: WorkbookGridControlsProps) {
-  const inputMode = filterInputMode(filterDraft.fieldKey);
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const [isFilterPopoverOpen, setIsFilterPopoverOpen] = useState(
+    defaultFilterPopoverOpen,
+  );
+  const [draft, setDraft] = useState(filterDraft);
+  const inputMode = filterInputMode(draft.fieldKey);
+  const activeSort = queryState.sort[0] ?? null;
+  const visibleSortFields = useMemo(
+    () =>
+      contract.fields
+        .map((field) => field.fieldKey)
+        .filter((fieldKey) => contract.sortableFieldMap[fieldKey]),
+    [contract],
+  );
+  const hasActiveQuery =
+    queryState.filters.length > 0 ||
+    queryState.sort.length > 0 ||
+    queryState.groupBy !== null;
+  const draftValueMissing =
+    inputMode === "boolean"
+      ? draft.booleanValue === ""
+      : draft.value.trim() === "";
+
+  useEffect(() => {
+    if (!isFilterPopoverOpen) {
+      setDraft(filterDraft);
+    }
+  }, [filterDraft, isFilterPopoverOpen]);
+
+  const closeFilterPopover = () => {
+    setDraft(filterDraft);
+    setIsFilterPopoverOpen(false);
+  };
+
+  const commitFilterDraft = () => {
+    onFilterDraftChange(draft);
+    onApplyFilter(draft);
+    setDraft(clearAppliedDraftValue(draft));
+    setIsFilterPopoverOpen(false);
+  };
 
   return (
-    <div style={toolbarStyle}>
-      <div style={controlRowStyle}>
-        <button style={modeButtonStyle} type="button">
-          Sort {queryState.sort.length > 0 ? queryState.sort.length : ""}
+    <div
+      data-testid={workbookTopBarQueryControlsTestId(surface)}
+      style={queryControlsStyle}
+    >
+      <div style={menuFrameStyle}>
+        <button
+          aria-controls={isSortMenuOpen ? workbookSortMenuTestId(surface) : undefined}
+          aria-expanded={isSortMenuOpen}
+          aria-haspopup="menu"
+          data-testid={workbookSortMenuTriggerTestId(surface)}
+          style={controlButtonStyle}
+          type="button"
+          onClick={() => {
+            setIsSortMenuOpen((current) => !current);
+          }}
+        >
+          Sort{activeSort ? `: ${sortLabel(contract, activeSort.fieldKey)}` : ""}
         </button>
-
-        <label style={inlineLabelStyle}>
-          Group
-          <select
-            data-testid={gridGroupingSelectTestId(surface)}
-            style={selectStyle}
-            value={queryState.groupBy ?? ""}
-            onChange={(event) => {
-              onGroupByChange(
-                event.target.value === "" ? null : event.target.value,
+        {isSortMenuOpen ? (
+          <div
+            data-testid={workbookSortMenuTestId(surface)}
+            id={workbookSortMenuTestId(surface)}
+            role="menu"
+            style={menuStyle}
+          >
+            {visibleSortFields.map((fieldKey) => {
+              const isSelected = activeSort?.fieldKey === fieldKey;
+              return (
+                <button
+                  key={fieldKey}
+                  aria-checked={isSelected}
+                  data-testid={workbookSortOptionTestId(surface, fieldKey)}
+                  role="menuitemradio"
+                  style={{
+                    ...menuItemStyle,
+                    ...(isSelected ? menuItemSelectedStyle : null),
+                  }}
+                  type="button"
+                  onClick={() => {
+                    onToggleSort(fieldKey);
+                    setIsSortMenuOpen(false);
+                  }}
+                >
+                  {sortLabel(contract, fieldKey)}
+                  {isSelected ? ` ${activeSort.direction}` : ""}
+                </button>
               );
+            })}
+          </div>
+        ) : null}
+      </div>
+
+      <label style={inlineLabelStyle}>
+        Group:
+        <select
+          aria-label="Group rows"
+          data-testid={gridGroupingSelectTestId(surface)}
+          style={selectStyle}
+          value={queryState.groupBy ?? ""}
+          onChange={(event) => {
+            onGroupByChange(event.target.value === "" ? null : event.target.value);
+          }}
+        >
+          <option value="">None</option>
+          {contract.groupingFields.map((fieldKey) => (
+            <option key={fieldKey} value={fieldKey}>
+              {contract.fieldMap[fieldKey]?.label ?? fieldKey}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div style={menuFrameStyle}>
+        <button
+          aria-controls={
+            isFilterPopoverOpen ? workbookFilterPopoverTestId(surface) : undefined
+          }
+          aria-expanded={isFilterPopoverOpen}
+          aria-haspopup="dialog"
+          data-testid={workbookFilterPopoverTriggerTestId(surface)}
+          style={controlButtonStyle}
+          type="button"
+          onClick={() => {
+            setDraft(filterDraft);
+            setIsFilterPopoverOpen((current) => !current);
+          }}
+        >
+          <SlidersHorizontal aria-hidden="true" size={15} />
+          Filters
+          {queryState.filters.length > 0 ? ` ${queryState.filters.length}` : ""}
+        </button>
+        {isFilterPopoverOpen ? (
+          <div
+            aria-label="Draft filters"
+            data-testid={workbookFilterPopoverTestId(surface)}
+            id={workbookFilterPopoverTestId(surface)}
+            role="dialog"
+            style={filterPopoverStyle}
+            onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                closeFilterPopover();
+              }
             }}
           >
-            <option value="">None</option>
-            {contract.groupingFields.map((fieldKey) => (
-              <option key={fieldKey} value={fieldKey}>
-                {contract.fieldMap[fieldKey]?.label ?? fieldKey}
-              </option>
-            ))}
-          </select>
-        </label>
+            <label style={stackedLabelStyle}>
+              Field
+              <select
+                data-testid={gridFilterFieldTestId(surface)}
+                style={selectStyle}
+                value={draft.fieldKey}
+                onChange={(event) => {
+                  setDraft({
+                    booleanValue: "",
+                    fieldKey: event.target.value,
+                    value: "",
+                  });
+                }}
+              >
+                {contract.filterFields.map((fieldKey) => (
+                  <option key={fieldKey} value={fieldKey}>
+                    {contract.fieldMap[fieldKey]?.label ?? fieldKey}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-        <span style={filterClusterStyle}>
-          <label style={inlineLabelStyle}>
-            Filters
-            <select
-              data-testid={gridFilterFieldTestId(surface)}
-              style={selectStyle}
-              value={filterDraft.fieldKey}
-              onChange={(event) => {
-                onFilterDraftChange({
-                  booleanValue: "",
-                  fieldKey: event.target.value,
-                  value: "",
-                });
-              }}
-            >
-              {contract.filterFields.map((fieldKey) => (
-                <option key={fieldKey} value={fieldKey}>
-                  {contract.fieldMap[fieldKey]?.label ?? fieldKey}
-                </option>
-              ))}
-            </select>
-          </label>
+            {inputMode === "boolean" ? (
+              <label style={stackedLabelStyle}>
+                Value
+                <select
+                  data-testid={gridFilterValueTestId(surface)}
+                  style={selectStyle}
+                  value={draft.booleanValue}
+                  onChange={(event) => {
+                    setDraft({
+                      ...draft,
+                      booleanValue: event.target.value as FilterDraft["booleanValue"],
+                    });
+                  }}
+                >
+                  <option value="">Select value</option>
+                  <option value="true">true</option>
+                  <option value="false">false</option>
+                </select>
+              </label>
+            ) : (
+              <label style={stackedLabelStyle}>
+                Value
+                <input
+                  data-testid={gridFilterValueTestId(surface)}
+                  placeholder={placeholderForMode(inputMode)}
+                  style={inputStyle}
+                  type="text"
+                  value={draft.value}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                    setDraft({
+                      ...draft,
+                      value: event.target.value,
+                    });
+                  }}
+                />
+              </label>
+            )}
 
-          {inputMode === "boolean" ? (
-            <select
-              aria-label="Filter value"
-              data-testid={gridFilterValueTestId(surface)}
-              style={selectStyle}
-              value={filterDraft.booleanValue}
-              onChange={(event) => {
-                onFilterDraftChange({
-                  ...filterDraft,
-                  booleanValue: event.target
-                    .value as FilterDraft["booleanValue"],
-                });
-              }}
-            >
-              <option value="">Value</option>
-              <option value="true">true</option>
-              <option value="false">false</option>
-            </select>
-          ) : (
-            <input
-              aria-label="Filter value"
-              data-testid={gridFilterValueTestId(surface)}
-              placeholder={placeholderForMode(inputMode)}
-              style={inputStyle}
-              type="text"
-              value={filterDraft.value}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                onFilterDraftChange({
-                  ...filterDraft,
-                  value: event.target.value,
-                });
-              }}
-            />
-          )}
+            {draftValueMissing ? (
+              <p role="status" style={filterValidationStyle}>
+                Enter a value before applying this filter.
+              </p>
+            ) : null}
 
+            <div style={popoverActionsStyle}>
+              <button
+                style={secondaryButtonStyle}
+                type="button"
+                onClick={closeFilterPopover}
+              >
+                Cancel
+              </button>
+              <button
+                data-testid={gridFilterApplyTestId(surface)}
+                disabled={draftValueMissing}
+                style={primaryButtonStyle}
+                type="button"
+                onClick={commitFilterDraft}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div aria-label="Active query chips" style={chipRailStyle}>
+        {queryState.groupBy ? (
           <button
-            data-testid={gridFilterApplyTestId(surface)}
-            style={actionButtonStyle}
+            style={chipButtonStyle}
             type="button"
-            onClick={onApplyFilter}
+            onClick={() => {
+              onGroupByChange(null);
+            }}
           >
-            Apply
+            Group: {contract.fieldMap[queryState.groupBy]?.label ?? queryState.groupBy}
           </button>
-        </span>
-
+        ) : null}
+        {queryState.sort.map((sort) => (
+          <button
+            key={sort.fieldKey}
+            style={chipButtonStyle}
+            type="button"
+            onClick={() => {
+              onToggleSort(sort.fieldKey);
+            }}
+          >
+            Sort: {sortLabel(contract, sort.fieldKey)} {sort.direction}
+          </button>
+        ))}
         {queryState.filters.map((filter) => (
           <button
             key={filter.fieldKey}
@@ -148,13 +325,10 @@ export function WorkbookGridControls({
               onRemoveFilter(filter.fieldKey);
             }}
           >
-            {filterChipLabel(contract, filter)} ×
+            {filterChipLabel(contract, filter)}
           </button>
         ))}
-
-        {queryState.filters.length > 0 ||
-        queryState.sort.length > 0 ||
-        queryState.groupBy !== null ? (
+        {hasActiveQuery ? (
           <button
             style={clearButtonStyle}
             type="button"
@@ -170,6 +344,14 @@ export function WorkbookGridControls({
   );
 }
 
+function clearAppliedDraftValue(current: FilterDraft): FilterDraft {
+  return {
+    ...current,
+    booleanValue: "",
+    value: "",
+  };
+}
+
 function placeholderForMode(mode: ReturnType<typeof filterInputMode>) {
   switch (mode) {
     case "date":
@@ -183,21 +365,56 @@ function placeholderForMode(mode: ReturnType<typeof filterInputMode>) {
   }
 }
 
-const toolbarStyle = {
+function sortLabel(contract: ViewContract, fieldKey: string) {
+  return contract.fieldMap[fieldKey]?.label ?? fieldKey;
+}
+
+const queryControlsStyle = {
   display: "flex",
   alignItems: "center",
-  flexWrap: "wrap" as const,
-  flex: "1 1 auto",
+  gap: "0.35rem",
   minWidth: 0,
-  overflowX: "visible" as const,
+  flex: "1 1 auto",
+  overflow: "hidden",
 };
 
-const controlRowStyle = {
-  display: "flex",
-  gap: "0.35rem",
-  flexWrap: "wrap" as const,
+const menuFrameStyle = {
+  position: "relative" as const,
+  display: "inline-flex",
+  flex: "0 0 auto",
+};
+
+const controlButtonStyle = {
+  display: "inline-flex",
   alignItems: "center",
-  minWidth: 0,
+  justifyContent: "center",
+  gap: "0.3rem",
+  borderRadius: "var(--ct-rounded-xs)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-1)",
+  color: "var(--ct-colors-ink)",
+  padding: "0.28rem 0.5rem",
+  font: "inherit",
+  cursor: "pointer",
+  minBlockSize: "1.8rem",
+  whiteSpace: "nowrap" as const,
+};
+
+const inputStyle = {
+  borderRadius: "var(--ct-component-text-input-rounded)",
+  border: "var(--ct-component-text-input-border)",
+  background: "var(--ct-component-text-input-backgroundColor)",
+  padding: "0.35rem 0.5rem",
+  font: "inherit",
+  color: "var(--ct-component-text-input-textColor)",
+  boxSizing: "border-box" as const,
+  minInlineSize: "12rem",
+  minBlockSize: "1.9rem",
+};
+
+const selectStyle = {
+  ...inputStyle,
+  minInlineSize: "9rem",
 };
 
 const inlineLabelStyle = {
@@ -206,59 +423,102 @@ const inlineLabelStyle = {
   alignItems: "center",
   color: "var(--ct-colors-ink-muted)",
   fontSize: "0.78rem",
-};
-
-const inputStyle = {
-  borderRadius: "var(--ct-component-text-input-rounded)",
-  border: "var(--ct-component-text-input-border)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  padding: "0.26rem 0.45rem",
-  font: "inherit",
-  color: "var(--ct-component-text-input-textColor)",
-  boxSizing: "border-box" as const,
-  minWidth: "8rem",
-  maxWidth: "10rem",
-  minHeight: "1.75rem",
-};
-
-const selectStyle = {
-  ...inputStyle,
-  minWidth: "9rem",
-};
-
-const actionButtonStyle = {
-  borderRadius: "var(--ct-component-button-secondary-rounded)",
-  border: "var(--ct-component-button-secondary-border)",
-  background: "var(--ct-component-button-secondary-backgroundColor)",
-  color: "var(--ct-component-button-secondary-textColor)",
-  padding: "0.26rem 0.55rem",
-  font: "inherit",
-  cursor: "pointer",
-  minHeight: "1.75rem",
-  height: "1.75rem",
-};
-
-const modeButtonStyle = {
-  ...actionButtonStyle,
   whiteSpace: "nowrap" as const,
 };
 
-const chipButtonStyle = {
-  ...actionButtonStyle,
+const stackedLabelStyle = {
+  display: "grid",
+  gap: "0.3rem",
+  color: "var(--ct-colors-ink-muted)",
+  fontSize: "0.82rem",
+};
+
+const menuStyle = {
+  position: "absolute" as const,
+  zIndex: 20,
+  insetBlockStart: "calc(100% + 0.35rem)",
+  insetInlineStart: 0,
+  display: "grid",
+  gap: "0.2rem",
+  inlineSize: "min(18rem, 80vw)",
+  maxBlockSize: "18rem",
+  overflowY: "auto" as const,
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-md)",
+  background: "var(--ct-colors-surface-1)",
+  boxShadow: "var(--ct-elevation-popover)",
+  padding: "0.45rem",
+};
+
+const menuItemStyle = {
+  border: 0,
+  borderRadius: "var(--ct-rounded-xs)",
+  background: "transparent",
+  color: "var(--ct-colors-ink-muted)",
+  cursor: "pointer",
+  font: "inherit",
+  padding: "0.45rem 0.5rem",
+  textAlign: "left" as const,
+};
+
+const menuItemSelectedStyle = {
   background: "var(--ct-colors-surface-3)",
+  color: "var(--ct-colors-ink)",
+  fontWeight: 700,
+};
+
+const filterPopoverStyle = {
+  ...menuStyle,
+  inlineSize: "min(24rem, 88vw)",
+  gap: "0.55rem",
+};
+
+const filterValidationStyle = {
+  margin: 0,
+  color: "var(--ct-colors-semantic-conflict)",
+  fontSize: "0.8rem",
+  fontWeight: 700,
+};
+
+const popoverActionsStyle = {
+  display: "flex",
+  justifyContent: "end",
+  gap: "0.4rem",
+};
+
+const secondaryButtonStyle = {
+  ...controlButtonStyle,
+  background: "transparent",
+};
+
+const primaryButtonStyle = {
+  ...controlButtonStyle,
+  borderColor: "var(--ct-colors-accent-active)",
+  background: "var(--ct-colors-accent)",
+  color: "var(--ct-colors-on-accent)",
+  fontWeight: 700,
+};
+
+const chipRailStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.3rem",
+  minWidth: 0,
+  flex: "1 1 auto",
+  overflow: "hidden",
+};
+
+const chipButtonStyle = {
+  ...controlButtonStyle,
+  background: "var(--ct-colors-surface-3)",
+  maxInlineSize: "14rem",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 
 const clearButtonStyle = {
-  ...actionButtonStyle,
+  ...controlButtonStyle,
   borderColor: "transparent",
   background: "transparent",
   color: "var(--ct-colors-ink-muted)",
-};
-
-const filterClusterStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  flexWrap: "wrap" as const,
-  gap: "0.35rem",
-  minWidth: 0,
 };

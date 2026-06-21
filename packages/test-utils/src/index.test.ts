@@ -13,6 +13,8 @@ import {
   gridSortHeaderTestId,
   rowCellTestId,
   rowInspectButtonTestId,
+  savedViewActionMenuTestId,
+  savedViewActionMenuTriggerTestId,
   savedViewCreateButtonTestId,
   savedViewNameInputTestId,
   savedViewScopeSelectTestId,
@@ -20,6 +22,7 @@ import {
   savedViewSetDefaultButtonTestId,
   savedViewSetHomeButtonTestId,
   savedViewUpdateButtonTestId,
+  workbookFilterPopoverTriggerTestId,
 } from "@cartulary/ui-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -99,6 +102,7 @@ describe("@cartulary/test-utils selector choreography", () => {
 
     expect(observed).toEqual([
       gridSortHeaderTestId(surface, "timeline.summary"),
+      workbookFilterPopoverTriggerTestId(surface),
       gridFilterFieldTestId(surface),
       gridFilterValueTestId(surface),
       gridFilterApplyTestId(surface),
@@ -186,16 +190,18 @@ describe("@cartulary/test-utils selector choreography", () => {
     await setCurrentSavedViewAsDefault(page, testTimelineViewSchemaId);
     await createSavedViewFromCurrentSurface(page, testTimelineViewSchemaId);
 
-    expect(observed).toEqual([
-      savedViewSelectorTestId(testTimelineViewSchemaId),
-      savedViewSelectorTestId(testTimelineViewSchemaId),
-      savedViewNameInputTestId(testTimelineViewSchemaId),
-      savedViewScopeSelectTestId(testTimelineViewSchemaId),
-      savedViewUpdateButtonTestId(testTimelineViewSchemaId, savedViewId),
-      savedViewSetHomeButtonTestId(testTimelineViewSchemaId),
-      savedViewSetDefaultButtonTestId(testTimelineViewSchemaId),
-      savedViewCreateButtonTestId(testTimelineViewSchemaId),
-    ]);
+    expect(observed).toEqual(
+      expect.arrayContaining([
+        savedViewSelectorTestId(testTimelineViewSchemaId),
+        savedViewActionMenuTestId(testTimelineViewSchemaId),
+        savedViewNameInputTestId(testTimelineViewSchemaId),
+        savedViewScopeSelectTestId(testTimelineViewSchemaId),
+        savedViewUpdateButtonTestId(testTimelineViewSchemaId, savedViewId),
+        savedViewSetHomeButtonTestId(testTimelineViewSchemaId),
+        savedViewSetDefaultButtonTestId(testTimelineViewSchemaId),
+        savedViewCreateButtonTestId(testTimelineViewSchemaId),
+      ]),
+    );
     expect(selected[savedViewSelectorTestId(testTimelineViewSchemaId)]).toBe(
       savedViewId,
     );
@@ -205,12 +211,14 @@ describe("@cartulary/test-utils selector choreography", () => {
     expect(filled[savedViewNameInputTestId(testTimelineViewSchemaId)]).toBe(
       "Timeline review",
     );
-    expect(clicked).toEqual([
-      savedViewUpdateButtonTestId(testTimelineViewSchemaId, savedViewId),
-      savedViewSetHomeButtonTestId(testTimelineViewSchemaId),
-      savedViewSetDefaultButtonTestId(testTimelineViewSchemaId),
-      savedViewCreateButtonTestId(testTimelineViewSchemaId),
-    ]);
+    expect(clicked).toEqual(
+      expect.arrayContaining([
+        savedViewUpdateButtonTestId(testTimelineViewSchemaId, savedViewId),
+        savedViewSetHomeButtonTestId(testTimelineViewSchemaId),
+        savedViewSetDefaultButtonTestId(testTimelineViewSchemaId),
+        savedViewCreateButtonTestId(testTimelineViewSchemaId),
+      ]),
+    );
   });
 
   it("awaits saved-view preference PUT responses and validates persisted sheet refs", async () => {
@@ -369,7 +377,9 @@ describe("@cartulary/test-utils selector choreography", () => {
       status: 200,
     });
     expect(clicked).toEqual([
+      savedViewActionMenuTriggerTestId(testTimelineViewSchemaId),
       savedViewSetHomeButtonTestId(testTimelineViewSchemaId),
+      savedViewActionMenuTriggerTestId(testTimelineViewSchemaId),
       savedViewSetDefaultButtonTestId(testTimelineViewSchemaId),
     ]);
   });

@@ -9,6 +9,7 @@ import {
   gridFilterFieldTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
+  workbookFilterPopoverTriggerTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -356,6 +357,7 @@ describe("Phase 8 workbook query controls", () => {
     const onFilterDraftChange = vi.fn();
     const onGroupByChange = vi.fn();
     const onRemoveFilter = vi.fn();
+    const onToggleSort = vi.fn();
 
     render(
       <WorkbookGridControls
@@ -365,6 +367,7 @@ describe("Phase 8 workbook query controls", () => {
         onFilterDraftChange={onFilterDraftChange}
         onGroupByChange={onGroupByChange}
         onRemoveFilter={onRemoveFilter}
+        onToggleSort={onToggleSort}
         queryState={{
           filters: [
             {
@@ -393,6 +396,9 @@ describe("Phase 8 workbook query controls", () => {
     });
     expect(onGroupByChange).toHaveBeenCalledWith("timeline.has_evidence");
 
+    fireEvent.click(
+      screen.getByTestId(workbookFilterPopoverTriggerTestId(timelineViewSchemaId)),
+    );
     const fieldSelect = screen.getByTestId(
       gridFilterFieldTestId(timelineViewSchemaId),
     ) as HTMLSelectElement;

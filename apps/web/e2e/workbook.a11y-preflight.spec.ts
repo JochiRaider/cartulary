@@ -347,7 +347,7 @@ test.describe("FE-P11 accessibility preflight", () => {
     await expect(menu).toHaveAttribute("role", "menu");
     const indicatorsOption = page.getByTestId(
       systemViewSwitcherOptionTestId(
-        "scope-assessment",
+        "scope-indicators",
         indicatorsViewSchemaId,
       ),
     );

@@ -73,9 +73,12 @@ export function useTimelineWorkbookRuntime({
   const filterDraft = controlledFilterDraft ?? uncontrolledFilterDraft;
   const setFilterDraft = onFilterDraftChange ?? setUncontrolledFilterDraft;
 
-  const applyQueryFilter = useCallback(() => {
-    applyTimelineFilterDraftToQuery(setQueryState, setFilterDraft, filterDraft);
-  }, [filterDraft, setFilterDraft, setQueryState]);
+  const applyQueryFilter = useCallback(
+    (draft: FilterDraft = filterDraft) => {
+      applyTimelineFilterDraftToQuery(setQueryState, setFilterDraft, draft);
+    },
+    [filterDraft, setFilterDraft, setQueryState],
+  );
 
   const handleQueryGroupByChange = useCallback(
     (groupBy: string | null) => {

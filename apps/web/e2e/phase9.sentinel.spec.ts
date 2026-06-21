@@ -105,7 +105,7 @@ const feP10WorkbookShellSurfaces = [
     viewSchemaId: decisionsViewSchemaId,
   },
   {
-    groupToken: "scope-assessment",
+    groupToken: "coordination",
     label: "Parties",
     viewSchemaId: partiesViewSchemaId,
   },

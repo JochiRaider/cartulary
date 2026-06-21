@@ -22,7 +22,10 @@ import {
   fetchJSON,
   publicErrorView,
 } from "../services/browserApi";
-import type { WorkbookAccountApplicationMenuProps } from "../workbook/WorkbookShell";
+import type {
+  WorkbookAccountApplicationMenuProps,
+  WorkbookAccountModel,
+} from "../workbook/WorkbookShell";
 import {
   AccountAppearancePanel,
   AccountApplicationMenu,
@@ -861,8 +864,19 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     if (session === null) {
       return "Anonymous";
     }
-    return `${session.display_name}${session.is_deployment_admin ? " · deployment admin" : ""}`;
+    return session.display_name;
   }, [session]);
+  const currentWorkbookAccount = useMemo<WorkbookAccountModel | undefined>(
+    () =>
+      session === null
+        ? undefined
+        : {
+            display_name: session.display_name,
+            is_deployment_admin: session.is_deployment_admin,
+            user_id: session.user_id,
+          },
+    [session],
+  );
   const landingStatusText =
     landingNotice ??
     (route.deploymentAdministration
@@ -1232,6 +1246,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
             }
           >
             <LazyWorkbookShell
+              account={currentWorkbookAccount}
               accountApplicationMenu={({
                 currentIncidentRole,
                 incidentControls,

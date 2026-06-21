@@ -126,12 +126,18 @@ import {
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
   rowPresenceMarkerTestId,
+  savedViewActionMenuTestId,
+  savedViewActionMenuTriggerTestId,
   savedViewCreateButtonTestId,
   savedViewDeleteButtonTestId,
   savedViewDuplicateButtonTestId,
   savedViewFamilySelector,
+  savedViewManageSharingButtonTestId,
+  savedViewModifiedTestId,
   savedViewNameInputTestId,
   savedViewOptionTestId,
+  savedViewRenameButtonTestId,
+  savedViewResetButtonTestId,
   savedViewScopeSelectTestId,
   savedViewSelectorTestId,
   savedViewSetDefaultButtonTestId,
@@ -162,15 +168,26 @@ import {
   timelineScalarEditorSurfaces,
   timelineScalarEditorTestId,
   workbookAddRowButtonTestId,
+  workbookFilterPopoverTestId,
+  workbookFilterPopoverTriggerTestId,
   workbookInlineDraftRowTestId,
+  workbookIncidentIdentityTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
+  workbookResponsiveBandTestId,
   workbookRowActionMenuButtonTestId,
   workbookRowContextMenuTestId,
   workbookShellReadyTestId,
   workbookShellSlotLabel,
   workbookShellSlots,
   workbookShellSlotTestId,
+  workbookSortMenuTestId,
+  workbookSortMenuTriggerTestId,
+  workbookSortOptionTestId,
+  workbookSurfacesMenuOptionTestId,
+  workbookSurfacesMenuTestId,
+  workbookSurfacesMenuTriggerTestId,
+  workbookTopBarQueryControlsTestId,
 } from "./index";
 
 const requireFixtureValue = <T>(value: T | undefined, label: string): T => {
@@ -231,25 +248,25 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(systemViewSelectorTestId()).toBe(systemViewSwitcherTriggerTestId());
     expect(systemViewSwitcherTriggerTestId()).toBe("system-view-selector");
     expect(systemViewSwitcherMenuTestId()).toBe("system-view-switcher-menu");
-    expect(systemViewSwitcherGroupTestId("scope-assessment")).toBe(
-      "system-view-switcher-group-scope-assessment",
+    expect(systemViewSwitcherGroupTestId("scope-indicators")).toBe(
+      "system-view-switcher-group-scope-indicators",
     );
     expect(
       systemViewSwitcherOptionTestId(
-        "scope-assessment",
+        "scope-indicators",
         originalSurface.viewSchemaId,
       ),
     ).toBe(
-      "system-view-switcher-option-scope-assessment-cartulary.view.indicators.v1",
+      "system-view-switcher-option-scope-indicators-cartulary.view.indicators.v1",
     );
     expect(
       systemViewSwitcherOptionTestId(
-        "scope-assessment",
+        "scope-indicators",
         renamedSurface.viewSchemaId,
       ),
     ).toBe(
       systemViewSwitcherOptionTestId(
-        "scope-assessment",
+        "scope-indicators",
         originalSurface.viewSchemaId,
       ),
     );
@@ -269,11 +286,11 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "Invalid system view switcher group token: future",
     );
     expect(() =>
-      systemViewSwitcherOptionTestId("scope-assessment", "timeline"),
+      systemViewSwitcherOptionTestId("scope-indicators", "timeline"),
     ).toThrow("Invalid view_schema_id selector token: timeline");
     expect(() =>
       systemViewSwitcherOptionTestId(
-        "scope-assessment",
+        "scope-indicators",
         "cartulary.view.future.v1",
       ),
     ).toThrow(
@@ -609,6 +626,12 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(savedViewScopeSelectTestId("cartulary.view.hosts.v1")).toBe(
       "saved-view-scope-cartulary.view.hosts.v1",
     );
+    expect(savedViewActionMenuTriggerTestId("cartulary.view.hosts.v1")).toBe(
+      "saved-view-action-menu-trigger-cartulary.view.hosts.v1",
+    );
+    expect(savedViewActionMenuTestId("cartulary.view.hosts.v1")).toBe(
+      "saved-view-action-menu-cartulary.view.hosts.v1",
+    );
     expect(savedViewCreateButtonTestId("cartulary.view.hosts.v1")).toBe(
       "saved-view-create-cartulary.view.hosts.v1",
     );
@@ -627,6 +650,23 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(savedViewSetDefaultButtonTestId("cartulary.view.hosts.v1")).toBe(
       "saved-view-set-default-cartulary.view.hosts.v1",
     );
+    expect(savedViewModifiedTestId("cartulary.view.hosts.v1")).toBe(
+      "saved-view-modified-cartulary.view.hosts.v1",
+    );
+    expect(
+      savedViewRenameButtonTestId("cartulary.view.hosts.v1", "saved/view 1"),
+    ).toBe("saved-view-rename-cartulary.view.hosts.v1-saved%2Fview%201");
+    expect(
+      savedViewManageSharingButtonTestId(
+        "cartulary.view.hosts.v1",
+        "saved/view 1",
+      ),
+    ).toBe(
+      "saved-view-manage-sharing-cartulary.view.hosts.v1-saved%2Fview%201",
+    );
+    expect(
+      savedViewResetButtonTestId("cartulary.view.hosts.v1", "saved/view 1"),
+    ).toBe("saved-view-reset-cartulary.view.hosts.v1-saved%2Fview%201");
     expect(savedViewStatusTestId("cartulary.view.hosts.v1")).toBe(
       "saved-view-status-cartulary.view.hosts.v1",
     );
@@ -848,6 +888,36 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
 
   it("provides shared builders for app shell and incident membership selectors", () => {
     expect(workbookShellReadyTestId()).toBe("workbook-shell-ready");
+    expect(workbookIncidentIdentityTestId()).toBe("workbook-incident-identity");
+    expect(workbookResponsiveBandTestId()).toBe("workbook-responsive-band");
+    expect(workbookSurfacesMenuTriggerTestId()).toBe(
+      "workbook-surfaces-menu-trigger",
+    );
+    expect(workbookSurfacesMenuTestId()).toBe("workbook-surfaces-menu");
+    expect(
+      workbookSurfacesMenuOptionTestId("cartulary.view.timeline.v1"),
+    ).toBe("workbook-surfaces-menu-option-cartulary.view.timeline.v1");
+    expect(
+      workbookTopBarQueryControlsTestId("cartulary.view.timeline.v1"),
+    ).toBe("cartulary.view.timeline.v1-top-bar-query");
+    expect(workbookSortMenuTriggerTestId("cartulary.view.timeline.v1")).toBe(
+      "cartulary.view.timeline.v1-sort-menu-trigger",
+    );
+    expect(workbookSortMenuTestId("cartulary.view.timeline.v1")).toBe(
+      "cartulary.view.timeline.v1-sort-menu",
+    );
+    expect(
+      workbookSortOptionTestId(
+        "cartulary.view.timeline.v1",
+        "timeline.summary",
+      ),
+    ).toBe("cartulary.view.timeline.v1-sort-option-timeline.summary");
+    expect(
+      workbookFilterPopoverTriggerTestId("cartulary.view.timeline.v1"),
+    ).toBe("cartulary.view.timeline.v1-filter-popover-trigger");
+    expect(workbookFilterPopoverTestId("cartulary.view.timeline.v1")).toBe(
+      "cartulary.view.timeline.v1-filter-popover",
+    );
     expect(workbookShellSlots).toEqual([
       "top-bar",
       "view-bar",

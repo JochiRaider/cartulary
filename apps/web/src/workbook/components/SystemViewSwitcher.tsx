@@ -211,6 +211,7 @@ export function SystemViewSwitcher({
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-label="System views"
+        data-active={activeSystemEntry === null ? "false" : "true"}
         data-testid={systemViewSwitcherTriggerTestId()}
         data-view-schema-id={activeSystemEntry?.viewSchemaId ?? ""}
         style={systemViewSwitcherTriggerStyle}
@@ -234,9 +235,6 @@ export function SystemViewSwitcher({
         }}
       >
         <span>System views</span>
-        <span aria-hidden="true" style={systemViewSwitcherValueStyle}>
-          {activeSystemEntry?.contract.title ?? "Select view"}
-        </span>
       </button>
       {isOpen ? (
         <div
@@ -345,15 +343,6 @@ const systemViewSwitcherTriggerStyle = {
   borderRadius: "var(--ct-rounded-sm)",
   border: "var(--ct-border-hairline)",
   padding: "0.45rem 0.65rem",
-};
-
-const systemViewSwitcherValueStyle = {
-  color: "var(--ct-colors-ink-muted)",
-  fontSize: "0.85rem",
-  fontWeight: 500,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap" as const,
 };
 
 const systemViewSwitcherMenuStyle = {

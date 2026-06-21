@@ -1,12 +1,12 @@
 import {
   dataTestIdSelector,
-  gridFilterFieldTestId,
   gridSavedRowsSelector,
   gridShellTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   rowCellTestId,
   saveStateTestId,
+  workbookTopBarQueryControlsTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 import type {
@@ -636,9 +636,13 @@ export async function waitForWorkbookRows({
   const grid = await screen.findByTestId(gridShellTestId(surface), undefined, {
     timeout: workbookAsyncTimeoutMs,
   });
-  await screen.findByTestId(gridFilterFieldTestId(surface), undefined, {
-    timeout: workbookAsyncTimeoutMs,
-  });
+  await screen.findByTestId(
+    workbookTopBarQueryControlsTestId(surface),
+    undefined,
+    {
+      timeout: workbookAsyncTimeoutMs,
+    },
+  );
   await waitFor(
     () => {
       if (expectedRecordIds !== undefined) {

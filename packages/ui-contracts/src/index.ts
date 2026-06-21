@@ -250,10 +250,10 @@ export type SystemViewSwitcherGroupToken =
   | "coordination"
   | "optional-artifact-surfaces"
   | "review-learning"
-  | "scope-assessment";
+  | "scope-indicators";
 
 export const systemViewSwitcherGroupTokens = [
-  "scope-assessment",
+  "scope-indicators",
   "coordination",
   "review-learning",
   "optional-artifact-surfaces",
@@ -535,6 +535,67 @@ export function systemViewSwitcherOptionTestId(
       groupToken,
     )}-${requireViewSchemaId(viewSchemaId)}`,
   );
+}
+
+export function workbookIncidentIdentityTestId(): StableTestId {
+  return stableTestId("workbook-incident-identity");
+}
+
+export function workbookResponsiveBandTestId(): StableTestId {
+  return stableTestId("workbook-responsive-band");
+}
+
+export function workbookSurfacesMenuTriggerTestId(): StableTestId {
+  return stableTestId("workbook-surfaces-menu-trigger");
+}
+
+export function workbookSurfacesMenuTestId(): StableTestId {
+  return stableTestId("workbook-surfaces-menu");
+}
+
+export function workbookSurfacesMenuOptionTestId(
+  viewSchemaId: string,
+): StableTestId {
+  return stableTestId(viewScopedTestId("workbook-surfaces-menu-option", viewSchemaId));
+}
+
+export function workbookTopBarQueryControlsTestId(
+  viewSchemaId: WorkbookSurface,
+): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "top-bar-query"));
+}
+
+export function workbookSortMenuTriggerTestId(
+  viewSchemaId: WorkbookSurface,
+): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "sort-menu-trigger"));
+}
+
+export function workbookSortMenuTestId(
+  viewSchemaId: WorkbookSurface,
+): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "sort-menu"));
+}
+
+export function workbookSortOptionTestId(
+  viewSchemaId: WorkbookSurface,
+  fieldKey: string,
+): StableTestId {
+  return stableTestId(
+    viewFirstTestId(viewSchemaId, `sort-option-${requireFieldKey(fieldKey)}`),
+  );
+}
+
+export function workbookFilterPopoverTriggerTestId(
+  viewSchemaId: WorkbookSurface,
+): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "filter-popover-trigger"));
+}
+
+export function workbookFilterPopoverTestId(
+  viewSchemaId: WorkbookSurface,
+): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "filter-popover"));
 }
 
 export function workbookShellReadyTestId(): string {
@@ -1253,6 +1314,18 @@ export function savedViewScopeSelectTestId(viewSchemaId: string): StableTestId {
   return stableTestId(viewScopedTestId("saved-view-scope", viewSchemaId));
 }
 
+export function savedViewActionMenuTriggerTestId(
+  viewSchemaId: string,
+): StableTestId {
+  return stableTestId(
+    viewScopedTestId("saved-view-action-menu-trigger", viewSchemaId),
+  );
+}
+
+export function savedViewActionMenuTestId(viewSchemaId: string): StableTestId {
+  return stableTestId(viewScopedTestId("saved-view-action-menu", viewSchemaId));
+}
+
 export function savedViewCreateButtonTestId(
   viewSchemaId: string,
 ): StableTestId {
@@ -1305,6 +1378,46 @@ export function savedViewSetDefaultButtonTestId(
   viewSchemaId: string,
 ): StableTestId {
   return stableTestId(viewScopedTestId("saved-view-set-default", viewSchemaId));
+}
+
+export function savedViewModifiedTestId(viewSchemaId: string): StableTestId {
+  return stableTestId(viewScopedTestId("saved-view-modified", viewSchemaId));
+}
+
+export function savedViewRenameButtonTestId(
+  viewSchemaId: string,
+  savedViewId: string,
+): StableTestId {
+  return stableTestId(
+    `${viewScopedTestId("saved-view-rename", viewSchemaId)}-${encodeSelectorSegment(
+      savedViewId,
+      "saved_view_id",
+    )}`,
+  );
+}
+
+export function savedViewManageSharingButtonTestId(
+  viewSchemaId: string,
+  savedViewId: string,
+): StableTestId {
+  return stableTestId(
+    `${viewScopedTestId(
+      "saved-view-manage-sharing",
+      viewSchemaId,
+    )}-${encodeSelectorSegment(savedViewId, "saved_view_id")}`,
+  );
+}
+
+export function savedViewResetButtonTestId(
+  viewSchemaId: string,
+  savedViewId: string,
+): StableTestId {
+  return stableTestId(
+    `${viewScopedTestId("saved-view-reset", viewSchemaId)}-${encodeSelectorSegment(
+      savedViewId,
+      "saved_view_id",
+    )}`,
+  );
 }
 
 export function savedViewStatusTestId(viewSchemaId: string): StableTestId {

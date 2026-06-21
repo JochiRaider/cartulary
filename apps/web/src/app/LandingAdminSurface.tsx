@@ -492,6 +492,16 @@ export function AccountApplicationMenu({
               Current incident role: {currentIncidentRole || "viewer"}
             </div>
           ) : null}
+          {canOpenDeploymentAdministration ? (
+            <div
+              aria-disabled="true"
+              role="menuitem"
+              style={accountMenuStatusItemStyle}
+              tabIndex={-1}
+            >
+              Deployment administrator
+            </div>
+          ) : null}
           <button
             aria-current={currentContext === "incidents" ? "page" : undefined}
             data-testid={

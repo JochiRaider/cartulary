@@ -123,15 +123,15 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     const workbookShell = workArea?.parentElement;
     expect(workbookShell).toBeInstanceOf(HTMLElement);
     expect((workbookShell as HTMLElement).style.gridTemplateRows).toBe(
-      "auto minmax(var(--ct-layout-viewBarHeight), auto) minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+      "var(--ct-layout-viewBarHeight) minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
     );
     expect(
       screen.getByTestId(workbookShellSlotTestId("view-bar")).style.gridRow,
-    ).toBe("2");
-    expect((workArea as HTMLElement).style.gridRow).toBe("3");
+    ).toBe("1");
+    expect((workArea as HTMLElement).style.gridRow).toBe("2");
     expect(
       screen.getByTestId(workbookShellSlotTestId("status-strip")).style.gridRow,
-    ).toBe("4");
+    ).toBe("3");
     const gridShell = screen.getByTestId(gridShellTestId(timelineViewSchemaId));
     expect(gridShell.style.inlineSize).toBe("100%");
     expect(gridShell.style.blockSize).toBe("100%");

@@ -277,11 +277,11 @@ test("FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, sele
 
   await page.keyboard.press("Enter");
   const indicatorOption = page.getByTestId(
-    systemViewSwitcherOptionTestId("scope-assessment", indicatorsViewSchemaId),
+    systemViewSwitcherOptionTestId("scope-indicators", indicatorsViewSchemaId),
   );
   const assessmentOption = page.getByTestId(
     systemViewSwitcherOptionTestId(
-      "scope-assessment",
+      "scope-indicators",
       "cartulary.view.assessments.v1",
     ),
   );
@@ -403,7 +403,7 @@ test("FE-E-P2-01 Verify saved views appear only under the active surface's view 
   );
   await page.getByTestId(systemViewSwitcherTriggerTestId()).click();
   const indicatorSystemViewOption = page.getByTestId(
-    systemViewSwitcherOptionTestId("scope-assessment", indicatorsViewSchemaId),
+    systemViewSwitcherOptionTestId("scope-indicators", indicatorsViewSchemaId),
   );
   await expect(indicatorSystemViewOption).toHaveAttribute(
     "data-view-schema-id",

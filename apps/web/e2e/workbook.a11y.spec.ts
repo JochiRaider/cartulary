@@ -61,6 +61,8 @@ import {
   rowInspectorFieldTestId,
   rowPresenceMarkerTestId,
   type SystemViewSwitcherGroupToken,
+  savedViewActionMenuTestId,
+  savedViewActionMenuTriggerTestId,
   savedViewCreateButtonTestId,
   savedViewNameInputTestId,
   savedViewSelectorTestId,
@@ -76,6 +78,7 @@ import {
   timelineRowMarkReviewedButtonTestId,
   timelineScalarEditorTestId,
   workbookInspectorToggleTestId,
+  workbookFilterPopoverTriggerTestId,
   workbookShellReadyTestId,
   workbookShellSlotLabel,
   workbookShellSlots,
@@ -449,6 +452,30 @@ async function expectNoFocusTrap(page: Page) {
   } finally {
     await removeKeyboardSentinel(page);
   }
+}
+
+async function openFilterPopover(page: Page, viewSchemaId: string) {
+  const trigger = page.getByTestId(
+    workbookFilterPopoverTriggerTestId(viewSchemaId),
+  );
+  await expect(trigger).toBeVisible();
+  const field = page.getByTestId(gridFilterFieldTestId(viewSchemaId));
+  if (!(await field.isVisible().catch(() => false))) {
+    await trigger.click();
+  }
+  await expect(field).toBeVisible();
+}
+
+async function openSavedViewActionMenu(page: Page, viewSchemaId: string) {
+  const trigger = page.getByTestId(
+    savedViewActionMenuTriggerTestId(viewSchemaId),
+  );
+  await expect(trigger).toBeVisible();
+  const menu = page.getByTestId(savedViewActionMenuTestId(viewSchemaId));
+  if (!(await menu.isVisible().catch(() => false))) {
+    await trigger.click();
+  }
+  await expect(menu).toBeVisible();
 }
 
 async function expectTabTraversalAdvancesFrom(
@@ -1177,7 +1204,7 @@ test.describe("FE-P2 accessibility readiness", () => {
     await expect(menu).toHaveAttribute("role", "menu");
     const indicatorOption = page.getByTestId(
       systemViewSwitcherOptionTestId(
-        "scope-assessment",
+        "scope-indicators",
         indicatorsViewSchemaId,
       ),
     );
@@ -1191,6 +1218,7 @@ test.describe("FE-P2 accessibility readiness", () => {
     await expect(
       page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
     ).toBeVisible();
+    await openFilterPopover(page, timelineViewSchemaId);
     await expect(
       page.getByTestId(gridFilterFieldTestId(timelineViewSchemaId)),
     ).toBeVisible();
@@ -1395,8 +1423,7 @@ test.describe("FE-P4 accessibility readiness", () => {
     await expectStatusRole(page.getByTestId(saveStateTestId()));
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expectTabOrderIncludes(page, [
-      gridFilterFieldTestId(timelineViewSchemaId),
-      gridFilterApplyTestId(timelineViewSchemaId),
+      workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
       gridGroupingSelectTestId(timelineViewSchemaId),
       rowCellTestId(editRow.record_id, "timeline.summary"),
     ]);
@@ -1485,7 +1512,7 @@ test.describe("FE-P4 accessibility readiness", () => {
     await expectNoFocusTrap(page);
     await expectAndRecordContrast(page, [
       workbookShellSlotTestId("status-strip"),
-      gridFilterApplyTestId(timelineViewSchemaId),
+      workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
       gridGroupingSelectTestId(timelineViewSchemaId),
       gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
       rowCellTestId(editRow.record_id, "timeline.summary"),
@@ -2067,6 +2094,7 @@ test.describe("FE-P8 accessibility readiness", () => {
       ),
     ).toHaveText("reviewed");
 
+    await openFilterPopover(page, timelineViewSchemaId);
     const filterField = page.getByTestId(
       gridFilterFieldTestId(timelineViewSchemaId),
     );
@@ -2124,6 +2152,7 @@ test.describe("FE-P8 accessibility readiness", () => {
       "data-selected-sheet-ref-kind",
       "view_schema",
     );
+    await openSavedViewActionMenu(page, timelineViewSchemaId);
     const savedViewNameInput = page.getByTestId(
       savedViewNameInputTestId(timelineViewSchemaId),
     );
@@ -2144,12 +2173,14 @@ test.describe("FE-P8 accessibility readiness", () => {
       "saved_view",
     );
 
+    await openSavedViewActionMenu(page, timelineViewSchemaId);
     const homeButton = page.getByTestId(
       savedViewSetHomeButtonTestId(timelineViewSchemaId),
     );
     await expectVisibleFocus(homeButton);
     await homeButton.press("Enter");
     await expect(savedViewStatus).toHaveText("Home view updated.");
+    await openSavedViewActionMenu(page, timelineViewSchemaId);
     const defaultButton = page.getByTestId(
       savedViewSetDefaultButtonTestId(timelineViewSchemaId),
     );
@@ -2159,6 +2190,8 @@ test.describe("FE-P8 accessibility readiness", () => {
 
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
+    await openFilterPopover(page, timelineViewSchemaId);
+    await openSavedViewActionMenu(page, timelineViewSchemaId);
     await expectAndRecordContrast(page, [
       gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
       gridFilterFieldTestId(timelineViewSchemaId),
@@ -2473,7 +2506,7 @@ test.describe("FE-P10 accessibility readiness", () => {
       {
         expected: "FE-A11Y-P10 response party",
         fieldKey: "party.display_name",
-        groupToken: "scope-assessment",
+        groupToken: "coordination",
         label: "Parties",
         row: party,
         viewSchemaId: partiesViewSchemaId,
@@ -2537,6 +2570,7 @@ test.describe("FE-P10 accessibility readiness", () => {
         await expect(
           page.getByTestId(savedViewSelectorTestId(surface.viewSchemaId)),
         ).toHaveAttribute("data-selected-sheet-ref-kind", "view_schema");
+        await openFilterPopover(page, surface.viewSchemaId);
         await expect(
           page.getByTestId(gridFilterFieldTestId(surface.viewSchemaId)),
         ).toBeVisible();
@@ -2632,6 +2666,7 @@ test.describe("FE-P10 accessibility readiness", () => {
     );
     await expectCellTextOrValue(urgentTitle, "FE-A11Y-P10 task urgent");
 
+    await openSavedViewActionMenu(page, taskRequestsViewSchemaId);
     const savedViewName = page.getByTestId(
       savedViewNameInputTestId(taskRequestsViewSchemaId),
     );
@@ -2681,6 +2716,8 @@ test.describe("FE-P10 accessibility readiness", () => {
 
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
+    await openFilterPopover(page, taskRequestsViewSchemaId);
+    await openSavedViewActionMenu(page, taskRequestsViewSchemaId);
     await expectAndRecordContrast(page, [
       systemViewSwitcherTriggerTestId(),
       savedViewSelectorTestId(taskRequestsViewSchemaId),
@@ -3166,7 +3203,10 @@ test.describe("FE-P1 accessibility readiness", () => {
       });
 
       await phase1.login(email, password);
-      await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+      await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
+      await expect(
+        page.getByTestId(phase1LandingTestId("current-user")),
+      ).toContainText("A11Y P1 Revoked");
       await sessionTracker.captureCurrentSession(page, {
         createdBy: "phase1 accessibility",
         email,

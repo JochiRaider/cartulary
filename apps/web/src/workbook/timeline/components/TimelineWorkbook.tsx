@@ -228,6 +228,7 @@ import {
   relationshipItemLabel,
   TimelineScalarEditor,
 } from "./TimelineCellEditors";
+import { WorkbookGridControls } from "../../components/WorkbookGridControls";
 import { TimelineConflictResolver } from "./TimelineConflictResolver";
 import { TimelineEvidencePanel } from "./TimelineEvidencePanel";
 import { TimelineGridSurface } from "./TimelineGridSurface";
@@ -6407,7 +6408,6 @@ export function TimelineWorkbook({
       statusStrip={
         <WorkbookStatusStrip
           activeSheetPresenceRecords={activeSheetPresenceRecords}
-          incidentId={incidentId}
           inFlightCount={pendingQueueSnapshot.inFlightCount}
           queuedCount={pendingQueueSnapshot.queuedCount}
           saveState={saveState}
@@ -6418,26 +6418,37 @@ export function TimelineWorkbook({
       testId={timelineMutationSubstrateReadyTestId()}
       viewBar={
         <WorkbookSheetToolbar
-          leading={savedViewSelector}
-          contract={timelineContract}
-          filterDraft={filterDraft}
+          leading={
+            <>
+              {savedViewSelector}
+              {renderInlineQueryControls ? (
+                <WorkbookGridControls
+                  contract={timelineContract}
+                  defaultFilterPopoverOpen
+                  filterDraft={filterDraft}
+                  onApplyFilter={applyQueryFilter}
+                  onClearAll={() => {
+                    setQueryState(emptyWorkbookQueryState());
+                    setFilterDraft(defaultFilterDraft(timelineContract));
+                  }}
+                  onFilterDraftChange={setFilterDraft}
+                  onGroupByChange={handleQueryGroupByChange}
+                  onRemoveFilter={(fieldKey) => {
+                    setQueryState((current) =>
+                      removeFilterField(current, fieldKey),
+                    );
+                  }}
+                  onToggleSort={handleQuerySortToggle}
+                  queryState={queryState}
+                  surface={timelineViewSchemaId}
+                />
+              ) : null}
+            </>
+          }
           onAddRow={focusDraftRow}
-          onApplyFilter={applyQueryFilter}
-          onClearAll={() => {
-            setQueryState(emptyWorkbookQueryState());
-            setFilterDraft(defaultFilterDraft(timelineContract));
-          }}
-          onFilterDraftChange={setFilterDraft}
-          onGroupByChange={handleQueryGroupByChange}
           onInspectorToggle={() => {
             setIsInspectorOpen(true);
           }}
-          onRemoveFilter={(fieldKey) => {
-            setQueryState((current) => removeFilterField(current, fieldKey));
-          }}
-          queryState={queryState}
-          showQueryControls={renderInlineQueryControls}
-          showSurfaceStatus={renderInlineQueryControls}
           surface={timelineViewSchemaId}
         />
       }

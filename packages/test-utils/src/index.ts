@@ -9,6 +9,8 @@ import {
   gridShellTestId,
   gridSortHeaderTestId,
   rowCellTestId,
+  savedViewActionMenuTestId,
+  savedViewActionMenuTriggerTestId,
   savedViewCreateButtonTestId,
   savedViewNameInputTestId,
   savedViewScopeSelectTestId,
@@ -16,6 +18,7 @@ import {
   savedViewSetDefaultButtonTestId,
   savedViewSetHomeButtonTestId,
   savedViewUpdateButtonTestId,
+  workbookFilterPopoverTriggerTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 
@@ -188,11 +191,27 @@ export async function readSavedViewSelectionState(
   }))) as SavedViewSelectionState;
 }
 
+export async function openSavedViewActionMenu(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+) {
+  const menu = page.getByTestId(savedViewActionMenuTestId(surface));
+  try {
+    if (await isLocatorVisible(menu)) {
+      return;
+    }
+  } catch {
+    // Older test harness locators may not support visibility checks.
+  }
+  await page.getByTestId(savedViewActionMenuTriggerTestId(surface)).click();
+}
+
 export async function setSavedViewDraftName(
   page: BrowserPageLike,
   surface: WorkbookSurface,
   displayName: string,
 ) {
+  await openSavedViewActionMenu(page, surface);
   await page.getByTestId(savedViewNameInputTestId(surface)).fill(displayName);
 }
 
@@ -201,6 +220,7 @@ export async function selectSavedViewScope(
   surface: WorkbookSurface,
   scope: "private" | "shared",
 ) {
+  await openSavedViewActionMenu(page, surface);
   const scopeSelect = page.getByTestId(savedViewScopeSelectTestId(surface));
   const selectOption = requireSelectOption(
     scopeSelect,
@@ -213,6 +233,7 @@ export async function createSavedViewFromCurrentSurface(
   page: BrowserPageLike,
   surface: WorkbookSurface,
 ) {
+  await openSavedViewActionMenu(page, surface);
   await page.getByTestId(savedViewCreateButtonTestId(surface)).click();
 }
 
@@ -221,6 +242,7 @@ export async function updateSavedViewFromCurrentSurface(
   surface: WorkbookSurface,
   savedViewId: string,
 ) {
+  await openSavedViewActionMenu(page, surface);
   await page
     .getByTestId(savedViewUpdateButtonTestId(surface, savedViewId))
     .click();
@@ -230,6 +252,7 @@ export async function setCurrentSavedViewAsHome(
   page: BrowserPageLike,
   surface: WorkbookSurface,
 ) {
+  await openSavedViewActionMenu(page, surface);
   await page.getByTestId(savedViewSetHomeButtonTestId(surface)).click();
 }
 
@@ -241,6 +264,7 @@ export async function setCurrentSavedViewAsHomeAndWait(
     incidentId: string;
   },
 ): Promise<SavedViewPreferenceActionResult> {
+  await openSavedViewActionMenu(page, surface);
   return setCurrentSavedViewPreferenceAndWait(page, surface, {
     buttonTestId: savedViewSetHomeButtonTestId(surface),
     expectedSheetRef: options.expectedSheetRef,
@@ -254,6 +278,7 @@ export async function setCurrentSavedViewAsDefault(
   page: BrowserPageLike,
   surface: WorkbookSurface,
 ) {
+  await openSavedViewActionMenu(page, surface);
   await page.getByTestId(savedViewSetDefaultButtonTestId(surface)).click();
 }
 
@@ -265,6 +290,7 @@ export async function setCurrentSavedViewAsDefaultAndWait(
     incidentId: string;
   },
 ): Promise<SavedViewPreferenceActionResult> {
+  await openSavedViewActionMenu(page, surface);
   return setCurrentSavedViewPreferenceAndWait(page, surface, {
     buttonTestId: savedViewSetDefaultButtonTestId(surface),
     expectedSheetRef: options.expectedSheetRef,
@@ -508,6 +534,7 @@ export async function applyFilterChip(
   fieldKey: string,
   value: string,
 ) {
+  await page.getByTestId(workbookFilterPopoverTriggerTestId(surface)).click();
   await page
     .getByTestId(gridFilterFieldTestId(surface))
     .selectOption?.(fieldKey);

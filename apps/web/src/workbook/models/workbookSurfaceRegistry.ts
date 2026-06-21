@@ -78,13 +78,9 @@ const builtInSurfaceIdSet = new Set<string>(requiredBuiltInWorkbookSurfaceIds);
 
 const systemWorkbookSurfaceGroupDefinitions = [
   {
-    label: "Scope and assessment",
-    token: "scope-assessment",
-    viewSchemaIds: [
-      indicatorsViewSchemaId,
-      assessmentsViewSchemaId,
-      partiesViewSchemaId,
-    ],
+    label: "Scope and indicators",
+    token: "scope-indicators",
+    viewSchemaIds: [indicatorsViewSchemaId, assessmentsViewSchemaId],
   },
   {
     label: "Coordination",
@@ -92,6 +88,7 @@ const systemWorkbookSurfaceGroupDefinitions = [
     viewSchemaIds: [
       taskRequestsViewSchemaId,
       decisionsViewSchemaId,
+      partiesViewSchemaId,
       commLogViewSchemaId,
       handoffViewSchemaId,
     ],

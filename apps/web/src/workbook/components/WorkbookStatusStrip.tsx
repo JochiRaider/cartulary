@@ -17,17 +17,14 @@ import {
   presenceOverflowStyle,
   statusIconStyle,
   statusStripItemStyle,
-  statusStripMutedItemStyle,
   statusStripPresenceStyle,
   statusStripSecondaryItemStyle,
-  statusStripSpacerStyle,
 } from "../utils/workbookStyles";
 
 export type WorkbookStatusSaveState = "Syncing" | "Saved" | "Conflict";
 
 export function WorkbookStatusStrip({
   activeSheetPresenceRecords,
-  incidentId,
   inFlightCount,
   queuedCount,
   saveState,
@@ -35,7 +32,6 @@ export function WorkbookStatusStrip({
   workbookFocusAnchor,
 }: {
   readonly activeSheetPresenceRecords: readonly PresenceRecord[];
-  readonly incidentId: string;
   readonly inFlightCount: number;
   readonly queuedCount: number;
   readonly saveState: WorkbookStatusSaveState;
@@ -92,8 +88,6 @@ export function WorkbookStatusStrip({
           <span style={presenceOverflowStyle}>+{headerPresence.overflow}</span>
         ) : null}
       </div>
-      <span style={statusStripSpacerStyle} />
-      <span style={statusStripMutedItemStyle}>{incidentId}</span>
       <WorkbookFocusAnchorStatus anchor={workbookFocusAnchor} />
     </>
   );

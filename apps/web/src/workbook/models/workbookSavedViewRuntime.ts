@@ -1,5 +1,12 @@
 import type { ViewContract } from "@cartulary/view-contracts";
-import { workbookQueryStateFromSavedViewQueryJson } from "./workbookQuery";
+import {
+  buildSavedViewLayoutJson,
+  buildSavedViewQueryJson,
+  type WorkbookLayoutState,
+  type WorkbookQueryState,
+  workbookLayoutStateFromSavedViewLayoutJson,
+  workbookQueryStateFromSavedViewQueryJson,
+} from "./workbookQuery";
 import type { SavedViewResource } from "./workbookSavedViews";
 import type { WorkbookSheetRef } from "./workbookStartup";
 import { knownWorkbookViewSchemaId } from "./workbookSurfaceRegistry";
@@ -74,4 +81,56 @@ export function savedViewQueryStateForRuntime(
     contract,
     savedView.query_json,
   );
+}
+
+export function savedViewConfigurationIsModified({
+  contract,
+  currentLayoutState = {},
+  currentQueryState,
+  savedView,
+}: {
+  readonly contract: ViewContract;
+  readonly currentLayoutState?: WorkbookLayoutState | undefined;
+  readonly currentQueryState: WorkbookQueryState;
+  readonly savedView: SavedViewResource | null;
+}): boolean {
+  if (savedView === null) {
+    return false;
+  }
+  const currentQueryJson = buildSavedViewQueryJson(contract, currentQueryState);
+  const currentLayoutJson = buildSavedViewLayoutJson(contract, currentLayoutState);
+  const savedQueryJson = buildSavedViewQueryJson(
+    contract,
+    workbookQueryStateFromSavedViewQueryJson(contract, savedView.query_json),
+  );
+  const savedLayoutJson = buildSavedViewLayoutJson(
+    contract,
+    workbookLayoutStateFromSavedViewLayoutJson(contract, savedView.layout_json),
+  );
+  return (
+    stableJSONStringify(currentQueryJson) !== stableJSONStringify(savedQueryJson) ||
+    stableJSONStringify(currentLayoutJson) !== stableJSONStringify(savedLayoutJson)
+  );
+}
+
+function stableJSONStringify(value: unknown): string {
+  return JSON.stringify(sortObjectKeys(value));
+}
+
+function sortObjectKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortObjectKeys);
+  }
+  if (!isObjectRecord(value)) {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => [key, sortObjectKeys(entry)]),
+  );
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

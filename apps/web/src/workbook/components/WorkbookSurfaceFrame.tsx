@@ -8,7 +8,6 @@ import { statusStripStyle } from "../utils/workbookStyles";
 import { WorkbookShellSlotRegion } from "./WorkbookShellSlots";
 
 export function WorkbookSurfaceFrame({
-  header,
   inspector,
   primaryGrid,
   statusStrip,
@@ -20,7 +19,6 @@ export function WorkbookSurfaceFrame({
   onWorkAreaContextMenu,
   onWorkAreaKeyDown,
 }: {
-  readonly header?: ReactNode | undefined;
   readonly inspector?: ReactNode | undefined;
   readonly primaryGrid: ReactNode;
   readonly statusStrip: ReactNode;
@@ -34,9 +32,6 @@ export function WorkbookSurfaceFrame({
 }) {
   return (
     <section data-testid={testId} style={workbookSurfaceFrameStyle}>
-      {header === undefined ? null : (
-        <div style={surfaceHeaderStyle}>{header}</div>
-      )}
       <WorkbookShellSlotRegion
         slot="view-bar"
         style={workbookSurfaceViewBarStyle}
@@ -121,7 +116,7 @@ const workbookSurfaceFrameStyle = {
   position: "relative" as const,
   display: "grid",
   gridTemplateRows:
-    "auto minmax(var(--ct-layout-viewBarHeight), auto) minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
+    "var(--ct-layout-viewBarHeight) minmax(0, 1fr) var(--ct-layout-statusStripHeight)",
   blockSize: "100%",
   minBlockSize: 0,
   minHeight: 0,
@@ -130,17 +125,10 @@ const workbookSurfaceFrameStyle = {
   background: "var(--ct-colors-canvas)",
 } satisfies CSSProperties;
 
-const surfaceHeaderStyle = {
-  gridRow: 1,
-  minBlockSize: 0,
-  minWidth: 0,
-  overflow: "hidden",
-} satisfies CSSProperties;
-
 const workbookSurfaceViewBarStyle = {
   position: "relative" as const,
   zIndex: 4,
-  gridRow: 2,
+  gridRow: 1,
   display: "block",
   minBlockSize: "var(--ct-layout-viewBarHeight)",
   minWidth: 0,
@@ -154,7 +142,7 @@ const workbookSurfaceViewBarStyle = {
 
 const workbookSurfaceWorkAreaStyle = {
   position: "relative" as const,
-  gridRow: 3,
+  gridRow: 2,
   display: "grid",
   gridTemplateRows: "minmax(0, 1fr)",
   inlineSize: "100%",
@@ -193,6 +181,6 @@ const workbookSurfaceInspectorSlotStyle = {
 
 const workbookSurfaceStatusStripStyle = {
   ...statusStripStyle,
-  gridRow: 4,
+  gridRow: 3,
   minBlockSize: "var(--ct-layout-statusStripHeight)",
 } satisfies CSSProperties;

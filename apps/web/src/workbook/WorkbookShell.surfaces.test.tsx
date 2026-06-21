@@ -22,7 +22,9 @@ import {
   phase1LandingTestId,
   rowCellTestId,
   rowInspectButtonTestId,
+  saveStateTestId,
   savedViewCreateButtonTestId,
+  savedViewActionMenuTriggerTestId,
   savedViewDeleteButtonTestId,
   savedViewDuplicateButtonTestId,
   savedViewNameInputTestId,
@@ -33,6 +35,7 @@ import {
   savedViewSetHomeButtonTestId,
   savedViewUpdateButtonTestId,
   surfaceTabTestId,
+  workbookFilterPopoverTriggerTestId,
   systemViewSwitcherGroupTestId,
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
@@ -712,9 +715,16 @@ describe("WorkbookShell surface selection", () => {
     ).toBeNull();
     expect(
       topBar?.querySelector(
-        dataTestIdSelector(gridFilterFieldTestId(timelineViewSchemaId)),
+        dataTestIdSelector(gridGroupingSelectTestId(timelineViewSchemaId)),
       ),
-    ).toBeNull();
+    ).toBeInstanceOf(HTMLElement);
+    expect(
+      topBar?.querySelector(
+        dataTestIdSelector(
+          workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+        ),
+      ),
+    ).toBeInstanceOf(HTMLElement);
 
     const viewBar = await screen.findByTestId(
       workbookShellSlotTestId("view-bar"),
@@ -724,32 +734,36 @@ describe("WorkbookShell surface selection", () => {
       viewBar.querySelector(
         dataTestIdSelector(gridFilterFieldTestId(timelineViewSchemaId)),
       ),
+    ).toBeNull();
+    expect(
+      viewBar.querySelector(
+        dataTestIdSelector(savedViewSelectorTestId(timelineViewSchemaId)),
+      ),
     ).toBeInstanceOf(HTMLElement);
-    const defaultButton = screen.getByTestId(
-      savedViewSetDefaultButtonTestId(timelineViewSchemaId),
-    );
-    const filterField = screen.getByTestId(
-      gridFilterFieldTestId(timelineViewSchemaId),
-    );
-    const groupingSelect = screen.getByTestId(
-      gridGroupingSelectTestId(timelineViewSchemaId),
-    );
+    expect(
+      viewBar.querySelector(
+        dataTestIdSelector(
+          savedViewActionMenuTriggerTestId(timelineViewSchemaId),
+        ),
+      ),
+    ).toBeInstanceOf(HTMLElement);
+    expect(
+      viewBar.querySelector(
+        dataTestIdSelector(workbookInspectorToggleTestId(timelineViewSchemaId)),
+      ),
+    ).toBeInstanceOf(HTMLElement);
+    expect(
+      viewBar.querySelector(
+        dataTestIdSelector(workbookAddRowButtonTestId(timelineViewSchemaId)),
+      ),
+    ).toBeInstanceOf(HTMLElement);
     const inspectorButton = screen.getByTestId(
       workbookInspectorToggleTestId(timelineViewSchemaId),
     );
     const addRowButton = screen.getByTestId(
       workbookAddRowButtonTestId(timelineViewSchemaId),
     );
-    expect(defaultButton.compareDocumentPosition(filterField)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-    expect(defaultButton.compareDocumentPosition(groupingSelect)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-    expect(filterField.compareDocumentPosition(inspectorButton)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-    expect(filterField.compareDocumentPosition(addRowButton)).toBe(
+    expect(inspectorButton.compareDocumentPosition(addRowButton)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
 
@@ -767,13 +781,12 @@ describe("WorkbookShell surface selection", () => {
     expect(
       Array.from(
         screen
-          .getByTestId(systemViewSwitcherGroupTestId("scope-assessment"))
+          .getByTestId(systemViewSwitcherGroupTestId("scope-indicators"))
           .querySelectorAll("[data-view-schema-id]"),
       ).map((option) => option.getAttribute("data-view-schema-id")),
     ).toEqual([
       "cartulary.view.indicators.v1",
       "cartulary.view.assessments.v1",
-      "cartulary.view.parties.v1",
     ]);
     expect(
       Array.from(
@@ -784,13 +797,14 @@ describe("WorkbookShell surface selection", () => {
     ).toEqual([
       "cartulary.view.task_requests.v1",
       "cartulary.view.decisions.v1",
+      "cartulary.view.parties.v1",
       "cartulary.view.comm_log.v1",
       "cartulary.view.handoff.v1",
     ]);
     const systemViewOptions = [
       ...Array.from(
         screen
-          .getByTestId(systemViewSwitcherGroupTestId("scope-assessment"))
+          .getByTestId(systemViewSwitcherGroupTestId("scope-indicators"))
           .querySelectorAll("[data-view-schema-id]"),
       ),
       ...Array.from(
@@ -814,9 +828,9 @@ describe("WorkbookShell surface selection", () => {
     expect(systemViewOptions).toEqual([
       "cartulary.view.indicators.v1",
       "cartulary.view.assessments.v1",
-      "cartulary.view.parties.v1",
       "cartulary.view.task_requests.v1",
       "cartulary.view.decisions.v1",
+      "cartulary.view.parties.v1",
       "cartulary.view.comm_log.v1",
       "cartulary.view.handoff.v1",
       "cartulary.view.status_review.v1",
@@ -827,7 +841,7 @@ describe("WorkbookShell surface selection", () => {
       screen
         .getByTestId(
           systemViewSwitcherOptionTestId(
-            "scope-assessment",
+            "scope-indicators",
             indicatorsViewSchemaId,
           ),
         )
@@ -862,7 +876,7 @@ describe("WorkbookShell surface selection", () => {
     fireEvent.click(
       screen.getByTestId(
         systemViewSwitcherOptionTestId(
-          "scope-assessment",
+          "scope-indicators",
           indicatorsViewSchemaId,
         ),
       ),
@@ -887,9 +901,10 @@ describe("WorkbookShell surface selection", () => {
     expect(
       topBar?.querySelector("[data-workbook-query-surface-title='true']"),
     ).toBeNull();
-    expect(
-      screen.getByTestId(systemViewSwitcherTriggerTestId()).textContent,
-    ).toContain("Indicators");
+    expect(screen.getByTestId(systemViewSwitcherTriggerTestId()).textContent).toBe(
+      "System views",
+    );
+    expect(topBar?.textContent).toContain("Indicators");
 
     fireEvent.click(screen.getByTestId(systemViewSwitcherTriggerTestId()));
     const commLogOption = screen.getByTestId(
@@ -1292,6 +1307,7 @@ describe("WorkbookShell surface selection", () => {
     expect(window.location.search).toContain(`sheet_ref_id=${savedViewId}`);
     expect(window.location.search).not.toContain("view_schema_id=");
 
+    openSavedViewActions(timelineViewSchemaId);
     fireEvent.change(
       screen.getByTestId(savedViewNameInputTestId(timelineViewSchemaId)),
       { target: { value: "Updated shared view" } },
@@ -1340,6 +1356,7 @@ describe("WorkbookShell surface selection", () => {
     expect(patchBody).not.toHaveProperty("saved_view_id");
     expect(patchBody).not.toHaveProperty("owner_user_id");
 
+    openSavedViewActions(timelineViewSchemaId);
     const createButton = screen.getByTestId(
       savedViewCreateButtonTestId(timelineViewSchemaId),
     );
@@ -1351,15 +1368,8 @@ describe("WorkbookShell surface selection", () => {
     );
     expect(createButton.parentElement).toBe(homeButton.parentElement);
     expect(defaultButton.parentElement).toBe(createButton.parentElement);
-    expect(
-      (createButton.parentElement as HTMLElement | null)?.style.flexWrap,
-    ).toBe("nowrap");
-    expect(
-      (createButton.parentElement as HTMLElement | null)?.style.whiteSpace,
-    ).toBe("nowrap");
 
     fireEvent.click(homeButton);
-    fireEvent.click(defaultButton);
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("/workbook-preferences/me"),
@@ -1370,6 +1380,12 @@ describe("WorkbookShell surface selection", () => {
           }),
         }),
       );
+    });
+    openSavedViewActions(timelineViewSchemaId);
+    fireEvent.click(
+      screen.getByTestId(savedViewSetDefaultButtonTestId(timelineViewSchemaId)),
+    );
+    await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("/workbook-preferences/default"),
         expect.objectContaining({
@@ -1382,6 +1398,7 @@ describe("WorkbookShell surface selection", () => {
     });
 
     fireEvent.change(selector, { target: { value: systemSavedViewId } });
+    openSavedViewActions(timelineViewSchemaId);
     const systemUpdateButton = await screen.findByTestId(
       savedViewUpdateButtonTestId(timelineViewSchemaId, systemSavedViewId),
     );
@@ -1415,6 +1432,7 @@ describe("WorkbookShell surface selection", () => {
       },
     });
 
+    openSavedViewActions(timelineViewSchemaId);
     const copyDeleteButton = await screen.findByTestId(
       savedViewDeleteButtonTestId(timelineViewSchemaId, savedViewCopyId),
     );
@@ -1432,6 +1450,7 @@ describe("WorkbookShell surface selection", () => {
       screen.getByTestId(rowCellTestId("timeline-1", "timeline.summary")),
     ).not.toBeNull();
 
+    openSavedViewActions(timelineViewSchemaId);
     fireEvent.change(
       screen.getByTestId(savedViewNameInputTestId(timelineViewSchemaId)),
       { target: { value: "Created from current state" } },
@@ -1603,7 +1622,7 @@ describe("WorkbookShell surface selection", () => {
         changes: [{ field_key: "task.requester_party_id", value: null }],
       });
     });
-    expect(screen.getByTestId("generic-mutation-state").textContent).toBe(
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
       "Syncing",
     );
     expect((clearButton as HTMLButtonElement).disabled).toBe(true);
@@ -1620,7 +1639,7 @@ describe("WorkbookShell surface selection", () => {
     await waitFor(() => {
       expect(refreshStarted).toBe(true);
     });
-    expect(screen.getByTestId("generic-mutation-state").textContent).toBe(
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
       "Syncing",
     );
     expect((clearButton as HTMLButtonElement).disabled).toBe(true);
@@ -1634,7 +1653,7 @@ describe("WorkbookShell surface selection", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("generic-mutation-state").textContent).toBe(
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Saved",
       );
     });
@@ -1691,7 +1710,7 @@ describe("WorkbookShell surface selection", () => {
         base_row_version: 4,
         changes: [{ field_key: "task.requester_party_id", value: null }],
       });
-      expect(screen.getByTestId("generic-mutation-state").textContent).toBe(
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
       );
     });
@@ -2306,6 +2325,7 @@ function applyGenericFilter(
   fieldKey: string,
   value: string,
 ) {
+  fireEvent.click(screen.getByTestId(workbookFilterPopoverTriggerTestId(surface)));
   fireEvent.change(screen.getByTestId(gridFilterFieldTestId(surface)), {
     target: { value: fieldKey },
   });
@@ -2313,6 +2333,10 @@ function applyGenericFilter(
     target: { value },
   });
   fireEvent.click(screen.getByTestId(gridFilterApplyTestId(surface)));
+}
+
+function openSavedViewActions(surface: Parameters<typeof savedViewSelectorTestId>[0]) {
+  fireEvent.click(screen.getByTestId(savedViewActionMenuTriggerTestId(surface)));
 }
 
 async function expectRecordIds(

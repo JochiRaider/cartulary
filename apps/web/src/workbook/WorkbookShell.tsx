@@ -44,8 +44,13 @@ import {
   type WorkbookSurface,
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
+  workbookIncidentIdentityTestId,
+  workbookResponsiveBandTestId,
   workbookRowActionMenuButtonTestId,
   workbookShellReadyTestId,
+  workbookSurfacesMenuOptionTestId,
+  workbookSurfacesMenuTestId,
+  workbookSurfacesMenuTriggerTestId,
 } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
@@ -87,10 +92,8 @@ import {
 import { ActiveSurfaceSavedViewSelector } from "./components/ActiveSurfaceSavedViewSelector";
 import { GenericMutationControl } from "./components/GenericMutationControl";
 import { SystemViewSwitcher } from "./components/SystemViewSwitcher";
-import {
-  WorkbookSheetToolbar,
-  WorkbookViewBarQueryControls,
-} from "./components/WorkbookSheetToolbar";
+import { WorkbookGridControls } from "./components/WorkbookGridControls";
+import { WorkbookSheetToolbar } from "./components/WorkbookSheetToolbar";
 import {
   WorkbookShellSlotRegion,
   workbookShellId,
@@ -154,7 +157,10 @@ import {
   type WorkbookQueryState,
 } from "./models/workbookQuery";
 import { emptyGenericReferenceOptions } from "./models/workbookReferenceOptions";
-import { savedViewQueryStateForRuntime } from "./models/workbookSavedViewRuntime";
+import {
+  savedViewConfigurationIsModified,
+  savedViewQueryStateForRuntime,
+} from "./models/workbookSavedViewRuntime";
 import {
   normalizeSavedViewResource,
   type SavedViewEnvelope,
@@ -296,27 +302,37 @@ export type WorkbookAccountApplicationMenuProps = {
   };
 };
 
+export type WorkbookAccountModel = {
+  readonly display_name: string;
+  readonly is_deployment_admin: boolean;
+  readonly user_id: string;
+};
+
+export type WorkbookIncidentIdentity = {
+  readonly closed_at?: string | null;
+  readonly current_phase: string | null;
+  readonly description: string | null;
+  readonly incident_id: string;
+  readonly incident_key: string;
+  readonly incident_version: number;
+  readonly primary_external_case_ref: string | null;
+  readonly severity: string | null;
+  readonly status?: "active" | "closed";
+  readonly title: string;
+  readonly tlp: string | null;
+};
+
 type WorkbookShellProps = {
   incidentId: string;
   apiBase?: string | undefined;
+  account?: WorkbookAccountModel | undefined;
   accountApplicationMenu?:
     | ((props: WorkbookAccountApplicationMenuProps) => ReactNode)
     | undefined;
   currentUserLabel?: string | undefined;
+  initialIncidentIdentity?: WorkbookIncidentIdentity | undefined;
   onIncidentSnapshot?:
-    | ((incident: {
-        incident_id: string;
-        incident_key: string;
-        title: string;
-        description: string | null;
-        severity: string | null;
-        tlp: string | null;
-        current_phase: string | null;
-        primary_external_case_ref: string | null;
-        incident_version: number;
-        status?: "active" | "closed";
-        closed_at?: string | null;
-      }) => void)
+    | ((incident: WorkbookIncidentIdentity) => void)
     | undefined;
   onIncidentAccessLost?: (() => void) | undefined;
 };
@@ -327,6 +343,104 @@ function workbookContractForViewSchemaId(viewSchemaId: string): ViewContract {
       (contract) => contract.viewSchemaId === viewSchemaId,
     ) ?? timelineContract
   );
+}
+
+type WorkbookViewportBand =
+  | "base"
+  | "below_supported_minimum"
+  | "compact_desktop"
+  | "narrow_desktop";
+
+type IncidentIdentityEnvelope = {
+  data: WorkbookIncidentIdentity;
+};
+
+function selectWorkbookViewportBand(
+  widthCssPx: number,
+  heightCssPx: number,
+): WorkbookViewportBand {
+  if (widthCssPx >= 1280 && heightCssPx >= 720) {
+    return "base";
+  }
+  if (widthCssPx >= 1024 && heightCssPx >= 720) {
+    return "narrow_desktop";
+  }
+  if (widthCssPx >= 768 && heightCssPx >= 640) {
+    return "compact_desktop";
+  }
+  return "below_supported_minimum";
+}
+
+function currentViewportSize(): { readonly height: number; readonly width: number } {
+  const viewport = window.visualViewport;
+  if (!viewport) {
+    return { height: 720, width: 1280 };
+  }
+  return {
+    height: viewport.height,
+    width: viewport.width,
+  };
+}
+
+function useWorkbookViewportBand(): WorkbookViewportBand {
+  const [band, setBand] = useState<WorkbookViewportBand>(() => {
+    const viewport = currentViewportSize();
+    return selectWorkbookViewportBand(viewport.width, viewport.height);
+  });
+
+  useEffect(() => {
+    const updateBand = () => {
+      const viewport = currentViewportSize();
+      setBand(selectWorkbookViewportBand(viewport.width, viewport.height));
+    };
+    window.addEventListener("resize", updateBand);
+    window.visualViewport?.addEventListener("resize", updateBand);
+    return () => {
+      window.removeEventListener("resize", updateBand);
+      window.visualViewport?.removeEventListener("resize", updateBand);
+    };
+  }, []);
+
+  return band;
+}
+
+function normalizeIncidentIdentity(
+  incidentId: string,
+  value: unknown,
+): WorkbookIncidentIdentity | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  const incidentID =
+    typeof record.incident_id === "string" ? record.incident_id : incidentId;
+  if (
+    typeof record.incident_key !== "string" ||
+    typeof record.title !== "string"
+  ) {
+    return null;
+  }
+  return {
+    closed_at: typeof record.closed_at === "string" ? record.closed_at : null,
+    current_phase:
+      typeof record.current_phase === "string" ? record.current_phase : null,
+    description:
+      typeof record.description === "string" ? record.description : null,
+    incident_id: incidentID,
+    incident_key: record.incident_key,
+    incident_version:
+      typeof record.incident_version === "number"
+        ? record.incident_version
+        : 0,
+    primary_external_case_ref:
+      typeof record.primary_external_case_ref === "string"
+        ? record.primary_external_case_ref
+        : null,
+    severity: typeof record.severity === "string" ? record.severity : null,
+    status: record.status === "closed" ? "closed" : "active",
+    title: record.title,
+    tlp: typeof record.tlp === "string" ? record.tlp : null,
+  };
 }
 
 type TimelineMutationEnvelope = {
@@ -605,11 +719,6 @@ function EntityWorkbookSurface({
   apiBase,
   entityType,
   savedViewSelector,
-  filterDraft,
-  onApplyFilter,
-  onFilterDraftChange,
-  onGroupByChange,
-  onRemoveFilter,
   rows,
   onToggleSort,
   queryState,
@@ -621,11 +730,6 @@ function EntityWorkbookSurface({
   apiBase?: string | undefined;
   entityType: EntityRow["entityType"];
   savedViewSelector?: ReactNode | undefined;
-  filterDraft: FilterDraft;
-  onApplyFilter: () => void;
-  onFilterDraftChange: (draft: FilterDraft) => void;
-  onGroupByChange: (groupBy: string | null) => void;
-  onRemoveFilter: (fieldKey: string) => void;
   onToggleSort: (fieldKey: string) => void;
   queryState: WorkbookQueryState;
   rows: EntityRow[];
@@ -902,25 +1006,6 @@ function EntityWorkbookSurface({
 
   return (
     <WorkbookSurfaceFrame
-      header={
-        <>
-          <header style={headerStyle}>
-            <div>
-              <p style={eyebrowStyle}>
-                {entityType === "host" ? "Hosts" : "Identities"}
-              </p>
-              <h1 style={headlineStyle}>
-                {entityType === "host" ? "Hosts surface" : "Identities surface"}
-              </h1>
-              <p style={bodyStyle}>Incident {incidentId}</p>
-            </div>
-            <div style={roleBadgeStyle} data-testid="generic-mutation-state">
-              {mutationState}
-            </div>
-          </header>
-          <WorkbookFocusAnchorStatus anchor={entityFocus.anchor} />
-        </>
-      }
       inspector={
         isInspectorOpen ? (
           <aside
@@ -1208,26 +1293,20 @@ function EntityWorkbookSurface({
         </GridViewport>
       }
       statusStrip={
-        <SurfaceSaveStateStatusStrip
-          mutationError={mutationError}
-          mutationState={mutationState}
-        />
+        <>
+          <SurfaceSaveStateStatusStrip
+            mutationError={mutationError}
+            mutationState={mutationState}
+          />
+          <WorkbookFocusAnchorStatus anchor={entityFocus.anchor} />
+        </>
       }
       viewBar={
         <WorkbookSheetToolbar
-          contract={contract}
-          filterDraft={filterDraft}
           leading={savedViewSelector}
-          onApplyFilter={onApplyFilter}
-          onFilterDraftChange={onFilterDraftChange}
-          onGroupByChange={onGroupByChange}
           onInspectorToggle={() => {
             setIsInspectorOpen(true);
           }}
-          onRemoveFilter={onRemoveFilter}
-          queryState={queryState}
-          showQueryControls={false}
-          showSurfaceStatus={false}
           surface={surface}
         />
       }
@@ -1241,16 +1320,11 @@ function AssessmentWorkbookSurface({
   assessmentRows,
   currentIncidentRole,
   savedViewSelector,
-  filterDraft,
   hostRows,
   identityRows,
   incidentId,
   loadError,
-  onApplyFilter,
-  onFilterDraftChange,
-  onGroupByChange,
   onRefreshAssessmentRows,
-  onRemoveFilter,
   onToggleSort,
   queryState,
 }: {
@@ -1258,16 +1332,11 @@ function AssessmentWorkbookSurface({
   assessmentRows: EntityApiRow[];
   currentIncidentRole: IncidentRole | null;
   savedViewSelector?: ReactNode | undefined;
-  filterDraft: FilterDraft;
   hostRows: EntityRow[];
   identityRows: EntityRow[];
   incidentId: string;
   loadError: string | null;
-  onApplyFilter: () => void;
-  onFilterDraftChange: (draft: FilterDraft) => void;
-  onGroupByChange: (groupBy: string | null) => void;
   onRefreshAssessmentRows: () => Promise<void>;
-  onRemoveFilter: (fieldKey: string) => void;
   onToggleSort: (fieldKey: string) => void;
   queryState: WorkbookQueryState;
 }) {
@@ -1393,18 +1462,6 @@ function AssessmentWorkbookSurface({
 
   return (
     <WorkbookSurfaceFrame
-      header={
-        <>
-          <header style={headerStyle}>
-            <div>
-              <p style={eyebrowStyle}>System view</p>
-              <h1 style={headlineStyle}>{assessmentsContract.title}</h1>
-              <p style={bodyStyle}>Incident {incidentId}</p>
-            </div>
-          </header>
-          <WorkbookFocusAnchorStatus anchor={assessmentFocus.anchor} />
-        </>
-      }
       inspector={
         isInspectorOpen ? (
           <aside
@@ -1632,26 +1689,22 @@ function AssessmentWorkbookSurface({
           />
         </GridViewport>
       }
-      statusStrip={<SurfaceSaveStateStatusStrip mutationState="Saved" />}
+      statusStrip={
+        <>
+          <SurfaceSaveStateStatusStrip mutationState="Saved" />
+          <WorkbookFocusAnchorStatus anchor={assessmentFocus.anchor} />
+        </>
+      }
       viewBar={
         <WorkbookSheetToolbar
           addRowDisabled={!canCreate}
-          contract={assessmentsContract}
-          filterDraft={filterDraft}
           leading={savedViewSelector}
-          onApplyFilter={onApplyFilter}
           onAddRow={() => {
             setIsInspectorOpen(true);
           }}
-          onFilterDraftChange={onFilterDraftChange}
-          onGroupByChange={onGroupByChange}
           onInspectorToggle={() => {
             setIsInspectorOpen(true);
           }}
-          onRemoveFilter={onRemoveFilter}
-          queryState={queryState}
-          showQueryControls={false}
-          showSurfaceStatus={false}
           surface={assessmentsViewSchemaId}
         />
       }
@@ -1675,13 +1728,8 @@ function GenericWorkbookSurface({
   contract,
   currentUserId,
   savedViewSelector,
-  filterDraft,
   incidentId,
   loadError,
-  onApplyFilter,
-  onFilterDraftChange,
-  onGroupByChange,
-  onRemoveFilter,
   onRefresh,
   onToggleSort,
   queryState,
@@ -1691,13 +1739,8 @@ function GenericWorkbookSurface({
   contract: ViewContract;
   currentUserId: string | null;
   savedViewSelector?: ReactNode | undefined;
-  filterDraft: FilterDraft;
   incidentId: string;
   loadError: string | null;
-  onApplyFilter: () => void;
-  onFilterDraftChange: (draft: FilterDraft) => void;
-  onGroupByChange: (groupBy: string | null) => void;
-  onRemoveFilter: (fieldKey: string) => void;
   onRefresh: () => Promise<void> | void;
   onToggleSort: (fieldKey: string) => void;
   queryState: WorkbookQueryState;
@@ -2432,25 +2475,6 @@ function GenericWorkbookSurface({
 
   return (
     <WorkbookSurfaceFrame
-      header={
-        <>
-          <header style={headerStyle}>
-            <div>
-              <p style={eyebrowStyle}>
-                {contract.surfaceKind === "built_in_sheet"
-                  ? "Built-in sheet"
-                  : "System view"}
-              </p>
-              <h1 style={headlineStyle}>{contract.title}</h1>
-              <p style={bodyStyle}>Incident {incidentId}</p>
-            </div>
-            <div style={roleBadgeStyle} data-testid="generic-mutation-state">
-              {mutationState}
-            </div>
-          </header>
-          <WorkbookFocusAnchorStatus anchor={genericFocus.anchor} />
-        </>
-      }
       inspector={
         isInspectorOpen && writableFields.length > 0 ? (
           <section style={genericMutationPanelStyle}>
@@ -2860,28 +2884,22 @@ function GenericWorkbookSurface({
         </GridViewport>
       }
       statusStrip={
-        <SurfaceSaveStateStatusStrip
-          mutationError={mutationError}
-          mutationState={mutationState}
-        />
+        <>
+          <SurfaceSaveStateStatusStrip
+            mutationError={mutationError}
+            mutationState={mutationState}
+          />
+          <WorkbookFocusAnchorStatus anchor={genericFocus.anchor} />
+        </>
       }
       viewBar={
         <WorkbookSheetToolbar
           addRowDisabled={writableFields.length === 0}
-          contract={contract}
-          filterDraft={filterDraft}
           leading={savedViewSelector}
-          onApplyFilter={onApplyFilter}
           onAddRow={focusDraftRow}
-          onFilterDraftChange={onFilterDraftChange}
-          onGroupByChange={onGroupByChange}
           onInspectorToggle={() => {
             setIsInspectorOpen(true);
           }}
-          onRemoveFilter={onRemoveFilter}
-          queryState={queryState}
-          showQueryControls={false}
-          showSurfaceStatus={false}
           surface={surface}
         />
       }
@@ -2975,12 +2993,15 @@ function SurfaceSaveStateStatusStrip({
 export function WorkbookShell({
   incidentId,
   apiBase,
+  account,
   accountApplicationMenu,
   currentUserLabel,
+  initialIncidentIdentity,
   onIncidentSnapshot,
   onIncidentAccessLost,
 }: WorkbookShellProps) {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
+  const responsiveBand = useWorkbookViewportBand();
   const initialViewSchemaID = useMemo(() => {
     const explicit = params.get("view_schema_id");
     return explicit
@@ -3017,9 +3038,18 @@ export function WorkbookShell({
   const [assessmentLoadError, setAssessmentLoadError] = useState<string | null>(
     null,
   );
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(
+    () => account?.user_id ?? null,
+  );
   const [currentIncidentRole, setCurrentIncidentRole] =
     useState<IncidentRole | null>(null);
+  const [incidentIdentity, setIncidentIdentity] =
+    useState<WorkbookIncidentIdentity | null>(
+      () => initialIncidentIdentity ?? null,
+    );
+  const [incidentIdentityError, setIncidentIdentityError] = useState<
+    string | null
+  >(null);
   const [controlsDrawerSection, setControlsDrawerSection] =
     useState<IncidentControlsSection | null>(null);
   const [lastControlsSection, setLastControlsSection] =
@@ -3053,6 +3083,7 @@ export function WorkbookShell({
       ) ?? timelineContract,
     [surface],
   );
+  const [surfacesMenuOpen, setSurfacesMenuOpen] = useState(false);
   const [genericQueryState, setGenericQueryState] =
     useState<WorkbookQueryState>(() => emptyWorkbookQueryState());
   const [genericFilterDraft, setGenericFilterDraft] = useState<FilterDraft>(
@@ -3134,6 +3165,58 @@ export function WorkbookShell({
     },
     [applyQueryStateForSurface, selectSavedViewIdentity],
   );
+
+  useEffect(() => {
+    if (account?.user_id) {
+      setCurrentUserId(account.user_id);
+    }
+  }, [account?.user_id]);
+
+  useEffect(() => {
+    if (initialIncidentIdentity?.incident_id === incidentId) {
+      setIncidentIdentity(initialIncidentIdentity);
+      setIncidentIdentityError(null);
+      onIncidentSnapshot?.(initialIncidentIdentity);
+      return;
+    }
+    let cancelled = false;
+    const loadIncidentIdentity = async () => {
+      setIncidentIdentityError(null);
+      const result = await fetchJSON<IncidentIdentityEnvelope>(
+        apiPath(apiBase, `/api/v1/incidents/${incidentId}`),
+      );
+      if (cancelled) {
+        return;
+      }
+      if (!result.ok) {
+        const message = handleWorkbookLoadFailure(
+          parseErrorMessage(result.payload),
+          "Incident identity load failed.",
+          onIncidentAccessLost,
+        );
+        setIncidentIdentityError(message);
+        return;
+      }
+      const envelope = readEnvelope<IncidentIdentityEnvelope>(result.payload);
+      const normalized = normalizeIncidentIdentity(incidentId, envelope.data);
+      if (normalized === null) {
+        setIncidentIdentityError("Incident identity load failed.");
+        return;
+      }
+      setIncidentIdentity(normalized);
+      onIncidentSnapshot?.(normalized);
+    };
+    void loadIncidentIdentity();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    apiBase,
+    incidentId,
+    initialIncidentIdentity,
+    onIncidentAccessLost,
+    onIncidentSnapshot,
+  ]);
 
   const createSavedView = useCallback(
     async (input: {
@@ -3419,45 +3502,37 @@ export function WorkbookShell({
     queryEntityView,
   ]);
 
-  const applyTimelineFilter = useCallback(() => {
+  const applyTimelineFilter = useCallback((draft: FilterDraft) => {
     applyFilterDraftToQuery(
       setTimelineQueryState,
       setTimelineFilterDraft,
-      timelineFilterDraft,
+      draft,
     );
-  }, [timelineFilterDraft]);
+  }, []);
 
-  const applyHostFilter = useCallback(() => {
-    applyFilterDraftToQuery(
-      setHostQueryState,
-      setHostFilterDraft,
-      hostFilterDraft,
-    );
-  }, [hostFilterDraft]);
+  const applyHostFilter = useCallback((draft: FilterDraft) => {
+    applyFilterDraftToQuery(setHostQueryState, setHostFilterDraft, draft);
+  }, []);
 
-  const applyIdentityFilter = useCallback(() => {
+  const applyIdentityFilter = useCallback((draft: FilterDraft) => {
     applyFilterDraftToQuery(
       setIdentityQueryState,
       setIdentityFilterDraft,
-      identityFilterDraft,
+      draft,
     );
-  }, [identityFilterDraft]);
+  }, []);
 
-  const applyAssessmentFilter = useCallback(() => {
+  const applyAssessmentFilter = useCallback((draft: FilterDraft) => {
     applyFilterDraftToQuery(
       setAssessmentQueryState,
       setAssessmentFilterDraft,
-      assessmentFilterDraft,
+      draft,
     );
-  }, [assessmentFilterDraft]);
+  }, []);
 
-  const applyGenericFilter = useCallback(() => {
-    applyFilterDraftToQuery(
-      setGenericQueryState,
-      setGenericFilterDraft,
-      genericFilterDraft,
-    );
-  }, [genericFilterDraft]);
+  const applyGenericFilter = useCallback((draft: FilterDraft) => {
+    applyFilterDraftToQuery(setGenericQueryState, setGenericFilterDraft, draft);
+  }, []);
 
   const clearActiveQueryControls = useCallback(() => {
     if (surface === timelineViewSchemaId) {
@@ -3833,6 +3908,11 @@ export function WorkbookShell({
               removeFilterField(current, fieldKey),
             );
           },
+          onToggleSort: (fieldKey: string) => {
+            setTimelineQueryState((current) =>
+              toggleSortField(timelineContract, current, fieldKey),
+            );
+          },
           queryState: timelineQueryState,
           surface: timelineViewSchemaId as WorkbookSurface,
         }
@@ -3851,6 +3931,11 @@ export function WorkbookShell({
             onRemoveFilter: (fieldKey: string) => {
               setHostQueryState((current) =>
                 removeFilterField(current, fieldKey),
+              );
+            },
+            onToggleSort: (fieldKey: string) => {
+              setHostQueryState((current) =>
+                toggleSortField(hostsContract, current, fieldKey),
               );
             },
             queryState: hostQueryState,
@@ -3873,6 +3958,11 @@ export function WorkbookShell({
                   removeFilterField(current, fieldKey),
                 );
               },
+              onToggleSort: (fieldKey: string) => {
+                setIdentityQueryState((current) =>
+                  toggleSortField(identitiesContract, current, fieldKey),
+                );
+              },
               queryState: identityQueryState,
               surface: identitiesViewSchemaId as WorkbookSurface,
             }
@@ -3893,6 +3983,11 @@ export function WorkbookShell({
                     removeFilterField(current, fieldKey),
                   );
                 },
+                onToggleSort: (fieldKey: string) => {
+                  setAssessmentQueryState((current) =>
+                    toggleSortField(assessmentsContract, current, fieldKey),
+                  );
+                },
                 queryState: assessmentQueryState,
                 surface: assessmentsViewSchemaId as WorkbookSurface,
               }
@@ -3910,6 +4005,11 @@ export function WorkbookShell({
                 onRemoveFilter: (fieldKey: string) => {
                   setGenericQueryState((current) =>
                     removeFilterField(current, fieldKey),
+                  );
+                },
+                onToggleSort: (fieldKey: string) => {
+                  setGenericQueryState((current) =>
+                    toggleSortField(activeContract, current, fieldKey),
                   );
                 },
                 queryState: genericQueryState,
@@ -3957,28 +4057,44 @@ export function WorkbookShell({
     controlsDrawerSection === null
       ? requireIncidentControlsMenuItem(lastControlsSection)
       : requireIncidentControlsMenuItem(controlsDrawerSection);
+  const activeSavedView =
+    startupSheetRef.kind === "saved_view"
+      ? (savedViews.find(
+          (savedView) => savedView.saved_view_id === startupSheetRef.id,
+        ) ?? null)
+      : null;
+  const activeSavedViewModified = savedViewConfigurationIsModified({
+    contract: activeContract,
+    currentQueryState: currentQueryStateForSurface(activeContract.viewSchemaId),
+    savedView:
+      activeSavedView?.view_schema_id === activeContract.viewSchemaId
+        ? activeSavedView
+        : null,
+  });
+  const activeSurfaceIsBuiltIn = requiredBuiltInWorkbookSurfaceIds.some(
+    (viewSchemaId) => viewSchemaId === surface,
+  );
+  const activeSystemSurfaceTitle = activeSurfaceIsBuiltIn
+    ? null
+    : activeContract.title;
+  const incidentKeyLabel = incidentIdentity?.incident_key ?? "Incident";
+  const incidentTitleLabel = incidentIdentity?.title ?? "Loading incident";
+  const accountDisplayName =
+    account?.display_name ?? currentUserLabel ?? "Unknown user";
+  const accountTitle = account
+    ? `${account.display_name}${account.is_deployment_admin ? " (deployment administrator)" : ""}`
+    : accountDisplayName;
 
   const activeSavedViewSelector = (
     <ActiveSurfaceSavedViewSelector
       activeViewSchemaId={surface}
-      afterActions={
-        <WorkbookViewBarQueryControls
-          contract={activeQueryControls.contract}
-          filterDraft={activeQueryControls.filterDraft}
-          onApplyFilter={activeQueryControls.onApplyFilter}
-          onClearAll={activeQueryControls.onClearAll}
-          onFilterDraftChange={activeQueryControls.onFilterDraftChange}
-          onGroupByChange={activeQueryControls.onGroupByChange}
-          onRemoveFilter={activeQueryControls.onRemoveFilter}
-          queryState={activeQueryControls.queryState}
-          surface={activeQueryControls.surface}
-        />
-      }
       currentIncidentRole={currentIncidentRole}
       currentUserId={currentUserId}
+      isModified={activeSavedViewModified}
       onCreateSavedView={createSavedView}
       onDeleteSavedView={deleteSavedView}
       onDuplicateSavedView={duplicateSavedView}
+      onResetToSavedView={selectSavedView}
       onSelectBaseSurface={selectWorkbookSurface}
       onSelectSavedView={selectSavedView}
       onSetDefaultSheetRef={setWorkbookDefaultSheetRef}
@@ -4007,39 +4123,111 @@ export function WorkbookShell({
     >
       <WorkbookShellSlotRegion
         slot="top-bar"
-        style={shellTopBarStyle}
+        style={{
+          ...shellTopBarStyle,
+          ...(responsiveBand === "below_supported_minimum"
+            ? shellTopBarUnsupportedStyle
+            : null),
+        }}
         viewSchemaId={surface}
       >
-        <div style={shellIncidentIdentityStyle}>
-          <span style={shellTopBarLabelStyle}>Incident:</span>
-          <strong style={shellTopBarValueStyle}>{incidentId}</strong>
+        <div
+          data-testid={workbookIncidentIdentityTestId()}
+          style={shellIncidentIdentityStyle}
+          title={
+            incidentIdentity === null
+              ? incidentIdentityError ?? "Loading incident"
+              : `${incidentIdentity.incident_key} ${incidentIdentity.title}`
+          }
+        >
+          <strong style={shellTopBarValueStyle}>{incidentKeyLabel}</strong>
+          <span style={shellIncidentTitleStyle}>{incidentTitleLabel}</span>
         </div>
-        <nav aria-label="Built-in workbook surfaces" style={tabStripStyle}>
-          {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaID) => {
-            const contract = requireViewContract(viewSchemaID);
-            return (
-              <button
-                aria-current={surface === viewSchemaID ? "page" : undefined}
-                key={viewSchemaID}
-                data-testid={surfaceTabTestId(viewSchemaID)}
-                data-view-schema-id={viewSchemaID}
-                data-workbook-tab-index={String(
-                  requiredBuiltInWorkbookSurfaceIds.indexOf(viewSchemaID),
-                )}
-                style={{
-                  ...surfaceTabStyle,
-                  ...(surface === viewSchemaID ? surfaceTabActiveStyle : null),
-                }}
-                type="button"
-                onClick={() => {
-                  selectWorkbookSurface(viewSchemaID);
-                }}
+        <span
+          aria-hidden="true"
+          data-testid={workbookResponsiveBandTestId()}
+          data-workbook-responsive-band={responsiveBand}
+          hidden
+        />
+        {responsiveBand === "base" ? (
+          <nav aria-label="Built-in workbook surfaces" style={tabStripStyle}>
+            {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaID) => {
+              const contract = requireViewContract(viewSchemaID);
+              return (
+                <button
+                  aria-current={surface === viewSchemaID ? "page" : undefined}
+                  key={viewSchemaID}
+                  data-testid={surfaceTabTestId(viewSchemaID)}
+                  data-view-schema-id={viewSchemaID}
+                  data-workbook-tab-index={String(
+                    requiredBuiltInWorkbookSurfaceIds.indexOf(viewSchemaID),
+                  )}
+                  style={{
+                    ...surfaceTabStyle,
+                    ...(surface === viewSchemaID ? surfaceTabActiveStyle : null),
+                  }}
+                  type="button"
+                  onClick={() => {
+                    selectWorkbookSurface(viewSchemaID);
+                  }}
+                >
+                  {contract.title}
+                </button>
+              );
+            })}
+          </nav>
+        ) : (
+          <div style={surfacesMenuFrameStyle}>
+            <button
+              aria-controls={
+                surfacesMenuOpen ? workbookSurfacesMenuTestId() : undefined
+              }
+              aria-expanded={surfacesMenuOpen}
+              aria-haspopup="menu"
+              data-testid={workbookSurfacesMenuTriggerTestId()}
+              style={surfaceMenuTriggerStyle}
+              type="button"
+              onClick={() => {
+                setSurfacesMenuOpen((current) => !current);
+              }}
+            >
+              Surfaces
+            </button>
+            {surfacesMenuOpen ? (
+              <div
+                data-testid={workbookSurfacesMenuTestId()}
+                id={workbookSurfacesMenuTestId()}
+                role="menu"
+                style={surfacesMenuStyle}
               >
-                {contract.title}
-              </button>
-            );
-          })}
-        </nav>
+                {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaID) => {
+                  const contract = requireViewContract(viewSchemaID);
+                  const isSelected = surface === viewSchemaID;
+                  return (
+                    <button
+                      key={viewSchemaID}
+                      aria-checked={isSelected}
+                      data-testid={workbookSurfacesMenuOptionTestId(viewSchemaID)}
+                      data-view-schema-id={viewSchemaID}
+                      role="menuitemradio"
+                      style={{
+                        ...surfacesMenuItemStyle,
+                        ...(isSelected ? surfacesMenuItemSelectedStyle : null),
+                      }}
+                      type="button"
+                      onClick={() => {
+                        setSurfacesMenuOpen(false);
+                        selectWorkbookSurface(viewSchemaID);
+                      }}
+                    >
+                      {contract.title}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        )}
         <div style={systemViewSlotStyle}>
           <SystemViewSwitcher
             activeViewSchemaId={surface}
@@ -4049,15 +4237,33 @@ export function WorkbookShell({
               });
             }}
           />
+          {activeSystemSurfaceTitle ? (
+            <span style={activeSystemViewTitleStyle}>
+              {activeSystemSurfaceTitle}
+            </span>
+          ) : null}
         </div>
+        {responsiveBand === "below_supported_minimum" ? null : (
+          <div style={topBarQuerySlotStyle}>
+            <WorkbookGridControls
+              contract={activeQueryControls.contract}
+              filterDraft={activeQueryControls.filterDraft}
+              onApplyFilter={activeQueryControls.onApplyFilter}
+              onClearAll={activeQueryControls.onClearAll}
+              onFilterDraftChange={activeQueryControls.onFilterDraftChange}
+              onGroupByChange={activeQueryControls.onGroupByChange}
+              onRemoveFilter={activeQueryControls.onRemoveFilter}
+              onToggleSort={activeQueryControls.onToggleSort}
+              queryState={activeQueryControls.queryState}
+              surface={activeQueryControls.surface}
+            />
+          </div>
+        )}
         <div style={shellTopBarActionsStyle}>
           <div style={currentUserSlotStyle}>
             {workbookAccountApplicationMenu ?? (
-              <span
-                style={currentUserChipStyle}
-                title={currentUserLabel ?? "Unknown user"}
-              >
-                {displayInitials(currentUserLabel ?? "Unknown user")}
+              <span style={currentUserChipStyle} title={accountTitle}>
+                {displayInitials(accountDisplayName)}
               </span>
             )}
           </div>
@@ -4080,8 +4286,6 @@ export function WorkbookShell({
               hostEntities={hostRows}
               identityEntities={identityRows}
               incidentId={incidentId}
-              filterDraft={timelineFilterDraft}
-              onFilterDraftChange={setTimelineFilterDraft}
               onQueryStateChange={setTimelineQueryState}
               onRefreshEntities={loadEntities}
               queryState={timelineQueryState}
@@ -4097,44 +4301,7 @@ export function WorkbookShell({
               currentIncidentRole={currentIncidentRole}
               entityIndex={entityIndex}
               entityType={surface === hostsViewSchemaId ? "host" : "identity"}
-              filterDraft={
-                surface === hostsViewSchemaId
-                  ? hostFilterDraft
-                  : identityFilterDraft
-              }
               incidentId={incidentId}
-              onApplyFilter={
-                surface === hostsViewSchemaId
-                  ? applyHostFilter
-                  : applyIdentityFilter
-              }
-              onFilterDraftChange={
-                surface === hostsViewSchemaId
-                  ? setHostFilterDraft
-                  : setIdentityFilterDraft
-              }
-              onGroupByChange={(groupBy) => {
-                if (surface === hostsViewSchemaId) {
-                  setHostQueryState((current) =>
-                    updateGroupBy(hostsContract, current, groupBy),
-                  );
-                  return;
-                }
-                setIdentityQueryState((current) =>
-                  updateGroupBy(identitiesContract, current, groupBy),
-                );
-              }}
-              onRemoveFilter={(fieldKey) => {
-                if (surface === hostsViewSchemaId) {
-                  setHostQueryState((current) =>
-                    removeFilterField(current, fieldKey),
-                  );
-                  return;
-                }
-                setIdentityQueryState((current) =>
-                  removeFilterField(current, fieldKey),
-                );
-              }}
               onRefreshEntities={loadEntities}
               onToggleSort={(fieldKey) => {
                 if (surface === hostsViewSchemaId) {
@@ -4160,30 +4327,11 @@ export function WorkbookShell({
               apiBase={apiBase}
               assessmentRows={assessmentRows}
               currentIncidentRole={currentIncidentRole}
-              filterDraft={assessmentFilterDraft}
               hostRows={hostRows}
               identityRows={identityRows}
               incidentId={incidentId}
               loadError={assessmentLoadError}
-              onApplyFilter={() => {
-                applyFilterDraftToQuery(
-                  setAssessmentQueryState,
-                  setAssessmentFilterDraft,
-                  assessmentFilterDraft,
-                );
-              }}
-              onFilterDraftChange={setAssessmentFilterDraft}
-              onGroupByChange={(groupBy) => {
-                setAssessmentQueryState((current) =>
-                  updateGroupBy(assessmentsContract, current, groupBy),
-                );
-              }}
               onRefreshAssessmentRows={loadAssessmentSurface}
-              onRemoveFilter={(fieldKey) => {
-                setAssessmentQueryState((current) =>
-                  removeFilterField(current, fieldKey),
-                );
-              }}
               onToggleSort={(fieldKey) => {
                 setAssessmentQueryState((current) =>
                   toggleSortField(assessmentsContract, current, fieldKey),
@@ -4198,27 +4346,8 @@ export function WorkbookShell({
               apiBase={apiBase}
               contract={activeContract}
               currentUserId={currentUserId}
-              filterDraft={genericFilterDraft}
               incidentId={incidentId}
               loadError={genericLoadError}
-              onApplyFilter={() => {
-                applyFilterDraftToQuery(
-                  setGenericQueryState,
-                  setGenericFilterDraft,
-                  genericFilterDraft,
-                );
-              }}
-              onFilterDraftChange={setGenericFilterDraft}
-              onGroupByChange={(groupBy) => {
-                setGenericQueryState((current) =>
-                  updateGroupBy(activeContract, current, groupBy),
-                );
-              }}
-              onRemoveFilter={(fieldKey) => {
-                setGenericQueryState((current) =>
-                  removeFilterField(current, fieldKey),
-                );
-              }}
               onRefresh={loadGenericSurface}
               onToggleSort={(fieldKey) => {
                 setGenericQueryState((current) =>
@@ -4305,14 +4434,24 @@ const panelStyle = {
 };
 
 const shellTopBarStyle = {
+  boxSizing: "border-box" as const,
   display: "flex",
   alignItems: "center",
-  flexWrap: "wrap" as const,
-  gap: "0.75rem",
-  minHeight: "var(--ct-layout-topBarHeight)",
-  padding: "0.25rem 1rem",
+  flexWrap: "nowrap" as const,
+  gap: "0.55rem",
+  inlineSize: "100%",
+  maxInlineSize: "100%",
+  blockSize: "var(--ct-layout-topBarHeight)",
+  minBlockSize: "var(--ct-layout-topBarHeight)",
+  minWidth: 0,
+  padding: "0 0.75rem",
   borderBottom: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-1)",
+  overflow: "visible",
+};
+
+const shellTopBarUnsupportedStyle = {
+  overflowX: "auto" as const,
 };
 
 const shellTopBarActionsStyle = {
@@ -4320,15 +4459,9 @@ const shellTopBarActionsStyle = {
   alignItems: "center",
   justifyContent: "flex-end",
   gap: "0.45rem",
-  flex: "0 1 auto",
+  flex: "0 0 auto",
   minWidth: 0,
   order: 5,
-};
-
-const shellTopBarLabelStyle = {
-  margin: 0,
-  fontSize: "0.85rem",
-  color: "var(--ct-colors-ink-subtle)",
 };
 
 const shellTopBarValueStyle = {
@@ -4340,12 +4473,21 @@ const shellTopBarValueStyle = {
   whiteSpace: "nowrap" as const,
 };
 
+const shellIncidentTitleStyle = {
+  minWidth: 0,
+  color: "var(--ct-colors-ink-muted)",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+};
+
 const shellIncidentIdentityStyle = {
   display: "flex",
   alignItems: "center",
   gap: "0.45rem",
-  flex: "0 1 18rem",
+  flex: "0 1 19rem",
   minWidth: 0,
+  overflow: "hidden",
 };
 
 const currentUserSlotStyle = {
@@ -4401,27 +4543,12 @@ const shellActiveSurfaceStyle = {
   overflow: "hidden",
 };
 
-const headerStyle = {
-  position: "relative" as const,
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "1rem",
-  alignItems: "center",
-  marginBottom: "0.25rem",
-};
-
 const eyebrowStyle = {
   margin: 0,
   fontSize: "0.78rem",
   letterSpacing: "0.12em",
   textTransform: "uppercase" as const,
   color: "var(--ct-colors-accent)",
-};
-
-const headlineStyle = {
-  margin: "0.15rem 0",
-  fontSize: "1.08rem",
-  lineHeight: 1.25,
 };
 
 const bodyStyle = {
@@ -4690,10 +4817,11 @@ const surfaceTabStyle = {
   borderBottom: "2px solid transparent",
   background: "transparent",
   color: "var(--ct-colors-ink-muted)",
-  padding: "0.85rem 0.55rem 0.7rem",
+  padding: "0 0.55rem",
   font: "inherit",
   cursor: "pointer",
   whiteSpace: "nowrap" as const,
+  minBlockSize: "var(--ct-layout-topBarHeight)",
 };
 
 const surfaceTabActiveStyle = {
@@ -4703,21 +4831,82 @@ const surfaceTabActiveStyle = {
 };
 
 const systemViewSlotStyle = {
-  flex: "0 0 11rem",
-  minWidth: "10rem",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.35rem",
+  flex: "0 0 auto",
+  minWidth: 0,
   marginInlineStart: "auto",
   order: 4,
 };
 
-const roleBadgeStyle = {
-  borderRadius: "var(--ct-rounded-sm)",
-  background: "var(--ct-colors-surface-2)",
-  color: "var(--ct-colors-ink-muted)",
-  padding: "0.35rem 0.55rem",
-  fontSize: "0.8rem",
+const activeSystemViewTitleStyle = {
+  color: "var(--ct-colors-ink)",
+  fontSize: "0.86rem",
+  fontWeight: 650,
+  maxInlineSize: "10rem",
+  minWidth: 0,
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap" as const,
+};
+
+const topBarQuerySlotStyle = {
+  display: "flex",
+  alignItems: "center",
+  flex: "1 1 18rem",
+  minWidth: 0,
+  overflow: "hidden",
+  order: 4,
+};
+
+const surfacesMenuFrameStyle = {
+  position: "relative" as const,
+  display: "inline-flex",
+  flex: "0 0 auto",
+};
+
+const surfaceMenuTriggerStyle = {
+  borderRadius: "var(--ct-rounded-xs)",
+  border: "var(--ct-border-hairline)",
+  background: "var(--ct-colors-surface-1)",
+  color: "var(--ct-colors-ink)",
+  padding: "0.35rem 0.55rem",
+  font: "inherit",
+  cursor: "pointer",
+  whiteSpace: "nowrap" as const,
+};
+
+const surfacesMenuStyle = {
+  position: "absolute" as const,
+  zIndex: 18,
+  insetBlockStart: "calc(100% + 0.35rem)",
+  insetInlineStart: 0,
+  display: "grid",
+  gap: "0.2rem",
+  inlineSize: "min(16rem, 80vw)",
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-md)",
+  background: "var(--ct-colors-surface-1)",
+  boxShadow: "var(--ct-elevation-popover)",
+  padding: "0.45rem",
+};
+
+const surfacesMenuItemStyle = {
+  border: 0,
+  borderRadius: "var(--ct-rounded-xs)",
+  background: "transparent",
+  color: "var(--ct-colors-ink-muted)",
+  cursor: "pointer",
+  font: "inherit",
+  padding: "0.45rem 0.5rem",
+  textAlign: "left" as const,
+};
+
+const surfacesMenuItemSelectedStyle = {
+  background: "var(--ct-colors-surface-3)",
+  color: "var(--ct-colors-ink)",
+  fontWeight: 700,
 };
 
 const supportRegionStyle = {

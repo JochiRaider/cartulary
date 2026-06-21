@@ -94,7 +94,7 @@ describe("workbook surface registry", () => {
     const groups = listSystemWorkbookSurfaceGroups();
 
     expect(groups.map((group) => group.token)).toEqual([
-      "scope-assessment",
+      "scope-indicators",
       "coordination",
       "review-learning",
       "optional-artifact-surfaces",
@@ -102,10 +102,11 @@ describe("workbook surface registry", () => {
     expect(
       groups.map((group) => group.entries.map((entry) => entry.viewSchemaId)),
     ).toEqual([
-      [indicatorsViewSchemaId, assessmentsViewSchemaId, partiesViewSchemaId],
+      [indicatorsViewSchemaId, assessmentsViewSchemaId],
       [
         taskRequestsViewSchemaId,
         decisionsViewSchemaId,
+        partiesViewSchemaId,
         commLogViewSchemaId,
         handoffViewSchemaId,
       ],
@@ -123,9 +124,9 @@ describe("workbook surface registry", () => {
     ).toEqual([
       indicatorsViewSchemaId,
       assessmentsViewSchemaId,
-      partiesViewSchemaId,
       taskRequestsViewSchemaId,
       decisionsViewSchemaId,
+      partiesViewSchemaId,
       commLogViewSchemaId,
       handoffViewSchemaId,
       statusReviewViewSchemaId,

@@ -263,7 +263,7 @@ describe("Incident landing", () => {
     ).toBe("0 loaded");
     expect(
       screen.getByTestId(phase1LandingTestId("current-user")).textContent,
-    ).toBe("Bootstrap Admin · deployment admin");
+    ).toBe("Bootstrap Admin");
     expect(
       findFetchCalls(fetchMock, "/api/v1/auth/session", "GET"),
     ).toHaveLength(1);

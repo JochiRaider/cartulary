@@ -6,6 +6,7 @@ import {
   gridSavedRowsSelector,
   gridShellTestId,
   surfaceTabTestId,
+  workbookFilterPopoverTriggerTestId,
   workbookAddRowButtonTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -598,6 +599,11 @@ function stringFilterValue(body: ReturnType<typeof parseRequestBody>) {
 }
 
 function applyAssessmentStateFilter(value: string) {
+  fireEvent.click(
+    screen.getByTestId(
+      workbookFilterPopoverTriggerTestId(assessmentsViewSchemaId),
+    ),
+  );
   fireEvent.change(
     screen.getByTestId(gridFilterFieldTestId(assessmentsViewSchemaId)),
     {
@@ -616,6 +622,9 @@ function applyAssessmentStateFilter(value: string) {
 }
 
 function applyHostStateFilter(value: string) {
+  fireEvent.click(
+    screen.getByTestId(workbookFilterPopoverTriggerTestId(hostsViewSchemaId)),
+  );
   fireEvent.change(
     screen.getByTestId(gridFilterFieldTestId(hostsViewSchemaId)),
     {

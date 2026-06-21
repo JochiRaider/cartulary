@@ -42,10 +42,27 @@ export function visiblePresence(
   records: readonly PresenceRecord[],
   limit: number,
 ) {
+  const sorted = [...records].sort(comparePresenceRecord);
   return {
-    shown: records.slice(0, limit),
+    shown: sorted.slice(0, limit),
     overflow: Math.max(0, records.length - limit),
   };
+}
+
+function comparePresenceRecord(left: PresenceRecord, right: PresenceRecord) {
+  const displayNameComparison = left.display_name.localeCompare(
+    right.display_name,
+    undefined,
+    { sensitivity: "base" },
+  );
+  if (displayNameComparison !== 0) {
+    return displayNameComparison;
+  }
+  const userIdComparison = left.user_id.localeCompare(right.user_id);
+  if (userIdComparison !== 0) {
+    return userIdComparison;
+  }
+  return left.connection_id.localeCompare(right.connection_id);
 }
 
 export function isPresenceRecord(value: unknown): value is PresenceRecord {
