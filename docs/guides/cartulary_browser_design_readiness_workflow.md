@@ -87,6 +87,7 @@ Use the local bootstrap admin credentials from
 email: dev-admin@example.test
 password: DevBootstrap1!
 ```
+oathtool --totp -b 'NFCVVKBOXXKSUAHUQC6LVDHRDCWFFLJU'
 
 Complete any prompted TOTP enrollment before starting layout review. Inspect at
 100 percent browser zoom. Use browser device emulation or window sizing for
