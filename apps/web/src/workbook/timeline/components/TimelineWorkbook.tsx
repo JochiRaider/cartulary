@@ -63,6 +63,7 @@ import {
   createAndAttachEvidenceBlob,
   evidencePublicErrorMessage,
 } from "../../../services/workbookEvidence";
+import { WorkbookGridControls } from "../../components/WorkbookGridControls";
 import { WorkbookSheetToolbar } from "../../components/WorkbookSheetToolbar";
 import { WorkbookStatusStrip } from "../../components/WorkbookStatusStrip";
 import {
@@ -228,7 +229,6 @@ import {
   relationshipItemLabel,
   TimelineScalarEditor,
 } from "./TimelineCellEditors";
-import { WorkbookGridControls } from "../../components/WorkbookGridControls";
 import { TimelineConflictResolver } from "./TimelineConflictResolver";
 import { TimelineEvidencePanel } from "./TimelineEvidencePanel";
 import { TimelineGridSurface } from "./TimelineGridSurface";

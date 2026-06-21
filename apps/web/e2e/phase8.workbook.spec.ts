@@ -5,7 +5,10 @@ import {
   changeGrouping,
   collapseGridGroup,
   createSavedViewFromCurrentSurface,
+  deleteSavedViewFromCurrentSurface,
+  duplicateSavedViewFromCurrentSurface,
   expandGridGroup,
+  openSavedViewActionMenu,
   readSavedViewSelectionState,
   removeFilterChip,
   selectSavedView,
@@ -21,12 +24,8 @@ import {
   gridGroupRowTestId,
   gridShellTestId,
   rowCellTestId,
-  savedViewCreateButtonTestId,
   savedViewDeleteButtonTestId,
-  savedViewDuplicateButtonTestId,
-  savedViewNameInputTestId,
   savedViewOptionTestId,
-  savedViewScopeSelectTestId,
   savedViewSelectorTestId,
   savedViewUpdateButtonTestId,
   surfaceTabTestId,
@@ -220,12 +219,12 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
     new RegExp(`sheet_ref_id=${privateSavedView.saved_view_id}`),
   );
 
-  await page
-    .getByTestId(savedViewNameInputTestId(timelineViewSchemaId))
-    .fill("FE-I updated shared");
-  await page
-    .getByTestId(savedViewScopeSelectTestId(timelineViewSchemaId))
-    .selectOption("shared");
+  await setSavedViewDraftName(
+    page,
+    timelineViewSchemaId,
+    "FE-I updated shared",
+  );
+  await selectSavedViewScope(page, timelineViewSchemaId, "shared");
   const patchRequest = page.waitForRequest(
     (request) =>
       request.method() === "PATCH" &&
@@ -235,14 +234,11 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
           `/api/v1/incidents/${incidentId}/saved-views/${privateSavedView.saved_view_id}`,
         ),
   );
-  await page
-    .getByTestId(
-      savedViewUpdateButtonTestId(
-        timelineViewSchemaId,
-        privateSavedView.saved_view_id,
-      ),
-    )
-    .click();
+  await updateSavedViewFromCurrentSurface(
+    page,
+    timelineViewSchemaId,
+    privateSavedView.saved_view_id,
+  );
   const patchBody = readPostBody(await patchRequest);
   expect(Object.keys(patchBody).sort()).toEqual([
     "base_saved_view_version",
@@ -306,6 +302,7 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
   });
 
   await selector.selectOption(systemSavedView.saved_view_id);
+  await openSavedViewActionMenu(page, timelineViewSchemaId);
   await expect(
     page.getByTestId(
       savedViewUpdateButtonTestId(
@@ -322,7 +319,6 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
       ),
     ),
   ).toBeDisabled();
-
   const duplicateRequest = page.waitForRequest(
     (request) =>
       request.method() === "POST" &&
@@ -333,14 +329,11 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
       response.request().method() === "POST" &&
       response.url().endsWith(`/api/v1/incidents/${incidentId}/saved-views`),
   );
-  await page
-    .getByTestId(
-      savedViewDuplicateButtonTestId(
-        timelineViewSchemaId,
-        systemSavedView.saved_view_id,
-      ),
-    )
-    .click();
+  await duplicateSavedViewFromCurrentSurface(
+    page,
+    timelineViewSchemaId,
+    systemSavedView.saved_view_id,
+  );
   expect(readPostBody(await duplicateRequest)).toMatchObject({
     display_name: "FE-I system timeline Copy",
     scope: "private",
@@ -371,31 +364,28 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
           `/api/v1/incidents/${incidentId}/saved-views/${duplicateSavedView.saved_view_id}`,
         ),
   );
-  await page
-    .getByTestId(
-      savedViewDeleteButtonTestId(
-        timelineViewSchemaId,
-        duplicateSavedView.saved_view_id,
-      ),
-    )
-    .click();
+  await deleteSavedViewFromCurrentSurface(
+    page,
+    timelineViewSchemaId,
+    duplicateSavedView.saved_view_id,
+  );
   await deleteRequest;
   await expect(page).toHaveURL(/view_schema_id=cartulary\.view\.timeline\.v1/);
   expect(
     rowIDs(await queryViewRows(page, incidentId, timelineViewSchemaId, {})),
   ).toContain(String(timelineRow.record_id));
 
-  await page
-    .getByTestId(savedViewNameInputTestId(timelineViewSchemaId))
-    .fill("FE-I created current");
+  await setSavedViewDraftName(
+    page,
+    timelineViewSchemaId,
+    "FE-I created current",
+  );
   const createRequest = page.waitForRequest(
     (request) =>
       request.method() === "POST" &&
       request.url().endsWith(`/api/v1/incidents/${incidentId}/saved-views`),
   );
-  await page
-    .getByTestId(savedViewCreateButtonTestId(timelineViewSchemaId))
-    .click();
+  await createSavedViewFromCurrentSurface(page, timelineViewSchemaId);
   expect(readPostBody(await createRequest)).toMatchObject({
     display_name: "FE-I created current",
     scope: "private",

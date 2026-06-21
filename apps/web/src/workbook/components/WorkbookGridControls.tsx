@@ -4,13 +4,13 @@ import {
   gridFilterFieldTestId,
   gridFilterValueTestId,
   gridGroupingSelectTestId,
+  type WorkbookSurface,
   workbookFilterPopoverTestId,
   workbookFilterPopoverTriggerTestId,
   workbookSortMenuTestId,
   workbookSortMenuTriggerTestId,
   workbookSortOptionTestId,
   workbookTopBarQueryControlsTestId,
-  type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { SlidersHorizontal } from "lucide-react";
@@ -28,6 +28,7 @@ import {
   filterInputMode,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
+import { visuallyHiddenStyle } from "../utils/workbookStyles";
 
 type WorkbookGridControlsProps = {
   readonly contract: ViewContract;
@@ -74,6 +75,10 @@ export function WorkbookGridControls({
     queryState.filters.length > 0 ||
     queryState.sort.length > 0 ||
     queryState.groupBy !== null;
+  const activeQueryChipCount =
+    queryState.filters.length +
+    queryState.sort.length +
+    (queryState.groupBy === null ? 0 : 1);
   const draftValueMissing =
     inputMode === "boolean"
       ? draft.booleanValue === ""
@@ -104,7 +109,9 @@ export function WorkbookGridControls({
     >
       <div style={menuFrameStyle}>
         <button
-          aria-controls={isSortMenuOpen ? workbookSortMenuTestId(surface) : undefined}
+          aria-controls={
+            isSortMenuOpen ? workbookSortMenuTestId(surface) : undefined
+          }
           aria-expanded={isSortMenuOpen}
           aria-haspopup="menu"
           data-testid={workbookSortMenuTriggerTestId(surface)}
@@ -114,7 +121,8 @@ export function WorkbookGridControls({
             setIsSortMenuOpen((current) => !current);
           }}
         >
-          Sort{activeSort ? `: ${sortLabel(contract, activeSort.fieldKey)}` : ""}
+          Sort
+          {activeSort ? `: ${sortLabel(contract, activeSort.fieldKey)}` : ""}
         </button>
         {isSortMenuOpen ? (
           <div
@@ -155,10 +163,12 @@ export function WorkbookGridControls({
         <select
           aria-label="Group rows"
           data-testid={gridGroupingSelectTestId(surface)}
-          style={selectStyle}
+          style={groupSelectStyle}
           value={queryState.groupBy ?? ""}
           onChange={(event) => {
-            onGroupByChange(event.target.value === "" ? null : event.target.value);
+            onGroupByChange(
+              event.target.value === "" ? null : event.target.value,
+            );
           }}
         >
           <option value="">None</option>
@@ -173,7 +183,9 @@ export function WorkbookGridControls({
       <div style={menuFrameStyle}>
         <button
           aria-controls={
-            isFilterPopoverOpen ? workbookFilterPopoverTestId(surface) : undefined
+            isFilterPopoverOpen
+              ? workbookFilterPopoverTestId(surface)
+              : undefined
           }
           aria-expanded={isFilterPopoverOpen}
           aria-haspopup="dialog"
@@ -235,7 +247,8 @@ export function WorkbookGridControls({
                   onChange={(event) => {
                     setDraft({
                       ...draft,
-                      booleanValue: event.target.value as FilterDraft["booleanValue"],
+                      booleanValue: event.target
+                        .value as FilterDraft["booleanValue"],
                     });
                   }}
                 >
@@ -291,44 +304,59 @@ export function WorkbookGridControls({
         ) : null}
       </div>
 
-      <div aria-label="Active query chips" style={chipRailStyle}>
+      <div aria-label="Active query chips" role="toolbar" style={chipRailStyle}>
+        <span style={visuallyHiddenStyle}>Active query chips</span>
         {queryState.groupBy ? (
           <button
             style={chipButtonStyle}
+            title={`Group: ${
+              contract.fieldMap[queryState.groupBy]?.label ?? queryState.groupBy
+            }`}
             type="button"
             onClick={() => {
               onGroupByChange(null);
             }}
           >
-            Group: {contract.fieldMap[queryState.groupBy]?.label ?? queryState.groupBy}
+            Group:{" "}
+            {contract.fieldMap[queryState.groupBy]?.label ?? queryState.groupBy}
           </button>
         ) : null}
-        {queryState.sort.map((sort) => (
-          <button
-            key={sort.fieldKey}
-            style={chipButtonStyle}
-            type="button"
-            onClick={() => {
-              onToggleSort(sort.fieldKey);
-            }}
-          >
-            Sort: {sortLabel(contract, sort.fieldKey)} {sort.direction}
-          </button>
-        ))}
-        {queryState.filters.map((filter) => (
-          <button
-            key={filter.fieldKey}
-            data-testid={gridFilterChipTestId(surface, filter.fieldKey)}
-            style={chipButtonStyle}
-            type="button"
-            onClick={() => {
-              onRemoveFilter(filter.fieldKey);
-            }}
-          >
-            {filterChipLabel(contract, filter)}
-          </button>
-        ))}
-        {hasActiveQuery ? (
+        {queryState.sort.map((sort) => {
+          const label = `Sort: ${sortLabel(contract, sort.fieldKey)} ${
+            sort.direction
+          }`;
+          return (
+            <button
+              key={sort.fieldKey}
+              style={chipButtonStyle}
+              title={label}
+              type="button"
+              onClick={() => {
+                onToggleSort(sort.fieldKey);
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+        {queryState.filters.map((filter) => {
+          const label = filterChipLabel(contract, filter);
+          return (
+            <button
+              key={filter.fieldKey}
+              data-testid={gridFilterChipTestId(surface, filter.fieldKey)}
+              style={chipButtonStyle}
+              title={label}
+              type="button"
+              onClick={() => {
+                onRemoveFilter(filter.fieldKey);
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+        {hasActiveQuery && activeQueryChipCount > 1 ? (
           <button
             style={clearButtonStyle}
             type="button"
@@ -370,10 +398,16 @@ function sortLabel(contract: ViewContract, fieldKey: string) {
 }
 
 const queryControlsStyle = {
-  display: "flex",
+  display: "grid",
+  gridTemplateColumns:
+    "max-content minmax(0, max-content) max-content minmax(5.5rem, 1fr)",
   alignItems: "center",
   gap: "0.35rem",
+  inlineSize: "100%",
+  maxInlineSize: "100%",
+  boxSizing: "border-box" as const,
   minWidth: 0,
+  minInlineSize: 0,
   flex: "1 1 auto",
   overflow: "hidden",
 };
@@ -417,6 +451,12 @@ const selectStyle = {
   minInlineSize: "9rem",
 };
 
+const groupSelectStyle = {
+  ...selectStyle,
+  minInlineSize: "5.75rem",
+  maxInlineSize: "7rem",
+};
+
 const inlineLabelStyle = {
   display: "inline-flex",
   gap: "0.25rem",
@@ -424,6 +464,7 @@ const inlineLabelStyle = {
   color: "var(--ct-colors-ink-muted)",
   fontSize: "0.78rem",
   whiteSpace: "nowrap" as const,
+  minWidth: 0,
 };
 
 const stackedLabelStyle = {
@@ -503,21 +544,31 @@ const chipRailStyle = {
   display: "flex",
   alignItems: "center",
   gap: "0.3rem",
+  border: 0,
+  padding: 0,
+  margin: 0,
+  inlineSize: "100%",
+  maxInlineSize: "100%",
   minWidth: 0,
+  minInlineSize: 0,
   flex: "1 1 auto",
-  overflow: "hidden",
+  overflowX: "hidden" as const,
+  overflowY: "hidden" as const,
 };
 
 const chipButtonStyle = {
   ...controlButtonStyle,
   background: "var(--ct-colors-surface-3)",
-  maxInlineSize: "14rem",
+  flex: "1 1 0",
+  minInlineSize: 0,
+  maxInlineSize: "7rem",
   overflow: "hidden",
   textOverflow: "ellipsis",
 };
 
 const clearButtonStyle = {
   ...controlButtonStyle,
+  flex: "0 0 auto",
   borderColor: "transparent",
   background: "transparent",
   color: "var(--ct-colors-ink-muted)",

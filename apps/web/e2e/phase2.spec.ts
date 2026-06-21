@@ -1,4 +1,8 @@
 import {
+  setCurrentSavedViewAsDefault,
+  setCurrentSavedViewAsHome,
+} from "@cartulary/test-utils";
+import {
   currentIncidentRoleTestId,
   dataTestIdSelector,
   genericCreateFieldTestId,
@@ -25,8 +29,6 @@ import {
   savedViewFamilySelector,
   savedViewOptionTestId,
   savedViewSelectorTestId,
-  savedViewSetDefaultButtonTestId,
-  savedViewSetHomeButtonTestId,
   savedViewStatusTestId,
   surfaceTabTestId,
   systemViewSwitcherMenuTestId,
@@ -201,15 +203,11 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
     page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
   ).toBeVisible();
   await expectCurrentIncidentRole(page, "Current incident role: admin");
-  await page
-    .getByTestId(savedViewSetHomeButtonTestId(timelineViewSchemaId))
-    .click();
+  await setCurrentSavedViewAsHome(page, timelineViewSchemaId);
   await expect(
     page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
   ).toHaveText("Home view updated.");
-  await page
-    .getByTestId(savedViewSetDefaultButtonTestId(timelineViewSchemaId))
-    .click();
+  await setCurrentSavedViewAsDefault(page, timelineViewSchemaId);
   await expect(
     page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
   ).toHaveText("Default view updated.");

@@ -98,7 +98,10 @@ export function savedViewConfigurationIsModified({
     return false;
   }
   const currentQueryJson = buildSavedViewQueryJson(contract, currentQueryState);
-  const currentLayoutJson = buildSavedViewLayoutJson(contract, currentLayoutState);
+  const currentLayoutJson = buildSavedViewLayoutJson(
+    contract,
+    currentLayoutState,
+  );
   const savedQueryJson = buildSavedViewQueryJson(
     contract,
     workbookQueryStateFromSavedViewQueryJson(contract, savedView.query_json),
@@ -108,8 +111,10 @@ export function savedViewConfigurationIsModified({
     workbookLayoutStateFromSavedViewLayoutJson(contract, savedView.layout_json),
   );
   return (
-    stableJSONStringify(currentQueryJson) !== stableJSONStringify(savedQueryJson) ||
-    stableJSONStringify(currentLayoutJson) !== stableJSONStringify(savedLayoutJson)
+    stableJSONStringify(currentQueryJson) !==
+      stableJSONStringify(savedQueryJson) ||
+    stableJSONStringify(currentLayoutJson) !==
+      stableJSONStringify(savedLayoutJson)
   );
 }
 

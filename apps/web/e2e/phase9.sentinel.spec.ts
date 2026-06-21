@@ -13,7 +13,6 @@ import {
   genericEditRecordSelectTestId,
   genericEditValueTestId,
   gridFilterChipTestId,
-  gridFilterFieldTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
   gridScrollportSelector,
@@ -29,9 +28,11 @@ import {
   systemViewSwitcherTriggerTestId,
   timelineMutationSubstrateReadyTestId,
   workbookAddRowButtonTestId,
+  workbookFilterPopoverTriggerTestId,
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
   workbookShellSlotTestId,
+  workbookTopBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Request } from "@playwright/test";
 
@@ -166,6 +167,10 @@ async function disableWorkbookSockets(page: Page) {
       value: Phase9ClosedWebSocket,
     });
   });
+}
+
+async function expectWorkbookSaved(page: Page) {
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 }
 
 test("Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range", async ({
@@ -562,7 +567,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     "evidence.collector_party_text",
     typedCollectorText,
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   let rows = await queryViewRows(page, incidentId, evidenceViewSchemaId);
   let refreshedEvidence = rows.find(
     (row) => row.record_id === evidence.record_id,
@@ -612,7 +617,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     "party.display_name",
     typedCollectorText,
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   await assertEvidenceContextStable();
 
   rows = await queryViewRows(page, incidentId, evidenceViewSchemaId);
@@ -737,7 +742,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     refreshedEvidence?.cells["evidence.source_party_id"]?.value,
   ).toBeNull();
 
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   await assertEvidenceContextStable();
 
   const task = await createViewRow(page, incidentId, taskRequestsViewSchemaId, {
@@ -763,7 +768,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     "task.requester_party_text",
     typedRequesterText,
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   rows = await queryViewRows(page, incidentId, taskRequestsViewSchemaId);
   let refreshedTask = rows.find((row) => row.record_id === task.record_id);
   expect(refreshedTask?.cells["task.requester_party_text"]?.value).toBe(
@@ -809,7 +814,7 @@ test("Phase 9 E-9-04 Party create and link preserve raw text on the workbook sur
     "party.display_name",
     typedRequesterText,
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   await assertTaskContextStable();
   rows = await queryViewRows(page, incidentId, taskRequestsViewSchemaId);
   refreshedTask = rows.find((row) => row.record_id === task.record_id);
@@ -1286,7 +1291,7 @@ test("Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows s
   expect(supersedeEnvelope.data.superseding_record_id).toBe(
     supersedingDecision.record_id,
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   let decisionRows = await queryViewRows(
     page,
     incidentId,
@@ -1328,7 +1333,7 @@ test("Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows s
     decisionsViewSchemaId,
     supersedingDecision.record_id as string,
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   decisionRows = await queryViewRows(page, incidentId, decisionsViewSchemaId);
   const affectedDecision = decisionRows.find(
     (row) => row.record_id === supersedingDecision.record_id,
@@ -1455,7 +1460,7 @@ test("Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows s
     view_schema_id: taskRequestsViewSchemaId,
     changes: [{ field_key: "task.priority", value: "high" }],
   });
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   await expect(
     page.getByTestId(rowCellTestId(task.record_id, "task.priority")),
   ).toHaveText("high");
@@ -1541,7 +1546,7 @@ test("Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows s
     .fill("Waiting on endpoint owner");
   await page.getByTestId("task-lifecycle-submit").click();
   await lifecycleResponse;
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   let taskRows = await queryViewRows(
     page,
     incidentId,
@@ -1600,7 +1605,7 @@ test("Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows s
     view_schema_id: taskRequestsViewSchemaId,
     changes: [{ field_key: "task.decision_record_id", value: null }],
   });
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   taskRows = await queryViewRows(page, incidentId, taskRequestsViewSchemaId);
   refreshedTask = taskRows.find((row) => row.record_id === task.record_id);
   expect(refreshedTask?.cells["task.decision_record_id"]?.value).toBeNull();
@@ -1760,7 +1765,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     "handoff.next_checks",
     "Verify next checkpoint before shift change",
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   await editGenericCell(
     page,
     handoffViewSchemaId,
@@ -1768,7 +1773,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     "handoff.open_risk_refs",
     "Residual endpoint access risk",
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   await editGenericCell(
     page,
     handoffViewSchemaId,
@@ -1776,7 +1781,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     "handoff.acknowledged_at",
     "2026-05-26T14:00:00Z",
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   const handoffRows = await queryViewRows(
     page,
     incidentId,
@@ -1838,7 +1843,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     "status_review.blocked_task_ids",
     task.record_id as string,
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   await editPhase9GenericCell(
     page,
     statusReviewViewSchemaId,
@@ -1846,7 +1851,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     "status_review.pending_evidence_ids",
     evidence.record_id as string,
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   await editPhase9GenericCell(
     page,
     statusReviewViewSchemaId,
@@ -1854,7 +1859,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     "status_review.open_decision_ids",
     decision.record_id as string,
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   await editGenericCell(
     page,
     statusReviewViewSchemaId,
@@ -1862,7 +1867,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     "status_review.next_report_at",
     "2026-05-27T15:30:00Z",
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   const statusRows = await queryViewRows(
     page,
     incidentId,
@@ -1929,7 +1934,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     "lesson.follow_up_task_ids",
     task.record_id as string,
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   await editPhase9GenericCell(
     page,
     lessonViewSchemaId,
@@ -1937,7 +1942,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     "lesson.evidence_refs",
     evidence.record_id as string,
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   await editGenericCell(
     page,
     lessonViewSchemaId,
@@ -1945,7 +1950,7 @@ test("Phase 9 E-9-COORDINATION-06 coordination workbook workflows stay native", 
     "lesson.closure_state",
     "closed",
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   const lessonRows = await queryViewRows(page, incidentId, lessonViewSchemaId);
   const refreshedLesson = lessonRows.find(
     (row) => row.record_id === lesson.record_id,
@@ -2021,7 +2026,7 @@ test("Phase 9 E-9-07 optional standardized surfaces are workbook-native when exp
     "finding.state",
     "closed",
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   await editPhase9GenericCell(
     page,
     findingsViewSchemaId,
@@ -2029,7 +2034,7 @@ test("Phase 9 E-9-07 optional standardized surfaces are workbook-native when exp
     "finding.supporting_refs",
     supportingNote.record_id as string,
   );
-  await expect(page.getByTestId("generic-mutation-state")).toHaveText("Saved");
+  await expectWorkbookSaved(page);
   const findingRows = await queryViewRows(
     page,
     incidentId,
@@ -2349,10 +2354,17 @@ test("FE-B-P10-01 Verify Task Requests, Decisions, Parties, Communications Log, 
       viewBar.getByTestId(savedViewSelectorTestId(surface.viewSchemaId)),
     ).toHaveCount(1);
     await expect(
-      viewBar.getByTestId(gridFilterFieldTestId(surface.viewSchemaId)),
+      topBar.getByTestId(
+        workbookTopBarQueryControlsTestId(surface.viewSchemaId),
+      ),
     ).toBeVisible();
     await expect(
-      viewBar.getByTestId(gridGroupingSelectTestId(surface.viewSchemaId)),
+      topBar.getByTestId(
+        workbookFilterPopoverTriggerTestId(surface.viewSchemaId),
+      ),
+    ).toBeVisible();
+    await expect(
+      topBar.getByTestId(gridGroupingSelectTestId(surface.viewSchemaId)),
     ).toBeVisible();
 
     const activeSelector = viewBar.getByTestId(
@@ -2441,9 +2453,7 @@ async function applyPartyPatchAndWait(
       expectation.recordId,
       expectation.expectedCells,
     );
-    await expect(page.getByTestId("generic-mutation-state")).toHaveText(
-      "Saved",
-    );
+    await expectWorkbookSaved(page);
     return row;
   } finally {
     page.off("request", capturePatchRequest);

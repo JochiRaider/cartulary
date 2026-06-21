@@ -22,9 +22,8 @@ import {
   phase1LandingTestId,
   rowCellTestId,
   rowInspectButtonTestId,
-  saveStateTestId,
-  savedViewCreateButtonTestId,
   savedViewActionMenuTriggerTestId,
+  savedViewCreateButtonTestId,
   savedViewDeleteButtonTestId,
   savedViewDuplicateButtonTestId,
   savedViewNameInputTestId,
@@ -34,12 +33,13 @@ import {
   savedViewSetDefaultButtonTestId,
   savedViewSetHomeButtonTestId,
   savedViewUpdateButtonTestId,
+  saveStateTestId,
   surfaceTabTestId,
-  workbookFilterPopoverTriggerTestId,
   systemViewSwitcherGroupTestId,
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   workbookAddRowButtonTestId,
+  workbookFilterPopoverTriggerTestId,
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
   workbookShellSlotTestId,
@@ -901,9 +901,9 @@ describe("WorkbookShell surface selection", () => {
     expect(
       topBar?.querySelector("[data-workbook-query-surface-title='true']"),
     ).toBeNull();
-    expect(screen.getByTestId(systemViewSwitcherTriggerTestId()).textContent).toBe(
-      "System views",
-    );
+    expect(
+      screen.getByTestId(systemViewSwitcherTriggerTestId()).textContent,
+    ).toBe("System views");
     expect(topBar?.textContent).toContain("Indicators");
 
     fireEvent.click(screen.getByTestId(systemViewSwitcherTriggerTestId()));
@@ -1622,9 +1622,7 @@ describe("WorkbookShell surface selection", () => {
         changes: [{ field_key: "task.requester_party_id", value: null }],
       });
     });
-    expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
-      "Syncing",
-    );
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
     expect((clearButton as HTMLButtonElement).disabled).toBe(true);
 
     patchAccepted = true;
@@ -1639,9 +1637,7 @@ describe("WorkbookShell surface selection", () => {
     await waitFor(() => {
       expect(refreshStarted).toBe(true);
     });
-    expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
-      "Syncing",
-    );
+    expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Syncing");
     expect((clearButton as HTMLButtonElement).disabled).toBe(true);
 
     refreshResponse.resolve(
@@ -1653,9 +1649,7 @@ describe("WorkbookShell surface selection", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
-        "Saved",
-      );
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
     expect((clearButton as HTMLButtonElement).disabled).toBe(false);
     expect(currentRecordIds(taskRequestsViewSchemaId)).toEqual(["task-1"]);
@@ -2325,7 +2319,9 @@ function applyGenericFilter(
   fieldKey: string,
   value: string,
 ) {
-  fireEvent.click(screen.getByTestId(workbookFilterPopoverTriggerTestId(surface)));
+  fireEvent.click(
+    screen.getByTestId(workbookFilterPopoverTriggerTestId(surface)),
+  );
   fireEvent.change(screen.getByTestId(gridFilterFieldTestId(surface)), {
     target: { value: fieldKey },
   });
@@ -2335,8 +2331,12 @@ function applyGenericFilter(
   fireEvent.click(screen.getByTestId(gridFilterApplyTestId(surface)));
 }
 
-function openSavedViewActions(surface: Parameters<typeof savedViewSelectorTestId>[0]) {
-  fireEvent.click(screen.getByTestId(savedViewActionMenuTriggerTestId(surface)));
+function openSavedViewActions(
+  surface: Parameters<typeof savedViewSelectorTestId>[0],
+) {
+  fireEvent.click(
+    screen.getByTestId(savedViewActionMenuTriggerTestId(surface)),
+  );
 }
 
 async function expectRecordIds(

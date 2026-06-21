@@ -397,7 +397,9 @@ describe("Phase 8 workbook query controls", () => {
     expect(onGroupByChange).toHaveBeenCalledWith("timeline.has_evidence");
 
     fireEvent.click(
-      screen.getByTestId(workbookFilterPopoverTriggerTestId(timelineViewSchemaId)),
+      screen.getByTestId(
+        workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+      ),
     );
     const fieldSelect = screen.getByTestId(
       gridFilterFieldTestId(timelineViewSchemaId),

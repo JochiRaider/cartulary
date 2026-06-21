@@ -556,7 +556,9 @@ export function workbookSurfacesMenuTestId(): StableTestId {
 export function workbookSurfacesMenuOptionTestId(
   viewSchemaId: string,
 ): StableTestId {
-  return stableTestId(viewScopedTestId("workbook-surfaces-menu-option", viewSchemaId));
+  return stableTestId(
+    viewScopedTestId("workbook-surfaces-menu-option", viewSchemaId),
+  );
 }
 
 export function workbookTopBarQueryControlsTestId(

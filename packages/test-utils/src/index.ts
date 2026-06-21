@@ -12,14 +12,16 @@ import {
   savedViewActionMenuTestId,
   savedViewActionMenuTriggerTestId,
   savedViewCreateButtonTestId,
+  savedViewDeleteButtonTestId,
+  savedViewDuplicateButtonTestId,
   savedViewNameInputTestId,
   savedViewScopeSelectTestId,
   savedViewSelectorTestId,
   savedViewSetDefaultButtonTestId,
   savedViewSetHomeButtonTestId,
   savedViewUpdateButtonTestId,
-  workbookFilterPopoverTriggerTestId,
   type WorkbookSurface,
+  workbookFilterPopoverTriggerTestId,
 } from "@cartulary/ui-contracts";
 
 export function pasteMatrixText(
@@ -196,14 +198,46 @@ export async function openSavedViewActionMenu(
   surface: WorkbookSurface,
 ) {
   const menu = page.getByTestId(savedViewActionMenuTestId(surface));
-  try {
+  const canVerifyVisibility = supportsVisibilityCheck(menu);
+  if (canVerifyVisibility) {
     if (await isLocatorVisible(menu)) {
       return;
     }
-  } catch {
-    // Older test harness locators may not support visibility checks.
   }
   await page.getByTestId(savedViewActionMenuTriggerTestId(surface)).click();
+  if (canVerifyVisibility) {
+    if (!(await isLocatorVisible(menu))) {
+      throw new Error(`Saved-view action menu for ${surface} did not open`);
+    }
+  }
+}
+
+async function clickSavedViewMenuActionAndWaitForClose(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+  actionTestId: string,
+) {
+  await openSavedViewActionMenu(page, surface);
+  await page.getByTestId(actionTestId).click();
+  await waitForSavedViewActionMenuClose(page, surface);
+}
+
+async function waitForSavedViewActionMenuClose(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+) {
+  const menu = page.getByTestId(savedViewActionMenuTestId(surface));
+  if (!supportsVisibilityCheck(menu)) {
+    return;
+  }
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    if (!(await isLocatorVisible(menu))) {
+      return;
+    }
+    await delay(50);
+  }
+  throw new Error(`Saved-view action menu for ${surface} did not close`);
 }
 
 export async function setSavedViewDraftName(
@@ -233,8 +267,11 @@ export async function createSavedViewFromCurrentSurface(
   page: BrowserPageLike,
   surface: WorkbookSurface,
 ) {
-  await openSavedViewActionMenu(page, surface);
-  await page.getByTestId(savedViewCreateButtonTestId(surface)).click();
+  await clickSavedViewMenuActionAndWaitForClose(
+    page,
+    surface,
+    savedViewCreateButtonTestId(surface),
+  );
 }
 
 export async function updateSavedViewFromCurrentSurface(
@@ -242,18 +279,46 @@ export async function updateSavedViewFromCurrentSurface(
   surface: WorkbookSurface,
   savedViewId: string,
 ) {
-  await openSavedViewActionMenu(page, surface);
-  await page
-    .getByTestId(savedViewUpdateButtonTestId(surface, savedViewId))
-    .click();
+  await clickSavedViewMenuActionAndWaitForClose(
+    page,
+    surface,
+    savedViewUpdateButtonTestId(surface, savedViewId),
+  );
+}
+
+export async function duplicateSavedViewFromCurrentSurface(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+  savedViewId: string,
+) {
+  await clickSavedViewMenuActionAndWaitForClose(
+    page,
+    surface,
+    savedViewDuplicateButtonTestId(surface, savedViewId),
+  );
+}
+
+export async function deleteSavedViewFromCurrentSurface(
+  page: BrowserPageLike,
+  surface: WorkbookSurface,
+  savedViewId: string,
+) {
+  await clickSavedViewMenuActionAndWaitForClose(
+    page,
+    surface,
+    savedViewDeleteButtonTestId(surface, savedViewId),
+  );
 }
 
 export async function setCurrentSavedViewAsHome(
   page: BrowserPageLike,
   surface: WorkbookSurface,
 ) {
-  await openSavedViewActionMenu(page, surface);
-  await page.getByTestId(savedViewSetHomeButtonTestId(surface)).click();
+  await clickSavedViewMenuActionAndWaitForClose(
+    page,
+    surface,
+    savedViewSetHomeButtonTestId(surface),
+  );
 }
 
 export async function setCurrentSavedViewAsHomeAndWait(
@@ -264,7 +329,6 @@ export async function setCurrentSavedViewAsHomeAndWait(
     incidentId: string;
   },
 ): Promise<SavedViewPreferenceActionResult> {
-  await openSavedViewActionMenu(page, surface);
   return setCurrentSavedViewPreferenceAndWait(page, surface, {
     buttonTestId: savedViewSetHomeButtonTestId(surface),
     expectedSheetRef: options.expectedSheetRef,
@@ -278,8 +342,11 @@ export async function setCurrentSavedViewAsDefault(
   page: BrowserPageLike,
   surface: WorkbookSurface,
 ) {
-  await openSavedViewActionMenu(page, surface);
-  await page.getByTestId(savedViewSetDefaultButtonTestId(surface)).click();
+  await clickSavedViewMenuActionAndWaitForClose(
+    page,
+    surface,
+    savedViewSetDefaultButtonTestId(surface),
+  );
 }
 
 export async function setCurrentSavedViewAsDefaultAndWait(
@@ -290,7 +357,6 @@ export async function setCurrentSavedViewAsDefaultAndWait(
     incidentId: string;
   },
 ): Promise<SavedViewPreferenceActionResult> {
-  await openSavedViewActionMenu(page, surface);
   return setCurrentSavedViewPreferenceAndWait(page, surface, {
     buttonTestId: savedViewSetDefaultButtonTestId(surface),
     expectedSheetRef: options.expectedSheetRef,
@@ -1448,11 +1514,13 @@ async function setCurrentSavedViewPreferenceAndWait(
     matchesPreferenceRoute(response.request().method(), response.url()),
   );
 
+  await openSavedViewActionMenu(page, surface);
   await page.getByTestId(options.buttonTestId).click();
   const [request, response] = await Promise.all([
     requestPromise,
     responsePromise,
   ]);
+  await waitForSavedViewActionMenuClose(page, surface);
   const requestBody = readRequestJSON(request, options.field);
   assertPreferenceBody(options.field, requestBody, options.expectedSheetRef);
   const responseBody = await readResponseJSON(response, options.field);
@@ -1635,6 +1703,10 @@ async function isLocatorVisible(locator: BrowserLocator) {
   } catch {
     return false;
   }
+}
+
+function supportsVisibilityCheck(locator: BrowserLocator) {
+  return typeof locator.isVisible === "function";
 }
 
 const anchorTolerancePx = 2;

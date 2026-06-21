@@ -16,6 +16,8 @@ import {
   savedViewActionMenuTestId,
   savedViewActionMenuTriggerTestId,
   savedViewCreateButtonTestId,
+  savedViewDeleteButtonTestId,
+  savedViewDuplicateButtonTestId,
   savedViewNameInputTestId,
   savedViewScopeSelectTestId,
   savedViewSelectorTestId,
@@ -36,6 +38,8 @@ import {
   changeGrouping,
   collapseGridGroup,
   createSavedViewFromCurrentSurface,
+  deleteSavedViewFromCurrentSurface,
+  duplicateSavedViewFromCurrentSurface,
   expandGridGroup,
   fillDownGridCells,
   pasteMatrixText,
@@ -189,6 +193,16 @@ describe("@cartulary/test-utils selector choreography", () => {
     await setCurrentSavedViewAsHome(page, testTimelineViewSchemaId);
     await setCurrentSavedViewAsDefault(page, testTimelineViewSchemaId);
     await createSavedViewFromCurrentSurface(page, testTimelineViewSchemaId);
+    await duplicateSavedViewFromCurrentSurface(
+      page,
+      testTimelineViewSchemaId,
+      savedViewId,
+    );
+    await deleteSavedViewFromCurrentSurface(
+      page,
+      testTimelineViewSchemaId,
+      savedViewId,
+    );
 
     expect(observed).toEqual(
       expect.arrayContaining([
@@ -200,6 +214,8 @@ describe("@cartulary/test-utils selector choreography", () => {
         savedViewSetHomeButtonTestId(testTimelineViewSchemaId),
         savedViewSetDefaultButtonTestId(testTimelineViewSchemaId),
         savedViewCreateButtonTestId(testTimelineViewSchemaId),
+        savedViewDuplicateButtonTestId(testTimelineViewSchemaId, savedViewId),
+        savedViewDeleteButtonTestId(testTimelineViewSchemaId, savedViewId),
       ]),
     );
     expect(selected[savedViewSelectorTestId(testTimelineViewSchemaId)]).toBe(
@@ -217,6 +233,8 @@ describe("@cartulary/test-utils selector choreography", () => {
         savedViewSetHomeButtonTestId(testTimelineViewSchemaId),
         savedViewSetDefaultButtonTestId(testTimelineViewSchemaId),
         savedViewCreateButtonTestId(testTimelineViewSchemaId),
+        savedViewDuplicateButtonTestId(testTimelineViewSchemaId, savedViewId),
+        savedViewDeleteButtonTestId(testTimelineViewSchemaId, savedViewId),
       ]),
     );
   });

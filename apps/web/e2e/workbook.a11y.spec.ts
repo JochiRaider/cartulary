@@ -77,8 +77,8 @@ import {
   timelineInspectorSectionTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineScalarEditorTestId,
-  workbookInspectorToggleTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookInspectorToggleTestId,
   workbookShellReadyTestId,
   workbookShellSlotLabel,
   workbookShellSlots,
@@ -3203,7 +3203,9 @@ test.describe("FE-P1 accessibility readiness", () => {
       });
 
       await phase1.login(email, password);
-      await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
+      await expect(
+        page.getByTestId(phase1LandingTestId("shell")),
+      ).toBeVisible();
       await expect(
         page.getByTestId(phase1LandingTestId("current-user")),
       ).toContainText("A11Y P1 Revoked");

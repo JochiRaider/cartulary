@@ -25,7 +25,9 @@ function DelayedWorkbookRows() {
 
   return (
     <section>
-      <div data-testid={workbookTopBarQueryControlsTestId(timelineViewSchemaId)} />
+      <div
+        data-testid={workbookTopBarQueryControlsTestId(timelineViewSchemaId)}
+      />
       <table data-testid={gridShellTestId(timelineViewSchemaId)}>
         <tbody>
           {mounted ? (

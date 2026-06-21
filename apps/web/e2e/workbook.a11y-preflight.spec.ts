@@ -8,6 +8,8 @@ import {
   gridGroupRowTestId,
   gridSortHeaderTestId,
   rowCellTestId,
+  savedViewActionMenuTestId,
+  savedViewActionMenuTriggerTestId,
   savedViewCreateButtonTestId,
   savedViewNameInputTestId,
   savedViewSelectorTestId,
@@ -22,6 +24,7 @@ import {
   timelineInspectorSectionTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineScalarEditorTestId,
+  workbookFilterPopoverTriggerTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
@@ -172,6 +175,30 @@ async function setFilterValue(valueControl: Locator, value: string) {
   }
 }
 
+async function openFilterPopover(page: Page, viewSchemaId: string) {
+  const trigger = page.getByTestId(
+    workbookFilterPopoverTriggerTestId(viewSchemaId),
+  );
+  await expect(trigger).toBeVisible();
+  const field = page.getByTestId(gridFilterFieldTestId(viewSchemaId));
+  if (!(await field.isVisible().catch(() => false))) {
+    await trigger.click();
+  }
+  await expect(field).toBeVisible();
+}
+
+async function openSavedViewActionMenu(page: Page, viewSchemaId: string) {
+  const trigger = page.getByTestId(
+    savedViewActionMenuTriggerTestId(viewSchemaId),
+  );
+  await expect(trigger).toBeVisible();
+  const menu = page.getByTestId(savedViewActionMenuTestId(viewSchemaId));
+  if (!(await menu.isVisible().catch(() => false))) {
+    await trigger.click();
+  }
+  await expect(menu).toBeVisible();
+}
+
 test.describe("FE-P8 accessibility preflight", () => {
   test(p8AccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -216,6 +243,7 @@ test.describe("FE-P8 accessibility preflight", () => {
       ),
     ).toHaveText("reviewed");
 
+    await openFilterPopover(page, timelineViewSchemaId);
     const filterField = page.getByTestId(
       gridFilterFieldTestId(timelineViewSchemaId),
     );
@@ -269,6 +297,7 @@ test.describe("FE-P8 accessibility preflight", () => {
       "data-selected-sheet-ref-kind",
       "view_schema",
     );
+    await openSavedViewActionMenu(page, timelineViewSchemaId);
     const savedViewNameInput = page.getByTestId(
       savedViewNameInputTestId(timelineViewSchemaId),
     );
@@ -289,12 +318,14 @@ test.describe("FE-P8 accessibility preflight", () => {
       "saved_view",
     );
 
+    await openSavedViewActionMenu(page, timelineViewSchemaId);
     const homeButton = page.getByTestId(
       savedViewSetHomeButtonTestId(timelineViewSchemaId),
     );
     await expectKeyboardReachable(homeButton);
     await page.keyboard.press("Enter");
     await expect(savedViewStatus).toHaveText("Home view updated.");
+    await openSavedViewActionMenu(page, timelineViewSchemaId);
     const defaultButton = page.getByTestId(
       savedViewSetDefaultButtonTestId(timelineViewSchemaId),
     );

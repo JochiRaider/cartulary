@@ -42,9 +42,9 @@ import {
   surfaceTabTestId,
   timelinePreviewRowTestId,
   type WorkbookSurface,
+  workbookIncidentIdentityTestId,
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
-  workbookIncidentIdentityTestId,
   workbookResponsiveBandTestId,
   workbookRowActionMenuButtonTestId,
   workbookShellReadyTestId,
@@ -371,7 +371,10 @@ function selectWorkbookViewportBand(
   return "below_supported_minimum";
 }
 
-function currentViewportSize(): { readonly height: number; readonly width: number } {
+function currentViewportSize(): {
+  readonly height: number;
+  readonly width: number;
+} {
   const viewport = window.visualViewport;
   if (!viewport) {
     return { height: 720, width: 1280 };
@@ -429,9 +432,7 @@ function normalizeIncidentIdentity(
     incident_id: incidentID,
     incident_key: record.incident_key,
     incident_version:
-      typeof record.incident_version === "number"
-        ? record.incident_version
-        : 0,
+      typeof record.incident_version === "number" ? record.incident_version : 0,
     primary_external_case_ref:
       typeof record.primary_external_case_ref === "string"
         ? record.primary_external_case_ref
@@ -4136,7 +4137,7 @@ export function WorkbookShell({
           style={shellIncidentIdentityStyle}
           title={
             incidentIdentity === null
-              ? incidentIdentityError ?? "Loading incident"
+              ? (incidentIdentityError ?? "Loading incident")
               : `${incidentIdentity.incident_key} ${incidentIdentity.title}`
           }
         >
@@ -4164,7 +4165,9 @@ export function WorkbookShell({
                   )}
                   style={{
                     ...surfaceTabStyle,
-                    ...(surface === viewSchemaID ? surfaceTabActiveStyle : null),
+                    ...(surface === viewSchemaID
+                      ? surfaceTabActiveStyle
+                      : null),
                   }}
                   type="button"
                   onClick={() => {
@@ -4207,7 +4210,9 @@ export function WorkbookShell({
                     <button
                       key={viewSchemaID}
                       aria-checked={isSelected}
-                      data-testid={workbookSurfacesMenuOptionTestId(viewSchemaID)}
+                      data-testid={workbookSurfacesMenuOptionTestId(
+                        viewSchemaID,
+                      )}
                       data-view-schema-id={viewSchemaID}
                       role="menuitemradio"
                       style={{
@@ -4485,7 +4490,7 @@ const shellIncidentIdentityStyle = {
   display: "flex",
   alignItems: "center",
   gap: "0.45rem",
-  flex: "0 1 19rem",
+  flex: "0 1 11rem",
   minWidth: 0,
   overflow: "hidden",
 };
@@ -4493,6 +4498,8 @@ const shellIncidentIdentityStyle = {
 const currentUserSlotStyle = {
   display: "inline-flex",
   alignItems: "center",
+  flex: "0 1 8rem",
+  maxInlineSize: "8rem",
   minWidth: 0,
 };
 
@@ -4817,7 +4824,7 @@ const surfaceTabStyle = {
   borderBottom: "2px solid transparent",
   background: "transparent",
   color: "var(--ct-colors-ink-muted)",
-  padding: "0 0.55rem",
+  padding: "0 0.35rem",
   font: "inherit",
   cursor: "pointer",
   whiteSpace: "nowrap" as const,
@@ -4834,9 +4841,8 @@ const systemViewSlotStyle = {
   display: "inline-flex",
   alignItems: "center",
   gap: "0.35rem",
-  flex: "0 0 auto",
+  flex: "0 1 auto",
   minWidth: 0,
-  marginInlineStart: "auto",
   order: 4,
 };
 
@@ -4844,7 +4850,7 @@ const activeSystemViewTitleStyle = {
   color: "var(--ct-colors-ink)",
   fontSize: "0.86rem",
   fontWeight: 650,
-  maxInlineSize: "10rem",
+  maxInlineSize: "6rem",
   minWidth: 0,
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -4854,8 +4860,10 @@ const activeSystemViewTitleStyle = {
 const topBarQuerySlotStyle = {
   display: "flex",
   alignItems: "center",
-  flex: "1 1 18rem",
+  flex: "1 1 14rem",
+  boxSizing: "border-box" as const,
   minWidth: 0,
+  minInlineSize: 0,
   overflow: "hidden",
   order: 4,
 };

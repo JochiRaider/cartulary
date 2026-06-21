@@ -82,9 +82,15 @@ export function ActiveSurfaceSavedViewSelector({
   );
   const groupedSavedViews = useMemo(
     () => ({
-      private: activeSavedViews.filter((savedView) => savedView.scope === "private"),
-      shared: activeSavedViews.filter((savedView) => savedView.scope === "shared"),
-      system: activeSavedViews.filter((savedView) => savedView.scope === "system"),
+      private: activeSavedViews.filter(
+        (savedView) => savedView.scope === "private",
+      ),
+      shared: activeSavedViews.filter(
+        (savedView) => savedView.scope === "shared",
+      ),
+      system: activeSavedViews.filter(
+        (savedView) => savedView.scope === "system",
+      ),
     }),
     [activeSavedViews],
   );
@@ -180,7 +186,6 @@ export function ActiveSurfaceSavedViewSelector({
       </label>
       {selectedSavedView !== null && isModified ? (
         <span
-          aria-label="Saved view modified"
           data-testid={savedViewModifiedTestId(activeViewSchemaId)}
           style={modifiedBadgeStyle}
         >
@@ -190,7 +195,9 @@ export function ActiveSurfaceSavedViewSelector({
       <div style={actionMenuFrameStyle}>
         <button
           aria-controls={
-            isActionMenuOpen ? savedViewActionMenuTestId(activeViewSchemaId) : undefined
+            isActionMenuOpen
+              ? savedViewActionMenuTestId(activeViewSchemaId)
+              : undefined
           }
           aria-expanded={isActionMenuOpen}
           aria-haspopup="menu"
@@ -233,7 +240,9 @@ export function ActiveSurfaceSavedViewSelector({
                 value={scope}
                 onChange={(event) => {
                   setScope(
-                    event.currentTarget.value === "shared" ? "shared" : "private",
+                    event.currentTarget.value === "shared"
+                      ? "shared"
+                      : "private",
                   );
                 }}
               >
@@ -277,7 +286,8 @@ export function ActiveSurfaceSavedViewSelector({
                   onClick={() => {
                     void runSavedViewAction(async () => {
                       await onUpdateSavedView(selectedSavedView, {
-                        displayName: trimmedDisplayName || selectedSavedView.display_name,
+                        displayName:
+                          trimmedDisplayName || selectedSavedView.display_name,
                         scope,
                       });
                     }, "Saved view updated.");
@@ -306,7 +316,9 @@ export function ActiveSurfaceSavedViewSelector({
                     activeViewSchemaId,
                     selectedSavedView.saved_view_id,
                   )}
-                  disabled={!selectedSavedViewMutable || trimmedDisplayName === ""}
+                  disabled={
+                    !selectedSavedViewMutable || trimmedDisplayName === ""
+                  }
                   role="menuitem"
                   style={menuActionStyle}
                   type="button"
@@ -384,7 +396,10 @@ export function ActiveSurfaceSavedViewSelector({
               style={menuActionStyle}
               type="button"
               onClick={() => {
-                void runSavedViewAction(onSetHomeSheetRef, "Home view updated.");
+                void runSavedViewAction(
+                  onSetHomeSheetRef,
+                  "Home view updated.",
+                );
               }}
             >
               Set as my home

@@ -464,6 +464,7 @@ export function AccountApplicationMenu({
         aria-label="Account and application navigation"
         data-testid={triggerTestId}
         style={accountMenuTriggerStyle}
+        title={currentUserLabel}
         type="button"
         onClick={() => {
           setOpen((current) => {
@@ -2031,7 +2032,8 @@ const accountMenuAnchorStyle: CSSProperties = {
 const accountMenuTriggerStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  maxWidth: "min(22rem, 100%)",
+  maxWidth: "min(9rem, 100%)",
+  minWidth: 0,
   gap: "0.45rem",
   padding: "0.5rem 0.65rem",
   borderRadius: "var(--ct-rounded-sm)",

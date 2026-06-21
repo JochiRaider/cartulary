@@ -157,11 +157,11 @@ A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to stat
 
 | Region       | Required contents                                                                                       | Boundary                              |
 | ------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| Top bar      | Incident identity, built-in tabs, active-surface title when not already represented by the selected built-in tab, `System views` switcher, current system-view title, presence summary. | Persistent chrome, not a dashboard.   |
-| View bar     | Compact sheet toolbar with saved-view selector, saved-view actions, sort, group, filters, active chips, inspector opener, and add-row control when allowed. | Belongs to active surface only.       |
+| Top bar      | Incident identity, built-in tabs, active-surface title when not already represented by the selected built-in tab, `System views` switcher, current system-view title, top-bar query controls (`Sort`, `Group: None`, `Filters`, active query chips), and account navigation. | Persistent chrome, not a dashboard.   |
+| View bar     | Compact sheet toolbar with saved-view selector, saved-view action menu, inspector opener, and add-row control when allowed. Saved-view mutation controls live inside the action menu, not as persistent rail controls. | Belongs to active surface only.       |
 | Grid         | Active workbook surface with `record_id`-bound rows and `field_key`-bound cells.                        | Primary work surface.                 |
 | Inspector    | Details, Relationships, Evidence, History, destructive and specialized row actions.                     | Closed by default; adjacent or overlay secondary surface only after explicit open. |
-| Status strip | Save state, secondary same-surface message, presence summary or overflow.                               | Capacity-limited working-state strip. |
+| Status strip | Save state, secondary same-surface message, presence summary or overflow. Save state labels are `Syncing`, `Saved`, or `Conflict`. | Capacity-limited working-state strip. |
 
 *Design direction.* The default Timeline route MUST be grid-first: the first-viewport composition centers the active Timeline grid, compact sheet toolbar, explicit inspector opener, bottom draft row when creation is allowed, and status strip. The inspector MUST be closed by default and MUST open only through explicit controls such as the toolbar inspector control, row action menu, history action, mention action, or equivalent keyboard-accessible command. Incident summary, bootstrap defaults, membership management, incident-metadata patch forms, or other incident administration controls MUST NOT appear as a dominant card stack above the active grid unless the user explicitly opens a secondary incident-control surface or navigates to a distinct administration context.
 
@@ -659,6 +659,8 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 *Core behavior.* Core 01 owns the view-query route, sort entries, filter predicates, canonicalization, cursor binding, and limits. The UI addresses fields by stable `field_key`, not visible labels or storage names.[^5]
 
 *Design direction.* Sorting and filtering controls MUST expose visible labels, but their configured state MUST serialize and replay through stable contract identifiers. Renaming a column label MUST NOT change filter semantics, write-back behavior, or export semantics.
+
+*Design direction.* Workbook query controls are top-bar owned. Filter fields live inside a draft popover opened from the `Filters` control; `Esc` cancels draft changes, and `Apply` commits one canonical query intent. Saved-view actions are menu-owned, and save state is exposed through the shared status strip rather than detached surface badges.
 
 *Design direction.* The UI SHOULD preserve the user’s current working context when sort or filter changes. Pending edits remain bound to `record_id`, not row position.
 
@@ -1183,7 +1185,7 @@ Cell: timeline.summary  B editing
 
 ### 18.6 Truncation and overflow
 
-*Design direction.* Chip labels, cell values, saved-view names, system-view labels, and filter chips MUST truncate with end ellipsis when they exceed their container. The full value MUST be available on hover and keyboard focus through a tooltip, popover, or accessible description.
+*Design direction.* Chip labels, cell values, saved-view names, system-view labels, and filter chips MUST truncate with end ellipsis when they exceed their container. The full value MUST be available on hover and keyboard focus through a tooltip, popover, or accessible description. Visible active-query chips MUST remain pointer- and keyboard-reachable; overflow MUST stay within the query rail and MUST NOT cover adjacent controls.
 
 *Design direction.* Tab-strip overflow beyond the visible strip SHOULD use end-anchored overflow, not horizontal scroll, at the base viewport. Long system-view lists use the ordering defined in §5.3, not ad hoc sorting.
 

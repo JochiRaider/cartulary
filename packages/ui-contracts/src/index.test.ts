@@ -170,8 +170,8 @@ import {
   workbookAddRowButtonTestId,
   workbookFilterPopoverTestId,
   workbookFilterPopoverTriggerTestId,
-  workbookInlineDraftRowTestId,
   workbookIncidentIdentityTestId,
+  workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
   workbookResponsiveBandTestId,
@@ -894,9 +894,9 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "workbook-surfaces-menu-trigger",
     );
     expect(workbookSurfacesMenuTestId()).toBe("workbook-surfaces-menu");
-    expect(
-      workbookSurfacesMenuOptionTestId("cartulary.view.timeline.v1"),
-    ).toBe("workbook-surfaces-menu-option-cartulary.view.timeline.v1");
+    expect(workbookSurfacesMenuOptionTestId("cartulary.view.timeline.v1")).toBe(
+      "workbook-surfaces-menu-option-cartulary.view.timeline.v1",
+    );
     expect(
       workbookTopBarQueryControlsTestId("cartulary.view.timeline.v1"),
     ).toBe("cartulary.view.timeline.v1-top-bar-query");
