@@ -483,10 +483,13 @@
       "coverage": "authoritative",
       "runner": "vitest",
       "file": "apps/web/src/app/App.phase1.test.tsx",
-      "title": "Phase 1 U-1-14 ordinary shell keeps the anonymous login surface, sends the login request, refreshes session and credential state after success, and keeps deployment-user controls denied for non-admin sessions",
+      "titles": [
+        "Phase 1 U-1-14 ordinary shell keeps the anonymous login surface, sends the login request, refreshes session and credential state after success, and keeps deployment-user controls denied for non-admin sessions",
+        "Phase 1 U-1-14 ordinary shell blocks authenticated bootstrap until credential state loads and renders credential public errors without private details"
+      ],
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
-      "claim": "The ordinary shell starts anonymous, sends the Phase 1 login request with the ordinary client payload, refreshes session plus credential-state fetches after success, and keeps deployment-user controls denied for a non-deployment-admin session.",
+      "claim": "The ordinary shell starts anonymous, sends the Phase 1 login request with the ordinary client payload, refreshes session plus credential-state fetches after success, blocks authenticated bootstrap until credential state loads, renders credential public errors without private details, and keeps deployment-user controls denied for a non-deployment-admin session.",
       "out_of_scope": "Real cookies, durable session rows, and route-owned invalid-credential cases remain integration or browser evidence.",
       "evidence_class": "product_conformance",
       "layer": "frontend_unit",

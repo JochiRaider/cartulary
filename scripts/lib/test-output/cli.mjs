@@ -765,11 +765,20 @@ function normalizeAccountingRule(rule, label, scope) {
       `${label}.coverage must be raw|tooling_support|unowned_regression|support|authoritative`,
     );
   }
+  if (typeof rule.target !== "string" || rule.target.trim() === "") {
+    throw new Error(`${label}.target must declare the owning Make target`);
+  }
+  if (typeof rule.reason !== "string" || rule.reason.trim().length < 20) {
+    throw new Error(`${label}.reason must explain the ownership decision`);
+  }
+  if (typeof rule.title === "string" && typeof rule.title_pattern === "string") {
+    throw new Error(`${label} must not declare both title and title_pattern`);
+  }
   return {
     ...rule,
     coverage,
     phase: typeof rule.phase === "string" ? rule.phase : "",
-    reason: typeof rule.reason === "string" ? rule.reason : "",
+    reason: rule.reason.trim(),
   };
 }
 
@@ -798,6 +807,7 @@ function loadTestAccountingClassification() {
       `${file} must declare schema_id ${testAccountingClassificationSchemaID}`,
     );
   }
+  validateSchemaSync(testAccountingClassificationSchemaID, manifest);
   cachedTestAccountingClassification = {
     vitest: (manifest.vitest ?? []).map((rule, index) =>
       normalizeAccountingRule(rule, `${file}.vitest[${index}]`, "vitest"),
@@ -928,6 +938,14 @@ function inferPhaseFromText(value) {
     }
   }
   return "";
+}
+
+function claimsConformanceRowTitle(value) {
+  const text = String(value ?? "");
+  return (
+    /\bFE-[A-Z]+-P\d+-\d+\b/.test(text) ||
+    /\b[UIE]-\d+(?:-[A-Z0-9]+)*-\d+\b/.test(text)
+  );
 }
 
 function supportNamedTitle(value) {
@@ -2748,6 +2766,32 @@ function schedulerAccountingFromSummary(summary) {
   };
 }
 
+function schedulerFailureCoveredByChildTarget(failure, failedChildTargetSet) {
+  const childTarget =
+    typeof failure?.child_target === "string" && failure.child_target
+      ? failure.child_target
+      : typeof failure?.target === "string"
+        ? failure.target
+        : "";
+  if (childTarget && failedChildTargetSet.has(childTarget)) {
+    return true;
+  }
+  const workUnit =
+    typeof failure?.work_unit === "string" ? failure.work_unit : "";
+  if (workUnit === "") {
+    return false;
+  }
+  for (const failedChildTarget of failedChildTargetSet) {
+    if (
+      workUnit === failedChildTarget ||
+      workUnit.startsWith(`${failedChildTarget}:`)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function addSchedulerAccountingDurations(target, accounting) {
   if (!accounting) {
     return;
@@ -3545,6 +3589,40 @@ function writeSkippedChildTargetLines(
   }
 }
 
+function testAccountingUnmappedFailures(section, target) {
+  const count = normalizeCounts(section?.counts ?? {}).unmapped;
+  if (count <= 0) {
+    return [];
+  }
+  return [
+    {
+      failure_class: "harness",
+      failure_reason: "test_accounting_unmapped",
+      kind: "failure",
+      source: "test-accounting",
+      target,
+      label: "unmapped test accounting",
+      message: `${count} executed test(s) are unmapped; map conformance evidence or classify intentional residual coverage`,
+    },
+  ];
+}
+
+function appendTestAccountingFailures(section, failures) {
+  if (failures.length === 0) {
+    return;
+  }
+  section.status = "fail";
+  section.counts = normalizeCounts(section.counts);
+  section.counts.failed += failures.length;
+  section.counts.non_test += failures.length;
+  section.counts.non_test_failed += failures.length;
+  const failureFields = failureFieldsForJSON(
+    [...(section.failures ?? []), ...failures],
+    section.counts,
+  );
+  Object.assign(section, failureFields);
+}
+
 function handleTargetSummary(args) {
   const reportCollationStartMs = Date.now();
   const reportCollationStartTime = new Date(
@@ -3573,6 +3651,9 @@ function handleTargetSummary(args) {
     summary.summaries,
   );
   const lifecycleSpans = lifecycleTimingSpans(target, summary.targetDir);
+  const schedulerSummary = loadSchedulerSummary(target);
+  const schedulerTiming = schedulerTimingFromSummary(schedulerSummary);
+  const schedulerAccounting = schedulerAccountingFromSummary(schedulerSummary);
   const timingFailures = timingFailuresFromSpans(lifecycleSpans);
   const teardownFailures = timingFailures.filter(
     (failure) => failure.bucket === "teardown",
@@ -3597,6 +3678,20 @@ function handleTargetSummary(args) {
   const failedChildTargets = childTargets
     .filter((child) => child.status !== "pass")
     .map((child) => child.target);
+  const failedChildTargetSet = new Set(failedChildTargets);
+  const schedulerFailuresForOwnSection =
+    schedulerSummary?.status === "fail" && Array.isArray(schedulerSummary.failures)
+      ? schedulerSummary.failures.filter(
+          (failure) =>
+            !schedulerFailureCoveredByChildTarget(
+              failure,
+              failedChildTargetSet,
+            ),
+        )
+      : [];
+  const schedulerNonProductFailures = schedulerFailuresForOwnSection.filter(
+    (failure) => failure.failure_class !== "product",
+  );
   if (timingFailures.length > 0) {
     summary.counts.failed += timingFailures.length;
     summary.counts.non_test += timingFailures.length;
@@ -3612,6 +3707,11 @@ function handleTargetSummary(args) {
     summary.counts.failed += securityRollup.failures.length;
     summary.counts.non_test += securityRollup.failures.length;
     summary.counts.non_test_failed += securityRollup.failures.length;
+  }
+  if (schedulerNonProductFailures.length > 0) {
+    summary.counts.failed += schedulerNonProductFailures.length;
+    summary.counts.non_test += schedulerNonProductFailures.length;
+    summary.counts.non_test_failed += schedulerNonProductFailures.length;
   }
   if (
     requestedStatus === "fail" &&
@@ -3657,6 +3757,7 @@ function handleTargetSummary(args) {
         }),
       ),
       ...securityRollup.failures,
+      ...schedulerFailuresForOwnSection,
       ...requestedFallbackFailure,
     ],
     normalizeCounts(summary.counts),
@@ -3675,9 +3776,6 @@ function handleTargetSummary(args) {
       : "PASS";
   const reportCollationEndMs = Date.now();
   const reportCollationEndTime = new Date(reportCollationEndMs).toISOString();
-  const schedulerSummary = loadSchedulerSummary(target);
-  const schedulerTiming = schedulerTimingFromSummary(schedulerSummary);
-  const schedulerAccounting = schedulerAccountingFromSummary(schedulerSummary);
   const accountableTimingSpans = [
     ...lifecycleSpans,
     schedulerTimingSpan(schedulerTiming),
@@ -3890,8 +3988,14 @@ function handleTargetSummary(args) {
     frontendAccountingFailures,
     { normalizeCounts, failureFieldsForJSON },
   );
+  const testAccountingFailures =
+    status === "PASS" ? testAccountingUnmappedFailures(ownSection, target) : [];
+  appendTestAccountingFailures(ownSection, testAccountingFailures);
+  appendTestAccountingFailures(totalsSection, testAccountingFailures);
   const finalStatus =
-    frontendAccountingFailures.length > 0 ? "FAIL" : status;
+    frontendAccountingFailures.length > 0 || testAccountingFailures.length > 0
+      ? "FAIL"
+      : status;
   const targetExtensions = {
     ...securityRollup.extensions,
     ...(schedulerAccounting
@@ -4010,7 +4114,10 @@ function handleTargetSummary(args) {
     );
     writeSkippedChildTargetLines(process.stderr, target, skippedChildTargets);
   }
-  return frontendAccountingFailures.length > 0 ? 1 : 0;
+  return frontendAccountingFailures.length > 0 ||
+    testAccountingFailures.length > 0
+    ? 1
+    : 0;
 }
 
 function parseSummaryGroupsSpec(value) {
@@ -4893,7 +5000,11 @@ function classifyShellFailureDetails(context, stdoutLines, stderrLines, message)
   if (
     text.includes("built frontend artifact missing") ||
     text.includes("run make build-web before browser e2e") ||
-    text.includes("repo-local pnpm was not found")
+    text.includes("repo-local pnpm was not found") ||
+    text.includes("node runtime bootstrap failed") ||
+    text.includes("node archive checksum mismatch") ||
+    text.includes("missing committed node checksum") ||
+    text.includes("unsupported node bootstrap platform")
   ) {
     return { failure_class: "config", failure_reason: "configuration_error" };
   }
@@ -5736,6 +5847,18 @@ function classifyVitestCase(ownerPath, title, phaseLabel) {
       owner: ownerPath,
     };
   }
+  const inferredPhase =
+    inferPhaseFromText(ownerPath) ||
+    inferPhaseFromText(title) ||
+    inferPhaseFromText(phaseLabel);
+  if (claimsConformanceRowTitle(title)) {
+    return {
+      coverage: "unmapped",
+      phase: inferredPhase,
+      id: "",
+      owner: ownerPath,
+    };
+  }
   const support =
     ownerPath.includes(".support.") ||
     supportNamedTitle(title) ||
@@ -5744,10 +5867,6 @@ function classifyVitestCase(ownerPath, title, phaseLabel) {
       inferPhaseFromText(ownerPath) || inferPhaseFromText(title),
     ) ||
     /\bsupport\b/i.test(phaseLabel);
-  const inferredPhase =
-    inferPhaseFromText(ownerPath) ||
-    inferPhaseFromText(title) ||
-    inferPhaseFromText(phaseLabel);
   if (support) {
     return {
       coverage: "support",
@@ -6766,6 +6885,14 @@ function classifyPlaywrightCase(file, title, phaseLabel) {
     inferPhaseFromText(normalizedFile) ||
     inferPhaseFromText(title) ||
     inferPhaseFromText(phaseLabel);
+  if (claimsConformanceRowTitle(title)) {
+    return {
+      coverage: "unmapped",
+      phase: inferredPhase,
+      id: "",
+      owner: normalizedFile,
+    };
+  }
   const support =
     normalizedFile.includes(".support.") ||
     isForbiddenFile(normalizedFile, inferredPhase) ||

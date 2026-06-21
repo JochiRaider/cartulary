@@ -772,7 +772,7 @@ export function IncidentLanding({
           </button>
           {!createOpen ? (
             <button
-              data-testid={phase1LandingTestId("create-button")}
+              data-testid={phase1LandingTestId("create-open-button")}
               style={primaryButtonStyle}
               type="button"
               onClick={() => {
@@ -1081,7 +1081,7 @@ export function IncidentLanding({
               </div>
             </details>
             <button
-              data-testid={phase1LandingTestId("create-button")}
+              data-testid={phase1LandingTestId("create-submit-button")}
               style={primaryButtonStyle}
               type="button"
               onClick={() => {

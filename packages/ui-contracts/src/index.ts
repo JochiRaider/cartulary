@@ -160,11 +160,12 @@ export type Phase1AdminSelector =
   | "user-list";
 
 export type Phase1LandingSelector =
-  | "create-button"
   | "create-current-phase"
   | "create-description"
   | "create-external-case"
+  | "create-open-button"
   | "create-severity"
+  | "create-submit-button"
   | "create-tlp"
   | "current-user"
   | "empty-state"
@@ -369,11 +370,12 @@ const phase1AdminTestIds = Object.freeze({
 } satisfies Record<Phase1AdminSelector, string>);
 
 const phase1LandingTestIds = Object.freeze({
-  "create-button": "landing-create-button",
   "create-current-phase": "landing-create-current-phase",
   "create-description": "landing-create-description",
   "create-external-case": "landing-create-external-case",
+  "create-open-button": "landing-create-open-button",
   "create-severity": "landing-create-severity",
+  "create-submit-button": "landing-create-submit-button",
   "create-tlp": "landing-create-tlp",
   "current-user": "landing-current-user",
   "empty-state": "landing-empty-state",

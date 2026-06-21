@@ -203,7 +203,7 @@ export const makeNodeTools = {
     script: "./scripts/print-explain-run.mjs",
     resultDir: { mode: "required", flag: "--results-dir" },
     usage:
-      "usage: make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs|progress]",
+      "usage: make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs|progress|accounting]",
     buildArgs(env) {
       const args = ["--detail", value(env, "DETAIL") || "summary"];
       optionalFlag(args, env, "RUN_ID", "--run-id");

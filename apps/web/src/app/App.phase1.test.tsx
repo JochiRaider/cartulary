@@ -1856,7 +1856,9 @@ describe("Phase 1 ordinary app shell", () => {
       expect(readHeader(listIncidentRequest, csrfHeaderName)).toBe("");
     }
 
-    fireEvent.click(screen.getByTestId(phase1LandingTestId("create-button")));
+    fireEvent.click(
+      screen.getByTestId(phase1LandingTestId("create-open-button")),
+    );
     fireEvent.change(screen.getByTestId(phase1LandingTestId("incident-key")), {
       target: { value: "IR-2026-003" },
     });
@@ -1866,7 +1868,9 @@ describe("Phase 1 ordinary app shell", () => {
         target: { value: "Phase 1 boundary incident" },
       },
     );
-    fireEvent.click(screen.getByTestId(phase1LandingTestId("create-button")));
+    fireEvent.click(
+      screen.getByTestId(phase1LandingTestId("create-submit-button")),
+    );
 
     await waitFor(() => {
       expect(

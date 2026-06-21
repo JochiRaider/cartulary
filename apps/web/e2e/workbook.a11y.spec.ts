@@ -2785,7 +2785,7 @@ test.describe("FE-P1 accessibility readiness", () => {
           phase1LandingTestId("search"),
           phase1LandingTestId("status-filter"),
           phase1LandingTestId("refresh"),
-          phase1LandingTestId("create-button"),
+          phase1LandingTestId("create-open-button"),
         ],
       });
       await sessionTracker.captureCurrentSession(page, {
@@ -2923,16 +2923,16 @@ test.describe("FE-P1 accessibility readiness", () => {
       page.getByTestId(landingIncidentCardTestId(incidentId)),
     ).toBeVisible();
     await expectVisibleFocus(
-      page.getByTestId(phase1LandingTestId("create-button")),
+      page.getByTestId(phase1LandingTestId("create-open-button")),
     );
     await expectStatusRole(page.getByTestId(phase1LandingTestId("status")));
     await expectP1SurfaceA11y(page, {
-      focusTestId: phase1LandingTestId("create-button"),
+      focusTestId: phase1LandingTestId("create-open-button"),
       tabStops: [
         phase1LandingTestId("search"),
         phase1LandingTestId("status-filter"),
         phase1LandingTestId("refresh"),
-        phase1LandingTestId("create-button"),
+        phase1LandingTestId("create-open-button"),
       ],
     });
   });

@@ -330,12 +330,22 @@ async function readSchedulerChildFailureRecord({
     : Array.isArray(summary?.failures)
       ? summary.failures
       : [];
-  const propagated = primaryPublicFailure(failures, {
-    failure_class: failureSource?.failure_class ?? summary?.failure_class,
-    failure_reason: failureSource?.failure_reason ?? summary?.failure_reason,
-    target: childTarget,
-    label: failed ?? childTarget,
-  });
+  const workUnitTokens = schedulerWorkUnitFailureTokens(failed, failedDetail);
+  const matchingFailures =
+    workUnitTokens.length === 0
+      ? failures
+      : failures.filter((failure) =>
+          schedulerFailureMatchesWorkUnit(failure, workUnitTokens),
+        );
+  const propagated = primaryPublicFailure(
+    matchingFailures.length > 0 ? matchingFailures : failures,
+    {
+      failure_class: failureSource?.failure_class ?? summary?.failure_class,
+      failure_reason: failureSource?.failure_reason ?? summary?.failure_reason,
+      target: childTarget,
+      label: failed ?? childTarget,
+    },
+  );
   if (!propagated) {
     return null;
   }
@@ -352,6 +362,80 @@ async function readSchedulerChildFailureRecord({
       `scheduler child target failed: ${childTarget}`,
     artifact: propagated.artifact || relToRepo(repoRoot, summaryFile),
   };
+}
+
+function schedulerWorkUnitFailureTokens(failed, failedDetail) {
+  const tokens = new Set();
+  const values = [
+    failed,
+    failedDetail?.id,
+    failedDetail?.label,
+    ...(Array.isArray(failedDetail?.completion_keys)
+      ? failedDetail.completion_keys
+      : []),
+  ];
+  for (const value of values) {
+    if (typeof value !== "string") {
+      continue;
+    }
+    for (const match of value
+      .toLowerCase()
+      .matchAll(/browser-functional-shard-\d+/g)) {
+      tokens.add(match[0]);
+    }
+    for (const match of value
+      .toLowerCase()
+      .matchAll(/functional-shard-\d+/g)) {
+      tokens.add(match[0]);
+    }
+  }
+  return [...tokens];
+}
+
+function schedulerFailureMatchesWorkUnit(failure, tokens) {
+  const haystack = [
+    failure?.label,
+    failure?.artifact,
+    failure?.work_unit,
+    failure?.message,
+  ]
+    .map((value) => (typeof value === "string" ? value.toLowerCase() : ""))
+    .join(" ");
+  return tokens.some((token) => haystack.includes(token));
+}
+
+function schedulerFallbackFailureRecord(record, scheduleTarget) {
+  const label = record?.label ?? scheduleTarget;
+  return normalizeFailureRecord({
+    failure_class: classifyExecutionFailure(label, scheduleTarget),
+    kind: "scheduler",
+    source: "scheduler",
+    target: scheduleTarget,
+    child_target: record?.aggregate_target ?? null,
+    work_unit: record?.id ?? label,
+    label,
+    message: `scheduler work unit failed: ${label}`,
+    artifact: record?.log_file ?? "",
+  });
+}
+
+async function schedulerFailureRecordsForCompletedWork({
+  completedWork,
+  repoRoot,
+  scheduleTarget,
+}) {
+  const failedRecords = completedWork.filter((record) => record.status !== 0);
+  const failures = [];
+  for (const record of failedRecords) {
+    const propagated = await readSchedulerChildFailureRecord({
+      failed: record.label,
+      failedDetail: record,
+      repoRoot,
+      scheduleTarget,
+    });
+    failures.push(propagated ?? schedulerFallbackFailureRecord(record, scheduleTarget));
+  }
+  return failures;
 }
 
 class SchedulerReporter {
@@ -884,10 +968,19 @@ class SchedulerReporter {
     const slowest = slowestWork(this.completedWork);
     const topBlockers = topBlockerRecords(this.topBlockerCounts);
     const skipped = this.skippedWork.length;
-    const fallbackFailureRecord =
+    const completedFailureRecords =
       status === "pass"
+        ? []
+        : await schedulerFailureRecordsForCompletedWork({
+            completedWork: this.completedWork,
+            repoRoot: this.repoRoot,
+            scheduleTarget: this.schedule.target,
+          });
+    const fallbackFailureRecord =
+      status === "pass" || completedFailureRecords.length > 0
         ? null
-        : this.schedulerFailureRecord ?? {
+        : this.schedulerFailureRecord ??
+          normalizeFailureRecord({
             failure_class: classifyExecutionFailure(
               failed ?? this.schedule.target,
               this.schedule.target,
@@ -899,20 +992,13 @@ class SchedulerReporter {
             message: failed
               ? `scheduler work unit failed: ${failed}`
               : `scheduler target failed: ${this.schedule.target}`,
-          };
-    const propagatedFailureRecord =
-      status === "pass"
-        ? null
-        : await readSchedulerChildFailureRecord({
-            failed,
-            failedDetail,
-            repoRoot: this.repoRoot,
-            scheduleTarget: this.schedule.target,
           });
     const failureFields = failureFieldsForJSON(
       status === "pass"
         ? []
-        : [propagatedFailureRecord ?? fallbackFailureRecord],
+        : completedFailureRecords.length > 0
+          ? completedFailureRecords
+          : [fallbackFailureRecord],
     );
     const timing = this.timingEnvelope();
     const criticalPath = criticalPathSummary(

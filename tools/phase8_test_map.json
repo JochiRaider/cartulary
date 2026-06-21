@@ -449,10 +449,14 @@
       "coverage": "authoritative",
       "runner": "vitest",
       "file": "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
-      "title": "Phase 8 U-8-GRID-01 emits stable schema keys for sort, filter, and group query controls",
+      "titles": [
+        "Phase 8 U-8-GRID-01 emits stable schema keys for sort, filter, and group query controls",
+        "Phase 8 U-8-GRID-01 drops non-discovery keys before building query request bodies",
+        "Phase 8 U-8-GRID-01 renders group headers as presentation-only rows"
+      ],
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component",
-      "claim": "Grid sort, filter, and group controls send only stable contract keys and never labels, vendor indexes, projection-table names, or storage-table names.",
+      "claim": "Grid sort, filter, and group controls send only stable contract keys, drop non-discovery keys before query request construction, keep grouped presentation rows non-mutation-capable, and never send labels, vendor indexes, projection-table names, or storage-table names.",
       "out_of_scope": "Server query validation and browser-functional workflows are covered by separate rows.",
       "evidence_class": "product_conformance",
       "layer": "frontend_unit",

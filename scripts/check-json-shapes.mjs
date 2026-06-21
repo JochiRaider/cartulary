@@ -70,6 +70,8 @@ const fallowStaticSummarySchemaID = "cartulary.fallow_static_summary.v1";
 const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v3";
 const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v2";
 const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v3";
+const testAccountingClassificationSchemaID =
+  "cartulary.test_accounting_classification.v2";
 const frontendVisualFixtureRegistrySchemaID =
   "cartulary.frontend_visual_fixture_registry.v2";
 const sharedExtensionsRef = "cartulary.harness.defs.v1#/$defs/extensions";
@@ -108,6 +110,13 @@ const frontendBoundaryKeys = new Set([
   "singleton_imports",
   "rules",
   "raw_design_token_literal_checks",
+]);
+const testAccountingClassificationKeys = new Set([
+  "schema_id",
+  "vitest",
+  "go_packages",
+  "go_tests",
+  "playwright",
 ]);
 const bootstrapAdminKeys = new Set([
   "bootstrap_schema_id",
@@ -175,9 +184,12 @@ const toolRunFailureReasons = new Set([
   "fixture_error",
   "resource_conflict",
   "test_assertion_failure",
+  "security_finding",
   "child_target_failure",
   "tool_diagnostic_failure",
   "scheduler_accounting_error",
+  "frontend_row_accounting",
+  "test_accounting_unmapped",
   "artifact_error",
   "cleanup_error",
   "duration_baseline_drift",
@@ -1028,6 +1040,13 @@ function validateToolRunSummaryShape(file) {
   validateSchemaSync(toolRunSummarySchemaID, summary);
 }
 
+function validateTestAccountingClassificationShape(file) {
+  const manifest = readShapeFile(file, file);
+  assertObjectKeys(manifest, testAccountingClassificationKeys, file);
+  assertRequiredKeys(manifest, testAccountingClassificationKeys, file);
+  validateSchemaSync(testAccountingClassificationSchemaID, manifest);
+}
+
 function schemaIDFromFile(file) {
   const base = path.basename(file);
   if (!base.endsWith(".schema.json")) {
@@ -1214,6 +1233,9 @@ function validateKind(kind, file) {
         readShapeFile(file, file),
       );
       return;
+    case "test-accounting-classification":
+      validateTestAccountingClassificationShape(file);
+      return;
     default:
       throw new Error(`unknown json shape kind ${kind}`);
   }
@@ -1275,6 +1297,9 @@ function validateAll(root) {
   );
   validateBootstrapAdminShape(
     repoFile(root, "configs/dev/bootstrap-admin.json"),
+  );
+  validateTestAccountingClassificationShape(
+    repoFile(root, "tools/test_accounting_classification.json"),
   );
 }
 

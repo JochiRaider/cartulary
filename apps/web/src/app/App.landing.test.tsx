@@ -22,6 +22,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../workbook/WorkbookShell", async () => {
@@ -29,9 +30,14 @@ vi.mock("../workbook/WorkbookShell", async () => {
 
   return {
     WorkbookShell: ({
+      accountApplicationMenu,
       incidentId,
       onIncidentAccessLost,
     }: {
+      accountApplicationMenu?: (props: {
+        currentIncidentRole: string;
+        incidentControls?: undefined;
+      }) => ReactNode;
       incidentId: string;
       onIncidentAccessLost?: () => void;
     }) => {
@@ -73,6 +79,10 @@ vi.mock("../workbook/WorkbookShell", async () => {
         <section data-testid="mock-workbook">
           <p data-testid="mock-workbook-incident">{incidentId}</p>
           <p data-testid="mock-workbook-role">{currentRole}</p>
+          {accountApplicationMenu?.({
+            currentIncidentRole: currentRole,
+            incidentControls: undefined,
+          })}
           <button
             data-testid="mock-access-lost"
             type="button"
@@ -295,6 +305,41 @@ describe("Incident landing", () => {
     expect(new URLSearchParams(window.location.search).has("sheet_ref")).toBe(
       false,
     );
+  });
+
+  it("keeps explicit incident-directory navigation on the landing screen when exactly one incident is visible", async () => {
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Deployment Admin",
+        is_deployment_admin: true,
+        memberships: [
+          {
+            incident_id: "incident-one",
+            role: "admin",
+          },
+        ],
+      }),
+      incidents: [
+        incidentResource("incident-one", "IR-200", "Only visible incident"),
+      ],
+    });
+
+    renderApp();
+
+    expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
+    fireEvent.click(
+      screen.getByLabelText("Account and application navigation"),
+    );
+    fireEvent.click(screen.getByTestId(phase1LandingTestId("return")));
+
+    expect(
+      await screen.findByTestId(phase1LandingTestId("incident-list")),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(landingIncidentOpenButtonTestId("incident-one")),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("mock-workbook")).toBe(null);
+    expect(window.location.search).not.toContain("incident_id=");
   });
 
   it("loads deployment administration as a separate route without incident-directory fetches", async () => {
@@ -845,6 +890,8 @@ describe("Incident landing", () => {
     expect(
       await screen.findByTestId(
         landingIncidentCardTestId("incident-closed-101"),
+        {},
+        { timeout: 5000 },
       ),
     ).toBeTruthy();
     const cursorRequest = findFetchCallsByPath(
@@ -901,7 +948,9 @@ describe("Incident landing", () => {
     renderApp();
 
     await screen.findByTestId(phase1LandingTestId("empty-state"));
-    fireEvent.click(screen.getByTestId(phase1LandingTestId("create-button")));
+    fireEvent.click(
+      screen.getByTestId(phase1LandingTestId("create-open-button")),
+    );
     fireEvent.change(screen.getByTestId(phase1LandingTestId("incident-key")), {
       target: { value: "IR-401" },
     });
@@ -939,7 +988,9 @@ describe("Incident landing", () => {
         target: { value: "CASE-401" },
       },
     );
-    fireEvent.click(screen.getByTestId(phase1LandingTestId("create-button")));
+    fireEvent.click(
+      screen.getByTestId(phase1LandingTestId("create-submit-button")),
+    );
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
     expect(createBody).toEqual({
@@ -995,7 +1046,9 @@ describe("Incident landing", () => {
     renderApp();
 
     await screen.findByTestId(phase1LandingTestId("empty-state"));
-    fireEvent.click(screen.getByTestId(phase1LandingTestId("create-button")));
+    fireEvent.click(
+      screen.getByTestId(phase1LandingTestId("create-open-button")),
+    );
     fireEvent.change(screen.getByTestId(phase1LandingTestId("incident-key")), {
       target: { value: "IR-203" },
     });
@@ -1005,7 +1058,9 @@ describe("Incident landing", () => {
         target: { value: "Created Incident" },
       },
     );
-    fireEvent.click(screen.getByTestId(phase1LandingTestId("create-button")));
+    fireEvent.click(
+      screen.getByTestId(phase1LandingTestId("create-submit-button")),
+    );
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
     expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(

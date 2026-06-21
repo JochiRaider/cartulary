@@ -206,18 +206,21 @@ test(exactScenarioTitle, async ({ page }) => {
   await expect(
     page.getByTestId(rowCellTestId(createdRecordId, "timeline.summary")),
   ).toHaveValue("FE-I-P4-01 Created");
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
+  const betaOccurredAtCell = page.getByTestId(
+    rowCellTestId(beta.record_id, "timeline.occurred_at"),
+  );
+  await expect(betaOccurredAtCell).toHaveCount(1);
+  await betaOccurredAtCell.scrollIntoViewIfNeeded();
+  await betaOccurredAtCell.fill("not-a-timestamp");
+  await expect(betaOccurredAtCell).toHaveValue("not-a-timestamp");
   const validationResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "PATCH" &&
       response.url().endsWith(`/api/v1/records/${beta.record_id}`),
   );
-  await page
-    .getByTestId(rowCellTestId(beta.record_id, "timeline.occurred_at"))
-    .fill("not-a-timestamp");
-  await page
-    .getByTestId(rowCellTestId(beta.record_id, "timeline.occurred_at"))
-    .press("Enter");
+  await betaOccurredAtCell.press("Enter");
   const validation = await validationResponse;
   expect(validation.ok()).toBe(false);
   await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();

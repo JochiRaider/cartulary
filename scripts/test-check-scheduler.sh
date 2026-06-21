@@ -702,6 +702,56 @@ write_security_failure_summary() {
 JSON
 }
 
+write_config_failure_summary() {
+  if [[ -z "${CARTULARY_TEST_RESULTS_DIR:-}" || -z "${CARTULARY_TEST_RUN_ID:-}" ]]; then
+    return 0
+  fi
+  mkdir -p "${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}"
+  cat >"${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}/target-summary.json" <<JSON
+{
+  "target": "${target}",
+  "status": "fail",
+  "start_time": "2026-01-01T00:00:00Z",
+  "end_time": "2026-01-01T00:00:01Z",
+  "executed_duration_ms": 1,
+  "logical_duration_ms": 1,
+  "reused_duration_ms": 0,
+  "derived_duration_ms": 0,
+  "wall_duration_ms": 1,
+  "critical_path_wall_duration_ms": 1,
+  "teardown_duration_ms": 0,
+  "counts": {
+    "phases": 1,
+    "tests": 0,
+    "failed": 1,
+    "authoritative": 0,
+    "support": 0,
+    "raw": 0,
+    "tooling_support": 0,
+    "unowned_regression": 0,
+    "unmapped": 0,
+    "non_test": 1,
+    "authoritative_failed": 0,
+    "support_failed": 0,
+    "raw_failed": 0,
+    "tooling_support_failed": 0,
+    "unowned_regression_failed": 0,
+    "unmapped_failed": 0,
+    "non_test_failed": 1,
+    "packages": 0
+  },
+  "failure_class": "config",
+  "failure_reason": "configuration_error",
+  "failure_classes": { "product": 0, "security": 0, "config": 1, "infra": 0, "harness": 0, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
+  "failure_reasons": { "usage_error": 0, "configuration_error": 1, "preflight_error": 0, "service_start_error": 0, "service_readiness_timeout": 0, "fixture_error": 0, "resource_conflict": 0, "test_assertion_failure": 0, "security_finding": 0, "child_target_failure": 0, "tool_diagnostic_failure": 0, "scheduler_accounting_error": 0, "frontend_row_accounting": 0, "test_accounting_unmapped": 0, "artifact_error": 0, "cleanup_error": 0, "duration_baseline_drift": 0, "timeout_failure": 0, "cancelled_or_interrupted": 0, "unknown_failure": 0 },
+  "failures": [
+    { "failure_class": "config", "failure_reason": "configuration_error", "kind": "failure", "source": "shell", "target": "${target}", "runner": "shell", "label": "bootstrap node runtime", "message": "Node runtime bootstrap failed: unable to download", "artifact": ".cartulary/test-results/${CARTULARY_TEST_RUN_ID}/${target}/${target}/stderr.log" }
+  ],
+  "failure_headline": "config reason=configuration_error failure: Node runtime bootstrap failed: unable to download"
+}
+JSON
+}
+
 write_phase_summary() {
   if [[ -z "${CARTULARY_TEST_RESULTS_DIR:-}" || -z "${CARTULARY_TEST_RUN_ID:-}" ]]; then
     return 0
@@ -778,6 +828,9 @@ if [[ "$fail_targets" == *",$target,"* ]]; then
   echo "fake failure for $target" >&2
   if [[ "${FAKE_SECURITY_FAIL_WITH_SUMMARY_TARGET:-}" == "$target" ]]; then
     write_security_failure_summary
+  fi
+  if [[ "${FAKE_CONFIG_FAIL_WITH_SUMMARY_TARGET:-}" == "$target" ]]; then
+    write_config_failure_summary
   fi
   if [[ "${FAKE_FAIL_WITH_SUMMARY_TARGET:-}" == "$target" ]]; then
     write_failure_summary
@@ -887,6 +940,8 @@ EOF
   FAKE_FAIL_TARGET="${FAKE_FAIL_TARGET:-}" \
   FAKE_FAIL_TARGETS="${FAKE_FAIL_TARGETS:-}" \
   FAKE_FAIL_WITH_SUMMARY_TARGET="${FAKE_FAIL_WITH_SUMMARY_TARGET:-}" \
+  FAKE_CONFIG_FAIL_WITH_SUMMARY_TARGET="${FAKE_CONFIG_FAIL_WITH_SUMMARY_TARGET:-}" \
+  FAKE_SECURITY_FAIL_WITH_SUMMARY_TARGET="${FAKE_SECURITY_FAIL_WITH_SUMMARY_TARGET:-}" \
   MAKE="${dir}/fake-make" \
   NODE_BIN="$NODE_BIN" \
   TEST_OUTPUT_SCRIPT="$TEST_OUTPUT_SCRIPT" \
@@ -2901,6 +2956,79 @@ assert_equals "$(json_field "$classified_failure_target_summary" "failure_reason
 assert_equals "$(json_field "$classified_failure_target_summary" "failure_headline")" "product reason=test_assertion_failure failure: synthetic product failure" "classified target summary headline"
 assert_equals "$(json_field "$classified_failure_tool_summary" "failure_class")" "product" "classified tool summary class"
 assert_equals "$(json_field "$classified_failure_tool_summary" "failure_reason")" "test_assertion_failure" "classified tool summary reason"
+
+mixed_failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-mixed-failure.XXXXXX")"
+cleanup_paths+=("$mixed_failure_dir")
+write_fake_make "$mixed_failure_dir"
+mixed_failure_manifest="${mixed_failure_dir}/manifest.json"
+cat >"$mixed_failure_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "host_cpu": 2 },
+      "work_units": [
+        { "target": "beta", "weight_ms": 20, "needs": [], "produces_summary_targets": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "node-bootstrap", "weight_ms": 20, "needs": [], "produces_summary_targets": ["node-bootstrap"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "gamma", "weight_ms": 10, "needs": ["beta"], "produces_summary_targets": ["gamma"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+      ]
+    }
+  ]
+}
+JSON
+set +e
+mixed_failure_output="$(
+  FAKE_FAIL_TARGETS=beta,node-bootstrap \
+    FAKE_FAIL_WITH_SUMMARY_TARGET=beta \
+    FAKE_CONFIG_FAIL_WITH_SUMMARY_TARGET=node-bootstrap \
+    FAKE_SLEEP_BETA=0.01 \
+    run_scheduler "$mixed_failure_dir" "$mixed_failure_manifest" mixed-failure --resource-limit host_cpu=2 2>&1
+)"
+mixed_failure_status=$?
+set -e
+assert_equals "$mixed_failure_status" "10" "mixed failure primary exit status"
+assert_contains "$mixed_failure_output" "[SUMMARY] target=check status=fail failure_class=product reason=test_assertion_failure" "mixed failure primary scheduler output"
+mixed_failure_scheduler_summary="${mixed_failure_dir}/results/mixed-failure/check/scheduler-summary.json"
+mixed_failure_target_summary="${mixed_failure_dir}/results/mixed-failure/check/target-summary.json"
+mixed_failure_tool_summary="${mixed_failure_dir}/results/mixed-failure/check/tool-run-summary.json"
+"$NODE_BIN" - "$mixed_failure_scheduler_summary" "$mixed_failure_target_summary" "$mixed_failure_tool_summary" <<'EOF'
+const fs = require("node:fs");
+const [schedulerFile, targetFile, toolFile] = process.argv.slice(2);
+const scheduler = JSON.parse(fs.readFileSync(schedulerFile, "utf8"));
+const target = JSON.parse(fs.readFileSync(targetFile, "utf8"));
+const tool = JSON.parse(fs.readFileSync(toolFile, "utf8"));
+if (scheduler.failure_class !== "product" || scheduler.failure_reason !== "test_assertion_failure") {
+  throw new Error(`scheduler primary got ${scheduler.failure_class}/${scheduler.failure_reason}`);
+}
+if (scheduler.failure_classes.product !== 1 || scheduler.failure_classes.config !== 1) {
+  throw new Error(`scheduler failure classes got ${JSON.stringify(scheduler.failure_classes)}`);
+}
+if (scheduler.failure_reasons.test_assertion_failure !== 1 || scheduler.failure_reasons.configuration_error !== 1) {
+  throw new Error(`scheduler failure reasons got ${JSON.stringify(scheduler.failure_reasons)}`);
+}
+const childTargets = new Set((scheduler.failures ?? []).map((failure) => failure.child_target));
+for (const expected of ["beta", "node-bootstrap"]) {
+  if (!childTargets.has(expected)) {
+    throw new Error(`scheduler failures must retain child target ${expected}`);
+  }
+}
+if (target.failure_class !== "product" || target.failure_reason !== "test_assertion_failure") {
+  throw new Error(`target primary got ${target.failure_class}/${target.failure_reason}`);
+}
+if (target.failure_classes.product !== 1 || target.failure_classes.config !== 1) {
+  throw new Error(`target failure classes got ${JSON.stringify(target.failure_classes)}`);
+}
+if (target.totals.counts.non_test_failed !== 1 || target.totals.counts.non_test !== 1) {
+  throw new Error(`target totals non-test counts got ${JSON.stringify(target.totals.counts)}`);
+}
+if (tool.failure_class !== "product" || tool.failure_reason !== "test_assertion_failure") {
+  throw new Error(`tool primary got ${tool.failure_class}/${tool.failure_reason}`);
+}
+if (tool.counts.non_test_failed !== 1 || tool.counts.non_test !== 1) {
+  throw new Error(`tool non-test counts got ${JSON.stringify(tool.counts)}`);
+}
+EOF
 
 security_failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-security-failure.XXXXXX")"
 cleanup_paths+=("$security_failure_dir")

@@ -1965,7 +1965,7 @@ describe("WorkbookShell surface selection", () => {
     expectNoRawStorageDetails(document.body);
   });
 
-  it("Phase 5 E-5-01 orchestrates selected Timeline evidence attachment inline", async () => {
+  it("orchestrates selected Timeline evidence attachment inline", async () => {
     timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
 
     render(<WorkbookShell incidentId="incident-1" />);
@@ -2022,7 +2022,7 @@ describe("WorkbookShell surface selection", () => {
     expect(uploadHeaders.get("Content-Type")).toBe("text/plain");
   });
 
-  it("Phase 5 E-5-01 surfaces upload failures inline without issuing Timeline patches", async () => {
+  it("surfaces upload failures inline without issuing Timeline patches", async () => {
     uploadShouldFail = true;
     timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
 

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_accounting_classification.v1",
+  "schema_id": "cartulary.test_accounting_classification.v2",
   "vitest": [
     {
       "target": "frontend-unit",
@@ -10,9 +10,72 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/app/App.landing.test.tsx",
-      "title": "shows the zero-incident landing state",
+      "title": "aborts an in-flight refresh when entering the debug harness and loads the ordinary shell after leaving it",
       "coverage": "unowned_regression",
       "reason": "Residual landing-shell assertions not claimed by authoritative phase rows remain product regression coverage."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "cancels an in-flight shell refresh when the app unmounts",
+      "coverage": "unowned_regression",
+      "reason": "Residual landing-shell assertions not claimed by authoritative phase rows remain product regression coverage."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "enables deployment-user panel target actions after selecting a loaded user",
+      "coverage": "unowned_regression",
+      "reason": "Residual landing-shell and deployment-admin navigation behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "loads additional visible incident rows from the server cursor",
+      "coverage": "unowned_regression",
+      "reason": "Residual landing-shell and deployment-admin navigation behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "loads deployment administration as a separate route without incident-directory fetches",
+      "coverage": "unowned_regression",
+      "reason": "Residual landing-shell and deployment-admin navigation behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "loads more incidents against the accepted search and status scope",
+      "coverage": "unowned_regression",
+      "reason": "Residual landing-shell and deployment-admin navigation behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "opens account settings from the account menu and keeps deployment panels off the root",
+      "coverage": "unowned_regression",
+      "reason": "Residual landing-shell and deployment-admin navigation behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "opens an imported incident from terminal incident import job refs",
+      "coverage": "unowned_regression",
+      "reason": "Residual landing-shell and deployment-admin navigation behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "opens the workbook automatically when exactly one incident is visible",
+      "coverage": "unowned_regression",
+      "reason": "Residual landing-shell and deployment-admin navigation behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "keeps explicit incident-directory navigation on the landing screen when exactly one incident is visible",
+      "coverage": "unowned_regression",
+      "reason": "Explicit directory navigation suppresses single-incident auto-open as intentional landing regression coverage outside authoritative phase rows."
     },
     {
       "target": "frontend-unit",
@@ -31,6 +94,20 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "renders workbook role, incidents, and expandable controls inside the account menu",
+      "coverage": "unowned_regression",
+      "reason": "Residual landing-shell and deployment-admin navigation behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "returns non-admin direct deployment administration navigation to the incident directory",
+      "coverage": "unowned_regression",
+      "reason": "Residual landing-shell and deployment-admin navigation behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
       "title": "returns to the landing screen when workbook access is lost",
       "coverage": "unowned_regression",
       "reason": "Residual landing-shell assertions not claimed by authoritative phase rows remain product regression coverage."
@@ -38,14 +115,21 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/app/App.landing.test.tsx",
-      "title": "cancels an in-flight shell refresh when the app unmounts",
+      "title": "searches visible incidents through the owner-backed list query and discards stale directory responses",
       "coverage": "unowned_regression",
-      "reason": "Residual landing-shell assertions not claimed by authoritative phase rows remain product regression coverage."
+      "reason": "Residual landing-shell and deployment-admin navigation behavior remains product regression coverage outside phase rows."
     },
     {
       "target": "frontend-unit",
       "file": "apps/web/src/app/App.landing.test.tsx",
-      "title": "aborts an in-flight refresh when entering the debug harness and loads the ordinary shell after leaving it",
+      "title": "sends only declared optional metadata when creating an incident from the directory",
+      "coverage": "unowned_regression",
+      "reason": "Residual landing-shell and deployment-admin navigation behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "shows the zero-incident landing state",
       "coverage": "unowned_regression",
       "reason": "Residual landing-shell assertions not claimed by authoritative phase rows remain product regression coverage."
     },
@@ -58,6 +142,548 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/app/fontBundle.test.ts",
+      "title": "documents selector-active and staged font roles in the manifest",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/fontBundle.test.ts",
+      "title": "rejects badBytes fixture",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/fontBundle.test.ts",
+      "title": "rejects badHash fixture",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/fontBundle.test.ts",
+      "title": "rejects deadFontVariable fixture",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/fontBundle.test.ts",
+      "title": "rejects localSource fixture",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/fontBundle.test.ts",
+      "title": "rejects missingActivationMetadata fixture",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/fontBundle.test.ts",
+      "title": "rejects missingCssFontReference fixture",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/fontBundle.test.ts",
+      "title": "rejects missingLicense fixture",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/fontBundle.test.ts",
+      "title": "rejects missingNotice fixture",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/fontBundle.test.ts",
+      "title": "rejects remoteFont fixture",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/fontBundle.test.ts",
+      "title": "rejects undocumentedStagedFamily fixture",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/fontBundle.test.ts",
+      "title": "validates the checked-in manifest, checksums, notice, CSS, and source metadata",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/fontRoles.test.tsx",
+      "title": "activates the internal hyperlegible reading profile on the rendered app shell",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/fontRoles.test.tsx",
+      "title": "marks compact workbook metadata for the condensed font role",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
+      "title": "keeps incident summary visible when a workbook preference route fails",
+      "coverage": "unowned_regression",
+      "reason": "Incident administration panel edge-case behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
+      "title": "keeps membership audit placement inside incident admin controls",
+      "coverage": "unowned_regression",
+      "reason": "Incident administration panel edge-case behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
+      "title": "patches required incident metadata fields and restricts TLP to canonical tokens",
+      "coverage": "unowned_regression",
+      "reason": "Incident administration panel edge-case behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
+      "title": "renders null and view-schema workbook preference sheet refs without treating refs as strings",
+      "coverage": "unowned_regression",
+      "reason": "Incident administration panel edge-case behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
+      "title": "renders saved-view workbook preference sheet refs and marks malformed refs unavailable",
+      "coverage": "unowned_regression",
+      "reason": "Incident administration panel edge-case behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/otelBoundary.test.ts",
+      "title": "keeps browser state from creating telemetry exporters or remote telemetry requests",
+      "coverage": "tooling_support",
+      "reason": "Font and telemetry boundary tests support repo-local frontend tooling and security guardrails rather than phase conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
+      "title": "discards stale reference pack search responses",
+      "coverage": "unowned_regression",
+      "reason": "Reference-pack administration search behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/services/browserApi.test.ts",
+      "coverage": "unowned_regression",
+      "reason": "Browser API client behavior is intentional product regression coverage."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/services/workbookApi.test.ts",
+      "title": "adds the timing debug header only for timeline row POSTs when the probe is installed",
+      "coverage": "unowned_regression",
+      "reason": "Workbook service client behavior remains intentional product regression coverage outside authoritative row closure."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/services/workbookApi.test.ts",
+      "title": "keeps latest-query requests exclusive and aborts superseded controllers",
+      "coverage": "unowned_regression",
+      "reason": "Workbook service client behavior remains intentional product regression coverage outside authoritative row closure."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/services/workbookApi.test.ts",
+      "title": "keeps public error parsing and incident access-loss callbacks stable",
+      "coverage": "unowned_regression",
+      "reason": "Workbook service client behavior remains intentional product regression coverage outside authoritative row closure."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/services/workbookApi.test.ts",
+      "title": "preserves WorkbookShell JSON and CSRF request semantics",
+      "coverage": "unowned_regression",
+      "reason": "Workbook service client behavior remains intentional product regression coverage outside authoritative row closure."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/services/workbookEvidence.test.ts",
+      "title": "accepts only public evidence handle routes",
+      "coverage": "unowned_regression",
+      "reason": "Workbook service client behavior remains intentional product regression coverage outside authoritative row closure."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/services/workbookEvidence.test.ts",
+      "title": "creates an object blob, uploads it, and attaches it with row-version concurrency",
+      "coverage": "unowned_regression",
+      "reason": "Workbook service client behavior remains intentional product regression coverage outside authoritative row closure."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/services/workbookEvidence.test.ts",
+      "title": "keeps raw storage details out of public evidence error messages",
+      "coverage": "unowned_regression",
+      "reason": "Workbook service client behavior remains intentional product regression coverage outside authoritative row closure."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/services/workbookEvidence.test.ts",
+      "title": "maps blocking evidence messages to assertive live regions",
+      "coverage": "unowned_regression",
+      "reason": "Workbook service client behavior remains intentional product regression coverage outside authoritative row closure."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
+      "title": "classifies Phase 1 cross-boundary selector families as shared-builder owned",
+      "coverage": "tooling_support",
+      "reason": "Shared selector and workbook test helper checks support the frontend harness without claiming product conformance rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
+      "title": "keeps cross-boundary selector templates behind shared builders",
+      "coverage": "tooling_support",
+      "reason": "Shared selector and workbook test helper checks support the frontend harness without claiming product conformance rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
+      "title": "rejects raw FE-P1 selector literals at helper-level selector sinks",
+      "coverage": "tooling_support",
+      "reason": "Shared selector and workbook test helper checks support the frontend harness without claiming product conformance rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/testing/timelineWorkbookTestSupport.test.tsx",
+      "title": "replaces controlled input values without interleaving with the existing value",
+      "coverage": "tooling_support",
+      "reason": "Shared selector and workbook test helper checks support the frontend harness without claiming product conformance rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/testing/timelineWorkbookTestSupport.test.tsx",
+      "title": "waits for delayed workbook row identity with the shared bounded helper",
+      "coverage": "tooling_support",
+      "reason": "Shared selector and workbook test helper checks support the frontend harness without claiming product conformance rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/Unmapped.frontend-unit.test.tsx",
+      "coverage": "unowned_regression",
+      "reason": "Harness fixture proving residual frontend tests can be classified without becoming unmapped."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/assessmentWorkbookModel.test.ts",
+      "title": "keeps assessment column widths and support labels stable",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/assessmentWorkbookModel.test.ts",
+      "title": "uses contract enum defaults for new assessment drafts",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/entityWorkbookModel.test.ts",
+      "title": "builds merge plans without changing case-insensitive duplicate semantics",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/entityWorkbookModel.test.ts",
+      "title": "keeps entity grouping and column widths contract-key based",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/entityWorkbookModel.test.ts",
+      "title": "normalizes host and identity rows with label fallbacks, aliases, identifiers, and counts",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+      "title": "builds generic creates with omitted fields, trims, explicit clears, and minimum checks",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+      "title": "builds reference labels, party-link pairs, and collection item view models",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+      "title": "builds typed direct and collection patch changes",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+      "title": "keeps display labels, widths, and minimum messages contract-driven",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+      "title": "keeps multiline detection, party email extraction, and mutation error parsing stable",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+      "title": "rejects invalid number and boolean direct payload values",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+      "title": "seeds owner defaults and known generic create minimums",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/workbookQuery.test.ts",
+      "coverage": "unowned_regression",
+      "reason": "Workbook query helpers are intentional product regression coverage."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/workbookReferenceOptions.test.ts",
+      "title": "detects fields that use reference choices and leaves scalar fields free text",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/workbookReferenceOptions.test.ts",
+      "title": "returns same-incident reference buckets without relabeling or deduping identities",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/workbookSavedViewRuntime.test.ts",
+      "title": "derives runtime query state from saved-view query_json without mutating identity",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/workbookSavedViewRuntime.test.ts",
+      "title": "preserves saved-view sheet_ref and base view_schema identity separately",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/workbookSavedViewRuntime.test.ts",
+      "title": "upserts saved views by identity and keeps display-name ordering",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/workbookSavedViews.test.ts",
+      "title": "canonicalizes saved-view query and layout JSON through the workbook contract",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/workbookSavedViews.test.ts",
+      "title": "keeps system saved views immutable while allowing admins and owners to mutate user views",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/workbookSavedViews.test.ts",
+      "title": "normalizes saved views without collapsing saved-view identity into view_schema_id",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/timeline/models/timelineConflictModel.test.ts",
+      "title": "parses same-field conflict envelopes without optional metadata loss",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/timeline/models/timelineConflictModel.test.ts",
+      "title": "rejects empty string identity fields for pending queue admission",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/timeline/models/timelineConflictModel.test.ts",
+      "title": "rejects missing, malformed, and incomplete conflict envelopes",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/timeline/models/timelineRowsModel.test.ts",
+      "title": "classifies stale row-version updates only when durable identity is comparable",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
+      "title": "builds stable semantic catalog keys independent of list identity and order",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
+      "title": "holds an entity refresh barrier until refresh settlement and catalog progress",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
+      "title": "lets terminal refresh failures release continuity to row-local fallback restoration",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
+      "title": "settles when the expected create-from-mention entity becomes visible",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+      "title": "builds scalar, collection, evidence, and replay payloads",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+      "title": "expands Timeline columns only when the shell has surplus width",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+      "title": "exposes Timeline bindings and focus keys without component-local field maps",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+      "title": "normalizes rows, tag collections, grouping, and sparse live patches",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+      "title": "uses the full measured Timeline grid width when distributing surplus pixels",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
+      "title": "computes dimensions without enforcing an implementation-local maximum",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
+      "title": "keeps scalar comma text out of interactive tabular dispatch",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
+      "title": "parses empty, CRLF, tabular, and comma-delimited payloads",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
+      "title": "preserves quote-aware parser behavior used by Timeline and Shell paste dimensions",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/utils/workbookContinuity.test.ts",
+      "coverage": "unowned_regression",
+      "reason": "Workbook continuity helpers are intentional product regression coverage."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/utils/workbookValueFormat.test.ts",
+      "title": "joins collection display text without inventing labels",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/utils/workbookValueFormat.test.ts",
+      "title": "keeps unsupported and omitted values empty",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/utils/workbookValueFormat.test.ts",
+      "title": "preserves primitive display strings from duplicate grid helpers",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
       "coverage": "unowned_regression",
       "reason": "Workbook assessment component behavior is intentional regression coverage until a later phase owns it."
@@ -65,14 +691,38 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
-      "title": "Phase 3 U-3-05 suppresses duplicate pending scalar saves that only differ by client_txn_id",
+      "title": "commits Enter from the current editor value when row state is stale",
+      "coverage": "unowned_regression",
+      "reason": "Residual Phase 3 workbook autosave, stale-query, and draft-continuity checks remain product regression coverage outside row evidence.",
+      "phase": "phase3"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+      "title": "commits paste completion from the current editor value when row state is stale",
+      "coverage": "unowned_regression",
+      "reason": "Residual Phase 3 workbook autosave, stale-query, and draft-continuity checks remain product regression coverage outside row evidence.",
+      "phase": "phase3"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+      "title": "commits Tab from the current editor value when row state is stale",
+      "coverage": "unowned_regression",
+      "reason": "Residual Phase 3 workbook autosave, stale-query, and draft-continuity checks remain product regression coverage outside row evidence.",
+      "phase": "phase3"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
+      "title": "queues a follow-up scalar save when the logical payload changes while a prior save is pending",
       "coverage": "unowned_regression",
       "reason": "Residual Phase 3 workbook autosave assertion not claimed by an authoritative phase row remains product regression coverage."
     },
     {
       "target": "frontend-unit",
       "file": "apps/web/src/workbook/WorkbookShell.phase3.autosave.test.tsx",
-      "title": "Phase 3 U-3-05 queues a follow-up scalar save when the logical payload changes while a prior save is pending",
+      "title": "suppresses duplicate pending scalar saves that only differ by client_txn_id",
       "coverage": "unowned_regression",
       "reason": "Residual Phase 3 workbook autosave assertion not claimed by an authoritative phase row remains product regression coverage."
     },
@@ -82,13 +732,6 @@
       "title": "classifies committed Timeline row freshness by record_id and row_version",
       "coverage": "unowned_regression",
       "reason": "Residual Phase 3 workbook freshness helper coverage remains product regression coverage outside the authoritative phase row inventory."
-    },
-    {
-      "target": "frontend-unit",
-      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
-      "title": "keeps accepted committed row state across stale invalidation queries and replay responses",
-      "coverage": "unowned_regression",
-      "reason": "Residual Phase 3 stale query and replay regression coverage remains product regression coverage outside the authoritative phase row inventory."
     },
     {
       "target": "frontend-unit",
@@ -106,33 +749,392 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+      "title": "keeps accepted committed row state across stale invalidation queries and replay responses",
+      "coverage": "unowned_regression",
+      "reason": "Residual Phase 3 stale query and replay regression coverage remains product regression coverage outside the authoritative phase row inventory."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+      "title": "keeps Timeline controls mounted while a sorted query refresh is pending",
+      "coverage": "unowned_regression",
+      "reason": "Residual Phase 3 workbook autosave, stale-query, and draft-continuity checks remain product regression coverage outside row evidence.",
+      "phase": "phase3"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+      "title": "preserves an in-flight draft create across unrelated projection refresh",
+      "coverage": "unowned_regression",
+      "reason": "Residual Phase 3 workbook autosave, stale-query, and draft-continuity checks remain product regression coverage outside row evidence.",
+      "phase": "phase3"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+      "title": "preserves draft row edits across projection refresh before create commit",
+      "coverage": "unowned_regression",
+      "reason": "Residual Phase 3 workbook autosave, stale-query, and draft-continuity checks remain product regression coverage outside row evidence.",
+      "phase": "phase3"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase3.grid.test.tsx",
+      "title": "surfaces a sorted query refresh failure without unmounting Timeline controls",
+      "coverage": "unowned_regression",
+      "reason": "Residual Phase 3 workbook autosave, stale-query, and draft-continuity checks remain product regression coverage outside row evidence.",
+      "phase": "phase3"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+      "title": "Phase 6 applies sparse live patches by record_id without moving an active cell draft",
+      "coverage": "support",
+      "reason": "Phase 6 resolver, live-patch, and presence component checks are intentional support coverage outside row closure.",
+      "phase": "phase6"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+      "title": "Phase 6 presence indicators render from keyed socket state without changing save-state",
+      "coverage": "support",
+      "reason": "Phase 6 resolver, live-patch, and presence component checks are intentional support coverage outside row closure.",
+      "phase": "phase6"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+      "title": "Phase 6 resolver keep-saved action submits an explicit outcome and applies returned row state",
+      "coverage": "support",
+      "reason": "Phase 6 resolver, live-patch, and presence component checks are intentional support coverage outside row closure.",
+      "phase": "phase6"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+      "title": "Phase 6 resolver merged-value action submits an explicit outcome and applies returned row state",
+      "coverage": "support",
+      "reason": "Phase 6 resolver, live-patch, and presence component checks are intentional support coverage outside row closure.",
+      "phase": "phase6"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase6.test.tsx",
+      "title": "Phase 6 resolver use-unsaved action submits an explicit outcome and applies returned row state",
+      "coverage": "support",
+      "reason": "Phase 6 resolver, live-patch, and presence component checks are intentional support coverage outside row closure.",
+      "phase": "phase6"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "title": "builds rollback targets only from advertised server actions and selectors",
+      "coverage": "support",
+      "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
+      "phase": "phase7"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "title": "clears stale rollback previews when open history retargets",
+      "coverage": "support",
+      "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
+      "phase": "phase7"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "title": "fails closed for duplicate history_item_ref",
+      "coverage": "support",
+      "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
+      "phase": "phase7"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "title": "fails closed for invalid revision_no",
+      "coverage": "support",
+      "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
+      "phase": "phase7"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "title": "fails closed for missing history_entry rollback selector",
+      "coverage": "support",
+      "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
+      "phase": "phase7"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "title": "fails closed for missing history_item_ref",
+      "coverage": "support",
+      "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
+      "phase": "phase7"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "title": "fails closed for non-canonical action order",
+      "coverage": "support",
+      "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
+      "phase": "phase7"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "title": "fails closed for non-string history_item_ref",
+      "coverage": "support",
+      "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
+      "phase": "phase7"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "title": "keeps workbook continuity through ordinary remove and invalidate socket updates",
+      "coverage": "support",
+      "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
+      "phase": "phase7"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "title": "opens row-centric history from a selected workbook row and renders server metadata only",
+      "coverage": "support",
+      "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
+      "phase": "phase7"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "title": "retargets open row history to the newly selected inspector row",
+      "coverage": "support",
+      "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
+      "phase": "phase7"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "title": "submits single-entry rollback with only the server-provided history selector",
+      "coverage": "support",
+      "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
+      "phase": "phase7"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase7.test.tsx",
+      "title": "uses active and tombstone row versions for delete and restore controls",
+      "coverage": "support",
+      "reason": "Phase 7 history and rollback shell checks are intentional support coverage outside authoritative row closure.",
+      "phase": "phase7"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
+      "title": "normalizes saved-view query_json and layout_json back to portable field-key state",
+      "coverage": "support",
+      "reason": "Phase 8 query-control helper behavior supports browser-owned and backend-owned query semantics without becoming row evidence.",
+      "phase": "phase8"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase8.query.test.tsx",
+      "title": "Notes full_text controls submit the exact-token operator",
+      "coverage": "support",
+      "reason": "Phase 8 query-control helper behavior supports browser-owned and backend-owned query semantics without becoming row evidence.",
+      "phase": "phase8"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase9.inspector.test.tsx",
+      "title": "keeps the Timeline inspector unmounted until explicit activation",
+      "coverage": "unowned_regression",
+      "reason": "Residual Phase 9 inspector presentation checks remain product regression coverage outside authoritative row evidence.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase9.inspector.test.tsx",
+      "title": "renders Timeline collection cells compactly until inline edit activation",
+      "coverage": "unowned_regression",
+      "reason": "Residual Phase 9 inspector presentation checks remain product regression coverage outside authoritative row evidence.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+      "title": "dispatches multi-row CSV pasted into the draft Time cell as create-row targets",
+      "coverage": "support",
+      "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+      "title": "dispatches single-line CSV pasted into the draft Time cell as a create-row paste",
+      "coverage": "support",
+      "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+      "title": "Phase 9 grid anchor shell support clears invalid anchors and preserves drafts across valid focus movement",
+      "coverage": "support",
+      "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+      "title": "Phase 9 grid anchor shell support commits drafts before Enter navigation and clears invalid Shift+Enter targets",
+      "coverage": "support",
+      "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+      "title": "Phase 9 grid anchor shell support fails closed for unavailable shortcuts without row mutation",
+      "coverage": "support",
+      "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+      "title": "Phase 9 grid anchor shell support updates Cartulary anchors by record_id and field_key during keyboard navigation",
+      "coverage": "support",
+      "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/workbook/WorkbookShell.phase9.sentinel.test.tsx",
+      "title": "Phase 9 grid anchor shell support updates Cartulary anchors for Enter, Shift+Enter, and Tab navigation",
+      "coverage": "support",
+      "reason": "Phase 9 grid-anchor shell checks are intentional support coverage for keyboard and paste integration.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
       "coverage": "unowned_regression",
       "reason": "Workbook surface switching behavior is intentional regression coverage until a later phase owns it."
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/services/browserApi.test.ts",
-      "coverage": "unowned_regression",
-      "reason": "Browser API client behavior is intentional product regression coverage."
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "builds one group bucket per normalized committed label",
+      "coverage": "support",
+      "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/utils/workbookContinuity.test.ts",
-      "coverage": "unowned_regression",
-      "reason": "Workbook continuity helpers are intentional product regression coverage."
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "clears anchors for invalid row, field, group, and recordless targets",
+      "coverage": "support",
+      "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/workbook/models/workbookQuery.test.ts",
-      "coverage": "unowned_regression",
-      "reason": "Workbook query helpers are intentional product regression coverage."
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "creates an unassigned group when empty labels follow a non-empty group",
+      "coverage": "support",
+      "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
     },
     {
       "target": "frontend-unit",
-      "file": "apps/web/src/Unmapped.frontend-unit.test.tsx",
-      "coverage": "unowned_regression",
-      "reason": "Harness fixture proving residual frontend tests can be classified without becoming unmapped."
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "does not treat vendor selection changes alone as anchor updates",
+      "coverage": "support",
+      "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "keeps recordless draft rows outside grouped committed result buckets",
+      "coverage": "support",
+      "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "maps filtered overflow to explicit create-row anchors",
+      "coverage": "support",
+      "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "maps rows directly to data presentation rows without grouping",
+      "coverage": "support",
+      "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "normalizes committed empty group labels to the unassigned group without test IDs",
+      "coverage": "support",
+      "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "rejects group and presentation-only paste anchors",
+      "coverage": "support",
+      "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "requires a Cartulary anchor instead of vendor coordinates alone",
+      "coverage": "support",
+      "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "targets sorted paste rows by stable visible record identities",
+      "coverage": "support",
+      "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "translates valid presentation coordinates into stable record_id and field_key anchors",
+      "coverage": "support",
+      "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "trims labels before comparing groups and generating keys",
+      "coverage": "support",
+      "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/grid-adapter/src/core.test.ts",
+      "title": "updates anchors for keyboard navigation and clears on presentation-only targets",
+      "coverage": "support",
+      "reason": "Shared grid adapter anchor, grouping, and paste-coordinate checks support workbook grid phases without claiming a row.",
+      "phase": "phase9"
     },
     {
       "target": "frontend-unit",
@@ -143,9 +1145,37 @@
     },
     {
       "target": "frontend-unit",
+      "file": "packages/protocol-ts/src/index.test.ts",
+      "title": "anchors evidence protocol facade types to generated OpenAPI schema names",
+      "coverage": "tooling_support",
+      "reason": "Generated protocol facade checks support TypeScript contract wiring outside product conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
       "file": "packages/test-utils/src/index.test.ts",
       "coverage": "tooling_support",
       "reason": "Shared test utility assertions support the frontend and browser harnesses."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/ui-contracts/src/design-tokens.test.ts",
+      "title": "exposes explicit font role tokens without changing the default UI or mono stacks",
+      "coverage": "tooling_support",
+      "reason": "Generated UI contract and design-token checks support the frontend contract toolchain outside product conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/ui-contracts/src/design-tokens.test.ts",
+      "title": "exposes the adopted default theme as generated presentation tokens",
+      "coverage": "tooling_support",
+      "reason": "Generated UI contract and design-token checks support the frontend contract toolchain outside product conformance evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "packages/ui-contracts/src/design-tokens.test.ts",
+      "title": "renders CSS variables without unresolved object values",
+      "coverage": "tooling_support",
+      "reason": "Generated UI contract and design-token checks support the frontend contract toolchain outside product conformance evidence."
     },
     {
       "target": "frontend-unit",
@@ -165,32 +1195,38 @@
     {
       "package": "./internal/testutil/configtest",
       "coverage": "raw",
-      "reason": "Declared as raw backend-unit configtest aggregate in tools/execution_topology_manifest.json."
+      "reason": "Declared as raw backend-unit configtest aggregate in tools/execution_topology_manifest.json.",
+      "target": "backend-unit"
     },
     {
       "package": "./internal/testutil/httptestx",
       "coverage": "raw",
-      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json."
+      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json.",
+      "target": "backend-integration"
     },
     {
       "package": "./internal/testutil/pgtest",
       "coverage": "raw",
-      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json."
+      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json.",
+      "target": "backend-integration"
     },
     {
       "package": "./internal/testutil/s3test",
       "coverage": "raw",
-      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json."
+      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json.",
+      "target": "backend-integration"
     },
     {
       "package": "./internal/testutil/testcontainersx",
       "coverage": "raw",
-      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json."
+      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json.",
+      "target": "backend-integration"
     },
     {
       "package": "./internal/testutil/wstest",
       "coverage": "raw",
-      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json."
+      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json.",
+      "target": "backend-integration"
     }
   ],
   "go_tests": [],

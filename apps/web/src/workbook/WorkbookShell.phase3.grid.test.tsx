@@ -222,7 +222,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     expect(extractTimelinePatchBody(fetchMock, 1).base_row_version).toBe(7);
   });
 
-  it("Phase 3 U-3-05 preserves draft row edits across projection refresh before create commit", async () => {
+  it("preserves draft row edits across projection refresh before create commit", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -306,7 +306,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     ).toBe("");
   });
 
-  it("Phase 3 U-3-05 preserves an in-flight draft create across unrelated projection refresh", async () => {
+  it("preserves an in-flight draft create across unrelated projection refresh", async () => {
     const pendingCreate = deferred<Response>();
     fetchMock.mockResolvedValueOnce(
       successEnvelope({

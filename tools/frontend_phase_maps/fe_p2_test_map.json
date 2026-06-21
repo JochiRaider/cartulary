@@ -3,7 +3,7 @@
   "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P2",
-  "guide_digest": "864abe2bba6642898ae5211afa658204ba3729cfe5064ec25eef6af976c37bef",
+  "guide_digest": "1ce8f1e99c298366a5163d3456c710375a493b287fda4b0109a869d5eb752835",
   "rows": [
     {
       "id": "FE-U-P2-01",
@@ -164,7 +164,8 @@
         "FE-U-P2-02 keeps optional standardized surfaces additive after required surfaces",
         "FE-U-P2-02 remains keyed by stable IDs when registry labels are relabeled",
         "FE-U-P2-02 tolerates absent optional standardized surfaces while requiring required surfaces",
-        "FE-U-P2-02 exposes required reference-pack keys from view contracts"
+        "FE-U-P2-02 exposes required reference-pack keys from view contracts",
+        "FE-U-P2-02 groups System views by stable group tokens and registry-backed IDs"
       ],
       "claim_status": "implemented",
       "claim": {

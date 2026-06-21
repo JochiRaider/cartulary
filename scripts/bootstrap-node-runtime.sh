@@ -7,6 +7,11 @@ NODE_VERSION="${NODE_VERSION:-24.15.0}"
 NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
 ARCHIVE_DIR="${CARTULARY_NODE_ARCHIVE_DIR:-${ROOT_DIR}/tmp/node-archives}"
 PLATFORM_OVERRIDE="${CARTULARY_BOOTSTRAP_NODE_PLATFORM:-}"
+DOWNLOAD_RETRIES="${CARTULARY_BOOTSTRAP_DOWNLOAD_RETRIES:-3}"
+DOWNLOAD_RETRY_DELAY_SECONDS="${CARTULARY_BOOTSTRAP_DOWNLOAD_RETRY_DELAY_SECONDS:-2}"
+LOCK_TIMEOUT_SECONDS="${CARTULARY_BOOTSTRAP_LOCK_TIMEOUT_SECONDS:-120}"
+LOCK_DIR=""
+LOCK_HELD=0
 
 detect_platform() {
   if [[ -n "${PLATFORM_OVERRIDE}" ]]; then
@@ -16,7 +21,7 @@ detect_platform() {
         return 0
         ;;
       *)
-        echo "unsupported Node bootstrap platform: ${PLATFORM_OVERRIDE}; supported platforms are linux-x64, linux-arm64, darwin-x64, darwin-arm64" >&2
+        echo "Node runtime bootstrap failed: unsupported Node bootstrap platform: ${PLATFORM_OVERRIDE}; supported platforms are linux-x64, linux-arm64, darwin-x64, darwin-arm64" >&2
         return 1
         ;;
     esac
@@ -33,7 +38,7 @@ detect_platform() {
     Darwin:x86_64|Darwin:amd64) printf 'darwin-x64\n' ;;
     Darwin:aarch64|Darwin:arm64) printf 'darwin-arm64\n' ;;
     *)
-      echo "unsupported Node bootstrap platform: os=${os} arch=${arch}; supported platforms are linux-x64, linux-arm64, darwin-x64, darwin-arm64" >&2
+      echo "Node runtime bootstrap failed: unsupported Node bootstrap platform: os=${os} arch=${arch}; supported platforms are linux-x64, linux-arm64, darwin-x64, darwin-arm64" >&2
       return 1
       ;;
   esac
@@ -49,7 +54,7 @@ expected_sha256() {
     24.15.0:linux-arm64) printf 'f3d5a797b5d210ce8e2cb265544c8e482eaedcb8aa409a8b46da7e8595d0dda0\n' ;;
     24.15.0:linux-x64) printf '472655581fb851559730c48763e0c9d3bc25975c59d518003fc0849d3e4ba0f6\n' ;;
     *)
-      echo "missing committed Node checksum for node-v${version}-${platform}.tar.xz" >&2
+      echo "Node runtime bootstrap failed: missing committed Node checksum for node-v${version}-${platform}.tar.xz" >&2
       return 1
       ;;
   esac
@@ -67,19 +72,67 @@ sha256_file() {
     return 0
   fi
 
-  echo "sha256sum or shasum is required to verify Node archive checksums" >&2
+  echo "Node runtime bootstrap failed: sha256sum or shasum is required to verify Node archive checksums" >&2
   return 1
+}
+
+release_lock() {
+  if [[ "${LOCK_HELD}" -eq 1 && -n "${LOCK_DIR}" ]]; then
+    rmdir "${LOCK_DIR}" 2>/dev/null || true
+    LOCK_HELD=0
+  fi
+}
+
+acquire_lock() {
+  LOCK_DIR="${NODE_RUNTIME_DIR}.lock"
+  mkdir -p "$(dirname "${LOCK_DIR}")"
+
+  local start
+  start="$(date +%s)"
+  while ! mkdir "${LOCK_DIR}" 2>/dev/null; do
+    local now
+    now="$(date +%s)"
+    if (( now - start >= LOCK_TIMEOUT_SECONDS )); then
+      echo "Node runtime bootstrap failed: timed out waiting for lock ${LOCK_DIR}" >&2
+      return 1
+    fi
+    sleep 1
+  done
+  LOCK_HELD=1
+  trap release_lock EXIT
 }
 
 download_archive() {
   local archive="$1"
   local url="$2"
+  local expected="$3"
+  local archive_name
+  local attempt
+  local temp_archive
+  local actual
 
   mkdir -p "$(dirname "${archive}")"
-  if ! curl -fsSL -o "${archive}" "${url}"; then
-    rm -f "${archive}"
-    return 1
-  fi
+  for ((attempt = 1; attempt <= DOWNLOAD_RETRIES; attempt += 1)); do
+    temp_archive="$(mktemp "${archive}.download.XXXXXX")"
+    if curl -fsSL -o "${temp_archive}" "${url}"; then
+      actual="$(sha256_file "${temp_archive}")"
+      if [[ "${actual}" == "${expected}" ]]; then
+        mv -f "${temp_archive}" "${archive}"
+        return 0
+      fi
+      rm -f "${temp_archive}"
+      archive_name="$(basename "${archive}")"
+      echo "Node archive checksum mismatch for ${archive_name}: expected ${expected}, got ${actual}; archive removed before extraction" >&2
+      return 1
+    fi
+    rm -f "${temp_archive}"
+    if (( attempt < DOWNLOAD_RETRIES )); then
+      sleep "${DOWNLOAD_RETRY_DELAY_SECONDS}"
+    fi
+  done
+
+  echo "Node runtime bootstrap failed: unable to download ${url} after ${DOWNLOAD_RETRIES} attempts" >&2
+  return 1
 }
 
 install_archive() {
@@ -97,6 +150,11 @@ install_archive() {
 
 main() {
   local node_bin="${NODE_RUNTIME_DIR}/bin/node"
+  if [[ "${CARTULARY_FORCE_REINSTALL:-0}" != "1" && -x "${node_bin}" && "$("${node_bin}" -v)" == "v${NODE_VERSION}" ]]; then
+    return 0
+  fi
+
+  acquire_lock
   if [[ "${CARTULARY_FORCE_REINSTALL:-0}" != "1" && -x "${node_bin}" && "$("${node_bin}" -v)" == "v${NODE_VERSION}" ]]; then
     return 0
   fi
@@ -119,7 +177,7 @@ main() {
     fi
   fi
   if [[ ! -f "${archive}" ]]; then
-    download_archive "${archive}" "${url}"
+    download_archive "${archive}" "${url}" "${expected}"
   fi
 
   actual="$(sha256_file "${archive}")"

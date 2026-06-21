@@ -319,7 +319,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
   it.each([
     "Enter",
     "Tab",
-  ] as const)("Phase 3 U-3-05 commits %s from the current editor value when row state is stale", async (key) => {
+  ] as const)("commits %s from the current editor value when row state is stale", async (key) => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -374,7 +374,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     });
   });
 
-  it("Phase 3 U-3-05 commits paste completion from the current editor value when row state is stale", async () => {
+  it("commits paste completion from the current editor value when row state is stale", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -426,7 +426,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     });
   });
 
-  it("Phase 3 U-3-05 suppresses duplicate pending scalar saves that only differ by client_txn_id", async () => {
+  it("suppresses duplicate pending scalar saves that only differ by client_txn_id", async () => {
     const pendingPatch = deferred<Response>();
 
     fetchMock.mockResolvedValueOnce(
@@ -495,7 +495,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("Phase 3 U-3-05 queues a follow-up scalar save when the logical payload changes while a prior save is pending", async () => {
+  it("queues a follow-up scalar save when the logical payload changes while a prior save is pending", async () => {
     const firstPendingPatch = deferred<Response>();
 
     fetchMock.mockResolvedValueOnce(

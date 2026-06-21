@@ -6438,7 +6438,8 @@
                 "summary",
                 "children",
                 "logs",
-                "progress"
+                "progress",
+                "accounting"
               ]
             }
           ]

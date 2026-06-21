@@ -82,6 +82,7 @@ type RouteState = {
   incidentId: string;
   debugHarness: boolean;
   deploymentAdministration: boolean;
+  manualIncidentDirectory: boolean;
 };
 
 type ShellRefreshOptions = {
@@ -127,18 +128,30 @@ function readRouteState(): RouteState {
   const params = new URLSearchParams(window.location.search);
   const deploymentAdministration =
     window.location.pathname === "/deployment-administration";
+  const incidentId = deploymentAdministration
+    ? ""
+    : (params.get("incident_id") ?? "").trim();
+  const historyState =
+    typeof window.history.state === "object" && window.history.state !== null
+      ? (window.history.state as { cartularyIncidentDirectory?: unknown })
+      : null;
   return {
-    incidentId: deploymentAdministration
-      ? ""
-      : (params.get("incident_id") ?? "").trim(),
+    incidentId,
     debugHarness:
       !deploymentAdministration && params.get("debug") === "harness",
     deploymentAdministration,
+    manualIncidentDirectory:
+      !deploymentAdministration &&
+      incidentId === "" &&
+      historyState?.cartularyIncidentDirectory === true,
   };
 }
 
 function writeRouteState(next: RouteState, mode: "push" | "replace") {
   const params = new URLSearchParams(window.location.search);
+  const historyState = next.manualIncidentDirectory
+    ? { cartularyIncidentDirectory: true }
+    : {};
   if (next.deploymentAdministration) {
     params.delete("incident_id");
     params.delete("surface");
@@ -171,10 +184,10 @@ function writeRouteState(next: RouteState, mode: "push" | "replace") {
   const query = params.toString();
   const url = query === "" ? "/" : `/?${query}`;
   if (mode === "push") {
-    window.history.pushState({}, "", url);
+    window.history.pushState(historyState, "", url);
     return;
   }
-  window.history.replaceState({}, "", url);
+  window.history.replaceState(historyState, "", url);
 }
 
 function upsertIncident(incidents: IncidentData[], nextIncident: IncidentData) {
@@ -316,6 +329,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     statusFilter: "all",
   });
   const incidentDirectoryControlsTouchedRef = useRef(false);
+  const suppressRootIncidentAutoOpenRef = useRef(false);
   const activeRefreshRef = useRef<{
     controller: AbortController | null;
     requestID: number;
@@ -406,6 +420,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
             incidentId: "",
             debugHarness: false,
             deploymentAdministration: false,
+            manualIncidentDirectory: false,
           }
         : options.routeSnapshot;
       const shouldLoadIncidentDirectory =
@@ -574,11 +589,15 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           incidentId: "",
           debugHarness: false,
           deploymentAdministration: false,
+          manualIncidentDirectory: false,
         };
         nextLandingNotice =
           options.landingNotice ??
           "Deployment administration requires deployment admin access.";
       } else if (shouldLoadIncidentDirectory) {
+        const suppressRootIncidentAutoOpen =
+          effectiveRouteSnapshot.incidentId === "" &&
+          suppressRootIncidentAutoOpenRef.current;
         const requestedIncidentStillVisible =
           effectiveRouteSnapshot.incidentId === "" ||
           nextBootstrapIncidents.some(
@@ -588,6 +607,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         const rootIncidentID =
           effectiveRouteSnapshot.incidentId === "" &&
           !effectiveRouteSnapshot.debugHarness &&
+          !effectiveRouteSnapshot.manualIncidentDirectory &&
+          !suppressRootIncidentAutoOpen &&
           nextBootstrapIncidents.length === 1 &&
           !nextBootstrapPaging.has_more
             ? (nextBootstrapIncidents[0]?.incident_id ?? "")
@@ -598,6 +619,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
                 incidentId: rootIncidentID,
                 debugHarness: false,
                 deploymentAdministration: false,
+                manualIncidentDirectory: false,
               }
             : requestedIncidentStillVisible
               ? null
@@ -605,6 +627,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
                   incidentId: "",
                   debugHarness: effectiveRouteSnapshot.debugHarness,
                   deploymentAdministration: false,
+                  manualIncidentDirectory:
+                    effectiveRouteSnapshot.manualIncidentDirectory,
                 };
         nextLandingNotice =
           nextRoute !== null
@@ -702,6 +726,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       debugHarness: route.debugHarness,
       deploymentAdministration: route.deploymentAdministration,
       incidentId: route.incidentId,
+      manualIncidentDirectory: route.manualIncidentDirectory,
     };
     if (routeSnapshot.debugHarness) {
       activeRefreshRef.current.controller?.abort();
@@ -718,6 +743,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     route.debugHarness,
     route.deploymentAdministration,
     route.incidentId,
+    route.manualIncidentDirectory,
     refreshShell,
   ]);
 
@@ -745,6 +771,9 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       return;
     }
     const timeout = window.setTimeout(() => {
+      if (!incidentDirectoryControlsTouchedRef.current) {
+        return;
+      }
       void refreshShell({
         routeSnapshot: routeRef.current,
         landingNotice: null,
@@ -782,6 +811,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     if (!incidentsPaging.has_more || cursorToken === null) {
       return;
     }
+    incidentDirectoryControlsTouchedRef.current = false;
     setLandingRefreshState("loading");
     const result = await fetchJSON<IncidentListEnvelope>(
       incidentListURL({
@@ -920,7 +950,9 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       incidentId,
       debugHarness: false,
       deploymentAdministration: false,
+      manualIncidentDirectory: false,
     };
+    suppressRootIncidentAutoOpenRef.current = false;
     setLandingNotice(null);
     writeRouteState(nextRoute, "push");
     startTransition(() => {
@@ -933,7 +965,9 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       incidentId: "",
       debugHarness: false,
       deploymentAdministration: false,
+      manualIncidentDirectory: true,
     };
+    suppressRootIncidentAutoOpenRef.current = true;
     setLandingNotice(null);
     writeRouteState(nextRoute, "push");
     startTransition(() => {
@@ -947,7 +981,9 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         incidentId: "",
         debugHarness: false,
         deploymentAdministration: false,
+        manualIncidentDirectory: true,
       };
+      suppressRootIncidentAutoOpenRef.current = false;
       setLandingNotice(
         "Deployment administration requires deployment admin access.",
       );
@@ -961,7 +997,9 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       incidentId: "",
       debugHarness: false,
       deploymentAdministration: true,
+      manualIncidentDirectory: false,
     };
+    suppressRootIncidentAutoOpenRef.current = false;
     setLandingNotice(null);
     setActiveDeploymentPanel("deployment-users");
     writeRouteState(nextRoute, "push");
@@ -1060,7 +1098,9 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       incidentId: "",
       debugHarness: false,
       deploymentAdministration: false,
+      manualIncidentDirectory: true,
     };
+    suppressRootIncidentAutoOpenRef.current = true;
     setLandingNotice("Returned to incident landing.");
     writeRouteState(nextRoute, "push");
     startTransition(() => {

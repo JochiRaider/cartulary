@@ -8,11 +8,19 @@ import { failureHeadlineForSummary } from "./lib/failure-taxonomy.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const validDetails = new Set(["summary", "children", "logs", "progress"]);
+const validDetails = new Set(["summary", "children", "logs", "progress", "accounting"]);
+const coverageBuckets = [
+  "authoritative",
+  "support",
+  "raw",
+  "tooling_support",
+  "unowned_regression",
+  "unmapped",
+];
 
 function usage() {
   process.stderr.write(
-    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress]\n",
+    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress|accounting]\n",
   );
   process.exit(2);
 }
@@ -585,6 +593,96 @@ function writeProgress(runDir, target, schedulerSummary) {
   }
 }
 
+function accountingInventory(summary) {
+  return summary?.totals?.inventory_by_coverage ?? summary?.inventory_by_coverage ?? {};
+}
+
+function accountingCounts(summary) {
+  return summary?.totals?.counts ?? summary?.counts ?? {};
+}
+
+function ownerSource(item) {
+  if (!item) {
+    return "unknown";
+  }
+  if (item.coverage === "unmapped") {
+    return "none";
+  }
+  if (item.coverage === "raw") {
+    return "execution_topology";
+  }
+  if (item.id) {
+    return String(item.id).startsWith("FE-") ? "frontend_phase_map" : "phase_map";
+  }
+  if (item.coverage === "tooling_support" || item.coverage === "unowned_regression" || item.coverage === "support") {
+    return "classification_manifest";
+  }
+  return "summary";
+}
+
+function rowLikeInventoryTitle(item) {
+  const value = String(item?.symbol_or_title ?? "");
+  return (
+    /\bFE-[A-Z]+-P\d+-\d+\b/.test(value) ||
+    /\b[UIE]-\d+(?:-[A-Z0-9]+)*-\d+\b/.test(value)
+  );
+}
+
+function writeAccountingForSummary(target, summary) {
+  if (!summary) {
+    process.stdout.write(`[ACCOUNTING] target=${target || "none"} missing\n`);
+    return;
+  }
+  const c = accountingCounts(summary);
+  const inventory = accountingInventory(summary);
+  process.stdout.write(
+    `[ACCOUNTING] target=${target || summary.target || "run"} tests=${c.tests ?? 0} ${coverageCounts({ counts: c })}\n`,
+  );
+  for (const coverage of coverageBuckets) {
+    const items = inventory[coverage] ?? [];
+    const byFile = new Map();
+    for (const item of items) {
+      const file = item.package_or_file || "(unknown)";
+      if (!byFile.has(file)) {
+        byFile.set(file, []);
+      }
+      byFile.get(file).push(item);
+    }
+    const rowLike = items.filter(rowLikeInventoryTitle).length;
+    process.stdout.write(
+      `[ACCOUNTING-BUCKET] target=${target || summary.target || "run"} coverage=${coverage} entries=${items.length} files=${byFile.size} row_like_titles=${rowLike}\n`,
+    );
+    const files = [...byFile.entries()].sort((left, right) => {
+      if (right[1].length !== left[1].length) {
+        return right[1].length - left[1].length;
+      }
+      return left[0].localeCompare(right[0]);
+    });
+    for (const [file, fileItems] of files) {
+      const sources = [...new Set(fileItems.map(ownerSource))].sort();
+      const sample = String(fileItems[0]?.symbol_or_title ?? "").replaceAll("\n", " ");
+      process.stdout.write(
+        `[ACCOUNTING-FILE] target=${target || summary.target || "run"} coverage=${coverage} file=${file} entries=${fileItems.length} owner_source=${sources.join("+") || "unknown"} sample=${JSON.stringify(sample)}\n`,
+      );
+    }
+  }
+}
+
+function writeAccountingDetail(runSummary, targetSummary) {
+  if (targetSummary) {
+    writeAccountingForSummary(targetSummary.target, targetSummary);
+    return;
+  }
+  const summaries = runSummary?.evidence_targets?.summaries ?? [];
+  if (summaries.length === 0) {
+    process.stdout.write("[ACCOUNTING] none\n");
+    return;
+  }
+  for (const summary of summaries) {
+    writeAccountingForSummary(summary.target, summary);
+  }
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const { runDir, targetFromPath } = resolveRunContext(options);
@@ -625,6 +723,10 @@ function main() {
   }
   if (options.detail === "progress") {
     writeProgress(runDir, target, schedulerSummary);
+    return;
+  }
+  if (options.detail === "accounting") {
+    writeAccountingDetail(runSummary, targetSummary);
     return;
   }
   if (toolSummary) {

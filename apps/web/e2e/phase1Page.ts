@@ -128,15 +128,13 @@ export class Phase1Page {
 
   async openIncidentDirectory() {
     await this.closeAccountSettingsIfOpen();
-    const url = new URL(this.page.url());
-    if (url.pathname === "/" && url.searchParams.get("incident_id") === null) {
+    const landingShell = this.page.getByTestId(phase1LandingTestId("shell"));
+    if (await landingShell.isVisible()) {
       return;
     }
     await this.openAccountMenu();
     await this.page.getByRole("menuitem", { name: "Incidents" }).click();
-    await expect(
-      this.page.getByTestId(phase1LandingTestId("shell")),
-    ).toBeVisible();
+    await expect(landingShell).toBeVisible();
   }
 
   private async openAccountMenu() {
@@ -189,15 +187,46 @@ export class Phase1Page {
   }
 
   async createAndOpenIncident(incidentKey: string, title: string) {
-    await this.closeAccountSettingsIfOpen();
-    await this.page.getByTestId(phase1LandingTestId("create-button")).click();
+    const createOpenButton = this.page.getByTestId(
+      phase1LandingTestId("create-open-button"),
+    );
+    const incidentKeyInput = this.page.getByTestId(
+      phase1LandingTestId("incident-key"),
+    );
+    let lastOpenError: unknown = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await this.openIncidentDirectory();
+        await expect(createOpenButton).toBeVisible({ timeout: 3_000 });
+        await createOpenButton.click();
+        await expect(incidentKeyInput).toBeVisible({ timeout: 3_000 });
+        lastOpenError = null;
+        break;
+      } catch (error) {
+        lastOpenError = error;
+      }
+    }
+    if (lastOpenError !== null) {
+      throw lastOpenError;
+    }
     await this.page
       .getByTestId(phase1LandingTestId("incident-key"))
       .fill(incidentKey);
     await this.page
       .getByTestId(phase1LandingTestId("incident-title"))
       .fill(title);
-    await this.page.getByTestId(phase1LandingTestId("create-button")).click();
+    await this.page
+      .getByTestId(phase1LandingTestId("create-submit-button"))
+      .click();
+    await expect(this.page).toHaveURL(/incident_id=/);
+    const openedIncidentId = new URL(this.page.url()).searchParams.get(
+      "incident_id",
+    );
+    expect(openedIncidentId).not.toBeNull();
+    await expect(
+      this.page.getByTestId(workbookShellReadyTestId()),
+    ).toBeVisible();
+    return openedIncidentId ?? "";
   }
 
   async openIncident(incidentId: string) {

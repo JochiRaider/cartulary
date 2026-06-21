@@ -55,6 +55,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
+import { Phase1Page } from "./phase1Page";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
@@ -130,12 +131,10 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await page.goto("/");
 
   const incidentKey = uniqueIncidentKey("E201");
-  await page.getByTestId(phase1LandingTestId("create-button")).click();
-  await page.getByTestId(phase1LandingTestId("incident-key")).fill(incidentKey);
-  await page
-    .getByTestId(phase1LandingTestId("incident-title"))
-    .fill("Phase 2 E-2-01");
-  await page.getByTestId(phase1LandingTestId("create-button")).click();
+  await new Phase1Page(page).createAndOpenIncident(
+    incidentKey,
+    "Phase 2 E-2-01",
+  );
 
   await expect(page).toHaveURL(/incident_id=/);
   const openedWorkbookUrl = new URL(page.url());

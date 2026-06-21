@@ -245,13 +245,20 @@ byFile.set(path.join(root, "apps/web/src/app/App.phase1.support.test.tsx"), [
 ]);
 byFile.set(path.join(root, "apps/web/src/Unmapped.frontend-unit.test.tsx"), [
   assertion(
-    "classified frontend residual smoke",
+    mode === "rowlike-classified-pass"
+      ? "Phase 3 U-3-05 classified frontend residual smoke"
+      : "classified frontend residual smoke",
     mode === "residual-failure" ? "failed" : "passed",
   ),
 ]);
 if (mode === "unknown-failure") {
   byFile.set(path.join(root, "apps/web/src/Unknown.frontend-unit.test.tsx"), [
     assertion("unknown frontend residual smoke", "failed"),
+  ]);
+}
+if (mode === "unmapped-pass") {
+  byFile.set(path.join(root, "apps/web/src/Unknown.frontend-unit.test.tsx"), [
+    assertion("unknown frontend residual smoke", "passed"),
   ]);
 }
 
@@ -408,6 +415,13 @@ assert_equals "$(json_field "$success_summary" "own.counts.unowned_regression")"
 assert_equals "$(json_field "$success_summary" "own.counts.unmapped")" "0" "success unmapped count"
 assert_equals "$(json_field "$success_summary" "own.accounting_modes.actual")" "1" "success raw actual phase"
 assert_equals "$(json_field "$success_summary" "own.accounting_modes.derived")" "$expected_derived" "success derived slices"
+success_accounting_output="$(
+  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "${success_summary%/frontend-unit/target-summary.json}" --target frontend-unit --detail accounting \
+    2>&1
+)"
+assert_contains "$success_accounting_output" "[ACCOUNTING] target=frontend-unit" "success accounting explain target"
+assert_contains "$success_accounting_output" "coverage=unmapped entries=0" "success accounting explain unmapped bucket"
+assert_contains "$success_accounting_output" "owner_source=classification_manifest" "success accounting explain classification source"
 "${NODE:-node}" - "$success_summary" <<'EOF'
 const fs = require("node:fs");
 const path = require("node:path");
@@ -551,6 +565,15 @@ unknown_summary="$(run_case unknown unknown-failure fail)"
 assert_equals "$(json_field "$unknown_summary" "own.counts.failed")" "1" "unknown residual failure count"
 assert_equals "$(json_field "$unknown_summary" "own.counts.unmapped_failed")" "1" "unknown residual unmapped failure count"
 assert_equals "$(json_field "$unknown_summary" "own.counts.unowned_regression_failed")" "0" "unknown residual unowned regression failure count"
+unmapped_pass_summary="$(run_case unmapped-pass unmapped-pass fail)"
+assert_equals "$(json_field "$unmapped_pass_summary" "status")" "fail" "passing unmapped target status"
+assert_equals "$(json_field "$unmapped_pass_summary" "failure_class")" "harness" "passing unmapped target failure class"
+assert_equals "$(json_field "$unmapped_pass_summary" "failure_reason")" "test_accounting_unmapped" "passing unmapped target failure reason"
+assert_equals "$(json_field "$unmapped_pass_summary" "own.counts.unmapped")" "1" "passing unmapped target unmapped count"
+assert_equals "$(json_field "$unmapped_pass_summary" "own.counts.failed")" "1" "passing unmapped target synthetic failure count"
+rowlike_classified_summary="$(run_case rowlike-classified rowlike-classified-pass fail)"
+assert_equals "$(json_field "$rowlike_classified_summary" "failure_reason")" "test_accounting_unmapped" "row-looking classified title failure reason"
+assert_equals "$(json_field "$rowlike_classified_summary" "own.counts.unmapped")" "1" "row-looking classified title stays unmapped"
 
 authoritative_summary="$(run_case authoritative authoritative-failure fail)"
 assert_equals "$(json_field "$authoritative_summary" "own.counts.failed")" "1" "authoritative failure count"

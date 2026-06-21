@@ -646,7 +646,7 @@ describe("Phase 8 workbook query controls", () => {
     ).toBe("record-1");
   });
 
-  it("Phase 8 E-8-04 Notes full_text controls submit the exact-token operator", () => {
+  it("Notes full_text controls submit the exact-token operator", () => {
     const contract = requireViewContract("cartulary.view.notes.v1");
 
     const filtered = applyFilterDraft(emptyWorkbookQueryState(), {

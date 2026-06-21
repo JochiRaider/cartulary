@@ -107,6 +107,8 @@ Frontend rows use guide-local IDs that must not collide with existing backend/ba
 | `FE-A11Y-P<phase>-NN` | Accessibility test |
 | `FE-S-P<phase>-NN` | Support, tooling, drift, or manifest test |
 
+Stable UI test IDs must name one semantic action or state. Do not reuse one `data-testid` for two controls whose meaning changes with UI state, such as an opener and a submit action. Browser evidence helpers should interact through these semantic IDs and wait for the next durable application state, such as a route parameter plus workbook-shell readiness, before making row claims.
+
 Every phase row must use this table shape:
 
 | ID | Layer | Test | Exact owner sections | Exact REQs | Exact ACs | Repository target or TODO | Evidence class |
@@ -605,6 +607,10 @@ Support rows classify as `implementation_support` unless they check Core 05 clai
 ### 7.4 Unowned regression tests
 
 An unowned regression test must be promoted by adding row metadata to the relevant existing manifest or future frontend-local manifest, mapping it to exact owner sections, `REQ-*`, `AC-*`, target, and evidence class. After promotion, remove the unowned classification from `tools/test_accounting_classification.json`.
+
+Frontend public verification targets must finish with `unmapped=0`; an otherwise passing target with unmapped executed tests fails as `failure_class="harness"` and `failure_reason="test_accounting_unmapped"`. Map only tests that are intended row evidence. Classify intentional residual coverage as `support`, `tooling_support`, or `unowned_regression` in `tools/test_accounting_classification.json` with schema `cartulary.test_accounting_classification.v2`, target scope, bounded file/title matching, and an explicit reason. Delete tests only when owner review finds no durable value, obsolete ownership, or complete duplication by better-owned evidence.
+
+Any Vitest or Playwright title that contains a base row ID or `FE-*` row ID is a conformance-looking claim. It must match an exact phase-map or frontend phase-map scenario/title, or the row-like prefix must be removed before the test is classified as residual coverage. Use `make explain-run RESULTS_DIR=<run-root> TARGET=frontend-unit DETAIL=accounting` to inspect grouped residual and unmapped inventory.
 
 Frontend verification contract. If no exact owner exists, keep the row blocked with evidence class `TODO_owner_lookup`, add an explicit blocker, and do not count it as authoritative completion.
 
