@@ -318,6 +318,93 @@
       "blockers": []
     },
     {
+      "id": "FE-V-P1-01",
+      "layer": "visual",
+      "evidence_class": "design_direction",
+      "owner_refs": [
+        {
+          "source_key": "ui_ux_guide",
+          "path": "docs/guides/cartulary-ui-ux-design-guide.md",
+          "section_ref": "UI/UX guide Sections 5, 6, 8, 9, 10.5, 13, and 14",
+          "heading_text": "UI/UX guide Sections 5, 6, 8, 9, 10.5, 13, and 14",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "design_md",
+          "path": "docs/design.md",
+          "section_ref": "docs/design.md Sections 3, 7, 13, 15, and 17",
+          "heading_text": "docs/design.md Sections 3, 7, 13, 15, and 17",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "visual_golden_guide",
+          "path": "docs/guides/cartulary_visual_golden_maintenance.md",
+          "section_ref": "visual golden guide Sections 2, 3, 5",
+          "heading_text": "visual golden guide Sections 2, 3, 5",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "support_owner",
+          "resolution_status": "resolved"
+        }
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "R2-AC-017",
+        "R2-AC-026",
+        "R2-AC-073",
+        "R2-AC-079",
+        "R2-AC-080",
+        "R2-AC-086",
+        "D-AC-001",
+        "D-AC-006",
+        "D-AC-009",
+        "D-AC-012",
+        "D-AC-055",
+        "D-AC-060",
+        "D-AC-062",
+        "D-AC-063",
+        "D-AC-064"
+      ],
+      "targets": [
+        {
+          "target_name": "browser-e2e-visual",
+          "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
+      ],
+      "scenario_titles": [
+        "FE-V-P1-01 Capture auth gateway initial, focused, loading, invalid credentials, MFA required, invalid MFA, MFA setup required, service unavailable, mobile, reduced-motion, and 200%-zoom states."
+      ],
+      "claim_status": "implemented",
+      "claim": {
+        "statement": "Capture the anonymous auth gateway across initial, focus, submitting, invalid credentials, MFA, setup-required, service-failure, mobile, reduced-motion, and 200%-zoom visual states.",
+        "claim_publication_intent": "none",
+        "closure_scope": "scenario"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-V-P1-01",
+      "duplicate_of": "none",
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P1",
+      "blockers": []
+    },
+    {
       "id": "FE-A11Y-P1-01",
       "layer": "accessibility",
       "evidence_class": "design_direction",

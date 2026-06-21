@@ -102,7 +102,7 @@ describe("Phase 1 ordinary app shell", () => {
       ),
     ).toBe("loading");
     expect(screen.getByTestId(phase1AuthTestId("status")).textContent).toBe(
-      "Checking current session…",
+      "Checking current session...",
     );
     pendingInitialSession.resolve(
       errorResponse("session_required", 401, {
@@ -120,7 +120,10 @@ describe("Phase 1 ordinary app shell", () => {
     ).toBe("anonymous");
     expect(
       screen.getByTestId(phase1AuthTestId("shell-message")).textContent,
-    ).toContain("Sign in with your local account");
+    ).toContain("Use your deployment account.");
+    expect(
+      screen.queryByTestId(phase1AuthTestId("login-totp-code")),
+    ).toBeNull();
     fireEvent.change(screen.getByTestId(phase1AuthTestId("login-username")), {
       target: { value: "operator@example.test" },
     });
@@ -297,17 +300,19 @@ describe("Phase 1 ordinary app shell", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(phase1ErrorCodeTestId("auth")).textContent,
-      ).toBe("invalid_auth_request");
+      ).toBe("Sign-in request could not be completed.");
     });
     expect(
       screen.getByTestId(phase1ErrorSummaryTestIds("auth").message).textContent,
-    ).toBe("Login request is invalid.");
+    ).toBe("Sign-in request could not be completed.");
     expect(
       screen.getByTestId(phase1ErrorSummaryTestIds("auth").details).textContent,
-    ).toContain("Reason: malformed_second_factor");
+    ).toBe("");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("auth").details).textContent,
-    ).toContain("Field: second_factor.assertion.code");
+      screen
+        .getByTestId(phase1ErrorCodeTestId("auth"))
+        .getAttribute("data-error-code"),
+    ).toBe("invalid_auth_request");
     expectPrivateErrorProbeNotRendered();
     await expectStableFetchCount(fetchMock, 3);
   });
@@ -428,17 +433,20 @@ describe("Phase 1 ordinary app shell", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("auth")).textContent,
+        screen
+          .getByTestId(phase1AuthTestId("shell"))
+          .getAttribute("data-bootstrap-state"),
       ).toBe("mfa_required");
     });
+    expect(screen.getByTestId(phase1AuthTestId("login-totp-code"))).toBeTruthy();
+    expect(screen.getByTestId(phase1ErrorCodeTestId("auth")).textContent).toBe(
+      "",
+    );
     expect(
       screen
         .getByTestId(phase1AuthTestId("shell"))
         .getAttribute("data-bootstrap-state"),
     ).toBe("mfa_required");
-    expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("auth").details).textContent,
-    ).toContain("Required second factor kinds: totp");
     expect(document.body.textContent ?? "").not.toContain(
       "mfa-required-token-must-not-render",
     );
@@ -446,11 +454,16 @@ describe("Phase 1 ordinary app shell", () => {
       "otpauth://mfa-required-private",
     );
 
+    fireEvent.change(screen.getByTestId(phase1AuthTestId("login-totp-code")), {
+      target: { value: "111111" },
+    });
     fireEvent.click(screen.getByTestId(phase1AuthTestId("login-submit")));
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("auth")).textContent,
+        screen
+          .getByTestId(phase1AuthTestId("shell"))
+          .getAttribute("data-bootstrap-state"),
       ).toBe("mfa_setup_required");
     });
     expect(
@@ -460,13 +473,10 @@ describe("Phase 1 ordinary app shell", () => {
     ).toBe("mfa_setup_required");
     expect(
       screen.getByTestId(phase1ErrorSummaryTestIds("auth").message).textContent,
-    ).toBe("TOTP setup is required.");
+    ).toBe("Authenticator setup is required before sign-in.");
     expect(
       screen.getByTestId(phase1ErrorSummaryTestIds("auth").details).textContent,
-    ).toContain("Required setup kinds: totp");
-    expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("auth").details).textContent,
-    ).toContain("Bootstrap expires at: 2026-04-17T12:10:00Z");
+    ).toBe("");
     expect(
       screen.getByTestId(phase1AuthTestId("bootstrap-token")).textContent,
     ).toBe("Stored for TOTP setup requests.");
@@ -497,8 +507,11 @@ describe("Phase 1 ordinary app shell", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(phase1AuthTestId("status")).textContent,
-      ).toContain("TOTP enrollment completed");
+      ).toBe("");
     });
+    expect(document.body.textContent ?? "").toContain(
+      "Authenticator setup is complete. Sign in again.",
+    );
     const beginRequest = requireJSONRequest(
       fetchMock,
       "/api/v1/auth/mfa/totp/begin",
@@ -653,7 +666,7 @@ describe("Phase 1 ordinary app shell", () => {
         .getAttribute("data-bootstrap-state"),
     ).toBe("revoked");
     expect(screen.getByTestId(phase1ErrorCodeTestId("auth")).textContent).toBe(
-      "session_required",
+      "Sign in again to continue.",
     );
     expect(
       screen.getByTestId(phase1AuthTestId("shell-message")).textContent,
@@ -953,7 +966,9 @@ describe("Phase 1 ordinary app shell", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(phase1ErrorCodeTestId("auth")).textContent,
+        screen
+          .getByTestId(phase1AuthTestId("shell"))
+          .getAttribute("data-bootstrap-state"),
       ).toBe("mfa_setup_required");
     });
     fireEvent.click(screen.getByTestId(phase1AuthTestId("bootstrap-begin")));
@@ -975,20 +990,22 @@ describe("Phase 1 ordinary app shell", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(phase1ErrorCodeTestId("auth")).textContent,
-      ).toBe("invalid_second_factor");
+      ).toBe("The verification code is incorrect or expired.");
     });
     expect(screen.getByTestId(phase1AuthTestId("status")).textContent).toBe(
-      "TOTP complete failed",
+      "Authenticator setup required.",
     );
     expect(
       screen.getByTestId(phase1ErrorSummaryTestIds("auth").message).textContent,
-    ).toBe("TOTP completion failed.");
+    ).toBe("The verification code is incorrect or expired.");
     expect(
       screen.getByTestId(phase1ErrorSummaryTestIds("auth").details).textContent,
-    ).toContain("Reason: totp_code_invalid");
+    ).toBe("");
     expect(
-      screen.getByTestId(phase1ErrorSummaryTestIds("auth").details).textContent,
-    ).toContain("Field: code");
+      screen
+        .getByTestId(phase1ErrorCodeTestId("auth"))
+        .getAttribute("data-error-code"),
+    ).toBe("invalid_second_factor");
     expect(
       screen.queryByTestId(phase1LandingTestId("current-user")),
     ).toBeNull();

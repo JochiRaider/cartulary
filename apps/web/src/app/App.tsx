@@ -113,8 +113,7 @@ type AppProps = {
 
 export type CartularyReadingProfile = "default" | "hyperlegible";
 
-const defaultAuthPrompt =
-  "Sign in with your local account to open incidents, manage account security, and administer deployment users.";
+const defaultAuthPrompt = "Use your deployment account.";
 const defaultStaleIncidentMessage =
   "The requested incident is no longer visible.";
 const accessLostLandingNotice =
@@ -1321,8 +1320,19 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         }
         message={authPrompt}
         onAuthenticated={async () => {
+          const nextRoute = {
+            incidentId: "",
+            debugHarness: false,
+            deploymentAdministration: false,
+            manualIncidentDirectory: false,
+          };
+          suppressRootIncidentAutoOpenRef.current = false;
+          writeRouteState(nextRoute, "replace");
+          startTransition(() => {
+            setRoute(nextRoute);
+          });
           await refreshShell({
-            routeSnapshot: routeRef.current,
+            routeSnapshot: nextRoute,
             landingNotice: null,
           });
         }}

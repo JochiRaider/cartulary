@@ -53,7 +53,13 @@ export class Phase1Page {
   async login(email: string, password: string, totpCode = "") {
     await this.loginUsername.fill(email);
     await this.loginPassword.fill(password);
-    await this.loginTotpCode.fill(totpCode);
+    if (totpCode !== "") {
+      if (!(await this.loginTotpCode.isVisible())) {
+        await this.page.getByTestId(phase1AuthTestId("login-submit")).click();
+        await expect(this.loginTotpCode).toBeVisible();
+      }
+      await this.loginTotpCode.fill(totpCode);
+    }
     await this.page.getByTestId(phase1AuthTestId("login-submit")).click();
   }
 

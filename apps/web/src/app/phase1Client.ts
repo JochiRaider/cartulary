@@ -324,6 +324,7 @@ export function loginLocal(options: {
   secondFactorCode?: string;
   username: string;
 }) {
+  const secondFactor = secondFactorPayload(options.secondFactorCode ?? "");
   return fetchJSON<DataEnvelope<SessionData>>(
     apiPath(options.apiBase, "/api/v1/auth/login"),
     {
@@ -331,7 +332,11 @@ export function loginLocal(options: {
       body: JSON.stringify({
         username: options.username,
         password: options.password,
-        second_factor: secondFactorPayload(options.secondFactorCode ?? ""),
+        ...(secondFactor === undefined
+          ? {}
+          : {
+              second_factor: secondFactor,
+            }),
       }),
     },
   );

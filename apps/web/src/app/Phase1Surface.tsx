@@ -2,7 +2,6 @@ import {
   deploymentUserRowTestId,
   phase1AccountTestId,
   phase1AdminTestId,
-  phase1AuthTestId,
   phase1ErrorCodeTestId,
   phase1ErrorSummaryTestIds,
 } from "@cartulary/ui-contracts";
@@ -26,7 +25,6 @@ import {
   adminResetPassword,
   adminResetTotp,
   adminRevokeAllSessions,
-  beginEnterpriseAuth,
   beginTotpEnrollment,
   changePassword,
   completeTotpEnrollment,
@@ -36,7 +34,6 @@ import {
   listEnterpriseAuthProviders,
   listUsers,
   loadUser,
-  loginLocal,
   logoutCurrentSession,
   patchLocalUser,
   retireEnterpriseAuthBinding,
@@ -46,22 +43,14 @@ import {
   type UserResource,
 } from "./phase1Client";
 
+export {
+  AuthGateway as Phase1AuthSurface,
+  setEnterpriseAuthNavigateForTesting,
+} from "./AuthGateway";
+export type { Phase1AuthSurfaceProps } from "./AuthGateway";
+
 type RefreshOptions = {
   anonymousMessage?: string;
-};
-
-type AuthSurfaceBootstrapState =
-  | "loading"
-  | "anonymous"
-  | "revoked"
-  | "public_error_envelope";
-
-type Phase1AuthSurfaceProps = {
-  bootstrapState: AuthSurfaceBootstrapState;
-  message: string;
-  onAuthenticated: () => Promise<void> | void;
-  publicError?: APIError | null;
-  readingProfile?: "default" | "hyperlegible" | undefined;
 };
 
 type Phase1AccountPanelProps = {
@@ -105,8 +94,6 @@ export type Phase1AdminPanelCommandState = {
 type TargetAdminOperation = "loading" | "mutating";
 type CredentialDialogKind = "password" | "revoke" | "totp";
 
-type AuthChallengeState = "mfa_required" | "mfa_setup_required";
-
 type SafeAuthBindingSummary = NonNullable<
   UserResource["auth_bindings"]
 >[number];
@@ -119,429 +106,6 @@ function isEnterpriseAuthBinding(
   binding: SafeAuthBindingSummary,
 ): binding is EnterpriseAuthBindingSummary {
   return binding.provider_type !== "local";
-}
-
-let enterpriseAuthNavigate = (redirectURL: string) => {
-  window.location.assign(redirectURL);
-};
-
-export function setEnterpriseAuthNavigateForTesting(
-  navigate: (redirectURL: string) => void,
-) {
-  const previous = enterpriseAuthNavigate;
-  enterpriseAuthNavigate = navigate;
-  return () => {
-    enterpriseAuthNavigate = previous;
-  };
-}
-
-export function Phase1AuthSurface({
-  bootstrapState,
-  message,
-  onAuthenticated,
-  publicError = null,
-  readingProfile = "default",
-}: Phase1AuthSurfaceProps) {
-  const [statusText, setStatusText] = useState("Ready to sign in.");
-  const [error, setError] = useState<APIError | null>(null);
-  const [authChallengeState, setAuthChallengeState] =
-    useState<AuthChallengeState | null>(null);
-  const [bootstrapToken, setBootstrapToken] = useState("");
-  const [bootstrapEnrollmentId, setBootstrapEnrollmentId] = useState("");
-  const [bootstrapSecretBase32, setBootstrapSecretBase32] = useState("");
-  const [enterpriseProviders, setEnterpriseProviders] = useState<
-    EnterpriseAuthProvider[]
-  >([]);
-
-  const [username, setUsername] = useState("bootstrap-admin@example.test");
-  const [password, setPassword] = useState("BootstrapPass1!");
-  const [totpCode, setTotpCode] = useState("");
-  const [bootstrapCompleteCode, setBootstrapCompleteCode] = useState("");
-
-  useEffect(() => {
-    if (bootstrapState === "loading") {
-      return;
-    }
-    const controller = new AbortController();
-    void (async () => {
-      const result = await listEnterpriseAuthProviders({
-        signal: controller.signal,
-      });
-      if (controller.signal.aborted) {
-        return;
-      }
-      const nextError = extractError(result.payload);
-      if (!result.ok) {
-        if (
-          result.status === 404 ||
-          nextError?.code === "extension_profile_not_claimed"
-        ) {
-          setEnterpriseProviders([]);
-          return;
-        }
-        setEnterpriseProviders([]);
-        return;
-      }
-      const data = (
-        result.payload as { data: { providers: EnterpriseAuthProvider[] } }
-      ).data;
-      setEnterpriseProviders(data.providers);
-    })();
-    return () => {
-      controller.abort();
-    };
-  }, [bootstrapState]);
-
-  async function handleLogin() {
-    setStatusText("Signing in");
-    setAuthChallengeState(null);
-    const result = await loginLocal({
-      username,
-      password,
-      secondFactorCode: totpCode,
-    });
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      if (nextError?.code === "mfa_setup_required") {
-        const token = nextError.details?.bootstrap_token;
-        if (typeof token === "string") {
-          setBootstrapToken(token);
-        }
-        setBootstrapEnrollmentId("");
-        setBootstrapSecretBase32("");
-        setAuthChallengeState("mfa_setup_required");
-        setStatusText("TOTP enrollment is required before sign-in.");
-        return;
-      }
-      if (nextError?.code === "mfa_required") {
-        setBootstrapToken("");
-        setBootstrapEnrollmentId("");
-        setBootstrapSecretBase32("");
-        setAuthChallengeState("mfa_required");
-        setStatusText("TOTP code is required before sign-in.");
-        return;
-      }
-      setBootstrapToken("");
-      setBootstrapEnrollmentId("");
-      setBootstrapSecretBase32("");
-      setStatusText("Sign in failed");
-      return;
-    }
-
-    setBootstrapToken("");
-    setBootstrapEnrollmentId("");
-    setBootstrapSecretBase32("");
-    setAuthChallengeState(null);
-    setError(null);
-    setStatusText("Signed in");
-    await onAuthenticated();
-  }
-
-  async function handleEnterpriseBegin(providerKey: string) {
-    setStatusText("Starting enterprise sign-in");
-    const returnTo =
-      `${window.location.pathname}${window.location.search}`.trim() || "/";
-    const result = await beginEnterpriseAuth({
-      providerKey,
-      returnTo,
-    });
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      setStatusText("Enterprise sign-in failed");
-      return;
-    }
-    const data = (result.payload as { data: { redirect_url: string } }).data;
-    enterpriseAuthNavigate(data.redirect_url);
-  }
-
-  async function handleBeginBootstrapEnrollment() {
-    setStatusText("Beginning TOTP enrollment");
-    const result = await beginTotpEnrollment({
-      authMode: "bootstrap",
-      bootstrapToken,
-    });
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      setStatusText("TOTP begin failed");
-      return;
-    }
-
-    const data = (
-      result.payload as {
-        data: { enrollment_id: string; totp_setup: { secret_base32: string } };
-      }
-    ).data;
-    setBootstrapEnrollmentId(data.enrollment_id);
-    setBootstrapSecretBase32(data.totp_setup.secret_base32);
-    setStatusText("Began TOTP enrollment");
-  }
-
-  async function handleCompleteBootstrapEnrollment() {
-    setStatusText("Completing TOTP enrollment");
-    const result = await completeTotpEnrollment({
-      authMode: "bootstrap",
-      bootstrapToken,
-      code: bootstrapCompleteCode,
-      enrollmentId: bootstrapEnrollmentId,
-    });
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      setStatusText("TOTP complete failed");
-      return;
-    }
-
-    setBootstrapToken("");
-    setBootstrapEnrollmentId("");
-    setBootstrapSecretBase32("");
-    setBootstrapCompleteCode("");
-    setTotpCode("");
-    setAuthChallengeState(null);
-    setError(null);
-    setStatusText("TOTP enrollment completed. Sign in with your TOTP code.");
-  }
-
-  const displayedError = error ?? publicError;
-  const displayedBootstrapState = authChallengeState ?? bootstrapState;
-  const rootShellStyle =
-    readingProfile === "hyperlegible"
-      ? {
-          ...shellStyle,
-          fontFamily: "var(--ct-typography-accessible-reading-fontFamily)",
-        }
-      : shellStyle;
-
-  return (
-    <main
-      aria-busy={bootstrapState === "loading"}
-      className="cartulary-shell"
-      data-bootstrap-state={displayedBootstrapState}
-      data-reading-profile={
-        readingProfile === "hyperlegible" ? "hyperlegible" : undefined
-      }
-      data-testid={phase1AuthTestId("shell")}
-      style={rootShellStyle}
-    >
-      <section style={shellPanelStyle}>
-        <header style={sectionHeaderStyle}>
-          <div>
-            <p style={eyebrowStyle}>Cartulary</p>
-            <h1 style={headlineStyle}>Local sign-in</h1>
-            <p
-              data-testid={phase1AuthTestId("shell-message")}
-              style={bodyStyle}
-            >
-              {message}
-            </p>
-          </div>
-          <div style={statusCardStyle}>
-            <span style={labelStyle}>Status</span>
-            <strong
-              aria-live="polite"
-              data-testid={phase1AuthTestId("status")}
-              role="status"
-            >
-              {bootstrapState === "loading"
-                ? "Checking current session…"
-                : statusText}
-            </strong>
-          </div>
-        </header>
-
-        <section style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <div>
-              <p style={sectionEyebrowStyle}>Authentication</p>
-              <h2 style={sectionTitleStyle}>
-                Sign in to the ordinary app shell
-              </h2>
-            </div>
-          </div>
-          <div style={formGridStyle}>
-            <label htmlFor="auth-login-username" style={labelBlockStyle}>
-              Email
-            </label>
-            <input
-              data-testid={phase1AuthTestId("login-username")}
-              id="auth-login-username"
-              style={inputStyle}
-              value={username}
-              onChange={(event) => {
-                setUsername(event.target.value);
-              }}
-            />
-            <label htmlFor="auth-login-password" style={labelBlockStyle}>
-              Password
-            </label>
-            <input
-              data-testid={phase1AuthTestId("login-password")}
-              id="auth-login-password"
-              style={inputStyle}
-              type="password"
-              value={password}
-              onChange={(event) => {
-                setPassword(event.target.value);
-              }}
-            />
-            <label htmlFor="auth-login-totp-code" style={labelBlockStyle}>
-              TOTP code
-            </label>
-            <input
-              data-testid={phase1AuthTestId("login-totp-code")}
-              id="auth-login-totp-code"
-              style={inputStyle}
-              value={totpCode}
-              onChange={(event) => {
-                setTotpCode(event.target.value);
-              }}
-            />
-          </div>
-          <div style={buttonRowStyle}>
-            <button
-              data-testid={phase1AuthTestId("login-submit")}
-              style={buttonStyle}
-              type="button"
-              onClick={() => {
-                void handleLogin();
-              }}
-            >
-              Sign in
-            </button>
-          </div>
-          <p
-            aria-live="assertive"
-            data-testid={phase1ErrorCodeTestId("auth")}
-            role={displayedError === null ? undefined : "alert"}
-            style={errorStyle}
-          >
-            {publicErrorView(displayedError)?.code ?? ""}
-          </p>
-          <PublicErrorSummary
-            error={displayedError}
-            testIds={phase1ErrorSummaryTestIds("auth")}
-          />
-        </section>
-
-        {enterpriseProviders.length > 0 ? (
-          <section style={cardStyle}>
-            <div style={cardHeaderStyle}>
-              <div>
-                <p style={sectionEyebrowStyle}>Enterprise</p>
-                <h2 style={sectionTitleStyle}>Provider sign-in</h2>
-              </div>
-            </div>
-            <div
-              data-testid={phase1AuthTestId("enterprise-provider-list")}
-              style={buttonRowStyle}
-            >
-              {enterpriseProviders.map((provider) => (
-                <button
-                  key={provider.provider_key}
-                  data-provider-key={provider.provider_key}
-                  data-testid={phase1AuthTestId("enterprise-provider-button")}
-                  style={secondaryButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void handleEnterpriseBegin(provider.provider_key);
-                  }}
-                >
-                  {provider.display_name}
-                </button>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {bootstrapToken !== "" ? (
-          <section style={cardStyle}>
-            <div style={cardHeaderStyle}>
-              <div>
-                <p style={sectionEyebrowStyle}>Bootstrap</p>
-                <h2 style={sectionTitleStyle}>Complete TOTP enrollment</h2>
-              </div>
-            </div>
-            <p style={bodyStyle}>
-              This account requires TOTP enrollment before it can create a
-              session.
-            </p>
-            <div style={detailGridStyle}>
-              <div>
-                <span style={labelStyle}>Setup token</span>
-                <div
-                  data-testid={phase1AuthTestId("bootstrap-token")}
-                  style={monoTextStyle}
-                >
-                  Stored for TOTP setup requests.
-                </div>
-              </div>
-              <div>
-                <span style={labelStyle}>Enrollment id</span>
-                <div
-                  data-testid={phase1AuthTestId("bootstrap-enrollment-id")}
-                  style={monoTextStyle}
-                >
-                  {bootstrapEnrollmentId}
-                </div>
-              </div>
-              <div style={wideCellStyle}>
-                <span style={labelStyle}>Secret base32</span>
-                <div
-                  data-testid={phase1AuthTestId("bootstrap-secret-base32")}
-                  style={monoTextStyle}
-                >
-                  {bootstrapSecretBase32}
-                </div>
-              </div>
-            </div>
-            <div style={buttonRowStyle}>
-              <button
-                data-testid={phase1AuthTestId("bootstrap-begin")}
-                style={buttonStyle}
-                type="button"
-                onClick={() => {
-                  void handleBeginBootstrapEnrollment();
-                }}
-              >
-                Begin enrollment
-              </button>
-            </div>
-            <div style={formGridStyle}>
-              <label
-                htmlFor="auth-bootstrap-complete-code"
-                style={labelBlockStyle}
-              >
-                TOTP code
-              </label>
-              <input
-                data-testid={phase1AuthTestId("bootstrap-complete-code")}
-                id="auth-bootstrap-complete-code"
-                style={inputStyle}
-                value={bootstrapCompleteCode}
-                onChange={(event) => {
-                  setBootstrapCompleteCode(event.target.value);
-                }}
-              />
-            </div>
-            <div style={buttonRowStyle}>
-              <button
-                data-testid={phase1AuthTestId("bootstrap-complete")}
-                style={buttonStyle}
-                type="button"
-                onClick={() => {
-                  void handleCompleteBootstrapEnrollment();
-                }}
-              >
-                Complete enrollment
-              </button>
-            </div>
-          </section>
-        ) : null}
-      </section>
-    </main>
-  );
 }
 
 export const Phase1AccountPanel = forwardRef<

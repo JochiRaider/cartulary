@@ -79,13 +79,15 @@ describe("Phase 1 ordinary shell support", () => {
     ).toBeTruthy();
     expect(
       screen.getByTestId(phase1AuthTestId("shell-message")).textContent,
-    ).toContain("Sign in with your local account");
+    ).toContain("Use your deployment account.");
+    expect(
+      screen
+        .getByTestId(phase1AuthTestId("shell"))
+        .getAttribute("data-bootstrap-state"),
+    ).toBe("anonymous");
     await waitFor(() => {
-      expect(
-        screen.getByTestId(phase1AuthTestId("status")).textContent?.trim(),
-      ).not.toBe("");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("FE-S-P1-01 Verify bootstrap route selectors and error-state selectors use stable test-id builders.", async () => {

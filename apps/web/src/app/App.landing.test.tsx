@@ -1224,7 +1224,7 @@ describe("Incident landing", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
     expect(screen.getByTestId(phase1AuthTestId("status")).textContent).toBe(
-      "Checking current session…",
+      "Checking current session...",
     );
 
     window.history.pushState({}, "", "/?debug=harness");

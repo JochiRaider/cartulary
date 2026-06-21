@@ -40,6 +40,8 @@ import {
   mentionResolveTargetSelectTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
+  phase1AuthTestId,
+  phase1ErrorCodeTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
   rowCellTestId,
@@ -396,6 +398,154 @@ type GridVisualRegressionOptions = {
   | { scroll: GridVisualScrollState; anchor?: never }
   | { anchor: GridVisualAnchor; scroll?: never }
 );
+
+type AuthVisualLoginMode =
+  | "invalid_credentials"
+  | "invalid_mfa"
+  | "mfa_required"
+  | "mfa_setup_required"
+  | "pending"
+  | "service_unavailable";
+
+test.describe("FE-P1 auth gateway visual readiness", () => {
+  test("FE-V-P1-01 Capture auth gateway initial, focused, loading, invalid credentials, MFA required, invalid MFA, MFA setup required, service unavailable, mobile, reduced-motion, and 200%-zoom states.", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await attachFontManifestDigest();
+
+    let sessionPending = true;
+    let releaseSession: (() => void) | null = null;
+    let loginMode: AuthVisualLoginMode = "invalid_credentials";
+    let pendingLoginResult: AuthVisualLoginMode = "invalid_credentials";
+    let releaseLogin: (() => void) | null = null;
+
+    await page.route("**/api/v1/auth/session", async (route) => {
+      if (sessionPending) {
+        await new Promise<void>((resolve) => {
+          releaseSession = resolve;
+        });
+      }
+      await fulfillAuthVisualError(route, {
+        code: "session_required",
+        message: "Session required.",
+        status: 401,
+      });
+    });
+    await page.route("**/api/v1/auth/providers", async (route) => {
+      await fulfillAuthVisualJSON(route, { data: { providers: [] } });
+    });
+    await page.route("**/api/v1/auth/login", async (route) => {
+      const mode = loginMode;
+      if (mode === "pending") {
+        await new Promise<void>((resolve) => {
+          releaseLogin = resolve;
+        });
+        await fulfillAuthVisualLogin(route, pendingLoginResult);
+        return;
+      }
+      await fulfillAuthVisualLogin(route, mode);
+    });
+
+    await page.goto("/");
+    await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+      "data-bootstrap-state",
+      "loading",
+    );
+    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-loading");
+    sessionPending = false;
+    releaseSession?.();
+
+    await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+      "data-bootstrap-state",
+      "anonymous",
+    );
+    await expect(
+      page.getByTestId(phase1AuthTestId("login-totp-code")),
+    ).toHaveCount(0);
+    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-initial");
+
+    await page.getByTestId(phase1AuthTestId("login-username")).focus();
+    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-focused");
+
+    await fillAuthVisualCredentials(page);
+    loginMode = "pending";
+    pendingLoginResult = "invalid_credentials";
+    await page.getByTestId(phase1AuthTestId("login-submit")).click();
+    await expect(page.getByTestId(phase1AuthTestId("login-submit"))).toHaveText(
+      "Signing in...",
+    );
+    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-submitting");
+    releaseLogin?.();
+    await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+      "Email or password is incorrect.",
+    );
+    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-invalid-credentials");
+
+    loginMode = "mfa_required";
+    await page.getByTestId(phase1AuthTestId("login-submit")).click();
+    await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+      "data-bootstrap-state",
+      "mfa_required",
+    );
+    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-mfa-required");
+
+    loginMode = "invalid_mfa";
+    await page.getByTestId(phase1AuthTestId("login-totp-code")).fill("000000");
+    await page.getByTestId(phase1AuthTestId("login-submit")).click();
+    await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+      "The verification code is incorrect or expired.",
+    );
+    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-invalid-mfa");
+
+    loginMode = "mfa_setup_required";
+    await page.reload();
+    await fillAuthVisualCredentials(page);
+    await page.getByTestId(phase1AuthTestId("login-submit")).click();
+    await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+      "data-bootstrap-state",
+      "mfa_setup_required",
+    );
+    await assertAuthGatewayVisual(
+      page,
+      "fe-v-p1-01-auth-mfa-setup-required",
+    );
+
+    loginMode = "service_unavailable";
+    await page.reload();
+    await fillAuthVisualCredentials(page);
+    await page.getByTestId(phase1AuthTestId("login-submit")).click();
+    await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+      "Authentication is temporarily unavailable. Try again.",
+    );
+    await assertAuthGatewayVisual(
+      page,
+      "fe-v-p1-01-auth-service-unavailable",
+    );
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+      "data-bootstrap-state",
+      "anonymous",
+    );
+    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-mobile");
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.reload();
+    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-reduced-motion");
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "200%";
+    });
+    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-200-zoom");
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "100%";
+    });
+  });
+});
 
 test.describe("FE-P2 workbook visual readiness", () => {
   test("FE-V-P2-01 Capture Default Timeline workbook shell with view-bar query controls, compact sheet toolbar, dense Timeline grid, collapsed inspector default, explicit inspector opener, bottom draft row, and status strip.", async ({
@@ -3267,11 +3417,110 @@ async function assertViewportVisualRegression(
   });
 }
 
+async function assertAuthGatewayVisual(page: Page, name: string) {
+  await assertViewportVisualRegression(page, name);
+  await test.info().attach(`${name}.png`, {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: "image/png",
+  });
+}
+
 async function assertStatusStripVisualRegression(page: Page, name: string) {
   const statusStrip = page.getByTestId(workbookShellSlotTestId("status-strip"));
   await expectStatusStripFocusAnchorVisuallyHidden(statusStrip);
   await statusStrip.scrollIntoViewIfNeeded();
   await assertVisualRegression(page, name, statusStrip);
+}
+
+async function fillAuthVisualCredentials(page: Page) {
+  await page
+    .getByTestId(phase1AuthTestId("login-username"))
+    .fill("visual.operator@example.test");
+  await page
+    .getByTestId(phase1AuthTestId("login-password"))
+    .fill("VisualPass1!");
+}
+
+async function fulfillAuthVisualJSON(
+  route: Route,
+  body: Record<string, unknown>,
+  status = 200,
+) {
+  await route.fulfill({
+    contentType: "application/json",
+    status,
+    body: JSON.stringify(body),
+  });
+}
+
+async function fulfillAuthVisualError(
+  route: Route,
+  options: {
+    code: string;
+    details?: Record<string, unknown>;
+    message: string;
+    status: number;
+  },
+) {
+  await fulfillAuthVisualJSON(
+    route,
+    {
+      error: {
+        code: options.code,
+        status: options.status,
+        message: options.message,
+        details: options.details ?? {},
+      },
+    },
+    options.status,
+  );
+}
+
+async function fulfillAuthVisualLogin(route: Route, mode: AuthVisualLoginMode) {
+  if (mode === "mfa_required") {
+    await fulfillAuthVisualError(route, {
+      code: "mfa_required",
+      details: {
+        required_second_factor_kinds: ["totp"],
+      },
+      message: "MFA is required.",
+      status: 401,
+    });
+    return;
+  }
+  if (mode === "mfa_setup_required") {
+    await fulfillAuthVisualError(route, {
+      code: "mfa_setup_required",
+      details: {
+        bootstrap_token: "visual-bootstrap-token",
+        required_setup_kinds: ["totp"],
+      },
+      message: "Authenticator setup is required.",
+      status: 401,
+    });
+    return;
+  }
+  if (mode === "invalid_mfa") {
+    await fulfillAuthVisualError(route, {
+      code: "invalid_second_factor",
+      message: "Invalid second factor.",
+      status: 401,
+    });
+    return;
+  }
+  if (mode === "service_unavailable") {
+    await fulfillAuthVisualError(route, {
+      code: "service_unavailable",
+      message: "Authentication service unavailable.",
+      status: 503,
+    });
+    return;
+  }
+  await fulfillAuthVisualError(route, {
+    code: "invalid_credentials",
+    message: "Invalid credentials.",
+    status: 401,
+  });
 }
 
 async function assertStatusStripVisualFixture(page: Page, name: string) {

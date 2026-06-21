@@ -2763,7 +2763,6 @@ test.describe("FE-P1 accessibility readiness", () => {
       tabStops: [
         phase1AuthTestId("login-username"),
         phase1AuthTestId("login-password"),
-        phase1AuthTestId("login-totp-code"),
         phase1AuthTestId("login-submit"),
       ],
     });
@@ -2803,7 +2802,6 @@ test.describe("FE-P1 accessibility readiness", () => {
         tabStops: [
           phase1AuthTestId("login-username"),
           phase1AuthTestId("login-password"),
-          phase1AuthTestId("login-totp-code"),
           phase1AuthTestId("login-submit"),
         ],
       });
@@ -2855,13 +2853,9 @@ test.describe("FE-P1 accessibility readiness", () => {
         "data-bootstrap-state",
         "mfa_required",
       );
-      await expectAlertRole(page.getByTestId(phase1ErrorCodeTestId("auth")));
-      await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
-        "mfa_required",
-      );
       await expectStatusRole(page.getByTestId(phase1AuthTestId("status")));
       await expect(page.getByTestId(phase1AuthTestId("status"))).toContainText(
-        "TOTP code",
+        "Authenticator code",
       );
       await expectNoPrivateDiagnostics(
         page.getByTestId(phase1ErrorSummaryTestIds("auth").container),
@@ -2910,9 +2904,8 @@ test.describe("FE-P1 accessibility readiness", () => {
         "data-bootstrap-state",
         "mfa_setup_required",
       );
-      await expectAlertRole(page.getByTestId(phase1ErrorCodeTestId("auth")));
       await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
-        "mfa_setup_required",
+        "Authenticator setup is required before sign-in.",
       );
       await expect(
         page.getByTestId(phase1AuthTestId("bootstrap-token")),
@@ -2923,13 +2916,8 @@ test.describe("FE-P1 accessibility readiness", () => {
       await expectP1SurfaceA11y(page, {
         focusTestId: phase1AuthTestId("bootstrap-begin"),
         tabStops: [
-          phase1AuthTestId("login-username"),
-          phase1AuthTestId("login-password"),
-          phase1AuthTestId("login-totp-code"),
-          phase1AuthTestId("login-submit"),
           phase1AuthTestId("bootstrap-begin"),
           phase1AuthTestId("bootstrap-complete-code"),
-          phase1AuthTestId("bootstrap-complete"),
         ],
       });
 
@@ -2938,10 +2926,19 @@ test.describe("FE-P1 accessibility readiness", () => {
       const secretBase32 = await phase1.requireText(
         phase1AuthTestId("bootstrap-secret-base32"),
       );
+      await expectP1SurfaceA11y(page, {
+        focusTestId: phase1AuthTestId("bootstrap-complete-code"),
+        tabStops: [
+          phase1AuthTestId("bootstrap-complete-code"),
+          phase1AuthTestId("bootstrap-complete"),
+        ],
+      });
       await phase1.completeBootstrapEnrollment(generateTotpCode(secretBase32));
-      await expect(page.getByTestId(phase1AuthTestId("status"))).toHaveText(
-        "TOTP enrollment completed. Sign in with your TOTP code.",
-      );
+      await expect(
+        page
+          .getByText("Authenticator setup is complete. Sign in again.")
+          .first(),
+      ).toBeVisible();
       expect(await hasSessionCookie(page)).toBeFalsy();
     },
   );
@@ -3191,23 +3188,21 @@ test.describe("FE-P1 accessibility readiness", () => {
       await expect(
         page.getByTestId(phase1AuthTestId("shell-message")),
       ).toContainText("Sign in again");
-      await expectStatusRole(page.getByTestId(phase1AuthTestId("status")));
       await expectP1SurfaceA11y(page, {
         focusTestId: phase1AuthTestId("login-submit"),
         tabStops: [
           phase1AuthTestId("login-username"),
           phase1AuthTestId("login-password"),
-          phase1AuthTestId("login-totp-code"),
           phase1AuthTestId("login-submit"),
         ],
       });
 
       await phase1.login(email, password);
       await expect(
-        page.getByTestId(phase1LandingTestId("shell")),
+        page.getByTestId(workbookShellReadyTestId()),
       ).toBeVisible();
       await expect(
-        page.getByTestId(phase1LandingTestId("current-user")),
+        page.getByTestId(phase1RouteTestId("workbook-current-user")),
       ).toContainText("A11Y P1 Revoked");
       await sessionTracker.captureCurrentSession(page, {
         createdBy: "phase1 accessibility",

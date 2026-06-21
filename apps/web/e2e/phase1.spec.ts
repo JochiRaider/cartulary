@@ -165,9 +165,14 @@ test("E-1-02 requires MFA on the ordinary login surface, rejects wrong codes, an
 
   await phase1.login(email, password);
   await missingTotpResponse;
-  await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+  await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+    "data-bootstrap-state",
     "mfa_required",
   );
+  await expect(
+    page.getByTestId(phase1AuthTestId("login-totp-code")),
+  ).toBeVisible();
+  await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText("");
   expect(await hasSessionCookie(page)).toBeFalsy();
 
   const wrongTotpResponse = waitForPublicAPIResponse(page, {
@@ -178,7 +183,7 @@ test("E-1-02 requires MFA on the ordinary login surface, rejects wrong codes, an
   await phase1.login(email, password, "000000");
   await wrongTotpResponse;
   await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
-    "invalid_second_factor",
+    "The verification code is incorrect or expired.",
   );
   expect(await hasSessionCookie(page)).toBeFalsy();
 
@@ -221,7 +226,7 @@ test("E-1-03 rejects invalid credentials without issuing a session cookie", asyn
   await phase1.login(email, "WrongPassword1!");
   await invalidLoginResponse;
   await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
-    "invalid_credentials",
+    "Email or password is incorrect.",
   );
   expect(await hasSessionCookie(page)).toBeFalsy();
 });
@@ -327,7 +332,8 @@ test("E-1-06 follows the bootstrap-token enrollment sequence on the ordinary log
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(email, password);
-  await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+  await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+    "data-bootstrap-state",
     "mfa_setup_required",
   );
   await expect(
@@ -336,21 +342,19 @@ test("E-1-06 follows the bootstrap-token enrollment sequence on the ordinary log
   expect(await hasSessionCookie(page)).toBeFalsy();
 
   await phase1.beginBootstrapEnrollment();
-  await expect(page.getByTestId(phase1AuthTestId("status"))).toHaveText(
-    "Began TOTP enrollment",
-  );
   const secretBase32 = await phase1.requireText(
     phase1AuthTestId("bootstrap-secret-base32"),
   );
 
   await phase1.completeBootstrapEnrollment(generateTotpCode(secretBase32));
-  await expect(page.getByTestId(phase1AuthTestId("status"))).toHaveText(
-    "TOTP enrollment completed. Sign in with your TOTP code.",
-  );
+  await expect(
+    page.getByText("Authenticator setup is complete. Sign in again.").first(),
+  ).toBeVisible();
   expect(await hasSessionCookie(page)).toBeFalsy();
 
   await phase1.login(email, password);
-  await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+  await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+    "data-bootstrap-state",
     "mfa_required",
   );
 
@@ -374,7 +378,8 @@ test("E-1-06 follows the bootstrap-token enrollment sequence on the ordinary log
   await clearBrowserSession(page);
   await phase1.goto();
   await phase1.login(email, password);
-  await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+  await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+    "data-bootstrap-state",
     "mfa_setup_required",
   );
   await expect(
@@ -383,9 +388,6 @@ test("E-1-06 follows the bootstrap-token enrollment sequence on the ordinary log
   expect(await hasSessionCookie(page)).toBeFalsy();
 
   await phase1.beginBootstrapEnrollment();
-  await expect(page.getByTestId(phase1AuthTestId("status"))).toHaveText(
-    "Began TOTP enrollment",
-  );
   const replacementSecretBase32 = await phase1.requireText(
     phase1AuthTestId("bootstrap-secret-base32"),
   );
@@ -393,13 +395,14 @@ test("E-1-06 follows the bootstrap-token enrollment sequence on the ordinary log
   await phase1.completeBootstrapEnrollment(
     generateTotpCode(replacementSecretBase32),
   );
-  await expect(page.getByTestId(phase1AuthTestId("status"))).toHaveText(
-    "TOTP enrollment completed. Sign in with your TOTP code.",
-  );
+  await expect(
+    page.getByText("Authenticator setup is complete. Sign in again.").first(),
+  ).toBeVisible();
   expect(await hasSessionCookie(page)).toBeFalsy();
 
   await phase1.login(email, password);
-  await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
+  await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
+    "data-bootstrap-state",
     "mfa_required",
   );
 
@@ -467,9 +470,9 @@ test("E-1-07 requires the current password and current TOTP code, revokes the se
     page.getByTestId(phase1AuthTestId("login-username")),
   ).toBeVisible();
 
-  await phase1.login(email, password, generateTotpCode(secretBase32));
+  await phase1.login(email, password);
   await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
-    "invalid_credentials",
+    "Email or password is incorrect.",
   );
 
   await phase1.login(
