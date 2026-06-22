@@ -407,6 +407,10 @@ type AuthVisualLoginMode =
   | "pending"
   | "service_unavailable";
 
+function releaseAuthVisualStep(release: (() => void) | null) {
+  release?.();
+}
+
 test.describe("FE-P1 auth gateway visual readiness", () => {
   test("FE-V-P1-01 Capture auth gateway initial, focused, loading, invalid credentials, MFA required, invalid MFA, MFA setup required, service unavailable, mobile, reduced-motion, and 200%-zoom states.", async ({
     page,
@@ -454,7 +458,7 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
     );
     await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-loading");
     sessionPending = false;
-    releaseSession?.();
+    releaseAuthVisualStep(releaseSession);
 
     await expect(page.getByTestId(phase1AuthTestId("shell"))).toHaveAttribute(
       "data-bootstrap-state",
@@ -476,7 +480,7 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
       "Signing in...",
     );
     await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-submitting");
-    releaseLogin?.();
+    releaseAuthVisualStep(releaseLogin);
     await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
       "Email or password is incorrect.",
     );
@@ -506,10 +510,7 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
       "data-bootstrap-state",
       "mfa_setup_required",
     );
-    await assertAuthGatewayVisual(
-      page,
-      "fe-v-p1-01-auth-mfa-setup-required",
-    );
+    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-mfa-setup-required");
 
     loginMode = "service_unavailable";
     await page.reload();
@@ -518,10 +519,7 @@ test.describe("FE-P1 auth gateway visual readiness", () => {
     await expect(page.getByTestId(phase1ErrorCodeTestId("auth"))).toHaveText(
       "Authentication is temporarily unavailable. Try again.",
     );
-    await assertAuthGatewayVisual(
-      page,
-      "fe-v-p1-01-auth-service-unavailable",
-    );
+    await assertAuthGatewayVisual(page, "fe-v-p1-01-auth-service-unavailable");
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();

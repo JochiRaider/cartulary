@@ -470,6 +470,16 @@ fi
 if ! text_contains "$lint_shell_block" 'LINT_SHELL_STRICT="1"'; then
   fail "lint-shell must force strict blocking ShellCheck under public Make"
 fi
+makefile_content="$(cat "$makefile")"
+if ! text_contains "$makefile_content" 'EMBEDDED_WEB_ASSET_ARCHIVE := $(EMBEDDED_WEB_ASSET_DIR)/web-assets.zip'; then
+  fail "Makefile must publish embedded web assets as a single archive"
+fi
+if ! text_contains "$makefile_content" 'EMBEDDED_WEB_ASSET_READY_STAMP := $(CURDIR)/tmp/frontend-embed/web-assets.ready'; then
+  fail "embedded web asset readiness stamp must live outside the embedded asset directory"
+fi
+if text_contains "$makefile_content" 'EMBEDDED_WEB_ASSET_READY_STAMP := $(EMBEDDED_WEB_ASSET_DIR)'; then
+  fail "embedded web asset readiness stamp must not be embedded application content"
+fi
 for scheduled_target in \
   toolchain-drift \
   codegen-toolchain \
@@ -478,9 +488,11 @@ for scheduled_target in \
   gosec-toolchain \
   shell-lint-toolchain \
   check-frontend-install \
-	  build-server \
-	  build-migrate \
-	  testservices-build \
+  build-web \
+  embedded-web-assets \
+  build-server \
+  build-migrate \
+  testservices-build \
   test-service-images \
   check-service-backed \
   migration-input-drift \
@@ -574,6 +586,7 @@ assertCheckMetadata("gosec-toolchain", "setup_cpu_io");
 assertCheckMetadata("shell-lint-toolchain", "setup_cpu_io");
 assertCheckMetadata("check-frontend-install", "setup_cpu_io");
 assertCheckMetadata("build-server", "build_readiness_server");
+assertCheckMetadata("embedded-web-assets", "build_readiness_web_assets");
 assertCheckMetadata("build-migrate", "build_readiness_go_binary");
 assertCheckMetadata("testservices-build", "build_readiness_go_binary");
 assertCheckMetadata("test-service-images", "build_readiness_service_images");
@@ -633,6 +646,7 @@ const assertClaims = (target, expectedClaims) => {
   }
 };
 assertClaims("build-server", { host_cpu: 2, host_io: 2 });
+assertClaims("embedded-web-assets", { host_cpu: 1, host_io: 1 });
 assertClaims("build-migrate", { host_cpu: 1, host_io: 1 });
 assertClaims("testservices-build", { host_cpu: 1, host_io: 1 });
 assertClaims("test-service-images", { host_cpu: 1, host_io: 2 });
@@ -674,7 +688,8 @@ assert_check_needs toolchain-drift ""
 for scheduled_target in codegen-toolchain go-lint-toolchain govulncheck-toolchain gosec-toolchain shell-lint-toolchain check-frontend-install; do
   assert_check_needs "$scheduled_target" "toolchain-drift"
 done
-assert_check_needs build-server "build-web"
+assert_check_needs build-server "embedded-web-assets"
+assert_check_needs embedded-web-assets "build-web"
 assert_check_needs build-migrate "toolchain-drift"
 assert_check_needs testservices-build "toolchain-drift"
 assert_check_needs test-service-images "testservices-build"
@@ -682,7 +697,6 @@ assert_check_needs check-service-backed "test-service-images"
 assert_check_needs migration-input-drift "toolchain-drift"
 assert_check_needs migration-scratch-apply "build-migrate"
 for scheduled_target in \
-  backend-unit \
   check-harness-smoke \
   phase-test-name-check \
   go-test-duration-baseline-coverage \
@@ -692,6 +706,7 @@ for scheduled_target in \
 do
   assert_check_needs "$scheduled_target" "toolchain-drift"
 done
+assert_check_needs backend-unit "toolchain-drift,embedded-web-assets"
 assert_check_needs generate-drift "codegen-toolchain"
 assert_check_needs lint-go "go-lint-toolchain"
 assert_check_needs go-vulncheck "govulncheck-toolchain"

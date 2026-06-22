@@ -43,11 +43,11 @@ import {
   type UserResource,
 } from "./phase1Client";
 
+export type { Phase1AuthSurfaceProps } from "./AuthGateway";
 export {
   AuthGateway as Phase1AuthSurface,
   setEnterpriseAuthNavigateForTesting,
 } from "./AuthGateway";
-export type { Phase1AuthSurfaceProps } from "./AuthGateway";
 
 type RefreshOptions = {
   anonymousMessage?: string;
@@ -1982,59 +1982,11 @@ function PublicErrorSummary({
   );
 }
 
-const shellStyle: CSSProperties = {
-  minHeight: "100vh",
-  padding: "2rem",
-  background: "var(--ct-colors-canvas)",
-  color: "var(--ct-colors-ink)",
-  fontFamily: "var(--ct-typography-ui-fontFamily)",
-};
-
-const shellPanelStyle: CSSProperties = {
-  width: "min(56rem, 100%)",
-  margin: "0 auto",
-  padding: "2rem",
-  borderRadius: "var(--ct-rounded-lg)",
-  background: "var(--ct-colors-surface-1)",
-  boxShadow: "var(--ct-elevation-panel)",
-  border: "var(--ct-border-hairline)",
-};
-
-const sectionHeaderStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "1rem",
-  alignItems: "flex-start",
-  marginBottom: "1.5rem",
-};
-
-const eyebrowStyle: CSSProperties = {
-  margin: 0,
-  letterSpacing: "0.14em",
-  textTransform: "uppercase",
-  fontSize: "0.78rem",
-  color: "var(--ct-colors-accent)",
-};
-
-const headlineStyle: CSSProperties = {
-  margin: "0.35rem 0 0",
-  fontSize: "clamp(2rem, 3vw, 2.8rem)",
-  lineHeight: 1.05,
-};
-
 const bodyStyle: CSSProperties = {
   margin: "0.75rem 0 0",
   color: "var(--ct-colors-ink-muted)",
   maxWidth: "42rem",
   overflowWrap: "anywhere",
-};
-
-const statusCardStyle: CSSProperties = {
-  minWidth: "14rem",
-  padding: "0.9rem 1rem",
-  borderRadius: "var(--ct-rounded-lg)",
-  background: "var(--ct-colors-surface-2)",
-  border: "var(--ct-border-hairline)",
 };
 
 const cardStyle: CSSProperties = {

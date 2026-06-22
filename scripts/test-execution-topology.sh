@@ -435,6 +435,7 @@ const expectedCheckWorkUnitPriorities = [
   ["shell-lint-toolchain", 49500],
   ["check-frontend-install", 49400],
   ["build-server", 40000],
+  ["embedded-web-assets", 39750],
   ["build-web", 39500],
   ["build-migrate", 39000],
   ["build-operator", 38500],
@@ -482,13 +483,23 @@ assert.ok(
 const checkUnitByTarget = new Map(checkSchedule.work_units.map((unit) => [unit.target, unit]));
 assert.deepEqual(
   checkUnitByTarget.get("build-server")?.needs,
-  ["build-web"],
-  "scheduled build-server must depend on build-web as its embedded web asset producer",
+  ["embedded-web-assets"],
+  "scheduled build-server must depend on embedded web asset readiness",
 );
 assert.equal(
   checkUnitByTarget.get("build-server")?.make_prerequisite_policy,
   "run",
   "scheduled build-server must run its Make prerequisites to prove the server binary",
+);
+assert.deepEqual(
+  checkUnitByTarget.get("embedded-web-assets")?.needs,
+  ["build-web"],
+  "scheduled embedded-web-assets must depend on build-web as its frontend dist producer",
+);
+assert.equal(
+  checkUnitByTarget.get("embedded-web-assets")?.make_prerequisite_policy,
+  "run",
+  "scheduled embedded-web-assets must run its Make prerequisites to publish the archive",
 );
 assert.deepEqual(
   checkUnitByTarget.get("build-web")?.needs,
@@ -509,6 +520,11 @@ assert.equal(
   checkUnitByTarget.get("otel-conformance")?.make_prerequisite_policy,
   "skip",
   "scheduled otel-conformance must rely on scheduler-modeled build-web readiness",
+);
+assert.deepEqual(
+  checkUnitByTarget.get("backend-unit")?.needs,
+  ["toolchain-drift", "embedded-web-assets"],
+  "scheduled backend-unit must wait for embedded web asset readiness before Go compilation",
 );
 assert.deepEqual(
   checkSchedule.work_units.find((unit) => unit.target === "lint-shell")?.env,

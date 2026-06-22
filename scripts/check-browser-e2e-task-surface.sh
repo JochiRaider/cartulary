@@ -526,9 +526,10 @@ for scheduled_target in \
   shell-lint-toolchain \
   check-frontend-install \
   build-web \
-	  build-server \
-	  build-migrate \
-	  testservices-build \
+  embedded-web-assets \
+  build-server \
+  build-migrate \
+  testservices-build \
   test-service-images \
   check-service-backed \
   migration-input-drift \

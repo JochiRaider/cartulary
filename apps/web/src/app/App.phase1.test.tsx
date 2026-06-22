@@ -438,7 +438,9 @@ describe("Phase 1 ordinary app shell", () => {
           .getAttribute("data-bootstrap-state"),
       ).toBe("mfa_required");
     });
-    expect(screen.getByTestId(phase1AuthTestId("login-totp-code"))).toBeTruthy();
+    expect(
+      screen.getByTestId(phase1AuthTestId("login-totp-code")),
+    ).toBeTruthy();
     expect(screen.getByTestId(phase1ErrorCodeTestId("auth")).textContent).toBe(
       "",
     );
@@ -505,9 +507,9 @@ describe("Phase 1 ordinary app shell", () => {
     fireEvent.click(screen.getByTestId(phase1AuthTestId("bootstrap-complete")));
 
     await waitFor(() => {
-      expect(
-        screen.getByTestId(phase1AuthTestId("status")).textContent,
-      ).toBe("");
+      expect(screen.getByTestId(phase1AuthTestId("status")).textContent).toBe(
+        "",
+      );
     });
     expect(document.body.textContent ?? "").toContain(
       "Authenticator setup is complete. Sign in again.",

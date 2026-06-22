@@ -528,7 +528,7 @@ export function AuthGateway({
       const result = await loginLocal({
         username: state.username,
         password: state.password,
-        secondFactorCode: state.phase === "mfa" ? state.totpCode : undefined,
+        ...(state.phase === "mfa" ? { secondFactorCode: state.totpCode } : {}),
       });
       const nextError = extractError(result.payload);
       if (!result.ok) {
@@ -687,17 +687,16 @@ export function AuthGateway({
       });
       const nextError = extractError(result.payload);
       if (!result.ok) {
+        const fieldError =
+          nextError?.code === "invalid_second_factor"
+            ? "The verification code is incorrect or expired."
+            : undefined;
         dispatch({
           type: "setup_complete_failed",
           banner:
-            nextError?.code === "invalid_second_factor"
-              ? null
-              : setupBannerForError(nextError),
+            fieldError === undefined ? setupBannerForError(nextError) : null,
           error: nextError,
-          fieldError:
-            nextError?.code === "invalid_second_factor"
-              ? "The verification code is incorrect or expired."
-              : undefined,
+          ...(fieldError === undefined ? {} : { fieldError }),
         });
         return;
       }
@@ -714,7 +713,9 @@ export function AuthGateway({
     }
   }
 
-  const displayedBootstrapState: AuthChallengeState | AuthSurfaceBootstrapState =
+  const displayedBootstrapState:
+    | AuthChallengeState
+    | AuthSurfaceBootstrapState =
     state.phase === "mfa"
       ? "mfa_required"
       : state.phase === "setup"
@@ -733,8 +734,7 @@ export function AuthGateway({
       : displayedBanner?.tone === "error" || currentFieldError !== ""
         ? "alert"
         : "status";
-  const authLivePoliteness =
-    authLiveRole === "alert" ? "assertive" : "polite";
+  const authLivePoliteness = authLiveRole === "alert" ? "assertive" : "polite";
   const activeErrorCode = state.error?.code ?? publicError?.code ?? "";
   const statusText =
     bootstrapState === "loading"
@@ -766,12 +766,11 @@ export function AuthGateway({
       : state.phase === "setup"
         ? "Set up authenticator"
         : "Sign in to Cartulary";
-  const submitLabel =
-    state.submitting
-      ? "Signing in..."
-      : state.phase === "mfa"
-        ? "Verify and sign in"
-        : "Sign in";
+  const submitLabel = state.submitting
+    ? "Signing in..."
+    : state.phase === "mfa"
+      ? "Verify and sign in"
+      : "Sign in";
   const canSubmit = !state.submitting;
 
   return (
@@ -963,9 +962,7 @@ export function AuthGateway({
                       ? "auth-login-username-error"
                       : undefined
                   }
-                  aria-invalid={
-                    state.fieldErrors.username ? true : undefined
-                  }
+                  aria-invalid={state.fieldErrors.username ? true : undefined}
                   autoComplete="username"
                   data-testid={phase1AuthTestId("login-username")}
                   id="auth-login-username"
@@ -1003,9 +1000,7 @@ export function AuthGateway({
                         ? "auth-login-password-error"
                         : undefined
                     }
-                    aria-invalid={
-                      state.fieldErrors.password ? true : undefined
-                    }
+                    aria-invalid={state.fieldErrors.password ? true : undefined}
                     autoComplete="current-password"
                     data-testid={phase1AuthTestId("login-password")}
                     id="auth-login-password"
@@ -1124,9 +1119,7 @@ export function AuthGateway({
                     key={provider.provider_key}
                     className="cartulary-auth-secondary-button"
                     data-provider-key={provider.provider_key}
-                    data-testid={phase1AuthTestId(
-                      "enterprise-provider-button",
-                    )}
+                    data-testid={phase1AuthTestId("enterprise-provider-button")}
                     disabled={
                       state.enterprisePendingProviderKey !== null &&
                       state.enterprisePendingProviderKey !==
@@ -1533,4 +1526,5 @@ const authGatewayStyleText = `
   }
 }
 `;
+
 export type { Phase1AuthSurfaceProps };

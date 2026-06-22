@@ -2302,6 +2302,15 @@
       "type": "alias",
       "test_target": "self"
     },
+    "embedded-web-assets": {
+      "prerequisites": [
+        "$(EMBEDDED_WEB_ASSET_STAMP)",
+        "$(EMBEDDED_WEB_ASSET_ARCHIVE)",
+        "$(EMBEDDED_WEB_ASSET_READY_STAMP)"
+      ],
+      "type": "alias",
+      "test_target": "self"
+    },
     "build-migrate": {
       "prerequisites": [
         "$(MIGRATE_BIN)"
@@ -9597,7 +9606,8 @@
       "backing_scripts": [
         "scripts/cache-artifact.sh",
         "scripts/build-go-artifact.sh",
-        "scripts/embed-web-assets.sh"
+        "scripts/embed-web-assets.sh",
+        "tools/embedwebassets/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -9655,6 +9665,19 @@
         "undeclared_inherited_env": "ignore",
         "inputs": []
       }
+    },
+    {
+      "name": "embedded-web-assets",
+      "backing_scripts": [
+        "scripts/cache-artifact.sh",
+        "scripts/embed-web-assets.sh",
+        "tools/embedwebassets/main.go"
+      ],
+      "target_class": "internal_helper",
+      "default_inclusion_sets": [
+        "check"
+      ],
+      "lifecycle_state": "candidate_child"
     },
     {
       "name": "build-migrate",

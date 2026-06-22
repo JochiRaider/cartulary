@@ -3198,9 +3198,7 @@ test.describe("FE-P1 accessibility readiness", () => {
       });
 
       await phase1.login(email, password);
-      await expect(
-        page.getByTestId(workbookShellReadyTestId()),
-      ).toBeVisible();
+      await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expect(
         page.getByTestId(phase1RouteTestId("workbook-current-user")),
       ).toContainText("A11Y P1 Revoked");

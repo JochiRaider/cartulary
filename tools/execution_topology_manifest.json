@@ -2525,6 +2525,15 @@
         "type": "alias",
         "test_target": "self"
       },
+      "embedded-web-assets": {
+        "prerequisites": [
+          "$(EMBEDDED_WEB_ASSET_STAMP)",
+          "$(EMBEDDED_WEB_ASSET_ARCHIVE)",
+          "$(EMBEDDED_WEB_ASSET_READY_STAMP)"
+        ],
+        "type": "alias",
+        "test_target": "self"
+      },
       "build-migrate": {
         "prerequisites": [
           "$(MIGRATE_BIN)"
@@ -5636,7 +5645,8 @@
             "backend-unit"
           ],
           "needs": [
-            "toolchain-drift"
+            "toolchain-drift",
+            "embedded-web-assets"
           ]
         },
         "output_policy": {
@@ -10233,7 +10243,8 @@
         "backing_scripts": [
           "scripts/cache-artifact.sh",
           "scripts/build-go-artifact.sh",
-          "scripts/embed-web-assets.sh"
+          "scripts/embed-web-assets.sh",
+          "tools/embedwebassets/main.go"
         ],
         "check_schedule": {
           "schedules": [
@@ -10244,7 +10255,7 @@
           "priority_band": "build_readiness",
           "order": 0,
           "needs": [
-            "build-web"
+            "embedded-web-assets"
           ]
         },
         "output_policy": {
@@ -10303,6 +10314,31 @@
           "undeclared_inherited_env": "ignore",
           "inputs": []
         }
+      },
+      {
+        "name": "embedded-web-assets",
+        "backing_scripts": [
+          "scripts/cache-artifact.sh",
+          "scripts/embed-web-assets.sh",
+          "tools/embedwebassets/main.go"
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "build_readiness_web_assets",
+          "make_prerequisite_policy": "run",
+          "priority_band": "build_readiness",
+          "order": 250,
+          "needs": [
+            "build-web"
+          ]
+        },
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "candidate_child"
       },
       {
         "name": "build-migrate",
@@ -11198,6 +11234,13 @@
           "resource_claims": {
             "host_cpu": 2,
             "host_io": 2
+          },
+          "make_jobs": "host_cpu"
+        },
+        "build_readiness_web_assets": {
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
           },
           "make_jobs": "host_cpu"
         },
