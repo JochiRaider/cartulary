@@ -64,13 +64,13 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-const testTimelineViewSchemaId = "cartulary.view.timeline.v1";
+const testTimelineViewSchemaId = "cartulary.view.timeline.v2";
 
 describe("@cartulary/test-utils selector choreography", () => {
   it("returns row-cell anchors from the shared selector builder", () => {
-    expect(assertAnchorTestId("record-1", "timeline.summary")).toBe(
-      rowCellTestId("record-1", "timeline.summary"),
-    );
+    expect(
+      assertAnchorTestId("record-1", "timeline.activity_synopsis_text"),
+    ).toBe(rowCellTestId("record-1", "timeline.activity_synopsis_text"));
   });
 
   it("targets sort, filter, and grouping controls through shared builders", async () => {
@@ -94,7 +94,7 @@ describe("@cartulary/test-utils selector choreography", () => {
     };
     const surface = testTimelineViewSchemaId;
 
-    await sortByHeader(page, surface, "timeline.summary");
+    await sortByHeader(page, surface, "timeline.activity_synopsis_text");
     await applyFilterChip(page, surface, "timeline.capture_state", "rough");
     await assertActiveFilterChipVisible(
       page,
@@ -105,7 +105,7 @@ describe("@cartulary/test-utils selector choreography", () => {
     await changeGrouping(page, surface, "timeline.capture_state");
 
     expect(observed).toEqual([
-      gridSortHeaderTestId(surface, "timeline.summary"),
+      gridSortHeaderTestId(surface, "timeline.activity_synopsis_text"),
       workbookFilterPopoverTriggerTestId(surface),
       gridFilterFieldTestId(surface),
       gridFilterValueTestId(surface),
@@ -430,7 +430,7 @@ describe("@cartulary/test-utils selector choreography", () => {
     const response = await fillDownGridCells({
       apiBase: "http://cartulary.test",
       csrfHeaders: { "x-csrf-token": "token-1" },
-      fieldKey: "timeline.summary",
+      fieldKey: "timeline.activity_synopsis_text",
       incidentId: "incident-1",
       page,
       surface: testTimelineViewSchemaId,
@@ -453,7 +453,7 @@ describe("@cartulary/test-utils selector choreography", () => {
     expect(fetches[0]?.data).toMatchObject({
       view_schema_id: testTimelineViewSchemaId,
       kind: "fill_down_v1",
-      field_key: "timeline.summary",
+      field_key: "timeline.activity_synopsis_text",
       value: "filled",
       targets: [
         { record_id: "record-1", base_row_version: 7 },
@@ -675,7 +675,7 @@ describe("@cartulary/test-utils grid continuity", () => {
 });
 
 describe("@cartulary/test-utils virtualized grid targeting", () => {
-  it("returns the existing scroll position when the target is already visible", async () => {
+  it("aligns an already-visible target before returning the existing scroll position", async () => {
     const { grid, page, scrollIntoViewCalls, targetTestId } =
       installGridTargetFixture({
         currentScroll: { left: 8, top: 120 },
@@ -693,7 +693,7 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
     ).resolves.toEqual({ left: 8, top: 120 });
 
     expect(grid.scrollTop).toBe(120);
-    expect(scrollIntoViewCalls).toEqual([]);
+    expect(scrollIntoViewCalls).toEqual([targetTestId]);
   });
 
   it("scans grid offsets until a virtualized target is mounted", async () => {
@@ -729,12 +729,15 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
         currentScroll: { left: 0, top: 0 },
         isTargetVisible: (candidateGrid) => candidateGrid.scrollTop >= 400,
         scrollHeight: 900,
-        targetTestId: rowCellTestId("record-1", "timeline.summary"),
+        targetTestId: rowCellTestId(
+          "record-1",
+          "timeline.activity_synopsis_text",
+        ),
       });
 
     await expect(
       scrollGridCellIntoView({
-        cellKey: "timeline.summary",
+        cellKey: "timeline.activity_synopsis_text",
         intervalMs: 0,
         page,
         recordId: "record-1",
@@ -922,7 +925,7 @@ describe("@cartulary/test-utils virtualized grid targeting", () => {
         timeoutMs: 50,
       }),
     ).rejects.toThrow(
-      /missing-target.*cartulary\.view\.timeline\.v1.*scrollHeight=900.*mountedRowIds=record-a,record-b.*completedScanCycles=.*scrollRangeGrowths=.*observedMaxTop=700.*completedScanMaxTop=700.*observedMountedRowIds=record-a,record-b/,
+      /missing-target.*cartulary\.view\.timeline\.v2.*scrollHeight=900.*mountedRowIds=record-a,record-b.*completedScanCycles=.*scrollRangeGrowths=.*observedMaxTop=700.*completedScanMaxTop=700.*observedMountedRowIds=record-a,record-b/,
     );
   });
 
@@ -983,13 +986,13 @@ describe("@cartulary/test-utils marker anchoring", () => {
         targetTestId,
       }),
     ).rejects.toThrow(
-      "Expected marker marker-record-1 to share row record_id record-1 with target row-record-1-timeline.summary, received record-2",
+      "Expected marker marker-record-1 to share row record_id record-1 with target row-record-1-timeline.activity_synopsis_text, received record-2",
     );
   });
 
   it("fails when marker is visible in a different field cell", async () => {
     const { markerTestId, page, targetTestId } = installMarkerAnchorFixture({
-      markerCellFieldKey: "timeline.details",
+      markerCellFieldKey: "timeline.raw_activity_text",
       markerCellRect: { height: 60, left: 250, top: 40, width: 120 },
       markerRect: { height: 18, left: 260, top: 54, width: 28 },
     });
@@ -1003,7 +1006,7 @@ describe("@cartulary/test-utils marker anchoring", () => {
         targetTestId,
       }),
     ).rejects.toThrow(
-      "Expected marker marker-record-1 to share cell field_key timeline.summary with target row-record-1-timeline.summary, received timeline.details",
+      "Expected marker marker-record-1 to share cell field_key timeline.activity_synopsis_text with target row-record-1-timeline.activity_synopsis_text, received timeline.raw_activity_text",
     );
   });
 
@@ -1271,10 +1274,12 @@ function installMarkerAnchorFixture(options: {
   const gridTestId = gridShellTestId(testTimelineViewSchemaId);
   const markerTestId = "marker-record-1";
   const targetTestId =
-    options.targetTestId ?? rowCellTestId("record-1", "timeline.summary");
+    options.targetTestId ??
+    rowCellTestId("record-1", "timeline.activity_synopsis_text");
   const targetRecordId = options.targetRecordId ?? "record-1";
   const markerRecordId = options.markerRecordId ?? targetRecordId;
-  const targetCellFieldKey = options.targetCellFieldKey ?? "timeline.summary";
+  const targetCellFieldKey =
+    options.targetCellFieldKey ?? "timeline.activity_synopsis_text";
   const markerCellFieldKey = options.markerCellFieldKey ?? targetCellFieldKey;
   const markerSameRow = markerRecordId === targetRecordId;
   const markerSameCell =

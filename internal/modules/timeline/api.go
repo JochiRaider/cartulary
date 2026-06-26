@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	TimelineViewSchemaID    = "cartulary.view.timeline.v1"
+	TimelineViewSchemaID    = "cartulary.view.timeline.v2"
 	timelineQueryRouteKey   = "timeline.query"
 	createRouteKey          = "timeline.rows.create"
 	patchRouteKey           = "timeline.records.patch"
@@ -32,22 +32,34 @@ const (
 )
 
 var directWritableFieldKeys = map[string]struct{}{
-	"timeline.occurred_at": {},
-	"timeline.summary":     {},
-	"timeline.details":     {},
-	"timeline.source_text": {},
+	"timeline.date_entered_text":      {},
+	"timeline.analyst_text":           {},
+	"timeline.mitre_stage_text":       {},
+	"timeline.device_object_text":     {},
+	"timeline.ip_address_text":        {},
+	"timeline.activity_utc_text":      {},
+	"timeline.activity_local_text":    {},
+	"timeline.raw_activity_text":      {},
+	"timeline.activity_synopsis_text": {},
+	"timeline.data_source_text":       {},
 }
 
 type CreateRequest struct {
-	ClientTxnID      string
-	OccurredAt       *time.Time
-	Summary          *string
-	Details          *string
-	SourceText       *string
-	HostRefs         *CollectionActionPayload
-	IdentityRefs     *CollectionActionPayload
-	Tags             *CollectionActionPayload
-	AttachedEvidence *CollectionActionPayload
+	ClientTxnID          string
+	DateEnteredText      *string
+	AnalystText          *string
+	MitreStageText       *string
+	DeviceObjectText     *string
+	IPAddressText        *string
+	ActivityUTCText      *string
+	ActivityLocalText    *string
+	RawActivityText      *string
+	ActivitySynopsisText *string
+	DataSourceText       *string
+	HostRefs             *CollectionActionPayload
+	IdentityRefs         *CollectionActionPayload
+	Tags                 *CollectionActionPayload
+	AttachedEvidence     *CollectionActionPayload
 }
 
 type PatchRequest struct {
@@ -67,7 +79,6 @@ type ConflictResolveRequest struct {
 
 type PatchChange struct {
 	FieldKey      string
-	OccurredAt    *time.Time
 	TextValue     *string
 	ActionPayload *CollectionActionPayload
 	CanonicalAny  any
@@ -97,6 +108,13 @@ type SupersedeRequest struct {
 	ClientTxnID         string
 	Reason              string
 	ReplacementRecordID *uuid.UUID
+}
+
+type TimeConversionProfilePutRequest struct {
+	BaseProfileVersion int64
+	Enabled            bool
+	LocalOffsetMinutes *int
+	LocalLabel         *string
 }
 
 func DecodeViewQueryRequest(reader io.Reader, viewSchemaID string) (viewschema.QueryMeta, *auth.APIError) {
@@ -138,17 +156,35 @@ func DecodeTimelineCreateRequest(reader io.Reader) (CreateRequest, *auth.APIErro
 	}
 
 	var ok bool
-	if request.OccurredAt, ok = normalizeNullableTimestamp(raw, "timeline.occurred_at"); !ok {
-		return CreateRequest{}, invalidMutationPayload("timeline.occurred_at", "invalid_value")
+	if request.DateEnteredText, ok = normalizeNullableTimelineVisibleTextField(raw, "timeline.date_entered_text"); !ok {
+		return CreateRequest{}, invalidMutationPayload("timeline.date_entered_text", "invalid_value")
 	}
-	if request.Summary, ok = normalizeNullableLineField(raw, "timeline.summary"); !ok {
-		return CreateRequest{}, invalidMutationPayload("timeline.summary", "invalid_value")
+	if request.AnalystText, ok = normalizeNullableTimelineVisibleTextField(raw, "timeline.analyst_text"); !ok {
+		return CreateRequest{}, invalidMutationPayload("timeline.analyst_text", "invalid_value")
 	}
-	if request.Details, ok = normalizeNullableNoteField(raw, "timeline.details"); !ok {
-		return CreateRequest{}, invalidMutationPayload("timeline.details", "invalid_value")
+	if request.MitreStageText, ok = normalizeNullableTimelineVisibleTextField(raw, "timeline.mitre_stage_text"); !ok {
+		return CreateRequest{}, invalidMutationPayload("timeline.mitre_stage_text", "invalid_value")
 	}
-	if request.SourceText, ok = normalizeNullableNoteField(raw, "timeline.source_text"); !ok {
-		return CreateRequest{}, invalidMutationPayload("timeline.source_text", "invalid_value")
+	if request.DeviceObjectText, ok = normalizeNullableTimelineVisibleTextField(raw, "timeline.device_object_text"); !ok {
+		return CreateRequest{}, invalidMutationPayload("timeline.device_object_text", "invalid_value")
+	}
+	if request.IPAddressText, ok = normalizeNullableTimelineVisibleTextField(raw, "timeline.ip_address_text"); !ok {
+		return CreateRequest{}, invalidMutationPayload("timeline.ip_address_text", "invalid_value")
+	}
+	if request.ActivityUTCText, ok = normalizeNullableTimelineVisibleTextField(raw, "timeline.activity_utc_text"); !ok {
+		return CreateRequest{}, invalidMutationPayload("timeline.activity_utc_text", "invalid_value")
+	}
+	if request.ActivityLocalText, ok = normalizeNullableTimelineVisibleTextField(raw, "timeline.activity_local_text"); !ok {
+		return CreateRequest{}, invalidMutationPayload("timeline.activity_local_text", "invalid_value")
+	}
+	if request.RawActivityText, ok = normalizeNullableTimelineVisibleTextField(raw, "timeline.raw_activity_text"); !ok {
+		return CreateRequest{}, invalidMutationPayload("timeline.raw_activity_text", "invalid_value")
+	}
+	if request.ActivitySynopsisText, ok = normalizeNullableTimelineVisibleTextField(raw, "timeline.activity_synopsis_text"); !ok {
+		return CreateRequest{}, invalidMutationPayload("timeline.activity_synopsis_text", "invalid_value")
+	}
+	if request.DataSourceText, ok = normalizeNullableTimelineVisibleTextField(raw, "timeline.data_source_text"); !ok {
+		return CreateRequest{}, invalidMutationPayload("timeline.data_source_text", "invalid_value")
 	}
 	if request.HostRefs, apiErr = decodeCreateCollectionActionField(raw, "timeline.host_refs"); apiErr != nil {
 		return CreateRequest{}, apiErr
@@ -305,23 +341,14 @@ func DecodeTimelineConflictResolveRequest(reader io.Reader, token string, claims
 		change.ActionPayload = payload
 		change.CanonicalAny = canonicalCollectionActionPayload(payload)
 	} else {
-		switch claims.FieldKey {
-		case "timeline.occurred_at":
-			timestamp, ok := normalizeNullableTimestampValue(resolvedValue)
-			if !ok {
-				return ConflictResolveRequest{}, invalidMutationPayload(claims.FieldKey, "invalid_value")
-			}
-			change.OccurredAt = timestamp
-		default:
-			if _, ok := directWritableFieldKeys[claims.FieldKey]; !ok {
-				return ConflictResolveRequest{}, invalidMutationPayload("field_key", "unsupported_field_key")
-			}
-			textValue, ok := normalizeFieldTextValue(claims.FieldKey, resolvedValue)
-			if !ok {
-				return ConflictResolveRequest{}, invalidMutationPayload(claims.FieldKey, "invalid_value")
-			}
-			change.TextValue = textValue
+		if _, ok := directWritableFieldKeys[claims.FieldKey]; !ok {
+			return ConflictResolveRequest{}, invalidMutationPayload("field_key", "unsupported_field_key")
 		}
+		textValue, ok := normalizeFieldTextValue(claims.FieldKey, resolvedValue)
+		if !ok {
+			return ConflictResolveRequest{}, invalidMutationPayload(claims.FieldKey, "invalid_value")
+		}
+		change.TextValue = textValue
 		change.CanonicalAny = canonicalChangeValue(change)
 	}
 	request.ResolvedChange = &change
@@ -424,17 +451,74 @@ func DecodeTimelineSupersedeRequest(reader io.Reader) (SupersedeRequest, *auth.A
 	return request, nil
 }
 
+func DecodeTimelineTimeConversionProfilePutRequest(reader io.Reader) (TimeConversionProfilePutRequest, *auth.APIError) {
+	raw, apiErr := decodeObject(reader, invalidMutationPayload)
+	if apiErr != nil {
+		return TimeConversionProfilePutRequest{}, apiErr
+	}
+	allowed := map[string]struct{}{
+		"base_profile_version": {},
+		"enabled":              {},
+		"local_offset_minutes": {},
+		"local_label":          {},
+	}
+	for key := range raw {
+		if _, ok := allowed[key]; !ok {
+			return TimeConversionProfilePutRequest{}, invalidMutationPayload(key, "unknown_field")
+		}
+	}
+	var request TimeConversionProfilePutRequest
+	if value, ok := raw["base_profile_version"]; !ok {
+		return TimeConversionProfilePutRequest{}, invalidMutationPayload("base_profile_version", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.BaseProfileVersion); err != nil || request.BaseProfileVersion < 1 {
+		return TimeConversionProfilePutRequest{}, invalidMutationPayload("base_profile_version", "invalid_value")
+	}
+	if value, ok := raw["enabled"]; !ok {
+		return TimeConversionProfilePutRequest{}, invalidMutationPayload("enabled", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.Enabled); err != nil {
+		return TimeConversionProfilePutRequest{}, invalidMutationPayload("enabled", "invalid_value")
+	}
+	offsetValue, ok := raw["local_offset_minutes"]
+	if !ok {
+		return TimeConversionProfilePutRequest{}, invalidMutationPayload("local_offset_minutes", "missing_required_field")
+	}
+	if string(offsetValue) != "null" {
+		var offset int
+		if err := json.Unmarshal(offsetValue, &offset); err != nil || offset < -840 || offset > 840 {
+			return TimeConversionProfilePutRequest{}, invalidMutationPayload("local_offset_minutes", "invalid_value")
+		}
+		request.LocalOffsetMinutes = &offset
+	}
+	if request.Enabled && request.LocalOffsetMinutes == nil {
+		return TimeConversionProfilePutRequest{}, invalidMutationPayload("local_offset_minutes", "missing_required_field")
+	}
+	var okLabel bool
+	if request.LocalLabel, okLabel = normalizeNullableLineField(raw, "local_label"); !okLabel {
+		return TimeConversionProfilePutRequest{}, invalidMutationPayload("local_label", "invalid_value")
+	}
+	if _, ok := raw["local_label"]; !ok {
+		return TimeConversionProfilePutRequest{}, invalidMutationPayload("local_label", "missing_required_field")
+	}
+	return request, nil
+}
+
 func TimelineCreateRequestHash(request CreateRequest) []byte {
 	payload := map[string]any{
-		"client_txn_id":                  request.ClientTxnID,
-		"timeline.occurred_at":           formatTimestampPointer(request.OccurredAt),
-		"timeline.summary":               derefString(request.Summary),
-		"timeline.details":               derefString(request.Details),
-		"timeline.source_text":           derefString(request.SourceText),
-		"timeline.host_refs":             canonicalCollectionActionPayload(request.HostRefs),
-		"timeline.identity_refs":         canonicalCollectionActionPayload(request.IdentityRefs),
-		"timeline.tags":                  canonicalCollectionActionPayload(request.Tags),
-		"timeline.attached_evidence_ids": canonicalCollectionActionPayload(request.AttachedEvidence),
+		"client_txn_id":                   request.ClientTxnID,
+		"timeline.date_entered_text":      derefString(request.DateEnteredText),
+		"timeline.analyst_text":           derefString(request.AnalystText),
+		"timeline.mitre_stage_text":       derefString(request.MitreStageText),
+		"timeline.device_object_text":     derefString(request.DeviceObjectText),
+		"timeline.ip_address_text":        derefString(request.IPAddressText),
+		"timeline.activity_utc_text":      derefString(request.ActivityUTCText),
+		"timeline.activity_local_text":    derefString(request.ActivityLocalText),
+		"timeline.raw_activity_text":      derefString(request.RawActivityText),
+		"timeline.activity_synopsis_text": derefString(request.ActivitySynopsisText),
+		"timeline.data_source_text":       derefString(request.DataSourceText),
+		"timeline.host_refs":              canonicalCollectionActionPayload(request.HostRefs),
+		"timeline.identity_refs":          canonicalCollectionActionPayload(request.IdentityRefs),
+		"timeline.tags":                   canonicalCollectionActionPayload(request.Tags),
+		"timeline.attached_evidence_ids":  canonicalCollectionActionPayload(request.AttachedEvidence),
 	}
 	return hashRequestPayload(payload)
 }
@@ -486,24 +570,30 @@ func TimelineActionRequestHash(baseRowVersion int64, clientTxnID string, reason 
 
 func BuildRow(record projectedRecord) map[string]any {
 	cells := map[string]any{
-		"timeline.occurred_at":             map[string]any{"value": formatTimestampPointer(record.OccurredAt)},
-		"timeline.summary":                 map[string]any{"value": derefString(record.Summary)},
-		"timeline.details":                 map[string]any{"value": derefString(record.Details)},
-		"timeline.source_text":             map[string]any{"value": derefString(record.SourceText)},
-		"timeline.host_refs":               map[string]any{"value": collectionValue(true, record.HostRefs)},
-		"timeline.identity_refs":           map[string]any{"value": collectionValue(true, record.IdentityRefs)},
-		"timeline.attached_evidence_ids":   map[string]any{"value": collectionValue(false, record.AttachedEvidence)},
-		"timeline.evidence_count":          map[string]any{"value": record.EvidenceCount},
-		"timeline.tags":                    map[string]any{"value": collectionValue(false, record.Tags)},
-		"timeline.edited_at":               map[string]any{"value": formatTimestamp(record.EditedAt)},
-		"timeline.recorded_at":             map[string]any{"value": formatTimestamp(record.RecordedAt)},
-		"timeline.sort_ts":                 map[string]any{"value": formatTimestamp(record.SortTs)},
-		"timeline.capture_state":           map[string]any{"value": record.CaptureState},
-		"timeline.replacement_record_id":   map[string]any{"value": formatUUIDPointer(record.ReplacementRecordID)},
-		"timeline.occurred_day":            map[string]any{"value": formatDatePointer(record.OccurredDay)},
-		"timeline.recorded_day":            map[string]any{"value": formatDate(record.RecordedDay)},
-		"timeline.has_evidence":            map[string]any{"value": record.HasEvidence},
-		"timeline.has_unresolved_mentions": map[string]any{"value": record.HasUnresolvedMentions},
+		"timeline.date_entered_text":        map[string]any{"value": derefString(record.DateEnteredText)},
+		"timeline.analyst_text":             map[string]any{"value": derefString(record.AnalystText)},
+		"timeline.mitre_stage_text":         map[string]any{"value": derefString(record.MitreStageText)},
+		"timeline.device_object_text":       map[string]any{"value": derefString(record.DeviceObjectText)},
+		"timeline.ip_address_text":          map[string]any{"value": derefString(record.IPAddressText)},
+		"timeline.activity_utc_text":        map[string]any{"value": derefString(record.ActivityUTCText)},
+		"timeline.activity_local_text":      map[string]any{"value": derefString(record.ActivityLocalText)},
+		"timeline.raw_activity_text":        map[string]any{"value": derefString(record.RawActivityText)},
+		"timeline.activity_synopsis_text":   map[string]any{"value": derefString(record.ActivitySynopsisText)},
+		"timeline.data_source_text":         map[string]any{"value": derefString(record.DataSourceText)},
+		"timeline.host_refs":                map[string]any{"value": collectionValue(true, record.HostRefs)},
+		"timeline.identity_refs":            map[string]any{"value": collectionValue(true, record.IdentityRefs)},
+		"timeline.attached_evidence_ids":    map[string]any{"value": collectionValue(false, record.AttachedEvidence)},
+		"timeline.evidence_count":           map[string]any{"value": record.EvidenceCount},
+		"timeline.tags":                     map[string]any{"value": collectionValue(false, record.Tags)},
+		"timeline.edited_at":                map[string]any{"value": formatTimestamp(record.EditedAt)},
+		"timeline.recorded_at":              map[string]any{"value": formatTimestamp(record.RecordedAt)},
+		"timeline.activity_sort_ts":         map[string]any{"value": formatTimestampPointer(record.ActivitySortTS)},
+		"timeline.date_entered_sort_day":    map[string]any{"value": formatDatePointer(record.DateEnteredSortDay)},
+		"timeline.activity_time_pair_state": map[string]any{"value": record.ActivityTimePairState},
+		"timeline.capture_state":            map[string]any{"value": record.CaptureState},
+		"timeline.replacement_record_id":    map[string]any{"value": formatUUIDPointer(record.ReplacementRecordID)},
+		"timeline.has_evidence":             map[string]any{"value": record.HasEvidence},
+		"timeline.has_unresolved_mentions":  map[string]any{"value": record.HasUnresolvedMentions},
 	}
 
 	row := map[string]any{
@@ -512,11 +602,11 @@ func BuildRow(record projectedRecord) map[string]any {
 		"cells":       cells,
 	}
 	row["group_values"] = map[string]any{
-		"timeline.occurred_day":            formatDatePointer(record.OccurredDay),
-		"timeline.recorded_day":            formatDate(record.RecordedDay),
-		"timeline.capture_state":           record.CaptureState,
-		"timeline.has_evidence":            record.HasEvidence,
-		"timeline.has_unresolved_mentions": record.HasUnresolvedMentions,
+		"timeline.date_entered_sort_day":    formatDatePointer(record.DateEnteredSortDay),
+		"timeline.activity_time_pair_state": record.ActivityTimePairState,
+		"timeline.capture_state":            record.CaptureState,
+		"timeline.has_evidence":             record.HasEvidence,
+		"timeline.has_unresolved_mentions":  record.HasUnresolvedMentions,
 	}
 	return row
 }
@@ -755,35 +845,22 @@ func decodePatchChange(raw json.RawMessage) (PatchChange, *auth.APIError) {
 	if !hasValue {
 		return PatchChange{}, invalidMutationPayload("value", "missing_required_field")
 	}
-	switch fieldKey {
-	case "timeline.occurred_at":
-		timestamp, ok := normalizeNullableTimestampValue(value)
-		if !ok {
-			return PatchChange{}, invalidMutationPayload(fieldKey, "invalid_value")
-		}
-		change.OccurredAt = timestamp
-	default:
-		if _, ok := directWritableFieldKeys[fieldKey]; !ok {
-			return PatchChange{}, invalidMutationPayload("field_key", "unsupported_field_key")
-		}
-		textValue, ok := normalizeFieldTextValue(fieldKey, value)
-		if !ok {
-			return PatchChange{}, invalidMutationPayload(fieldKey, "invalid_value")
-		}
-		change.TextValue = textValue
+	if _, ok := directWritableFieldKeys[fieldKey]; !ok {
+		return PatchChange{}, invalidMutationPayload("field_key", "unsupported_field_key")
 	}
+	textValue, ok := normalizeFieldTextValue(fieldKey, value)
+	if !ok {
+		return PatchChange{}, invalidMutationPayload(fieldKey, "invalid_value")
+	}
+	change.TextValue = textValue
 	return change, nil
 }
 
 func normalizeFieldTextValue(fieldKey string, value json.RawMessage) (*string, bool) {
-	switch fieldKey {
-	case "timeline.summary":
-		return normalizeNullableLineValue(value)
-	case "timeline.details", "timeline.source_text":
-		return normalizeNullableNoteValuePointer(value)
-	default:
+	if _, ok := directWritableFieldKeys[fieldKey]; !ok {
 		return nil, false
 	}
+	return normalizeNullableTimelineVisibleTextValue(value)
 }
 
 func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey string) (*CollectionActionPayload, *auth.APIError) {
@@ -1104,9 +1181,6 @@ func collectionValue(ordered bool, items []map[string]any) map[string]any {
 }
 
 func canonicalChangeValue(change PatchChange) any {
-	if change.FieldKey == "timeline.occurred_at" {
-		return formatTimestampPointer(change.OccurredAt)
-	}
 	return derefString(change.TextValue)
 }
 
@@ -1176,15 +1250,15 @@ func decodeObject(reader io.Reader, invalid func(string, string) *auth.APIError)
 	return raw, nil
 }
 
-func normalizeNullableTimestamp(raw map[string]json.RawMessage, field string) (*time.Time, bool) {
+func normalizeNullableTimelineVisibleTextField(raw map[string]json.RawMessage, field string) (*string, bool) {
 	value, ok := raw[field]
 	if !ok {
 		return nil, true
 	}
-	return normalizeNullableTimestampValue(value)
+	return normalizeNullableTimelineVisibleTextValue(value)
 }
 
-func normalizeNullableTimestampValue(value json.RawMessage) (*time.Time, bool) {
+func normalizeNullableTimelineVisibleTextValue(value json.RawMessage) (*string, bool) {
 	if string(value) == "null" {
 		return nil, true
 	}
@@ -1192,16 +1266,25 @@ func normalizeNullableTimestampValue(value json.RawMessage) (*time.Time, bool) {
 	if err := json.Unmarshal(value, &rawValue); err != nil {
 		return nil, false
 	}
-	rawValue = strings.TrimSpace(rawValue)
-	if rawValue == "" {
+	if !validTimelineVisibleText(rawValue) {
 		return nil, false
 	}
-	parsed, err := time.Parse(time.RFC3339, rawValue)
-	if err != nil {
-		return nil, false
+	return &rawValue, true
+}
+
+func validTimelineVisibleText(value string) bool {
+	if len([]rune(value)) > 32768 {
+		return false
 	}
-	utc := parsed.UTC()
-	return &utc, true
+	for _, r := range value {
+		if r == 0 {
+			return false
+		}
+		if (r < 0x20 || (r >= 0x7f && r <= 0x9f)) && r != '\t' && r != '\n' && r != '\r' {
+			return false
+		}
+	}
+	return true
 }
 
 func normalizeNullableLineField(raw map[string]json.RawMessage, field string) (*string, bool) {
@@ -1273,10 +1356,6 @@ func formatTimestampPointer(value *time.Time) any {
 	return value.UTC().Format(time.RFC3339Nano)
 }
 
-func formatDate(value time.Time) string {
-	return value.UTC().Format("2006-01-02")
-}
-
 func formatDatePointer(value *time.Time) any {
 	if value == nil {
 		return nil
@@ -1292,6 +1371,13 @@ func formatUUIDPointer(value *uuid.UUID) any {
 }
 
 func derefString(value *string) any {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
+func derefInt(value *int) any {
 	if value == nil {
 		return nil
 	}

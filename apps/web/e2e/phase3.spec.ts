@@ -37,7 +37,7 @@ import {
   openTimelineRowActions,
 } from "./phase4Helpers";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
   const accountMenuTrigger = page.getByLabel(
@@ -64,7 +64,9 @@ test("E-3-01 creates a Timeline row in-grid and continues editing on the draft r
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
 
-  const draftSummary = page.getByTestId(draftCellTestId("timeline.summary"));
+  const draftSummary = page.getByTestId(
+    draftCellTestId("timeline.activity_synopsis_text"),
+  );
   await draftSummary.fill("First browser fact");
   await draftSummary.press("Enter");
 
@@ -77,10 +79,12 @@ test("E-3-01 creates a Timeline row in-grid and continues editing on the draft r
   await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(1);
   await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
   await expect(
-    page.getByTestId(rowCellTestId(committedRow.recordId, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(committedRow.recordId, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("First browser fact");
   await expect(
-    page.getByTestId(draftCellTestId("timeline.summary")),
+    page.getByTestId(draftCellTestId("timeline.activity_synopsis_text")),
   ).toBeFocused();
 });
 
@@ -120,7 +124,9 @@ test("E-3-01 supports explicit blank Timeline row creation with only client_txn_
   await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(1);
   await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
   await expect(
-    page.getByTestId(rowCellTestId(committedRow.recordId, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(committedRow.recordId, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("");
   await expect(
     page.getByTestId(
@@ -158,7 +164,7 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("primary"),
-      "timeline.summary": "Primary row",
+      "timeline.activity_synopsis_text": "Primary row",
     },
   );
   const replacementRow = await createViewRow(
@@ -167,7 +173,7 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("replacement"),
-      "timeline.summary": "Replacement row",
+      "timeline.activity_synopsis_text": "Replacement row",
     },
   );
   const recordId = primaryRow.record_id as string;
@@ -207,7 +213,7 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
   await commitInspectorScalarEdit(
     reviewerPage,
     recordId,
-    "timeline.details",
+    "timeline.raw_activity_text",
     "Material edit after review",
   );
   await expect(
@@ -259,7 +265,7 @@ test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids dupli
   );
   const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("seed"),
-    "timeline.summary": "Replay row",
+    "timeline.activity_synopsis_text": "Replay row",
   });
   const recordId = row.record_id as string;
 
@@ -294,7 +300,7 @@ test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids dupli
 
   await page.goto(`/?incident_id=${incidentId}`);
   const summaryInput = page.getByTestId(
-    rowCellTestId(recordId, "timeline.summary"),
+    rowCellTestId(recordId, "timeline.activity_synopsis_text"),
   );
   const firstPatchResponse = page.waitForResponse(
     (response) =>

@@ -21,10 +21,16 @@ export type {
 export { decideWorkbookRecordFreshness } from "./timelineRowsModel";
 
 export type EditableField =
-  | "timeline.occurred_at"
-  | "timeline.summary"
-  | "timeline.details"
-  | "timeline.source_text";
+  | "timeline.date_entered_text"
+  | "timeline.analyst_text"
+  | "timeline.mitre_stage_text"
+  | "timeline.device_object_text"
+  | "timeline.ip_address_text"
+  | "timeline.activity_utc_text"
+  | "timeline.activity_local_text"
+  | "timeline.raw_activity_text"
+  | "timeline.activity_synopsis_text"
+  | "timeline.data_source_text";
 
 export type RelationshipDraftKey = "hostRefs" | "identityRefs";
 export type CollectionFieldKey = RelationshipFieldKey | "timeline.tags";
@@ -34,10 +40,16 @@ export type AssessmentSubjectType = "host" | "identity";
 export type AssessmentConfidenceBand = "unset" | "low" | "medium" | "high";
 
 export type RowValues = {
-  occurredAt: string;
-  summary: string;
-  details: string;
-  sourceText: string;
+  dateEnteredText: string;
+  analystText: string;
+  mitreStageText: string;
+  deviceObjectText: string;
+  ipAddressText: string;
+  activityUTCText: string;
+  activityLocalText: string;
+  rawActivityText: string;
+  activitySynopsisText: string;
+  dataSourceText: string;
 };
 
 export type CollectionDrafts = {
@@ -166,27 +178,57 @@ export const timelineScalarEditorSurfaces: readonly TimelineScalarEditorSurface[
 
 const timelineScalarBindingIndex: Record<EditableField, TimelineScalarBinding> =
   {
-    "timeline.occurred_at": {
+    "timeline.date_entered_text": {
       kind: "scalar",
-      fieldKey: "timeline.occurred_at",
-      key: "occurredAt",
+      fieldKey: "timeline.date_entered_text",
+      key: "dateEnteredText",
     },
-    "timeline.summary": {
+    "timeline.analyst_text": {
       kind: "scalar",
-      fieldKey: "timeline.summary",
-      key: "summary",
+      fieldKey: "timeline.analyst_text",
+      key: "analystText",
     },
-    "timeline.details": {
+    "timeline.mitre_stage_text": {
       kind: "scalar",
-      fieldKey: "timeline.details",
-      key: "details",
+      fieldKey: "timeline.mitre_stage_text",
+      key: "mitreStageText",
+    },
+    "timeline.device_object_text": {
+      kind: "scalar",
+      fieldKey: "timeline.device_object_text",
+      key: "deviceObjectText",
+    },
+    "timeline.ip_address_text": {
+      kind: "scalar",
+      fieldKey: "timeline.ip_address_text",
+      key: "ipAddressText",
+    },
+    "timeline.activity_utc_text": {
+      kind: "scalar",
+      fieldKey: "timeline.activity_utc_text",
+      key: "activityUTCText",
+    },
+    "timeline.activity_local_text": {
+      kind: "scalar",
+      fieldKey: "timeline.activity_local_text",
+      key: "activityLocalText",
+    },
+    "timeline.raw_activity_text": {
+      kind: "scalar",
+      fieldKey: "timeline.raw_activity_text",
+      key: "rawActivityText",
       multiline: true,
     },
-    "timeline.source_text": {
+    "timeline.activity_synopsis_text": {
       kind: "scalar",
-      fieldKey: "timeline.source_text",
-      key: "sourceText",
+      fieldKey: "timeline.activity_synopsis_text",
+      key: "activitySynopsisText",
       multiline: true,
+    },
+    "timeline.data_source_text": {
+      kind: "scalar",
+      fieldKey: "timeline.data_source_text",
+      key: "dataSourceText",
     },
   };
 
@@ -219,9 +261,12 @@ const timelineCollectionBindingIndex: Record<
 export const timelineScalarBindings: readonly TimelineScalarBinding[] =
   Object.values(timelineScalarBindingIndex);
 
+export const timelineCollectionBindings: readonly TimelineCollectionBinding[] =
+  Object.values(timelineCollectionBindingIndex);
+
 const timelineInspectorEditableFields: readonly EditableField[] = [
-  "timeline.details",
-  "timeline.source_text",
+  "timeline.raw_activity_text",
+  "timeline.activity_synopsis_text",
 ];
 
 export function timelineFieldBinding(fieldKey: string): TimelineFieldBinding {
@@ -269,31 +314,30 @@ export function timelineFocusFieldForFieldKey(
 
 export function timelineColumnWidth(fieldKey: string): number {
   switch (fieldKey) {
-    case "timeline.occurred_at":
+    case "timeline.date_entered_text":
+    case "timeline.activity_utc_text":
+    case "timeline.activity_local_text":
       return 180;
     case "timeline.edited_at":
       return 248;
-    case "timeline.summary":
+    case "timeline.raw_activity_text":
       return 320;
-    case "timeline.host_refs":
+    case "timeline.activity_synopsis_text":
       return 300;
-    case "timeline.identity_refs":
-      return 320;
-    case "timeline.evidence_count":
-      return 112;
-    case "timeline.tags":
+    case "timeline.device_object_text":
       return 240;
+    case "timeline.ip_address_text":
+      return 160;
     default:
       return 224;
   }
 }
 
 const timelineColumnExpansionWeights: Record<string, number> = {
-  "timeline.summary": 3,
-  "timeline.host_refs": 2,
-  "timeline.identity_refs": 2,
-  "timeline.tags": 1,
-  "timeline.edited_at": 2,
+  "timeline.raw_activity_text": 3,
+  "timeline.activity_synopsis_text": 2,
+  "timeline.device_object_text": 1,
+  "timeline.data_source_text": 1,
 };
 
 export function buildExpandedTimelineColumnWidths({
@@ -352,10 +396,16 @@ export function buildExpandedTimelineColumnWidths({
 
 function emptyValues(): RowValues {
   return {
-    occurredAt: "",
-    summary: "",
-    details: "",
-    sourceText: "",
+    dateEnteredText: "",
+    analystText: "",
+    mitreStageText: "",
+    deviceObjectText: "",
+    ipAddressText: "",
+    activityUTCText: "",
+    activityLocalText: "",
+    rawActivityText: "",
+    activitySynopsisText: "",
+    dataSourceText: "",
   };
 }
 
@@ -398,7 +448,7 @@ export function ensureDraftRow(
 }
 
 function normalizeValue(value: string): string {
-  return value.trim();
+  return value;
 }
 
 export function readTimelineStringCell(
@@ -525,10 +575,25 @@ export function normalizeTimelinePatchCells(
 
 export function rowFromApi(row: TimelineApiRow): WorkbookRow {
   const values: RowValues = {
-    occurredAt: readTimelineStringCell(row, "timeline.occurred_at"),
-    summary: readTimelineStringCell(row, "timeline.summary"),
-    details: readTimelineStringCell(row, "timeline.details"),
-    sourceText: readTimelineStringCell(row, "timeline.source_text"),
+    dateEnteredText: readTimelineStringCell(row, "timeline.date_entered_text"),
+    analystText: readTimelineStringCell(row, "timeline.analyst_text"),
+    mitreStageText: readTimelineStringCell(row, "timeline.mitre_stage_text"),
+    deviceObjectText: readTimelineStringCell(
+      row,
+      "timeline.device_object_text",
+    ),
+    ipAddressText: readTimelineStringCell(row, "timeline.ip_address_text"),
+    activityUTCText: readTimelineStringCell(row, "timeline.activity_utc_text"),
+    activityLocalText: readTimelineStringCell(
+      row,
+      "timeline.activity_local_text",
+    ),
+    rawActivityText: readTimelineStringCell(row, "timeline.raw_activity_text"),
+    activitySynopsisText: readTimelineStringCell(
+      row,
+      "timeline.activity_synopsis_text",
+    ),
+    dataSourceText: readTimelineStringCell(row, "timeline.data_source_text"),
   };
 
   return {
@@ -616,11 +681,11 @@ export function buildScalarPatchIntent(row: WorkbookRow, clientTxnId: string) {
       }
       return {
         field_key: field.fieldKey,
-        value: current === "" ? null : current,
+        value: current,
       };
     })
     .filter(
-      (change): change is { field_key: EditableField; value: string | null } =>
+      (change): change is { field_key: EditableField; value: string } =>
         change !== null,
     )
     .sort((left, right) => left.field_key.localeCompare(right.field_key));

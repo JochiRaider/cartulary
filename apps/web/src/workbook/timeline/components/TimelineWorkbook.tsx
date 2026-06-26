@@ -193,6 +193,7 @@ import {
   type TimelinePatchCells,
   type TimelineScalarBinding,
   type TimelineScalarEditorSurface,
+  timelineCollectionBindings,
   timelineColumnWidth,
   timelineFieldBinding,
   timelineFocusFieldForFieldKey,
@@ -717,7 +718,10 @@ function ensureDraftRowWithFreshIndex(
   const draftIndex = nextDraftIndex();
   return {
     rows: [...rows, createDraftRow(draftIndex)],
-    draftSummaryKey: inputFocusKey(`draft-${draftIndex}`, "summary"),
+    draftSummaryKey: inputFocusKey(
+      `draft-${draftIndex}`,
+      "activitySynopsisText",
+    ),
   };
 }
 
@@ -823,7 +827,7 @@ function timelineClipboardShouldDispatchTabular(
     return true;
   }
   return (
-    fieldKey === "timeline.occurred_at" &&
+    fieldKey === "timeline.activity_utc_text" &&
     clipboardGridDimensions(clipboardText).columnCount > 1
   );
 }
@@ -1805,7 +1809,10 @@ export function TimelineWorkbook({
           return (
             document.querySelector<HTMLElement>(
               dataTestIdSelector(
-                rowCellTestId(target.recordId, "timeline.summary"),
+                rowCellTestId(
+                  target.recordId,
+                  "timeline.activity_synopsis_text",
+                ),
               ),
             ) ??
             document.querySelector<HTMLElement>(
@@ -2522,7 +2529,7 @@ export function TimelineWorkbook({
         const fallbackFieldKey =
           previousAnchor?.surface === timelineViewSchemaId
             ? previousAnchor.fieldKey
-            : "timeline.summary";
+            : "timeline.activity_synopsis_text";
         const fallbackRow = rows.find((row) => row.recordId !== null);
         if (fallbackRow?.recordId) {
           if (
@@ -5263,7 +5270,7 @@ export function TimelineWorkbook({
 
   const focusDraftRow = useCallback(() => {
     const draftSummary = document.querySelector<HTMLInputElement>(
-      dataTestIdSelector(draftCellTestId("timeline.summary")),
+      dataTestIdSelector(draftCellTestId("timeline.activity_synopsis_text")),
     );
     draftSummary?.focus({ preventScroll: false });
   }, []);
@@ -5358,7 +5365,7 @@ export function TimelineWorkbook({
     (row: WorkbookRow) => {
       const activeRow =
         rowsRef.current.find((candidate) => candidate.key === row.key) ?? row;
-      queueScalarSave(activeRow.key, "summary", {
+      queueScalarSave(activeRow.key, "activitySynopsisText", {
         allowZeroFieldCreate: true,
         continueOnFreshDraft: true,
         preserveInputFocus: false,
@@ -6085,16 +6092,26 @@ export function TimelineWorkbook({
   function renderInspectorFieldEditors(row: WorkbookRow) {
     return (
       <section
-        data-testid={timelineInspectorSectionTestId("details")}
+        data-testid={timelineInspectorSectionTestId("operational-text")}
         style={inspectorSectionStyle}
       >
-        <h3 style={sectionTitleStyle}>Details</h3>
+        <h3 style={sectionTitleStyle}>Operational Text</h3>
         <div style={inspectorActionStackStyle}>
           {timelineInspectorBindings.map((binding) =>
             renderTimelineInspectorEditor(row, binding),
           )}
         </div>
       </section>
+    );
+  }
+
+  function renderInspectorRelationshipEditors(row: WorkbookRow) {
+    return (
+      <div style={inspectorActionStackStyle}>
+        {timelineCollectionBindings.map((binding) =>
+          renderTimelineCollectionInput(row, binding),
+        )}
+      </div>
     );
   }
 
@@ -6190,6 +6207,59 @@ export function TimelineWorkbook({
       document.removeEventListener("keydown", handleConflictResolverEscape);
     };
   }, [activeConflict, closeConflictResolver]);
+
+  useEffect(() => {
+    const hasInspectorSelection =
+      selectedRowId !== null ||
+      selectedMentionRef !== null ||
+      inspectorMessage !== null ||
+      rowHistory.recordId !== null ||
+      rowHistory.status !== "idle";
+    if (!hasInspectorSelection) {
+      return;
+    }
+    const handleTimelineInspectorEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || activeConflict !== null) {
+        return;
+      }
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (target?.closest(dataTestIdSelector("timeline-inspector")) === null) {
+        return;
+      }
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setSelectedRowId(null);
+      setSelectedMentionRef(null);
+      setInspectorMessage(null);
+      clearRowHistory();
+      const anchor = workbookFocusAnchorRef.current;
+      if (anchor?.surface === timelineViewSchemaId) {
+        restoreTimelineFocusAnchor(anchor);
+      }
+    };
+    document.addEventListener("keydown", handleTimelineInspectorEscape);
+    return () => {
+      document.removeEventListener("keydown", handleTimelineInspectorEscape);
+    };
+  }, [
+    activeConflict,
+    clearRowHistory,
+    inspectorMessage,
+    restoreTimelineFocusAnchor,
+    rowHistory.recordId,
+    rowHistory.status,
+    selectedMentionRef,
+    selectedRowId,
+    setInspectorMessage,
+    setSelectedMentionRef,
+    setSelectedRowId,
+  ]);
 
   const clearLocalConflict = useCallback(
     (conflict: LocalConflictState) => {
@@ -6380,6 +6450,7 @@ export function TimelineWorkbook({
             onSubmitMentionAction={submitMentionAction}
             renderEvidenceAttachSection={renderEvidenceAttachSection}
             renderInspectorFieldEditors={renderInspectorFieldEditors}
+            renderRelationshipEditors={renderInspectorRelationshipEditors}
             renderRowHistorySection={renderRowHistorySection}
             rowHistoryRecordId={
               currentHistoryDeleted ? currentHistoryRecordId : null

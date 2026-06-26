@@ -271,7 +271,7 @@ This revision closes the performance question with two reference fixtures rather
 
 ### Timeline grouping-key whitelist
 
-This revision closes the timeline grouping-key question by keeping the base-profile whitelist at exactly five keys: `timeline.occurred_day`, `timeline.recorded_day`, `timeline.capture_state`, `timeline.has_evidence`, and `timeline.has_unresolved_mentions`. The current whitelist is sufficient for GA.
+This revision closes the timeline grouping-key question by keeping the base-profile whitelist at exactly five keys: `timeline.date_entered_sort_day`, `timeline.activity_time_pair_state`, `timeline.capture_state`, `timeline.has_evidence`, and `timeline.has_unresolved_mentions`. The current whitelist is sufficient for GA.
 
 That whitelist is only the Timeline-specific part of the now-generic grouped-surface contract. Any workbook surface whose active `view_schema` declares `grouping_fields` now uses its declared key list in discovery order, omission-only `group_by` for `Group: None`, derived group headers from `group_values[group_by]`, and the generic comparator rule unless the Timeline-specific override applies.
 

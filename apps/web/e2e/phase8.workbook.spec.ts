@@ -52,7 +52,7 @@ import { clickTimelineRowAction } from "./phase4Helpers";
 const evidenceViewSchemaId = "cartulary.view.evidence.v1";
 const hostsViewSchemaId = "cartulary.view.hosts.v1";
 const notesViewSchemaId = "cartulary.view.notes.v1";
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 test("E-8-01 saved-view route foundation persists canonical state while browser lifecycle affordances remain pending", async ({
   page,
@@ -145,7 +145,7 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("feip801-row"),
-      "timeline.summary": "FE-I-P8 saved view row",
+      "timeline.activity_synopsis_text": "FE-I-P8 saved view row",
     },
   );
   const privateSavedView = await createSavedView(page, incidentId, {
@@ -161,7 +161,9 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
         },
       ],
       group_by: "timeline.capture_state",
-      sort: [{ field_key: "timeline.summary", direction: "asc" }],
+      sort: [
+        { field_key: "timeline.activity_synopsis_text", direction: "asc" },
+      ],
     },
     layout_json: {},
   });
@@ -211,7 +213,7 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
     group_by: "timeline.capture_state",
     sort: [
       { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.summary" },
+      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
     ],
   });
   await expect(page).toHaveURL(/sheet_ref_kind=saved_view/);
@@ -260,7 +262,9 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
         },
       ],
       group_by: "timeline.capture_state",
-      sort: [{ direction: "asc", field_key: "timeline.summary" }],
+      sort: [
+        { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+      ],
     },
   });
   expect(patchBody).not.toHaveProperty("saved_view_id");
@@ -370,7 +374,7 @@ test("FE-I-P8-01 Verify saved-view create/update/select/default UI uses active s
     duplicateSavedView.saved_view_id,
   );
   await deleteRequest;
-  await expect(page).toHaveURL(/view_schema_id=cartulary\.view\.timeline\.v1/);
+  await expect(page).toHaveURL(/view_schema_id=cartulary\.view\.timeline\.v2/);
   expect(
     rowIDs(await queryViewRows(page, incidentId, timelineViewSchemaId, {})),
   ).toContain(String(timelineRow.record_id));
@@ -403,15 +407,15 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("febp801-alpha"),
-    "timeline.summary": "Alpha FE-B",
+    "timeline.activity_synopsis_text": "Alpha FE-B",
   });
   const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("febp801-beta"),
-    "timeline.summary": "Beta FE-B",
+    "timeline.activity_synopsis_text": "Beta FE-B",
   });
   const gamma = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("febp801-gamma"),
-    "timeline.summary": "Gamma FE-B",
+    "timeline.activity_synopsis_text": "Gamma FE-B",
   });
   const savedView = await createSavedView(page, incidentId, {
     display_name: "FE-B helper source",
@@ -422,7 +426,9 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await expect(
-    page.getByTestId(rowCellTestId(alpha.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("Alpha FE-B");
 
   await clickTimelineRowAction(
@@ -450,9 +456,13 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     });
 
   const sortRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
-  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+  await sortByHeader(
+    page,
+    timelineViewSchemaId,
+    "timeline.activity_synopsis_text",
+  );
   expect(readPostBody(await sortRequest)).toEqual({
-    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   await expectFirstDataRow(page, String(alpha.record_id));
   expect(await visibleRecordIds(page)).toEqual([
@@ -480,7 +490,7 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
         op: "eq",
       },
     ],
-    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   await assertActiveFilterChipVisible(
     page,
@@ -502,7 +512,7 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     group_by: "timeline.capture_state",
     sort: [
       { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.summary" },
+      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
     ],
   });
   const reviewedGroupTestId = gridGroupRowTestId(
@@ -522,7 +532,9 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     surface: timelineViewSchemaId,
   });
   await expect(
-    page.getByTestId(rowCellTestId(beta.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).not.toBeVisible();
   await expandGridGroup({
     groupTestId: reviewedGroupTestId,
@@ -530,7 +542,9 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     surface: timelineViewSchemaId,
   });
   await expect(
-    page.getByTestId(rowCellTestId(beta.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toBeVisible();
 
   await setSavedViewDraftName(
@@ -567,7 +581,9 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
         },
       ],
       group_by: "timeline.capture_state",
-      sort: [{ direction: "asc", field_key: "timeline.summary" }],
+      sort: [
+        { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+      ],
     },
     layout_json: {
       layout_schema_id: "cartulary.layout.v1",
@@ -618,7 +634,7 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     group_by: "timeline.capture_state",
     sort: [
       { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.summary" },
+      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
     ],
   });
 });
@@ -655,21 +671,23 @@ async function verifySavedViewPersistenceReplay(
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("feep801-alpha"),
-    "timeline.summary": "Alpha FE-E",
+    "timeline.activity_synopsis_text": "Alpha FE-E",
   });
   const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("feep801-beta"),
-    "timeline.summary": "Beta FE-E",
+    "timeline.activity_synopsis_text": "Beta FE-E",
   });
   await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("feep801-gamma"),
-    "timeline.summary": "Gamma FE-E",
+    "timeline.activity_synopsis_text": "Gamma FE-E",
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await expect(
-    page.getByTestId(rowCellTestId(alpha.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("Alpha FE-E");
 
   await clickTimelineRowAction(
@@ -682,9 +700,13 @@ async function verifySavedViewPersistenceReplay(
   ).toHaveText("reviewed");
 
   const sortRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
-  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+  await sortByHeader(
+    page,
+    timelineViewSchemaId,
+    "timeline.activity_synopsis_text",
+  );
   expect(readPostBody(await sortRequest)).toEqual({
-    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
 
   const filterRequest = waitForViewQuery(
@@ -706,7 +728,7 @@ async function verifySavedViewPersistenceReplay(
         op: "eq",
       },
     ],
-    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
 
   const groupRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
@@ -722,7 +744,7 @@ async function verifySavedViewPersistenceReplay(
     group_by: "timeline.capture_state",
     sort: [
       { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.summary" },
+      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
     ],
   };
   expect(readPostBody(await groupRequest)).toEqual(replayedQuery);
@@ -758,7 +780,9 @@ async function verifySavedViewPersistenceReplay(
         },
       ],
       group_by: "timeline.capture_state",
-      sort: [{ direction: "asc", field_key: "timeline.summary" }],
+      sort: [
+        { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+      ],
     },
     layout_json: {
       layout_schema_id: "cartulary.layout.v1",
@@ -801,7 +825,9 @@ async function verifySavedViewPersistenceReplay(
         },
       ],
       group_by: "timeline.capture_state",
-      sort: [{ direction: "asc", field_key: "timeline.summary" }],
+      sort: [
+        { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+      ],
     },
   });
 
@@ -1008,7 +1034,7 @@ test("E-8-02 workbook startup falls back to Timeline for an unsupported explicit
   await expect(
     page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
   ).toBeVisible();
-  await expect(page).toHaveURL(/view_schema_id=cartulary\.view\.timeline\.v1/);
+  await expect(page).toHaveURL(/view_schema_id=cartulary\.view\.timeline\.v2/);
   expect(
     (await getDefaultWorkbookPreferences(page, incidentId)).default_sheet_ref,
   ).toBeNull();
@@ -1037,7 +1063,7 @@ test("E-8-02 workbook startup falls back to Timeline for an unsupported explicit
   });
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await expect(page).toHaveURL(/view_schema_id=cartulary\.view\.timeline\.v1/);
+  await expect(page).toHaveURL(/view_schema_id=cartulary\.view\.timeline\.v2/);
   expect(
     (await getUserWorkbookPreferences(page, incidentId)).home_sheet_ref,
   ).toBeNull();
@@ -1053,21 +1079,24 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e803-alpha"),
-    "timeline.summary": "Alpha Phase 8",
+    "timeline.activity_synopsis_text": "Alpha Phase 8",
   });
   const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e803-beta"),
-    "timeline.summary": "Beta Phase 8",
+    "timeline.activity_synopsis_text": "Beta Phase 8",
   });
   const gamma = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e803-gamma"),
-    "timeline.summary": "Gamma Phase 8",
+    "timeline.activity_synopsis_text": "Gamma Phase 8",
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
     page.getByTestId(
-      rowCellTestId(alpha.record_id as string, "timeline.summary"),
+      rowCellTestId(
+        alpha.record_id as string,
+        "timeline.activity_synopsis_text",
+      ),
     ),
   ).toHaveValue("Alpha Phase 8");
 
@@ -1081,9 +1110,13 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
   ).toHaveText("reviewed");
 
   const sortRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
-  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+  await sortByHeader(
+    page,
+    timelineViewSchemaId,
+    "timeline.activity_synopsis_text",
+  );
   expect(readPostBody(await sortRequest)).toEqual({
-    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   await expectFirstDataRow(page, String(alpha.record_id));
   expect(await visibleRecordIds(page)).toEqual([
@@ -1111,7 +1144,7 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
         op: "eq",
       },
     ],
-    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   await expectFirstDataRow(page, String(beta.record_id));
   expect(await visibleRecordIds(page)).toEqual([String(beta.record_id)]);
@@ -1123,7 +1156,7 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
   );
   await removeFilterChip(page, timelineViewSchemaId, "timeline.capture_state");
   expect(readPostBody(await removeFilterRequest)).toEqual({
-    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
 
   const groupRequest = waitForViewQuery(page, incidentId, timelineViewSchemaId);
@@ -1132,7 +1165,7 @@ test("E-8-03 browser Timeline sort, filter, and group controls submit stable que
     group_by: "timeline.capture_state",
     sort: [
       { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.summary" },
+      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
     ],
   });
   const timelineGrid = page.getByTestId(gridShellTestId(timelineViewSchemaId));
@@ -1263,7 +1296,7 @@ test("E-8-04 browser Notes full_text and prefix queries remain exact", async ({
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e804-prefix"),
-      "timeline.summary": "Alpha prefix marker",
+      "timeline.activity_synopsis_text": "Alpha prefix marker",
     },
   );
   const timelinePrefixPeer = await createViewRow(
@@ -1272,7 +1305,7 @@ test("E-8-04 browser Notes full_text and prefix queries remain exact", async ({
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e804-prefix-peer"),
-      "timeline.summary": "Beta prefix marker",
+      "timeline.activity_synopsis_text": "Beta prefix marker",
     },
   );
 

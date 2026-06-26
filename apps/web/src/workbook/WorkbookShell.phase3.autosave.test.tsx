@@ -98,13 +98,13 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     );
     expect(screen.queryByRole("button", { name: /^save$/i })).toBeNull();
     return (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.summary"),
+      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
     )) as HTMLInputElement;
   }
 
   async function openTimelineInspectorFromContext(recordId: string) {
     const summaryCell = await screen.findByTestId(
-      rowCellTestId(recordId, "timeline.summary"),
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
     );
     fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
     fireEvent.click(
@@ -135,11 +135,11 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
 
   it("Phase 3 U-3-05 autosaves Enter without a Save button and keeps exact save-state labels", async () => {
     const draftRow = createDraftRow(1);
-    draftRow.values.summary = "First timeline fact";
+    draftRow.values.activitySynopsisText = "First timeline fact";
 
     expect(buildCreatePayload(draftRow, "timeline-client-1")).toEqual({
       client_txn_id: "timeline-client-1",
-      "timeline.summary": "First timeline fact",
+      "timeline.activity_synopsis_text": "First timeline fact",
     });
 
     const continuedRows = ensureDraftRow(
@@ -151,16 +151,28 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
           rowVersion: 1,
           captureState: "rough",
           values: {
-            occurredAt: "",
-            summary: "First timeline fact",
-            details: "",
-            sourceText: "",
+            dateEnteredText: "",
+            analystText: "",
+            mitreStageText: "",
+            deviceObjectText: "",
+            ipAddressText: "",
+            activityUTCText: "",
+            activityLocalText: "",
+            rawActivityText: "",
+            activitySynopsisText: "First timeline fact",
+            dataSourceText: "",
           },
           committedValues: {
-            occurredAt: "",
-            summary: "First timeline fact",
-            details: "",
-            sourceText: "",
+            dateEnteredText: "",
+            analystText: "",
+            mitreStageText: "",
+            deviceObjectText: "",
+            ipAddressText: "",
+            activityUTCText: "",
+            activityLocalText: "",
+            rawActivityText: "",
+            activitySynopsisText: "First timeline fact",
+            dataSourceText: "",
           },
           collectionValues: {
             hostRefs: [],
@@ -178,7 +190,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     );
     expect(continuedRows).toHaveLength(2);
     expect(continuedRows[1]?.recordId).toBeNull();
-    expect(continuedRows[1]?.values.summary).toBe("");
+    expect(continuedRows[1]?.values.activitySynopsisText).toBe("");
 
     mockInitialTimelineRow();
     mockSummaryPatchResponse("Updated via enter");
@@ -191,7 +203,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     });
     expectTimelinePatch(1, {
       baseRowVersion: 1,
-      fieldKey: "timeline.summary",
+      fieldKey: "timeline.activity_synopsis_text",
       value: "Updated via enter",
     });
     await expectSavedRowVersion(2);
@@ -209,7 +221,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     });
     expectTimelinePatch(1, {
       baseRowVersion: 1,
-      fieldKey: "timeline.summary",
+      fieldKey: "timeline.activity_synopsis_text",
       value: "Updated via tab",
     });
     await expectSavedRowVersion(2);
@@ -228,7 +240,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     });
     expectTimelinePatch(1, {
       baseRowVersion: 1,
-      fieldKey: "timeline.summary",
+      fieldKey: "timeline.activity_synopsis_text",
       value: "Updated via blur",
     });
     await waitFor(() => {
@@ -256,7 +268,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     await renderSingleTimelineRow();
     await openTimelineInspectorFromContext("record-1");
     const sourceText = (await screen.findByLabelText(
-      "Source Text",
+      "RAW Activity",
     )) as HTMLTextAreaElement;
     await changeInputValue(sourceText, "Pasted transcript");
     fireEvent.paste(sourceText);
@@ -266,7 +278,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     });
     expectTimelinePatch(1, {
       baseRowVersion: 1,
-      fieldKey: "timeline.source_text",
+      fieldKey: "timeline.raw_activity_text",
       value: "Pasted transcript",
     });
     await expectSavedRowVersion(2);
@@ -289,7 +301,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     );
     fetchMock.mockResolvedValueOnce(
       errorEnvelope("same_field_conflict", 409, {
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         base_row_version: 1,
         current_row_version: 2,
         base_value: "Alpha",
@@ -301,7 +313,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     render(<TimelineWorkbook incidentId="incident-1" />);
 
     const conflictInput = (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.summary"),
+      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
     )) as HTMLInputElement;
     fireEvent.focus(conflictInput);
     await changeInputValue(conflictInput, "Conflict value");
@@ -351,7 +363,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
 
     await screen.findByTestId(saveStateTestId());
     const summaryInput = (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.summary"),
+      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
     )) as HTMLInputElement;
 
     setInputValueWithoutEvent(summaryInput, `Stale-proof ${key}`);
@@ -367,7 +379,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       base_row_version: 1,
       changes: [
         {
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           value: `Stale-proof ${key}`,
         },
       ],
@@ -406,7 +418,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
 
     await screen.findByTestId(saveStateTestId());
     const summaryInput = (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.summary"),
+      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
     )) as HTMLInputElement;
 
     setInputValueWithoutEvent(summaryInput, "Pasted stale-proof summary");
@@ -419,7 +431,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       base_row_version: 1,
       changes: [
         {
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           value: "Pasted stale-proof summary",
         },
       ],
@@ -450,7 +462,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     await screen.findByTestId(saveStateTestId());
 
     const summaryInput = (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.summary"),
+      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
     )) as HTMLInputElement;
     await changeInputValue(summaryInput, "Pending deduplicated summary");
     fireEvent.keyDown(summaryInput, { key: "Enter" });
@@ -462,7 +474,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       base_row_version: 1,
       changes: [
         {
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           value: "Pending deduplicated summary",
         },
       ],
@@ -531,7 +543,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     await screen.findByTestId(saveStateTestId());
 
     const summaryInput = (await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.summary"),
+      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
     )) as HTMLInputElement;
     await changeInputValue(summaryInput, "First pending summary");
     fireEvent.keyDown(summaryInput, { key: "Enter" });
@@ -542,7 +554,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     expect(extractTimelinePatchBody(fetchMock, 1)).toMatchObject({
       changes: [
         {
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           value: "First pending summary",
         },
       ],
@@ -573,7 +585,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     expect(extractTimelinePatchBody(fetchMock, 2)).toMatchObject({
       changes: [
         {
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           value: "Second pending summary",
         },
       ],

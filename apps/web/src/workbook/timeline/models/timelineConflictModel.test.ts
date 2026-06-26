@@ -11,7 +11,7 @@ const validConflict = {
   conflict_resolution_class: "text_compare_merge",
   conflict_token: "token-1",
   current_row_version: 4,
-  field_key: "timeline.summary",
+  field_key: "timeline.activity_synopsis_text",
   record_id: "row-1",
   server_updated_at: "2026-04-24T12:00:00Z",
   server_updated_by: "analyst@example.com",

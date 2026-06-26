@@ -521,6 +521,158 @@
         }
       }
     },
+    "/api/v1/incidents/{incident_id}/timeline-time-conversion-profile": {
+      "get": {
+        "tags": [
+          "timeline"
+        ],
+        "operationId": "getTimelineTimeConversionProfile",
+        "summary": "Read the incident Timeline fixed-offset time-conversion profile.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Timeline time-conversion profile response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineTimeConversionProfileEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Incident membership required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Incident not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "timeline"
+        ],
+        "operationId": "putTimelineTimeConversionProfile",
+        "summary": "Update the incident Timeline fixed-offset time-conversion profile.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimelineTimeConversionProfilePutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timeline time-conversion profile response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineTimeConversionProfileEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid profile payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Incident admin role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Incident not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Profile version conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query": {
       "post": {
         "tags": [
@@ -6084,26 +6236,61 @@
           "client_txn_id": {
             "type": "string"
           },
-          "timeline.occurred_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "timeline.summary": {
+          "timeline.date_entered_text": {
             "type": [
               "string",
               "null"
             ]
           },
-          "timeline.details": {
+          "timeline.analyst_text": {
             "type": [
               "string",
               "null"
             ]
           },
-          "timeline.source_text": {
+          "timeline.mitre_stage_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.device_object_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.ip_address_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.activity_utc_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.activity_local_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.raw_activity_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.activity_synopsis_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.data_source_text": {
             "type": [
               "string",
               "null"
@@ -6124,6 +6311,106 @@
         },
         "required": [
           "client_txn_id"
+        ]
+      },
+      "TimelineTimeConversionProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "local_offset_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": -840,
+            "maximum": 840
+          },
+          "local_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "profile_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "incident_id",
+          "enabled",
+          "local_offset_minutes",
+          "local_label",
+          "profile_version",
+          "updated_at",
+          "updated_by_user_id"
+        ]
+      },
+      "TimelineTimeConversionProfilePutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_profile_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "local_offset_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": -840,
+            "maximum": 840
+          },
+          "local_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "base_profile_version",
+          "enabled",
+          "local_offset_minutes",
+          "local_label"
+        ]
+      },
+      "TimelineTimeConversionProfileEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TimelineTimeConversionProfile"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "HostCreateRequest": {
@@ -7841,7 +8128,7 @@
           "view_schema_id": {
             "type": "string",
             "enum": [
-              "cartulary.view.timeline.v1",
+              "cartulary.view.timeline.v2",
               "cartulary.view.hosts.v1",
               "cartulary.view.identities.v1",
               "cartulary.view.indicators.v1",
@@ -7933,7 +8220,7 @@
           "view_schema_id": {
             "type": "string",
             "enum": [
-              "cartulary.view.timeline.v1",
+              "cartulary.view.timeline.v2",
               "cartulary.view.hosts.v1",
               "cartulary.view.identities.v1"
             ]
@@ -8007,7 +8294,7 @@
         "additionalProperties": false,
         "properties": {
           "view_schema_id": {
-            "const": "cartulary.view.timeline.v1"
+            "const": "cartulary.view.timeline.v2"
           },
           "client_txn_id": {
             "type": "string",

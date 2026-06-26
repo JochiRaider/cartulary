@@ -211,7 +211,7 @@ func TestPhase7_DeleteRestoreRollbackAtomicConsequences_I_7_01(t *testing.T) {
 	}, map[uuid.UUID]rollbackRecordChangeExpectation{
 		attachedCreateSrc: {
 			rowVersion:       2,
-			viewSchemaID:     "cartulary.view.timeline.v1",
+			viewSchemaID:     "cartulary.view.timeline.v2",
 			changedFieldKeys: []string{"timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence"},
 		},
 		attachedCreateEvidence: {
@@ -249,7 +249,7 @@ func TestPhase7_DeleteRestoreRollbackAtomicConsequences_I_7_01(t *testing.T) {
 	}, map[uuid.UUID]rollbackRecordChangeExpectation{
 		attachedDeleteSrc: {
 			rowVersion:       2,
-			viewSchemaID:     "cartulary.view.timeline.v1",
+			viewSchemaID:     "cartulary.view.timeline.v2",
 			changedFieldKeys: []string{"timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence"},
 		},
 		attachedDeleteEvidence: {

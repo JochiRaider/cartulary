@@ -7,15 +7,15 @@ import (
 )
 
 const (
-	Phase4TimelineViewSchemaID   = "cartulary.view.timeline.v1"
+	Phase4TimelineViewSchemaID   = "cartulary.view.timeline.v2"
 	Phase4HostsViewSchemaID      = "cartulary.view.hosts.v1"
 	Phase4IdentitiesViewSchemaID = "cartulary.view.identities.v1"
 	Phase4IndicatorsViewSchemaID = "cartulary.view.indicators.v1"
 
 	Phase4FieldTimelineHostRefs     = "timeline.host_refs"
 	Phase4FieldTimelineIdentityRefs = "timeline.identity_refs"
-	Phase4FieldTimelineSummary      = "timeline.summary"
-	Phase4FieldTimelineSourceText   = "timeline.source_text"
+	Phase4FieldTimelineSummary      = "timeline.activity_synopsis_text"
+	Phase4FieldTimelineSourceText   = "timeline.raw_activity_text"
 
 	Phase4BindingMentionOrigin = "mention_origin"
 	Phase4BindingEntityOrigin  = "entity_origin"

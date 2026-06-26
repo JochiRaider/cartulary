@@ -33,7 +33,7 @@ func TestBaseRegistryPublicResources(t *testing.T) {
 		"cartulary.view.parties.v1",
 		"cartulary.view.status_review.v1",
 		"cartulary.view.task_requests.v1",
-		"cartulary.view.timeline.v1",
+		"cartulary.view.timeline.v2",
 	}
 	if !reflect.DeepEqual(gotIDs, wantIDs) {
 		t.Fatalf("unexpected Base view schema ids:\ngot  %v\nwant %v", gotIDs, wantIDs)

@@ -379,7 +379,7 @@ VALUES ($1, $2, 'legacy-host', 'canonical', $3, $3)
 		t.Fatalf("seed legacy host: %v", err)
 	}
 	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO timeline_events (record_id, incident_id, summary, capture_state, created_by_user_id, updated_by_user_id)
+INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, capture_state, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, 'legacy event', 'reviewed', $3, $3)
 `, timelineID, incidentID, userID); err != nil {
 		t.Fatalf("seed legacy timeline: %v", err)

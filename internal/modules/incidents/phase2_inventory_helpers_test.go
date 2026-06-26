@@ -79,12 +79,12 @@ func newPhase2RouteFixture(t testing.TB, prefix string) *phase2RouteFixture {
 		"role":          "viewer",
 	})
 	primaryRow := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{
-		"client_txn_id":    "txn-" + slug + "-primary-row",
-		"timeline.summary": "Primary row " + slug,
+		"client_txn_id":                   "txn-" + slug + "-primary-row",
+		"timeline.activity_synopsis_text": "Primary row " + slug,
 	})
 	replacementRow := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{
-		"client_txn_id":    "txn-" + slug + "-replacement-row",
-		"timeline.summary": "Replacement row " + slug,
+		"client_txn_id":                   "txn-" + slug + "-replacement-row",
+		"timeline.activity_synopsis_text": "Replacement row " + slug,
 	})
 
 	return &phase2RouteFixture{
@@ -118,12 +118,12 @@ func (f *phase2RouteFixture) resetRecordTargets(t testing.TB, suffix string) {
 
 	slug := phase2FixtureSlug(suffix)
 	primaryRow := phase2test.CreateTimelineRow(t, f.harness.Server, f.adminLogin, f.fixture.IncidentID, map[string]any{
-		"client_txn_id":    "txn-" + slug + "-primary-row",
-		"timeline.summary": "Primary row " + slug,
+		"client_txn_id":                   "txn-" + slug + "-primary-row",
+		"timeline.activity_synopsis_text": "Primary row " + slug,
 	})
 	replacementRow := phase2test.CreateTimelineRow(t, f.harness.Server, f.adminLogin, f.fixture.IncidentID, map[string]any{
-		"client_txn_id":    "txn-" + slug + "-replacement-row",
-		"timeline.summary": "Replacement row " + slug,
+		"client_txn_id":                   "txn-" + slug + "-replacement-row",
+		"timeline.activity_synopsis_text": "Replacement row " + slug,
 	})
 	f.fixture.PrimaryRecordID = primaryRow["row"].(map[string]any)["record_id"].(string)
 	f.fixture.ReplacementRecordID = replacementRow["row"].(map[string]any)["record_id"].(string)

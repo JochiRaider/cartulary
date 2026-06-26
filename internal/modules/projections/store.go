@@ -22,12 +22,21 @@ type TimelineProjectionInput struct {
 	RecordID              uuid.UUID
 	IncidentID            uuid.UUID
 	RowVersion            int64
-	OccurredAt            *time.Time
-	Summary               *string
-	Details               *string
-	SourceText            *string
+	DateEnteredText       *string
+	AnalystText           *string
+	MitreStageText        *string
+	DeviceObjectText      *string
+	IPAddressText         *string
+	ActivityUTCText       *string
+	ActivityLocalText     *string
+	RawActivityText       *string
+	ActivitySynopsisText  *string
+	DataSourceText        *string
 	RecordedAt            time.Time
 	EditedAt              time.Time
+	ActivitySortTS        *time.Time
+	DateEnteredSortDay    *time.Time
+	ActivityTimePairState string
 	CaptureState          string
 	ReplacementRecordID   *uuid.UUID
 	EvidenceCount         int
@@ -40,27 +49,28 @@ func NewStore(pool postgres.DB) *Store {
 }
 
 func (s *Store) UpsertTimelineRowTx(ctx context.Context, tx pgx.Tx, input TimelineProjectionInput) error {
-	sortTS := input.RecordedAt.UTC()
-	if input.OccurredAt != nil {
-		sortTS = input.OccurredAt.UTC()
-	}
-
 	if _, err := tx.Exec(ctx, `
 INSERT INTO timeline_grid_projection (
     record_id,
     incident_id,
     row_version,
-    occurred_at,
-    summary,
-    details,
-    source_text,
+    date_entered_text,
+    analyst_text,
+    mitre_stage_text,
+    device_object_text,
+    ip_address_text,
+    activity_utc_text,
+    activity_local_text,
+    raw_activity_text,
+    activity_synopsis_text,
+    data_source_text,
     recorded_at,
     edited_at,
-    sort_ts,
+    activity_sort_ts,
+    date_entered_sort_day,
+    activity_time_pair_state,
     capture_state,
     replacement_record_id,
-    occurred_day,
-    recorded_day,
     evidence_count,
     has_evidence,
     has_unresolved_mentions
@@ -78,30 +88,42 @@ VALUES (
     $10,
     $11,
     $12,
-    CASE WHEN $4::timestamptz IS NULL THEN NULL ELSE ($4::timestamptz AT TIME ZONE 'UTC')::date END,
-    ($8::timestamptz AT TIME ZONE 'UTC')::date,
     $13,
     $14,
-    $15
+    $15,
+    $16,
+    $17,
+    $18,
+    $19,
+    $20,
+    $21,
+    $22,
+    $23
 )
 ON CONFLICT (record_id) DO UPDATE
 SET incident_id = EXCLUDED.incident_id,
     row_version = EXCLUDED.row_version,
-    occurred_at = EXCLUDED.occurred_at,
-    summary = EXCLUDED.summary,
-    details = EXCLUDED.details,
-    source_text = EXCLUDED.source_text,
+    date_entered_text = EXCLUDED.date_entered_text,
+    analyst_text = EXCLUDED.analyst_text,
+    mitre_stage_text = EXCLUDED.mitre_stage_text,
+    device_object_text = EXCLUDED.device_object_text,
+    ip_address_text = EXCLUDED.ip_address_text,
+    activity_utc_text = EXCLUDED.activity_utc_text,
+    activity_local_text = EXCLUDED.activity_local_text,
+    raw_activity_text = EXCLUDED.raw_activity_text,
+    activity_synopsis_text = EXCLUDED.activity_synopsis_text,
+    data_source_text = EXCLUDED.data_source_text,
     recorded_at = EXCLUDED.recorded_at,
     edited_at = EXCLUDED.edited_at,
-    sort_ts = EXCLUDED.sort_ts,
+    activity_sort_ts = EXCLUDED.activity_sort_ts,
+    date_entered_sort_day = EXCLUDED.date_entered_sort_day,
+    activity_time_pair_state = EXCLUDED.activity_time_pair_state,
     capture_state = EXCLUDED.capture_state,
     replacement_record_id = EXCLUDED.replacement_record_id,
-    occurred_day = EXCLUDED.occurred_day,
-    recorded_day = EXCLUDED.recorded_day,
     evidence_count = EXCLUDED.evidence_count,
     has_evidence = EXCLUDED.has_evidence,
     has_unresolved_mentions = EXCLUDED.has_unresolved_mentions
-`, input.RecordID, input.IncidentID, input.RowVersion, input.OccurredAt, input.Summary, input.Details, input.SourceText, input.RecordedAt.UTC(), input.EditedAt.UTC(), sortTS, input.CaptureState, input.ReplacementRecordID, input.EvidenceCount, input.HasEvidence, input.HasUnresolvedMentions); err != nil {
+`, input.RecordID, input.IncidentID, input.RowVersion, input.DateEnteredText, input.AnalystText, input.MitreStageText, input.DeviceObjectText, input.IPAddressText, input.ActivityUTCText, input.ActivityLocalText, input.RawActivityText, input.ActivitySynopsisText, input.DataSourceText, input.RecordedAt.UTC(), input.EditedAt.UTC(), input.ActivitySortTS, input.DateEnteredSortDay, input.ActivityTimePairState, input.CaptureState, input.ReplacementRecordID, input.EvidenceCount, input.HasEvidence, input.HasUnresolvedMentions); err != nil {
 		return fmt.Errorf("upsert timeline projection row: %w", err)
 	}
 	return nil
@@ -173,12 +195,21 @@ func projectionInputFromSQL(row sqlc.ListTimelineProjectionSourceRowsRow) (Timel
 		RecordID:              recordID,
 		IncidentID:            incidentID,
 		RowVersion:            row.RowVersion,
-		OccurredAt:            optionalTimeFromPG(row.OccurredAt),
-		Summary:               optionalTextFromPG(row.Summary),
-		Details:               optionalTextFromPG(row.Details),
-		SourceText:            optionalTextFromPG(row.SourceText),
+		DateEnteredText:       optionalTextFromPG(row.DateEnteredText),
+		AnalystText:           optionalTextFromPG(row.AnalystText),
+		MitreStageText:        optionalTextFromPG(row.MitreStageText),
+		DeviceObjectText:      optionalTextFromPG(row.DeviceObjectText),
+		IPAddressText:         optionalTextFromPG(row.IpAddressText),
+		ActivityUTCText:       optionalTextFromPG(row.ActivityUtcText),
+		ActivityLocalText:     optionalTextFromPG(row.ActivityLocalText),
+		RawActivityText:       optionalTextFromPG(row.RawActivityText),
+		ActivitySynopsisText:  optionalTextFromPG(row.ActivitySynopsisText),
+		DataSourceText:        optionalTextFromPG(row.DataSourceText),
 		RecordedAt:            recordedAt,
 		EditedAt:              editedAt,
+		ActivitySortTS:        deriveActivitySortTS(optionalTextFromPG(row.ActivityUtcText), optionalTextFromPG(row.ActivityLocalText)),
+		DateEnteredSortDay:    deriveDateEnteredSortDay(optionalTextFromPG(row.DateEnteredText)),
+		ActivityTimePairState: row.ActivityTimePairState,
 		CaptureState:          row.CaptureState,
 		ReplacementRecordID:   optionalUUIDFromPG(row.ReplacementRecordID),
 		EvidenceCount:         int(row.EvidenceCount),
@@ -213,18 +244,63 @@ func timeFromPG(value pgtype.Timestamptz) (time.Time, error) {
 	return value.Time.UTC(), nil
 }
 
-func optionalTimeFromPG(value pgtype.Timestamptz) *time.Time {
-	if !value.Valid {
-		return nil
-	}
-	utc := value.Time.UTC()
-	return &utc
-}
-
 func optionalTextFromPG(value pgtype.Text) *string {
 	if !value.Valid {
 		return nil
 	}
 	text := value.String
 	return &text
+}
+
+func deriveActivitySortTS(utcText *string, localText *string) *time.Time {
+	if parsed := parseTimelineUTCText(utcText); parsed != nil {
+		return parsed
+	}
+	if parsed := parseTimelineLocalText(localText); parsed != nil {
+		return parsed
+	}
+	return nil
+}
+
+func deriveDateEnteredSortDay(text *string) *time.Time {
+	if text == nil || *text == "" {
+		return nil
+	}
+	if parsed, err := time.Parse("2006-01-02", *text); err == nil {
+		day := time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, time.UTC)
+		return &day
+	}
+	if parsed := parseTimelineUTCText(text); parsed != nil {
+		day := time.Date(parsed.UTC().Year(), parsed.UTC().Month(), parsed.UTC().Day(), 0, 0, 0, 0, time.UTC)
+		return &day
+	}
+	if parsed := parseTimelineLocalText(text); parsed != nil {
+		day := time.Date(parsed.UTC().Year(), parsed.UTC().Month(), parsed.UTC().Day(), 0, 0, 0, 0, time.UTC)
+		return &day
+	}
+	return nil
+}
+
+func parseTimelineUTCText(text *string) *time.Time {
+	if text == nil || *text == "" {
+		return nil
+	}
+	parsed, err := time.Parse("2006-01-02T15:04:05Z", *text)
+	if err != nil {
+		return nil
+	}
+	utc := parsed.UTC()
+	return &utc
+}
+
+func parseTimelineLocalText(text *string) *time.Time {
+	if text == nil || *text == "" {
+		return nil
+	}
+	parsed, err := time.Parse("2006-01-02T15:04:05-07:00", *text)
+	if err != nil {
+		return nil
+	}
+	utc := parsed.UTC()
+	return &utc
 }

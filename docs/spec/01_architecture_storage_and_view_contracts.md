@@ -639,7 +639,8 @@ The base-profile route set MUST include stable route families for:
 - view-schema discovery: `GET /api/v1/view-schemas`, `GET /api/v1/view-schemas/{view_schema_id}`,
 - extension-claim discovery: `GET /api/v1/extensions`,
 - saved-view discovery and persistence: `GET /api/v1/incidents/{incident_id}/saved-views`, `POST /api/v1/incidents/{incident_id}/saved-views`, `PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`, `DELETE /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`,
-- workbook-preference discovery and persistence plus startup selection: `GET /api/v1/incidents/{incident_id}/workbook-preferences/me`, `PUT /api/v1/incidents/{incident_id}/workbook-preferences/me`, `GET /api/v1/incidents/{incident_id}/workbook-preferences/default`, `PUT /api/v1/incidents/{incident_id}/workbook-preferences/default`, `GET /api/v1/incidents/{incident_id}/workbook-startup`,
+  - workbook-preference discovery and persistence plus startup selection: `GET /api/v1/incidents/{incident_id}/workbook-preferences/me`, `PUT /api/v1/incidents/{incident_id}/workbook-preferences/me`, `GET /api/v1/incidents/{incident_id}/workbook-preferences/default`, `PUT /api/v1/incidents/{incident_id}/workbook-preferences/default`, `GET /api/v1/incidents/{incident_id}/workbook-startup`,
+  - Timeline time-conversion profile discovery and persistence: `GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile`, `PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile`,
 - workbook query and row creation: `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`, `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`,
 - record mutation, explicit Timeline capture-state actions, soft-delete, restore, history, rollback, and same-field conflict resolution: `PATCH /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/mark-reviewed`, `POST /api/v1/records/{record_id}/supersede`, `DELETE /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/restore`, `GET /api/v1/records/{record_id}/history`, `POST /api/v1/records/{record_id}/rollback`, `POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve`,
 - entity merge initiation: `POST /api/v1/records/{survivor_record_id}/merge`,
@@ -842,7 +843,7 @@ Each `sort[]` entry MUST use exactly this shape:
 
 ```json
 {
-  "field_key": "timeline.sort_ts",
+  "field_key": "timeline.activity_sort_ts",
   "direction": "asc"
 }
 ```
@@ -1105,7 +1106,7 @@ Examples:
       "arg": { "values": ["rough", "enriched"] }
     },
     {
-      "field_key": "timeline.occurred_day",
+      "field_key": "timeline.date_entered_sort_day",
       "op": "range",
       "arg": { "gte": "2026-03-01", "lt": "2026-04-01" }
     },
@@ -1228,6 +1229,23 @@ When a previously single-entry-addressable history item later becomes not curren
 Profiles: base
 Verified by: AC-231, AC-384
 
+#### 3.3.5.0A Timeline time-conversion profile
+
+**REQ-01-611**
+`GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` MUST return one `timeline_time_conversion_profile` resource for the addressed incident. If no durable row exists, the resource MUST be materialized as `enabled=false`, `local_offset_minutes=null`, `local_label=null`, and `profile_version=1`. The resource shape is exactly `incident_id`, `enabled`, `local_offset_minutes`, `local_label`, `profile_version`, `updated_at`, and `updated_by_user_id`.
+Profiles: base
+Verified by: AC-444, AC-449, AC-451
+
+**REQ-01-612**
+`PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` MUST accept only `base_profile_version`, `enabled`, `local_offset_minutes`, and `local_label`. `base_profile_version` MUST match the current `profile_version`. `enabled` MUST be a boolean. When `enabled=true`, `local_offset_minutes` MUST be an integer from `-840` through `840`; when `enabled=false`, `local_offset_minutes` MAY be `null`. `local_label` MUST be a JSON string or `null`; non-null labels use `single_line_title_v1`. Unknown members, malformed members, and an enabled profile with no offset MUST fail with `400` and `error.code=invalid_mutation_payload`. A stale version MUST fail with `409` and `error.code=row_version_conflict`.
+Profiles: base
+Verified by: AC-444, AC-449, AC-451
+
+**REQ-01-613**
+The Timeline time-conversion profile is incident data configuration. Reading it requires ordinary incident membership. Mutating it requires current incident role `admin`. Holding `deployment_admin` alone MUST NOT authorize read or mutation of this resource.
+Profiles: base
+Verified by: AC-451
+
 #### 3.3.5 Mutation contract
 
 
@@ -1239,6 +1257,8 @@ Contract tables. The tables in §3.3.5 through §3.3.5.5 are the compact owner-l
 | --- | --- | --- | --- | --- | --- |
 | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` | View-scoped row create | JSON object with required `client_txn_id` and zero or more create-time `field_key` members allowed by the addressed view | Keyed by `(actor_user_id, incident_id, view_schema_id, client_txn_id)` | First success `201 Created`; replay returns the original committed row refresh | `invalid_mutation_payload`, `client_txn_conflict` |
 | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste` | View-scoped clipboard batch | Required `view_schema_id`, `client_txn_id`, `clipboard_text`, `start_field_key`, `columns[]`, and `targets[]`; `record` targets MUST identify active same-incident records for the addressed view; optional `format` | Keyed by `(actor_user_id, incident_id, view_schema_id, client_txn_id)` | `200 OK` with batch result containing `view_schema_id`, optional `change_set_id`, `rows[]`, and ordered `conflicts[]` | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, entity-match conflicts where applicable |
+| `GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` | Incident-scoped Timeline settings read | Singleton read; no body members | Read route | Returns the incident's `timeline_time_conversion_profile` resource, materialized with disabled defaults when absent | Ordinary authorization failures |
+| `PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` | Incident-scoped Timeline settings mutation | Required `base_profile_version`, `enabled`, `local_offset_minutes`, and `local_label` | Ordinary optimistic concurrency through `base_profile_version`; no route idempotency key | Returns the committed `timeline_time_conversion_profile` resource | `invalid_mutation_payload`, `row_version_conflict` |
 | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations` | View-scoped explicit bulk mutation batch | Required `view_schema_id`, `client_txn_id`, `kind`, and stable `targets[]`; record targets MUST identify active same-incident records for the addressed view; command-specific fields are owned by Core 03 §13.3 | Keyed by `(actor_user_id, incident_id, view_schema_id, client_txn_id)` | `200 OK` with batch result containing `view_schema_id`, optional `change_set_id`, `rows[]`, and ordered `conflicts[]` | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict` |
 | `PATCH /api/v1/records/{record_id}` | Record-scoped partial field mutation | Required `view_schema_id`, `base_row_version`, `client_txn_id`, and non-empty `changes[]` | Keyed by `(actor_user_id, record_id, client_txn_id)`; exact replay wins before fresh optimistic-concurrency evaluation | `200 OK` with original committed row refresh on success or exact replay | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, `same_field_conflict` |
 | `POST /api/v1/records/{record_id}/mark-reviewed` | Timeline capture-state action | Required `base_row_version`, `client_txn_id`; optional `reason` | Keyed by `(actor_user_id, record_id, client_txn_id)` | `200 OK` with updated lifecycle state summary | `client_txn_conflict`, `row_version_conflict`, `illegal_transition`, `record_deleted_use_restore` |
@@ -2103,10 +2123,10 @@ Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-
 ```json
 {
   "layout_schema_id": "cartulary.layout.v1",
-  "column_order": ["timeline.occurred_at", "timeline.summary"],
-  "hidden_field_keys": ["timeline.details"],
+  "column_order": ["timeline.activity_utc_text", "timeline.activity_synopsis_text"],
+  "hidden_field_keys": ["timeline.activity_time_pair_state"],
   "column_widths": [
-    { "field_key": "timeline.summary", "width_px": 420 }
+    { "field_key": "timeline.activity_synopsis_text", "width_px": 420 }
   ]
 }
 ```
@@ -3795,7 +3815,7 @@ Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-
 ```json
 {
   "kind": "view_schema",
-  "id": "cartulary.view.timeline.v1"
+  "id": "cartulary.view.timeline.v2"
 }
 ```
 
@@ -4055,7 +4075,7 @@ Each `default_sort[]` entry MUST use exactly:
 
 ```json
 {
-  "field_key": "timeline.sort_ts",
+  "field_key": "timeline.activity_sort_ts",
   "direction": "asc"
 }
 ```
@@ -4227,7 +4247,7 @@ Verified by: AC-068, AC-069, AC-070, AC-112, AC-185, AC-231
 **REQ-01-307**
 The base profile MUST define the following fourteen pack-independent `view_schema` entries as the authoritative base-profile registry:
 
-- `cartulary.view.timeline.v1`,
+- `cartulary.view.timeline.v2`,
 - `cartulary.view.hosts.v1`,
 - `cartulary.view.identities.v1`,
 - `cartulary.view.evidence.v1`,
@@ -4258,7 +4278,7 @@ Verified by: AC-411
 
 | `surface` | `view_schema_id` | `surface_kind` | `source_record_types` | `canonical_source_discriminator_or_filter` | `surface_status` | `required_reference_pack_keys` |
 | --- | --- | --- | --- | --- | --- | --- |
-| Timeline | `cartulary.view.timeline.v1` | `built_in_sheet` | `["timeline_event"]` | `record_type='timeline_event'` | required built-in sheet | `[]` |
+| Timeline | `cartulary.view.timeline.v2` | `built_in_sheet` | `["timeline_event"]` | `record_type='timeline_event'` | required built-in sheet | `[]` |
 | Hosts | `cartulary.view.hosts.v1` | `built_in_sheet` | `["host"]` | `record_type='host'` | required built-in sheet | `[]` |
 | Identities | `cartulary.view.identities.v1` | `built_in_sheet` | `["identity"]` | `record_type='identity'` | required built-in sheet | `[]` |
 | Evidence | `cartulary.view.evidence.v1` | `built_in_sheet` | `["evidence"]` | `record_type='evidence'` | required built-in sheet | `[]` |
@@ -4345,28 +4365,40 @@ The current profile defines no client-writable `confidence` member on any relati
 Profiles: base
 Verified by: AC-396
 
-#### 7.4.1 `cartulary.view.timeline.v1`
+#### 7.4.1 `cartulary.view.timeline.v2`
 
 **REQ-01-312**
 - surface: built-in `Timeline` sheet
 - source record types: `timeline_event`
 - base projection: `timeline_grid_projection`
-- `default_visible_fields`: `timeline.occurred_at`, `timeline.summary`, `timeline.host_refs`, `timeline.identity_refs`, `timeline.evidence_count`, `timeline.tags`, `timeline.edited_at`
-- `default_hidden_fields`: `record_id`, `row_version`, `timeline.details`, `timeline.source_text`, `timeline.recorded_at`, `timeline.sort_ts`, `timeline.capture_state`, `timeline.replacement_record_id`, `timeline.occurred_day`, `timeline.recorded_day`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`
-- `default_sort`: `timeline.sort_ts asc`, `record_id asc`. `timeline.sort_ts` MUST equal `occurred_at` when present and `recorded_at` otherwise.
-- `sort_fields`: `timeline.sort_ts`, `timeline.summary`, `timeline.evidence_count`, `timeline.edited_at`, `timeline.capture_state`, `timeline.occurred_day`, `timeline.recorded_day`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`
-- `filter_fields`: `timeline.occurred_day`, `timeline.recorded_day`, `timeline.capture_state`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`, `timeline.tags`
-- `grouping_fields`: `timeline.occurred_day`, `timeline.recorded_day`, `timeline.capture_state`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`
+- `default_visible_fields`: `timeline.date_entered_text`, `timeline.analyst_text`, `timeline.mitre_stage_text`, `timeline.device_object_text`, `timeline.ip_address_text`, `timeline.activity_utc_text`, `timeline.activity_local_text`, `timeline.raw_activity_text`, `timeline.activity_synopsis_text`, `timeline.data_source_text`
+- `default_hidden_fields`: `record_id`, `row_version`, `timeline.recorded_at`, `timeline.edited_at`, `timeline.activity_sort_ts`, `timeline.date_entered_sort_day`, `timeline.activity_time_pair_state`, `timeline.capture_state`, `timeline.replacement_record_id`, `timeline.evidence_count`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`, `timeline.host_refs`, `timeline.identity_refs`, `timeline.tags`, `timeline.attached_evidence_ids`
+- `default_sort`: `timeline.activity_sort_ts asc`, `record_id asc`. `timeline.activity_sort_ts` is the server-derived parseable Activity Date instant when available and otherwise `null`; nulls sort last.
+- `sort_fields`: `timeline.activity_sort_ts`, `timeline.date_entered_sort_day`, `timeline.activity_synopsis_text`, `timeline.analyst_text`, `timeline.mitre_stage_text`, `timeline.device_object_text`, `timeline.ip_address_text`, `timeline.data_source_text`, `timeline.edited_at`, `timeline.capture_state`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`
+- `filter_fields`: `timeline.date_entered_sort_day`, `timeline.activity_time_pair_state`, `timeline.capture_state`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`, `timeline.tags`
+- `grouping_fields`: `timeline.date_entered_sort_day`, `timeline.activity_time_pair_state`, `timeline.capture_state`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`
 - inline create: inline create from the sheet itself MUST create a `timeline_event` record. This view explicitly permits zero-field row creation on `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` when the request body carries only `client_txn_id`, so screenshot-only or later rough-capture flows do not require structured fields at create time
-- writable fields:
-  - `timeline.occurred_at`: read `occurred_at`; write target `timeline_events.occurred_at`; `header_sort_field_key=timeline.sort_ts`; `direct_scalar_contract_id=timestamp_instant_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
-  - `timeline.summary`: read `summary`; write target `timeline_events.summary`; `conflict_resolution_class=text_compare_merge`
-  - `timeline.details`: read `details`; write target `timeline_events.details`; `conflict_resolution_class=text_compare_merge`
-  - `timeline.source_text`: read `source_text`; write target `timeline_events.source_text`; `conflict_resolution_class=text_compare_merge`
-  - `timeline.host_refs`: read resolved host chips plus unresolved host mentions; write action insert, update, or dismiss `entity_mentions` and resolved host `record_links` under `entity_binding_mode=mention_origin`; `conflict_resolution_class=collection_review`; `add_token.raw_text` and `add_resolved_ref.raw_text` use `string_contract_id=mention_token_text_v1`
-  - `timeline.identity_refs`: read resolved identity chips plus unresolved identity mentions; write action insert, update, or dismiss `entity_mentions` and resolved identity `record_links` under `entity_binding_mode=mention_origin`; `conflict_resolution_class=collection_review`; `add_token.raw_text` and `add_resolved_ref.raw_text` use `string_contract_id=mention_token_text_v1`
-  - `timeline.tags`: read `tag_names`; write action upsert tags and `record_tags`; `conflict_resolution_class=collection_review`
-- read-only projection-backed or system-managed fields: `timeline.evidence_count`, `timeline.capture_state`, `timeline.replacement_record_id`, `timeline.edited_at`, `timeline.sort_ts`, `timeline.occurred_day`, `timeline.recorded_day`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`
+- all ten default-visible fields are nullable source-preserving text cells bound to `string_contract_id=timeline_visible_text_v1`; each is writable through `value`, serializes in `view_row_v1.cells` as exactly `{ "value": <string|null> }`, and MUST NOT serialize as a timestamp scalar, collection, object, chip, formula, formula result, URL object, MITRE object, entity reference, or indicator object
+- writable visible fields:
+  - `timeline.date_entered_text`: label `Date Entered`; read/write target `timeline_events.date_entered_text`; `header_sort_field_key=timeline.date_entered_sort_day`; `conflict_resolution_class=text_compare_merge`
+  - `timeline.analyst_text`: label `Analyst`; read/write target `timeline_events.analyst_text`; `conflict_resolution_class=text_compare_merge`
+  - `timeline.mitre_stage_text`: label `MITRE`; read/write target `timeline_events.mitre_stage_text`; `conflict_resolution_class=text_compare_merge`
+  - `timeline.device_object_text`: label `Device/Object`; read/write target `timeline_events.device_object_text`; `conflict_resolution_class=text_compare_merge`
+  - `timeline.ip_address_text`: label `IP Address`; read/write target `timeline_events.ip_address_text`; `conflict_resolution_class=text_compare_merge`
+  - `timeline.activity_utc_text`: label `Activity Date (UTC)`; read/write target `timeline_events.activity_utc_text`; `header_sort_field_key=timeline.activity_sort_ts`; `conflict_resolution_class=text_compare_merge`
+  - `timeline.activity_local_text`: label `Activity Date (Local Time)`; read/write target `timeline_events.activity_local_text`; `header_sort_field_key=timeline.activity_sort_ts`; `conflict_resolution_class=text_compare_merge`
+  - `timeline.raw_activity_text`: label `RAW Activity`; read/write target `timeline_events.raw_activity_text`; `conflict_resolution_class=text_compare_merge`
+  - `timeline.activity_synopsis_text`: label `Activity Synopsis`; read/write target `timeline_events.activity_synopsis_text`; `conflict_resolution_class=text_compare_merge`
+  - `timeline.data_source_text`: label `Data Source`; read/write target `timeline_events.data_source_text`; `conflict_resolution_class=text_compare_merge`
+- omission on create stores authoritative `null`; explicit JSON `null` stores authoritative `null`; an explicit JSON string stores the exact decoded string, including `""`; omission on patch leaves the field unchanged; any non-string non-null visible-cell write MUST fail with `400` and `error.code=invalid_mutation_payload`
+- hidden inspector/action fields:
+  - `timeline.host_refs`, `timeline.identity_refs`, `timeline.tags`, and `timeline.attached_evidence_ids` remain hidden inspector-side action fields and MUST NOT be in `default_visible_fields`
+  - read-only projection-backed or system-managed fields are `timeline.evidence_count`, `timeline.capture_state`, `timeline.replacement_record_id`, `timeline.edited_at`, `timeline.recorded_at`, `timeline.activity_sort_ts`, `timeline.date_entered_sort_day`, `timeline.activity_time_pair_state`, `timeline.has_evidence`, and `timeline.has_unresolved_mentions`
+- `timeline.activity_time_pair_state` uses exactly `disabled`, `empty`, `paired_generated`, `paired_user_preserved`, `paired_mismatch`, and `conversion_unavailable`
+- when the incident time-conversion profile is enabled and exactly one Activity Date field can be parsed, the server MAY generate the paired field only when the paired field is `null`, empty, or server-generated; it MUST NOT overwrite a non-empty user-authored paired value
+- conversion parsing is separate from storage: the UTC parser accepts `YYYY-MM-DDTHH:MM[:SS]Z` and `YYYY-MM-DD HH:MM[:SS]Z`; the local parser accepts `YYYY-MM-DDTHH:MM[:SS]` and `YYYY-MM-DD HH:MM[:SS]` interpreted with the fixed incident offset; generated UTC text uses `YYYY-MM-DDTHH:MM:SSZ`, and generated local text uses `YYYY-MM-DDTHH:MM:SS±HH:MM`
+- `timeline.raw_activity_text` is inert escaped text; pasted formulas, HTML, Markdown, URLs, or script-like text MUST be stored and displayed as source text and MUST NOT execute or become active links through this cell contract
+- exact import and clipboard-paste header mapping for Timeline v2 is case-sensitive and alias-free: `Date Entered` -> `timeline.date_entered_text`, `Analyst` -> `timeline.analyst_text`, `MITRE` -> `timeline.mitre_stage_text`, `Device/Object` -> `timeline.device_object_text`, `IP Address` -> `timeline.ip_address_text`, `Activity Date (UTC)` -> `timeline.activity_utc_text`, `Activity Date (Local Time)` -> `timeline.activity_local_text`, `RAW Activity` -> `timeline.raw_activity_text`, `Activity Synopsis` -> `timeline.activity_synopsis_text`, and `Data Source` -> `timeline.data_source_text`
 - `timeline.capture_state` is the system-managed persisted workflow state defined by Core 03 §6. Clients MUST NOT supply `timeline.capture_state` as an initial writable value in `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` or as a `changes[].field_key` in `PATCH /api/v1/records/{record_id}`. Any attempted direct client write to `timeline.capture_state` through create or patch MUST fail closed under §3.3.5 and §3.3.6 rather than being silently ignored. Transitions to `reviewed` and `superseded` MUST use the dedicated record-scoped action routes defined in §3.3.5, and automatic transitions to `enriched` MUST be applied server-side with the committed Timeline mutation that triggered them.
 - `timeline.replacement_record_id` MUST be `null` when no active incoming Timeline `supersedes` link exists for the row and otherwise MUST equal the unique replacement Timeline `record_id` derived from that active incoming link. It is hidden by default, read-only, and not part of the writable Timeline field set.
 - `timeline.has_unresolved_mentions` MUST be `true` if and only if at least one non-deleted `entity_mentions` row for the source record has `resolution_status='unresolved'`; resolved or dismissed mentions MUST NOT make it `true`.
@@ -4993,7 +5025,7 @@ Profiles: base
 Verified by: AC-015, AC-016, AC-017, AC-045, AC-053, AC-054, AC-100, AC-128, AC-210, AC-231
 
 **REQ-01-358**
-Projection rows for hot workbook sheets and workbook-native contract-backed system views MUST carry the scalar fields required for interactive sort, filter, grouping, selection anchoring, and evidence badges in the visible viewport. For the Timeline sheet, this MUST include at least `sort_ts`, day buckets equivalent to `timeline.occurred_day` and `timeline.recorded_day`, `capture_state`, `has_evidence`, `has_unresolved_mentions`, and `evidence_count`. For the coordination-artifact and standardized optional artifact-backed surfaces defined by REQ-01-503 through REQ-01-509 when those surfaces are present, this MUST include the projection-backed scalar or derived fields needed for `comm_log.comm_type`, `comm_log.timestamp_day`, `comm_log.next_report_day`, `comm_log.audience`, `comm_log.channel_or_meeting`, `handoff.timestamp_day`, `handoff.outgoing_owner_user_id`, `handoff.incoming_owner_user_id`, `handoff.ack_state`, `status_review.timestamp_day`, `status_review.review_owner_user_id`, `status_review.next_report_day`, `lesson.closure_state`, `lesson.owner_user_id`, `lesson.timestamp_day`, `finding.kind`, `finding.state`, `finding.owner_user_id`, `finding.confidence_band`, `investigative_query.platform`, `investigative_query.created_by_user_id`, `investigative_query.created_day`, `forensic_keyword.match_mode`, `forensic_keyword.case_sensitive`, and `forensic_keyword.created_day`.
+Projection rows for hot workbook sheets and workbook-native contract-backed system views MUST carry the scalar fields required for interactive sort, filter, grouping, selection anchoring, and evidence badges in the visible viewport. For the Timeline sheet, this MUST include at least `activity_sort_ts`, `date_entered_sort_day`, `activity_time_pair_state`, `capture_state`, `has_evidence`, `has_unresolved_mentions`, and `evidence_count`. For the coordination-artifact and standardized optional artifact-backed surfaces defined by REQ-01-503 through REQ-01-509 when those surfaces are present, this MUST include the projection-backed scalar or derived fields needed for `comm_log.comm_type`, `comm_log.timestamp_day`, `comm_log.next_report_day`, `comm_log.audience`, `comm_log.channel_or_meeting`, `handoff.timestamp_day`, `handoff.outgoing_owner_user_id`, `handoff.incoming_owner_user_id`, `handoff.ack_state`, `status_review.timestamp_day`, `status_review.review_owner_user_id`, `status_review.next_report_day`, `lesson.closure_state`, `lesson.owner_user_id`, `lesson.timestamp_day`, `finding.kind`, `finding.state`, `finding.owner_user_id`, `finding.confidence_band`, `investigative_query.platform`, `investigative_query.created_by_user_id`, `investigative_query.created_day`, `forensic_keyword.match_mode`, `forensic_keyword.case_sensitive`, and `forensic_keyword.created_day`.
 Profiles: base
 Verified by: AC-015, AC-016, AC-017, AC-045, AC-053, AC-054, AC-100, AC-128, AC-210, AC-231, AC-281, AC-282, AC-283, AC-284, AC-285, AC-286, AC-287
 
@@ -7160,6 +7192,22 @@ Verified by: AC-175, AC-176, AC-231, AC-244, AC-245
 This contract owns only writable-surface normalization and validation. Suppressor grammar, forbidden rewrites, and auto-resolution eligibility remain owned by Core 03 §12.
 Profiles: base
 Verified by: AC-118, AC-231, AC-388, AC-389, AC-390, AC-391
+
+**REQ-01-614**
+`timeline_visible_text_v1` is the nullable source-preserving visible Timeline v2 cell contract.
+
+- accepted non-null input MUST be a JSON string after decoding,
+- explicit JSON `null` stores authoritative `null`,
+- omission on create stores authoritative `null`; omission on patch leaves the current value unchanged,
+- an explicit JSON string MUST be stored and compared as the exact decoded code-point sequence, including leading whitespace, trailing whitespace, interior whitespace, line endings, punctuation, formula-looking text, URL text, HTML-looking text, Markdown-looking text, and the empty string,
+- the contract MUST NOT apply Unicode normalization, trimming, case folding, line-ending normalization, URL parsing, Markdown parsing, HTML parsing, formula evaluation, or linkification,
+- invalid UTF-8, U+0000, and C0/C1 control code points other than `TAB`, `LF`, and `CR` are invalid,
+- the maximum accepted decoded string length is 32768 Unicode scalar values,
+- any non-string non-null JSON value is invalid.
+
+This contract is intentionally not a clear-to-null string contract. The empty string is a distinct authoritative value for Timeline v2 visible cells.
+Profiles: base
+Verified by: AC-444, AC-445, AC-446, AC-447, AC-448, AC-449, AC-452
 
 ## 18A. Direct-scalar timestamp contract registry
 

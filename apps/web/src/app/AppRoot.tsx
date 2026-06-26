@@ -51,6 +51,12 @@ export function AppRoot({ readingProfile = "default" }: AppRootProps = {}) {
             outline: var(--ct-component-focus-ring-border);
             outline-offset: var(--ct-component-focus-ring-offset);
           }
+
+          .cartulary-mention-resolve-select:focus {
+            outline: var(--ct-component-focus-ring-border);
+            outline-offset: var(--ct-component-focus-ring-offset);
+            box-shadow: 0 0 0 1px var(--ct-colors-hairline-focus);
+          }
         `}
       </style>
       <App readingProfile={readingProfile} themeId={cartularyDefaultThemeId} />

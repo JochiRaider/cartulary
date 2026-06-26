@@ -103,7 +103,9 @@ test("FE-I-P7-01 Verify conflict resolver actions submit public mutations and re
   try {
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(
-      page.getByTestId(rowCellTestId(conflictId, "timeline.summary")),
+      page.getByTestId(
+        rowCellTestId(conflictId, "timeline.activity_synopsis_text"),
+      ),
     ).toHaveValue("FE-I-P7 conflict base");
 
     remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
@@ -115,7 +117,9 @@ test("FE-I-P7-01 Verify conflict resolver actions submit public mutations and re
       userId: remote.user_id,
     });
     await expect(
-      remotePage.getByTestId(rowCellTestId(conflictId, "timeline.summary")),
+      remotePage.getByTestId(
+        rowCellTestId(conflictId, "timeline.activity_synopsis_text"),
+      ),
     ).toHaveValue("FE-I-P7 conflict base");
 
     await driveRealTimelineSummaryConflict({
@@ -133,7 +137,7 @@ test("FE-I-P7-01 Verify conflict resolver actions submit public mutations and re
       remotePage,
       conflictId,
       2,
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
       "FE-I-P7 newer saved",
       "feip701-newer-saved",
     );
@@ -201,7 +205,7 @@ test("FE-I-P7-01 Verify conflict resolver actions submit public mutations and re
     await expect(page.getByTestId("conflict-resolver")).toHaveCount(0);
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expectServerTimelineCells(page, incidentId, conflictId, {
-      "timeline.summary": "FE-I-P7 final merged",
+      "timeline.activity_synopsis_text": "FE-I-P7 final merged",
     });
 
     const heldQueuePatch = patchController.holdNextPatch({
@@ -272,7 +276,11 @@ test("FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/
   try {
     await page.goto(`/?incident_id=${incidentId}`);
     await socketMonitor.waitForMessage("hello_ack");
-    await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+    await sortByHeader(
+      page,
+      timelineViewSchemaId,
+      "timeline.activity_synopsis_text",
+    );
     await applyFilterChip(
       page,
       timelineViewSchemaId,
@@ -289,7 +297,11 @@ test("FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/
       purpose: "FE-E-P7 remote analyst",
       userId: remote.user_id,
     });
-    await sortByHeader(remotePage, timelineViewSchemaId, "timeline.summary");
+    await sortByHeader(
+      remotePage,
+      timelineViewSchemaId,
+      "timeline.activity_synopsis_text",
+    );
     await applyFilterChip(
       remotePage,
       timelineViewSchemaId,
@@ -303,14 +315,14 @@ test("FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/
     );
 
     await scrollGridCellIntoView({
-      cellKey: "timeline.summary",
+      cellKey: "timeline.activity_synopsis_text",
       page: remotePage,
       recordId: liveId,
       surface: timelineViewSchemaId,
     });
     await focusRemoteTimelineCellAndWaitForPresence({
       actorText: "FR",
-      fieldKey: "timeline.summary",
+      fieldKey: "timeline.activity_synopsis_text",
       primaryPage: page,
       recordId: liveId,
       remotePage,
@@ -325,10 +337,13 @@ test("FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/
     });
     await assertMarkerAnchoredToGridTarget({
       anchorKind: "cell",
-      markerTestId: cellPresenceMarkerTestId(liveId, "timeline.summary"),
+      markerTestId: cellPresenceMarkerTestId(
+        liveId,
+        "timeline.activity_synopsis_text",
+      ),
       page,
       surface: timelineViewSchemaId,
-      targetTestId: rowCellTestId(liveId, "timeline.summary"),
+      targetTestId: rowCellTestId(liveId, "timeline.activity_synopsis_text"),
     });
 
     const liveStartAt = socketMonitor.messageCount();
@@ -336,7 +351,7 @@ test("FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/
       remotePage,
       liveId,
       1,
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
       "FE-E-P7 live remote update",
       "feep701-live-remote",
     );
@@ -347,13 +362,15 @@ test("FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/
       startAt: liveStartAt,
     });
     await scrollGridCellIntoView({
-      cellKey: "timeline.summary",
+      cellKey: "timeline.activity_synopsis_text",
       page,
       recordId: liveId,
       surface: timelineViewSchemaId,
     });
     await expect(
-      page.getByTestId(rowCellTestId(liveId, "timeline.summary")),
+      page.getByTestId(
+        rowCellTestId(liveId, "timeline.activity_synopsis_text"),
+      ),
     ).toHaveValue("FE-E-P7 live remote update");
 
     const removeStartAt = socketMonitor.messageCount();
@@ -404,17 +421,19 @@ test("FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/
       startAt: invalidateStartAt,
     });
     await scrollGridCellIntoView({
-      cellKey: "timeline.summary",
+      cellKey: "timeline.activity_synopsis_text",
       page,
       recordId: invalidateId,
       surface: timelineViewSchemaId,
     });
     await expect(
-      page.getByTestId(rowCellTestId(invalidateId, "timeline.summary")),
+      page.getByTestId(
+        rowCellTestId(invalidateId, "timeline.activity_synopsis_text"),
+      ),
     ).toHaveValue("FE-E-P7 invalidate base");
 
     await scrollGridCellIntoView({
-      cellKey: "timeline.summary",
+      cellKey: "timeline.activity_synopsis_text",
       page,
       recordId: conflictId,
       surface: timelineViewSchemaId,
@@ -431,15 +450,21 @@ test("FE-E-P7-01 Verify multi-client live row update, presence anchoring, reset/
     });
     await assertMarkerAnchoredToGridTarget({
       anchorKind: "cell",
-      markerTestId: conflictMarkerTestId(conflictId, "timeline.summary"),
+      markerTestId: conflictMarkerTestId(
+        conflictId,
+        "timeline.activity_synopsis_text",
+      ),
       page,
       surface: timelineViewSchemaId,
-      targetTestId: rowCellTestId(conflictId, "timeline.summary"),
+      targetTestId: rowCellTestId(
+        conflictId,
+        "timeline.activity_synopsis_text",
+      ),
     });
     await page.getByTestId("conflict-use-unsaved").click();
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expectServerTimelineCells(page, incidentId, conflictId, {
-      "timeline.summary": "FE-E-P7 local conflict",
+      "timeline.activity_synopsis_text": "FE-E-P7 local conflict",
     });
   } finally {
     await patchController.dispose();
@@ -487,7 +512,9 @@ test("E-6-01 shows two analysts each other's workbook presence within the expect
     await page.goto(`/?incident_id=${incidentId}`);
     await primarySocket.waitForMessage("hello_ack");
     await expect(
-      page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+      page.getByTestId(
+        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+      ),
     ).toHaveValue("E-6-01 presence base");
 
     const remoteSession = await openIncidentAsTrackedUserReady(
@@ -507,9 +534,9 @@ test("E-6-01 shows two analysts each other's workbook presence within the expect
     await primarySocket.waitForMessage("presence_delta");
     await expect(page.getByTestId("presence-header")).toContainText("RA");
 
-    const fieldKey = "timeline.summary";
+    const fieldKey = "timeline.activity_synopsis_text";
     const remoteInput = remotePage.getByTestId(
-      rowCellTestId(recordId, "timeline.summary"),
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
     );
     const markerStartAt = primarySocket.messageCount();
     const interactionStartedAtMs = performance.now();
@@ -604,7 +631,9 @@ test("E-6-02 auto-merges different-field concurrent edits and requires explicit 
     await page.goto(`/?incident_id=${incidentId}`);
     await socketMonitor.waitForMessage("hello_ack");
     await expect(
-      page.getByTestId(rowCellTestId(differentId, "timeline.summary")),
+      page.getByTestId(
+        rowCellTestId(differentId, "timeline.activity_synopsis_text"),
+      ),
     ).toHaveValue("E-6-02 different base");
 
     remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
@@ -616,14 +645,16 @@ test("E-6-02 auto-merges different-field concurrent edits and requires explicit 
       userId: remote.user_id,
     });
     await expect(
-      remotePage.getByTestId(rowCellTestId(differentId, "timeline.summary")),
+      remotePage.getByTestId(
+        rowCellTestId(differentId, "timeline.activity_synopsis_text"),
+      ),
     ).toHaveValue("E-6-02 different base");
 
     await patchTimelineField(
       page,
       differentId,
       1,
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
       "E-6-02 different primary",
       "e602-different-primary-summary",
     );
@@ -631,20 +662,24 @@ test("E-6-02 auto-merges different-field concurrent edits and requires explicit 
       remotePage,
       differentId,
       1,
-      "timeline.details",
+      "timeline.raw_activity_text",
       "E-6-02 different remote details",
       "e602-different-remote-details",
     );
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expect(
-      page.getByTestId(rowCellTestId(differentId, "timeline.summary")),
+      page.getByTestId(
+        rowCellTestId(differentId, "timeline.activity_synopsis_text"),
+      ),
     ).toHaveValue("E-6-02 different primary");
     await expect(
-      remotePage.getByTestId(rowCellTestId(differentId, "timeline.summary")),
+      remotePage.getByTestId(
+        rowCellTestId(differentId, "timeline.activity_synopsis_text"),
+      ),
     ).toHaveValue("E-6-02 different primary");
     await expectServerTimelineCells(page, incidentId, differentId, {
-      "timeline.details": "E-6-02 different remote details",
-      "timeline.summary": "E-6-02 different primary",
+      "timeline.raw_activity_text": "E-6-02 different remote details",
+      "timeline.activity_synopsis_text": "E-6-02 different primary",
     });
 
     await exerciseSameFieldResolver({
@@ -741,7 +776,11 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
     const socketMonitor = installIncidentSocketMonitor(page, incidentId);
     await page.goto(`/?incident_id=${incidentId}`);
     await socketMonitor.waitForMessage("hello_ack");
-    await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+    await sortByHeader(
+      page,
+      timelineViewSchemaId,
+      "timeline.activity_synopsis_text",
+    );
     await applyFilterChip(
       page,
       timelineViewSchemaId,
@@ -752,13 +791,13 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
 
     for (const { baseSummary, recordId, scenario, sortLabel } of commandRows) {
       await scrollGridCellIntoView({
-        cellKey: "timeline.summary",
+        cellKey: "timeline.activity_synopsis_text",
         page,
         recordId,
         surface: timelineViewSchemaId,
       });
       const input = page.getByTestId(
-        rowCellTestId(recordId, "timeline.summary"),
+        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
       );
       await expect(input).toHaveValue(baseSummary);
 
@@ -766,7 +805,7 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
         page,
         recordId,
         1,
-        "timeline.details",
+        "timeline.raw_activity_text",
         `E-6-04 ${scenario.name} remote details`,
         `e604-${scenario.name}-live-patch`,
       );
@@ -785,7 +824,7 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
         body: call.body,
         expectedRecordId: recordId,
         expectedValue,
-        fieldKey: "timeline.summary",
+        fieldKey: "timeline.activity_synopsis_text",
       });
       heldPatch.release();
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
@@ -795,7 +834,7 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
     }
 
     await scrollGridCellIntoView({
-      cellKey: "timeline.summary",
+      cellKey: "timeline.activity_synopsis_text",
       page,
       recordId: alphaId,
       surface: timelineViewSchemaId,
@@ -806,7 +845,7 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       surface: timelineViewSchemaId,
     });
     const alphaInput = page.getByTestId(
-      rowCellTestId(alphaId, "timeline.summary"),
+      rowCellTestId(alphaId, "timeline.activity_synopsis_text"),
     );
     await expect(alphaInput).toHaveValue("E-6-04 Zulu anchor base");
 
@@ -818,7 +857,11 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       purpose: "Phase 6 E-6-04 remote anchor analyst",
       userId: remote.user_id,
     });
-    await sortByHeader(remotePage, timelineViewSchemaId, "timeline.summary");
+    await sortByHeader(
+      remotePage,
+      timelineViewSchemaId,
+      "timeline.activity_synopsis_text",
+    );
     await applyFilterChip(
       remotePage,
       timelineViewSchemaId,
@@ -831,14 +874,14 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
       "timeline.capture_state",
     );
     await scrollGridCellIntoView({
-      cellKey: "timeline.summary",
+      cellKey: "timeline.activity_synopsis_text",
       page: remotePage,
       recordId: alphaId,
       surface: timelineViewSchemaId,
     });
     await focusRemoteTimelineCellAndWaitForPresence({
       actorText: "AA",
-      fieldKey: "timeline.summary",
+      fieldKey: "timeline.activity_synopsis_text",
       primaryPage: page,
       recordId: alphaId,
       remotePage,
@@ -858,14 +901,19 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
     });
     await scrollGridToOffset(page, timelineViewSchemaId, 0);
     await expect(
-      page.getByTestId(conflictMarkerTestId(alphaId, "timeline.summary")),
+      page.getByTestId(
+        conflictMarkerTestId(alphaId, "timeline.activity_synopsis_text"),
+      ),
     ).toBeVisible();
     await assertMarkerAnchoredToGridTarget({
       anchorKind: "cell",
-      markerTestId: conflictMarkerTestId(alphaId, "timeline.summary"),
+      markerTestId: conflictMarkerTestId(
+        alphaId,
+        "timeline.activity_synopsis_text",
+      ),
       page,
       surface: timelineViewSchemaId,
-      targetTestId: rowCellTestId(alphaId, "timeline.summary"),
+      targetTestId: rowCellTestId(alphaId, "timeline.activity_synopsis_text"),
     });
     await assertMarkerAnchoredToGridTarget({
       anchorKind: "row-gutter",
@@ -876,10 +924,13 @@ test("E-6-04 keeps live updates conflict markers and presence markers anchored t
     });
     await assertMarkerAnchoredToGridTarget({
       anchorKind: "cell",
-      markerTestId: cellPresenceMarkerTestId(alphaId, "timeline.summary"),
+      markerTestId: cellPresenceMarkerTestId(
+        alphaId,
+        "timeline.activity_synopsis_text",
+      ),
       page,
       surface: timelineViewSchemaId,
-      targetTestId: rowCellTestId(alphaId, "timeline.summary"),
+      targetTestId: rowCellTestId(alphaId, "timeline.activity_synopsis_text"),
     });
     await expect(alphaInput).toHaveValue("E-6-04 Alpha local");
   } finally {
@@ -915,7 +966,9 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       patchController.disconnect();
       await page.goto(`/?incident_id=${incidentId}`);
       await expect(
-        page.getByTestId(rowCellTestId(firstId, "timeline.summary")),
+        page.getByTestId(
+          rowCellTestId(firstId, "timeline.activity_synopsis_text"),
+        ),
       ).toHaveValue("E-6-05 FIFO A base");
       await expectCurrentIncidentRole(page, "Current incident role: admin");
 
@@ -985,7 +1038,9 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       });
       await page.goto(`/?incident_id=${incidentId}`);
       await expect(
-        page.getByTestId(rowCellTestId(firstId, "timeline.summary")),
+        page.getByTestId(
+          rowCellTestId(firstId, "timeline.activity_synopsis_text"),
+        ),
       ).toHaveValue("E-6-05 auth A base");
       await expectCurrentIncidentRole(page, "Current incident role: editor");
 
@@ -1050,7 +1105,9 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
     try {
       await page.goto(`/?incident_id=${incidentId}`);
       await expect(
-        page.getByTestId(rowCellTestId(firstId, "timeline.summary")),
+        page.getByTestId(
+          rowCellTestId(firstId, "timeline.activity_synopsis_text"),
+        ),
       ).toHaveValue("E-6-05 halt A base");
       await expectCurrentIncidentRole(page, "Current incident role: admin");
 
@@ -1068,7 +1125,7 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
         page,
         firstId,
         1,
-        "timeline.summary",
+        "timeline.activity_synopsis_text",
         "E-6-05 halt A remote",
         "e605-halt-remote-conflict",
       );
@@ -1119,13 +1176,17 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       patchController.disconnect();
       await page.goto(`/?incident_id=${incidentId}`);
       await expect(
-        page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+        page.getByTestId(
+          rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+        ),
       ).toHaveValue("E-6-05 reload base");
       await expectCurrentIncidentRole(page, "Current incident role: admin");
 
       await editTimelineSummary(page, recordId, "E-6-05 reload local");
       await expect(
-        page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+        page.getByTestId(
+          rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+        ),
       ).toHaveValue("E-6-05 reload local");
       await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
         "1",
@@ -1138,7 +1199,9 @@ test("E-6-05 replays queued unsent writes after re-authentication without silent
       await page.reload();
 
       await expect(
-        page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+        page.getByTestId(
+          rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+        ),
       ).toHaveValue("E-6-05 reload base");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);

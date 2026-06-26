@@ -288,17 +288,21 @@ Verified by: AC-231, AC-406
 
 At minimum:
 
-- `occurred_at` MAY be null,
-- summary MAY be null if another field or attachment exists,
-- host and account text MAY remain unresolved,
+- the Timeline v2 visible operational fields MAY be null,
+- Activity Date text MAY be unparseable or incomplete without invalidating the Timeline row,
+- MITRE, Device/Object, IP Address, RAW Activity, and Data Source source text MAY remain unresolved or unlinked,
 - confidence MAY be unset,
-- details MAY remain unstructured text,
-- `source_text` MAY remain unstructured text when a timeline event captures verbatim or excerpted source material.
+- `timeline.raw_activity_text` MAY remain unstructured source-preserved text when a timeline event captures verbatim or excerpted source material.
 
 **REQ-02-025**
 The system MUST preserve original rough capture even after later normalization or resolution.
 Profiles: base
 Verified by: AC-231, AC-406
+
+**REQ-02-025A**
+A `timeline_event` MUST persist the ten Timeline v2 visible operational fields from Core 01 §7.4.1 as structured state, not only in `custom_attrs`, `raw_capture`, JSONB extension payloads, projection-only columns, or label-derived mappings. The fields are `date_entered_text`, `analyst_text`, `mitre_stage_text`, `device_object_text`, `ip_address_text`, `activity_utc_text`, `activity_local_text`, `raw_activity_text`, `activity_synopsis_text`, and `data_source_text`. Derived MITRE, entity, indicator, tag, evidence, conversion, or link records MUST NOT overwrite these source-preserved text fields.
+Profiles: base
+Verified by: AC-444, AC-448, AC-452
 
 ## 6. Mention, stub, and entity-origin contract
 
@@ -684,7 +688,7 @@ Profiles: base
 Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-079, AC-122, AC-231
 
 **REQ-02-078**
-The base profile MUST preserve raw source text when capturing or resolving indicator observations. It MUST NOT require dedicated IOC columns on Timeline or other non-indicator sheets.
+The base profile MUST preserve raw source text when capturing or resolving indicator observations. Timeline v2 may expose operational source-text columns such as `timeline.ip_address_text`, `timeline.raw_activity_text`, and `timeline.data_source_text`, but canonical indicator objects and indicator observations remain separate derived/link records and MUST NOT replace or rewrite those visible strings.
 Profiles: base
 Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-079, AC-122, AC-231
 
@@ -1439,6 +1443,8 @@ Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-
 View contracts and import mappings that support structured indicator capture from source text MUST declare the eligible `field_key` values. Visible labels MUST NOT determine indicator-capture behavior.
 Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
+
+Timeline v2 import, paste, extraction, and suggestion behavior MUST derive only from stable field keys such as `timeline.ip_address_text` and `timeline.raw_activity_text`; display labels such as `IP Address` and `RAW Activity` are not behavior owners except for the exact header-mapping contract in Core 01 §7.4.1.
 
 ### 11.1 Saved-view contract
 

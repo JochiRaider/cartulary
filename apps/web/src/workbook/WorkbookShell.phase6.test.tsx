@@ -87,7 +87,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     );
     await waitFor(() => {
       expect(latestTimelineWebSocket()).not.toBeNull();
@@ -114,7 +114,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
             sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
             record_id: "record-1",
             mode: "editing",
-            field_key: "timeline.summary",
+            field_key: "timeline.activity_synopsis_text",
             observed_at: "2026-05-05T12:00:00Z",
             expires_at: "2026-05-05T12:01:00Z",
           },
@@ -125,7 +125,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
             sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
             record_id: "record-1",
             mode: "editing",
-            field_key: "timeline.summary",
+            field_key: "timeline.activity_synopsis_text",
             observed_at: "2026-05-05T12:00:00Z",
             expires_at: "2026-05-05T12:01:00Z",
           },
@@ -136,7 +136,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
             sheet_ref: { kind: "saved_view", id: timelineViewSchemaId },
             record_id: "record-1",
             mode: "editing",
-            field_key: "timeline.summary",
+            field_key: "timeline.activity_synopsis_text",
             observed_at: "2026-05-05T12:00:00Z",
             expires_at: "2026-05-05T12:01:00Z",
           },
@@ -153,7 +153,10 @@ describe("Phase 6 workbook collaboration coverage", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(
-          cellPresenceMarkerTestId("record-1", "timeline.summary"),
+          cellPresenceMarkerTestId(
+            "record-1",
+            "timeline.activity_synopsis_text",
+          ),
         ).textContent,
       ).toContain("OA");
     });
@@ -195,7 +198,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     input.focus();
     await changeInputValue(input, "Unsaved local");
@@ -206,7 +209,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
         recordId: "record-1",
         rowVersion: 2,
         clientTxnId: "remote-patch",
-        changedFieldKeys: ["timeline.details"],
+        changedFieldKeys: ["timeline.raw_activity_text"],
         affectedViews: [
           {
             view_schema_id: timelineViewSchemaId,
@@ -215,7 +218,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
               record_id: "record-1",
               row_version: 2,
               cells: {
-                "timeline.details": { value: "Remote details" },
+                "timeline.raw_activity_text": { value: "Remote details" },
               },
             },
           },
@@ -252,7 +255,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       errorEnvelope("same_field_conflict", 409, {
         conflict_token: "conflict-token-1",
         record_id: "record-1",
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         conflict_resolution_class: "text_compare_merge",
         base_row_version: 1,
         current_row_version: 2,
@@ -270,7 +273,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(input);
     await changeInputValue(input, "Unsaved local value");
@@ -283,7 +286,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Conflict");
     expect(screen.getByTestId("conflict-field-key")).toHaveProperty(
       "value",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     );
     expect(screen.getByTestId("conflict-server-value")).toHaveProperty(
       "value",
@@ -307,7 +310,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       );
       expect(
         screen.getByTestId(
-          conflictMarkerTestId("record-1", "timeline.summary"),
+          conflictMarkerTestId("record-1", "timeline.activity_synopsis_text"),
         ),
       ).toBeTruthy();
       expect(document.activeElement).toBe(input);
@@ -334,7 +337,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       errorEnvelope("same_field_conflict", 409, {
         conflict_token: "conflict-token-keep",
         record_id: "record-1",
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         conflict_resolution_class: "text_compare_merge",
         base_row_version: 1,
         current_row_version: 2,
@@ -363,7 +366,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(input);
     await changeInputValue(input, "Local");
@@ -406,7 +409,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       errorEnvelope("same_field_conflict", 409, {
         conflict_token: "conflict-token-use",
         record_id: "record-1",
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         conflict_resolution_class: "text_compare_merge",
         base_row_version: 3,
         current_row_version: 4,
@@ -434,7 +437,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(input);
     await changeInputValue(input, "Use local");
@@ -478,7 +481,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       errorEnvelope("same_field_conflict", 409, {
         conflict_token: "conflict-token-merged",
         record_id: "record-1",
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         conflict_resolution_class: "text_compare_merge",
         base_row_version: 6,
         current_row_version: 7,
@@ -506,7 +509,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(input);
     await changeInputValue(input, "Merge local");
@@ -570,13 +573,13 @@ describe("Phase 6 workbook collaboration coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     const secondInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
       "record-2",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
 
     await changeQueuedCellValue(firstInput, "One in flight");
@@ -612,7 +615,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     await waitForTimelineRecordPatchCalls(fetchMock, 2);
     expect(extractTimelineRecordPatchBody(fetchMock, 1).changes).toEqual([
       {
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         value: "Two queued final",
       },
     ]);
@@ -699,13 +702,13 @@ describe("Phase 6 workbook collaboration coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     const secondInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
       "record-2",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     await waitFor(() => {
       expect(latestTimelineWebSocket()).not.toBeNull();
@@ -747,19 +750,19 @@ describe("Phase 6 workbook collaboration coverage", () => {
     });
     expect(extractTimelineRecordPatchBody(fetchMock, 0).changes).toEqual([
       {
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         value: "A1 queued",
       },
     ]);
     expect(extractTimelineRecordPatchBody(fetchMock, 1).changes).toEqual([
       {
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         value: "B1 queued",
       },
     ]);
     expect(extractTimelineRecordPatchBody(fetchMock, 2).changes).toEqual([
       {
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         value: "A2 queued",
       },
     ]);
@@ -803,7 +806,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     await waitFor(() => {
       expect(latestTimelineWebSocket()).not.toBeNull();
@@ -833,7 +836,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
     await waitForTimelineRecordPatchCalls(fetchMock, 1);
     expect(extractTimelineRecordPatchBody(fetchMock, 0).changes).toEqual([
       {
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         value: "Auth replay",
       },
     ]);
@@ -872,13 +875,13 @@ describe("Phase 6 workbook collaboration coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     const secondInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
       "record-2",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
 
     await changeQueuedCellValue(firstInput, "Conflict local");
@@ -891,7 +894,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       errorEnvelope("same_field_conflict", 409, {
         conflict_token: "conflict-token-queued",
         record_id: "record-1",
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         conflict_resolution_class: "text_compare_merge",
         base_row_version: 1,
         current_row_version: 2,
@@ -942,13 +945,13 @@ describe("Phase 6 workbook collaboration coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     const secondInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
       "record-2",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
 
     await changeQueuedCellValue(firstInput, "Queue 1 local");
@@ -1027,13 +1030,13 @@ describe("Phase 6 workbook collaboration coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     const retrySecondInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
       "record-2",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     await changeQueuedCellValue(retryFirstInput, "Retry head");
     fireEvent.blur(retryFirstInput);
@@ -1075,7 +1078,7 @@ describe("Phase 6 workbook collaboration coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-halt",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     await changeQueuedCellValue(haltInput, "Halt local");
     fireEvent.blur(haltInput);

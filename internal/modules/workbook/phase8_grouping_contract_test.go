@@ -14,13 +14,13 @@ import (
 
 func TestPhase8_TimelineGroupingAndWorkbookPresentationOnly_U_8_07(t *testing.T) {
 	wantWhitelist := []string{
-		"timeline.occurred_day",
-		"timeline.recorded_day",
+		"timeline.date_entered_sort_day",
+		"timeline.activity_time_pair_state",
 		"timeline.capture_state",
 		"timeline.has_evidence",
 		"timeline.has_unresolved_mentions",
 	}
-	schema, ok := viewschema.Lookup("cartulary.view.timeline.v1")
+	schema, ok := viewschema.Lookup("cartulary.view.timeline.v2")
 	if !ok {
 		t.Fatal("timeline schema not registered")
 	}
@@ -28,7 +28,7 @@ func TestPhase8_TimelineGroupingAndWorkbookPresentationOnly_U_8_07(t *testing.T)
 		t.Fatalf("timeline grouping whitelist changed:\ngot  %#v\nwant %#v", schema.GroupingFields(), wantWhitelist)
 	}
 	for _, key := range wantWhitelist {
-		query, err := viewquery.Decode(strings.NewReader(`{"group_by":`+quoteJSON(key)+`}`), "cartulary.view.timeline.v1")
+		query, err := viewquery.Decode(strings.NewReader(`{"group_by":`+quoteJSON(key)+`}`), "cartulary.view.timeline.v2")
 		if err != nil {
 			t.Fatalf("expected grouping key %s to be allowed: %+v", key, err)
 		}
@@ -38,7 +38,7 @@ func TestPhase8_TimelineGroupingAndWorkbookPresentationOnly_U_8_07(t *testing.T)
 	}
 	for name, key := range map[string]string{
 		"visible label":     "Capture State",
-		"summary":           "timeline.summary",
+		"summary":           "timeline.activity_synopsis_text",
 		"tags collection":   "timeline.tags",
 		"record id":         "record_id",
 		"row version":       "row_version",
@@ -47,7 +47,7 @@ func TestPhase8_TimelineGroupingAndWorkbookPresentationOnly_U_8_07(t *testing.T)
 		"event type":        "timeline.event_type",
 	} {
 		t.Run("rejects "+name, func(t *testing.T) {
-			query, err := viewquery.Decode(strings.NewReader(`{"group_by":`+quoteJSON(key)+`}`), "cartulary.view.timeline.v1")
+			query, err := viewquery.Decode(strings.NewReader(`{"group_by":`+quoteJSON(key)+`}`), "cartulary.view.timeline.v2")
 			if err == nil {
 				t.Fatalf("expected invalid grouping key, got %#v", query)
 			}

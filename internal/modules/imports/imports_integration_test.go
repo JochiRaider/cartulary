@@ -212,7 +212,7 @@ func TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows(t *testing
 
 	mapping := map[string]any{
 		"client_txn_id":         "txn-phase11-import-apply-mapping",
-		"target_view_schema_id": "cartulary.view.timeline.v1",
+		"target_view_schema_id": "cartulary.view.timeline.v2",
 		"header_row_ref":        1,
 		"data_start_row_ref":    2,
 		"unknown_column_policy": "preserve_raw_capture",
@@ -229,7 +229,7 @@ func TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows(t *testing
 			{
 				"source_column_ordinal": 2,
 				"source_header_text":    "summary",
-				"field_key":             "timeline.summary",
+				"field_key":             "timeline.activity_synopsis_text",
 				"entity_binding_mode":   nil,
 				"transform_id":          "trim_v1",
 				"transform_options":     map[string]any{},
@@ -257,7 +257,7 @@ func TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows(t *testing
 		t.Fatalf("unexpected apply job: %#v", appliedJob)
 	}
 
-	queryResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.timeline.v1/query", map[string]any{}, phase2test.WithCookies(adminLogin.SessionCookie))
+	queryResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.timeline.v2/query", map[string]any{}, phase2test.WithCookies(adminLogin.SessionCookie))
 	rows := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
 	if len(rows) != 2 {
 		t.Fatalf("expected two imported timeline rows, got %#v", rows)
@@ -266,7 +266,7 @@ func TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows(t *testing
 	for _, rowAny := range rows {
 		row := rowAny.(map[string]any)
 		cells := row["cells"].(map[string]any)
-		summaries[cells["timeline.summary"].(map[string]any)["value"].(string)] = true
+		summaries[cells["timeline.activity_synopsis_text"].(map[string]any)["value"].(string)] = true
 	}
 	if !summaries["Alpha summary"] || !summaries["Beta summary"] {
 		t.Fatalf("imported summaries not found: %#v", summaries)

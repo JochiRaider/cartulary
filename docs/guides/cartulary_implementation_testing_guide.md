@@ -1195,7 +1195,7 @@ Individual tests may add local setup, but they must not reimplement low-level po
 
 ### 14.9B Timeline zero-field-create traceability note
 
-Timeline zero-field create remains enabled when the addressed `view_schema_id` allows it. In repo-local traceability, cite Core 01 `REQ-01-057` as the owner of row-create request shape and zero-field-create eligibility, and cite Core 04 `AC-191` and `AC-192` as the conformance checks for the Timeline-specific `client_txn_id`-only create and forbidden-field rejection behavior. `contracts/view-schemas/cartulary.view.timeline.v1.json` is a derived artifact that reflects that owner rule; it is not the behavior owner.
+Timeline zero-field create remains enabled when the addressed `view_schema_id` allows it. In repo-local traceability, cite Core 01 `REQ-01-057` as the owner of row-create request shape and zero-field-create eligibility, and cite Core 04 `AC-191` and `AC-192` as the conformance checks for the Timeline-specific `client_txn_id`-only create and forbidden-field rejection behavior. `contracts/view-schemas/cartulary.view.timeline.v2.json` is a derived artifact that reflects that owner rule; it is not the behavior owner.
 
 ### 14.10 Projection determinism and rebuild harness
 

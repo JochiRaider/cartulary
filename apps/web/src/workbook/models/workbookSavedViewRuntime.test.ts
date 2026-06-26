@@ -88,7 +88,7 @@ describe("workbookSavedViewRuntime", () => {
             op: "eq",
           },
         ],
-        sort: [{ direction: "asc", field_key: "timeline.sort_ts" }],
+        sort: [{ direction: "asc", field_key: "timeline.activity_sort_ts" }],
       },
     });
     expect(queryState.filters).toEqual([
@@ -99,7 +99,7 @@ describe("workbookSavedViewRuntime", () => {
       },
     ]);
     expect(queryState.sort).toEqual([
-      { direction: "asc", fieldKey: "timeline.sort_ts" },
+      { direction: "asc", fieldKey: "timeline.activity_sort_ts" },
     ]);
   });
 });

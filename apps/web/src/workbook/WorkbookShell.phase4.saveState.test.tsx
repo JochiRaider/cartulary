@@ -74,7 +74,7 @@ describe("FE-U-P4-02 WorkbookShell save-state status strip", () => {
       document.body,
       timelineViewSchemaId,
       "record-auth",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     const workbookShell = screen.getByTestId(
       timelineMutationSubstrateReadyTestId(),
@@ -137,7 +137,7 @@ describe("FE-U-P4-02 WorkbookShell save-state status strip", () => {
             sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
             record_id: "record-auth",
             mode: "viewing",
-            field_key: "timeline.summary",
+            field_key: "timeline.activity_synopsis_text",
             observed_at: "2026-06-02T12:00:00Z",
             expires_at: "2026-06-02T12:01:00Z",
           },

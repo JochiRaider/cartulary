@@ -117,7 +117,7 @@ type recordDeleteRestoreAdapter struct {
 }
 
 var deleteRestoreAdapters = map[string]recordDeleteRestoreAdapter{
-	"timeline_event": {RecordType: "timeline_event", SourceTable: "timeline_events", SourceRecordCol: "record_id", ViewSchemaID: "cartulary.view.timeline.v1"},
+	"timeline_event": {RecordType: "timeline_event", SourceTable: "timeline_events", SourceRecordCol: "record_id", ViewSchemaID: "cartulary.view.timeline.v2"},
 	"host":           {RecordType: "host", SourceTable: "hosts", SourceRecordCol: "record_id", ViewSchemaID: "cartulary.view.hosts.v1"},
 	"identity":       {RecordType: "identity", SourceTable: "identities", SourceRecordCol: "record_id", ViewSchemaID: "cartulary.view.identities.v1"},
 	"party":          {RecordType: "party", SourceTable: "parties", SourceRecordCol: "record_id", ViewSchemaID: "cartulary.view.parties.v1"},

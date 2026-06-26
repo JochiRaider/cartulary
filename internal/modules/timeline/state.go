@@ -57,10 +57,16 @@ func IsSupportedCaptureState(value string) bool {
 }
 
 func CreateRequestHasUserValue(request CreateRequest) bool {
-	return request.OccurredAt != nil ||
-		request.Summary != nil ||
-		request.Details != nil ||
-		request.SourceText != nil ||
+	return request.DateEnteredText != nil ||
+		request.AnalystText != nil ||
+		request.MitreStageText != nil ||
+		request.DeviceObjectText != nil ||
+		request.IPAddressText != nil ||
+		request.ActivityUTCText != nil ||
+		request.ActivityLocalText != nil ||
+		request.RawActivityText != nil ||
+		request.ActivitySynopsisText != nil ||
+		request.DataSourceText != nil ||
 		(request.HostRefs != nil && len(request.HostRefs.Actions) > 0) ||
 		(request.IdentityRefs != nil && len(request.IdentityRefs.Actions) > 0) ||
 		(request.Tags != nil && len(request.Tags.Actions) > 0) ||

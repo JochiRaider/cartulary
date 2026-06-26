@@ -60,13 +60,13 @@ export const timelineScalarEditorSurfaces = [
 ] as const satisfies readonly TimelineScalarEditorSurface[];
 
 export type TimelineInspectorSection =
-  | "details"
+  | "operational-text"
   | "evidence"
   | "history"
   | "relationships";
 
 export const timelineInspectorSections = [
-  "details",
+  "operational-text",
   "relationships",
   "evidence",
   "history",

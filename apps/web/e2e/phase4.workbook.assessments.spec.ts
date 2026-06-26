@@ -36,7 +36,7 @@ test("E-4-05 creates append-only assessment history through the workbook UI", as
   })) as ViewRow;
   const support = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("assessment-support"),
-    "timeline.summary": "Assessment support event",
+    "timeline.activity_synopsis_text": "Assessment support event",
   })) as ViewRow;
 
   await page.goto(

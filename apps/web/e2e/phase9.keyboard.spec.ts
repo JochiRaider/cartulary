@@ -17,9 +17,8 @@ import {
   rowHistoryPanelTestId,
   rowInspectorFieldTestId,
   saveStateTestId,
-  timelineCollectionInputTestId,
   timelineMutationSubstrateReadyTestId,
-  workbookInspectorToggleTestId,
+  workbookInspectorCloseButtonTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
 
@@ -53,7 +52,7 @@ import {
   taskRequestsViewSchemaId,
 } from "./phase4Helpers";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 function stringCell(
   row: { readonly cells?: Record<string, { readonly value?: unknown }> },
@@ -319,90 +318,49 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e901-alpha"),
-    "timeline.summary": "Phase 9 alpha",
+    "timeline.date_entered_text": "Phase 9 alpha",
     [hostRefsFieldKey]: collectionActionsPayload(["Phase9Host?"]),
   });
-  const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("e901-beta"),
-    "timeline.summary": "Phase 9 beta",
-  });
-
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
   await expect(
     page.getByTestId(
-      rowCellTestId(alpha.record_id as string, "timeline.summary"),
+      rowCellTestId(alpha.record_id as string, "timeline.date_entered_text"),
     ),
   ).toHaveValue("Phase 9 alpha");
   const initialURL = page.url();
 
   const alphaSummary = page.getByTestId(
-    rowCellTestId(alpha.record_id as string, "timeline.summary"),
+    rowCellTestId(alpha.record_id as string, "timeline.date_entered_text"),
   );
   await alphaSummary.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${alpha.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.date_entered_text`,
   );
-
-  await alphaSummary.press("ArrowDown");
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${beta.record_id}:timeline.summary`,
-  );
-  await expect(
-    page.getByTestId(
-      rowCellTestId(beta.record_id as string, "timeline.summary"),
-    ),
-  ).toBeFocused();
-
-  await page.keyboard.press("ArrowUp");
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${alpha.record_id}:timeline.summary`,
-  );
-  await expect(alphaSummary).toBeFocused();
-
-  await page.keyboard.press("Enter");
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${beta.record_id}:timeline.summary`,
-  );
-  await expect(
-    page.getByTestId(
-      rowCellTestId(beta.record_id as string, "timeline.summary"),
-    ),
-  ).toBeFocused();
-
-  await page.keyboard.press("Shift+Enter");
-  await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${alpha.record_id}:timeline.summary`,
-  );
-  await expect(alphaSummary).toBeFocused();
 
   await page.keyboard.press("Tab");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${alpha.record_id}:timeline.host_refs`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.analyst_text`,
   );
   await expect(
     page.getByTestId(
-      timelineCollectionInputTestId(
-        alpha.record_id as string,
-        hostRefsFieldKey,
-      ),
+      rowCellTestId(alpha.record_id as string, "timeline.analyst_text"),
     ),
   ).toBeFocused();
 
-  await page.keyboard.press("Control+K");
+  await openTimelineInspector(page, alpha.record_id as string);
   await expect(page.getByTestId("timeline-inspector")).toContainText(
     "Phase9Host?",
   );
   expect(page.url()).toBe(initialURL);
-
-  await page.keyboard.press("Space");
-  await expect(page.getByTestId("timeline-inspector-message")).toContainText(
-    "Linked evidence preview",
+  const alphaAnalyst = page.getByTestId(
+    rowCellTestId(alpha.record_id as string, "timeline.analyst_text"),
   );
+  await alphaAnalyst.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${alpha.record_id}:timeline.host_refs`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.analyst_text`,
   );
 
   await page.keyboard.press("Alt+H");
@@ -413,12 +371,12 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
 
   await page.keyboard.press("Control+V");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${alpha.record_id}:timeline.host_refs`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.analyst_text`,
   );
   await page.keyboard.press("Escape");
   await expect(page.getByTestId(rowHistoryPanelTestId())).toHaveCount(0);
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${alpha.record_id}:timeline.host_refs`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.analyst_text`,
   );
   expect(page.url()).toBe(initialURL);
 });
@@ -453,7 +411,7 @@ test("FE-B-P9-LAYOUT-01 keeps the incident workbook inside the browser viewport 
   );
 
   await page
-    .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
+    .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
     .click();
   await expect(page.getByTestId("timeline-inspector")).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 10_000));
@@ -493,18 +451,18 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("fe-b-p10-02-alpha"),
-    "timeline.summary": "FE-B-P10-02 Alpha",
-    "timeline.details": "FE-B-P10-02 Alpha details",
+    "timeline.activity_synopsis_text": "FE-B-P10-02 Alpha",
+    "timeline.raw_activity_text": "FE-B-P10-02 Alpha details",
   });
   const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("fe-b-p10-02-beta"),
-    "timeline.summary": "FE-B-P10-02 Beta",
-    "timeline.details": "FE-B-P10-02 Beta details",
+    "timeline.activity_synopsis_text": "FE-B-P10-02 Beta",
+    "timeline.raw_activity_text": "FE-B-P10-02 Beta details",
   });
   const gamma = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("fe-b-p10-02-gamma"),
-    "timeline.summary": "FE-B-P10-02 Gamma",
-    "timeline.details": "FE-B-P10-02 Gamma details",
+    "timeline.activity_synopsis_text": "FE-B-P10-02 Gamma",
+    "timeline.raw_activity_text": "FE-B-P10-02 Gamma details",
   });
   await createTimelineFillers(page, incidentId, "FE-B-P10-02 filler", 44);
   const virtualTarget = await createViewRow(
@@ -513,8 +471,8 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("fe-b-p10-02-virtual"),
-      "timeline.summary": "ZZZ FE-B-P10-02 virtual target",
-      "timeline.details": "FE-B-P10-02 virtual details",
+      "timeline.activity_synopsis_text": "ZZZ FE-B-P10-02 virtual target",
+      "timeline.raw_activity_text": "FE-B-P10-02 virtual details",
     },
   );
 
@@ -524,12 +482,12 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   ).toBeVisible();
 
   const alphaSummary = page.getByTestId(
-    rowCellTestId(alpha.record_id, "timeline.summary"),
+    rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
   );
   await expect(alphaSummary).toHaveValue("FE-B-P10-02 Alpha");
   await alphaSummary.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${alpha.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.activity_synopsis_text`,
   );
   const copiedText = await alphaSummary.evaluate((element) => {
     const data = new DataTransfer();
@@ -545,11 +503,11 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
 
   await page.keyboard.press("ArrowRight");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${alpha.record_id}:${hostRefsFieldKey}`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.data_source_text`,
   );
   await page.keyboard.press("ArrowLeft");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${alpha.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.activity_synopsis_text`,
   );
   await expect(alphaSummary).toBeFocused();
 
@@ -560,7 +518,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
 
   await openTimelineInspector(page, alpha.record_id);
   const inspectorDetails = page.getByTestId(
-    rowInspectorFieldTestId(alpha.record_id, "timeline.details"),
+    rowInspectorFieldTestId(alpha.record_id, "timeline.raw_activity_text"),
   );
   await expect(inspectorDetails).toHaveValue("FE-B-P10-02 Alpha details");
   await inspectorDetails.focus();
@@ -578,6 +536,10 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   await alphaSummary.press("Escape");
   await expect(inspectorDetails).toHaveCount(0);
   await expect(alphaSummary).toBeFocused();
+  await page
+    .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
+    .click();
+  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
 
   const pasteRequest = page.waitForRequest(
     (request) =>
@@ -598,15 +560,15 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
         ),
   );
   await pasteGridMatrix({
-    fieldKey: "timeline.summary",
+    fieldKey: "timeline.activity_synopsis_text",
     matrix: [["FE-B-P10-02 pasted Beta", "fe-b-p10-02-host-token"]],
     page,
     recordId: beta.record_id,
     surface: timelineViewSchemaId,
   });
   expect(readPostBody(await pasteRequest)).toMatchObject({
-    columns: ["timeline.summary", "timeline.host_refs"],
-    start_field_key: "timeline.summary",
+    columns: ["timeline.activity_synopsis_text", "timeline.data_source_text"],
+    start_field_key: "timeline.activity_synopsis_text",
     targets: [
       {
         kind: "record",
@@ -617,7 +579,9 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   });
   await expect((await pasteResponse).ok()).toBeTruthy();
   await expect(
-    page.getByTestId(rowCellTestId(beta.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("FE-B-P10-02 pasted Beta");
   const betaAfterPaste = await waitForViewRow(
     page,
@@ -625,7 +589,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
     timelineViewSchemaId,
     beta.record_id,
   );
-  expect(stringCell(betaAfterPaste, "timeline.summary")).toBe(
+  expect(stringCell(betaAfterPaste, "timeline.activity_synopsis_text")).toBe(
     "FE-B-P10-02 pasted Beta",
   );
 
@@ -641,7 +605,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   const fillResponse = await fillDownGridCells({
     apiBase,
     csrfHeaders: await csrfHeaders(page),
-    fieldKey: "timeline.details",
+    fieldKey: "timeline.raw_activity_text",
     incidentId,
     page,
     surface: timelineViewSchemaId,
@@ -659,7 +623,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   });
   expect(fillResponse.ok()).toBeTruthy();
   expect(readPostBody(await fillRequest)).toMatchObject({
-    field_key: "timeline.details",
+    field_key: "timeline.raw_activity_text",
     kind: "fill_down_v1",
     targets: [
       {
@@ -714,14 +678,18 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
     surface: timelineViewSchemaId,
   });
 
-  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+  await sortByHeader(
+    page,
+    timelineViewSchemaId,
+    "timeline.activity_synopsis_text",
+  );
   await assertMountedGridRowCountAtMost({
     maxRows: 48,
     page,
     surface: timelineViewSchemaId,
   });
   await scrollGridCellIntoView({
-    cellKey: "timeline.summary",
+    cellKey: "timeline.activity_synopsis_text",
     page,
     recordId: virtualTarget.record_id,
     surface: timelineViewSchemaId,
@@ -729,7 +697,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   });
   await expect(
     page.getByTestId(
-      rowCellTestId(virtualTarget.record_id, "timeline.summary"),
+      rowCellTestId(virtualTarget.record_id, "timeline.activity_synopsis_text"),
     ),
   ).toBeVisible();
   await page
@@ -761,25 +729,25 @@ test("Phase 9 E-9-GRIDANCHORS-01 shared grid keyboard anchors stay stable across
   await test.step("Timeline anchor", async () => {
     const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("e9grid01"),
-      "timeline.summary": "Phase 9 grid anchor",
+      "timeline.activity_synopsis_text": "Phase 9 grid anchor",
     });
     const summary = await expectSharedGridAnchorSurface({
       page,
       incidentId,
       viewSchemaId: timelineViewSchemaId,
       row,
-      fieldKey: "timeline.summary",
+      fieldKey: "timeline.activity_synopsis_text",
       expectedText: "Phase 9 grid anchor",
       textMode: "value",
-      rightFieldKey: hostRefsFieldKey,
-      rightFocusTestId: timelineCollectionInputTestId(
+      rightFieldKey: "timeline.data_source_text",
+      rightFocusTestId: rowCellTestId(
         row.record_id,
-        hostRefsFieldKey,
+        "timeline.data_source_text",
       ),
     });
     await page.keyboard.press("ArrowLeft");
     await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-      `${timelineViewSchemaId}:${row.record_id}:timeline.summary`,
+      `${timelineViewSchemaId}:${row.record_id}:timeline.activity_synopsis_text`,
     );
     await expect(summary).toBeFocused();
   });

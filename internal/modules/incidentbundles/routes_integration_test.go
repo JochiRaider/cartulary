@@ -44,8 +44,8 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_01_ExportJobIdempotencyAndDescriptor(t *t
 	})
 	incidentID := incident["incident_id"].(string)
 	phase2test.CreateTimelineRow(t, harness.Server, admin, incidentID, map[string]any{
-		"client_txn_id":    "txn-incident-bundle-row",
-		"timeline.summary": "Portable event",
+		"client_txn_id":                   "txn-incident-bundle-row",
+		"timeline.activity_synopsis_text": "Portable event",
 	})
 
 	first := postExport(t, harness.Server, admin, map[string]any{
@@ -102,8 +102,8 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_03_ExportJobAuthorizationReDerivesInciden
 	})
 	incidentID := incident["incident_id"].(string)
 	phase2test.CreateTimelineRow(t, harness.Server, admin, incidentID, map[string]any{
-		"client_txn_id":    "txn-incident-bundle-export-auth-row",
-		"timeline.summary": "Portable event for auth",
+		"client_txn_id":                   "txn-incident-bundle-export-auth-row",
+		"timeline.activity_synopsis_text": "Portable event for auth",
 	})
 
 	submitterPassword := "BundleSubmitterPassphrase11!"
@@ -209,8 +209,8 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIn
 	})
 	incidentID := incident["incident_id"].(string)
 	row := phase2test.CreateTimelineRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
-		"client_txn_id":    "txn-incident-bundle-import-row",
-		"timeline.summary": "Imported portable event",
+		"client_txn_id":                   "txn-incident-bundle-import-row",
+		"timeline.activity_synopsis_text": "Imported portable event",
 	})
 	recordID := row["row"].(map[string]any)["record_id"].(string)
 	seededState := seedIncidentBundlePortableState(t, sourceHarness, incidentID, recordID, sourceAdminID)
@@ -436,13 +436,13 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_04_SupersededTimelineReplacementSurvivesI
 	})
 	incidentID := incident["incident_id"].(string)
 	replacement := phase2test.CreateTimelineRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
-		"client_txn_id":    "txn-incident-bundle-supersede-replacement",
-		"timeline.summary": "Replacement event",
+		"client_txn_id":                   "txn-incident-bundle-supersede-replacement",
+		"timeline.activity_synopsis_text": "Replacement event",
 	})
 	replacementID := replacement["row"].(map[string]any)["record_id"].(string)
 	superseded := phase2test.CreateTimelineRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
-		"client_txn_id":    "txn-incident-bundle-superseded-event",
-		"timeline.summary": "Superseded event",
+		"client_txn_id":                   "txn-incident-bundle-superseded-event",
+		"timeline.activity_synopsis_text": "Superseded event",
 	})
 	supersededID := superseded["row"].(map[string]any)["record_id"].(string)
 
@@ -490,8 +490,8 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_05_FailureFamiliesLeaveNoVisibleIncident(
 	})
 	incidentID := incident["incident_id"].(string)
 	row := phase2test.CreateTimelineRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
-		"client_txn_id":    "txn-incident-bundle-failure-row",
-		"timeline.summary": "Portable failure event",
+		"client_txn_id":                   "txn-incident-bundle-failure-row",
+		"timeline.activity_synopsis_text": "Portable failure event",
 	})
 	recordID := row["row"].(map[string]any)["record_id"].(string)
 	seedIncidentBundlePortableState(t, sourceHarness, incidentID, recordID, sourceAdminID)
@@ -656,8 +656,8 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_06_DescriptorPaginationAndCanonicalManife
 	})
 	incidentID := incident["incident_id"].(string)
 	phase2test.CreateTimelineRow(t, harness.Server, admin, incidentID, map[string]any{
-		"client_txn_id":    "txn-incident-bundle-descriptor-row",
-		"timeline.summary": "Canonical descriptor event",
+		"client_txn_id":                   "txn-incident-bundle-descriptor-row",
+		"timeline.activity_synopsis_text": "Canonical descriptor event",
 	})
 	job := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, admin, map[string]any{
 		"incident_id":           incidentID,
@@ -891,7 +891,7 @@ INSERT INTO indicator_observations (
     resolved_indicator_record_id, row_version, created_by_user_id, resolved_by_user_id,
     resolved_at, resolution_method
 )
-VALUES ($1, $2, 'timeline.summary', 'auto_extract', 'phase11', 'portable.example.test', 'domain', 'portable.example.test', 'resolved', $3, 1, $4, $4, now(), 'fixture')
+VALUES ($1, $2, 'timeline.activity_synopsis_text', 'auto_extract', 'phase11', 'portable.example.test', 'domain', 'portable.example.test', 'resolved', $3, 1, $4, $4, now(), 'fixture')
 `, incidentUUID, timelineUUID, indicatorID, actorUUID); err != nil {
 		t.Fatalf("seed indicator observation: %v", err)
 	}
@@ -901,7 +901,7 @@ INSERT INTO entity_mentions (
     raw_text, normalized_text, resolution_status, row_version, ordinal,
     created_by_user_id, resolved_record_id, resolved_by_user_id, resolved_at, resolution_method
 )
-VALUES ($1, 'host', 'timeline.summary', 'manual', 'phase11', 'portable host', 'portable host', 'resolved', 1, 1, $2, $3, $2, now(), 'fixture')
+VALUES ($1, 'host', 'timeline.activity_synopsis_text', 'manual', 'phase11', 'portable host', 'portable host', 'resolved', 1, 1, $2, $3, $2, now(), 'fixture')
 `, timelineUUID, actorUUID, historyHostID); err != nil {
 		t.Fatalf("seed entity mention: %v", err)
 	}

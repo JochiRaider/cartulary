@@ -126,15 +126,15 @@ describe("Phase 5 workbook evidence coverage", () => {
         ),
       ).toBeTruthy();
       expect(
-        within(committedRow as HTMLElement).getByTestId(
+        within(committedRow as HTMLElement).queryByTestId(
           rowCellTestId("timeline-1", "timeline.evidence_count"),
-        ).textContent,
-      ).toBe("1");
+        ),
+      ).toBeNull();
       expect(
-        within(committedRow as HTMLElement).getByTestId(
+        within(committedRow as HTMLElement).queryByTestId(
           rowCellTestId("timeline-1", "timeline.has_evidence"),
-        ).textContent,
-      ).toBe("true");
+        ),
+      ).toBeNull();
     });
   });
 });

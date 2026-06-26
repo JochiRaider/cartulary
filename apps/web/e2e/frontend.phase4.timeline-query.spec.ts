@@ -19,14 +19,20 @@ import {
 } from "./helpers";
 import { readTimelineMutation, waitForTimelinePatch } from "./phase4Helpers";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 const exactScenarioTitle =
   "FE-I-P4-01 Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh.";
 const timelineSchemaFieldKeys = [
-  "timeline.occurred_at",
-  "timeline.summary",
-  "timeline.details",
-  "timeline.source_text",
+  "timeline.date_entered_text",
+  "timeline.analyst_text",
+  "timeline.mitre_stage_text",
+  "timeline.device_object_text",
+  "timeline.ip_address_text",
+  "timeline.activity_utc_text",
+  "timeline.activity_local_text",
+  "timeline.raw_activity_text",
+  "timeline.activity_synopsis_text",
+  "timeline.data_source_text",
   "timeline.host_refs",
   "timeline.identity_refs",
   "timeline.evidence_count",
@@ -34,11 +40,11 @@ const timelineSchemaFieldKeys = [
   "timeline.attached_evidence_ids",
   "timeline.edited_at",
   "timeline.recorded_at",
-  "timeline.sort_ts",
+  "timeline.activity_sort_ts",
+  "timeline.activity_time_pair_state",
   "timeline.capture_state",
   "timeline.replacement_record_id",
-  "timeline.occurred_day",
-  "timeline.recorded_day",
+  "timeline.date_entered_sort_day",
   "timeline.has_evidence",
   "timeline.has_unresolved_mentions",
 ] as const;
@@ -116,13 +122,13 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("feip401-alpha"),
-    "timeline.occurred_at": "2026-04-10T10:00:00.000Z",
-    "timeline.summary": "FE-I-P4-01 Alpha",
+    "timeline.activity_utc_text": "2026-04-10T10:00:00.000Z",
+    "timeline.activity_synopsis_text": "FE-I-P4-01 Alpha",
   });
   const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("feip401-beta"),
-    "timeline.occurred_at": "2026-04-10T10:05:00.000Z",
-    "timeline.summary": "FE-I-P4-01 Beta",
+    "timeline.activity_utc_text": "2026-04-10T10:05:00.000Z",
+    "timeline.activity_synopsis_text": "FE-I-P4-01 Beta",
   });
 
   const omittedQuery = await queryTimelineEnvelope(page, incidentId, {});
@@ -132,7 +138,7 @@ test(exactScenarioTitle, async ({ page }) => {
   expect(omittedQuery.body.meta?.query?.filters).toEqual([]);
   expect(omittedQuery.body.meta?.query).not.toHaveProperty("group_by");
   expect(omittedQuery.body.meta?.query?.sort).toEqual([
-    { field_key: "timeline.sort_ts", direction: "asc" },
+    { field_key: "timeline.activity_sort_ts", direction: "asc" },
     { field_key: "record_id", direction: "asc" },
   ]);
   for (const row of omittedQuery.body.data.rows) {
@@ -146,7 +152,7 @@ test(exactScenarioTitle, async ({ page }) => {
   expect(emptyArraysQuery.ok).toBeTruthy();
   expect(emptyArraysQuery.body.meta?.query?.filters).toEqual([]);
   expect(emptyArraysQuery.body.meta?.query?.sort).toEqual([
-    { field_key: "timeline.sort_ts", direction: "asc" },
+    { field_key: "timeline.activity_sort_ts", direction: "asc" },
     { field_key: "record_id", direction: "asc" },
   ]);
 
@@ -170,22 +176,30 @@ test(exactScenarioTitle, async ({ page }) => {
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
-    page.getByTestId(rowCellTestId(alpha.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("FE-I-P4-01 Alpha");
 
   const betaPatchResponse = waitForTimelinePatch(page, beta.record_id);
   await page
-    .getByTestId(rowCellTestId(beta.record_id, "timeline.summary"))
+    .getByTestId(
+      rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+    )
     .fill("FE-I-P4-01 Beta patched");
   await page
-    .getByTestId(rowCellTestId(beta.record_id, "timeline.summary"))
+    .getByTestId(
+      rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+    )
     .press("Enter");
   const betaPatchEnvelope = await readTimelineMutation(await betaPatchResponse);
   await expect(
     page.getByTestId(timelineRowVersionTestId(beta.record_id)),
   ).toHaveText(String(betaPatchEnvelope.data.row.row_version));
   await expect(
-    page.getByTestId(rowCellTestId(beta.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("FE-I-P4-01 Beta patched");
 
   const createResponse = page.waitForResponse(
@@ -198,18 +212,22 @@ test(exactScenarioTitle, async ({ page }) => {
         ),
   );
   await page
-    .getByTestId(draftCellTestId("timeline.summary"))
+    .getByTestId(draftCellTestId("timeline.activity_synopsis_text"))
     .fill("FE-I-P4-01 Created");
-  await page.getByTestId(draftCellTestId("timeline.summary")).press("Enter");
+  await page
+    .getByTestId(draftCellTestId("timeline.activity_synopsis_text"))
+    .press("Enter");
   const createEnvelope = await readTimelineMutation(await createResponse);
   const createdRecordId = createEnvelope.data.row.record_id;
   await expect(
-    page.getByTestId(rowCellTestId(createdRecordId, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(createdRecordId, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("FE-I-P4-01 Created");
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
   const betaOccurredAtCell = page.getByTestId(
-    rowCellTestId(beta.record_id, "timeline.occurred_at"),
+    rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
   );
   await expect(betaOccurredAtCell).toHaveCount(1);
   await betaOccurredAtCell.scrollIntoViewIfNeeded();
@@ -222,22 +240,34 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   await betaOccurredAtCell.press("Enter");
   const validation = await validationResponse;
-  expect(validation.ok()).toBe(false);
-  await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
+  const validationEnvelope = await readTimelineMutation(validation);
+  expect(
+    validationEnvelope.data.row.cells["timeline.activity_utc_text"]?.value,
+  ).toBe("not-a-timestamp");
+  await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
 
   await page
-    .getByTestId(gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"))
+    .getByTestId(
+      gridSortHeaderTestId(
+        timelineViewSchemaId,
+        "timeline.activity_synopsis_text",
+      ),
+    )
     .click();
   await expect
     .poll(async () => visibleRecordIds(page))
     .toContain(beta.record_id);
   await expect(
-    page.getByTestId(rowCellTestId(beta.record_id, "timeline.occurred_at")),
+    page.getByTestId(
+      rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
+    ),
   ).toHaveValue("not-a-timestamp");
   await expect(
-    page.getByTestId(rowCellTestId(alpha.record_id, "timeline.occurred_at")),
-  ).toHaveValue("2026-04-10T10:00:00Z");
-  await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+    page.getByTestId(
+      rowCellTestId(alpha.record_id, "timeline.activity_utc_text"),
+    ),
+  ).toHaveValue("2026-04-10T10:00:00.000Z");
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
   const invalidRow = {
     ...alpha,
@@ -257,7 +287,7 @@ test(exactScenarioTitle, async ({ page }) => {
               query: {
                 filters: [],
                 sort: [
-                  { field_key: "timeline.sort_ts", direction: "asc" },
+                  { field_key: "timeline.activity_sort_ts", direction: "asc" },
                   { field_key: "record_id", direction: "asc" },
                 ],
               },

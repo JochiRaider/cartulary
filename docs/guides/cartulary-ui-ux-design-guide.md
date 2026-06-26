@@ -365,7 +365,7 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 
 | Built-in tab | `view_schema_id`               | UX role                                                                  |
 | ------------ | ------------------------------ | ------------------------------------------------------------------------ |
-| Timeline     | `cartulary.view.timeline.v1`   | Primary rough-capture and chronology surface.                            |
+| Timeline     | `cartulary.view.timeline.v2`   | Primary rough-capture and chronology surface.                            |
 | Hosts        | `cartulary.view.hosts.v1`      | Canonical and stub host records.                                         |
 | Identities   | `cartulary.view.identities.v1` | Canonical and stub identity records.                                     |
 | Evidence     | `cartulary.view.evidence.v1`   | Evidence envelopes, blob attachment state, preview, and custody signals. |
@@ -1038,7 +1038,7 @@ Chip state examples
 ```text
 Save/conflict/status placement
 Top bar:       [System views ▾] [Presence A B +3]
-Grid cell:     timeline.summary  "VPN logon..."  ◢ Conflict on Summary
+Grid cell:     timeline.activity_synopsis_text  "VPN logon..."  ◢ Conflict on Activity Synopsis
 Status strip:  Conflict | Queue 0 | More status ▾
 ```
 
@@ -1057,7 +1057,7 @@ Inspector drawer
 Presence levels
 Header: Presence A B C +2
 Row gutter: row rec_123  A B +1
-Cell: timeline.summary  B editing
+Cell: timeline.activity_synopsis_text  B editing
 ```
 
 ### Acceptance criteria

@@ -148,13 +148,13 @@
       "artifact_path": "contracts/view-schemas/cartulary.view.task_requests.v1.json"
     },
     {
-      "view_schema_id": "cartulary.view.timeline.v1",
+      "view_schema_id": "cartulary.view.timeline.v2",
       "title": "Timeline",
       "surface_kind": "built_in_sheet",
       "source_record_types": [
         "timeline_event"
       ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.timeline.v1.json"
+      "artifact_path": "contracts/view-schemas/cartulary.view.timeline.v2.json"
     }
   ]
 }

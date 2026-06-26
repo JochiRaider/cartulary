@@ -24,7 +24,7 @@ type LoginResult struct {
 	CSRFCookie    *http.Cookie
 }
 
-const timelineViewSchemaID = "cartulary.view.timeline.v1"
+const timelineViewSchemaID = "cartulary.view.timeline.v2"
 
 func DoJSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {
 	t.Helper()

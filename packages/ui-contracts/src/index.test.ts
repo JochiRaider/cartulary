@@ -200,14 +200,14 @@ const requireFixtureValue = <T>(value: T | undefined, label: string): T => {
 describe("@cartulary/ui-contracts workbook row selectors", () => {
   it("returns deterministic selectors for identical stable identifiers", () => {
     const first = {
-      cell: rowCellTestId("record-1", "timeline.summary"),
-      shell: gridShellTestId("cartulary.view.timeline.v1"),
-      tab: surfaceTabTestId("cartulary.view.timeline.v1"),
+      cell: rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+      shell: gridShellTestId("cartulary.view.timeline.v2"),
+      tab: surfaceTabTestId("cartulary.view.timeline.v2"),
     };
     const second = {
-      cell: rowCellTestId("record-1", "timeline.summary"),
-      shell: gridShellTestId("cartulary.view.timeline.v1"),
-      tab: surfaceTabTestId("cartulary.view.timeline.v1"),
+      cell: rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+      shell: gridShellTestId("cartulary.view.timeline.v2"),
+      tab: surfaceTabTestId("cartulary.view.timeline.v2"),
     };
 
     expect(second).toEqual(first);
@@ -216,15 +216,15 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
   it("derives surface selectors from view_schema_id instead of visible titles", () => {
     const originalSurface = {
       title: "Timeline",
-      viewSchemaId: "cartulary.view.timeline.v1",
+      viewSchemaId: "cartulary.view.timeline.v2",
     };
     const renamedSurface = {
       title: "Activity",
-      viewSchemaId: "cartulary.view.timeline.v1",
+      viewSchemaId: "cartulary.view.timeline.v2",
     };
 
     expect(surfaceTabTestId(originalSurface.viewSchemaId)).toBe(
-      "surface-tab-cartulary.view.timeline.v1",
+      "surface-tab-cartulary.view.timeline.v2",
     );
     expect(surfaceTabTestId(renamedSurface.viewSchemaId)).toBe(
       surfaceTabTestId(originalSurface.viewSchemaId),
@@ -300,12 +300,12 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
 
   it("keeps tab, field, column, row, and fixture reordering out of selector identity", () => {
     const surfaces = [
-      { title: "Timeline", viewSchemaId: "cartulary.view.timeline.v1" },
+      { title: "Timeline", viewSchemaId: "cartulary.view.timeline.v2" },
       { title: "Evidence", viewSchemaId: "cartulary.view.evidence.v1" },
     ];
     const fields = [
-      { fieldKey: "timeline.summary", label: "Summary" },
-      { fieldKey: "timeline.details", label: "Details" },
+      { fieldKey: "timeline.activity_synopsis_text", label: "Summary" },
+      { fieldKey: "timeline.raw_activity_text", label: "Details" },
     ];
     const rows = [
       { displayName: "Alpha", recordId: "record-alpha" },
@@ -353,11 +353,11 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
 
   it("keeps visible field labels and display names out of cell selectors", () => {
     const originalField = {
-      fieldKey: "timeline.summary",
+      fieldKey: "timeline.activity_synopsis_text",
       label: "Summary",
     };
     const renamedField = {
-      fieldKey: "timeline.summary",
+      fieldKey: "timeline.activity_synopsis_text",
       label: "Executive summary",
     };
     const originalRow = {
@@ -372,35 +372,35 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(rowCellTestId(originalRow.recordId, originalField.fieldKey)).toBe(
       rowCellTestId(renamedRow.recordId, renamedField.fieldKey),
     );
-    expect(gridFilterChipTestId("cartulary.view.timeline.v1", "status")).toBe(
-      gridFilterChipTestId("cartulary.view.timeline.v1", "status"),
+    expect(gridFilterChipTestId("cartulary.view.timeline.v2", "status")).toBe(
+      gridFilterChipTestId("cartulary.view.timeline.v2", "status"),
     );
-    expect(gridFilterFieldTestId("cartulary.view.timeline.v1")).toBe(
-      "cartulary.view.timeline.v1-filter-field",
+    expect(gridFilterFieldTestId("cartulary.view.timeline.v2")).toBe(
+      "cartulary.view.timeline.v2-filter-field",
     );
-    expect(gridGroupingSelectTestId("cartulary.view.timeline.v1")).toBe(
-      "cartulary.view.timeline.v1-group-by",
+    expect(gridGroupingSelectTestId("cartulary.view.timeline.v2")).toBe(
+      "cartulary.view.timeline.v2-group-by",
     );
     expect(
       gridGroupRowTestId(
-        "cartulary.view.timeline.v1",
+        "cartulary.view.timeline.v2",
         "timeline.capture_state",
         "rough",
       ),
-    ).toBe("cartulary.view.timeline.v1-group-timeline.capture_state-rough");
+    ).toBe("cartulary.view.timeline.v2-group-timeline.capture_state-rough");
     expect(
       gridGroupRowTestIdPrefix(
-        "cartulary.view.timeline.v1",
+        "cartulary.view.timeline.v2",
         "timeline.capture_state",
       ),
-    ).toBe("cartulary.view.timeline.v1-group-timeline.capture_state-");
+    ).toBe("cartulary.view.timeline.v2-group-timeline.capture_state-");
     expect(
       gridGroupRowsSelector(
-        "cartulary.view.timeline.v1",
+        "cartulary.view.timeline.v2",
         "timeline.capture_state",
       ),
     ).toBe(
-      '[data-testid^="cartulary.view.timeline.v1-group-timeline.capture_state-"]',
+      '[data-testid^="cartulary.view.timeline.v2-group-timeline.capture_state-"]',
     );
   });
 
@@ -527,22 +527,22 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
   });
 
   it("derives inspector field ids from the stable row cell id", () => {
-    expect(rowInspectorFieldTestId("record-1", "timeline.details")).toBe(
-      "row-record-1-timeline.details-inspector",
-    );
+    expect(
+      rowInspectorFieldTestId("record-1", "timeline.raw_activity_text"),
+    ).toBe("row-record-1-timeline.raw_activity_text-inspector");
   });
 
   it("targets saved and draft workbook rows when scoped through the grid shell", () => {
-    expect(gridShellTestId("cartulary.view.timeline.v1")).toBe(
-      "cartulary.view.timeline.v1-grid-shell",
+    expect(gridShellTestId("cartulary.view.timeline.v2")).toBe(
+      "cartulary.view.timeline.v2-grid-shell",
     );
     expect(gridScrollportClassName()).toBe("cartulary-grid-scrollport");
     expect(gridScrollportSelector()).toBe(".cartulary-grid-scrollport");
-    expect(gridActionsHeaderTestId("cartulary.view.timeline.v1")).toBe(
-      "cartulary.view.timeline.v1-actions-header",
+    expect(gridActionsHeaderTestId("cartulary.view.timeline.v2")).toBe(
+      "cartulary.view.timeline.v2-actions-header",
     );
-    expect(gridRowGutterTestId("cartulary.view.timeline.v1", "record-1")).toBe(
-      "cartulary.view.timeline.v1-row-gutter-record-1",
+    expect(gridRowGutterTestId("cartulary.view.timeline.v2", "record-1")).toBe(
+      "cartulary.view.timeline.v2-row-gutter-record-1",
     );
     expect(gridSavedRowsSelector()).toBe(
       '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])',
@@ -551,37 +551,37 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
   });
 
   it("derives sheet toolbar, inspector, draft row, and row menu selectors from stable workbook ids", () => {
-    expect(workbookAddRowButtonTestId("cartulary.view.timeline.v1")).toBe(
-      "cartulary.view.timeline.v1-add-row",
+    expect(workbookAddRowButtonTestId("cartulary.view.timeline.v2")).toBe(
+      "cartulary.view.timeline.v2-add-row",
     );
-    expect(workbookInspectorToggleTestId("cartulary.view.timeline.v1")).toBe(
-      "cartulary.view.timeline.v1-inspector-toggle",
+    expect(workbookInspectorToggleTestId("cartulary.view.timeline.v2")).toBe(
+      "cartulary.view.timeline.v2-inspector-toggle",
     );
     expect(
-      workbookInspectorCloseButtonTestId("cartulary.view.timeline.v1"),
-    ).toBe("cartulary.view.timeline.v1-inspector-close");
-    expect(workbookInlineDraftRowTestId("cartulary.view.timeline.v1")).toBe(
-      "cartulary.view.timeline.v1-inline-draft-row",
+      workbookInspectorCloseButtonTestId("cartulary.view.timeline.v2"),
+    ).toBe("cartulary.view.timeline.v2-inspector-close");
+    expect(workbookInlineDraftRowTestId("cartulary.view.timeline.v2")).toBe(
+      "cartulary.view.timeline.v2-inline-draft-row",
     );
     expect(
       workbookRowActionMenuButtonTestId(
-        "cartulary.view.timeline.v1",
+        "cartulary.view.timeline.v2",
         "record-1",
       ),
-    ).toBe("cartulary.view.timeline.v1-row-action-menu-record-1");
+    ).toBe("cartulary.view.timeline.v2-row-action-menu-record-1");
     expect(
-      workbookRowContextMenuTestId("cartulary.view.timeline.v1", "record-1"),
-    ).toBe("cartulary.view.timeline.v1-row-context-menu-record-1");
+      workbookRowContextMenuTestId("cartulary.view.timeline.v2", "record-1"),
+    ).toBe("cartulary.view.timeline.v2-row-context-menu-record-1");
   });
 
   it("derives stable Phase 6 collaboration and status selectors", () => {
-    expect(conflictMarkerTestId("record-1", "timeline.summary")).toBe(
-      "conflict-marker-record-1-timeline.summary",
-    );
+    expect(
+      conflictMarkerTestId("record-1", "timeline.activity_synopsis_text"),
+    ).toBe("conflict-marker-record-1-timeline.activity_synopsis_text");
     expect(rowPresenceMarkerTestId("record-1")).toBe("presence-row-record-1");
-    expect(cellPresenceMarkerTestId("record-1", "timeline.summary")).toBe(
-      "presence-cell-record-1-timeline.summary",
-    );
+    expect(
+      cellPresenceMarkerTestId("record-1", "timeline.activity_synopsis_text"),
+    ).toBe("presence-cell-record-1-timeline.activity_synopsis_text");
     expect(saveStateTestId()).toBe("save-state");
     expect(statusStripQueueCountTestId()).toBe("status-strip-queue-count");
     expect(referencePackAdminPanelTestId()).toBe("reference-pack-admin-panel");
@@ -676,14 +676,14 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(gridRowTestId("cartulary.view.hosts.v1", "host-1")).toBe(
       "grid-row-cartulary.view.hosts.v1-host-1",
     );
-    expect(rowCellTestId("record-1", "timeline.summary")).toBe(
-      "row-record-1-timeline.summary",
+    expect(rowCellTestId("record-1", "timeline.activity_synopsis_text")).toBe(
+      "row-record-1-timeline.activity_synopsis_text",
     );
-    expect(rowInspectorFieldTestId("record-1", "timeline.details")).toBe(
-      "row-record-1-timeline.details-inspector",
-    );
-    expect(draftCellTestId("timeline.summary")).toBe(
-      "draft-row-timeline.summary",
+    expect(
+      rowInspectorFieldTestId("record-1", "timeline.raw_activity_text"),
+    ).toBe("row-record-1-timeline.raw_activity_text-inspector");
+    expect(draftCellTestId("timeline.activity_synopsis_text")).toBe(
+      "draft-row-timeline.activity_synopsis_text",
     );
     expect(timelineRowVersionTestId("record-1")).toBe(
       "row-record-1-row_version",
@@ -800,12 +800,12 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(() => rowCellTestId("record-1", "timeline..summary")).toThrow(
       "Invalid field_key selector token: timeline..summary",
     );
-    expect(() => rowCellTestId("", "timeline.summary")).toThrow(
+    expect(() => rowCellTestId("", "timeline.activity_synopsis_text")).toThrow(
       "Invalid record_id selector token: ",
     );
-    expect(() => rowCellTestId("   ", "timeline.summary")).toThrow(
-      "Invalid record_id selector token:    ",
-    );
+    expect(() =>
+      rowCellTestId("   ", "timeline.activity_synopsis_text"),
+    ).toThrow("Invalid record_id selector token:    ");
     expect(() =>
       rowHistoryActionTestId({
         action: "restore" as never,
@@ -853,14 +853,21 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(rowHistoryItemTestId({ historyItemRef: "a:b" })).not.toBe(
       rowHistoryItemTestId({ historyItemRef: "a-b" }),
     );
-    expect(rowCellTestId("record/1?x=y#z", "timeline.summary")).toBe(
-      "row-record%2F1%3Fx%3Dy%23z-timeline.summary",
+    expect(
+      rowCellTestId("record/1?x=y#z", "timeline.activity_synopsis_text"),
+    ).toBe("row-record%2F1%3Fx%3Dy%23z-timeline.activity_synopsis_text");
+    expect(
+      conflictMarkerTestId("record/1?x=y#z", "timeline.activity_synopsis_text"),
+    ).toBe(
+      "conflict-marker-record%2F1%3Fx%3Dy%23z-timeline.activity_synopsis_text",
     );
-    expect(conflictMarkerTestId("record/1?x=y#z", "timeline.summary")).toBe(
-      "conflict-marker-record%2F1%3Fx%3Dy%23z-timeline.summary",
-    );
-    expect(cellPresenceMarkerTestId("record/1?x=y#z", "timeline.summary")).toBe(
-      "presence-cell-record%2F1%3Fx%3Dy%23z-timeline.summary",
+    expect(
+      cellPresenceMarkerTestId(
+        "record/1?x=y#z",
+        "timeline.activity_synopsis_text",
+      ),
+    ).toBe(
+      "presence-cell-record%2F1%3Fx%3Dy%23z-timeline.activity_synopsis_text",
     );
 
     expect(relationshipChipTestId("a:b")).not.toBe(
@@ -873,7 +880,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
 
   it("validates view_schema_id selectors against the generated registry", () => {
     for (const viewSchemaId of [
-      "cartulary.view.timeline.v1",
+      "cartulary.view.timeline.v2",
       "cartulary.view.comm_log.v1",
       "cartulary.view.findings.v1",
       "cartulary.view.forensic_keywords.v1",
@@ -894,29 +901,31 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "workbook-surfaces-menu-trigger",
     );
     expect(workbookSurfacesMenuTestId()).toBe("workbook-surfaces-menu");
-    expect(workbookSurfacesMenuOptionTestId("cartulary.view.timeline.v1")).toBe(
-      "workbook-surfaces-menu-option-cartulary.view.timeline.v1",
+    expect(workbookSurfacesMenuOptionTestId("cartulary.view.timeline.v2")).toBe(
+      "workbook-surfaces-menu-option-cartulary.view.timeline.v2",
     );
     expect(
-      workbookTopBarQueryControlsTestId("cartulary.view.timeline.v1"),
-    ).toBe("cartulary.view.timeline.v1-top-bar-query");
-    expect(workbookSortMenuTriggerTestId("cartulary.view.timeline.v1")).toBe(
-      "cartulary.view.timeline.v1-sort-menu-trigger",
+      workbookTopBarQueryControlsTestId("cartulary.view.timeline.v2"),
+    ).toBe("cartulary.view.timeline.v2-top-bar-query");
+    expect(workbookSortMenuTriggerTestId("cartulary.view.timeline.v2")).toBe(
+      "cartulary.view.timeline.v2-sort-menu-trigger",
     );
-    expect(workbookSortMenuTestId("cartulary.view.timeline.v1")).toBe(
-      "cartulary.view.timeline.v1-sort-menu",
+    expect(workbookSortMenuTestId("cartulary.view.timeline.v2")).toBe(
+      "cartulary.view.timeline.v2-sort-menu",
     );
     expect(
       workbookSortOptionTestId(
-        "cartulary.view.timeline.v1",
-        "timeline.summary",
+        "cartulary.view.timeline.v2",
+        "timeline.activity_synopsis_text",
       ),
-    ).toBe("cartulary.view.timeline.v1-sort-option-timeline.summary");
+    ).toBe(
+      "cartulary.view.timeline.v2-sort-option-timeline.activity_synopsis_text",
+    );
     expect(
-      workbookFilterPopoverTriggerTestId("cartulary.view.timeline.v1"),
-    ).toBe("cartulary.view.timeline.v1-filter-popover-trigger");
-    expect(workbookFilterPopoverTestId("cartulary.view.timeline.v1")).toBe(
-      "cartulary.view.timeline.v1-filter-popover",
+      workbookFilterPopoverTriggerTestId("cartulary.view.timeline.v2"),
+    ).toBe("cartulary.view.timeline.v2-filter-popover-trigger");
+    expect(workbookFilterPopoverTestId("cartulary.view.timeline.v2")).toBe(
+      "cartulary.view.timeline.v2-filter-popover",
     );
     expect(workbookShellSlots).toEqual([
       "top-bar",
@@ -969,13 +978,13 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(incidentControlsPanelTestId()).toBe("incident-controls-panel");
     expect(incidentControlsCloseButtonTestId()).toBe("incident-controls-close");
     expect(timelineInspectorSections).toEqual([
-      "details",
+      "operational-text",
       "relationships",
       "evidence",
       "history",
     ]);
-    expect(timelineInspectorSectionTestId("details")).toBe(
-      "timeline-inspector-section-details",
+    expect(timelineInspectorSectionTestId("operational-text")).toBe(
+      "timeline-inspector-section-operational-text",
     );
     expect(timelineInspectorSectionTestId("relationships")).toBe(
       "timeline-inspector-section-relationships",
@@ -986,8 +995,8 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(timelineInspectorSectionTestId("history")).toBe(
       "timeline-inspector-section-history",
     );
-    expect(timelineInspectorSectionTestId("details")).toBe(
-      timelineInspectorSectionTestId("details"),
+    expect(timelineInspectorSectionTestId("operational-text")).toBe(
+      timelineInspectorSectionTestId("operational-text"),
     );
     expect(() => timelineInspectorSectionTestId("summary" as never)).toThrow(
       "Invalid timeline inspector section token: summary",
@@ -1299,22 +1308,22 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     for (const surface of timelineScalarEditorSurfaces) {
       expect(
         timelineScalarEditorTestId({
-          fieldKey: "timeline.summary",
+          fieldKey: "timeline.activity_synopsis_text",
           recordId: "record-1",
           surface,
         }),
       ).toBe(
         surface === "inspector"
-          ? "row-record-1-timeline.summary-inspector"
-          : "row-record-1-timeline.summary",
+          ? "row-record-1-timeline.activity_synopsis_text-inspector"
+          : "row-record-1-timeline.activity_synopsis_text",
       );
     }
     expect(
       timelineScalarEditorTestId({
-        fieldKey: "timeline.summary",
+        fieldKey: "timeline.activity_synopsis_text",
         recordId: null,
       }),
-    ).toBe("draft-row-timeline.summary");
+    ).toBe("draft-row-timeline.activity_synopsis_text");
   });
 });
 

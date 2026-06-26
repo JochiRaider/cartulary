@@ -315,12 +315,12 @@ func TestPhase2_U_2_06_MembershipCreateUsesLookupOnlyForUserOrEmailTargets(t *te
 
 func TestSupportPhase2_WorkbookPreferencesPutDecodersCanonicalizeSheetRefs(t *testing.T) {
 	userRequest, apiErr := DecodeUserWorkbookPreferencesPutRequest(strings.NewReader(`{
-		"home_sheet_ref":{"id":"cartulary.view.timeline.v1","kind":"view_schema"}
+		"home_sheet_ref":{"id":"cartulary.view.timeline.v2","kind":"view_schema"}
 	}`))
 	if apiErr != nil {
 		t.Fatalf("decode user workbook preferences PUT: %v", apiErr)
 	}
-	if string(userRequest.HomeSheetRef) != `{"kind":"view_schema","id":"cartulary.view.timeline.v1"}` {
+	if string(userRequest.HomeSheetRef) != `{"kind":"view_schema","id":"cartulary.view.timeline.v2"}` {
 		t.Fatalf("unexpected canonical user sheet_ref: %s", userRequest.HomeSheetRef)
 	}
 	savedViewRequest, apiErr := DecodeUserWorkbookPreferencesPutRequest(strings.NewReader(`{
@@ -365,7 +365,7 @@ func TestSupportPhase2_WorkbookPreferencesPutDecodersRejectInvalidPayloads(t *te
 		},
 		{
 			name:       "invalid kind",
-			body:       `{"home_sheet_ref":{"kind":"workspace","id":"cartulary.view.timeline.v1"}}`,
+			body:       `{"home_sheet_ref":{"kind":"workspace","id":"cartulary.view.timeline.v2"}}`,
 			field:      "home_sheet_ref.kind",
 			reasonCode: "unsupported_sheet_ref_kind",
 		},
@@ -377,7 +377,7 @@ func TestSupportPhase2_WorkbookPreferencesPutDecodersRejectInvalidPayloads(t *te
 		},
 		{
 			name:       "extra sheet-ref member",
-			body:       `{"home_sheet_ref":{"kind":"view_schema","id":"cartulary.view.timeline.v1","label":"Timeline"}}`,
+			body:       `{"home_sheet_ref":{"kind":"view_schema","id":"cartulary.view.timeline.v2","label":"Timeline"}}`,
 			field:      "home_sheet_ref.label",
 			reasonCode: "unknown_field",
 		},

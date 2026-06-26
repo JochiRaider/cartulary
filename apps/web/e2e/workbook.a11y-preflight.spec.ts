@@ -41,7 +41,7 @@ import {
 } from "./helpers";
 import { clickTimelineRowAction, openTimelineInspector } from "./phase4Helpers";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 const p8AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P8-01",
 ) as [string];
@@ -213,12 +213,12 @@ test.describe("FE-P8 accessibility preflight", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("A11YP8-REVIEWED"),
-        "timeline.summary": "FE-A11Y-P8 reviewed row",
+        "timeline.activity_synopsis_text": "FE-A11Y-P8 reviewed row",
       },
     );
     await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("A11YP8-ROUGH"),
-      "timeline.summary": "FE-A11Y-P8 rough row",
+      "timeline.activity_synopsis_text": "FE-A11Y-P8 rough row",
     });
 
     await page.goto(`/?incident_id=${incidentId}`);
@@ -226,7 +226,10 @@ test.describe("FE-P8 accessibility preflight", () => {
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
     const summarySortHeader = page.getByTestId(
-      gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
+      gridSortHeaderTestId(
+        timelineViewSchemaId,
+        "timeline.activity_synopsis_text",
+      ),
     );
     await expectKeyboardReachable(summarySortHeader);
     await page.keyboard.press("Enter");
@@ -345,8 +348,8 @@ test.describe("FE-P11 accessibility preflight", () => {
     );
     const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("A11YP11-ROW"),
-      "timeline.details": "FE-A11Y-P11 details",
-      "timeline.summary": "FE-A11Y-P11 keyboard row",
+      "timeline.raw_activity_text": "FE-A11Y-P11 details",
+      "timeline.activity_synopsis_text": "FE-A11Y-P11 keyboard row",
     });
     const reviewedRow = await createViewRow(
       page,
@@ -354,7 +357,7 @@ test.describe("FE-P11 accessibility preflight", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("A11YP11-REVIEWED"),
-        "timeline.summary": "FE-A11Y-P11 reviewed row",
+        "timeline.activity_synopsis_text": "FE-A11Y-P11 reviewed row",
       },
     );
 
@@ -389,26 +392,32 @@ test.describe("FE-P11 accessibility preflight", () => {
     await expect(systemSwitcher).toBeFocused();
 
     const summarySortHeader = page.getByTestId(
-      gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
+      gridSortHeaderTestId(
+        timelineViewSchemaId,
+        "timeline.activity_synopsis_text",
+      ),
     );
     await expectKeyboardReachable(summarySortHeader);
     await summarySortHeader.press("Enter");
     await expect(summarySortHeader).toContainText("Asc");
 
     const summaryCell = page.getByTestId(
-      rowCellTestId(row.record_id, "timeline.summary"),
+      rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
     );
     await expectKeyboardReachable(summaryCell);
     await page.keyboard.press("Enter");
     const summaryEditor = page.getByTestId(
       timelineScalarEditorTestId({
-        fieldKey: "timeline.summary",
+        fieldKey: "timeline.activity_synopsis_text",
         recordId: row.record_id,
         surface: "grid",
       }),
     );
     await expect(summaryEditor).toBeVisible();
-    await expect(summaryEditor).toHaveAttribute("aria-label", /Summary/);
+    await expect(summaryEditor).toHaveAttribute(
+      "aria-label",
+      /Activity Synopsis/,
+    );
     await summaryEditor.focus();
     await expect(summaryEditor).toBeFocused();
     await summaryEditor.fill("FE-A11Y-P11 edited summary");
@@ -418,7 +427,7 @@ test.describe("FE-P11 accessibility preflight", () => {
     await expectKeyboardReachable(summaryCell);
     await openTimelineInspector(page, row.record_id);
     await expect(
-      page.getByTestId(timelineInspectorSectionTestId("details")),
+      page.getByTestId(timelineInspectorSectionTestId("operational-text")),
     ).toBeVisible();
 
     await clickTimelineRowAction(

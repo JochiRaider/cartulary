@@ -119,7 +119,7 @@ func TestPhase0_InvalidConfigDiagnostics_E_0_02(t *testing.T) {
 			}
 			server.RequireConnectionRefused(t, "/healthz")
 			server.RequireConnectionRefused(t, "/readyz")
-			server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v1/changes")
+			server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v2/changes")
 			server.RequireDiagnosticsMatchGolden(t, []string{"phase0", "diagnostics", tc.goldenFile})
 		})
 	}
@@ -253,7 +253,7 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 			}
 			server.RequireConnectionRefused(t, "/healthz")
 			server.RequireConnectionRefused(t, "/readyz")
-			server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v1/changes")
+			server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v2/changes")
 			server.RequireDiagnosticsMatchGolden(t, []string{"phase0", "diagnostics", tc.goldenFile})
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, tc.wantUserCount)
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
@@ -337,7 +337,7 @@ func TestPhase0_BootstrapSkipAndRecovery_E_0_05(t *testing.T) {
 		}
 		server.RequireConnectionRefused(t, "/healthz")
 		server.RequireConnectionRefused(t, "/readyz")
-		server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v1/changes")
+		server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v2/changes")
 		server.RequireDiagnosticsMatchGolden(t, []string{"phase0", "diagnostics", "bootstrap_recovery_not_supported.json"})
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 0)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)

@@ -72,7 +72,7 @@ import {
   waitForViewRowByCell,
 } from "./phase4Helpers";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 const requiredBaseViewSchemaIds = [
   assessmentsViewSchemaId,
   commLogViewSchemaId,
@@ -183,7 +183,7 @@ test("Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range
   );
   const seed = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e902-seed"),
-    "timeline.summary": "Phase 9 paste seed",
+    "timeline.activity_synopsis_text": "Phase 9 paste seed",
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
@@ -192,21 +192,18 @@ test("Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range
   ).toBeVisible();
 
   const seedSummary = page.getByTestId(
-    rowCellTestId(seed.record_id as string, "timeline.summary"),
+    rowCellTestId(seed.record_id as string, "timeline.activity_synopsis_text"),
   );
   await seedSummary.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${seed.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${seed.record_id}:timeline.activity_synopsis_text`,
   );
 
   const pasteRows = Array.from({ length: 20 }, (_, index) => {
     const ordinal = index + 1;
     return [
       `Phase 9 paste summary ${ordinal}`,
-      `phase9-host-${ordinal}.example.test`,
-      `phase9-user-${ordinal}@example.test`,
-      `readonly-evidence-${ordinal}`,
-      `phase9-tag-${ordinal}`,
+      `phase9-source-${ordinal}.example.test`,
     ].join("\t");
   });
   const pastePayload = pasteRows.join("\n");
@@ -234,11 +231,14 @@ test("Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range
   await expect((await pasteResponse).ok()).toBeTruthy();
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${seed.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${seed.record_id}:timeline.activity_synopsis_text`,
   );
   await expect(
     page.getByTestId(
-      rowCellTestId(seed.record_id as string, "timeline.summary"),
+      rowCellTestId(
+        seed.record_id as string,
+        "timeline.activity_synopsis_text",
+      ),
     ),
   ).toHaveValue("Phase 9 paste summary 1");
   await expect(
@@ -248,41 +248,32 @@ test("Phase 9 E-9-PASTE-02 pastes a representative 20x5 Timeline clipboard range
   const rows = await queryViewRows(page, incidentId, timelineViewSchemaId);
   const matchingRows = rows.filter((row) => {
     const cells = row.cells as Record<string, { value: unknown }>;
-    return String(cells["timeline.summary"]?.value ?? "").startsWith(
-      "Phase 9 paste summary ",
-    );
+    return String(
+      cells["timeline.activity_synopsis_text"]?.value ?? "",
+    ).startsWith("Phase 9 paste summary ");
   });
   expect(matchingRows).toHaveLength(20);
   const first = matchingRows.find((row) => row.record_id === seed.record_id);
   expect(first).toBeTruthy();
-  expect(first?.cells["timeline.summary"]?.value).toBe(
+  expect(first?.cells["timeline.activity_synopsis_text"]?.value).toBe(
     "Phase 9 paste summary 1",
   );
-  expect(
-    collectionDisplayTexts(first?.cells["timeline.host_refs"]?.value),
-  ).toContain("phase9-host-1.example.test");
-  expect(
-    collectionDisplayTexts(first?.cells["timeline.identity_refs"]?.value),
-  ).toContain("phase9-user-1@example.test");
+  expect(first?.cells["timeline.data_source_text"]?.value).toBe(
+    "phase9-source-1.example.test",
+  );
   expect(first?.cells["timeline.evidence_count"]?.value).toBe(0);
-  expect(
-    collectionDisplayTexts(first?.cells["timeline.tags"]?.value),
-  ).toContain("phase9-tag-1");
   const twentieth = matchingRows.find((row) => {
     const cells = row.cells as Record<string, { value: unknown }>;
-    return cells["timeline.summary"]?.value === "Phase 9 paste summary 20";
+    return (
+      cells["timeline.activity_synopsis_text"]?.value ===
+      "Phase 9 paste summary 20"
+    );
   });
   expect(twentieth).toBeTruthy();
-  expect(
-    collectionDisplayTexts(twentieth?.cells["timeline.host_refs"]?.value),
-  ).toContain("phase9-host-20.example.test");
-  expect(
-    collectionDisplayTexts(twentieth?.cells["timeline.identity_refs"]?.value),
-  ).toContain("phase9-user-20@example.test");
+  expect(twentieth?.cells["timeline.data_source_text"]?.value).toBe(
+    "phase9-source-20.example.test",
+  );
   expect(twentieth?.cells["timeline.evidence_count"]?.value).toBe(0);
-  expect(
-    collectionDisplayTexts(twentieth?.cells["timeline.tags"]?.value),
-  ).toContain("phase9-tag-20");
 });
 
 test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection continuity", async ({
@@ -295,11 +286,11 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
   );
   const first = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e902-conflict-first"),
-    "timeline.summary": "Phase 9 conflict first base",
+    "timeline.activity_synopsis_text": "Phase 9 conflict first base",
   });
   const second = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e902-conflict-second"),
-    "timeline.summary": "Phase 9 conflict second base",
+    "timeline.activity_synopsis_text": "Phase 9 conflict second base",
   });
 
   await disableWorkbookSockets(page);
@@ -308,12 +299,38 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
 
-  const firstSummary = page.getByTestId(
-    rowCellTestId(first.record_id as string, "timeline.summary"),
+  const visibleTimelineRecordIds = (
+    await gridSavedRows(page, timelineViewSchemaId).evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute("data-grid-record-id") ?? ""),
+    )
+  ).filter(
+    (recordId) => recordId === first.record_id || recordId === second.record_id,
   );
-  await firstSummary.focus();
+  expect(visibleTimelineRecordIds).toHaveLength(2);
+  const pasteStartRecordId = visibleTimelineRecordIds[0];
+  const pasteNextRecordId = visibleTimelineRecordIds[1];
+  if (pasteStartRecordId === undefined || pasteNextRecordId === undefined) {
+    throw new Error("expected two visible Timeline records for grouped paste");
+  }
+  const pasteTextByRecordId = new Map([
+    [first.record_id as string, "Phase 9 client first"],
+    [second.record_id as string, "Phase 9 client second"],
+  ]);
+  const pasteStartText = pasteTextByRecordId.get(pasteStartRecordId);
+  const pasteNextText = pasteTextByRecordId.get(pasteNextRecordId);
+  if (pasteStartText === undefined || pasteNextText === undefined) {
+    throw new Error("visible Timeline record did not match paste text map");
+  }
+
+  const pasteStartSummary = page.getByTestId(
+    rowCellTestId(
+      pasteStartRecordId as string,
+      "timeline.activity_synopsis_text",
+    ),
+  );
+  await pasteStartSummary.focus();
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${first.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${pasteStartRecordId}:timeline.activity_synopsis_text`,
   );
 
   await patchTimelineRecord(page, first.record_id as string, {
@@ -322,7 +339,7 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
     client_txn_id: uniqueTxn("e902-conflict-first-server"),
     changes: [
       {
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         value: "Phase 9 server first",
       },
     ],
@@ -333,7 +350,7 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
     client_txn_id: uniqueTxn("e902-conflict-second-server"),
     changes: [
       {
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         value: "Phase 9 server second",
       },
     ],
@@ -348,24 +365,20 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
           `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
         ),
   );
-  await firstSummary.evaluate((element) => {
-    const data = new DataTransfer();
-    data.setData(
-      "text/plain",
-      [
-        "Phase 9 client first",
-        "Phase 9 client second",
-        "Phase 9 conflict create",
-      ].join("\n"),
-    );
-    element.dispatchEvent(
-      new ClipboardEvent("paste", {
-        bubbles: true,
-        cancelable: true,
-        clipboardData: data,
-      }),
-    );
-  });
+  await pasteStartSummary.evaluate(
+    (element, pasteLines) => {
+      const data = new DataTransfer();
+      data.setData("text/plain", pasteLines.join("\n"));
+      element.dispatchEvent(
+        new ClipboardEvent("paste", {
+          bubbles: true,
+          cancelable: true,
+          clipboardData: data,
+        }),
+      );
+    },
+    [pasteStartText, pasteNextText, "Phase 9 conflict create"],
+  );
   await expect((await pasteResponse).ok()).toBeTruthy();
 
   await expect(
@@ -373,16 +386,38 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
   ).toBeVisible();
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
   await expect(page.getByTestId("workbook-focus-anchor")).toHaveText(
-    `${timelineViewSchemaId}:${first.record_id}:timeline.summary`,
+    `${timelineViewSchemaId}:${pasteStartRecordId}:timeline.activity_synopsis_text`,
   );
+  await page
+    .getByTestId(
+      rowCellTestId(
+        pasteStartRecordId as string,
+        "timeline.activity_synopsis_text",
+      ),
+    )
+    .scrollIntoViewIfNeeded();
   await expect(
     page.getByTestId(
-      conflictMarkerTestId(first.record_id as string, "timeline.summary"),
+      conflictMarkerTestId(
+        pasteStartRecordId as string,
+        "timeline.activity_synopsis_text",
+      ),
     ),
   ).toBeVisible();
+  await page
+    .getByTestId(
+      rowCellTestId(
+        pasteNextRecordId as string,
+        "timeline.activity_synopsis_text",
+      ),
+    )
+    .scrollIntoViewIfNeeded();
   await expect(
     page.getByTestId(
-      conflictMarkerTestId(second.record_id as string, "timeline.summary"),
+      conflictMarkerTestId(
+        pasteNextRecordId as string,
+        "timeline.activity_synopsis_text",
+      ),
     ),
   ).toBeVisible();
   await expect(page.getByTestId("paste-conflict-navigator")).toBeVisible();
@@ -390,14 +425,14 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
     "1 of 2",
   );
   await expect(page.getByTestId("conflict-local-value")).toHaveValue(
-    "Phase 9 client first",
+    pasteStartText,
   );
   await page.getByTestId("paste-conflict-next").click();
   await expect(page.getByTestId("paste-conflict-position")).toHaveText(
     "2 of 2",
   );
   await expect(page.getByTestId("conflict-local-value")).toHaveValue(
-    "Phase 9 client second",
+    pasteNextText,
   );
   await page.getByTestId("conflict-close").click();
   await expect(page.getByTestId("conflict-resolver")).toHaveCount(0);
@@ -414,7 +449,7 @@ test("Phase 9 E-9-03 Notes tab creates artifact-backed linked notes", async ({
   );
   const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e903-source"),
-    "timeline.summary": "Phase 9 linked note source",
+    "timeline.activity_synopsis_text": "Phase 9 linked note source",
   });
 
   await page.goto(
@@ -481,7 +516,7 @@ test("Phase 9 E-9-LAYOUT-01 Workbook inspector fills the shell work area across 
     timelineRows.push(
       await createViewRow(page, incidentId, timelineViewSchemaId, {
         client_txn_id: uniqueTxn(`e9layout-timeline-${index}`),
-        "timeline.summary": `Phase 9 layout timeline row ${index + 1}`,
+        "timeline.activity_synopsis_text": `Phase 9 layout timeline row ${index + 1}`,
       }),
     );
   }
@@ -1041,7 +1076,7 @@ test("Phase 9 E-9-05 assessment workflow keeps invalid timestamp drafts local", 
   });
   const support = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e905-support"),
-    "timeline.summary": "Phase 9 assessment support event",
+    "timeline.activity_synopsis_text": "Phase 9 assessment support event",
   });
 
   await page.goto(
@@ -2573,29 +2608,6 @@ async function systemViewSelectorValues(page: Page) {
     );
   await page.keyboard.press("Escape");
   return values;
-}
-
-function collectionDisplayTexts(value: unknown): string[] {
-  if (!value || typeof value !== "object" || !("items" in value)) {
-    return [];
-  }
-  const items = (value as { items?: unknown }).items;
-  if (!Array.isArray(items)) {
-    return [];
-  }
-  return items.flatMap((item) => {
-    if (!item || typeof item !== "object") {
-      return [];
-    }
-    const record = item as Record<string, unknown>;
-    if (typeof record.display_text === "string") {
-      return [record.display_text];
-    }
-    if (typeof record.raw_text === "string") {
-      return [record.raw_text];
-    }
-    return [];
-  });
 }
 
 function collectionItemRefs(value: unknown): string[] {

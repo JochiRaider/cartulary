@@ -129,7 +129,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     const summaryInput = gridScalarInput(
       container,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     ) as HTMLInputElement;
     await changeInputValue(summaryInput, "Bound summary");
     fireEvent.blur(summaryInput);
@@ -139,7 +139,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     });
     const requestBody = extractTimelinePatchBody(fetchMock, 1);
     expect(requestBody.changes[0]).toEqual({
-      field_key: "timeline.summary",
+      field_key: "timeline.activity_synopsis_text",
       value: "Bound summary",
     });
     expect(JSON.stringify(requestBody)).not.toContain("Summary");
@@ -208,7 +208,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     const summaryInput = gridScalarInput(
       container,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     ) as HTMLInputElement;
     await changeInputValue(summaryInput, "Zulu rebound");
     fireEvent.blur(summaryInput);
@@ -256,7 +256,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     await waitForTimelineWorkbookReady(container, 0);
 
     const initialDraftSummary = screen.getByTestId(
-      draftCellTestId("timeline.summary"),
+      draftCellTestId("timeline.activity_synopsis_text"),
     ) as HTMLInputElement;
     await changeInputValue(initialDraftSummary, "First browser fact");
 
@@ -266,7 +266,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
         recordId: "external-record",
         rowVersion: 1,
         clientTxnId: "external-client-txn",
-        changedFieldKeys: ["timeline.summary"],
+        changedFieldKeys: ["timeline.activity_synopsis_text"],
       }),
     );
 
@@ -274,7 +274,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
     const refreshedDraftSummary = screen.getByTestId(
-      draftCellTestId("timeline.summary"),
+      draftCellTestId("timeline.activity_synopsis_text"),
     ) as HTMLInputElement;
     expect(refreshedDraftSummary.value).toBe("First browser fact");
 
@@ -284,7 +284,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
     });
     expect(extractTimelineJSONBody(fetchMock, 2)).toMatchObject({
-      "timeline.summary": "First browser fact",
+      "timeline.activity_synopsis_text": "First browser fact",
     });
 
     await waitFor(() => {
@@ -293,14 +293,14 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     expect(
       (
         screen.getByTestId(
-          rowCellTestId("record-created", "timeline.summary"),
+          rowCellTestId("record-created", "timeline.activity_synopsis_text"),
         ) as HTMLInputElement
       ).value,
     ).toBe("First browser fact");
     expect(
       (
         screen.getByTestId(
-          draftCellTestId("timeline.summary"),
+          draftCellTestId("timeline.activity_synopsis_text"),
         ) as HTMLInputElement
       ).value,
     ).toBe("");
@@ -330,7 +330,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     await waitForTimelineWorkbookReady(container, 0);
 
     const draftSummary = screen.getByTestId(
-      draftCellTestId("timeline.summary"),
+      draftCellTestId("timeline.activity_synopsis_text"),
     ) as HTMLInputElement;
     await changeInputValue(draftSummary, "Pending browser fact");
     fireEvent.keyDown(draftSummary, { key: "Enter" });
@@ -339,7 +339,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
     expect(extractTimelineJSONBody(fetchMock, 1)).toMatchObject({
-      "timeline.summary": "Pending browser fact",
+      "timeline.activity_synopsis_text": "Pending browser fact",
     });
 
     emitRecordChanged(
@@ -348,7 +348,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
         recordId: "external-record",
         rowVersion: 1,
         clientTxnId: "external-client-txn",
-        changedFieldKeys: ["timeline.details"],
+        changedFieldKeys: ["timeline.raw_activity_text"],
       }),
     );
 
@@ -358,7 +358,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     expect(
       (
         screen.getByTestId(
-          draftCellTestId("timeline.summary"),
+          draftCellTestId("timeline.activity_synopsis_text"),
         ) as HTMLInputElement
       ).value,
     ).toBe("Pending browser fact");
@@ -382,14 +382,17 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     expect(
       (
         screen.getByTestId(
-          rowCellTestId("record-pending-created", "timeline.summary"),
+          rowCellTestId(
+            "record-pending-created",
+            "timeline.activity_synopsis_text",
+          ),
         ) as HTMLInputElement
       ).value,
     ).toBe("Pending browser fact");
     expect(
       (
         screen.getByTestId(
-          draftCellTestId("timeline.summary"),
+          draftCellTestId("timeline.activity_synopsis_text"),
         ) as HTMLInputElement
       ).value,
     ).toBe("");
@@ -426,7 +429,10 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
 
     fireEvent.click(
       await screen.findByTestId(
-        gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
+        gridSortHeaderTestId(
+          timelineViewSchemaId,
+          "timeline.activity_synopsis_text",
+        ),
       ),
     );
     await waitFor(() => {
@@ -494,7 +500,10 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
 
     fireEvent.click(
       await screen.findByTestId(
-        gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
+        gridSortHeaderTestId(
+          timelineViewSchemaId,
+          "timeline.activity_synopsis_text",
+        ),
       ),
     );
     await waitFor(() => {
@@ -574,7 +583,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
         recordId: "external-record",
         rowVersion: 1,
         clientTxnId: "external-stale-query",
-        changedFieldKeys: ["timeline.details"],
+        changedFieldKeys: ["timeline.raw_activity_text"],
       }),
     );
     await waitFor(() => {
@@ -582,7 +591,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     });
 
     const summaryInput = screen.getByTestId(
-      rowCellTestId("record-1", "timeline.summary"),
+      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
     ) as HTMLInputElement;
     await changeInputValue(summaryInput, "Zulu anchored");
     fireEvent.blur(summaryInput);
@@ -596,7 +605,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       expect(
         (
           screen.getByTestId(
-            rowCellTestId("record-1", "timeline.summary"),
+            rowCellTestId("record-1", "timeline.activity_synopsis_text"),
           ) as HTMLInputElement
         ).value,
       ).toBe("Zulu anchored");
@@ -626,14 +635,14 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       expect(
         (
           screen.getByTestId(
-            rowCellTestId("record-1", "timeline.summary"),
+            rowCellTestId("record-1", "timeline.activity_synopsis_text"),
           ) as HTMLInputElement
         ).value,
       ).toBe("Zulu anchored");
     });
 
     const replayInput = screen.getByTestId(
-      rowCellTestId("record-1", "timeline.summary"),
+      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
     ) as HTMLInputElement;
     await changeInputValue(replayInput, "Replay should not regress");
     fireEvent.blur(replayInput);
@@ -647,7 +656,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       expect(
         (
           screen.getByTestId(
-            rowCellTestId("record-1", "timeline.summary"),
+            rowCellTestId("record-1", "timeline.activity_synopsis_text"),
           ) as HTMLInputElement
         ).value,
       ).toBe("Zulu anchored");
@@ -708,7 +717,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
         recordId: "external-record",
         rowVersion: 1,
         clientTxnId: "external-stale-error",
-        changedFieldKeys: ["timeline.details"],
+        changedFieldKeys: ["timeline.raw_activity_text"],
       }),
     );
     await waitFor(() => {
@@ -716,7 +725,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     });
 
     const summaryInput = screen.getByTestId(
-      rowCellTestId("record-1", "timeline.summary"),
+      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
     ) as HTMLInputElement;
     await changeInputValue(summaryInput, "Zulu anchored");
     fireEvent.blur(summaryInput);
@@ -736,7 +745,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       expect(
         (
           screen.getByTestId(
-            rowCellTestId("record-1", "timeline.summary"),
+            rowCellTestId("record-1", "timeline.activity_synopsis_text"),
           ) as HTMLInputElement
         ).value,
       ).toBe("Zulu anchored");
@@ -769,7 +778,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       change_set_id: "change-set-stale-live",
       client_txn_id: "external-stale-live",
       actor_user_id: "user-2",
-      changed_field_keys: ["timeline.summary"],
+      changed_field_keys: ["timeline.activity_synopsis_text"],
       affected_views: [
         {
           view_schema_id: timelineViewSchemaId,
@@ -778,7 +787,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
             record_id: "record-1",
             row_version: 1,
             cells: {
-              "timeline.summary": { value: "Alpha summary" },
+              "timeline.activity_synopsis_text": { value: "Alpha summary" },
             },
           },
         },
@@ -793,7 +802,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       expect(
         (
           screen.getByTestId(
-            rowCellTestId("record-1", "timeline.summary"),
+            rowCellTestId("record-1", "timeline.activity_synopsis_text"),
           ) as HTMLInputElement
         ).value,
       ).toBe("Zulu anchored");
@@ -912,14 +921,19 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
 
     fireEvent.click(
       await screen.findByTestId(
-        gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
+        gridSortHeaderTestId(
+          timelineViewSchemaId,
+          "timeline.activity_synopsis_text",
+        ),
       ),
     );
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
     expect(extractTimelineJSONBody(fetchMock, 1)).toEqual({
-      sort: [{ direction: "asc", field_key: "timeline.summary" }],
+      sort: [
+        { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+      ],
     });
     await waitForVisibleGridRowRecordIds(container, ["record-2", "record-1"]);
 
@@ -949,7 +963,9 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
           op: "eq",
         },
       ],
-      sort: [{ direction: "asc", field_key: "timeline.summary" }],
+      sort: [
+        { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+      ],
     });
 
     await waitForVisibleGridRowRecordIds(container, ["record-2", "record-1"]);
@@ -974,7 +990,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       group_by: "timeline.capture_state",
       sort: [
         { direction: "asc", field_key: "timeline.capture_state" },
-        { direction: "asc", field_key: "timeline.summary" },
+        { direction: "asc", field_key: "timeline.activity_synopsis_text" },
       ],
     });
     expect(
@@ -991,7 +1007,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
     const summaryInput = gridScalarInput(
       container,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     ) as HTMLInputElement;
     await changeInputValue(summaryInput, "Filtered anchor");
     expect(fetchMock).toHaveBeenCalledTimes(4);
@@ -1007,7 +1023,7 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
       base_row_version: 7,
       changes: [
         {
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           value: "Filtered anchor",
         },
       ],

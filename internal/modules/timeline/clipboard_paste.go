@@ -19,6 +19,32 @@ const (
 	maxClipboardPasteCols  = 64
 )
 
+var timelineV2ExactHeaderFieldKeys = []string{
+	"timeline.date_entered_text",
+	"timeline.analyst_text",
+	"timeline.mitre_stage_text",
+	"timeline.device_object_text",
+	"timeline.ip_address_text",
+	"timeline.activity_utc_text",
+	"timeline.activity_local_text",
+	"timeline.raw_activity_text",
+	"timeline.activity_synopsis_text",
+	"timeline.data_source_text",
+}
+
+var timelineV2ExactHeaderLabels = []string{
+	"Date Entered",
+	"Analyst",
+	"MITRE",
+	"Device/Object",
+	"IP Address",
+	"Activity Date (UTC)",
+	"Activity Date (Local Time)",
+	"RAW Activity",
+	"Activity Synopsis",
+	"Data Source",
+}
+
 type ClipboardPasteRequest struct {
 	ViewSchemaID  string
 	ClientTxnID   string
@@ -197,6 +223,9 @@ func decodeClipboardPasteTargets(raw json.RawMessage, out *[]ClipboardPasteTarge
 }
 
 func BuildClipboardPastePlan(request ClipboardPasteRequest) (ClipboardPastePlan, error) {
+	if plan, ok, err := buildExactTimelineV2HeaderPlan(request); ok || err != nil {
+		return plan, err
+	}
 	batch, err := tabularingest.BuildBatchPlan(tabularingest.MappingRequest{
 		ViewSchemaID:   request.ViewSchemaID,
 		ClientTxnID:    request.ClientTxnID,
@@ -244,6 +273,59 @@ func BuildClipboardPastePlan(request ClipboardPasteRequest) (ClipboardPastePlan,
 	return plan, nil
 }
 
+func buildExactTimelineV2HeaderPlan(request ClipboardPasteRequest) (ClipboardPastePlan, bool, error) {
+	rows, err := tabularingest.ParseTable(request.ClipboardText, request.Format)
+	if err != nil || len(rows) == 0 || !isTimelineV2ExactHeader(rows[0]) {
+		return ClipboardPastePlan{}, false, nil
+	}
+	dataRows := rows[1:]
+	if len(dataRows) == 0 || len(dataRows) > maxClipboardPasteRows {
+		return ClipboardPastePlan{}, true, fmt.Errorf("invalid tabular row count")
+	}
+	if len(request.Targets) != len(dataRows) {
+		return ClipboardPastePlan{}, true, fmt.Errorf("target count must equal tabular row count")
+	}
+	plan := ClipboardPastePlan{ClientTxnID: request.ClientTxnID, Rows: make([]ClipboardPasteRowPlan, 0, len(dataRows))}
+	for rowIndex, values := range dataRows {
+		rowPlan := ClipboardPasteRowPlan{RowOrdinal: rowIndex + 1}
+		for columnIndex, fieldKey := range timelineV2ExactHeaderFieldKeys {
+			rawValue := ""
+			if columnIndex < len(values) {
+				rawValue = values[columnIndex]
+			}
+			change, ok := clipboardValueToPatchChange(fieldKey, rawValue)
+			if !ok {
+				return ClipboardPastePlan{}, true, fmt.Errorf("invalid value for %s", fieldKey)
+			}
+			rowPlan.Cells = append(rowPlan.Cells, clipboardPasteCell{FieldKey: fieldKey, Value: rawValue, Change: change})
+		}
+		for columnIndex := len(timelineV2ExactHeaderFieldKeys); columnIndex < len(values); columnIndex++ {
+			rowPlan.Unknown = append(rowPlan.Unknown, ClipboardRawImportColumn{
+				SourceKind:          request.sourceKind(),
+				PasteClientTxnID:    request.ClientTxnID,
+				SourceRowOrdinal:    rowIndex + 1,
+				SourceColumnOrdinal: columnIndex + 1,
+				SourceHeaderText:    nil,
+				RawValue:            values[columnIndex],
+			})
+		}
+		plan.Rows = append(plan.Rows, rowPlan)
+	}
+	return plan, true, nil
+}
+
+func isTimelineV2ExactHeader(row []string) bool {
+	if len(row) != len(timelineV2ExactHeaderLabels) {
+		return false
+	}
+	for index, label := range timelineV2ExactHeaderLabels {
+		if row[index] != label {
+			return false
+		}
+	}
+	return true
+}
+
 func (request ClipboardPasteRequest) sourceKind() string {
 	if strings.TrimSpace(request.SourceKind) != "" {
 		return request.SourceKind
@@ -279,22 +361,14 @@ func clipboardValueToPatchChange(fieldKey string, rawValue string) (PatchChange,
 		change.CanonicalAny = canonicalCollectionActionPayload(payload)
 		return change, true
 	}
-	switch fieldKey {
-	case "timeline.occurred_at":
-		value, ok := normalizeNullableTimestampValue(rawJSON)
-		if !ok {
-			return PatchChange{}, false
-		}
-		change.OccurredAt = value
-	case "timeline.summary", "timeline.details", "timeline.source_text":
-		value, ok := normalizeFieldTextValue(fieldKey, rawJSON)
-		if !ok {
-			return PatchChange{}, false
-		}
-		change.TextValue = value
-	default:
+	if _, ok := directWritableFieldKeys[fieldKey]; !ok {
 		return PatchChange{}, false
 	}
+	value, ok := normalizeFieldTextValue(fieldKey, rawJSON)
+	if !ok {
+		return PatchChange{}, false
+	}
+	change.TextValue = value
 	change.CanonicalAny = canonicalChangeValue(change)
 	return change, true
 }

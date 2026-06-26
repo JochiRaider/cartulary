@@ -69,7 +69,8 @@ test("Phase 10 E-10-02 restore recovers workbook surface and executes a built-in
     };
     expect(
       query.data.rows.some(
-        (row) => row.cells["timeline.summary"]?.value === summary,
+        (row) =>
+          row.cells["timeline.activity_synopsis_text"]?.value === summary,
       ),
     ).toBe(true);
   } finally {

@@ -304,10 +304,7 @@ export function filterInputMode(fieldKey: string): FilterInputMode {
   ) {
     return "boolean";
   }
-  if (
-    fieldKey === "timeline.occurred_day" ||
-    fieldKey === "timeline.recorded_day"
-  ) {
+  if (fieldKey === "timeline.date_entered_sort_day") {
     return "date";
   }
   if (

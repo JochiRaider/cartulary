@@ -15,6 +15,7 @@ The current product contract remains centered on workbook-native coordination su
 
 Use the standardized workbook-native surfaces below as the durable coordination layer:
 
+- `cartulary.view.timeline.v2` for Timeline operational capture, including date entered, analyst, MITRE source text, device/object source text, IP address source text, UTC/local activity text, raw activity, activity synopsis, and data source source text.
 - `cartulary.view.task_requests.v1` for Task Requests, including ownership, status, priority, workstream, due tracking, blocked work, and follow-through.
 - `cartulary.view.decisions.v1` for Decisions, including owner, status, rationale, review state, and supersession.
 - `cartulary.view.comm_log.v1` for Communications Logs, including audience, channel or meeting context, summary, referenced decisions, and action follow-up.
@@ -31,6 +32,7 @@ Recommended routine:
 - Review unowned, blocked, stale, or overdue task-request rows at least once per shift or once per working day.
 - Review unresolved mentions, duplicate-looking rows, timeline gaps, and incomplete evidence links before each status point.
 - Keep timeline rows compact and queryable. Put long analyst narrative, excerpts, and exploratory notes in the companion findings document instead of overloading timeline cells.
+- Treat RAW Activity and the other Timeline operational cells as preserved source text. Use inspector links, suggestions, tags, evidence, and canonical entity records for structure rather than changing source strings to make the row look cleaner.
 - Prefer linking to existing task, decision, party, and evidence records over repeating the same information in free text.
 - Treat `next_report_at`, `next_checks`, and similar forward-looking fields as coordination prompts, not as substitutes for team judgment.
 

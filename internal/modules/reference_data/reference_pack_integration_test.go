@@ -607,8 +607,8 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ph
 	hostID := hostData["row"].(map[string]any)["record_id"].(string)
 
 	timelineData := phase2test.CreateTimelineRow(t, harness.Server, login, incidentID, map[string]any{
-		"client_txn_id":    "txn-rp-degrade-" + suffix + "-timeline",
-		"timeline.summary": "Reference Pack degradation timeline " + suffix,
+		"client_txn_id":                   "txn-rp-degrade-" + suffix + "-timeline",
+		"timeline.activity_synopsis_text": "Reference Pack degradation timeline " + suffix,
 		"timeline.host_refs": collectionActions(
 			addResolvedRefAction("rp-"+suffix+"-host", hostID),
 		),
@@ -623,7 +623,7 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ph
 		"base_row_version": timelineVersion,
 		"client_txn_id":    "txn-rp-degrade-" + suffix + "-timeline-edit",
 		"changes": []map[string]any{{
-			"field_key": "timeline.details",
+			"field_key": "timeline.raw_activity_text",
 			"value":     "Core edit while optional Reference Pack is " + suffix,
 		}},
 	}, csrfOptions(login)...)

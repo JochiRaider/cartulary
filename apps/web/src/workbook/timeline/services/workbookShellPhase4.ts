@@ -1,6 +1,6 @@
 import type { RelationshipFieldKey } from "../models/workbookMentionChips";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 export type RecordChangedPayload = {
   record_id: string;

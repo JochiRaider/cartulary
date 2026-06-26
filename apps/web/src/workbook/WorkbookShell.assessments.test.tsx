@@ -31,7 +31,7 @@ import {
 const assessmentsViewSchemaId = "cartulary.view.assessments.v1";
 const hostsViewSchemaId = "cartulary.view.hosts.v1";
 const identitiesViewSchemaId = "cartulary.view.identities.v1";
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 describe("Assessment workbook surface", () => {
   let fetchMock: ReturnType<typeof vi.fn>;

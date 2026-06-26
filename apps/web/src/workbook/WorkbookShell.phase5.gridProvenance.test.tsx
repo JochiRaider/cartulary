@@ -143,10 +143,9 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       ],
       [timelineViewSchemaId]: [
         fullWorkbookViewRow(timelineContract, "timeline-1", 6, {
-          "timeline.occurred_at": "2026-04-24T15:00:00.000Z",
-          "timeline.summary": "Gateway login by analyst",
-          "timeline.details": "",
-          "timeline.source_text": "VPN Gateway login by Analyst Alex",
+          "timeline.activity_utc_text": "2026-04-24T15:00:00.000Z",
+          "timeline.activity_synopsis_text": "Gateway login by analyst",
+          "timeline.raw_activity_text": "VPN Gateway login by Analyst Alex",
           "timeline.host_refs": {
             kind: "collection_value_v1",
             ordered: true,
@@ -216,11 +215,10 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
           "timeline.attached_evidence_ids": collectionValue(),
           "timeline.edited_at": "2026-04-24T15:05:00.000Z",
           "timeline.recorded_at": "2026-04-24T15:00:00.000Z",
-          "timeline.sort_ts": "2026-04-24T15:00:00.000Z",
+          "timeline.activity_sort_ts": "2026-04-24T15:00:00.000Z",
           "timeline.capture_state": "rough",
           "timeline.replacement_record_id": null,
-          "timeline.occurred_day": "2026-04-24",
-          "timeline.recorded_day": "2026-04-24",
+          "timeline.date_entered_sort_day": "2026-04-24",
           "timeline.has_evidence": false,
           "timeline.has_unresolved_mentions": false,
         }),

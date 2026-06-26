@@ -16,39 +16,52 @@ import (
 const autoResolutionMethod = "auto_match"
 
 type timelineSourceRecord struct {
-	RecordID           uuid.UUID
-	IncidentID         uuid.UUID
-	OccurredAt         *time.Time
-	Summary            *string
-	Details            *string
-	SourceText         *string
-	CaptureState       string
-	RowVersion         int64
-	RecordedAt         time.Time
-	EditedAt           time.Time
-	CreatedByUserID    uuid.UUID
-	UpdatedByUserID    uuid.UUID
-	ReviewedByUserID   *uuid.UUID
-	ReviewedAt         *time.Time
-	SupersededByUserID *uuid.UUID
-	SupersededAt       *time.Time
+	RecordID              uuid.UUID
+	IncidentID            uuid.UUID
+	DateEnteredText       *string
+	AnalystText           *string
+	MitreStageText        *string
+	DeviceObjectText      *string
+	IPAddressText         *string
+	ActivityUTCText       *string
+	ActivityLocalText     *string
+	RawActivityText       *string
+	ActivitySynopsisText  *string
+	DataSourceText        *string
+	ActivityTimePairState string
+	CaptureState          string
+	RowVersion            int64
+	RecordedAt            time.Time
+	EditedAt              time.Time
+	CreatedByUserID       uuid.UUID
+	UpdatedByUserID       uuid.UUID
+	ReviewedByUserID      *uuid.UUID
+	ReviewedAt            *time.Time
+	SupersededByUserID    *uuid.UUID
+	SupersededAt          *time.Time
 }
 
 type timelineProjectedRecord struct {
 	RecordID              uuid.UUID
 	IncidentID            uuid.UUID
 	RowVersion            int64
-	OccurredAt            *time.Time
-	Summary               *string
-	Details               *string
-	SourceText            *string
+	DateEnteredText       *string
+	AnalystText           *string
+	MitreStageText        *string
+	DeviceObjectText      *string
+	IPAddressText         *string
+	ActivityUTCText       *string
+	ActivityLocalText     *string
+	RawActivityText       *string
+	ActivitySynopsisText  *string
+	DataSourceText        *string
 	RecordedAt            time.Time
 	EditedAt              time.Time
-	SortTS                time.Time
+	ActivitySortTS        *time.Time
+	DateEnteredSortDay    *time.Time
+	ActivityTimePairState string
 	CaptureState          string
 	ReplacementRecordID   *uuid.UUID
-	OccurredDay           *time.Time
-	RecordedDay           time.Time
 	EvidenceCount         int
 	HasEvidence           bool
 	HasUnresolvedMentions bool
@@ -77,10 +90,17 @@ func loadTimelineSourceRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UU
 SELECT
     e.record_id,
     e.incident_id,
-    e.occurred_at,
-    e.summary,
-    e.details,
-    e.source_text,
+    e.date_entered_text,
+    e.analyst_text,
+    e.mitre_stage_text,
+    e.device_object_text,
+    e.ip_address_text,
+    e.activity_utc_text,
+    e.activity_local_text,
+    e.raw_activity_text,
+    e.activity_synopsis_text,
+    e.data_source_text,
+    e.activity_time_pair_state,
     e.capture_state,
     r.row_version,
     e.recorded_at,
@@ -101,10 +121,17 @@ SELECT
 	if err := row.Scan(
 		&record.RecordID,
 		&record.IncidentID,
-		&record.OccurredAt,
-		&record.Summary,
-		&record.Details,
-		&record.SourceText,
+		&record.DateEnteredText,
+		&record.AnalystText,
+		&record.MitreStageText,
+		&record.DeviceObjectText,
+		&record.IPAddressText,
+		&record.ActivityUTCText,
+		&record.ActivityLocalText,
+		&record.RawActivityText,
+		&record.ActivitySynopsisText,
+		&record.DataSourceText,
+		&record.ActivityTimePairState,
 		&record.CaptureState,
 		&record.RowVersion,
 		&record.RecordedAt,
@@ -123,40 +150,33 @@ SELECT
 	}
 	record.RecordedAt = record.RecordedAt.UTC()
 	record.EditedAt = record.EditedAt.UTC()
-	record.OccurredAt = normalizeTimePointer(record.OccurredAt)
 	record.ReviewedAt = normalizeTimePointer(record.ReviewedAt)
 	record.SupersededAt = normalizeTimePointer(record.SupersededAt)
 	return record, nil
 }
 
 func projectTimelineRecord(record timelineSourceRecord, replacementRecordID *uuid.UUID) timelineProjectedRecord {
-	sortTS := record.RecordedAt.UTC()
-	if record.OccurredAt != nil {
-		sortTS = record.OccurredAt.UTC()
-	}
-
-	var occurredDay *time.Time
-	if record.OccurredAt != nil {
-		day := time.Date(record.OccurredAt.UTC().Year(), record.OccurredAt.UTC().Month(), record.OccurredAt.UTC().Day(), 0, 0, 0, 0, time.UTC)
-		occurredDay = &day
-	}
-	recordedDay := time.Date(record.RecordedAt.UTC().Year(), record.RecordedAt.UTC().Month(), record.RecordedAt.UTC().Day(), 0, 0, 0, 0, time.UTC)
-
 	return timelineProjectedRecord{
 		RecordID:              record.RecordID,
 		IncidentID:            record.IncidentID,
 		RowVersion:            record.RowVersion,
-		OccurredAt:            normalizeTimePointer(record.OccurredAt),
-		Summary:               cloneStringPointer(record.Summary),
-		Details:               cloneStringPointer(record.Details),
-		SourceText:            cloneStringPointer(record.SourceText),
+		DateEnteredText:       cloneStringPointer(record.DateEnteredText),
+		AnalystText:           cloneStringPointer(record.AnalystText),
+		MitreStageText:        cloneStringPointer(record.MitreStageText),
+		DeviceObjectText:      cloneStringPointer(record.DeviceObjectText),
+		IPAddressText:         cloneStringPointer(record.IPAddressText),
+		ActivityUTCText:       cloneStringPointer(record.ActivityUTCText),
+		ActivityLocalText:     cloneStringPointer(record.ActivityLocalText),
+		RawActivityText:       cloneStringPointer(record.RawActivityText),
+		ActivitySynopsisText:  cloneStringPointer(record.ActivitySynopsisText),
+		DataSourceText:        cloneStringPointer(record.DataSourceText),
 		RecordedAt:            record.RecordedAt.UTC(),
 		EditedAt:              record.EditedAt.UTC(),
-		SortTS:                sortTS,
+		ActivitySortTS:        deriveTimelineActivitySortTS(record.ActivityUTCText, record.ActivityLocalText),
+		DateEnteredSortDay:    deriveTimelineDateEnteredSortDay(record.DateEnteredText),
+		ActivityTimePairState: record.ActivityTimePairState,
 		CaptureState:          record.CaptureState,
 		ReplacementRecordID:   replacementRecordID,
-		OccurredDay:           occurredDay,
-		RecordedDay:           recordedDay,
 		EvidenceCount:         0,
 		HasEvidence:           false,
 		HasUnresolvedMentions: false,
@@ -314,23 +334,29 @@ SELECT record_tag_id, tag_name
 
 func buildTimelineRow(record timelineProjectedRecord) map[string]any {
 	cells := map[string]any{
-		"timeline.occurred_at":             map[string]any{"value": formatTimestampPointer(record.OccurredAt)},
-		"timeline.summary":                 map[string]any{"value": derefString(record.Summary)},
-		"timeline.details":                 map[string]any{"value": derefString(record.Details)},
-		"timeline.source_text":             map[string]any{"value": derefString(record.SourceText)},
-		"timeline.host_refs":               map[string]any{"value": collectionValue(true, record.HostRefs)},
-		"timeline.identity_refs":           map[string]any{"value": collectionValue(true, record.IdentityRefs)},
-		"timeline.evidence_count":          map[string]any{"value": record.EvidenceCount},
-		"timeline.tags":                    map[string]any{"value": collectionValue(false, record.Tags)},
-		"timeline.edited_at":               map[string]any{"value": formatTimestamp(record.EditedAt)},
-		"timeline.recorded_at":             map[string]any{"value": formatTimestamp(record.RecordedAt)},
-		"timeline.sort_ts":                 map[string]any{"value": formatTimestamp(record.SortTS)},
-		"timeline.capture_state":           map[string]any{"value": record.CaptureState},
-		"timeline.replacement_record_id":   map[string]any{"value": formatUUIDPointer(record.ReplacementRecordID)},
-		"timeline.occurred_day":            map[string]any{"value": formatDatePointer(record.OccurredDay)},
-		"timeline.recorded_day":            map[string]any{"value": formatDate(record.RecordedDay)},
-		"timeline.has_evidence":            map[string]any{"value": record.HasEvidence},
-		"timeline.has_unresolved_mentions": map[string]any{"value": record.HasUnresolvedMentions},
+		"timeline.date_entered_text":        map[string]any{"value": derefString(record.DateEnteredText)},
+		"timeline.analyst_text":             map[string]any{"value": derefString(record.AnalystText)},
+		"timeline.mitre_stage_text":         map[string]any{"value": derefString(record.MitreStageText)},
+		"timeline.device_object_text":       map[string]any{"value": derefString(record.DeviceObjectText)},
+		"timeline.ip_address_text":          map[string]any{"value": derefString(record.IPAddressText)},
+		"timeline.activity_utc_text":        map[string]any{"value": derefString(record.ActivityUTCText)},
+		"timeline.activity_local_text":      map[string]any{"value": derefString(record.ActivityLocalText)},
+		"timeline.raw_activity_text":        map[string]any{"value": derefString(record.RawActivityText)},
+		"timeline.activity_synopsis_text":   map[string]any{"value": derefString(record.ActivitySynopsisText)},
+		"timeline.data_source_text":         map[string]any{"value": derefString(record.DataSourceText)},
+		"timeline.host_refs":                map[string]any{"value": collectionValue(true, record.HostRefs)},
+		"timeline.identity_refs":            map[string]any{"value": collectionValue(true, record.IdentityRefs)},
+		"timeline.evidence_count":           map[string]any{"value": record.EvidenceCount},
+		"timeline.tags":                     map[string]any{"value": collectionValue(false, record.Tags)},
+		"timeline.edited_at":                map[string]any{"value": formatTimestamp(record.EditedAt)},
+		"timeline.recorded_at":              map[string]any{"value": formatTimestamp(record.RecordedAt)},
+		"timeline.activity_sort_ts":         map[string]any{"value": formatTimestampPointer(record.ActivitySortTS)},
+		"timeline.date_entered_sort_day":    map[string]any{"value": formatDatePointer(record.DateEnteredSortDay)},
+		"timeline.activity_time_pair_state": map[string]any{"value": record.ActivityTimePairState},
+		"timeline.capture_state":            map[string]any{"value": record.CaptureState},
+		"timeline.replacement_record_id":    map[string]any{"value": formatUUIDPointer(record.ReplacementRecordID)},
+		"timeline.has_evidence":             map[string]any{"value": record.HasEvidence},
+		"timeline.has_unresolved_mentions":  map[string]any{"value": record.HasUnresolvedMentions},
 	}
 
 	row := map[string]any{
@@ -339,11 +365,11 @@ func buildTimelineRow(record timelineProjectedRecord) map[string]any {
 		"cells":       cells,
 	}
 	row["group_values"] = map[string]any{
-		"timeline.occurred_day":            formatDatePointer(record.OccurredDay),
-		"timeline.recorded_day":            formatDate(record.RecordedDay),
-		"timeline.capture_state":           record.CaptureState,
-		"timeline.has_evidence":            record.HasEvidence,
-		"timeline.has_unresolved_mentions": record.HasUnresolvedMentions,
+		"timeline.date_entered_sort_day":    formatDatePointer(record.DateEnteredSortDay),
+		"timeline.activity_time_pair_state": record.ActivityTimePairState,
+		"timeline.capture_state":            record.CaptureState,
+		"timeline.has_evidence":             record.HasEvidence,
+		"timeline.has_unresolved_mentions":  record.HasUnresolvedMentions,
 	}
 	return row
 }
@@ -356,15 +382,64 @@ func normalizeTimePointer(value *time.Time) *time.Time {
 	return &utc
 }
 
-func formatDate(value time.Time) string {
-	return value.UTC().Format("2006-01-02")
-}
-
 func formatDatePointer(value *time.Time) any {
 	if value == nil {
 		return nil
 	}
 	return value.UTC().Format("2006-01-02")
+}
+
+func deriveTimelineActivitySortTS(utcText *string, localText *string) *time.Time {
+	if parsed := parseTimelineUTCText(utcText); parsed != nil {
+		return parsed
+	}
+	if parsed := parseTimelineLocalText(localText); parsed != nil {
+		return parsed
+	}
+	return nil
+}
+
+func deriveTimelineDateEnteredSortDay(text *string) *time.Time {
+	if text == nil || *text == "" {
+		return nil
+	}
+	if parsed, err := time.Parse("2006-01-02", *text); err == nil {
+		day := time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, time.UTC)
+		return &day
+	}
+	if parsed := parseTimelineUTCText(text); parsed != nil {
+		day := time.Date(parsed.UTC().Year(), parsed.UTC().Month(), parsed.UTC().Day(), 0, 0, 0, 0, time.UTC)
+		return &day
+	}
+	if parsed := parseTimelineLocalText(text); parsed != nil {
+		day := time.Date(parsed.UTC().Year(), parsed.UTC().Month(), parsed.UTC().Day(), 0, 0, 0, 0, time.UTC)
+		return &day
+	}
+	return nil
+}
+
+func parseTimelineUTCText(text *string) *time.Time {
+	if text == nil || *text == "" {
+		return nil
+	}
+	parsed, err := time.Parse("2006-01-02T15:04:05Z", *text)
+	if err != nil {
+		return nil
+	}
+	utc := parsed.UTC()
+	return &utc
+}
+
+func parseTimelineLocalText(text *string) *time.Time {
+	if text == nil || *text == "" {
+		return nil
+	}
+	parsed, err := time.Parse("2006-01-02T15:04:05-07:00", *text)
+	if err != nil {
+		return nil
+	}
+	utc := parsed.UTC()
+	return &utc
 }
 
 func formatUUIDPointer(value *uuid.UUID) any {

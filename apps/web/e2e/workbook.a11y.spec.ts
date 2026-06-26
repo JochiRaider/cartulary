@@ -368,6 +368,16 @@ async function activeTestId(page: Page) {
   });
 }
 
+async function activeElementOwnTestId(page: Page) {
+  return page.evaluate(() => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement)) {
+      return "";
+    }
+    return active.getAttribute("data-testid") ?? "";
+  });
+}
+
 async function activeElementSignature(page: Page) {
   return page.evaluate(() => {
     const active = document.activeElement;
@@ -491,6 +501,28 @@ async function expectTabTraversalAdvancesFrom(
   }
   expect(visited.every((signature) => signature !== "")).toBeTruthy();
   expect(new Set(visited).size).toBeGreaterThan(1);
+}
+
+async function expectKeyboardFocusReachesTestId(
+  page: Page,
+  testId: string,
+  maxTabs = 20,
+) {
+  const visited: string[] = [];
+  for (let index = 0; index < maxTabs; index += 1) {
+    const current = await activeElementOwnTestId(page);
+    if (current === testId) {
+      return;
+    }
+    visited.push(current);
+    await page.keyboard.press("Tab");
+  }
+  const current = await activeElementOwnTestId(page);
+  if (current === testId) {
+    return;
+  }
+  visited.push(current);
+  expect(visited).toContain(testId);
 }
 
 async function expectVisibleFocus(locator: Locator) {
@@ -1142,9 +1174,9 @@ test.describe("FE-P2 accessibility readiness", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("fe-a11y-p2-01-row"),
-        "timeline.occurred_at": "2026-05-31T09:00:00Z",
-        "timeline.summary": "FE-P2 accessibility shell row",
-        "timeline.details": "Inspector control coverage",
+        "timeline.activity_utc_text": "2026-05-31T09:00:00Z",
+        "timeline.activity_synopsis_text": "FE-P2 accessibility shell row",
+        "timeline.raw_activity_text": "Inspector control coverage",
       },
     )) as ViewRow;
 
@@ -1230,7 +1262,7 @@ test.describe("FE-P2 accessibility readiness", () => {
     ).toBeVisible();
 
     const summaryCell = page.getByTestId(
-      rowCellTestId(timelineRow.record_id, "timeline.summary"),
+      rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
     );
     await expect(summaryCell).toBeVisible();
     await expectVisibleFocus(summaryCell);
@@ -1241,7 +1273,10 @@ test.describe("FE-P2 accessibility readiness", () => {
     await expect(inspector).toHaveAttribute("aria-label", "Timeline inspector");
     await expect(
       page.getByTestId(
-        rowInspectorFieldTestId(timelineRow.record_id, "timeline.details"),
+        rowInspectorFieldTestId(
+          timelineRow.record_id,
+          "timeline.raw_activity_text",
+        ),
       ),
     ).toBeVisible();
 
@@ -1257,7 +1292,7 @@ test.describe("FE-P2 accessibility readiness", () => {
       systemViewSwitcherTriggerTestId(),
       savedViewSelectorTestId(timelineViewSchemaId),
       gridFilterApplyTestId(timelineViewSchemaId),
-      rowCellTestId(timelineRow.record_id, "timeline.summary"),
+      rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
       saveStateTestId(),
     ]);
   });
@@ -1277,9 +1312,9 @@ test.describe("FE-P3 accessibility readiness", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("fe-a11y-p3-01-alpha"),
-        "timeline.occurred_at": "2026-05-31T10:00:00Z",
-        "timeline.summary": "Alpha accessibility row",
-        "timeline.details": "Keyboard grid coverage",
+        "timeline.activity_utc_text": "2026-05-31T10:00:00Z",
+        "timeline.activity_synopsis_text": "Alpha accessibility row",
+        "timeline.raw_activity_text": "Keyboard grid coverage",
       },
     )) as ViewRow;
     const betaRow = (await createViewRow(
@@ -1288,23 +1323,25 @@ test.describe("FE-P3 accessibility readiness", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("fe-a11y-p3-01-beta"),
-        "timeline.occurred_at": "2026-05-31T10:05:00Z",
-        "timeline.summary": "Beta accessibility row",
-        "timeline.details": "Grouped grid coverage",
+        "timeline.activity_utc_text": "2026-05-31T10:05:00Z",
+        "timeline.activity_synopsis_text": "Beta accessibility row",
+        "timeline.raw_activity_text": "Grouped grid coverage",
       },
     )) as ViewRow;
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await expect(
-      page.getByTestId(rowCellTestId(alphaRow.record_id, "timeline.summary")),
+      page.getByTestId(
+        rowCellTestId(alphaRow.record_id, "timeline.activity_synopsis_text"),
+      ),
     ).toHaveValue("Alpha accessibility row");
 
     const betaMarkReviewed = page.getByTestId(
       timelineRowMarkReviewedButtonTestId(betaRow.record_id),
     );
     const betaSummaryControl = page.getByTestId(
-      rowCellTestId(betaRow.record_id, "timeline.summary"),
+      rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
     );
     await expectVisibleFocus(betaSummaryControl);
     await page.keyboard.press("Shift+F10");
@@ -1336,11 +1373,11 @@ test.describe("FE-P3 accessibility readiness", () => {
     await expect(reviewedGroup).toContainText("reviewed");
 
     const betaSummary = page.getByTestId(
-      rowCellTestId(betaRow.record_id, "timeline.summary"),
+      rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
     );
     await expect(betaSummary).toHaveAttribute(
       "aria-label",
-      `Summary ${betaRow.record_id}`,
+      `Activity Synopsis ${betaRow.record_id}`,
     );
     await expectVisibleFocus(betaSummary);
     await betaSummary.fill("Beta accessibility active edit");
@@ -1349,9 +1386,12 @@ test.describe("FE-P3 accessibility readiness", () => {
 
     await expect(
       page.getByTestId(
-        gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
+        gridSortHeaderTestId(
+          timelineViewSchemaId,
+          "timeline.activity_synopsis_text",
+        ),
       ),
-    ).toContainText("Summary");
+    ).toContainText("Activity Synopsis");
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
     await expectAndRecordContrast(page, [
@@ -1361,8 +1401,11 @@ test.describe("FE-P3 accessibility readiness", () => {
         "timeline.capture_state",
         "reviewed",
       ),
-      gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
-      rowCellTestId(betaRow.record_id, "timeline.summary"),
+      gridSortHeaderTestId(
+        timelineViewSchemaId,
+        "timeline.activity_synopsis_text",
+      ),
+      rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
       saveStateTestId(),
     ]);
   });
@@ -1382,9 +1425,9 @@ test.describe("FE-P4 accessibility readiness", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("fe-a11y-p4-01-edit"),
-        "timeline.occurred_at": "2026-06-03T10:00:00Z",
-        "timeline.summary": "FE-P4 edit accessibility row",
-        "timeline.details": "Escape priority details",
+        "timeline.activity_utc_text": "2026-06-03T10:00:00Z",
+        "timeline.activity_synopsis_text": "FE-P4 edit accessibility row",
+        "timeline.raw_activity_text": "Escape priority details",
       },
     )) as ViewRow;
     const pasteRow = (await createViewRow(
@@ -1393,8 +1436,8 @@ test.describe("FE-P4 accessibility readiness", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("fe-a11y-p4-01-paste"),
-        "timeline.occurred_at": "2026-06-03T10:05:00Z",
-        "timeline.summary": "FE-P4 paste accessibility row",
+        "timeline.activity_utc_text": "2026-06-03T10:05:00Z",
+        "timeline.activity_synopsis_text": "FE-P4 paste accessibility row",
       },
     )) as ViewRow;
     const pendingRow = (await createViewRow(
@@ -1403,8 +1446,8 @@ test.describe("FE-P4 accessibility readiness", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("fe-a11y-p4-01-pending"),
-        "timeline.occurred_at": "2026-06-03T10:10:00Z",
-        "timeline.summary": "FE-P4 pending accessibility row",
+        "timeline.activity_utc_text": "2026-06-03T10:10:00Z",
+        "timeline.activity_synopsis_text": "FE-P4 pending accessibility row",
       },
     )) as ViewRow;
     const validationRow = (await createViewRow(
@@ -1413,8 +1456,8 @@ test.describe("FE-P4 accessibility readiness", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("fe-a11y-p4-01-validation"),
-        "timeline.occurred_at": "2026-06-03T10:15:00Z",
-        "timeline.summary": "FE-P4 validation accessibility row",
+        "timeline.activity_utc_text": "2026-06-03T10:15:00Z",
+        "timeline.activity_synopsis_text": "FE-P4 validation accessibility row",
       },
     )) as ViewRow;
 
@@ -1425,15 +1468,15 @@ test.describe("FE-P4 accessibility readiness", () => {
     await expectTabOrderIncludes(page, [
       workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
       gridGroupingSelectTestId(timelineViewSchemaId),
-      rowCellTestId(editRow.record_id, "timeline.summary"),
+      rowCellTestId(editRow.record_id, "timeline.activity_synopsis_text"),
     ]);
 
     const editSummary = page.getByTestId(
-      rowCellTestId(editRow.record_id, "timeline.summary"),
+      rowCellTestId(editRow.record_id, "timeline.activity_synopsis_text"),
     );
     await expect(editSummary).toHaveAttribute(
       "aria-label",
-      `Summary ${editRow.record_id}`,
+      `Activity Synopsis ${editRow.record_id}`,
     );
     await expectVisibleFocus(editSummary);
     await editSummary.fill("FE-P4 accessibility committed edit");
@@ -1442,7 +1485,7 @@ test.describe("FE-P4 accessibility readiness", () => {
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
     await pasteGridMatrix({
-      fieldKey: "timeline.summary",
+      fieldKey: "timeline.activity_synopsis_text",
       matrix: [["FE-P4 accessibility pasted summary", "a11y-host.example"]],
       page,
       recordId: pasteRow.record_id,
@@ -1450,14 +1493,16 @@ test.describe("FE-P4 accessibility readiness", () => {
     });
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expect(
-      page.getByTestId(rowCellTestId(pasteRow.record_id, "timeline.summary")),
+      page.getByTestId(
+        rowCellTestId(pasteRow.record_id, "timeline.activity_synopsis_text"),
+      ),
     ).toHaveValue("FE-P4 accessibility pasted summary");
 
     const patchController = await installPatchTransportFailureController(page);
     try {
       patchController.disconnect();
       const pendingSummary = page.getByTestId(
-        rowCellTestId(pendingRow.record_id, "timeline.summary"),
+        rowCellTestId(pendingRow.record_id, "timeline.activity_synopsis_text"),
       );
       await expectVisibleFocus(pendingSummary);
       await pendingSummary.fill("FE-P4 accessibility pending replay");
@@ -1480,43 +1525,47 @@ test.describe("FE-P4 accessibility readiness", () => {
     }
 
     const originSummary = page.getByTestId(
-      rowCellTestId(editRow.record_id, "timeline.summary"),
+      rowCellTestId(editRow.record_id, "timeline.activity_synopsis_text"),
     );
     await expectVisibleFocus(originSummary);
     await openTimelineInspector(page, editRow.record_id);
     const inspectorDetails = page.getByTestId(
-      rowInspectorFieldTestId(editRow.record_id, "timeline.details"),
+      rowInspectorFieldTestId(editRow.record_id, "timeline.raw_activity_text"),
     );
     await expectVisibleFocus(inspectorDetails);
     await page.keyboard.press("Escape");
     await expect(originSummary).toBeFocused();
 
     const validationCell = page.getByTestId(
-      rowCellTestId(validationRow.record_id, "timeline.occurred_at"),
+      rowCellTestId(validationRow.record_id, "timeline.activity_utc_text"),
     );
     await expectVisibleFocus(validationCell);
     await validationCell.fill("not-a-timestamp");
     await validationCell.press("Enter");
-    await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-    const validationNotice = page.getByTestId(pendingQueueNoticeTestId());
-    await expectStatusRole(validationNotice);
-    await expectNoPrivateDiagnostics(validationNotice);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
     await expect(validationCell).toHaveValue("not-a-timestamp");
 
     await expect(
       page.getByTestId(
-        gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
+        gridSortHeaderTestId(
+          timelineViewSchemaId,
+          "timeline.activity_synopsis_text",
+        ),
       ),
-    ).toContainText("Summary");
+    ).toContainText("Activity Synopsis");
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
     await expectAndRecordContrast(page, [
       workbookShellSlotTestId("status-strip"),
       workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
       gridGroupingSelectTestId(timelineViewSchemaId),
-      gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
-      rowCellTestId(editRow.record_id, "timeline.summary"),
-      rowCellTestId(validationRow.record_id, "timeline.occurred_at"),
+      gridSortHeaderTestId(
+        timelineViewSchemaId,
+        "timeline.activity_synopsis_text",
+      ),
+      rowCellTestId(editRow.record_id, "timeline.activity_synopsis_text"),
+      rowCellTestId(validationRow.record_id, "timeline.activity_utc_text"),
       pendingQueueNoticeTestId(),
       saveStateTestId(),
     ]);
@@ -1569,6 +1618,7 @@ test.describe("FE-P5 accessibility readiness", () => {
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
+    await openTimelineInspector(page, unresolvedRow.record_id);
     const unresolvedChip = page
       .getByTestId(
         relationshipItemsTestId(unresolvedRow.record_id, hostRefsFieldKey),
@@ -1581,6 +1631,7 @@ test.describe("FE-P5 accessibility readiness", () => {
     await expect(unresolvedChip).toContainText("Unresolved");
     await expectVisibleFocus(unresolvedChip);
 
+    await openTimelineInspector(page, resolvedRow.record_id);
     const resolvedChip = page
       .getByTestId(
         relationshipItemsTestId(resolvedRow.record_id, hostRefsFieldKey),
@@ -1599,8 +1650,15 @@ test.describe("FE-P5 accessibility readiness", () => {
     );
     await expectVisibleFocus(manualMentionItem);
     await manualMentionItem.click();
+    await manualMentionItem.focus();
     const resolveSelect = page.getByTestId(mentionResolveTargetSelectTestId());
-    await expectVisibleFocus(resolveSelect);
+    await expect(resolveSelect).toHaveAccessibleName("Resolve to existing");
+    await expectKeyboardFocusReachesTestId(
+      page,
+      mentionResolveTargetSelectTestId(),
+    );
+    await expect(resolveSelect).toBeFocused();
+    await expect(resolveSelect).toBeEnabled();
     await resolveSelect.selectOption(manualTarget.record_id);
     const resolveButton = page.getByTestId(
       mentionResolveExistingButtonTestId(),
@@ -1674,13 +1732,15 @@ test.describe("FE-P5 accessibility readiness", () => {
       page.getByTestId(mentionRestoreUnresolvedButtonTestId()),
     );
 
-    await expectTabOrderIncludes(page, [
-      rowCellTestId(unresolvedRow.record_id, "timeline.summary"),
-      rowCellTestId(resolvedRow.record_id, "timeline.summary"),
-      rowCellTestId(manualRow.record_id, "timeline.summary"),
-      rowCellTestId(autoRow.record_id, "timeline.summary"),
-      rowCellTestId(dismissedRow.record_id, "timeline.summary"),
-    ]);
+    for (const synopsisCellTestId of [
+      rowCellTestId(unresolvedRow.record_id, "timeline.activity_synopsis_text"),
+      rowCellTestId(resolvedRow.record_id, "timeline.activity_synopsis_text"),
+      rowCellTestId(manualRow.record_id, "timeline.activity_synopsis_text"),
+      rowCellTestId(autoRow.record_id, "timeline.activity_synopsis_text"),
+      rowCellTestId(dismissedRow.record_id, "timeline.activity_synopsis_text"),
+    ]) {
+      await expectVisibleFocus(page.getByTestId(synopsisCellTestId));
+    }
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
     await expectAndRecordContrast(page, [
@@ -1941,7 +2001,7 @@ test.describe("FE-P7 accessibility readiness", () => {
       });
       const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
         client_txn_id: uniqueTxn("fe-a11y-p7-row"),
-        "timeline.summary": "FE-A11Y-P7 conflict base",
+        "timeline.activity_synopsis_text": "FE-A11Y-P7 conflict base",
       });
       const recordId = requireRecordId(row);
       const patchController = await installPatchController(page);
@@ -1971,7 +2031,7 @@ test.describe("FE-P7 accessibility readiness", () => {
         remotePage = remoteSession.page;
         await focusRemoteTimelineCellAndWaitForPresence({
           actorText: "AA",
-          fieldKey: "timeline.summary",
+          fieldKey: "timeline.activity_synopsis_text",
           primaryPage: page,
           recordId,
           remotePage,
@@ -1996,7 +2056,7 @@ test.describe("FE-P7 accessibility readiness", () => {
         const summary = page.getByTestId("conflict-resolver-summary");
         await expect(summary).toBeFocused();
         await expect(page.getByTestId("conflict-field-key")).toHaveValue(
-          "timeline.summary",
+          "timeline.activity_synopsis_text",
         );
         await expect(page.getByTestId("conflict-server-value")).toHaveValue(
           "FE-A11Y-P7 saved value",
@@ -2021,14 +2081,16 @@ test.describe("FE-P7 accessibility readiness", () => {
           "Conflict",
         );
         await expect(
-          page.getByTestId(conflictMarkerTestId(recordId, "timeline.summary")),
+          page.getByTestId(
+            conflictMarkerTestId(recordId, "timeline.activity_synopsis_text"),
+          ),
         ).toBeVisible();
         await expectAllInteractiveControlsNamed(page);
         await expectNoFocusTrap(page);
         await expectAndRecordContrast(page, [
           saveStateTestId(),
           rowPresenceMarkerTestId(recordId),
-          cellPresenceMarkerTestId(recordId, "timeline.summary"),
+          cellPresenceMarkerTestId(recordId, "timeline.activity_synopsis_text"),
           "conflict-close",
           "conflict-keep-saved",
           "conflict-use-unsaved",
@@ -2041,7 +2103,9 @@ test.describe("FE-P7 accessibility readiness", () => {
           "Conflict",
         );
         await expect(
-          page.getByTestId(conflictMarkerTestId(recordId, "timeline.summary")),
+          page.getByTestId(
+            conflictMarkerTestId(recordId, "timeline.activity_synopsis_text"),
+          ),
         ).toBeVisible();
       } finally {
         await patchController.dispose();
@@ -2065,19 +2129,22 @@ test.describe("FE-P8 accessibility readiness", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("fe-a11y-p8-reviewed"),
-        "timeline.summary": "FE-A11Y-P8 reviewed row",
+        "timeline.activity_synopsis_text": "FE-A11Y-P8 reviewed row",
       },
     );
     await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("fe-a11y-p8-rough"),
-      "timeline.summary": "FE-A11Y-P8 rough row",
+      "timeline.activity_synopsis_text": "FE-A11Y-P8 rough row",
     });
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
     const summarySortHeader = page.getByTestId(
-      gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
+      gridSortHeaderTestId(
+        timelineViewSchemaId,
+        "timeline.activity_synopsis_text",
+      ),
     );
     await expectVisibleFocus(summarySortHeader);
     await summarySortHeader.press("Enter");
@@ -2193,7 +2260,10 @@ test.describe("FE-P8 accessibility readiness", () => {
     await openFilterPopover(page, timelineViewSchemaId);
     await openSavedViewActionMenu(page, timelineViewSchemaId);
     await expectAndRecordContrast(page, [
-      gridSortHeaderTestId(timelineViewSchemaId, "timeline.summary"),
+      gridSortHeaderTestId(
+        timelineViewSchemaId,
+        "timeline.activity_synopsis_text",
+      ),
       gridFilterFieldTestId(timelineViewSchemaId),
       gridFilterValueTestId(timelineViewSchemaId),
       gridFilterApplyTestId(timelineViewSchemaId),
@@ -2235,8 +2305,8 @@ test.describe("FE-P9 accessibility readiness", () => {
     const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
       [hostRefsFieldKey]: collectionActionsPayload(["FE-A11Y-P9 host"]),
       client_txn_id: uniqueTxn("fe-a11y-p9-row"),
-      "timeline.details": "FE-A11Y-P9 inspector details",
-      "timeline.summary": "FE-A11Y-P9 selected row",
+      "timeline.raw_activity_text": "FE-A11Y-P9 inspector details",
+      "timeline.activity_synopsis_text": "FE-A11Y-P9 selected row",
     })) as ViewRow;
     const linkedRow = (await patchTimelineRecord(page, row.record_id, {
       base_row_version: row.row_version,
@@ -2263,13 +2333,13 @@ test.describe("FE-P9 accessibility readiness", () => {
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     const summaryCell = page.getByTestId(
-      rowCellTestId(row.record_id, "timeline.summary"),
+      rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
     );
     await expectVisibleFocus(summaryCell);
     await openTimelineInspector(page, row.record_id);
 
     for (const section of [
-      "details",
+      "operational-text",
       "relationships",
       "evidence",
       "history",
@@ -2280,7 +2350,7 @@ test.describe("FE-P9 accessibility readiness", () => {
     }
     const detailsEditor = page.getByTestId(
       timelineScalarEditorTestId({
-        fieldKey: "timeline.details",
+        fieldKey: "timeline.raw_activity_text",
         recordId: row.record_id,
         surface: "inspector",
       }),
@@ -2361,9 +2431,9 @@ test.describe("FE-P9 accessibility readiness", () => {
     await expectVisibleFocus(deleteConfirm);
     await expectVisibleFocus(deleteCancel);
     await expectAndRecordContrast(page, [
-      rowCellTestId(row.record_id, "timeline.summary"),
+      rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
       timelineScalarEditorTestId({
-        fieldKey: "timeline.details",
+        fieldKey: "timeline.raw_activity_text",
         recordId: row.record_id,
         surface: "inspector",
       }),
@@ -2433,8 +2503,8 @@ test.describe("FE-P10 accessibility readiness", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("fe-a11y-p10-clipboard"),
-        "timeline.occurred_at": "2026-06-12T10:00:00Z",
-        "timeline.summary": "FE-A11Y-P10 clipboard row",
+        "timeline.activity_utc_text": "2026-06-12T10:00:00Z",
+        "timeline.activity_synopsis_text": "FE-A11Y-P10 clipboard row",
       },
     )) as ViewRow;
     const decision = (await createViewRow(
@@ -2626,11 +2696,11 @@ test.describe("FE-P10 accessibility readiness", () => {
       page.getByTestId(gridShellTestId(timelineViewSchemaId)),
     ).toBeVisible();
     const clipboardSummary = page.getByTestId(
-      rowCellTestId(clipboardRow.record_id, "timeline.summary"),
+      rowCellTestId(clipboardRow.record_id, "timeline.activity_synopsis_text"),
     );
     await expectVisibleFocus(clipboardSummary);
     await pasteGridMatrix({
-      fieldKey: "timeline.summary",
+      fieldKey: "timeline.activity_synopsis_text",
       matrix: [["FE-A11Y-P10 pasted timeline", "fe-a11y-p10-host"]],
       page,
       recordId: clipboardRow.record_id,

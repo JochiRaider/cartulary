@@ -26,15 +26,15 @@ func TestSupportPhase3Unit_CreateRequestCoverage(t *testing.T) {
 	t.Run("one non-empty value remains valid and normalizes", func(t *testing.T) {
 		request, apiErr := DecodeTimelineCreateRequest(bytes.NewBufferString(`{
 			"client_txn_id": "txn-support-phase3-one-value",
-			"timeline.summary": "  First capture  "
+			"timeline.activity_synopsis_text": "  First capture  "
 		}`))
 		if apiErr != nil {
 			t.Fatalf("expected valid create request, got %#v", apiErr)
 		}
-		if request.Summary == nil {
+		if request.ActivitySynopsisText == nil {
 			t.Fatalf("expected summary value, got %#v", request)
 		}
-		requireWritableStringNormalization(t, *request.Summary, "First capture")
+		requireWritableStringNormalization(t, *request.ActivitySynopsisText, "  First capture  ")
 	})
 
 	t.Run("client-owned system fields fail closed", func(t *testing.T) {
@@ -109,24 +109,24 @@ func TestSupportPhase3Unit_CaptureStateHelpers(t *testing.T) {
 
 func TestSupportPhase3Unit_PatchRequestHashNormalization(t *testing.T) {
 	left, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
-		"view_schema_id": "cartulary.view.timeline.v1",
+		"view_schema_id": "cartulary.view.timeline.v2",
 		"base_row_version": 3,
 		"client_txn_id": "txn-support-phase3-hash",
 		"changes": [
-			{ "field_key": "timeline.summary", "value": "summary" },
-			{ "field_key": "timeline.details", "value": "details" }
+			{ "field_key": "timeline.activity_synopsis_text", "value": "summary" },
+			{ "field_key": "timeline.raw_activity_text", "value": "details" }
 		]
 	}`))
 	if apiErr != nil {
 		t.Fatalf("decode left patch: %#v", apiErr)
 	}
 	right, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
-		"view_schema_id": "cartulary.view.timeline.v1",
+		"view_schema_id": "cartulary.view.timeline.v2",
 		"base_row_version": 3,
 		"client_txn_id": "txn-support-phase3-hash",
 		"changes": [
-			{ "field_key": "timeline.details", "value": "details" },
-			{ "field_key": "timeline.summary", "value": "summary" }
+			{ "field_key": "timeline.raw_activity_text", "value": "details" },
+			{ "field_key": "timeline.activity_synopsis_text", "value": "summary" }
 		]
 	}`))
 	if apiErr != nil {
@@ -142,8 +142,8 @@ func TestSupportPhase3Unit_PatchRequestHashNormalization(t *testing.T) {
 		BaseRowVersion: right.BaseRowVersion,
 		ClientTxnID:    right.ClientTxnID,
 		CanonicalChange: []PatchChange{
-			{FieldKey: "timeline.details", TextValue: &changed},
-			{FieldKey: "timeline.summary", TextValue: right.CanonicalChange[1].TextValue},
+			{FieldKey: "timeline.raw_activity_text", TextValue: &changed},
+			{FieldKey: "timeline.activity_synopsis_text", TextValue: right.CanonicalChange[1].TextValue},
 		},
 	})) {
 		t.Fatal("expected divergent normalized patch request hash to differ")
@@ -163,10 +163,10 @@ func TestSupportPhase3Unit_PayloadBuildersExposeStableShapes(t *testing.T) {
 		RowVersion:          2,
 		RecordedAt:          recordedAt,
 		EditedAt:            recordedAt,
-		SortTs:              recordedAt,
+		ActivitySortTS:      &recordedAt,
 		CaptureState:        captureStateReviewed,
 		ReplacementRecordID: &replacementID,
-		RecordedDay:         recordedAt,
+		DateEnteredSortDay:  &recordedAt,
 	}
 
 	mutationPayload := BuildMutationPayload(projected, changeSetID)

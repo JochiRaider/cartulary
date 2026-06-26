@@ -34,6 +34,7 @@ Low-friction capture is the make-or-break requirement because IR work is lossy u
 - “Disconnected” means the deployment can run in an isolated environment; it does **not** imply fully offline browser sync or multi-master replication.
 - The default client is a **browser UI**, not a desktop app.
 - The system must support **rough capture first** and **progressive normalization** without losing original user-entered text.
+- Timeline visible cells are operational source text. Framework, entity, indicator, tag, and evidence structure should be derived into inspector-side records or hidden fields instead of rewriting the analyst-authored cell strings.
 - Binary evidence may be large; it should not be stored inline in Postgres.
 - Optional reference packs such as framework mappings, type registries, and enrichment datasets may be present or absent by deployment; the core workbook must remain usable without them.
 - Report and presentation exports may need to run in disconnected environments and therefore cannot require remote runtime assets.

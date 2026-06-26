@@ -1034,7 +1034,7 @@ UPDATE decisions
 
 func (s *Store) RecordIncident(ctx context.Context, recordID uuid.UUID, viewSchemaID string) (uuid.UUID, error) {
 	var incidentID uuid.UUID
-	if viewSchemaID == "cartulary.view.timeline.v1" {
+	if viewSchemaID == "cartulary.view.timeline.v2" {
 		err := s.pool.QueryRow(ctx, `
 SELECT incident_id
   FROM records

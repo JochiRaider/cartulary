@@ -210,7 +210,7 @@ describe("FE-I-P4-01 Timeline query row identity integration", () => {
       document.body,
       timelineViewSchemaId,
       "record-beta",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     await changeInputValue(betaSummary, "Beta patched by record id");
     fireEvent.blur(betaSummary);
@@ -221,7 +221,7 @@ describe("FE-I-P4-01 Timeline query row identity integration", () => {
       base_row_version: 1,
       changes: [
         {
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           value: "Beta patched by record id",
         },
       ],
@@ -247,7 +247,7 @@ describe("FE-I-P4-01 Timeline query row identity integration", () => {
     expect(
       (
         screen.getByTestId(
-          rowCellTestId("record-beta", "timeline.summary"),
+          rowCellTestId("record-beta", "timeline.activity_synopsis_text"),
         ) as HTMLInputElement
       ).value,
     ).toBe("Beta patched by record id");
@@ -269,7 +269,7 @@ describe("FE-I-P4-01 Timeline query row identity integration", () => {
       }),
     );
     const draftSummary = screen.getByTestId(
-      draftCellTestId("timeline.summary"),
+      draftCellTestId("timeline.activity_synopsis_text"),
     ) as HTMLInputElement;
     await changeInputValue(draftSummary, "Created through draft row");
     fireEvent.keyDown(draftSummary, { key: "Enter" });
@@ -277,13 +277,13 @@ describe("FE-I-P4-01 Timeline query row identity integration", () => {
       expect(fetchMock).toHaveBeenCalledTimes(4);
     });
     expect(extractTimelineJSONBody(fetchMock, 3)).toMatchObject({
-      "timeline.summary": "Created through draft row",
+      "timeline.activity_synopsis_text": "Created through draft row",
     });
     await waitFor(() => {
       expect(
         (
           screen.getByTestId(
-            rowCellTestId("record-created", "timeline.summary"),
+            rowCellTestId("record-created", "timeline.activity_synopsis_text"),
           ) as HTMLInputElement
         ).value,
       ).toBe("Created through draft row");
@@ -294,7 +294,7 @@ describe("FE-I-P4-01 Timeline query row identity integration", () => {
       document.body,
       timelineViewSchemaId,
       "record-beta",
-      "timeline.occurred_at",
+      "timeline.activity_utc_text",
     )) as HTMLInputElement;
     await changeInputValue(betaOccurredAt, "not-a-timestamp");
     fireEvent.blur(betaOccurredAt);
@@ -324,14 +324,14 @@ describe("FE-I-P4-01 Timeline query row identity integration", () => {
     expect(
       (
         screen.getByTestId(
-          rowCellTestId("record-beta", "timeline.occurred_at"),
+          rowCellTestId("record-beta", "timeline.activity_utc_text"),
         ) as HTMLInputElement
       ).value,
     ).toBe("not-a-timestamp");
     expect(
       (
         screen.getByTestId(
-          rowCellTestId("record-alpha", "timeline.occurred_at"),
+          rowCellTestId("record-alpha", "timeline.activity_utc_text"),
         ) as HTMLInputElement
       ).value,
     ).toBe("2026-04-10T10:00:00.000Z");

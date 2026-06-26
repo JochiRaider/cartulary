@@ -18,8 +18,8 @@ import {
   uniqueTxn,
 } from "../helpers";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
-const draftSummaryTestId = draftCellTestId("timeline.summary");
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
+const draftSummaryTestId = draftCellTestId("timeline.activity_synopsis_text");
 
 test("E-3-02 measures user-visible typing_ack and blank-row-create completion within the Phase 3 envelope", async ({
   page,

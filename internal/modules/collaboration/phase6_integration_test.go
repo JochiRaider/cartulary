@@ -161,8 +161,8 @@ func TestPhase6_ResumeReplaysReplayableMessagesOnly_I_6_02(t *testing.T) {
 	defer other.Close(websocket.StatusNormalClosure, "test_complete")
 
 	phase3test.CreateTimelineRow(t, harness.Server, incidentID, admin, map[string]any{
-		"client_txn_id":    "txn-phase6-i-6-02-record",
-		"timeline.summary": "Phase 6 replayable record change",
+		"client_txn_id":                   "txn-phase6-i-6-02-record",
+		"timeline.activity_synopsis_text": "Phase 6 replayable record change",
 	})
 	publishPhase6JobProgress(t, harness, incidentID, "phase6-i-6-02-job", platformws.JobStatusRunning)
 

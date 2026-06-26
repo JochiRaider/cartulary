@@ -79,13 +79,15 @@ test("E-7-01 opens row history from the workbook surface with legal rollback act
   );
   const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e701-row"),
-    "timeline.summary": "E-7-01 before",
+    "timeline.activity_synopsis_text": "E-7-01 before",
   })) as unknown as ViewRow;
   await patchTimelineRecord(page, row.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: row.row_version,
     client_txn_id: uniqueTxn("e701-update"),
-    changes: [{ field_key: "timeline.summary", value: "E-7-01 after" }],
+    changes: [
+      { field_key: "timeline.activity_synopsis_text", value: "E-7-01 after" },
+    ],
   });
   const history = await fetchRecordHistory(page, row.record_id);
   const visibleItemIndex = history.items.findIndex(
@@ -134,7 +136,7 @@ test("E-7-01b retargets open inspector history when row focus changes", async ({
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e701b-first"),
-      "timeline.summary": "E-7-01b first original",
+      "timeline.activity_synopsis_text": "E-7-01b first original",
     },
   )) as unknown as ViewRow;
   const secondRow = (await createViewRow(
@@ -143,7 +145,7 @@ test("E-7-01b retargets open inspector history when row focus changes", async ({
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e701b-second"),
-      "timeline.summary": "E-7-01b second original",
+      "timeline.activity_synopsis_text": "E-7-01b second original",
     },
   )) as unknown as ViewRow;
   await patchTimelineRecord(page, firstRow.record_id, {
@@ -151,7 +153,10 @@ test("E-7-01b retargets open inspector history when row focus changes", async ({
     base_row_version: firstRow.row_version,
     client_txn_id: uniqueTxn("e701b-first-update"),
     changes: [
-      { field_key: "timeline.summary", value: "E-7-01b first updated" },
+      {
+        field_key: "timeline.activity_synopsis_text",
+        value: "E-7-01b first updated",
+      },
     ],
   });
   await patchTimelineRecord(page, secondRow.record_id, {
@@ -159,7 +164,10 @@ test("E-7-01b retargets open inspector history when row focus changes", async ({
     base_row_version: secondRow.row_version,
     client_txn_id: uniqueTxn("e701b-second-update"),
     changes: [
-      { field_key: "timeline.summary", value: "E-7-01b second updated" },
+      {
+        field_key: "timeline.activity_synopsis_text",
+        value: "E-7-01b second updated",
+      },
     ],
   });
 
@@ -179,7 +187,9 @@ test("E-7-01b retargets open inspector history when row focus changes", async ({
       response.url().endsWith(`/api/v1/records/${secondRow.record_id}/history`),
   );
   await page
-    .getByTestId(rowCellTestId(secondRow.record_id, "timeline.summary"))
+    .getByTestId(
+      rowCellTestId(secondRow.record_id, "timeline.activity_synopsis_text"),
+    )
     .focus();
   const response = await secondHistoryResponse;
   expect(response.ok()).toBeTruthy();
@@ -212,7 +222,7 @@ test("E-7-02 rolls back one attached-evidence mutation without reverting later u
   )) as unknown as ViewRow;
   const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e702-row"),
-    "timeline.summary": "E-7-02 original summary",
+    "timeline.activity_synopsis_text": "E-7-02 original summary",
   })) as unknown as ViewRow;
   const linkedRow = (await patchTimelineRecord(page, row.record_id, {
     view_schema_id: timelineViewSchemaId,
@@ -238,7 +248,10 @@ test("E-7-02 rolls back one attached-evidence mutation without reverting later u
     base_row_version: linkedRow.row_version,
     client_txn_id: uniqueTxn("e702-unrelated"),
     changes: [
-      { field_key: "timeline.summary", value: "E-7-02 unrelated later edit" },
+      {
+        field_key: "timeline.activity_synopsis_text",
+        value: "E-7-02 unrelated later edit",
+      },
     ],
   })) as unknown as ViewRow;
 
@@ -316,10 +329,10 @@ test("E-7-02 rolls back one attached-evidence mutation without reverting later u
         (item) => item.linked_record_id === evidence.record_id,
       ),
     ).toBe(false);
-    expect(afterRollback.cells["timeline.summary"]?.value).toBe(
+    expect(afterRollback.cells["timeline.activity_synopsis_text"]?.value).toBe(
       "E-7-02 unrelated later edit",
     );
-    expect(currentRow.cells["timeline.summary"]?.value).toBe(
+    expect(currentRow.cells["timeline.activity_synopsis_text"]?.value).toBe(
       "E-7-02 unrelated later edit",
     );
   } finally {
@@ -337,7 +350,7 @@ test("E-7-03 soft-deletes and restores a row with tombstone concurrency", async 
   );
   const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e703-row"),
-    "timeline.summary": "E-7-03 delete restore row",
+    "timeline.activity_synopsis_text": "E-7-03 delete restore row",
   })) as unknown as ViewRow;
 
   const listener = await page.context().newPage();
@@ -405,7 +418,9 @@ test("E-7-03 soft-deletes and restores a row with tombstone concurrency", async 
 
   await openTimelineSurface(page, incidentId);
   await expect(
-    page.getByTestId(rowCellTestId(row.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("E-7-03 delete restore row");
   await listener.close();
 });
@@ -420,7 +435,7 @@ test("E-7-04 whole-row restore appends a new attributed revision", async ({
   );
   const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e704-row"),
-    "timeline.summary": "E-7-04 original",
+    "timeline.activity_synopsis_text": "E-7-04 original",
   })) as unknown as ViewRow;
   const snapshot = (await patchTimelineRecord(page, row.record_id, {
     view_schema_id: timelineViewSchemaId,
@@ -428,7 +443,7 @@ test("E-7-04 whole-row restore appends a new attributed revision", async ({
     client_txn_id: uniqueTxn("e704-snapshot"),
     changes: [
       {
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         value: "E-7-04 historical snapshot",
       },
     ],
@@ -439,7 +454,7 @@ test("E-7-04 whole-row restore appends a new attributed revision", async ({
     client_txn_id: uniqueTxn("e704-current"),
     changes: [
       {
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         value: "E-7-04 current value",
       },
     ],
@@ -488,7 +503,9 @@ test("E-7-04 whole-row restore appends a new attributed revision", async ({
 
   await openTimelineSurface(page, incidentId);
   await expect(
-    page.getByTestId(rowCellTestId(row.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("E-7-04 historical snapshot");
   const historyAfter = await fetchRecordHistory(page, row.record_id);
   expect(historyAfter.items.length).toBeGreaterThan(historyBefore.items.length);
@@ -542,7 +559,7 @@ test("E-7-05 rolls back a merge change set from row history", async ({
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e705-timeline"),
-      "timeline.summary": "E-7-05 dependent timeline row",
+      "timeline.activity_synopsis_text": "E-7-05 dependent timeline row",
       [hostRefsFieldKey]: collectionActionsPayload(["E-7-05 loser alias"]),
     },
   )) as ViewRow;

@@ -604,10 +604,10 @@ func Phase4RouteInventory(ctx RouteInventoryContext) []RouteInventoryEntry {
 				return "/api/v1/incidents/" + fixture.IncidentID + "/views/" + golden.Phase4TimelineViewSchemaID + "/rows"
 			},
 			BuildBody: func(_ RouteInventoryContext, clientTxnID string) any {
-				return map[string]any{"client_txn_id": clientTxnID, "timeline.summary": "support timeline create"}
+				return map[string]any{"client_txn_id": clientTxnID, "timeline.activity_synopsis_text": "support timeline create"}
 			},
 			BuildDivergentBody: func(_ RouteInventoryContext, clientTxnID string) any {
-				return map[string]any{"client_txn_id": clientTxnID, "timeline.summary": "support timeline create divergent"}
+				return map[string]any{"client_txn_id": clientTxnID, "timeline.activity_synopsis_text": "support timeline create divergent"}
 			},
 			AffectedRecordID:     func(_ RouteInventoryContext, data map[string]any) string { return rowRecordID(data) },
 			SuccessStatus:        http.StatusCreated,

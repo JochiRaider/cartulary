@@ -423,7 +423,7 @@ func normalizeConnectOptions(incidentID string, options ConnectOptions) ConnectO
 		options.Presence = platformws.PresenceInput{
 			SheetRef: map[string]string{
 				"kind": "view_schema",
-				"id":   "cartulary.view.timeline.v1",
+				"id":   "cartulary.view.timeline.v2",
 			},
 			Mode: "viewing",
 		}

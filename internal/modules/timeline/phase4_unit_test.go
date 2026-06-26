@@ -37,8 +37,8 @@ func TestPhase4_BindingMode_U_4_01(t *testing.T) {
 		t.Fatal("normalize mention token")
 	}
 	timelineResult, err := timelineStore.CreateRow(context.Background(), actor, incident.ID, CreateRequest{
-		ClientTxnID: "txn-phase4-u-4-01-timeline",
-		Summary:     stringPtr("Mention origin row"),
+		ClientTxnID:          "txn-phase4-u-4-01-timeline",
+		ActivitySynopsisText: stringPtr("Mention origin row"),
 		HostRefs: &CollectionActionPayload{
 			Actions: []CollectionAction{
 				{
@@ -113,8 +113,8 @@ func TestPhase4_BindingMode_U_4_01(t *testing.T) {
 		t.Fatal("normalize import identity mention token")
 	}
 	importRequest := CreateRequest{
-		ClientTxnID: "txn-phase4-u-4-01-import-row",
-		Summary:     stringPtr("Import create preserves mention tokens"),
+		ClientTxnID:          "txn-phase4-u-4-01-import-row",
+		ActivitySynopsisText: stringPtr("Import create preserves mention tokens"),
 		HostRefs: &CollectionActionPayload{Actions: []CollectionAction{{
 			Op:             "add_token",
 			RawText:        " import   host alias ",
@@ -170,8 +170,8 @@ func TestPhase4_DuplicateMentionProvenance_U_4_02(t *testing.T) {
 		t.Fatal("normalize mention token")
 	}
 	first, err := store.CreateRow(context.Background(), actor, incident.ID, CreateRequest{
-		ClientTxnID: "txn-phase4-u-4-02-first",
-		Summary:     stringPtr("Duplicate provenance one"),
+		ClientTxnID:          "txn-phase4-u-4-02-first",
+		ActivitySynopsisText: stringPtr("Duplicate provenance one"),
 		HostRefs: &CollectionActionPayload{
 			Actions: []CollectionAction{{Op: "add_token", RawText: "WS-023", NormalizedText: normalizedToken}},
 		},
@@ -180,8 +180,8 @@ func TestPhase4_DuplicateMentionProvenance_U_4_02(t *testing.T) {
 		t.Fatalf("create first row: %v", err)
 	}
 	second, err := store.CreateRow(context.Background(), actor, incident.ID, CreateRequest{
-		ClientTxnID: "txn-phase4-u-4-02-second",
-		Summary:     stringPtr("Duplicate provenance two"),
+		ClientTxnID:          "txn-phase4-u-4-02-second",
+		ActivitySynopsisText: stringPtr("Duplicate provenance two"),
 		HostRefs: &CollectionActionPayload{
 			Actions: []CollectionAction{{Op: "add_token", RawText: "WS-023", NormalizedText: normalizedToken}},
 		},
@@ -262,8 +262,8 @@ func TestSupportPhase5_AttachedEvidenceCreateAndPatch(t *testing.T) {
 	}
 
 	row := CreateRequest{
-		ClientTxnID: "txn-phase5-attached-existing",
-		Summary:     stringPtr("Existing row"),
+		ClientTxnID:          "txn-phase5-attached-existing",
+		ActivitySynopsisText: stringPtr("Existing row"),
 	}
 	existing, err := store.CreateRow(context.Background(), actor, incident.ID, row, TimelineCreateRequestHash(row), "req-phase5-attached-existing", time.Now().UTC())
 	if err != nil {

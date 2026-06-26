@@ -33,7 +33,7 @@ func TestSupportPhase9_ClipboardPasteParsingMappingRawCaptureAndBinding(t *testi
 		Columns: []string{
 			"timeline.host_refs",
 			"timeline.identity_refs",
-			"timeline.summary",
+			"timeline.activity_synopsis_text",
 		},
 		Targets: []ClipboardPasteTarget{{Kind: "create"}},
 	}
@@ -58,7 +58,7 @@ func TestSupportPhase9_ClipboardPasteParsingMappingRawCaptureAndBinding(t *testi
 	if row.Cells[1].FieldKey != "timeline.identity_refs" || row.Cells[1].Change.ActionPayload.Actions[0].Op != "add_token" {
 		t.Fatalf("identity paste did not use declared entity binding mode: %#v", row.Cells[1])
 	}
-	if row.Cells[2].FieldKey != "timeline.summary" || row.Cells[2].Change.TextValue == nil || *row.Cells[2].Change.TextValue != "Phase 9 summary" {
+	if row.Cells[2].FieldKey != "timeline.activity_synopsis_text" || row.Cells[2].Change.TextValue == nil || *row.Cells[2].Change.TextValue != "Phase 9 summary" {
 		t.Fatalf("summary did not normalize as stable field-key value: %#v", row.Cells[2])
 	}
 	if len(row.Unknown) != 1 {

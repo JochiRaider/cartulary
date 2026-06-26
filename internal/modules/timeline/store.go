@@ -106,17 +106,23 @@ type projectedRecord struct {
 	RecordID              uuid.UUID
 	IncidentID            uuid.UUID
 	RowVersion            int64
-	OccurredAt            *time.Time
-	Summary               *string
-	Details               *string
-	SourceText            *string
+	DateEnteredText       *string
+	AnalystText           *string
+	MitreStageText        *string
+	DeviceObjectText      *string
+	IPAddressText         *string
+	ActivityUTCText       *string
+	ActivityLocalText     *string
+	RawActivityText       *string
+	ActivitySynopsisText  *string
+	DataSourceText        *string
 	RecordedAt            time.Time
 	EditedAt              time.Time
-	SortTs                time.Time
+	ActivitySortTS        *time.Time
+	DateEnteredSortDay    *time.Time
+	ActivityTimePairState string
 	CaptureState          string
 	ReplacementRecordID   *uuid.UUID
-	OccurredDay           *time.Time
-	RecordedDay           time.Time
 	EvidenceCount         int
 	HasEvidence           bool
 	HasUnresolvedMentions bool
@@ -127,23 +133,32 @@ type projectedRecord struct {
 }
 
 type sourceRecord struct {
-	RecordID           uuid.UUID
-	IncidentID         uuid.UUID
-	OccurredAt         *time.Time
-	Summary            *string
-	Details            *string
-	SourceText         *string
-	RawCapture         map[string]any
-	CaptureState       string
-	RowVersion         int64
-	RecordedAt         time.Time
-	EditedAt           time.Time
-	CreatedByUserID    uuid.UUID
-	UpdatedByUserID    uuid.UUID
-	ReviewedByUserID   *uuid.UUID
-	ReviewedAt         *time.Time
-	SupersededByUserID *uuid.UUID
-	SupersededAt       *time.Time
+	RecordID               uuid.UUID
+	IncidentID             uuid.UUID
+	DateEnteredText        *string
+	AnalystText            *string
+	MitreStageText         *string
+	DeviceObjectText       *string
+	IPAddressText          *string
+	ActivityUTCText        *string
+	ActivityLocalText      *string
+	RawActivityText        *string
+	ActivitySynopsisText   *string
+	DataSourceText         *string
+	ActivityUTCGenerated   bool
+	ActivityLocalGenerated bool
+	ActivityTimePairState  string
+	RawCapture             map[string]any
+	CaptureState           string
+	RowVersion             int64
+	RecordedAt             time.Time
+	EditedAt               time.Time
+	CreatedByUserID        uuid.UUID
+	UpdatedByUserID        uuid.UUID
+	ReviewedByUserID       *uuid.UUID
+	ReviewedAt             *time.Time
+	SupersededByUserID     *uuid.UUID
+	SupersededAt           *time.Time
 }
 
 type MutationResult struct {
@@ -182,6 +197,16 @@ type RecordSubstrateSnapshot struct {
 	RecordRevisionCount int
 }
 
+type TimeConversionProfile struct {
+	IncidentID         uuid.UUID
+	Enabled            bool
+	LocalOffsetMinutes *int
+	LocalLabel         *string
+	ProfileVersion     int64
+	UpdatedAt          time.Time
+	UpdatedByUserID    *uuid.UUID
+}
+
 type createRowOptions struct {
 	allowInteractiveAutoResolution bool
 }
@@ -211,6 +236,214 @@ func (s *Store) GetRecordIncident(ctx context.Context, recordID uuid.UUID) (uuid
 		return uuid.UUID{}, fmt.Errorf("get record incident: %w", err)
 	}
 	return incidentID, nil
+}
+
+func (s *Store) GetTimeConversionProfile(ctx context.Context, incidentID uuid.UUID, now time.Time) (TimeConversionProfile, error) {
+	var (
+		profile   TimeConversionProfile
+		offset    pgtype.Int4
+		label     pgtype.Text
+		updatedBy pgtype.UUID
+	)
+	err := s.pool.QueryRow(ctx, `
+SELECT incident_id, enabled, local_offset_minutes, local_label, profile_version, updated_at, updated_by_user_id
+  FROM timeline_time_conversion_profiles
+ WHERE incident_id = $1
+`, incidentID).Scan(&profile.IncidentID, &profile.Enabled, &offset, &label, &profile.ProfileVersion, &profile.UpdatedAt, &updatedBy)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return TimeConversionProfile{
+			IncidentID:      incidentID,
+			Enabled:         false,
+			ProfileVersion:  1,
+			UpdatedAt:       now.UTC(),
+			UpdatedByUserID: nil,
+		}, nil
+	}
+	if err != nil {
+		return TimeConversionProfile{}, fmt.Errorf("get timeline time conversion profile: %w", err)
+	}
+	profile.LocalOffsetMinutes = optionalIntFromPG(offset)
+	profile.LocalLabel = optionalTextFromPG(label)
+	profile.UpdatedByUserID = optionalUUIDFromPG(updatedBy)
+	profile.UpdatedAt = profile.UpdatedAt.UTC()
+	return profile, nil
+}
+
+func (s *Store) PutTimeConversionProfile(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request TimeConversionProfilePutRequest, now time.Time) (TimeConversionProfile, error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return TimeConversionProfile{}, fmt.Errorf("begin timeline time conversion profile transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	current, err := getTimeConversionProfileTx(ctx, tx, incidentID, now)
+	if err != nil {
+		return TimeConversionProfile{}, err
+	}
+	if current.ProfileVersion != request.BaseProfileVersion {
+		return TimeConversionProfile{}, &RowVersionConflictError{
+			BaseRowVersion:    request.BaseProfileVersion,
+			CurrentRowVersion: current.ProfileVersion,
+		}
+	}
+	nextVersion := current.ProfileVersion + 1
+	var (
+		profile   TimeConversionProfile
+		offset    pgtype.Int4
+		label     pgtype.Text
+		updatedBy pgtype.UUID
+	)
+	err = tx.QueryRow(ctx, `
+INSERT INTO timeline_time_conversion_profiles (
+    incident_id,
+    enabled,
+    local_offset_minutes,
+    local_label,
+    profile_version,
+    updated_at,
+    updated_by_user_id
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (incident_id) DO UPDATE
+SET enabled = EXCLUDED.enabled,
+    local_offset_minutes = EXCLUDED.local_offset_minutes,
+    local_label = EXCLUDED.local_label,
+    profile_version = EXCLUDED.profile_version,
+    updated_at = EXCLUDED.updated_at,
+    updated_by_user_id = EXCLUDED.updated_by_user_id
+RETURNING incident_id, enabled, local_offset_minutes, local_label, profile_version, updated_at, updated_by_user_id
+`, incidentID, request.Enabled, request.LocalOffsetMinutes, request.LocalLabel, nextVersion, now.UTC(), actor.ID).Scan(&profile.IncidentID, &profile.Enabled, &offset, &label, &profile.ProfileVersion, &profile.UpdatedAt, &updatedBy)
+	if err != nil {
+		return TimeConversionProfile{}, fmt.Errorf("put timeline time conversion profile: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return TimeConversionProfile{}, fmt.Errorf("commit timeline time conversion profile: %w", err)
+	}
+	profile.LocalOffsetMinutes = optionalIntFromPG(offset)
+	profile.LocalLabel = optionalTextFromPG(label)
+	profile.UpdatedByUserID = optionalUUIDFromPG(updatedBy)
+	profile.UpdatedAt = profile.UpdatedAt.UTC()
+	return profile, nil
+}
+
+func getTimeConversionProfileTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, now time.Time) (TimeConversionProfile, error) {
+	var (
+		profile   TimeConversionProfile
+		offset    pgtype.Int4
+		label     pgtype.Text
+		updatedBy pgtype.UUID
+	)
+	err := tx.QueryRow(ctx, `
+SELECT incident_id, enabled, local_offset_minutes, local_label, profile_version, updated_at, updated_by_user_id
+  FROM timeline_time_conversion_profiles
+ WHERE incident_id = $1
+ FOR UPDATE
+`, incidentID).Scan(&profile.IncidentID, &profile.Enabled, &offset, &label, &profile.ProfileVersion, &profile.UpdatedAt, &updatedBy)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return TimeConversionProfile{
+			IncidentID:     incidentID,
+			Enabled:        false,
+			ProfileVersion: 1,
+			UpdatedAt:      now.UTC(),
+		}, nil
+	}
+	if err != nil {
+		return TimeConversionProfile{}, fmt.Errorf("get timeline time conversion profile: %w", err)
+	}
+	profile.LocalOffsetMinutes = optionalIntFromPG(offset)
+	profile.LocalLabel = optionalTextFromPG(label)
+	profile.UpdatedByUserID = optionalUUIDFromPG(updatedBy)
+	profile.UpdatedAt = profile.UpdatedAt.UTC()
+	return profile, nil
+}
+
+func applyTimelineTimeConversion(record *sourceRecord, profile TimeConversionProfile) {
+	if !profile.Enabled || profile.LocalOffsetMinutes == nil {
+		record.ActivityTimePairState = "disabled"
+		return
+	}
+	offsetMinutes := *profile.LocalOffsetMinutes
+	utcEmpty := timelineVisibleTextEmpty(record.ActivityUTCText)
+	localEmpty := timelineVisibleTextEmpty(record.ActivityLocalText)
+	if utcEmpty && localEmpty {
+		record.ActivityTimePairState = "empty"
+		return
+	}
+
+	utcParsed, utcOK := parseTimelineUTCTextExact(record.ActivityUTCText)
+	localParsed, localOffset, localOK := parseTimelineLocalTextExact(record.ActivityLocalText)
+
+	if !utcEmpty && (localEmpty || record.ActivityLocalGenerated) {
+		if !utcOK {
+			record.ActivityTimePairState = "conversion_unavailable"
+			return
+		}
+		generated := formatTimelineLocalText(utcParsed, offsetMinutes)
+		record.ActivityLocalText = &generated
+		record.ActivityLocalGenerated = true
+		record.ActivityUTCGenerated = false
+		record.ActivityTimePairState = "paired_generated"
+		return
+	}
+	if !localEmpty && (utcEmpty || record.ActivityUTCGenerated) {
+		if !localOK {
+			record.ActivityTimePairState = "conversion_unavailable"
+			return
+		}
+		generated := formatTimelineUTCText(localParsed)
+		record.ActivityUTCText = &generated
+		record.ActivityUTCGenerated = true
+		record.ActivityLocalGenerated = false
+		record.ActivityTimePairState = "paired_generated"
+		return
+	}
+	if !utcOK || !localOK {
+		record.ActivityTimePairState = "conversion_unavailable"
+		return
+	}
+	if utcParsed.Equal(localParsed) && localOffset == offsetMinutes*60 {
+		record.ActivityTimePairState = "paired_user_preserved"
+		return
+	}
+	record.ActivityTimePairState = "paired_mismatch"
+}
+
+func timelineVisibleTextEmpty(text *string) bool {
+	return text == nil || *text == ""
+}
+
+func parseTimelineUTCTextExact(text *string) (time.Time, bool) {
+	if text == nil || *text == "" {
+		return time.Time{}, false
+	}
+	parsed, err := time.Parse("2006-01-02T15:04:05Z", *text)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return parsed.UTC(), true
+}
+
+func parseTimelineLocalTextExact(text *string) (time.Time, int, bool) {
+	if text == nil || *text == "" {
+		return time.Time{}, 0, false
+	}
+	parsed, err := time.Parse("2006-01-02T15:04:05-07:00", *text)
+	if err != nil {
+		return time.Time{}, 0, false
+	}
+	_, offsetSeconds := parsed.Zone()
+	return parsed.UTC(), offsetSeconds, true
+}
+
+func formatTimelineUTCText(value time.Time) string {
+	return value.UTC().Format("2006-01-02T15:04:05Z")
+}
+
+func formatTimelineLocalText(value time.Time, offsetMinutes int) string {
+	location := time.FixedZone("", offsetMinutes*60)
+	return value.UTC().In(location).Format("2006-01-02T15:04:05-07:00")
 }
 
 func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
@@ -325,23 +558,34 @@ func (s *Store) createRow(ctx context.Context, actor authn.UserRecord, incidentI
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
-
 	recordID := uuid.New()
 	changeSetID := uuid.New()
 	current := sourceRecord{
-		RecordID:        recordID,
-		IncidentID:      incidentID,
-		OccurredAt:      request.OccurredAt,
-		Summary:         request.Summary,
-		Details:         request.Details,
-		SourceText:      request.SourceText,
-		CaptureState:    InitialCaptureState(),
-		RowVersion:      1,
-		RecordedAt:      now.UTC(),
-		EditedAt:        now.UTC(),
-		CreatedByUserID: actor.ID,
-		UpdatedByUserID: actor.ID,
+		RecordID:              recordID,
+		IncidentID:            incidentID,
+		DateEnteredText:       request.DateEnteredText,
+		AnalystText:           request.AnalystText,
+		MitreStageText:        request.MitreStageText,
+		DeviceObjectText:      request.DeviceObjectText,
+		IPAddressText:         request.IPAddressText,
+		ActivityUTCText:       request.ActivityUTCText,
+		ActivityLocalText:     request.ActivityLocalText,
+		RawActivityText:       request.RawActivityText,
+		ActivitySynopsisText:  request.ActivitySynopsisText,
+		DataSourceText:        request.DataSourceText,
+		ActivityTimePairState: "disabled",
+		CaptureState:          InitialCaptureState(),
+		RowVersion:            1,
+		RecordedAt:            now.UTC(),
+		EditedAt:              now.UTC(),
+		CreatedByUserID:       actor.ID,
+		UpdatedByUserID:       actor.ID,
 	}
+	profile, err := getTimeConversionProfileTx(ctx, tx, incidentID, now.UTC())
+	if err != nil {
+		return MutationResult{}, err
+	}
+	applyTimelineTimeConversion(&current, profile)
 	var recordEnvelopeInsertMs float64
 	var timelineEventInsertMs float64
 	if err := tx.QueryRow(ctx, `
@@ -369,10 +613,19 @@ inserted_timeline_event AS (
     INSERT INTO timeline_events (
         record_id,
         incident_id,
-        occurred_at,
-        summary,
-        details,
-        source_text,
+        date_entered_text,
+        analyst_text,
+        mitre_stage_text,
+        device_object_text,
+        ip_address_text,
+        activity_utc_text,
+        activity_local_text,
+        raw_activity_text,
+        activity_synopsis_text,
+        data_source_text,
+        activity_utc_generated,
+        activity_local_generated,
+        activity_time_pair_state,
         capture_state,
         row_version,
         recorded_at,
@@ -387,6 +640,15 @@ inserted_timeline_event AS (
         $6,
         $7,
         $8,
+        $9,
+        $10,
+        $11,
+        $12,
+        $13,
+        $14,
+        $15,
+        $16,
+        $17,
         'rough',
         1,
         $4,
@@ -400,7 +662,7 @@ SELECT
     EXTRACT(EPOCH FROM (inserted_record.inserted_at - inserted_record.started_at)) * 1000,
     EXTRACT(EPOCH FROM (inserted_timeline_event.inserted_at - inserted_record.inserted_at)) * 1000
 FROM inserted_record, inserted_timeline_event
-`, current.RecordID, incidentID, actor.ID, now.UTC(), request.OccurredAt, request.Summary, request.Details, request.SourceText).Scan(&recordEnvelopeInsertMs, &timelineEventInsertMs); err != nil {
+`, current.RecordID, incidentID, actor.ID, now.UTC(), current.DateEnteredText, current.AnalystText, current.MitreStageText, current.DeviceObjectText, current.IPAddressText, current.ActivityUTCText, current.ActivityLocalText, current.RawActivityText, current.ActivitySynopsisText, current.DataSourceText, current.ActivityUTCGenerated, current.ActivityLocalGenerated, current.ActivityTimePairState).Scan(&recordEnvelopeInsertMs, &timelineEventInsertMs); err != nil {
 		return MutationResult{}, fmt.Errorf("insert timeline base rows: %w", err)
 	}
 	markCreateTimingDuration(ctx, "store_record_envelope_insert", durationFromMilliseconds(recordEnvelopeInsertMs))
@@ -676,14 +938,28 @@ func (s *Store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 	evidenceChanged := false
 	for _, change := range request.CanonicalChange {
 		switch change.FieldKey {
-		case "timeline.occurred_at":
-			next.OccurredAt = change.OccurredAt
-		case "timeline.summary":
-			next.Summary = change.TextValue
-		case "timeline.details":
-			next.Details = change.TextValue
-		case "timeline.source_text":
-			next.SourceText = change.TextValue
+		case "timeline.date_entered_text":
+			next.DateEnteredText = change.TextValue
+		case "timeline.analyst_text":
+			next.AnalystText = change.TextValue
+		case "timeline.mitre_stage_text":
+			next.MitreStageText = change.TextValue
+		case "timeline.device_object_text":
+			next.DeviceObjectText = change.TextValue
+		case "timeline.ip_address_text":
+			next.IPAddressText = change.TextValue
+		case "timeline.activity_utc_text":
+			next.ActivityUTCText = change.TextValue
+			next.ActivityUTCGenerated = false
+		case "timeline.activity_local_text":
+			next.ActivityLocalText = change.TextValue
+			next.ActivityLocalGenerated = false
+		case "timeline.raw_activity_text":
+			next.RawActivityText = change.TextValue
+		case "timeline.activity_synopsis_text":
+			next.ActivitySynopsisText = change.TextValue
+		case "timeline.data_source_text":
+			next.DataSourceText = change.TextValue
 		case "timeline.host_refs", "timeline.identity_refs":
 			if change.ActionPayload != nil && len(change.ActionPayload.Actions) > 0 {
 				mentionChanged = true
@@ -698,6 +974,11 @@ func (s *Store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 			}
 		}
 	}
+	profile, err := getTimeConversionProfileTx(ctx, tx, current.IncidentID, now.UTC())
+	if err != nil {
+		return MutationResult{}, err
+	}
+	applyTimelineTimeConversion(&next, profile)
 
 	beforeProjected := projectRecord(current, nil)
 	if err := hydrateProjectedCollections(ctx, tx, &beforeProjected); err != nil {
@@ -751,19 +1032,28 @@ func (s *Store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 
 	if err := tx.QueryRow(ctx, `
 UPDATE timeline_events
-   SET occurred_at = $2,
-       summary = $3,
-       details = $4,
-       source_text = $5,
-       capture_state = $6,
-       row_version = $7,
-       edited_at = $8,
-       updated_by_user_id = $9,
-       reviewed_at = $10,
-       reviewed_by_user_id = $11
+   SET date_entered_text = $2,
+       analyst_text = $3,
+       mitre_stage_text = $4,
+       device_object_text = $5,
+       ip_address_text = $6,
+       activity_utc_text = $7,
+       activity_local_text = $8,
+       raw_activity_text = $9,
+       activity_synopsis_text = $10,
+       data_source_text = $11,
+       activity_utc_generated = $12,
+       activity_local_generated = $13,
+       activity_time_pair_state = $14,
+       capture_state = $15,
+       row_version = $16,
+       edited_at = $17,
+       updated_by_user_id = $18,
+       reviewed_at = $19,
+       reviewed_by_user_id = $20
  WHERE record_id = $1
 RETURNING recorded_at
-`, recordID, next.OccurredAt, next.Summary, next.Details, next.SourceText, next.CaptureState, next.RowVersion, next.EditedAt, actor.ID, next.ReviewedAt, next.ReviewedByUserID).Scan(&next.RecordedAt); err != nil {
+`, recordID, next.DateEnteredText, next.AnalystText, next.MitreStageText, next.DeviceObjectText, next.IPAddressText, next.ActivityUTCText, next.ActivityLocalText, next.RawActivityText, next.ActivitySynopsisText, next.DataSourceText, next.ActivityUTCGenerated, next.ActivityLocalGenerated, next.ActivityTimePairState, next.CaptureState, next.RowVersion, next.EditedAt, actor.ID, next.ReviewedAt, next.ReviewedByUserID).Scan(&next.RecordedAt); err != nil {
 		return MutationResult{}, fmt.Errorf("update timeline record: %w", err)
 	}
 
@@ -1571,10 +1861,19 @@ func loadSourceRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (sou
 SELECT
     e.record_id,
     e.incident_id,
-    e.occurred_at,
-    e.summary,
-    e.details,
-    e.source_text,
+    e.date_entered_text,
+    e.analyst_text,
+    e.mitre_stage_text,
+    e.device_object_text,
+    e.ip_address_text,
+    e.activity_utc_text,
+    e.activity_local_text,
+    e.raw_activity_text,
+    e.activity_synopsis_text,
+    e.data_source_text,
+    e.activity_utc_generated,
+    e.activity_local_generated,
+    e.activity_time_pair_state,
     e.raw_capture,
     e.capture_state,
     r.row_version,
@@ -1600,10 +1899,19 @@ FOR UPDATE OF e, r
 	if err := row.Scan(
 		&record.RecordID,
 		&record.IncidentID,
-		&record.OccurredAt,
-		&record.Summary,
-		&record.Details,
-		&record.SourceText,
+		&record.DateEnteredText,
+		&record.AnalystText,
+		&record.MitreStageText,
+		&record.DeviceObjectText,
+		&record.IPAddressText,
+		&record.ActivityUTCText,
+		&record.ActivityLocalText,
+		&record.RawActivityText,
+		&record.ActivitySynopsisText,
+		&record.DataSourceText,
+		&record.ActivityUTCGenerated,
+		&record.ActivityLocalGenerated,
+		&record.ActivityTimePairState,
 		&rawCapture,
 		&record.CaptureState,
 		&record.RowVersion,
@@ -1637,10 +1945,19 @@ func loadSourceRecordForIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uu
 SELECT
     e.record_id,
     e.incident_id,
-    e.occurred_at,
-    e.summary,
-    e.details,
-    e.source_text,
+    e.date_entered_text,
+    e.analyst_text,
+    e.mitre_stage_text,
+    e.device_object_text,
+    e.ip_address_text,
+    e.activity_utc_text,
+    e.activity_local_text,
+    e.raw_activity_text,
+    e.activity_synopsis_text,
+    e.data_source_text,
+    e.activity_utc_generated,
+    e.activity_local_generated,
+    e.activity_time_pair_state,
     e.raw_capture,
     e.capture_state,
     r.row_version,
@@ -1668,10 +1985,19 @@ FOR UPDATE OF e, r
 	if err := row.Scan(
 		&record.RecordID,
 		&record.IncidentID,
-		&record.OccurredAt,
-		&record.Summary,
-		&record.Details,
-		&record.SourceText,
+		&record.DateEnteredText,
+		&record.AnalystText,
+		&record.MitreStageText,
+		&record.DeviceObjectText,
+		&record.IPAddressText,
+		&record.ActivityUTCText,
+		&record.ActivityLocalText,
+		&record.RawActivityText,
+		&record.ActivitySynopsisText,
+		&record.DataSourceText,
+		&record.ActivityUTCGenerated,
+		&record.ActivityLocalGenerated,
+		&record.ActivityTimePairState,
 		&rawCapture,
 		&record.CaptureState,
 		&record.RowVersion,
@@ -1701,33 +2027,27 @@ FOR UPDATE OF e, r
 }
 
 func projectRecord(record sourceRecord, replacementRecordID *uuid.UUID) projectedRecord {
-	sortTS := record.RecordedAt.UTC()
-	if record.OccurredAt != nil {
-		sortTS = record.OccurredAt.UTC()
-	}
-
-	var occurredDay *time.Time
-	if record.OccurredAt != nil {
-		day := time.Date(record.OccurredAt.UTC().Year(), record.OccurredAt.UTC().Month(), record.OccurredAt.UTC().Day(), 0, 0, 0, 0, time.UTC)
-		occurredDay = &day
-	}
-	recordedDay := time.Date(record.RecordedAt.UTC().Year(), record.RecordedAt.UTC().Month(), record.RecordedAt.UTC().Day(), 0, 0, 0, 0, time.UTC)
-
 	return projectedRecord{
 		RecordID:              record.RecordID,
 		IncidentID:            record.IncidentID,
 		RowVersion:            record.RowVersion,
-		OccurredAt:            normalizeTimePointer(record.OccurredAt),
-		Summary:               cloneStringPointer(record.Summary),
-		Details:               cloneStringPointer(record.Details),
-		SourceText:            cloneStringPointer(record.SourceText),
+		DateEnteredText:       cloneStringPointer(record.DateEnteredText),
+		AnalystText:           cloneStringPointer(record.AnalystText),
+		MitreStageText:        cloneStringPointer(record.MitreStageText),
+		DeviceObjectText:      cloneStringPointer(record.DeviceObjectText),
+		IPAddressText:         cloneStringPointer(record.IPAddressText),
+		ActivityUTCText:       cloneStringPointer(record.ActivityUTCText),
+		ActivityLocalText:     cloneStringPointer(record.ActivityLocalText),
+		RawActivityText:       cloneStringPointer(record.RawActivityText),
+		ActivitySynopsisText:  cloneStringPointer(record.ActivitySynopsisText),
+		DataSourceText:        cloneStringPointer(record.DataSourceText),
 		RecordedAt:            record.RecordedAt.UTC(),
 		EditedAt:              record.EditedAt.UTC(),
-		SortTs:                sortTS,
+		ActivitySortTS:        deriveActivitySortTS(record.ActivityUTCText, record.ActivityLocalText),
+		DateEnteredSortDay:    deriveDateEnteredSortDay(record.DateEnteredText),
+		ActivityTimePairState: record.ActivityTimePairState,
 		CaptureState:          record.CaptureState,
 		ReplacementRecordID:   replacementRecordID,
-		OccurredDay:           occurredDay,
-		RecordedDay:           recordedDay,
 		EvidenceCount:         0,
 		HasEvidence:           false,
 		HasUnresolvedMentions: false,
@@ -1739,12 +2059,21 @@ func projectionInput(record projectedRecord) projections.TimelineProjectionInput
 		RecordID:              record.RecordID,
 		IncidentID:            record.IncidentID,
 		RowVersion:            record.RowVersion,
-		OccurredAt:            record.OccurredAt,
-		Summary:               record.Summary,
-		Details:               record.Details,
-		SourceText:            record.SourceText,
+		DateEnteredText:       record.DateEnteredText,
+		AnalystText:           record.AnalystText,
+		MitreStageText:        record.MitreStageText,
+		DeviceObjectText:      record.DeviceObjectText,
+		IPAddressText:         record.IPAddressText,
+		ActivityUTCText:       record.ActivityUTCText,
+		ActivityLocalText:     record.ActivityLocalText,
+		RawActivityText:       record.RawActivityText,
+		ActivitySynopsisText:  record.ActivitySynopsisText,
+		DataSourceText:        record.DataSourceText,
 		RecordedAt:            record.RecordedAt,
 		EditedAt:              record.EditedAt,
+		ActivitySortTS:        record.ActivitySortTS,
+		DateEnteredSortDay:    record.DateEnteredSortDay,
+		ActivityTimePairState: record.ActivityTimePairState,
 		CaptureState:          record.CaptureState,
 		ReplacementRecordID:   record.ReplacementRecordID,
 		EvidenceCount:         record.EvidenceCount,
@@ -1770,30 +2099,27 @@ func projectedRecordFromSQL(row sqlc.GetTimelineProjectionRowRow) (projectedReco
 	if err != nil {
 		return projectedRecord{}, err
 	}
-	sortTS, err := timeFromPG(row.SortTs)
-	if err != nil {
-		return projectedRecord{}, err
-	}
-	recordedDay, err := dateFromPG(row.RecordedDay)
-	if err != nil {
-		return projectedRecord{}, err
-	}
-
 	return projectedRecord{
 		RecordID:              recordID,
 		IncidentID:            incidentID,
 		RowVersion:            row.RowVersion,
-		OccurredAt:            optionalTimeFromPG(row.OccurredAt),
-		Summary:               optionalTextFromPG(row.Summary),
-		Details:               optionalTextFromPG(row.Details),
-		SourceText:            optionalTextFromPG(row.SourceText),
+		DateEnteredText:       optionalTextFromPG(row.DateEnteredText),
+		AnalystText:           optionalTextFromPG(row.AnalystText),
+		MitreStageText:        optionalTextFromPG(row.MitreStageText),
+		DeviceObjectText:      optionalTextFromPG(row.DeviceObjectText),
+		IPAddressText:         optionalTextFromPG(row.IpAddressText),
+		ActivityUTCText:       optionalTextFromPG(row.ActivityUtcText),
+		ActivityLocalText:     optionalTextFromPG(row.ActivityLocalText),
+		RawActivityText:       optionalTextFromPG(row.RawActivityText),
+		ActivitySynopsisText:  optionalTextFromPG(row.ActivitySynopsisText),
+		DataSourceText:        optionalTextFromPG(row.DataSourceText),
 		RecordedAt:            recordedAt,
 		EditedAt:              editedAt,
-		SortTs:                sortTS,
+		ActivitySortTS:        optionalTimeFromPG(row.ActivitySortTs),
+		DateEnteredSortDay:    optionalDateFromPG(row.DateEnteredSortDay),
+		ActivityTimePairState: row.ActivityTimePairState,
 		CaptureState:          row.CaptureState,
 		ReplacementRecordID:   optionalUUIDFromPG(row.ReplacementRecordID),
-		OccurredDay:           optionalDateFromPG(row.OccurredDay),
-		RecordedDay:           recordedDay,
 		EvidenceCount:         int(row.EvidenceCount),
 		HasEvidence:           row.HasEvidence,
 		HasUnresolvedMentions: row.HasUnresolvedMentions,
@@ -1808,17 +2134,23 @@ func scanProjectedRecord(scanner interface {
 		&row.RecordID,
 		&row.IncidentID,
 		&row.RowVersion,
-		&row.OccurredAt,
-		&row.Summary,
-		&row.Details,
-		&row.SourceText,
+		&row.DateEnteredText,
+		&row.AnalystText,
+		&row.MitreStageText,
+		&row.DeviceObjectText,
+		&row.IpAddressText,
+		&row.ActivityUtcText,
+		&row.ActivityLocalText,
+		&row.RawActivityText,
+		&row.ActivitySynopsisText,
+		&row.DataSourceText,
 		&row.RecordedAt,
 		&row.EditedAt,
-		&row.SortTs,
+		&row.ActivitySortTs,
+		&row.DateEnteredSortDay,
+		&row.ActivityTimePairState,
 		&row.CaptureState,
 		&row.ReplacementRecordID,
-		&row.OccurredDay,
-		&row.RecordedDay,
 		&row.EvidenceCount,
 		&row.HasEvidence,
 		&row.HasUnresolvedMentions,
@@ -1830,13 +2162,17 @@ func scanProjectedRecord(scanner interface {
 
 var timelineSortExpressions = map[string]string{
 	"record_id":                        "t.record_id",
-	"timeline.sort_ts":                 "t.sort_ts",
-	"timeline.summary":                 "t.summary",
+	"timeline.activity_sort_ts":        "t.activity_sort_ts",
+	"timeline.date_entered_sort_day":   "t.date_entered_sort_day",
+	"timeline.activity_synopsis_text":  "t.activity_synopsis_text",
+	"timeline.analyst_text":            "t.analyst_text",
+	"timeline.mitre_stage_text":        "t.mitre_stage_text",
+	"timeline.device_object_text":      "t.device_object_text",
+	"timeline.ip_address_text":         "t.ip_address_text",
+	"timeline.data_source_text":        "t.data_source_text",
 	"timeline.evidence_count":          "t.evidence_count",
 	"timeline.edited_at":               "t.edited_at",
 	"timeline.capture_state":           "t.capture_state",
-	"timeline.occurred_day":            "t.occurred_day",
-	"timeline.recorded_day":            "t.recorded_day",
 	"timeline.has_evidence":            "t.has_evidence",
 	"timeline.has_unresolved_mentions": "t.has_unresolved_mentions",
 }
@@ -1848,17 +2184,23 @@ SELECT
     t.record_id,
     t.incident_id,
     r.row_version,
-    t.occurred_at,
-    t.summary,
-    t.details,
-    t.source_text,
+    t.date_entered_text,
+    t.analyst_text,
+    t.mitre_stage_text,
+    t.device_object_text,
+    t.ip_address_text,
+    t.activity_utc_text,
+    t.activity_local_text,
+    t.raw_activity_text,
+    t.activity_synopsis_text,
+    t.data_source_text,
     t.recorded_at,
     t.edited_at,
-    t.sort_ts,
+    t.activity_sort_ts,
+    t.date_entered_sort_day,
+    t.activity_time_pair_state,
     t.capture_state,
     t.replacement_record_id,
-    t.occurred_day,
-    t.recorded_day,
     t.evidence_count,
     t.has_evidence,
     t.has_unresolved_mentions
@@ -1898,10 +2240,10 @@ SELECT
 
 func appendTimelineFilter(builder *strings.Builder, args *[]any, filter viewschema.Filter) error {
 	switch filter.FieldKey {
-	case "timeline.occurred_day":
-		return appendDateFilterClause(builder, args, "t.occurred_day", filter)
-	case "timeline.recorded_day":
-		return appendDateFilterClause(builder, args, "t.recorded_day", filter)
+	case "timeline.date_entered_sort_day":
+		return appendDateFilterClause(builder, args, "t.date_entered_sort_day", filter)
+	case "timeline.activity_time_pair_state":
+		return appendStringFilterClause(builder, args, "t.activity_time_pair_state", filter)
 	case "timeline.capture_state":
 		return appendStringFilterClause(builder, args, "t.capture_state", filter)
 	case "timeline.has_evidence":
@@ -2940,10 +3282,19 @@ func versionID(recordID uuid.UUID, rowVersion int64) string {
 }
 
 func hasMaterialChange(current sourceRecord, next sourceRecord) bool {
-	return !timePointersEqual(current.OccurredAt, next.OccurredAt) ||
-		!stringPointersEqual(current.Summary, next.Summary) ||
-		!stringPointersEqual(current.Details, next.Details) ||
-		!stringPointersEqual(current.SourceText, next.SourceText) ||
+	return !stringPointersEqual(current.DateEnteredText, next.DateEnteredText) ||
+		!stringPointersEqual(current.AnalystText, next.AnalystText) ||
+		!stringPointersEqual(current.MitreStageText, next.MitreStageText) ||
+		!stringPointersEqual(current.DeviceObjectText, next.DeviceObjectText) ||
+		!stringPointersEqual(current.IPAddressText, next.IPAddressText) ||
+		!stringPointersEqual(current.ActivityUTCText, next.ActivityUTCText) ||
+		!stringPointersEqual(current.ActivityLocalText, next.ActivityLocalText) ||
+		!stringPointersEqual(current.RawActivityText, next.RawActivityText) ||
+		!stringPointersEqual(current.ActivitySynopsisText, next.ActivitySynopsisText) ||
+		!stringPointersEqual(current.DataSourceText, next.DataSourceText) ||
+		current.ActivityUTCGenerated != next.ActivityUTCGenerated ||
+		current.ActivityLocalGenerated != next.ActivityLocalGenerated ||
+		current.ActivityTimePairState != next.ActivityTimePairState ||
 		!reflect.DeepEqual(current.RawCapture, next.RawCapture)
 }
 
@@ -2983,14 +3334,6 @@ func cloneStringPointer(value *string) *string {
 	return &cloned
 }
 
-func normalizeTimePointer(value *time.Time) *time.Time {
-	if value == nil {
-		return nil
-	}
-	utc := value.UTC()
-	return &utc
-}
-
 func stringPointersEqual(left *string, right *string) bool {
 	switch {
 	case left == nil && right == nil:
@@ -3002,15 +3345,57 @@ func stringPointersEqual(left *string, right *string) bool {
 	}
 }
 
-func timePointersEqual(left *time.Time, right *time.Time) bool {
-	switch {
-	case left == nil && right == nil:
-		return true
-	case left == nil || right == nil:
-		return false
-	default:
-		return left.UTC().Equal(right.UTC())
+func deriveActivitySortTS(utcText *string, localText *string) *time.Time {
+	if parsed := parseTimelineUTCText(utcText); parsed != nil {
+		return parsed
 	}
+	if parsed := parseTimelineLocalText(localText); parsed != nil {
+		return parsed
+	}
+	return nil
+}
+
+func deriveDateEnteredSortDay(text *string) *time.Time {
+	if text == nil || *text == "" {
+		return nil
+	}
+	if parsed, err := time.Parse("2006-01-02", *text); err == nil {
+		day := time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, time.UTC)
+		return &day
+	}
+	if parsed := parseTimelineUTCText(text); parsed != nil {
+		day := time.Date(parsed.UTC().Year(), parsed.UTC().Month(), parsed.UTC().Day(), 0, 0, 0, 0, time.UTC)
+		return &day
+	}
+	if parsed := parseTimelineLocalText(text); parsed != nil {
+		day := time.Date(parsed.UTC().Year(), parsed.UTC().Month(), parsed.UTC().Day(), 0, 0, 0, 0, time.UTC)
+		return &day
+	}
+	return nil
+}
+
+func parseTimelineUTCText(text *string) *time.Time {
+	if text == nil || *text == "" {
+		return nil
+	}
+	parsed, err := time.Parse("2006-01-02T15:04:05Z", *text)
+	if err != nil {
+		return nil
+	}
+	utc := parsed.UTC()
+	return &utc
+}
+
+func parseTimelineLocalText(text *string) *time.Time {
+	if text == nil || *text == "" {
+		return nil
+	}
+	parsed, err := time.Parse("2006-01-02T15:04:05-07:00", *text)
+	if err != nil {
+		return nil
+	}
+	utc := parsed.UTC()
+	return &utc
 }
 
 func pgUUID(value uuid.UUID) pgtype.UUID {
@@ -3055,11 +3440,12 @@ func optionalTextFromPG(value pgtype.Text) *string {
 	return &text
 }
 
-func dateFromPG(value pgtype.Date) (time.Time, error) {
+func optionalIntFromPG(value pgtype.Int4) *int {
 	if !value.Valid {
-		return time.Time{}, errors.New("missing date")
+		return nil
 	}
-	return value.Time.UTC(), nil
+	parsed := int(value.Int32)
+	return &parsed
 }
 
 func optionalDateFromPG(value pgtype.Date) *time.Time {

@@ -34,7 +34,7 @@ import {
 } from "./helpers";
 import { clickTimelineRowAction } from "./phase4Helpers";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI.", async ({
   page,
@@ -46,11 +46,11 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
   );
   const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("s8b01-alpha"),
-    "timeline.summary": "Alpha support FE-B",
+    "timeline.activity_synopsis_text": "Alpha support FE-B",
   });
   const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("s8b01-beta"),
-    "timeline.summary": "Beta support FE-B",
+    "timeline.activity_synopsis_text": "Beta support FE-B",
   });
   const savedView = await createSavedView(page, incidentId, {
     display_name: "FE-B support source",
@@ -61,7 +61,9 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await expect(
-    page.getByTestId(rowCellTestId(alpha.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("Alpha support FE-B");
 
   await clickTimelineRowAction(
@@ -85,9 +87,13 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     });
 
   const sortRequest = waitForTimelineQuery(page, incidentId);
-  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+  await sortByHeader(
+    page,
+    timelineViewSchemaId,
+    "timeline.activity_synopsis_text",
+  );
   expect(readPostBody(await sortRequest)).toEqual({
-    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
 
   const filterRequest = waitForTimelineQuery(page, incidentId);
@@ -105,7 +111,7 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
         op: "eq",
       },
     ],
-    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   await assertActiveFilterChipVisible(
     page,
@@ -126,7 +132,7 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     group_by: "timeline.capture_state",
     sort: [
       { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.summary" },
+      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
     ],
   });
   const reviewedGroupTestId = gridGroupRowTestId(
@@ -146,7 +152,9 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     surface: timelineViewSchemaId,
   });
   await expect(
-    page.getByTestId(rowCellTestId(beta.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).not.toBeVisible();
   await expandGridGroup({
     groupTestId: reviewedGroupTestId,
@@ -154,7 +162,9 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
     surface: timelineViewSchemaId,
   });
   await expect(
-    page.getByTestId(rowCellTestId(beta.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toBeVisible();
 
   await setSavedViewDraftName(
@@ -192,7 +202,9 @@ test("FE-B-P8-01 Verify browser command helpers for sort, filter, group, active 
         },
       ],
       group_by: "timeline.capture_state",
-      sort: [{ direction: "asc", field_key: "timeline.summary" }],
+      sort: [
+        { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+      ],
     },
     scope: "shared",
   });

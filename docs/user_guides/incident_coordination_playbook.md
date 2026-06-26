@@ -13,7 +13,7 @@ Use this playbook to decide when to coordinate in workbook-native Cartulary surf
 
 This playbook does not change live-workspace visibility, reinterpret saved-view scope as access control, create a generalized approval workflow, add new built-in tabs, or add hot-path ceremony to routine Timeline, Hosts, Identities, Evidence, or Notes capture. Saved-view scope changes only discoverability and mutability of the saved-view object. Recipient-specific withholding remains a snapshot, redaction, render, and release concern rather than a live-workspace hiding pattern.[^4][^5][^6]
 
-The base workbook surfaces remain `cartulary.view.timeline.v1`, `cartulary.view.hosts.v1`, `cartulary.view.identities.v1`, `cartulary.view.evidence.v1`, and `cartulary.view.notes.v1`. The coordination surfaces below are workbook-native system views or implementation-owned `scope='system'` saved views over standardized `view_schema_id` values. Treat them as workbook surfaces, not separate modules.[^2][^4][^6]
+The base workbook surfaces remain `cartulary.view.timeline.v2`, `cartulary.view.hosts.v1`, `cartulary.view.identities.v1`, `cartulary.view.evidence.v1`, and `cartulary.view.notes.v1`. The coordination surfaces below are workbook-native system views or implementation-owned `scope='system'` saved views over standardized `view_schema_id` values. Treat them as workbook surfaces, not separate modules.[^2][^4][^6]
 
 ## 2. Coordination surface map
 
@@ -21,7 +21,7 @@ Use the current coordination surface set first. The three briefing and escalatio
 
 | Operating need | Primary surface | Current shape | Operator use |
 | --- | --- | --- | --- |
-| Core timeline capture | `cartulary.view.timeline.v1` | built-in tab | Shared chronology, rough capture, linkage. |
+| Core timeline capture | `cartulary.view.timeline.v2` | built-in tab | Shared chronology, rough capture, linkage. |
 | Host scope | `cartulary.view.hosts.v1` | built-in tab | Canonical or stub host records and host cleanup. |
 | Identity scope | `cartulary.view.identities.v1` | built-in tab | Canonical or stub identity records and identity cleanup. |
 | Evidence state | `cartulary.view.evidence.v1` | built-in tab | Evidence records, custody state, and evidence linkage. |

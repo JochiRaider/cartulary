@@ -45,7 +45,7 @@ describe("workbookApi", () => {
     fetchMock.mockResolvedValue(jsonResponse({ data: { ok: true } }));
 
     await fetchJSON(
-      "/api/v1/incidents/incident-1/views/cartulary.view.timeline.v1/rows",
+      "/api/v1/incidents/incident-1/views/cartulary.view.timeline.v2/rows",
       { method: "POST", body: "{}" },
     );
 

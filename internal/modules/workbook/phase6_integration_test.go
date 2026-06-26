@@ -17,7 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
-const phase6TimelineViewSchemaID = "cartulary.view.timeline.v1"
+const phase6TimelineViewSchemaID = "cartulary.view.timeline.v2"
 
 func TestPhase6_ConcurrentEditsResolverPath_I_6_03(t *testing.T) {
 	harness := phase4test.StartServer(t, "phase6-i-6-03-concurrent-resolver")
@@ -43,23 +43,23 @@ func TestPhase6_ConcurrentEditsResolverPath_I_6_03(t *testing.T) {
 		"base_row_version": 1,
 		"client_txn_id":    "txn-phase6-i-6-03-different-summary",
 		"changes": []map[string]any{{
-			"field_key": "timeline.summary",
+			"field_key": "timeline.activity_synopsis_text",
 			"value":     "Different summary",
 		}},
 	})
-	requireCellValue(t, summaryPatch["row"].(map[string]any), "timeline.summary", "Different summary")
+	requireCellValue(t, summaryPatch["row"].(map[string]any), "timeline.activity_synopsis_text", "Different summary")
 	detailsPatch := requireWorkbookPatch(t, harness, secondLogin, differentID, map[string]any{
 		"view_schema_id":   phase6TimelineViewSchemaID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-phase6-i-6-03-different-details",
 		"changes": []map[string]any{{
-			"field_key": "timeline.details",
+			"field_key": "timeline.raw_activity_text",
 			"value":     "Different details",
 		}},
 	})
 	differentAfter := detailsPatch["row"].(map[string]any)
-	requireCellValue(t, differentAfter, "timeline.summary", "Different summary")
-	requireCellValue(t, differentAfter, "timeline.details", "Different details")
+	requireCellValue(t, differentAfter, "timeline.activity_synopsis_text", "Different summary")
+	requireCellValue(t, differentAfter, "timeline.raw_activity_text", "Different details")
 	if got := int64(differentAfter["row_version"].(float64)); got != 3 {
 		t.Fatalf("different-field stale edit row_version = %d want 3", got)
 	}
@@ -79,7 +79,7 @@ func TestPhase6_ConcurrentEditsResolverPath_I_6_03(t *testing.T) {
 		"client_txn_id":   "txn-phase6-i-6-03-keep-resolve",
 	})
 	phase6RequireNoChangeSet(t, keepData)
-	requireCellValue(t, keepData["row"].(map[string]any), "timeline.summary", "Keep saved")
+	requireCellValue(t, keepData["row"].(map[string]any), "timeline.activity_synopsis_text", "Keep saved")
 	phase6RequireCount(t, "keep_saved change_sets", phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID), beforeClearChanges)
 	phase6RequireCount(t, "keep_saved revisions", phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, keepID), beforeClearRevisions)
 
@@ -103,7 +103,7 @@ func TestPhase6_ConcurrentEditsResolverPath_I_6_03(t *testing.T) {
 		"client_txn_id":   "txn-phase6-i-6-03-use-resolve",
 		"resolved_value":  "Use local",
 	})
-	requireCellValue(t, useData["row"].(map[string]any), "timeline.summary", "Use local")
+	requireCellValue(t, useData["row"].(map[string]any), "timeline.activity_synopsis_text", "Use local")
 	phase6RequireCount(t, "use_unsaved change_sets", phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID), beforeUseChanges+1)
 	phase6RequireCount(t, "use_unsaved revisions", phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, useID), beforeUseRevisions+1)
 	phase4test.RequireChangeSetAttribution(t, harness.DB, useData["change_set_id"].(string), secondUser.ID.String(), "timeline.records.conflicts.resolve", "txn-phase6-i-6-03-use-resolve")
@@ -128,7 +128,7 @@ func TestPhase6_ConcurrentEditsResolverPath_I_6_03(t *testing.T) {
 		"client_txn_id":   "txn-phase6-i-6-03-merged-resolve",
 		"resolved_value":  "Merged final",
 	})
-	requireCellValue(t, mergedData["row"].(map[string]any), "timeline.summary", "Merged final")
+	requireCellValue(t, mergedData["row"].(map[string]any), "timeline.activity_synopsis_text", "Merged final")
 	phase6RequireCount(t, "merged_value change_sets", phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID), beforeMergedChanges+1)
 	phase6RequireCount(t, "merged_value revisions", phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, mergedID), beforeMergedRevisions+1)
 	phase4test.RequireChangeSetAttribution(t, harness.DB, mergedData["change_set_id"].(string), secondUser.ID.String(), "timeline.records.conflicts.resolve", "txn-phase6-i-6-03-merged-resolve")
@@ -138,8 +138,8 @@ func TestPhase6_ConcurrentEditsResolverPath_I_6_03(t *testing.T) {
 func phase6CreateTimelineRow(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, clientTxnID string, summary string) map[string]any {
 	t.Helper()
 	data := requireWorkbookCreate(t, harness, login, incidentID, phase6TimelineViewSchemaID, map[string]any{
-		"client_txn_id":    clientTxnID,
-		"timeline.summary": summary,
+		"client_txn_id":                   clientTxnID,
+		"timeline.activity_synopsis_text": summary,
 	})
 	return data["row"].(map[string]any)
 }
@@ -151,7 +151,7 @@ func phase6CreateTimelineSameFieldConflict(t testing.TB, harness *phase4test.Ser
 		"base_row_version": 1,
 		"client_txn_id":    "txn-phase6-i-6-03-" + prefix + "-server",
 		"changes": []map[string]any{{
-			"field_key": "timeline.summary",
+			"field_key": "timeline.activity_synopsis_text",
 			"value":     savedValue,
 		}},
 	})
@@ -160,7 +160,7 @@ func phase6CreateTimelineSameFieldConflict(t testing.TB, harness *phase4test.Ser
 		"base_row_version": 1,
 		"client_txn_id":    "txn-phase6-i-6-03-" + prefix + "-client",
 		"changes": []map[string]any{{
-			"field_key": "timeline.summary",
+			"field_key": "timeline.activity_synopsis_text",
 			"value":     localValue,
 		}},
 	})
@@ -210,7 +210,7 @@ func phase6LoginLocalUserNoMFA(t testing.TB, harness *phase4test.ServerHarness, 
 func phase6RequireConflictValues(t testing.TB, conflict map[string]any, recordID uuid.UUID, baseValue string, serverValue string, clientValue string) {
 	t.Helper()
 	if conflict["record_id"] != recordID.String() ||
-		conflict["field_key"] != "timeline.summary" ||
+		conflict["field_key"] != "timeline.activity_synopsis_text" ||
 		conflict["conflict_resolution_class"] != "text_compare_merge" ||
 		conflict["base_value"] != baseValue ||
 		conflict["server_value"] != serverValue ||

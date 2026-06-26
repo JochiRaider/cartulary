@@ -35,9 +35,9 @@ func TestPhase5_ObjectUploadAttachWorkbookProjection_I_5_01(t *testing.T) {
 	})
 	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 
-	timelineData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v1", map[string]any{
-		"client_txn_id":    "txn-phase5-i-01-timeline",
-		"timeline.summary": "Endpoint screenshot received",
+	timelineData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v2", map[string]any{
+		"client_txn_id":                   "txn-phase5-i-01-timeline",
+		"timeline.activity_synopsis_text": "Endpoint screenshot received",
 	})
 	timelineRow := timelineData["row"].(map[string]any)
 	timelineRecordID := phase4test.MustUUID(t, timelineRow["record_id"].(string))
@@ -81,7 +81,7 @@ func TestPhase5_ObjectUploadAttachWorkbookProjection_I_5_01(t *testing.T) {
 	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
 
 	requirePhase5HTTPWorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
-		"view_schema_id":   "cartulary.view.timeline.v1",
+		"view_schema_id":   "cartulary.view.timeline.v2",
 		"base_row_version": timelineRowVersion,
 		"client_txn_id":    "txn-phase5-i-01-link-evidence",
 		"changes": []map[string]any{{
@@ -319,9 +319,9 @@ func TestPhase5_AttachedEvidenceProjectionRebuild_I_5_06(t *testing.T) {
 	})
 	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 
-	timelineData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v1", map[string]any{
-		"client_txn_id":    "txn-phase5-projection-timeline",
-		"timeline.summary": "Projection rebuild row",
+	timelineData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v2", map[string]any{
+		"client_txn_id":                   "txn-phase5-projection-timeline",
+		"timeline.activity_synopsis_text": "Projection rebuild row",
 	})
 	timelineRow := timelineData["row"].(map[string]any)
 	timelineRecordID := phase4test.MustUUID(t, timelineRow["record_id"].(string))
@@ -335,7 +335,7 @@ func TestPhase5_AttachedEvidenceProjectionRebuild_I_5_06(t *testing.T) {
 	attachUploadedBlobWithMetadata(t, harness, login, incidentID, evidenceRecordID, []byte("phase5 projection rebuild"), "projection.txt", "text/plain", "txn-phase5-projection-blob", "txn-phase5-projection-attach")
 
 	requirePhase5HTTPWorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
-		"view_schema_id":   "cartulary.view.timeline.v1",
+		"view_schema_id":   "cartulary.view.timeline.v2",
 		"base_row_version": timelineRowVersion,
 		"client_txn_id":    "txn-phase5-projection-link",
 		"changes": []map[string]any{{
@@ -386,9 +386,9 @@ func TestPhase5_AttachPublishesWorkbookWebSocketRefresh_I_5_07(t *testing.T) {
 	})
 	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 
-	timelineData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v1", map[string]any{
-		"client_txn_id":    "txn-phase5-i-07-timeline",
-		"timeline.summary": "WebSocket evidence count target",
+	timelineData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v2", map[string]any{
+		"client_txn_id":                   "txn-phase5-i-07-timeline",
+		"timeline.activity_synopsis_text": "WebSocket evidence count target",
 	})
 	timelineRow := timelineData["row"].(map[string]any)
 	timelineRecordID := phase4test.MustUUID(t, timelineRow["record_id"].(string))
@@ -411,7 +411,7 @@ INSERT INTO record_links (
 		SessionToken:     login.SessionCookie.Value,
 		ClientInstanceID: "phase5-i-07-record-change-listener",
 		Presence: platformws.PresenceInput{
-			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v1"},
+			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v2"},
 			Mode:     "viewing",
 		},
 	})
@@ -426,7 +426,7 @@ INSERT INTO record_links (
 		t.Fatalf("evidence attach changed keys missing evidence.upload_state: %#v", evidenceChange)
 	}
 	timelineChange := phase5AwaitRecordChanged(t, socket, timelineRecordID, timelineRowVersion)
-	phase5RequireAffectedView(t, timelineChange, "cartulary.view.timeline.v1")
+	phase5RequireAffectedView(t, timelineChange, "cartulary.view.timeline.v2")
 	changedKeys := phase5ChangedFieldKeys(t, timelineChange)
 	for _, key := range []string{"timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence"} {
 		if !containsString(changedKeys, key) {
@@ -934,7 +934,7 @@ func requirePhase5HTTPWorkbookPatch(t testing.TB, harness *phase4test.ServerHarn
 
 func requireTimelineEvidenceProjection(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, wantCount int, wantHasEvidence bool) {
 	t.Helper()
-	resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.timeline.v1/query", map[string]any{}, authOptions(login)...)
+	resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.timeline.v2/query", map[string]any{}, authOptions(login)...)
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	for _, raw := range data["rows"].([]any) {
 		row := raw.(map[string]any)

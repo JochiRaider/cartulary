@@ -77,16 +77,15 @@ func TestPhase8_RowWireFamilies_U_8_10(t *testing.T) {
 		t.Fatalf("unexpected affected_views: %#v", affectedViews)
 	}
 
-	timelineCreated := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.timeline.v1", map[string]any{
-		"client_txn_id":        "txn-phase8-u-8-10-timeline-create",
-		"timeline.summary":     "Phase 8 hidden writable row",
-		"timeline.details":     "Hidden details",
-		"timeline.source_text": "Hidden source",
-		"timeline.occurred_at": "2026-05-16T12:00:00Z",
+	timelineCreated := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.timeline.v2", map[string]any{
+		"client_txn_id":                   "txn-phase8-u-8-10-timeline-create",
+		"timeline.activity_synopsis_text": "Phase 8 operational row",
+		"timeline.raw_activity_text":      "Hidden source",
+		"timeline.activity_utc_text":      "2026-05-16T12:00:00Z",
 	})
 	timelineRow := timelineCreated["row"].(map[string]any)
 	timelineRecordID := phase4test.MustUUID(t, timelineRow["record_id"].(string))
-	timelineQueryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.timeline.v1/query"
+	timelineQueryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.timeline.v2/query"
 	timelineRows := responseRows(queryWorkbook(t, harness, adminLogin, timelineQueryURL, map[string]any{}))
 	var queriedTimelineRow map[string]any
 	for _, row := range timelineRows {
@@ -99,13 +98,13 @@ func TestPhase8_RowWireFamilies_U_8_10(t *testing.T) {
 		t.Fatalf("expected queried timeline row, got %#v", timelineRows)
 	}
 	timelineCells := queriedTimelineRow["cells"].(map[string]any)
-	for _, fieldKey := range []string{"timeline.details", "timeline.source_text"} {
+	for _, fieldKey := range []string{"timeline.activity_synopsis_text", "timeline.raw_activity_text"} {
 		cell, ok := timelineCells[fieldKey].(map[string]any)
 		if !ok {
-			t.Fatalf("full row omitted hidden writable field %s: %#v", fieldKey, timelineCells)
+			t.Fatalf("full row omitted visible operational field %s: %#v", fieldKey, timelineCells)
 		}
 		if got := cell["value"]; got == nil || got == "" {
-			t.Fatalf("full row did not preserve hidden writable %s value: %#v", fieldKey, cell)
+			t.Fatalf("full row did not preserve operational %s value: %#v", fieldKey, cell)
 		}
 	}
 

@@ -32,7 +32,7 @@ import type { Page, Response } from "@playwright/test";
 import { expect } from "./fixtures";
 import { createViewRow, queryViewRows, uniqueTxn } from "./helpers";
 
-export const timelineViewSchemaId = "cartulary.view.timeline.v1";
+export const timelineViewSchemaId = "cartulary.view.timeline.v2";
 export const hostsViewSchemaId = "cartulary.view.hosts.v1";
 export const identitiesViewSchemaId = "cartulary.view.identities.v1";
 export const assessmentsViewSchemaId = "cartulary.view.assessments.v1";
@@ -122,10 +122,10 @@ export async function createTimelineFillers(
   for (let index = 1; index <= count; index += 1) {
     const payload: Record<string, unknown> = {
       client_txn_id: uniqueTxn(`${prefix}-${index}`),
-      "timeline.summary": `${prefix} ${index}`,
+      "timeline.activity_synopsis_text": `${prefix} ${index}`,
     };
     if (occurredAtStartMs !== null) {
-      payload["timeline.occurred_at"] = new Date(
+      payload["timeline.activity_utc_text"] = new Date(
         occurredAtStartMs + (index - 1) * occurredAtStepMs,
       ).toISOString();
     }
@@ -282,8 +282,8 @@ export async function seedHostMentionStateFixture(
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn(`${options.txnPrefix}-unresolved-row`),
-      "timeline.occurred_at": options.occurredAt.unresolved,
-      "timeline.summary": options.summary.unresolved,
+      "timeline.activity_utc_text": options.occurredAt.unresolved,
+      "timeline.activity_synopsis_text": options.summary.unresolved,
       [hostRefsFieldKey]: collectionActionsPayload([unresolvedRawText]),
     },
   )) as ViewRow;
@@ -293,8 +293,8 @@ export async function seedHostMentionStateFixture(
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn(`${options.txnPrefix}-resolved-row`),
-      "timeline.occurred_at": options.occurredAt.resolved,
-      "timeline.summary": options.summary.resolved,
+      "timeline.activity_utc_text": options.occurredAt.resolved,
+      "timeline.activity_synopsis_text": options.summary.resolved,
       [hostRefsFieldKey]: resolvedRefPayload(
         resolvedRawText,
         resolvedTarget.record_id,
@@ -307,15 +307,15 @@ export async function seedHostMentionStateFixture(
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn(`${options.txnPrefix}-manual-row`),
-      "timeline.occurred_at": options.occurredAt.manual,
-      "timeline.summary": options.summary.manual,
+      "timeline.activity_utc_text": options.occurredAt.manual,
+      "timeline.activity_synopsis_text": options.summary.manual,
       [hostRefsFieldKey]: collectionActionsPayload([manualRawText]),
     },
   )) as ViewRow;
   const autoRow = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn(`${options.txnPrefix}-auto-row`),
-    "timeline.occurred_at": options.occurredAt.auto,
-    "timeline.summary": options.summary.auto,
+    "timeline.activity_utc_text": options.occurredAt.auto,
+    "timeline.activity_synopsis_text": options.summary.auto,
   })) as ViewRow;
   const dismissedRow = (await createViewRow(
     page,
@@ -323,8 +323,8 @@ export async function seedHostMentionStateFixture(
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn(`${options.txnPrefix}-dismissed-row`),
-      "timeline.occurred_at": options.occurredAt.dismissed,
-      "timeline.summary": options.summary.dismissed,
+      "timeline.activity_utc_text": options.occurredAt.dismissed,
+      "timeline.activity_synopsis_text": options.summary.dismissed,
       [hostRefsFieldKey]: collectionActionsPayload([dismissedRawText]),
     },
   )) as ViewRow;
@@ -606,10 +606,7 @@ export async function addRelationshipTokenViaUI(
   const fieldKey =
     draftKey === "identityRefs" ? identityRefsFieldKey : hostRefsFieldKey;
   const inputTestId = timelineCollectionInputTestId(recordId, fieldKey);
-  await ensureTimelineGridTargetVisible(
-    page,
-    relationshipItemsTestId(recordId, fieldKey),
-  );
+  await openTimelineInspector(page, recordId);
   const input = page.getByTestId(inputTestId);
   await input.focus();
   await expect(input).toBeVisible();
@@ -885,8 +882,18 @@ export async function expectTimelineContinuity(
   await expect
     .poll(() => new URL(page.url()).searchParams.get("surface"))
     .toBeNull();
+  const focusTestId = rowCellTestId(
+    recordId,
+    "timeline.activity_synopsis_text",
+  );
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: focusTestId,
+  });
+  await page.getByTestId(focusTestId).scrollIntoViewIfNeeded();
   await assertGridFocusContinuity({
-    focusTestId: rowCellTestId(recordId, "timeline.summary"),
+    focusTestId,
     page,
     preservedScroll,
     requireExactHorizontalScroll: options.requireExactHorizontalScroll ?? false,

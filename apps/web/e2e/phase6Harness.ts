@@ -26,7 +26,7 @@ import {
   uniqueTxn,
 } from "./helpers";
 
-export const timelineViewSchemaId = "cartulary.view.timeline.v1";
+export const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
   const accountMenuTrigger = page.getByLabel(
@@ -118,7 +118,9 @@ export async function openIncidentAsTrackedUserReady(
   await page.goto(`/?incident_id=${options.incidentId}`);
   const acceptedSocket = await socketMonitor.waitForAcceptedSocket();
   await expect(
-    page.getByTestId(rowCellTestId(options.readyRecordId, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(options.readyRecordId, "timeline.activity_synopsis_text"),
+    ),
   ).toBeVisible();
   return { acceptedSocket, page, socketMonitor };
 }
@@ -147,7 +149,7 @@ export async function createTimelineRow(
 ) {
   return createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("phase6-timeline-row"),
-    "timeline.summary": summary,
+    "timeline.activity_synopsis_text": summary,
   });
 }
 
@@ -156,7 +158,9 @@ export async function editTimelineSummary(
   recordId: string,
   value: string,
 ) {
-  const input = page.getByTestId(rowCellTestId(recordId, "timeline.summary"));
+  const input = page.getByTestId(
+    rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+  );
   await input.fill(value);
   await input.press("Enter");
   await expect(input).toHaveValue(value);
@@ -226,7 +230,7 @@ export async function driveRealTimelineSummaryConflict({
     remotePatchPage ?? page,
     recordId,
     baseRowVersion,
-    "timeline.summary",
+    "timeline.activity_synopsis_text",
     remoteValue,
     txnPrefix,
   );
@@ -237,13 +241,17 @@ export async function driveRealTimelineSummaryConflict({
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
   if (expectConflictMarker) {
     await expect(
-      page.getByTestId(conflictMarkerTestId(recordId, "timeline.summary")),
+      page.getByTestId(
+        conflictMarkerTestId(recordId, "timeline.activity_synopsis_text"),
+      ),
     ).toBeVisible();
   }
   await expect(page.getByTestId("conflict-resolver")).toBeVisible();
   if (expectEditedCellMounted) {
     await expect(
-      page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+      page.getByTestId(
+        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+      ),
     ).toHaveValue(localValue);
   }
   await expect(page.getByTestId("conflict-server-value")).toHaveValue(
@@ -288,7 +296,9 @@ export async function exerciseSameFieldResolver({
     txnPrefix: `e602-remote-${recordId}`,
   });
   await expect(
-    remotePage.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+    remotePage.getByTestId(
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue(remoteValue);
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
@@ -306,16 +316,22 @@ export async function exerciseSameFieldResolver({
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   await expect(page.getByTestId("conflict-resolver")).toHaveCount(0);
   await expectServerTimelineCells(page, incidentId, recordId, {
-    "timeline.summary": expectedPrimary,
+    "timeline.activity_synopsis_text": expectedPrimary,
   });
   await expect(
-    page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue(expectedPrimary);
   await expect(
-    remotePage.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+    remotePage.getByTestId(
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue(expectedPrimary);
   await expect(
-    page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+    ),
   ).toBeFocused();
 }
 
@@ -381,7 +397,10 @@ export async function exerciseRevokedPendingReplay({
     await socketMonitor.waitForAcceptedSocket();
     await expect(
       page.getByTestId(
-        rowCellTestId(firstReplayItem.recordId, "timeline.summary"),
+        rowCellTestId(
+          firstReplayItem.recordId,
+          "timeline.activity_synopsis_text",
+        ),
       ),
     ).toHaveValue(`Phase 6 ${createdBy} ${scenario} 1 base`);
     await expectCurrentIncidentRole(page, "Current incident role: editor");
@@ -413,7 +432,9 @@ export async function exerciseRevokedPendingReplay({
     }
     for (const item of replayItems) {
       await expect(
-        page.getByTestId(rowCellTestId(item.recordId, "timeline.summary")),
+        page.getByTestId(
+          rowCellTestId(item.recordId, "timeline.activity_synopsis_text"),
+        ),
       ).toHaveValue(item.value);
     }
     await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
@@ -937,7 +958,7 @@ export function summaryPatchValue(body: Record<string, unknown>) {
       typeof change === "object" &&
       change !== null &&
       "field_key" in change &&
-      change.field_key === "timeline.summary",
+      change.field_key === "timeline.activity_synopsis_text",
   );
   return summaryChange?.value;
 }
@@ -1125,7 +1146,7 @@ async function fulfillJSONError(route: Route, status: number, code: string) {
 }
 
 function readTimelineSummary(row: Record<string, unknown>) {
-  return readTimelineCell(row, "timeline.summary");
+  return readTimelineCell(row, "timeline.activity_synopsis_text");
 }
 
 function readTimelineCell(row: Record<string, unknown>, fieldKey: string) {

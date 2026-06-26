@@ -8,7 +8,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-const timelineViewSchemaID = "cartulary.view.timeline.v1"
+const timelineViewSchemaID = "cartulary.view.timeline.v2"
 
 func TestDecode_DefaultsToSchemaMeta(t *testing.T) {
 	query, err := Decode(strings.NewReader(`{}`), timelineViewSchemaID)
@@ -36,7 +36,7 @@ func TestDecode_DefaultsToSchemaMeta(t *testing.T) {
 
 func TestDecode_NormalizesFiltersSortAndGrouping(t *testing.T) {
 	query, err := Decode(strings.NewReader(`{
-  "sort": [{"field_key": "timeline.summary", "direction": "asc"}],
+  "sort": [{"field_key": "timeline.activity_synopsis_text", "direction": "asc"}],
   "filters": [
     {"field_key": "timeline.tags", "op": "contains_any", "arg": {"values": ["beta", "alpha", "alpha"]}},
     {"field_key": "timeline.capture_state", "op": "eq", "arg": {"value": "rough"}}
@@ -47,10 +47,10 @@ func TestDecode_NormalizesFiltersSortAndGrouping(t *testing.T) {
 		t.Fatalf("decode normalized query: %+v", err)
 	}
 
-	if got := query.Meta.Sort[0]; got.FieldKey != "timeline.summary" || got.Direction != "asc" {
+	if got := query.Meta.Sort[0]; got.FieldKey != "timeline.activity_synopsis_text" || got.Direction != "asc" {
 		t.Fatalf("unexpected primary sort: %#v", query.Meta.Sort)
 	}
-	if got := query.Meta.Sort[1]; got.FieldKey != "timeline.sort_ts" || got.Direction != "asc" {
+	if got := query.Meta.Sort[1]; got.FieldKey != "timeline.activity_sort_ts" || got.Direction != "asc" {
 		t.Fatalf("expected default tail sort_ts asc, got %#v", query.Meta.Sort)
 	}
 	if got := query.Meta.Sort[2]; got.FieldKey != "record_id" || got.Direction != "asc" {
@@ -136,13 +136,13 @@ func TestDecode_RejectsDuplicateFilterField(t *testing.T) {
 func TestDecode_RejectsOversizeSortAndInvalidGroupBy(t *testing.T) {
 	_, sortErr := Decode(strings.NewReader(`{
   "sort": [
-    {"field_key": "timeline.summary", "direction": "asc"},
-    {"field_key": "timeline.sort_ts", "direction": "asc"},
+    {"field_key": "timeline.activity_synopsis_text", "direction": "asc"},
+    {"field_key": "timeline.activity_sort_ts", "direction": "asc"},
     {"field_key": "timeline.evidence_count", "direction": "asc"},
     {"field_key": "timeline.edited_at", "direction": "asc"},
     {"field_key": "timeline.capture_state", "direction": "asc"},
-    {"field_key": "timeline.occurred_day", "direction": "asc"},
-    {"field_key": "timeline.recorded_day", "direction": "asc"},
+    {"field_key": "timeline.date_entered_sort_day", "direction": "asc"},
+    {"field_key": "timeline.date_entered_sort_day", "direction": "asc"},
     {"field_key": "timeline.has_evidence", "direction": "asc"},
     {"field_key": "timeline.has_unresolved_mentions", "direction": "asc"}
   ]

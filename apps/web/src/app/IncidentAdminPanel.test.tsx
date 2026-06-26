@@ -210,7 +210,7 @@ describe("IncidentAdminPanel", () => {
               user_id: "user-1",
               home_sheet_ref: {
                 kind: "view_schema",
-                id: "cartulary.view.timeline.v1",
+                id: "cartulary.view.timeline.v2",
               },
             },
           }),
@@ -232,7 +232,7 @@ describe("IncidentAdminPanel", () => {
       screen.getByTestId("incident-pref-default-sheet-ref").textContent,
     ).toBe("Unset");
     expect(screen.getByTestId("incident-pref-home-sheet-ref").textContent).toBe(
-      "View schema: Timeline (cartulary.view.timeline.v1)",
+      "View schema: Timeline (cartulary.view.timeline.v2)",
     );
   });
 

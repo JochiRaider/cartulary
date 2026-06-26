@@ -108,17 +108,17 @@ func TestSupportPhase6_PresenceReplayRevocationTransport(t *testing.T) {
 		secondConnectionID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 
 		hub.UpsertPresence(incidentID, firstConnectionID, userID, "Analyst", PresenceInput{
-			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v1"},
+			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v2"},
 			Mode:     "viewing",
 		}, now)
 		hub.UpsertPresence(incidentID, secondConnectionID, userID, "Analyst", PresenceInput{
-			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v1"},
+			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v2"},
 			Mode:     "editing",
 			RecordID: stringPointer(uuid.NewString()),
-			FieldKey: stringPointer("timeline.summary"),
+			FieldKey: stringPointer("timeline.activity_synopsis_text"),
 		}, now)
 		hub.UpsertPresence(otherIncidentID, uuid.New(), userID, "Other", PresenceInput{
-			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v1"},
+			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v2"},
 			Mode:     "viewing",
 		}, now)
 
@@ -167,17 +167,17 @@ func TestSupportPhase6_PresenceReplayRevocationTransport(t *testing.T) {
 			"record_id":   recordID.String(),
 			"row_version": int64(7),
 			"cells": map[string]any{
-				"timeline.summary":       map[string]any{"value": "Patched"},
-				"timeline.capture_state": map[string]any{"value": "enriched"},
-				"timeline.details":       map[string]any{"value": "Omitted"},
+				"timeline.activity_synopsis_text": map[string]any{"value": "Patched"},
+				"timeline.capture_state":          map[string]any{"value": "enriched"},
+				"timeline.raw_activity_text":      map[string]any{"value": "Omitted"},
 			},
 			"group_values": map[string]any{
-				"timeline.capture_state": "enriched",
-				"timeline.details":       "not-a-group-key",
+				"timeline.capture_state":     "enriched",
+				"timeline.raw_activity_text": "not-a-group-key",
 			},
 		}
 		patch := BuildViewRowPatch(row, []string{
-			"timeline.summary",
+			"timeline.activity_synopsis_text",
 			"timeline.capture_state",
 		})
 		payload := RecordChangePayload(RecordChange{
@@ -187,13 +187,13 @@ func TestSupportPhase6_PresenceReplayRevocationTransport(t *testing.T) {
 			ChangeSetID:      changeSetID,
 			ClientTxnID:      "txn-phase6-patch",
 			ActorUserID:      actorUserID,
-			ChangedFieldKeys: []string{"timeline.summary", "timeline.capture_state"},
-			ViewSchemaID:     "cartulary.view.timeline.v1",
+			ChangedFieldKeys: []string{"timeline.activity_synopsis_text", "timeline.capture_state"},
+			ViewSchemaID:     "cartulary.view.timeline.v2",
 			PatchCells:       patch,
 		})
 
 		changedKeys, _ := payload["changed_field_keys"].([]string)
-		if want := []string{"timeline.capture_state", "timeline.summary"}; !reflect.DeepEqual(changedKeys, want) {
+		if want := []string{"timeline.activity_synopsis_text", "timeline.capture_state"}; !reflect.DeepEqual(changedKeys, want) {
 			t.Fatalf("changed_field_keys = %#v want %#v", changedKeys, want)
 		}
 		affectedViews, _ := payload["affected_views"].([]map[string]any)
@@ -202,7 +202,7 @@ func TestSupportPhase6_PresenceReplayRevocationTransport(t *testing.T) {
 		}
 		patchCells, _ := affectedViews[0]["patch_cells"].(map[string]any)
 		cells, _ := patchCells["cells"].(map[string]any)
-		if _, ok := cells["timeline.details"]; ok {
+		if _, ok := cells["timeline.raw_activity_text"]; ok {
 			t.Fatalf("patch_cells must omit unchanged cells, got %#v", cells)
 		}
 		if len(cells) != 2 {
@@ -220,8 +220,8 @@ func TestSupportPhase6_PresenceReplayRevocationTransport(t *testing.T) {
 			ChangeSetID:      changeSetID,
 			ClientTxnID:      "txn-phase6-invalidate",
 			ActorUserID:      actorUserID,
-			ChangedFieldKeys: []string{"timeline.summary"},
-			ViewSchemaID:     "cartulary.view.timeline.v1",
+			ChangedFieldKeys: []string{"timeline.activity_synopsis_text"},
+			ViewSchemaID:     "cartulary.view.timeline.v2",
 		})
 		fallbackViews, _ := fallback["affected_views"].([]map[string]any)
 		if len(fallbackViews) != 1 || fallbackViews[0]["change_kind"] != "invalidate" {

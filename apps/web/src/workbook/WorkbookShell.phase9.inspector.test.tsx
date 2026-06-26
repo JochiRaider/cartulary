@@ -141,14 +141,14 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     expect(scrollport).toBeInstanceOf(HTMLElement);
     expect((scrollport as HTMLElement).style.width).toBe("100%");
     expect(["0", "0px"]).toContain((scrollport as HTMLElement).style.minWidth);
-    const editedCell = screen.getByTestId(
-      rowCellTestId("record-1", "timeline.edited_at"),
-    );
-    expect(editedCell.textContent).toBe("2026-06-17T14:18:51.837049343Z");
-    expect(editedCell.style.whiteSpace).toBe("nowrap");
-    expect(editedCell.style.overflow).toBe("hidden");
-    expect(editedCell.style.textOverflow).toBe("ellipsis");
-    expect(editedCell.style.overflowWrap).toBe("normal");
+    expect(
+      screen.queryByTestId(rowCellTestId("record-1", "timeline.edited_at")),
+    ).toBeNull();
+    expect(
+      screen.getByTestId(
+        rowCellTestId("record-1", "timeline.activity_utc_text"),
+      ),
+    ).toBeTruthy();
 
     fireEvent.click(
       screen.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
@@ -220,6 +220,13 @@ describe("FE-P9 inspector and row-local action coverage", () => {
 
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
     await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+    fireEvent.contextMenu(
+      screen.getByTestId(
+        rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+      ),
+      { clientX: 32, clientY: 48 },
+    );
+    fireEvent.click(screen.getByTestId(rowInspectButtonTestId("record-1")));
 
     const hostItems = screen.getByTestId(
       relationshipItemsTestId("record-1", "timeline.host_refs"),
@@ -348,7 +355,9 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     );
     await waitForVisibleGridRowRecordIds(container, ["record-1", "record-2"]);
     fireEvent.contextMenu(
-      screen.getByTestId(rowCellTestId("record-2", "timeline.summary")),
+      screen.getByTestId(
+        rowCellTestId("record-2", "timeline.activity_synopsis_text"),
+      ),
       { clientX: 32, clientY: 48 },
     );
     fireEvent.click(screen.getByTestId(rowInspectButtonTestId("record-2")));
@@ -360,7 +369,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
       (
         screen.getByTestId(
           timelineScalarEditorTestId({
-            fieldKey: "timeline.details",
+            fieldKey: "timeline.raw_activity_text",
             recordId: "record-2",
             surface: "inspector",
           }),
@@ -368,7 +377,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
       ).value,
     ).toBe("Selected row details");
     for (const section of [
-      "details",
+      "operational-text",
       "relationships",
       "evidence",
       "history",
@@ -401,7 +410,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
         (
           screen.getByTestId(
             timelineScalarEditorTestId({
-              fieldKey: "timeline.details",
+              fieldKey: "timeline.raw_activity_text",
               recordId: "record-2",
               surface: "inspector",
             }),
@@ -418,7 +427,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
       container,
       timelineViewSchemaId,
       "record-2",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     );
     selectedCell.focus();
     rerender(<TimelineWorkbook incidentId="incident-1" reloadToken={2} />);
@@ -428,7 +437,9 @@ describe("FE-P9 inspector and row-local action coverage", () => {
         screen.getByTestId("timeline-inspector").textContent,
       ).not.toContain("Phase 9 selected row");
       expect(document.activeElement).toBe(
-        screen.getByTestId(rowCellTestId("record-3", "timeline.summary")),
+        screen.getByTestId(
+          rowCellTestId("record-3", "timeline.activity_synopsis_text"),
+        ),
       );
     });
   });
@@ -467,7 +478,9 @@ describe("FE-P9 inspector and row-local action coverage", () => {
       );
       await waitForVisibleGridRowRecordIds(container, ["record-1"]);
       fireEvent.contextMenu(
-        screen.getByTestId(rowCellTestId("record-1", "timeline.summary")),
+        screen.getByTestId(
+          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        ),
         { clientX: 32, clientY: 48 },
       );
       fireEvent.click(

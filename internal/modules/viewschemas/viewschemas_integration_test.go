@@ -127,13 +127,13 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 		resp := phase2test.DoJSON(
 			t,
 			http.MethodGet,
-			harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.timeline.v1",
+			harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.timeline.v2",
 			nil,
 			phase2test.WithCookies(login.SessionCookie),
 		)
 		body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 		resource := body["data"].(map[string]any)
-		if resource["view_schema_id"] != "cartulary.view.timeline.v1" {
+		if resource["view_schema_id"] != "cartulary.view.timeline.v2" {
 			t.Fatalf("unexpected singleton resource: %#v", resource)
 		}
 		requirePublicResource(t, resource)
@@ -141,7 +141,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 		paginated := phase2test.DoJSON(
 			t,
 			http.MethodGet,
-			harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.timeline.v1?limit=1",
+			harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.timeline.v2?limit=1",
 			nil,
 			phase2test.WithCookies(login.SessionCookie),
 		)
@@ -183,7 +183,7 @@ var requiredPackIndependentViewSchemaIDs = []string{
 	"cartulary.view.parties.v1",
 	"cartulary.view.status_review.v1",
 	"cartulary.view.task_requests.v1",
-	"cartulary.view.timeline.v1",
+	"cartulary.view.timeline.v2",
 }
 
 var implementedStandardizedOptionalViewSchemaIDs = []string{

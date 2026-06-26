@@ -34,16 +34,22 @@ import {
   installPatchController,
 } from "./phase6Harness";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 const exactScenarioTitle =
   "FE-E-P4-01 Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts.";
 
 const allowedCreateFieldKeys = new Set([
   "client_txn_id",
-  "timeline.occurred_at",
-  "timeline.summary",
-  "timeline.details",
-  "timeline.source_text",
+  "timeline.date_entered_text",
+  "timeline.analyst_text",
+  "timeline.mitre_stage_text",
+  "timeline.device_object_text",
+  "timeline.ip_address_text",
+  "timeline.activity_utc_text",
+  "timeline.activity_local_text",
+  "timeline.raw_activity_text",
+  "timeline.activity_synopsis_text",
+  "timeline.data_source_text",
   "timeline.host_refs",
   "timeline.identity_refs",
   "timeline.tags",
@@ -157,8 +163,11 @@ async function dispatchClipboardText(
   clipboardText: string,
 ) {
   const cell = page.getByTestId(rowCellTestId(recordId, fieldKey));
-  await cell.click();
+  await cell.scrollIntoViewIfNeeded();
   await cell.evaluate((element, text) => {
+    if (element instanceof HTMLElement) {
+      element.focus({ preventScroll: true });
+    }
     const data = new DataTransfer();
     data.setData("text/plain", String(text));
     element.dispatchEvent(
@@ -206,7 +215,7 @@ async function disableWorkbookSockets(page: Page) {
 }
 
 function summaryValue(row: ViewApiRow | undefined) {
-  return row?.cells["timeline.summary"]?.value;
+  return row?.cells["timeline.activity_synopsis_text"]?.value;
 }
 
 async function openTimelineIncident(page: Page, incidentId: string) {
@@ -231,13 +240,13 @@ test(
     );
     const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("feep401-alpha"),
-      "timeline.occurred_at": "2026-04-10T10:00:00.000Z",
-      "timeline.summary": "FE-E-P4-01 Alpha",
+      "timeline.activity_utc_text": "2026-04-10T10:00:00.000Z",
+      "timeline.activity_synopsis_text": "FE-E-P4-01 Alpha",
     });
     const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("feep401-beta"),
-      "timeline.occurred_at": "2026-04-10T10:05:00.000Z",
-      "timeline.summary": "FE-E-P4-01 Beta",
+      "timeline.activity_utc_text": "2026-04-10T10:05:00.000Z",
+      "timeline.activity_synopsis_text": "FE-E-P4-01 Beta",
     });
     const pasteSeed = await createViewRow(
       page,
@@ -245,7 +254,7 @@ test(
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("feep401-paste-seed"),
-        "timeline.summary": "FE-E-P4-01 Paste seed",
+        "timeline.activity_synopsis_text": "FE-E-P4-01 Paste seed",
       },
     );
     const tabularSeed = await createViewRow(
@@ -254,7 +263,7 @@ test(
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("feep401-tabular-seed"),
-        "timeline.summary": "FE-E-P4-01 Tabular seed",
+        "timeline.activity_synopsis_text": "FE-E-P4-01 Tabular seed",
       },
     );
 
@@ -279,7 +288,9 @@ test(
         (queryBody.data as { view_schema_id?: string }).view_schema_id,
       ).toBe(timelineViewSchemaId);
       await expect(
-        page.getByTestId(rowCellTestId(alpha.record_id, "timeline.summary")),
+        page.getByTestId(
+          rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
+        ),
       ).toHaveValue("FE-E-P4-01 Alpha");
 
       const createBodies: Record<string, unknown>[] = [];
@@ -302,10 +313,10 @@ test(
               ),
         );
         await page
-          .getByTestId(draftCellTestId("timeline.summary"))
+          .getByTestId(draftCellTestId("timeline.activity_synopsis_text"))
           .fill("FE-E-P4-01 Rough summary");
         await page
-          .getByTestId(draftCellTestId("timeline.summary"))
+          .getByTestId(draftCellTestId("timeline.activity_synopsis_text"))
           .press("Enter");
         const createEnvelope = await readTimelineMutation(await createResponse);
         const createdRow = createEnvelope.data.row;
@@ -314,7 +325,7 @@ test(
         expect(typeof createBody.client_txn_id).toBe("string");
         expect(Object.keys(createBody).sort()).toEqual([
           "client_txn_id",
-          "timeline.summary",
+          "timeline.activity_synopsis_text",
         ]);
         for (const fieldKey of Object.keys(createBody)) {
           expect(allowedCreateFieldKeys.has(fieldKey)).toBeTruthy();
@@ -325,7 +336,10 @@ test(
         expect(createBody).not.toHaveProperty("timeline.edited_at");
         await expect(
           page.getByTestId(
-            rowCellTestId(createdRow.record_id, "timeline.summary"),
+            rowCellTestId(
+              createdRow.record_id,
+              "timeline.activity_synopsis_text",
+            ),
           ),
         ).toHaveValue("FE-E-P4-01 Rough summary");
         await expect(
@@ -346,7 +360,7 @@ test(
       ] as const) {
         const response = await postTimelineCreatePublic(page, incidentId, {
           client_txn_id: uniqueTxn(`feep401-create-${fieldKey}`),
-          "timeline.summary": `FE-E-P4-01 forbidden ${fieldKey}`,
+          "timeline.activity_synopsis_text": `FE-E-P4-01 forbidden ${fieldKey}`,
           [fieldKey]: value,
         });
         await expectPublicError(response, 400, "invalid_mutation_payload", {
@@ -369,10 +383,14 @@ test(
           recordId: beta.record_id,
         });
         await page
-          .getByTestId(rowCellTestId(beta.record_id, "timeline.summary"))
+          .getByTestId(
+            rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+          )
           .fill("FE-E-P4-01 Beta inline edit");
         await page
-          .getByTestId(rowCellTestId(beta.record_id, "timeline.summary"))
+          .getByTestId(
+            rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+          )
           .press("Enter");
         const heldCall = await heldPatch.waitForHit;
         expect(heldCall.recordId).toBe(beta.record_id);
@@ -386,13 +404,17 @@ test(
         expect(changes).toHaveLength(1);
         expect(changes).toEqual([
           {
-            field_key: "timeline.summary",
+            field_key: "timeline.activity_synopsis_text",
             value: "FE-E-P4-01 Beta inline edit",
           },
         ]);
         await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
 
-        await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+        await sortByHeader(
+          page,
+          timelineViewSchemaId,
+          "timeline.activity_synopsis_text",
+        );
         await expect
           .poll(async () => visibleRecordIds(page))
           .toContain(beta.record_id);
@@ -413,7 +435,9 @@ test(
           0,
         );
         await expect(
-          page.getByTestId(rowCellTestId(beta.record_id, "timeline.summary")),
+          page.getByTestId(
+            rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+          ),
         ).toHaveValue("FE-E-P4-01 Beta inline edit");
         await expect(
           page.getByTestId(timelineRowVersionTestId(beta.record_id)),
@@ -443,7 +467,7 @@ test(
             ...heldCall.body,
             changes: [
               {
-                field_key: "timeline.summary",
+                field_key: "timeline.activity_synopsis_text",
                 value: "FE-E-P4-01 divergent replay",
               },
             ],
@@ -468,8 +492,8 @@ test(
             base_row_version: patchEnvelope.data.row.row_version,
             client_txn_id: uniqueTxn("feep401-duplicate-field"),
             changes: [
-              { field_key: "timeline.summary", value: "first" },
-              { field_key: "timeline.summary", value: "second" },
+              { field_key: "timeline.activity_synopsis_text", value: "first" },
+              { field_key: "timeline.activity_synopsis_text", value: "second" },
             ],
           }),
           400,
@@ -482,7 +506,7 @@ test(
             base_row_version: patchEnvelope.data.row.row_version,
             client_txn_id: uniqueTxn("feep401-over-max"),
             changes: Array.from({ length: 33 }, (_, index) => ({
-              field_key: "timeline.summary",
+              field_key: "timeline.activity_synopsis_text",
               value: `over max ${index}`,
             })),
           }),
@@ -497,7 +521,7 @@ test(
             client_txn_id: uniqueTxn("feep401-row-version-conflict"),
             changes: [
               {
-                field_key: "timeline.summary",
+                field_key: "timeline.activity_synopsis_text",
                 value: "FE-E-P4-01 future row version",
               },
             ],
@@ -512,7 +536,7 @@ test(
           timelineViewSchemaId,
           {
             client_txn_id: uniqueTxn("feep401-conflict-row"),
-            "timeline.summary": "FE-E-P4-01 conflict base",
+            "timeline.activity_synopsis_text": "FE-E-P4-01 conflict base",
           },
         );
         const serverConflictPatch = await patchTimelinePublic(
@@ -524,7 +548,7 @@ test(
             client_txn_id: uniqueTxn("feep401-same-field-server"),
             changes: [
               {
-                field_key: "timeline.summary",
+                field_key: "timeline.activity_synopsis_text",
                 value: "FE-E-P4-01 conflict server",
               },
             ],
@@ -538,7 +562,7 @@ test(
             client_txn_id: uniqueTxn("feep401-same-field-client"),
             changes: [
               {
-                field_key: "timeline.summary",
+                field_key: "timeline.activity_synopsis_text",
                 value: "FE-E-P4-01 conflict client",
               },
             ],
@@ -547,12 +571,14 @@ test(
           "same_field_conflict",
         );
         expect(sameFieldBody.error.conflict?.field_key).toBe(
-          "timeline.summary",
+          "timeline.activity_synopsis_text",
         );
 
         await page.reload();
         await expect(
-          page.getByTestId(rowCellTestId(beta.record_id, "timeline.summary")),
+          page.getByTestId(
+            rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+          ),
         ).toHaveValue("FE-E-P4-01 Beta inline edit");
         await expect(
           page.getByTestId(timelineRowVersionTestId(beta.record_id)),
@@ -583,12 +609,17 @@ test(
             response.url().endsWith(`/api/v1/records/${pasteSeed.record_id}`),
         );
         await page
-          .getByTestId(rowCellTestId(pasteSeed.record_id, "timeline.summary"))
+          .getByTestId(
+            rowCellTestId(
+              pasteSeed.record_id,
+              "timeline.activity_synopsis_text",
+            ),
+          )
           .fill("FE-E-P4-01 scalar, comma only");
         await dispatchClipboardText(
           page,
           pasteSeed.record_id,
-          "timeline.summary",
+          "timeline.activity_synopsis_text",
           "FE-E-P4-01 scalar, comma only",
         );
         const scalarPatch = await scalarPatchResponse;
@@ -597,7 +628,7 @@ test(
           view_schema_id: timelineViewSchemaId,
           changes: [
             {
-              field_key: "timeline.summary",
+              field_key: "timeline.activity_synopsis_text",
               value: "FE-E-P4-01 scalar, comma only",
             },
           ],
@@ -627,7 +658,7 @@ test(
             ),
       );
       await pasteGridMatrix({
-        fieldKey: "timeline.summary",
+        fieldKey: "timeline.activity_synopsis_text",
         matrix: [["FE-E-P4-01 tabular summary", "feep401-host.example.test"]],
         page,
         recordId: tabularSeed.record_id,
@@ -638,8 +669,11 @@ test(
         view_schema_id: timelineViewSchemaId,
         clipboard_text: "FE-E-P4-01 tabular summary\tfeep401-host.example.test",
         format: "tsv",
-        start_field_key: "timeline.summary",
-        columns: ["timeline.summary", "timeline.host_refs"],
+        start_field_key: "timeline.activity_synopsis_text",
+        columns: [
+          "timeline.activity_synopsis_text",
+          "timeline.data_source_text",
+        ],
         targets: [
           {
             kind: "record",
@@ -652,7 +686,10 @@ test(
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expect(
         page.getByTestId(
-          rowCellTestId(tabularSeed.record_id, "timeline.summary"),
+          rowCellTestId(
+            tabularSeed.record_id,
+            "timeline.activity_synopsis_text",
+          ),
         ),
       ).toHaveValue("FE-E-P4-01 tabular summary");
 
@@ -667,7 +704,7 @@ test(
         timelineViewSchemaId,
         {
           client_txn_id: uniqueTxn("feep401-foreign-row"),
-          "timeline.summary": "FE-E-P4-01 foreign untouched",
+          "timeline.activity_synopsis_text": "FE-E-P4-01 foreign untouched",
         },
       );
       await expectPublicError(
@@ -677,8 +714,8 @@ test(
           clipboard_text:
             "FE-E-P4-01 should not create\nFE-E-P4-01 should not disclose",
           format: "tsv",
-          start_field_key: "timeline.summary",
-          columns: ["timeline.summary"],
+          start_field_key: "timeline.activity_synopsis_text",
+          columns: ["timeline.activity_synopsis_text"],
           targets: [
             { kind: "create" },
             {
@@ -721,7 +758,7 @@ test(
         timelineViewSchemaId,
         {
           client_txn_id: uniqueTxn("feep401-stale-first"),
-          "timeline.summary": "FE-E-P4-01 stale first base",
+          "timeline.activity_synopsis_text": "FE-E-P4-01 stale first base",
         },
       );
       const staleSecond = await createViewRow(
@@ -730,7 +767,7 @@ test(
         timelineViewSchemaId,
         {
           client_txn_id: uniqueTxn("feep401-stale-second"),
-          "timeline.summary": "FE-E-P4-01 stale second base",
+          "timeline.activity_synopsis_text": "FE-E-P4-01 stale second base",
         },
       );
       const staleContext = await browser.newContext({
@@ -743,11 +780,46 @@ test(
         await expect(
           stalePage.getByTestId(timelineMutationSubstrateReadyTestId()),
         ).toBeVisible();
+        const visibleStaleRecordIds = (
+          await gridSavedRows(stalePage, timelineViewSchemaId).evaluateAll(
+            (rows) =>
+              rows.map((row) => row.getAttribute("data-grid-record-id") ?? ""),
+          )
+        ).filter(
+          (recordId) =>
+            recordId === staleFirst.record_id ||
+            recordId === staleSecond.record_id,
+        );
+        expect(visibleStaleRecordIds).toHaveLength(2);
+        const staleStartRecordId = visibleStaleRecordIds[0];
+        const staleNextRecordId = visibleStaleRecordIds[1];
+        if (
+          staleStartRecordId === undefined ||
+          staleNextRecordId === undefined
+        ) {
+          throw new Error("expected two visible stale Timeline records");
+        }
+        const stalePasteTextByRecordId = new Map([
+          [staleFirst.record_id, "FE-E-P4-01 stale first client"],
+          [staleSecond.record_id, "FE-E-P4-01 stale second client"],
+        ]);
+        const staleStartText = stalePasteTextByRecordId.get(staleStartRecordId);
+        const staleNextText = stalePasteTextByRecordId.get(staleNextRecordId);
+        if (staleStartText === undefined || staleNextText === undefined) {
+          throw new Error(
+            "visible stale Timeline record did not map to paste text",
+          );
+        }
         await stalePage
-          .getByTestId(rowCellTestId(staleFirst.record_id, "timeline.summary"))
+          .getByTestId(
+            rowCellTestId(
+              staleStartRecordId,
+              "timeline.activity_synopsis_text",
+            ),
+          )
           .focus();
         await expect(stalePage.getByTestId("workbook-focus-anchor")).toHaveText(
-          `${timelineViewSchemaId}:${staleFirst.record_id}:timeline.summary`,
+          `${timelineViewSchemaId}:${staleStartRecordId}:timeline.activity_synopsis_text`,
         );
         await patchTimelineRecord(page, staleFirst.record_id, {
           view_schema_id: timelineViewSchemaId,
@@ -755,7 +827,7 @@ test(
           client_txn_id: uniqueTxn("feep401-stale-first-server"),
           changes: [
             {
-              field_key: "timeline.summary",
+              field_key: "timeline.activity_synopsis_text",
               value: "FE-E-P4-01 stale first server",
             },
           ],
@@ -766,7 +838,7 @@ test(
           client_txn_id: uniqueTxn("feep401-stale-second-server"),
           changes: [
             {
-              field_key: "timeline.summary",
+              field_key: "timeline.activity_synopsis_text",
               value: "FE-E-P4-01 stale second server",
             },
           ],
@@ -782,13 +854,11 @@ test(
         );
         await dispatchClipboardText(
           stalePage,
-          staleFirst.record_id,
-          "timeline.summary",
-          [
-            "FE-E-P4-01 stale first client",
-            "FE-E-P4-01 stale second client",
-            "FE-E-P4-01 stale created",
-          ].join("\n"),
+          staleStartRecordId,
+          "timeline.activity_synopsis_text",
+          [staleStartText, staleNextText, "FE-E-P4-01 stale created"].join(
+            "\n",
+          ),
         );
         const groupedEnvelope = (await (await groupedPasteResponse).json()) as {
           data: {
@@ -806,12 +876,18 @@ test(
         );
         await expect(
           stalePage.getByTestId(
-            conflictMarkerTestId(staleFirst.record_id, "timeline.summary"),
+            conflictMarkerTestId(
+              staleStartRecordId,
+              "timeline.activity_synopsis_text",
+            ),
           ),
         ).toBeVisible();
         await expect(
           stalePage.getByTestId(
-            conflictMarkerTestId(staleSecond.record_id, "timeline.summary"),
+            conflictMarkerTestId(
+              staleNextRecordId,
+              "timeline.activity_synopsis_text",
+            ),
           ),
         ).toBeVisible();
         await expect(
@@ -821,21 +897,21 @@ test(
           stalePage.getByTestId("paste-conflict-position"),
         ).toHaveText("1 of 2");
         await expect(stalePage.getByTestId("conflict-local-value")).toHaveValue(
-          "FE-E-P4-01 stale first client",
+          staleStartText,
         );
         await stalePage.getByTestId("paste-conflict-next").click();
         await expect(
           stalePage.getByTestId("paste-conflict-position"),
         ).toHaveText("2 of 2");
         await expect(stalePage.getByTestId("conflict-local-value")).toHaveValue(
-          "FE-E-P4-01 stale second client",
+          staleNextText,
         );
       } finally {
         await staleContext.close();
       }
     });
 
-    await test.step("public validation errors preserve local drafts without private details", async () => {
+    await test.step("public string date edits preserve unparseable authored text", async () => {
       await openTimelineIncident(page, incidentId);
       const validationResponse = page.waitForResponse(
         (response) =>
@@ -843,25 +919,32 @@ test(
           response.url().endsWith(`/api/v1/records/${beta.record_id}`),
       );
       await page
-        .getByTestId(rowCellTestId(beta.record_id, "timeline.occurred_at"))
+        .getByTestId(
+          rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
+        )
         .fill("not-a-timestamp");
       await page
-        .getByTestId(rowCellTestId(beta.record_id, "timeline.occurred_at"))
+        .getByTestId(
+          rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
+        )
         .press("Enter");
-      await expectPublicError(
+      const validationEnvelope = await readTimelineMutation(
         await validationResponse,
-        400,
-        "invalid_mutation_payload",
-        { field: "timeline.occurred_at", reason_code: "invalid_value" },
       );
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
+      expect(
+        validationEnvelope.data.row.cells["timeline.activity_utc_text"]?.value,
+      ).toBe("not-a-timestamp");
+      expect(
+        validationEnvelope.data.row.cells["timeline.activity_time_pair_state"]
+          ?.value,
+      ).toBe("disabled");
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
       await expect(
-        page.getByTestId(rowCellTestId(beta.record_id, "timeline.occurred_at")),
+        page.getByTestId(
+          rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
+        ),
       ).toHaveValue("not-a-timestamp");
-      page.once("dialog", async (dialog) => {
-        await dialog.accept();
-      });
       await page.reload();
       await openTimelineIncident(page, incidentId);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
@@ -898,7 +981,7 @@ test(
           response.url().endsWith(faultPath),
       );
       const alphaSummaryCell = page.getByTestId(
-        rowCellTestId(alpha.record_id, "timeline.summary"),
+        rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
       );
       await alphaSummaryCell.scrollIntoViewIfNeeded();
       await alphaSummaryCell.fill("FE-E-P4-01 unknown fallback local");

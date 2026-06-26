@@ -48,10 +48,14 @@ describe("workbookQuery", () => {
   });
 
   it("prepends group-by sorting when the user sort does not already cluster grouped rows", () => {
-    const contract = requireViewContract("cartulary.view.timeline.v1");
+    const contract = requireViewContract("cartulary.view.timeline.v2");
     const next = updateGroupBy(
       contract,
-      toggleSortField(contract, emptyWorkbookQueryState(), "timeline.summary"),
+      toggleSortField(
+        contract,
+        emptyWorkbookQueryState(),
+        "timeline.activity_synopsis_text",
+      ),
       "timeline.capture_state",
     );
 
@@ -59,13 +63,13 @@ describe("workbookQuery", () => {
       group_by: "timeline.capture_state",
       sort: [
         { field_key: "timeline.capture_state", direction: "asc" },
-        { field_key: "timeline.summary", direction: "asc" },
+        { field_key: "timeline.activity_synopsis_text", direction: "asc" },
       ],
     });
   });
 
   it("describes filter chip labels from contract metadata", () => {
-    const contract = requireViewContract("cartulary.view.timeline.v1");
+    const contract = requireViewContract("cartulary.view.timeline.v2");
     expect(
       filterChipLabel(contract, {
         fieldKey: "timeline.capture_state",
@@ -76,9 +80,11 @@ describe("workbookQuery", () => {
   });
 
   it("initializes filter drafts from the contract and resolves input modes", () => {
-    const contract = requireViewContract("cartulary.view.timeline.v1");
-    expect(defaultFilterDraft(contract).fieldKey).toBe("timeline.occurred_day");
-    expect(filterInputMode("timeline.occurred_day")).toBe("date");
+    const contract = requireViewContract("cartulary.view.timeline.v2");
+    expect(defaultFilterDraft(contract).fieldKey).toBe(
+      "timeline.date_entered_sort_day",
+    );
+    expect(filterInputMode("timeline.date_entered_sort_day")).toBe("date");
     expect(filterInputMode("timeline.tags")).toBe("tagset");
   });
 });

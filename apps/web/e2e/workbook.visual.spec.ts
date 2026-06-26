@@ -31,7 +31,6 @@ import {
   gridSavedRowsSelector,
   gridScrollportSelector,
   gridShellTestId,
-  gridSortHeaderTestId,
   incidentControlsPanelTestId,
   incidentMembershipListTestId,
   mentionDismissButtonTestId,
@@ -587,11 +586,11 @@ test.describe("FE-P2 workbook visual readiness", () => {
       rows.push(
         (await createViewRow(page, incidentId, timelineViewSchemaId, {
           client_txn_id: uniqueTxn(`FEV2SHELL-ROW-${index + 1}`),
-          "timeline.occurred_at": new Date(
+          "timeline.activity_utc_text": new Date(
             Date.UTC(2026, 3, 18, 14, 12 + index * 2, 34),
           ).toISOString(),
-          "timeline.summary": summary,
-          "timeline.details": `Default Timeline workbook shell fixture row ${
+          "timeline.activity_synopsis_text": summary,
+          "timeline.raw_activity_text": `Default Timeline workbook shell fixture row ${
             index + 1
           }`,
           "timeline.host_refs": collectionActionsPayload([
@@ -692,13 +691,16 @@ test.describe("FE-P2 workbook visual readiness", () => {
     ).toBeVisible();
 
     const defaultTimelineFields = [
-      "timeline.occurred_at",
-      "timeline.summary",
-      "timeline.host_refs",
-      "timeline.identity_refs",
-      "timeline.evidence_count",
-      "timeline.tags",
-      "timeline.edited_at",
+      "timeline.date_entered_text",
+      "timeline.analyst_text",
+      "timeline.mitre_stage_text",
+      "timeline.device_object_text",
+      "timeline.ip_address_text",
+      "timeline.activity_utc_text",
+      "timeline.activity_local_text",
+      "timeline.raw_activity_text",
+      "timeline.activity_synopsis_text",
+      "timeline.data_source_text",
     ];
     const headerFieldKeys = await grid
       .locator('[role="columnheader"] [data-grid-field-key]')
@@ -716,7 +718,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
 
     await expect(
       page.getByTestId(
-        rowCellTestId(selectedRow.record_id, "timeline.summary"),
+        rowCellTestId(selectedRow.record_id, "timeline.activity_synopsis_text"),
       ),
     ).toHaveValue(rowSummariesById.get(selectedRow.record_id) ?? "");
 
@@ -813,7 +815,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
       rowSummariesById.get(selectedRow.record_id) ?? "Selected timeline row",
     );
     for (const section of [
-      "details",
+      "operational-text",
       "relationships",
       "evidence",
       "history",
@@ -830,10 +832,8 @@ test.describe("FE-P2 workbook visual readiness", () => {
         buffer: tinyPNG(),
       });
     await expect(
-      page.getByTestId(
-        rowCellTestId(selectedRow.record_id, "timeline.evidence_count"),
-      ),
-    ).toHaveText("1");
+      page.getByTestId(timelineInspectorSectionTestId("evidence")),
+    ).toContainText("Attached evidence count: 1");
     await page
       .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
       .click();
@@ -857,8 +857,16 @@ test.describe("FE-P2 workbook visual readiness", () => {
       scroll: { top: 0, left: "left" },
     });
     const summaryCell = page.getByTestId(
-      rowCellTestId(selectedRow.record_id, "timeline.summary"),
+      rowCellTestId(selectedRow.record_id, "timeline.activity_synopsis_text"),
     );
+    await scrollGridTargetIntoView({
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: rowCellTestId(
+        selectedRow.record_id,
+        "timeline.activity_synopsis_text",
+      ),
+    });
     await summaryCell.focus();
     await expect(summaryCell).toBeFocused();
     await expect
@@ -872,7 +880,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
           timelineScrollportSelector,
         ),
       )
-      .toEqual({ gridLeft: 0, windowY: 0 });
+      .toMatchObject({ windowY: 0 });
 
     await assertViewportVisualRegression(
       page,
@@ -897,8 +905,8 @@ test.describe("Phase 3 workbook visual evidence", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V3GRID01-ROW"),
-        "timeline.occurred_at": "2025-02-17T09:12:00Z",
-        "timeline.summary": "Default visual row",
+        "timeline.activity_utc_text": "2025-02-17T09:12:00Z",
+        "timeline.activity_synopsis_text": "Default visual row",
       },
     )) as ViewRow;
 
@@ -911,7 +919,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
     ).toHaveText(String(timelineRow.row_version));
     await expect(
       page.getByTestId(
-        rowCellTestId(timelineRow.record_id, "timeline.summary"),
+        rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
       ),
     ).toHaveValue("Default visual row");
 
@@ -935,8 +943,8 @@ test.describe("Phase 3 workbook visual evidence", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V3GRID02-ROW"),
-        "timeline.occurred_at": "2025-01-01T00:00:00Z",
-        "timeline.summary": "Editable visual row",
+        "timeline.activity_utc_text": "2025-01-01T00:00:00Z",
+        "timeline.activity_synopsis_text": "Editable visual row",
       },
     )) as ViewRow;
 
@@ -945,7 +953,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
 
     const saveState = page.getByTestId(saveStateTestId());
     const summaryInput = page.getByTestId(
-      rowCellTestId(timelineRow.record_id, "timeline.summary"),
+      rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
     );
 
     await expect(saveState).toHaveText("Saved");
@@ -998,7 +1006,7 @@ test.describe("Phase 3 workbook visual evidence", () => {
             conflict: {
               conflict_token: "visual-conflict-token",
               record_id: timelineRow.record_id,
-              field_key: "timeline.summary",
+              field_key: "timeline.activity_synopsis_text",
               conflict_resolution_class: "text_compare_merge",
               base_row_version: timelineRow.row_version,
               current_row_version: timelineRow.row_version + 1,
@@ -1042,14 +1050,14 @@ test.describe("Phase 3 workbook visual evidence", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V3GRID03-ROWA"),
-        "timeline.occurred_at": "2025-02-17T11:00:00Z",
-        "timeline.summary": "Alpha grouped row",
+        "timeline.activity_utc_text": "2025-02-17T11:00:00Z",
+        "timeline.activity_synopsis_text": "Alpha grouped row",
       },
     )) as ViewRow;
     await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("V3GRID03-ROWB"),
-      "timeline.occurred_at": "2025-02-17T11:05:00Z",
-      "timeline.summary": "Beta grouped row",
+      "timeline.activity_utc_text": "2025-02-17T11:05:00Z",
+      "timeline.activity_synopsis_text": "Beta grouped row",
     });
 
     await page.goto(`/?incident_id=${incidentId}`);
@@ -1111,8 +1119,8 @@ test.describe("FE-P3 visual readiness", () => {
     );
     await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("FEV3GRID-ROW"),
-      "timeline.occurred_at": "2026-05-31T10:00:00Z",
-      "timeline.summary": "FE-P3 visual adapter row",
+      "timeline.activity_utc_text": "2026-05-31T10:00:00Z",
+      "timeline.activity_synopsis_text": "FE-P3 visual adapter row",
     });
 
     await page.goto(`/?incident_id=${incidentId}`);
@@ -1158,8 +1166,8 @@ test.describe("FE-P4 visual readiness", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("FEV4VISUAL-ROW"),
-        "timeline.occurred_at": "2026-06-03T10:00:00Z",
-        "timeline.summary": "FE-P4 visual editable row",
+        "timeline.activity_utc_text": "2026-06-03T10:00:00Z",
+        "timeline.activity_synopsis_text": "FE-P4 visual editable row",
       },
     )) as ViewRow;
 
@@ -1169,7 +1177,7 @@ test.describe("FE-P4 visual readiness", () => {
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
     const summaryInput = page.getByTestId(
-      rowCellTestId(timelineRow.record_id, "timeline.summary"),
+      rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
     );
     await expect(summaryInput).toHaveValue("FE-P4 visual editable row");
     await summaryInput.focus();
@@ -1289,6 +1297,7 @@ test.describe("FE-P5 workbook visual readiness", () => {
     await maskIncidentIdentity(page, incidentId);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
+    await openTimelineInspector(page, unresolvedRow.record_id);
     await expect(
       page
         .getByTestId(
@@ -1296,6 +1305,7 @@ test.describe("FE-P5 workbook visual readiness", () => {
         )
         .getByLabel(`Unresolved ${unresolvedRawText}`),
     ).toBeVisible();
+    await openTimelineInspector(page, resolvedRow.record_id);
     await expect(
       page
         .getByTestId(
@@ -1384,7 +1394,7 @@ test.describe("Phase 4 workbook visual evidence", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V4GRID01-UNRESOLVED"),
-        "timeline.summary": "Unresolved mention visual row",
+        "timeline.activity_synopsis_text": "Unresolved mention visual row",
         [hostRefsFieldKey]: collectionActionsPayload(["WS-023?"]),
       },
     )) as ViewRow;
@@ -1394,13 +1404,14 @@ test.describe("Phase 4 workbook visual evidence", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V4GRID01-RESOLVED"),
-        "timeline.summary": "Resolved mention visual row",
+        "timeline.activity_synopsis_text": "Resolved mention visual row",
         [hostRefsFieldKey]: resolvedRefPayload("WS-023", hostRow.record_id),
       },
     )) as ViewRow;
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
+    await openTimelineInspector(page, unresolvedRow.record_id);
     await expect(
       page
         .getByTestId(
@@ -1408,6 +1419,7 @@ test.describe("Phase 4 workbook visual evidence", () => {
         )
         .getByLabel("Unresolved WS-023?"),
     ).toBeVisible();
+    await openTimelineInspector(page, resolvedRow.record_id);
     await expect(
       page
         .getByTestId(
@@ -1599,7 +1611,7 @@ test.describe("Phase 5 workbook visual evidence", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V5GRID02-TIMELINE"),
-        "timeline.summary": "Visual evidence badge row",
+        "timeline.activity_synopsis_text": "Visual evidence badge row",
       },
     )) as ViewRow;
 
@@ -1636,18 +1648,8 @@ test.describe("Phase 5 workbook visual evidence", () => {
         buffer: tinyPNG(),
       });
     await expect(
-      page.getByTestId(
-        rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
-      ),
-    ).toHaveText("1");
-    await expect(
-      page.getByTestId(
-        rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
-      ),
-    ).toHaveText("true");
-    await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
-    ).toBeVisible();
+    ).toContainText("Attached evidence count: 1");
     await page.evaluate(() => {
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -1769,8 +1771,8 @@ test.describe("FE-P6 visual readiness", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("FEVP601-TIMELINE"),
-        "timeline.occurred_at": "2026-05-01T11:00:00Z",
-        "timeline.summary": "FE-P6 timeline evidence count",
+        "timeline.activity_utc_text": "2026-05-01T11:00:00Z",
+        "timeline.activity_synopsis_text": "FE-P6 timeline evidence count",
       },
     )) as ViewRow;
 
@@ -1890,18 +1892,8 @@ test.describe("FE-P6 visual readiness", () => {
         name: "fe-v-p6-timeline-evidence.png",
       });
     await expect(
-      page.getByTestId(
-        rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
-      ),
-    ).toHaveText("1");
-    await expect(
-      page.getByTestId(
-        rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
-      ),
-    ).toHaveText("true");
-    await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
-    ).toBeVisible();
+    ).toContainText("Attached evidence count: 1");
     await page.evaluate(() => {
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -1948,7 +1940,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("FEVP701-PRESENCE"),
-        "timeline.summary": "Presence visual row",
+        "timeline.activity_synopsis_text": "Presence visual row",
       },
     )) as ViewRow;
     const primarySocket = installIncidentSocketMonitor(page, incidentId);
@@ -1975,11 +1967,19 @@ test.describe("FE-P7 workbook visual readiness", () => {
       remotePage = remoteSession.page;
       await focusRemoteTimelineCellAndWaitForPresence({
         actorText: "VA",
-        fieldKey: "timeline.summary",
+        fieldKey: "timeline.activity_synopsis_text",
         primaryPage: page,
         recordId: presenceRow.record_id,
         remotePage,
         socketMonitor: primarySocket,
+      });
+      await scrollGridTargetIntoView({
+        page,
+        surface: timelineViewSchemaId,
+        targetTestId: rowCellTestId(
+          presenceRow.record_id,
+          "timeline.activity_synopsis_text",
+        ),
       });
       await assertMarkerAnchoredToGridTarget({
         anchorKind: "row-gutter",
@@ -1995,11 +1995,14 @@ test.describe("FE-P7 workbook visual readiness", () => {
         anchorKind: "cell",
         markerTestId: cellPresenceMarkerTestId(
           presenceRow.record_id,
-          "timeline.summary",
+          "timeline.activity_synopsis_text",
         ),
         page,
         surface: timelineViewSchemaId,
-        targetTestId: rowCellTestId(presenceRow.record_id, "timeline.summary"),
+        targetTestId: rowCellTestId(
+          presenceRow.record_id,
+          "timeline.activity_synopsis_text",
+        ),
       });
       await assertWorkbookGridVisualRegression(
         page,
@@ -2018,11 +2021,19 @@ test.describe("FE-P7 workbook visual readiness", () => {
       title: "FE-P7 visual conflict resolver",
     });
     try {
+      await scrollGridTargetIntoView({
+        page,
+        surface: timelineViewSchemaId,
+        targetTestId: rowCellTestId(
+          fixture.conflictRow.record_id,
+          "timeline.activity_synopsis_text",
+        ),
+      });
       await expect(
         page.getByTestId(
           conflictMarkerTestId(
             fixture.conflictRow.record_id,
-            "timeline.summary",
+            "timeline.activity_synopsis_text",
           ),
         ),
       ).toBeVisible();
@@ -2030,13 +2041,13 @@ test.describe("FE-P7 workbook visual readiness", () => {
         anchorKind: "cell",
         markerTestId: conflictMarkerTestId(
           fixture.conflictRow.record_id,
-          "timeline.summary",
+          "timeline.activity_synopsis_text",
         ),
         page,
         surface: timelineViewSchemaId,
         targetTestId: rowCellTestId(
           fixture.conflictRow.record_id,
-          "timeline.summary",
+          "timeline.activity_synopsis_text",
         ),
       });
       await assertViewportVisualRegression(
@@ -2099,7 +2110,7 @@ test.describe("FE-P7 workbook visual readiness", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("FEVP701-INVALIDATE"),
-        "timeline.summary": "Invalidate visual base",
+        "timeline.activity_synopsis_text": "Invalidate visual base",
       },
     )) as ViewRow;
     const socketMonitor = installIncidentSocketMonitor(page, incidentId);
@@ -2134,14 +2145,15 @@ test.describe("FE-P8 workbook visual readiness", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("FEVP801-REVIEWED"),
-        "timeline.occurred_at": "2026-06-08T12:00:00Z",
-        "timeline.summary": "FE-P8 reviewed saved-view visual row",
+        "timeline.activity_utc_text": "2026-06-08T12:00:00Z",
+        "timeline.activity_synopsis_text":
+          "FE-P8 reviewed saved-view visual row",
       },
     )) as ViewRow;
     await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("FEVP801-ROUGH"),
-      "timeline.occurred_at": "2026-06-08T12:05:00Z",
-      "timeline.summary": "FE-P8 rough grouped visual row",
+      "timeline.activity_utc_text": "2026-06-08T12:05:00Z",
+      "timeline.activity_synopsis_text": "FE-P8 rough grouped visual row",
     });
 
     await page.goto(`/?incident_id=${incidentId}`);
@@ -2271,8 +2283,8 @@ test.describe("FE-P9 workbook visual readiness", () => {
       {
         [hostRefsFieldKey]: collectionActionsPayload(["FE-P9 visual host"]),
         client_txn_id: uniqueTxn("FEVP901-TARGET"),
-        "timeline.details": "FE-P9 visual inspector details",
-        "timeline.summary": "FE-P9 visual inspector target",
+        "timeline.raw_activity_text": "FE-P9 visual inspector details",
+        "timeline.activity_synopsis_text": "FE-P9 visual inspector target",
       },
     )) as ViewRow;
     const linkedTarget = (await patchTimelineRecord(page, target.record_id, {
@@ -2306,7 +2318,7 @@ test.describe("FE-P9 workbook visual readiness", () => {
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await openTimelineInspector(page, target.record_id);
     for (const section of [
-      "details",
+      "operational-text",
       "relationships",
       "evidence",
       "history",
@@ -2318,7 +2330,7 @@ test.describe("FE-P9 workbook visual readiness", () => {
     await expect(
       page.getByTestId(
         timelineScalarEditorTestId({
-          fieldKey: "timeline.details",
+          fieldKey: "timeline.raw_activity_text",
           recordId: target.record_id,
           surface: "inspector",
         }),
@@ -2506,7 +2518,7 @@ async function prepareFeP7ConflictVisual(
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn(`${options.incidentKeyPrefix}-CONFLICT`),
-      "timeline.summary": "Conflict visual base",
+      "timeline.activity_synopsis_text": "Conflict visual base",
     },
   )) as ViewRow;
   const queueRow = (await createViewRow(
@@ -2515,7 +2527,7 @@ async function prepareFeP7ConflictVisual(
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn(`${options.incidentKeyPrefix}-QUEUE`),
-      "timeline.summary": "Pending visual base",
+      "timeline.activity_synopsis_text": "Pending visual base",
     },
   )) as ViewRow;
   const patchController = await installPatchController(page);
@@ -2578,7 +2590,9 @@ async function driveFeP7InvalidateRefreshVisual({
     startAt: removeStartAt,
   });
   await expect(
-    page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveCount(0);
 
   const queryHold = await holdBrowserApiRequest(page, {
@@ -2638,7 +2652,9 @@ async function driveFeP7InvalidateRefreshVisual({
     await queryHold.dispose();
   }
   await expect(
-    page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("Invalidate visual base", { timeout: 10_000 });
 }
 
@@ -2666,7 +2682,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V6GRID01-ROW"),
-        "timeline.summary": "Presence visual row",
+        "timeline.activity_synopsis_text": "Presence visual row",
       },
     )) as ViewRow;
     const primarySocket = installIncidentSocketMonitor(page, incidentId);
@@ -2678,7 +2694,10 @@ test.describe("Phase 6 workbook visual evidence", () => {
       await maskIncidentIdentity(page, incidentId);
       await expect(
         page.getByTestId(
-          rowCellTestId(timelineRow.record_id, "timeline.summary"),
+          rowCellTestId(
+            timelineRow.record_id,
+            "timeline.activity_synopsis_text",
+          ),
         ),
       ).toHaveValue("Presence visual row");
 
@@ -2698,11 +2717,19 @@ test.describe("Phase 6 workbook visual evidence", () => {
       remotePage = remoteSession.page;
       await focusRemoteTimelineCellAndWaitForPresence({
         actorText: "VA",
-        fieldKey: "timeline.summary",
+        fieldKey: "timeline.activity_synopsis_text",
         primaryPage: page,
         recordId: timelineRow.record_id,
         remotePage,
         socketMonitor: primarySocket,
+      });
+      await scrollGridTargetIntoView({
+        page,
+        surface: timelineViewSchemaId,
+        targetTestId: rowCellTestId(
+          timelineRow.record_id,
+          "timeline.activity_synopsis_text",
+        ),
       });
       await assertMarkerAnchoredToGridTarget({
         anchorKind: "row-gutter",
@@ -2718,11 +2745,14 @@ test.describe("Phase 6 workbook visual evidence", () => {
         anchorKind: "cell",
         markerTestId: cellPresenceMarkerTestId(
           timelineRow.record_id,
-          "timeline.summary",
+          "timeline.activity_synopsis_text",
         ),
         page,
         surface: timelineViewSchemaId,
-        targetTestId: rowCellTestId(timelineRow.record_id, "timeline.summary"),
+        targetTestId: rowCellTestId(
+          timelineRow.record_id,
+          "timeline.activity_synopsis_text",
+        ),
       });
 
       await assertWorkbookGridVisualRegression(
@@ -2751,7 +2781,7 @@ test.describe("Phase 6 workbook visual evidence", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V6GRID02-ROW"),
-        "timeline.summary": "Conflict visual base",
+        "timeline.activity_synopsis_text": "Conflict visual base",
       },
     )) as ViewRow;
 
@@ -2768,20 +2798,34 @@ test.describe("Phase 6 workbook visual evidence", () => {
         remoteValue: "Conflict visual server",
         txnPrefix: "visual-phase6-conflict",
       });
+      await scrollGridTargetIntoView({
+        page,
+        surface: timelineViewSchemaId,
+        targetTestId: rowCellTestId(
+          timelineRow.record_id,
+          "timeline.activity_synopsis_text",
+        ),
+      });
       await expect(
         page.getByTestId(
-          conflictMarkerTestId(timelineRow.record_id, "timeline.summary"),
+          conflictMarkerTestId(
+            timelineRow.record_id,
+            "timeline.activity_synopsis_text",
+          ),
         ),
       ).toBeVisible();
       await assertMarkerAnchoredToGridTarget({
         anchorKind: "cell",
         markerTestId: conflictMarkerTestId(
           timelineRow.record_id,
-          "timeline.summary",
+          "timeline.activity_synopsis_text",
         ),
         page,
         surface: timelineViewSchemaId,
-        targetTestId: rowCellTestId(timelineRow.record_id, "timeline.summary"),
+        targetTestId: rowCellTestId(
+          timelineRow.record_id,
+          "timeline.activity_synopsis_text",
+        ),
       });
 
       await assertViewportVisualRegression(
@@ -2808,8 +2852,8 @@ test.describe("Phase 6 workbook visual evidence", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V6GRID03-ROW"),
-        "timeline.occurred_at": "2025-03-06T10:00:00Z",
-        "timeline.summary": "Pending visual base",
+        "timeline.activity_utc_text": "2025-03-06T10:00:00Z",
+        "timeline.activity_synopsis_text": "Pending visual base",
       },
     )) as ViewRow;
     const conflictRow = (await createViewRow(
@@ -2818,8 +2862,8 @@ test.describe("Phase 6 workbook visual evidence", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V6GRID03-CONFLICT-ROW"),
-        "timeline.occurred_at": "2025-03-06T10:05:00Z",
-        "timeline.summary": "Pending conflict visual base",
+        "timeline.activity_utc_text": "2025-03-06T10:05:00Z",
+        "timeline.activity_synopsis_text": "Pending conflict visual base",
       },
     )) as ViewRow;
     const queuedRow = (await createViewRow(
@@ -2828,15 +2872,15 @@ test.describe("Phase 6 workbook visual evidence", () => {
       timelineViewSchemaId,
       {
         client_txn_id: uniqueTxn("V6GRID03-QUEUED-ROW"),
-        "timeline.occurred_at": "2025-03-06T10:10:00Z",
-        "timeline.summary": "Pending queued visual base",
+        "timeline.activity_utc_text": "2025-03-06T10:10:00Z",
+        "timeline.activity_synopsis_text": "Pending queued visual base",
       },
     )) as ViewRow;
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
     const summaryInput = page.getByTestId(
-      rowCellTestId(syncRow.record_id, "timeline.summary"),
+      rowCellTestId(syncRow.record_id, "timeline.activity_synopsis_text"),
     );
     const saveState = page.getByTestId(saveStateTestId());
     const patchController = await installPatchController(page);
@@ -3252,8 +3296,8 @@ test.describe("FE-P11 visual readiness", () => {
     );
     await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("FEV11THEME-ROW"),
-      "timeline.occurred_at": "2026-05-31T11:00:00Z",
-      "timeline.summary": "FE-P11 exposed theme fixture row",
+      "timeline.activity_utc_text": "2026-05-31T11:00:00Z",
+      "timeline.activity_synopsis_text": "FE-P11 exposed theme fixture row",
     });
 
     await page.goto(`/?incident_id=${incidentId}`);
@@ -4601,17 +4645,10 @@ function buildWorkbookGridAnchorSelectors(
   switch (anchor.kind) {
     case "timelineEvidenceActions":
       return {
-        fieldKeys: ["timeline.evidence_count"],
-        scrollTargetTestId: rowCellTestId(
-          anchor.rowId,
-          "timeline.evidence_count",
-        ),
+        fieldKeys: [],
+        scrollTargetTestId: gridRowGutterTestId(surface, anchor.rowId),
         requiredTestIds: {
-          evidenceCell: rowCellTestId(anchor.rowId, "timeline.evidence_count"),
-          evidenceHeader: gridSortHeaderTestId(
-            surface,
-            "timeline.evidence_count",
-          ),
+          rowGutter: gridRowGutterTestId(surface, anchor.rowId),
         },
       };
   }

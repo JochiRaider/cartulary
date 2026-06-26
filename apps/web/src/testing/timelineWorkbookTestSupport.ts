@@ -25,7 +25,7 @@ import { expect, vi } from "vitest";
 import type { RecordChangedPayload } from "../workbook/timeline/services/workbookShellPhase4";
 import { requireJSONBodyAt } from "./fetchMockTestSupport";
 
-export const timelineViewSchemaId = "cartulary.view.timeline.v1";
+export const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 type WebSocketLike = {
   onmessage: ((event: MessageEvent) => void) | null;
@@ -73,6 +73,16 @@ const timelineWebSockets: TimelineWebSocketMock[] = [];
 type TimelineRowOptions = {
   recordId: string;
   rowVersion: number;
+  dateEnteredText?: string;
+  analystText?: string;
+  mitreStageText?: string;
+  deviceObjectText?: string;
+  ipAddressText?: string;
+  activityUTCText?: string;
+  activityLocalText?: string;
+  rawActivityText?: string;
+  activitySynopsisText?: string;
+  dataSourceText?: string;
   occurredAt?: string;
   summary?: string;
   details?: string;
@@ -470,6 +480,16 @@ export function emitRecordChanged(
 export function timelineRow({
   recordId,
   rowVersion,
+  dateEnteredText = "",
+  analystText = "",
+  mitreStageText = "",
+  deviceObjectText = "",
+  ipAddressText = "",
+  activityUTCText,
+  activityLocalText = "",
+  rawActivityText,
+  activitySynopsisText,
+  dataSourceText = "",
   occurredAt = "",
   summary = "",
   details = "",
@@ -482,14 +502,23 @@ export function timelineRow({
   hostRefs = [],
   identityRefs = [],
 }: TimelineRowOptions) {
+  const utcText = activityUTCText ?? occurredAt;
+  const rawText = rawActivityText ?? (sourceText !== "" ? sourceText : details);
+  const synopsisText = activitySynopsisText ?? summary;
   return {
     record_id: recordId,
     row_version: rowVersion,
     cells: {
-      "timeline.occurred_at": { value: occurredAt },
-      "timeline.summary": { value: summary },
-      "timeline.details": { value: details },
-      "timeline.source_text": { value: sourceText },
+      "timeline.date_entered_text": { value: dateEnteredText },
+      "timeline.analyst_text": { value: analystText },
+      "timeline.mitre_stage_text": { value: mitreStageText },
+      "timeline.device_object_text": { value: deviceObjectText },
+      "timeline.ip_address_text": { value: ipAddressText },
+      "timeline.activity_utc_text": { value: utcText },
+      "timeline.activity_local_text": { value: activityLocalText },
+      "timeline.raw_activity_text": { value: rawText },
+      "timeline.activity_synopsis_text": { value: synopsisText },
+      "timeline.data_source_text": { value: dataSourceText },
       "timeline.host_refs": { value: collectionValue(true, hostRefs) },
       "timeline.identity_refs": { value: collectionValue(true, identityRefs) },
       "timeline.evidence_count": { value: evidenceCount },
@@ -497,11 +526,13 @@ export function timelineRow({
       "timeline.attached_evidence_ids": { value: collectionValue(false, []) },
       "timeline.edited_at": { value: editedAt },
       "timeline.recorded_at": { value: "" },
-      "timeline.sort_ts": { value: occurredAt },
+      "timeline.activity_sort_ts": { value: utcText },
+      "timeline.date_entered_sort_day": {
+        value: dateEnteredText === "" ? null : dateEnteredText.slice(0, 10),
+      },
+      "timeline.activity_time_pair_state": { value: "disabled" },
       "timeline.capture_state": { value: captureState },
       "timeline.replacement_record_id": { value: null },
-      "timeline.occurred_day": { value: occurredAt.slice(0, 10) },
-      "timeline.recorded_day": { value: "" },
       "timeline.has_evidence": { value: hasEvidence },
       "timeline.has_unresolved_mentions": { value: false },
     },

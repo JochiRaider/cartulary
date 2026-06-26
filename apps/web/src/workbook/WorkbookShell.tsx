@@ -1240,7 +1240,7 @@ function EntityWorkbookSurface({
                           style={timelinePreviewCardStyle}
                         >
                           <p style={noticeTitleStyle}>
-                            {row.values.summary || "Untitled row"}
+                            {row.values.activitySynopsisText || "Untitled row"}
                           </p>
                           <div style={relationshipItemsWrapStyle}>
                             {row.collectionValues[

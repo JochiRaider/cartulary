@@ -1612,22 +1612,54 @@ func updateTimelineFromRollbackSourceTx(ctx context.Context, tx pgx.Tx, recordID
 	if !ok || captureState == "" {
 		return &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
+	pairState, ok := stringFromMap(source, "activity_time_pair_state")
+	if !ok || pairState == "" {
+		pairState = "disabled"
+	}
 	_, err := tx.Exec(ctx, `
 UPDATE timeline_events
-   SET occurred_at = $2,
-       summary = $3,
-       details = $4,
-       source_text = $5,
-       capture_state = $6,
-       row_version = $7,
-       edited_at = $8,
-       updated_by_user_id = $9,
-       reviewed_by_user_id = $10,
-       reviewed_at = $11,
-       superseded_by_user_id = $12,
-       superseded_at = $13
+   SET date_entered_text = $2,
+       analyst_text = $3,
+       mitre_stage_text = $4,
+       device_object_text = $5,
+       ip_address_text = $6,
+       activity_utc_text = $7,
+       activity_local_text = $8,
+       raw_activity_text = $9,
+       activity_synopsis_text = $10,
+       data_source_text = $11,
+       activity_utc_generated = false,
+       activity_local_generated = false,
+       activity_time_pair_state = $12,
+       capture_state = $13,
+       row_version = $14,
+       edited_at = $15,
+       updated_by_user_id = $16,
+       reviewed_by_user_id = $17,
+       reviewed_at = $18,
+       superseded_by_user_id = $19,
+       superseded_at = $20
  WHERE record_id = $1
-`, recordID, nullableAny(source, "occurred_at"), nullableStringAny(source, "summary"), nullableStringAny(source, "details"), nullableStringAny(source, "source_text"), captureState, rowVersion, now.UTC(), actorUserID, nullableUUIDAny(source, "reviewed_by_user_id"), nullableAny(source, "reviewed_at"), nullableUUIDAny(source, "superseded_by_user_id"), nullableAny(source, "superseded_at"))
+`, recordID,
+		nullableStringAny(source, "date_entered_text"),
+		nullableStringAny(source, "analyst_text"),
+		nullableStringAny(source, "mitre_stage_text"),
+		nullableStringAny(source, "device_object_text"),
+		nullableStringAny(source, "ip_address_text"),
+		nullableStringAny(source, "activity_utc_text"),
+		nullableStringAny(source, "activity_local_text"),
+		nullableStringAny(source, "raw_activity_text"),
+		nullableStringAny(source, "activity_synopsis_text"),
+		nullableStringAny(source, "data_source_text"),
+		pairState,
+		captureState,
+		rowVersion,
+		now.UTC(),
+		actorUserID,
+		nullableUUIDAny(source, "reviewed_by_user_id"),
+		nullableAny(source, "reviewed_at"),
+		nullableUUIDAny(source, "superseded_by_user_id"),
+		nullableAny(source, "superseded_at"))
 	return err
 }
 
@@ -2709,14 +2741,21 @@ func rollbackSourceForRecordType(recordType string, value map[string]any) (map[s
 	switch recordType {
 	case "timeline_event":
 		mapping = map[string]string{
-			"timeline.occurred_at":           "occurred_at",
-			"timeline.summary":               "summary",
-			"timeline.details":               "details",
-			"timeline.source_text":           "source_text",
-			"timeline.capture_state":         "capture_state",
-			"timeline.replacement_record_id": "replacement_record_id",
-			"timeline.reviewed_at":           "reviewed_at",
-			"timeline.superseded_at":         "superseded_at",
+			"timeline.date_entered_text":        "date_entered_text",
+			"timeline.analyst_text":             "analyst_text",
+			"timeline.mitre_stage_text":         "mitre_stage_text",
+			"timeline.device_object_text":       "device_object_text",
+			"timeline.ip_address_text":          "ip_address_text",
+			"timeline.activity_utc_text":        "activity_utc_text",
+			"timeline.activity_local_text":      "activity_local_text",
+			"timeline.raw_activity_text":        "raw_activity_text",
+			"timeline.activity_synopsis_text":   "activity_synopsis_text",
+			"timeline.data_source_text":         "data_source_text",
+			"timeline.activity_time_pair_state": "activity_time_pair_state",
+			"timeline.capture_state":            "capture_state",
+			"timeline.replacement_record_id":    "replacement_record_id",
+			"timeline.reviewed_at":              "reviewed_at",
+			"timeline.superseded_at":            "superseded_at",
 		}
 		source["capture_state"] = "rough"
 	case "host":

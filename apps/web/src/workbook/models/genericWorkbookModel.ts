@@ -441,7 +441,7 @@ export function genericRowLabel(
   row: EntityApiRow,
 ): string {
   const preferredFieldKeys = [
-    "timeline.summary",
+    "timeline.activity_synopsis_text",
     "host.display_name",
     "host.hostname",
     "identity.display_name",

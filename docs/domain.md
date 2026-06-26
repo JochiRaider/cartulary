@@ -284,7 +284,7 @@ Declared scope: every current-profile standardized workbook surface named by the
 
 | Surface | `view_schema_id` | `surface_kind` | `source_record_types` | `canonical_source_discriminator_or_filter` | `surface_status` | `required_reference_pack_keys` | `applicability` |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Timeline | `cartulary.view.timeline.v1` | `built_in_sheet` | `["timeline_event"]` | `record_type='timeline_event'` | required built-in sheet | `[]` | `base-required-surface` |
+| Timeline | `cartulary.view.timeline.v2` | `built_in_sheet` | `["timeline_event"]` | `record_type='timeline_event'` | required built-in sheet | `[]` | `base-required-surface` |
 | Hosts | `cartulary.view.hosts.v1` | `built_in_sheet` | `["host"]` | `record_type='host'` | required built-in sheet | `[]` | `base-required-surface` |
 | Identities | `cartulary.view.identities.v1` | `built_in_sheet` | `["identity"]` | `record_type='identity'` | required built-in sheet | `[]` | `base-required-surface` |
 | Evidence | `cartulary.view.evidence.v1` | `built_in_sheet` | `["evidence"]` | `record_type='evidence'` | required built-in sheet | `[]` | `base-required-surface` |

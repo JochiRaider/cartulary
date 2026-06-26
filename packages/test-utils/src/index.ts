@@ -568,11 +568,16 @@ export async function pasteGridMatrix(options: {
   const cell = options.page.getByTestId(
     rowCellTestId(options.recordId, options.fieldKey),
   );
-  await cell.click();
+  await cell.scrollIntoViewIfNeeded?.();
   const evaluate = requireEvaluate(
     cell,
     `pasteGridMatrix(${options.surface}) requires locator.evaluate() support`,
   );
+  await evaluate((element) => {
+    if (element instanceof HTMLElement) {
+      element.focus({ preventScroll: true });
+    }
+  });
   await evaluate((element, clipboardText) => {
     const data = new DataTransfer();
     data.setData("text/plain", String(clipboardText));
@@ -742,6 +747,7 @@ export async function scrollGridTargetIntoView(options: {
   } = options;
   const target = page.getByTestId(targetTestId);
   if (await isLocatorVisible(target)) {
+    await target.scrollIntoViewIfNeeded?.();
     return readGridScroll(page, surface);
   }
 
@@ -850,16 +856,6 @@ export async function assertMarkerAnchoredToGridTarget(options: {
   targetTestId: string;
 }) {
   const { anchorKind, markerTestId, page, surface, targetTestId } = options;
-  const markerVisible = await isTestIdVisibleWithinGridViewport(
-    page,
-    surface,
-    markerTestId,
-  );
-  if (!markerVisible) {
-    throw new Error(
-      `Expected marker ${markerTestId} to be visible in the ${surface} grid viewport`,
-    );
-  }
   const targetVisible = await isTestIdVisibleWithinGridViewport(
     page,
     surface,

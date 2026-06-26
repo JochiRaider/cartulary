@@ -37,7 +37,7 @@ export const bootstrapPassword = "DevBootstrap1!";
 export const sessionCookieName = "cartulary_session";
 export const csrfCookieName = "cartulary_csrf";
 export const csrfHeaderName = "X-CSRF-Token";
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 export type ViewApiCell = {
   value: unknown;
@@ -760,7 +760,9 @@ export async function measureBlankRowCreate(
   page: Page,
   expectedSummary: string,
 ) {
-  const draftSummary = page.getByTestId(draftCellTestId("timeline.summary"));
+  const draftSummary = page.getByTestId(
+    draftCellTestId("timeline.activity_synopsis_text"),
+  );
   await expect(draftSummary).toHaveValue(expectedSummary);
   await draftSummary.focus();
   await resetWorkbookClientTiming(page);
@@ -1532,7 +1534,7 @@ export async function waitForCommittedRowSummary(
       rowVersionFieldKey: "row_version",
       savedRowsSelector: gridSavedRowsSelector(),
       startedAtMs,
-      summaryFieldKey: "timeline.summary",
+      summaryFieldKey: "timeline.activity_synopsis_text",
       timeoutMs: options.timeoutMs,
     },
   );
@@ -1559,7 +1561,7 @@ export function findCommittedRowSummaryInRoot(
     }
     const candidate = findElementByTestId<
       HTMLInputElement | HTMLTextAreaElement
-    >(row, rowCellTestId(recordId, "timeline.summary"));
+    >(row, rowCellTestId(recordId, "timeline.activity_synopsis_text"));
     const value = candidate?.value ?? null;
     if (value !== options.expectedSummary) {
       continue;

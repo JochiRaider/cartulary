@@ -845,7 +845,7 @@ WITH rec AS (
     VALUES ($1, 'timeline_event', $2, $2)
     RETURNING record_id
 ), inserted AS (
-    INSERT INTO timeline_events (record_id, incident_id, summary, details, source_text, capture_state, created_by_user_id, updated_by_user_id)
+    INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, raw_activity_text, data_source_text, capture_state, created_by_user_id, updated_by_user_id)
     SELECT record_id, $1, 'Initial timeline summary', 'Timeline details', 'Timeline source text', 'rough', $2, $2
       FROM rec
     RETURNING record_id
@@ -1038,7 +1038,7 @@ INSERT INTO entity_mentions (
     source_record_id, entity_type, source_field_key, origin_kind, origin_locator,
     raw_text, normalized_text, resolution_status, ordinal, created_by_user_id
 )
-VALUES ($1, 'host', 'timeline.summary', 'manual', 'summary:1', 'host-reporting-01', 'host-reporting-01', 'unresolved', 1, $2)
+VALUES ($1, 'host', 'timeline.activity_synopsis_text', 'manual', 'summary:1', 'host-reporting-01', 'host-reporting-01', 'unresolved', 1, $2)
 `, ids["timeline"], actorID); err != nil {
 		t.Fatalf("seed reporting entity mention: %v", err)
 	}

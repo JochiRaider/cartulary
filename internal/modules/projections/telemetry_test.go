@@ -6,7 +6,7 @@ func TestProjectionTelemetrySafeVocabulary(t *testing.T) {
 	if got := safeProjectionViewSchemaID(timelineViewSchemaID); got != timelineViewSchemaID {
 		t.Fatalf("timeline view schema = %q", got)
 	}
-	if got := safeProjectionViewSchemaID("cartulary.view.timeline.v1/10000000-0000-4000-8000-000000000001"); got != "unknown" {
+	if got := safeProjectionViewSchemaID("cartulary.view.timeline.v2/10000000-0000-4000-8000-000000000001"); got != "unknown" {
 		t.Fatalf("unsafe projection view schema = %q", got)
 	}
 }

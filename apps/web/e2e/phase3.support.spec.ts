@@ -31,7 +31,7 @@ import {
 } from "./helpers";
 import { clickTimelineRowAction } from "./phase4Helpers";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.", async ({
   page,
@@ -43,16 +43,18 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
   );
   const alphaRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("s301-alpha"),
-    "timeline.summary": "Alpha summary",
+    "timeline.activity_synopsis_text": "Alpha summary",
   });
   const betaRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("s301-beta"),
-    "timeline.summary": "Beta summary",
+    "timeline.activity_synopsis_text": "Beta summary",
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
-    page.getByTestId(rowCellTestId(alphaRow.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(alphaRow.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("Alpha summary");
 
   await clickTimelineRowAction(
@@ -67,9 +69,13 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
   ).toHaveText("reviewed");
 
   const sortRequest = waitForTimelineQuery(page, incidentId);
-  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+  await sortByHeader(
+    page,
+    timelineViewSchemaId,
+    "timeline.activity_synopsis_text",
+  );
   expect(readPostBody(await sortRequest)).toEqual({
-    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
 
   const filterRequest = waitForTimelineQuery(page, incidentId);
@@ -87,10 +93,12 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
         op: "eq",
       },
     ],
-    sort: [{ direction: "asc", field_key: "timeline.summary" }],
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
   });
   await expect(
-    page.getByTestId(rowCellTestId(betaRow.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("Beta summary");
 
   const groupRequest = waitForTimelineQuery(page, incidentId);
@@ -106,7 +114,7 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
     group_by: "timeline.capture_state",
     sort: [
       { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.summary" },
+      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
     ],
   });
   const reviewedGroupTestId = gridGroupRowTestId(
@@ -121,7 +129,9 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
     surface: timelineViewSchemaId,
   });
   await expect(
-    page.getByTestId(rowCellTestId(betaRow.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).not.toBeVisible();
   await expandGridGroup({
     groupTestId: reviewedGroupTestId,
@@ -129,7 +139,9 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
     surface: timelineViewSchemaId,
   });
   await expect(
-    page.getByTestId(rowCellTestId(betaRow.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toBeVisible();
 
   const bulkMutationRequest = page.waitForRequest(
@@ -144,7 +156,7 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
   const bulkMutationResponse = await fillDownGridCells({
     apiBase,
     csrfHeaders: await csrfHeaders(page),
-    fieldKey: "timeline.details",
+    fieldKey: "timeline.raw_activity_text",
     incidentId,
     page,
     surface: timelineViewSchemaId,
@@ -160,7 +172,7 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
   expect(readPostBody(await bulkMutationRequest)).toMatchObject({
     view_schema_id: timelineViewSchemaId,
     kind: "fill_down_v1",
-    field_key: "timeline.details",
+    field_key: "timeline.raw_activity_text",
     value: "Filled details through helper",
     targets: [
       {
@@ -171,7 +183,7 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
   });
 
   await scrollGridCellIntoView({
-    cellKey: "timeline.summary",
+    cellKey: "timeline.activity_synopsis_text",
     page,
     recordId: betaRow.record_id,
     surface: timelineViewSchemaId,
@@ -182,7 +194,7 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
       request.url().endsWith(`/api/v1/records/${betaRow.record_id}`),
   );
   const betaSummary = page.getByTestId(
-    rowCellTestId(betaRow.record_id, "timeline.summary"),
+    rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
   );
   await betaSummary.fill("Beta summary anchored");
   await betaSummary.press("Enter");
@@ -191,10 +203,12 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
     body: readPostBody(await summaryPatch),
     expectedRecordId: betaRow.record_id,
     expectedValue: "Beta summary anchored",
-    fieldKey: "timeline.summary",
+    fieldKey: "timeline.activity_synopsis_text",
   });
   await expect(
-    page.getByTestId(rowCellTestId(betaRow.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("Beta summary anchored");
 
   const pasteRequest = page.waitForRequest(
@@ -216,7 +230,7 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
         ),
   );
   await pasteGridMatrix({
-    fieldKey: "timeline.summary",
+    fieldKey: "timeline.activity_synopsis_text",
     matrix: [["Beta pasted through helper", "host-token"]],
     page,
     recordId: betaRow.record_id,
@@ -226,8 +240,8 @@ test("FE-B-P3-01 Verify sort, filter, group, paste, fill-down, scroll-to-cell, g
     view_schema_id: timelineViewSchemaId,
     clipboard_text: "Beta pasted through helper\thost-token",
     format: "tsv",
-    start_field_key: "timeline.summary",
-    columns: ["timeline.summary", "timeline.host_refs"],
+    start_field_key: "timeline.activity_synopsis_text",
+    columns: ["timeline.activity_synopsis_text", "timeline.data_source_text"],
     targets: [
       {
         kind: "record",
@@ -248,11 +262,11 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
   );
   const alphaRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("s302-alpha"),
-    "timeline.summary": "Alpha summary",
+    "timeline.activity_synopsis_text": "Alpha summary",
   });
   const betaRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("s302-beta"),
-    "timeline.summary": "Beta summary",
+    "timeline.activity_synopsis_text": "Beta summary",
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
@@ -267,7 +281,11 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
     ),
   ).toHaveText("reviewed");
 
-  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+  await sortByHeader(
+    page,
+    timelineViewSchemaId,
+    "timeline.activity_synopsis_text",
+  );
   await applyFilterChip(
     page,
     timelineViewSchemaId,
@@ -283,7 +301,7 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
 
   try {
     const alphaSummary = page.getByTestId(
-      rowCellTestId(alphaRow.record_id, "timeline.summary"),
+      rowCellTestId(alphaRow.record_id, "timeline.activity_synopsis_text"),
     );
     await alphaSummary.fill("Zulu anchored");
     await alphaSummary.press("Enter");
@@ -306,7 +324,7 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
           client_txn_id: uniqueTxn("s302-invalidation"),
           changes: [
             {
-              field_key: "timeline.details",
+              field_key: "timeline.raw_activity_text",
               value: "Support invalidation",
             },
           ],
@@ -325,7 +343,9 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
     page.getByTestId(timelineRowVersionTestId(alphaRow.record_id)),
   ).toHaveText("2");
   await expect(
-    page.getByTestId(rowCellTestId(alphaRow.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(alphaRow.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("Zulu anchored");
   const alphaCaptureState = (
     (await page
@@ -354,19 +374,25 @@ test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-w
   );
   const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("s303-row"),
-    "timeline.summary": "RDG edit row",
+    "timeline.activity_synopsis_text": "RDG edit row",
   });
   await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("s303-peer"),
-    "timeline.summary": "Alpha RDG peer",
+    "timeline.activity_synopsis_text": "Alpha RDG peer",
   });
   const recordId = row.record_id as string;
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
-    page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("RDG edit row");
-  await sortByHeader(page, timelineViewSchemaId, "timeline.summary");
+  await sortByHeader(
+    page,
+    timelineViewSchemaId,
+    "timeline.activity_synopsis_text",
+  );
   await applyFilterChip(
     page,
     timelineViewSchemaId,
@@ -392,7 +418,7 @@ test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-w
       "RDG edit row final",
     ]) {
       const summaryInput = page.getByTestId(
-        rowCellTestId(recordId, "timeline.summary"),
+        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
       );
       await summaryInput.fill(value);
       await expect(summaryInput).toHaveValue(value);
@@ -407,7 +433,7 @@ test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-w
         response.url().endsWith(`/api/v1/records/${recordId}`),
     );
     await page
-      .getByTestId(rowCellTestId(recordId, "timeline.summary"))
+      .getByTestId(rowCellTestId(recordId, "timeline.activity_synopsis_text"))
       .press("Enter");
     await patchResponse;
   });
@@ -416,7 +442,9 @@ test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-w
     "2",
   );
   await expect(
-    page.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveValue("RDG edit row final");
 });
 

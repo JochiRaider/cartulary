@@ -173,7 +173,9 @@ function TestAccountApplicationMenu({
 
 async function openTimelineInspectorFromContext(recordId: string) {
   fireEvent.contextMenu(
-    await screen.findByTestId(rowCellTestId(recordId, "timeline.summary")),
+    await screen.findByTestId(
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+    ),
     { clientX: 32, clientY: 48 },
   );
   fireEvent.click(await screen.findByTestId(rowInspectButtonTestId(recordId)));
@@ -640,7 +642,7 @@ describe("WorkbookShell surface selection", () => {
     ).toBe("IR-1");
     expect(
       screen.getByTestId("incident-pref-default-sheet-ref").textContent,
-    ).toBe("View schema: Timeline (cartulary.view.timeline.v1)");
+    ).toBe("View schema: Timeline (cartulary.view.timeline.v2)");
     expect(screen.getByTestId("incident-pref-home-sheet-ref").textContent).toBe(
       `Saved view: ${savedViewId}`,
     );
@@ -1244,13 +1246,18 @@ describe("WorkbookShell surface selection", () => {
             },
           ],
           group_by: "timeline.capture_state",
-          sort: [{ field_key: "timeline.sort_ts", direction: "desc" }],
+          sort: [{ field_key: "timeline.activity_sort_ts", direction: "desc" }],
         },
         layout_json: {
           layout_schema_id: "cartulary.layout.v1",
-          column_order: ["timeline.summary", "timeline.occurred_at"],
-          hidden_field_keys: ["timeline.details"],
-          column_widths: [{ field_key: "timeline.summary", width_px: 360 }],
+          column_order: [
+            "timeline.activity_synopsis_text",
+            "timeline.activity_utc_text",
+          ],
+          hidden_field_keys: ["timeline.raw_activity_text"],
+          column_widths: [
+            { field_key: "timeline.activity_synopsis_text", width_px: 360 },
+          ],
         },
       }),
       testSavedViewResource({
@@ -1334,7 +1341,7 @@ describe("WorkbookShell surface selection", () => {
       group_by: "timeline.capture_state",
       sort: [
         { direction: "asc", field_key: "timeline.capture_state" },
-        { direction: "desc", field_key: "timeline.sort_ts" },
+        { direction: "desc", field_key: "timeline.activity_sort_ts" },
       ],
     });
     expect(window.location.search).toContain(`sheet_ref_id=${savedViewId}`);
@@ -1379,7 +1386,7 @@ describe("WorkbookShell surface selection", () => {
           },
         ],
         group_by: "timeline.capture_state",
-        sort: [{ direction: "desc", field_key: "timeline.sort_ts" }],
+        sort: [{ direction: "desc", field_key: "timeline.activity_sort_ts" }],
       },
       layout_json: {
         layout_schema_id: "cartulary.layout.v1",
@@ -1480,7 +1487,9 @@ describe("WorkbookShell surface selection", () => {
       );
     });
     expect(
-      screen.getByTestId(rowCellTestId("timeline-1", "timeline.summary")),
+      screen.getByTestId(
+        rowCellTestId("timeline-1", "timeline.activity_synopsis_text"),
+      ),
     ).not.toBeNull();
 
     openSavedViewActions(timelineViewSchemaId);
@@ -2117,10 +2126,16 @@ function timelineRow(
     record_id: recordId,
     row_version: rowVersion,
     cells: {
-      "timeline.occurred_at": { value: "" },
-      "timeline.summary": { value: summary },
-      "timeline.details": { value: "" },
-      "timeline.source_text": { value: "" },
+      "timeline.date_entered_text": { value: "2026-04-24" },
+      "timeline.analyst_text": { value: "Analyst" },
+      "timeline.mitre_stage_text": { value: "" },
+      "timeline.device_object_text": { value: "" },
+      "timeline.ip_address_text": { value: "" },
+      "timeline.activity_utc_text": { value: "" },
+      "timeline.activity_local_text": { value: "" },
+      "timeline.activity_synopsis_text": { value: summary },
+      "timeline.raw_activity_text": { value: "" },
+      "timeline.data_source_text": { value: "" },
       "timeline.host_refs": {
         value: { kind: "collection_value_v1", ordered: true, items: [] },
       },
@@ -2133,11 +2148,11 @@ function timelineRow(
       },
       "timeline.edited_at": { value: "2026-04-24T10:00:00.000Z" },
       "timeline.recorded_at": { value: "2026-04-24T10:00:00.000Z" },
-      "timeline.sort_ts": { value: "2026-04-24T10:00:00.000Z" },
+      "timeline.activity_sort_ts": { value: "2026-04-24T10:00:00.000Z" },
       "timeline.capture_state": { value: "rough" },
       "timeline.replacement_record_id": { value: null },
-      "timeline.occurred_day": { value: null },
-      "timeline.recorded_day": { value: "2026-04-24" },
+      "timeline.date_entered_sort_day": { value: "2026-04-24" },
+      "timeline.activity_time_pair_state": { value: "disabled" },
       "timeline.has_evidence": { value: evidenceCount > 0 },
       "timeline.attached_evidence_ids": {
         value: { kind: "collection_value_v1", ordered: false, items: [] },

@@ -17,7 +17,7 @@ import {
 
 const incidentId = "incident-fe-p4";
 const clientInstanceId = "client-instance-fe-p4";
-const viewSchemaId = "cartulary.view.timeline.v1";
+const viewSchemaId = "cartulary.view.timeline.v2";
 
 function createQueue() {
   return new WorkbookPendingQueueModel({ incidentId, clientInstanceId });
@@ -45,7 +45,7 @@ function createUnit(options: {
 }): PendingReplayUnitInput {
   const payloadIntent = options.payloadIntent ?? {
     client_txn_id: options.clientTxnId,
-    "timeline.summary": `${options.rowKey} summary`,
+    "timeline.activity_synopsis_text": `${options.rowKey} summary`,
   };
   const unit: PendingReplayUnitInput = {
     id: `unit-${options.clientTxnId}`,
@@ -89,7 +89,7 @@ function patchUnit(options: {
   readonly presentationHint?: PendingReplayPresentationHint;
   readonly visibleEdit?: PendingReplayVisibleEdit;
 }): PendingReplayUnitInput {
-  const fieldKey = options.fieldKey ?? "timeline.summary";
+  const fieldKey = options.fieldKey ?? "timeline.activity_synopsis_text";
   const change =
     options.actionPayload === undefined
       ? { field_key: fieldKey, value: options.value ?? options.clientTxnId }
@@ -238,7 +238,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
           recordId: "record-1",
           order: 2,
           baseRowVersion: 7,
-          fieldKey: "timeline.summary",
+          fieldKey: "timeline.activity_synopsis_text",
           value: "patched summary",
         }),
         payloadIntent: {
@@ -246,7 +246,10 @@ describe("FE-U-P4-01 pending queue unit model", () => {
           base_row_version: 7,
           client_txn_id: "txn-patch",
           changes: [
-            { field_key: "timeline.summary", value: "patched summary" },
+            {
+              field_key: "timeline.activity_synopsis_text",
+              value: "patched summary",
+            },
             { field_key: "timeline.capture_state", value: "rough" },
           ],
         },
@@ -300,7 +303,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
       patchAdmission.identity.kind === "patch"
         ? patchAdmission.identity.changes.map((change) => change.field_key)
         : [],
-    ).toEqual(["timeline.capture_state", "timeline.summary"]);
+    ).toEqual(["timeline.activity_synopsis_text", "timeline.capture_state"]);
     expect(pasteCreateAdmission.source).toBe("paste");
     expect(pasteCreateAdmission.identity.kind).toBe("create");
     expect(pastePatchAdmission.source).toBe("paste");
@@ -381,7 +384,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
           order: index,
           visibleEdit: {
             rowKey: `row-record-${index}`,
-            fieldKey: "timeline.summary",
+            fieldKey: "timeline.activity_synopsis_text",
             value: `visible ${index}`,
           },
         }),
@@ -397,7 +400,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
         order: 65,
         visibleEdit: {
           rowKey: "row-record-65",
-          fieldKey: "timeline.summary",
+          fieldKey: "timeline.activity_synopsis_text",
           value: "visible overflow value",
         },
       }),
@@ -417,7 +420,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
       preserve_visible_edit_as_unsaved: true,
       visible_edit: {
         rowKey: "row-record-65",
-        fieldKey: "timeline.summary",
+        fieldKey: "timeline.activity_synopsis_text",
         value: "visible overflow value",
       },
     });
@@ -455,7 +458,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
           order: 1,
           payloadIntent: {
             client_txn_id: "txn-create-1",
-            "timeline.summary": "first draft",
+            "timeline.activity_synopsis_text": "first draft",
             "timeline.evidence": {
               kind: "collection_actions_v1",
               actions: [{ op: "add_record_ref", linked_record_id: "e1" }],
@@ -472,7 +475,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
         order: 2,
         payloadIntent: {
           client_txn_id: "txn-create-2",
-          "timeline.summary": "second draft",
+          "timeline.activity_synopsis_text": "second draft",
           "timeline.evidence": {
             kind: "collection_actions_v1",
             actions: [{ op: "add_record_ref", linked_record_id: "e2" }],
@@ -491,7 +494,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
           { op: "add_record_ref", linked_record_id: "e2" },
         ],
       },
-      "timeline.summary": "second draft",
+      "timeline.activity_synopsis_text": "second draft",
     });
 
     const patchQueueModel = createQueue();
@@ -761,7 +764,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
         message: "Summary is required",
         details: {
           record_id: "record-invalid",
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
         },
       },
     });
@@ -776,7 +779,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
       anchor: {
         kind: "cell",
         record_id: "record-invalid",
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
       },
     });
     expect(
@@ -955,7 +958,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
       error: sameFieldConflictError({
         conflictToken: "conflict-token-same-field",
         recordId: "record-same-field",
-        fieldKey: "timeline.summary",
+        fieldKey: "timeline.activity_synopsis_text",
         baseRowVersion: 7,
         currentRowVersion: 8,
       }),
@@ -965,10 +968,10 @@ describe("FE-U-P4-01 pending queue unit model", () => {
       throw new Error("expected same-field conflict");
     }
     expect(sameFieldConflict.conflict).toEqual({
-      key: "record-same-field:timeline.summary",
+      key: "record-same-field:timeline.activity_synopsis_text",
       conflict_token: "conflict-token-same-field",
       record_id: "record-same-field",
-      field_key: "timeline.summary",
+      field_key: "timeline.activity_synopsis_text",
       conflict_resolution_class: "text_compare_merge",
       base_row_version: 7,
       current_row_version: 8,
@@ -978,7 +981,9 @@ describe("FE-U-P4-01 pending queue unit model", () => {
     ).toEqual(["txn-behind-same-field"]);
     expect(sameFieldQueue.dispatchNext()).toBeNull();
     expect(sameFieldQueue.snapshot().primarySaveStateInput).toBe("Conflict");
-    sameFieldQueue.clearSameFieldConflict("record-same-field:timeline.summary");
+    sameFieldQueue.clearSameFieldConflict(
+      "record-same-field:timeline.activity_synopsis_text",
+    );
     expect(sameFieldQueue.snapshot().sameFieldConflicts).toEqual([]);
     expect(sameFieldQueue.dispatchNext()?.unit.clientTxnId).toBe(
       "txn-behind-same-field",
@@ -1002,7 +1007,7 @@ describe("FE-U-P4-01 pending queue unit model", () => {
         code: "same_field_conflict",
         details: {
           record_id: "record-details-only-same-field",
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
         },
       },
     });
@@ -1080,10 +1085,10 @@ describe("FE-U-P4-01 pending queue unit model", () => {
 describe("FE-U-P4-02 save-state unit model", () => {
   it("FE-U-P4-02 derives exactly one primary save-state label for every Table C input condition", () => {
     const sameFieldConflict = {
-      key: "record-conflict:timeline.summary",
+      key: "record-conflict:timeline.activity_synopsis_text",
       conflict_token: "conflict-token",
       record_id: "record-conflict",
-      field_key: "timeline.summary",
+      field_key: "timeline.activity_synopsis_text",
       conflict_resolution_class: "text_compare_merge",
       base_row_version: 7,
       current_row_version: 8,
@@ -1095,7 +1100,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
       preserve_visible_edit_as_unsaved: true,
       visible_edit: {
         rowKey: "row-overflow",
-        fieldKey: "timeline.summary",
+        fieldKey: "timeline.activity_synopsis_text",
         value: "overflow draft",
       },
     } as const;
@@ -1106,7 +1111,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
       anchor: {
         kind: "cell",
         record_id: "record-halted",
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
       },
     } as const;
 
@@ -1229,7 +1234,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
         anchor: {
           kind: "cell",
           record_id: "record-validation",
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
         },
       },
     });
@@ -1258,7 +1263,12 @@ describe("FE-U-P4-02 save-state unit model", () => {
             client_txn_id: "txn-failure",
             view_schema_id: viewSchemaId,
             base_row_version: 1,
-            changes: [{ field_key: "timeline.summary", value: "failure" }],
+            changes: [
+              {
+                field_key: "timeline.activity_synopsis_text",
+                value: "failure",
+              },
+            ],
           },
         },
       },
@@ -1290,7 +1300,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
           recordId: "record-save-state-conflict",
           order: 1,
           baseRowVersion: 11,
-          fieldKey: "timeline.summary",
+          fieldKey: "timeline.activity_synopsis_text",
         }),
       ),
     );
@@ -1301,7 +1311,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
       error: sameFieldConflictError({
         conflictToken: "conflict-token-save-state",
         recordId: "record-save-state-conflict",
-        fieldKey: "timeline.summary",
+        fieldKey: "timeline.activity_synopsis_text",
         baseRowVersion: 11,
         currentRowVersion: 12,
       }),
@@ -1314,7 +1324,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
       conflictAnchors: [
         {
           record_id: "record-save-state-conflict",
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           base_row_version: 11,
           current_row_version: 12,
         },
@@ -1325,7 +1335,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
     ).not.toContain("record-save-state-conflict");
     expect(
       sameFieldQueue.snapshot().saveStatePresentation.secondaryMessage,
-    ).not.toContain("timeline.summary");
+    ).not.toContain("timeline.activity_synopsis_text");
 
     const localDraftPresentation = deriveWorkbookSaveState({
       queuedCount: 0,
@@ -1333,7 +1343,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
       localDraftConflicts: [
         {
           record_id: "record-local-draft",
-          field_key: "timeline.details",
+          field_key: "timeline.raw_activity_text",
           base_row_version: 4,
           current_row_version: 5,
         },
@@ -1346,7 +1356,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
       conflictAnchors: [
         {
           record_id: "record-local-draft",
-          field_key: "timeline.details",
+          field_key: "timeline.raw_activity_text",
           base_row_version: 4,
           current_row_version: 5,
         },
@@ -1358,10 +1368,10 @@ describe("FE-U-P4-02 save-state unit model", () => {
       inFlightCount: 0,
       sameFieldConflicts: [
         {
-          key: "record-duplicate:timeline.summary",
+          key: "record-duplicate:timeline.activity_synopsis_text",
           conflict_token: "conflict-duplicate",
           record_id: "record-duplicate",
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           conflict_resolution_class: "text_compare_merge",
           base_row_version: 9,
           current_row_version: 10,
@@ -1370,7 +1380,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
       localDraftConflicts: [
         {
           record_id: "record-duplicate",
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           base_row_version: 9,
           current_row_version: 10,
         },
@@ -1382,7 +1392,7 @@ describe("FE-U-P4-02 save-state unit model", () => {
     expect(duplicateSourcePresentation.conflictAnchors).toEqual([
       {
         record_id: "record-duplicate",
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         base_row_version: 9,
         current_row_version: 10,
       },
@@ -1393,19 +1403,19 @@ describe("FE-U-P4-02 save-state unit model", () => {
       inFlightCount: 1,
       sameFieldConflicts: [
         {
-          key: "record-a:timeline.summary",
+          key: "record-a:timeline.activity_synopsis_text",
           conflict_token: "conflict-a",
           record_id: "record-a",
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           conflict_resolution_class: "text_compare_merge",
           base_row_version: 1,
           current_row_version: 2,
         },
         {
-          key: "record-b:timeline.details",
+          key: "record-b:timeline.raw_activity_text",
           conflict_token: "conflict-b",
           record_id: "record-b",
-          field_key: "timeline.details",
+          field_key: "timeline.raw_activity_text",
           conflict_resolution_class: "text_compare_merge",
           base_row_version: 3,
           current_row_version: 4,
@@ -1427,13 +1437,13 @@ describe("FE-U-P4-02 save-state unit model", () => {
     expect(multiConflictPresentation.conflictAnchors).toEqual([
       {
         record_id: "record-a",
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         base_row_version: 1,
         current_row_version: 2,
       },
       {
         record_id: "record-b",
-        field_key: "timeline.details",
+        field_key: "timeline.raw_activity_text",
         base_row_version: 3,
         current_row_version: 4,
       },
@@ -1460,7 +1470,7 @@ describe("FE-U-P7-02 conflict anchoring and resolver state unit model", () => {
           recordId: "record-anchor",
           order: 1,
           baseRowVersion: 41,
-          fieldKey: "timeline.summary",
+          fieldKey: "timeline.activity_synopsis_text",
           value: "Local anchored draft",
           presentationHint: {
             label: "Visible row 99",
@@ -1470,7 +1480,7 @@ describe("FE-U-P7-02 conflict anchoring and resolver state unit model", () => {
           },
           visibleEdit: {
             rowKey: "visible-row-99",
-            fieldKey: "timeline.summary",
+            fieldKey: "timeline.activity_synopsis_text",
             value: "Local anchored draft",
           },
         }),
@@ -1483,7 +1493,7 @@ describe("FE-U-P7-02 conflict anchoring and resolver state unit model", () => {
           recordId: "record-behind",
           order: 2,
           baseRowVersion: 3,
-          fieldKey: "timeline.details",
+          fieldKey: "timeline.raw_activity_text",
           value: "Behind conflict",
           presentationHint: {
             label: "Visible row 1",
@@ -1502,7 +1512,7 @@ describe("FE-U-P7-02 conflict anchoring and resolver state unit model", () => {
       error: sameFieldConflictError({
         conflictToken: "conflict-token-anchor",
         recordId: "record-anchor",
-        fieldKey: "timeline.summary",
+        fieldKey: "timeline.activity_synopsis_text",
         baseRowVersion: 41,
         currentRowVersion: 42,
       }),
@@ -1515,12 +1525,12 @@ describe("FE-U-P7-02 conflict anchoring and resolver state unit model", () => {
     expect(settlement.conflict.key).toBe(
       sameFieldConflictQueueKey({
         record_id: "record-anchor",
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
       }),
     );
     expect(settlement.conflict).toMatchObject({
       record_id: "record-anchor",
-      field_key: "timeline.summary",
+      field_key: "timeline.activity_synopsis_text",
       base_row_version: 41,
       current_row_version: 42,
     });
@@ -1532,7 +1542,7 @@ describe("FE-U-P7-02 conflict anchoring and resolver state unit model", () => {
       throw new Error("expected same-field conflict save-state anchor");
     }
     expect(workbookSaveStateConflictAnchorIdentity(conflictAnchor)).toBe(
-      "record-anchor\u0000timeline.summary\u000041",
+      "record-anchor\u0000timeline.activity_synopsis_text\u000041",
     );
     expect(settlement.snapshot.units.map((unit) => unit.clientTxnId)).toEqual([
       "txn-behind-conflict",
@@ -1550,19 +1560,19 @@ describe("FE-U-P7-02 conflict anchoring and resolver state unit model", () => {
       inFlightCount: 1,
       sameFieldConflicts: [
         {
-          key: "record-a:timeline.summary",
+          key: "record-a:timeline.activity_synopsis_text",
           conflict_token: "conflict-a",
           record_id: "record-a",
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           conflict_resolution_class: "text_compare_merge",
           base_row_version: 7,
           current_row_version: 8,
         },
         {
-          key: "record-a:timeline.summary",
+          key: "record-a:timeline.activity_synopsis_text",
           conflict_token: "conflict-a-refresh",
           record_id: "record-a",
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           conflict_resolution_class: "text_compare_merge",
           base_row_version: 9,
           current_row_version: 10,
@@ -1571,13 +1581,13 @@ describe("FE-U-P7-02 conflict anchoring and resolver state unit model", () => {
       localDraftConflicts: [
         {
           record_id: "record-a",
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           base_row_version: 7,
           current_row_version: 8,
         },
         {
           record_id: "record-b",
-          field_key: "timeline.details",
+          field_key: "timeline.raw_activity_text",
           base_row_version: 2,
           current_row_version: 5,
         },
@@ -1594,12 +1604,14 @@ describe("FE-U-P7-02 conflict anchoring and resolver state unit model", () => {
         workbookSaveStateConflictAnchorIdentity(anchor),
       ),
     ).toEqual([
-      "record-a\u0000timeline.summary\u00007",
-      "record-a\u0000timeline.summary\u00009",
-      "record-b\u0000timeline.details\u00002",
+      "record-a\u0000timeline.activity_synopsis_text\u00007",
+      "record-a\u0000timeline.activity_synopsis_text\u00009",
+      "record-b\u0000timeline.raw_activity_text\u00002",
     ]);
     expect(presentation.secondaryMessage).not.toContain("record-a");
-    expect(presentation.secondaryMessage).not.toContain("timeline.summary");
+    expect(presentation.secondaryMessage).not.toContain(
+      "timeline.activity_synopsis_text",
+    );
     expect(presentation.secondaryMessage).not.toContain("conflict-a");
     expect(presentation.secondaryMessage).not.toContain("/api/v1");
   });

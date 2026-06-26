@@ -233,7 +233,7 @@
       "density_id": "default",
       "scroll_normalization": {
         "kind": "fixture_specific",
-        "description": "Evidence grid scroll normalizes to the right-edge actions column with fixture-only native file-input dimension normalization for the affordance states crop; Timeline grid uses the named timeline evidence-actions row anchor."
+        "description": "Evidence grid scroll normalizes to the right-edge actions column with fixture-only native file-input dimension normalization for the affordance states crop; Timeline grid uses the selected row anchor with the inspector evidence section open."
       },
       "capture_scope": {
         "kind": "full_viewport"
@@ -248,7 +248,7 @@
       },
       "inspector_state": {
         "kind": "fixture_specific",
-        "description": "Timeline inspector is open only for the evidence-count capture; Evidence affordance capture uses the Evidence grid action column."
+        "description": "Timeline inspector is open for the Timeline evidence-count capture; Evidence affordance capture uses the Evidence grid action column."
       },
       "dynamic_masks": [
         "incident identifiers",

@@ -22,7 +22,7 @@ const (
 	ObjectStoreBackupSummarySchemaID    = "cartulary.object_store_backup_summary.v1"
 	RestoreVerificationArtifactSchemaID = "cartulary.restore_verification.v1"
 	ObjectStoreBackendSeaweedFSS3       = "seaweedfs_s3"
-	RestoreVerificationTimelineViewID   = "cartulary.view.timeline.v1"
+	RestoreVerificationTimelineViewID   = "cartulary.view.timeline.v2"
 )
 
 type ObjectStoreBackupCaptureParams struct {

@@ -154,7 +154,7 @@ test(exactScenarioTitle, async ({ page }) => {
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("feip501-timeline"),
-      "timeline.summary": "FE-I-P5 Gateway login by analyst",
+      "timeline.activity_synopsis_text": "FE-I-P5 Gateway login by analyst",
       [hostRefsFieldKey]: mixedRefPayload(
         " FEIP501 Gateway ",
         host.record_id,

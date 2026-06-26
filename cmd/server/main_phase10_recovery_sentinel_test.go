@@ -461,9 +461,9 @@ func capturePhase10RestoreSource(t testing.TB, prefix string) phase10SourceBacku
 		"title":         "Phase 10 restore source",
 	})
 	incidentID := incident["incident_id"].(string)
-	timeline := phase5CreateViewRow(t, server, adminLogin, incidentID, "cartulary.view.timeline.v1", map[string]any{
-		"client_txn_id":    "txn-" + prefix + "-timeline",
-		"timeline.summary": "restore source timeline",
+	timeline := phase5CreateViewRow(t, server, adminLogin, incidentID, "cartulary.view.timeline.v2", map[string]any{
+		"client_txn_id":                   "txn-" + prefix + "-timeline",
+		"timeline.activity_synopsis_text": "restore source timeline",
 	})
 	timelineRow := timeline["row"].(map[string]any)
 	timelineRecordID := timelineRow["record_id"].(string)
@@ -494,7 +494,7 @@ func capturePhase10RestoreSource(t testing.TB, prefix string) phase10SourceBacku
 	httptestx.RequireSuccessEnvelope(t, attach, http.StatusOK)
 
 	phase5PatchRecord(t, server, adminLogin, timelineRecordID, map[string]any{
-		"view_schema_id":   "cartulary.view.timeline.v1",
+		"view_schema_id":   "cartulary.view.timeline.v2",
 		"base_row_version": timelineRowVersion,
 		"client_txn_id":    "txn-" + prefix + "-link",
 		"changes": []map[string]any{{

@@ -258,7 +258,7 @@ VALUES ($1, $2, 'missing envelope', 'canonical', $3, $3)
 	otherTimelineID := uuid.New()
 	phase4test.SeedRecordEnvelope(t, db, otherIncidentID, fixture.userID, otherTimelineID, "timeline_event")
 	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO timeline_events (record_id, incident_id, summary, capture_state, created_by_user_id, updated_by_user_id)
+INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, capture_state, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, 'other incident', 'rough', $3, $3)
 `, otherTimelineID, otherIncidentID, fixture.userID); err != nil {
 		t.Fatalf("seed cross-incident timeline row: %v", err)
@@ -956,7 +956,7 @@ VALUES ($1, 'host', 'timeline.host_refs', 'manual_entry', 'record-envelope', 'ho
 	}
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO indicator_observations (incident_id, source_record_id, source_field_key, origin_kind, origin_locator, observed_text, resolution_status, resolved_indicator_record_id, created_by_user_id)
-VALUES ($1, $2, 'timeline.source_text', 'manual_entry', 'record-envelope', 'example.test', 'resolved', $3, $4)
+VALUES ($1, $2, 'timeline.raw_activity_text', 'manual_entry', 'record-envelope', 'example.test', 'resolved', $3, $4)
 `, incidentID, timelineID, indicatorID, userID); err != nil {
 		t.Fatalf("seed pre-envelope indicator observation: %v", err)
 	}

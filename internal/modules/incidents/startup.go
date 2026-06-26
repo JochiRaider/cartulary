@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	startupTimelineViewSchemaID = "cartulary.view.timeline.v1"
+	startupTimelineViewSchemaID = "cartulary.view.timeline.v2"
 	startupSourceExplicit       = "explicit"
 	startupSourceHome           = "home"
 	startupSourceDefault        = "default"

@@ -4,7 +4,7 @@ import {
   type ViewContract,
 } from "@cartulary/view-contracts";
 
-export const timelineViewSchemaId = "cartulary.view.timeline.v1";
+export const timelineViewSchemaId = "cartulary.view.timeline.v2";
 export const hostsViewSchemaId = "cartulary.view.hosts.v1";
 export const identitiesViewSchemaId = "cartulary.view.identities.v1";
 export const evidenceViewSchemaId = "cartulary.view.evidence.v1";

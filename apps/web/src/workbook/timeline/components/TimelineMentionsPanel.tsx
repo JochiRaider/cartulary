@@ -7,7 +7,7 @@ import {
   mentionRestoreUnresolvedButtonTestId,
   timelineInspectorSectionTestId,
 } from "@cartulary/ui-contracts";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { InspectorMention } from "../models/workbookMentionChips";
 import type { MentionResolutionAction } from "../services/workbookShellPhase4";
 import { RelationshipChip, relationshipItemLabel } from "./TimelineCellEditors";
@@ -34,6 +34,7 @@ export type TimelineMentionsPanelProps = {
   readonly hostEntities: readonly MentionEntityOption[];
   readonly identityEntities: readonly MentionEntityOption[];
   readonly inspectorMentions: readonly InspectorMention[];
+  readonly relationshipEditors?: ReactNode;
   readonly onResolveTargetChange: (value: string) => void;
   readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
   readonly onSetInspectorMessage: (message: string) => void;
@@ -53,6 +54,7 @@ export function TimelineMentionsPanel({
   hostEntities,
   identityEntities,
   inspectorMentions,
+  relationshipEditors,
   onResolveTargetChange,
   onSelectMention,
   onSetInspectorMessage,
@@ -65,6 +67,7 @@ export function TimelineMentionsPanel({
       <MentionGroups
         entityIndex={entityIndex}
         inspectorMentions={inspectorMentions}
+        relationshipEditors={relationshipEditors}
         onSelectMention={onSelectMention}
         selectedMention={selectedMention}
       />
@@ -89,11 +92,13 @@ export function TimelineMentionsPanel({
 function MentionGroups({
   entityIndex,
   inspectorMentions,
+  relationshipEditors,
   onSelectMention,
   selectedMention,
 }: {
   readonly entityIndex: Record<string, { label: string }>;
   readonly inspectorMentions: readonly InspectorMention[];
+  readonly relationshipEditors?: ReactNode;
   readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
   readonly selectedMention: InspectorMention | null;
 }) {
@@ -102,7 +107,8 @@ function MentionGroups({
       data-testid={timelineInspectorSectionTestId("relationships")}
       style={inspectorSectionStyle}
     >
-      <h3 style={sectionTitleStyle}>Mentions</h3>
+      <h3 style={sectionTitleStyle}>Relationships</h3>
+      {relationshipEditors}
       <div style={mentionGroupStyle}>
         {mentionStatuses.map((status) => {
           const group = inspectorMentions.filter(
@@ -353,6 +359,7 @@ function ResolveTargetSelect({
     <label style={labelStyle}>
       {label}
       <select
+        className="cartulary-mention-resolve-select"
         data-testid={mentionResolveTargetSelectTestId()}
         style={selectStyle}
         value={selectedResolveTargetId}

@@ -15,14 +15,14 @@ import (
 
 func TestPhase8_StableFieldKeysOnly_U_8_06(t *testing.T) {
 	valid, err := Decode(strings.NewReader(`{
-  "sort": [{"field_key":"timeline.summary","direction":"asc"}],
+  "sort": [{"field_key":"timeline.activity_synopsis_text","direction":"asc"}],
   "filters": [{"field_key":"timeline.capture_state","op":"eq","arg":{"value":"rough"}}],
   "group_by": "timeline.capture_state"
 }`), timelineViewSchemaID)
 	if err != nil {
 		t.Fatalf("stable field_key query should be accepted: %+v", err)
 	}
-	if valid.Meta.Filters[0].FieldKey != "timeline.capture_state" || valid.Meta.Sort[0].FieldKey != "timeline.summary" || valid.Meta.GroupBy == nil || *valid.Meta.GroupBy != "timeline.capture_state" {
+	if valid.Meta.Filters[0].FieldKey != "timeline.capture_state" || valid.Meta.Sort[0].FieldKey != "timeline.activity_synopsis_text" || valid.Meta.GroupBy == nil || *valid.Meta.GroupBy != "timeline.capture_state" {
 		t.Fatalf("stable keys were not preserved in canonical query: %#v", valid.Meta)
 	}
 
@@ -32,24 +32,24 @@ func TestPhase8_StableFieldKeysOnly_U_8_06(t *testing.T) {
 		fieldKey   string
 	}{
 		"visible label sort":       {body: `{"sort":[{"field_key":"Summary","direction":"asc"}]}`, reasonCode: "sort_field_not_allowed", fieldKey: "Summary"},
-		"vendor column sort":       {body: `{"sort":[{"field_key":"rdg:timeline.summary","direction":"asc"}]}`, reasonCode: "sort_field_not_allowed", fieldKey: "rdg:timeline.summary"},
+		"vendor column sort":       {body: `{"sort":[{"field_key":"rdg:timeline.activity_synopsis_text","direction":"asc"}]}`, reasonCode: "sort_field_not_allowed", fieldKey: "rdg:timeline.activity_synopsis_text"},
 		"projection table sort":    {body: `{"sort":[{"field_key":"timeline_grid_projection.summary","direction":"asc"}]}`, reasonCode: "sort_field_not_allowed", fieldKey: "timeline_grid_projection.summary"},
 		"storage table sort":       {body: `{"sort":[{"field_key":"timeline_events.summary","direction":"asc"}]}`, reasonCode: "sort_field_not_allowed", fieldKey: "timeline_events.summary"},
 		"client record id sort":    {body: `{"sort":[{"field_key":"record_id","direction":"asc"}]}`, reasonCode: "sort_field_not_allowed", fieldKey: "record_id"},
 		"client row version sort":  {body: `{"sort":[{"field_key":"row_version","direction":"asc"}]}`, reasonCode: "sort_field_not_allowed", fieldKey: "row_version"},
-		"non sortable field":       {body: `{"sort":[{"field_key":"timeline.details","direction":"asc"}]}`, reasonCode: "sort_field_not_allowed", fieldKey: "timeline.details"},
-		"duplicate sort field":     {body: `{"sort":[{"field_key":"timeline.summary","direction":"asc"},{"field_key":"timeline.summary","direction":"desc"}]}`, reasonCode: "duplicate_sort_field", fieldKey: "timeline.summary"},
+		"non sortable field":       {body: `{"sort":[{"field_key":"timeline.raw_activity_text","direction":"asc"}]}`, reasonCode: "sort_field_not_allowed", fieldKey: "timeline.raw_activity_text"},
+		"duplicate sort field":     {body: `{"sort":[{"field_key":"timeline.activity_synopsis_text","direction":"asc"},{"field_key":"timeline.activity_synopsis_text","direction":"desc"}]}`, reasonCode: "duplicate_sort_field", fieldKey: "timeline.activity_synopsis_text"},
 		"unknown filter label":     {body: `{"filters":[{"field_key":"Summary","op":"eq","arg":{"value":"x"}}]}`, reasonCode: "unknown_filter_field", fieldKey: "Summary"},
 		"filter record id":         {body: `{"filters":[{"field_key":"record_id","op":"eq","arg":{"value":"x"}}]}`, reasonCode: "unknown_filter_field", fieldKey: "record_id"},
 		"filter row version":       {body: `{"filters":[{"field_key":"row_version","op":"eq","arg":{"value":1}}]}`, reasonCode: "unknown_filter_field", fieldKey: "row_version"},
-		"operator not allowed":     {body: `{"filters":[{"field_key":"timeline.summary","op":"contains_any","arg":{"values":["x"]}}]}`, reasonCode: "unknown_filter_field", fieldKey: "timeline.summary"},
+		"operator not allowed":     {body: `{"filters":[{"field_key":"timeline.activity_synopsis_text","op":"contains_any","arg":{"values":["x"]}}]}`, reasonCode: "unknown_filter_field", fieldKey: "timeline.activity_synopsis_text"},
 		"invalid operator":         {body: `{"filters":[{"field_key":"timeline.capture_state","op":"contains_any","arg":{"values":["rough"]}}]}`, reasonCode: "operator_not_allowed", fieldKey: "timeline.capture_state"},
 		"missing arg":              {body: `{"filters":[{"field_key":"timeline.capture_state","op":"eq"}]}`, reasonCode: "invalid_filter_operand"},
 		"malformed arg shape":      {body: `{"filters":[{"field_key":"timeline.capture_state","op":"eq","arg":{"value":"rough","unexpected":true}}]}`, reasonCode: "invalid_filter_operand", fieldKey: "timeline.capture_state"},
 		"scalar values malformed":  {body: `{"filters":[{"field_key":"timeline.tags","op":"contains_any","arg":{"values":"alpha"}}]}`, reasonCode: "invalid_filter_operand", fieldKey: "timeline.tags"},
 		"null inside set operand":  {body: `{"filters":[{"field_key":"timeline.tags","op":"contains_any","arg":{"values":["alpha",null]}}]}`, reasonCode: "invalid_filter_operand", fieldKey: "timeline.tags"},
 		"duplicate filter field":   {body: `{"filters":[{"field_key":"timeline.capture_state","op":"eq","arg":{"value":"rough"}},{"field_key":"timeline.capture_state","op":"eq","arg":{"value":"enriched"}}]}`, reasonCode: "duplicate_filter_field", fieldKey: "timeline.capture_state"},
-		"unknown grouping key":     {body: `{"group_by":"timeline.summary"}`, reasonCode: "group_by_not_allowed", fieldKey: "timeline.summary"},
+		"unknown grouping key":     {body: `{"group_by":"timeline.activity_synopsis_text"}`, reasonCode: "group_by_not_allowed", fieldKey: "timeline.activity_synopsis_text"},
 		"group record id":          {body: `{"group_by":"record_id"}`, reasonCode: "group_by_not_allowed", fieldKey: "record_id"},
 		"group row version":        {body: `{"group_by":"row_version"}`, reasonCode: "group_by_not_allowed", fieldKey: "row_version"},
 		"malformed group by null":  {body: `{"group_by":null}`, reasonCode: "invalid_group_by"},
@@ -72,8 +72,8 @@ func TestPhase8_StableFieldKeysOnly_U_8_06(t *testing.T) {
 
 func TestTimelineGroupingWhitelistRejectsNonContractKeys(t *testing.T) {
 	wantWhitelist := []string{
-		"timeline.occurred_day",
-		"timeline.recorded_day",
+		"timeline.date_entered_sort_day",
+		"timeline.date_entered_sort_day",
 		"timeline.capture_state",
 		"timeline.has_evidence",
 		"timeline.has_unresolved_mentions",
@@ -103,7 +103,7 @@ func TestTimelineGroupingWhitelistRejectsNonContractKeys(t *testing.T) {
 		reasonCode string
 	}{
 		"visible label":     {key: "Capture State", reasonCode: "group_by_not_allowed"},
-		"summary":           {key: "timeline.summary", reasonCode: "group_by_not_allowed"},
+		"summary":           {key: "timeline.activity_synopsis_text", reasonCode: "group_by_not_allowed"},
 		"tags collection":   {key: "timeline.tags", reasonCode: "group_by_not_allowed"},
 		"record id":         {key: "record_id", reasonCode: "group_by_not_allowed"},
 		"row version":       {key: "row_version", reasonCode: "group_by_not_allowed"},
@@ -125,7 +125,7 @@ func TestTimelineGroupingWhitelistRejectsNonContractKeys(t *testing.T) {
 
 func TestPhase8_QueryNormalizationMeta_U_8_08(t *testing.T) {
 	query, err := Decode(strings.NewReader(`{
-  "sort": [{"field_key": "timeline.summary", "direction": "asc"}],
+  "sort": [{"field_key": "timeline.activity_synopsis_text", "direction": "asc"}],
   "filters": [
     {"field_key": "timeline.tags", "op": "contains_any", "arg": {"values": ["beta", "alpha", "alpha"]}},
     {"field_key": "timeline.capture_state", "op": "prefix", "arg": {"value": "  Alpha  "}}
@@ -136,8 +136,8 @@ func TestPhase8_QueryNormalizationMeta_U_8_08(t *testing.T) {
 	}
 
 	wantSort := []viewschema.SortEntry{
-		{FieldKey: "timeline.summary", Direction: "asc"},
-		{FieldKey: "timeline.sort_ts", Direction: "asc"},
+		{FieldKey: "timeline.activity_synopsis_text", Direction: "asc"},
+		{FieldKey: "timeline.activity_sort_ts", Direction: "asc"},
 		{FieldKey: "record_id", Direction: "asc"},
 	}
 	if !reflect.DeepEqual(query.Meta.Sort, wantSort) {
@@ -177,7 +177,7 @@ func TestPhase8_QueryNormalizationMeta_U_8_08(t *testing.T) {
 		t.Fatalf("decode default query: %+v", err)
 	}
 	if !reflect.DeepEqual(defaultQuery.Meta.Sort, []viewschema.SortEntry{
-		{FieldKey: "timeline.sort_ts", Direction: "asc"},
+		{FieldKey: "timeline.activity_sort_ts", Direction: "asc"},
 		{FieldKey: "record_id", Direction: "asc"},
 	}) {
 		t.Fatalf("omitted sort must use schema default plus server tie-breaker, got %#v", defaultQuery.Meta.Sort)
@@ -194,7 +194,7 @@ func TestPhase8_QueryNormalizationMeta_U_8_08(t *testing.T) {
 	}
 
 	persisted, validationErr := NormalizePersisted(json.RawMessage(`{
-  "sort": [{"field_key": "timeline.summary", "direction": "desc"}],
+  "sort": [{"field_key": "timeline.activity_synopsis_text", "direction": "desc"}],
   "filters": [
     {"field_key": "timeline.tags", "op": "contains_any", "arg": {"values": ["beta", "alpha", "alpha"]}},
     {"field_key": "timeline.capture_state", "op": "prefix", "arg": {"value": "  Alpha  "}}
@@ -207,7 +207,7 @@ func TestPhase8_QueryNormalizationMeta_U_8_08(t *testing.T) {
 	if err := json.Unmarshal(persisted, &saved); err != nil {
 		t.Fatalf("decode persisted saved-view query: %v", err)
 	}
-	if !reflect.DeepEqual(saved.Sort, []viewschema.SortEntry{{FieldKey: "timeline.summary", Direction: "desc"}}) {
+	if !reflect.DeepEqual(saved.Sort, []viewschema.SortEntry{{FieldKey: "timeline.activity_synopsis_text", Direction: "desc"}}) {
 		t.Fatalf("saved-view query_json.sort must store user overrides only, got %#v", saved.Sort)
 	}
 	if saved.GroupBy != nil {
@@ -298,7 +298,7 @@ func quoteJSON(value string) string {
 func oversizeSortBody(count int) string {
 	entries := make([]string, 0, count)
 	for index := 0; index < count; index++ {
-		entries = append(entries, `{"field_key":"timeline.summary","direction":"asc"}`)
+		entries = append(entries, `{"field_key":"timeline.activity_synopsis_text","direction":"asc"}`)
 	}
 	return `{"sort":[` + strings.Join(entries, ",") + `]}`
 }

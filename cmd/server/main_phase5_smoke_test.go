@@ -22,9 +22,9 @@ func TestPhase5_EvidenceUploadAttachProjection_E_5_SMOKE_01_ProcessSmoke(t *test
 	})
 	incidentID := incident["incident_id"].(string)
 
-	timeline := phase5CreateViewRow(t, server, adminLogin, incidentID, "cartulary.view.timeline.v1", map[string]any{
-		"client_txn_id":    "txn-e-5-smoke-timeline",
-		"timeline.summary": "Process evidence row",
+	timeline := phase5CreateViewRow(t, server, adminLogin, incidentID, "cartulary.view.timeline.v2", map[string]any{
+		"client_txn_id":                   "txn-e-5-smoke-timeline",
+		"timeline.activity_synopsis_text": "Process evidence row",
 	})
 	timelineRow := timeline["row"].(map[string]any)
 	timelineRecordID := timelineRow["record_id"].(string)
@@ -55,7 +55,7 @@ func TestPhase5_EvidenceUploadAttachProjection_E_5_SMOKE_01_ProcessSmoke(t *test
 	httptestx.RequireSuccessEnvelope(t, attach, http.StatusOK)
 
 	phase5PatchRecord(t, server, adminLogin, timelineRecordID, map[string]any{
-		"view_schema_id":   "cartulary.view.timeline.v1",
+		"view_schema_id":   "cartulary.view.timeline.v2",
 		"base_row_version": timelineRowVersion,
 		"client_txn_id":    "txn-e-5-smoke-link",
 		"changes": []map[string]any{{
@@ -98,7 +98,7 @@ func phase5PatchRecord(t testing.TB, server *processtest.Server, login loginResu
 
 func phase5RequireTimelineEvidenceCount(t testing.TB, server *processtest.Server, login loginResult, incidentID string, recordID string, wantCount int, wantHasEvidence bool) {
 	t.Helper()
-	resp := phase1DoJSON(t, server, http.MethodPost, "/api/v1/incidents/"+incidentID+"/views/cartulary.view.timeline.v1/query", map[string]any{}, withCookies(login.sessionCookie, login.csrfCookie), withHeader(authn.CSRFHeaderName, login.csrfCookie.Value))
+	resp := phase1DoJSON(t, server, http.MethodPost, "/api/v1/incidents/"+incidentID+"/views/cartulary.view.timeline.v2/query", map[string]any{}, withCookies(login.sessionCookie, login.csrfCookie), withHeader(authn.CSRFHeaderName, login.csrfCookie.Value))
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	for _, raw := range data["rows"].([]any) {
 		row := raw.(map[string]any)

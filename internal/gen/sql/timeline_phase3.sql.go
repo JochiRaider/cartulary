@@ -16,17 +16,23 @@ SELECT
     t.record_id,
     t.incident_id,
     r.row_version,
-    t.occurred_at,
-    t.summary,
-    t.details,
-    t.source_text,
+    t.date_entered_text,
+    t.analyst_text,
+    t.mitre_stage_text,
+    t.device_object_text,
+    t.ip_address_text,
+    t.activity_utc_text,
+    t.activity_local_text,
+    t.raw_activity_text,
+    t.activity_synopsis_text,
+    t.data_source_text,
     t.recorded_at,
     t.edited_at,
-    t.sort_ts,
+    t.activity_sort_ts,
+    t.date_entered_sort_day,
+    t.activity_time_pair_state,
     t.capture_state,
     t.replacement_record_id,
-    t.occurred_day,
-    t.recorded_day,
     t.evidence_count,
     t.has_evidence,
     t.has_unresolved_mentions
@@ -39,17 +45,23 @@ type GetTimelineProjectionRowRow struct {
 	RecordID              pgtype.UUID        `json:"record_id"`
 	IncidentID            pgtype.UUID        `json:"incident_id"`
 	RowVersion            int64              `json:"row_version"`
-	OccurredAt            pgtype.Timestamptz `json:"occurred_at"`
-	Summary               pgtype.Text        `json:"summary"`
-	Details               pgtype.Text        `json:"details"`
-	SourceText            pgtype.Text        `json:"source_text"`
+	DateEnteredText       pgtype.Text        `json:"date_entered_text"`
+	AnalystText           pgtype.Text        `json:"analyst_text"`
+	MitreStageText        pgtype.Text        `json:"mitre_stage_text"`
+	DeviceObjectText      pgtype.Text        `json:"device_object_text"`
+	IpAddressText         pgtype.Text        `json:"ip_address_text"`
+	ActivityUtcText       pgtype.Text        `json:"activity_utc_text"`
+	ActivityLocalText     pgtype.Text        `json:"activity_local_text"`
+	RawActivityText       pgtype.Text        `json:"raw_activity_text"`
+	ActivitySynopsisText  pgtype.Text        `json:"activity_synopsis_text"`
+	DataSourceText        pgtype.Text        `json:"data_source_text"`
 	RecordedAt            pgtype.Timestamptz `json:"recorded_at"`
 	EditedAt              pgtype.Timestamptz `json:"edited_at"`
-	SortTs                pgtype.Timestamptz `json:"sort_ts"`
+	ActivitySortTs        pgtype.Timestamptz `json:"activity_sort_ts"`
+	DateEnteredSortDay    pgtype.Date        `json:"date_entered_sort_day"`
+	ActivityTimePairState string             `json:"activity_time_pair_state"`
 	CaptureState          string             `json:"capture_state"`
 	ReplacementRecordID   pgtype.UUID        `json:"replacement_record_id"`
-	OccurredDay           pgtype.Date        `json:"occurred_day"`
-	RecordedDay           pgtype.Date        `json:"recorded_day"`
 	EvidenceCount         int32              `json:"evidence_count"`
 	HasEvidence           bool               `json:"has_evidence"`
 	HasUnresolvedMentions bool               `json:"has_unresolved_mentions"`
@@ -62,17 +74,23 @@ func (q *Queries) GetTimelineProjectionRow(ctx context.Context, recordID pgtype.
 		&i.RecordID,
 		&i.IncidentID,
 		&i.RowVersion,
-		&i.OccurredAt,
-		&i.Summary,
-		&i.Details,
-		&i.SourceText,
+		&i.DateEnteredText,
+		&i.AnalystText,
+		&i.MitreStageText,
+		&i.DeviceObjectText,
+		&i.IpAddressText,
+		&i.ActivityUtcText,
+		&i.ActivityLocalText,
+		&i.RawActivityText,
+		&i.ActivitySynopsisText,
+		&i.DataSourceText,
 		&i.RecordedAt,
 		&i.EditedAt,
-		&i.SortTs,
+		&i.ActivitySortTs,
+		&i.DateEnteredSortDay,
+		&i.ActivityTimePairState,
 		&i.CaptureState,
 		&i.ReplacementRecordID,
-		&i.OccurredDay,
-		&i.RecordedDay,
 		&i.EvidenceCount,
 		&i.HasEvidence,
 		&i.HasUnresolvedMentions,
@@ -85,41 +103,53 @@ SELECT
     t.record_id,
     t.incident_id,
     r.row_version,
-    t.occurred_at,
-    t.summary,
-    t.details,
-    t.source_text,
+    t.date_entered_text,
+    t.analyst_text,
+    t.mitre_stage_text,
+    t.device_object_text,
+    t.ip_address_text,
+    t.activity_utc_text,
+    t.activity_local_text,
+    t.raw_activity_text,
+    t.activity_synopsis_text,
+    t.data_source_text,
     t.recorded_at,
     t.edited_at,
-    t.sort_ts,
+    t.activity_sort_ts,
+    t.date_entered_sort_day,
+    t.activity_time_pair_state,
     t.capture_state,
     t.replacement_record_id,
-    t.occurred_day,
-    t.recorded_day,
     t.evidence_count,
     t.has_evidence,
     t.has_unresolved_mentions
 FROM timeline_grid_projection t
 JOIN records r ON r.record_id = t.record_id
 WHERE t.incident_id = $1
-ORDER BY t.sort_ts ASC, t.record_id ASC
+ORDER BY t.activity_sort_ts ASC NULLS LAST, t.record_id ASC
 `
 
 type ListTimelineProjectionRowsRow struct {
 	RecordID              pgtype.UUID        `json:"record_id"`
 	IncidentID            pgtype.UUID        `json:"incident_id"`
 	RowVersion            int64              `json:"row_version"`
-	OccurredAt            pgtype.Timestamptz `json:"occurred_at"`
-	Summary               pgtype.Text        `json:"summary"`
-	Details               pgtype.Text        `json:"details"`
-	SourceText            pgtype.Text        `json:"source_text"`
+	DateEnteredText       pgtype.Text        `json:"date_entered_text"`
+	AnalystText           pgtype.Text        `json:"analyst_text"`
+	MitreStageText        pgtype.Text        `json:"mitre_stage_text"`
+	DeviceObjectText      pgtype.Text        `json:"device_object_text"`
+	IpAddressText         pgtype.Text        `json:"ip_address_text"`
+	ActivityUtcText       pgtype.Text        `json:"activity_utc_text"`
+	ActivityLocalText     pgtype.Text        `json:"activity_local_text"`
+	RawActivityText       pgtype.Text        `json:"raw_activity_text"`
+	ActivitySynopsisText  pgtype.Text        `json:"activity_synopsis_text"`
+	DataSourceText        pgtype.Text        `json:"data_source_text"`
 	RecordedAt            pgtype.Timestamptz `json:"recorded_at"`
 	EditedAt              pgtype.Timestamptz `json:"edited_at"`
-	SortTs                pgtype.Timestamptz `json:"sort_ts"`
+	ActivitySortTs        pgtype.Timestamptz `json:"activity_sort_ts"`
+	DateEnteredSortDay    pgtype.Date        `json:"date_entered_sort_day"`
+	ActivityTimePairState string             `json:"activity_time_pair_state"`
 	CaptureState          string             `json:"capture_state"`
 	ReplacementRecordID   pgtype.UUID        `json:"replacement_record_id"`
-	OccurredDay           pgtype.Date        `json:"occurred_day"`
-	RecordedDay           pgtype.Date        `json:"recorded_day"`
 	EvidenceCount         int32              `json:"evidence_count"`
 	HasEvidence           bool               `json:"has_evidence"`
 	HasUnresolvedMentions bool               `json:"has_unresolved_mentions"`
@@ -138,17 +168,23 @@ func (q *Queries) ListTimelineProjectionRows(ctx context.Context, incidentID pgt
 			&i.RecordID,
 			&i.IncidentID,
 			&i.RowVersion,
-			&i.OccurredAt,
-			&i.Summary,
-			&i.Details,
-			&i.SourceText,
+			&i.DateEnteredText,
+			&i.AnalystText,
+			&i.MitreStageText,
+			&i.DeviceObjectText,
+			&i.IpAddressText,
+			&i.ActivityUtcText,
+			&i.ActivityLocalText,
+			&i.RawActivityText,
+			&i.ActivitySynopsisText,
+			&i.DataSourceText,
 			&i.RecordedAt,
 			&i.EditedAt,
-			&i.SortTs,
+			&i.ActivitySortTs,
+			&i.DateEnteredSortDay,
+			&i.ActivityTimePairState,
 			&i.CaptureState,
 			&i.ReplacementRecordID,
-			&i.OccurredDay,
-			&i.RecordedDay,
 			&i.EvidenceCount,
 			&i.HasEvidence,
 			&i.HasUnresolvedMentions,
@@ -168,13 +204,21 @@ SELECT
     e.record_id,
     e.incident_id,
     r.row_version,
-    e.occurred_at,
-    e.summary,
-    e.details,
-    e.source_text,
+    e.date_entered_text,
+    e.analyst_text,
+    e.mitre_stage_text,
+    e.device_object_text,
+    e.ip_address_text,
+    e.activity_utc_text,
+    e.activity_local_text,
+    e.raw_activity_text,
+    e.activity_synopsis_text,
+    e.data_source_text,
     e.recorded_at,
     e.edited_at,
-    COALESCE(e.occurred_at, e.recorded_at) AS sort_ts,
+    NULL::timestamptz AS activity_sort_ts,
+    NULL::date AS date_entered_sort_day,
+    e.activity_time_pair_state,
     e.capture_state,
     (
         SELECT l.src_record_id
@@ -185,8 +229,6 @@ SELECT
         ORDER BY l.created_at DESC, l.record_link_id DESC
         LIMIT 1
     ) AS replacement_record_id,
-    e.occurred_at::date AS occurred_day,
-    e.recorded_at::date AS recorded_day,
     (
         SELECT COUNT(*)::integer
         FROM record_links l
@@ -227,24 +269,30 @@ FROM timeline_events e
 JOIN records r ON r.record_id = e.record_id
 WHERE e.incident_id = $1
   AND r.deleted_at IS NULL
-ORDER BY COALESCE(e.occurred_at, e.recorded_at) ASC, e.record_id ASC
+ORDER BY e.recorded_at ASC, e.record_id ASC
 `
 
 type ListTimelineProjectionSourceRowsRow struct {
 	RecordID              pgtype.UUID        `json:"record_id"`
 	IncidentID            pgtype.UUID        `json:"incident_id"`
 	RowVersion            int64              `json:"row_version"`
-	OccurredAt            pgtype.Timestamptz `json:"occurred_at"`
-	Summary               pgtype.Text        `json:"summary"`
-	Details               pgtype.Text        `json:"details"`
-	SourceText            pgtype.Text        `json:"source_text"`
+	DateEnteredText       pgtype.Text        `json:"date_entered_text"`
+	AnalystText           pgtype.Text        `json:"analyst_text"`
+	MitreStageText        pgtype.Text        `json:"mitre_stage_text"`
+	DeviceObjectText      pgtype.Text        `json:"device_object_text"`
+	IpAddressText         pgtype.Text        `json:"ip_address_text"`
+	ActivityUtcText       pgtype.Text        `json:"activity_utc_text"`
+	ActivityLocalText     pgtype.Text        `json:"activity_local_text"`
+	RawActivityText       pgtype.Text        `json:"raw_activity_text"`
+	ActivitySynopsisText  pgtype.Text        `json:"activity_synopsis_text"`
+	DataSourceText        pgtype.Text        `json:"data_source_text"`
 	RecordedAt            pgtype.Timestamptz `json:"recorded_at"`
 	EditedAt              pgtype.Timestamptz `json:"edited_at"`
-	SortTs                pgtype.Timestamptz `json:"sort_ts"`
+	ActivitySortTs        pgtype.Timestamptz `json:"activity_sort_ts"`
+	DateEnteredSortDay    pgtype.Date        `json:"date_entered_sort_day"`
+	ActivityTimePairState string             `json:"activity_time_pair_state"`
 	CaptureState          string             `json:"capture_state"`
 	ReplacementRecordID   pgtype.UUID        `json:"replacement_record_id"`
-	OccurredDay           pgtype.Date        `json:"occurred_day"`
-	RecordedDay           pgtype.Date        `json:"recorded_day"`
 	EvidenceCount         int32              `json:"evidence_count"`
 	HasEvidence           bool               `json:"has_evidence"`
 	HasUnresolvedMentions bool               `json:"has_unresolved_mentions"`
@@ -263,17 +311,23 @@ func (q *Queries) ListTimelineProjectionSourceRows(ctx context.Context, incident
 			&i.RecordID,
 			&i.IncidentID,
 			&i.RowVersion,
-			&i.OccurredAt,
-			&i.Summary,
-			&i.Details,
-			&i.SourceText,
+			&i.DateEnteredText,
+			&i.AnalystText,
+			&i.MitreStageText,
+			&i.DeviceObjectText,
+			&i.IpAddressText,
+			&i.ActivityUtcText,
+			&i.ActivityLocalText,
+			&i.RawActivityText,
+			&i.ActivitySynopsisText,
+			&i.DataSourceText,
 			&i.RecordedAt,
 			&i.EditedAt,
-			&i.SortTs,
+			&i.ActivitySortTs,
+			&i.DateEnteredSortDay,
+			&i.ActivityTimePairState,
 			&i.CaptureState,
 			&i.ReplacementRecordID,
-			&i.OccurredDay,
-			&i.RecordedDay,
 			&i.EvidenceCount,
 			&i.HasEvidence,
 			&i.HasUnresolvedMentions,

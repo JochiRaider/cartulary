@@ -1101,43 +1101,68 @@ type TaskRequestGridProjection struct {
 }
 
 type TimelineEvent struct {
-	RecordID           pgtype.UUID        `json:"record_id"`
-	IncidentID         pgtype.UUID        `json:"incident_id"`
-	OccurredAt         pgtype.Timestamptz `json:"occurred_at"`
-	Summary            pgtype.Text        `json:"summary"`
-	Details            pgtype.Text        `json:"details"`
-	SourceText         pgtype.Text        `json:"source_text"`
-	CaptureState       string             `json:"capture_state"`
-	RowVersion         int64              `json:"row_version"`
-	RecordedAt         pgtype.Timestamptz `json:"recorded_at"`
-	EditedAt           pgtype.Timestamptz `json:"edited_at"`
-	CreatedByUserID    pgtype.UUID        `json:"created_by_user_id"`
-	UpdatedByUserID    pgtype.UUID        `json:"updated_by_user_id"`
-	ReviewedByUserID   pgtype.UUID        `json:"reviewed_by_user_id"`
-	ReviewedAt         pgtype.Timestamptz `json:"reviewed_at"`
-	SupersededByUserID pgtype.UUID        `json:"superseded_by_user_id"`
-	SupersededAt       pgtype.Timestamptz `json:"superseded_at"`
-	RawCapture         []byte             `json:"raw_capture"`
+	RecordID               pgtype.UUID        `json:"record_id"`
+	IncidentID             pgtype.UUID        `json:"incident_id"`
+	CaptureState           string             `json:"capture_state"`
+	RowVersion             int64              `json:"row_version"`
+	RecordedAt             pgtype.Timestamptz `json:"recorded_at"`
+	EditedAt               pgtype.Timestamptz `json:"edited_at"`
+	CreatedByUserID        pgtype.UUID        `json:"created_by_user_id"`
+	UpdatedByUserID        pgtype.UUID        `json:"updated_by_user_id"`
+	ReviewedByUserID       pgtype.UUID        `json:"reviewed_by_user_id"`
+	ReviewedAt             pgtype.Timestamptz `json:"reviewed_at"`
+	SupersededByUserID     pgtype.UUID        `json:"superseded_by_user_id"`
+	SupersededAt           pgtype.Timestamptz `json:"superseded_at"`
+	RawCapture             []byte             `json:"raw_capture"`
+	DateEnteredText        pgtype.Text        `json:"date_entered_text"`
+	AnalystText            pgtype.Text        `json:"analyst_text"`
+	MitreStageText         pgtype.Text        `json:"mitre_stage_text"`
+	DeviceObjectText       pgtype.Text        `json:"device_object_text"`
+	IpAddressText          pgtype.Text        `json:"ip_address_text"`
+	ActivityUtcText        pgtype.Text        `json:"activity_utc_text"`
+	ActivityLocalText      pgtype.Text        `json:"activity_local_text"`
+	RawActivityText        pgtype.Text        `json:"raw_activity_text"`
+	ActivitySynopsisText   pgtype.Text        `json:"activity_synopsis_text"`
+	DataSourceText         pgtype.Text        `json:"data_source_text"`
+	ActivityUtcGenerated   bool               `json:"activity_utc_generated"`
+	ActivityLocalGenerated bool               `json:"activity_local_generated"`
+	ActivityTimePairState  string             `json:"activity_time_pair_state"`
 }
 
 type TimelineGridProjection struct {
 	RecordID              pgtype.UUID        `json:"record_id"`
 	IncidentID            pgtype.UUID        `json:"incident_id"`
 	RowVersion            int64              `json:"row_version"`
-	OccurredAt            pgtype.Timestamptz `json:"occurred_at"`
-	Summary               pgtype.Text        `json:"summary"`
-	Details               pgtype.Text        `json:"details"`
-	SourceText            pgtype.Text        `json:"source_text"`
 	RecordedAt            pgtype.Timestamptz `json:"recorded_at"`
 	EditedAt              pgtype.Timestamptz `json:"edited_at"`
-	SortTs                pgtype.Timestamptz `json:"sort_ts"`
 	CaptureState          string             `json:"capture_state"`
 	ReplacementRecordID   pgtype.UUID        `json:"replacement_record_id"`
-	OccurredDay           pgtype.Date        `json:"occurred_day"`
-	RecordedDay           pgtype.Date        `json:"recorded_day"`
 	EvidenceCount         int32              `json:"evidence_count"`
 	HasEvidence           bool               `json:"has_evidence"`
 	HasUnresolvedMentions bool               `json:"has_unresolved_mentions"`
+	DateEnteredText       pgtype.Text        `json:"date_entered_text"`
+	AnalystText           pgtype.Text        `json:"analyst_text"`
+	MitreStageText        pgtype.Text        `json:"mitre_stage_text"`
+	DeviceObjectText      pgtype.Text        `json:"device_object_text"`
+	IpAddressText         pgtype.Text        `json:"ip_address_text"`
+	ActivityUtcText       pgtype.Text        `json:"activity_utc_text"`
+	ActivityLocalText     pgtype.Text        `json:"activity_local_text"`
+	RawActivityText       pgtype.Text        `json:"raw_activity_text"`
+	ActivitySynopsisText  pgtype.Text        `json:"activity_synopsis_text"`
+	DataSourceText        pgtype.Text        `json:"data_source_text"`
+	ActivitySortTs        pgtype.Timestamptz `json:"activity_sort_ts"`
+	DateEnteredSortDay    pgtype.Date        `json:"date_entered_sort_day"`
+	ActivityTimePairState string             `json:"activity_time_pair_state"`
+}
+
+type TimelineTimeConversionProfile struct {
+	IncidentID         pgtype.UUID        `json:"incident_id"`
+	Enabled            bool               `json:"enabled"`
+	LocalOffsetMinutes pgtype.Int4        `json:"local_offset_minutes"`
+	LocalLabel         pgtype.Text        `json:"local_label"`
+	ProfileVersion     int64              `json:"profile_version"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	UpdatedByUserID    pgtype.UUID        `json:"updated_by_user_id"`
 }
 
 type User struct {

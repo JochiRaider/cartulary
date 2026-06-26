@@ -45,7 +45,7 @@ describe("Phase 4 Timeline workbook action sequencing", () => {
 
   async function openTimelineInspectorFromContext(recordId: string) {
     const summaryCell = await screen.findByTestId(
-      rowCellTestId(recordId, "timeline.summary"),
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
     );
     fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
     fireEvent.click(
@@ -55,7 +55,7 @@ describe("Phase 4 Timeline workbook action sequencing", () => {
 
   async function openTimelineRowContextMenu(recordId: string) {
     const summaryCell = await screen.findByTestId(
-      rowCellTestId(recordId, "timeline.summary"),
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
     );
     fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
   }
@@ -201,7 +201,7 @@ describe("Phase 4 Timeline workbook action sequencing", () => {
 
     await openTimelineInspectorFromContext("record-1");
     const detailsInput = (await screen.findByTestId(
-      rowInspectorFieldTestId("record-1", "timeline.details"),
+      rowInspectorFieldTestId("record-1", "timeline.raw_activity_text"),
     )) as HTMLTextAreaElement;
     await changeInputValue(detailsInput, "Material edit after review");
     fireEvent.blur(detailsInput);
@@ -211,7 +211,7 @@ describe("Phase 4 Timeline workbook action sequencing", () => {
       base_row_version: 2,
       changes: [
         {
-          field_key: "timeline.details",
+          field_key: "timeline.raw_activity_text",
           value: "Material edit after review",
         },
       ],
@@ -310,7 +310,7 @@ describe("Phase 4 Timeline workbook action sequencing", () => {
 
     await openTimelineInspectorFromContext("record-1");
     const detailsInput = (await screen.findByTestId(
-      rowInspectorFieldTestId("record-1", "timeline.details"),
+      rowInspectorFieldTestId("record-1", "timeline.raw_activity_text"),
     )) as HTMLTextAreaElement;
     await changeInputValue(detailsInput, "Material edit after review");
     fireEvent.blur(detailsInput);
@@ -320,7 +320,7 @@ describe("Phase 4 Timeline workbook action sequencing", () => {
       base_row_version: 2,
       changes: [
         {
-          field_key: "timeline.details",
+          field_key: "timeline.raw_activity_text",
           value: "Material edit after review",
         },
       ],

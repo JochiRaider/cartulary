@@ -77,7 +77,7 @@ test(exactScenarioTitle, async ({ page }) => {
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("feep501-manual-row"),
-      "timeline.summary": "FE-E-P5 manual lifecycle row",
+      "timeline.activity_synopsis_text": "FE-E-P5 manual lifecycle row",
       [hostRefsFieldKey]: collectionActionsPayload([manualRawText]),
     },
   )) as ViewRow;
@@ -87,7 +87,7 @@ test(exactScenarioTitle, async ({ page }) => {
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("feep501-auto-correction-row"),
-      "timeline.summary": "FE-E-P5 auto correction row",
+      "timeline.activity_synopsis_text": "FE-E-P5 auto correction row",
     },
   )) as ViewRow;
   const autoUndoRow = (await createViewRow(
@@ -96,7 +96,7 @@ test(exactScenarioTitle, async ({ page }) => {
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("feep501-auto-undo-row"),
-      "timeline.summary": "FE-E-P5 auto undo row",
+      "timeline.activity_synopsis_text": "FE-E-P5 auto undo row",
     },
   )) as ViewRow;
   const manualMention = requireItemByRawText(

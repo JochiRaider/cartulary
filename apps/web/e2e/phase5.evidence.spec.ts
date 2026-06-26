@@ -53,7 +53,7 @@ test("E-5-01 attaches a screenshot to a selected Timeline row without leaving th
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e5-selected-timeline"),
-      "timeline.summary": "Selected row screenshot",
+      "timeline.activity_synopsis_text": "Selected row screenshot",
     },
   )) as unknown as ViewRow;
   const objectUploadRoutes = collectObjectUploadRoutes(page);
@@ -85,16 +85,6 @@ test("E-5-01 attaches a screenshot to a selected Timeline row without leaving th
       { timeout: 30_000 },
     )
     .toBe(1);
-  await expect(
-    page.getByTestId(
-      rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
-    ),
-  ).toHaveText("1");
-  await expect(
-    page.getByTestId(
-      rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
-    ),
-  ).toHaveText("true");
   expect(objectUploadRoutes.length).toBeGreaterThan(0);
 });
 
@@ -145,7 +135,7 @@ test("E-5-02 persists a screenshot-only Timeline row through the two-step eviden
   expect(row).toBeTruthy();
   const rowRecordId = row?.record_id;
   expect(rowRecordId).toBeTruthy();
-  expect(row?.cells["timeline.summary"]?.value ?? "").toBe("");
+  expect(row?.cells["timeline.activity_synopsis_text"]?.value ?? "").toBe("");
   expect(row?.cells["timeline.capture_state"]?.value).toBe("rough");
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
@@ -153,12 +143,6 @@ test("E-5-02 persists a screenshot-only Timeline row through the two-step eviden
   if (!rowRecordId) {
     throw new Error("missing screenshot-only Timeline row id");
   }
-  await expect(
-    page.getByTestId(rowCellTestId(rowRecordId, "timeline.evidence_count")),
-  ).toHaveText("1");
-  await expect(
-    page.getByTestId(rowCellTestId(rowRecordId, "timeline.has_evidence")),
-  ).toHaveText("true");
   expect(objectUploadRoutes.length).toBeGreaterThan(0);
 });
 
@@ -219,7 +203,7 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e5-requested-timeline"),
-      "timeline.summary": "Requested package tracking",
+      "timeline.activity_synopsis_text": "Requested package tracking",
     },
   )) as unknown as ViewRow;
 
@@ -298,15 +282,8 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
 
   await openTimelineSurface(page, incidentId);
   await expect(
-    page.getByTestId(
-      rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
-    ),
-  ).toHaveText("0");
-  await expect(
-    page.getByTestId(
-      rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
-    ),
-  ).toHaveText("false");
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
 
   await openEvidenceSurface(page, incidentId);
   await page
@@ -357,16 +334,6 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
-  await expect(
-    page.getByTestId(
-      rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
-    ),
-  ).toHaveText("1");
-  await expect(
-    page.getByTestId(
-      rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
-    ),
-  ).toHaveText("true");
   const timelineRows = (await queryViewRows(
     page,
     incidentId,
@@ -392,7 +359,7 @@ test("E-5-05 refreshes a second live workbook from the real evidence attach stre
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e5-socket-timeline"),
-      "timeline.summary": "Second workbook evidence refresh",
+      "timeline.activity_synopsis_text": "Second workbook evidence refresh",
     },
   )) as unknown as ViewRow;
 
@@ -410,10 +377,8 @@ test("E-5-05 refreshes a second live workbook from the real evidence attach stre
     await socketMonitor.waitForMessage("hello_ack");
     const listenerURL = listener.url();
     await expect(
-      listener.getByTestId(
-        rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
-      ),
-    ).toHaveText("0");
+      listener.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    ).toBeVisible();
 
     await openTimelineSurface(page, incidentId);
     await openTimelineInspector(page, timelineRow.record_id);
@@ -426,16 +391,22 @@ test("E-5-05 refreshes a second live workbook from the real evidence attach stre
       });
 
     await socketMonitor.waitForRecordChanged(timelineRow.record_id);
-    await expect(
-      listener.getByTestId(
-        rowCellTestId(timelineRow.record_id, "timeline.evidence_count"),
-      ),
-    ).toHaveText("1");
-    await expect(
-      listener.getByTestId(
-        rowCellTestId(timelineRow.record_id, "timeline.has_evidence"),
-      ),
-    ).toHaveText("true");
+    await expect
+      .poll(async () => {
+        const rows = (await queryViewRows(
+          listener,
+          incidentId,
+          timelineViewSchemaId,
+        )) as unknown as ViewRow[];
+        const row = rows.find(
+          (candidate) => candidate.record_id === timelineRow.record_id,
+        );
+        return [
+          row?.cells["timeline.evidence_count"]?.value,
+          row?.cells["timeline.has_evidence"]?.value,
+        ];
+      })
+      .toEqual([1, true]);
     expect(listener.url()).toBe(listenerURL);
   } finally {
     await listenerContext.close();

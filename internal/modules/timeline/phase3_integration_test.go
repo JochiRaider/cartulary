@@ -57,8 +57,8 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 			t.Fatalf("unexpected zero-field create row_version: %#v", createRow)
 		}
 		createCells := createRow["cells"].(map[string]any)
-		if createCells["timeline.summary"].(map[string]any)["value"] != nil {
-			t.Fatalf("expected zero-field create to keep summary null, got %#v", createCells["timeline.summary"])
+		if createCells["timeline.activity_synopsis_text"].(map[string]any)["value"] != nil {
+			t.Fatalf("expected zero-field create to keep summary null, got %#v", createCells["timeline.activity_synopsis_text"])
 		}
 		if createCells["timeline.capture_state"].(map[string]any)["value"] != "rough" {
 			t.Fatalf("expected zero-field create to start rough, got %#v", createCells["timeline.capture_state"])
@@ -72,8 +72,8 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 			OperationKind:   "create",
 			AfterRowVersion: timelinetest.RowVersion(1),
 			AfterCells: map[string]any{
-				"timeline.summary":       nil,
-				"timeline.capture_state": "rough",
+				"timeline.activity_synopsis_text": nil,
+				"timeline.capture_state":          "rough",
 			},
 		})
 		projection := timelinetest.LookupProjectionRow(t, db, recordID)
@@ -119,8 +119,8 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 			http.MethodPost,
 			server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":    "txn-i-3-01-row-create-zero",
-				"timeline.summary": "Different capture",
+				"client_txn_id":                   "txn-i-3-01-row-create-zero",
+				"timeline.activity_synopsis_text": "Different capture",
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
@@ -129,8 +129,8 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
 
 		replacement := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-i-3-01-replacement",
-			"timeline.summary": "Replacement row",
+			"client_txn_id":                   "txn-i-3-01-replacement",
+			"timeline.activity_synopsis_text": "Replacement row",
 		})
 		replacementRow := replacement["row"].(map[string]any)
 		replacementID := replacementRow["record_id"].(string)
@@ -149,8 +149,8 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 				"base_row_version": 1,
 				"client_txn_id":    "txn-i-3-01-row-patch",
 				"changes": []map[string]any{
-					{"field_key": "timeline.summary", "value": "Enriched capture"},
-					{"field_key": "timeline.details", "value": "Details from patch"},
+					{"field_key": "timeline.activity_synopsis_text", "value": "Enriched capture"},
+					{"field_key": "timeline.raw_activity_text", "value": "Details from patch"},
 				},
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
@@ -171,14 +171,14 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 			BeforeRowVersion: timelinetest.RowVersion(1),
 			AfterRowVersion:  timelinetest.RowVersion(2),
 			BeforeCells: map[string]any{
-				"timeline.summary":       nil,
-				"timeline.details":       nil,
-				"timeline.capture_state": "rough",
+				"timeline.activity_synopsis_text": nil,
+				"timeline.raw_activity_text":      nil,
+				"timeline.capture_state":          "rough",
 			},
 			AfterCells: map[string]any{
-				"timeline.summary":       "Enriched capture",
-				"timeline.details":       "Details from patch",
-				"timeline.capture_state": "enriched",
+				"timeline.activity_synopsis_text": "Enriched capture",
+				"timeline.raw_activity_text":      "Details from patch",
+				"timeline.capture_state":          "enriched",
 			},
 		})
 		projection = timelinetest.LookupProjectionRow(t, db, recordID)
@@ -196,8 +196,8 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 				"base_row_version": 1,
 				"client_txn_id":    "txn-i-3-01-row-patch",
 				"changes": []map[string]any{
-					{"field_key": "timeline.details", "value": "Details from patch"},
-					{"field_key": "timeline.summary", "value": "Enriched capture"},
+					{"field_key": "timeline.raw_activity_text", "value": "Details from patch"},
+					{"field_key": "timeline.activity_synopsis_text", "value": "Enriched capture"},
 				},
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
@@ -235,7 +235,7 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 				"base_row_version": 1,
 				"client_txn_id":    "txn-i-3-01-row-patch",
 				"changes": []map[string]any{
-					{"field_key": "timeline.summary", "value": "Divergent replay"},
+					{"field_key": "timeline.activity_synopsis_text", "value": "Divergent replay"},
 				},
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
@@ -462,8 +462,8 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 			http.MethodPost,
 			server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":    "txn-i-3-01-rollback-row",
-				"timeline.summary": "Rollback row",
+				"client_txn_id":                   "txn-i-3-01-rollback-row",
+				"timeline.activity_synopsis_text": "Rollback row",
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
@@ -507,8 +507,8 @@ func TestSupportPhase3Integration_RouteIdempotencyIsActorScoped(t *testing.T) {
 	editorLogin := loginResult{sessionCookie: editorSession, csrfCookie: editorCSRF}
 
 	createPayload := map[string]any{
-		"client_txn_id":    "txn-phase3-shared-row-create",
-		"timeline.summary": "shared create txn",
+		"client_txn_id":                   "txn-phase3-shared-row-create",
+		"timeline.activity_synopsis_text": "shared create txn",
 	}
 	adminCreate := createTimelineRow(t, server, incidentID, adminLogin, createPayload)
 	editorCreate := createTimelineRow(t, server, incidentID, editorLogin, createPayload)
@@ -549,8 +549,8 @@ SELECT COUNT(*)
 	}
 
 	patchTarget := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-		"client_txn_id":    "txn-phase3-actor-scope-patch-target",
-		"timeline.summary": "patch target",
+		"client_txn_id":                   "txn-phase3-actor-scope-patch-target",
+		"timeline.activity_synopsis_text": "patch target",
 	})
 	patchRecordID := patchTarget["row"].(map[string]any)["record_id"].(string)
 	adminPatchPayload := map[string]any{
@@ -558,7 +558,7 @@ SELECT COUNT(*)
 		"base_row_version": 1,
 		"client_txn_id":    "txn-phase3-shared-row-patch",
 		"changes": []map[string]any{
-			{"field_key": "timeline.summary", "value": "admin patch"},
+			{"field_key": "timeline.activity_synopsis_text", "value": "admin patch"},
 		},
 	}
 	adminPatchResp := doPhase3JSON(
@@ -576,7 +576,7 @@ SELECT COUNT(*)
 		"base_row_version": 2,
 		"client_txn_id":    "txn-phase3-shared-row-patch",
 		"changes": []map[string]any{
-			{"field_key": "timeline.details", "value": "editor patch"},
+			{"field_key": "timeline.raw_activity_text", "value": "editor patch"},
 		},
 	}
 	editorPatchResp := doPhase3JSON(
@@ -646,8 +646,8 @@ func TestPhase3_PatchSameFieldConflictEnvelope_I_3_04(t *testing.T) {
 	})
 	incidentID := incident["incident_id"].(string)
 	created := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-		"client_txn_id":    "txn-i-3-04-conflict-row",
-		"timeline.summary": "Base summary",
+		"client_txn_id":                   "txn-i-3-04-conflict-row",
+		"timeline.activity_synopsis_text": "Base summary",
 	})
 	recordID := created["row"].(map[string]any)["record_id"].(string)
 
@@ -660,7 +660,7 @@ func TestPhase3_PatchSameFieldConflictEnvelope_I_3_04(t *testing.T) {
 			"base_row_version": 1,
 			"client_txn_id":    "txn-i-3-04-conflict-server",
 			"changes": []map[string]any{
-				{"field_key": "timeline.summary", "value": "Server summary"},
+				{"field_key": "timeline.activity_synopsis_text", "value": "Server summary"},
 			},
 		},
 		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
@@ -678,7 +678,7 @@ func TestPhase3_PatchSameFieldConflictEnvelope_I_3_04(t *testing.T) {
 			"base_row_version": 1,
 			"client_txn_id":    "txn-i-3-04-conflict-client",
 			"changes": []map[string]any{
-				{"field_key": "timeline.summary", "value": "Client summary"},
+				{"field_key": "timeline.activity_synopsis_text", "value": "Client summary"},
 			},
 		},
 		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
@@ -691,7 +691,7 @@ func TestPhase3_PatchSameFieldConflictEnvelope_I_3_04(t *testing.T) {
 		t.Fatalf("expected same-field conflict object, got %#v", errorObject)
 	}
 	if conflict["record_id"] != recordID ||
-		conflict["field_key"] != "timeline.summary" ||
+		conflict["field_key"] != "timeline.activity_synopsis_text" ||
 		conflict["conflict_resolution_class"] != "text_compare_merge" ||
 		conflict["base_row_version"] != float64(1) ||
 		conflict["current_row_version"] != float64(2) ||
@@ -732,13 +732,13 @@ func TestPhase3_RouteEnvelopeMatrix_I_3_06(t *testing.T) {
 	})
 	incidentID := incident["incident_id"].(string)
 	created := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-		"client_txn_id":    "txn-i-3-06-row",
-		"timeline.summary": "Envelope row",
+		"client_txn_id":                   "txn-i-3-06-row",
+		"timeline.activity_synopsis_text": "Envelope row",
 	})
 	recordID := created["row"].(map[string]any)["record_id"].(string)
 	replacement := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-		"client_txn_id":    "txn-i-3-06-replacement",
-		"timeline.summary": "Envelope replacement",
+		"client_txn_id":                   "txn-i-3-06-replacement",
+		"timeline.activity_synopsis_text": "Envelope replacement",
 	})
 	replacementID := replacement["row"].(map[string]any)["record_id"].(string)
 
@@ -773,7 +773,7 @@ func TestPhase3_RouteEnvelopeMatrix_I_3_06(t *testing.T) {
 			name:       "create unknown field",
 			method:     http.MethodPost,
 			url:        server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/views/" + timeline.TimelineViewSchemaID + "/rows",
-			body:       `{"client_txn_id":"txn-i-3-06-create-unknown","timeline.summary":"x","timeline.unknown":true}`,
+			body:       `{"client_txn_id":"txn-i-3-06-create-unknown","timeline.activity_synopsis_text":"x","timeline.unknown":true}`,
 			options:    authOptions,
 			status:     http.StatusBadRequest,
 			code:       "invalid_mutation_payload",
@@ -885,9 +885,9 @@ func TestPhase3_RoughUncertainCapturePreservation_I_3_07(t *testing.T) {
 	sourceText := "raw paste: host?  vpn   gateway ; acct maybe pending"
 	rawHostText := " vpn   gateway "
 	created := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-		"client_txn_id":        "txn-i-3-07-rough-row",
-		"timeline.details":     details,
-		"timeline.source_text": sourceText,
+		"client_txn_id":                   "txn-i-3-07-rough-row",
+		"timeline.activity_synopsis_text": details,
+		"timeline.raw_activity_text":      sourceText,
 		"timeline.host_refs": map[string]any{
 			"kind": "collection_actions_v1",
 			"actions": []map[string]any{
@@ -898,10 +898,9 @@ func TestPhase3_RoughUncertainCapturePreservation_I_3_07(t *testing.T) {
 	row := created["row"].(map[string]any)
 	recordID := row["record_id"].(string)
 	cells := row["cells"].(map[string]any)
-	if cells["timeline.occurred_at"].(map[string]any)["value"] != nil ||
-		cells["timeline.summary"].(map[string]any)["value"] != nil ||
-		cells["timeline.details"].(map[string]any)["value"] != details ||
-		cells["timeline.source_text"].(map[string]any)["value"] != sourceText {
+	if cells["timeline.activity_utc_text"].(map[string]any)["value"] != nil ||
+		cells["timeline.activity_synopsis_text"].(map[string]any)["value"] != details ||
+		cells["timeline.raw_activity_text"].(map[string]any)["value"] != sourceText {
 		t.Fatalf("rough create did not preserve uncertain/null capture fields: %#v", row)
 	}
 	if cells["timeline.has_unresolved_mentions"].(map[string]any)["value"] != true {
@@ -943,9 +942,8 @@ func TestPhase3_RoughUncertainCapturePreservation_I_3_07(t *testing.T) {
 	}
 	refreshed := findRow(t, queryTimelineRows(t, server, incidentID, adminLogin), recordID)
 	refreshedCells := refreshed["cells"].(map[string]any)
-	if refreshedCells["timeline.details"].(map[string]any)["value"] != details ||
-		refreshedCells["timeline.source_text"].(map[string]any)["value"] != sourceText ||
-		refreshedCells["timeline.summary"].(map[string]any)["value"] != nil {
+	if refreshedCells["timeline.activity_synopsis_text"].(map[string]any)["value"] != details ||
+		refreshedCells["timeline.raw_activity_text"].(map[string]any)["value"] != sourceText {
 		t.Fatalf("resolution must not overwrite original rough capture fields, got %#v", refreshed)
 	}
 	refreshedHostItem := requireSingleCollectionItem(t, refreshed, "timeline.host_refs")
@@ -971,14 +969,14 @@ func TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild(t *testing.T) {
 	incidentID := incident["incident_id"].(string)
 
 	first := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-		"client_txn_id":        "txn-i-3-02-row-a",
-		"timeline.summary":     "Tie A",
-		"timeline.occurred_at": "2026-04-10T10:00:00Z",
+		"client_txn_id":                   "txn-i-3-02-row-a",
+		"timeline.activity_synopsis_text": "Tie A",
+		"timeline.activity_utc_text":      "2026-04-10T10:00:00Z",
 	})
 	second := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-		"client_txn_id":        "txn-i-3-02-row-b",
-		"timeline.summary":     "Tie B",
-		"timeline.occurred_at": "2026-04-10T10:00:00Z",
+		"client_txn_id":                   "txn-i-3-02-row-b",
+		"timeline.activity_synopsis_text": "Tie B",
+		"timeline.activity_utc_text":      "2026-04-10T10:00:00Z",
 	})
 	zeroField := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
 		"client_txn_id": "txn-i-3-02-row-c",
@@ -996,7 +994,7 @@ func TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild(t *testing.T) {
 			"base_row_version": 1,
 			"client_txn_id":    "txn-i-3-02-row-b-patch",
 			"changes": []map[string]any{
-				{"field_key": "timeline.details", "value": "Projected details"},
+				{"field_key": "timeline.raw_activity_text", "value": "Projected details"},
 			},
 		},
 		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
@@ -1027,20 +1025,20 @@ func TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild(t *testing.T) {
 	if secondRow["row_version"] != float64(2) {
 		t.Fatalf("expected patched row_version in projection query, got %#v", secondRow)
 	}
-	if summary := secondRow["cells"].(map[string]any)["timeline.summary"].(map[string]any)["value"]; summary != "Tie B" {
+	if summary := secondRow["cells"].(map[string]any)["timeline.activity_synopsis_text"].(map[string]any)["value"]; summary != "Tie B" {
 		t.Fatalf("expected projected summary, got %#v", secondRow)
 	}
-	if details := secondRow["cells"].(map[string]any)["timeline.details"].(map[string]any)["value"]; details != "Projected details" {
+	if details := secondRow["cells"].(map[string]any)["timeline.raw_activity_text"].(map[string]any)["value"]; details != "Projected details" {
 		t.Fatalf("expected projection-backed details, got %#v", secondRow)
 	}
 	if captureState := secondRow["group_values"].(map[string]any)["timeline.capture_state"]; captureState != "enriched" {
 		t.Fatalf("expected projected group_values capture state, got %#v", secondRow["group_values"])
 	}
-	if occurredDay := secondRow["group_values"].(map[string]any)["timeline.occurred_day"]; occurredDay != "2026-04-10" {
-		t.Fatalf("expected occurred_day group value, got %#v", secondRow["group_values"])
+	if enteredDay := secondRow["group_values"].(map[string]any)["timeline.date_entered_sort_day"]; enteredDay != nil {
+		t.Fatalf("expected date_entered_sort_day to stay null when Date Entered is unauthored, got %#v", secondRow["group_values"])
 	}
 	zeroFieldRow := findRow(t, beforeRows, zeroFieldID)
-	if zeroFieldRow["cells"].(map[string]any)["timeline.summary"].(map[string]any)["value"] != nil {
+	if zeroFieldRow["cells"].(map[string]any)["timeline.activity_synopsis_text"].(map[string]any)["value"] != nil {
 		t.Fatalf("expected zero-field query row summary to remain null, got %#v", zeroFieldRow)
 	}
 	if zeroFieldRow["cells"].(map[string]any)["timeline.replacement_record_id"].(map[string]any)["value"] != nil {
@@ -1055,17 +1053,17 @@ func TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild(t *testing.T) {
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/query",
 		map[string]any{
-			"sort": []map[string]any{{"field_key": "timeline.summary", "direction": "asc"}},
+			"sort": []map[string]any{{"field_key": "timeline.activity_synopsis_text", "direction": "asc"}},
 		},
 		withCookies(adminLogin.sessionCookie),
 	)
 	sortedEnvelope := httptestx.RequireSuccessEnvelope(t, sortedQuery, http.StatusOK)
 	sortedRows := sortedEnvelope["data"].(map[string]any)["rows"].([]any)
 	if got := sortedRows[0].(map[string]any)["record_id"]; got != firstID {
-		t.Fatalf("expected timeline.summary asc to place Tie A first, got %#v", sortedRows)
+		t.Fatalf("expected timeline.activity_synopsis_text asc to place Tie A first, got %#v", sortedRows)
 	}
 	if got := sortedRows[1].(map[string]any)["record_id"]; got != secondID {
-		t.Fatalf("expected timeline.summary asc to place Tie B second, got %#v", sortedRows)
+		t.Fatalf("expected timeline.activity_synopsis_text asc to place Tie B second, got %#v", sortedRows)
 	}
 	if got := sortedRows[2].(map[string]any)["record_id"]; got != zeroFieldID {
 		t.Fatalf("expected null summary row to sort last, got %#v", sortedRows)
@@ -1121,33 +1119,33 @@ func TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions(t *testing.
 		otherIncidentID := otherIncident["incident_id"].(string)
 
 		replacement := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-i-3-03-replacement",
-			"timeline.summary": "Replacement row",
+			"client_txn_id":                   "txn-i-3-03-replacement",
+			"timeline.activity_synopsis_text": "Replacement row",
 		})
 		replacementID := replacement["row"].(map[string]any)["record_id"].(string)
 		alternateReplacement := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-i-3-03-alternate-replacement",
-			"timeline.summary": "Alternate replacement row",
+			"client_txn_id":                   "txn-i-3-03-alternate-replacement",
+			"timeline.activity_synopsis_text": "Alternate replacement row",
 		})
 		alternateReplacementID := alternateReplacement["row"].(map[string]any)["record_id"].(string)
 		created := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-i-3-03-primary",
-			"timeline.summary": "Primary row",
+			"client_txn_id":                   "txn-i-3-03-primary",
+			"timeline.activity_synopsis_text": "Primary row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 		otherReplacement := createTimelineRow(t, server, otherIncidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-i-3-03-cross-incident",
-			"timeline.summary": "Cross incident replacement",
+			"client_txn_id":                   "txn-i-3-03-cross-incident",
+			"timeline.activity_synopsis_text": "Cross incident replacement",
 		})
 		otherReplacementID := otherReplacement["row"].(map[string]any)["record_id"].(string)
 		supersededReplacement := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-i-3-03-superseded-replacement",
-			"timeline.summary": "Superseded replacement row",
+			"client_txn_id":                   "txn-i-3-03-superseded-replacement",
+			"timeline.activity_synopsis_text": "Superseded replacement row",
 		})
 		supersededReplacementID := supersededReplacement["row"].(map[string]any)["record_id"].(string)
 		supersededReplacementNext := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-i-3-03-superseded-replacement-next",
-			"timeline.summary": "Replacement for superseded replacement",
+			"client_txn_id":                   "txn-i-3-03-superseded-replacement-next",
+			"timeline.activity_synopsis_text": "Replacement for superseded replacement",
 		})
 		supersededReplacementNextID := supersededReplacementNext["row"].(map[string]any)["record_id"].(string)
 		supersedeReplacementFixture := doPhase3JSON(
@@ -1165,13 +1163,13 @@ func TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions(t *testing.
 		)
 		httptestx.RequireSuccessEnvelope(t, supersedeReplacementFixture, http.StatusOK)
 		activeIncomingTarget := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-i-3-03-active-incoming-target",
-			"timeline.summary": "Target with incoming replacement",
+			"client_txn_id":                   "txn-i-3-03-active-incoming-target",
+			"timeline.activity_synopsis_text": "Target with incoming replacement",
 		})
 		activeIncomingTargetID := activeIncomingTarget["row"].(map[string]any)["record_id"].(string)
 		activeIncomingReplacement := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-i-3-03-active-incoming-replacement",
-			"timeline.summary": "Existing incoming replacement",
+			"client_txn_id":                   "txn-i-3-03-active-incoming-replacement",
+			"timeline.activity_synopsis_text": "Existing incoming replacement",
 		})
 		activeIncomingReplacementID := activeIncomingReplacement["row"].(map[string]any)["record_id"].(string)
 		if _, err := db.ExecContext(context.Background(), `
@@ -1289,7 +1287,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"base_row_version": 2,
 				"client_txn_id":    "txn-i-3-03-demote",
 				"changes": []map[string]any{
-					{"field_key": "timeline.details", "value": "Material edit after review"},
+					{"field_key": "timeline.raw_activity_text", "value": "Material edit after review"},
 				},
 			},
 			withCookies(reviewerSession, reviewerCSRF),
@@ -1309,8 +1307,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			OperationKind:    "patch",
 			BeforeRowVersion: timelinetest.RowVersion(2),
 			AfterRowVersion:  timelinetest.RowVersion(3),
-			BeforeCells:      map[string]any{"timeline.capture_state": "reviewed", "timeline.details": nil},
-			AfterCells:       map[string]any{"timeline.capture_state": "enriched", "timeline.details": "Material edit after review"},
+			BeforeCells:      map[string]any{"timeline.capture_state": "reviewed", "timeline.raw_activity_text": nil},
+			AfterCells:       map[string]any{"timeline.capture_state": "enriched", "timeline.raw_activity_text": "Material edit after review"},
 		})
 
 		selfBefore := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
@@ -1515,7 +1513,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"base_row_version": 4,
 				"client_txn_id":    "txn-i-3-03-post-supersede-patch",
 				"changes": []map[string]any{
-					{"field_key": "timeline.summary", "value": "must fail while superseded"},
+					{"field_key": "timeline.activity_synopsis_text", "value": "must fail while superseded"},
 				},
 			},
 			withCookies(reviewerSession, reviewerCSRF),
@@ -1548,7 +1546,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"base_row_version": 4,
 				"client_txn_id":    "txn-i-3-03-post-downgrade",
 				"changes": []map[string]any{
-					{"field_key": "timeline.summary", "value": "must fail"},
+					{"field_key": "timeline.activity_synopsis_text", "value": "must fail"},
 				},
 			},
 			withCookies(reviewerSession, reviewerCSRF),
@@ -1581,13 +1579,13 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		})
 		incidentID := incident["incident_id"].(string)
 		replacement := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-i-3-03-rollback-replacement",
-			"timeline.summary": "Replacement row",
+			"client_txn_id":                   "txn-i-3-03-rollback-replacement",
+			"timeline.activity_synopsis_text": "Replacement row",
 		})
 		replacementID := replacement["row"].(map[string]any)["record_id"].(string)
 		created := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-i-3-03-rollback-primary",
-			"timeline.summary": "Primary row",
+			"client_txn_id":                   "txn-i-3-03-rollback-primary",
+			"timeline.activity_synopsis_text": "Primary row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 

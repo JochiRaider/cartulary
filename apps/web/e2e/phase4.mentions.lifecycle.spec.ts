@@ -56,8 +56,8 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
   });
   const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e402-row"),
-    "timeline.occurred_at": timelineFixtureOccurredAt(6),
-    "timeline.summary": "E-4-02 lifecycle row",
+    "timeline.activity_utc_text": timelineFixtureOccurredAt(6),
+    "timeline.activity_synopsis_text": "E-4-02 lifecycle row",
     [hostRefsFieldKey]: collectionActionsPayload(["WS-023?"]),
   })) as ViewRow;
   await createTimelineFillers(page, incidentId, "E-4-02 filler after", 6, {
@@ -90,6 +90,7 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await openTimelineInspector(page, row.record_id);
   await expect(
     page
       .getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey))
@@ -112,7 +113,6 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
   expect(rowIndexBeforeDismiss).toBeGreaterThan(0);
   expect(rowIndexBeforeDismiss).toBeLessThan(initialTimelineRows.length - 1);
 
-  await openTimelineInspector(page, row.record_id);
   await page
     .getByTestId(mentionItemTestId(String(seededMention.item_ref)))
     .click();

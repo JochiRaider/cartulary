@@ -61,10 +61,10 @@ describe("Phase 3 Timeline workbook payload coverage", () => {
       client_txn_id: "timeline-client-blank",
     });
 
-    draftRow.values.summary = "First timeline fact";
+    draftRow.values.activitySynopsisText = "First timeline fact";
     expect(buildCreatePayload(draftRow, "timeline-client-1")).toEqual({
       client_txn_id: "timeline-client-1",
-      "timeline.summary": "First timeline fact",
+      "timeline.activity_synopsis_text": "First timeline fact",
     });
   });
 
@@ -130,7 +130,7 @@ describe("Phase 3 Timeline workbook payload coverage", () => {
     });
 
     const committedSummary = (await screen.findByTestId(
-      rowCellTestId("record-zero", "timeline.summary"),
+      rowCellTestId("record-zero", "timeline.activity_synopsis_text"),
     )) as HTMLInputElement;
     expect(committedSummary.value).toBe("");
     expect(
@@ -141,7 +141,7 @@ describe("Phase 3 Timeline workbook payload coverage", () => {
       screen.getByTestId(timelineRowVersionTestId("record-zero")).textContent,
     ).toBe("1");
     expect(
-      screen.getByTestId(draftCellTestId("timeline.summary")),
+      screen.getByTestId(draftCellTestId("timeline.activity_synopsis_text")),
     ).toBeTruthy();
     await waitFor(() => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");

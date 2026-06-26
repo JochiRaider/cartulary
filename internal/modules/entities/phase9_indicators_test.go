@@ -64,7 +64,7 @@ SELECT count(*)
 	observationOne, _, err := store.CreateIndicatorObservation(context.Background(), actor, IndicatorObservationCreateParams{
 		IncidentID:                incident.ID,
 		SourceRecordID:            sourceOne,
-		SourceFieldKey:            "timeline.summary",
+		SourceFieldKey:            "timeline.activity_synopsis_text",
 		OriginKind:                "interactive_cell",
 		OriginLocator:             "timeline:one:summary:0-12",
 		ObservedText:              "203[.]0[.]113[.]88",
@@ -77,7 +77,7 @@ SELECT count(*)
 	observationTwo, _, err := store.CreateIndicatorObservation(context.Background(), actor, IndicatorObservationCreateParams{
 		IncidentID:                incident.ID,
 		SourceRecordID:            sourceTwo,
-		SourceFieldKey:            "timeline.source_text",
+		SourceFieldKey:            "timeline.raw_activity_text",
 		OriginKind:                "interactive_cell",
 		OriginLocator:             "timeline:two:source:0-12",
 		ObservedText:              "203[.]0[.]113[.]88",

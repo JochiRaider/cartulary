@@ -36,7 +36,7 @@ func TestWebSocketEventSendTelemetryNoSDK(t *testing.T) {
 		ConnectionID: uuid.NewString(),
 		UserID:       uuid.NewString(),
 		DisplayName:  "Operator",
-		SheetRef:     map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v1"},
+		SheetRef:     map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v2"},
 		Mode:         "viewing",
 		ObservedAt:   time.Now().UTC().Format(time.RFC3339Nano),
 		ExpiresAt:    time.Now().UTC().Add(PresenceTTL).Format(time.RFC3339Nano),

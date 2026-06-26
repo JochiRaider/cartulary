@@ -57,7 +57,7 @@ export function initialAssessmentDraft(
 }
 
 export function supportRowLabel(row: TimelineApiRow): string {
-  const summary = row.cells["timeline.summary"]?.value;
+  const summary = row.cells["timeline.activity_synopsis_text"]?.value;
   return typeof summary === "string" && summary !== ""
     ? summary
     : row.record_id;

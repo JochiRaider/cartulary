@@ -5,7 +5,7 @@ import {
   reduceWorkbookSocketLifecycle,
 } from "./workbookSocketLifecycle";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 function recordChangedPayload(
   options: {
@@ -23,7 +23,7 @@ function recordChangedPayload(
     change_set_id: `change-set-${rowVersion}`,
     client_txn_id: options.clientTxnId ?? `client-txn-${rowVersion}`,
     actor_user_id: "user-1",
-    changed_field_keys: ["timeline.summary"],
+    changed_field_keys: ["timeline.activity_synopsis_text"],
     affected_views: options.affectedViews ?? [
       {
         view_schema_id: timelineViewSchemaId,
@@ -32,7 +32,7 @@ function recordChangedPayload(
           record_id: recordId,
           row_version: rowVersion,
           cells: {
-            "timeline.summary": { value: "Remote summary" },
+            "timeline.activity_synopsis_text": { value: "Remote summary" },
           },
         },
       },

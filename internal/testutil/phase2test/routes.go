@@ -471,8 +471,8 @@ func ControlBoundaryInventory() []RouteInventoryEntry {
 			AllowedRole:     ControlRoleEditorOrHigher,
 			Body: func(fixture RouteInventoryFixture) map[string]any {
 				return map[string]any{
-					"client_txn_id":    "txn-phase2-control-timeline-create-" + fixture.ClientTxnSuffix,
-					"timeline.summary": "Control boundary row " + fixture.ClientTxnSuffix,
+					"client_txn_id":                   "txn-phase2-control-timeline-create-" + fixture.ClientTxnSuffix,
+					"timeline.activity_synopsis_text": "Control boundary row " + fixture.ClientTxnSuffix,
 				}
 			},
 		},
@@ -499,7 +499,7 @@ func ControlBoundaryInventory() []RouteInventoryEntry {
 					"client_txn_id":    "txn-phase2-control-record-patch-" + fixture.ClientTxnSuffix,
 					"changes": []map[string]any{
 						{
-							"field_key": "timeline.summary",
+							"field_key": "timeline.activity_synopsis_text",
 							"value":     "Control boundary patch " + fixture.ClientTxnSuffix,
 						},
 					},

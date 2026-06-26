@@ -31,7 +31,7 @@ func TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch(t *testing.T)
 		Text:           "gateway\tSummary\tunknown\nworkstation\tSecond\tother",
 		Format:         "tsv",
 		StartFieldKey:  "timeline.host_refs",
-		Columns:        []string{"timeline.host_refs", "timeline.summary"},
+		Columns:        []string{"timeline.host_refs", "timeline.activity_synopsis_text"},
 		RequireTargets: 2,
 	})
 	if err != nil {
@@ -40,7 +40,7 @@ func TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch(t *testing.T)
 	if plan.SourceKind != "clipboard_paste" || plan.ClientTxnID != "txn-u-9-02-shared-ingest" || len(plan.Rows) != 2 {
 		t.Fatalf("unexpected batch identity/grouping: %#v", plan)
 	}
-	if len(plan.Rows[0].Cells) != 2 || plan.Rows[0].Cells[0].FieldKey != "timeline.host_refs" || plan.Rows[0].Cells[1].FieldKey != "timeline.summary" {
+	if len(plan.Rows[0].Cells) != 2 || plan.Rows[0].Cells[0].FieldKey != "timeline.host_refs" || plan.Rows[0].Cells[1].FieldKey != "timeline.activity_synopsis_text" {
 		t.Fatalf("unexpected mapped cells: %#v", plan.Rows[0].Cells)
 	}
 	if plan.Rows[0].Cells[0].EntityBindingMode == nil || *plan.Rows[0].Cells[0].EntityBindingMode != hostMode {

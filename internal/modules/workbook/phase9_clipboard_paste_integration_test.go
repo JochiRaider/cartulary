@@ -27,8 +27,8 @@ func TestPhase9_I_9_01_TimelineClipboardPastePersistsOrderedMutationsAndConflict
 	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 
 	existing := requireWorkbookCreate(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
-		"client_txn_id":    "txn-phase9-i-9-01-existing",
-		"timeline.summary": "Existing base",
+		"client_txn_id":                   "txn-phase9-i-9-01-existing",
+		"timeline.activity_synopsis_text": "Existing base",
 	})
 	existingRow := existing["row"].(map[string]any)
 	existingID := phase4test.MustUUID(t, existingRow["record_id"].(string))
@@ -38,10 +38,10 @@ func TestPhase9_I_9_01_TimelineClipboardPastePersistsOrderedMutationsAndConflict
 		"client_txn_id":   "txn-phase9-i-9-01-paste",
 		"clipboard_text":  "Updated existing\tDetails from paste\tgateway-one\tpreserve-me\nCreated from paste\tCreated details\tgateway-two\tpreserve-new",
 		"format":          "tsv",
-		"start_field_key": "timeline.summary",
+		"start_field_key": "timeline.activity_synopsis_text",
 		"columns": []string{
-			"timeline.summary",
-			"timeline.details",
+			"timeline.activity_synopsis_text",
+			"timeline.raw_activity_text",
 			"timeline.host_refs",
 		},
 		"targets": []map[string]any{
@@ -57,8 +57,8 @@ func TestPhase9_I_9_01_TimelineClipboardPastePersistsOrderedMutationsAndConflict
 	patchedRow := rows[0].(map[string]any)
 	createdRow := rows[1].(map[string]any)
 	createdID := phase4test.MustUUID(t, createdRow["record_id"].(string))
-	requireCellValue(t, patchedRow, "timeline.summary", "Updated existing")
-	requireCellValue(t, createdRow, "timeline.summary", "Created from paste")
+	requireCellValue(t, patchedRow, "timeline.activity_synopsis_text", "Updated existing")
+	requireCellValue(t, createdRow, "timeline.activity_synopsis_text", "Created from paste")
 
 	requireChangeSetSource(t, harness, changeSetID, "timeline.clipboard_paste", "txn-phase9-i-9-01-paste")
 	requireMutationTargets(t, harness, changeSetID, []string{existingID.String(), createdID.String()})
@@ -70,14 +70,14 @@ func TestPhase9_I_9_01_TimelineClipboardPastePersistsOrderedMutationsAndConflict
 	requireMentionOriginKind(t, harness, createdID, "timeline.host_refs", "clipboard_paste")
 
 	firstConflictBase := requireWorkbookCreate(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
-		"client_txn_id":    "txn-phase9-i-9-01-conflict-base-first",
-		"timeline.summary": "Conflict base first",
+		"client_txn_id":                   "txn-phase9-i-9-01-conflict-base-first",
+		"timeline.activity_synopsis_text": "Conflict base first",
 	})
 	firstConflictRow := firstConflictBase["row"].(map[string]any)
 	firstConflictID := phase4test.MustUUID(t, firstConflictRow["record_id"].(string))
 	secondConflictBase := requireWorkbookCreate(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
-		"client_txn_id":    "txn-phase9-i-9-01-conflict-base-second",
-		"timeline.summary": "Conflict base second",
+		"client_txn_id":                   "txn-phase9-i-9-01-conflict-base-second",
+		"timeline.activity_synopsis_text": "Conflict base second",
 	})
 	secondConflictRow := secondConflictBase["row"].(map[string]any)
 	secondConflictID := phase4test.MustUUID(t, secondConflictRow["record_id"].(string))
@@ -86,7 +86,7 @@ func TestPhase9_I_9_01_TimelineClipboardPastePersistsOrderedMutationsAndConflict
 		"base_row_version": 1,
 		"client_txn_id":    "txn-phase9-i-9-01-server-update-first",
 		"changes": []map[string]any{{
-			"field_key": "timeline.summary",
+			"field_key": "timeline.activity_synopsis_text",
 			"value":     "Server value first",
 		}},
 	})
@@ -95,7 +95,7 @@ func TestPhase9_I_9_01_TimelineClipboardPastePersistsOrderedMutationsAndConflict
 		"base_row_version": 1,
 		"client_txn_id":    "txn-phase9-i-9-01-server-update-second",
 		"changes": []map[string]any{{
-			"field_key": "timeline.summary",
+			"field_key": "timeline.activity_synopsis_text",
 			"value":     "Server value second",
 		}},
 	})
@@ -105,8 +105,8 @@ func TestPhase9_I_9_01_TimelineClipboardPastePersistsOrderedMutationsAndConflict
 		"client_txn_id":   "txn-phase9-i-9-01-partial-conflict",
 		"clipboard_text":  "Client conflicting summary first\nClient conflicting summary second\nNon-conflicting created",
 		"format":          "tsv",
-		"start_field_key": "timeline.summary",
-		"columns":         []string{"timeline.summary"},
+		"start_field_key": "timeline.activity_synopsis_text",
+		"columns":         []string{"timeline.activity_synopsis_text"},
 		"targets": []map[string]any{
 			{"kind": "record", "record_id": firstConflictID.String(), "base_row_version": 1},
 			{"kind": "record", "record_id": secondConflictID.String(), "base_row_version": 1},
@@ -217,12 +217,12 @@ func TestPhase9_I_9_01_BulkMutationsPersistOneVisibleBatch(t *testing.T) {
 	})
 	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 	first := requireWorkbookCreate(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
-		"client_txn_id":    "txn-phase9-i-9-01-bulk-first",
-		"timeline.summary": "Bulk first",
+		"client_txn_id":                   "txn-phase9-i-9-01-bulk-first",
+		"timeline.activity_synopsis_text": "Bulk first",
 	})
 	second := requireWorkbookCreate(t, harness, adminLogin, incidentID, timeline.TimelineViewSchemaID, map[string]any{
-		"client_txn_id":    "txn-phase9-i-9-01-bulk-second",
-		"timeline.summary": "Bulk second",
+		"client_txn_id":                   "txn-phase9-i-9-01-bulk-second",
+		"timeline.activity_synopsis_text": "Bulk second",
 	})
 	firstID := first["row"].(map[string]any)["record_id"].(string)
 	secondID := second["row"].(map[string]any)["record_id"].(string)
@@ -231,7 +231,7 @@ func TestPhase9_I_9_01_BulkMutationsPersistOneVisibleBatch(t *testing.T) {
 		"view_schema_id": timeline.TimelineViewSchemaID,
 		"client_txn_id":  "txn-phase9-i-9-01-fill-down",
 		"kind":           "fill_down_v1",
-		"field_key":      "timeline.source_text",
+		"field_key":      "timeline.raw_activity_text",
 		"value":          "Filled source text",
 		"targets": []map[string]any{
 			{"record_id": firstID, "base_row_version": 1},
@@ -273,13 +273,13 @@ func TestPhase9_I_9_01_ClipboardPasteAndBulkRejectCrossIncidentTargets(t *testin
 	incidentBID := phase4test.MustUUID(t, incidentB["incident_id"].(string))
 
 	local := requireWorkbookCreate(t, harness, adminLogin, incidentAID, timeline.TimelineViewSchemaID, map[string]any{
-		"client_txn_id":    "txn-phase9-i-9-01-cross-local",
-		"timeline.summary": "Local batch target",
+		"client_txn_id":                   "txn-phase9-i-9-01-cross-local",
+		"timeline.activity_synopsis_text": "Local batch target",
 	})
 	localID := phase4test.MustUUID(t, local["row"].(map[string]any)["record_id"].(string))
 	foreign := requireWorkbookCreate(t, harness, adminLogin, incidentBID, timeline.TimelineViewSchemaID, map[string]any{
-		"client_txn_id":    "txn-phase9-i-9-01-cross-foreign",
-		"timeline.summary": "Foreign batch target",
+		"client_txn_id":                   "txn-phase9-i-9-01-cross-foreign",
+		"timeline.activity_synopsis_text": "Foreign batch target",
 	})
 	foreignID := phase4test.MustUUID(t, foreign["row"].(map[string]any)["record_id"].(string))
 
@@ -293,8 +293,8 @@ func TestPhase9_I_9_01_ClipboardPasteAndBulkRejectCrossIncidentTargets(t *testin
 			"client_txn_id":   txnID,
 			"clipboard_text":  "Should not create\nShould not disclose",
 			"format":          "tsv",
-			"start_field_key": "timeline.summary",
-			"columns":         []string{"timeline.summary"},
+			"start_field_key": "timeline.activity_synopsis_text",
+			"columns":         []string{"timeline.activity_synopsis_text"},
 			"targets": []map[string]any{
 				{"kind": "create"},
 				{"kind": "record", "record_id": foreignID.String(), "base_row_version": baseRowVersion},
@@ -310,7 +310,7 @@ func TestPhase9_I_9_01_ClipboardPasteAndBulkRejectCrossIncidentTargets(t *testin
 		"view_schema_id": timeline.TimelineViewSchemaID,
 		"client_txn_id":  "txn-phase9-i-9-01-cross-fill-down",
 		"kind":           "fill_down_v1",
-		"field_key":      "timeline.source_text",
+		"field_key":      "timeline.raw_activity_text",
 		"value":          "Should not fill",
 		"targets": []map[string]any{
 			{"record_id": localID.String(), "base_row_version": 1},
@@ -438,7 +438,7 @@ func requirePasteConflict(t testing.TB, conflict map[string]any, recordID uuid.U
 		t.Fatalf("paste conflict token is not parseable: %#v", conflict)
 	}
 	if conflict["record_id"] != recordID.String() ||
-		conflict["field_key"] != "timeline.summary" ||
+		conflict["field_key"] != "timeline.activity_synopsis_text" ||
 		conflict["base_value"] != wantBase ||
 		conflict["server_value"] != wantServer ||
 		conflict["client_value"] != wantClient {
@@ -569,7 +569,7 @@ func requireTimelineSummaryAndVersion(t testing.TB, harness *phase4test.ServerHa
 	var summary string
 	var rowVersion int64
 	if err := harness.DB.QueryRowContext(context.Background(), `
-SELECT e.summary, r.row_version
+SELECT e.activity_synopsis_text, r.row_version
   FROM timeline_events e
   JOIN records r
     ON r.record_id = e.record_id
@@ -588,7 +588,7 @@ func requireNoTimelineSummary(t testing.TB, harness *phase4test.ServerHarness, i
 SELECT COUNT(*)
   FROM timeline_events
  WHERE incident_id = $1
-   AND summary = $2
+   AND activity_synopsis_text = $2
 `, incidentID, summary); count != 0 {
 		t.Fatalf("expected no timeline row summary %q in incident %s, got %d", summary, incidentID, count)
 	}
@@ -597,11 +597,11 @@ SELECT COUNT(*)
 func requireNoTimelineSourceText(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID) {
 	t.Helper()
 	var sourceText sql.NullString
-	if err := harness.DB.QueryRowContext(context.Background(), `SELECT source_text FROM timeline_events WHERE record_id = $1`, recordID).Scan(&sourceText); err != nil {
-		t.Fatalf("query timeline source_text: %v", err)
+	if err := harness.DB.QueryRowContext(context.Background(), `SELECT raw_activity_text FROM timeline_events WHERE record_id = $1`, recordID).Scan(&sourceText); err != nil {
+		t.Fatalf("query timeline raw_activity_text: %v", err)
 	}
 	if sourceText.Valid {
-		t.Fatalf("expected no source_text for %s, got %q", recordID, sourceText.String)
+		t.Fatalf("expected no raw_activity_text for %s, got %q", recordID, sourceText.String)
 	}
 }
 

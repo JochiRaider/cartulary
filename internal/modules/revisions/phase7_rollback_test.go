@@ -376,7 +376,7 @@ UPDATE hosts
 				seed: func() (uuid.UUID, string, int64, func(map[string]any)) {
 					recordID := seedRollbackTimelinePatch(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000522"), "timeline before", "timeline after")
 					return recordID, "href-timeline-rollback", 2, func(data map[string]any) {
-						if got := stringScalar(t, harness.DB, `SELECT summary FROM timeline_events WHERE record_id = $1`, recordID); got != "timeline before" {
+						if got := stringScalar(t, harness.DB, `SELECT activity_synopsis_text FROM timeline_events WHERE record_id = $1`, recordID); got != "timeline before" {
 							t.Fatalf("timeline rollback summary got %q", got)
 						}
 					}
@@ -588,9 +588,9 @@ func loginPhase7LocalUser(t testing.TB, harness *phase4test.ServerHarness, usern
 
 func createAttachedEvidencePatchTarget(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, suffix string) (uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
-	timelineData := phase7WorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v1", map[string]any{
-		"client_txn_id":    "txn-phase7-" + suffix + "-timeline-create",
-		"timeline.summary": "Timeline " + suffix,
+	timelineData := phase7WorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v2", map[string]any{
+		"client_txn_id":                   "txn-phase7-" + suffix + "-timeline-create",
+		"timeline.activity_synopsis_text": "Timeline " + suffix,
 	})
 	timelineRow := timelineData["row"].(map[string]any)
 	timelineRecordID := mustUUID(t, timelineRow["record_id"].(string))
@@ -602,7 +602,7 @@ func createAttachedEvidencePatchTarget(t testing.TB, harness *phase4test.ServerH
 	evidenceRecordID := mustUUID(t, evidenceRow["record_id"].(string))
 
 	patchData := phase7WorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
-		"view_schema_id":   "cartulary.view.timeline.v1",
+		"view_schema_id":   "cartulary.view.timeline.v2",
 		"base_row_version": int64(timelineRow["row_version"].(float64)),
 		"client_txn_id":    "txn-phase7-" + suffix + "-attach-evidence",
 		"changes": []map[string]any{{
@@ -645,7 +645,7 @@ func createDetachedEvidencePatchTarget(t testing.TB, harness *phase4test.ServerH
 	t.Helper()
 	timelineRecordID, evidenceRecordID, _, linkID := createAttachedEvidencePatchTarget(t, harness, login, incidentID, suffix+"-attach")
 	patchData := phase7WorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
-		"view_schema_id":   "cartulary.view.timeline.v1",
+		"view_schema_id":   "cartulary.view.timeline.v2",
 		"base_row_version": 2,
 		"client_txn_id":    "txn-phase7-" + suffix + "-detach-evidence",
 		"changes": []map[string]any{{
@@ -916,12 +916,12 @@ func seedRollbackTimelinePatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, a
 	recordID := uuid.New()
 	phase4test.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "timeline_event")
 	mustExec(t, db, `
-INSERT INTO timeline_events (record_id, incident_id, summary, details, source_text, capture_state, row_version, recorded_at, edited_at, created_by_user_id, updated_by_user_id)
+INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, raw_activity_text, data_source_text, capture_state, row_version, recorded_at, edited_at, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, $3, 'details', 'source', 'rough', 2, $4, $4, $5, $5)
 `, recordID, incidentID, afterSummary, time.Now().UTC(), actorID)
 	mustExec(t, db, `UPDATE records SET row_version = 2 WHERE record_id = $1`, recordID)
-	before := rowCells(recordID, 1, map[string]any{"timeline.summary": beforeSummary, "timeline.details": "details", "timeline.source_text": "source", "timeline.capture_state": "rough"})
-	after := rowCells(recordID, 2, map[string]any{"timeline.summary": afterSummary, "timeline.details": "details", "timeline.source_text": "source", "timeline.capture_state": "rough"})
+	before := rowCells(recordID, 1, map[string]any{"timeline.activity_synopsis_text": beforeSummary, "timeline.raw_activity_text": "details", "timeline.data_source_text": "source", "timeline.capture_state": "rough"})
+	after := rowCells(recordID, 2, map[string]any{"timeline.activity_synopsis_text": afterSummary, "timeline.raw_activity_text": "details", "timeline.data_source_text": "source", "timeline.capture_state": "rough"})
 	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "timeline_record", recordID.String(), "patch", before, after, "href-timeline-rollback")
 	return recordID
 }
@@ -1006,13 +1006,13 @@ func seedRollbackTimelineEvidencePair(t testing.TB, db *sql.DB, incidentID uuid.
 	timelineID := uuid.New()
 	phase4test.SeedRecordEnvelope(t, db, incidentID, actorID, timelineID, "timeline_event")
 	mustExec(t, db, `
-INSERT INTO timeline_events (record_id, incident_id, summary, details, source_text, capture_state, row_version, recorded_at, edited_at, created_by_user_id, updated_by_user_id)
+INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, raw_activity_text, data_source_text, capture_state, row_version, recorded_at, edited_at, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, $3, 'details', 'source', 'rough', 1, $4, $4, $5, $5)
 `, timelineID, incidentID, label, now, actorID)
 	mustExec(t, db, `
 INSERT INTO timeline_grid_projection (
-    record_id, incident_id, row_version, summary, details, source_text, recorded_at, edited_at,
-    sort_ts, capture_state, recorded_day, evidence_count, has_evidence
+    record_id, incident_id, row_version, activity_synopsis_text, raw_activity_text, data_source_text, recorded_at, edited_at,
+    activity_sort_ts, capture_state, date_entered_sort_day, evidence_count, has_evidence
 ) VALUES ($1, $2, 1, $3, 'details', 'source', $4, $4, $4, 'rough', ($4::timestamptz AT TIME ZONE 'UTC')::date, $5, $6)
 `, timelineID, incidentID, label, now, evidenceCount, evidenceCount > 0)
 
@@ -1037,7 +1037,7 @@ func seedRollbackMentionPatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, ac
 	source := uuid.New()
 	phase4test.SeedRecordEnvelope(t, db, incidentID, actorID, source, "timeline_event")
 	mustExec(t, db, `
-INSERT INTO timeline_events (record_id, incident_id, summary, details, source_text, capture_state, row_version, recorded_at, edited_at, created_by_user_id, updated_by_user_id)
+INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, raw_activity_text, data_source_text, capture_state, row_version, recorded_at, edited_at, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, 'mention source', 'details', 'source', 'rough', 2, $3, $3, $4, $4)
 `, source, incidentID, time.Now().UTC(), actorID)
 	target, _ := seedRollbackHostPair(t, db, incidentID, actorID, "Mention Host", "Mention Other")

@@ -59,7 +59,7 @@ import {
 } from "./helpers";
 import { Phase1Page } from "./phase1Page";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 async function openIncidentControls(
   page: Page,
@@ -74,6 +74,9 @@ async function openIncidentControls(
   await expect(menuItem).toHaveAttribute("role", "menuitem");
   await menuItem.click();
   await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
+  await expect(page.getByTestId("incident-admin-status")).toContainText(
+    "synced",
+  );
 }
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
@@ -228,10 +231,10 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   );
   await expect(page.getByTestId("incident-summary-role")).toHaveText("admin");
   await expect(page.getByTestId("incident-pref-default-sheet-ref")).toHaveText(
-    "View schema: Timeline (cartulary.view.timeline.v1)",
+    "View schema: Timeline (cartulary.view.timeline.v2)",
   );
   await expect(page.getByTestId("incident-pref-home-sheet-ref")).toHaveText(
-    "View schema: Timeline (cartulary.view.timeline.v1)",
+    "View schema: Timeline (cartulary.view.timeline.v2)",
   );
 });
 

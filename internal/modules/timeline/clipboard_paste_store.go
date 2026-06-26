@@ -218,19 +218,25 @@ type clipboardAppliedRow struct {
 func (s *Store) applyClipboardPasteCreateTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, rowPlan ClipboardPasteRowPlan, originKind string, now time.Time) (clipboardAppliedRow, error) {
 	recordID := uuid.New()
 	current := sourceRecord{
-		RecordID:        recordID,
-		IncidentID:      incidentID,
-		RawCapture:      rawCaptureWithImportColumns(nil, rowPlan.Unknown),
-		CaptureState:    InitialCaptureState(),
-		RowVersion:      1,
-		RecordedAt:      now.UTC(),
-		EditedAt:        now.UTC(),
-		CreatedByUserID: actor.ID,
-		UpdatedByUserID: actor.ID,
+		RecordID:              recordID,
+		IncidentID:            incidentID,
+		ActivityTimePairState: "disabled",
+		RawCapture:            rawCaptureWithImportColumns(nil, rowPlan.Unknown),
+		CaptureState:          InitialCaptureState(),
+		RowVersion:            1,
+		RecordedAt:            now.UTC(),
+		EditedAt:              now.UTC(),
+		CreatedByUserID:       actor.ID,
+		UpdatedByUserID:       actor.ID,
 	}
 	for _, cell := range rowPlan.Cells {
 		applyPatchChangeToSource(&current, cell.Change)
 	}
+	profile, err := getTimeConversionProfileTx(ctx, tx, incidentID, now.UTC())
+	if err != nil {
+		return clipboardAppliedRow{}, err
+	}
+	applyTimelineTimeConversion(&current, profile)
 	rawCaptureJSON, err := json.Marshal(current.RawCapture)
 	if err != nil {
 		return clipboardAppliedRow{}, fmt.Errorf("encode raw capture: %w", err)
@@ -252,10 +258,19 @@ WITH inserted_record AS (
 INSERT INTO timeline_events (
     record_id,
     incident_id,
-    occurred_at,
-    summary,
-    details,
-    source_text,
+    date_entered_text,
+    analyst_text,
+    mitre_stage_text,
+    device_object_text,
+    ip_address_text,
+    activity_utc_text,
+    activity_local_text,
+    raw_activity_text,
+    activity_synopsis_text,
+    data_source_text,
+    activity_utc_generated,
+    activity_local_generated,
+    activity_time_pair_state,
     raw_capture,
     capture_state,
     row_version,
@@ -264,8 +279,8 @@ INSERT INTO timeline_events (
     created_by_user_id,
     updated_by_user_id
 )
-VALUES ($1, $2, $5, $6, $7, $8, $9, 'rough', 1, $4, $4, $3, $3)
-`, current.RecordID, incidentID, actor.ID, now.UTC(), current.OccurredAt, current.Summary, current.Details, current.SourceText, rawCaptureJSON); err != nil {
+VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'rough', 1, $4, $4, $3, $3)
+`, current.RecordID, incidentID, actor.ID, now.UTC(), current.DateEnteredText, current.AnalystText, current.MitreStageText, current.DeviceObjectText, current.IPAddressText, current.ActivityUTCText, current.ActivityLocalText, current.RawActivityText, current.ActivitySynopsisText, current.DataSourceText, current.ActivityUTCGenerated, current.ActivityLocalGenerated, current.ActivityTimePairState, rawCaptureJSON); err != nil {
 		return clipboardAppliedRow{}, fmt.Errorf("insert clipboard paste timeline row: %w", err)
 	}
 	mentionProjectionRefresh, err := applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, current.RecordID, rowPlan.Cells, originKind, now.UTC())
@@ -350,6 +365,11 @@ func (s *Store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor
 		applyPatchChangeToSource(&next, cell.Change)
 	}
 	next.RawCapture = rawCaptureWithImportColumns(current.RawCapture, rowPlan.Unknown)
+	profile, err := getTimeConversionProfileTx(ctx, tx, current.IncidentID, now.UTC())
+	if err != nil {
+		return clipboardAppliedRow{}, nil, err
+	}
+	applyTimelineTimeConversion(&next, profile)
 	beforeProjected := projectRecord(current, nil)
 	if err := hydrateProjectedCollections(ctx, tx, &beforeProjected); err != nil {
 		return clipboardAppliedRow{}, nil, err
@@ -407,21 +427,30 @@ func (s *Store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor
 	}
 	if err := tx.QueryRow(ctx, `
 UPDATE timeline_events
-   SET occurred_at = $2,
-       summary = $3,
-       details = $4,
-       source_text = $5,
-       raw_capture = $6,
-       capture_state = $7,
-       row_version = $8,
-       edited_at = $9,
-       updated_by_user_id = $10,
-       reviewed_at = $11,
-       reviewed_by_user_id = $12
+   SET date_entered_text = $2,
+       analyst_text = $3,
+       mitre_stage_text = $4,
+       device_object_text = $5,
+       ip_address_text = $6,
+       activity_utc_text = $7,
+       activity_local_text = $8,
+       raw_activity_text = $9,
+       activity_synopsis_text = $10,
+       data_source_text = $11,
+       activity_utc_generated = $12,
+       activity_local_generated = $13,
+       activity_time_pair_state = $14,
+       raw_capture = $15,
+       capture_state = $16,
+       row_version = $17,
+       edited_at = $18,
+       updated_by_user_id = $19,
+       reviewed_at = $20,
+       reviewed_by_user_id = $21
  WHERE record_id = $1
-   AND incident_id = $13
+   AND incident_id = $22
 RETURNING recorded_at
-`, recordID, next.OccurredAt, next.Summary, next.Details, next.SourceText, rawCaptureJSON, next.CaptureState, next.RowVersion, next.EditedAt, actor.ID, next.ReviewedAt, next.ReviewedByUserID, incidentID).Scan(&next.RecordedAt); err != nil {
+`, recordID, next.DateEnteredText, next.AnalystText, next.MitreStageText, next.DeviceObjectText, next.IPAddressText, next.ActivityUTCText, next.ActivityLocalText, next.RawActivityText, next.ActivitySynopsisText, next.DataSourceText, next.ActivityUTCGenerated, next.ActivityLocalGenerated, next.ActivityTimePairState, rawCaptureJSON, next.CaptureState, next.RowVersion, next.EditedAt, actor.ID, next.ReviewedAt, next.ReviewedByUserID, incidentID).Scan(&next.RecordedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return clipboardAppliedRow{}, nil, ErrRecordNotFound
 		}
@@ -448,14 +477,28 @@ RETURNING recorded_at
 
 func applyPatchChangeToSource(record *sourceRecord, change PatchChange) {
 	switch change.FieldKey {
-	case "timeline.occurred_at":
-		record.OccurredAt = change.OccurredAt
-	case "timeline.summary":
-		record.Summary = change.TextValue
-	case "timeline.details":
-		record.Details = change.TextValue
-	case "timeline.source_text":
-		record.SourceText = change.TextValue
+	case "timeline.date_entered_text":
+		record.DateEnteredText = change.TextValue
+	case "timeline.analyst_text":
+		record.AnalystText = change.TextValue
+	case "timeline.mitre_stage_text":
+		record.MitreStageText = change.TextValue
+	case "timeline.device_object_text":
+		record.DeviceObjectText = change.TextValue
+	case "timeline.ip_address_text":
+		record.IPAddressText = change.TextValue
+	case "timeline.activity_utc_text":
+		record.ActivityUTCText = change.TextValue
+		record.ActivityUTCGenerated = false
+	case "timeline.activity_local_text":
+		record.ActivityLocalText = change.TextValue
+		record.ActivityLocalGenerated = false
+	case "timeline.raw_activity_text":
+		record.RawActivityText = change.TextValue
+	case "timeline.activity_synopsis_text":
+		record.ActivitySynopsisText = change.TextValue
+	case "timeline.data_source_text":
+		record.DataSourceText = change.TextValue
 	}
 }
 

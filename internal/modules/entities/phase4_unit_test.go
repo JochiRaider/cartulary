@@ -180,8 +180,8 @@ func TestPhase4_DismissRestoreMentionLifecycle_U_4_04(t *testing.T) {
 	}
 	summary := "dismiss and restore relationship row"
 	created, err := timelineStore.CreateRow(context.Background(), actor, incident.ID, timeline.CreateRequest{
-		ClientTxnID: "txn-phase4-u-4-04-row",
-		Summary:     &summary,
+		ClientTxnID:          "txn-phase4-u-4-04-row",
+		ActivitySynopsisText: &summary,
 		HostRefs: &timeline.CollectionActionPayload{
 			Actions: []timeline.CollectionAction{
 				{
@@ -776,7 +776,7 @@ func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
 			SourceRecordID: golden.Phase4TimelineRecordID,
 			SourceFieldKey: golden.Phase4FieldTimelineSourceText,
 			OriginKind:     "interactive_cell",
-			OriginLocator:  "view:timeline/record:1/cell:timeline.source_text/span:12-24",
+			OriginLocator:  "view:timeline/record:1/cell:timeline.raw_activity_text/span:12-24",
 			ObservedText:   "203[.]0[.]113[.]24",
 			CreatedAt:      golden.Phase4PastTime,
 		})
@@ -788,7 +788,7 @@ func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
 			SourceRecordID: golden.Phase4TimelineSiblingRecordID,
 			SourceFieldKey: golden.Phase4FieldTimelineSummary,
 			OriginKind:     "interactive_cell",
-			OriginLocator:  "view:timeline/record:2/cell:timeline.summary/span:5-17",
+			OriginLocator:  "view:timeline/record:2/cell:timeline.activity_synopsis_text/span:5-17",
 			ObservedText:   "203[.]0[.]113[.]24",
 			CreatedAt:      golden.Phase4BaseTime,
 		})
@@ -857,7 +857,7 @@ func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
 			SourceRecordID:            golden.Phase4TimelineMixedRecordID,
 			SourceFieldKey:            golden.Phase4FieldTimelineSourceText,
 			OriginKind:                "interactive_cell",
-			OriginLocator:             "view:timeline/record:3/cell:timeline.source_text/span:1-9",
+			OriginLocator:             "view:timeline/record:3/cell:timeline.raw_activity_text/span:1-9",
 			ObservedText:              "203[.]0[.]113[.]24",
 			ResolvedIndicatorRecordID: &created.RecordID,
 			CreatedAt:                 golden.Phase4BaseTime,

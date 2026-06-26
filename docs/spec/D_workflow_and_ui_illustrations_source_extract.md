@@ -297,11 +297,11 @@ The examples below are illustrative only. The authoritative wire contract remain
         "display_name": "Analyst A",
         "sheet_ref": {
           "kind": "view_schema",
-          "id": "cartulary.view.timeline.v1"
+          "id": "cartulary.view.timeline.v2"
         },
         "mode": "editing",
         "record_id": "rec_timeline_01",
-        "field_key": "timeline.summary",
+        "field_key": "timeline.activity_synopsis_text",
         "observed_at": "2026-04-06T12:00:00Z",
         "expires_at": "2026-04-06T12:00:45Z"
       },
@@ -311,7 +311,7 @@ The examples below are illustrative only. The authoritative wire contract remain
         "display_name": "Analyst B",
         "sheet_ref": {
           "kind": "view_schema",
-          "id": "cartulary.view.timeline.v1"
+          "id": "cartulary.view.timeline.v2"
         },
         "mode": "viewing",
         "observed_at": "2026-04-06T12:00:01Z",
@@ -420,7 +420,7 @@ PATCH /api/v1/records/{record_id}
 
 ```json
 {
-  "view_schema_id": "cartulary.view.timeline.v1",
+  "view_schema_id": "cartulary.view.timeline.v2",
   "base_row_version": 42,
   "client_txn_id": "txn_timeline_manual_host_link_01",
   "changes": [
@@ -462,7 +462,7 @@ PATCH /api/v1/records/{record_id}
 
 ```json
 {
-  "view_schema_id": "cartulary.view.timeline.v1",
+  "view_schema_id": "cartulary.view.timeline.v2",
   "base_row_version": 42,
   "client_txn_id": "txn_timeline_manual_host_link_bad_01",
   "changes": [
@@ -1859,13 +1859,13 @@ Formulas, macros, workbook automation, external links, comments, pivot tables, c
     "unit_status": "ready",
     "mapping_fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
     "approved_mapping": {
-      "target_view_schema_id": "cartulary.view.timeline.v1",
+      "target_view_schema_id": "cartulary.view.timeline.v2",
       "unknown_column_policy": "preserve_raw_capture",
       "source_columns": [
         {
           "source_column_ordinal": 1,
-          "source_header_text": "Occurred At",
-          "field_key": "timeline.occurred_at",
+          "source_header_text": "Activity Date (UTC)",
+          "field_key": "timeline.activity_utc_text",
           "entity_binding_mode": null,
           "transform_id": null,
           "transform_options": {},
@@ -1873,10 +1873,10 @@ Formulas, macros, workbook automation, external links, comments, pivot tables, c
         },
         {
           "source_column_ordinal": 2,
-          "source_header_text": "Summary",
-          "field_key": "timeline.summary",
+          "source_header_text": "Activity Synopsis",
+          "field_key": "timeline.activity_synopsis_text",
           "entity_binding_mode": null,
-          "transform_id": "trim_v1",
+          "transform_id": null,
           "transform_options": {},
           "empty_value_policy": "omit_field"
         },
@@ -2402,15 +2402,16 @@ The status bar interpretation shown here is explanatory only:
 - Core 03 §14 defines timeline grouping as a presentation-only transform over the current filtered result set; this illustration does not create, delete, or mutate source records, projection rows, links, or tags.
 - Core 03 §14 defines `Group: None` plus exactly one active grouping key in the current profile. This mockup stores the active key as `saved_views.query_json.group_by`, and represents `Group: None` by omission rather than by `null`.
 - The current profile's allowed timeline grouping keys are:
-  - `timeline.occurred_day` derived from `occurred_at` at day granularity
-  - `timeline.recorded_day` derived from `recorded_at` at day granularity
+  - `timeline.date_entered_sort_day` derived from `date_entered_text` when parseable at day granularity
+  - `timeline.activity_time_pair_state` derived from the fixed-offset Activity Date pairing state
   - `timeline.capture_state`
   - `timeline.has_evidence` where `evidence_count > 0`
   - `timeline.has_unresolved_mentions` where at least one `entity_mentions` row for the source record has `resolution_status='unresolved'`
 - dismissed mentions do not contribute to this derived flag, and a row whose remaining mentions are all dismissed groups under `false`
-- Grouping keys in this illustration are scalar, contract-backed values. Free-text columns and multi-valued relationship cells such as Hosts, Identities, and Tags are not used as grouping keys.
+- Grouping keys in this illustration are scalar, contract-backed values. Visible source-text columns and inspector-side relationship collections such as Hosts, Identities, and Tags are not used as grouping keys.
 - Group order in this illustration is deterministic:
-  - `timeline.occurred_day` and `timeline.recorded_day` sort by bucket value descending, with null buckets last
+  - `timeline.date_entered_sort_day` sorts by bucket value descending, with null buckets last
+  - `timeline.activity_time_pair_state` sorts `paired_generated`, `paired_user_preserved`, `paired_mismatch`, `conversion_unavailable`, `disabled`, `empty`
   - `timeline.capture_state` sorts `rough`, `enriched`, `reviewed`, `superseded`
   - `timeline.has_evidence` and `timeline.has_unresolved_mentions` sort `true` then `false`
   - the current row sort applies unchanged within each group
@@ -2449,7 +2450,7 @@ Non-normative response fragment showing the effective applied sort in `meta.quer
     "query": {
       "sort": [
         { "field_key": "timeline.capture_state", "direction": "desc" },
-        { "field_key": "timeline.sort_ts", "direction": "asc" },
+        { "field_key": "timeline.activity_sort_ts", "direction": "asc" },
         { "field_key": "record_id", "direction": "asc" }
       ],
       "filters": []
@@ -2530,7 +2531,7 @@ Canonical `meta.query` fragment:
 
 Duplicate query tokens coalesce, query-token order is non-semantic, and the canonical persisted `arg.query` is the sorted unique token list joined by one ASCII space.
 
-Column-header note: clicking the visible `Time` header emits the stable sort key `timeline.sort_ts`, not `timeline.occurred_at`.
+Column-header note: clicking a visible Activity Date header emits the stable sort key `timeline.activity_sort_ts`, not a timestamp-valued visible cell.
 
 #### Quick-add patterns
 

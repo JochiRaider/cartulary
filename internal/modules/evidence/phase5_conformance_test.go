@@ -114,7 +114,7 @@ func TestPhase5_EvidenceFieldKeyRegistryClosure_U_5_11(t *testing.T) {
 		}
 	}
 
-	timelineResource, ok := viewschema.LookupPublicResource("cartulary.view.timeline.v1")
+	timelineResource, ok := viewschema.LookupPublicResource("cartulary.view.timeline.v2")
 	if !ok {
 		t.Fatal("timeline view schema not registered")
 	}
@@ -125,7 +125,7 @@ func TestPhase5_EvidenceFieldKeyRegistryClosure_U_5_11(t *testing.T) {
 			gotTimelineEvidenceKeys = append(gotTimelineEvidenceKeys, field.FieldKey)
 		}
 	}
-	wantTimelineEvidenceKeys := []string{"timeline.evidence_count", "timeline.attached_evidence_ids", "timeline.has_evidence"}
+	wantTimelineEvidenceKeys := []string{"timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence"}
 	if !reflect.DeepEqual(gotTimelineEvidenceKeys, wantTimelineEvidenceKeys) {
 		t.Fatalf("timeline evidence field keys got %v want %v", gotTimelineEvidenceKeys, wantTimelineEvidenceKeys)
 	}

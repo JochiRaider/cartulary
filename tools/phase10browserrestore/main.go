@@ -399,9 +399,9 @@ func seedSourceDeployment(ctx context.Context, origin string, adminEmail string,
 	}); err != nil {
 		return seededSource{}, fmt.Errorf("create source membership: %w", err)
 	}
-	if _, err := doSourceJSON(ctx, client, http.MethodPost, origin+"/api/v1/incidents/"+url.PathEscape(incidentID)+"/views/cartulary.view.timeline.v1/rows", csrf, map[string]any{
-		"client_txn_id":    "txn-phase10-browser-row-" + suffix,
-		"timeline.summary": summary,
+	if _, err := doSourceJSON(ctx, client, http.MethodPost, origin+"/api/v1/incidents/"+url.PathEscape(incidentID)+"/views/cartulary.view.timeline.v2/rows", csrf, map[string]any{
+		"client_txn_id":                   "txn-phase10-browser-row-" + suffix,
+		"timeline.activity_synopsis_text": summary,
 	}); err != nil {
 		return seededSource{}, fmt.Errorf("create source timeline row: %w", err)
 	}

@@ -1226,7 +1226,7 @@ SELECT r.record_id, r.row_version, r.record_type
 		}
 		switch recordType {
 		case "timeline_event":
-			change.ViewSchemaID = "cartulary.view.timeline.v1"
+			change.ViewSchemaID = "cartulary.view.timeline.v2"
 			change.ChangedFieldKeys = []string{"timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence"}
 		case "host":
 			change.ViewSchemaID = "cartulary.view.hosts.v1"

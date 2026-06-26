@@ -37,8 +37,8 @@ func TestPhase4_AutoResolutionEligibility_I_4_08(t *testing.T) {
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Gateway record", "gateway-record-01")
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "VPN Gateway")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-phase4-u-4-08-host-row",
-			"timeline.summary": "Auto-match host row",
+			"client_txn_id":                   "txn-phase4-u-4-08-host-row",
+			"timeline.activity_synopsis_text": "Auto-match host row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 		beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
@@ -148,8 +148,8 @@ SELECT COUNT(*)
 		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalIdentityID, "Identity record", "identity-record@example.test", "identity-record@example.test", "IDENTITYREC")
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalIdentityID, "identity", "Analyst Alex")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-phase4-u-4-08-identity-row",
-			"timeline.summary": "Auto-match identity row",
+			"client_txn_id":                   "txn-phase4-u-4-08-identity-row",
+			"timeline.activity_synopsis_text": "Auto-match identity row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 
@@ -210,8 +210,8 @@ SELECT COUNT(*)
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			map[string]any{
-				"client_txn_id":    "txn-phase4-u-4-08-create-row",
-				"timeline.summary": "Create auto-match row",
+				"client_txn_id":                   "txn-phase4-u-4-08-create-row",
+				"timeline.activity_synopsis_text": "Create auto-match row",
 				golden.Phase4FieldTimelineHostRefs: fixtures.CollectionActions(
 					fixtures.AddTokenAction(" create   host alias "),
 				),
@@ -290,8 +290,8 @@ SELECT COUNT(*)
 		for _, rawText := range append([]string{}, golden.Phase4AutoResolutionSuppressedTokens...) {
 			t.Run(rawText, func(t *testing.T) {
 				created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-					"client_txn_id":    "txn-phase4-u-4-08-unresolved-row-" + strings.ReplaceAll(rawText, " ", "_"),
-					"timeline.summary": "Unresolved eligibility row",
+					"client_txn_id":                   "txn-phase4-u-4-08-unresolved-row-" + strings.ReplaceAll(rawText, " ", "_"),
+					"timeline.activity_synopsis_text": "Unresolved eligibility row",
 				})
 				recordID := created["row"].(map[string]any)["record_id"].(string)
 				beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
@@ -370,8 +370,8 @@ SELECT COUNT(*)
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "WS-023")
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4DuplicateHostRecordID, "host", "WS-023")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-phase4-u-4-08-competing-row",
-			"timeline.summary": "Competing auto-match row",
+			"client_txn_id":                   "txn-phase4-u-4-08-competing-row",
+			"timeline.activity_synopsis_text": "Competing auto-match row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 
@@ -423,8 +423,8 @@ SELECT COUNT(*)
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "VPN Gateway")
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4StubHostRecordID, "host", "WS-023")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-phase4-u-4-08-mixed-row",
-			"timeline.summary": "Mixed auto-match row",
+			"client_txn_id":                   "txn-phase4-u-4-08-mixed-row",
+			"timeline.activity_synopsis_text": "Mixed auto-match row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 		beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
@@ -498,8 +498,8 @@ SELECT COUNT(*)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Gateway record", "gateway-record-03")
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "VPN Gateway")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-phase4-u-4-08-rollback-row",
-			"timeline.summary": "Rollback row",
+			"client_txn_id":                   "txn-phase4-u-4-08-rollback-row",
+			"timeline.activity_synopsis_text": "Rollback row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 		rollbackRecordID = mustUUID(t, recordID)
@@ -657,8 +657,8 @@ func TestPhase4_ManualTimelineConfidenceNull_I_4_09(t *testing.T) {
 		phase4test.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example", "", "")
 
 		createPayload := map[string]any{
-			"client_txn_id":    "txn-phase4-i-4-09-create-row",
-			"timeline.summary": "Create-boundary manual host relationship row",
+			"client_txn_id":                   "txn-phase4-i-4-09-create-row",
+			"timeline.activity_synopsis_text": "Create-boundary manual host relationship row",
 			golden.Phase4FieldTimelineHostRefs: fixtures.CollectionActions(
 				fixtures.AddResolvedRefAction("WS-023", golden.Phase4CanonicalHostRecordID),
 			),
@@ -793,8 +793,8 @@ UPDATE incident_memberships
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-phase4-u-4-09-add-row",
-			"timeline.summary": "Manual host relationship row",
+			"client_txn_id":                   "txn-phase4-u-4-09-add-row",
+			"timeline.activity_synopsis_text": "Manual host relationship row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 		beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
@@ -1025,8 +1025,8 @@ UPDATE incident_memberships
 		})
 		incidentID := incident["incident_id"].(string)
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-phase4-u-4-09-resolve-create-row",
-			"timeline.summary": "Manual identity create-from-mention row",
+			"client_txn_id":                   "txn-phase4-u-4-09-resolve-create-row",
+			"timeline.activity_synopsis_text": "Manual identity create-from-mention row",
 			golden.Phase4FieldTimelineIdentityRefs: fixtures.CollectionActions(
 				fixtures.AddTokenAction("vpn.user@example.test"),
 			),

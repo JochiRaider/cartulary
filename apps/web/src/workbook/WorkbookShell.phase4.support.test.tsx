@@ -421,7 +421,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
 
     const summaryCell = await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.summary"),
+      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
     );
     expect(
       screen.queryByTestId(gridActionsHeaderTestId(timelineViewSchemaId)),
@@ -500,7 +500,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     ).toBeNull();
 
     const summaryCell = await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.summary"),
+      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
     );
     summaryCell.focus();
     fireEvent.keyDown(summaryCell, { key: "F10", shiftKey: true });
@@ -558,12 +558,18 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
-    const autoChip = await screen.findByTestId(
+    await openTimelineInspectorFromContext("record-1");
+    const autoChips = await screen.findAllByTestId(
       relationshipChipTestId("mention-host-auto"),
     );
-    const manualChip = screen.getByTestId(
+    const manualChips = screen.getAllByTestId(
       relationshipChipTestId("mention-identity-manual"),
     );
+    const autoChip = autoChips[0];
+    const manualChip = manualChips[0];
+    if (!autoChip || !manualChip) {
+      throw new Error("Expected relationship chips to render in the inspector");
+    }
     expect(autoChip.textContent).toContain("Auto");
     expect(manualChip.textContent).not.toContain("Auto");
     expect(manualChip.textContent).toContain("Manual");
@@ -806,7 +812,9 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
     rerenderTimelineWorkbook = renderResult.rerender;
 
-    await screen.findByTestId(rowCellTestId("record-1", "timeline.summary"));
+    await screen.findByTestId(
+      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+    );
     installTimelineGridScrollClamp(() => maxScrollTop);
     installTimelineInspectGeometry("record-1", {
       containerHeight: 300,
@@ -892,6 +900,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
+    await openTimelineInspectorFromContext("record-1");
     const relationshipInput = (await screen.findByTestId(
       timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     )) as HTMLInputElement;
@@ -1019,6 +1028,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
+    await openTimelineInspectorFromContext("record-1");
     const relationshipInput = (await screen.findByTestId(
       timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     )) as HTMLInputElement;
@@ -1090,6 +1100,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
+    await openTimelineInspectorFromContext("record-1");
     const relationshipInput = (await screen.findByTestId(
       timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     )) as HTMLInputElement;
@@ -1117,7 +1128,9 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       ).textContent,
     ).toContain("WS-023");
     fireEvent.contextMenu(
-      screen.getByTestId(rowCellTestId("record-1", "timeline.summary")),
+      screen.getByTestId(
+        rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+      ),
       { clientX: 32, clientY: 48 },
     );
     expect(screen.getByTestId(rowInspectButtonTestId("record-1"))).toBeTruthy();
@@ -1186,6 +1199,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
+    await openTimelineInspectorFromContext("record-1");
     const firstInput = (await screen.findByTestId(
       timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     )) as HTMLInputElement;
@@ -1268,6 +1282,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
+    await openTimelineInspectorFromContext("record-1");
     const relationshipInput = (await screen.findByTestId(
       timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     )) as HTMLInputElement;
@@ -1309,6 +1324,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
+    await openTimelineInspectorFromContext("record-1");
     const relationshipInput = (await screen.findByTestId(
       timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     )) as HTMLInputElement;
@@ -1418,6 +1434,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
+    await openTimelineInspectorFromContext("record-1");
     const overflowButton = await screen.findByTestId(
       relationshipOverflowButtonTestId("record-1", "timeline.host_refs"),
     );
@@ -1495,7 +1512,9 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
-    await screen.findByTestId(rowCellTestId("record-1", "timeline.summary"));
+    await screen.findByTestId(
+      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+    );
     installTimelineInspectGeometry("record-1", {
       containerHeight: 300,
       containerLeft: 40,
@@ -1607,6 +1626,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
+    await openTimelineInspectorFromContext("record-1");
     const relationshipInput = (await screen.findByTestId(
       timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     )) as HTMLInputElement;
@@ -1866,7 +1886,7 @@ function setTimelineGridScroll(top: number, left: number) {
 
 async function openTimelineInspectorFromContext(recordId: string) {
   const summaryCell = await screen.findByTestId(
-    rowCellTestId(recordId, "timeline.summary"),
+    rowCellTestId(recordId, "timeline.activity_synopsis_text"),
   );
   fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
   fireEvent.click(await screen.findByTestId(rowInspectButtonTestId(recordId)));
@@ -1883,7 +1903,9 @@ async function expectTimelineFocusAndScroll(
 ) {
   await waitFor(() => {
     expect(document.activeElement).toBe(
-      screen.getByTestId(rowCellTestId(recordId, "timeline.summary")),
+      screen.getByTestId(
+        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+      ),
     );
     const grid = timelineGridScrollport();
     expect(grid.scrollTop).toBe(options.expectedTop ?? preservedScroll.top);
@@ -1916,7 +1938,10 @@ function installTimelineInspectGeometry(
     targetWidth: number;
   },
 ) {
-  const focusTargetTestId = rowCellTestId(recordId, "timeline.summary");
+  const focusTargetTestId = rowCellTestId(
+    recordId,
+    "timeline.activity_synopsis_text",
+  );
   const original = HTMLElement.prototype.getBoundingClientRect;
 
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
@@ -1966,7 +1991,7 @@ function isTimelineFocusTargetFullyVisibleWithinGrid(recordId: string) {
   const tolerancePx = 1;
   const grid = timelineGridScrollport();
   const focusTarget = screen.getByTestId(
-    rowCellTestId(recordId, "timeline.summary"),
+    rowCellTestId(recordId, "timeline.activity_synopsis_text"),
   );
   const gridRect = grid.getBoundingClientRect();
   const inspectRect = focusTarget.getBoundingClientRect();

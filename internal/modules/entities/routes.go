@@ -412,7 +412,7 @@ func (s *Service) publishRecordChange(result MentionActionResult, actorUserID uu
 			ClientTxnID:      result.ClientTxnID,
 			ActorUserID:      actorUserID,
 			ChangedFieldKeys: changedKeys,
-			ViewSchemaID:     "cartulary.view.timeline.v1",
+			ViewSchemaID:     "cartulary.view.timeline.v2",
 		})
 	}
 	for _, invalidation := range result.EntityInvalidations {
@@ -479,7 +479,7 @@ func (s *Service) publishMergeChanges(result MergeResult, actorUserID uuid.UUID)
 			ChangeSetID:      result.ChangeSetID,
 			ActorUserID:      actorUserID,
 			ChangedFieldKeys: changedKeys,
-			ViewSchemaID:     "cartulary.view.timeline.v1",
+			ViewSchemaID:     "cartulary.view.timeline.v2",
 		})
 	}
 }

@@ -75,7 +75,7 @@ describe("Phase 3 Timeline workbook", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     summaryInput.focus();
     fireEvent.change(summaryInput, { target: { value: "Alpha enter" } });
@@ -92,7 +92,7 @@ describe("Phase 3 Timeline workbook", () => {
         rowVersion: 2,
         clientTxnId: "timeline-client-1",
         changeSetId: "change-set-socket",
-        changedFieldKeys: ["timeline.summary"],
+        changedFieldKeys: ["timeline.activity_synopsis_text"],
       }),
     );
 
@@ -118,7 +118,7 @@ describe("Phase 3 Timeline workbook", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(document.activeElement).not.toBe(
-      screen.getByTestId(draftCellTestId("timeline.summary")),
+      screen.getByTestId(draftCellTestId("timeline.activity_synopsis_text")),
     );
   });
 });

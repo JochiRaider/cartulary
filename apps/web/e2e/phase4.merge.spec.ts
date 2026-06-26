@@ -67,7 +67,7 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e403-row"),
-      "timeline.summary": "E-4-03 dependent row",
+      "timeline.activity_synopsis_text": "E-4-03 dependent row",
       [hostRefsFieldKey]: collectionActionsPayload(["Workstation 23"]),
     },
   )) as ViewRow;
@@ -81,7 +81,7 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e403-identity-row"),
-      "timeline.summary": "E-4-03 identity dependent row",
+      "timeline.activity_synopsis_text": "E-4-03 identity dependent row",
       [identityRefsFieldKey]: collectionActionsPayload(["Case Owner"]),
     },
   )) as ViewRow;

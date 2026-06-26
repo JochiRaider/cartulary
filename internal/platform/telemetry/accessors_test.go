@@ -121,13 +121,13 @@ func TestAccessorsConcurrentNoSDKUse(t *testing.T) {
 
 func TestHTTPMiddlewareNoSDK(t *testing.T) {
 	handler := HTTPMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/incidents/10000000-0000-0000-0000-000000000001/views/cartulary.view.timeline.v1/query" {
+		if r.URL.Path != "/api/v1/incidents/10000000-0000-0000-0000-000000000001/views/cartulary.view.timeline.v2/query" {
 			t.Fatalf("handler saw unexpected path %q", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}), VersionUnknown)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/incidents/10000000-0000-0000-0000-000000000001/views/cartulary.view.timeline.v1/query?secret=value", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/incidents/10000000-0000-0000-0000-000000000001/views/cartulary.view.timeline.v2/query?secret=value", nil)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNoContent {

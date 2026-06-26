@@ -31,7 +31,7 @@ import {
 } from "./index";
 
 const requiredBaseViewSchemaIds = [
-  "cartulary.view.timeline.v1",
+  "cartulary.view.timeline.v2",
   "cartulary.view.hosts.v1",
   "cartulary.view.identities.v1",
   "cartulary.view.evidence.v1",

@@ -15,23 +15,37 @@ func TestPhase3_ProjectionContract_U_3_08(t *testing.T) {
 	actorID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
 	occurredAt := time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC)
 	recordedAt := occurredAt.Add(2 * time.Minute)
-	summary := "Summary"
-	details := "Details"
-	sourceText := "Source"
+	dateEntered := "2026-04-10"
+	analyst := "Analyst A"
+	mitre := "TA0001"
+	device := "HOST-1"
+	ipAddress := "192.0.2.10"
+	activityUTC := "2026-04-10T12:00:00Z"
+	activityLocal := "2026-04-10T08:00:00-04:00"
+	rawActivity := "Raw source text"
+	synopsis := "Summary"
+	dataSource := "Source"
 
 	projected := projectRecord(sourceRecord{
-		RecordID:        recordID,
-		IncidentID:      incidentID,
-		OccurredAt:      &occurredAt,
-		Summary:         &summary,
-		Details:         &details,
-		SourceText:      &sourceText,
-		CaptureState:    captureStateReviewed,
-		RowVersion:      4,
-		RecordedAt:      recordedAt,
-		EditedAt:        recordedAt,
-		CreatedByUserID: actorID,
-		UpdatedByUserID: actorID,
+		RecordID:              recordID,
+		IncidentID:            incidentID,
+		DateEnteredText:       &dateEntered,
+		AnalystText:           &analyst,
+		MitreStageText:        &mitre,
+		DeviceObjectText:      &device,
+		IPAddressText:         &ipAddress,
+		ActivityUTCText:       &activityUTC,
+		ActivityLocalText:     &activityLocal,
+		RawActivityText:       &rawActivity,
+		ActivitySynopsisText:  &synopsis,
+		DataSourceText:        &dataSource,
+		ActivityTimePairState: "paired_user_preserved",
+		CaptureState:          captureStateReviewed,
+		RowVersion:            4,
+		RecordedAt:            recordedAt,
+		EditedAt:              recordedAt,
+		CreatedByUserID:       actorID,
+		UpdatedByUserID:       actorID,
 	}, &replacementID)
 	projected.Tags = []map[string]any{
 		{
@@ -49,23 +63,29 @@ func TestPhase3_ProjectionContract_U_3_08(t *testing.T) {
 
 	cells := row["cells"].(map[string]any)
 	wantCellKeys := []string{
+		"timeline.activity_local_text",
+		"timeline.activity_sort_ts",
+		"timeline.activity_synopsis_text",
+		"timeline.activity_time_pair_state",
+		"timeline.activity_utc_text",
+		"timeline.analyst_text",
 		"timeline.attached_evidence_ids",
 		"timeline.capture_state",
-		"timeline.details",
+		"timeline.data_source_text",
+		"timeline.date_entered_sort_day",
+		"timeline.date_entered_text",
+		"timeline.device_object_text",
 		"timeline.edited_at",
 		"timeline.evidence_count",
 		"timeline.has_evidence",
 		"timeline.has_unresolved_mentions",
 		"timeline.host_refs",
 		"timeline.identity_refs",
-		"timeline.occurred_at",
-		"timeline.occurred_day",
+		"timeline.ip_address_text",
+		"timeline.mitre_stage_text",
+		"timeline.raw_activity_text",
 		"timeline.recorded_at",
-		"timeline.recorded_day",
 		"timeline.replacement_record_id",
-		"timeline.sort_ts",
-		"timeline.source_text",
-		"timeline.summary",
 		"timeline.tags",
 	}
 	gotCellKeys := make([]string, 0, len(cells))
@@ -76,7 +96,9 @@ func TestPhase3_ProjectionContract_U_3_08(t *testing.T) {
 	if !slices.Equal(gotCellKeys, wantCellKeys) {
 		t.Fatalf("unexpected projection cell keys: got %v want %v", gotCellKeys, wantCellKeys)
 	}
-	if cells["timeline.summary"].(map[string]any)["value"] != summary || cells["timeline.details"].(map[string]any)["value"] != details || cells["timeline.source_text"].(map[string]any)["value"] != sourceText {
+	if cells["timeline.activity_synopsis_text"].(map[string]any)["value"] != synopsis ||
+		cells["timeline.raw_activity_text"].(map[string]any)["value"] != rawActivity ||
+		cells["timeline.data_source_text"].(map[string]any)["value"] != dataSource {
 		t.Fatalf("expected scalar field values in projection contract row shape, got %#v", cells)
 	}
 	if cells["timeline.capture_state"].(map[string]any)["value"] != captureStateReviewed {
@@ -87,8 +109,9 @@ func TestPhase3_ProjectionContract_U_3_08(t *testing.T) {
 	if len(tagItems) != 1 || tagItems[0]["display_text"] != "critical-host" {
 		t.Fatalf("expected stable tag collection value, got %#v", cells["timeline.tags"])
 	}
-	if cells["timeline.occurred_day"].(map[string]any)["value"] != "2026-04-10" || cells["timeline.recorded_day"].(map[string]any)["value"] != "2026-04-10" {
-		t.Fatalf("expected derived day cells, got %#v %#v", cells["timeline.occurred_day"], cells["timeline.recorded_day"])
+	if cells["timeline.date_entered_sort_day"].(map[string]any)["value"] != "2026-04-10" ||
+		cells["timeline.activity_sort_ts"].(map[string]any)["value"] != "2026-04-10T12:00:00Z" {
+		t.Fatalf("expected derived sort cells, got %#v %#v", cells["timeline.date_entered_sort_day"], cells["timeline.activity_sort_ts"])
 	}
 	if cells["timeline.replacement_record_id"].(map[string]any)["value"] != replacementID.String() {
 		t.Fatalf("expected replacement_record_id cell, got %#v", cells["timeline.replacement_record_id"])
@@ -96,11 +119,11 @@ func TestPhase3_ProjectionContract_U_3_08(t *testing.T) {
 
 	groupValues := row["group_values"].(map[string]any)
 	wantGroupKeys := []string{
+		"timeline.activity_time_pair_state",
 		"timeline.capture_state",
+		"timeline.date_entered_sort_day",
 		"timeline.has_evidence",
 		"timeline.has_unresolved_mentions",
-		"timeline.occurred_day",
-		"timeline.recorded_day",
 	}
 	gotGroupKeys := make([]string, 0, len(groupValues))
 	for fieldKey := range groupValues {
@@ -110,7 +133,9 @@ func TestPhase3_ProjectionContract_U_3_08(t *testing.T) {
 	if !slices.Equal(gotGroupKeys, wantGroupKeys) {
 		t.Fatalf("unexpected group_values keys: got %v want %v", gotGroupKeys, wantGroupKeys)
 	}
-	if groupValues["timeline.capture_state"] != captureStateReviewed || groupValues["timeline.occurred_day"] != "2026-04-10" || groupValues["timeline.recorded_day"] != "2026-04-10" {
+	if groupValues["timeline.capture_state"] != captureStateReviewed ||
+		groupValues["timeline.date_entered_sort_day"] != "2026-04-10" ||
+		groupValues["timeline.activity_time_pair_state"] != "paired_user_preserved" {
 		t.Fatalf("unexpected derived group_values: %#v", groupValues)
 	}
 }

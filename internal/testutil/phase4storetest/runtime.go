@@ -237,7 +237,7 @@ func SeedTimelineRecord(t testing.TB, db postgres.DB, incidentID uuid.UUID, acto
 	SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "timeline_event")
 
 	if _, err := db.Exec(context.Background(), `
-INSERT INTO timeline_events (record_id, incident_id, summary, capture_state, created_by_user_id, updated_by_user_id)
+INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, capture_state, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, 'phase4-source-row', 'reviewed', $3, $3)
 `, recordID, incidentID, actorUserID); err != nil {
 		t.Fatalf("seed timeline record: %v", err)

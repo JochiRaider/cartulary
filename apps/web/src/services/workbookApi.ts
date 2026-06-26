@@ -92,7 +92,7 @@ export async function fetchJSON<T>(
   if (
     window.__cartularyWorkbookTimingProbe !== undefined &&
     method === "POST" &&
-    requestURL.includes("/views/cartulary.view.timeline.v1/rows")
+    requestURL.includes("/views/cartulary.view.timeline.v2/rows")
   ) {
     headers["X-Cartulary-Timing-Debug"] = "1";
   }

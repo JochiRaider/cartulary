@@ -814,11 +814,29 @@ CREATE TABLE timeline_events (
     record_id uuid PRIMARY KEY REFERENCES records(id) ON DELETE CASCADE,
     incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
     event_seq bigint GENERATED ALWAYS AS IDENTITY,
-    occurred_at timestamptz,
     recorded_at timestamptz NOT NULL DEFAULT now(),
-    summary text,
-    details text,
-    source_text text,
+    date_entered_text text,
+    analyst_text text,
+    mitre_stage_text text,
+    device_object_text text,
+    ip_address_text text,
+    activity_utc_text text,
+    activity_local_text text,
+    raw_activity_text text,
+    activity_synopsis_text text,
+    data_source_text text,
+    activity_utc_generated boolean NOT NULL DEFAULT false,
+    activity_local_generated boolean NOT NULL DEFAULT false,
+    activity_time_pair_state text NOT NULL DEFAULT 'disabled' CHECK (
+        activity_time_pair_state IN (
+            'disabled',
+            'empty',
+            'paired_generated',
+            'paired_user_preserved',
+            'paired_mismatch',
+            'conversion_unavailable'
+        )
+    ),
     capture_state text NOT NULL DEFAULT 'rough' CHECK (
         capture_state IN ('rough','enriched','reviewed','superseded')
     ),
@@ -827,10 +845,19 @@ CREATE TABLE timeline_events (
     custom_attrs jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
-CREATE INDEX idx_timeline_events_incident_occurred
-    ON timeline_events (incident_id, occurred_at NULLS LAST, event_seq);
 CREATE INDEX idx_timeline_events_incident_recorded
     ON timeline_events (incident_id, recorded_at DESC);
+
+CREATE TABLE timeline_time_conversion_profiles (
+    incident_id uuid PRIMARY KEY REFERENCES incidents(id) ON DELETE CASCADE,
+    enabled boolean NOT NULL DEFAULT false,
+    local_offset_minutes integer CHECK (local_offset_minutes BETWEEN -840 AND 840),
+    local_label text,
+    profile_version bigint NOT NULL DEFAULT 1,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    updated_by_user_id uuid REFERENCES users(id),
+    CHECK (enabled = false OR local_offset_minutes IS NOT NULL)
+);
 
 CREATE TABLE hosts (
     record_id uuid PRIMARY KEY REFERENCES records(id) ON DELETE CASCADE,
@@ -1734,11 +1761,20 @@ CREATE TABLE timeline_grid_projection (
     record_id uuid PRIMARY KEY REFERENCES records(id) ON DELETE CASCADE,
     incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
     event_seq bigint NOT NULL,
-    occurred_at timestamptz,
     recorded_at timestamptz NOT NULL,
-    sort_ts timestamptz NOT NULL,
-    summary text,
-    details_excerpt text,
+    date_entered_text text,
+    analyst_text text,
+    mitre_stage_text text,
+    device_object_text text,
+    ip_address_text text,
+    activity_utc_text text,
+    activity_local_text text,
+    raw_activity_text text,
+    activity_synopsis_text text,
+    data_source_text text,
+    activity_sort_ts timestamptz,
+    date_entered_sort_day date,
+    activity_time_pair_state text NOT NULL,
     capture_state text NOT NULL,
     host_labels text[] NOT NULL DEFAULT '{}'::text[],
     unresolved_host_tokens text[] NOT NULL DEFAULT '{}'::text[],
@@ -1754,7 +1790,7 @@ CREATE TABLE timeline_grid_projection (
 );
 
 CREATE INDEX idx_timeline_grid_sort
-    ON timeline_grid_projection (incident_id, sort_ts DESC, event_seq DESC);
+    ON timeline_grid_projection (incident_id, activity_sort_ts NULLS LAST, event_seq);
 
 CREATE INDEX idx_timeline_grid_state
     ON timeline_grid_projection (incident_id, capture_state);

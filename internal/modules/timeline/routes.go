@@ -35,6 +35,8 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
+		mux.HandleFunc("GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile", service.handleGetTimeConversionProfile)
+		mux.HandleFunc("PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile", service.handlePutTimeConversionProfile)
 		mux.HandleFunc("POST /api/v1/records/{record_id}/mark-reviewed", service.handleMarkReviewed)
 		return nil
 	}
@@ -127,6 +129,84 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
+}
+
+func (s *Service) handleGetTimeConversionProfile(w http.ResponseWriter, r *http.Request) {
+	incidentID, ok := pathUUID(w, r, "incident_id")
+	if !ok {
+		return
+	}
+	principal, apiErr := s.authenticateSessionRequest(r, false)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	profile, err := s.store.GetTimeConversionProfile(r.Context(), incidentID, s.now())
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, buildTimeConversionProfilePayload(profile))
+}
+
+func (s *Service) handlePutTimeConversionProfile(w http.ResponseWriter, r *http.Request) {
+	incidentID, ok := pathUUID(w, r, "incident_id")
+	if !ok {
+		return
+	}
+	principal, apiErr := s.authenticateSessionRequest(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	request, apiErr := DecodeTimelineTimeConversionProfilePutRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	profile, err := s.store.PutTimeConversionProfile(r.Context(), principal.User, incidentID, request, s.now())
+	switch {
+	case errors.Is(err, ErrRowVersionConflict):
+		var conflict *RowVersionConflictError
+		if errors.As(err, &conflict) {
+			writeAPIError(w, r, rowVersionConflictError(conflict.Details()))
+		} else {
+			writeAPIError(w, r, rowVersionConflictError())
+		}
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, buildTimeConversionProfilePayload(profile))
+}
+
+func buildTimeConversionProfilePayload(profile TimeConversionProfile) map[string]any {
+	return map[string]any{
+		"incident_id":          profile.IncidentID.String(),
+		"enabled":              profile.Enabled,
+		"local_offset_minutes": derefInt(profile.LocalOffsetMinutes),
+		"local_label":          derefString(profile.LocalLabel),
+		"profile_version":      profile.ProfileVersion,
+		"updated_at":           formatTimestamp(profile.UpdatedAt),
+		"updated_by_user_id":   formatUUIDPointer(profile.UpdatedByUserID),
+	}
 }
 
 func (s *Service) handleRecordChangeSnapshot(w http.ResponseWriter, r *http.Request) {

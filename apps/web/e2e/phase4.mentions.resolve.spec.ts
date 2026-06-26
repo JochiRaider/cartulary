@@ -66,13 +66,13 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e401-sibling"),
-      "timeline.summary": "E-4-01 sibling unresolved",
+      "timeline.activity_synopsis_text": "E-4-01 sibling unresolved",
       [hostRefsFieldKey]: collectionActionsPayload(["WS-023?"]),
     },
   )) as ViewRow;
   const mainRow = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e401-main"),
-    "timeline.summary": "E-4-01 workbook row",
+    "timeline.activity_synopsis_text": "E-4-01 workbook row",
   })) as ViewRow;
   const identitiesBefore = await queryViewRows(
     page,
@@ -84,7 +84,7 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   const mainSummaryTestId = rowCellTestId(
     mainRow.record_id,
-    "timeline.summary",
+    "timeline.activity_synopsis_text",
   );
   await ensureTimelineGridTargetVisible(page, mainSummaryTestId);
   await expect(page.getByTestId(mainSummaryTestId)).toHaveValue(

@@ -77,7 +77,7 @@ func TestResolveViewQueryReportsContractMismatch(t *testing.T) {
 		Limit:       2,
 		Scope: map[string]string{
 			"incident_id":    "incident-1",
-			"view_schema_id": "cartulary.view.timeline.v1",
+			"view_schema_id": "cartulary.view.timeline.v2",
 			"query_contract": `{"filters":[],"sort":[{"field_key":"record_id","direction":"asc"}]}`,
 		},
 		Position: map[string]string{"offset": "2"},
@@ -88,7 +88,7 @@ func TestResolveViewQueryReportsContractMismatch(t *testing.T) {
 
 	_, cursor, reason := codec.ResolveViewQuery(Query{CursorToken: &cursorToken}, "workbook.view-query", "user-1", map[string]string{
 		"incident_id":    "incident-1",
-		"view_schema_id": "cartulary.view.timeline.v1",
+		"view_schema_id": "cartulary.view.timeline.v2",
 		"query_contract": `{"filters":[],"sort":[{"field_key":"record_id","direction":"asc"}]}`,
 	})
 	if reason != "" || cursor == nil {
@@ -97,8 +97,8 @@ func TestResolveViewQueryReportsContractMismatch(t *testing.T) {
 
 	_, _, reason = codec.ResolveViewQuery(Query{CursorToken: &cursorToken}, "workbook.view-query", "user-1", map[string]string{
 		"incident_id":    "incident-1",
-		"view_schema_id": "cartulary.view.timeline.v1",
-		"query_contract": `{"filters":[],"sort":[{"field_key":"timeline.summary","direction":"asc"}]}`,
+		"view_schema_id": "cartulary.view.timeline.v2",
+		"query_contract": `{"filters":[],"sort":[{"field_key":"timeline.activity_synopsis_text","direction":"asc"}]}`,
 	})
 	if reason != ReasonCursorQueryMismatch {
 		t.Fatalf("expected query mismatch for changed normalized query, got %q", reason)
@@ -107,7 +107,7 @@ func TestResolveViewQueryReportsContractMismatch(t *testing.T) {
 	changedLimit := 3
 	_, _, reason = codec.ResolveViewQuery(Query{CursorToken: &cursorToken, Limit: &changedLimit}, "workbook.view-query", "user-1", map[string]string{
 		"incident_id":    "incident-1",
-		"view_schema_id": "cartulary.view.timeline.v1",
+		"view_schema_id": "cartulary.view.timeline.v2",
 		"query_contract": `{"filters":[],"sort":[{"field_key":"record_id","direction":"asc"}]}`,
 	})
 	if reason != ReasonCursorQueryMismatch {

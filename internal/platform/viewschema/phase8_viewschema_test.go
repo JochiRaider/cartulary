@@ -47,38 +47,41 @@ func TestPhase8_ViewSchemaDiscovery_U_8_09(t *testing.T) {
 		}
 	}
 
-	timeline, ok := LookupPublicResource("cartulary.view.timeline.v1")
+	timeline, ok := LookupPublicResource("cartulary.view.timeline.v2")
 	if !ok {
 		t.Fatal("timeline view schema missing")
 	}
 	if !reflect.DeepEqual(timeline.SortFields, []string{
-		"timeline.sort_ts",
-		"timeline.summary",
-		"timeline.evidence_count",
+		"timeline.activity_sort_ts",
+		"timeline.date_entered_sort_day",
+		"timeline.activity_synopsis_text",
+		"timeline.analyst_text",
+		"timeline.mitre_stage_text",
+		"timeline.device_object_text",
+		"timeline.ip_address_text",
+		"timeline.data_source_text",
 		"timeline.edited_at",
 		"timeline.capture_state",
-		"timeline.occurred_day",
-		"timeline.recorded_day",
 		"timeline.has_evidence",
 		"timeline.has_unresolved_mentions",
 	}) {
 		t.Fatalf("timeline sort_fields changed:\ngot  %#v", timeline.SortFields)
 	}
 	if !reflect.DeepEqual(timeline.GroupingFields, []string{
-		"timeline.occurred_day",
-		"timeline.recorded_day",
+		"timeline.date_entered_sort_day",
+		"timeline.activity_time_pair_state",
 		"timeline.capture_state",
 		"timeline.has_evidence",
 		"timeline.has_unresolved_mentions",
 	}) {
 		t.Fatalf("timeline grouping_fields changed:\ngot  %#v", timeline.GroupingFields)
 	}
-	occurredAt, ok := viewFieldByKey(timeline, "timeline.occurred_at")
+	occurredAt, ok := viewFieldByKey(timeline, "timeline.activity_utc_text")
 	if !ok {
-		t.Fatal("timeline.occurred_at missing")
+		t.Fatal("timeline.activity_utc_text missing")
 	}
-	if occurredAt.HeaderSortFieldKey == nil || *occurredAt.HeaderSortFieldKey != "timeline.sort_ts" {
-		t.Fatalf("timeline.occurred_at must sort through timeline.sort_ts, got %#v", occurredAt.HeaderSortFieldKey)
+	if occurredAt.HeaderSortFieldKey == nil || *occurredAt.HeaderSortFieldKey != "timeline.activity_sort_ts" {
+		t.Fatalf("timeline.activity_utc_text must sort through timeline.activity_sort_ts, got %#v", occurredAt.HeaderSortFieldKey)
 	}
 	tags, ok := viewFieldByKey(timeline, "timeline.tags")
 	if !ok {

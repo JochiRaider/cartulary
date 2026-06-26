@@ -41,7 +41,7 @@ test("E-4-06 creates and edits required workbook mutation surfaces through typed
   );
   const support = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("generic-support"),
-    "timeline.summary": "Generic surface support event",
+    "timeline.activity_synopsis_text": "Generic surface support event",
   })) as ViewRow;
 
   await openGenericSurface(page, incidentId, partiesViewSchemaId, "Parties");

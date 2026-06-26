@@ -8,12 +8,12 @@ import (
 
 func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 	request, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
-		"view_schema_id": "cartulary.view.timeline.v1",
+		"view_schema_id": "cartulary.view.timeline.v2",
 		"base_row_version": 2,
 		"client_txn_id": "txn-u-3-06",
 		"changes": [
-			{ "field_key": "timeline.summary", "value": "B" },
-			{ "field_key": "timeline.details", "value": "A" }
+			{ "field_key": "timeline.activity_synopsis_text", "value": "B" },
+			{ "field_key": "timeline.raw_activity_text", "value": "A" }
 		]
 	}`))
 	if apiErr != nil {
@@ -24,12 +24,12 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 		request.CanonicalChange[1].FieldKey,
 	}
 	requireFieldKeyConformance(t, fieldKeys, []string{
-		"timeline.details",
+		"timeline.raw_activity_text",
 		"timeline.host_refs",
 		"timeline.identity_refs",
-		"timeline.occurred_at",
-		"timeline.source_text",
-		"timeline.summary",
+		"timeline.activity_utc_text",
+		"timeline.raw_activity_text",
+		"timeline.activity_synopsis_text",
 		"timeline.tags",
 	})
 
@@ -37,7 +37,7 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 		rawChanges := make([]map[string]any, 0, maxPatchChanges)
 		for range maxPatchChanges {
 			rawChanges = append(rawChanges, map[string]any{
-				"field_key": "timeline.summary",
+				"field_key": "timeline.activity_synopsis_text",
 				"value":     "summary-value",
 			})
 		}
@@ -101,7 +101,7 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 
 	t.Run("timeline tags collection actions remain valid", func(t *testing.T) {
 		request, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
-			"view_schema_id": "cartulary.view.timeline.v1",
+			"view_schema_id": "cartulary.view.timeline.v2",
 			"base_row_version": 1,
 			"client_txn_id": "txn-u-3-06-tags",
 			"changes": [
@@ -129,7 +129,7 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 
 	t.Run("timeline attached evidence accepts record ref actions", func(t *testing.T) {
 		request, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
-			"view_schema_id": "cartulary.view.timeline.v1",
+			"view_schema_id": "cartulary.view.timeline.v2",
 			"base_row_version": 1,
 			"client_txn_id": "txn-u-5-attached-evidence",
 			"changes": [
@@ -161,61 +161,61 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 	}{
 		{
 			name:   "unknown top level member",
-			body:   `{"view_schema_id":"cartulary.view.timeline.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline.summary","value":"x"}],"unknown":"value"}`,
+			body:   `{"view_schema_id":"cartulary.view.timeline.v2","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline.activity_synopsis_text","value":"x"}],"unknown":"value"}`,
 			field:  "unknown",
 			reason: "unknown_field",
 		},
 		{
 			name:   "missing view schema",
-			body:   `{"base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline.summary","value":"x"}]}`,
+			body:   `{"base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline.activity_synopsis_text","value":"x"}]}`,
 			field:  "view_schema_id",
 			reason: "missing_required_field",
 		},
 		{
 			name:   "missing base row version",
-			body:   `{"view_schema_id":"cartulary.view.timeline.v1","client_txn_id":"txn","changes":[{"field_key":"timeline.summary","value":"x"}]}`,
+			body:   `{"view_schema_id":"cartulary.view.timeline.v2","client_txn_id":"txn","changes":[{"field_key":"timeline.activity_synopsis_text","value":"x"}]}`,
 			field:  "base_row_version",
 			reason: "missing_required_field",
 		},
 		{
 			name:   "missing client txn",
-			body:   `{"view_schema_id":"cartulary.view.timeline.v1","base_row_version":1,"changes":[{"field_key":"timeline.summary","value":"x"}]}`,
+			body:   `{"view_schema_id":"cartulary.view.timeline.v2","base_row_version":1,"changes":[{"field_key":"timeline.activity_synopsis_text","value":"x"}]}`,
 			field:  "client_txn_id",
 			reason: "missing_required_field",
 		},
 		{
 			name:   "empty changes",
-			body:   `{"view_schema_id":"cartulary.view.timeline.v1","base_row_version":1,"client_txn_id":"txn","changes":[]}`,
+			body:   `{"view_schema_id":"cartulary.view.timeline.v2","base_row_version":1,"client_txn_id":"txn","changes":[]}`,
 			field:  "changes",
 			reason: "empty_changes",
 		},
 		{
 			name:   "duplicate field key",
-			body:   `{"view_schema_id":"cartulary.view.timeline.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline.summary","value":"x"},{"field_key":"timeline.summary","value":"y"}]}`,
+			body:   `{"view_schema_id":"cartulary.view.timeline.v2","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline.activity_synopsis_text","value":"x"},{"field_key":"timeline.activity_synopsis_text","value":"y"}]}`,
 			field:  "changes",
 			reason: "duplicate_field_key",
 		},
 		{
 			name:   "readonly system field",
-			body:   `{"view_schema_id":"cartulary.view.timeline.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline.capture_state","value":"reviewed"}]}`,
+			body:   `{"view_schema_id":"cartulary.view.timeline.v2","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline.capture_state","value":"reviewed"}]}`,
 			field:  "field_key",
 			reason: "unsupported_field_key",
 		},
 		{
 			name:   "visible label is not a field key",
-			body:   `{"view_schema_id":"cartulary.view.timeline.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"Summary","value":"x"}]}`,
+			body:   `{"view_schema_id":"cartulary.view.timeline.v2","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"Summary","value":"x"}]}`,
 			field:  "field_key",
 			reason: "unsupported_field_key",
 		},
 		{
 			name:   "storage alias is not a field key",
-			body:   `{"view_schema_id":"cartulary.view.timeline.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"summary","value":"x"}]}`,
+			body:   `{"view_schema_id":"cartulary.view.timeline.v2","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"summary","value":"x"}]}`,
 			field:  "field_key",
 			reason: "unsupported_field_key",
 		},
 		{
 			name:   "storage table path is not a field key",
-			body:   `{"view_schema_id":"cartulary.view.timeline.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline_events.summary","value":"x"}]}`,
+			body:   `{"view_schema_id":"cartulary.view.timeline.v2","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline_events.summary","value":"x"}]}`,
 			field:  "field_key",
 			reason: "unsupported_field_key",
 		},
@@ -240,7 +240,7 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 		rawChanges := make([]map[string]any, 0, maxPatchChanges+1)
 		for range maxPatchChanges + 1 {
 			rawChanges = append(rawChanges, map[string]any{
-				"field_key": "timeline.summary",
+				"field_key": "timeline.activity_synopsis_text",
 				"value":     "summary-value",
 			})
 		}

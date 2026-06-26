@@ -30,6 +30,7 @@ import {
   findRow,
   hostRefsFieldKey,
   hostsViewSchemaId,
+  openTimelineInspector,
   readTimelineMutation,
   requireItemByRawText,
   timelineViewSchemaId,
@@ -71,7 +72,7 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e404-suppressed"),
-      "timeline.summary": "E-4-04 suppressed row",
+      "timeline.activity_synopsis_text": "E-4-04 suppressed row",
     },
   )) as ViewRow;
   const eligibleRow = (await createViewRow(
@@ -80,7 +81,7 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn("e404-eligible"),
-      "timeline.summary": "E-4-04 eligible row",
+      "timeline.activity_synopsis_text": "E-4-04 eligible row",
     },
   )) as ViewRow;
 
@@ -92,8 +93,9 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
   );
   const autoScroll = await ensureTimelineGridTargetVisible(
     page,
-    relationshipItemsTestId(eligibleRow.record_id, hostRefsFieldKey),
+    rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
   );
+  await openTimelineInspector(page, eligibleRow.record_id);
   const eligibleHostRefsInput = page.getByTestId(eligibleHostRefsInputTestId);
   // Capture continuity baselines only after the specific row control exists;
   // the shell can render before this hydrated input is ready.
@@ -138,7 +140,9 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     ),
   ).toBeVisible();
   await expect(
-    page.getByTestId(rowCellTestId(eligibleRow.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toBeFocused();
   await expectTimelineContinuity(page, eligibleRow.record_id, autoScroll);
 
@@ -156,7 +160,9 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     "Auto",
   );
   await expect(
-    page.getByTestId(rowCellTestId(eligibleRow.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(eligibleRow.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toBeFocused();
   await expectTimelineContinuity(page, eligibleRow.record_id, undoScroll);
   expect(undoBody).toMatchObject({

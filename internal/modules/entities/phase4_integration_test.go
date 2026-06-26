@@ -1504,7 +1504,7 @@ func TestPhase4_IndicatorsRoute_I_4_07(t *testing.T) {
 		SourceRecordID:            golden.Phase4TimelineRecordID,
 		SourceFieldKey:            golden.Phase4FieldTimelineSourceText,
 		OriginKind:                "interactive_cell",
-		OriginLocator:             "view:timeline/record:1/cell:timeline.source_text/span:1-9",
+		OriginLocator:             "view:timeline/record:1/cell:timeline.raw_activity_text/span:1-9",
 		ObservedText:              golden.Phase4IndicatorExamples[0].DefangedValue,
 		ResolvedIndicatorRecordID: &recordID,
 		CreatedAt:                 golden.Phase4PastTime,
@@ -1516,7 +1516,7 @@ func TestPhase4_IndicatorsRoute_I_4_07(t *testing.T) {
 		SourceRecordID:            golden.Phase4TimelineSiblingRecordID,
 		SourceFieldKey:            golden.Phase4FieldTimelineSummary,
 		OriginKind:                "interactive_cell",
-		OriginLocator:             "view:timeline/record:2/cell:timeline.summary/span:1-9",
+		OriginLocator:             "view:timeline/record:2/cell:timeline.activity_synopsis_text/span:1-9",
 		ObservedText:              golden.Phase4IndicatorExamples[0].DefangedValue,
 		ResolvedIndicatorRecordID: &recordID,
 		CreatedAt:                 golden.Phase4BaseTime,
@@ -1933,7 +1933,7 @@ func seedTimelineRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUse
 	phase4test.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "timeline_event")
 
 	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO timeline_events (record_id, incident_id, summary, capture_state, created_by_user_id, updated_by_user_id)
+INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, capture_state, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, 'merge-source-row', 'reviewed', $3, $3)
 `, recordID, incidentID, actorUserID); err != nil {
 		t.Fatalf("seed timeline record: %v", err)

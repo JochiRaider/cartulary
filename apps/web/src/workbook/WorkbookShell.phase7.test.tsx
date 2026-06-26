@@ -118,7 +118,7 @@ describe("Phase 7 workbook history support coverage", () => {
 
   async function openTimelineHistoryFromContext(recordId: string) {
     const summaryCell = await screen.findByTestId(
-      rowCellTestId(recordId, "timeline.summary"),
+      rowCellTestId(recordId, "timeline.activity_synopsis_text"),
     );
     fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
     fireEvent.click(
@@ -158,7 +158,7 @@ describe("Phase 7 workbook history support coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     );
     await openTimelineHistoryFromContext("record-1");
 
@@ -260,13 +260,13 @@ describe("Phase 7 workbook history support coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     );
     const record2Summary = await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
       "record-2",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     );
     await openTimelineHistoryFromContext("record-1");
     await screen.findByTestId(historyItemTestId(record1History));
@@ -343,13 +343,13 @@ describe("Phase 7 workbook history support coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     );
     const record2Summary = await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
       "record-2",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     );
     await openTimelineHistoryFromContext("record-1");
     await screen.findByTestId(
@@ -470,7 +470,7 @@ describe("Phase 7 workbook history support coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     );
     await openTimelineHistoryFromContext("record-1");
 
@@ -556,7 +556,7 @@ describe("Phase 7 workbook history support coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     );
     const rollbackItem = historyItem();
     await openTimelineHistoryFromContext("record-1");
@@ -686,7 +686,7 @@ describe("Phase 7 workbook history support coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     );
     await openTimelineHistoryFromContext("record-1");
     await screen.findByTestId(rowHistoryDeleteButtonTestId());
@@ -726,7 +726,7 @@ describe("Phase 7 workbook history support coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     );
     const restoreCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
       String(url).endsWith("/api/v1/records/record-1/restore"),
@@ -783,7 +783,7 @@ describe("Phase 7 workbook history support coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     );
     await openTimelineHistoryFromContext("record-1");
     await screen.findByTestId(historyItemTestId(historyRecord));
@@ -839,7 +839,7 @@ describe("Phase 7 workbook history support coverage", () => {
         container,
         timelineViewSchemaId,
         "record-1",
-        "timeline.summary",
+        "timeline.activity_synopsis_text",
       ),
     ).toBeTruthy();
   });
@@ -870,7 +870,7 @@ describe("Phase 7 workbook history support coverage", () => {
         errorEnvelope("same_field_conflict", 409, {
           conflict_token: "conflict-token-anchor-ui",
           record_id: "record-1",
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           conflict_resolution_class: "text_compare_merge",
           base_row_version: 1,
           current_row_version: 2,
@@ -907,7 +907,7 @@ describe("Phase 7 workbook history support coverage", () => {
       container,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(input);
     await changeInputValue(input, "Record one local draft");
@@ -916,7 +916,7 @@ describe("Phase 7 workbook history support coverage", () => {
     const resolver = await screen.findByTestId("conflict-resolver");
     expect(resolver.getAttribute("data-conflict-record-id")).toBe("record-1");
     expect(resolver.getAttribute("data-conflict-field-key")).toBe(
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     );
     expect(resolver.getAttribute("data-conflict-base-row-version")).toBe("1");
     expect(resolver.getAttribute("data-conflict-current-row-version")).toBe(
@@ -933,7 +933,7 @@ describe("Phase 7 workbook history support coverage", () => {
         change_set_id: "change-set-reorder",
         client_txn_id: "remote-reorder",
         actor_user_id: actorUserId,
-        changed_field_keys: ["timeline.summary"],
+        changed_field_keys: ["timeline.activity_synopsis_text"],
         affected_views: [
           {
             view_schema_id: timelineViewSchemaId,
@@ -959,14 +959,18 @@ describe("Phase 7 workbook history support coverage", () => {
       "Record one local draft",
     );
     expect(
-      screen.getByTestId(conflictMarkerTestId("record-1", "timeline.summary")),
+      screen.getByTestId(
+        conflictMarkerTestId("record-1", "timeline.activity_synopsis_text"),
+      ),
     ).toBeTruthy();
 
     fireEvent.click(screen.getByTestId("conflict-close"));
     await waitFor(() => {
       expect(screen.queryByTestId("conflict-resolver")).toBeNull();
       expect(document.activeElement).toBe(
-        screen.getByTestId(rowCellTestId("record-1", "timeline.summary")),
+        screen.getByTestId(
+          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        ),
       );
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
@@ -994,7 +998,7 @@ describe("Phase 7 workbook history support coverage", () => {
         errorEnvelope("same_field_conflict", 409, {
           conflict_token: "conflict-token-keyboard",
           record_id: "record-1",
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           conflict_resolution_class: "text_compare_merge",
           base_row_version: 1,
           current_row_version: 2,
@@ -1011,7 +1015,7 @@ describe("Phase 7 workbook history support coverage", () => {
       container,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(input);
     await changeInputValue(input, "Keyboard local draft");
@@ -1032,14 +1036,18 @@ describe("Phase 7 workbook history support coverage", () => {
     await waitFor(() => {
       expect(screen.queryByTestId("conflict-resolver")).toBeNull();
       expect(document.activeElement).toBe(
-        screen.getByTestId(rowCellTestId("record-1", "timeline.summary")),
+        screen.getByTestId(
+          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        ),
       );
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
       );
     });
     expect(
-      screen.getByTestId(conflictMarkerTestId("record-1", "timeline.summary")),
+      screen.getByTestId(
+        conflictMarkerTestId("record-1", "timeline.activity_synopsis_text"),
+      ),
     ).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -1064,7 +1072,7 @@ describe("Phase 7 workbook history support coverage", () => {
         errorEnvelope("same_field_conflict", 409, {
           conflict_token: "conflict-token-stale-original",
           record_id: "record-1",
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           conflict_resolution_class: "text_compare_merge",
           base_row_version: 4,
           current_row_version: 5,
@@ -1078,7 +1086,7 @@ describe("Phase 7 workbook history support coverage", () => {
         errorEnvelope("same_field_conflict", 409, {
           conflict_token: "conflict-token-stale-refresh",
           record_id: "record-1",
-          field_key: "timeline.summary",
+          field_key: "timeline.activity_synopsis_text",
           conflict_resolution_class: "text_compare_merge",
           base_row_version: 5,
           current_row_version: 6,
@@ -1094,7 +1102,7 @@ describe("Phase 7 workbook history support coverage", () => {
       document.body,
       timelineViewSchemaId,
       "record-1",
-      "timeline.summary",
+      "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(input);
     await changeInputValue(input, "Original local");
@@ -1143,7 +1151,9 @@ describe("Phase 7 workbook history support coverage", () => {
     await waitFor(() => {
       expect(screen.queryByTestId("conflict-resolver")).toBeNull();
       expect(document.activeElement).toBe(
-        screen.getByTestId(rowCellTestId("record-1", "timeline.summary")),
+        screen.getByTestId(
+          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        ),
       );
     });
   });

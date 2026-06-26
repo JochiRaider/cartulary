@@ -27,6 +27,7 @@ export function TimelineWorkbookInspector({
   onSubmitMentionAction,
   renderEvidenceAttachSection,
   renderInspectorFieldEditors,
+  renderRelationshipEditors,
   renderRowHistorySection,
   rowHistoryRecordId,
   selectedMention,
@@ -55,6 +56,7 @@ export function TimelineWorkbookInspector({
   ) => void;
   readonly renderEvidenceAttachSection: (row: WorkbookRow) => ReactNode;
   readonly renderInspectorFieldEditors: (row: WorkbookRow) => ReactNode;
+  readonly renderRelationshipEditors: (row: WorkbookRow) => ReactNode;
   readonly renderRowHistorySection: () => ReactNode;
   readonly rowHistoryRecordId: string | null;
   readonly selectedMention: InspectorMention | null;
@@ -98,6 +100,7 @@ export function TimelineWorkbookInspector({
             hostEntities={hostEntities}
             identityEntities={identityEntities}
             inspectorMentions={inspectorMentions}
+            relationshipEditors={renderRelationshipEditors(selectedRow)}
             onResolveTargetChange={onResolveTargetChange}
             onSelectMention={onSelectMention}
             onSetInspectorMessage={onSetInspectorMessage}
@@ -133,7 +136,9 @@ function inspectorTitle(
   currentHistoryDeleted: boolean,
 ) {
   if (selectedRow?.recordId) {
-    return selectedRow.values.summary.trim() || "Selected timeline row";
+    return (
+      selectedRow.values.activitySynopsisText.trim() || "Selected timeline row"
+    );
   }
   if (currentHistoryDeleted) {
     return "Deleted timeline row";

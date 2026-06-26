@@ -138,7 +138,7 @@ test("FE-I-P9-01 Verify history and rollback preview/action use public route con
   )) as unknown as ViewRow;
   const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("feip901-row"),
-    "timeline.summary": "FE-I-P9 rollback row",
+    "timeline.activity_synopsis_text": "FE-I-P9 rollback row",
   })) as unknown as ViewRow;
   const linkedRow = (await patchTimelineRecord(page, row.record_id, {
     base_row_version: row.row_version,
@@ -182,7 +182,7 @@ test("FE-I-P9-01 Verify history and rollback preview/action use public route con
     base_row_version: linkedRow.row_version,
     changes: [
       {
-        field_key: "timeline.summary",
+        field_key: "timeline.activity_synopsis_text",
         value: "FE-I-P9 stale server update",
       },
     ],
@@ -231,7 +231,7 @@ test("FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rol
   );
   await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("feep901-fallback"),
-    "timeline.summary": "FE-E-P9 fallback row",
+    "timeline.activity_synopsis_text": "FE-E-P9 fallback row",
   });
   const evidence = (await createViewRow(
     page,
@@ -246,8 +246,8 @@ test("FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rol
   const target = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     [hostRefsFieldKey]: collectionActionsPayload(["FE-E-P9 stable host"]),
     client_txn_id: uniqueTxn("feep901-target"),
-    "timeline.details": "FE-E-P9 detailed inspector body",
-    "timeline.summary": "FE-E-P9 selected row",
+    "timeline.raw_activity_text": "FE-E-P9 detailed inspector body",
+    "timeline.activity_synopsis_text": "FE-E-P9 selected row",
   })) as unknown as ViewRow;
   const linkedTarget = (await patchTimelineRecord(page, target.record_id, {
     base_row_version: target.row_version,
@@ -275,11 +275,13 @@ test("FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rol
 
   await openTimelineSurface(page, incidentId);
   await page
-    .getByTestId(rowCellTestId(target.record_id, "timeline.summary"))
+    .getByTestId(
+      rowCellTestId(target.record_id, "timeline.activity_synopsis_text"),
+    )
     .focus();
   await openTimelineInspector(page, target.record_id);
   for (const section of [
-    "details",
+    "operational-text",
     "relationships",
     "evidence",
     "history",
@@ -291,7 +293,7 @@ test("FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rol
   await expect(
     page.getByTestId(
       timelineScalarEditorTestId({
-        fieldKey: "timeline.details",
+        fieldKey: "timeline.raw_activity_text",
         recordId: target.record_id,
         surface: "inspector",
       }),
@@ -349,7 +351,9 @@ test("FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rol
     data: { row_version: number };
   };
   await expect(
-    page.getByTestId(rowCellTestId(target.record_id, "timeline.summary")),
+    page.getByTestId(
+      rowCellTestId(target.record_id, "timeline.activity_synopsis_text"),
+    ),
   ).toHaveCount(0);
   await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
     `Record ${target.record_id}`,

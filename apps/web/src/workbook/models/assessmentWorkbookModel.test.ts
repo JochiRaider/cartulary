@@ -27,18 +27,18 @@ describe("assessmentWorkbookModel", () => {
 
   it("keeps assessment column widths and support labels stable", () => {
     const row: TimelineApiRow = {
-      view_schema_id: "cartulary.view.timeline.v1",
+      view_schema_id: "cartulary.view.timeline.v2",
       record_id: "timeline-1",
       row_version: 3,
       cells: {
-        "timeline.summary": { value: "Initial access" },
+        "timeline.activity_synopsis_text": { value: "Initial access" },
       },
     };
     const fallback: TimelineApiRow = {
       ...row,
       record_id: "timeline-2",
       cells: {
-        "timeline.summary": { value: "" },
+        "timeline.activity_synopsis_text": { value: "" },
       },
     };
 

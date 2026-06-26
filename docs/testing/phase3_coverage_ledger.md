@@ -5,7 +5,7 @@ This ledger is generated from `tools/phase3_test_map.json`. Update the manifest 
 - Scope: Timeline workbook create, patch, query, lifecycle actions, replay stability, projection rebuild, save-state UI, and browser-visible collaboration behavior.
 - Normative owners: Core 03 `§6`, `§7`, `§15`; Core 01 `§3.3.5`, `§7.4.1`; Core 04 `AC-043`, `AC-131`, `AC-136`, `AC-162`, `AC-191` through `AC-199`, `AC-329` through `AC-331`.
 - Authority: `tools/phase3_test_map.json` is the enforced Phase 3 traceability source. This ledger is a rendered companion and does not control the mechanical row inventory.
-- Timeline zero-field create traceability: cite Core 01 `REQ-01-057` plus Core 04 `AC-191` and `AC-192` for the owner rule. `contracts/view-schemas/cartulary.view.timeline.v1.json` is derived evidence only and is not the behavior source.
+- Timeline zero-field create traceability: cite Core 01 `REQ-01-057` plus Core 04 `AC-191` and `AC-192` for the owner rule. `contracts/view-schemas/cartulary.view.timeline.v2.json` is derived evidence only and is not the behavior source.
 - Grid note: the workbook currently renders through the RDG-backed `@cartulary/grid-adapter`. `U-3-GRID-01/02/03` own workbook binding behavior, while vendor-specific RDG semantics stay with adapter tests.
 
 ## Authoritative Execution

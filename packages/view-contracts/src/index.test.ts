@@ -66,10 +66,10 @@ function expectInvariantFailure(raw: unknown, pattern: RegExp) {
 
 describe("view-contracts", () => {
   it("parses sortable, filterable, and zero-field create metadata", () => {
-    const timeline = requireViewContract("cartulary.view.timeline.v1");
+    const timeline = requireViewContract("cartulary.view.timeline.v2");
 
     expect(timeline.permitsZeroFieldCreate).toBe(true);
-    expect(timeline.sortFields).toContain("timeline.sort_ts");
+    expect(timeline.sortFields).toContain("timeline.activity_sort_ts");
     expect(timeline.sortNullOrder).toBe("last");
     expect(timeline.filterFields).toContain("timeline.capture_state");
     expect(timeline.groupingFields).toContain("timeline.capture_state");
@@ -92,12 +92,12 @@ describe("view-contracts", () => {
   });
 
   it("resolves header sort keys and field capabilities from contract metadata", () => {
-    const timeline = requireViewContract("cartulary.view.timeline.v1");
+    const timeline = requireViewContract("cartulary.view.timeline.v2");
 
-    expect(resolveHeaderSortFieldKey(timeline, "timeline.occurred_at")).toBe(
-      "timeline.sort_ts",
-    );
-    expect(fieldCapability(timeline, "timeline.occurred_at")).toEqual({
+    expect(
+      resolveHeaderSortFieldKey(timeline, "timeline.activity_utc_text"),
+    ).toBe("timeline.activity_sort_ts");
+    expect(fieldCapability(timeline, "timeline.activity_utc_text")).toEqual({
       editable: true,
       filterable: false,
       groupable: false,
@@ -163,9 +163,9 @@ describe("view-contracts", () => {
 
 describe("FE-U-P0-02 view-schema field-key adapter contract", () => {
   it("FE-U-P0-02 selects generated contracts by view_schema_id, not display title", () => {
-    const timeline = requireViewContract("cartulary.view.timeline.v1");
+    const timeline = requireViewContract("cartulary.view.timeline.v2");
 
-    expect(timeline.viewSchemaId).toBe("cartulary.view.timeline.v1");
+    expect(timeline.viewSchemaId).toBe("cartulary.view.timeline.v2");
     expect(getViewContract(timeline.title)).toBeUndefined();
     expect(getViewContract("Timeline")).toBeUndefined();
   });

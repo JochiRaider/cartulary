@@ -74,8 +74,8 @@ func TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPrefer
 	)
 
 	ctx := context.Background()
-	timelineRef := []byte(`{"kind":"view_schema","id":"cartulary.view.timeline.v1"}`)
-	timelineRefReordered := []byte(`{"id":"cartulary.view.timeline.v1","kind":"view_schema"}`)
+	timelineRef := []byte(`{"kind":"view_schema","id":"cartulary.view.timeline.v2"}`)
+	timelineRefReordered := []byte(`{"id":"cartulary.view.timeline.v2","kind":"view_schema"}`)
 	hostsRef := []byte(`{"kind":"view_schema","id":"cartulary.view.hosts.v1"}`)
 	firstTime := time.Date(2026, 4, 17, 10, 0, 0, 0, time.UTC)
 	noOpTime := firstTime.Add(time.Hour)
@@ -92,7 +92,7 @@ DELETE FROM user_workbook_preferences
 	if err != nil {
 		t.Fatalf("create user workbook preferences: %v", err)
 	}
-	requireWorkbookSheetRefID(t, userCreated.HomeSheetRef, "cartulary.view.timeline.v1")
+	requireWorkbookSheetRefID(t, userCreated.HomeSheetRef, "cartulary.view.timeline.v2")
 	if !userCreated.CreatedAt.Equal(firstTime) || !userCreated.UpdatedAt.Equal(firstTime) {
 		t.Fatalf("unexpected created user preference timestamps: %#v", userCreated)
 	}
@@ -124,7 +124,7 @@ DELETE FROM incident_workbook_preferences
 	if err != nil {
 		t.Fatalf("create default workbook preferences: %v", err)
 	}
-	requireWorkbookSheetRefID(t, defaultCreated.DefaultSheetRef, "cartulary.view.timeline.v1")
+	requireWorkbookSheetRefID(t, defaultCreated.DefaultSheetRef, "cartulary.view.timeline.v2")
 	if defaultCreated.UpdatedByUserID == nil || *defaultCreated.UpdatedByUserID != actor.ID {
 		t.Fatalf("default preference create must attribute admin actor: %#v", defaultCreated)
 	}

@@ -88,8 +88,8 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 					http.MethodPost,
 					harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 					map[string]any{
-						"client_txn_id":    fmt.Sprintf("txn-support-phase3-auth-create-%s", tc.name),
-						"timeline.summary": fmt.Sprintf("created by %s", tc.name),
+						"client_txn_id":                   fmt.Sprintf("txn-support-phase3-auth-create-%s", tc.name),
+						"timeline.activity_synopsis_text": fmt.Sprintf("created by %s", tc.name),
 					},
 					phase3test.WithCookies(tc.login.SessionCookie, tc.login.CSRFCookie),
 					phase3test.WithHeader(authn.CSRFHeaderName, tc.login.CSRFCookie.Value),
@@ -105,20 +105,20 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 
 	t.Run("patch route matrix", func(t *testing.T) {
 		editorTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-support-phase3-auth-patch-editor",
-			"timeline.summary": "patch editor target",
+			"client_txn_id":                   "txn-support-phase3-auth-patch-editor",
+			"timeline.activity_synopsis_text": "patch editor target",
 		})
 		reviewerTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-support-phase3-auth-patch-reviewer",
-			"timeline.summary": "patch reviewer target",
+			"client_txn_id":                   "txn-support-phase3-auth-patch-reviewer",
+			"timeline.activity_synopsis_text": "patch reviewer target",
 		})
 		adminTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-support-phase3-auth-patch-admin",
-			"timeline.summary": "patch admin target",
+			"client_txn_id":                   "txn-support-phase3-auth-patch-admin",
+			"timeline.activity_synopsis_text": "patch admin target",
 		})
 		deniedTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-support-phase3-auth-patch-denied",
-			"timeline.summary": "patch denied target",
+			"client_txn_id":                   "txn-support-phase3-auth-patch-denied",
+			"timeline.activity_synopsis_text": "patch denied target",
 		})
 
 		cases := []struct {
@@ -144,7 +144,7 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 						"base_row_version": 1,
 						"client_txn_id":    fmt.Sprintf("txn-support-phase3-auth-patch-%s", tc.name),
 						"changes": []map[string]any{
-							{"field_key": "timeline.summary", "value": fmt.Sprintf("patched by %s", tc.name)},
+							{"field_key": "timeline.activity_synopsis_text", "value": fmt.Sprintf("patched by %s", tc.name)},
 						},
 					},
 					phase3test.WithCookies(tc.login.SessionCookie, tc.login.CSRFCookie),
@@ -161,16 +161,16 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 
 	t.Run("mark reviewed route matrix", func(t *testing.T) {
 		reviewerTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-support-phase3-auth-review-reviewer",
-			"timeline.summary": "review reviewer target",
+			"client_txn_id":                   "txn-support-phase3-auth-review-reviewer",
+			"timeline.activity_synopsis_text": "review reviewer target",
 		})
 		adminTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-support-phase3-auth-review-admin",
-			"timeline.summary": "review admin target",
+			"client_txn_id":                   "txn-support-phase3-auth-review-admin",
+			"timeline.activity_synopsis_text": "review admin target",
 		})
 		deniedTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-support-phase3-auth-review-denied",
-			"timeline.summary": "review denied target",
+			"client_txn_id":                   "txn-support-phase3-auth-review-denied",
+			"timeline.activity_synopsis_text": "review denied target",
 		})
 
 		cases := []struct {
@@ -209,28 +209,28 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 
 	t.Run("supersede route matrix", func(t *testing.T) {
 		reviewerTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-support-phase3-auth-supersede-reviewer",
-			"timeline.summary": "supersede reviewer target",
+			"client_txn_id":                   "txn-support-phase3-auth-supersede-reviewer",
+			"timeline.activity_synopsis_text": "supersede reviewer target",
 		})
 		adminTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-support-phase3-auth-supersede-admin",
-			"timeline.summary": "supersede admin target",
+			"client_txn_id":                   "txn-support-phase3-auth-supersede-admin",
+			"timeline.activity_synopsis_text": "supersede admin target",
 		})
 		deniedTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-support-phase3-auth-supersede-denied",
-			"timeline.summary": "supersede denied target",
+			"client_txn_id":                   "txn-support-phase3-auth-supersede-denied",
+			"timeline.activity_synopsis_text": "supersede denied target",
 		})
 		reviewerReplacement := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-support-phase3-auth-supersede-reviewer-replacement",
-			"timeline.summary": "supersede reviewer replacement",
+			"client_txn_id":                   "txn-support-phase3-auth-supersede-reviewer-replacement",
+			"timeline.activity_synopsis_text": "supersede reviewer replacement",
 		})
 		adminReplacement := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-support-phase3-auth-supersede-admin-replacement",
-			"timeline.summary": "supersede admin replacement",
+			"client_txn_id":                   "txn-support-phase3-auth-supersede-admin-replacement",
+			"timeline.activity_synopsis_text": "supersede admin replacement",
 		})
 		deniedReplacement := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
-			"client_txn_id":    "txn-support-phase3-auth-supersede-denied-replacement",
-			"timeline.summary": "supersede denied replacement",
+			"client_txn_id":                   "txn-support-phase3-auth-supersede-denied-replacement",
+			"timeline.activity_synopsis_text": "supersede denied replacement",
 		})
 
 		markReviewed := func(recordID string, txn string) {

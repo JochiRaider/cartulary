@@ -414,8 +414,8 @@ func TestPhase8_SavedViewScopeVocabulary_U_8_03(t *testing.T) {
 		}
 	}
 	for name, body := range map[string]string{
-		"null scope":    `{"view_schema_id":"cartulary.view.timeline.v1","display_name":"View","query_json":{},"scope":null}`,
-		"obsolete team": `{"view_schema_id":"cartulary.view.timeline.v1","display_name":"View","query_json":{},"scope":"team"}`,
+		"null scope":    `{"view_schema_id":"cartulary.view.timeline.v2","display_name":"View","query_json":{},"scope":null}`,
+		"obsolete team": `{"view_schema_id":"cartulary.view.timeline.v2","display_name":"View","query_json":{},"scope":"team"}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, apiErr := savedviews.DecodeCreateRequest(strings.NewReader(body))
@@ -446,7 +446,7 @@ func TestPhase8_SavedViewPatchContract_U_8_04(t *testing.T) {
 	})
 
 	createRequest, apiErr := savedviews.DecodeCreateRequest(strings.NewReader(`{
-		"view_schema_id":"cartulary.view.timeline.v1",
+		"view_schema_id":"cartulary.view.timeline.v2",
 		"display_name":"Analyst triage",
 		"query_json":{},
 		"layout_json":{}
@@ -470,7 +470,7 @@ func TestPhase8_SavedViewPatchContract_U_8_04(t *testing.T) {
 			"sort":    []any{},
 		},
 		"layout_json": savedViewLayoutWith(t, func(layout map[string]any) {
-			layout["column_widths"] = []any{map[string]any{"field_key": "timeline.summary", "width_px": 240}}
+			layout["column_widths"] = []any{map[string]any{"field_key": "timeline.activity_synopsis_text", "width_px": 240}}
 		}),
 	})
 	patchedAt := createdAt.Add(5 * time.Minute)
@@ -499,7 +499,7 @@ func TestPhase8_SavedViewPatchContract_U_8_04(t *testing.T) {
 			"filters": []any{map[string]any{"field_key": "timeline.tags", "op": "contains_any", "arg": map[string]any{"values": []any{"alpha", "beta"}}}},
 		},
 		"layout_json": savedViewLayoutWith(t, func(layout map[string]any) {
-			layout["column_widths"] = []any{map[string]any{"field_key": "timeline.summary", "width_px": 240}}
+			layout["column_widths"] = []any{map[string]any{"field_key": "timeline.activity_synopsis_text", "width_px": 240}}
 		}),
 	})
 	noOp, err := store.Patch(context.Background(), owner, "viewer", incidentID, patched.SavedViewID, noOpRequest, patchedAt.Add(time.Hour))
@@ -560,8 +560,8 @@ func TestPhase8_SavedViewLifecyclePersistence_I_8_01(t *testing.T) {
 	ownerSession, ownerCSRF := phase2test.LoginLocalUser(t, harness.Server, "phase8-i801-owner@example.test", "Phase8I801Owner1!")
 	peerSession, peerCSRF := phase2test.LoginLocalUser(t, harness.Server, "phase8-i801-peer@example.test", "Phase8I801Peer1!")
 
-	timelineOne := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-row-one", "timeline.summary": "Saved-view delete keeps records"})
-	timelineTwo := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-row-two", "timeline.summary": "Saved-view delete keeps linked records"})
+	timelineOne := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-row-one", "timeline.activity_synopsis_text": "Saved-view delete keeps records"})
+	timelineTwo := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-row-two", "timeline.activity_synopsis_text": "Saved-view delete keeps linked records"})
 	recordOneID := phase4test.MustUUID(t, timelineOne["row"].(map[string]any)["record_id"].(string))
 	recordTwoID := phase4test.MustUUID(t, timelineTwo["row"].(map[string]any)["record_id"].(string))
 	phase4test.SeedRecordLink(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008151"), recordOneID, recordTwoID, "references_record", "manual", nil)
@@ -599,7 +599,7 @@ func TestPhase8_SavedViewLifecyclePersistence_I_8_01(t *testing.T) {
 			"filters": []any{map[string]any{"field_key": "timeline.tags", "op": "contains_any", "arg": map[string]any{"values": []any{"beta", "alpha", "alpha"}}}},
 		},
 		"layout_json": savedViewLayoutWith(t, func(layout map[string]any) {
-			layout["column_widths"] = []any{map[string]any{"field_key": "timeline.summary", "width_px": 240}}
+			layout["column_widths"] = []any{map[string]any{"field_key": "timeline.activity_synopsis_text", "width_px": 240}}
 		}),
 	})
 	if patched["display_name"] != "Shared triage" || patched["scope"] != "shared" {

@@ -33,7 +33,7 @@ import {
   workbookQueryStateFromSavedViewQueryJson,
 } from "./models/workbookQuery";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 describe("Phase 8 workbook query controls", () => {
   it("Phase 8 U-8-GRID-01 emits stable schema keys for sort, filter, and group query controls", () => {
@@ -42,10 +42,10 @@ describe("Phase 8 workbook query controls", () => {
     const sortedByHeader = toggleSortField(
       contract,
       emptyWorkbookQueryState(),
-      "timeline.occurred_at",
+      "timeline.activity_utc_text",
     );
     expect(buildQueryRequest(contract, sortedByHeader)).toEqual({
-      sort: [{ direction: "asc", field_key: "timeline.sort_ts" }],
+      sort: [{ direction: "asc", field_key: "timeline.activity_sort_ts" }],
     });
 
     const nonSortableCollectionOnly = toggleSortField(
@@ -85,7 +85,7 @@ describe("Phase 8 workbook query controls", () => {
       group_by: "timeline.capture_state",
       sort: [
         { direction: "asc", field_key: "timeline.capture_state" },
-        { direction: "asc", field_key: "timeline.sort_ts" },
+        { direction: "asc", field_key: "timeline.activity_sort_ts" },
       ],
     });
 
@@ -107,7 +107,7 @@ describe("Phase 8 workbook query controls", () => {
     const sortedByHeader = toggleSortField(
       contract,
       emptyWorkbookQueryState(),
-      "timeline.occurred_at",
+      "timeline.activity_utc_text",
     );
     const ignoredLabelSort = toggleSortField(
       contract,
@@ -163,7 +163,7 @@ describe("Phase 8 workbook query controls", () => {
       group_by: "timeline.capture_state",
       sort: [
         { direction: "asc", field_key: "timeline.capture_state" },
-        { direction: "asc", field_key: "timeline.sort_ts" },
+        { direction: "asc", field_key: "timeline.activity_sort_ts" },
       ],
     });
   });
@@ -187,7 +187,7 @@ describe("Phase 8 workbook query controls", () => {
     const withSort = toggleSortField(
       contract,
       emptyWorkbookQueryState(),
-      "timeline.occurred_at",
+      "timeline.activity_utc_text",
     );
     const withGroup = updateGroupBy(
       contract,
@@ -208,7 +208,7 @@ describe("Phase 8 workbook query controls", () => {
     expect(buildQueryRequest(contract, withTagFilter)).toMatchObject({
       sort: [
         { direction: "asc", field_key: "timeline.capture_state" },
-        { direction: "asc", field_key: "timeline.sort_ts" },
+        { direction: "asc", field_key: "timeline.activity_sort_ts" },
       ],
     });
     expect(buildSavedViewQueryJson(contract, withTagFilter)).toEqual({
@@ -225,7 +225,7 @@ describe("Phase 8 workbook query controls", () => {
         },
       ],
       group_by: "timeline.capture_state",
-      sort: [{ direction: "asc", field_key: "timeline.sort_ts" }],
+      sort: [{ direction: "asc", field_key: "timeline.activity_sort_ts" }],
     });
   });
 
@@ -234,28 +234,28 @@ describe("Phase 8 workbook query controls", () => {
     const layout = buildSavedViewLayoutJson(contract, {
       columnOrder: [
         "row_version",
-        "timeline.summary",
+        "timeline.activity_synopsis_text",
         "Capture State",
-        "timeline.occurred_at",
+        "timeline.activity_utc_text",
       ],
       columnWidths: [
-        { fieldKey: "timeline.summary", widthPx: 420 },
+        { fieldKey: "timeline.activity_synopsis_text", widthPx: 420 },
         { fieldKey: "row_version", widthPx: 55 },
         { fieldKey: "timeline.capture_state", widthPx: 39 },
-        { fieldKey: "timeline.occurred_at", widthPx: 96 },
+        { fieldKey: "timeline.activity_utc_text", widthPx: 96 },
       ],
       hiddenFieldKeys: [
         "row_version",
-        "timeline.details",
+        "timeline.raw_activity_text",
         "timeline.capture_state",
-        "timeline.details",
+        "timeline.activity_time_pair_state",
       ],
     });
 
     expect(layout.layout_schema_id).toBe("cartulary.layout.v1");
     expect(layout.column_order.slice(0, 2)).toEqual([
-      "timeline.summary",
-      "timeline.occurred_at",
+      "timeline.activity_synopsis_text",
+      "timeline.activity_utc_text",
     ]);
     expect(new Set(layout.column_order)).toEqual(
       new Set(contract.fields.map((field) => field.fieldKey)),
@@ -263,12 +263,13 @@ describe("Phase 8 workbook query controls", () => {
     expect(layout.column_order).not.toContain("row_version");
     expect(layout.column_order).not.toContain("Capture State");
     expect(layout.hidden_field_keys).toEqual([
+      "timeline.activity_time_pair_state",
       "timeline.capture_state",
-      "timeline.details",
+      "timeline.raw_activity_text",
     ]);
     expect(layout.column_widths).toEqual([
-      { field_key: "timeline.occurred_at", width_px: 96 },
-      { field_key: "timeline.summary", width_px: 420 },
+      { field_key: "timeline.activity_synopsis_text", width_px: 420 },
+      { field_key: "timeline.activity_utc_text", width_px: 96 },
     ]);
     const encoded = JSON.stringify(layout);
     expect(layout.column_order).not.toContain("record_id");
@@ -309,9 +310,9 @@ describe("Phase 8 workbook query controls", () => {
       ],
       group_by: "timeline.capture_state",
       sort: [
-        { field_key: "timeline.sort_ts", direction: "desc" },
+        { field_key: "timeline.activity_sort_ts", direction: "desc" },
         { field_key: "timeline.tags", direction: "asc" },
-        { field_key: "timeline.sort_ts", direction: "asc" },
+        { field_key: "timeline.activity_sort_ts", direction: "asc" },
       ],
     });
 
@@ -329,7 +330,7 @@ describe("Phase 8 workbook query controls", () => {
         },
       ],
       group_by: "timeline.capture_state",
-      sort: [{ direction: "desc", field_key: "timeline.sort_ts" }],
+      sort: [{ direction: "desc", field_key: "timeline.activity_sort_ts" }],
     });
 
     expect(
@@ -338,21 +339,23 @@ describe("Phase 8 workbook query controls", () => {
         workbookLayoutStateFromSavedViewLayoutJson(contract, {
           layout_schema_id: "cartulary.layout.v1",
           column_order: [
-            "timeline.summary",
+            "timeline.activity_synopsis_text",
             "row_version",
-            "timeline.occurred_at",
+            "timeline.activity_utc_text",
           ],
-          hidden_field_keys: ["timeline.details", "record_id"],
+          hidden_field_keys: ["timeline.raw_activity_text", "record_id"],
           column_widths: [
-            { field_key: "timeline.summary", width_px: 480 },
+            { field_key: "timeline.activity_synopsis_text", width_px: 480 },
             { field_key: "row_version", width_px: 80 },
           ],
         }),
       ),
     ).toMatchObject({
       layout_schema_id: "cartulary.layout.v1",
-      column_widths: [{ field_key: "timeline.summary", width_px: 480 }],
-      hidden_field_keys: ["timeline.details"],
+      column_widths: [
+        { field_key: "timeline.activity_synopsis_text", width_px: 480 },
+      ],
+      hidden_field_keys: ["timeline.raw_activity_text"],
     });
   });
 
@@ -380,7 +383,7 @@ describe("Phase 8 workbook query controls", () => {
               op: "eq",
             },
           ],
-          groupBy: "timeline.recorded_day",
+          groupBy: "timeline.date_entered_sort_day",
           sort: [],
         }}
         surface={timelineViewSchemaId}
@@ -395,7 +398,7 @@ describe("Phase 8 workbook query controls", () => {
     const grouping = screen.getByTestId(
       gridGroupingSelectTestId(timelineViewSchemaId),
     ) as HTMLSelectElement;
-    expect(grouping.value).toBe("timeline.recorded_day");
+    expect(grouping.value).toBe("timeline.date_entered_sort_day");
     expect([...grouping.options].map((option) => option.value)).toEqual([
       "",
       ...contract.groupingFields,
@@ -434,7 +437,7 @@ describe("Phase 8 workbook query controls", () => {
     );
     expect(onRemoveFilter).toHaveBeenCalledWith("timeline.capture_state");
 
-    const groupChip = screen.getByTitle("Group: Recorded Day");
+    const groupChip = screen.getByTitle("Group: Date Entered Sort Day");
     expect(groupChip).toBeInstanceOf(HTMLButtonElement);
     const groupChipLabel = groupChip.firstElementChild;
     expect(groupChipLabel).toBeInstanceOf(HTMLElement);
@@ -443,7 +446,7 @@ describe("Phase 8 workbook query controls", () => {
   });
 
   it("Phase 8 U-8-GRID-01 drops non-discovery keys before building query request bodies", () => {
-    const contract = requireViewContract("cartulary.view.timeline.v1");
+    const contract = requireViewContract("cartulary.view.timeline.v2");
     const request = buildQueryRequest(contract, {
       groupBy: "timeline_grid_projection.capture_state",
       sort: [
@@ -518,7 +521,7 @@ describe("Phase 8 workbook query controls", () => {
     ];
     const columns: readonly GridColumn<HarnessRow>[] = [
       {
-        fieldKey: "timeline.summary",
+        fieldKey: "timeline.activity_synopsis_text",
         label: "Summary",
         renderCell: (row) => (
           <input data-testid={row.editableTestId} defaultValue={row.summary} />
@@ -617,7 +620,7 @@ describe("Phase 8 workbook query controls", () => {
     ];
     const columns: readonly GridColumn<HarnessRow>[] = [
       {
-        fieldKey: "timeline.summary",
+        fieldKey: "timeline.activity_synopsis_text",
         label: "Summary",
         renderCell: (row) => (
           <input data-testid={row.editableTestId} defaultValue={row.summary} />

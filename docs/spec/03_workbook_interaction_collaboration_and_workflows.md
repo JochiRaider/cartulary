@@ -210,7 +210,7 @@ Workbook open MUST select the starting surface in this order:
 1. an explicit launch `sheet_ref`, if present and still valid for the caller,
 2. the caller's `home_sheet_ref`, if present, still valid, and visible to the caller,
 3. the incident-wide `default_sheet_ref`, if present, still valid, and visible to the caller,
-4. `cartulary.view.timeline.v1`.
+4. `cartulary.view.timeline.v2`.
 The startup selection resource defined by Core 01 MUST return both the selected `sheet_ref` identity and the base `view_schema_id` used for workbook queries so a selected saved view is not collapsed into the base surface identity.
 Profiles: base
 Verified by: AC-150, AC-153, AC-231
@@ -397,8 +397,8 @@ The closed vocabulary is:
 | `conflict_resolution_class` | Required use | Required resolver behavior |
 | --- | --- | --- |
 | `atomic_replace` | scalar fields such as timestamps, enums, numbers, single-value identifiers, and state fields | present explicit `Keep saved value` and `Use my unsaved value` actions |
-| `text_compare_merge` | analyst-authored free text such as `summary`, `details`, note body, and description | present side-by-side comparison with change highlighting and an optional `Edit merged value` path |
-| `collection_review` | multi-value chip or set fields such as tags, Timeline Hosts, and Timeline Identities | present base, saved, and local deltas plus a final preview before commit |
+| `text_compare_merge` | analyst-authored free text such as Timeline v2 visible operational text, note body, and description | present side-by-side comparison with change highlighting and an optional `Edit merged value` path |
+| `collection_review` | multi-value chip or set fields such as tags, support refs, and hidden inspector-side Timeline mention actions | present base, saved, and local deltas plus a final preview before commit |
 
 **REQ-03-053**
 Unknown or omitted classes MUST behave as `atomic_replace`.
@@ -1608,7 +1608,7 @@ Verified by: AC-063, AC-067, AC-232
 ### 12.1 Allowed scope
 
 **REQ-03-276**
-Auto-resolution eligibility is owned by this section. In the current profile, the system MAY auto-resolve a typed host or identity token only during interactive mention capture on Timeline relationship cells `timeline.host_refs` and `timeline.identity_refs`, and only during inline commit or interactive clipboard paste where the resulting auto-resolutions belong to the same visible `change_set`. No other workflow is eligible for auto-resolution in the current profile.
+Auto-resolution eligibility is owned by this section. In the current profile, visible Timeline v2 cells remain source-preserving strings. The system MAY offer or commit host, identity, indicator, MITRE, or data-source suggestions only through inspector-side actions or hidden action fields whose stable `field_key` is declared by Core 01. Such suggestions or resolutions MUST NOT rewrite the source visible cell string. No workflow is eligible for auto-resolution based on visible labels.
 Profiles: base
 Verified by: AC-205, AC-231, AC-388, AC-392, AC-393
 
@@ -1845,8 +1845,8 @@ Verified by: AC-024, AC-025, AC-026, AC-231, AC-360
 
 For Timeline sheets, the allowed grouping keys are exactly:
 
-- `timeline.occurred_day`,
-- `timeline.recorded_day`,
+- `timeline.date_entered_sort_day`,
+- `timeline.activity_time_pair_state`,
 - `timeline.capture_state`,
 - `timeline.has_evidence`,
 - `timeline.has_unresolved_mentions`.
@@ -1858,7 +1858,7 @@ The base-profile Timeline whitelist is frozen at these five keys for the current
 Profiles: base
 Verified by: AC-024, AC-025, AC-026, AC-231
 
-Grouping by arbitrary custom columns, formulas, ad hoc expressions, or visible labels is out of scope for current conformance. For Timeline sheets, grouping by Summary, Hosts, Identities, or Tags is also out of scope.
+Grouping by arbitrary custom columns, formulas, ad hoc expressions, or visible labels is out of scope for current conformance. For Timeline sheets, grouping by visible source-text fields such as Activity Synopsis, MITRE, Device/Object, IP Address, RAW Activity, or Data Source is also out of scope.
 
 ### 14.4 Grouping value rules
 
@@ -1870,7 +1870,8 @@ Verified by: AC-024, AC-025, AC-026, AC-231, AC-364
 **REQ-03-230**
 Timeline group order overrides the generic rule in REQ-03-229 and MUST be deterministic:
 
-- `timeline.occurred_day` and `timeline.recorded_day` sort by bucket value descending, with null buckets last,
+- `timeline.date_entered_sort_day` sorts by bucket value descending, with null buckets last,
+- `timeline.activity_time_pair_state` sorts `paired_generated`, `paired_user_preserved`, `paired_mismatch`, `conversion_unavailable`, `disabled`, `empty`,
 - `timeline.capture_state` sorts `rough`, `enriched`, `reviewed`, `superseded`,
 - `timeline.has_evidence` and `timeline.has_unresolved_mentions` sort `true` then `false`.
 Profiles: base
@@ -1949,26 +1950,29 @@ Profiles: base
 Verified by: AC-119, AC-120, AC-124, AC-125, AC-188, AC-189, AC-190, AC-191, AC-192, AC-193, AC-231
 
 **REQ-03-238**
-The implementation MUST preserve the following write-back semantics:
+The implementation MUST preserve the following Timeline v2 write-back semantics:
 Profiles: base
 Verified by: AC-119, AC-120, AC-124, AC-125, AC-188, AC-189, AC-190, AC-191, AC-192, AC-193, AC-231
 
 | Timeline field or column | Read model | Required write-back behavior |
 | --- | --- | --- |
-| Time | `occurred_at` | update `timeline_events.occurred_at` |
-| Summary | `summary` | update `timeline_events.summary` only |
-| Details | `details` | update `timeline_events.details` only |
-| Source Text | `source_text` | update `timeline_events.source_text` only |
-| Hosts | host labels plus unresolved host tokens | if the submitted token qualifies for auto-resolution under §12, insert resolved `entity_mentions` plus `record_links` with `provenance='auto_match'` and `confidence=100`; otherwise insert unresolved `entity_mentions` |
-| Identities | identity labels plus unresolved identity tokens | if the submitted token qualifies for auto-resolution under §12, insert resolved `entity_mentions` plus `record_links` with `provenance='auto_match'` and `confidence=100`; otherwise insert unresolved `entity_mentions` |
-| Evidence | `evidence_count` | create `object_blob`, `evidence_record`, and `record_link` |
-| Tags | `tag_names` | upsert tags and record-tag bindings |
+| Date Entered | `date_entered_text` | update `timeline_events.date_entered_text` only |
+| Analyst | `analyst_text` | update `timeline_events.analyst_text` only |
+| MITRE | `mitre_stage_text` | update `timeline_events.mitre_stage_text` only |
+| Device/Object | `device_object_text` | update `timeline_events.device_object_text` only |
+| IP Address | `ip_address_text` | update `timeline_events.ip_address_text` only |
+| Activity Date (UTC) | `activity_utc_text` | update `timeline_events.activity_utc_text`; fixed-offset conversion MAY generate `activity_local_text` only under Core 01 §7.4.1 |
+| Activity Date (Local Time) | `activity_local_text` | update `timeline_events.activity_local_text`; fixed-offset conversion MAY generate `activity_utc_text` only under Core 01 §7.4.1 |
+| RAW Activity | `raw_activity_text` | update `timeline_events.raw_activity_text` only and render as inert escaped text |
+| Activity Synopsis | `activity_synopsis_text` | update `timeline_events.activity_synopsis_text` only |
+| Data Source | `data_source_text` | update `timeline_events.data_source_text` only |
+| Inspector mentions, tags, evidence, MITRE/entity/indicator/link suggestions | hidden action fields or derived/link records | create or update inspector-side state without rewriting any visible Timeline v2 cell string |
 
 
 For the lifecycle machine in §6, the current Timeline write surfaces and row-anchored mutation types are classified as follows:
 
-- `capture-state-material`: `timeline.occurred_at`, `timeline.summary`, `timeline.details`, `timeline.source_text`, `timeline.host_refs`, `timeline.identity_refs`, Timeline-row evidence attach or detach, and row-anchored source-bound indicator observation create, link, dismiss, or equivalent typed-link mutation initiated from the row or its inspector.
-- not `capture-state-material`: `timeline.tags`, explicit `mark-reviewed` or `supersede` lifecycle actions, selection, focus, presence, sort, filter, grouping, projection rebuild, and idempotent no-op retry.
+- `capture-state-material`: any committed change to one of the ten visible Timeline v2 operational fields, Timeline-row evidence attach or detach, and row-anchored source-bound MITRE/entity/indicator observation create, link, dismiss, or equivalent typed-link mutation initiated from the row or its inspector.
+- not `capture-state-material`: hidden tag edits, generated conversion-pair updates that only fill a server-generated paired Activity Date value, explicit `mark-reviewed` or `supersede` lifecycle actions, selection, focus, presence, sort, filter, grouping, projection rebuild, and idempotent no-op retry.
 
 **REQ-03-239**
 Any future Timeline writable `field_key`, dedicated Timeline action route, or row-anchored mutation surface MUST declare whether it is `capture-state-material` before it can claim base-profile conformance.
@@ -1983,7 +1987,7 @@ Profiles: base
 Verified by: AC-119, AC-120, AC-124, AC-125, AC-188, AC-189, AC-190, AC-191, AC-192, AC-193, AC-231
 
 **REQ-03-241**
-Summary, details, source text, and other contract-declared source fields remain raw source fields. When the implementation supports inline indicator capture from such a field, write-back MUST preserve the raw cell text and create or update source-bound `indicator_observation` rows separately. It MUST NOT require dedicated IOC columns or rewrite the raw field to a canonical indicator label.
+Timeline v2 visible fields remain raw source-preserving text fields. When the implementation supports MITRE, entity, data-source, or indicator capture from such a field, write-back MUST preserve the raw cell text and create or update source-bound derived records, suggestions, links, or `indicator_observation` rows separately. It MUST NOT rewrite the raw field to a canonical chip, indicator label, MITRE object, URL, formula result, or entity reference.
 Profiles: base
 Verified by: AC-119, AC-120, AC-124, AC-125, AC-188, AC-189, AC-190, AC-191, AC-192, AC-193, AC-231
 

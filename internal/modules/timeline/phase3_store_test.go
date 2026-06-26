@@ -23,8 +23,8 @@ func TestPhase3_CreateCommitsAndAssignsIdentity_U_3_01(t *testing.T) {
 
 	summary := "First capture"
 	request := timeline.CreateRequest{
-		ClientTxnID: "txn-phase3-u-3-01-row",
-		Summary:     &summary,
+		ClientTxnID:          "txn-phase3-u-3-01-row",
+		ActivitySynopsisText: &summary,
 	}
 	result, err := store.CreateRow(context.Background(), actor, incidentID, request, timeline.TimelineCreateRequestHash(request), "req-phase3-u-3-01-row", phase3BaseTime())
 	if err != nil {
@@ -45,7 +45,7 @@ func TestPhase3_CreateCommitsAndAssignsIdentity_U_3_01(t *testing.T) {
 	if row["record_id"] != result.RecordID.String() || row["row_version"] != int64(1) {
 		t.Fatalf("unexpected create payload row: %#v", row)
 	}
-	if row["cells"].(map[string]any)["timeline.summary"].(map[string]any)["value"] != summary {
+	if row["cells"].(map[string]any)["timeline.activity_synopsis_text"].(map[string]any)["value"] != summary {
 		t.Fatalf("expected committed summary in payload row, got %#v", row)
 	}
 
@@ -64,8 +64,8 @@ func TestPhase3_InitialCreateState_U_3_02(t *testing.T) {
 
 	summary := "Rough capture"
 	request := timeline.CreateRequest{
-		ClientTxnID: "txn-phase3-u-3-02-row",
-		Summary:     &summary,
+		ClientTxnID:          "txn-phase3-u-3-02-row",
+		ActivitySynopsisText: &summary,
 	}
 	result, err := store.CreateRow(context.Background(), actor, incidentID, request, timeline.TimelineCreateRequestHash(request), "req-phase3-u-3-02-row", phase3BaseTime())
 	if err != nil {
@@ -108,7 +108,7 @@ func TestPhase3_CaptureStateLifecycle_U_3_03(t *testing.T) {
 		BaseRowVersion: 1,
 		ClientTxnID:    "txn-phase3-u-3-03-patch",
 		CanonicalChange: []timeline.PatchChange{
-			{FieldKey: "timeline.details", TextValue: storeStringPtr("material edit")},
+			{FieldKey: "timeline.raw_activity_text", TextValue: storeStringPtr("material edit")},
 		},
 	}
 	patched, err := store.PatchRow(context.Background(), actor, enrichedRow.RecordID, patch, timeline.TimelinePatchRequestHash(patch), "req-phase3-u-3-03-patch", phase3BaseTime().Add(3*time.Minute))
@@ -154,7 +154,7 @@ func TestPhase3_ReviewedDemotionAndSupersedeTerminality_U_3_04(t *testing.T) {
 		BaseRowVersion: reviewed.RowVersion,
 		ClientTxnID:    "txn-phase3-u-3-04-demote",
 		CanonicalChange: []timeline.PatchChange{
-			{FieldKey: "timeline.summary", TextValue: storeStringPtr("demoted after edit")},
+			{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("demoted after edit")},
 		},
 	}
 	demoted, err := store.PatchRow(context.Background(), actor, row.RecordID, demotionPatch, timeline.TimelinePatchRequestHash(demotionPatch), "req-phase3-u-3-04-demote", phase3BaseTime().Add(2*time.Minute))
@@ -194,7 +194,7 @@ func TestPhase3_ReviewedDemotionAndSupersedeTerminality_U_3_04(t *testing.T) {
 		BaseRowVersion: superseded.RowVersion,
 		ClientTxnID:    "txn-phase3-u-3-04-after-supersede",
 		CanonicalChange: []timeline.PatchChange{
-			{FieldKey: "timeline.details", TextValue: storeStringPtr("blocked")},
+			{FieldKey: "timeline.raw_activity_text", TextValue: storeStringPtr("blocked")},
 		},
 	}
 	if _, err := store.PatchRow(context.Background(), actor, row.RecordID, patchAfterSupersede, timeline.TimelinePatchRequestHash(patchAfterSupersede), "req-phase3-u-3-04-after-supersede", phase3BaseTime().Add(6*time.Minute)); !errors.Is(err, timeline.ErrIllegalTransition) {
@@ -212,8 +212,8 @@ func TestPhase3_PatchReplayStability_U_3_07(t *testing.T) {
 		BaseRowVersion: 1,
 		ClientTxnID:    "txn-phase3-u-3-07-patch",
 		CanonicalChange: []timeline.PatchChange{
-			{FieldKey: "timeline.details", TextValue: storeStringPtr("details")},
-			{FieldKey: "timeline.summary", TextValue: storeStringPtr("summary")},
+			{FieldKey: "timeline.raw_activity_text", TextValue: storeStringPtr("details")},
+			{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("summary")},
 		},
 	}
 	first, err := store.PatchRow(context.Background(), actor, row.RecordID, patch, timeline.TimelinePatchRequestHash(patch), "req-phase3-u-3-07-patch", phase3BaseTime().Add(time.Minute))
@@ -236,7 +236,7 @@ func TestPhase3_PatchReplayStability_U_3_07(t *testing.T) {
 
 	divergent := patch
 	divergent.CanonicalChange = []timeline.PatchChange{
-		{FieldKey: "timeline.summary", TextValue: storeStringPtr("different")},
+		{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("different")},
 	}
 	if _, err := store.PatchRow(context.Background(), actor, row.RecordID, divergent, timeline.TimelinePatchRequestHash(divergent), "req-phase3-u-3-07-divergent", phase3BaseTime().Add(3*time.Minute)); !errors.Is(err, authn.ErrClientTxnConflict) {
 		t.Fatalf("expected divergent replay conflict, got %v", err)
@@ -254,7 +254,7 @@ func TestPhase3_PatchFieldLevelConcurrency_U_3_11(t *testing.T) {
 			BaseRowVersion: row.RowVersion,
 			ClientTxnID:    "txn-phase3-u-3-11-rebase-server",
 			CanonicalChange: []timeline.PatchChange{
-				{FieldKey: "timeline.summary", TextValue: storeStringPtr("server summary")},
+				{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("server summary")},
 			},
 		}
 		serverResult, err := store.PatchRow(context.Background(), actor, row.RecordID, serverPatch, timeline.TimelinePatchRequestHash(serverPatch), "req-phase3-u-3-11-rebase-server", phase3BaseTime().Add(time.Minute))
@@ -267,7 +267,7 @@ func TestPhase3_PatchFieldLevelConcurrency_U_3_11(t *testing.T) {
 			BaseRowVersion: row.RowVersion,
 			ClientTxnID:    "txn-phase3-u-3-11-rebase-client",
 			CanonicalChange: []timeline.PatchChange{
-				{FieldKey: "timeline.details", TextValue: storeStringPtr("client details")},
+				{FieldKey: "timeline.raw_activity_text", TextValue: storeStringPtr("client details")},
 			},
 		}
 		rebased, err := store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timeline.TimelinePatchRequestHash(stalePatch), "req-phase3-u-3-11-rebase-client", phase3BaseTime().Add(2*time.Minute))
@@ -278,11 +278,11 @@ func TestPhase3_PatchFieldLevelConcurrency_U_3_11(t *testing.T) {
 			t.Fatalf("expected rebased patch to advance once from current version, got %d after %d", rebased.RowVersion, serverResult.RowVersion)
 		}
 		cells := rebased.Payload["row"].(map[string]any)["cells"].(map[string]any)
-		if got := cells["timeline.summary"].(map[string]any)["value"]; got != "server summary" {
-			t.Fatalf("expected rebased row to preserve server summary, got %#v", cells["timeline.summary"])
+		if got := cells["timeline.activity_synopsis_text"].(map[string]any)["value"]; got != "server summary" {
+			t.Fatalf("expected rebased row to preserve server summary, got %#v", cells["timeline.activity_synopsis_text"])
 		}
-		if got := cells["timeline.details"].(map[string]any)["value"]; got != "client details" {
-			t.Fatalf("expected rebased row to include client details, got %#v", cells["timeline.details"])
+		if got := cells["timeline.raw_activity_text"].(map[string]any)["value"]; got != "client details" {
+			t.Fatalf("expected rebased row to include client details, got %#v", cells["timeline.raw_activity_text"])
 		}
 	})
 
@@ -296,7 +296,7 @@ func TestPhase3_PatchFieldLevelConcurrency_U_3_11(t *testing.T) {
 			BaseRowVersion: row.RowVersion,
 			ClientTxnID:    "txn-phase3-u-3-11-text-conflict-server",
 			CanonicalChange: []timeline.PatchChange{
-				{FieldKey: "timeline.summary", TextValue: storeStringPtr("server summary")},
+				{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("server summary")},
 			},
 		}
 		serverResult, err := store.PatchRow(context.Background(), actor, row.RecordID, serverPatch, timeline.TimelinePatchRequestHash(serverPatch), "req-phase3-u-3-11-text-conflict-server", phase3BaseTime().Add(time.Minute))
@@ -310,7 +310,7 @@ func TestPhase3_PatchFieldLevelConcurrency_U_3_11(t *testing.T) {
 			BaseRowVersion: row.RowVersion,
 			ClientTxnID:    "txn-phase3-u-3-11-text-conflict-client",
 			CanonicalChange: []timeline.PatchChange{
-				{FieldKey: "timeline.summary", TextValue: storeStringPtr("client summary")},
+				{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("client summary")},
 			},
 		}
 		_, err = store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timeline.TimelinePatchRequestHash(stalePatch), "req-phase3-u-3-11-text-conflict-client", phase3BaseTime().Add(2*time.Minute))
@@ -319,7 +319,7 @@ func TestPhase3_PatchFieldLevelConcurrency_U_3_11(t *testing.T) {
 			t.Fatalf("expected same-field conflict, got %v", err)
 		}
 		if conflict.Conflict["record_id"] != row.RecordID.String() ||
-			conflict.Conflict["field_key"] != "timeline.summary" ||
+			conflict.Conflict["field_key"] != "timeline.activity_synopsis_text" ||
 			conflict.Conflict["conflict_resolution_class"] != "text_compare_merge" ||
 			conflict.Conflict["base_value"] != "base summary" ||
 			conflict.Conflict["server_value"] != "server summary" ||
@@ -352,7 +352,7 @@ SELECT COUNT(*)
 
 		row := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-11-collection-conflict-row", "collection row", phase3BaseTime())
 		serverPatch := decodeStorePatchRequest(t, `{
-			"view_schema_id": "cartulary.view.timeline.v1",
+			"view_schema_id": "cartulary.view.timeline.v2",
 			"base_row_version": 1,
 			"client_txn_id": "txn-phase3-u-3-11-collection-conflict-server",
 			"changes": [
@@ -371,7 +371,7 @@ SELECT COUNT(*)
 		}
 
 		stalePatch := decodeStorePatchRequest(t, `{
-			"view_schema_id": "cartulary.view.timeline.v1",
+			"view_schema_id": "cartulary.view.timeline.v2",
 			"base_row_version": 1,
 			"client_txn_id": "txn-phase3-u-3-11-collection-conflict-client",
 			"changes": [
@@ -419,7 +419,7 @@ SELECT COUNT(*)
 			BaseRowVersion: row.RowVersion,
 			ClientTxnID:    "txn-phase3-u-3-11-lifecycle-rebase-patch",
 			CanonicalChange: []timeline.PatchChange{
-				{FieldKey: "timeline.details", TextValue: storeStringPtr("stale lifecycle edit")},
+				{FieldKey: "timeline.raw_activity_text", TextValue: storeStringPtr("stale lifecycle edit")},
 			},
 		}
 		rebased, err := store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timeline.TimelinePatchRequestHash(stalePatch), "req-phase3-u-3-11-lifecycle-rebase-patch", phase3BaseTime().Add(2*time.Minute))
@@ -442,8 +442,8 @@ func TestPhase3_CreateAndPatchWriteHistory_U_3_09(t *testing.T) {
 
 	createSummary := "history row"
 	createRequest := timeline.CreateRequest{
-		ClientTxnID: "txn-phase3-u-3-09-create",
-		Summary:     &createSummary,
+		ClientTxnID:          "txn-phase3-u-3-09-create",
+		ActivitySynopsisText: &createSummary,
 	}
 	created, err := store.CreateRow(context.Background(), actor, incidentID, createRequest, timeline.TimelineCreateRequestHash(createRequest), "req-phase3-u-3-09-create", phase3BaseTime())
 	if err != nil {
@@ -456,8 +456,8 @@ func TestPhase3_CreateAndPatchWriteHistory_U_3_09(t *testing.T) {
 		OperationKind:   "create",
 		AfterRowVersion: timelinestoretest.RowVersion(1),
 		AfterCells: map[string]any{
-			"timeline.summary":       "history row",
-			"timeline.capture_state": "rough",
+			"timeline.activity_synopsis_text": "history row",
+			"timeline.capture_state":          "rough",
 		},
 	})
 
@@ -466,7 +466,7 @@ func TestPhase3_CreateAndPatchWriteHistory_U_3_09(t *testing.T) {
 		BaseRowVersion: 1,
 		ClientTxnID:    "txn-phase3-u-3-09-patch",
 		CanonicalChange: []timeline.PatchChange{
-			{FieldKey: "timeline.details", TextValue: storeStringPtr("patched")},
+			{FieldKey: "timeline.raw_activity_text", TextValue: storeStringPtr("patched")},
 		},
 	}
 	patched, err := store.PatchRow(context.Background(), actor, created.RecordID, patch, timeline.TimelinePatchRequestHash(patch), "req-phase3-u-3-09-patch", phase3BaseTime().Add(time.Minute))
@@ -481,12 +481,12 @@ func TestPhase3_CreateAndPatchWriteHistory_U_3_09(t *testing.T) {
 		BeforeRowVersion: timelinestoretest.RowVersion(1),
 		AfterRowVersion:  timelinestoretest.RowVersion(2),
 		BeforeCells: map[string]any{
-			"timeline.details":       nil,
-			"timeline.capture_state": "rough",
+			"timeline.raw_activity_text": nil,
+			"timeline.capture_state":     "rough",
 		},
 		AfterCells: map[string]any{
-			"timeline.details":       "patched",
-			"timeline.capture_state": "enriched",
+			"timeline.raw_activity_text": "patched",
+			"timeline.capture_state":     "enriched",
 		},
 	})
 }
@@ -657,8 +657,8 @@ func createTimelineSummaryRow(t testing.TB, store *timeline.Store, actor authn.U
 	t.Helper()
 
 	request := timeline.CreateRequest{
-		ClientTxnID: clientTxnID,
-		Summary:     &summary,
+		ClientTxnID:          clientTxnID,
+		ActivitySynopsisText: &summary,
 	}
 	result, err := store.CreateRow(context.Background(), actor, incidentID, request, timeline.TimelineCreateRequestHash(request), "req-"+clientTxnID, now)
 	if err != nil {

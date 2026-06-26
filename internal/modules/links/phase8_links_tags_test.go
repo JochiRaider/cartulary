@@ -21,7 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
-const phase8TimelineView = "cartulary.view.timeline.v1"
+const phase8TimelineView = "cartulary.view.timeline.v2"
 
 func TestPhase8_TypedLinksAndTags_U_8_01(t *testing.T) {
 	harness := phase4storetest.StartStore(t, "phase8-u-8-01-links-tags")
@@ -76,7 +76,7 @@ VALUES ($1, $2, $3, 'free_text_relation', 'manual', $4, $4)
 	t.Run("timeline tags use add_tag remove_tag and composite mutation targets", func(t *testing.T) {
 		request, apiErr := timeline.DecodeTimelineCreateRequest(strings.NewReader(`{
 			"client_txn_id": "txn-phase8-u-8-01-create-tags",
-			"timeline.summary": "phase8 tags",
+			"timeline.activity_synopsis_text": "phase8 tags",
 			"timeline.tags": {
 				"kind": "collection_actions_v1",
 				"actions": [
@@ -190,7 +190,7 @@ SELECT COUNT(*)
 			t.Run(tc.name, func(t *testing.T) {
 				_, apiErr := timeline.DecodeTimelineCreateRequest(strings.NewReader(`{
 					"client_txn_id": "txn-phase8-u-8-01-invalid-tag",
-					"timeline.summary": "invalid",
+					"timeline.activity_synopsis_text": "invalid",
 					"timeline.tags": {
 						"kind": "collection_actions_v1",
 						"actions": [` + tc.tag + `]
@@ -215,8 +215,8 @@ func TestPhase8_LinkTagProjectionHistoryQuery_I_8_03(t *testing.T) {
 	incidentID := mustUUID(t, incident["incident_id"].(string))
 
 	row := createTimelineRow(t, harness, login, incidentID, map[string]any{
-		"client_txn_id":    "txn-phase8-i-8-03-create",
-		"timeline.summary": "phase8 atomic row",
+		"client_txn_id":                   "txn-phase8-i-8-03-create",
+		"timeline.activity_synopsis_text": "phase8 atomic row",
 	})
 	recordID := mustUUID(t, row["record_id"].(string))
 	evidenceID := uuid.New()

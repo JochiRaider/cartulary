@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	timelineViewSchemaID     = "cartulary.view.timeline.v1"
+	timelineViewSchemaID     = "cartulary.view.timeline.v2"
 	hostsViewSchemaID        = "cartulary.view.hosts.v1"
 	identitiesViewSchemaID   = "cartulary.view.identities.v1"
 	indicatorsViewSchemaID   = "cartulary.view.indicators.v1"

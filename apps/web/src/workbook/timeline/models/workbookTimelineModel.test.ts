@@ -29,13 +29,16 @@ import {
 } from "./workbookTimelineModel";
 
 const timelineWidthFieldKeys = [
-  "timeline.occurred_at",
-  "timeline.summary",
-  "timeline.host_refs",
-  "timeline.identity_refs",
-  "timeline.evidence_count",
-  "timeline.tags",
-  "timeline.edited_at",
+  "timeline.date_entered_text",
+  "timeline.analyst_text",
+  "timeline.mitre_stage_text",
+  "timeline.device_object_text",
+  "timeline.ip_address_text",
+  "timeline.activity_utc_text",
+  "timeline.activity_local_text",
+  "timeline.raw_activity_text",
+  "timeline.activity_synopsis_text",
+  "timeline.data_source_text",
 ] as const;
 const timelineWidthFixedChrome = {
   actionsColumnWidth: 0,
@@ -56,10 +59,16 @@ function timelineRow(cells: Record<string, { value: unknown }> = {}) {
     record_id: "timeline-1",
     row_version: 4,
     cells: {
-      "timeline.occurred_at": { value: "2026-04-24T12:00:00Z" },
-      "timeline.summary": { value: "Initial access" },
-      "timeline.details": { value: "Observed by EDR" },
-      "timeline.source_text": { value: "EDR alert" },
+      "timeline.date_entered_text": { value: "2026-04-24" },
+      "timeline.analyst_text": { value: "Analyst A" },
+      "timeline.mitre_stage_text": { value: "TA0001" },
+      "timeline.device_object_text": { value: "HOST-1" },
+      "timeline.ip_address_text": { value: "192.0.2.10" },
+      "timeline.activity_utc_text": { value: "2026-04-24T12:00:00Z" },
+      "timeline.activity_local_text": { value: "2026-04-24T08:00:00-04:00" },
+      "timeline.raw_activity_text": { value: "EDR alert" },
+      "timeline.activity_synopsis_text": { value: "Initial access" },
+      "timeline.data_source_text": { value: "EDR" },
       "timeline.capture_state": { value: "rough" },
       "timeline.host_refs": { value: { items: [] } },
       "timeline.identity_refs": { value: { items: [] } },
@@ -76,10 +85,10 @@ function timelineRow(cells: Record<string, { value: unknown }> = {}) {
       "timeline.attached_evidence_ids": { value: { items: [] } },
       "timeline.edited_at": { value: "" },
       "timeline.recorded_at": { value: "" },
-      "timeline.sort_ts": { value: "2026-04-24T12:00:00Z" },
+      "timeline.activity_sort_ts": { value: "2026-04-24T12:00:00Z" },
+      "timeline.date_entered_sort_day": { value: "2026-04-24" },
+      "timeline.activity_time_pair_state": { value: "paired_user_preserved" },
       "timeline.replacement_record_id": { value: null },
-      "timeline.occurred_day": { value: "2026-04-24" },
-      "timeline.recorded_day": { value: "" },
       "timeline.has_evidence": { value: false },
       "timeline.has_unresolved_mentions": { value: false },
       ...cells,
@@ -90,9 +99,11 @@ function timelineRow(cells: Record<string, { value: unknown }> = {}) {
 
 describe("workbookTimelineModel", () => {
   it("exposes Timeline bindings and focus keys without component-local field maps", () => {
-    expect(timelineFieldBinding("timeline.summary")).toMatchObject({
+    expect(
+      timelineFieldBinding("timeline.activity_synopsis_text"),
+    ).toMatchObject({
       kind: "scalar",
-      key: "summary",
+      key: "activitySynopsisText",
     });
     expect(timelineFieldBinding("timeline.host_refs")).toMatchObject({
       kind: "collection",
@@ -105,21 +116,27 @@ describe("workbookTimelineModel", () => {
       "identityRefs",
     );
     expect(timelineScalarBindings.map((binding) => binding.fieldKey)).toEqual([
-      "timeline.occurred_at",
-      "timeline.summary",
-      "timeline.details",
-      "timeline.source_text",
+      "timeline.date_entered_text",
+      "timeline.analyst_text",
+      "timeline.mitre_stage_text",
+      "timeline.device_object_text",
+      "timeline.ip_address_text",
+      "timeline.activity_utc_text",
+      "timeline.activity_local_text",
+      "timeline.raw_activity_text",
+      "timeline.activity_synopsis_text",
+      "timeline.data_source_text",
     ]);
     expect(timelineInspectorBindings.map((binding) => binding.key)).toEqual([
-      "details",
-      "sourceText",
+      "rawActivityText",
+      "activitySynopsisText",
     ]);
     expect(timelineVisibleBindings.length).toBeGreaterThan(0);
-    expect(timelineColumnWidth("timeline.evidence_count")).toBe(112);
-    expect(timelineColumnWidth("timeline.edited_at")).toBe(248);
-    expect(inputFocusKey("timeline-1", "summary", "inspector")).toBe(
-      "timeline-1:summary:inspector",
-    );
+    expect(timelineColumnWidth("timeline.ip_address_text")).toBe(160);
+    expect(timelineColumnWidth("timeline.raw_activity_text")).toBe(320);
+    expect(
+      inputFocusKey("timeline-1", "activitySynopsisText", "inspector"),
+    ).toBe("timeline-1:activitySynopsisText:inspector");
     expect(timelineRelationshipLabel("timeline.identity_refs")).toBe(
       "Identities",
     );
@@ -146,26 +163,23 @@ describe("workbookTimelineModel", () => {
       fieldKeys: timelineWidthFieldKeys,
       gridShellWidth: timelineBaseShellWidth + 100,
     });
-    expect(expandedWidths["timeline.occurred_at"]).toBe(
-      timelineColumnWidth("timeline.occurred_at"),
+    expect(expandedWidths["timeline.activity_utc_text"]).toBe(
+      timelineColumnWidth("timeline.activity_utc_text"),
     );
-    expect(expandedWidths["timeline.evidence_count"]).toBe(
-      timelineColumnWidth("timeline.evidence_count"),
+    expect(expandedWidths["timeline.ip_address_text"]).toBe(
+      timelineColumnWidth("timeline.ip_address_text"),
     );
-    expect(expandedWidths["timeline.summary"]).toBe(
-      timelineColumnWidth("timeline.summary") + 30,
+    expect(expandedWidths["timeline.raw_activity_text"]).toBe(
+      timelineColumnWidth("timeline.raw_activity_text") + 42,
     );
-    expect(expandedWidths["timeline.host_refs"]).toBe(
-      timelineColumnWidth("timeline.host_refs") + 20,
+    expect(expandedWidths["timeline.activity_synopsis_text"]).toBe(
+      timelineColumnWidth("timeline.activity_synopsis_text") + 28,
     );
-    expect(expandedWidths["timeline.identity_refs"]).toBe(
-      timelineColumnWidth("timeline.identity_refs") + 20,
+    expect(expandedWidths["timeline.device_object_text"]).toBe(
+      timelineColumnWidth("timeline.device_object_text") + 14,
     );
-    expect(expandedWidths["timeline.tags"]).toBe(
-      timelineColumnWidth("timeline.tags") + 10,
-    );
-    expect(expandedWidths["timeline.edited_at"]).toBe(
-      timelineColumnWidth("timeline.edited_at") + 20,
+    expect(expandedWidths["timeline.data_source_text"]).toBe(
+      timelineColumnWidth("timeline.data_source_text") + 16,
     );
   });
 
@@ -198,16 +212,16 @@ describe("workbookTimelineModel", () => {
       rowVersion: 4,
       captureState: "rough",
       values: {
-        occurredAt: "2026-04-24T12:00:00Z",
-        summary: "Initial access",
+        activityUTCText: "2026-04-24T12:00:00Z",
+        activitySynopsisText: "Initial access",
       },
     });
     expect(
       readTimelineTagItems(normalized).map((item) => item.displayText),
     ).toEqual(["credential_access", "lateral_movement"]);
-    expect(readTimelineCellValue(normalized, "timeline.summary")).toBe(
-      "Initial access",
-    );
+    expect(
+      readTimelineCellValue(normalized, "timeline.activity_synopsis_text"),
+    ).toBe("Initial access");
     expect(timelineGroupLabel(row, "timeline.missing")).toBe("Unassigned");
 
     const patch = normalizeTimelinePatchCells(
@@ -215,7 +229,7 @@ describe("workbookTimelineModel", () => {
         record_id: "timeline-1",
         row_version: 5,
         cells: {
-          "timeline.summary": { value: "Updated summary" },
+          "timeline.activity_synopsis_text": { value: "Updated summary" },
         },
         group_values: { "timeline.capture_state": "refined" },
       },
@@ -224,7 +238,7 @@ describe("workbookTimelineModel", () => {
     expect(applyViewRowPatch(normalized, patch)).toMatchObject({
       row_version: 5,
       cells: {
-        "timeline.summary": { value: "Updated summary" },
+        "timeline.activity_synopsis_text": { value: "Updated summary" },
       },
       group_values: { "timeline.capture_state": "refined" },
     });
@@ -237,10 +251,16 @@ describe("workbookTimelineModel", () => {
     const row = {
       ...rowFromApi(normalizeTimelineFullRow(timelineRow(), "payload row")),
       values: {
-        occurredAt: "2026-04-24T12:00:00Z",
-        summary: "Changed summary",
-        details: "",
-        sourceText: "EDR alert",
+        dateEnteredText: "2026-04-24",
+        analystText: "Analyst A",
+        mitreStageText: "TA0001",
+        deviceObjectText: "HOST-1",
+        ipAddressText: "192.0.2.10",
+        activityUTCText: "2026-04-24T12:00:00Z",
+        activityLocalText: "2026-04-24T08:00:00-04:00",
+        rawActivityText: "",
+        activitySynopsisText: "Changed summary",
+        dataSourceText: "EDR",
       },
     };
 
@@ -248,8 +268,11 @@ describe("workbookTimelineModel", () => {
       view_schema_id: timelineViewSchemaId,
       client_txn_id: "txn-1",
       changes: [
-        { field_key: "timeline.details", value: null },
-        { field_key: "timeline.summary", value: "Changed summary" },
+        {
+          field_key: "timeline.activity_synopsis_text",
+          value: "Changed summary",
+        },
+        { field_key: "timeline.raw_activity_text", value: "" },
       ],
     });
     expect(
