@@ -50,6 +50,11 @@ export class Phase1Page {
     await this.page.goto("/");
   }
 
+  async gotoIncidentDirectory() {
+    await this.goto();
+    await this.openIncidentDirectory();
+  }
+
   async login(email: string, password: string, totpCode = "") {
     await this.loginUsername.fill(email);
     await this.loginPassword.fill(password);
@@ -135,11 +140,23 @@ export class Phase1Page {
   async openIncidentDirectory() {
     await this.closeAccountSettingsIfOpen();
     const landingShell = this.page.getByTestId(phase1LandingTestId("shell"));
-    if (await landingShell.isVisible()) {
+    if (await this.isManualIncidentDirectoryOpen()) {
       return;
     }
-    await this.openAccountMenu();
-    await this.page.getByRole("menuitem", { name: "Incidents" }).click();
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await this.clickAccountMenuItem("Incidents");
+        await this.expectManualIncidentDirectoryOpen();
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (lastError !== null) {
+      throw lastError;
+    }
     await expect(landingShell).toBeVisible();
   }
 
@@ -147,6 +164,38 @@ export class Phase1Page {
     const trigger = this.page.getByLabel("Account and application navigation");
     await expect(trigger).toBeVisible();
     await trigger.click();
+  }
+
+  private async clickAccountMenuItem(name: string) {
+    const menuItem = this.page.getByRole("menuitem", { name, exact: true });
+    if (!(await menuItem.isVisible().catch(() => false))) {
+      await this.openAccountMenu();
+    }
+    await expect(menuItem).toBeVisible({ timeout: 1_000 });
+    await menuItem.click();
+  }
+
+  private async isManualIncidentDirectoryOpen() {
+    const landingShell = this.page.getByTestId(phase1LandingTestId("shell"));
+    if (!(await landingShell.isVisible().catch(() => false))) {
+      return false;
+    }
+    return await this.page.evaluate(() => {
+      const search = new URLSearchParams(window.location.search);
+      return (
+        window.location.pathname === "/" &&
+        !search.has("incident_id") &&
+        window.history.state?.cartularyIncidentDirectory === true
+      );
+    });
+  }
+
+  private async expectManualIncidentDirectoryOpen() {
+    const landingShell = this.page.getByTestId(phase1LandingTestId("shell"));
+    await expect(landingShell).toBeVisible();
+    await expect
+      .poll(async () => this.isManualIncidentDirectoryOpen())
+      .toBe(true);
   }
 
   private async closeAccountSettingsIfOpen() {

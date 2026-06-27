@@ -718,7 +718,7 @@ describe("Phase 7 workbook history support coverage", () => {
 
     fireEvent.click(screen.getByTestId(rowHistoryRestoreButtonTestId()));
     fireEvent.click(
-      screen.getByTestId(
+      await screen.findByTestId(
         rowHistoryDestructiveConfirmButtonTestId({ operation: "restore" }),
       ),
     );

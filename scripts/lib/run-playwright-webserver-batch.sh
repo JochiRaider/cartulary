@@ -453,32 +453,17 @@ emit_playwright_manifest_slice() {
   local selected_ids="$7"
   local phase_dir
   local selection_report
+  local -a selection_command
   local helper_status
   local phase_helper="playwright-manifest-phase"
 
   phase_dir="$(prepare_phase_artifact_dir "$label")"
   selection_report="${phase_dir}/manifest-selected-tests.json"
-  if [[ "$frontend_row_accounting_scope" == "selected_rows" ]]; then
-    selection_report="${phase_dir}/frontend-selected-tests.json"
-    "$node_bin" - "$shard_plan" "$phase" "$selected_ids" "$frontend_row_ids" <<'EOF' >"$selection_report"
-const fs = require("node:fs");
-const [planPath, phase, selectedIdsRaw, requestedIdsRaw] = process.argv.slice(2);
-const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
-const selectedIds = new Set(selectedIdsRaw.split(/\r?\n/u).filter(Boolean));
-const entries = (plan.entries ?? []).filter((entry) => selectedIds.has(entry.id));
-process.stdout.write(`${JSON.stringify({
-  schema_id: "cartulary.frontend_selected_playwright_rows.v1",
-  phase_namespace: "frontend",
-  base_phase: phase,
-  requested_row_ids: requestedIdsRaw.split(",").map((entry) => entry.trim()).filter(Boolean),
-  selected_row_ids: [...selectedIds].sort(),
-  entries,
-}, null, 2)}\n`);
-EOF
-    phase_helper="playwright-phase"
-  else
-    "$node_bin" "$manifest_script" playwright-selection-report "$phase" authoritative browser_functional >"$selection_report"
+  selection_command=("$node_bin" "$shard_plan_script" selected-tests "$shard_plan" "$phase")
+  if [[ "$mode" == "functional-shard" && -n "$single_shard_name" ]]; then
+    selection_command+=("$single_shard_name")
   fi
+  "${selection_command[@]}" >"$selection_report"
 
   set +e
   CARTULARY_REPORT_SLICE=1 \

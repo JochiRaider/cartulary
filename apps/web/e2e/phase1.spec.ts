@@ -647,7 +647,7 @@ test("E-1-09 creates an incident from the landing screen, lists it, and opens th
   const secondIncidentKey = uniqueIncidentKey("E109B");
   const secondIncidentTitle = "Phase 1 E-1-09 companion";
 
-  await phase1.goto();
+  await phase1.gotoIncidentDirectory();
   await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
 
   const createResponsePromise = waitForPublicAPIResponse(page, {

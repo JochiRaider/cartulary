@@ -134,6 +134,109 @@ async function readWorkbookLayoutRects(page: Page) {
   );
 }
 
+async function closeIncidentControlsIfOpen(page: Page) {
+  const closeButton = page.getByRole("button", {
+    name: "Close incident controls",
+  });
+  if ((await closeButton.count()) > 0 && (await closeButton.isVisible())) {
+    await closeButton.click();
+    await expect(page.getByTestId(incidentControlsPanelTestId())).toHaveCount(
+      0,
+    );
+  }
+}
+
+async function expectWorkbookShellComposition(
+  page: Page,
+  options: {
+    expectIncidentPreferences?: boolean;
+    incidentId: string;
+    incidentKey: string;
+    incidentTitle: string;
+  },
+) {
+  const shell = page.getByTestId(workbookShellReadyTestId());
+  await expect(shell).toHaveCount(1);
+  await expect(shell).toBeVisible();
+
+  const shellId = workbookShellReadyTestId();
+  await expect(shell).toHaveAttribute("data-workbook-shell-id", shellId);
+  for (const slot of workbookShellSlots) {
+    const slotLocator = shell.locator(
+      dataTestIdSelector(workbookShellSlotTestId(slot)),
+    );
+    if (slot === "inspector") {
+      await expect(slotLocator).toHaveCount(0);
+      continue;
+    }
+    await expect(slotLocator).toHaveCount(1);
+    await expect(slotLocator).toHaveAttribute(
+      "data-workbook-shell-id",
+      shellId,
+    );
+  }
+
+  await expect(
+    shell
+      .locator(dataTestIdSelector(workbookShellSlotTestId("top-bar")))
+      .getByTestId(systemViewSwitcherTriggerTestId()),
+  ).toBeVisible();
+
+  const tabBar = shell.locator(
+    dataTestIdSelector(workbookShellSlotTestId("top-bar")),
+  );
+  const builtInTabsByRegistryIndex = await tabBar
+    .locator("[data-workbook-tab-index]")
+    .evaluateAll((nodes) =>
+      nodes
+        .map((node) => ({
+          index: Number(node.getAttribute("data-workbook-tab-index")),
+          testId: node.getAttribute("data-testid"),
+          viewSchemaId: node.getAttribute("data-view-schema-id"),
+        }))
+        .sort((left, right) => left.index - right.index),
+    );
+  expect(builtInTabsByRegistryIndex).toEqual(
+    requiredBuiltInWorkbookSurfaceIds.map((viewSchemaId, index) => ({
+      index,
+      testId: surfaceTabTestId(viewSchemaId),
+      viewSchemaId,
+    })),
+  );
+
+  const currentWorkbookUrl = new URL(page.url());
+  expect(currentWorkbookUrl.pathname).toBe("/");
+  expect(currentWorkbookUrl.searchParams.get("incident_id")).toBe(
+    options.incidentId,
+  );
+
+  await expect(
+    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await expectCurrentIncidentRole(page, "Current incident role: admin");
+
+  const closedLayout = await readWorkbookLayoutRects(page);
+  await openIncidentControls(page);
+  const openLayout = await readWorkbookLayoutRects(page);
+  expect(openLayout).toEqual(closedLayout);
+  await expect(page.getByTestId("incident-summary-key")).toHaveText(
+    options.incidentKey,
+  );
+  await expect(page.getByTestId("incident-summary-title")).toHaveText(
+    options.incidentTitle,
+  );
+  await expect(page.getByTestId("incident-summary-role")).toHaveText("admin");
+  if (options.expectIncidentPreferences === true) {
+    await expect(
+      page.getByTestId("incident-pref-default-sheet-ref"),
+    ).toHaveText("View schema: Timeline (cartulary.view.timeline.v2)");
+    await expect(page.getByTestId("incident-pref-home-sheet-ref")).toHaveText(
+      "View schema: Timeline (cartulary.view.timeline.v2)",
+    );
+  }
+  await closeIncidentControlsIfOpen(page);
+}
+
 async function readAccountPreferences(
   page: Page,
 ): Promise<AccountPreferencesResource> {
@@ -218,67 +321,9 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   const openedWorkbookUrl = new URL(page.url());
   const openedIncidentId = openedWorkbookUrl.searchParams.get("incident_id");
   expect(openedWorkbookUrl.pathname).toBe("/");
-  expect(openedIncidentId).not.toBeNull();
-
-  const shell = page.getByTestId(workbookShellReadyTestId());
-  await expect(shell).toHaveCount(1);
-  await expect(shell).toBeVisible();
-
-  const shellId = workbookShellReadyTestId();
-  await expect(shell).toHaveAttribute("data-workbook-shell-id", shellId);
-  for (const slot of workbookShellSlots) {
-    const slotLocator = shell.locator(
-      dataTestIdSelector(workbookShellSlotTestId(slot)),
-    );
-    if (slot === "inspector") {
-      await expect(slotLocator).toHaveCount(0);
-      continue;
-    }
-    await expect(slotLocator).toHaveCount(1);
-    await expect(slotLocator).toHaveAttribute(
-      "data-workbook-shell-id",
-      shellId,
-    );
+  if (openedIncidentId === null) {
+    throw new Error("expected E-2-01 to open an incident workbook");
   }
-
-  await expect(
-    shell
-      .locator(dataTestIdSelector(workbookShellSlotTestId("top-bar")))
-      .getByTestId(systemViewSwitcherTriggerTestId()),
-  ).toBeVisible();
-
-  const tabBar = shell.locator(
-    dataTestIdSelector(workbookShellSlotTestId("top-bar")),
-  );
-  const builtInTabsByRegistryIndex = await tabBar
-    .locator("[data-workbook-tab-index]")
-    .evaluateAll((nodes) =>
-      nodes
-        .map((node) => ({
-          index: Number(node.getAttribute("data-workbook-tab-index")),
-          testId: node.getAttribute("data-testid"),
-          viewSchemaId: node.getAttribute("data-view-schema-id"),
-        }))
-        .sort((left, right) => left.index - right.index),
-    );
-  expect(builtInTabsByRegistryIndex).toEqual(
-    requiredBuiltInWorkbookSurfaceIds.map((viewSchemaId, index) => ({
-      index,
-      testId: surfaceTabTestId(viewSchemaId),
-      viewSchemaId,
-    })),
-  );
-
-  const currentWorkbookUrl = new URL(page.url());
-  expect(currentWorkbookUrl.pathname).toBe("/");
-  expect(currentWorkbookUrl.searchParams.get("incident_id")).toBe(
-    openedIncidentId,
-  );
-
-  await expect(
-    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
-  ).toBeVisible();
-  await expectCurrentIncidentRole(page, "Current incident role: admin");
   await setCurrentSavedViewAsHome(page, timelineViewSchemaId);
   await expect(
     page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
@@ -287,39 +332,27 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await expect(
     page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
   ).toHaveText("Default view updated.");
-  const closedLayout = await readWorkbookLayoutRects(page);
-  await openIncidentControls(page);
-  const openLayout = await readWorkbookLayoutRects(page);
+
+  await expectWorkbookShellComposition(page, {
+    expectIncidentPreferences: true,
+    incidentId: openedIncidentId,
+    incidentKey,
+    incidentTitle: "Phase 2 E-2-01",
+  });
   expect(pageErrors).toEqual([]);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
-  expect(openLayout).toEqual(closedLayout);
-  await expect(page.getByTestId("incident-summary-key")).toHaveText(
-    incidentKey,
-  );
-  await expect(page.getByTestId("incident-summary-title")).toHaveText(
-    "Phase 2 E-2-01",
-  );
-  await expect(page.getByTestId("incident-summary-role")).toHaveText("admin");
-  await expect(page.getByTestId("incident-pref-default-sheet-ref")).toHaveText(
-    "View schema: Timeline (cartulary.view.timeline.v2)",
-  );
-  await expect(page.getByTestId("incident-pref-home-sheet-ref")).toHaveText(
-    "View schema: Timeline (cartulary.view.timeline.v2)",
-  );
 });
 
 test("FE-B-P2-01 updates workbook density from Account Settings while the workbook remains open", async ({
   page,
 }) => {
   const originalPreferences = await readAccountPreferences(page);
-  const incidentId = await createIncident(
-    page,
-    uniqueIncidentKey("FEBP201D"),
-    "FE-B-P2-01 density",
-  );
+  const incidentKey = uniqueIncidentKey("FEBP201D");
+  const incidentTitle = "FE-B-P2-01 density";
+  const incidentId = await createIncident(page, incidentKey, incidentTitle);
   const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("fe-b-p2-01-density-row"),
     "timeline.activity_synopsis_text": "FE-B-P2-01 density row",
@@ -334,6 +367,11 @@ test("FE-B-P2-01 updates workbook density from Account Settings while the workbo
         rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
       ),
     ).toHaveValue("FE-B-P2-01 density row");
+    await expectWorkbookShellComposition(page, {
+      incidentId,
+      incidentKey,
+      incidentTitle,
+    });
 
     const phase1Page = new Phase1Page(page);
     await phase1Page.openAccountSettings("account-appearance");

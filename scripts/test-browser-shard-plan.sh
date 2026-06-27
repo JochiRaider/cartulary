@@ -392,6 +392,56 @@ if (!plan.shards.some((shard) => String(shard.grep).includes("E-1-03 beta second
 EOF
 
 CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+  "$node_cmd" "$PLANNER" selected-tests "$tmp_dir/plan.json" phase1 >"$tmp_dir/selected-phase1.json"
+assert_equals "$(json_field "$tmp_dir/selected-phase1.json" "schema_id")" "cartulary.playwright_manifest_selection.v1" "selected tests schema"
+assert_equals "$(json_field "$tmp_dir/selected-phase1.json" "expected_count")" "4" "selected tests flatten multi-title rows"
+"$node_cmd" - "$tmp_dir/selected-phase1.json" <<'EOF'
+const fs = require("node:fs");
+const [selectionFile] = process.argv.slice(2);
+const selection = JSON.parse(fs.readFileSync(selectionFile, "utf8"));
+const keys = new Set(
+  (selection.selected_tests ?? []).map((entry) => `${entry.id}::${entry.file}::${entry.title}`),
+);
+for (const key of [
+  "E-1-01::e2e/alpha.spec.ts::E-1-01 alpha one",
+  "E-1-03::e2e/beta.spec.ts::E-1-03 beta primary",
+  "E-1-03::e2e/beta.spec.ts::E-1-03 beta secondary",
+]) {
+  if (!keys.has(key)) {
+    throw new Error(`selected-tests report missing ${key}`);
+  }
+}
+EOF
+multi_title_shard="$("$node_cmd" - "$tmp_dir/plan.json" <<'EOF'
+const fs = require("node:fs");
+const [planFile] = process.argv.slice(2);
+const plan = JSON.parse(fs.readFileSync(planFile, "utf8"));
+for (const shard of plan.shards ?? []) {
+  if ((shard.entries ?? []).some((entry) => entry.id === "E-1-03")) {
+    process.stdout.write(shard.name);
+    process.exit(0);
+  }
+}
+throw new Error("missing shard for E-1-03");
+EOF
+)"
+CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+  "$node_cmd" "$PLANNER" selected-tests "$tmp_dir/plan.json" phase1 "$multi_title_shard" >"$tmp_dir/selected-phase1-shard.json"
+"$node_cmd" - "$tmp_dir/selected-phase1-shard.json" <<'EOF'
+const fs = require("node:fs");
+const [selectionFile] = process.argv.slice(2);
+const selected = JSON.parse(fs.readFileSync(selectionFile, "utf8")).selected_tests ?? [];
+const beta = selected.filter((entry) => entry.id === "E-1-03").map((entry) => entry.title).sort();
+const expected = ["E-1-03 beta primary", "E-1-03 beta secondary"];
+if (JSON.stringify(beta) !== JSON.stringify(expected)) {
+  throw new Error(`per-shard selected-tests must keep only selected multi-title scenarios, got ${JSON.stringify(beta)}`);
+}
+if (selected.some((entry) => entry.phase && entry.phase !== "phase1")) {
+  throw new Error("per-shard selected-tests leaked a non-phase1 entry");
+}
+EOF
+
+CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" plan --phase phase2 --baseline-file "$tmp_dir/baseline.json" --max-shards 3 >"$tmp_dir/phase2-plan.json"
 assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "phase")" "phase2" "phase-filtered plan records selected phase"
 

@@ -109,6 +109,7 @@ let cachedManifestIndex;
 let cachedFrontendVitestIndex;
 let cachedFrontendPlaywrightIndex;
 let cachedTestAccountingClassification;
+const cachedPlaywrightSelectionReports = new Map();
 
 function firstArtifactPath(value) {
   if (!value || value === "-") {
@@ -6022,8 +6023,16 @@ function finalizeManifestAwareRunnerPhase(
   if (manifestAware && selectedSlicePassed && !emptySelectionAllowed) {
     const scope = readManifestScopeEnv();
     const selectedIDs = optionalSetFromLines("CARTULARY_MANIFEST_SELECTED_IDS");
-    const entries = (
+    const selectedPlaywrightEntries =
       runner === "playwright"
+        ? selectedPlaywrightEntriesFromReport(
+            optionalEnv("CARTULARY_PLAYWRIGHT_SELECTION_REPORT"),
+            scope,
+          )
+        : null;
+    const entries =
+      selectedPlaywrightEntries ??
+      (runner === "playwright"
         ? selectPlaywrightEntries(
             repoRoot,
             scope.phase,
@@ -6035,7 +6044,7 @@ function finalizeManifestAwareRunnerPhase(
             section,
             ...scope,
           })
-    ).filter((entry) => selectedIDs.size === 0 || selectedIDs.has(entry.id));
+      ).filter((entry) => selectedIDs.size === 0 || selectedIDs.has(entry.id));
     const verification = evaluateFlatTitleManifest(summary, {
       phase: scope.phase,
       entries,
@@ -6950,7 +6959,7 @@ function timingWindowDurationMs(window) {
   return window.endMs - window.startMs;
 }
 
-function summarizePlaywrightTiming(specs, phase, phaseLabel) {
+function summarizePlaywrightTiming(specs, phase, phaseLabel, selection = null) {
   const files = new Map();
   const entryTimings = [];
   const totalWindow = { startMs: null, endMs: null };
@@ -6961,11 +6970,9 @@ function summarizePlaywrightTiming(specs, phase, phaseLabel) {
 
   for (const spec of specs) {
     const file = normalizePlaywrightFile(spec.file ?? "");
-    const classification = classifyPlaywrightCase(
-      spec.file ?? "",
-      spec.title ?? "",
-      phaseLabel,
-    );
+    const classification =
+      selection?.classify?.(file, spec.title ?? "") ??
+      classifyPlaywrightCase(spec.file ?? "", spec.title ?? "", phaseLabel);
     if (!files.has(file)) {
       files.set(file, {
         file,
@@ -7068,19 +7075,44 @@ function createPlaywrightSelection({ manifestAware }) {
   const reportSlice = optionalEnv("CARTULARY_REPORT_SLICE") === "1";
 
   if (manifestAware && reportSlice) {
-    const { phase, coverage, executionDependency } = readManifestScopeEnv();
+    const scope = readManifestScopeEnv();
+    const selectionReport = optionalEnv("CARTULARY_PLAYWRIGHT_SELECTION_REPORT");
+    const reportSelection = readPlaywrightSelectionReport(
+      selectionReport,
+      scope,
+    );
+    const reportClassificationByKey = new Map(
+      (reportSelection?.tests ?? []).map((test) => [
+        `${test.file}::${test.title}`,
+        {
+          coverage: manifestCoverageToInventoryCoverage(
+            test.coverage ?? scope.coverage,
+          ),
+          phase: test.phase,
+          id: test.id,
+          owner: test.file,
+        },
+      ]),
+    );
     const selected = new Set(
-      selectPlaywrightManifestEntries(
-        phase,
-        coverage,
-        executionDependency,
-      ).flatMap((entry) =>
-        playwrightEntryTitles(entry).map((title) => `${entry.file}::${title}`),
-      ),
+      reportSelection
+        ? reportSelection.tests.map((test) => `${test.file}::${test.title}`)
+        : selectPlaywrightManifestEntries(
+            scope.phase,
+            scope.coverage,
+            scope.executionDependency,
+          ).flatMap((entry) =>
+            playwrightEntryTitles(entry).map(
+              (title) => `${entry.file}::${title}`,
+            ),
+          ),
     );
     return {
       matches(normalizedFile, title) {
         return selected.has(`${normalizedFile}::${title}`);
+      },
+      classify(normalizedFile, title) {
+        return reportClassificationByKey.get(`${normalizedFile}::${title}`) ?? null;
       },
     };
   }
@@ -7176,11 +7208,10 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
   }
 
   for (const spec of specs) {
-    const classification = classifyPlaywrightCase(
-      spec.file ?? "",
-      spec.title ?? "",
-      phaseLabel,
-    );
+    const normalizedFile = normalizePlaywrightFile(spec.file ?? "");
+    const classification =
+      selection?.classify?.(normalizedFile, spec.title ?? "") ??
+      classifyPlaywrightCase(spec.file ?? "", spec.title ?? "", phaseLabel);
     owners.add(classification.owner);
     const executedResults = [];
     for (const test of spec.tests ?? []) {
@@ -7291,6 +7322,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
       specs,
       inferPhaseFromText(phaseLabel),
       phaseLabel,
+      selection,
     ),
   };
 }
@@ -7302,6 +7334,100 @@ function selectPlaywrightManifestEntries(phase, coverage, executionDependency) {
     coverage,
     executionDependency,
   );
+}
+
+function normalizePlaywrightSelectionReportFile(file) {
+  const normalized = normalizePath(String(file ?? ""));
+  if (normalized.startsWith("apps/web/")) {
+    return normalized;
+  }
+  if (normalized.startsWith("e2e/")) {
+    return `apps/web/${normalized}`;
+  }
+  return normalizePlaywrightFile(normalized);
+}
+
+function frontendPhaseFromRowID(rowID) {
+  const match = /^FE-(?:U|I|B|E|V|A11Y|S)-P([0-9]+)-[0-9]{2}$/u.exec(
+    rowID,
+  );
+  return match ? `FE-P${match[1]}` : "";
+}
+
+function readPlaywrightSelectionReport(reportFile, scope = null) {
+  if (!reportFile || !existsSync(reportFile)) {
+    return null;
+  }
+  const cacheKey = `${reportFile}\u0000${JSON.stringify(scope ?? {})}`;
+  if (cachedPlaywrightSelectionReports.has(cacheKey)) {
+    return cachedPlaywrightSelectionReports.get(cacheKey);
+  }
+  const report = JSON.parse(readFileSync(reportFile, "utf8"));
+  if (report.schema_id !== "cartulary.playwright_manifest_selection.v1") {
+    cachedPlaywrightSelectionReports.set(cacheKey, null);
+    return null;
+  }
+  if (scope) {
+    if (report.phase !== scope.phase) {
+      throw new Error(
+        `${relToRepo(reportFile)} phase ${report.phase} does not match ${scope.phase}`,
+      );
+    }
+    if (report.coverage !== scope.coverage) {
+      throw new Error(
+        `${relToRepo(reportFile)} coverage ${report.coverage} does not match ${scope.coverage}`,
+      );
+    }
+    const reportExecutionDependency = report.execution_dependency ?? "";
+    if (reportExecutionDependency !== scope.executionDependency) {
+      throw new Error(
+        `${relToRepo(reportFile)} execution_dependency ${reportExecutionDependency} does not match ${scope.executionDependency}`,
+      );
+    }
+  }
+  const tests = [];
+  for (const [index, test] of (report.selected_tests ?? []).entries()) {
+    if (
+      typeof test?.id !== "string" ||
+      test.id.trim() === "" ||
+      typeof test?.file !== "string" ||
+      test.file.trim() === "" ||
+      typeof test?.title !== "string" ||
+      test.title.trim() === ""
+    ) {
+      throw new Error(
+        `${relToRepo(reportFile)} selected_tests[${index + 1}] must declare id, file, and title`,
+      );
+    }
+    tests.push({
+      id: test.id,
+      file: normalizePlaywrightSelectionReportFile(test.file),
+      title: test.title,
+      coverage: test.coverage ?? scope?.coverage ?? "authoritative",
+      execution_dependency:
+        test.execution_dependency ?? scope?.executionDependency ?? "",
+      phase: frontendPhaseFromRowID(test.id) || scope?.phase || report.phase,
+    });
+  }
+  const selection = { report, tests };
+  cachedPlaywrightSelectionReports.set(cacheKey, selection);
+  return selection;
+}
+
+function selectedPlaywrightEntriesFromReport(reportFile, scope) {
+  const selection = readPlaywrightSelectionReport(reportFile, scope);
+  if (!selection) {
+    return null;
+  }
+  return selection.tests.map((test) => ({
+    id: test.id,
+    phase: scope.phase,
+    runner: "playwright",
+    file: test.file,
+    title: test.title,
+    coverage: test.coverage,
+    execution_dependency: test.execution_dependency,
+  }));
 }
 
 function handlePlaywrightPhase({ manifestAware }) {

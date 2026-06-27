@@ -40,6 +40,7 @@ function usage() {
     [
       "usage:",
       "  browser-shard-plan.mjs plan [--baseline-file <path>] [--min-shards <n>] [--max-shards <n>] [--frontend-row-ids <ids>]",
+      "  browser-shard-plan.mjs selected-tests <plan-file> <phase> [<shard-name>]",
       "  browser-shard-plan.mjs merge-reports <output-report> <input-report...>",
       "  browser-shard-plan.mjs update-baselines [--baseline-file <path>] <results-dir>",
       "  browser-shard-plan.mjs check-baseline-drift [--baseline-file <path>] <results-dir>",
@@ -540,6 +541,64 @@ function exactAlternationRegex(values) {
   return `(?:${values.map(escapeRegex).join("|")})`;
 }
 
+function normalizeSelectionReportFile(file) {
+  const normalized = normalizeManifestFile(file);
+  if (!normalized.startsWith("apps/web/")) {
+    throw new Error(`Playwright shard entry file must live under apps/web/: ${file}`);
+  }
+  return normalized.slice("apps/web/".length);
+}
+
+function selectedTestsReport(planFile, phase, shardName = "") {
+  const plan = readJSON(planFile);
+  if (plan.schema_id !== shardPlanSchemaID) {
+    throw new Error(
+      `${path.relative(repoRoot, planFile)} must declare schema_id ${shardPlanSchemaID}`,
+    );
+  }
+  if (!/^phase[0-9]+$/.test(phase)) {
+    throw new Error(`selected-tests phase must be phaseN, got ${phase}`);
+  }
+  const sourceEntries = [];
+  if (shardName) {
+    const shard = (plan.shards ?? []).find((entry) => entry.name === shardName);
+    if (!shard) {
+      throw new Error(`missing shard ${shardName}`);
+    }
+    sourceEntries.push(...(shard.entries ?? []));
+  } else {
+    sourceEntries.push(...(plan.entries ?? []));
+  }
+  const selectedTests = sourceEntries
+    .filter((entry) => entry.phase === phase)
+    .flatMap((entry) =>
+      (entry.titles ?? [entry.title]).map((title) => ({
+        id: entry.id,
+        file: normalizeSelectionReportFile(entry.file),
+        title,
+        coverage: "authoritative",
+        execution_dependency: "browser_functional",
+      })),
+    )
+    .sort((left, right) => {
+      if (left.file !== right.file) {
+        return left.file.localeCompare(right.file);
+      }
+      if (left.title !== right.title) {
+        return left.title.localeCompare(right.title);
+      }
+      return left.id.localeCompare(right.id, undefined, { numeric: true });
+    });
+  return {
+    schema_id: "cartulary.playwright_manifest_selection.v1",
+    phase,
+    coverage: "authoritative",
+    execution_dependency: "browser_functional",
+    expected_count: selectedTests.length,
+    selected_tests: selectedTests,
+  };
+}
+
 function parsePlanArgs(argv) {
   const options = {
     baselineFile: defaultBaselineFile,
@@ -826,6 +885,20 @@ function main(argv) {
     case "plan": {
       const options = parsePlanArgs(rest);
       process.stdout.write(`${JSON.stringify(createPlan(options), null, 2)}\n`);
+      return;
+    }
+    case "selected-tests": {
+      const [planFile, phase, shardName = ""] = rest;
+      if (!planFile || !phase || rest.length > 3) {
+        usage();
+      }
+      process.stdout.write(
+        `${JSON.stringify(
+          selectedTestsReport(resolvePath(planFile), phase, shardName),
+          null,
+          2,
+        )}\n`,
+      );
       return;
     }
     case "merge-reports": {

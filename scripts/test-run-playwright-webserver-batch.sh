@@ -570,6 +570,58 @@ if (!functional[0].includes("worker_count=10 ") || !functional[0].includes("work
 }
 NODE
 
+selected_frontend_multititle_shard_invocations="$tmp_dir/batch-selected-frontend-multititle-shard-invocations.log"
+selected_frontend_multititle_shard_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+  CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
+  CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE=selected_rows \
+  CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE=frontend \
+  CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE=FE-P1 \
+  CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS=FE-E-P1-01 \
+  CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+  CARTULARY_TEST_RUN_ID="batch-selected-frontend-multititle-shard" \
+  NODE_BIN="${NODE:-node}" \
+  FAKE_PLAYWRIGHT_INVOCATIONS="$selected_frontend_multititle_shard_invocations" \
+    "$HELPER" functional-shard browser-functional-shard-01 0 2 -- "$fake_playwright"
+)"
+assert_empty "$selected_frontend_multititle_shard_output" "playwright selected frontend multi-title shard success"
+selected_frontend_multititle_log="$(cat "$selected_frontend_multititle_shard_invocations")"
+assert_contains "$selected_frontend_multititle_log" "project=functional" "selected frontend multi-title shard functional invocation"
+assert_contains "$selected_frontend_multititle_log" "phase1.spec.ts" "selected frontend multi-title shard file"
+assert_contains "$selected_frontend_multititle_log" "selected_ids=FE-E-P1-01" "selected frontend multi-title shard selected ids"
+selected_frontend_multititle_root="$tmp_dir/results/batch-selected-frontend-multititle-shard/browser-e2e-webserver-backed"
+selected_frontend_multititle_phase_dir="$selected_frontend_multititle_root/browser-e2e-functional-phase1-authoritative-browser-functional-shard-01"
+selected_frontend_multititle_summary="$selected_frontend_multititle_phase_dir/phase-summary.json"
+assert_equals "$(json_field "$selected_frontend_multititle_summary" "status")" "pass" "selected frontend multi-title shard phase summary status"
+if [[ -e "$selected_frontend_multititle_phase_dir/manifest-mismatch.json" ]]; then
+  fail "selected frontend multi-title shard must not emit manifest mismatch"
+fi
+"${NODE:-node}" - "$selected_frontend_multititle_phase_dir/manifest-selected-tests.json" "$selected_frontend_multititle_summary" <<'NODE'
+const fs = require("node:fs");
+const [selectionPath, summaryPath] = process.argv.slice(2);
+const selection = JSON.parse(fs.readFileSync(selectionPath, "utf8"));
+if (selection.schema_id !== "cartulary.playwright_manifest_selection.v1") {
+  throw new Error(`selected frontend multi-title shard wrong selection schema: ${selection.schema_id}`);
+}
+const selected = selection.selected_tests ?? [];
+if (selected.length <= 0 || selected.length >= 10) {
+  throw new Error(`selected frontend multi-title shard must carry a strict title subset, got ${selected.length}`);
+}
+if (!selected.every((entry) => entry.id === "FE-E-P1-01" && entry.file === "e2e/phase1.spec.ts")) {
+  throw new Error(`selected frontend multi-title shard leaked unexpected selected tests: ${JSON.stringify(selected)}`);
+}
+const titles = new Set(selected.map((entry) => entry.title));
+if (titles.size !== selected.length) {
+  throw new Error("selected frontend multi-title shard must not duplicate selected titles");
+}
+const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+const ids = new Set((summary.inventory ?? []).map((entry) => entry.id));
+if (ids.size !== 1 || !ids.has("FE-E-P1-01")) {
+  throw new Error(`selected frontend multi-title shard inventory must classify as FE-E-P1-01 only: ${JSON.stringify([...ids])}`);
+}
+NODE
+
 phase_filter_invocations="$tmp_dir/batch-phase-filter-invocations.log"
 phase_filter_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
