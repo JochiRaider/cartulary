@@ -96,5 +96,20 @@ describe("workbookSavedViews", () => {
       { field_key: "timeline.activity_synopsis_text", width_px: 320 },
     ]);
     expect(layout.hidden_field_keys).toEqual(["timeline.raw_activity_text"]);
+    expect(
+      JSON.stringify(
+        savedViewLayoutJsonForPersistence(contract, {
+          active_panel: "history",
+          inspector_open: true,
+          local_form_state: { dirty: true },
+          merge_plans: ["row-1"],
+          preview_state: { record_id: "row-1" },
+          rollback_previews: ["row-1"],
+          stale_confirmation_state: { delete: true },
+        }),
+      ),
+    ).not.toMatch(
+      /active_panel|inspector_open|local_form_state|merge_plans|preview_state|rollback_previews|stale_confirmation_state/,
+    );
   });
 });

@@ -4055,6 +4055,7 @@ For public discovery, `view_schema_resource_v1` MUST expose the semantic workboo
 - `filter_fields`,
 - `synthetic_filter_predicates`,
 - `grouping_fields`,
+- `inspector_config`,
 - `fields`.
 
 For `view_schema_resource_v1`:
@@ -4069,6 +4070,7 @@ For `view_schema_resource_v1`:
 - `filter_fields` MUST contain only keys also present in `fields[].field_key`,
 - filter-only synthetic predicate keys MUST appear only in `synthetic_filter_predicates[]`,
 - `synthetic_filter_predicates[]` MUST use canonical ascending `field_key` order,
+- `inspector_config` MUST be `inspector_config_v1` and MUST describe only semantic row-context inspector behavior for the same `view_schema_id`,
 - clients MUST ignore unknown additive response members they do not use.
 
 Each `default_sort[]` entry MUST use exactly:
@@ -4123,6 +4125,70 @@ For `view_field_entry_v1`:
 - `enum_values` MUST be an explicit ordered array of tokens when the field is governed by a closed vocabulary and `null` otherwise.
 Profiles: base
 Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-124, AC-125, AC-127, AC-231
+
+**REQ-01-615**
+`view_schema_resource_v1.inspector_config` MUST be a required `inspector_config_v1` object. Inspector configuration is view-schema metadata. It is selected by the active `view_schema_id`; it MUST NOT be selected from visible table labels, saved-view names, React component names, route-helper names, storage tables, CSS selectors, or grid-library APIs.
+
+`inspector_config_v1` MUST contain these required members:
+
+| Member | Rule |
+| --- | --- |
+| `inspector_config_schema_id` | Exact value `cartulary.inspector_config.v1`. |
+| `view_schema_id` | Exact match for the containing `view_schema_resource_v1.view_schema_id`. |
+| `default_open` | Exact value `false` in the current profile. |
+| `subject_binding` | Object with exact current-profile value `{ "kind": "selected_record" }`. |
+| `no_row_state` | Exact value `no_row_selected`. |
+| `unsupported_feature_behavior` | Exact value `omit_feature`. |
+| `panels[]` | Unique panel objects from the closed panel vocabulary below; maximum `5`. |
+| `feature_groups[]` | Unique feature-group objects; maximum `64`; MAY be `[]`. |
+
+The closed panel vocabulary is:
+
+| `panel_id` | Meaning |
+| --- | --- |
+| `details` | Row-local field details, derived state, validation state, and structured summaries for the active record. |
+| `relationships` | Typed links, entity mentions, indicator observations, related records, and relationship overflow from compact cells. |
+| `evidence` | Evidence associations, blob state, preview/download affordances, blocked-preview states, and evidence attach or detach actions. |
+| `history` | Row-centric history, diffs, rollback metadata, delete/restore state, and reviewer actions. |
+| `workflow` | Specialized row-local workflow entry points that create or link existing Cartulary record types without interrupting ordinary grid editing. |
+
+Each `panels[]` entry MUST contain only `panel_id` and `label`. `panel_id` MUST be unique within the config and MUST use the closed vocabulary above. `label` is a non-authoritative display hint.
+
+Each `feature_group_v1` entry MUST contain these required members:
+
+| Member | Rule |
+| --- | --- |
+| `feature_group_key` | Stable within one `view_schema_id`; ASCII lower snake or dotted key. |
+| `panel_id` | One declared panel in the containing config. |
+| `label` | Non-authoritative display hint. |
+| `minimum_incident_role` | `viewer`, `editor`, `reviewer`, `admin`, or `null` when ordinary row-read access controls visibility. |
+| `mutates` | Boolean; `true` for any operation that can create, update, delete, restore, roll back, merge, supersede, resolve, dismiss, attach, detach, acknowledge, or otherwise change source state. |
+| `requires_confirmation` | Boolean; `true` for destructive, multi-record, merge, delete, restore, rollback, supersede, release, or similarly high-impact actions. |
+| `route_binding` | Object whose `kind` uses the closed route-binding vocabulary below. |
+| `seed_bindings[]` | Seed bindings for create or pivot forms; maximum `16`; MUST be `[]` when unused. |
+| `disabled_when[]` | Closed current-profile condition tokens; maximum `16`; MUST be `[]` when unused. |
+
+The closed `route_binding.kind` vocabulary is:
+
+| `kind` | Required use |
+| --- | --- |
+| `panel_read` | Read-only row-context panel content derived from the current view row, relationship summaries, history route, or evidence metadata. |
+| `view_row_create` | Create a related record through the existing view-row create contract with explicit seeded `field_key` values or `collection_actions_v1` entries. |
+| `record_patch` | Mutate one existing row through the existing record patch contract. |
+| `record_action` | Invoke an existing record action such as mark-reviewed, supersede, delete, restore, rollback, or merge. |
+| `entity_mention_action` | Invoke the existing entity-mention action route for resolve, create-host, create-identity, dismiss, or restore semantics. |
+| `evidence_access` | Issue preview or download handles through the existing evidence-access contract. |
+| `surface_pivot` | Navigate within the same workbook shell to another `sheet_ref` with a seeded query over stable `field_key` filters. |
+
+`seed_bindings[]` entries MUST bind target fields by stable `target_field_key` and MUST use only semantic sources: selected record id, selected field value, or literal value. A selected-field source MUST name a stable `source_field_key`; a literal source MUST carry the literal value. Seed bindings MUST NOT expose storage columns, internal write targets, or route-helper names.
+
+`disabled_when[]` MUST use only these current-profile condition tokens: `no_row_selected`, `incident_closed`, `authorization_lost`, `row_version_changed`, `record_deleted`, `record_merged`, `evidence_preview_unavailable`, and `merge_target_unavailable`. These tokens are presentation hints only and MUST NOT authorize or deny a server action.
+
+An emitted current-profile `inspector_config_v1` with an unknown panel id, unknown route-binding kind, unknown disabled condition token, duplicate panel id, duplicate feature-group key, invalid bound, mismatched `view_schema_id`, unsupported `subject_binding.kind`, unsupported `no_row_state`, `default_open=true`, or unsupported feature behavior is invalid conformance material.
+
+Inspector route bindings MUST reuse existing Core-owned route and mutation contracts. The inspector MUST NOT define a generic workflow route, workflow engine, hidden sub-workspace, inspector-state record family, record-specific ACL system, or forms-first capture path.
+Profiles: base
+Verified by: AC-453
 
 **REQ-01-289**
 View behavior MUST bind to `view_schema_id`, not to the visible tab label, column header text, or any other display label. `title` and field `label` values exposed by discovery are non-authoritative display hints only. The public discovery resource MUST describe semantic workbook behavior and MUST NOT expose `base_projection`, `canonical_source_filter`, storage-table names, internal write targets, or other storage-realization details.
@@ -4270,7 +4336,7 @@ Profiles: base, reference_pack
 Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-121, AC-122, AC-124, AC-125, AC-231, AC-234, AC-285, AC-286, AC-287
 
 **REQ-01-579**
-The base profile MUST define one authoritative cross-layer workbook-surface mapping table for every current-profile standardized workbook surface. The table is normative and identity-only. It MUST use the exact columns `surface`, `view_schema_id`, `surface_kind`, `source_record_types`, `canonical_source_discriminator_or_filter`, `surface_status`, and `required_reference_pack_keys`. `surface` is explanatory only and MUST NOT be treated as a second identifier. `surface_status` MUST use exactly `required built-in sheet`, `required system view`, and `standardized optional workbook surface`. For every row, the canonical workbook-surface identity is the `sheet_ref` object `{ "kind": "view_schema", "id": <view_schema_id> }`. The canonical row order is the REQ-01-307 registry order followed by `cartulary.view.findings.v1`, `cartulary.view.investigative_queries.v1`, and `cartulary.view.forensic_keywords.v1`. This table MUST NOT define or restate `base_projection`, storage-table names, internal write targets, per-field defaults, or other exhaustive field-registry content, and it MUST NOT add new members to `view_schema_resource_v1` or other runtime discovery payloads.
+The base profile MUST define one authoritative cross-layer workbook-surface mapping table for every current-profile standardized workbook surface. The table is normative and identity-only. It MUST use the exact columns `surface`, `view_schema_id`, `surface_kind`, `source_record_types`, `canonical_source_discriminator_or_filter`, `surface_status`, and `required_reference_pack_keys`. `surface` is explanatory only and MUST NOT be treated as a second identifier. `surface_status` MUST use exactly `required built-in sheet`, `required system view`, and `standardized optional workbook surface`. For every row, the canonical workbook-surface identity is the `sheet_ref` object `{ "kind": "view_schema", "id": <view_schema_id> }`. The canonical row order is the REQ-01-307 registry order followed by `cartulary.view.findings.v1`, `cartulary.view.investigative_queries.v1`, and `cartulary.view.forensic_keywords.v1`. This identity table MUST NOT define or restate `inspector_config_v1`, `base_projection`, storage-table names, internal write targets, per-field defaults, or other exhaustive field-registry content, and the table itself MUST NOT add runtime discovery members beyond the members owned by REQ-01-288 and REQ-01-615.
 Profiles: base, reference_pack
 Verified by: AC-411
 
@@ -4296,8 +4362,37 @@ Verified by: AC-411
 | Investigative Queries | `cartulary.view.investigative_queries.v1` | `system_view` | `["artifact"]` | `artifact_type='investigative_query'`; separately governed optional structured subtype | standardized optional workbook surface | `[]` |
 | Forensic Keywords | `cartulary.view.forensic_keywords.v1` | `system_view` | `["artifact"]` | `artifact_type='forensic_keyword'`; separately governed optional structured subtype | standardized optional workbook surface | `[]` |
 
+**REQ-01-616**
+Every current-profile standardized workbook surface MUST emit an explicit `inspector_config_v1`. Common feature groups MAY repeat across surfaces, but inheritance MUST NOT be implicit and a saved view MUST NOT replace or override the config of its immutable `view_schema_id`.
+
+**Table 7.4-B. Per-surface inspector matrix**
+
+| Surface | `view_schema_id` | Required panels | Current-profile feature intent |
+| --- | --- | --- | --- |
+| Timeline | `cartulary.view.timeline.v2` | `details`, `relationships`, `evidence`, `history`, `workflow` | Resolve mentions, manage host/identity/tag/evidence relationships, mark reviewed, supersede, rollback, and create linked note, task, decision, or evidence records through existing routes. |
+| Hosts | `cartulary.view.hosts.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Inspect aliases and related Timeline rows, merge duplicate hosts, manage relationships, and pivot to related evidence or Timeline records. |
+| Identities | `cartulary.view.identities.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Inspect identifiers and related Timeline rows, merge duplicate identities, manage relationships, and pivot to related evidence or Timeline records. |
+| Evidence | `cartulary.view.evidence.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Issue preview/download handles, attach blobs, manage party links and source relationships, and show blocked-preview state without external egress. |
+| Notes | `cartulary.view.notes.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Manage source links, evidence refs, tags, related task/decision records, and linked note context. |
+| Indicators | `cartulary.view.indicators.v1` | `details`, `relationships`, `history`, `workflow` | Pivot to source observations and lifecycle history, link to source records, and create follow-up task or decision records where declared by existing contracts. |
+| Compromise Assessments | `cartulary.view.assessments.v1` | `details`, `relationships`, `history`, `workflow` | Pivot to assessed host or identity, inspect prior assessments, and create or link supporting records. |
+| Task Requests | `cartulary.view.task_requests.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Manage linked records, requester party, decision link, blocked work, owner/status transitions, and follow-up coordination. |
+| Decisions | `cartulary.view.decisions.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Manage support refs, affected records, status transitions, supersession, and linked task or communications-log entries. |
+| Parties | `cartulary.view.parties.v1` | `details`, `relationships`, `history`, `workflow` | Pivot to communications, task requester, collector/source, audience, attendee, and coordination references. |
+| Communications Log | `cartulary.view.comm_log.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Manage linked decisions, action tasks, audience parties, attendee parties, and next-report timing. |
+| Handoff | `cartulary.view.handoff.v1` | `details`, `relationships`, `history`, `workflow` | Manage outgoing owner, incoming owner, open tasks, open decisions, open risks, next checks, and acknowledgement state. |
+| Status Review | `cartulary.view.status_review.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Manage blocked tasks, pending evidence, open decisions, active risks summary, next-report time, and follow-up task creation. |
+| Lesson | `cartulary.view.lesson.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Manage follow-up tasks, evidence refs, owner, and closure state. |
+| Findings | `cartulary.view.findings.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Manage supporting refs, contradictory refs, owner, state closure, and linked task or decision creation when the optional surface is implemented. |
+| Investigative Queries | `cartulary.view.investigative_queries.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Link query, source, result, evidence, findings, and follow-up task objects only through fields declared by the owning optional surface when implemented. |
+| Forensic Keywords | `cartulary.view.forensic_keywords.v1` | `details`, `relationships`, `evidence`, `history`, `workflow` | Link keyword records to evidence, Timeline rows, findings, and follow-up tasks only through fields declared by the owning optional surface when implemented. |
+
+The exact field membership, writeability, create minima, omitted-versus-`null` behavior, write targets, and relationship storage semantics remain owned by the relevant per-field registry and route owner sections. The inspector matrix MUST NOT be used as a substitute field registry, storage registry, route inventory, or authorization matrix.
+Profiles: base
+Verified by: AC-453
+
 **REQ-01-309**
-Each schema subsection below, together with the addenda in §19, is an exhaustive per-field registry for its `view_schema_id`, not an illustrative example. In particular, §7.4.2 through §7.4.4 close the base-profile interface contract for the built-in Hosts, Identities, and Evidence sheets, and §19 closes the Parties, coordination-artifact, and standardized optional artifact-backed surface contracts. Core 02 §10.4.4A MAY inventory the closed tagged-variant family for artifact-backed notes, coordination artifacts, and structured findings, but that registry is not a second owner for exhaustive field membership, create-time behavior, omitted-versus-`null` behavior, defaults, write targets or actions, or discovery metadata. These sections are also the sole authoritative source for populating public `view_schema_resource_v1`, `view_field_entry_v1`, and `synthetic_filter_predicates[]` discovery output. Implementations MUST NOT invent alternate base-profile or standardized optional writable `field_key` strings, write targets or actions, `conflict_resolution_class` assignments, `entity_binding_mode` values, or discovery metadata that conflicts with this registry. Surface `title` and field `label` values remain non-authoritative display hints only and MAY change without changing `view_schema_id` when field semantics do not change.
+Each schema subsection below, together with the addenda in §19, is an exhaustive per-field registry for its `view_schema_id`, not an illustrative example. In particular, §7.4.2 through §7.4.4 close the base-profile interface contract for the built-in Hosts, Identities, and Evidence sheets, and §19 closes the Parties, coordination-artifact, and standardized optional artifact-backed surface contracts. Core 02 §10.4.4A MAY inventory the closed tagged-variant family for artifact-backed notes, coordination artifacts, and structured findings, but that registry is not a second owner for exhaustive field membership, create-time behavior, omitted-versus-`null` behavior, defaults, write targets or actions, or discovery metadata. These sections are also the sole authoritative source for populating public field and query members of `view_schema_resource_v1`, `view_field_entry_v1`, and `synthetic_filter_predicates[]` discovery output; REQ-01-615 and REQ-01-616 own the `inspector_config_v1` member and per-surface inspector matrix. Implementations MUST NOT invent alternate base-profile or standardized optional writable `field_key` strings, write targets or actions, `conflict_resolution_class` assignments, `entity_binding_mode` values, inspector feature keys, route-binding kinds, or discovery metadata that conflicts with this registry. Surface `title` and field `label` values remain non-authoritative display hints only and MAY change without changing `view_schema_id` when field semantics do not change.
 Profiles: base
 Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-121, AC-122, AC-124, AC-125, AC-231, AC-281, AC-282, AC-283, AC-284, AC-285, AC-286, AC-287, AC-410
 

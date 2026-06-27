@@ -47,6 +47,11 @@ The base profile MUST support the following core objects:
 Profiles: base, reference_pack
 Verified by: AC-231, AC-234, AC-277
 
+**REQ-02-258**
+Inspector configuration is view-schema metadata. It is not incident source state, not a first-class incident record, not an artifact subtype, not a saved view, not a workflow record, and not an inspector-state record family. Inspector actions MUST read, create, update, delete, restore, roll back, merge, supersede, resolve, dismiss, attach, detach, link, or pivot only through existing Core-owned record families, typed links, evidence records, entity mentions, indicator observations, task requests, decisions, parties, artifacts, history, and route contracts. The base profile MUST NOT introduce a generalized workflow engine, hidden sub-workspace, record-specific ACL system, or mandatory forms-first capture path to support inspector behavior.
+Profiles: base
+Verified by: AC-453
+
 ## 3. Record envelope contract
 
 **REQ-02-004**

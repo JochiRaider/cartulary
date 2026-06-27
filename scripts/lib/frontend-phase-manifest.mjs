@@ -259,7 +259,7 @@ const visualFixtureKeys = new Set([
   "blocked_reason",
   "replacement_fixture_id",
 ]);
-const visualFixtureIDPattern = /^FE-VFIX-(?:0[1-9]|1[0-5])$/;
+const visualFixtureIDPattern = /^FE-VFIX-(?:0[1-9]|1[0-9]|20)$/;
 const validVisualCaptureScopeKinds = new Set([
   "full_viewport",
   "selector",
@@ -1294,8 +1294,8 @@ export function validateFrontendVisualFixtureRegistry(root = process.cwd()) {
   const fixtures = requireObjectArray(registry.fixtures, `${file}.fixtures`, {
     nonEmpty: true,
   });
-  if (fixtures.length !== 15) {
-    throw new Error(`${file}.fixtures must contain exactly FE-VFIX-01 through FE-VFIX-15`);
+  if (fixtures.length !== 20) {
+    throw new Error(`${file}.fixtures must contain exactly FE-VFIX-01 through FE-VFIX-20`);
   }
   const fixtureIDs = [];
   const rowIDs = new Set();
@@ -1403,7 +1403,7 @@ export function validateFrontendVisualFixtureRegistry(root = process.cwd()) {
     requireString(fixture.replacement_fixture_id || "none", `${label}.replacement_fixture_id`);
   }
   assertUnique(fixtureIDs, `${file}.fixtures.fixture_id`);
-  const expected = Array.from({ length: 15 }, (_, index) =>
+  const expected = Array.from({ length: 20 }, (_, index) =>
     `FE-VFIX-${String(index + 1).padStart(2, "0")}`,
   );
   if (fixtureIDs.sort().join(",") !== expected.join(",")) {

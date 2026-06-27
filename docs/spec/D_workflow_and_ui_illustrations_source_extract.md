@@ -2777,6 +2777,70 @@ If another analyst is editing the same record, the inspector shows that inline, 
 
 Because the inspector is optional for common work. Analysts can live in the grid for most of the incident and only open the inspector when they need structure, history, or relationship cleanup.
 
+### Selected-row inspector sequence illustrations
+
+These sequences are illustrative only. Core 01 owns route contracts and inspector configuration, Core 03 owns interaction behavior, and Core 04 owns authorization.
+
+#### Create linked task from Timeline
+
+```mermaid
+sequenceDiagram
+    participant A as Analyst
+    participant UI as Workbook inspector
+    participant API as Existing view-row create route
+    A->>UI: Open Timeline row inspector
+    UI->>UI: Read active view_schema_id inspector_config
+    A->>UI: Choose create linked task
+    UI->>API: Create Task Request with seeded selected record ref
+    API-->>UI: Row refresh and related task link
+    UI-->>A: Keep Timeline selected row and grid position
+```
+
+#### Resolve mention to host
+
+```mermaid
+sequenceDiagram
+    participant A as Analyst
+    participant UI as Workbook inspector
+    participant API as Existing entity-mention action route
+    A->>UI: Open Relationships panel
+    UI->>UI: Show unresolved host mention for selected row
+    A->>UI: Select existing host or create host action
+    UI->>API: Submit mention action
+    API-->>UI: Updated row/relationship state
+    UI-->>A: Clear stale mention form and show current row links
+```
+
+#### Attach evidence
+
+```mermaid
+sequenceDiagram
+    participant A as Analyst
+    participant UI as Workbook inspector
+    participant Blob as Existing object/evidence routes
+    A->>UI: Open Evidence panel
+    A->>UI: Select file or existing evidence association
+    UI->>Blob: Use existing blob-slot, attach, or record-link contract
+    Blob-->>UI: Evidence metadata and row refresh
+    UI-->>A: Preserve selected row where same-surface refresh permits
+```
+
+#### Review, merge, and handoff acknowledgement
+
+```mermaid
+sequenceDiagram
+    participant R as Reviewer
+    participant UI as Workbook inspector
+    participant API as Existing record/action routes
+    R->>UI: Open selected row inspector
+    UI->>API: Fetch row-centric history or row-context metadata
+    API-->>UI: Current row state and available actions
+    R->>UI: Confirm mark-reviewed, rollback, merge, supersede, or acknowledgement
+    UI->>API: Submit existing route with current version fields
+    API-->>UI: Current row state or public denial
+    UI-->>R: Invalidate stale confirmation on row/version/auth changes
+```
+
 #### Why this does not become an uncontrolled spreadsheet clone
 
 Because structure lives underneath the sheet:

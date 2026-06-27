@@ -205,6 +205,9 @@ const p8AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
 const p9AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P9-01",
 ) as [string];
+const p9ConfigAccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
+  "FE-A11Y-P9-02",
+) as [string];
 const p10AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P10-01",
 ) as [string];
@@ -247,6 +250,11 @@ if (p8AccessibilityScenarioTitles.length !== 1) {
 if (p9AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
     `FE-A11Y-P9-01 must declare exactly 1 scenario; found ${p9AccessibilityScenarioTitles.length}`,
+  );
+}
+if (p9ConfigAccessibilityScenarioTitles.length !== 1) {
+  throw new Error(
+    `FE-A11Y-P9-02 must declare exactly 1 scenario; found ${p9ConfigAccessibilityScenarioTitles.length}`,
   );
 }
 if (p10AccessibilityScenarioTitles.length !== 1) {
@@ -2285,6 +2293,93 @@ test.describe("FE-P8 accessibility readiness", () => {
 });
 
 test.describe("FE-P9 accessibility readiness", () => {
+  test(p9ConfigAccessibilityScenarioTitles[0], async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("A11YP902"),
+      "FE-A11Y-P9-02 config-driven inspector",
+    );
+    const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+      client_txn_id: uniqueTxn("fe-a11y-p9-02-row"),
+      "timeline.raw_activity_text": "FE-A11Y-P9-02 inspector details",
+      "timeline.activity_synopsis_text": "FE-A11Y-P9-02 selected row",
+    })) as ViewRow;
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+
+    const toggle = page.getByTestId(
+      workbookInspectorToggleTestId(timelineViewSchemaId),
+    );
+    await toggle.focus();
+    await expectVisibleFocus(toggle);
+    await toggle.press("Enter");
+    await expect(page.getByTestId("timeline-inspector")).toContainText(
+      "no_row_selected",
+    );
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+    await expectVisibleFocus(toggle);
+
+    const summaryCell = page.getByTestId(
+      rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
+    );
+    await expectVisibleFocus(summaryCell);
+    await openTimelineInspector(page, row.record_id);
+    const detailsEditor = page.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.raw_activity_text",
+        recordId: row.record_id,
+        surface: "inspector",
+      }),
+    );
+    await expectVisibleFocus(detailsEditor);
+    await expect(detailsEditor).toHaveValue("FE-A11Y-P9-02 inspector details");
+
+    await expectVisibleFocus(summaryCell);
+    await page.keyboard.press("Shift+F10");
+    const openHistory = page.getByTestId(
+      rowHistoryOpenButtonTestId(row.record_id),
+    );
+    await expectVisibleFocus(openHistory);
+    await openHistory.press("Enter");
+    await expect(page.getByTestId(rowHistoryPanelTestId())).toBeVisible();
+    const deleteButton = page.getByTestId(rowHistoryDeleteButtonTestId());
+    await expectVisibleFocus(deleteButton);
+    await deleteButton.press("Enter");
+    const deletePanel = page.getByTestId(
+      rowHistoryDestructiveConfirmPanelTestId({ operation: "delete" }),
+    );
+    await expect(deletePanel).toHaveAttribute("role", "alertdialog");
+    await expect(deletePanel).toHaveAttribute("aria-modal", "true");
+    await expect(deletePanel).toContainText(row.record_id);
+    const deleteConfirm = page.getByTestId(
+      rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
+    );
+    const deleteCancel = page.getByTestId(
+      rowHistoryDestructiveCancelButtonTestId({ operation: "delete" }),
+    );
+    await expectVisibleFocus(deleteConfirm);
+    await expectVisibleFocus(deleteCancel);
+    await expectAndRecordContrast(page, [
+      workbookInspectorToggleTestId(timelineViewSchemaId),
+      rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.raw_activity_text",
+        recordId: row.record_id,
+        surface: "inspector",
+      }),
+      rowHistoryOpenButtonTestId(row.record_id),
+      rowHistoryDeleteButtonTestId(),
+      rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
+      rowHistoryDestructiveCancelButtonTestId({ operation: "delete" }),
+    ]);
+    await deleteCancel.press("Enter");
+    await expect(deletePanel).toHaveCount(0);
+  });
+
   test(p9AccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const incidentId = await createIncident(

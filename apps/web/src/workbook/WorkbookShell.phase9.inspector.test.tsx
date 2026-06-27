@@ -180,6 +180,61 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     expect(["0", "0px"]).toContain((scrollport as HTMLElement).style.minWidth);
   });
 
+  it("FE-U-P9-02 closes the Timeline inspector when the active sheet identity changes", async () => {
+    fetchMock.mockResolvedValueOnce(
+      timelineRowsEnvelope([
+        timelineRow({
+          recordId: "record-1",
+          rowVersion: 1,
+          summary: "Reset inspector",
+          captureState: "rough",
+        }),
+      ]),
+    );
+
+    const { container, rerender } = render(
+      <TimelineWorkbook
+        incidentId="incident-1"
+        inspectorResetKey="cartulary.view.timeline.v2:base"
+      />,
+    );
+    await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+    fireEvent.click(
+      screen.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
+    );
+    expect(await screen.findByTestId("timeline-inspector")).toBeTruthy();
+
+    rerender(
+      <TimelineWorkbook
+        incidentId="incident-1"
+        inspectorResetKey="cartulary.view.timeline.v2:saved-view"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("timeline-inspector")).toBeNull();
+    });
+    expect(
+      screen.getByTestId(
+        rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+      ),
+    ).toBeTruthy();
+  });
+
+  it("FE-U-P9-02 renders the configured no-row state when no saved row is selected", async () => {
+    fetchMock.mockResolvedValueOnce(timelineRowsEnvelope([]));
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    await waitForVisibleGridRowRecordIds(container, []);
+    fireEvent.click(
+      screen.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
+    );
+
+    expect(
+      (await screen.findByTestId("timeline-inspector")).textContent,
+    ).toContain("no_row_selected");
+  });
+
   it("renders Timeline collection cells compactly until inline edit activation", async () => {
     fetchMock.mockResolvedValueOnce(
       timelineRowsEnvelope([

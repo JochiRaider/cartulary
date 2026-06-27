@@ -144,6 +144,11 @@ import {
   workbookContractColumns,
 } from "./models/workbookContractRows";
 import {
+  inspectorNoRowState,
+  inspectorPanelIsDeclared,
+  selectInspectorConfig,
+} from "./models/workbookInspectorModel";
+import {
   applyFilterDraft,
   buildQueryRequest,
   buildSavedViewLayoutJson,
@@ -719,6 +724,7 @@ function EntityWorkbookSurface({
   incidentId,
   apiBase,
   entityType,
+  inspectorResetKey,
   savedViewSelector,
   rows,
   onToggleSort,
@@ -730,6 +736,7 @@ function EntityWorkbookSurface({
   incidentId: string;
   apiBase?: string | undefined;
   entityType: EntityRow["entityType"];
+  inspectorResetKey: string;
   savedViewSelector?: ReactNode | undefined;
   onToggleSort: (fieldKey: string) => void;
   queryState: WorkbookQueryState;
@@ -762,6 +769,12 @@ function EntityWorkbookSurface({
     currentIncidentRole === "reviewer" || currentIncidentRole === "admin";
   const survivorLabel = selectedEntity?.label ?? "Select a record";
   const contract = entityType === "host" ? hostsContract : identitiesContract;
+  const inspectorConfig = selectInspectorConfig(contract);
+  const showDetailsPanel = inspectorPanelIsDeclared(inspectorConfig, "details");
+  const showRelationshipsPanel = inspectorPanelIsDeclared(
+    inspectorConfig,
+    "relationships",
+  );
   const surface: WorkbookSurface = contract.viewSchemaId;
   const editableEntityFields = useMemo(
     () => contract.fields.filter((field) => field.writeKind === "direct_value"),
@@ -777,6 +790,11 @@ function EntityWorkbookSurface({
     selectedEntity && loserEntity
       ? buildMergePlan(selectedEntity, loserEntity)
       : null;
+  const selectedEntityRecordKey = selectedEntity?.recordId ?? "";
+  const selectedEntityPlanInvalidationKey =
+    selectedEntity === null
+      ? `none:${canMerge}`
+      : `${selectedEntity.recordId}:${selectedEntity.rowVersion}:${canMerge}`;
   const entityAnchorColumns = useMemo<readonly GridColumn<EntityRow>[]>(
     () =>
       workbookContractColumns<EntityRow>({
@@ -923,6 +941,32 @@ function EntityWorkbookSurface({
     });
 
   useEffect(() => {
+    if (inspectorResetKey === "") {
+      return;
+    }
+    setIsInspectorOpen(false);
+    setMergeCandidateId("");
+    setMergeMessage(null);
+    setEditRecordId("");
+    setEditFieldKey("");
+    setEditValue("");
+  }, [inspectorResetKey]);
+
+  useEffect(() => {
+    if (selectedEntityPlanInvalidationKey === "") {
+      return;
+    }
+    setMergeCandidateId("");
+  }, [selectedEntityPlanInvalidationKey]);
+
+  useEffect(() => {
+    if (selectedEntityRecordKey === "") {
+      return;
+    }
+    setMergeMessage(null);
+  }, [selectedEntityRecordKey]);
+
+  useEffect(() => {
     if (
       selectedRecordId === null ||
       rows.some((row) => row.recordId === selectedRecordId)
@@ -1035,7 +1079,9 @@ function EntityWorkbookSurface({
                 Merge review stays inside the workbook shell.
               </p>
             </div>
-            {editableEntityFields.length > 0 && rows.length > 0 ? (
+            {showDetailsPanel &&
+            editableEntityFields.length > 0 &&
+            rows.length > 0 ? (
               <section style={inspectorSectionStyle}>
                 <h3 style={sectionTitleStyle}>Edit cell</h3>
                 <div style={inspectorControlStackStyle}>
@@ -1102,22 +1148,24 @@ function EntityWorkbookSurface({
             ) : null}
             {selectedEntity ? (
               <>
-                <section style={inspectorSectionStyle}>
-                  <h3 style={sectionTitleStyle}>Identifiers</h3>
-                  <ul style={flatListStyle}>
-                    {selectedEntity.identifiers.length > 0 ? (
-                      selectedEntity.identifiers.map((identifier) => (
-                        <li key={identifier.key}>
-                          {identifier.label}: {identifier.value}
-                        </li>
-                      ))
-                    ) : (
-                      <li>No exact-match identifiers visible.</li>
-                    )}
-                  </ul>
-                </section>
+                {showDetailsPanel ? (
+                  <section style={inspectorSectionStyle}>
+                    <h3 style={sectionTitleStyle}>Identifiers</h3>
+                    <ul style={flatListStyle}>
+                      {selectedEntity.identifiers.length > 0 ? (
+                        selectedEntity.identifiers.map((identifier) => (
+                          <li key={identifier.key}>
+                            {identifier.label}: {identifier.value}
+                          </li>
+                        ))
+                      ) : (
+                        <li>No exact-match identifiers visible.</li>
+                      )}
+                    </ul>
+                  </section>
+                ) : null}
 
-                {canMerge ? (
+                {showRelationshipsPanel && canMerge ? (
                   <section style={inspectorSectionStyle}>
                     <h3 style={sectionTitleStyle}>Merge</h3>
                     <label style={labelStyle}>
@@ -1216,14 +1264,14 @@ function EntityWorkbookSurface({
                       </button>
                     )}
                   </section>
-                ) : (
+                ) : showRelationshipsPanel ? (
                   <section style={inspectorSectionStyle}>
                     <h3 style={sectionTitleStyle}>Merge</h3>
                     <p style={bodyStyle}>
                       Merge is available to reviewer or admin roles.
                     </p>
                   </section>
-                )}
+                ) : null}
 
                 {timelinePreviewRows.length > 0 ? (
                   <section style={inspectorSectionStyle}>
@@ -1268,7 +1316,7 @@ function EntityWorkbookSurface({
                 ) : null}
               </>
             ) : (
-              <p style={bodyStyle}>No active records on this surface.</p>
+              <p style={bodyStyle}>{inspectorNoRowState(inspectorConfig)}</p>
             )}
           </aside>
         ) : undefined
@@ -1320,6 +1368,7 @@ function AssessmentWorkbookSurface({
   apiBase,
   assessmentRows,
   currentIncidentRole,
+  inspectorResetKey,
   savedViewSelector,
   hostRows,
   identityRows,
@@ -1332,6 +1381,7 @@ function AssessmentWorkbookSurface({
   apiBase?: string | undefined;
   assessmentRows: EntityApiRow[];
   currentIncidentRole: IncidentRole | null;
+  inspectorResetKey: string;
   savedViewSelector?: ReactNode | undefined;
   hostRows: EntityRow[];
   identityRows: EntityRow[];
@@ -1345,6 +1395,11 @@ function AssessmentWorkbookSurface({
     initialAssessmentDraft(assessmentsContract),
   );
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const inspectorConfig = selectInspectorConfig(assessmentsContract);
+  const showWorkflowPanel = inspectorPanelIsDeclared(
+    inspectorConfig,
+    "workflow",
+  );
   const supportRows = useAssessmentSupportRows({ apiBase, incidentId });
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1408,6 +1463,15 @@ function AssessmentWorkbookSurface({
   );
 
   useEffect(() => {
+    if (inspectorResetKey === "") {
+      return;
+    }
+    setIsInspectorOpen(false);
+    setDraft(initialAssessmentDraft(assessmentsContract));
+    setMessage(null);
+  }, [inspectorResetKey]);
+
+  useEffect(() => {
     setDraft((current) => {
       if (
         current.subjectRecordId !== "" &&
@@ -1464,7 +1528,7 @@ function AssessmentWorkbookSurface({
   return (
     <WorkbookSurfaceFrame
       inspector={
-        isInspectorOpen ? (
+        isInspectorOpen && showWorkflowPanel ? (
           <aside
             data-testid={assessmentCreatePanelTestId()}
             style={inspectorShellStyle}
@@ -1728,6 +1792,7 @@ function GenericWorkbookSurface({
   apiBase,
   contract,
   currentUserId,
+  inspectorResetKey,
   savedViewSelector,
   incidentId,
   loadError,
@@ -1739,6 +1804,7 @@ function GenericWorkbookSurface({
   apiBase?: string | undefined;
   contract: ViewContract;
   currentUserId: string | null;
+  inspectorResetKey: string;
   savedViewSelector?: ReactNode | undefined;
   incidentId: string;
   loadError: string | null;
@@ -1748,6 +1814,16 @@ function GenericWorkbookSurface({
   rows: EntityApiRow[];
 }) {
   const surface = contract.viewSchemaId as WorkbookSurface;
+  const inspectorConfig = selectInspectorConfig(contract);
+  const showDetailsPanel = inspectorPanelIsDeclared(inspectorConfig, "details");
+  const showRelationshipsPanel = inspectorPanelIsDeclared(
+    inspectorConfig,
+    "relationships",
+  );
+  const showWorkflowPanel = inspectorPanelIsDeclared(
+    inspectorConfig,
+    "workflow",
+  );
   const draftRowRecordId = `${surface}:draft-row`;
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const writableFields = useMemo(
@@ -1792,6 +1868,26 @@ function GenericWorkbookSurface({
     () => partyLinkPairsForContract(contract),
     [contract],
   );
+
+  useEffect(() => {
+    if (inspectorResetKey === "") {
+      return;
+    }
+    setIsInspectorOpen(false);
+    setEditRecordId("");
+    setEditFieldKey("");
+    setEditValue("");
+    setLinkedNoteSourceRecordId("");
+    setEditCollectionMode("add");
+    setPartyLinkExistingPartyId("");
+    setTaskLifecycleRecordId("");
+    setTaskLifecycleBlockedReason("");
+    setDecisionSupersedeTargetId("");
+    setDecisionSupersedeReplacementId("");
+    setDecisionSupersedeReason("");
+    setEvidencePreview(null);
+    setMutationError(null);
+  }, [inspectorResetKey]);
 
   useEffect(() => {
     setCreateDraft((current) => {
@@ -2521,7 +2617,7 @@ function GenericWorkbookSurface({
               </label>
             ) : null}
 
-            {draftInspectorFields.length > 0 ? (
+            {showWorkflowPanel && draftInspectorFields.length > 0 ? (
               <div style={genericDraftInspectorFieldsStyle}>
                 {draftInspectorFields.map((field) => {
                   const controlId = `generic-create-inspector-${field.fieldKey}`;
@@ -2552,19 +2648,23 @@ function GenericWorkbookSurface({
               </div>
             ) : null}
 
-            <button
-              data-testid={genericCreateSubmitTestId(contract.viewSchemaId)}
-              disabled={mutationState === "Syncing"}
-              style={secondaryActionButtonStyle}
-              type="button"
-              onClick={() => {
-                void submitCreate();
-              }}
-            >
-              Commit draft row
-            </button>
+            {showWorkflowPanel ? (
+              <button
+                data-testid={genericCreateSubmitTestId(contract.viewSchemaId)}
+                disabled={mutationState === "Syncing"}
+                style={secondaryActionButtonStyle}
+                type="button"
+                onClick={() => {
+                  void submitCreate();
+                }}
+              >
+                Commit draft row
+              </button>
+            ) : null}
 
-            {rows.length > 0 && selectedEditField !== null ? (
+            {showDetailsPanel &&
+            rows.length > 0 &&
+            selectedEditField !== null ? (
               <div style={genericEditRowStyle}>
                 <select
                   data-testid={genericEditRecordSelectTestId(
@@ -2643,7 +2743,9 @@ function GenericWorkbookSurface({
               </div>
             ) : null}
 
-            {partyLinkPairs.length > 0 && selectedEditRow !== null ? (
+            {showRelationshipsPanel &&
+            partyLinkPairs.length > 0 &&
+            selectedEditRow !== null ? (
               <div style={genericEditRowStyle}>
                 <select
                   aria-label="Party link field"
@@ -2734,7 +2836,7 @@ function GenericWorkbookSurface({
               </div>
             ) : null}
 
-            {isTaskRequestSurface && rows.length > 0 ? (
+            {showWorkflowPanel && isTaskRequestSurface && rows.length > 0 ? (
               <div style={genericEditRowStyle}>
                 <select
                   aria-label="Task lifecycle row"
@@ -2792,7 +2894,7 @@ function GenericWorkbookSurface({
               </div>
             ) : null}
 
-            {isDecisionSurface && rows.length > 1 ? (
+            {showWorkflowPanel && isDecisionSurface && rows.length > 1 ? (
               <div style={genericEditRowStyle}>
                 <select
                   aria-label="Superseded decision"
@@ -4113,6 +4215,7 @@ export function WorkbookShell({
       onSelectSection: openControlsDrawer,
     },
   });
+  const inspectorResetKey = `${surface}:${startupSheetRef.kind}:${startupSheetRef.id}:${sheetReloadToken}`;
 
   return (
     <section
@@ -4291,6 +4394,7 @@ export function WorkbookShell({
               hostEntities={hostRows}
               identityEntities={identityRows}
               incidentId={incidentId}
+              inspectorResetKey={inspectorResetKey}
               onQueryStateChange={setTimelineQueryState}
               onRefreshEntities={loadEntities}
               queryState={timelineQueryState}
@@ -4307,6 +4411,7 @@ export function WorkbookShell({
               entityIndex={entityIndex}
               entityType={surface === hostsViewSchemaId ? "host" : "identity"}
               incidentId={incidentId}
+              inspectorResetKey={inspectorResetKey}
               onRefreshEntities={loadEntities}
               onToggleSort={(fieldKey) => {
                 if (surface === hostsViewSchemaId) {
@@ -4335,6 +4440,7 @@ export function WorkbookShell({
               hostRows={hostRows}
               identityRows={identityRows}
               incidentId={incidentId}
+              inspectorResetKey={inspectorResetKey}
               loadError={assessmentLoadError}
               onRefreshAssessmentRows={loadAssessmentSurface}
               onToggleSort={(fieldKey) => {
@@ -4352,6 +4458,7 @@ export function WorkbookShell({
               contract={activeContract}
               currentUserId={currentUserId}
               incidentId={incidentId}
+              inspectorResetKey={inspectorResetKey}
               loadError={genericLoadError}
               onRefresh={loadGenericSurface}
               onToggleSort={(fieldKey) => {

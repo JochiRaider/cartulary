@@ -36,6 +36,20 @@ Recommended routine:
 - Prefer linking to existing task, decision, party, and evidence records over repeating the same information in free text.
 - Treat `next_report_at`, `next_checks`, and similar forward-looking fields as coordination prompts, not as substitutes for team judgment.
 
+## 3A. Inspector workflow practice
+
+The inspector is useful for deeper row-context cleanup, but it should remain off the ordinary capture hot path.
+
+Recommended practice:
+
+- Use the inspector during review windows to resolve mentions, inspect relationship overflow, check row history, and clean up evidence links.
+- Create task, decision, handoff, communications-log, or status-review records from selected rows when the selected row creates real follow-up work.
+- Use Handoff inspector features to acknowledge receipt and verify linked open tasks, open decisions, open risks, and next checks.
+- Use Status Review inspector features to review blocked work, pending evidence, open decisions, active risks, and next-report timing.
+- Treat destructive confirmations, rollback previews, merge plans, and supersede actions as deliberate review actions, not as routine row-editing steps.
+
+Do not require the inspector for ordinary Timeline, Host, Identity, Evidence, or Notes row creation, inline editing, paste, or rough capture.
+
 ## 4. Companion findings-document discipline
 
 Use the workbook as the compact, queryable control surface for incident facts, relationships, and next actions.

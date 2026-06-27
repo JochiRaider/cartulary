@@ -106,7 +106,7 @@ A saved view MUST persist, at minimum:
 - `updated_at`,
 - `saved_view_version`.
 
-`layout_json` carries only shared portable layout state. Selection, scroll position, focused cell, local popover state, open inspector state, preview state, and presence remain client-local and MUST NOT be persisted as part of a saved view.
+`layout_json` carries only shared portable layout state. Selection, scroll position, focused cell, local popover state, open inspector state, active inspector panel, preview state, local inspector forms, rollback previews, merge plans, stale confirmations, and presence remain client-local and MUST NOT be persisted as part of a saved view.
 
 Persisted saved-view `query_json` MUST use the same stable field-key grammar as workbook view queries. Omitted `sort` and `filters` members MUST persist as empty arrays. Inactive grouping MUST persist by omitting `query_json.group_by`; explicit JSON `null` for `group_by` is invalid. Omitted create-time `layout_json` and create-time `layout_json={}` MUST normalize to the schema-derived `cartulary.layout.v1` default before persistence.
 Profiles: base
@@ -116,6 +116,17 @@ Verified by: AC-146, AC-147, AC-148, AC-149, AC-151, AC-152, AC-231
 A saved view created from another saved view MUST persist a normalized canonical copy of that source view's `view_schema_id`, `query_json`, and `layout_json`. After creation, the new saved view MUST NOT inherit runtime behavior from the source `saved_view_id`.
 Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-151, AC-152, AC-231
+
+**REQ-03-291**
+Workbook inspector behavior MUST be derived from the active immutable `view_schema_id` inspector config. A saved view inherits inspector behavior from its immutable `view_schema_id`; switching between saved views over the same `view_schema_id` MUST NOT change inspector configuration, and switching to a saved view over another `view_schema_id` MUST select that other schema's config.
+
+The inspector MUST be closed by default on workbook open, surface switch, saved-view switch, and hard refresh. Opening the inspector MUST be an explicit user action and MUST NOT be required for ordinary row creation, inline editing, paste, correction, or rough capture.
+
+When the inspector is open and no saved row is selected, it MUST render the exact no-row state token `no_row_selected` and MUST NOT display details, confirmations, previews, merge plans, rollback plans, local forms, or workflow state from a prior row.
+
+When the selected `record_id` changes, every inspector panel MUST retarget to the new row or clear before showing new row data. Pending destructive confirmations, rollback previews, merge plans, and workflow forms MUST invalidate on selected-row change, row-version change, incident closure, authorization loss, record deletion, or merge. Mutating inspector actions that refresh the same surface MUST preserve selected row, grid scroll, and focus continuity where the route response and current authorization still allow it.
+Profiles: base
+Verified by: AC-453
 
 **REQ-03-015**
 `owner_user_id` MUST be present for `private` and `shared` saved views. It MAY be null only for `system` saved views.
@@ -1105,7 +1116,7 @@ Profiles: base
 Verified by: AC-007, AC-231
 
 **REQ-03-285**
-When a row history surface is rendered inside the inspector, the inspector's Details, Relationships, Evidence, History, and row-local action sections MUST share one active `record_id` subject. If the active saved row changes while history is open, the History section MUST retarget to the new active `record_id`, render a loading or error state for that target until its history response is accepted, and MUST NOT continue displaying history items, rollback previews, delete or restore confirmations, or row-local history actions from the previously active row. A deleted-row restore surface MAY remain bound to the deleted row only while no different live saved row is active.
+When a row history surface is rendered inside the inspector, the inspector's Details, Relationships, Evidence, History, Workflow, and row-local action sections MUST share one active `record_id` subject. If the active saved row changes while the inspector is open, every panel MUST retarget to the new active `record_id` or clear before showing new content. The History section MUST render a loading or error state for the new target until its history response is accepted and MUST NOT continue displaying history items, rollback previews, delete or restore confirmations, or row-local history actions from the previously active row. A deleted-row restore surface MAY remain bound to the deleted row only while no different live saved row is active.
 Profiles: base
 Verified by: AC-007, AC-215, AC-231
 

@@ -385,6 +385,7 @@ func requirePublicResourceShape(t testing.TB, resource ViewSchemaResource) {
 	if len(resource.Fields) == 0 {
 		t.Fatalf("%s must expose fields", resource.ViewSchemaID)
 	}
+	requireInspectorConfigShape(t, resource)
 
 	fieldKeys := make(map[string]struct{}, len(resource.Fields))
 	for _, field := range resource.Fields {
@@ -407,6 +408,118 @@ func requirePublicResourceShape(t testing.TB, resource ViewSchemaResource) {
 	for _, predicate := range resource.SyntheticFilterPredicates {
 		if _, ok := fieldKeys[predicate.FieldKey]; ok {
 			t.Fatalf("%s synthetic predicate %s must not also be a field", resource.ViewSchemaID, predicate.FieldKey)
+		}
+	}
+}
+
+func requireInspectorConfigShape(t testing.TB, resource ViewSchemaResource) {
+	t.Helper()
+
+	config := resource.InspectorConfig
+	if config.InspectorConfigSchemaID != "cartulary.inspector_config.v1" {
+		t.Fatalf("%s inspector_config schema id: got %q", resource.ViewSchemaID, config.InspectorConfigSchemaID)
+	}
+	if config.ViewSchemaID != resource.ViewSchemaID {
+		t.Fatalf("%s inspector_config view_schema_id mismatch: %#v", resource.ViewSchemaID, config)
+	}
+	if config.DefaultOpen {
+		t.Fatalf("%s inspector_config.default_open must be false", resource.ViewSchemaID)
+	}
+	if config.SubjectBinding.Kind != "selected_record" {
+		t.Fatalf("%s inspector_config subject: %#v", resource.ViewSchemaID, config.SubjectBinding)
+	}
+	if config.NoRowState != "no_row_selected" {
+		t.Fatalf("%s inspector_config no_row_state: got %q", resource.ViewSchemaID, config.NoRowState)
+	}
+	if config.UnsupportedFeatureBehavior != "omit_feature" {
+		t.Fatalf("%s inspector_config unsupported behavior: got %q", resource.ViewSchemaID, config.UnsupportedFeatureBehavior)
+	}
+	allowedPanels := map[string]struct{}{
+		"details":       {},
+		"relationships": {},
+		"evidence":      {},
+		"history":       {},
+		"workflow":      {},
+	}
+	if len(config.Panels) == 0 || len(config.Panels) > 5 {
+		t.Fatalf("%s inspector panels bound: got %d", resource.ViewSchemaID, len(config.Panels))
+	}
+	declaredPanels := map[string]struct{}{}
+	for _, panel := range config.Panels {
+		if panel.PanelID == "" || panel.Label == "" {
+			t.Fatalf("%s inspector panel incomplete: %#v", resource.ViewSchemaID, panel)
+		}
+		if _, ok := allowedPanels[panel.PanelID]; !ok {
+			t.Fatalf("%s inspector panel id not closed vocabulary: %#v", resource.ViewSchemaID, panel)
+		}
+		if _, exists := declaredPanels[panel.PanelID]; exists {
+			t.Fatalf("%s duplicate inspector panel_id %s", resource.ViewSchemaID, panel.PanelID)
+		}
+		declaredPanels[panel.PanelID] = struct{}{}
+	}
+	if len(config.FeatureGroups) > 64 {
+		t.Fatalf("%s inspector feature group bound: got %d", resource.ViewSchemaID, len(config.FeatureGroups))
+	}
+	allowedRoutes := map[string]struct{}{
+		"panel_read":            {},
+		"view_row_create":       {},
+		"record_patch":          {},
+		"record_action":         {},
+		"entity_mention_action": {},
+		"evidence_access":       {},
+		"surface_pivot":         {},
+	}
+	allowedConditions := map[string]struct{}{
+		"no_row_selected":              {},
+		"incident_closed":              {},
+		"authorization_lost":           {},
+		"row_version_changed":          {},
+		"record_deleted":               {},
+		"record_merged":                {},
+		"evidence_preview_unavailable": {},
+		"merge_target_unavailable":     {},
+	}
+	allowedRoles := map[string]struct{}{"viewer": {}, "editor": {}, "reviewer": {}, "admin": {}}
+	featureKeys := map[string]struct{}{}
+	for _, group := range config.FeatureGroups {
+		if group.FeatureGroupKey == "" || group.PanelID == "" || group.Label == "" {
+			t.Fatalf("%s inspector feature group incomplete: %#v", resource.ViewSchemaID, group)
+		}
+		if _, exists := featureKeys[group.FeatureGroupKey]; exists {
+			t.Fatalf("%s duplicate inspector feature_group_key %s", resource.ViewSchemaID, group.FeatureGroupKey)
+		}
+		featureKeys[group.FeatureGroupKey] = struct{}{}
+		if _, ok := declaredPanels[group.PanelID]; !ok {
+			t.Fatalf("%s inspector feature group references unknown panel %s", resource.ViewSchemaID, group.PanelID)
+		}
+		if group.MinimumIncidentRole != nil {
+			if _, ok := allowedRoles[*group.MinimumIncidentRole]; !ok {
+				t.Fatalf("%s inspector feature group has unknown minimum role: %#v", resource.ViewSchemaID, group)
+			}
+		}
+		if _, ok := allowedRoutes[group.RouteBinding.Kind]; !ok {
+			t.Fatalf("%s inspector feature group has unknown route kind: %#v", resource.ViewSchemaID, group.RouteBinding)
+		}
+		if len(group.SeedBindings) > 16 {
+			t.Fatalf("%s inspector seed binding bound: %#v", resource.ViewSchemaID, group)
+		}
+		for _, binding := range group.SeedBindings {
+			if binding.TargetFieldKey == "" {
+				t.Fatalf("%s inspector seed binding missing target field: %#v", resource.ViewSchemaID, binding)
+			}
+			switch binding.Source.Kind {
+			case "selected_record_id", "selected_field_value", "literal":
+			default:
+				t.Fatalf("%s inspector seed binding source kind: %#v", resource.ViewSchemaID, binding.Source)
+			}
+		}
+		if len(group.DisabledWhen) > 16 {
+			t.Fatalf("%s inspector disabled_when bound: %#v", resource.ViewSchemaID, group)
+		}
+		for _, condition := range group.DisabledWhen {
+			if _, ok := allowedConditions[condition]; !ok {
+				t.Fatalf("%s inspector disabled_when condition: %#v", resource.ViewSchemaID, group.DisabledWhen)
+			}
 		}
 	}
 }

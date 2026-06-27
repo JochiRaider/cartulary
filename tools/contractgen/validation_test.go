@@ -206,6 +206,87 @@ func TestValidateViewSchemaRejectsInvalidCanonicalSourceFilter(t *testing.T) {
 	}
 }
 
+func TestValidateViewSchemaRejectsInvalidInspectorConfig(t *testing.T) {
+	t.Run("missing config", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		delete(schema, "inspector_config")
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "inspector_config must be an object")
+	})
+
+	t.Run("mismatched view schema", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		config := schema["inspector_config"].(map[string]any)
+		config["view_schema_id"] = "cartulary.view.other.v1"
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "view_schema_id must match containing view_schema_id")
+	})
+
+	t.Run("unknown panel", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		config := schema["inspector_config"].(map[string]any)
+		config["panels"] = []any{map[string]any{"panel_id": "legacy", "label": "Legacy"}}
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "panel_id must be one of")
+	})
+
+	t.Run("duplicate panel", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		config := schema["inspector_config"].(map[string]any)
+		config["panels"] = []any{
+			map[string]any{"panel_id": "details", "label": "Details"},
+			map[string]any{"panel_id": "details", "label": "Details Again"},
+		}
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "duplicate panel_id details")
+	})
+
+	t.Run("duplicate feature key", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		config := schema["inspector_config"].(map[string]any)
+		group := validInspectorFeatureGroup("details.read")
+		config["feature_groups"] = []any{group, validInspectorFeatureGroup("details.read")}
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "duplicate feature_group_key details.read")
+	})
+
+	t.Run("feature group bound", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		config := schema["inspector_config"].(map[string]any)
+		groups := make([]any, 0, 65)
+		for index := 0; index < 65; index++ {
+			groups = append(groups, validInspectorFeatureGroup("details.read_"+string(rune('a'+index%26))+"_"+string(rune('a'+index/26))))
+		}
+		config["feature_groups"] = groups
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "feature_groups must contain at most 64 entries")
+	})
+
+	t.Run("unknown route kind", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		group := schema["inspector_config"].(map[string]any)["feature_groups"].([]any)[0].(map[string]any)
+		group["route_binding"] = map[string]any{"kind": "legacy_route"}
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "kind must be one of")
+	})
+
+	t.Run("unknown disabled condition", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		group := schema["inspector_config"].(map[string]any)["feature_groups"].([]any)[0].(map[string]any)
+		group["disabled_when"] = []any{"stale_legacy_state"}
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "references unknown condition stale_legacy_state")
+	})
+}
+
 func validViewSchema(id string) map[string]any {
 	return map[string]any{
 		"$schema":                      contractDraft202012Schema,
@@ -229,7 +310,37 @@ func validViewSchema(id string) map[string]any {
 		"synthetic_filter_predicates": []any{},
 		"grouping_fields":             []any{},
 		"inline_create":               map[string]any{"permits_zero_field_create": false},
+		"inspector_config":            validInspectorConfig(id),
 		"fields":                      []any{validViewField("name")},
+	}
+}
+
+func validInspectorConfig(id string) map[string]any {
+	return map[string]any{
+		"inspector_config_schema_id":   "cartulary.inspector_config.v1",
+		"view_schema_id":               id,
+		"default_open":                 false,
+		"subject_binding":              map[string]any{"kind": "selected_record"},
+		"no_row_state":                 "no_row_selected",
+		"unsupported_feature_behavior": "omit_feature",
+		"panels": []any{
+			map[string]any{"panel_id": "details", "label": "Details"},
+		},
+		"feature_groups": []any{validInspectorFeatureGroup("details.read")},
+	}
+}
+
+func validInspectorFeatureGroup(key string) map[string]any {
+	return map[string]any{
+		"feature_group_key":     key,
+		"panel_id":              "details",
+		"label":                 "Details panel",
+		"minimum_incident_role": nil,
+		"mutates":               false,
+		"requires_confirmation": false,
+		"route_binding":         map[string]any{"kind": "panel_read"},
+		"seed_bindings":         []any{},
+		"disabled_when":         []any{"no_row_selected"},
 	}
 }
 

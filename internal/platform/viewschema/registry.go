@@ -54,6 +54,55 @@ type CanonicalSourceFilter struct {
 	Value string `json:"value"`
 }
 
+type InspectorSubjectBinding struct {
+	Kind string `json:"kind"`
+}
+
+type InspectorPanel struct {
+	PanelID string `json:"panel_id"`
+	Label   string `json:"label"`
+}
+
+type InspectorRouteBinding struct {
+	Kind               string `json:"kind"`
+	TargetViewSchemaID string `json:"target_view_schema_id,omitempty"`
+	ActionKey          string `json:"action_key,omitempty"`
+}
+
+type InspectorSeedSource struct {
+	Kind           string `json:"kind"`
+	SourceFieldKey string `json:"source_field_key,omitempty"`
+	Value          any    `json:"value,omitempty"`
+}
+
+type InspectorSeedBinding struct {
+	TargetFieldKey string              `json:"target_field_key"`
+	Source         InspectorSeedSource `json:"source"`
+}
+
+type InspectorFeatureGroup struct {
+	FeatureGroupKey      string                 `json:"feature_group_key"`
+	PanelID              string                 `json:"panel_id"`
+	Label                string                 `json:"label"`
+	MinimumIncidentRole  *string                `json:"minimum_incident_role"`
+	Mutates              bool                   `json:"mutates"`
+	RequiresConfirmation bool                   `json:"requires_confirmation"`
+	RouteBinding         InspectorRouteBinding  `json:"route_binding"`
+	SeedBindings         []InspectorSeedBinding `json:"seed_bindings"`
+	DisabledWhen         []string               `json:"disabled_when"`
+}
+
+type InspectorConfig struct {
+	InspectorConfigSchemaID    string                  `json:"inspector_config_schema_id"`
+	ViewSchemaID               string                  `json:"view_schema_id"`
+	DefaultOpen                bool                    `json:"default_open"`
+	SubjectBinding             InspectorSubjectBinding `json:"subject_binding"`
+	NoRowState                 string                  `json:"no_row_state"`
+	UnsupportedFeatureBehavior string                  `json:"unsupported_feature_behavior"`
+	Panels                     []InspectorPanel        `json:"panels"`
+	FeatureGroups              []InspectorFeatureGroup `json:"feature_groups"`
+}
+
 type schemaDocument struct {
 	ViewSchemaID              string                     `json:"view_schema_id"`
 	Title                     string                     `json:"title"`
@@ -70,6 +119,7 @@ type schemaDocument struct {
 	SyntheticFilterPredicates []SyntheticFilterPredicate `json:"synthetic_filter_predicates"`
 	GroupingFields            []string                   `json:"grouping_fields"`
 	InlineCreate              inlineCreate               `json:"inline_create"`
+	InspectorConfig           InspectorConfig            `json:"inspector_config"`
 	Fields                    []Field                    `json:"fields"`
 }
 
@@ -128,6 +178,7 @@ type ViewSchemaResource struct {
 	FilterFields              []string                   `json:"filter_fields"`
 	SyntheticFilterPredicates []SyntheticFilterPredicate `json:"synthetic_filter_predicates"`
 	GroupingFields            []string                   `json:"grouping_fields"`
+	InspectorConfig           InspectorConfig            `json:"inspector_config"`
 	Fields                    []ViewFieldEntry           `json:"fields"`
 }
 
@@ -318,6 +369,7 @@ func buildPublicResource(document schemaDocument) ViewSchemaResource {
 		FilterFields:              cloneStrings(document.FilterFields),
 		SyntheticFilterPredicates: cloneSyntheticFilterPredicates(document.SyntheticFilterPredicates),
 		GroupingFields:            cloneStrings(document.GroupingFields),
+		InspectorConfig:           cloneInspectorConfig(document.InspectorConfig),
 		Fields:                    fields,
 	}
 }
@@ -331,8 +383,54 @@ func cloneResource(resource ViewSchemaResource) ViewSchemaResource {
 	resource.FilterFields = cloneStrings(resource.FilterFields)
 	resource.SyntheticFilterPredicates = cloneSyntheticFilterPredicates(resource.SyntheticFilterPredicates)
 	resource.GroupingFields = cloneStrings(resource.GroupingFields)
+	resource.InspectorConfig = cloneInspectorConfig(resource.InspectorConfig)
 	resource.Fields = cloneViewFieldEntries(resource.Fields)
 	return resource
+}
+
+func cloneInspectorConfig(config InspectorConfig) InspectorConfig {
+	config.Panels = append([]InspectorPanel(nil), config.Panels...)
+	config.FeatureGroups = cloneInspectorFeatureGroups(config.FeatureGroups)
+	return config
+}
+
+func cloneInspectorFeatureGroups(groups []InspectorFeatureGroup) []InspectorFeatureGroup {
+	cloned := make([]InspectorFeatureGroup, len(groups))
+	for index, group := range groups {
+		cloned[index] = group
+		cloned[index].MinimumIncidentRole = cloneStringPointer(group.MinimumIncidentRole)
+		cloned[index].SeedBindings = cloneInspectorSeedBindings(group.SeedBindings)
+		cloned[index].DisabledWhen = cloneStrings(group.DisabledWhen)
+	}
+	return cloned
+}
+
+func cloneInspectorSeedBindings(bindings []InspectorSeedBinding) []InspectorSeedBinding {
+	cloned := make([]InspectorSeedBinding, len(bindings))
+	for index, binding := range bindings {
+		cloned[index] = binding
+		cloned[index].Source.Value = cloneInspectorLiteral(binding.Source.Value)
+	}
+	return cloned
+}
+
+func cloneInspectorLiteral(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		cloned := make(map[string]any, len(typed))
+		for key, nested := range typed {
+			cloned[key] = cloneInspectorLiteral(nested)
+		}
+		return cloned
+	case []any:
+		cloned := make([]any, len(typed))
+		for index, nested := range typed {
+			cloned[index] = cloneInspectorLiteral(nested)
+		}
+		return cloned
+	default:
+		return typed
+	}
 }
 
 func cloneViewFieldEntries(fields []ViewFieldEntry) []ViewFieldEntry {

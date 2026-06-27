@@ -31,6 +31,7 @@ var (
 		"synthetic_filter_predicates",
 		"grouping_fields",
 		"inline_create",
+		"inspector_config",
 		"fields",
 	)
 	viewSchemaFieldKeys = stringSet(
@@ -60,6 +61,13 @@ var (
 	viewSchemaIndexEntryKeys  = stringSet("view_schema_id", "title", "surface_kind", "source_record_types", "artifact_path")
 	syntheticPredicateKeys    = stringSet("field_key", "label", "filter_ops")
 	canonicalSourceFilterKeys = stringSet("kind", "field", "value")
+	inspectorConfigKeys       = stringSet("inspector_config_schema_id", "view_schema_id", "default_open", "subject_binding", "no_row_state", "unsupported_feature_behavior", "panels", "feature_groups")
+	inspectorSubjectKeys      = stringSet("kind")
+	inspectorPanelKeys        = stringSet("panel_id", "label")
+	inspectorFeatureKeys      = stringSet("feature_group_key", "panel_id", "label", "minimum_incident_role", "mutates", "requires_confirmation", "route_binding", "seed_bindings", "disabled_when")
+	inspectorRouteBindingKeys = stringSet("kind", "target_view_schema_id", "action_key")
+	inspectorSeedBindingKeys  = stringSet("target_field_key", "source")
+	inspectorSeedSourceKeys   = stringSet("kind", "source_field_key", "value")
 	errorRegistryKeys         = stringSet("$schema", "registry_id", "note", "errors", "reason_registries")
 	errorEntryKeys            = stringSet("code", "http_status", "summary")
 	reasonRegistryEntryKeys   = stringSet("error_code", "reason_codes")
@@ -337,6 +345,9 @@ func validateViewSchemaShape(value any, relativePath string) error {
 	if _, err := requiredBool(inlineCreate, "permits_zero_field_create", relativePath+".inline_create"); err != nil {
 		return err
 	}
+	if err := validateInspectorConfig(object["inspector_config"], viewSchemaID, relativePath+".inspector_config"); err != nil {
+		return err
+	}
 	defaultSort, err := objectArray(object["default_sort"], relativePath+".default_sort")
 	if err != nil {
 		return err
@@ -428,6 +439,250 @@ func validateViewSchemaShape(value any, relativePath string) error {
 		}
 	}
 	return nil
+}
+
+func validateInspectorConfig(value any, viewSchemaID string, label string) error {
+	object, err := asObject(value, label)
+	if err != nil {
+		return err
+	}
+	if err := requireAllowedKeys(object, inspectorConfigKeys, label); err != nil {
+		return err
+	}
+	if schemaID, err := requireEnumString(object, "inspector_config_schema_id", label, "cartulary.inspector_config.v1"); err != nil {
+		return err
+	} else if schemaID == "" {
+		return fmt.Errorf("%s.inspector_config_schema_id is required", label)
+	}
+	if got, err := requiredString(object, "view_schema_id", label); err != nil {
+		return err
+	} else if got != viewSchemaID {
+		return fmt.Errorf("%s.view_schema_id must match containing view_schema_id %s", label, viewSchemaID)
+	}
+	defaultOpen, err := requiredBool(object, "default_open", label)
+	if err != nil {
+		return err
+	}
+	if defaultOpen {
+		return fmt.Errorf("%s.default_open must be false", label)
+	}
+	subject, err := asObject(object["subject_binding"], label+".subject_binding")
+	if err != nil {
+		return err
+	}
+	if err := requireAllowedKeys(subject, inspectorSubjectKeys, label+".subject_binding"); err != nil {
+		return err
+	}
+	if _, err := requireEnumString(subject, "kind", label+".subject_binding", "selected_record"); err != nil {
+		return err
+	}
+	if _, err := requireEnumString(object, "no_row_state", label, "no_row_selected"); err != nil {
+		return err
+	}
+	if _, err := requireEnumString(object, "unsupported_feature_behavior", label, "omit_feature"); err != nil {
+		return err
+	}
+
+	panels, err := objectArray(object["panels"], label+".panels")
+	if err != nil {
+		return err
+	}
+	if len(panels) > 5 {
+		return fmt.Errorf("%s.panels must contain at most 5 entries", label)
+	}
+	declaredPanels := map[string]struct{}{}
+	for index, panel := range panels {
+		panelLabel := fmt.Sprintf("%s.panels[%d]", label, index+1)
+		if err := requireAllowedKeys(panel, inspectorPanelKeys, panelLabel); err != nil {
+			return err
+		}
+		panelID, err := requireEnumString(panel, "panel_id", panelLabel, "details", "relationships", "evidence", "history", "workflow")
+		if err != nil {
+			return err
+		}
+		if _, exists := declaredPanels[panelID]; exists {
+			return fmt.Errorf("%s duplicate panel_id %s", label, panelID)
+		}
+		declaredPanels[panelID] = struct{}{}
+		if _, err := requiredString(panel, "label", panelLabel); err != nil {
+			return err
+		}
+	}
+
+	featureGroups, err := objectArrayAllowEmpty(object["feature_groups"], label+".feature_groups")
+	if err != nil {
+		return err
+	}
+	if len(featureGroups) > 64 {
+		return fmt.Errorf("%s.feature_groups must contain at most 64 entries", label)
+	}
+	seenFeatures := map[string]struct{}{}
+	for index, group := range featureGroups {
+		groupLabel := fmt.Sprintf("%s.feature_groups[%d]", label, index+1)
+		if err := validateInspectorFeatureGroup(group, groupLabel, declaredPanels); err != nil {
+			return err
+		}
+		key, _ := requiredString(group, "feature_group_key", groupLabel)
+		if !isInspectorFeatureKey(key) {
+			return fmt.Errorf("%s.feature_group_key must be ASCII lower snake or dotted key", groupLabel)
+		}
+		if _, exists := seenFeatures[key]; exists {
+			return fmt.Errorf("%s duplicate feature_group_key %s", label, key)
+		}
+		seenFeatures[key] = struct{}{}
+	}
+	return nil
+}
+
+func validateInspectorFeatureGroup(group map[string]any, label string, declaredPanels map[string]struct{}) error {
+	if err := requireAllowedKeys(group, inspectorFeatureKeys, label); err != nil {
+		return err
+	}
+	if _, err := requiredString(group, "feature_group_key", label); err != nil {
+		return err
+	}
+	panelID, err := requiredString(group, "panel_id", label)
+	if err != nil {
+		return err
+	}
+	if _, ok := declaredPanels[panelID]; !ok {
+		return fmt.Errorf("%s.panel_id references unknown panel_id %s", label, panelID)
+	}
+	if _, err := requiredString(group, "label", label); err != nil {
+		return err
+	}
+	if err := validateNullableIncidentRole(group, "minimum_incident_role", label); err != nil {
+		return err
+	}
+	if _, err := requiredBool(group, "mutates", label); err != nil {
+		return err
+	}
+	if _, err := requiredBool(group, "requires_confirmation", label); err != nil {
+		return err
+	}
+	routeBinding, err := asObject(group["route_binding"], label+".route_binding")
+	if err != nil {
+		return err
+	}
+	if err := validateInspectorRouteBinding(routeBinding, label+".route_binding"); err != nil {
+		return err
+	}
+	if err := validateInspectorSeedBindings(group["seed_bindings"], label+".seed_bindings"); err != nil {
+		return err
+	}
+	conditions, err := stringArray(group["disabled_when"], label+".disabled_when", false)
+	if err != nil {
+		return err
+	}
+	if len(conditions) > 16 {
+		return fmt.Errorf("%s.disabled_when must contain at most 16 entries", label)
+	}
+	knownConditions := stringSet("no_row_selected", "incident_closed", "authorization_lost", "row_version_changed", "record_deleted", "record_merged", "evidence_preview_unavailable", "merge_target_unavailable")
+	for _, condition := range conditions {
+		if _, ok := knownConditions[condition]; !ok {
+			return fmt.Errorf("%s.disabled_when references unknown condition %s", label, condition)
+		}
+	}
+	return nil
+}
+
+func validateNullableIncidentRole(object map[string]any, key, label string) error {
+	value, ok := object[key]
+	if !ok {
+		return fmt.Errorf("%s.%s is required", label, key)
+	}
+	if value == nil {
+		return nil
+	}
+	role, ok := value.(string)
+	if !ok || strings.TrimSpace(role) == "" {
+		return fmt.Errorf("%s.%s must be null or a non-empty string", label, key)
+	}
+	for _, allowed := range []string{"viewer", "editor", "reviewer", "admin"} {
+		if role == allowed {
+			return nil
+		}
+	}
+	return fmt.Errorf("%s.%s must be one of viewer|editor|reviewer|admin or null", label, key)
+}
+
+func validateInspectorRouteBinding(object map[string]any, label string) error {
+	if err := requireAllowedKeys(object, inspectorRouteBindingKeys, label); err != nil {
+		return err
+	}
+	if _, err := requireEnumString(object, "kind", label, "panel_read", "view_row_create", "record_patch", "record_action", "entity_mention_action", "evidence_access", "surface_pivot"); err != nil {
+		return err
+	}
+	if value, ok := object["target_view_schema_id"]; ok {
+		text, ok := value.(string)
+		if !ok || strings.TrimSpace(text) == "" {
+			return fmt.Errorf("%s.target_view_schema_id must be a non-empty string", label)
+		}
+	}
+	if value, ok := object["action_key"]; ok {
+		text, ok := value.(string)
+		if !ok || !isInspectorFeatureKey(text) {
+			return fmt.Errorf("%s.action_key must be ASCII lower snake or dotted key", label)
+		}
+	}
+	return nil
+}
+
+func validateInspectorSeedBindings(value any, label string) error {
+	bindings, err := objectArrayAllowEmpty(value, label)
+	if err != nil {
+		return err
+	}
+	if len(bindings) > 16 {
+		return fmt.Errorf("%s must contain at most 16 entries", label)
+	}
+	for index, binding := range bindings {
+		bindingLabel := fmt.Sprintf("%s[%d]", label, index+1)
+		if err := requireAllowedKeys(binding, inspectorSeedBindingKeys, bindingLabel); err != nil {
+			return err
+		}
+		if _, err := requiredString(binding, "target_field_key", bindingLabel); err != nil {
+			return err
+		}
+		source, err := asObject(binding["source"], bindingLabel+".source")
+		if err != nil {
+			return err
+		}
+		if err := requireAllowedKeys(source, inspectorSeedSourceKeys, bindingLabel+".source"); err != nil {
+			return err
+		}
+		kind, err := requireEnumString(source, "kind", bindingLabel+".source", "selected_record_id", "selected_field_value", "literal")
+		if err != nil {
+			return err
+		}
+		if kind == "selected_field_value" {
+			if _, err := requiredString(source, "source_field_key", bindingLabel+".source"); err != nil {
+				return err
+			}
+		}
+		if kind == "literal" {
+			if _, ok := source["value"]; !ok {
+				return fmt.Errorf("%s.source.value is required for literal seed source", bindingLabel)
+			}
+		}
+	}
+	return nil
+}
+
+func isInspectorFeatureKey(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= '0' && r <= '9':
+		case r == '_' || r == '.':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func validateCanonicalSourceFilter(value any, label string) error {

@@ -206,6 +206,7 @@ func requirePublicResource(t testing.TB, resource map[string]any) {
 	if !reflect.DeepEqual(resource["technical_fields"], []any{"record_id", "row_version"}) {
 		t.Fatalf("unexpected technical fields for %s: %#v", resource["view_schema_id"], resource["technical_fields"])
 	}
+	requireInspectorConfig(t, resource)
 	for _, forbidden := range []string{"write_target", "write_action", "base_projection", "canonical_source_filter", "read_model", "create_writable", "writable"} {
 		if containsKey(resource, forbidden) {
 			t.Fatalf("public resource %s leaked %s: %#v", resource["view_schema_id"], forbidden, resource)
@@ -220,6 +221,98 @@ func requirePublicResource(t testing.TB, resource map[string]any) {
 		for _, key := range []string{"field_key", "label", "default_hidden", "sortable", "header_sort_field_key", "filter_ops", "groupable", "read_kind", "write_kind", "conflict_resolution_class", "entity_binding_mode", "string_contract_id", "direct_scalar_contract_id", "direct_reference_contract_id", "clearable", "enum_values"} {
 			if _, exists := entry[key]; !exists {
 				t.Fatalf("field entry for %s missing %s: %#v", resource["view_schema_id"], key, entry)
+			}
+		}
+	}
+}
+
+func requireInspectorConfig(t testing.TB, resource map[string]any) {
+	t.Helper()
+
+	viewSchemaID, _ := resource["view_schema_id"].(string)
+	config, ok := resource["inspector_config"].(map[string]any)
+	if !ok {
+		t.Fatalf("resource %s must expose inspector_config: %#v", viewSchemaID, resource)
+	}
+	if config["inspector_config_schema_id"] != "cartulary.inspector_config.v1" {
+		t.Fatalf("%s inspector schema id: %#v", viewSchemaID, config)
+	}
+	if config["view_schema_id"] != viewSchemaID {
+		t.Fatalf("%s inspector view_schema_id mismatch: %#v", viewSchemaID, config)
+	}
+	if config["default_open"] != false {
+		t.Fatalf("%s inspector default_open must be false: %#v", viewSchemaID, config)
+	}
+	subject, ok := config["subject_binding"].(map[string]any)
+	if !ok || subject["kind"] != "selected_record" {
+		t.Fatalf("%s inspector subject_binding: %#v", viewSchemaID, config["subject_binding"])
+	}
+	if config["no_row_state"] != "no_row_selected" || config["unsupported_feature_behavior"] != "omit_feature" {
+		t.Fatalf("%s inspector fixed values invalid: %#v", viewSchemaID, config)
+	}
+	panels, ok := config["panels"].([]any)
+	if !ok || len(panels) == 0 || len(panels) > 5 {
+		t.Fatalf("%s inspector panels bound: %#v", viewSchemaID, config["panels"])
+	}
+	allowedPanels := map[string]struct{}{"details": {}, "relationships": {}, "evidence": {}, "history": {}, "workflow": {}}
+	declaredPanels := map[string]struct{}{}
+	for _, panelValue := range panels {
+		panel := panelValue.(map[string]any)
+		panelID, _ := panel["panel_id"].(string)
+		if _, ok := allowedPanels[panelID]; !ok || panel["label"] == "" {
+			t.Fatalf("%s inspector panel invalid: %#v", viewSchemaID, panel)
+		}
+		if _, exists := declaredPanels[panelID]; exists {
+			t.Fatalf("%s duplicate inspector panel %s", viewSchemaID, panelID)
+		}
+		declaredPanels[panelID] = struct{}{}
+	}
+	groups, ok := config["feature_groups"].([]any)
+	if !ok || len(groups) > 64 {
+		t.Fatalf("%s inspector feature group bound: %#v", viewSchemaID, config["feature_groups"])
+	}
+	allowedRoutes := map[string]struct{}{
+		"panel_read": {}, "view_row_create": {}, "record_patch": {}, "record_action": {},
+		"entity_mention_action": {}, "evidence_access": {}, "surface_pivot": {},
+	}
+	allowedConditions := map[string]struct{}{
+		"no_row_selected": {}, "incident_closed": {}, "authorization_lost": {}, "row_version_changed": {},
+		"record_deleted": {}, "record_merged": {}, "evidence_preview_unavailable": {}, "merge_target_unavailable": {},
+	}
+	featureKeys := map[string]struct{}{}
+	for _, groupValue := range groups {
+		group := groupValue.(map[string]any)
+		key, _ := group["feature_group_key"].(string)
+		if key == "" {
+			t.Fatalf("%s inspector feature group missing key: %#v", viewSchemaID, group)
+		}
+		if _, exists := featureKeys[key]; exists {
+			t.Fatalf("%s duplicate inspector feature group %s", viewSchemaID, key)
+		}
+		featureKeys[key] = struct{}{}
+		panelID, _ := group["panel_id"].(string)
+		if _, ok := declaredPanels[panelID]; !ok {
+			t.Fatalf("%s inspector feature group references unknown panel: %#v", viewSchemaID, group)
+		}
+		route, ok := group["route_binding"].(map[string]any)
+		if !ok {
+			t.Fatalf("%s inspector feature group missing route binding: %#v", viewSchemaID, group)
+		}
+		routeKind, _ := route["kind"].(string)
+		if _, ok := allowedRoutes[routeKind]; !ok {
+			t.Fatalf("%s inspector route kind invalid: %#v", viewSchemaID, route)
+		}
+		if seedBindings, ok := group["seed_bindings"].([]any); !ok || len(seedBindings) > 16 {
+			t.Fatalf("%s inspector seed binding bound: %#v", viewSchemaID, group["seed_bindings"])
+		}
+		conditions, ok := group["disabled_when"].([]any)
+		if !ok || len(conditions) > 16 {
+			t.Fatalf("%s inspector disabled_when bound: %#v", viewSchemaID, group["disabled_when"])
+		}
+		for _, conditionValue := range conditions {
+			condition, _ := conditionValue.(string)
+			if _, ok := allowedConditions[condition]; !ok {
+				t.Fatalf("%s inspector disabled_when invalid: %#v", viewSchemaID, group["disabled_when"])
 			}
 		}
 	}

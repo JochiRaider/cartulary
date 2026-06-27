@@ -165,7 +165,7 @@ type FrontendVisualFixtureRegistry = {
 };
 
 const expectedFeP11VisualFixtureIds = Array.from(
-  { length: 15 },
+  { length: 20 },
   (_, index) => `FE-VFIX-${String(index + 1).padStart(2, "0")}`,
 );
 const timelineInspectorTestId = "timeline-inspector";
@@ -3205,7 +3205,13 @@ test.describe("FE-P11 visual readiness", () => {
       expectedFeP11VisualFixtureIds,
     );
     for (const fixture of registry.fixtures) {
-      expectCurrentFrontendVisualFixtureMetadata(fixture);
+      if (fixture.status === "current") {
+        expectCurrentFrontendVisualFixtureMetadata(fixture);
+        continue;
+      }
+      expect(fixture.status).toBe("missing");
+      expect(fixture.blocked_reason.length).toBeGreaterThan(0);
+      expect(fixture.golden_artifacts).toEqual([]);
     }
 
     await testInfo.attach("fe-v-p11-01-owned-stack-visual-suite.json", {

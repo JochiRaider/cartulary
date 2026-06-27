@@ -72,6 +72,7 @@ import {
   workbookSurfaceOverlayPanelStyle,
 } from "../../components/WorkbookSurfaceFrame";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
+import { selectInspectorConfig } from "../../models/workbookInspectorModel";
 import {
   buildQueryRequest,
   defaultFilterDraft,
@@ -267,6 +268,7 @@ export {
 };
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
+const timelineInspectorConfig = selectInspectorConfig(timelineContract);
 const timelineRowGutterWidth = 58;
 const timelineVisibleFieldKeys = timelineVisibleBindings.map(
   (binding) => binding.fieldKey,
@@ -312,6 +314,7 @@ export type TimelineWorkbookProps = {
   incidentId: string;
   apiBase?: string | undefined;
   sheetRef?: WorkbookSheetRef | undefined;
+  inspectorResetKey?: string | undefined;
   reloadToken?: number | undefined;
   renderInlineQueryControls?: boolean | undefined;
   savedViewSelector?: ReactNode | undefined;
@@ -945,6 +948,7 @@ export function TimelineWorkbook({
   incidentId,
   apiBase,
   sheetRef,
+  inspectorResetKey,
   reloadToken = 0,
   renderInlineQueryControls = true,
   savedViewSelector,
@@ -4072,6 +4076,25 @@ export function TimelineWorkbook({
     });
   }, [setRowHistory, setRowHistoryPendingAction]);
 
+  useEffect(() => {
+    if (inspectorResetKey === undefined) {
+      return;
+    }
+    setIsInspectorOpen(false);
+    setSelectedRowId(null);
+    setSelectedMentionRef(null);
+    setSelectedResolveTargetId("");
+    setInspectorMessage(null);
+    clearRowHistory();
+  }, [
+    clearRowHistory,
+    inspectorResetKey,
+    setInspectorMessage,
+    setSelectedMentionRef,
+    setSelectedResolveTargetId,
+    setSelectedRowId,
+  ]);
+
   const submitRowHistoryMutation = useCallback(
     ({
       idleOptions,
@@ -6209,13 +6232,7 @@ export function TimelineWorkbook({
   }, [activeConflict, closeConflictResolver]);
 
   useEffect(() => {
-    const hasInspectorSelection =
-      selectedRowId !== null ||
-      selectedMentionRef !== null ||
-      inspectorMessage !== null ||
-      rowHistory.recordId !== null ||
-      rowHistory.status !== "idle";
-    if (!hasInspectorSelection) {
+    if (!isInspectorOpen) {
       return;
     }
     const handleTimelineInspectorEscape = (event: KeyboardEvent) => {
@@ -6223,9 +6240,6 @@ export function TimelineWorkbook({
         return;
       }
       const target = event.target instanceof HTMLElement ? event.target : null;
-      if (target?.closest(dataTestIdSelector("timeline-inspector")) === null) {
-        return;
-      }
       if (
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
@@ -6234,6 +6248,7 @@ export function TimelineWorkbook({
         return;
       }
       event.preventDefault();
+      setIsInspectorOpen(false);
       setSelectedRowId(null);
       setSelectedMentionRef(null);
       setInspectorMessage(null);
@@ -6250,12 +6265,8 @@ export function TimelineWorkbook({
   }, [
     activeConflict,
     clearRowHistory,
-    inspectorMessage,
+    isInspectorOpen,
     restoreTimelineFocusAnchor,
-    rowHistory.recordId,
-    rowHistory.status,
-    selectedMentionRef,
-    selectedRowId,
     setInspectorMessage,
     setSelectedMentionRef,
     setSelectedRowId,
@@ -6438,6 +6449,7 @@ export function TimelineWorkbook({
             getRelationshipLabel={timelineRelationshipLabel}
             hostEntities={hostEntities}
             identityEntities={identityEntities}
+            inspectorConfig={timelineInspectorConfig}
             inspectorMessage={inspectorMessage}
             inspectorMentions={inspectorMentions}
             onClose={() => {

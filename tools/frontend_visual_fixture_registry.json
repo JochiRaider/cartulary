@@ -779,6 +779,245 @@
       "no_dynamic_regions": false,
       "blocked_reason": "",
       "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-16",
+      "fixture_title": "Host or Identity merge inspector",
+      "status": "missing",
+      "owner_phase_ids": [
+        "FE-P9"
+      ],
+      "owner_row_ids": [
+        "FE-V-P9-01"
+      ],
+      "playwright_scenario_title": "TODO: add Host or Identity merge inspector visual scenario",
+      "golden_filename": "",
+      "golden_artifacts": [],
+      "seed_id": "fe-vfix-16-missing-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "compact",
+      "scroll_normalization": {
+        "kind": "not_applicable",
+        "reason": "selector-only missing inspector fixture; no workbook-grid scroll state until a row-owned visual scenario exists"
+      },
+      "capture_scope": {
+        "kind": "selector",
+        "selector": "[data-testid='host-inspector']"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: define merge inspector focus state in a row-owned Playwright scenario."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: define merge candidate and confirmation editor state in a row-owned Playwright scenario."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: capture selected-row merge plan and confirmation state."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "TODO: apps/web/e2e/workbook.visual.spec.ts needs a row-owned Host or Identity merge inspector scenario and golden.",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-17",
+      "fixture_title": "Evidence blocked preview inspector",
+      "status": "missing",
+      "owner_phase_ids": [
+        "FE-P9"
+      ],
+      "owner_row_ids": [
+        "FE-V-P9-01"
+      ],
+      "playwright_scenario_title": "TODO: add Evidence blocked preview inspector visual scenario",
+      "golden_filename": "",
+      "golden_artifacts": [],
+      "seed_id": "fe-vfix-17-missing-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "compact",
+      "scroll_normalization": {
+        "kind": "not_applicable",
+        "reason": "selector-only missing inspector fixture; no workbook-grid scroll state until a row-owned visual scenario exists"
+      },
+      "capture_scope": {
+        "kind": "selector",
+        "selector": "[data-testid='timeline-inspector']"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: define blocked evidence preview focus state in a row-owned Playwright scenario."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: define blocked evidence preview state without active editing."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: capture evidence preview unavailable/blocked state."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "TODO: apps/web/e2e/workbook.visual.spec.ts needs a row-owned Evidence blocked preview inspector scenario and golden.",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-18",
+      "fixture_title": "History rollback destructive confirmation",
+      "status": "missing",
+      "owner_phase_ids": [
+        "FE-P9"
+      ],
+      "owner_row_ids": [
+        "FE-V-P9-01"
+      ],
+      "playwright_scenario_title": "TODO: add History rollback destructive confirmation visual scenario",
+      "golden_filename": "",
+      "golden_artifacts": [],
+      "seed_id": "fe-vfix-18-missing-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "compact",
+      "scroll_normalization": {
+        "kind": "not_applicable",
+        "reason": "selector-only missing inspector fixture; no workbook-grid scroll state until a row-owned visual scenario exists"
+      },
+      "capture_scope": {
+        "kind": "selector",
+        "selector": "[data-testid='timeline-inspector']"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: define destructive confirmation focus state in a row-owned Playwright scenario."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: define rollback preview state without unrelated editors."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: capture rollback preview and destructive confirmation in History."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "TODO: apps/web/e2e/workbook.visual.spec.ts needs a row-owned History rollback/destructive confirmation scenario and golden.",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-19",
+      "fixture_title": "Handoff acknowledgement inspector",
+      "status": "missing",
+      "owner_phase_ids": [
+        "FE-P10"
+      ],
+      "owner_row_ids": [
+        "FE-V-P10-01"
+      ],
+      "playwright_scenario_title": "TODO: add Handoff acknowledgement inspector visual scenario",
+      "golden_filename": "",
+      "golden_artifacts": [],
+      "seed_id": "fe-vfix-19-missing-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "compact",
+      "scroll_normalization": {
+        "kind": "not_applicable",
+        "reason": "selector-only missing inspector fixture; no workbook-grid scroll state until a row-owned visual scenario exists"
+      },
+      "capture_scope": {
+        "kind": "selector",
+        "selector": "[data-workbook-slot='inspector']"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: define handoff acknowledgement focus state in a row-owned Playwright scenario."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: define handoff acknowledgement form state."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: capture Handoff workflow acknowledgement affordance."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "TODO: apps/web/e2e/workbook.visual.spec.ts needs a row-owned Handoff acknowledgement inspector scenario and golden.",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-20",
+      "fixture_title": "Status Review blocked work inspector",
+      "status": "missing",
+      "owner_phase_ids": [
+        "FE-P10"
+      ],
+      "owner_row_ids": [
+        "FE-V-P10-01"
+      ],
+      "playwright_scenario_title": "TODO: add Status Review blocked work inspector visual scenario",
+      "golden_filename": "",
+      "golden_artifacts": [],
+      "seed_id": "fe-vfix-20-missing-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "compact",
+      "scroll_normalization": {
+        "kind": "not_applicable",
+        "reason": "selector-only missing inspector fixture; no workbook-grid scroll state until a row-owned visual scenario exists"
+      },
+      "capture_scope": {
+        "kind": "selector",
+        "selector": "[data-workbook-slot='inspector']"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: define status review blocked-work focus state in a row-owned Playwright scenario."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: define blocked-work review state without unrelated editors."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "TODO: capture Status Review blocked-work workflow state."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "TODO: apps/web/e2e/workbook.visual.spec.ts needs a row-owned Status Review blocked-work inspector scenario and golden.",
+      "replacement_fixture_id": ""
     }
   ]
 }

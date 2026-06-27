@@ -71,6 +71,187 @@
   "inline_create": {
     "permits_zero_field_create": false
   },
+  "inspector_config": {
+    "inspector_config_schema_id": "cartulary.inspector_config.v1",
+    "view_schema_id": "cartulary.view.findings.v1",
+    "default_open": false,
+    "subject_binding": {
+      "kind": "selected_record"
+    },
+    "no_row_state": "no_row_selected",
+    "unsupported_feature_behavior": "omit_feature",
+    "panels": [
+      {
+        "panel_id": "details",
+        "label": "Details"
+      },
+      {
+        "panel_id": "relationships",
+        "label": "Relationships"
+      },
+      {
+        "panel_id": "evidence",
+        "label": "Evidence"
+      },
+      {
+        "panel_id": "history",
+        "label": "History"
+      },
+      {
+        "panel_id": "workflow",
+        "label": "Workflow"
+      }
+    ],
+    "feature_groups": [
+      {
+        "feature_group_key": "details.read",
+        "panel_id": "details",
+        "label": "Details panel",
+        "minimum_incident_role": null,
+        "mutates": false,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "panel_read"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected"
+        ]
+      },
+      {
+        "feature_group_key": "relationships.read",
+        "panel_id": "relationships",
+        "label": "Relationships panel",
+        "minimum_incident_role": null,
+        "mutates": false,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "panel_read"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected"
+        ]
+      },
+      {
+        "feature_group_key": "evidence.read",
+        "panel_id": "evidence",
+        "label": "Evidence panel",
+        "minimum_incident_role": null,
+        "mutates": false,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "panel_read"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected"
+        ]
+      },
+      {
+        "feature_group_key": "history.read",
+        "panel_id": "history",
+        "label": "History panel",
+        "minimum_incident_role": null,
+        "mutates": false,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "panel_read"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected"
+        ]
+      },
+      {
+        "feature_group_key": "workflow.read",
+        "panel_id": "workflow",
+        "label": "Workflow panel",
+        "minimum_incident_role": null,
+        "mutates": false,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "panel_read"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected"
+        ]
+      },
+      {
+        "feature_group_key": "evidence.access",
+        "panel_id": "evidence",
+        "label": "Preview or download evidence",
+        "minimum_incident_role": "viewer",
+        "mutates": false,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "evidence_access"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "authorization_lost",
+          "evidence_preview_unavailable"
+        ]
+      },
+      {
+        "feature_group_key": "relationships.patch",
+        "panel_id": "relationships",
+        "label": "Update relationships",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "record_patch"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ]
+      },
+      {
+        "feature_group_key": "history.rollback",
+        "panel_id": "history",
+        "label": "Rollback or restore",
+        "minimum_incident_role": "reviewer",
+        "mutates": true,
+        "requires_confirmation": true,
+        "route_binding": {
+          "kind": "record_action",
+          "action_key": "rollback_or_restore"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ]
+      },
+      {
+        "feature_group_key": "workflow.create_related_task",
+        "panel_id": "workflow",
+        "label": "Create related task",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "view_row_create",
+          "target_view_schema_id": "cartulary.view.task_requests.v1"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost"
+        ]
+      }
+    ]
+  },
   "fields": [
     {
       "field_key": "finding.statement",

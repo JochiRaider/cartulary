@@ -79,7 +79,7 @@ const emptyGoSelectionExceptionKeys = new Set([
   "package_patterns",
 ]);
 const postgresFixturePolicyTemplateClone = "template_clone";
-const frontendFixtureRefPattern = /^FE-VFIX-(?:0[1-9]|1[0-5])$/;
+const frontendFixtureRefPattern = /^FE-VFIX-(?:0[1-9]|1[0-9]|20)$/;
 const frontendFixtureRefIDsByRoot = new Map();
 const validRuntimeBinaries = new Set(["operator"]);
 const postgresFixturePolicyPackageReset = "package_reset";

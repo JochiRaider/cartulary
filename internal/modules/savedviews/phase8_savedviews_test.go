@@ -251,6 +251,55 @@ func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
 			field:      "layout_json.column_widths[0].field_key",
 			reasonCode: "forbidden_field",
 		},
+		"layout inspector open state": {
+			displayName: "Invalid layout inspector open state",
+			queryJSON:   map[string]any{},
+			layoutJSON:  savedViewLayoutWith(t, func(layout map[string]any) { layout["inspector_open"] = true }),
+			field:       "layout_json.inspector_open",
+			reasonCode:  "unknown_field",
+		},
+		"layout inspector active panel": {
+			displayName: "Invalid layout inspector active panel",
+			queryJSON:   map[string]any{},
+			layoutJSON:  savedViewLayoutWith(t, func(layout map[string]any) { layout["active_panel"] = "history" }),
+			field:       "layout_json.active_panel",
+			reasonCode:  "unknown_field",
+		},
+		"layout inspector preview state": {
+			displayName: "Invalid layout inspector preview state",
+			queryJSON:   map[string]any{},
+			layoutJSON:  savedViewLayoutWith(t, func(layout map[string]any) { layout["preview_state"] = map[string]any{"record_id": "row-1"} }),
+			field:       "layout_json.preview_state",
+			reasonCode:  "unknown_field",
+		},
+		"layout inspector local form state": {
+			displayName: "Invalid layout inspector local form state",
+			queryJSON:   map[string]any{},
+			layoutJSON:  savedViewLayoutWith(t, func(layout map[string]any) { layout["local_form_state"] = map[string]any{"dirty": true} }),
+			field:       "layout_json.local_form_state",
+			reasonCode:  "unknown_field",
+		},
+		"layout inspector stale confirmation state": {
+			displayName: "Invalid layout inspector stale confirmation state",
+			queryJSON:   map[string]any{},
+			layoutJSON:  savedViewLayoutWith(t, func(layout map[string]any) { layout["stale_confirmation_state"] = map[string]any{"delete": true} }),
+			field:       "layout_json.stale_confirmation_state",
+			reasonCode:  "unknown_field",
+		},
+		"layout inspector rollback previews": {
+			displayName: "Invalid layout inspector rollback previews",
+			queryJSON:   map[string]any{},
+			layoutJSON:  savedViewLayoutWith(t, func(layout map[string]any) { layout["rollback_previews"] = []any{"row-1"} }),
+			field:       "layout_json.rollback_previews",
+			reasonCode:  "unknown_field",
+		},
+		"layout inspector merge plans": {
+			displayName: "Invalid layout inspector merge plans",
+			queryJSON:   map[string]any{},
+			layoutJSON:  savedViewLayoutWith(t, func(layout map[string]any) { layout["merge_plans"] = []any{"row-1"} }),
+			field:       "layout_json.merge_plans",
+			reasonCode:  "unknown_field",
+		},
 	}
 	for name, testCase := range invalidCases {
 		t.Run(name, func(t *testing.T) {

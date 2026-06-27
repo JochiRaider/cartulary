@@ -51,6 +51,53 @@ function fixtureRawContract() {
         filter_ops: ["full_text"],
       },
     ],
+    inspector_config: {
+      inspector_config_schema_id: "cartulary.inspector_config.v1",
+      view_schema_id: "cartulary.view.fixture.v1",
+      default_open: false,
+      subject_binding: { kind: "selected_record" },
+      no_row_state: "no_row_selected",
+      unsupported_feature_behavior: "omit_feature",
+      panels: [
+        { panel_id: "details", label: "Details" },
+        { panel_id: "history", label: "History" },
+      ],
+      feature_groups: [
+        {
+          feature_group_key: "details.read",
+          panel_id: "details",
+          label: "Read details",
+          minimum_incident_role: null,
+          mutates: false,
+          requires_confirmation: false,
+          route_binding: { kind: "panel_read" },
+          seed_bindings: [],
+          disabled_when: ["no_row_selected"],
+        },
+        {
+          feature_group_key: "history.rollback",
+          panel_id: "history",
+          label: "Rollback",
+          minimum_incident_role: "editor",
+          mutates: true,
+          requires_confirmation: true,
+          route_binding: {
+            kind: "record_action",
+            action_key: "history.rollback",
+          },
+          seed_bindings: [
+            {
+              target_field_key: "fixture.editable",
+              source: {
+                kind: "selected_field_value",
+                source_field_key: "fixture.queryable",
+              },
+            },
+          ],
+          disabled_when: ["no_row_selected", "row_version_changed"],
+        },
+      ],
+    },
   };
 }
 
@@ -158,6 +205,158 @@ describe("view-contracts", () => {
     expect(
       listViewContracts().map((contract) => contract.requiredReferencePackKeys),
     ).toEqual(listViewContracts().map(() => []));
+  });
+
+  it("exposes inspector config by stable view_schema_id and semantic keys", () => {
+    const timeline = requireViewContract("cartulary.view.timeline.v2");
+    const fixture = parseFixture();
+    const relabeled = parseFixture({
+      ...fixtureRawContract(),
+      title: "Relabeled Fixture",
+      inspector_config: {
+        ...fixtureRawContract().inspector_config,
+        panels: [
+          { panel_id: "details", label: "Renamed details" },
+          { panel_id: "history", label: "Renamed history" },
+        ],
+      },
+    });
+
+    expect(timeline.inspectorConfig.viewSchemaId).toBe(timeline.viewSchemaId);
+    expect(timeline.inspectorConfig.defaultOpen).toBe(false);
+    expect(timeline.inspectorConfig.noRowState).toBe("no_row_selected");
+    expect(
+      fixture.inspectorConfig.panels.map((panel) => panel.panelId),
+    ).toEqual(["details", "history"]);
+    expect(
+      relabeled.inspectorConfig.featureGroups.map(
+        (group) => group.featureGroupKey,
+      ),
+    ).toEqual(["details.read", "history.rollback"]);
+    expect(
+      getViewContract(timeline.inspectorConfig.panels[0]?.label ?? ""),
+    ).toBe(undefined);
+  });
+
+  it("rejects invalid inspector config vocabulary, bounds, and ownership", () => {
+    const tooManyFeatureGroups = Array.from({ length: 65 }, (_, index) => ({
+      ...fixtureRawContract().inspector_config.feature_groups[0],
+      feature_group_key: `details.read_${index}`,
+    }));
+
+    const cases: ReadonlyArray<{
+      readonly pattern: RegExp;
+      readonly raw: unknown;
+    }> = [
+      {
+        raw: { ...fixtureRawContract(), inspector_config: undefined },
+        pattern: /inspector_config must be an object/,
+      },
+      {
+        raw: {
+          ...fixtureRawContract(),
+          inspector_config: {
+            ...fixtureRawContract().inspector_config,
+            view_schema_id: "cartulary.view.other.v1",
+          },
+        },
+        pattern:
+          /inspector_config\.view_schema_id must match cartulary\.view\.fixture\.v1/,
+      },
+      {
+        raw: {
+          ...fixtureRawContract(),
+          inspector_config: {
+            ...fixtureRawContract().inspector_config,
+            panels: [{ panel_id: "legacy", label: "Legacy" }],
+          },
+        },
+        pattern:
+          /inspector_config\.panels\[1\]\.panel_id must be one of details\|relationships\|evidence\|history\|workflow/,
+      },
+      {
+        raw: {
+          ...fixtureRawContract(),
+          inspector_config: {
+            ...fixtureRawContract().inspector_config,
+            panels: [
+              { panel_id: "details", label: "Details" },
+              { panel_id: "details", label: "Details again" },
+            ],
+          },
+        },
+        pattern: /inspector_config\.panels duplicate panel_id details/,
+      },
+      {
+        raw: {
+          ...fixtureRawContract(),
+          inspector_config: {
+            ...fixtureRawContract().inspector_config,
+            feature_groups: [
+              fixtureRawContract().inspector_config.feature_groups[0],
+              fixtureRawContract().inspector_config.feature_groups[0],
+            ],
+          },
+        },
+        pattern:
+          /inspector_config\.feature_groups duplicate feature_group_key details\.read/,
+      },
+      {
+        raw: {
+          ...fixtureRawContract(),
+          inspector_config: {
+            ...fixtureRawContract().inspector_config,
+            feature_groups: tooManyFeatureGroups,
+          },
+        },
+        pattern:
+          /inspector_config\.feature_groups must contain at most 64 entries/,
+      },
+      {
+        raw: {
+          ...fixtureRawContract(),
+          inspector_config: {
+            ...fixtureRawContract().inspector_config,
+            feature_groups:
+              fixtureRawContract().inspector_config.feature_groups.map(
+                (group) =>
+                  group.feature_group_key === "details.read"
+                    ? {
+                        ...group,
+                        route_binding: { kind: "legacy_route" },
+                      }
+                    : group,
+              ),
+          },
+        },
+        pattern:
+          /route_binding\.kind must be one of panel_read\|view_row_create\|record_patch\|record_action\|entity_mention_action\|evidence_access\|surface_pivot/,
+      },
+      {
+        raw: {
+          ...fixtureRawContract(),
+          inspector_config: {
+            ...fixtureRawContract().inspector_config,
+            feature_groups:
+              fixtureRawContract().inspector_config.feature_groups.map(
+                (group) =>
+                  group.feature_group_key === "details.read"
+                    ? {
+                        ...group,
+                        disabled_when: ["stale_legacy_state"],
+                      }
+                    : group,
+              ),
+          },
+        },
+        pattern:
+          /disabled_when\[1\] must be one of no_row_selected\|incident_closed\|authorization_lost\|row_version_changed\|record_deleted\|record_merged\|evidence_preview_unavailable\|merge_target_unavailable/,
+      },
+    ];
+
+    for (const { pattern, raw } of cases) {
+      expectInvariantFailure(raw, pattern);
+    }
   });
 });
 

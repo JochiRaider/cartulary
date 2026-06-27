@@ -3,7 +3,7 @@
   "schema_version": 3,
   "phase_namespace": "frontend",
   "phase_id": "FE-P9",
-  "guide_digest": "707217bbf3d14948cf4c176143103f43e7b0f25a8d686983d6d105366cd438bb",
+  "guide_digest": "dee2a4362ad3004ce95151c90fc3c55e4bb280aa6d8f61f00b5a0827c2ffd809",
   "rows": [
     {
       "id": "FE-U-P9-01",
@@ -115,6 +115,90 @@
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-U-P9-01",
+      "duplicate_of": "none",
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "low",
+      "phase_id": "FE-P9",
+      "blockers": []
+    },
+    {
+      "id": "FE-U-P9-02",
+      "layer": "unit",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Section 7.4",
+          "heading_text": "7.4 Authoritative base-profile view schema registry",
+          "req_ids": [
+            "REQ-01-615",
+            "REQ-01-616"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Sections 2.3 and 10.1",
+          "heading_text": "2.3 Saved views; 10.1 Reviewer lens",
+          "req_ids": [
+            "REQ-03-013",
+            "REQ-03-285",
+            "REQ-03-291"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        }
+      ],
+      "core_req_ids": [
+        "REQ-01-615",
+        "REQ-01-616",
+        "REQ-03-013",
+        "REQ-03-285",
+        "REQ-03-291"
+      ],
+      "core_ac_ids": [
+        "AC-453"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        {
+          "target_name": "frontend-unit",
+          "command_id": "cartulary.harness.command.frontend_unit.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
+      ],
+      "scenario_titles": [
+        "FE-U-P9-02 Verify active view_schema_id selects inspector_config_v1, saved views inherit the same config from immutable view_schema_id, no-row state is no_row_selected, and stale confirmations/previews/merge plans/forms invalidate on row, row-version, authorization, or incident-lifecycle changes.",
+        "FE-U-P9-02 closes the Timeline inspector when the active sheet identity changes",
+        "FE-U-P9-02 renders the configured no-row state when no saved row is selected",
+        "FE-U-P9-02 selects config from immutable view_schema_id and starts closed",
+        "FE-U-P9-02 keeps saved-view inheritance tied to the base view_schema_id",
+        "FE-U-P9-02 filters panels and feature groups by declared semantic config",
+        "FE-U-P9-02 clears stale row-bound state before retargeting to a new row",
+        "FE-U-P9-02 invalidates destructive, preview, merge, and workflow state on lifecycle triggers"
+      ],
+      "claim_status": "implemented",
+      "claim": {
+        "statement": "Verify active view_schema_id selects inspector_config_v1, saved views inherit the same config from immutable view_schema_id, no-row state is no_row_selected, and stale confirmations/previews/merge plans/forms invalidate on row, row-version, authorization, or incident-lifecycle changes.",
+        "claim_publication_intent": "none",
+        "closure_scope": "scenario"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
+      "default_check_required": false,
+      "future_default_check_candidate": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-U-P9-02",
       "duplicate_of": "none",
       "evidence_delta": "full evidence is retained outside default check",
       "warm_local_cost_class": "low",
@@ -386,6 +470,102 @@
       "blockers": []
     },
     {
+      "id": "FE-E-P9-02",
+      "layer": "e2e",
+      "evidence_class": "product_conformance",
+      "owner_refs": [
+        {
+          "source_key": "core01",
+          "path": "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "section_ref": "Core 01 Section 7.4",
+          "heading_text": "7.4 Authoritative base-profile view schema registry",
+          "req_ids": [
+            "REQ-01-615",
+            "REQ-01-616"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core03",
+          "path": "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "section_ref": "Core 03 Sections 2.3 and 10.1",
+          "heading_text": "2.3 Saved views; 10.1 Reviewer lens",
+          "req_ids": [
+            "REQ-03-013",
+            "REQ-03-291"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        },
+        {
+          "source_key": "core04",
+          "path": "docs/spec/04_security_deployment_and_conformance.md",
+          "section_ref": "Core 04 Section 2",
+          "heading_text": "2 Authorization model",
+          "req_ids": [
+            "REQ-04-127"
+          ],
+          "ac_ids": [],
+          "role": "product_owner",
+          "resolution_status": "resolved"
+        }
+      ],
+      "core_req_ids": [
+        "REQ-01-615",
+        "REQ-01-616",
+        "REQ-03-013",
+        "REQ-03-291",
+        "REQ-04-127"
+      ],
+      "core_ac_ids": [
+        "AC-453"
+      ],
+      "support_or_design_ac_ids": [],
+      "targets": [
+        {
+          "target_name": "browser-e2e-webserver-backed",
+          "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        },
+        {
+          "target_name": "browser-e2e-stateful",
+          "command_id": "cartulary.harness.command.browser_e2e_stateful.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
+      ],
+      "scenario_titles": [
+        "FE-E-P9-02 Verify default-closed inspector state, surface switch config changes, saved-view switch over the same view_schema_id keeps the same config, closed incident read-only behavior, server-denied action behavior, and Timeline create/edit/paste without opening the inspector."
+      ],
+      "claim_status": "implemented",
+      "claim": {
+        "statement": "Verify default-closed inspector state, surface switch config changes, saved-view switch over the same view_schema_id keeps the same config, closed incident read-only behavior, server-denied action behavior, and Timeline create/edit/paste without opening the inspector.",
+        "claim_publication_intent": "none",
+        "closure_scope": "scenario"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
+      "default_check_required": false,
+      "future_default_check_candidate": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "explicit_full_target",
+      "primary_evidence_owner": "FE-E-P9-02",
+      "duplicate_of": "none",
+      "evidence_delta": "full evidence is retained outside default check",
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P9",
+      "blockers": []
+    },
+    {
       "id": "FE-V-P9-01",
       "layer": "visual",
       "evidence_class": "design_direction",
@@ -503,6 +683,60 @@
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "design_direction_explicit_only",
       "primary_evidence_owner": "FE-A11Y-P9-01",
+      "duplicate_of": "none",
+      "evidence_delta": "readiness and design-direction evidence is explicit-only",
+      "warm_local_cost_class": "explicit_heavy",
+      "phase_id": "FE-P9",
+      "blockers": []
+    },
+    {
+      "id": "FE-A11Y-P9-02",
+      "layer": "accessibility",
+      "evidence_class": "design_direction",
+      "owner_refs": [
+        {
+          "source_key": "ui_ux_guide",
+          "path": "docs/guides/cartulary-ui-ux-design-guide.md",
+          "section_ref": "UI/UX guide Sections 8, 14",
+          "heading_text": "UI/UX guide Sections 8, 14",
+          "req_ids": [],
+          "ac_ids": [],
+          "role": "design_owner",
+          "resolution_status": "resolved"
+        }
+      ],
+      "core_req_ids": [],
+      "core_ac_ids": [],
+      "support_or_design_ac_ids": [
+        "R2-AC-080",
+        "R2-AC-086"
+      ],
+      "targets": [
+        {
+          "target_name": "browser-e2e-a11y",
+          "command_id": "cartulary.harness.command.browser_e2e_a11y.v1",
+          "evidence_role": "primary",
+          "required_for_closure": true,
+          "frontend_row_accounting_required": true,
+          "scenario_title_required": true
+        }
+      ],
+      "scenario_titles": [
+        "FE-A11Y-P9-02 Verify keyboard open/close, panel navigation, Esc, focus restoration, disabled/blocked states, no-row empty state, and destructive confirmation focus for config-driven inspector behavior."
+      ],
+      "claim_status": "implemented",
+      "claim": {
+        "statement": "Verify keyboard open/close, panel navigation, Esc, focus restoration, disabled/blocked states, no-row empty state, and destructive confirmation focus for config-driven inspector behavior.",
+        "claim_publication_intent": "none",
+        "closure_scope": "scenario"
+      },
+      "out_of_scope": [
+        "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
+      ],
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "design_direction_explicit_only",
+      "primary_evidence_owner": "FE-A11Y-P9-02",
       "duplicate_of": "none",
       "evidence_delta": "readiness and design-direction evidence is explicit-only",
       "warm_local_cost_class": "explicit_heavy",

@@ -8900,6 +8900,238 @@
           "enum_values"
         ]
       },
+      "InspectorSubjectBindingV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "selected_record"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "InspectorPanelV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "panel_id": {
+            "type": "string",
+            "enum": [
+              "details",
+              "relationships",
+              "evidence",
+              "history",
+              "workflow"
+            ]
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "panel_id",
+          "label"
+        ]
+      },
+      "InspectorRouteBindingV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "panel_read",
+              "view_row_create",
+              "record_patch",
+              "record_action",
+              "entity_mention_action",
+              "evidence_access",
+              "surface_pivot"
+            ]
+          },
+          "target_view_schema_id": {
+            "type": "string"
+          },
+          "action_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "InspectorSeedSourceV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "selected_record_id",
+              "selected_field_value",
+              "literal"
+            ]
+          },
+          "source_field_key": {
+            "type": "string"
+          },
+          "value": {}
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "InspectorSeedBindingV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target_field_key": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/InspectorSeedSourceV1"
+          }
+        },
+        "required": [
+          "target_field_key",
+          "source"
+        ]
+      },
+      "InspectorFeatureGroupV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "feature_group_key": {
+            "type": "string"
+          },
+          "panel_id": {
+            "type": "string",
+            "enum": [
+              "details",
+              "relationships",
+              "evidence",
+              "history",
+              "workflow"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "minimum_incident_role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "viewer",
+              "editor",
+              "reviewer",
+              "admin",
+              null
+            ]
+          },
+          "mutates": {
+            "type": "boolean"
+          },
+          "requires_confirmation": {
+            "type": "boolean"
+          },
+          "route_binding": {
+            "$ref": "#/components/schemas/InspectorRouteBindingV1"
+          },
+          "seed_bindings": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/components/schemas/InspectorSeedBindingV1"
+            }
+          },
+          "disabled_when": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "string",
+              "enum": [
+                "no_row_selected",
+                "incident_closed",
+                "authorization_lost",
+                "row_version_changed",
+                "record_deleted",
+                "record_merged",
+                "evidence_preview_unavailable",
+                "merge_target_unavailable"
+              ]
+            }
+          }
+        },
+        "required": [
+          "feature_group_key",
+          "panel_id",
+          "label",
+          "minimum_incident_role",
+          "mutates",
+          "requires_confirmation",
+          "route_binding",
+          "seed_bindings",
+          "disabled_when"
+        ]
+      },
+      "InspectorConfigV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "inspector_config_schema_id": {
+            "type": "string",
+            "const": "cartulary.inspector_config.v1"
+          },
+          "view_schema_id": {
+            "type": "string"
+          },
+          "default_open": {
+            "type": "boolean",
+            "const": false
+          },
+          "subject_binding": {
+            "$ref": "#/components/schemas/InspectorSubjectBindingV1"
+          },
+          "no_row_state": {
+            "type": "string",
+            "const": "no_row_selected"
+          },
+          "unsupported_feature_behavior": {
+            "type": "string",
+            "const": "omit_feature"
+          },
+          "panels": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/InspectorPanelV1"
+            }
+          },
+          "feature_groups": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/InspectorFeatureGroupV1"
+            }
+          }
+        },
+        "required": [
+          "inspector_config_schema_id",
+          "view_schema_id",
+          "default_open",
+          "subject_binding",
+          "no_row_state",
+          "unsupported_feature_behavior",
+          "panels",
+          "feature_groups"
+        ]
+      },
       "ViewSchemaResource": {
         "type": "object",
         "additionalProperties": false,
@@ -8971,6 +9203,9 @@
               "type": "string"
             }
           },
+          "inspector_config": {
+            "$ref": "#/components/schemas/InspectorConfigV1"
+          },
           "fields": {
             "type": "array",
             "items": {
@@ -8991,6 +9226,7 @@
           "filter_fields",
           "synthetic_filter_predicates",
           "grouping_fields",
+          "inspector_config",
           "fields"
         ]
       },

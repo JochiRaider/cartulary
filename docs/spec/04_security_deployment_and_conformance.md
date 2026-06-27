@@ -221,6 +221,13 @@ Holding `deployment_admin` MUST NOT by itself grant incident read, write, previe
 Profiles: base
 Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-261, AC-414, AC-427, AC-439, AC-441
 
+**REQ-04-127**
+Inspector feature visibility is not authorization. Every inspector-backed read, route invocation, preview or download handle issuance, job action, mutation, rollback, merge, delete, restore, supersede, mention action, evidence action, related-record creation, and surface pivot MUST re-derive authorization from the caller's current incident membership and role at request time. A hidden, disabled, stale, or cached inspector control MUST NOT be sufficient to authorize or deny a server action. The inspector MUST NOT introduce record-specific ACLs, field-level ACLs, hidden sub-workspaces, generalized approval workflows, or a `deployment_admin` incident-access bypass in the base profile.
+
+The base-profile inspector MUST NOT perform external enrichment and MUST NOT send incident-authored content, evidence bytes, filenames, indicators, hostnames, identities, investigative queries, or other incident-derived values to third-party services. Future external enrichment requires an explicit extension-profile trust boundary, user-visible disclosure, route authorization rule, and audit behavior.
+Profiles: base
+Verified by: AC-453
+
 **REQ-04-126**
 Client-side visibility of the Deployment administration entry is not authorization. An authenticated non-administrator who navigates directly to `/deployment-administration` MUST receive no administrative data and MUST be returned to `/`. If the current session loses `deployment_admin` while `/deployment-administration` is open, the client MUST discard loaded administrative resources, terminate pending administrative requests where possible, and navigate to `/`. A cached page, browser history entry, previously loaded response, or hidden client state MUST NOT preserve administrative access after capability loss.
 Profiles: base
@@ -632,7 +639,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-452`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-453`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -1048,6 +1055,8 @@ These criteria provide direct runtime-family verification for substantive base-p
   - Verifies: REQ-01-611..REQ-01-613, REQ-04-021..REQ-04-030
 - **AC-452**: Current Timeline tests, fixtures, visual baselines, generated contracts, and generated client artifacts contain no active Timeline v1 assumption that lets a visible Timeline v2 cell return or accept timestamp objects, collections, MITRE/entity/indicator objects, chips, formulas, or formula results.
   - Verifies: REQ-00-014, REQ-01-312, REQ-01-614, REQ-03-236..REQ-03-241
+- **AC-453**: Every current-profile `view_schema_resource_v1` emitted by discovery contains a valid `inspector_config_v1` for its own `view_schema_id`; saved views persist no inspector UI state and inherit config from immutable `view_schema_id`; the inspector is closed by default, renders `no_row_selected` without stale row data, invalidates confirmations/previews/merge plans/forms on row, row-version, incident-lifecycle, or authorization changes, and ordinary grid create/edit/paste works without opening it; inspector-backed reads, mutations, evidence handles, rollback/delete/restore, supersede, merge, mention actions, record creation, and pivots reuse existing route contracts with server-side authorization re-derived from current incident membership and role; `deployment_admin` alone grants no incident inspector access; base-profile inspector behavior performs no external enrichment or third-party egress.
+  - Verifies: REQ-00-061, REQ-01-615..REQ-01-616, REQ-02-258, REQ-03-291, REQ-04-127
 - **AC-310**: `reference_pack_state_conflict` uses only `already_disabled`, `not_disableable`, and `verification_pending`; disabling an already disabled version yields `already_disabled`; disabling a `staged`, `failed`, or `missing` version yields `not_disableable`; reverifying a `staged` version yields `verification_pending`; and activation rejections remain limited to `already_active` or `not_verified_available`.
   - Verifies: REQ-01-471, REQ-01-482
 

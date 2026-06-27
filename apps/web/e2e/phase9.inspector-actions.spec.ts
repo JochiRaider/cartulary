@@ -1,4 +1,6 @@
 import {
+  draftCellTestId,
+  entityInspectButtonTestId,
   gridShellTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
@@ -14,7 +16,12 @@ import {
   rowHistoryRollbackCancelButtonTestId,
   rowHistoryRollbackConfirmButtonTestId,
   rowHistoryRollbackPreviewTestId,
+  savedViewOptionTestId,
+  savedViewSelectorTestId,
+  saveStateTestId,
+  surfaceTabTestId,
   timelineInspectorSectionTestId,
+  timelineMutationSubstrateReadyTestId,
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
@@ -24,12 +31,15 @@ import {
   apiBase,
   createIncident,
   createIncidentMemberUser,
+  createSavedView,
   createViewRow,
   csrfHeaders,
   patchTimelineRecord,
+  queryViewRows,
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
+  waitForCommittedRowSummary,
 } from "./helpers";
 import {
   clickTimelineRowAction,
@@ -37,6 +47,7 @@ import {
   collectionItems,
   evidenceViewSchemaId,
   hostRefsFieldKey,
+  hostsViewSchemaId,
   openTimelineInspector,
   requireItemByRawText,
   timelineViewSchemaId,
@@ -455,6 +466,185 @@ test("FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rol
     await expect(
       memberPage.getByTestId(rowHistoryMessageTestId()),
     ).toContainText("authorization_denied");
+  } finally {
+    await memberContext.close();
+  }
+});
+
+test("FE-E-P9-02 Verify default-closed inspector state, surface switch config changes, saved-view switch over the same view_schema_id keeps the same config, closed incident read-only behavior, server-denied action behavior, and Timeline create/edit/paste without opening the inspector.", async ({
+  browser,
+  page,
+  sessionTracker,
+}) => {
+  await disableWorkbookSockets(page);
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("FEEP902"),
+    "FE-E-P9-02 view-schema inspector config",
+  );
+  const timelineSavedView = await createSavedView(page, incidentId, {
+    display_name: "FE-E-P9-02 Timeline saved view",
+    scope: "shared",
+    view_schema_id: timelineViewSchemaId,
+  });
+  const timelineSeed = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("feep902-seed"),
+      "timeline.raw_activity_text": "FE-E-P9-02 seed raw details",
+      "timeline.activity_synopsis_text": "FE-E-P9-02 seed summary",
+    },
+  )) as unknown as ViewRow;
+  const hostSeed = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("feep902-host"),
+    "host.display_name": "FE-E-P9-02 host",
+    "host.hostname": "fe-e-p9-02.example.test",
+  })) as unknown as ViewRow;
+
+  await openTimelineSurface(page, incidentId);
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
+  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+
+  await openTimelineInspector(page, timelineSeed.record_id);
+  await expect(page.getByTestId("timeline-inspector")).toBeVisible();
+  const sameSurfaceSelector = page.getByTestId(
+    savedViewSelectorTestId(timelineViewSchemaId),
+  );
+  await expect(
+    sameSurfaceSelector.getByTestId(
+      savedViewOptionTestId(
+        timelineViewSchemaId,
+        timelineSavedView.saved_view_id,
+      ),
+    ),
+  ).toHaveAttribute("data-view-schema-id", timelineViewSchemaId);
+  await sameSurfaceSelector.selectOption(timelineSavedView.saved_view_id);
+  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  await openTimelineInspector(page, timelineSeed.record_id);
+  await expect(
+    page.getByTestId(timelineInspectorSectionTestId("relationships")),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+
+  await openTimelineInspector(page, timelineSeed.record_id);
+  await page.getByTestId(surfaceTabTestId(hostsViewSchemaId)).click();
+  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  await expect(
+    page.getByTestId(gridShellTestId(hostsViewSchemaId)),
+  ).toBeVisible();
+  await page
+    .getByTestId(entityInspectButtonTestId("host", hostSeed.record_id))
+    .click();
+  await expect(page.getByTestId("host-inspector")).toContainText(
+    "FE-E-P9-02 host",
+  );
+  await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).click();
+  await expect(page.getByTestId("host-inspector")).toHaveCount(0);
+  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+
+  const draftSummary = page.getByTestId(
+    draftCellTestId("timeline.activity_synopsis_text"),
+  );
+  await draftSummary.fill("FE-E-P9-02 hot path created");
+  await draftSummary.press("Enter");
+  const created = await waitForCommittedRowSummary(page, {
+    expectedSummary: "FE-E-P9-02 hot path created",
+    surface: timelineViewSchemaId,
+    timeoutMs: 5_000,
+  });
+  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+
+  const createdSummary = page.getByTestId(
+    rowCellTestId(created.recordId, "timeline.activity_synopsis_text"),
+  );
+  await createdSummary.fill("FE-E-P9-02 hot path edited");
+  await createdSummary.press("Tab");
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+
+  await createdSummary.focus();
+  const pasteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .includes(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
+        ),
+  );
+  await createdSummary.evaluate((element) => {
+    const data = new DataTransfer();
+    data.setData(
+      "text/plain",
+      ["FE-E-P9-02 pasted first", "FE-E-P9-02 pasted second"].join("\n"),
+    );
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: data,
+      }),
+    );
+  });
+  await expect((await pasteResponse).ok()).toBeTruthy();
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  const timelineRows = await queryViewRows(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  );
+  expect(
+    timelineRows.filter((row) =>
+      String(
+        (row.cells as Record<string, { value: unknown }>)[
+          "timeline.activity_synopsis_text"
+        ]?.value ?? "",
+      ).startsWith("FE-E-P9-02 pasted "),
+    ),
+  ).toHaveLength(2);
+
+  const memberPassword = "Phase9InspectorViewer1!";
+  const member = await createIncidentMemberUser(page, incidentId, {
+    display_name: "FE-E-P9-02 viewer",
+    email: uniqueEmail("fe-e-p9-02-viewer"),
+    initial_password: memberPassword,
+    role: "viewer",
+  });
+  const memberContext = await browser.newContext();
+  const memberPage = await memberContext.newPage();
+  try {
+    await disableWorkbookSockets(memberPage);
+    await sessionTracker.loginTrackedUser(memberPage, {
+      createdBy: "FE-E-P9-02",
+      email: member.email,
+      password: memberPassword,
+      purpose: "inspector-backed record action denial",
+      userId: member.user_id,
+    });
+    const deniedDelete = await memberPage.request.delete(
+      `${apiBase}/api/v1/records/${timelineSeed.record_id}`,
+      {
+        headers: await csrfHeaders(memberPage),
+        data: {
+          base_row_version: timelineSeed.row_version,
+          client_txn_id: uniqueTxn("feep902-denied-delete"),
+        },
+      },
+    );
+    expect(deniedDelete.status()).toBe(403);
+    const deniedBody = (await deniedDelete.json()) as {
+      error: { code: string };
+    };
+    expect(deniedBody.error.code).toBe("authorization_denied");
   } finally {
     await memberContext.close();
   }

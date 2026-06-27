@@ -52,6 +52,11 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 | `FE-VFIX-13` | Group outline row | `FE-P3`, `FE-P8`, `FE-P10` | Group row state is expanded/collapsed as declared by the fixture. | Group row anchor. | `current` |
 | `FE-VFIX-14` | Exposed theme states | `FE-P11` | Exposed theme, density, color, and token states render in representative controls. | Viewport `1280x720`; `capture_scope.kind="selector"`; no workbook-grid scroll state. | `current` |
 | `FE-VFIX-15` | Empty successful query | `FE-P3`, `FE-P4`, `FE-P8` | Successful empty result state renders without error or loading affordance. | Top-left grid scroll; empty-state container anchored. | `current` |
+| `FE-VFIX-16` | Host or Identity merge inspector | `FE-P9` | Selected host or identity row shows merge plan, reviewer-gated action state, and stale-confirmation invalidation affordance. | Selected entity row anchor; grid and inspector scroll normalized independently. | `missing` |
+| `FE-VFIX-17` | Evidence blocked preview inspector | `FE-P9` | Evidence inspector shows blocked or unsupported preview state with download affordance where allowed and no third-party egress affordance. | Evidence row anchor; inspector Evidence panel visible. | `missing` |
+| `FE-VFIX-18` | History rollback/destructive confirmation | `FE-P9` | History panel shows rollback preview or destructive confirmation bound to the selected row and invalidated when row context changes. | Timeline selected row anchor; inspector History panel visible. | `missing` |
+| `FE-VFIX-19` | Handoff acknowledgement inspector | `FE-P10` | Handoff inspector shows acknowledgement state, open task/decision/risk refs, and read-only blocked state when not authorized. | Handoff selected row anchor. | `missing` |
+| `FE-VFIX-20` | Status Review blocked-work inspector | `FE-P10` | Status Review inspector shows blocked tasks, pending evidence, open decisions, active risks, and next-report state. | Status Review selected row anchor. | `missing` |
 
 ### Visual Support Acceptance
 
@@ -161,7 +166,7 @@ create product conformance or Core 05 claim-publication evidence.
 
 | Affected row | Owner map | Related fixture IDs | Fixture seed | Viewport and zoom | Dynamic masks | Screenshot scope |
 | --- | --- | --- | --- | --- | --- | --- |
-| `FE-V-P9-01` | `tools/frontend_phase_maps/fe_p9_test_map.json` | `FE-VFIX-01` | Deterministic workbook incident with one Timeline row linked to one Evidence row, an unresolved host relationship token, retained row history, rollback preview, destructive confirmation, and a public rollback error envelope. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers, history references, and clock-derived labels masked by visual preparation. | Fixed viewport captures `fe-v-p9-01-inspector-relationships`, `fe-v-p9-01-inspector-history`, `fe-v-p9-01-rollback-preview`, `fe-v-p9-01-destructive-confirmation`, and `fe-v-p9-01-public-error`. |
+| `FE-V-P9-01` | `tools/frontend_phase_maps/fe_p9_test_map.json` | `FE-VFIX-01`, `FE-VFIX-16`, `FE-VFIX-17`, `FE-VFIX-18` | Deterministic workbook incident with one Timeline row linked to one Evidence row, an unresolved host relationship token, retained row history, rollback preview, destructive confirmation, public rollback error envelope, host/identity merge state, and blocked Evidence preview state. | `1440x900`, browser default zoom matching `{layout.zoomDefault}`. | Incident identity masked by the ordinary workbook visual helper; generated record identifiers, history references, and clock-derived labels masked by visual preparation. | Fixed viewport captures `fe-v-p9-01-inspector-relationships`, `fe-v-p9-01-inspector-history`, `fe-v-p9-01-rollback-preview`, `fe-v-p9-01-destructive-confirmation`, `fe-v-p9-01-public-error`, plus added selector captures for merge and blocked-preview fixtures when implemented. |
 
 ### Current exposed-theme fixture citation map
 

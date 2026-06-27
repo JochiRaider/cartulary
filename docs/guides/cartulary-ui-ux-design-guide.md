@@ -564,6 +564,14 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 
 *Design direction.* The inspector owns detail editing that would clutter the grid, relationship review, evidence preview and attachment detail, row history, rollback affordances, and destructive confirmations.
 
+*Core behavior.* Core 01 defines inspector configuration as `view_schema_id` metadata, Core 03 requires saved views to inherit that config from immutable `view_schema_id`, and Core 03 requires no-row state to render `no_row_selected`.
+
+*Design direction.* Inspector panel order SHOULD follow the active config order and default to Details, Relationships, Evidence, History, Workflow when all panels are declared. The UI MUST NOT infer behavior from visible labels, component names, route-helper names, CSS selectors, storage tables, or grid-library APIs.
+
+*Design direction.* The `no_row_selected` empty state SHOULD be compact and action-neutral: it may name that no row is selected, but it SHOULD NOT show stale details, prior confirmations, previews, merge plans, rollback previews, or local forms.
+
+*Design direction.* When row, row version, authorization, or incident lifecycle state changes, stale row-bound inspector content SHOULD clear before replacement content paints. Destructive confirmations SHOULD name the affected record or records, place focus on the confirmation surface when opened, and restore focus to the invoking control or selected grid cell when dismissed.
+
 *Design direction.* The inspector MUST NOT become a full-page record editor, dashboard, ticketing module, release-control module, or hidden source of saved-view state.
 
 ### 8.5 Auto-resolution disclosure and correction
@@ -973,7 +981,7 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 | Maximum width    | `min(560px, 45vw)`.                                                            |
 | Resize           | User MAY resize within min/max bounds.                                         |
 | Pinning          | Client-local only; not persisted in saved views.                               |
-| Section order    | Details, Relationships, Evidence, History.                                     |
+| Section order    | Details, Relationships, Evidence, History, Workflow when all are configured.   |
 | Grid visibility  | At base viewport, the grid remains visible whenever the inspector is open.     |
 | Close affordance | Visible close control with accessible name `Close inspector`.                  |
 | Pin affordance   | Visible pin control with accessible name `Pin inspector` or `Unpin inspector`. |

@@ -1,6 +1,11 @@
 import { workbookInspectorCloseButtonTestId } from "@cartulary/ui-contracts";
+import type { InspectorConfig } from "@cartulary/view-contracts";
 import { X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import {
+  inspectorNoRowState,
+  inspectorPanelIsDeclared,
+} from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { InspectorMention } from "../models/workbookMentionChips";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
@@ -18,6 +23,7 @@ export function TimelineWorkbookInspector({
   getRelationshipLabel,
   hostEntities,
   identityEntities,
+  inspectorConfig,
   inspectorMessage,
   inspectorMentions,
   onResolveTargetChange,
@@ -43,6 +49,7 @@ export function TimelineWorkbookInspector({
   ) => string;
   readonly hostEntities: readonly MentionEntityOption[];
   readonly identityEntities: readonly MentionEntityOption[];
+  readonly inspectorConfig: InspectorConfig;
   readonly inspectorMessage: string | null;
   readonly inspectorMentions: readonly InspectorMention[];
   readonly onResolveTargetChange: (value: string) => void;
@@ -63,6 +70,16 @@ export function TimelineWorkbookInspector({
   readonly selectedResolveTargetId: string;
   readonly selectedRow: WorkbookRow | null;
 }) {
+  const showDetailsPanel = inspectorPanelIsDeclared(inspectorConfig, "details");
+  const showEvidencePanel = inspectorPanelIsDeclared(
+    inspectorConfig,
+    "evidence",
+  );
+  const showHistoryPanel = inspectorPanelIsDeclared(inspectorConfig, "history");
+  const showRelationshipsPanel = inspectorPanelIsDeclared(
+    inspectorConfig,
+    "relationships",
+  );
   return (
     <aside
       aria-label="Timeline inspector"
@@ -90,39 +107,42 @@ export function TimelineWorkbookInspector({
       </div>
       {selectedRow?.recordId ? (
         <>
-          {renderInspectorFieldEditors(selectedRow)}
-          {renderEvidenceAttachSection(selectedRow)}
-          {renderRowHistorySection()}
-          <TimelineMentionsPanel
-            canManageMentions={canManageMentions}
-            entityIndex={entityIndex}
-            getRelationshipLabel={getRelationshipLabel}
-            hostEntities={hostEntities}
-            identityEntities={identityEntities}
-            inspectorMentions={inspectorMentions}
-            relationshipEditors={renderRelationshipEditors(selectedRow)}
-            onResolveTargetChange={onResolveTargetChange}
-            onSelectMention={onSelectMention}
-            onSetInspectorMessage={onSetInspectorMessage}
-            onSubmitMentionAction={onSubmitMentionAction}
-            selectedMention={selectedMention}
-            selectedResolveTargetId={selectedResolveTargetId}
-          />
+          {showDetailsPanel ? renderInspectorFieldEditors(selectedRow) : null}
+          {showEvidencePanel ? renderEvidenceAttachSection(selectedRow) : null}
+          {showHistoryPanel ? renderRowHistorySection() : null}
+          {showRelationshipsPanel ? (
+            <TimelineMentionsPanel
+              canManageMentions={canManageMentions}
+              entityIndex={entityIndex}
+              getRelationshipLabel={getRelationshipLabel}
+              hostEntities={hostEntities}
+              identityEntities={identityEntities}
+              inspectorMentions={inspectorMentions}
+              relationshipEditors={renderRelationshipEditors(selectedRow)}
+              onResolveTargetChange={onResolveTargetChange}
+              onSelectMention={onSelectMention}
+              onSetInspectorMessage={onSetInspectorMessage}
+              onSubmitMentionAction={onSubmitMentionAction}
+              selectedMention={selectedMention}
+              selectedResolveTargetId={selectedResolveTargetId}
+            />
+          ) : null}
           <InspectorMessage message={inspectorMessage} />
         </>
       ) : currentHistoryDeleted && rowHistoryRecordId !== null ? (
         <>
-          {renderRowHistorySection()}
+          {showHistoryPanel ? renderRowHistorySection() : null}
           <InspectorMessage message={inspectorMessage} />
         </>
       ) : (
         <>
-          {draftRow ? renderInspectorFieldEditors(draftRow) : null}
-          {draftRow ? renderEvidenceAttachSection(draftRow) : null}
-          <p style={bodyStyle}>
-            Pick a saved row to inspect unresolved, resolved, and dismissed
-            mentions.
-          </p>
+          {draftRow && showDetailsPanel
+            ? renderInspectorFieldEditors(draftRow)
+            : null}
+          {draftRow && showEvidencePanel
+            ? renderEvidenceAttachSection(draftRow)
+            : null}
+          <p style={bodyStyle}>{inspectorNoRowState(inspectorConfig)}</p>
           <InspectorMessage message={inspectorMessage} />
         </>
       )}
@@ -146,7 +166,7 @@ function inspectorTitle(
   if (draftRow) {
     return "Draft timeline row";
   }
-  return "Select a saved row";
+  return "no_row_selected";
 }
 
 function InspectorMessage({ message }: { readonly message: string | null }) {
