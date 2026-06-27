@@ -376,7 +376,7 @@ describe("grid-adapter", () => {
     );
   });
 
-  it("selects default and compact density tokens explicitly", async () => {
+  it("selects density token variables explicitly for every supported mode", async () => {
     const rows: readonly GridRow<HarnessRow>[] = [
       {
         key: "record-1",
@@ -401,10 +401,16 @@ describe("grid-adapter", () => {
       "default",
     );
     expect(grid.style.getPropertyValue("--cartulary-grid-row-height")).toBe(
-      "36px",
+      "var(--ct-density-default-rowHeight)",
     );
     expect(grid.style.getPropertyValue("--cartulary-grid-cell-padding")).toBe(
       "var(--ct-density-default-cellPadding)",
+    );
+    expect(grid.style.getPropertyValue("--cartulary-grid-font-size")).toBe(
+      "var(--ct-density-default-fontSize)",
+    );
+    expect(grid.style.getPropertyValue("--cartulary-grid-line-height")).toBe(
+      "var(--ct-density-default-lineHeight)",
     );
 
     rerender(
@@ -417,10 +423,38 @@ describe("grid-adapter", () => {
       "compact",
     );
     expect(grid.style.getPropertyValue("--cartulary-grid-row-height")).toBe(
-      "28px",
+      "var(--ct-density-compact-rowHeight)",
     );
     expect(grid.style.getPropertyValue("--cartulary-grid-cell-padding")).toBe(
       "var(--ct-density-compact-cellPadding)",
+    );
+    expect(grid.style.getPropertyValue("--cartulary-grid-font-size")).toBe(
+      "var(--ct-density-compact-fontSize)",
+    );
+    expect(grid.style.getPropertyValue("--cartulary-grid-line-height")).toBe(
+      "var(--ct-density-compact-lineHeight)",
+    );
+
+    rerender(
+      <GridViewport testId="density-grid-shell">
+        <GridTable columns={columns} density="comfortable" rows={rows} />
+      </GridViewport>,
+    );
+
+    expect(grid.style.getPropertyValue("--cartulary-grid-density")).toBe(
+      "comfortable",
+    );
+    expect(grid.style.getPropertyValue("--cartulary-grid-row-height")).toBe(
+      "var(--ct-density-comfortable-rowHeight)",
+    );
+    expect(grid.style.getPropertyValue("--cartulary-grid-cell-padding")).toBe(
+      "var(--ct-density-comfortable-cellPadding)",
+    );
+    expect(grid.style.getPropertyValue("--cartulary-grid-font-size")).toBe(
+      "var(--ct-density-comfortable-fontSize)",
+    );
+    expect(grid.style.getPropertyValue("--cartulary-grid-line-height")).toBe(
+      "var(--ct-density-comfortable-lineHeight)",
     );
   });
 

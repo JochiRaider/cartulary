@@ -2,6 +2,7 @@ import {
   buildGridPresentationRows,
   type GridActionsColumn,
   type GridColumn,
+  type GridDensity,
   type GridRow,
   GridTable,
   GridViewport,
@@ -143,6 +144,10 @@ import {
   normalizeWorkbookViewRows,
   workbookContractColumns,
 } from "./models/workbookContractRows";
+import {
+  type AccountDensityMode,
+  resolveEffectiveWorkbookDensity,
+} from "./models/workbookDensity";
 import {
   inspectorNoRowState,
   inspectorPanelIsDeclared,
@@ -331,6 +336,7 @@ type WorkbookShellProps = {
   incidentId: string;
   apiBase?: string | undefined;
   account?: WorkbookAccountModel | undefined;
+  accountDensityMode?: AccountDensityMode | undefined;
   accountApplicationMenu?:
     | ((props: WorkbookAccountApplicationMenuProps) => ReactNode)
     | undefined;
@@ -723,6 +729,7 @@ async function submitWorkbookPatchMutation({
 function EntityWorkbookSurface({
   incidentId,
   apiBase,
+  density,
   entityType,
   inspectorResetKey,
   savedViewSelector,
@@ -735,6 +742,7 @@ function EntityWorkbookSurface({
 }: {
   incidentId: string;
   apiBase?: string | undefined;
+  density: GridDensity;
   entityType: EntityRow["entityType"];
   inspectorResetKey: string;
   savedViewSelector?: ReactNode | undefined;
@@ -1330,6 +1338,7 @@ function EntityWorkbookSurface({
           <GridTable
             actionsColumn={entityActionsColumn}
             columns={entityColumns}
+            density={density}
             getGroupLabel={(row, fieldKey) => entityGroupLabel(row, fieldKey)}
             getGroupRowTestId={(fieldKey, value) =>
               gridGroupRowTestId(surface, fieldKey, value)
@@ -1368,6 +1377,7 @@ function AssessmentWorkbookSurface({
   apiBase,
   assessmentRows,
   currentIncidentRole,
+  density,
   inspectorResetKey,
   savedViewSelector,
   hostRows,
@@ -1381,6 +1391,7 @@ function AssessmentWorkbookSurface({
   apiBase?: string | undefined;
   assessmentRows: EntityApiRow[];
   currentIncidentRole: IncidentRole | null;
+  density: GridDensity;
   inspectorResetKey: string;
   savedViewSelector?: ReactNode | undefined;
   hostRows: EntityRow[];
@@ -1741,6 +1752,7 @@ function AssessmentWorkbookSurface({
         >
           <GridTable
             columns={columns}
+            density={density}
             getGroupLabel={(row, fieldKey) =>
               genericCellLabel(row.cells[fieldKey]?.value)
             }
@@ -1792,6 +1804,7 @@ function GenericWorkbookSurface({
   apiBase,
   contract,
   currentUserId,
+  density,
   inspectorResetKey,
   savedViewSelector,
   incidentId,
@@ -1804,6 +1817,7 @@ function GenericWorkbookSurface({
   apiBase?: string | undefined;
   contract: ViewContract;
   currentUserId: string | null;
+  density: GridDensity;
   inspectorResetKey: string;
   savedViewSelector?: ReactNode | undefined;
   incidentId: string;
@@ -2134,6 +2148,7 @@ function GenericWorkbookSurface({
               collectionMode="add"
               field={writableField}
               referenceOptions={referenceOptions}
+              surface="grid"
               testId={genericCreateFieldTestId(writableField.fieldKey)}
               value={createDraft[writableField.fieldKey] ?? ""}
               onChange={(value) => {
@@ -2973,6 +2988,7 @@ function GenericWorkbookSurface({
           <GridTable
             actionsColumn={rowActionsColumn}
             columns={columns}
+            density={density}
             getGroupLabel={(row, fieldKey) =>
               genericCellLabel(row.cells[fieldKey]?.value)
             }
@@ -3097,6 +3113,7 @@ export function WorkbookShell({
   incidentId,
   apiBase,
   account,
+  accountDensityMode,
   accountApplicationMenu,
   currentUserLabel,
   initialIncidentIdentity,
@@ -3123,6 +3140,10 @@ export function WorkbookShell({
     startupSheetRef,
     surface,
   } = workbookRuntime.snapshot;
+  const effectiveDensity = useMemo(
+    () => resolveEffectiveWorkbookDensity(surface, accountDensityMode),
+    [accountDensityMode, surface],
+  );
   const {
     applyStartupIdentity,
     deleteSavedViewIdentity,
@@ -4390,6 +4411,7 @@ export function WorkbookShell({
             <TimelineWorkbook
               apiBase={apiBase}
               currentIncidentRole={currentIncidentRole}
+              density={effectiveDensity}
               entityIndex={entityIndex}
               hostEntities={hostRows}
               identityEntities={identityRows}
@@ -4408,6 +4430,7 @@ export function WorkbookShell({
             <EntityWorkbookSurface
               apiBase={apiBase}
               currentIncidentRole={currentIncidentRole}
+              density={effectiveDensity}
               entityIndex={entityIndex}
               entityType={surface === hostsViewSchemaId ? "host" : "identity"}
               incidentId={incidentId}
@@ -4437,6 +4460,7 @@ export function WorkbookShell({
               apiBase={apiBase}
               assessmentRows={assessmentRows}
               currentIncidentRole={currentIncidentRole}
+              density={effectiveDensity}
               hostRows={hostRows}
               identityRows={identityRows}
               incidentId={incidentId}
@@ -4457,6 +4481,7 @@ export function WorkbookShell({
               apiBase={apiBase}
               contract={activeContract}
               currentUserId={currentUserId}
+              density={effectiveDensity}
               incidentId={incidentId}
               inspectorResetKey={inspectorResetKey}
               loadError={genericLoadError}

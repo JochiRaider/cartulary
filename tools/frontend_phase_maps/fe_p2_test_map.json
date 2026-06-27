@@ -165,7 +165,8 @@
         "FE-U-P2-02 remains keyed by stable IDs when registry labels are relabeled",
         "FE-U-P2-02 tolerates absent optional standardized surfaces while requiring required surfaces",
         "FE-U-P2-02 exposes required reference-pack keys from view contracts",
-        "FE-U-P2-02 groups System views by stable group tokens and registry-backed IDs"
+        "FE-U-P2-02 groups System views by stable group tokens and registry-backed IDs",
+        "keeps Core null defaults while letting explicit account density override every workbook surface"
       ],
       "claim_status": "implemented",
       "claim": {
@@ -251,7 +252,8 @@
         }
       ],
       "scenario_titles": [
-        "E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface"
+        "E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface",
+        "FE-B-P2-01 updates workbook density from Account Settings while the workbook remains open"
       ],
       "claim_status": "implemented",
       "claim": {

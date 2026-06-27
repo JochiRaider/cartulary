@@ -105,6 +105,106 @@
         "summary": "Complete TOTP enrollment using a bootstrap_token or an active session."
       }
     },
+    "/api/v1/account/profile": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "operationId": "getCurrentAccountProfile",
+        "summary": "Read the current authenticated user's account profile.",
+        "responses": {
+          "200": {
+            "description": "Current account profile response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountProfileEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "account"
+        ],
+        "operationId": "patchCurrentAccountProfile",
+        "summary": "Update the current authenticated user's display name.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountProfilePatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current account profile response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountProfileEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/account/preferences": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "operationId": "getCurrentAccountPreferences",
+        "summary": "Read the current authenticated user's account preferences.",
+        "responses": {
+          "200": {
+            "description": "Current account preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPreferencesEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "account"
+        ],
+        "operationId": "putCurrentAccountPreferences",
+        "summary": "Update the current authenticated user's density preference.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountPreferencesPutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current account preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPreferencesEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users": {
       "get": {
         "tags": [
@@ -5539,6 +5639,168 @@
         },
         "required": [
           "client_txn_id"
+        ]
+      },
+      "DensityMode": {
+        "type": "string",
+        "enum": [
+          "compact",
+          "default",
+          "comfortable"
+        ]
+      },
+      "AccountProfilePatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_user_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_user_version",
+          "client_txn_id",
+          "display_name"
+        ]
+      },
+      "AccountPreferencesPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_preferences_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "density_mode": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DensityMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "base_preferences_version",
+          "client_txn_id",
+          "density_mode"
+        ]
+      },
+      "AccountProfileResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "user_version": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "user_id",
+          "email",
+          "display_name",
+          "user_version",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "AccountPreferencesResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "density_mode": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DensityMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preferences_version": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "user_id",
+          "density_mode",
+          "preferences_version",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "AccountProfileEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AccountProfileResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "AccountPreferencesEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AccountPreferencesResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "ErrorEnvelope": {

@@ -2,6 +2,7 @@ import {
   buildGridPresentationRows,
   type GridCellAnchor,
   type GridColumn,
+  type GridDensity,
   type GridNavigationIntent,
   type GridPasteTargetResolution,
   type GridRow,
@@ -326,6 +327,7 @@ export type TimelineWorkbookProps = {
   identityEntities?: EntityRow[];
   entityIndex?: Record<string, EntityRow>;
   currentIncidentRole?: IncidentRole | null;
+  density?: GridDensity | undefined;
   onRefreshEntities?: () => Promise<void> | void;
 };
 
@@ -960,6 +962,7 @@ export function TimelineWorkbook({
   identityEntities = [],
   entityIndex = {},
   currentIncidentRole = "",
+  density = "compact",
   onRefreshEntities,
 }: TimelineWorkbookProps) {
   const entityCatalogInput = useMemo(
@@ -6476,6 +6479,7 @@ export function TimelineWorkbook({
       primaryGrid={
         <TimelineGridSurface
           columns={timelineColumns}
+          density={density}
           getGroupLabel={getTimelineGroupLabel}
           getGroupRowTestId={getTimelineGroupRowTestId}
           groupBy={queryState.groupBy}
@@ -6675,12 +6679,14 @@ const inputStyle = {
 
 const gridCellInputStyle = {
   ...inputStyle,
-  minHeight: "1.35rem",
+  minHeight: 0,
+  minBlockSize: 0,
   borderColor: "transparent",
   background: "transparent",
-  padding: 0,
+  padding: "var(--cartulary-grid-cell-padding)",
   color: "var(--ct-colors-ink)",
-  lineHeight: 1.2,
+  fontSize: "var(--cartulary-grid-font-size)",
+  lineHeight: "var(--cartulary-grid-line-height)",
 };
 
 const actionButtonStyle = {
@@ -6802,9 +6808,12 @@ const collectionCellStyle = {
   margin: 0,
   minWidth: 0,
   maxWidth: "100%",
-  minBlockSize: "1.2rem",
+  minBlockSize: 0,
+  blockSize: "100%",
   padding: 0,
   border: 0,
+  fontSize: "var(--cartulary-grid-font-size)",
+  lineHeight: "var(--cartulary-grid-line-height)",
   overflow: "hidden",
   whiteSpace: "nowrap" as const,
 };
@@ -6814,7 +6823,8 @@ const collectionCellInputStyle = {
   flex: "1 1 4.5rem",
   minWidth: "4.25rem",
   inlineSize: "auto",
-  minHeight: "1.2rem",
+  blockSize: "100%",
+  paddingBlock: 0,
   paddingInline: "0.1rem",
 };
 

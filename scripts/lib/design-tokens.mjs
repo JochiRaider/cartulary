@@ -501,6 +501,7 @@ function validateFlatScalarNamespace(namespace, values, validator, failures) {
 
 function validateDensityTokens(density, failures) {
   const modes = new Set(["compact", "default", "comfortable"]);
+  const required = new Set(["rowHeight", "cellPadding", "fontSize", "lineHeight"]);
   for (const key of Object.keys(density)) {
     if (key === "default-mode") {
       continue;
@@ -510,8 +511,37 @@ function validateDensityTokens(density, failures) {
       continue;
     }
     const value = density[key];
-    if (!isPlainObject(value) || !isCssPxLength(value.rowHeight) || !isCssPadding2d(value.cellPadding)) {
-      failures.push({ class: "invalid_token_value", message: `density.${key} must declare rowHeight and cellPadding` });
+    if (!isPlainObject(value)) {
+      failures.push({ class: "invalid_token_value", message: `density.${key} must declare rowHeight, cellPadding, fontSize, and lineHeight` });
+      continue;
+    }
+    for (const property of Object.keys(value)) {
+      if (!required.has(property)) {
+        failures.push({
+          class: "invalid_token_value",
+          message: `density.${key}.${property} is not a supported density property`,
+        });
+      }
+    }
+    for (const property of required) {
+      if (!Object.hasOwn(value, property)) {
+        failures.push({
+          class: "invalid_token_value",
+          message: `density.${key}.${property} is required`,
+        });
+      }
+    }
+    if (!isCssPxLength(value.rowHeight)) {
+      failures.push({ class: "invalid_token_value", message: `density.${key}.rowHeight is invalid` });
+    }
+    if (!isCssPadding2d(value.cellPadding)) {
+      failures.push({ class: "invalid_token_value", message: `density.${key}.cellPadding is invalid` });
+    }
+    if (!isCssPxLength(value.fontSize)) {
+      failures.push({ class: "invalid_token_value", message: `density.${key}.fontSize is invalid` });
+    }
+    if (!(typeof value.lineHeight === "number" && value.lineHeight > 0) && !isCssPxLength(value.lineHeight)) {
+      failures.push({ class: "invalid_token_value", message: `density.${key}.lineHeight is invalid` });
     }
   }
   if (!modes.has(density["default-mode"])) {

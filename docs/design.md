@@ -130,14 +130,20 @@ spacing:
 
 density:
   compact:
-    rowHeight: 28px
-    cellPadding: "3px 6px"
+    rowHeight: 24px
+    cellPadding: "2px 5px"
+    fontSize: 12px
+    lineHeight: 1.20
   default:
-    rowHeight: 36px
-    cellPadding: "4px 8px"
+    rowHeight: 32px
+    cellPadding: "3px 7px"
+    fontSize: 13px
+    lineHeight: 1.25
   comfortable:
-    rowHeight: 44px
-    cellPadding: "6px 10px"
+    rowHeight: 40px
+    cellPadding: "5px 9px"
+    fontSize: 14px
+    lineHeight: 1.35
   default-mode: default
 
 rounded:
@@ -332,7 +338,7 @@ Design contract. A conforming token registry MUST contain only the top-level nam
 | `colors` | Hex color, `rgba()` string, or token reference resolving to a color. | Utility tokens such as `inverse-canvas` and `inverse-ink` are not alternate themes. |
 | `typography` | Object with `fontFamily`, `fontSize`, `fontWeight`, `lineHeight`, and `letterSpacing`. | `lineHeight` MAY be unitless; omission behavior is invalid because every typography token MUST declare it. `letterSpacing` MAY be `0` or a CSS pixel length; omission behavior is invalid. |
 | `spacing` | CSS pixel length. | Negative spacing is invalid. |
-| `density` | Object with `rowHeight` and `cellPadding`, plus `default-mode`. | Valid modes are `compact`, `default`, and `comfortable`. |
+| `density` | Object with `rowHeight`, `cellPadding`, `fontSize`, and `lineHeight`, plus `default-mode`. | Valid modes are `compact`, `default`, and `comfortable`. `lineHeight` MAY be unitless; omission behavior is invalid because every density mode MUST declare it. |
 | `rounded` | CSS pixel length. | Negative radius is invalid. `9999px` is an ordinary valid pixel length used for pill geometry. |
 | `border` | Border shorthand with token references. | Border color MUST resolve to a `colors` token. |
 | `elevation` | `none` or box-shadow string. | Elevation MUST NOT encode semantic state. |
@@ -461,6 +467,10 @@ Design contract. Density selection is closed to `compact`, `default`, and `comfo
 Core restatement. Core 01 §3.3.2.3 owns the persisted account density preference. `density_mode` is nullable; `null` means no persisted override, with Timeline rendering as `compact` and every other workbook surface rendering as `default`. Non-null persisted values are exactly `compact`, `default`, and `comfortable`.
 
 Design contract. Workbook surfaces MUST use density modes from the shared density registry. The default workbook density remains `{density.default-mode}`, except the default Timeline grid uses `compact` density from the same shared tokens to preserve first-viewport incident-response scanning. User-selected density is valid only when it maps to one of the declared shared density modes; surfaces MUST NOT invent private row-height, padding, or per-surface density persistence systems.
+
+Design contract. Each density mode MUST define its row rhythm through `rowHeight`, `cellPadding`, `fontSize`, and `lineHeight`. Workbook grid containers, cells, row gutters, read-only cell anchors, and grid-mode cell editors MUST inherit those density metrics from the active density mode. Density changes MUST scale text and controls together rather than only changing row height.
+
+Design contract. Grid-mode cell editors MUST fill the whole grid cell. The grid cell owns the outer cell box and border; text input, textarea, select, collection input, and read-only focus-anchor controls inside the cell MUST use the active density metrics, fill the available inline and block size, and MUST NOT add fixed inner minimum heights or grid-mode padding that creates dead space between the control and the cell boundary. Inspector-mode editors and non-grid detail editors MAY keep form-style padding and multiline height independent from grid density.
 
 Design contract. Large incident grids use fixed-height rows by default. Variable-height rows are valid only in inspector sections, preview areas, or non-grid detail regions. Omission of variable-height grid rows is conformant.
 

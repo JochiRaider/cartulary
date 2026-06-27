@@ -30,10 +30,12 @@ vi.mock("../workbook/WorkbookShell", async () => {
 
   return {
     WorkbookShell: ({
+      accountDensityMode,
       accountApplicationMenu,
       incidentId,
       onIncidentAccessLost,
     }: {
+      accountDensityMode?: string | null;
       accountApplicationMenu?: (props: {
         currentIncidentRole: string;
         incidentControls?: undefined;
@@ -78,6 +80,9 @@ vi.mock("../workbook/WorkbookShell", async () => {
       return (
         <section data-testid="mock-workbook">
           <p data-testid="mock-workbook-incident">{incidentId}</p>
+          <p data-testid="mock-workbook-density">
+            {accountDensityMode ?? "surface-default"}
+          </p>
           <p data-testid="mock-workbook-role">{currentRole}</p>
           {accountApplicationMenu?.({
             currentIncidentRole: currentRole,
@@ -593,6 +598,85 @@ describe("Incident landing", () => {
       screen.queryByTestId(landingAdminMenuItemTestId("deployment-users")),
     ).toBe(null);
     expect(screen.queryByTestId(phase1AdminTestId("patch-user"))).toBe(null);
+  });
+
+  it("updates the open workbook density after saving account appearance", async () => {
+    window.history.replaceState({}, "", "/?incident_id=incident-1");
+    const incident = incidentResource("incident-1", "IR-1", "Density test");
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Operator",
+        memberships: [{ incident_id: "incident-1", role: "admin" }],
+      }),
+      accountPreferences: {
+        user_id: "user-1",
+        density_mode: null,
+        preferences_version: 1,
+        created_at: "2026-04-20T12:00:00Z",
+        updated_at: "2026-04-20T12:00:00Z",
+      },
+      incidents: [incident],
+      extraRoutes: [
+        {
+          method: "GET",
+          url: "/api/v1/account/profile",
+          handler: () =>
+            jsonResponse({
+              data: {
+                user_id: "user-1",
+                email: "operator@example.test",
+                display_name: "Operator",
+                user_version: 1,
+                created_at: "2026-04-20T12:00:00Z",
+                updated_at: "2026-04-20T12:00:00Z",
+              },
+            }),
+        },
+        {
+          method: "PUT",
+          url: "/api/v1/account/preferences",
+          handler: (request) => {
+            const body = JSON.parse(String(request.init?.body ?? "{}")) as {
+              density_mode?: string | null;
+            };
+            expect(body.density_mode).toBe("compact");
+            return jsonResponse({
+              data: {
+                user_id: "user-1",
+                density_mode: "compact",
+                preferences_version: 2,
+                created_at: "2026-04-20T12:00:00Z",
+                updated_at: "2026-04-20T12:05:00Z",
+              },
+            });
+          },
+        },
+      ],
+    });
+
+    renderApp();
+
+    expect(
+      (await screen.findByTestId("mock-workbook-density")).textContent,
+    ).toBe("surface-default");
+    fireEvent.click(
+      screen.getByLabelText("Account and application navigation"),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Appearance" }));
+    fireEvent.change(
+      await screen.findByTestId(phase1AccountTestId("appearance-density-mode")),
+      {
+        target: { value: "compact" },
+      },
+    );
+    fireEvent.click(screen.getByTestId(phase1AccountTestId("appearance-save")));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("mock-workbook-density").textContent).toBe(
+        "compact",
+      );
+    });
   });
 
   it("enables deployment-user panel target actions after selecting a loaded user", async () => {
@@ -1128,7 +1212,7 @@ describe("Incident landing", () => {
     expect((workbookFrame as HTMLElement).style.display).toBe("grid");
     expect((workbookFrame as HTMLElement).style.blockSize).toBe("100%");
     expect((workbookFrame as HTMLElement).style.overflow).toBe("hidden");
-    await expectStableFetchCount(fetchMock, 7);
+    await expectStableFetchCount(fetchMock, 8);
   });
 
   it("returns to the landing screen when workbook access is lost", async () => {
@@ -1156,7 +1240,7 @@ describe("Incident landing", () => {
     renderApp();
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
-    await expectStableFetchCount(fetchMock, 7);
+    await expectStableFetchCount(fetchMock, 8);
     accessLost = true;
     fireEvent.click(screen.getByTestId("mock-access-lost"));
 
@@ -1169,7 +1253,7 @@ describe("Incident landing", () => {
       screen.getByTestId(phase1LandingTestId("status")).textContent?.trim(),
     ).not.toBe("");
     expect(window.location.search).not.toContain("incident_id=");
-    await expectStableFetchCount(fetchMock, 17);
+    await expectStableFetchCount(fetchMock, 20);
   });
 
   it("cancels an in-flight shell refresh when the app unmounts", async () => {
@@ -1245,7 +1329,7 @@ describe("Incident landing", () => {
     expect(
       screen.getByTestId(phase1LandingTestId("current-user")).textContent,
     ).toBe("Operator");
-    await expectStableFetchCount(fetchMock, 6);
+    await expectStableFetchCount(fetchMock, 7);
   });
 });
 

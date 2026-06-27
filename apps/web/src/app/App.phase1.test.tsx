@@ -160,7 +160,7 @@ describe("Phase 1 ordinary app shell", () => {
       username: "operator@example.test",
       password: "OperatorPass1!",
     });
-    await expectStableFetchCount(fetchMock, 10);
+    await expectStableFetchCount(fetchMock, 11);
   });
 
   it("Phase 11 U-11-ENTERPRISE-AUTH-01 enterprise auth discovery renders provider sign-in and begins with a relative return_to", async () => {
@@ -264,7 +264,7 @@ describe("Phase 1 ordinary app shell", () => {
     );
     expect(credentialErrorText).not.toContain("req-private-credential-detail");
     expect(credentialErrorText).not.toContain("/var/lib/cartulary");
-    await expectStableFetchCount(fetchMock, 7);
+    await expectStableFetchCount(fetchMock, 8);
   });
 
   it("FE-I-P1-01 route-boundary auth login errors render public envelopes without private details", async () => {
@@ -355,7 +355,7 @@ describe("Phase 1 ordinary app shell", () => {
         .textContent,
     ).toContain("Reason: not_allowed_for_route");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 7);
+    await expectStableFetchCount(fetchMock, 8);
   });
 
   it("Phase 1 U-1-15 ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session", async () => {
@@ -729,7 +729,7 @@ describe("Phase 1 ordinary app shell", () => {
         },
       },
     });
-    await expectStableFetchCount(fetchMock, 13);
+    await expectStableFetchCount(fetchMock, 14);
   });
 
   it("FE-I-P1-01 route-boundary account password and TOTP errors render public envelopes without private details", async () => {
@@ -845,7 +845,7 @@ describe("Phase 1 ordinary app shell", () => {
         .textContent,
     ).toContain("Field: current_password");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 9);
+    await expectStableFetchCount(fetchMock, 10);
   });
 
   it("FE-I-P1-01 route-boundary logout failures render public envelopes without ending the visible session", async () => {
@@ -894,7 +894,7 @@ describe("Phase 1 ordinary app shell", () => {
     );
     expect(screen.queryByTestId(phase1AuthTestId("login-username"))).toBeNull();
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 8);
+    await expectStableFetchCount(fetchMock, 9);
   });
 
   it("FE-I-P1-01 route-boundary bootstrap TOTP complete errors render public envelopes without private details", async () => {
@@ -1109,7 +1109,7 @@ describe("Phase 1 ordinary app shell", () => {
         .textContent,
     ).toContain("Field: code");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 9);
+    await expectStableFetchCount(fetchMock, 10);
   });
 
   it("Phase 1 U-1-17 ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell", async () => {
@@ -1943,7 +1943,7 @@ describe("Phase 1 ordinary app shell", () => {
     expect(renderedText).not.toContain("otpauth://create-private");
     expect(renderedText).not.toContain("private stack");
     expect(renderedText).not.toContain("private-create-detail");
-    await expectStableFetchCount(fetchMock, 6);
+    await expectStableFetchCount(fetchMock, 7);
   });
 });
 

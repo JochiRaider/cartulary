@@ -24,6 +24,7 @@ import {
   incidentMembershipVersionTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
+  phase1AccountTestId,
   phase1LandingTestId,
   rowCellTestId,
   savedViewFamilySelector,
@@ -46,10 +47,12 @@ import {
 } from "../src/workbook/models/workbookSurfaceRegistry";
 import { expect, test } from "./fixtures";
 import {
+  apiBase,
   createIncident,
   createLocalUser,
   createSavedView,
   createViewRow,
+  csrfHeaders,
   openIncidentAsTrackedUser,
   openIncidentFromLanding,
   seedSystemSavedView,
@@ -60,6 +63,11 @@ import {
 import { Phase1Page } from "./phase1Page";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
+type AccountDensityMode = "compact" | "default" | "comfortable" | null;
+type AccountPreferencesResource = {
+  density_mode: AccountDensityMode;
+  preferences_version: number;
+};
 
 async function openIncidentControls(
   page: Page,
@@ -124,6 +132,71 @@ async function readWorkbookLayoutRects(page: Page) {
       ),
     },
   );
+}
+
+async function readAccountPreferences(
+  page: Page,
+): Promise<AccountPreferencesResource> {
+  const response = await page.request.get(
+    `${apiBase}/api/v1/account/preferences`,
+  );
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { data: AccountPreferencesResource }).data;
+}
+
+async function putAccountDensityPreference(
+  page: Page,
+  densityMode: AccountDensityMode,
+) {
+  const latest = await readAccountPreferences(page);
+  const response = await page.request.put(
+    `${apiBase}/api/v1/account/preferences`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        base_preferences_version: latest.preferences_version,
+        client_txn_id: uniqueTxn("fe-b-p2-01-density-restore"),
+        density_mode: densityMode,
+      },
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+}
+
+async function readTimelineSummaryGeometry(page: Page, recordId: string) {
+  return page
+    .getByTestId(rowCellTestId(recordId, "timeline.activity_synopsis_text"))
+    .evaluate((control) => {
+      const controlElement = control as HTMLElement;
+      const cellElement =
+        controlElement.closest<HTMLElement>('[role="gridcell"]');
+      const gridElement = controlElement.closest<HTMLElement>('[role="grid"]');
+      if (cellElement === null || gridElement === null) {
+        throw new Error("Timeline summary editor is not inside a gridcell");
+      }
+      const rectFor = (element: HTMLElement) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          blockSize: rect.height,
+          inlineSize: rect.width,
+          insetBlockStart: rect.top,
+          insetInlineStart: rect.left,
+        };
+      };
+      const gridStyle = window.getComputedStyle(gridElement);
+      const controlStyle = window.getComputedStyle(controlElement);
+      return {
+        cell: rectFor(cellElement),
+        control: rectFor(controlElement),
+        density: gridStyle.getPropertyValue("--cartulary-grid-density").trim(),
+        fontSize: controlStyle.fontSize,
+        lineHeight: controlStyle.lineHeight,
+      };
+    });
+}
+
+function expectNear(actual: number, expected: number, tolerance = 1) {
+  expect(Math.abs(actual - expected)).toBeLessThanOrEqual(tolerance);
 }
 
 test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface", async ({
@@ -236,6 +309,92 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await expect(page.getByTestId("incident-pref-home-sheet-ref")).toHaveText(
     "View schema: Timeline (cartulary.view.timeline.v2)",
   );
+});
+
+test("FE-B-P2-01 updates workbook density from Account Settings while the workbook remains open", async ({
+  page,
+}) => {
+  const originalPreferences = await readAccountPreferences(page);
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("FEBP201D"),
+    "FE-B-P2-01 density",
+  );
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("fe-b-p2-01-density-row"),
+    "timeline.activity_synopsis_text": "FE-B-P2-01 density row",
+    "timeline.raw_activity_text": "FE-B-P2-01 density details",
+  });
+
+  try {
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await expect(
+      page.getByTestId(
+        rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
+      ),
+    ).toHaveValue("FE-B-P2-01 density row");
+
+    const phase1Page = new Phase1Page(page);
+    await phase1Page.openAccountSettings("account-appearance");
+    const densitySelect = page.getByTestId(
+      phase1AccountTestId("appearance-density-mode"),
+    );
+    const saveButton = page.getByTestId(phase1AccountTestId("appearance-save"));
+
+    await densitySelect.selectOption("comfortable");
+    await saveButton.click();
+    await expect
+      .poll(
+        async () =>
+          (await readTimelineSummaryGeometry(page, row.record_id)).density,
+      )
+      .toBe("comfortable");
+    const comfortableGeometry = await readTimelineSummaryGeometry(
+      page,
+      row.record_id,
+    );
+
+    await densitySelect.selectOption("compact");
+    await saveButton.click();
+    await expect
+      .poll(
+        async () =>
+          (await readTimelineSummaryGeometry(page, row.record_id)).density,
+      )
+      .toBe("compact");
+    await page.getByRole("button", { exact: true, name: "Close" }).click();
+
+    const compactGeometry = await readTimelineSummaryGeometry(
+      page,
+      row.record_id,
+    );
+    expect(comfortableGeometry.cell.blockSize).toBeGreaterThan(
+      compactGeometry.cell.blockSize + 12,
+    );
+    expect(compactGeometry.cell.blockSize).toBeGreaterThanOrEqual(23);
+    expect(compactGeometry.cell.blockSize).toBeLessThanOrEqual(26);
+    expect(compactGeometry.fontSize).toBe("12px");
+    expectNear(Number.parseFloat(compactGeometry.lineHeight), 14.4);
+    expectNear(
+      compactGeometry.control.insetBlockStart,
+      compactGeometry.cell.insetBlockStart,
+    );
+    expectNear(
+      compactGeometry.control.insetInlineStart,
+      compactGeometry.cell.insetInlineStart,
+    );
+    expectNear(
+      compactGeometry.control.blockSize,
+      compactGeometry.cell.blockSize,
+    );
+    expectNear(
+      compactGeometry.control.inlineSize,
+      compactGeometry.cell.inlineSize,
+    );
+  } finally {
+    await putAccountDensityPreference(page, originalPreferences.density_mode);
+  }
 });
 
 test("FE-B-P2-02 Verify System views switcher keyboard entry, roving focus, selection, dismissal, and focus restoration.", async ({

@@ -91,7 +91,8 @@
         "requires and parses known contract artifacts through the facade",
         "exposes stable current-profile view schema identifiers",
         "exposes error and reason-code registries through facade helpers",
-        "exposes extension registry profiles through facade helpers"
+        "exposes extension registry profiles through facade helpers",
+        "anchors account preference protocol facade types to generated OpenAPI schema names and routes"
       ],
       "claim_status": "implemented",
       "claim": {

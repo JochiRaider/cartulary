@@ -1241,12 +1241,24 @@ export function AccountProfilePanel({
   );
 }
 
-export function AccountAppearancePanel() {
-  const [preferences, setPreferences] =
+type AccountAppearancePanelProps = {
+  readonly preferences?: AccountPreferencesResource | null | undefined;
+  readonly onPreferencesChange?:
+    | ((preferences: AccountPreferencesResource) => void)
+    | undefined;
+};
+
+export function AccountAppearancePanel({
+  preferences: controlledPreferences,
+  onPreferencesChange,
+}: AccountAppearancePanelProps = {}) {
+  const isControlled = controlledPreferences !== undefined;
+  const [localPreferences, setLocalPreferences] =
     useState<AccountPreferencesResource | null>(null);
   const [densityMode, setDensityMode] = useState<DensityMode | "">("");
   const [status, setStatus] = useState("Loading account appearance.");
   const [error, setError] = useState<APIError | null>(null);
+  const preferences = isControlled ? controlledPreferences : localPreferences;
 
   const loadPreferences = useCallback(async () => {
     const result = await loadAccountPreferences();
@@ -1259,14 +1271,39 @@ export function AccountAppearancePanel() {
     const nextPreferences = (
       result.payload as { data: AccountPreferencesResource }
     ).data;
-    setPreferences(nextPreferences);
+    setLocalPreferences(nextPreferences);
+    onPreferencesChange?.(nextPreferences);
     setDensityMode(nextPreferences.density_mode ?? "");
     setStatus("Account appearance loaded.");
-  }, []);
+  }, [onPreferencesChange]);
 
   useEffect(() => {
-    void loadPreferences();
-  }, [loadPreferences]);
+    if (!isControlled) {
+      void loadPreferences();
+    }
+  }, [isControlled, loadPreferences]);
+
+  useEffect(() => {
+    if (!isControlled) {
+      return;
+    }
+    if (controlledPreferences === null) {
+      setDensityMode("");
+      setStatus((current) =>
+        current === "Loading account appearance."
+          ? current
+          : "Account appearance unavailable.",
+      );
+      return;
+    }
+    setDensityMode(controlledPreferences.density_mode ?? "");
+    setStatus((current) =>
+      current === "Loading account appearance." ||
+      current === "Account appearance unavailable."
+        ? "Account appearance loaded."
+        : current,
+    );
+  }, [controlledPreferences, isControlled]);
 
   async function savePreferences() {
     if (preferences === null) {
@@ -1281,12 +1318,16 @@ export function AccountAppearancePanel() {
     setError(nextError);
     if (!result.ok) {
       setStatus("Account appearance save failed.");
+      if (result.status === 409) {
+        void loadPreferences();
+      }
       return;
     }
     const nextPreferences = (
       result.payload as { data: AccountPreferencesResource }
     ).data;
-    setPreferences(nextPreferences);
+    setLocalPreferences(nextPreferences);
+    onPreferencesChange?.(nextPreferences);
     setDensityMode(nextPreferences.density_mode ?? "");
     setStatus("Account appearance saved.");
   }

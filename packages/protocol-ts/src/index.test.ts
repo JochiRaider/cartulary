@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type AccountPreferencesEnvelope,
+  type AccountPreferencesPutRequest,
+  type AccountPreferencesResource,
+  type AccountProfileEnvelope,
+  type AccountProfilePatchRequest,
+  type AccountProfileResource,
+  accountProtocolSchemaNames,
   type ContractArtifact,
+  type DensityMode,
   type ErrorEnvelope,
   type EvidenceAttachBlobEnvelope,
   type EvidenceAttachBlobRequest,
@@ -273,5 +281,80 @@ describe("@cartulary/protocol-ts facade", () => {
       "/api/v1/evidence-handles/preview-token",
     );
     expect(errorEnvelope.error.details.reason_code).toBe("blob_failed");
+  });
+
+  it("anchors account preference protocol facade types to generated OpenAPI schema names and routes", () => {
+    const openAPI = parseContractArtifact<{
+      components: { schemas: Record<string, unknown> };
+      paths: Record<
+        string,
+        Record<string, { operationId?: string; requestBody?: unknown }>
+      >;
+    }>("contracts/openapi/cartulary.openapi.yaml");
+
+    expect(Object.values(accountProtocolSchemaNames)).toEqual([
+      "AccountPreferencesEnvelope",
+      "AccountPreferencesPutRequest",
+      "AccountPreferencesResource",
+      "AccountProfileEnvelope",
+      "AccountProfilePatchRequest",
+      "AccountProfileResource",
+      "DensityMode",
+    ]);
+    for (const schemaName of Object.values(accountProtocolSchemaNames)) {
+      expect(openAPI.components.schemas[schemaName]).toBeDefined();
+    }
+    expect(openAPI.paths["/api/v1/account/profile"]?.get?.operationId).toBe(
+      "getCurrentAccountProfile",
+    );
+    expect(openAPI.paths["/api/v1/account/profile"]?.patch?.operationId).toBe(
+      "patchCurrentAccountProfile",
+    );
+    expect(openAPI.paths["/api/v1/account/preferences"]?.get?.operationId).toBe(
+      "getCurrentAccountPreferences",
+    );
+    expect(openAPI.paths["/api/v1/account/preferences"]?.put?.operationId).toBe(
+      "putCurrentAccountPreferences",
+    );
+
+    const densityMode = "compact" satisfies DensityMode;
+    const profileResource = {
+      user_id: "af0f2c88-1fd2-42ad-9631-4fbbef243f30",
+      email: "operator@example.test",
+      display_name: "Operator",
+      user_version: 1,
+      created_at: "2026-06-07T12:00:00Z",
+      updated_at: "2026-06-07T12:00:00Z",
+    } satisfies AccountProfileResource;
+    const preferencesResource = {
+      user_id: profileResource.user_id,
+      density_mode: densityMode,
+      preferences_version: 2,
+      created_at: "2026-06-07T12:00:00Z",
+      updated_at: "2026-06-07T12:05:00Z",
+    } satisfies AccountPreferencesResource;
+    const profilePatchRequest = {
+      base_user_version: profileResource.user_version,
+      client_txn_id: "txn-profile",
+      display_name: "Operator Prime",
+    } satisfies AccountProfilePatchRequest;
+    const preferencesPutRequest = {
+      base_preferences_version: preferencesResource.preferences_version,
+      client_txn_id: "txn-preferences",
+      density_mode: null,
+    } satisfies AccountPreferencesPutRequest;
+    const profileEnvelope = {
+      data: profileResource,
+      meta: { request_id: "req-profile" },
+    } satisfies AccountProfileEnvelope;
+    const preferencesEnvelope = {
+      data: preferencesResource,
+      meta: { request_id: "req-preferences" },
+    } satisfies AccountPreferencesEnvelope;
+
+    expect(profilePatchRequest.display_name).toBe("Operator Prime");
+    expect(preferencesPutRequest.density_mode).toBeNull();
+    expect(profileEnvelope.data.user_id).toBe(profileResource.user_id);
+    expect(preferencesEnvelope.data.density_mode).toBe("compact");
   });
 });

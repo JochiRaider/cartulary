@@ -10,10 +10,13 @@ export const visuallyHiddenStyle = {
 
 export const focusableCellStyle = {
   display: "block",
-  lineHeight: "1.25rem",
-  minHeight: "1.25rem",
+  boxSizing: "border-box",
+  blockSize: "100%",
+  minHeight: 0,
   minWidth: "100%",
   maxWidth: "100%",
+  fontSize: "var(--cartulary-grid-font-size)",
+  lineHeight: "var(--cartulary-grid-line-height)",
   outlineOffset: "2px",
   overflow: "hidden",
   textOverflow: "ellipsis",

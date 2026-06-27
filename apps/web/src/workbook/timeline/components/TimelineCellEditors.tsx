@@ -366,7 +366,7 @@ export function TimelineScalarEditor({
         data-testid={dataTestId}
         id={controlId}
         ref={inputRef}
-        rows={3}
+        rows={surface === "grid" ? 1 : 3}
         style={surface === "grid" ? gridCellTextareaStyle : textareaStyle}
         value={editorValue}
         onBlur={handleBlur}
@@ -445,18 +445,25 @@ const textareaStyle = {
 
 const gridCellInputStyle = {
   ...inputStyle,
-  minHeight: "1.35rem",
+  position: "absolute" as const,
+  inset: 0,
+  minHeight: 0,
+  height: "100%",
+  blockSize: "100%",
   border: "none",
+  borderRadius: 0,
   background: "transparent",
-  padding: 0,
-  lineHeight: "1.25rem",
+  padding: "var(--cartulary-grid-cell-padding)",
+  fontSize: "var(--cartulary-grid-font-size)",
+  lineHeight: "var(--cartulary-grid-line-height)",
   width: "100%",
+  inlineSize: "100%",
 };
 
 const gridCellTextareaStyle = {
   ...gridCellInputStyle,
-  resize: "vertical" as const,
-  minHeight: "3.5rem",
+  resize: "none" as const,
+  overflow: "auto",
 };
 
 export const relationshipChipBaseStyle = {

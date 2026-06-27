@@ -1,4 +1,5 @@
 import type {
+  AccountPreferencesResource,
   CredentialState,
   EnterpriseAuthProvider,
   ExtensionProfileResource,
@@ -52,6 +53,7 @@ export type IncidentResource = {
 };
 
 type InstallLandingShellFetchOptions = {
+  accountPreferences?: MaybeHandler<AccountPreferencesResource>;
   credentialState?: MaybeHandler<CredentialState>;
   enterpriseProviders?: MaybeHandler<{ providers: EnterpriseAuthProvider[] }>;
   extensions?: MaybeHandler<{ extensions: ExtensionProfileResource[] }>;
@@ -87,6 +89,15 @@ export function installLandingShellFetch(
     }
     if (request.path === "/api/v1/extensions" && request.method === "GET") {
       return dataResponse(options.extensions ?? { extensions: [] }, request);
+    }
+    if (
+      request.url === "/api/v1/account/preferences" &&
+      request.method === "GET"
+    ) {
+      return dataResponse(
+        options.accountPreferences ?? accountPreferencesResource(),
+        request,
+      );
     }
     if (
       request.url === "/api/v1/auth/credential-state" &&
@@ -199,6 +210,19 @@ export function credentialStateResource(
       ...baseTotp,
       ...(overrides?.totp ?? {}),
     },
+  };
+}
+
+export function accountPreferencesResource(
+  overrides?: Partial<AccountPreferencesResource>,
+): AccountPreferencesResource {
+  return {
+    user_id: "user-1",
+    density_mode: null,
+    preferences_version: 1,
+    created_at: "2026-04-20T12:00:00Z",
+    updated_at: "2026-04-20T12:00:00Z",
+    ...overrides,
   };
 }
 

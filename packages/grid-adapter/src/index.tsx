@@ -89,21 +89,29 @@ const gridScrollPaddingBlockEnd =
 const gridDensityMetrics = {
   compact: {
     cellPaddingVar: "--ct-density-compact-cellPadding",
-    rowHeight: 28,
+    fontSizeVar: "--ct-density-compact-fontSize",
+    lineHeightVar: "--ct-density-compact-lineHeight",
+    rowHeightVar: "--ct-density-compact-rowHeight",
   },
   default: {
     cellPaddingVar: "--ct-density-default-cellPadding",
-    rowHeight: 36,
+    fontSizeVar: "--ct-density-default-fontSize",
+    lineHeightVar: "--ct-density-default-lineHeight",
+    rowHeightVar: "--ct-density-default-rowHeight",
   },
   comfortable: {
     cellPaddingVar: "--ct-density-comfortable-cellPadding",
-    rowHeight: 44,
+    fontSizeVar: "--ct-density-comfortable-fontSize",
+    lineHeightVar: "--ct-density-comfortable-lineHeight",
+    rowHeightVar: "--ct-density-comfortable-rowHeight",
   },
 } as const satisfies Record<
   GridDensity,
   {
     readonly cellPaddingVar: string;
-    readonly rowHeight: number;
+    readonly fontSizeVar: string;
+    readonly lineHeightVar: string;
+    readonly rowHeightVar: string;
   }
 >;
 
@@ -227,7 +235,9 @@ export function GridTable<Row>({
         ...gridStyle,
         "--cartulary-grid-cell-padding": `var(${densityMetrics.cellPaddingVar})`,
         "--cartulary-grid-density": density,
-        "--cartulary-grid-row-height": `${densityMetrics.rowHeight}px`,
+        "--cartulary-grid-font-size": `var(${densityMetrics.fontSizeVar})`,
+        "--cartulary-grid-line-height": `var(${densityMetrics.lineHeightVar})`,
+        "--cartulary-grid-row-height": `var(${densityMetrics.rowHeightVar})`,
         gridTemplateColumns,
         minWidth: fillViewportInline ? 0 : gridInlineSize,
         width: fillViewportInline ? "100%" : gridInlineSize,
@@ -235,7 +245,9 @@ export function GridTable<Row>({
     [
       density,
       densityMetrics.cellPaddingVar,
-      densityMetrics.rowHeight,
+      densityMetrics.fontSizeVar,
+      densityMetrics.lineHeightVar,
+      densityMetrics.rowHeightVar,
       fillViewportInline,
       gridInlineSize,
       gridTemplateColumns,
@@ -632,12 +644,12 @@ function buildVirtualizedRows<Row>({
 function gridPresentationRowHeight<Row>(
   row: AdapterGridRow<Row>,
   density: GridDensity,
-): number {
+): number | string {
   return row.kind === "group" ? gridHeaderHeight : rowHeightForDensity(density);
 }
 
-function rowHeightForDensity(density: GridDensity): number {
-  return gridDensityMetrics[density].rowHeight;
+function rowHeightForDensity(density: GridDensity): string {
+  return `var(${gridDensityMetrics[density].rowHeightVar})`;
 }
 
 function resolveGridInlineSize<Row>(
@@ -806,7 +818,8 @@ const gridStyle = {
   scrollPaddingBlockStart: gridScrollPaddingBlockStart,
   scrollPaddingBlockEnd: gridScrollPaddingBlockEnd,
   fontFamily: "var(--ct-typography-grid-cell-fontFamily)",
-  fontSize: "var(--ct-typography-grid-cell-fontSize)",
+  fontSize: "var(--cartulary-grid-font-size)",
+  lineHeight: "var(--cartulary-grid-line-height)",
   fontVariantNumeric: "tabular-nums",
   fontFeatureSettings: '"tnum" 1, "zero" 1',
   color: "var(--ct-component-grid-cell-textColor)",
@@ -889,7 +902,8 @@ const bodyCellStyle = {
   padding: "var(--cartulary-grid-cell-padding)",
   borderBottom: "var(--ct-border-hairline)",
   borderInlineEnd: "var(--ct-border-hairline)",
-  lineHeight: "var(--ct-typography-grid-cell-lineHeight)",
+  fontSize: "var(--cartulary-grid-font-size)",
+  lineHeight: "var(--cartulary-grid-line-height)",
   overflowWrap: "anywhere" as const,
   verticalAlign: "top" as const,
   backgroundClip: "padding-box",

@@ -15,6 +15,8 @@ function GenericMultiSelectControl({
   ariaLabel,
   id,
   options,
+  size,
+  style,
   testId,
   value,
   onChange,
@@ -25,6 +27,8 @@ function GenericMultiSelectControl({
     readonly label: string;
     readonly value: string;
   }[];
+  readonly size: number;
+  readonly style: CSSProperties;
   readonly testId: string;
   readonly value: string;
   readonly onChange: (value: string) => void;
@@ -35,8 +39,8 @@ function GenericMultiSelectControl({
       data-testid={testId}
       id={id}
       multiple
-      size={Math.min(Math.max(options.length, 2), 6)}
-      style={selectStyle}
+      size={size}
+      style={style}
       value={splitDraftValues(value)}
       onChange={(event) => {
         onChange(
@@ -61,6 +65,7 @@ export function GenericMutationControl({
   field,
   id,
   referenceOptions,
+  surface = "form",
   testId,
   value,
   onChange,
@@ -70,11 +75,16 @@ export function GenericMutationControl({
   field: ViewFieldContract;
   id?: string;
   referenceOptions: GenericReferenceOptions;
+  surface?: "form" | "grid";
   testId: string;
   value: string;
   onChange: (value: string) => void;
 }) {
   const controlLabel = `${field.label} value`;
+  const inputControlStyle = surface === "grid" ? gridInputStyle : inputStyle;
+  const textareaControlStyle =
+    surface === "grid" ? gridTextareaStyle : textareaStyle;
+  const selectControlStyle = surface === "grid" ? gridSelectStyle : selectStyle;
   if (field.writeKind === "action_payload") {
     if (collectionMode === "remove") {
       return (
@@ -85,6 +95,12 @@ export function GenericMutationControl({
             label: item.displayText,
             value: item.itemRef,
           }))}
+          size={
+            surface === "grid"
+              ? 1
+              : Math.min(Math.max(collectionItems.length, 2), 6)
+          }
+          style={selectControlStyle}
           testId={testId}
           value={value}
           onChange={onChange}
@@ -102,6 +118,10 @@ export function GenericMutationControl({
             label: option.label,
             value: option.recordId,
           }))}
+          size={
+            surface === "grid" ? 1 : Math.min(Math.max(options.length, 2), 6)
+          }
+          style={selectControlStyle}
           testId={testId}
           value={value}
           onChange={onChange}
@@ -114,8 +134,8 @@ export function GenericMutationControl({
         aria-label={controlLabel}
         data-testid={testId}
         id={id}
-        rows={3}
-        style={textareaStyle}
+        rows={surface === "grid" ? 1 : 3}
+        style={textareaControlStyle}
         value={value}
         onChange={(event) => {
           onChange(event.target.value);
@@ -131,7 +151,7 @@ export function GenericMutationControl({
         aria-label={controlLabel}
         data-testid={testId}
         id={id}
-        style={selectStyle}
+        style={selectControlStyle}
         value={value}
         onChange={(event) => {
           onChange(event.target.value);
@@ -153,7 +173,7 @@ export function GenericMutationControl({
         aria-label={controlLabel}
         data-testid={testId}
         id={id}
-        style={selectStyle}
+        style={selectControlStyle}
         value={value}
         onChange={(event) => {
           onChange(event.target.value);
@@ -175,7 +195,7 @@ export function GenericMutationControl({
         aria-label={controlLabel}
         data-testid={testId}
         id={id}
-        style={inputStyle}
+        style={surface === "grid" ? gridCheckboxStyle : inputStyle}
         type="checkbox"
         checked={value === "true"}
         onChange={(event) => {
@@ -191,7 +211,7 @@ export function GenericMutationControl({
         aria-label={controlLabel}
         data-testid={testId}
         id={id}
-        style={inputStyle}
+        style={inputControlStyle}
         type="number"
         value={value}
         onChange={(event) => {
@@ -207,8 +227,8 @@ export function GenericMutationControl({
         aria-label={controlLabel}
         data-testid={testId}
         id={id}
-        rows={3}
-        style={textareaStyle}
+        rows={surface === "grid" ? 1 : 3}
+        style={textareaControlStyle}
         value={value}
         onChange={(event) => {
           onChange(event.target.value);
@@ -227,7 +247,7 @@ export function GenericMutationControl({
           ? "RFC3339 timestamp"
           : undefined
       }
-      style={inputStyle}
+      style={inputControlStyle}
       type="text"
       value={value}
       onChange={(event) => {
@@ -258,4 +278,39 @@ const textareaStyle = {
 const selectStyle = {
   ...inputStyle,
   appearance: "auto",
+} satisfies CSSProperties;
+
+const gridInputStyle = {
+  ...inputStyle,
+  position: "absolute" as const,
+  inset: 0,
+  inlineSize: "100%",
+  blockSize: "100%",
+  minHeight: 0,
+  width: "100%",
+  border: "none",
+  borderRadius: 0,
+  background: "transparent",
+  padding: "var(--cartulary-grid-cell-padding)",
+  fontSize: "var(--cartulary-grid-font-size)",
+  lineHeight: "var(--cartulary-grid-line-height)",
+  color: "var(--ct-colors-ink)",
+} satisfies CSSProperties;
+
+const gridTextareaStyle = {
+  ...gridInputStyle,
+  resize: "none",
+  overflow: "auto",
+} satisfies CSSProperties;
+
+const gridSelectStyle = {
+  ...gridInputStyle,
+  appearance: "auto",
+} satisfies CSSProperties;
+
+const gridCheckboxStyle = {
+  ...gridInputStyle,
+  inlineSize: "100%",
+  margin: 0,
+  padding: "calc(var(--cartulary-grid-row-height) / 4)",
 } satisfies CSSProperties;

@@ -59,6 +59,13 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "updates the open workbook density after saving account appearance",
+      "coverage": "unowned_regression",
+      "reason": "Cross-shell account-preference propagation remains product regression coverage outside a dedicated authoritative phase row."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
       "title": "opens an imported incident from terminal incident import job refs",
       "coverage": "unowned_regression",
       "reason": "Residual landing-shell and deployment-admin navigation behavior remains product regression coverage outside phase rows."

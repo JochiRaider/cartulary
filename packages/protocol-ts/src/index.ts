@@ -73,6 +73,16 @@ export const evidenceProtocolSchemaNames = Object.freeze({
   objectBlobUploadTarget: "ObjectBlobUploadTarget",
 } as const);
 
+export const accountProtocolSchemaNames = Object.freeze({
+  accountPreferencesEnvelope: "AccountPreferencesEnvelope",
+  accountPreferencesPutRequest: "AccountPreferencesPutRequest",
+  accountPreferencesResource: "AccountPreferencesResource",
+  accountProfileEnvelope: "AccountProfileEnvelope",
+  accountProfilePatchRequest: "AccountProfilePatchRequest",
+  accountProfileResource: "AccountProfileResource",
+  densityMode: "DensityMode",
+} as const);
+
 export type EnvelopeMeta = {
   readonly request_id: string;
   readonly paging?: unknown;
@@ -106,6 +116,47 @@ export type ViewMutationData = {
   readonly change_set_id: string;
   readonly row: ViewRow;
   readonly view_schema_id: string;
+};
+
+export type DensityMode = "compact" | "default" | "comfortable";
+
+export type AccountProfileResource = {
+  readonly user_id: string;
+  readonly email: string;
+  readonly display_name: string;
+  readonly user_version: number;
+  readonly created_at: string;
+  readonly updated_at: string;
+};
+
+export type AccountPreferencesResource = {
+  readonly user_id: string;
+  readonly density_mode: DensityMode | null;
+  readonly preferences_version: number;
+  readonly created_at: string;
+  readonly updated_at: string;
+};
+
+export type AccountProfilePatchRequest = {
+  readonly base_user_version: number;
+  readonly client_txn_id: string;
+  readonly display_name: string;
+};
+
+export type AccountPreferencesPutRequest = {
+  readonly base_preferences_version: number;
+  readonly client_txn_id: string;
+  readonly density_mode: DensityMode | null;
+};
+
+export type AccountProfileEnvelope = {
+  readonly data: AccountProfileResource;
+  readonly meta: EnvelopeMeta;
+};
+
+export type AccountPreferencesEnvelope = {
+  readonly data: AccountPreferencesResource;
+  readonly meta: EnvelopeMeta;
 };
 
 export type ObjectBlobCreateRequest = {

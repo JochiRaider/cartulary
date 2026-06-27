@@ -50,8 +50,10 @@ import {
   Phase1AuthSurface,
 } from "./Phase1Surface";
 import {
+  type AccountPreferencesResource,
   type CredentialState,
   type ExtensionProfileResource,
+  loadAccountPreferences,
   loadCredentialState,
   loadExtensions,
   loadSession,
@@ -286,6 +288,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const [route, setRoute] = useState<RouteState>(() => readRouteState());
   const [session, setSession] = useState<SessionData | null>(null);
   const [, setCredentialState] = useState<CredentialState | null>(null);
+  const [accountPreferences, setAccountPreferences] =
+    useState<AccountPreferencesResource | null>(null);
   const [credentialError, setCredentialError] = useState<APIError | null>(null);
   const [incidents, setIncidents] = useState<IncidentData[]>([]);
   const [incidentsPaging, setIncidentsPaging] =
@@ -384,6 +388,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         const sessionError = extractError(sessionResult.payload);
         setSession(null);
         setCredentialState(null);
+        setAccountPreferences(null);
         setCredentialError(null);
         setIncidents([]);
         setIncidentsPaging(emptyIncidentsPaging);
@@ -433,6 +438,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       };
       const [
         credentialResult,
+        preferencesResult,
         extensionsResult,
         bootstrapIncidentsResult,
         incidentsResult,
@@ -440,6 +446,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         loadCredentialState({
           signal: controller.signal,
         }),
+        loadAccountPreferences({ signal: controller.signal }),
         loadExtensions({ signal: controller.signal }),
         shouldLoadIncidentDirectory
           ? fetchJSON<IncidentListEnvelope>(
@@ -470,6 +477,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           : extractError(bootstrapIncidentsResult.payload);
       const extensionsError = extractError(extensionsResult.payload);
       const nextCredentialError = extractError(credentialResult.payload);
+      const preferencesError = extractError(preferencesResult.payload);
 
       if (
         (!credentialResult.ok &&
@@ -479,6 +487,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           )) ||
         (!extensionsResult.ok &&
           isSessionRequiredError(extensionsResult.status, extensionsError)) ||
+        (!preferencesResult.ok &&
+          isSessionRequiredError(preferencesResult.status, preferencesError)) ||
         (bootstrapIncidentsResult !== null &&
           !bootstrapIncidentsResult.ok &&
           isSessionRequiredError(
@@ -491,6 +501,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       ) {
         setSession(null);
         setCredentialState(null);
+        setAccountPreferences(null);
         setCredentialError(null);
         setIncidents([]);
         setIncidentsPaging(emptyIncidentsPaging);
@@ -500,6 +511,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         setError(
           nextCredentialError ??
             extensionsError ??
+            preferencesError ??
             bootstrapIncidentsError ??
             incidentsError,
         );
@@ -518,6 +530,15 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         setCredentialState(
           credentialResult.ok
             ? (credentialResult.payload as { data: CredentialState }).data
+            : null,
+        );
+        setAccountPreferences(
+          preferencesResult.ok
+            ? (
+                preferencesResult.payload as {
+                  data: AccountPreferencesResource;
+                }
+              ).data
             : null,
         );
         setCredentialError(nextCredentialError);
@@ -541,6 +562,15 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       if (!credentialResult.ok) {
         setSession(nextSession);
         setCredentialState(null);
+        setAccountPreferences(
+          preferencesResult.ok
+            ? (
+                preferencesResult.payload as {
+                  data: AccountPreferencesResource;
+                }
+              ).data
+            : null,
+        );
         setCredentialError(nextCredentialError);
         setIncidents([]);
         setIncidentsPaging(emptyIncidentsPaging);
@@ -556,6 +586,10 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
 
       const nextCredentialState = credentialResult.ok
         ? (credentialResult.payload as { data: CredentialState }).data
+        : null;
+      const nextAccountPreferences = preferencesResult.ok
+        ? (preferencesResult.payload as { data: AccountPreferencesResource })
+            .data
         : null;
       const nextIncidents =
         incidentsResult === null
@@ -640,6 +674,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
 
       setSession(nextSession);
       setCredentialState(nextCredentialState);
+      setAccountPreferences(nextAccountPreferences);
       setCredentialError(nextCredentialError);
       setIncidents(nextIncidents);
       setIncidentsPaging(nextIncidentsPaging);
@@ -673,6 +708,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       if (sessionRef.current === null) {
         setSession(null);
         setCredentialState(null);
+        setAccountPreferences(null);
         setCredentialError(null);
         setIncidents([]);
         setIncidentsPaging(emptyIncidentsPaging);
@@ -837,6 +873,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       if (isSessionRequiredError(result.status, nextError)) {
         setSession(null);
         setCredentialState(null);
+        setAccountPreferences(null);
         setCredentialError(null);
         setIncidents([]);
         setIncidentsPaging(emptyIncidentsPaging);
@@ -1062,6 +1099,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       if (isSessionRequiredError(response.status, nextError)) {
         setSession(null);
         setCredentialState(null);
+        setAccountPreferences(null);
         setCredentialError(null);
         setIncidents([]);
         setReferencePackJob(null);
@@ -1206,7 +1244,10 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
               <AccountProfilePanel onRefreshShell={refreshCurrentShell} />
             ) : null}
             {accountSettingsPanel === "account-appearance" ? (
-              <AccountAppearancePanel />
+              <AccountAppearancePanel
+                preferences={accountPreferences}
+                onPreferencesChange={setAccountPreferences}
+              />
             ) : null}
             {accountSettingsPanel === "account-security" ? (
               <Phase1AccountPanel
@@ -1218,7 +1259,13 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         </section>
       </div>
     );
-  }, [accountSettingsPanel, credentialError, refreshCurrentShell, session]);
+  }, [
+    accountPreferences,
+    accountSettingsPanel,
+    credentialError,
+    refreshCurrentShell,
+    session,
+  ]);
 
   if (route.incidentId !== "" && session !== null) {
     return (
@@ -1246,6 +1293,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           >
             <LazyWorkbookShell
               account={currentWorkbookAccount}
+              accountDensityMode={accountPreferences?.density_mode ?? null}
               accountApplicationMenu={({
                 currentIncidentRole,
                 incidentControls,

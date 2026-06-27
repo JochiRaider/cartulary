@@ -1,5 +1,6 @@
 import {
   type GridColumn,
+  type GridDensity,
   type GridRow,
   type GridRowGutter,
   GridTable,
@@ -20,6 +21,7 @@ export const TimelineWorkbookGrid = forwardRef<
   HTMLDivElement,
   {
     readonly columns: readonly GridColumn<WorkbookRow>[];
+    readonly density: GridDensity;
     readonly getGroupLabel: (row: WorkbookRow, fieldKey: string) => string;
     readonly getGroupRowTestId: (fieldKey: string, value: string) => string;
     readonly groupBy: WorkbookQueryState["groupBy"];
@@ -33,6 +35,7 @@ export const TimelineWorkbookGrid = forwardRef<
 >(function TimelineWorkbookGrid(
   {
     columns,
+    density,
     getGroupLabel,
     getGroupRowTestId,
     groupBy,
@@ -54,7 +57,7 @@ export const TimelineWorkbookGrid = forwardRef<
     >
       <GridTable
         columns={columns}
-        density="compact"
+        density={density}
         fillViewportInline
         getGroupLabel={getGroupLabel}
         getGroupRowTestId={getGroupRowTestId}

@@ -15,6 +15,30 @@ describe("Cartulary design token exports", () => {
     expect(cartularyDesignTokenVars["--ct-component-inspector-padding"]).toBe(
       "16px",
     );
+    expect(cartularyDesignTokenVars["--ct-density-compact-rowHeight"]).toBe(
+      "24px",
+    );
+    expect(cartularyDesignTokenVars["--ct-density-compact-cellPadding"]).toBe(
+      "2px 5px",
+    );
+    expect(cartularyDesignTokenVars["--ct-density-compact-fontSize"]).toBe(
+      "12px",
+    );
+    expect(cartularyDesignTokenVars["--ct-density-compact-lineHeight"]).toBe(
+      "1.2",
+    );
+    expect(cartularyDesignTokenVars["--ct-density-default-rowHeight"]).toBe(
+      "32px",
+    );
+    expect(cartularyDesignTokenVars["--ct-density-default-fontSize"]).toBe(
+      "13px",
+    );
+    expect(cartularyDesignTokenVars["--ct-density-comfortable-rowHeight"]).toBe(
+      "40px",
+    );
+    expect(cartularyDesignTokenVars["--ct-density-comfortable-fontSize"]).toBe(
+      "14px",
+    );
   });
 
   it("renders CSS variables without unresolved object values", () => {

@@ -1,3 +1,8 @@
+import type {
+  AccountPreferencesResource,
+  AccountProfileResource,
+  DensityMode,
+} from "@cartulary/protocol-ts";
 import { type APIResult, clientTxnID, fetchJSON } from "../services/browserApi";
 
 export type SessionMembership = {
@@ -51,24 +56,7 @@ export type UserResource = {
   last_login_at?: string | null;
 };
 
-export type AccountProfileResource = {
-  user_id: string;
-  email: string;
-  display_name: string;
-  user_version: number;
-  created_at: string;
-  updated_at: string;
-};
-
-export type DensityMode = "compact" | "comfortable" | "default";
-
-export type AccountPreferencesResource = {
-  user_id: string;
-  density_mode: DensityMode | null;
-  preferences_version: number;
-  created_at: string;
-  updated_at: string;
-};
+export type { AccountPreferencesResource, AccountProfileResource, DensityMode };
 
 export type ExtensionProfileResource = {
   profile_id: string;
