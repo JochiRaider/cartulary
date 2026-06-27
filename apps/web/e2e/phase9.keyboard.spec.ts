@@ -9,6 +9,7 @@ import {
 } from "@cartulary/test-utils";
 import {
   dataTestIdSelector,
+  gridGroupingSelectTestId,
   gridGroupRowTestId,
   gridRowGutterTestId,
   gridScrollportSelector,
@@ -17,8 +18,14 @@ import {
   rowHistoryPanelTestId,
   rowInspectorFieldTestId,
   saveStateTestId,
+  surfaceTabTestId,
+  systemViewSwitcherTriggerTestId,
   timelineMutationSubstrateReadyTestId,
+  workbookFilterPopoverTriggerTestId,
   workbookInspectorCloseButtonTestId,
+  workbookResponsiveBandTestId,
+  workbookSortMenuTriggerTestId,
+  workbookTopBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
 
@@ -221,6 +228,33 @@ function expectWorkbookDocumentBounded(
   ).toBeLessThanOrEqual(layout.viewport.innerHeight + 1);
 }
 
+async function expectWideWorkbookTopBarChrome(page: Page) {
+  await expect(
+    page.getByTestId(workbookResponsiveBandTestId()),
+  ).toHaveAttribute("data-workbook-responsive-band", "base");
+  await expect(
+    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(systemViewSwitcherTriggerTestId()),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(workbookTopBarQueryControlsTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(workbookSortMenuTriggerTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(gridGroupingSelectTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(workbookFilterPopoverTriggerTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Account and application navigation"),
+  ).toBeVisible();
+}
+
 async function openSharedGridAnchorCell({
   page,
   incidentId,
@@ -409,6 +443,29 @@ test("FE-B-P9-LAYOUT-01 keeps the incident workbook inside the browser viewport 
     await readWorkbookDocumentLayout(page),
     "initial 1280x720",
   );
+  await expectWideWorkbookTopBarChrome(page);
+
+  await page.setViewportSize({ width: 1280, height: 560 });
+  await expectWideWorkbookTopBarChrome(page);
+  await expect
+    .poll(async () => {
+      const layout = await readWorkbookDocumentLayout(page);
+      return (
+        layout.viewport.innerHeight === 560 &&
+        layout.documentElement.scrollHeight <=
+          layout.viewport.innerHeight + 1 &&
+        layout.body.scrollHeight <= layout.viewport.innerHeight + 1 &&
+        layout.grid.maxTop > 0
+      );
+    })
+    .toBe(true);
+  await page.evaluate(() => window.scrollTo(0, 10_000));
+  expectWorkbookDocumentBounded(
+    await readWorkbookDocumentLayout(page),
+    "vertical resized 1280x560",
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expectWideWorkbookTopBarChrome(page);
 
   await page
     .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))

@@ -489,6 +489,13 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/workbookResponsiveLayout.test.ts",
+      "coverage": "support",
+      "phase": "phase9",
+      "reason": "Workbook responsive layout mode selection supports browser-owned vertical resize regression coverage without becoming authoritative row evidence."
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/workbook/models/workbookReferenceOptions.test.ts",
       "title": "detects fields that use reference choices and leaves scalar fields free text",
       "coverage": "unowned_regression",

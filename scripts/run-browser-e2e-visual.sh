@@ -7,10 +7,14 @@ source "$ROOT_DIR/scripts/lib/playwright-owned-stack.sh"
 resolve_playwright_owned_stack_env "$ROOT_DIR"
 
 status=0
+playwright_update_args=()
+if [[ "${CARTULARY_PLAYWRIGHT_UPDATE_SNAPSHOTS:-0}" == "1" ]]; then
+  playwright_update_args=(--update-snapshots=all)
+fi
 
 "$ROOT_DIR/scripts/run-browser-e2e-manifest-dependency.sh" \
   browser-e2e-visual authoritative browser_visual -- \
-  "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test ||
+  "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test "${playwright_update_args[@]}" ||
   status=1
 
 frontend_grep=""
@@ -32,7 +36,7 @@ if [[ -n "$frontend_grep" ]]; then
     NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
     "$ROOT_DIR/scripts/lib/run-playwright-phase.sh" \
     "browser-e2e-visual frontend-readiness" -- \
-    "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test \
+    "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test "${playwright_update_args[@]}" \
     apps/web/e2e/workbook.visual.spec.ts -g "$frontend_grep" ||
     status=1
 fi

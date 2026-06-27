@@ -168,6 +168,12 @@ import {
 } from "./models/workbookQuery";
 import { emptyGenericReferenceOptions } from "./models/workbookReferenceOptions";
 import {
+  selectWorkbookBlockMode,
+  selectWorkbookChromeMode,
+  type WorkbookBlockMode,
+  type WorkbookChromeMode,
+} from "./models/workbookResponsiveLayout";
+import {
   savedViewConfigurationIsModified,
   savedViewQueryStateForRuntime,
 } from "./models/workbookSavedViewRuntime";
@@ -356,31 +362,14 @@ function workbookContractForViewSchemaId(viewSchemaId: string): ViewContract {
   );
 }
 
-type WorkbookViewportBand =
-  | "base"
-  | "below_supported_minimum"
-  | "compact_desktop"
-  | "narrow_desktop";
-
 type IncidentIdentityEnvelope = {
   data: WorkbookIncidentIdentity;
 };
 
-function selectWorkbookViewportBand(
-  widthCssPx: number,
-  heightCssPx: number,
-): WorkbookViewportBand {
-  if (widthCssPx >= 1280 && heightCssPx >= 720) {
-    return "base";
-  }
-  if (widthCssPx >= 1024 && heightCssPx >= 720) {
-    return "narrow_desktop";
-  }
-  if (widthCssPx >= 768 && heightCssPx >= 640) {
-    return "compact_desktop";
-  }
-  return "below_supported_minimum";
-}
+type WorkbookResponsiveLayout = {
+  readonly blockMode: WorkbookBlockMode;
+  readonly chromeMode: WorkbookChromeMode;
+};
 
 function currentViewportSize(): {
   readonly height: number;
@@ -396,26 +385,38 @@ function currentViewportSize(): {
   };
 }
 
-function useWorkbookViewportBand(): WorkbookViewportBand {
-  const [band, setBand] = useState<WorkbookViewportBand>(() => {
+function selectWorkbookResponsiveLayout(
+  widthCssPx: number,
+  heightCssPx: number,
+): WorkbookResponsiveLayout {
+  return {
+    blockMode: selectWorkbookBlockMode(heightCssPx),
+    chromeMode: selectWorkbookChromeMode(widthCssPx),
+  };
+}
+
+function useWorkbookResponsiveLayout(): WorkbookResponsiveLayout {
+  const [layout, setLayout] = useState<WorkbookResponsiveLayout>(() => {
     const viewport = currentViewportSize();
-    return selectWorkbookViewportBand(viewport.width, viewport.height);
+    return selectWorkbookResponsiveLayout(viewport.width, viewport.height);
   });
 
   useEffect(() => {
-    const updateBand = () => {
+    const updateLayout = () => {
       const viewport = currentViewportSize();
-      setBand(selectWorkbookViewportBand(viewport.width, viewport.height));
+      setLayout(
+        selectWorkbookResponsiveLayout(viewport.width, viewport.height),
+      );
     };
-    window.addEventListener("resize", updateBand);
-    window.visualViewport?.addEventListener("resize", updateBand);
+    window.addEventListener("resize", updateLayout);
+    window.visualViewport?.addEventListener("resize", updateLayout);
     return () => {
-      window.removeEventListener("resize", updateBand);
-      window.visualViewport?.removeEventListener("resize", updateBand);
+      window.removeEventListener("resize", updateLayout);
+      window.visualViewport?.removeEventListener("resize", updateLayout);
     };
   }, []);
 
-  return band;
+  return layout;
 }
 
 function normalizeIncidentIdentity(
@@ -3121,7 +3122,8 @@ export function WorkbookShell({
   onIncidentAccessLost,
 }: WorkbookShellProps) {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
-  const responsiveBand = useWorkbookViewportBand();
+  const responsiveLayout = useWorkbookResponsiveLayout();
+  const responsiveBand = responsiveLayout.chromeMode;
   const initialViewSchemaID = useMemo(() => {
     const explicit = params.get("view_schema_id");
     return explicit
@@ -4271,6 +4273,7 @@ export function WorkbookShell({
         <span
           aria-hidden="true"
           data-testid={workbookResponsiveBandTestId()}
+          data-workbook-block-mode={responsiveLayout.blockMode}
           data-workbook-responsive-band={responsiveBand}
           hidden
         />

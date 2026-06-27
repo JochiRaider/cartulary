@@ -25,6 +25,7 @@ import {
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
   evidencePreviewPanelTestId,
+  gridGroupingSelectTestId,
   gridGroupRowTestId,
   gridRowGutterTestId,
   gridRowTestId,
@@ -65,12 +66,16 @@ import {
   timelineRowMarkReviewedButtonTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
+  workbookFilterPopoverTriggerTestId,
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
+  workbookResponsiveBandTestId,
   workbookShellReadyTestId,
   workbookShellSlots,
   workbookShellSlotTestId,
+  workbookSortMenuTriggerTestId,
+  workbookTopBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page, Route, TestInfo } from "@playwright/test";
 import {
@@ -169,9 +174,6 @@ const expectedFeP11VisualFixtureIds = Array.from(
   (_, index) => `FE-VFIX-${String(index + 1).padStart(2, "0")}`,
 );
 const timelineInspectorTestId = "timeline-inspector";
-// Screenshot comparisons are opt-in while the app shell is under redesign.
-const compareStaleVisualSnapshotBaselines =
-  process.env.CARTULARY_ENABLE_STALE_VISUAL_SNAPSHOTS === "1";
 
 function findRepoRoot(): string {
   let candidate = process.cwd();
@@ -359,6 +361,33 @@ async function readTimelineGridFirstLayout(page: Page) {
       viewBarSelector: dataTestIdSelector(workbookShellSlotTestId("view-bar")),
     },
   );
+}
+
+async function expectWideWorkbookTopBarChrome(page: Page) {
+  await expect(
+    page.getByTestId(workbookResponsiveBandTestId()),
+  ).toHaveAttribute("data-workbook-responsive-band", "base");
+  await expect(
+    page.getByTestId(surfaceTabTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(systemViewSwitcherTriggerTestId()),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(workbookTopBarQueryControlsTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(workbookSortMenuTriggerTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(gridGroupingSelectTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(workbookFilterPopoverTriggerTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Account and application navigation"),
+  ).toBeVisible();
 }
 
 async function openTimelineRowActions(page: Page, recordId: string) {
@@ -723,6 +752,20 @@ test.describe("FE-P2 workbook visual readiness", () => {
     ).toHaveValue(rowSummariesById.get(selectedRow.record_id) ?? "");
 
     const fixtureViewport = page.viewportSize() ?? { width: 1440, height: 900 };
+    await expectWideWorkbookTopBarChrome(page);
+    for (const shortHeight of [640, 560]) {
+      await page.setViewportSize({
+        width: fixtureViewport.width,
+        height: shortHeight,
+      });
+      await expectWideWorkbookTopBarChrome(page);
+      await expect
+        .poll(async () => (await readTimelineGridFirstLayout(page)).windowY)
+        .toBe(0);
+    }
+    await page.setViewportSize(fixtureViewport);
+    await expectWideWorkbookTopBarChrome(page);
+
     await page.setViewportSize({ width: 2048, height: fixtureViewport.height });
     await expect
       .poll(async () => {
@@ -3436,9 +3479,6 @@ async function assertVisualRegression(
   await expect(locator).toBeVisible();
   await prepareVisualRegressionState(page);
   await attachVisualRenderDiagnostics(page, name, options.renderSurface);
-  if (!compareStaleVisualSnapshotBaselines) {
-    return;
-  }
   await expect(locator).toHaveScreenshot(`${name}.png`, {
     animations: "disabled",
     caret: "hide",
@@ -3455,9 +3495,6 @@ async function assertViewportVisualRegression(
 ) {
   await prepareVisualRegressionState(page);
   await attachVisualRenderDiagnostics(page, name, options.renderSurface);
-  if (!compareStaleVisualSnapshotBaselines) {
-    return;
-  }
   await expect(page).toHaveScreenshot(`${name}.png`, {
     animations: "disabled",
     caret: "hide",

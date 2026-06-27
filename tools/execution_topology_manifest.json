@@ -490,6 +490,10 @@
             "description": "run isolated visual browser E2E"
           },
           {
+            "target": "browser-e2e-visual-update",
+            "description": "refresh committed visual browser E2E goldens"
+          },
+          {
             "target": "harness-contract",
             "description": "run extended harness contract checks"
           }
@@ -2153,6 +2157,24 @@
         "workers": "1",
         "service_wrapper": "direct",
         "test_target": "self"
+      },
+      "browser-e2e-visual-update": {
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "browser-e2e-visual-update",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-web",
+          "build-server",
+          "build-migrate"
+        ],
+        "command": [
+          "bash",
+          "./scripts/run-browser-e2e-visual-update.sh"
+        ],
+        "test_target": "self",
+        "success_summary": true
       },
       "test-local": {
         "prerequisites": [
@@ -9135,6 +9157,97 @@
             "class": "retained_artifacts",
             "owner_section": "Section 8",
             "artifact_policy": "tool_run_summary"
+          },
+          {
+            "class": "service_start",
+            "owner_section": "Section 11",
+            "ownership_mode": "harness_owned",
+            "lifecycle_machine": "service lifecycle from Section 11"
+          },
+          {
+            "class": "service_resource_mutation",
+            "owner_section": "Section 11",
+            "ownership_mode": "harness_owned",
+            "resource_families": [
+              "scratch databases",
+              "object buckets or prefixes",
+              "fixture resources",
+              "runtime roots"
+            ],
+            "lifecycle_machine": "fixture and service lifecycle from Section 11"
+          },
+          {
+            "class": "runtime_reset",
+            "owner_section": "Section 12",
+            "predicates_section": "Section 12"
+          }
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
+      },
+      {
+        "name": "browser-e2e-visual-update",
+        "backing_scripts": [
+          "scripts/run-browser-e2e-visual-update.sh",
+          "scripts/run-browser-e2e-visual.sh",
+          "scripts/run-browser-e2e-manifest-dependency.sh",
+          "scripts/lib/run-playwright-phase.sh",
+          "scripts/start-web-e2e.sh"
+        ],
+        "output_policy": {
+          "output_class": "summary_with_artifacts",
+          "artifact_policy": "tool_run_summary",
+          "success_budget": {
+            "stdout_lines": 2,
+            "stdout_bytes": 600,
+            "stderr_lines": 0,
+            "stderr_bytes": 0
+          },
+          "failure_budget": {
+            "stderr_lines": 35,
+            "stderr_bytes": 6000,
+            "excerpt_lines": 25,
+            "excerpt_bytes": 4096
+          },
+          "raw_stream_policy": "never_default",
+          "summary_schema": "cartulary.tool_run_summary.v3"
+        },
+        "command_id": "cartulary.harness.command.browser_e2e_visual_update.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "browser_e2e",
+        "side_effects": [
+          {
+            "class": "retained_artifacts",
+            "owner_section": "Section 8",
+            "artifact_policy": "tool_run_summary"
+          },
+          {
+            "class": "authored_source_write",
+            "owner_section": "Section 4",
+            "paths": [
+              "apps/web/e2e/workbook.visual.spec.ts-snapshots"
+            ]
           },
           {
             "class": "service_start",

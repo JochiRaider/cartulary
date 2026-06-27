@@ -798,37 +798,56 @@ Design contract. Inspector height is the work-area height defined in §7.1, not 
 
 Design contract. If the inspector opens as an overlay in a narrower viewport band, the grid behind the overlay MUST be inert to pointer and keyboard until the overlay closes.
 
-### 7.4 Responsive band selection
+### 7.4 Responsive shell chrome selection
 
-Design contract. Viewport-band selection MUST use this deterministic algorithm:
+Design contract. Shell chrome mode selection MUST be driven only by inline-size
+capacity. Block-size pressure MAY affect work-area sizing, internal scrolling,
+and diagnostics, but it MUST NOT demote top-bar controls, switch built-in tabs to
+`Surfaces`, hide active-surface query controls, or move the account/application
+menu.
 
 ```pseudocode
-select_viewport_band(width_css_px, height_css_px):
-  if width_css_px >= layout.baseMinWidth and height_css_px >= layout.baseMinHeight:
+select_shell_chrome_mode(width_css_px):
+  if width_css_px >= layout.baseMinWidth:
     return base
-  if width_css_px >= layout.narrowMinWidth and height_css_px >= layout.baseMinHeight:
+  if width_css_px >= layout.narrowMinWidth:
     return narrow_desktop
-  if width_css_px >= layout.compactMinWidth and height_css_px >= layout.compactMinHeight:
+  if width_css_px >= layout.compactMinWidth:
     return compact_desktop
   return below_supported_minimum
 ```
 
-Design contract. Each viewport band MUST render according to this table.
+Design contract. Block-size support state MUST be selected independently:
 
-| Viewport band | Width and height condition | Top bar | View bar | Grid | Inspector | Status strip | Design conformance |
+```pseudocode
+select_block_size_state(height_css_px):
+  if height_css_px >= layout.baseMinHeight:
+    return base_height
+  if height_css_px >= layout.compactMinHeight:
+    return compact_height
+  return short_height
+```
+
+The block-size state MAY be used for support messaging, visual diagnostics, and
+future work-area adaptation. It MUST NOT participate in shell chrome mode
+selection.
+
+Design contract. Each shell chrome mode MUST render according to this table.
+
+| Shell chrome mode | Inline-size condition | Top bar | View bar | Grid | Inspector | Status strip | Design conformance |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `base` | Selected by algorithm above. | Incident identity, built-in primary tabs, `System views`, current surface title, active-surface query controls, and presence/account summary. | Saved-view and row-action controls. | Primary and visible while inspector is open. | Adjacent right panel. | Visible primary save label and secondary message. | Claimed. |
-| `narrow_desktop` | Selected by algorithm above. | Incident identity, `Surfaces`, `System views`, current surface title, active-surface query controls, and presence/account summary. | Saved-view and row-action controls. | Primary; visible when overlays are closed. | Full-height right overlay; grid inert behind overlay. | Visible primary save label and secondary message. | Claimed. |
-| `compact_desktop` | Selected by algorithm above. | Incident identity, `Surfaces`, `System views`, current surface title, and collapsed active-surface query access when capacity allows. | Saved-view and row-action controls remain reachable. | Primary when overlays are closed. | Full-screen or full-height overlay; grid inert behind overlay. | Visible primary save label; presence summary assigned here. | Claimed. |
-| `below_supported_minimum` | Selected by algorithm above. | Safe navigation and session controls remain reachable. | Not required except safe save/conflict path. | Degraded; horizontal scroll or supported-viewport message permitted. | Not required. | Primary save label MUST remain visible when unsaved work exists. | Not claimed. |
+| `base` | Selected by `select_shell_chrome_mode`. | Incident identity, built-in primary tabs, `System views`, current surface title, active-surface query controls, and presence/account summary. | Saved-view and row-action controls. | Primary and visible while inspector is open. | Adjacent right panel. | Visible primary save label and secondary message. | Claimed. |
+| `narrow_desktop` | Selected by `select_shell_chrome_mode`. | Incident identity, `Surfaces`, `System views`, current surface title, active-surface query controls, and presence/account summary. | Saved-view and row-action controls. | Primary; visible when overlays are closed. | Full-height right overlay; grid inert behind overlay. | Visible primary save label and secondary message. | Claimed. |
+| `compact_desktop` | Selected by `select_shell_chrome_mode`. | Incident identity, `Surfaces`, `System views`, current surface title, and collapsed active-surface query access when capacity allows. | Saved-view and row-action controls remain reachable. | Primary when overlays are closed. | Full-screen or full-height overlay; grid inert behind overlay. | Visible primary save label; presence summary assigned here. | Claimed. |
+| `below_supported_minimum` | Selected by `select_shell_chrome_mode`. | Safe navigation and session controls remain reachable. | Not required except safe save/conflict path. | Degraded; horizontal scroll or supported-viewport message permitted. | Not required. | Primary save label MUST remain visible when unsaved work exists. | Not claimed. |
 
-Design contract. Responsive overlay modes MUST preserve the same shell-owned work-area block bounds as adjacent inspector mode. Overlay placement MAY change with the viewport band, but it MUST NOT move save-state out of the status strip, make inspector height depend on grid rows, or push the shell into document-level vertical scrolling.
+Design contract. Responsive overlay modes MUST preserve the same shell-owned work-area block bounds as adjacent inspector mode. Overlay placement MAY change with the shell chrome mode, but it MUST NOT move save-state out of the status strip, make inspector height depend on grid rows, or push the shell into document-level vertical scrolling.
 
-Design contract. Below the supported minimum, keyboard session logout and safe navigation MUST remain available. Omission of mobile/touch-specific gestures is conformant.
+Design contract. Below the supported minimum inline size, keyboard session logout and safe navigation MUST remain available. Omission of mobile/touch-specific gestures is conformant.
 
 ### 7.5 Responsive overflow algorithm
 
-Design contract. Responsive overflow MUST use the region assignment table below. The table is exhaustive for shell controls in this revision.
+Design contract. Responsive overflow MUST use the region assignment table below. The table is exhaustive for shell controls in this revision. Top-bar and view-bar control assignment is keyed only by the shell chrome mode selected in §7.4; a vertical-only resize at a fixed inline size MUST preserve the selected rendered location, truncation, popover path, and accessible label for each shell control.
 
 | Control family | `base` location | `narrow_desktop` location | `compact_desktop` location | `below_supported_minimum` location |
 | --- | --- | --- | --- | --- |
@@ -1552,7 +1571,7 @@ Non-goal. The items in this table are intentionally outside this revision. Omiss
 | Light theme | Not supported. | No theme switcher entry; omission is conformant. |
 | Dedicated high-contrast theme | Not supported as a separate theme. | Omission is conformant; required `dark_graphite` accessibility criteria still apply. |
 | Account profile fields beyond display name | Not supported. | No editable email/login identifier, locale, time-zone, notification, theme, global default incident, global `home_sheet_ref`, custom density, or row-height controls. |
-| Mobile/touch-specific design | Not supported. | Below-minimum viewport behavior follows §7.4 and does not claim design conformance. |
+| Mobile/touch-specific design | Not supported. | Below-minimum inline-size behavior follows §7.4 and does not claim design conformance. |
 | Report/export visual design | Not owned by this design contract. | Snapshot/reporting UI requires a separate design artifact or future section. |
 | External visual reference board | Non-authoritative. | Inspiration only; it cannot override token, state, or surface contracts. |
 | All-surfaces-as-primary-tabs shell | Rejected for this revision. | Required system views remain in `System views`; built-in tabs remain primary at base viewport. |
@@ -1640,9 +1659,9 @@ Design contract. This `design.md` is ready to guide design implementation only w
 | `D-AC-020` | §7.2 | Surface-registry audit | The shell-exposure registry contains all fourteen required base-profile surfaces exactly once. | Required surface missing or duplicated. |
 | `D-AC-021` | §7.2 | Surface-registry audit | The shell-exposure registry contains the three standardized optional workbook surfaces exactly once with omission semantics. | Optional surface missing, duplicated, or lacks omission behavior. |
 | `D-AC-022` | §7.2 | Keyboard and pointer fixture | Required system views are reachable by keyboard and pointer from the shell, and selection completes to the requested active surface grid. | Required system view requires command palette, hidden route, or a visible option that does not complete surface activation. |
-| `D-AC-023` | §7.4 | Responsive algorithm validation | Each viewport width and height combination falls into exactly one responsive band. | Overlap or gap exists. |
-| `D-AC-024` | §7.5 | Responsive fixture | Responsive overflow selects the same rendered location, truncation, popover, and accessible label for each declared viewport. | Same viewport permits divergent layouts. |
-| `D-AC-025` | §7.4 | Below-minimum fixture | Below-minimum behavior is explicitly non-conformant or degraded with safe navigation preserved. | Below-minimum viewport claims design conformance or loses safe navigation. |
+| `D-AC-023` | §7.4 | Responsive algorithm validation | Every inline size selects exactly one shell chrome mode, and every block size selects exactly one independent block-size state. | Shell chrome mode selection depends on block size, or either algorithm has an overlap or gap. |
+| `D-AC-024` | §7.5 | Responsive fixture | Responsive overflow selects the same rendered location, truncation, popover, and accessible label for each declared inline size, and vertical-only resizing preserves top-bar chrome assignment. | Same inline size permits divergent shell-control placement during vertical-only resize. |
+| `D-AC-025` | §7.4 | Below-minimum fixture | Below-minimum inline-size behavior is explicitly non-conformant or degraded with safe navigation preserved. | Below-minimum inline size claims design conformance or loses safe navigation. |
 
 ### 18.4 State and interaction criteria
 

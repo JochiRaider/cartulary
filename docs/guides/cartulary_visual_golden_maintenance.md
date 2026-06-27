@@ -15,6 +15,7 @@ regression inputs until the live layout has been reviewed directly in a browser.
 ## Canonical Surface
 
 - Use `make browser-e2e-visual` for the canonical validation target.
+- Use `make browser-e2e-visual-update` for the canonical helper-only refresh flow when committed Playwright visual goldens are intentionally updated.
 - Visual workbook tests live in `apps/web/e2e/workbook.visual.spec.ts`.
 - Committed Playwright goldens live beside the spec under `apps/web/e2e/workbook.visual.spec.ts-snapshots/`.
 - Retained actual/diff artifacts from failed runs live under the run root reported by the harness, usually `.cartulary/test-results/<run-id>/.../playwright-output/`.
@@ -74,7 +75,9 @@ The workbook shell/status accessibility refresh uses this implementation-support
 map when regenerating stale current-profile goldens. The trigger is the accepted
 shell/status contract change: named workbook slot regions, the save-state
 `role="status"`, the visually hidden workbook focus anchor, and hardened
-screenshot scopes.
+screenshot scopes. The current accepted shell refresh additionally includes the
+width-only shell chrome contract, the vertical-only resize regression fix for
+the top bar, and reactivated Playwright screenshot comparisons.
 
 | Affected row | Owner map | Related fixture IDs | Screenshot scope |
 | --- | --- | --- | --- |
@@ -185,6 +188,7 @@ Refresh a golden only when at least one of these is true:
 
 - the UI contract intentionally changed;
 - the visual harness intentionally changed viewport, masking, scroll normalization, or screenshot scope;
+- Playwright visual comparison behavior intentionally changed, including reactivation of committed golden comparisons;
 - a dependency, browser, or platform pin changed and the rendered output change is accepted;
 - the previous golden is stale relative to already-validated functional behavior.
 
@@ -235,7 +239,7 @@ Skipped work units after a `browser-e2e-visual/visual` failure should be treated
 
 Before handoff:
 
-- run the narrow Playwright update flow for the affected visual test;
+- run `make browser-e2e-visual-update` when committed Playwright goldens are intentionally refreshed;
 - validate the visual fixture matrix before `make browser-e2e-visual`; any missing fixture row fails support validation unless it is marked blocked with a precise reason in the frontend phase map;
 - inspect the generated diff and confirm it matches the intended visual contract;
 - run `make frontend-unit` or `scripts/check-font-bundle.mjs` when font files, font CSS, manifests, or generated report templates changed;
