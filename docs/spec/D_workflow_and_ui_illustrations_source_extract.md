@@ -149,6 +149,87 @@ The workflow phrase below is explanatory only. The authoritative contract is Cor
 
 In the current profile, `linked` is a derived milestone rather than a persisted `capture_state`, and `rolled back` is a reviewer-history outcome rather than a persisted lifecycle state. The important point is that the rough capture remains recoverable. Normalization adds structure; it does not erase the original analyst input.
 
+### Inspector workflow illustrations
+
+These examples are illustrative only. Core 01 owns route identity and feature registry. Core 03 owns interaction algorithms. Core 04 owns authorization and egress. Appendix D does not create conformance requirements.
+
+#### Create Task Request from Timeline inspector
+
+```mermaid
+sequenceDiagram
+    participant A as Analyst
+    participant UI as Workbook shell
+    participant API as App API
+    participant DB as Postgres
+
+    A->>UI: Select Timeline row
+    A->>UI: Open Workflow panel and choose create_related.task_request
+    UI->>UI: Preserve selected Timeline row
+    UI->>UI: Preseed task.linked_record_ids with selected record_id
+    A->>UI: Enter task.title and task.task_kind
+    UI->>API: POST /api/v1/incidents/{incident_id}/views/cartulary.view.task_requests.v1/rows
+    API->>DB: Create task request and declared link
+    API-->>UI: Created task row
+    UI-->>A: Same workbook shell, source row still selected
+```
+
+#### Merge Host from Hosts inspector
+
+```mermaid
+sequenceDiagram
+    participant A as Reviewer
+    participant UI as Workbook shell
+    participant API as App API
+    participant DB as Postgres
+
+    A->>UI: Select duplicate host row
+    A->>UI: Open Relationships panel and choose entity.merge
+    UI->>UI: Build merge plan for survivor_record_id and loser_record_id
+    A->>UI: Confirm both stable record_id values
+    UI->>API: POST /api/v1/records/{survivor_record_id}/merge
+    API->>DB: Re-derive authorization and commit merge
+    API-->>UI: Survivor summary
+    UI-->>A: Retarget survivor or enter no_row_selected if not visible
+```
+
+#### Blocked Evidence preview
+
+```mermaid
+sequenceDiagram
+    participant A as Analyst
+    participant UI as Workbook shell
+    participant API as App API
+
+    A->>UI: Select Evidence row
+    A->>UI: Open Evidence panel and request evidence.preview_handle
+    UI->>API: POST /api/v1/evidence-records/{record_id}/preview-handle
+    API-->>UI: Blocked or unsupported preview response
+    UI-->>A: Inline blocked-preview state
+    A->>UI: Request download handle separately if allowed
+    UI->>API: POST /api/v1/evidence-records/{record_id}/download-handle
+```
+
+No third-party preview or enrichment service participates in the base-profile flow.
+
+#### Handoff acknowledgement
+
+```mermaid
+sequenceDiagram
+    participant A as Incoming owner
+    participant UI as Workbook shell
+    participant API as App API
+    participant DB as Postgres
+
+    A->>UI: Select Handoff row
+    A->>UI: Open Workflow panel
+    UI-->>A: Show open tasks, decisions, risks, and next checks
+    A->>UI: Choose handoff.acknowledge
+    UI->>API: PATCH /api/v1/records/{record_id}
+    API->>DB: Set handoff.acknowledged_at through record patch
+    API-->>UI: Refreshed Handoff row
+    UI-->>A: Same workbook shell, selected handoff row preserved
+```
+
 ### 1. Rapid creation of a timeline event
 
 ```mermaid

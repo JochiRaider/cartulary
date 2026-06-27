@@ -128,6 +128,56 @@ When the selected `record_id` changes, every inspector panel MUST retarget to th
 Profiles: base
 Verified by: AC-453
 
+### 2.3A Inspector workflow interaction semantics
+
+**REQ-03-292**
+The workbook client MUST execute inspector feature groups using the deterministic algorithms in this subsection. These algorithms govern client-visible interaction only. Server-side authorization, route validation, mutation legality, and source-state changes remain owned by the route and domain owners.
+Profiles: base
+Verified by: AC-456, AC-457, AC-458
+
+Algorithm: `open_inspector(origin, selected_record_id)`.
+
+1. If the inspector is already open for the same selected `record_id`, preserve the active panel unless the invoking origin names another declared panel.
+2. If no saved row is selected, open the inspector in `no_row_selected` state.
+3. If a saved row is selected, bind the inspector subject to `(view_schema_id, record_id, row_version)`.
+4. Opening the inspector MUST never be required before ordinary row creation, inline edit, paste, correction, or rough capture.
+
+Algorithm: `retarget_inspector(next_record_id, next_row_version)`.
+
+1. If `next_record_id` differs from the active inspector subject, synchronously invalidate local forms, previews, destructive confirmations, rollback previews, merge plans, supersede forms, and stale errors.
+2. Clear panel content or show panel-local loading state before painting new-row data.
+3. Fetch or derive the new panel data using the active `view_schema_id` config.
+4. If no saved row remains selected, enter `no_row_selected`.
+
+Algorithm: `execute_feature_group(feature_group_key, current_subject)`.
+
+1. Verify that `feature_group_key` exists in the active `view_schema_id` config.
+2. Verify that a saved row is selected unless the feature explicitly supports `no_row_selected`.
+3. Verify that current local state does not contain a matching `disabled_when[]` token.
+4. If `requires_confirmation=true`, show a row-bound confirmation that names the affected record or records by stable identifiers and relevant display labels.
+5. Submit only the existing route family declared by `route_binding.owner`.
+6. Do not infer routes, write targets, or permissions from labels, component names, menu text, row order, or grid coordinates.
+7. Treat any server authorization or validation failure as authoritative even if the control appeared enabled.
+
+Algorithm: `complete_mutating_action(result)`.
+
+1. If the result refreshes the same row and the caller still has access, preserve selected row, grid scroll, and focus where possible.
+2. If the result retargets to a survivor, replacement, or created record, select the server-returned target when it is visible under the current surface or pivot to the declared target surface when `success_result_behavior='surface_pivot'`.
+3. If the selected row is deleted, merged away, no longer visible, or no longer authorized, enter `no_row_selected`.
+4. Do not navigate away from the workbook shell unless the feature group is an explicit `surface_pivot`.
+
+Algorithm: `invalidate_confirmation(reason)`.
+
+Pending confirmations, rollback previews, merge plans, supersede forms, and workflow forms MUST invalidate on selected-row change, row-version change, incident closure, authorization loss, record deletion, record merge, hard refresh, and active `view_schema_id` change.
+
+Algorithm: `surface_pivot(binding)`.
+
+1. Construct target `sheet_ref` using stable `view_schema_id` or `saved_view_id`.
+2. Construct target filters only from declared `field_key` seed bindings.
+3. Execute navigation inside the same workbook shell.
+4. Preserve browser session, incident context, and status strip.
+5. Do not use visible labels, storage tables, row indexes, or grid vendor coordinates as pivot identity.
+
 **REQ-03-015**
 `owner_user_id` MUST be present for `private` and `shared` saved views. It MAY be null only for `system` saved views.
 Profiles: base

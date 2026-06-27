@@ -4158,15 +4158,18 @@ Each `feature_group_v1` entry MUST contain these required members:
 
 | Member | Rule |
 | --- | --- |
-| `feature_group_key` | Stable within one `view_schema_id`; ASCII lower snake or dotted key. |
+| `feature_group_key` | Stable within one `view_schema_id`; dotted lower-snake key governed by REQ-01-617. |
 | `panel_id` | One declared panel in the containing config. |
 | `label` | Non-authoritative display hint. |
 | `minimum_incident_role` | `viewer`, `editor`, `reviewer`, `admin`, or `null` when ordinary row-read access controls visibility. |
 | `mutates` | Boolean; `true` for any operation that can create, update, delete, restore, roll back, merge, supersede, resolve, dismiss, attach, detach, acknowledge, or otherwise change source state. |
 | `requires_confirmation` | Boolean; `true` for destructive, multi-record, merge, delete, restore, rollback, supersede, release, or similarly high-impact actions. |
-| `route_binding` | Object whose `kind` uses the closed route-binding vocabulary below. |
+| `route_binding` | Object whose `kind` and `owner` use the closed route-binding vocabularies below. |
+| `route_binding.owner` | Required closed token naming the Core-owned route family, current-row data source, or same-shell pivot owner used by the feature group. It is not a route-helper name, React component name, storage name, or grid-vendor API. |
 | `seed_bindings[]` | Seed bindings for create or pivot forms; maximum `16`; MUST be `[]` when unused. |
 | `disabled_when[]` | Closed current-profile condition tokens; maximum `16`; MUST be `[]` when unused. |
+| `success_result_behavior` | Required closed token: `preserve_selected_row`, `retarget_selected_row`, `clear_to_no_row_selected`, or `surface_pivot`. |
+| `failure_result_behavior` | Required closed token: `show_same_shell_error_preserve_selection`, `show_same_shell_error_invalidate_pending_action`, or `show_same_shell_error_clear_subject`. |
 
 The closed `route_binding.kind` vocabulary is:
 
@@ -4180,11 +4183,33 @@ The closed `route_binding.kind` vocabulary is:
 | `evidence_access` | Issue preview or download handles through the existing evidence-access contract. |
 | `surface_pivot` | Navigate within the same workbook shell to another `sheet_ref` with a seeded query over stable `field_key` filters. |
 
+The closed `route_binding.owner` vocabulary is:
+
+| `route_binding.owner` | Required owner |
+| --- | --- |
+| `current_row_projection` | Selected row data already present in the active `view_row_v1` or its authorized same-row derived summaries. |
+| `view_query_route` | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`. |
+| `view_row_create_route` | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`. |
+| `record_patch_route` | `PATCH /api/v1/records/{record_id}`. |
+| `record_mark_reviewed_route` | `POST /api/v1/records/{record_id}/mark-reviewed`. |
+| `record_supersede_route` | `POST /api/v1/records/{record_id}/supersede`. |
+| `record_delete_route` | `DELETE /api/v1/records/{record_id}`. |
+| `record_restore_route` | `POST /api/v1/records/{record_id}/restore`. |
+| `record_history_route` | `GET /api/v1/records/{record_id}/history`. |
+| `record_rollback_route` | `POST /api/v1/records/{record_id}/rollback`. |
+| `record_merge_route` | `POST /api/v1/records/{survivor_record_id}/merge`. |
+| `entity_mention_resolve_route` | `POST /api/v1/entity-mentions/{entity_mention_id}/resolve`. |
+| `evidence_attach_blob_route` | `POST /api/v1/evidence-records/{record_id}/attach-blob`. |
+| `evidence_preview_handle_route` | `POST /api/v1/evidence-records/{record_id}/preview-handle`. |
+| `evidence_download_handle_route` | `POST /api/v1/evidence-records/{record_id}/download-handle`. |
+
+These route families already exist in the public route inventory and record mutation tables, including row create, record patch, lifecycle actions, soft delete, restore, history, rollback, merge, mention resolve, evidence attach, and evidence handle issuance.
+
 `seed_bindings[]` entries MUST bind target fields by stable `target_field_key` and MUST use only semantic sources: selected record id, selected field value, or literal value. A selected-field source MUST name a stable `source_field_key`; a literal source MUST carry the literal value. Seed bindings MUST NOT expose storage columns, internal write targets, or route-helper names.
 
-`disabled_when[]` MUST use only these current-profile condition tokens: `no_row_selected`, `incident_closed`, `authorization_lost`, `row_version_changed`, `record_deleted`, `record_merged`, `evidence_preview_unavailable`, and `merge_target_unavailable`. These tokens are presentation hints only and MUST NOT authorize or deny a server action.
+`disabled_when[]` MUST use only these current-profile condition tokens: `no_row_selected`, `incident_closed`, `authorization_lost`, `row_version_changed`, `record_deleted`, `record_merged`, `evidence_preview_unavailable`, `merge_target_unavailable`, `record_not_deleted`, `rollback_target_unavailable`, `party_text_unavailable`, and `pivot_target_unavailable`. These tokens are presentation hints only and MUST NOT authorize or deny a server action. Server routes must re-derive authorization and validate target state.
 
-An emitted current-profile `inspector_config_v1` with an unknown panel id, unknown route-binding kind, unknown disabled condition token, duplicate panel id, duplicate feature-group key, invalid bound, mismatched `view_schema_id`, unsupported `subject_binding.kind`, unsupported `no_row_state`, `default_open=true`, or unsupported feature behavior is invalid conformance material.
+An emitted current-profile `inspector_config_v1` with an unknown panel id, unknown route-binding kind, unknown route-binding owner, unknown disabled condition token, unknown success result behavior, unknown failure result behavior, duplicate panel id, duplicate feature-group key, invalid bound, mismatched `view_schema_id`, unsupported `subject_binding.kind`, unsupported `no_row_state`, `default_open=true`, or unsupported feature behavior is invalid conformance material.
 
 Inspector route bindings MUST reuse existing Core-owned route and mutation contracts. The inspector MUST NOT define a generic workflow route, workflow engine, hidden sub-workspace, inspector-state record family, record-specific ACL system, or forms-first capture path.
 Profiles: base
@@ -4390,6 +4415,86 @@ Every current-profile standardized workbook surface MUST emit an explicit `inspe
 The exact field membership, writeability, create minima, omitted-versus-`null` behavior, write targets, and relationship storage semantics remain owned by the relevant per-field registry and route owner sections. The inspector matrix MUST NOT be used as a substitute field registry, storage registry, route inventory, or authorization matrix.
 Profiles: base
 Verified by: AC-453
+
+**REQ-01-617**
+Inspector feature groups MUST use dotted lower-snake `feature_group_key` values. A feature key MUST be unique within its containing `view_schema_id`. Reuse of the same feature key across different `view_schema_id` values is valid only when the feature has the same observable meaning, route-binding kind, route-binding owner, mutation classification, confirmation classification, and result-behavior family.
+
+Feature keys MUST use these owner prefixes when applicable: `details`, `relationships`, `evidence`, `history`, `record`, `entity_mentions`, `indicator`, `assessment`, `task`, `decision`, `party`, `comm`, `handoff`, `status_review`, `lesson`, `finding`, `query`, `keyword`, `surface_pivot`, and `create_related`.
+
+A current-profile implementation MUST NOT emit a feature group whose key is not declared by the exhaustive registry in §7.4.1A, except for standardized optional surfaces when the optional surface itself is not implemented, in which case the entire surface and its inspector feature groups are omitted.
+Profiles: base
+Verified by: AC-454
+
+### 7.4.1A Inspector feature-group registry
+
+The registry below is the exhaustive current-profile feature-group source. It is not an inheritance mechanism. For each emitted `inspector_config_v1`, the implementation must materialize complete `feature_group_v1` objects for that surface. Tables in this section use row-set shorthand only to avoid repetition in the specification text; emitted discovery payloads must contain full objects with no inherited or implied fields.
+
+| Feature-key family | `panel_id` | `route_binding.kind` | `route_binding.owner` | `minimum_incident_role` | `mutates` | `requires_confirmation` | Default success behavior | Default failure behavior |
+| --- | --- | --- | --- | --- | ---: | ---: | --- | --- |
+| `details.read` | `details` | `panel_read` | `current_row_projection` | `null` | `false` | `false` | `preserve_selected_row` | `show_same_shell_error_preserve_selection` |
+| `relationships.read` | `relationships` | `panel_read` | `current_row_projection` | `null` | `false` | `false` | `preserve_selected_row` | `show_same_shell_error_preserve_selection` |
+| `evidence.read` | `evidence` | `panel_read` | `current_row_projection` | `null` | `false` | `false` | `preserve_selected_row` | `show_same_shell_error_preserve_selection` |
+| `history.read` | `history` | `panel_read` | `record_history_route` | `null` | `false` | `false` | `preserve_selected_row` | `show_same_shell_error_preserve_selection` |
+| `record.delete` | `history` | `record_action` | `record_delete_route` | `editor` | `true` | `true` | `clear_to_no_row_selected` | `show_same_shell_error_invalidate_pending_action` |
+| `record.restore` | `history` | `record_action` | `record_restore_route` | `reviewer` | `true` | `true` | `retarget_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `history.rollback` | `history` | `record_action` | `record_rollback_route` | `reviewer` | `true` | `true` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `surface_pivot.*` | `workflow` | `surface_pivot` | `view_query_route` | `null` | `false` | `false` | `surface_pivot` | `show_same_shell_error_preserve_selection` |
+| `create_related.*` | `workflow` | `view_row_create` | `view_row_create_route` | `editor` | `true` | `false` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `*.manage` | declared row panel | `record_patch` | `record_patch_route` | `editor` | `true` | `false` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `*.link` | declared row panel | `record_patch` | `record_patch_route` | `editor` | `true` | `false` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `*.clear` | declared row panel | `record_patch` | `record_patch_route` | `editor` | `true` | `false` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `*.clear_both` | declared row panel | `record_patch` | `record_patch_route` | `editor` | `true` | `true` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `*.transition` | declared row panel | `record_patch` | `record_patch_route` | `editor` | `true` | `false` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `*.preview_handle` | `evidence` | `evidence_access` | `evidence_preview_handle_route` | `null` | `false` | `false` | `preserve_selected_row` | `show_same_shell_error_preserve_selection` |
+| `*.download_handle` | `evidence` | `evidence_access` | `evidence_download_handle_route` | `null` | `false` | `false` | `preserve_selected_row` | `show_same_shell_error_preserve_selection` |
+| `*.attach_blob` | `evidence` | `record_action` | `evidence_attach_blob_route` | `editor` | `true` | `false` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `*.merge` | `relationships` | `record_action` | `record_merge_route` | `reviewer` | `true` | `true` | `retarget_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `*.supersede` | `history` | `record_action` | `record_supersede_route` | `reviewer` | `true` | `true` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `*.mark_reviewed` | `history` | `record_action` | `record_mark_reviewed_route` | `reviewer` | `true` | `false` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `entity_mentions.resolve` | `relationships` | `entity_mention_action` | `entity_mention_resolve_route` | `editor` | `true` | `false` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `entity_mentions.dismiss` | `relationships` | `entity_mention_action` | `entity_mention_resolve_route` | `editor` | `true` | `false` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `entity_mentions.restore` | `relationships` | `entity_mention_action` | `entity_mention_resolve_route` | `editor` | `true` | `false` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `entity_mentions.create_host` | `relationships` | `entity_mention_action` | `entity_mention_resolve_route` | `editor` | `true` | `true` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `entity_mentions.create_identity` | `relationships` | `entity_mention_action` | `entity_mention_resolve_route` | `editor` | `true` | `true` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+
+The table above defines defaults for feature-key families only. The per-surface registry below determines which keys exist for each surface. If a per-surface row needs a different panel, role, confirmation, disabled-state, seed, success, or failure behavior, the per-surface row must override it explicitly.
+
+| `view_schema_id` | Required `feature_group_key` values |
+| --- | --- |
+| `cartulary.view.timeline.v2` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `entity_mentions.resolve`, `entity_mentions.create_host`, `entity_mentions.create_identity`, `entity_mentions.dismiss`, `entity_mentions.restore`, `indicator.observations.manage`, `relationships.manage`, `evidence.attach_blob`, `evidence.preview_handle`, `evidence.download_handle`, `timeline.mark_reviewed`, `timeline.supersede`, `create_related.note`, `create_related.task_request`, `create_related.decision`, `create_related.evidence`, `create_related.comm_log`, `create_related.handoff`, `create_related.status_review`, `create_related.lesson` |
+| `cartulary.view.hosts.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `entity.aliases.read`, `entity.relationships.manage`, `entity.merge`, `surface_pivot.timeline`, `surface_pivot.evidence`, `surface_pivot.assessments`, `create_related.note`, `create_related.task_request`, `create_related.decision` |
+| `cartulary.view.identities.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `entity.aliases.read`, `entity.relationships.manage`, `entity.merge`, `surface_pivot.timeline`, `surface_pivot.evidence`, `surface_pivot.assessments`, `create_related.note`, `create_related.task_request`, `create_related.decision` |
+| `cartulary.view.evidence.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `evidence.preview_handle`, `evidence.download_handle`, `evidence.attach_blob`, `party.collector.link`, `party.source.link`, `party.reference.clear`, `relationships.manage`, `surface_pivot.linked_records`, `surface_pivot.timeline`, `create_related.note`, `create_related.task_request`, `create_related.decision` |
+| `cartulary.view.notes.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `artifact.source_links.manage`, `artifact.evidence_refs.manage`, `artifact.tags.manage`, `artifact.related_notes.manage`, `surface_pivot.source_records`, `create_related.task_request`, `create_related.decision` |
+| `cartulary.view.indicators.v1` | `details.read`, `relationships.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `indicator.observations.pivot`, `indicator.lifecycle.read`, `relationships.manage`, `create_related.task_request`, `create_related.decision` |
+| `cartulary.view.assessments.v1` | `details.read`, `relationships.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `assessment.subject_pivot`, `assessment.prior_history`, `assessment.support_refs.manage`, `evidence.refs.manage`, `create_related.task_request`, `create_related.decision` |
+| `cartulary.view.task_requests.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `task.links.manage`, `task.requester_party.link`, `task.requester_party.clear`, `task.decision.link`, `task.decision.clear`, `task.status.transition`, `create_related.comm_log`, `create_related.status_review`, `create_related.lesson` |
+| `cartulary.view.decisions.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `decision.support_refs.manage`, `decision.affected_records.manage`, `decision.status.transition`, `decision.supersede`, `create_related.task_request`, `create_related.comm_log`, `create_related.status_review` |
+| `cartulary.view.parties.v1` | `details.read`, `relationships.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `party.usage_pivot.requester`, `party.usage_pivot.collector_source`, `party.usage_pivot.audience_attendee`, `party.usage_pivot.owner_stakeholder`, `party.reference.link`, `party.reference.clear`, `party.reference.clear_both` |
+| `cartulary.view.comm_log.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `comm.decisions.link`, `comm.action_tasks.link`, `comm.parties.manage`, `comm.next_report.manage`, `create_related.task_request`, `create_related.status_review` |
+| `cartulary.view.handoff.v1` | `details.read`, `relationships.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `handoff.acknowledge`, `handoff.open_tasks.review`, `handoff.open_decisions.review`, `handoff.risks.review`, `handoff.next_checks.manage`, `create_related.task_request`, `create_related.status_review` |
+| `cartulary.view.status_review.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `status_review.blocked_tasks.review`, `status_review.pending_evidence.review`, `status_review.open_decisions.review`, `status_review.risks.review`, `status_review.next_report.manage`, `create_related.task_request`, `create_related.comm_log` |
+| `cartulary.view.lesson.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `lesson.followup_tasks.manage`, `lesson.evidence_refs.manage`, `lesson.owner.manage`, `lesson.close_or_reopen`, `create_related.task_request` |
+| `cartulary.view.findings.v1`, when implemented | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `finding.support_refs.manage`, `finding.contradictory_refs.manage`, `finding.evidence_refs.manage`, `finding.owner.manage`, `finding.close_or_reopen`, `create_related.task_request`, `create_related.decision` |
+| `cartulary.view.investigative_queries.v1`, when implemented | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `query.source.link`, `query.result.link`, `query.evidence_refs.manage`, `query.findings.link`, `create_related.task_request` |
+| `cartulary.view.forensic_keywords.v1`, when implemented | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `keyword.evidence_refs.manage`, `keyword.timeline_rows.link`, `keyword.findings.link`, `create_related.task_request` |
+
+A standardized optional surface that is not implemented must be omitted from `GET /api/v1/view-schemas`, and its feature groups must also be omitted. A required surface may not omit a declared feature group. If a feature group cannot execute because of role, state, target absence, or unsupported evidence preview, it must remain declared and use `disabled_when[]` plus server-side validation rather than disappearing.
+
+| Feature family | Required seed behavior |
+| --- | --- |
+| `create_related.task_request` | Seed selected `record_id` into the target surface's linked-record field when declared by that target view. Seeded links do not satisfy target create minima. |
+| `create_related.decision` | Seed selected `record_id` into the target surface's support or affected-record context when declared. Seeded links do not satisfy target create minima. |
+| `create_related.note` | Seed selected `record_id` as source context when the Notes surface declares a source-link action field. |
+| `create_related.evidence` | Seed selected `record_id` as evidence-related context; evidence title or other minimum create signal remains required unless the Evidence surface owner explicitly permits otherwise. |
+| `create_related.comm_log` | Seed selected `record_id` as related context; communication summary remains required. |
+| `create_related.handoff` | Seed selected `record_id` as related context; handoff minimum create signal remains required. |
+| `create_related.status_review` | Seed selected `record_id` as related context; status-review minimum create signal remains required. |
+| `create_related.lesson` | Seed selected `record_id` as related context; lesson summary remains required. |
+| `party.*.link` | Seed party text from the source-preserving text field that owns the party pair; the linked `party_id` does not clear source text implicitly. |
+| `surface_pivot.*` | Seed target query filters using stable target `field_key` values only. Visible labels, storage names, and row indexes are invalid seed sources. |
+
+This preserves the Core 03 rule that preseeded links remain editable context and do not satisfy minimum create signals.
 
 **REQ-01-309**
 Each schema subsection below, together with the addenda in §19, is an exhaustive per-field registry for its `view_schema_id`, not an illustrative example. In particular, §7.4.2 through §7.4.4 close the base-profile interface contract for the built-in Hosts, Identities, and Evidence sheets, and §19 closes the Parties, coordination-artifact, and standardized optional artifact-backed surface contracts. Core 02 §10.4.4A MAY inventory the closed tagged-variant family for artifact-backed notes, coordination artifacts, and structured findings, but that registry is not a second owner for exhaustive field membership, create-time behavior, omitted-versus-`null` behavior, defaults, write targets or actions, or discovery metadata. These sections are also the sole authoritative source for populating public field and query members of `view_schema_resource_v1`, `view_field_entry_v1`, and `synthetic_filter_predicates[]` discovery output; REQ-01-615 and REQ-01-616 own the `inspector_config_v1` member and per-surface inspector matrix. Implementations MUST NOT invent alternate base-profile or standardized optional writable `field_key` strings, write targets or actions, `conflict_resolution_class` assignments, `entity_binding_mode` values, inspector feature keys, route-binding kinds, or discovery metadata that conflicts with this registry. Surface `title` and field `label` values remain non-authoritative display hints only and MAY change without changing `view_schema_id` when field semantics do not change.

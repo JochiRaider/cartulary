@@ -953,6 +953,75 @@ test("E-1-12 returns a revoked target browser to login and allows re-authenticat
   await expectCurrentIncidentRole(page, "Current incident role: viewer");
 });
 
+test("FE-E-P1-01 Verify ordinary login, incident entry, and current-role refresh stay on public browser routes.", async ({
+  page,
+  sessionTracker,
+  workerAdminRequest,
+}) => {
+  const phase1 = new Phase1Page(page);
+  const email = uniqueEmail("phase1-feep101");
+  const password = "Phase1FEEP101Pass!";
+  const user = await createLocalUser(workerAdminRequest, {
+    email,
+    display_name: "Phase 1 FE-E-P1-01",
+    initial_password: password,
+    mfa_required: false,
+  });
+  const incidentKey = uniqueIncidentKey("FEEP101");
+  const incidentTitle = "FE-E-P1-01 incident entry";
+  const incidentId = await createIncident(page, incidentKey, incidentTitle);
+  await createIncidentMembership(page, incidentId, email, "admin");
+
+  await clearBrowserSession(page);
+  await phase1.goto();
+  await expect(
+    page.getByTestId(phase1AuthTestId("login-username")),
+  ).toBeVisible();
+  const loginResponse = waitForPublicAPIResponse(page, {
+    method: "POST",
+    path: "/api/v1/auth/login",
+    status: 200,
+  });
+  await phase1.login(email, password);
+  await loginResponse;
+  await expectLandingAccountSession(page);
+  await sessionTracker.captureCurrentSession(page, {
+    createdBy: "phase1 ordinary shell",
+    email,
+    purpose: "FE-E-P1-01 ordinary login",
+    userId: user.user_id,
+  });
+
+  await phase1.gotoIncidentDirectory();
+  await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
+  await expect(
+    page.getByTestId(landingIncidentCardTestId(incidentId)),
+  ).toContainText(incidentTitle);
+  await phase1.openIncident(incidentId);
+  await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expectCurrentIncidentRole(page, "Current incident role: admin");
+  await openIncidentControls(page);
+  await expect(page.getByTestId("incident-summary-key")).toHaveText(
+    incidentKey,
+  );
+
+  const membership = await loadIncidentMembership(
+    workerAdminRequest,
+    incidentId,
+    user.user_id,
+  );
+  await patchIncidentMembership(workerAdminRequest, incidentId, {
+    baseMembershipVersion: membership.membership_version,
+    role: "viewer",
+    userId: user.user_id,
+  });
+  await page.reload();
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expectCurrentIncidentRole(page, "Current incident role: viewer");
+  await expectLandingAccountSession(page);
+});
+
 async function createIncident(page: Page, incidentKey: string, title: string) {
   const response = await page.request.post(`${apiBase}/api/v1/incidents`, {
     headers: await csrfHeaders(page),

@@ -1512,6 +1512,43 @@ frontend_visual_product_output="$(assert_fails "frontend visual rows reject prod
   run_frontend_phase_map_validation "$frontend_visual_product_map" FE-P8)"
 assert_contains "$frontend_visual_product_output" "must not use product_conformance" "frontend visual product conformance rejection"
 
+frontend_base_title_reuse_map="$tmp_dir/fe_p9_base_title_reuse_map.json"
+cp "$ROOT_DIR/tools/frontend_phase_maps/fe_p9_test_map.json" "$frontend_base_title_reuse_map"
+"$NODE_BIN" - "$frontend_base_title_reuse_map" <<'JS'
+const fs = require("node:fs");
+const file = process.argv[2];
+const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
+const row = manifest.rows.find((entry) => entry.id === "FE-E-P9-03");
+if (!row) {
+  throw new Error("FE-E-P9-03 row not found");
+}
+row.scenario_titles = [
+  "Phase 9 E-9-TASKDECISION-06 Task Request and Decision workbook workflows stay native",
+];
+fs.writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`);
+JS
+frontend_base_title_reuse_output="$(assert_fails "frontend browser rows reject base Playwright title reuse" \
+  run_frontend_phase_map_validation "$frontend_base_title_reuse_map" FE-P9)"
+assert_contains "$frontend_base_title_reuse_output" "reuses base authoritative Playwright title" "frontend base title reuse rejection"
+
+frontend_duplicate_title_map="$tmp_dir/fe_p9_duplicate_title_map.json"
+cp "$ROOT_DIR/tools/frontend_phase_maps/fe_p9_test_map.json" "$frontend_duplicate_title_map"
+"$NODE_BIN" - "$frontend_duplicate_title_map" <<'JS'
+const fs = require("node:fs");
+const file = process.argv[2];
+const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
+const source = manifest.rows.find((entry) => entry.id === "FE-E-P9-02");
+const target = manifest.rows.find((entry) => entry.id === "FE-E-P9-03");
+if (!source || !target) {
+  throw new Error("FE-E-P9-02 or FE-E-P9-03 row not found");
+}
+target.scenario_titles = [...source.scenario_titles];
+fs.writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`);
+JS
+frontend_duplicate_title_output="$(assert_fails "frontend browser rows reject duplicate FE Playwright titles" \
+  run_frontend_phase_map_validation "$frontend_duplicate_title_map" FE-P9)"
+assert_contains "$frontend_duplicate_title_output" "duplicates frontend browser title owned by FE-E-P9-02" "frontend duplicate browser title rejection"
+
 frontend_a11y_writer_missing="$tmp_dir/frontend-accessibility-summary-writer-missing.json"
 frontend_a11y_writer_missing_output="$(assert_fails "frontend accessibility summary writer rejects missing implemented evidence" \
   run_accessibility_summary_writer --output "$frontend_a11y_writer_missing" --status pass --mode evidence)"

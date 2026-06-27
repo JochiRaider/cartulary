@@ -9254,6 +9254,26 @@
               "surface_pivot"
             ]
           },
+          "owner": {
+            "type": "string",
+            "enum": [
+              "current_row_projection",
+              "view_query_route",
+              "view_row_create_route",
+              "record_patch_route",
+              "record_mark_reviewed_route",
+              "record_supersede_route",
+              "record_delete_route",
+              "record_restore_route",
+              "record_history_route",
+              "record_rollback_route",
+              "record_merge_route",
+              "entity_mention_resolve_route",
+              "evidence_attach_blob_route",
+              "evidence_preview_handle_route",
+              "evidence_download_handle_route"
+            ]
+          },
           "target_view_schema_id": {
             "type": "string"
           },
@@ -9262,7 +9282,8 @@
           }
         },
         "required": [
-          "kind"
+          "kind",
+          "owner"
         ]
       },
       "InspectorSeedSourceV1": {
@@ -9364,9 +9385,30 @@
                 "record_deleted",
                 "record_merged",
                 "evidence_preview_unavailable",
-                "merge_target_unavailable"
+                "merge_target_unavailable",
+                "record_not_deleted",
+                "rollback_target_unavailable",
+                "party_text_unavailable",
+                "pivot_target_unavailable"
               ]
             }
+          },
+          "success_result_behavior": {
+            "type": "string",
+            "enum": [
+              "preserve_selected_row",
+              "retarget_selected_row",
+              "clear_to_no_row_selected",
+              "surface_pivot"
+            ]
+          },
+          "failure_result_behavior": {
+            "type": "string",
+            "enum": [
+              "show_same_shell_error_preserve_selection",
+              "show_same_shell_error_invalidate_pending_action",
+              "show_same_shell_error_clear_subject"
+            ]
           }
         },
         "required": [
@@ -9378,7 +9420,9 @@
           "requires_confirmation",
           "route_binding",
           "seed_bindings",
-          "disabled_when"
+          "disabled_when",
+          "success_result_behavior",
+          "failure_result_behavior"
         ]
       },
       "InspectorConfigV1": {

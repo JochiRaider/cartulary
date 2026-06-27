@@ -1,11 +1,15 @@
 import { workbookInspectorCloseButtonTestId } from "@cartulary/ui-contracts";
-import type { InspectorConfig } from "@cartulary/view-contracts";
+import type {
+  InspectorConfig,
+  InspectorFeatureGroup,
+} from "@cartulary/view-contracts";
 import { X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import {
-  inspectorNoRowState,
-  inspectorPanelIsDeclared,
-} from "../../models/workbookInspectorModel";
+  type InspectorDisabledToken,
+  WorkbookInspectorPanelSection,
+} from "../../components/WorkbookInspectorFeatureGroups";
+import { inspectorNoRowState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { InspectorMention } from "../models/workbookMentionChips";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
@@ -18,7 +22,6 @@ import {
 export function TimelineWorkbookInspector({
   canManageMentions,
   currentHistoryDeleted,
-  draftRow,
   entityIndex,
   getRelationshipLabel,
   hostEntities,
@@ -30,10 +33,12 @@ export function TimelineWorkbookInspector({
   onSelectMention,
   onSetInspectorMessage,
   onClose,
+  onFeatureAction,
   onSubmitMentionAction,
   renderEvidenceAttachSection,
   renderInspectorFieldEditors,
   renderRelationshipEditors,
+  renderWorkflowSection,
   renderRowHistorySection,
   rowHistoryRecordId,
   selectedMention,
@@ -42,7 +47,6 @@ export function TimelineWorkbookInspector({
 }: {
   readonly canManageMentions: boolean;
   readonly currentHistoryDeleted: boolean;
-  readonly draftRow: WorkbookRow | null;
   readonly entityIndex: Record<string, { label: string }>;
   readonly getRelationshipLabel: (
     fieldKey: InspectorMention["fieldKey"],
@@ -56,6 +60,7 @@ export function TimelineWorkbookInspector({
   readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
   readonly onSetInspectorMessage: (message: string) => void;
   readonly onClose: () => void;
+  readonly onFeatureAction: (featureGroup: InspectorFeatureGroup) => void;
   readonly onSubmitMentionAction: (
     mention: InspectorMention,
     action: MentionResolutionAction,
@@ -64,22 +69,77 @@ export function TimelineWorkbookInspector({
   readonly renderEvidenceAttachSection: (row: WorkbookRow) => ReactNode;
   readonly renderInspectorFieldEditors: (row: WorkbookRow) => ReactNode;
   readonly renderRelationshipEditors: (row: WorkbookRow) => ReactNode;
+  readonly renderWorkflowSection: () => ReactNode;
   readonly renderRowHistorySection: () => ReactNode;
   readonly rowHistoryRecordId: string | null;
   readonly selectedMention: InspectorMention | null;
   readonly selectedResolveTargetId: string;
   readonly selectedRow: WorkbookRow | null;
 }) {
-  const showDetailsPanel = inspectorPanelIsDeclared(inspectorConfig, "details");
-  const showEvidencePanel = inspectorPanelIsDeclared(
-    inspectorConfig,
-    "evidence",
-  );
-  const showHistoryPanel = inspectorPanelIsDeclared(inspectorConfig, "history");
-  const showRelationshipsPanel = inspectorPanelIsDeclared(
-    inspectorConfig,
-    "relationships",
-  );
+  const disabledTokens = new Set<InspectorDisabledToken>();
+  if (!selectedRow?.recordId && !currentHistoryDeleted) {
+    disabledTokens.add("no_row_selected");
+  }
+  if (currentHistoryDeleted) {
+    disabledTokens.add("record_deleted");
+  }
+  const renderPanel = (
+    panelId: (typeof inspectorConfig.panels)[number]["panelId"],
+  ) => {
+    let content: ReactNode = null;
+    if (selectedRow?.recordId) {
+      switch (panelId) {
+        case "details":
+          content = renderInspectorFieldEditors(selectedRow);
+          break;
+        case "evidence":
+          content = renderEvidenceAttachSection(selectedRow);
+          break;
+        case "history":
+          content = renderRowHistorySection();
+          break;
+        case "relationships":
+          content = (
+            <TimelineMentionsPanel
+              canManageMentions={canManageMentions}
+              entityIndex={entityIndex}
+              getRelationshipLabel={getRelationshipLabel}
+              hostEntities={hostEntities}
+              identityEntities={identityEntities}
+              inspectorMentions={inspectorMentions}
+              relationshipEditors={renderRelationshipEditors(selectedRow)}
+              onResolveTargetChange={onResolveTargetChange}
+              onSelectMention={onSelectMention}
+              onSetInspectorMessage={onSetInspectorMessage}
+              onSubmitMentionAction={onSubmitMentionAction}
+              selectedMention={selectedMention}
+              selectedResolveTargetId={selectedResolveTargetId}
+            />
+          );
+          break;
+        case "workflow":
+          content = renderWorkflowSection();
+          break;
+      }
+    } else if (
+      currentHistoryDeleted &&
+      rowHistoryRecordId !== null &&
+      panelId === "history"
+    ) {
+      content = renderRowHistorySection();
+    }
+    return (
+      <WorkbookInspectorPanelSection
+        config={inspectorConfig}
+        disabledTokens={disabledTokens}
+        key={panelId}
+        panelId={panelId}
+        onFeatureAction={onFeatureAction}
+      >
+        {content}
+      </WorkbookInspectorPanelSection>
+    );
+  };
   return (
     <aside
       aria-label="Timeline inspector"
@@ -102,46 +162,23 @@ export function TimelineWorkbookInspector({
           </button>
         </div>
         <h2 style={inspectorTitleStyle}>
-          {inspectorTitle(selectedRow, draftRow, currentHistoryDeleted)}
+          {inspectorTitle(selectedRow, currentHistoryDeleted)}
         </h2>
       </div>
       {selectedRow?.recordId ? (
         <>
-          {showDetailsPanel ? renderInspectorFieldEditors(selectedRow) : null}
-          {showEvidencePanel ? renderEvidenceAttachSection(selectedRow) : null}
-          {showHistoryPanel ? renderRowHistorySection() : null}
-          {showRelationshipsPanel ? (
-            <TimelineMentionsPanel
-              canManageMentions={canManageMentions}
-              entityIndex={entityIndex}
-              getRelationshipLabel={getRelationshipLabel}
-              hostEntities={hostEntities}
-              identityEntities={identityEntities}
-              inspectorMentions={inspectorMentions}
-              relationshipEditors={renderRelationshipEditors(selectedRow)}
-              onResolveTargetChange={onResolveTargetChange}
-              onSelectMention={onSelectMention}
-              onSetInspectorMessage={onSetInspectorMessage}
-              onSubmitMentionAction={onSubmitMentionAction}
-              selectedMention={selectedMention}
-              selectedResolveTargetId={selectedResolveTargetId}
-            />
-          ) : null}
+          {inspectorConfig.panels.map((panel) => renderPanel(panel.panelId))}
           <InspectorMessage message={inspectorMessage} />
         </>
       ) : currentHistoryDeleted && rowHistoryRecordId !== null ? (
         <>
-          {showHistoryPanel ? renderRowHistorySection() : null}
+          {inspectorConfig.panels
+            .filter((panel) => panel.panelId === "history")
+            .map((panel) => renderPanel(panel.panelId))}
           <InspectorMessage message={inspectorMessage} />
         </>
       ) : (
         <>
-          {draftRow && showDetailsPanel
-            ? renderInspectorFieldEditors(draftRow)
-            : null}
-          {draftRow && showEvidencePanel
-            ? renderEvidenceAttachSection(draftRow)
-            : null}
           <p style={bodyStyle}>{inspectorNoRowState(inspectorConfig)}</p>
           <InspectorMessage message={inspectorMessage} />
         </>
@@ -152,7 +189,6 @@ export function TimelineWorkbookInspector({
 
 function inspectorTitle(
   selectedRow: WorkbookRow | null,
-  draftRow: WorkbookRow | null,
   currentHistoryDeleted: boolean,
 ) {
   if (selectedRow?.recordId) {
@@ -162,9 +198,6 @@ function inspectorTitle(
   }
   if (currentHistoryDeleted) {
     return "Deleted timeline row";
-  }
-  if (draftRow) {
-    return "Draft timeline row";
   }
   return "no_row_selected";
 }

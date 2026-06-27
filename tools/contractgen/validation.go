@@ -64,10 +64,14 @@ var (
 	inspectorConfigKeys       = stringSet("inspector_config_schema_id", "view_schema_id", "default_open", "subject_binding", "no_row_state", "unsupported_feature_behavior", "panels", "feature_groups")
 	inspectorSubjectKeys      = stringSet("kind")
 	inspectorPanelKeys        = stringSet("panel_id", "label")
-	inspectorFeatureKeys      = stringSet("feature_group_key", "panel_id", "label", "minimum_incident_role", "mutates", "requires_confirmation", "route_binding", "seed_bindings", "disabled_when")
-	inspectorRouteBindingKeys = stringSet("kind", "target_view_schema_id", "action_key")
+	inspectorFeatureKeys      = stringSet("feature_group_key", "panel_id", "label", "minimum_incident_role", "mutates", "requires_confirmation", "route_binding", "seed_bindings", "disabled_when", "success_result_behavior", "failure_result_behavior")
+	inspectorRouteBindingKeys = stringSet("kind", "owner", "target_view_schema_id", "action_key")
 	inspectorSeedBindingKeys  = stringSet("target_field_key", "source")
 	inspectorSeedSourceKeys   = stringSet("kind", "source_field_key", "value")
+	inspectorDisabledTokens   = stringSet("no_row_selected", "incident_closed", "authorization_lost", "row_version_changed", "record_deleted", "record_merged", "evidence_preview_unavailable", "merge_target_unavailable", "record_not_deleted", "rollback_target_unavailable", "party_text_unavailable", "pivot_target_unavailable")
+	inspectorRouteOwners      = stringSet("current_row_projection", "view_query_route", "view_row_create_route", "record_patch_route", "record_mark_reviewed_route", "record_supersede_route", "record_delete_route", "record_restore_route", "record_history_route", "record_rollback_route", "record_merge_route", "entity_mention_resolve_route", "evidence_attach_blob_route", "evidence_preview_handle_route", "evidence_download_handle_route")
+	inspectorSuccessBehaviors = stringSet("preserve_selected_row", "retarget_selected_row", "clear_to_no_row_selected", "surface_pivot")
+	inspectorFailureBehaviors = stringSet("show_same_shell_error_preserve_selection", "show_same_shell_error_invalidate_pending_action", "show_same_shell_error_clear_subject")
 	errorRegistryKeys         = stringSet("$schema", "registry_id", "note", "errors", "reason_registries")
 	errorEntryKeys            = stringSet("code", "http_status", "summary")
 	reasonRegistryEntryKeys   = stringSet("error_code", "reason_codes")
@@ -76,6 +80,26 @@ var (
 	extensionProfileKeys      = stringSet("profile_id", "route_families")
 	wsIndexKeys               = stringSet("$schema", "$id", "title", "description", "type", "additionalProperties", "properties", "required")
 )
+
+var inspectorFeatureRegistry = map[string][]string{
+	"cartulary.view.timeline.v2":              {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "entity_mentions.resolve", "entity_mentions.create_host", "entity_mentions.create_identity", "entity_mentions.dismiss", "entity_mentions.restore", "indicator.observations.manage", "relationships.manage", "evidence.attach_blob", "evidence.preview_handle", "evidence.download_handle", "timeline.mark_reviewed", "timeline.supersede", "create_related.note", "create_related.task_request", "create_related.decision", "create_related.evidence", "create_related.comm_log", "create_related.handoff", "create_related.status_review", "create_related.lesson"},
+	"cartulary.view.hosts.v1":                 {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "entity.aliases.read", "entity.relationships.manage", "entity.merge", "surface_pivot.timeline", "surface_pivot.evidence", "surface_pivot.assessments", "create_related.note", "create_related.task_request", "create_related.decision"},
+	"cartulary.view.identities.v1":            {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "entity.aliases.read", "entity.relationships.manage", "entity.merge", "surface_pivot.timeline", "surface_pivot.evidence", "surface_pivot.assessments", "create_related.note", "create_related.task_request", "create_related.decision"},
+	"cartulary.view.evidence.v1":              {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "evidence.preview_handle", "evidence.download_handle", "evidence.attach_blob", "party.collector.link", "party.source.link", "party.reference.clear", "relationships.manage", "surface_pivot.linked_records", "surface_pivot.timeline", "create_related.note", "create_related.task_request", "create_related.decision"},
+	"cartulary.view.notes.v1":                 {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "artifact.source_links.manage", "artifact.evidence_refs.manage", "artifact.tags.manage", "artifact.related_notes.manage", "surface_pivot.source_records", "create_related.task_request", "create_related.decision"},
+	"cartulary.view.indicators.v1":            {"details.read", "relationships.read", "history.read", "record.delete", "record.restore", "history.rollback", "indicator.observations.pivot", "indicator.lifecycle.read", "relationships.manage", "create_related.task_request", "create_related.decision"},
+	"cartulary.view.assessments.v1":           {"details.read", "relationships.read", "history.read", "record.delete", "record.restore", "history.rollback", "assessment.subject_pivot", "assessment.prior_history", "assessment.support_refs.manage", "evidence.refs.manage", "create_related.task_request", "create_related.decision"},
+	"cartulary.view.task_requests.v1":         {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "task.links.manage", "task.requester_party.link", "task.requester_party.clear", "task.decision.link", "task.decision.clear", "task.status.transition", "create_related.comm_log", "create_related.status_review", "create_related.lesson"},
+	"cartulary.view.decisions.v1":             {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "decision.support_refs.manage", "decision.affected_records.manage", "decision.status.transition", "decision.supersede", "create_related.task_request", "create_related.comm_log", "create_related.status_review"},
+	"cartulary.view.parties.v1":               {"details.read", "relationships.read", "history.read", "record.delete", "record.restore", "history.rollback", "party.usage_pivot.requester", "party.usage_pivot.collector_source", "party.usage_pivot.audience_attendee", "party.usage_pivot.owner_stakeholder", "party.reference.link", "party.reference.clear", "party.reference.clear_both"},
+	"cartulary.view.comm_log.v1":              {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "comm.decisions.link", "comm.action_tasks.link", "comm.parties.manage", "comm.next_report.manage", "create_related.task_request", "create_related.status_review"},
+	"cartulary.view.handoff.v1":               {"details.read", "relationships.read", "history.read", "record.delete", "record.restore", "history.rollback", "handoff.acknowledge", "handoff.open_tasks.review", "handoff.open_decisions.review", "handoff.risks.review", "handoff.next_checks.manage", "create_related.task_request", "create_related.status_review"},
+	"cartulary.view.status_review.v1":         {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "status_review.blocked_tasks.review", "status_review.pending_evidence.review", "status_review.open_decisions.review", "status_review.risks.review", "status_review.next_report.manage", "create_related.task_request", "create_related.comm_log"},
+	"cartulary.view.lesson.v1":                {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "lesson.followup_tasks.manage", "lesson.evidence_refs.manage", "lesson.owner.manage", "lesson.close_or_reopen", "create_related.task_request"},
+	"cartulary.view.findings.v1":              {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "finding.support_refs.manage", "finding.contradictory_refs.manage", "finding.evidence_refs.manage", "finding.owner.manage", "finding.close_or_reopen", "create_related.task_request", "create_related.decision"},
+	"cartulary.view.investigative_queries.v1": {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "query.source.link", "query.result.link", "query.evidence_refs.manage", "query.findings.link", "create_related.task_request"},
+	"cartulary.view.forensic_keywords.v1":     {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "keyword.evidence_refs.manage", "keyword.timeline_rows.link", "keyword.findings.link", "create_related.task_request"},
+}
 
 func validateContractInput(familyDir, relativePath string, value any) error {
 	switch familyDir {
@@ -552,6 +576,22 @@ func validateInspectorConfig(value any, viewSchemaID string, label string) error
 		}
 		seenFeatures[key] = struct{}{}
 	}
+	if expected, ok := inspectorFeatureRegistry[viewSchemaID]; ok {
+		if len(seenFeatures) != len(expected) {
+			return fmt.Errorf("%s.feature_groups must contain exactly %d declared feature groups for %s, got %d", label, len(expected), viewSchemaID, len(seenFeatures))
+		}
+		for _, key := range expected {
+			if _, ok := seenFeatures[key]; !ok {
+				return fmt.Errorf("%s.feature_groups missing required feature_group_key %s for %s", label, key, viewSchemaID)
+			}
+		}
+		expectedSet := stringSet(expected...)
+		for key := range seenFeatures {
+			if _, ok := expectedSet[key]; !ok {
+				return fmt.Errorf("%s.feature_groups contains undeclared feature_group_key %s for %s", label, key, viewSchemaID)
+			}
+		}
+	}
 	return nil
 }
 
@@ -598,11 +638,16 @@ func validateInspectorFeatureGroup(group map[string]any, label string, declaredP
 	if len(conditions) > 16 {
 		return fmt.Errorf("%s.disabled_when must contain at most 16 entries", label)
 	}
-	knownConditions := stringSet("no_row_selected", "incident_closed", "authorization_lost", "row_version_changed", "record_deleted", "record_merged", "evidence_preview_unavailable", "merge_target_unavailable")
 	for _, condition := range conditions {
-		if _, ok := knownConditions[condition]; !ok {
+		if _, ok := inspectorDisabledTokens[condition]; !ok {
 			return fmt.Errorf("%s.disabled_when references unknown condition %s", label, condition)
 		}
+	}
+	if _, err := requireEnumStringFromSet(group, "success_result_behavior", label, inspectorSuccessBehaviors); err != nil {
+		return err
+	}
+	if _, err := requireEnumStringFromSet(group, "failure_result_behavior", label, inspectorFailureBehaviors); err != nil {
+		return err
 	}
 	return nil
 }
@@ -634,6 +679,9 @@ func validateInspectorRouteBinding(object map[string]any, label string) error {
 	if _, err := requireEnumString(object, "kind", label, "panel_read", "view_row_create", "record_patch", "record_action", "entity_mention_action", "evidence_access", "surface_pivot"); err != nil {
 		return err
 	}
+	if _, err := requireEnumStringFromSet(object, "owner", label, inspectorRouteOwners); err != nil {
+		return err
+	}
 	if value, ok := object["target_view_schema_id"]; ok {
 		text, ok := value.(string)
 		if !ok || strings.TrimSpace(text) == "" {
@@ -662,8 +710,12 @@ func validateInspectorSeedBindings(value any, label string) error {
 		if err := requireAllowedKeys(binding, inspectorSeedBindingKeys, bindingLabel); err != nil {
 			return err
 		}
-		if _, err := requiredString(binding, "target_field_key", bindingLabel); err != nil {
+		targetFieldKey, err := requiredString(binding, "target_field_key", bindingLabel)
+		if err != nil {
 			return err
+		}
+		if !isStableFieldKey(targetFieldKey) {
+			return fmt.Errorf("%s.target_field_key must be a stable field_key", bindingLabel)
 		}
 		source, err := asObject(binding["source"], bindingLabel+".source")
 		if err != nil {
@@ -677,8 +729,12 @@ func validateInspectorSeedBindings(value any, label string) error {
 			return err
 		}
 		if kind == "selected_field_value" {
-			if _, err := requiredString(source, "source_field_key", bindingLabel+".source"); err != nil {
+			sourceFieldKey, err := requiredString(source, "source_field_key", bindingLabel+".source")
+			if err != nil {
 				return err
+			}
+			if !isStableFieldKey(sourceFieldKey) {
+				return fmt.Errorf("%s.source.source_field_key must be a stable field_key", bindingLabel)
 			}
 		}
 		if kind == "literal" {
@@ -690,20 +746,37 @@ func validateInspectorSeedBindings(value any, label string) error {
 	return nil
 }
 
+func isStableFieldKey(value string) bool {
+	return isInspectorFeatureKey(value)
+}
+
 func isInspectorFeatureKey(value string) bool {
 	if value == "" {
 		return false
 	}
+	segmentStart := true
 	for _, r := range value {
 		switch {
 		case r >= 'a' && r <= 'z':
+			segmentStart = false
 		case r >= '0' && r <= '9':
-		case r == '_' || r == '.':
+			if segmentStart {
+				return false
+			}
+		case r == '_':
+			if segmentStart {
+				return false
+			}
+		case r == '.':
+			if segmentStart {
+				return false
+			}
+			segmentStart = true
 		default:
 			return false
 		}
 	}
-	return true
+	return !segmentStart
 }
 
 func validateCanonicalSourceFilter(value any, label string) error {
@@ -1137,6 +1210,22 @@ func requireEnumString(object map[string]any, key, label string, allowed ...stri
 		}
 	}
 	return "", fmt.Errorf("%s.%s must be one of %s", label, key, strings.Join(allowed, "|"))
+}
+
+func requireEnumStringFromSet(object map[string]any, key, label string, allowed map[string]struct{}) (string, error) {
+	value, err := requiredString(object, key, label)
+	if err != nil {
+		return "", err
+	}
+	if _, ok := allowed[value]; ok {
+		return value, nil
+	}
+	values := make([]string, 0, len(allowed))
+	for candidate := range allowed {
+		values = append(values, candidate)
+	}
+	sort.Strings(values)
+	return "", fmt.Errorf("%s.%s must be one of %s", label, key, strings.Join(values, "|"))
 }
 
 func requiredBool(object map[string]any, key, label string) (bool, error) {

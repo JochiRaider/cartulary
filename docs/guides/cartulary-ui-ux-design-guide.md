@@ -564,13 +564,15 @@ When opened explicitly, the inspector is mounted adjacent to the grid at base vi
 
 *Design direction.* The inspector owns detail editing that would clutter the grid, relationship review, evidence preview and attachment detail, row history, rollback affordances, and destructive confirmations.
 
-*Core behavior.* Core 01 defines inspector configuration as `view_schema_id` metadata, Core 03 requires saved views to inherit that config from immutable `view_schema_id`, and Core 03 requires no-row state to render `no_row_selected`.
+*Core behavior.* Core 01 §7.4 defines inspector configuration, feature registry, and route owner metadata as `view_schema_id` metadata; Core 03 §2.3A defines deterministic inspector workflow algorithms; Core 03 requires saved views to inherit that config from immutable `view_schema_id`; and Core 03 requires no-row state to render `no_row_selected`.
 
-*Design direction.* Inspector panel order SHOULD follow the active config order and default to Details, Relationships, Evidence, History, Workflow when all panels are declared. The UI MUST NOT infer behavior from visible labels, component names, route-helper names, CSS selectors, storage tables, or grid-library APIs.
+*Design direction.* The inspector MUST render panels in the active config order. When every current-profile panel is declared, the order is Details, Relationships, Evidence, History, Workflow. The UI MUST NOT infer behavior from visible labels, component names, route-helper names, CSS selectors, storage tables, or grid-library APIs.
 
-*Design direction.* The `no_row_selected` empty state SHOULD be compact and action-neutral: it may name that no row is selected, but it SHOULD NOT show stale details, prior confirmations, previews, merge plans, rollback previews, or local forms.
+*Design direction.* The `no_row_selected` empty state MUST be compact, action-neutral, and free of stale row details, stale confirmations, previews, merge plans, rollback previews, and local forms.
 
-*Design direction.* When row, row version, authorization, or incident lifecycle state changes, stale row-bound inspector content SHOULD clear before replacement content paints. Destructive confirmations SHOULD name the affected record or records, place focus on the confirmation surface when opened, and restore focus to the invoking control or selected grid cell when dismissed.
+*Design direction.* When row, row version, authorization, incident lifecycle, deletion, merge, or active surface changes, stale row-bound inspector content MUST clear before replacement content paints. Destructive confirmations SHOULD name the affected record or records, place focus on the confirmation surface when opened, and restore focus to the invoking control or selected grid cell when dismissed.
+
+*Design direction.* The Workflow panel MUST carry heavy same-shell actions that would slow ordinary data entry if placed on the grid: create related task/decision/coordination records, merge planning, supersede forms, rollback previews, evidence-access detail, and party-linking forms. It MUST NOT contain required per-edit checklists, hidden approvals, dashboard metrics, release gates, or external enrichment in the base profile.
 
 *Design direction.* The inspector MUST NOT become a full-page record editor, dashboard, ticketing module, release-control module, or hidden source of saved-view state.
 

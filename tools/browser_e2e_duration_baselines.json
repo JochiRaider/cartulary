@@ -356,7 +356,7 @@
     },
     "FE-E-P9-02": {
       "file": "apps/web/e2e/phase9.inspector-actions.spec.ts",
-      "title": "FE-E-P9-02 Verify default-closed inspector state, surface switch config changes, saved-view switch over the same view_schema_id keeps the same config, closed incident read-only behavior, server-denied action behavior, and Timeline create/edit/paste without opening the inspector.",
+      "title": "FE-E-P9-02 Verify default-closed inspector state, no-row state, surface switch config changes, saved-view switch over the same view_schema_id keeps the same config, closed incident read-only behavior, server-denied action behavior, and Timeline create/edit/paste without opening the inspector.",
       "weight_ms": 3238
     },
     "FE-I-P4-01": {

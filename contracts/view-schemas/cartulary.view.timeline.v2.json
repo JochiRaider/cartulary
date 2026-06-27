@@ -120,141 +120,396 @@
       {
         "feature_group_key": "details.read",
         "panel_id": "details",
-        "label": "Details panel",
+        "label": "Details Read",
         "minimum_incident_role": null,
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read"
+          "kind": "panel_read",
+          "owner": "current_row_projection"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
         "feature_group_key": "relationships.read",
         "panel_id": "relationships",
-        "label": "Relationships panel",
+        "label": "Relationships Read",
         "minimum_incident_role": null,
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read"
+          "kind": "panel_read",
+          "owner": "current_row_projection"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
         "feature_group_key": "evidence.read",
         "panel_id": "evidence",
-        "label": "Evidence panel",
+        "label": "Evidence Read",
         "minimum_incident_role": null,
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read"
+          "kind": "panel_read",
+          "owner": "current_row_projection"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
         "feature_group_key": "history.read",
         "panel_id": "history",
-        "label": "History panel",
+        "label": "History Read",
         "minimum_incident_role": null,
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read"
+          "kind": "panel_read",
+          "owner": "record_history_route"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
-        "feature_group_key": "workflow.read",
+        "feature_group_key": "record.delete",
+        "panel_id": "history",
+        "label": "Record Delete",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": true,
+        "route_binding": {
+          "kind": "record_action",
+          "owner": "record_delete_route",
+          "action_key": "record.delete"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed",
+          "record_deleted",
+          "record_merged"
+        ],
+        "success_result_behavior": "clear_to_no_row_selected",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "record.restore",
+        "panel_id": "history",
+        "label": "Record Restore",
+        "minimum_incident_role": "reviewer",
+        "mutates": true,
+        "requires_confirmation": true,
+        "route_binding": {
+          "kind": "record_action",
+          "owner": "record_restore_route",
+          "action_key": "record.restore"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed",
+          "record_not_deleted",
+          "record_merged"
+        ],
+        "success_result_behavior": "retarget_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "history.rollback",
+        "panel_id": "history",
+        "label": "History Rollback",
+        "minimum_incident_role": "reviewer",
+        "mutates": true,
+        "requires_confirmation": true,
+        "route_binding": {
+          "kind": "record_action",
+          "owner": "record_rollback_route",
+          "action_key": "history.rollback"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed",
+          "rollback_target_unavailable"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "entity_mentions.resolve",
+        "panel_id": "relationships",
+        "label": "Entity Mentions Resolve",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "entity_mention_action",
+          "owner": "entity_mention_resolve_route",
+          "action_key": "entity_mentions.resolve"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "entity_mentions.create_host",
+        "panel_id": "relationships",
+        "label": "Entity Mentions Create Host",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": true,
+        "route_binding": {
+          "kind": "entity_mention_action",
+          "owner": "entity_mention_resolve_route",
+          "action_key": "entity_mentions.create_host"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "entity_mentions.create_identity",
+        "panel_id": "relationships",
+        "label": "Entity Mentions Create Identity",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": true,
+        "route_binding": {
+          "kind": "entity_mention_action",
+          "owner": "entity_mention_resolve_route",
+          "action_key": "entity_mentions.create_identity"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "entity_mentions.dismiss",
+        "panel_id": "relationships",
+        "label": "Entity Mentions Dismiss",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "entity_mention_action",
+          "owner": "entity_mention_resolve_route",
+          "action_key": "entity_mentions.dismiss"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "entity_mentions.restore",
+        "panel_id": "relationships",
+        "label": "Entity Mentions Restore",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "entity_mention_action",
+          "owner": "entity_mention_resolve_route",
+          "action_key": "entity_mentions.restore"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "indicator.observations.manage",
         "panel_id": "workflow",
-        "label": "Workflow panel",
+        "label": "Indicator Observations Manage",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "record_patch",
+          "owner": "record_patch_route",
+          "action_key": "indicator.observations.manage"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "relationships.manage",
+        "panel_id": "relationships",
+        "label": "Relationships Manage",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "record_patch",
+          "owner": "record_patch_route",
+          "action_key": "relationships.manage"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "evidence.attach_blob",
+        "panel_id": "evidence",
+        "label": "Evidence Attach Blob",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "record_action",
+          "owner": "evidence_attach_blob_route",
+          "action_key": "evidence.attach_blob"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "evidence.preview_handle",
+        "panel_id": "evidence",
+        "label": "Evidence Preview Handle",
         "minimum_incident_role": null,
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read"
-        },
-        "seed_bindings": [],
-        "disabled_when": [
-          "no_row_selected"
-        ]
-      },
-      {
-        "feature_group_key": "evidence.access",
-        "panel_id": "evidence",
-        "label": "Preview or download evidence",
-        "minimum_incident_role": "viewer",
-        "mutates": false,
-        "requires_confirmation": false,
-        "route_binding": {
-          "kind": "evidence_access"
+          "kind": "evidence_access",
+          "owner": "evidence_preview_handle_route",
+          "action_key": "evidence.preview_handle"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected",
           "authorization_lost",
           "evidence_preview_unavailable"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
-        "feature_group_key": "relationships.patch",
-        "panel_id": "relationships",
-        "label": "Update relationships",
-        "minimum_incident_role": "editor",
-        "mutates": true,
+        "feature_group_key": "evidence.download_handle",
+        "panel_id": "evidence",
+        "label": "Evidence Download Handle",
+        "minimum_incident_role": null,
+        "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "record_patch"
+          "kind": "evidence_access",
+          "owner": "evidence_download_handle_route",
+          "action_key": "evidence.download_handle"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected",
-          "incident_closed",
-          "authorization_lost",
-          "row_version_changed"
-        ]
+          "authorization_lost"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
-        "feature_group_key": "relationships.mention_actions",
-        "panel_id": "relationships",
-        "label": "Resolve mentions",
-        "minimum_incident_role": "editor",
-        "mutates": true,
-        "requires_confirmation": false,
-        "route_binding": {
-          "kind": "entity_mention_action"
-        },
-        "seed_bindings": [],
-        "disabled_when": [
-          "no_row_selected",
-          "incident_closed",
-          "authorization_lost",
-          "row_version_changed"
-        ]
-      },
-      {
-        "feature_group_key": "history.review_or_supersede",
+        "feature_group_key": "timeline.mark_reviewed",
         "panel_id": "history",
-        "label": "Review or supersede row",
+        "label": "Timeline Mark Reviewed",
+        "minimum_incident_role": "reviewer",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "record_action",
+          "owner": "record_mark_reviewed_route",
+          "action_key": "timeline.mark_reviewed"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "timeline.supersede",
+        "panel_id": "history",
+        "label": "Timeline Supersede",
         "minimum_incident_role": "reviewer",
         "mutates": true,
         "requires_confirmation": true,
         "route_binding": {
           "kind": "record_action",
-          "action_key": "review_or_supersede"
+          "owner": "record_supersede_route",
+          "action_key": "timeline.supersede"
         },
         "seed_bindings": [],
         "disabled_when": [
@@ -262,44 +517,199 @@
           "incident_closed",
           "authorization_lost",
           "row_version_changed"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
       },
       {
-        "feature_group_key": "history.rollback",
-        "panel_id": "history",
-        "label": "Rollback or restore",
-        "minimum_incident_role": "reviewer",
-        "mutates": true,
-        "requires_confirmation": true,
-        "route_binding": {
-          "kind": "record_action",
-          "action_key": "rollback_or_restore"
-        },
-        "seed_bindings": [],
-        "disabled_when": [
-          "no_row_selected",
-          "incident_closed",
-          "authorization_lost",
-          "row_version_changed"
-        ]
-      },
-      {
-        "feature_group_key": "workflow.create_related_task",
+        "feature_group_key": "create_related.note",
         "panel_id": "workflow",
-        "label": "Create related task",
+        "label": "Create Related Note",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
         "route_binding": {
           "kind": "view_row_create",
-          "target_view_schema_id": "cartulary.view.task_requests.v1"
+          "owner": "view_row_create_route",
+          "target_view_schema_id": "cartulary.view.notes.v1",
+          "action_key": "create_related.note"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected",
           "incident_closed",
           "authorization_lost"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "create_related.task_request",
+        "panel_id": "workflow",
+        "label": "Create Related Task Request",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "view_row_create",
+          "owner": "view_row_create_route",
+          "target_view_schema_id": "cartulary.view.task_requests.v1",
+          "action_key": "create_related.task_request"
+        },
+        "seed_bindings": [
+          {
+            "target_field_key": "task.linked_record_ids",
+            "source": {
+              "kind": "selected_record_id"
+            }
+          }
+        ],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "create_related.decision",
+        "panel_id": "workflow",
+        "label": "Create Related Decision",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "view_row_create",
+          "owner": "view_row_create_route",
+          "target_view_schema_id": "cartulary.view.decisions.v1",
+          "action_key": "create_related.decision"
+        },
+        "seed_bindings": [
+          {
+            "target_field_key": "decision.support_refs",
+            "source": {
+              "kind": "selected_record_id"
+            }
+          }
+        ],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "create_related.evidence",
+        "panel_id": "workflow",
+        "label": "Create Related Evidence",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "view_row_create",
+          "owner": "view_row_create_route",
+          "target_view_schema_id": "cartulary.view.evidence.v1",
+          "action_key": "create_related.evidence"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "create_related.comm_log",
+        "panel_id": "workflow",
+        "label": "Create Related Comm Log",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "view_row_create",
+          "owner": "view_row_create_route",
+          "target_view_schema_id": "cartulary.view.comm_log.v1",
+          "action_key": "create_related.comm_log"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "create_related.handoff",
+        "panel_id": "workflow",
+        "label": "Create Related Handoff",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "view_row_create",
+          "owner": "view_row_create_route",
+          "target_view_schema_id": "cartulary.view.handoff.v1",
+          "action_key": "create_related.handoff"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "create_related.status_review",
+        "panel_id": "workflow",
+        "label": "Create Related Status Review",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "view_row_create",
+          "owner": "view_row_create_route",
+          "target_view_schema_id": "cartulary.view.status_review.v1",
+          "action_key": "create_related.status_review"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "create_related.lesson",
+        "panel_id": "workflow",
+        "label": "Create Related Lesson",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "view_row_create",
+          "owner": "view_row_create_route",
+          "target_view_schema_id": "cartulary.view.lesson.v1",
+          "action_key": "create_related.lesson"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
       }
     ]
   },

@@ -1,7 +1,10 @@
 import {
   draftRowCreateButtonTestId,
   relationshipChipTestId,
+  timelineDraftEvidenceAttachSectionTestId,
+  timelineDraftEvidenceFileInputTestId,
 } from "@cartulary/ui-contracts";
+import { Paperclip } from "lucide-react";
 import {
   type CSSProperties,
   type ClipboardEvent as ReactClipboardEvent,
@@ -185,9 +188,14 @@ function RelationshipChipContent({
 
 export function DraftRowCreateButton({
   onCreate,
+  onFilesSelected,
   row,
 }: {
   readonly onCreate: (row: WorkbookRow) => void;
+  readonly onFilesSelected?: (
+    row: WorkbookRow,
+    files: FileList | File[],
+  ) => void;
   readonly row: WorkbookRow;
 }) {
   const createBlankRow = (
@@ -204,21 +212,50 @@ export function DraftRowCreateButton({
   };
 
   return (
-    <button
-      aria-label="Create timeline row"
-      data-testid={draftRowCreateButtonTestId()}
-      disabled={row.pendingSignature !== null}
-      style={draftRowCreateButtonStyle}
-      type="button"
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          createBlankRow(event);
-        }
-      }}
-      onMouseDown={createBlankRow}
+    <span
+      data-testid={timelineDraftEvidenceAttachSectionTestId()}
+      style={draftRowActionsStyle}
     >
-      +
-    </button>
+      <button
+        aria-label="Create timeline row"
+        data-testid={draftRowCreateButtonTestId()}
+        disabled={row.pendingSignature !== null}
+        style={draftRowCreateButtonStyle}
+        type="button"
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            createBlankRow(event);
+          }
+        }}
+        onMouseDown={createBlankRow}
+      >
+        +
+      </button>
+      {onFilesSelected ? (
+        <label
+          aria-label="Attach evidence to draft timeline row"
+          style={{
+            ...draftRowCreateButtonStyle,
+            cursor: row.pendingSignature === null ? "pointer" : "not-allowed",
+            opacity: row.pendingSignature === null ? 1 : 0.55,
+          }}
+          title="Attach evidence"
+        >
+          <Paperclip aria-hidden="true" size={12} />
+          <input
+            data-testid={timelineDraftEvidenceFileInputTestId()}
+            disabled={row.pendingSignature !== null}
+            style={visuallyHiddenStyle}
+            type="file"
+            accept="image/*,.txt,.pdf,text/plain,application/pdf"
+            onChange={(event) => {
+              onFilesSelected(row, event.currentTarget.files ?? []);
+              event.currentTarget.value = "";
+            }}
+          />
+        </label>
+      ) : null}
+    </span>
   );
 }
 
@@ -424,6 +461,14 @@ const draftRowCreateButtonStyle = {
   fontWeight: 700,
   lineHeight: 1,
 };
+
+const draftRowActionsStyle = {
+  display: "inline-grid",
+  gridTemplateColumns: "repeat(2, 1.4rem)",
+  gap: "0.2rem",
+  alignItems: "center",
+  justifyContent: "center",
+} satisfies CSSProperties;
 
 const inputStyle = {
   boxSizing: "border-box" as const,

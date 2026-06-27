@@ -587,7 +587,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   await alphaSummary.press("Escape");
   await expect(inspectorDetails).toHaveCount(0);
   await expect(page.getByTestId("timeline-inspector")).toContainText(
-    "Draft timeline row",
+    "no_row_selected",
   );
   await expect(alphaSummary).toBeFocused();
   await alphaSummary.press("Escape");

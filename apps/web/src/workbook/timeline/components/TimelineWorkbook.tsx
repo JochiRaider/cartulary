@@ -16,6 +16,8 @@ import {
   draftCellTestId,
   draftRelationshipItemsTestId,
   draftTimelineCollectionInputTestId,
+  genericCreateFieldTestId,
+  genericCreateSubmitTestId,
   gridGroupRowTestId,
   gridRowGutterTestId,
   gridRowTestId,
@@ -34,8 +36,10 @@ import {
   workbookInlineDraftRowTestId,
 } from "@cartulary/ui-contracts";
 import {
+  type InspectorFeatureGroup,
   requireViewContract,
   resolveHeaderSortFieldKey,
+  type ViewContract,
 } from "@cartulary/view-contracts";
 import {
   type CSSProperties,
@@ -64,6 +68,7 @@ import {
   createAndAttachEvidenceBlob,
   evidencePublicErrorMessage,
 } from "../../../services/workbookEvidence";
+import { GenericMutationControl } from "../../components/GenericMutationControl";
 import { WorkbookGridControls } from "../../components/WorkbookGridControls";
 import { WorkbookSheetToolbar } from "../../components/WorkbookSheetToolbar";
 import { WorkbookStatusStrip } from "../../components/WorkbookStatusStrip";
@@ -73,6 +78,11 @@ import {
   workbookSurfaceOverlayPanelStyle,
 } from "../../components/WorkbookSurfaceFrame";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
+import {
+  buildGenericCreatePayload,
+  genericCreateMinimumMessage,
+  initialGenericCreateDraft,
+} from "../../models/genericWorkbookModel";
 import { selectInspectorConfig } from "../../models/workbookInspectorModel";
 import {
   buildQueryRequest,
@@ -82,9 +92,17 @@ import {
   removeFilterField,
   type WorkbookQueryState,
 } from "../../models/workbookQuery";
+import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { WorkbookSheetRef } from "../../models/workbookStartup";
 import {
+  commLogViewSchemaId,
+  decisionsViewSchemaId,
   evidenceViewSchemaId,
+  handoffViewSchemaId,
+  lessonViewSchemaId,
+  notesViewSchemaId,
+  statusReviewViewSchemaId,
+  taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
 import { clipboardGridDimensions } from "../../utils/workbookClipboard";
@@ -270,6 +288,19 @@ export {
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const timelineInspectorConfig = selectInspectorConfig(timelineContract);
+const createRelatedTargetContracts = new Map<string, ViewContract>(
+  [
+    notesViewSchemaId,
+    taskRequestsViewSchemaId,
+    decisionsViewSchemaId,
+    evidenceViewSchemaId,
+    commLogViewSchemaId,
+    handoffViewSchemaId,
+    statusReviewViewSchemaId,
+    lessonViewSchemaId,
+  ].map((viewSchemaId) => [viewSchemaId, requireViewContract(viewSchemaId)]),
+);
+const timelineCreateRelatedReferenceOptions = emptyGenericReferenceOptions();
 const timelineRowGutterWidth = 58;
 const timelineVisibleFieldKeys = timelineVisibleBindings.map(
   (binding) => binding.fieldKey,
@@ -293,6 +324,15 @@ type TimelineInspectorHistorySubject =
   | { readonly kind: "draft" }
   | { readonly kind: "none" };
 
+type TimelineCreateRelatedWorkflowState = {
+  readonly featureGroup: InspectorFeatureGroup;
+  readonly targetContract: ViewContract;
+  readonly sourceRowKey: string;
+  readonly draft: Record<string, string>;
+  readonly message: string | null;
+  readonly isSubmitting: boolean;
+};
+
 function rowStillHasAutoResolvedNotice(
   row: WorkbookRow,
   notice: AutoResolutionNotice,
@@ -314,6 +354,7 @@ function rowStillHasAutoResolvedNotice(
 export type TimelineWorkbookProps = {
   incidentId: string;
   apiBase?: string | undefined;
+  currentUserId?: string | null | undefined;
   sheetRef?: WorkbookSheetRef | undefined;
   inspectorResetKey?: string | undefined;
   reloadToken?: number | undefined;
@@ -660,6 +701,62 @@ function normalizeValue(value: string): string {
   return value.trim();
 }
 
+function recordIdFromMutationEnvelope(
+  envelope: TimelineMutationEnvelope,
+): string | null {
+  const row = envelope.data.row;
+  if (row && typeof row === "object" && "record_id" in row) {
+    const recordId = (row as { record_id?: unknown }).record_id;
+    return typeof recordId === "string" && recordId.trim() !== ""
+      ? recordId
+      : null;
+  }
+  return null;
+}
+
+function applyTimelineCreateRelatedSeedBindings(
+  draft: Record<string, string>,
+  featureGroup: InspectorFeatureGroup,
+  selectedRow: WorkbookRow,
+): Record<string, string> {
+  const next = { ...draft };
+  for (const binding of featureGroup.seedBindings) {
+    const value = timelineCreateRelatedSeedValue(binding.source, selectedRow);
+    if (value !== null) {
+      next[binding.targetFieldKey] = value;
+    }
+  }
+  return next;
+}
+
+function timelineCreateRelatedSeedValue(
+  source: InspectorFeatureGroup["seedBindings"][number]["source"],
+  selectedRow: WorkbookRow,
+): string | null {
+  switch (source.kind) {
+    case "selected_record_id":
+      return selectedRow.recordId;
+    case "selected_field_value": {
+      if (source.sourceFieldKey === undefined) {
+        return null;
+      }
+      if (selectedRow.rawRow === null) {
+        return null;
+      }
+      const value = selectedRow.rawRow.cells[source.sourceFieldKey]?.value;
+      const text = stringifyGridValue(value).trim();
+      return text === "" ? null : text;
+    }
+    case "literal":
+      if (source.value === null || source.value === undefined) {
+        return null;
+      }
+      return typeof source.value === "string"
+        ? source.value
+        : JSON.stringify(source.value);
+  }
+}
+
 function recordWorkbookTiming(
   name: string,
   details: Record<string, unknown> = {},
@@ -949,6 +1046,7 @@ function pruneDismissedMentions(
 export function TimelineWorkbook({
   incidentId,
   apiBase,
+  currentUserId = null,
   sheetRef,
   inspectorResetKey,
   reloadToken = 0,
@@ -1123,6 +1221,8 @@ export function TimelineWorkbook({
   const gridShellRef = useRef<HTMLDivElement | null>(null);
   const [timelineGridShellWidth, setTimelineGridShellWidth] = useState(0);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [createRelatedWorkflow, setCreateRelatedWorkflow] =
+    useState<TimelineCreateRelatedWorkflowState | null>(null);
   const viewportContinuityTokenRef = useRef(1);
   const timelineGridInteractionRefs: TimelineGridInteractionRefs = {
     gridShellRef,
@@ -1227,6 +1327,10 @@ export function TimelineWorkbook({
     selectedRowId,
   } = timelineInspectorSelection.snapshot;
   const { setSelectedRowId } = timelineInspectorSelection.commands;
+  const selectedRowWorkflowKey =
+    selectedRow?.recordId && selectedRow.rowVersion !== null
+      ? `${selectedRow.recordId}:${selectedRow.rowVersion}`
+      : (selectedRow?.recordId ?? "");
   const timelineHistoryState = useTimelineHistoryState();
   const { rowHistory, rowHistoryPendingAction } = timelineHistoryState.snapshot;
   const { setRowHistory, setRowHistoryPendingAction } =
@@ -2569,6 +2673,14 @@ export function TimelineWorkbook({
     setRowHistoryPendingAction,
     setSelectedRowId,
   ]);
+
+  useEffect(() => {
+    setCreateRelatedWorkflow((current) =>
+      current === null || current.sourceRowKey === selectedRowWorkflowKey
+        ? current
+        : null,
+    );
+  }, [selectedRowWorkflowKey]);
 
   useEffect(() => {
     if (inspectorMentions.length < 1) {
@@ -4088,6 +4200,7 @@ export function TimelineWorkbook({
     setSelectedMentionRef(null);
     setSelectedResolveTargetId("");
     setInspectorMessage(null);
+    setCreateRelatedWorkflow(null);
     clearRowHistory();
   }, [
     clearRowHistory,
@@ -6056,6 +6169,7 @@ export function TimelineWorkbook({
               <DraftRowCreateButton
                 row={row}
                 onCreate={handleCreateBlankDraftRow}
+                onFilesSelected={handleTimelineEvidenceFiles}
               />
             ) : (
               <TimelineRowGutterContent
@@ -6084,6 +6198,7 @@ export function TimelineWorkbook({
       }),
     [
       handleCreateBlankDraftRow,
+      handleTimelineEvidenceFiles,
       handleSelectRow,
       presenceForRow,
       rows,
@@ -6158,6 +6273,235 @@ export function TimelineWorkbook({
         row={row}
         onFilesSelected={handleTimelineEvidenceFiles}
       />
+    );
+  }
+
+  const beginCreateRelatedWorkflow = useCallback(
+    (featureGroup: InspectorFeatureGroup) => {
+      if (
+        featureGroup.routeBinding.kind !== "view_row_create" ||
+        featureGroup.routeBinding.owner !== "view_row_create_route"
+      ) {
+        setInspectorMessage("Inspector action is unavailable.");
+        return;
+      }
+      const targetViewSchemaId = featureGroup.routeBinding.targetViewSchemaId;
+      const targetContract =
+        targetViewSchemaId === undefined
+          ? undefined
+          : createRelatedTargetContracts.get(targetViewSchemaId);
+      if (targetContract === undefined) {
+        setInspectorMessage("Inspector action is unavailable.");
+        return;
+      }
+      if (
+        selectedRow?.recordId === null ||
+        selectedRow?.recordId === undefined
+      ) {
+        setInspectorMessage("Select a row before creating a related record.");
+        return;
+      }
+      const seededDraft = applyTimelineCreateRelatedSeedBindings(
+        initialGenericCreateDraft(targetContract, currentUserId),
+        featureGroup,
+        selectedRow,
+      );
+      setCreateRelatedWorkflow({
+        featureGroup,
+        targetContract,
+        sourceRowKey: selectedRowWorkflowKey,
+        draft: seededDraft,
+        isSubmitting: false,
+        message: null,
+      });
+      setInspectorMessage(null);
+    },
+    [currentUserId, selectedRow, selectedRowWorkflowKey, setInspectorMessage],
+  );
+
+  const submitCreateRelatedWorkflow = useCallback(async () => {
+    const workflow = createRelatedWorkflow;
+    const sourceRow = selectedRow;
+    if (
+      workflow === null ||
+      sourceRow === null ||
+      sourceRow.recordId === null
+    ) {
+      return;
+    }
+    const payload = buildGenericCreatePayload(
+      workflow.targetContract,
+      workflow.draft,
+      `timeline-create-related-${workflow.featureGroup.featureGroupKey}-${Date.now()}`,
+    );
+    if (payload === null) {
+      setCreateRelatedWorkflow({
+        ...workflow,
+        message: genericCreateMinimumMessage(
+          workflow.targetContract.viewSchemaId,
+        ),
+      });
+      return;
+    }
+    setCreateRelatedWorkflow({
+      ...workflow,
+      isSubmitting: true,
+      message: null,
+    });
+    const createResult = await fetchJSON<TimelineMutationEnvelope>(
+      apiPath(
+        apiBase,
+        `/api/v1/incidents/${incidentId}/views/${workflow.targetContract.viewSchemaId}/rows`,
+      ),
+      { method: "POST", body: JSON.stringify(payload) },
+    );
+    if (!createResult.ok) {
+      setCreateRelatedWorkflow({
+        ...workflow,
+        isSubmitting: false,
+        message: parseErrorMessage(createResult.payload),
+      });
+      return;
+    }
+    const createEnvelope = readEnvelope<TimelineMutationEnvelope>(
+      createResult.payload,
+    );
+    const createdRecordId = recordIdFromMutationEnvelope(createEnvelope);
+    if (createdRecordId === null) {
+      setCreateRelatedWorkflow({
+        ...workflow,
+        isSubmitting: false,
+        message: "Created row response did not include a record id.",
+      });
+      return;
+    }
+
+    if (workflow.targetContract.viewSchemaId === evidenceViewSchemaId) {
+      const patchPayload = buildAttachedEvidencePatchPayload(
+        sourceRow,
+        createdRecordId,
+        `timeline-link-created-evidence-${Date.now()}`,
+      );
+      if (patchPayload === null) {
+        setCreateRelatedWorkflow({
+          ...workflow,
+          isSubmitting: false,
+          message: "Created evidence, but the selected row version is stale.",
+        });
+        return;
+      }
+      const patchResult = await fetchJSON<TimelineMutationEnvelope>(
+        apiPath(apiBase, `/api/v1/records/${sourceRow.recordId}`),
+        { method: "PATCH", body: JSON.stringify(patchPayload) },
+      );
+      if (!patchResult.ok) {
+        setCreateRelatedWorkflow({
+          ...workflow,
+          isSubmitting: false,
+          message: `Created evidence, but Timeline link failed: ${parseErrorMessage(patchResult.payload)}`,
+        });
+        return;
+      }
+      const patchEnvelope = readEnvelope<TimelineMutationEnvelope>(
+        patchResult.payload,
+      );
+      applyRowMutation(sourceRow.key, patchEnvelope);
+      await loadRowsRef.current({ showLoading: false });
+      setCreateRelatedWorkflow(null);
+      setInspectorMessage(`Created and linked evidence ${createdRecordId}.`);
+      return;
+    }
+
+    setCreateRelatedWorkflow(null);
+    setInspectorMessage(
+      `Created related ${workflow.targetContract.viewSchemaId} row ${createdRecordId}.`,
+    );
+  }, [
+    apiBase,
+    applyRowMutation,
+    createRelatedWorkflow,
+    incidentId,
+    selectedRow,
+    setInspectorMessage,
+  ]);
+
+  function renderCreateRelatedWorkflowSection() {
+    if (createRelatedWorkflow === null) {
+      return (
+        <p style={bodyStyle}>
+          Select a workflow action to create a related row.
+        </p>
+      );
+    }
+    const workflow = createRelatedWorkflow;
+    const writableFields = workflow.targetContract.fields.filter(
+      (field) => field.writeKind !== "read_only",
+    );
+    return (
+      <div style={inspectorActionStackStyle}>
+        <p style={bodyStyle}>{workflow.targetContract.viewSchemaId}</p>
+        {writableFields.map((field) => {
+          const controlId = `timeline-create-related-${workflow.featureGroup.featureGroupKey}-${field.fieldKey}`;
+          return (
+            <label htmlFor={controlId} key={field.fieldKey} style={labelStyle}>
+              {field.label}
+              <GenericMutationControl
+                collectionMode="add"
+                field={field}
+                id={controlId}
+                referenceOptions={timelineCreateRelatedReferenceOptions}
+                testId={genericCreateFieldTestId(field.fieldKey)}
+                value={workflow.draft[field.fieldKey] ?? ""}
+                onChange={(value) => {
+                  setCreateRelatedWorkflow((current) =>
+                    current?.featureGroup.featureGroupKey ===
+                    workflow.featureGroup.featureGroupKey
+                      ? {
+                          ...current,
+                          draft: {
+                            ...current.draft,
+                            [field.fieldKey]: value,
+                          },
+                          message: null,
+                        }
+                      : current,
+                  );
+                }}
+              />
+            </label>
+          );
+        })}
+        <div style={inlineButtonRowStyle}>
+          <button
+            data-testid={genericCreateSubmitTestId(
+              workflow.targetContract.viewSchemaId,
+            )}
+            disabled={workflow.isSubmitting}
+            style={secondaryActionButtonStyle}
+            type="button"
+            onClick={() => {
+              void submitCreateRelatedWorkflow();
+            }}
+          >
+            Create related row
+          </button>
+          <button
+            disabled={workflow.isSubmitting}
+            style={actionButtonStyle}
+            type="button"
+            onClick={() => {
+              setCreateRelatedWorkflow(null);
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+        {workflow.message ? (
+          <p role="alert" style={bodyStyle}>
+            {workflow.message}
+          </p>
+        ) : null}
+      </div>
     );
   }
 
@@ -6447,7 +6791,6 @@ export function TimelineWorkbook({
           <TimelineWorkbookInspector
             canManageMentions={canManageMentions}
             currentHistoryDeleted={currentHistoryDeleted}
-            draftRow={draftRow}
             entityIndex={entityIndex}
             getRelationshipLabel={timelineRelationshipLabel}
             hostEntities={hostEntities}
@@ -6458,7 +6801,9 @@ export function TimelineWorkbook({
             onClose={() => {
               setIsInspectorOpen(false);
               clearRowHistory();
+              setCreateRelatedWorkflow(null);
             }}
+            onFeatureAction={beginCreateRelatedWorkflow}
             onResolveTargetChange={handleResolveTargetChange}
             onSelectMention={handleSelectMention}
             onSetInspectorMessage={setInspectorMessage}
@@ -6466,6 +6811,7 @@ export function TimelineWorkbook({
             renderEvidenceAttachSection={renderEvidenceAttachSection}
             renderInspectorFieldEditors={renderInspectorFieldEditors}
             renderRelationshipEditors={renderInspectorRelationshipEditors}
+            renderWorkflowSection={renderCreateRelatedWorkflowSection}
             renderRowHistorySection={renderRowHistorySection}
             rowHistoryRecordId={
               currentHistoryDeleted ? currentHistoryRecordId : null
@@ -6702,6 +7048,12 @@ const actionButtonStyle = {
 const secondaryActionButtonStyle = {
   ...actionButtonStyle,
   background: "var(--ct-colors-surface-3)",
+};
+
+const inlineButtonRowStyle = {
+  display: "flex",
+  flexWrap: "wrap" as const,
+  gap: "0.5rem",
 };
 
 const conflictMarkerStyle = {

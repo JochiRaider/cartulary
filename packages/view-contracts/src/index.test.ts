@@ -70,9 +70,14 @@ function fixtureRawContract() {
           minimum_incident_role: null,
           mutates: false,
           requires_confirmation: false,
-          route_binding: { kind: "panel_read" },
+          route_binding: {
+            kind: "panel_read",
+            owner: "current_row_projection",
+          },
           seed_bindings: [],
           disabled_when: ["no_row_selected"],
+          success_result_behavior: "preserve_selected_row",
+          failure_result_behavior: "show_same_shell_error_preserve_selection",
         },
         {
           feature_group_key: "history.rollback",
@@ -83,6 +88,7 @@ function fixtureRawContract() {
           requires_confirmation: true,
           route_binding: {
             kind: "record_action",
+            owner: "record_rollback_route",
             action_key: "history.rollback",
           },
           seed_bindings: [
@@ -94,7 +100,14 @@ function fixtureRawContract() {
               },
             },
           ],
-          disabled_when: ["no_row_selected", "row_version_changed"],
+          disabled_when: [
+            "no_row_selected",
+            "row_version_changed",
+            "rollback_target_unavailable",
+          ],
+          success_result_behavior: "retarget_selected_row",
+          failure_result_behavior:
+            "show_same_shell_error_invalidate_pending_action",
         },
       ],
     },
@@ -250,12 +263,21 @@ describe("view-contracts", () => {
         (group) => group.featureGroupKey,
       ),
     ).toEqual(["details.read", "history.rollback"]);
+    expect(fixture.inspectorConfig.featureGroups[0]?.routeBinding.owner).toBe(
+      "current_row_projection",
+    );
+    expect(
+      fixture.inspectorConfig.featureGroups[1]?.successResultBehavior,
+    ).toBe("retarget_selected_row");
+    expect(
+      fixture.inspectorConfig.featureGroups[1]?.failureResultBehavior,
+    ).toBe("show_same_shell_error_invalidate_pending_action");
     expect(
       getViewContract(timeline.inspectorConfig.panels[0]?.label ?? ""),
     ).toBe(undefined);
   });
 
-  it("rejects invalid inspector config vocabulary, bounds, and ownership", () => {
+  it("FE-U-P9-03 Verify inspector panels and feature groups render from active config keys and reject unknown panel IDs, route owners, result behaviors, disabled tokens, duplicate keys, missing required keys, and extra current-profile keys before rendering.", () => {
     const tooManyFeatureGroups = Array.from({ length: 65 }, (_, index) => ({
       ...fixtureRawContract().inspector_config.feature_groups[0],
       feature_group_key: `details.read_${index}`,
@@ -340,7 +362,10 @@ describe("view-contracts", () => {
                   group.feature_group_key === "details.read"
                     ? {
                         ...group,
-                        route_binding: { kind: "legacy_route" },
+                        route_binding: {
+                          kind: "legacy_route",
+                          owner: "current_row_projection",
+                        },
                       }
                     : group,
               ),
@@ -360,6 +385,29 @@ describe("view-contracts", () => {
                   group.feature_group_key === "details.read"
                     ? {
                         ...group,
+                        route_binding: {
+                          kind: "panel_read",
+                          owner: "legacy_owner",
+                        },
+                      }
+                    : group,
+              ),
+          },
+        },
+        pattern:
+          /route_binding\.owner must be one of current_row_projection\|view_query_route\|view_row_create_route\|record_patch_route\|record_mark_reviewed_route\|record_supersede_route\|record_delete_route\|record_restore_route\|record_history_route\|record_rollback_route\|record_merge_route\|entity_mention_resolve_route\|evidence_attach_blob_route\|evidence_preview_handle_route\|evidence_download_handle_route/,
+      },
+      {
+        raw: {
+          ...fixtureRawContract(),
+          inspector_config: {
+            ...fixtureRawContract().inspector_config,
+            feature_groups:
+              fixtureRawContract().inspector_config.feature_groups.map(
+                (group) =>
+                  group.feature_group_key === "details.read"
+                    ? {
+                        ...group,
                         disabled_when: ["stale_legacy_state"],
                       }
                     : group,
@@ -367,13 +415,156 @@ describe("view-contracts", () => {
           },
         },
         pattern:
-          /disabled_when\[1\] must be one of no_row_selected\|incident_closed\|authorization_lost\|row_version_changed\|record_deleted\|record_merged\|evidence_preview_unavailable\|merge_target_unavailable/,
+          /disabled_when\[1\] must be one of no_row_selected\|incident_closed\|authorization_lost\|row_version_changed\|record_deleted\|record_merged\|evidence_preview_unavailable\|merge_target_unavailable\|record_not_deleted\|rollback_target_unavailable\|party_text_unavailable\|pivot_target_unavailable/,
+      },
+      {
+        raw: {
+          ...fixtureRawContract(),
+          inspector_config: {
+            ...fixtureRawContract().inspector_config,
+            feature_groups:
+              fixtureRawContract().inspector_config.feature_groups.map(
+                (group) =>
+                  group.feature_group_key === "details.read"
+                    ? {
+                        ...group,
+                        success_result_behavior: "legacy_success",
+                      }
+                    : group,
+              ),
+          },
+        },
+        pattern:
+          /success_result_behavior must be one of preserve_selected_row\|retarget_selected_row\|clear_to_no_row_selected\|surface_pivot/,
+      },
+      {
+        raw: {
+          ...fixtureRawContract(),
+          inspector_config: {
+            ...fixtureRawContract().inspector_config,
+            feature_groups:
+              fixtureRawContract().inspector_config.feature_groups.map(
+                (group) =>
+                  group.feature_group_key === "details.read"
+                    ? {
+                        ...group,
+                        failure_result_behavior: "legacy_failure",
+                      }
+                    : group,
+              ),
+          },
+        },
+        pattern:
+          /failure_result_behavior must be one of show_same_shell_error_preserve_selection\|show_same_shell_error_invalidate_pending_action\|show_same_shell_error_clear_subject/,
+      },
+      {
+        raw: {
+          ...fixtureRawContract(),
+          inspector_config: {
+            ...fixtureRawContract().inspector_config,
+            feature_groups:
+              fixtureRawContract().inspector_config.feature_groups.map(
+                (group) =>
+                  group.feature_group_key === "details.read"
+                    ? { ...group, feature_group_key: "Details Read" }
+                    : group,
+              ),
+          },
+        },
+        pattern: /feature_group_key must be ASCII lower snake or dotted key/,
       },
     ];
 
     for (const { pattern, raw } of cases) {
       expectInvariantFailure(raw, pattern);
     }
+  });
+
+  it("rejects missing and undeclared feature groups for current-profile surfaces", () => {
+    const timeline = requireViewContract("cartulary.view.timeline.v2");
+    const raw = {
+      ...fixtureRawContract(),
+      view_schema_id: timeline.viewSchemaId,
+      title: timeline.title,
+      inspector_config: {
+        ...fixtureRawContract().inspector_config,
+        view_schema_id: timeline.viewSchemaId,
+        panels: timeline.inspectorConfig.panels.map((panel) => ({
+          panel_id: panel.panelId,
+          label: panel.label,
+        })),
+      },
+    };
+
+    expectInvariantFailure(
+      raw,
+      /inspector_config\.feature_groups must contain exactly 27 declared feature groups for cartulary\.view\.timeline\.v2, got 2/,
+    );
+    expectInvariantFailure(
+      {
+        ...raw,
+        inspector_config: {
+          ...raw.inspector_config,
+          feature_groups: timeline.inspectorConfig.featureGroups.map(
+            (group, index) =>
+              index === 0
+                ? {
+                    feature_group_key: "details.future",
+                    panel_id: group.panelId,
+                    label: group.label,
+                    minimum_incident_role: group.minimumIncidentRole,
+                    mutates: group.mutates,
+                    requires_confirmation: group.requiresConfirmation,
+                    route_binding: {
+                      kind: group.routeBinding.kind,
+                      owner: group.routeBinding.owner,
+                      action_key: group.routeBinding.actionKey,
+                      target_view_schema_id:
+                        group.routeBinding.targetViewSchemaId,
+                    },
+                    seed_bindings: group.seedBindings.map((binding) => ({
+                      target_field_key: binding.targetFieldKey,
+                      source: {
+                        kind: binding.source.kind,
+                        source_field_key: binding.source.sourceFieldKey,
+                        value: binding.source.value,
+                      },
+                    })),
+                    disabled_when: group.disabledWhen,
+                    success_result_behavior: group.successResultBehavior,
+                    failure_result_behavior: group.failureResultBehavior,
+                  }
+                : {
+                    feature_group_key: group.featureGroupKey,
+                    panel_id: group.panelId,
+                    label: group.label,
+                    minimum_incident_role: group.minimumIncidentRole,
+                    mutates: group.mutates,
+                    requires_confirmation: group.requiresConfirmation,
+                    route_binding: {
+                      kind: group.routeBinding.kind,
+                      owner: group.routeBinding.owner,
+                      action_key: group.routeBinding.actionKey,
+                      target_view_schema_id:
+                        group.routeBinding.targetViewSchemaId,
+                    },
+                    seed_bindings: group.seedBindings.map((binding) => ({
+                      target_field_key: binding.targetFieldKey,
+                      source: {
+                        kind: binding.source.kind,
+                        source_field_key: binding.source.sourceFieldKey,
+                        value: binding.source.value,
+                      },
+                    })),
+                    disabled_when: group.disabledWhen,
+                    success_result_behavior: group.successResultBehavior,
+                    failure_result_behavior: group.failureResultBehavior,
+                  },
+          ),
+        },
+      },
+      /inspector_config\.feature_groups missing required feature_group_key details\.read for cartulary\.view\.timeline\.v2/,
+    );
   });
 });
 

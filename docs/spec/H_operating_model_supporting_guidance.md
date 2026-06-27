@@ -42,13 +42,18 @@ The inspector is useful for deeper row-context cleanup, but it should remain off
 
 Recommended practice:
 
-- Use the inspector during review windows to resolve mentions, inspect relationship overflow, check row history, and clean up evidence links.
-- Create task, decision, handoff, communications-log, or status-review records from selected rows when the selected row creates real follow-up work.
-- Use Handoff inspector features to acknowledge receipt and verify linked open tasks, open decisions, open risks, and next checks.
-- Use Status Review inspector features to review blocked work, pending evidence, open decisions, active risks, and next-report timing.
-- Treat destructive confirmations, rollback previews, merge plans, and supersede actions as deliberate review actions, not as routine row-editing steps.
+| Review situation | Recommended inspector use | Do not use the inspector to require |
+| --- | --- | --- |
+| Mention cleanup | Resolve, dismiss, or restore Timeline host/identity mentions during review windows. | Canonical host or identity selection before rough Timeline row creation. |
+| Evidence cleanup | Inspect evidence links, request preview/download handles, identify blocked preview, and attach/finalize evidence when ready. | Binary evidence upload before row capture. |
+| Relationship overflow | Open the Relationships panel when compact chips overflow the visible grid cell. | Mandatory relationship completion before row save. |
+| Host/identity duplicate review | Use merge planning only after a duplicate candidate is deliberately selected. | Bulk grid merge or silent dedupe. |
+| History and rollback | Use history, rollback preview, delete/restore, and supersede as deliberate reviewer actions. | Per-edit approval or mandatory reviewer ritual. |
+| Task and decision follow-up | Create or link task requests and decisions from selected rows when the row creates real follow-up work. | Task or decision fields on every Timeline row. |
+| Communications, handoff, status, lesson | Create or link coordination artifacts when they preserve communication memory, shift continuity, status review, or follow-through. | Mandatory coordination records during routine capture. |
+| Party linking | Link requester, collector, source, audience, attendee, owner, or stakeholder references while preserving text/ref separation. | Auto-create party records from every text value. |
 
-Do not require the inspector for ordinary Timeline, Host, Identity, Evidence, or Notes row creation, inline editing, paste, or rough capture.
+Do not require the inspector for ordinary Timeline, Host, Identity, Evidence, or Notes row creation, inline editing, paste, correction, or rough capture.
 
 ## 4. Companion findings-document discipline
 

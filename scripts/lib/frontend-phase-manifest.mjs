@@ -259,7 +259,7 @@ const visualFixtureKeys = new Set([
   "blocked_reason",
   "replacement_fixture_id",
 ]);
-const visualFixtureIDPattern = /^FE-VFIX-(?:0[1-9]|1[0-9]|20)$/;
+const visualFixtureIDPattern = /^FE-VFIX-(?:0[1-9]|1[0-9]|2[01])$/;
 const validVisualCaptureScopeKinds = new Set([
   "full_viewport",
   "selector",
@@ -285,6 +285,7 @@ const core03Section14OwnerRefPattern =
   /^Core 03 Section(?:s)?\b.*(?:^|[^\d.])14(?:[^\d.]|$)/;
 const core03Section48OwnerRefPattern =
   /^Core 03 Section(?:s)?\b.*(?:^|[^\d.])4\.8(?:[^\d.]|$)/;
+let cachedBaseAuthoritativePlaywrightTitles = null;
 
 function repoPath(root, relativePath) {
   return path.join(root, relativePath);
@@ -318,6 +319,87 @@ function phaseFromLedgerPath(ledgerPath, label) {
 
 function requirePhaseID(value, label) {
   return requireString(value, label, { pattern: phaseIDPattern });
+}
+
+function entryTitles(entry) {
+  if (Array.isArray(entry?.titles)) {
+    return entry.titles.filter((title) => typeof title === "string");
+  }
+  return typeof entry?.title === "string" ? [entry.title] : [];
+}
+
+function baseAuthoritativePlaywrightTitleIndex(root = process.cwd()) {
+  if (cachedBaseAuthoritativePlaywrightTitles) {
+    return cachedBaseAuthoritativePlaywrightTitles;
+  }
+  const index = new Map();
+  const toolsDir = repoPath(root, "tools");
+  for (const filename of readdirSync(toolsDir).filter((name) =>
+    /^phase[0-9]+_test_map\.json$/u.test(name),
+  )) {
+    const file = path.posix.join("tools", filename);
+    const manifest = readJsonObject(repoPath(root, file), file);
+    for (const value of Object.values(manifest)) {
+      if (!Array.isArray(value)) {
+        continue;
+      }
+      for (const entry of value) {
+        if (
+          entry?.runner !== "playwright" ||
+          entry?.coverage !== "authoritative"
+        ) {
+          continue;
+        }
+        for (const title of entryTitles(entry)) {
+          index.set(title, entry.id ?? file);
+        }
+      }
+    }
+  }
+  cachedBaseAuthoritativePlaywrightTitles = index;
+  return index;
+}
+
+function requiresBrowserScenarioTitleOwnership(row) {
+  return (
+    row.claim_status === "implemented" &&
+    row.targets.some(
+      (target) =>
+        target.target_name.startsWith("browser-e2e") &&
+        target.scenario_title_required,
+    )
+  );
+}
+
+function validateFrontendBrowserScenarioTitleOwnership(
+  row,
+  label,
+  titleOwners,
+) {
+  if (!requiresBrowserScenarioTitleOwnership(row)) {
+    return;
+  }
+  const baseTitles = baseAuthoritativePlaywrightTitleIndex();
+  for (const title of row.scenario_titles) {
+    const baseOwner = baseTitles.get(title);
+    if (baseOwner) {
+      throw new Error(
+        `${label}.scenario_titles reuses base authoritative Playwright title owned by ${baseOwner}`,
+      );
+    }
+    const existingOwner = titleOwners.get(title);
+    if (existingOwner && existingOwner !== row.id) {
+      throw new Error(
+        `${label}.scenario_titles duplicates frontend browser title owned by ${existingOwner}`,
+      );
+    }
+    if (!title.startsWith(`${row.id} `)) {
+      throw new Error(
+        `${label}.scenario_titles must use FE-owned titles prefixed by ${row.id}`,
+      );
+    }
+    titleOwners.set(title, row.id);
+  }
 }
 
 function requireFiniteNumber(value, label, { positive = false } = {}) {
@@ -968,6 +1050,7 @@ export function validateFrontendPhaseMap(
     nonEmpty: true,
   });
   const ids = [];
+  const frontendBrowserTitleOwners = new Map();
   for (const [index, row] of rows.entries()) {
     const rowLabel = `${label}.rows[${index + 1}]`;
     assertObjectKeys(row, rowKeys, rowLabel);
@@ -1129,6 +1212,11 @@ export function validateFrontendPhaseMap(
     validateRowMetadata(row, rowLabel);
     validateVisualAccessibilityEvidenceBoundary(row, rowLabel);
     validateCore03SortingFilteringGroupingOwnerRefs(row, rowLabel);
+    validateFrontendBrowserScenarioTitleOwnership(
+      row,
+      rowLabel,
+      frontendBrowserTitleOwners,
+    );
   }
   assertUnique(ids, `${label}.rows.id`);
 }
@@ -1138,6 +1226,7 @@ export function validateFrontendPhaseArtifacts(root = process.cwd(), options = {
   const registry = loadFrontendPhaseRegistry(root);
   const phaseStates = new Map();
   const rowTargetNames = new Map();
+  const frontendBrowserTitleOwners = new Map();
   const expectedGuideDigest = sha256File(root, registry.guide_path);
   if (
     checkFreshness &&
@@ -1158,6 +1247,11 @@ export function validateFrontendPhaseArtifacts(root = process.cwd(), options = {
     );
     validateFrontendPhaseMap(manifest, entry.manifest_path, entry.phase_id);
     for (const row of manifest.rows) {
+      validateFrontendBrowserScenarioTitleOwnership(
+        row,
+        `${entry.manifest_path}.rows.${row.id}`,
+        frontendBrowserTitleOwners,
+      );
       rowTargetNames.set(
         row.id,
         new Set(row.targets.map((target) => target.target_name)),
@@ -1294,8 +1388,8 @@ export function validateFrontendVisualFixtureRegistry(root = process.cwd()) {
   const fixtures = requireObjectArray(registry.fixtures, `${file}.fixtures`, {
     nonEmpty: true,
   });
-  if (fixtures.length !== 20) {
-    throw new Error(`${file}.fixtures must contain exactly FE-VFIX-01 through FE-VFIX-20`);
+  if (fixtures.length !== 21) {
+    throw new Error(`${file}.fixtures must contain exactly FE-VFIX-01 through FE-VFIX-21`);
   }
   const fixtureIDs = [];
   const rowIDs = new Set();
@@ -1403,7 +1497,7 @@ export function validateFrontendVisualFixtureRegistry(root = process.cwd()) {
     requireString(fixture.replacement_fixture_id || "none", `${label}.replacement_fixture_id`);
   }
   assertUnique(fixtureIDs, `${file}.fixtures.fixture_id`);
-  const expected = Array.from({ length: 20 }, (_, index) =>
+  const expected = Array.from({ length: 21 }, (_, index) =>
     `FE-VFIX-${String(index + 1).padStart(2, "0")}`,
   );
   if (fixtureIDs.sort().join(",") !== expected.join(",")) {

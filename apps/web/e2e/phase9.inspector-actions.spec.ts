@@ -23,6 +23,7 @@ import {
   timelineInspectorSectionTestId,
   timelineMutationSubstrateReadyTestId,
   timelineScalarEditorTestId,
+  workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
@@ -471,7 +472,7 @@ test("FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rol
   }
 });
 
-test("FE-E-P9-02 Verify default-closed inspector state, surface switch config changes, saved-view switch over the same view_schema_id keeps the same config, closed incident read-only behavior, server-denied action behavior, and Timeline create/edit/paste without opening the inspector.", async ({
+test("FE-E-P9-02 Verify default-closed inspector state, no-row state, surface switch config changes, saved-view switch over the same view_schema_id keeps the same config, closed incident read-only behavior, server-denied action behavior, and Timeline create/edit/paste without opening the inspector.", async ({
   browser,
   page,
   sessionTracker,
@@ -507,6 +508,14 @@ test("FE-E-P9-02 Verify default-closed inspector state, surface switch config ch
   await expect(
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
+  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  await page
+    .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
+    .click();
+  await expect(page.getByTestId("timeline-inspector")).toContainText(
+    "no_row_selected",
+  );
+  await page.keyboard.press("Escape");
   await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
 
   await openTimelineInspector(page, timelineSeed.record_id);

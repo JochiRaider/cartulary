@@ -72,6 +72,21 @@ export const timelineInspectorSections = [
   "history",
 ] as const satisfies readonly TimelineInspectorSection[];
 
+export type WorkbookInspectorPanelId =
+  | "details"
+  | "relationships"
+  | "evidence"
+  | "history"
+  | "workflow";
+
+export const workbookInspectorPanelIds = [
+  "details",
+  "relationships",
+  "evidence",
+  "history",
+  "workflow",
+] as const satisfies readonly WorkbookInspectorPanelId[];
+
 export type Phase1ErrorSurface = "account" | "admin" | "auth" | "landing";
 
 export type Phase1AuthSelector =
@@ -628,6 +643,42 @@ export function workbookInspectorCloseButtonTestId(
   viewSchemaId: WorkbookSurface,
 ): StableTestId {
   return stableTestId(viewFirstTestId(viewSchemaId, "inspector-close"));
+}
+
+export function workbookInspectorPanelTestId(
+  viewSchemaId: WorkbookSurface,
+  panelId: WorkbookInspectorPanelId,
+): StableTestId {
+  return stableTestId(
+    viewFirstTestId(
+      viewSchemaId,
+      `inspector-panel-${requireWorkbookInspectorPanelId(panelId)}`,
+    ),
+  );
+}
+
+export function workbookInspectorFeatureGroupTestId(
+  viewSchemaId: WorkbookSurface,
+  featureGroupKey: string,
+): StableTestId {
+  return stableTestId(
+    viewFirstTestId(
+      viewSchemaId,
+      `inspector-feature-${requireFeatureGroupKey(featureGroupKey)}`,
+    ),
+  );
+}
+
+export function workbookInspectorFeatureActionTestId(
+  viewSchemaId: WorkbookSurface,
+  featureGroupKey: string,
+): StableTestId {
+  return stableTestId(
+    viewFirstTestId(
+      viewSchemaId,
+      `inspector-feature-action-${requireFeatureGroupKey(featureGroupKey)}`,
+    ),
+  );
 }
 
 export function workbookInlineDraftRowTestId(
@@ -1462,6 +1513,14 @@ function requireFieldKey(value: string): string {
   return encoded;
 }
 
+function requireFeatureGroupKey(value: string): string {
+  const encoded = encodeSelectorSegment(value, "feature_group_key");
+  if (!/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$/u.test(value)) {
+    throw new Error(`Invalid feature_group_key selector token: ${value}`);
+  }
+  return encoded;
+}
+
 function requireRecordId(value: string): string {
   return encodeSelectorSegment(value, "record_id");
 }
@@ -1695,6 +1754,16 @@ function requireTimelineInspectorSection(
     timelineInspectorSections,
     section,
     "timeline inspector section",
+  );
+}
+
+function requireWorkbookInspectorPanelId(
+  panelId: WorkbookInspectorPanelId,
+): WorkbookInspectorPanelId {
+  return requireClosedToken(
+    workbookInspectorPanelIds,
+    panelId,
+    "workbook inspector panel",
   );
 }
 

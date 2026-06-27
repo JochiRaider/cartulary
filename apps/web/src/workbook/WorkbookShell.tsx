@@ -94,6 +94,10 @@ import { ActiveSurfaceSavedViewSelector } from "./components/ActiveSurfaceSavedV
 import { GenericMutationControl } from "./components/GenericMutationControl";
 import { SystemViewSwitcher } from "./components/SystemViewSwitcher";
 import { WorkbookGridControls } from "./components/WorkbookGridControls";
+import {
+  type InspectorDisabledToken,
+  WorkbookInspectorPanelSection,
+} from "./components/WorkbookInspectorFeatureGroups";
 import { WorkbookSheetToolbar } from "./components/WorkbookSheetToolbar";
 import {
   WorkbookShellSlotRegion,
@@ -780,6 +784,13 @@ function EntityWorkbookSurface({
 
   const selectedEntity =
     rows.find((row) => row.recordId === selectedRecordId) ?? null;
+  const entityInspectorDisabledTokens = useMemo(
+    () =>
+      new Set<InspectorDisabledToken>(
+        selectedEntity === null ? ["no_row_selected"] : [],
+      ),
+    [selectedEntity],
+  );
   const canMerge =
     currentIncidentRole === "reviewer" || currentIncidentRole === "admin";
   const survivorLabel = selectedEntity?.label ?? "Select a record";
@@ -1212,6 +1223,14 @@ function EntityWorkbookSurface({
                 Merge review stays inside the workbook shell.
               </p>
             </div>
+            {inspectorConfig.panels.map((panel) => (
+              <WorkbookInspectorPanelSection
+                config={inspectorConfig}
+                disabledTokens={entityInspectorDisabledTokens}
+                key={panel.panelId}
+                panelId={panel.panelId}
+              />
+            ))}
             {showDetailsPanel &&
             editableEntityFields.length > 0 &&
             rows.length > 0 ? (
@@ -1555,6 +1574,10 @@ function AssessmentWorkbookSurface({
   const supportRows = useAssessmentSupportRows({ apiBase, incidentId });
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const assessmentInspectorDisabledTokens = useMemo(
+    () => new Set<InspectorDisabledToken>(),
+    [],
+  );
   const subjectRows = draft.subjectType === "host" ? hostRows : identityRows;
   const canCreate =
     currentIncidentRole === "editor" ||
@@ -1706,6 +1729,14 @@ function AssessmentWorkbookSurface({
                 </button>
               </div>
             </div>
+            {inspectorConfig.panels.map((panel) => (
+              <WorkbookInspectorPanelSection
+                config={inspectorConfig}
+                disabledTokens={assessmentInspectorDisabledTokens}
+                key={panel.panelId}
+                panelId={panel.panelId}
+              />
+            ))}
             <div style={inspectorSectionStyle}>
               <label style={labelStyle}>
                 Subject type
@@ -2448,6 +2479,13 @@ function GenericWorkbookSurface({
     selectedEditRow !== null && selectedEditField !== null
       ? genericCollectionItems(selectedEditRow, selectedEditField.fieldKey)
       : [];
+  const genericInspectorDisabledTokens = useMemo(
+    () =>
+      new Set<InspectorDisabledToken>(
+        selectedEditRow === null ? ["no_row_selected"] : [],
+      ),
+    [selectedEditRow],
+  );
 
   useEffect(() => {
     if (selectedEditField?.writeKind !== "action_payload") {
@@ -2748,6 +2786,14 @@ function GenericWorkbookSurface({
                 <X aria-hidden="true" size={16} />
               </button>
             </div>
+            {inspectorConfig.panels.map((panel) => (
+              <WorkbookInspectorPanelSection
+                config={inspectorConfig}
+                disabledTokens={genericInspectorDisabledTokens}
+                key={panel.panelId}
+                panelId={panel.panelId}
+              />
+            ))}
             {isNotesSurface ? (
               <label
                 htmlFor="generic-create-note-source-record"
@@ -4554,6 +4600,7 @@ export function WorkbookShell({
             <TimelineWorkbook
               apiBase={apiBase}
               currentIncidentRole={currentIncidentRole}
+              currentUserId={currentUserId}
               density={effectiveDensity}
               entityIndex={entityIndex}
               hostEntities={hostRows}

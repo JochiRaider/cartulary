@@ -110,8 +110,20 @@ Review these surfaces before judging changes:
   Parties, Communications Log, Handoff, Status Review, and Lesson.
 - State-heavy areas: evidence affordances, mention chips, conflict resolver,
   rollback and history, destructive confirmations, and successful empty query.
+- Inspector feature registry states: default-closed inspector,
+  `no_row_selected`, Details, Relationships, Evidence, History, Workflow
+  panels, create-related workflow actions, merge confirmation, rollback
+  preview, supersede confirmation, blocked evidence preview, handoff
+  acknowledgement, status-review blocked-work review, and stale-state
+  invalidation after row change.
 - Accessibility feel: keyboard traversal, visible focus, Esc behavior, control
   names, and non-color state cues.
+
+A missing inspector-heavy visual state is a fixture issue when the Core-owned
+behavior is already implemented and not represented; it is a product bug when
+the behavior violates Core 01/Core 03/Core 04; it is a design issue when the
+behavior satisfies Core but violates `design.md` or UI/UX guide design
+direction.
 
 Record findings in this shape:
 

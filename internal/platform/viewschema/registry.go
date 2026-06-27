@@ -66,6 +66,7 @@ type InspectorPanel struct {
 
 type InspectorRouteBinding struct {
 	Kind               string `json:"kind"`
+	Owner              string `json:"owner"`
 	TargetViewSchemaID string `json:"target_view_schema_id,omitempty"`
 	ActionKey          string `json:"action_key,omitempty"`
 }
@@ -82,15 +83,17 @@ type InspectorSeedBinding struct {
 }
 
 type InspectorFeatureGroup struct {
-	FeatureGroupKey      string                 `json:"feature_group_key"`
-	PanelID              string                 `json:"panel_id"`
-	Label                string                 `json:"label"`
-	MinimumIncidentRole  *string                `json:"minimum_incident_role"`
-	Mutates              bool                   `json:"mutates"`
-	RequiresConfirmation bool                   `json:"requires_confirmation"`
-	RouteBinding         InspectorRouteBinding  `json:"route_binding"`
-	SeedBindings         []InspectorSeedBinding `json:"seed_bindings"`
-	DisabledWhen         []string               `json:"disabled_when"`
+	FeatureGroupKey       string                 `json:"feature_group_key"`
+	PanelID               string                 `json:"panel_id"`
+	Label                 string                 `json:"label"`
+	MinimumIncidentRole   *string                `json:"minimum_incident_role"`
+	Mutates               bool                   `json:"mutates"`
+	RequiresConfirmation  bool                   `json:"requires_confirmation"`
+	RouteBinding          InspectorRouteBinding  `json:"route_binding"`
+	SeedBindings          []InspectorSeedBinding `json:"seed_bindings"`
+	DisabledWhen          []string               `json:"disabled_when"`
+	SuccessResultBehavior string                 `json:"success_result_behavior"`
+	FailureResultBehavior string                 `json:"failure_result_behavior"`
 }
 
 type InspectorConfig struct {

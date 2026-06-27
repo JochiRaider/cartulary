@@ -49,6 +49,23 @@ export type InspectorRouteBindingKind =
   | "evidence_access"
   | "surface_pivot";
 
+export type InspectorRouteBindingOwner =
+  | "current_row_projection"
+  | "view_query_route"
+  | "view_row_create_route"
+  | "record_patch_route"
+  | "record_mark_reviewed_route"
+  | "record_supersede_route"
+  | "record_delete_route"
+  | "record_restore_route"
+  | "record_history_route"
+  | "record_rollback_route"
+  | "record_merge_route"
+  | "entity_mention_resolve_route"
+  | "evidence_attach_blob_route"
+  | "evidence_preview_handle_route"
+  | "evidence_download_handle_route";
+
 export type InspectorDisabledCondition =
   | "no_row_selected"
   | "incident_closed"
@@ -57,7 +74,22 @@ export type InspectorDisabledCondition =
   | "record_deleted"
   | "record_merged"
   | "evidence_preview_unavailable"
-  | "merge_target_unavailable";
+  | "merge_target_unavailable"
+  | "record_not_deleted"
+  | "rollback_target_unavailable"
+  | "party_text_unavailable"
+  | "pivot_target_unavailable";
+
+export type InspectorSuccessResultBehavior =
+  | "preserve_selected_row"
+  | "retarget_selected_row"
+  | "clear_to_no_row_selected"
+  | "surface_pivot";
+
+export type InspectorFailureResultBehavior =
+  | "show_same_shell_error_preserve_selection"
+  | "show_same_shell_error_invalidate_pending_action"
+  | "show_same_shell_error_clear_subject";
 
 export type InspectorSeedSourceKind =
   | "selected_record_id"
@@ -71,6 +103,7 @@ export type InspectorPanel = {
 
 export type InspectorRouteBinding = {
   readonly kind: InspectorRouteBindingKind;
+  readonly owner: InspectorRouteBindingOwner;
   readonly targetViewSchemaId?: string | undefined;
   readonly actionKey?: string | undefined;
 };
@@ -101,6 +134,8 @@ export type InspectorFeatureGroup = {
   readonly routeBinding: InspectorRouteBinding;
   readonly seedBindings: readonly InspectorSeedBinding[];
   readonly disabledWhen: readonly InspectorDisabledCondition[];
+  readonly successResultBehavior: InspectorSuccessResultBehavior;
+  readonly failureResultBehavior: InspectorFailureResultBehavior;
 };
 
 export type InspectorConfig = {
@@ -206,6 +241,7 @@ type RawInspectorPanel = {
 
 type RawInspectorFeatureGroup = {
   readonly disabled_when?: readonly string[];
+  readonly failure_result_behavior?: string;
   readonly feature_group_key?: string;
   readonly label?: string;
   readonly minimum_incident_role?: string | null;
@@ -214,11 +250,13 @@ type RawInspectorFeatureGroup = {
   readonly requires_confirmation?: boolean;
   readonly route_binding?: RawInspectorRouteBinding;
   readonly seed_bindings?: readonly RawInspectorSeedBinding[];
+  readonly success_result_behavior?: string;
 };
 
 type RawInspectorRouteBinding = {
   readonly action_key?: string;
   readonly kind?: string;
+  readonly owner?: string;
   readonly target_view_schema_id?: string;
 };
 
@@ -443,6 +481,24 @@ const inspectorRouteBindingKinds = Object.freeze([
   "surface_pivot",
 ] as const);
 
+const inspectorRouteBindingOwners = Object.freeze([
+  "current_row_projection",
+  "view_query_route",
+  "view_row_create_route",
+  "record_patch_route",
+  "record_mark_reviewed_route",
+  "record_supersede_route",
+  "record_delete_route",
+  "record_restore_route",
+  "record_history_route",
+  "record_rollback_route",
+  "record_merge_route",
+  "entity_mention_resolve_route",
+  "evidence_attach_blob_route",
+  "evidence_preview_handle_route",
+  "evidence_download_handle_route",
+] as const);
+
 const inspectorDisabledConditions = Object.freeze([
   "no_row_selected",
   "incident_closed",
@@ -452,6 +508,23 @@ const inspectorDisabledConditions = Object.freeze([
   "record_merged",
   "evidence_preview_unavailable",
   "merge_target_unavailable",
+  "record_not_deleted",
+  "rollback_target_unavailable",
+  "party_text_unavailable",
+  "pivot_target_unavailable",
+] as const);
+
+const inspectorSuccessResultBehaviors = Object.freeze([
+  "preserve_selected_row",
+  "retarget_selected_row",
+  "clear_to_no_row_selected",
+  "surface_pivot",
+] as const);
+
+const inspectorFailureResultBehaviors = Object.freeze([
+  "show_same_shell_error_preserve_selection",
+  "show_same_shell_error_invalidate_pending_action",
+  "show_same_shell_error_clear_subject",
 ] as const);
 
 const inspectorSeedSourceKinds = Object.freeze([
@@ -466,6 +539,290 @@ const incidentRoles = Object.freeze([
   "reviewer",
   "admin",
 ] as const);
+
+const inspectorFeatureRegistryByViewSchemaId = Object.freeze({
+  "cartulary.view.assessments.v1": [
+    "details.read",
+    "relationships.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "assessment.subject_pivot",
+    "assessment.prior_history",
+    "assessment.support_refs.manage",
+    "evidence.refs.manage",
+    "create_related.task_request",
+    "create_related.decision",
+  ],
+  "cartulary.view.comm_log.v1": [
+    "details.read",
+    "relationships.read",
+    "evidence.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "comm.decisions.link",
+    "comm.action_tasks.link",
+    "comm.parties.manage",
+    "comm.next_report.manage",
+    "create_related.task_request",
+    "create_related.status_review",
+  ],
+  "cartulary.view.decisions.v1": [
+    "details.read",
+    "relationships.read",
+    "evidence.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "decision.support_refs.manage",
+    "decision.affected_records.manage",
+    "decision.status.transition",
+    "decision.supersede",
+    "create_related.task_request",
+    "create_related.comm_log",
+    "create_related.status_review",
+  ],
+  "cartulary.view.evidence.v1": [
+    "details.read",
+    "relationships.read",
+    "evidence.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "evidence.preview_handle",
+    "evidence.download_handle",
+    "evidence.attach_blob",
+    "party.collector.link",
+    "party.source.link",
+    "party.reference.clear",
+    "relationships.manage",
+    "surface_pivot.linked_records",
+    "surface_pivot.timeline",
+    "create_related.note",
+    "create_related.task_request",
+    "create_related.decision",
+  ],
+  "cartulary.view.findings.v1": [
+    "details.read",
+    "relationships.read",
+    "evidence.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "finding.support_refs.manage",
+    "finding.contradictory_refs.manage",
+    "finding.evidence_refs.manage",
+    "finding.owner.manage",
+    "finding.close_or_reopen",
+    "create_related.task_request",
+    "create_related.decision",
+  ],
+  "cartulary.view.forensic_keywords.v1": [
+    "details.read",
+    "relationships.read",
+    "evidence.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "keyword.evidence_refs.manage",
+    "keyword.timeline_rows.link",
+    "keyword.findings.link",
+    "create_related.task_request",
+  ],
+  "cartulary.view.handoff.v1": [
+    "details.read",
+    "relationships.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "handoff.acknowledge",
+    "handoff.open_tasks.review",
+    "handoff.open_decisions.review",
+    "handoff.risks.review",
+    "handoff.next_checks.manage",
+    "create_related.task_request",
+    "create_related.status_review",
+  ],
+  "cartulary.view.hosts.v1": [
+    "details.read",
+    "relationships.read",
+    "evidence.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "entity.aliases.read",
+    "entity.relationships.manage",
+    "entity.merge",
+    "surface_pivot.timeline",
+    "surface_pivot.evidence",
+    "surface_pivot.assessments",
+    "create_related.note",
+    "create_related.task_request",
+    "create_related.decision",
+  ],
+  "cartulary.view.identities.v1": [
+    "details.read",
+    "relationships.read",
+    "evidence.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "entity.aliases.read",
+    "entity.relationships.manage",
+    "entity.merge",
+    "surface_pivot.timeline",
+    "surface_pivot.evidence",
+    "surface_pivot.assessments",
+    "create_related.note",
+    "create_related.task_request",
+    "create_related.decision",
+  ],
+  "cartulary.view.indicators.v1": [
+    "details.read",
+    "relationships.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "indicator.observations.pivot",
+    "indicator.lifecycle.read",
+    "relationships.manage",
+    "create_related.task_request",
+    "create_related.decision",
+  ],
+  "cartulary.view.investigative_queries.v1": [
+    "details.read",
+    "relationships.read",
+    "evidence.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "query.source.link",
+    "query.result.link",
+    "query.evidence_refs.manage",
+    "query.findings.link",
+    "create_related.task_request",
+  ],
+  "cartulary.view.lesson.v1": [
+    "details.read",
+    "relationships.read",
+    "evidence.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "lesson.followup_tasks.manage",
+    "lesson.evidence_refs.manage",
+    "lesson.owner.manage",
+    "lesson.close_or_reopen",
+    "create_related.task_request",
+  ],
+  "cartulary.view.notes.v1": [
+    "details.read",
+    "relationships.read",
+    "evidence.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "artifact.source_links.manage",
+    "artifact.evidence_refs.manage",
+    "artifact.tags.manage",
+    "artifact.related_notes.manage",
+    "surface_pivot.source_records",
+    "create_related.task_request",
+    "create_related.decision",
+  ],
+  "cartulary.view.parties.v1": [
+    "details.read",
+    "relationships.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "party.usage_pivot.requester",
+    "party.usage_pivot.collector_source",
+    "party.usage_pivot.audience_attendee",
+    "party.usage_pivot.owner_stakeholder",
+    "party.reference.link",
+    "party.reference.clear",
+    "party.reference.clear_both",
+  ],
+  "cartulary.view.status_review.v1": [
+    "details.read",
+    "relationships.read",
+    "evidence.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "status_review.blocked_tasks.review",
+    "status_review.pending_evidence.review",
+    "status_review.open_decisions.review",
+    "status_review.risks.review",
+    "status_review.next_report.manage",
+    "create_related.task_request",
+    "create_related.comm_log",
+  ],
+  "cartulary.view.task_requests.v1": [
+    "details.read",
+    "relationships.read",
+    "evidence.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "task.links.manage",
+    "task.requester_party.link",
+    "task.requester_party.clear",
+    "task.decision.link",
+    "task.decision.clear",
+    "task.status.transition",
+    "create_related.comm_log",
+    "create_related.status_review",
+    "create_related.lesson",
+  ],
+  "cartulary.view.timeline.v2": [
+    "details.read",
+    "relationships.read",
+    "evidence.read",
+    "history.read",
+    "record.delete",
+    "record.restore",
+    "history.rollback",
+    "entity_mentions.resolve",
+    "entity_mentions.create_host",
+    "entity_mentions.create_identity",
+    "entity_mentions.dismiss",
+    "entity_mentions.restore",
+    "indicator.observations.manage",
+    "relationships.manage",
+    "evidence.attach_blob",
+    "evidence.preview_handle",
+    "evidence.download_handle",
+    "timeline.mark_reviewed",
+    "timeline.supersede",
+    "create_related.note",
+    "create_related.task_request",
+    "create_related.decision",
+    "create_related.evidence",
+    "create_related.comm_log",
+    "create_related.handoff",
+    "create_related.status_review",
+    "create_related.lesson",
+  ],
+} as const satisfies Readonly<Record<string, readonly string[]>>);
 
 function parseInspectorConfig(
   raw: unknown,
@@ -642,6 +999,18 @@ function parseInspectorConfig(
         source,
         `${label}.disabled_when`,
       );
+      const successResultBehavior = requireEnumValue(
+        group.success_result_behavior,
+        inspectorSuccessResultBehaviors,
+        source,
+        `${label}.success_result_behavior`,
+      );
+      const failureResultBehavior = requireEnumValue(
+        group.failure_result_behavior,
+        inspectorFailureResultBehaviors,
+        source,
+        `${label}.failure_result_behavior`,
+      );
       return Object.freeze({
         featureGroupKey,
         panelId,
@@ -660,8 +1029,16 @@ function parseInspectorConfig(
         routeBinding,
         seedBindings,
         disabledWhen,
+        successResultBehavior,
+        failureResultBehavior,
       });
     }),
+  );
+  validateInspectorFeatureRegistry(
+    configViewSchemaId,
+    featureKeys,
+    source,
+    "inspector_config.feature_groups",
   );
 
   return Object.freeze({
@@ -692,6 +1069,12 @@ function parseInspectorRouteBinding(
       inspectorRouteBindingKinds,
       source,
       `${label}.kind`,
+    ),
+    owner: requireEnumValue(
+      route.owner,
+      inspectorRouteBindingOwners,
+      source,
+      `${label}.owner`,
     ),
   };
   if (route.target_view_schema_id !== undefined) {
@@ -747,7 +1130,7 @@ function parseInspectorSeedBindings(
         `${label}[${index + 1}]`,
       ) as RawInspectorSeedBinding;
       return Object.freeze({
-        targetFieldKey: requireStableKey(
+        targetFieldKey: requireFieldKey(
           binding.target_field_key,
           source,
           `${label}[${index + 1}].target_field_key`,
@@ -777,7 +1160,7 @@ function parseInspectorSeedSource(
   const sourceFieldKey =
     sourceObject.source_field_key === undefined
       ? undefined
-      : requireStableKey(
+      : requireFieldKey(
           sourceObject.source_field_key,
           source,
           `${label}.source_field_key`,
@@ -832,6 +1215,44 @@ function parseInspectorDisabledConditions(
       return condition;
     }),
   );
+}
+
+function validateInspectorFeatureRegistry(
+  viewSchemaId: string,
+  featureKeys: ReadonlySet<string>,
+  source: string,
+  label: string,
+) {
+  const expected =
+    inspectorFeatureRegistryByViewSchemaId[
+      viewSchemaId as keyof typeof inspectorFeatureRegistryByViewSchemaId
+    ];
+  if (expected === undefined) {
+    return;
+  }
+  if (featureKeys.size !== expected.length) {
+    viewContractInvariant(
+      source,
+      `${label} must contain exactly ${expected.length} declared feature groups for ${viewSchemaId}, got ${featureKeys.size}`,
+    );
+  }
+  for (const key of expected) {
+    if (!featureKeys.has(key)) {
+      viewContractInvariant(
+        source,
+        `${label} missing required feature_group_key ${key} for ${viewSchemaId}`,
+      );
+    }
+  }
+  const expectedSet = new Set<string>(expected);
+  for (const key of featureKeys) {
+    if (!expectedSet.has(key)) {
+      viewContractInvariant(
+        source,
+        `${label} contains undeclared feature_group_key ${key} for ${viewSchemaId}`,
+      );
+    }
+  }
 }
 
 function truthMap(values: readonly string[]): Readonly<Record<string, true>> {
@@ -890,11 +1311,19 @@ function requireEnumValue<T extends string>(
 
 function requireInspectorKey(value: unknown, source: string, label: string) {
   const key = requireStableKey(value, source, label);
-  if (!/^[a-z0-9_.]+$/.test(key)) {
+  if (!/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$/u.test(key)) {
     viewContractInvariant(
       source,
       `${label} must be ASCII lower snake or dotted key`,
     );
+  }
+  return key;
+}
+
+function requireFieldKey(value: unknown, source: string, label: string) {
+  const key = requireStableKey(value, source, label);
+  if (!/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$/u.test(key)) {
+    viewContractInvariant(source, `${label} must be a stable field_key`);
   }
   return key;
 }

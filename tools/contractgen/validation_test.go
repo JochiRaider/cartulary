@@ -271,10 +271,19 @@ func TestValidateViewSchemaRejectsInvalidInspectorConfig(t *testing.T) {
 	t.Run("unknown route kind", func(t *testing.T) {
 		schema := validViewSchema("cartulary.view.test.v1")
 		group := schema["inspector_config"].(map[string]any)["feature_groups"].([]any)[0].(map[string]any)
-		group["route_binding"] = map[string]any{"kind": "legacy_route"}
+		group["route_binding"] = map[string]any{"kind": "legacy_route", "owner": "current_row_projection"}
 
 		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
 		requireErrorContains(t, err, "kind must be one of")
+	})
+
+	t.Run("unknown route owner", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		group := schema["inspector_config"].(map[string]any)["feature_groups"].([]any)[0].(map[string]any)
+		group["route_binding"] = map[string]any{"kind": "panel_read", "owner": "legacy_owner"}
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "owner must be one of")
 	})
 
 	t.Run("unknown disabled condition", func(t *testing.T) {
@@ -284,6 +293,48 @@ func TestValidateViewSchemaRejectsInvalidInspectorConfig(t *testing.T) {
 
 		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
 		requireErrorContains(t, err, "references unknown condition stale_legacy_state")
+	})
+
+	t.Run("unknown result behaviors", func(t *testing.T) {
+		for field, want := range map[string]string{
+			"success_result_behavior": "success_result_behavior must be one of",
+			"failure_result_behavior": "failure_result_behavior must be one of",
+		} {
+			schema := validViewSchema("cartulary.view.test.v1")
+			group := schema["inspector_config"].(map[string]any)["feature_groups"].([]any)[0].(map[string]any)
+			group[field] = "legacy_result"
+
+			err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+			requireErrorContains(t, err, want)
+		}
+	})
+
+	t.Run("invalid feature key grammar", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		group := schema["inspector_config"].(map[string]any)["feature_groups"].([]any)[0].(map[string]any)
+		group["feature_group_key"] = "Details Read"
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "feature_group_key must be ASCII lower snake or dotted key")
+	})
+
+	t.Run("current profile registry completeness", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.timeline.v2")
+		config := schema["inspector_config"].(map[string]any)
+		config["view_schema_id"] = "cartulary.view.timeline.v2"
+
+		err := validateViewSchemaShape(schema, "cartulary.view.timeline.v2.json")
+		requireErrorContains(t, err, "feature_groups must contain exactly 27 declared feature groups for cartulary.view.timeline.v2")
+
+		groups := make([]any, 0, len(inspectorFeatureRegistry["cartulary.view.timeline.v2"]))
+		for _, key := range inspectorFeatureRegistry["cartulary.view.timeline.v2"] {
+			groups = append(groups, validInspectorFeatureGroup(key))
+		}
+		groups[0].(map[string]any)["feature_group_key"] = "details.future"
+		config["feature_groups"] = groups
+
+		err = validateViewSchemaShape(schema, "cartulary.view.timeline.v2.json")
+		requireErrorContains(t, err, "missing required feature_group_key details.read for cartulary.view.timeline.v2")
 	})
 }
 
@@ -332,15 +383,17 @@ func validInspectorConfig(id string) map[string]any {
 
 func validInspectorFeatureGroup(key string) map[string]any {
 	return map[string]any{
-		"feature_group_key":     key,
-		"panel_id":              "details",
-		"label":                 "Details panel",
-		"minimum_incident_role": nil,
-		"mutates":               false,
-		"requires_confirmation": false,
-		"route_binding":         map[string]any{"kind": "panel_read"},
-		"seed_bindings":         []any{},
-		"disabled_when":         []any{"no_row_selected"},
+		"feature_group_key":       key,
+		"panel_id":                "details",
+		"label":                   "Details panel",
+		"minimum_incident_role":   nil,
+		"mutates":                 false,
+		"requires_confirmation":   false,
+		"route_binding":           map[string]any{"kind": "panel_read", "owner": "current_row_projection"},
+		"seed_bindings":           []any{},
+		"disabled_when":           []any{"no_row_selected"},
+		"success_result_behavior": "preserve_selected_row",
+		"failure_result_behavior": "show_same_shell_error_preserve_selection",
 	}
 }
 

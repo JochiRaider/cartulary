@@ -53,21 +53,22 @@ Fixture status is closed to `current`, `missing`, and `retired`. `current` means
 | `FE-VFIX-13` | Group outline row | `FE-P3`, `FE-P8`, `FE-P10` | Group row state is expanded/collapsed as declared by the fixture. | Group row anchor. | `current` |
 | `FE-VFIX-14` | Exposed theme states | `FE-P11` | Exposed theme, density, color, and token states render in representative controls. | Viewport `1280x720`; `capture_scope.kind="selector"`; no workbook-grid scroll state. | `current` |
 | `FE-VFIX-15` | Empty successful query | `FE-P3`, `FE-P4`, `FE-P8` | Successful empty result state renders without error or loading affordance. | Top-left grid scroll; empty-state container anchored. | `current` |
-| `FE-VFIX-16` | Host or Identity merge inspector | `FE-P9` | Selected host or identity row shows merge plan, reviewer-gated action state, and stale-confirmation invalidation affordance. | Selected entity row anchor; grid and inspector scroll normalized independently. | `missing` |
-| `FE-VFIX-17` | Evidence blocked preview inspector | `FE-P9` | Evidence inspector shows blocked or unsupported preview state with download affordance where allowed and no third-party egress affordance. | Evidence row anchor; inspector Evidence panel visible. | `missing` |
-| `FE-VFIX-18` | History rollback/destructive confirmation | `FE-P9` | History panel shows rollback preview or destructive confirmation bound to the selected row and invalidated when row context changes. | Timeline selected row anchor; inspector History panel visible. | `missing` |
-| `FE-VFIX-19` | Handoff acknowledgement inspector | `FE-P10` | Handoff inspector shows acknowledgement state, open task/decision/risk refs, and read-only blocked state when not authorized. | Handoff selected row anchor. | `missing` |
-| `FE-VFIX-20` | Status Review blocked-work inspector | `FE-P10` | Status Review inspector shows blocked tasks, pending evidence, open decisions, active risks, and next-report state. | Status Review selected row anchor. | `missing` |
+| `FE-VFIX-16` | Host or Identity merge inspector | `FE-P9` | Selected host or identity row shows merge plan, reviewer-gated action state, and stale-confirmation invalidation affordance. Covers AC-454, AC-457, and AC-459. | Selected entity row anchor; grid and inspector scroll normalized independently. | `missing` |
+| `FE-VFIX-17` | Evidence blocked preview inspector | `FE-P9` | Evidence inspector shows blocked or unsupported preview state with download affordance where allowed and no third-party egress affordance. Covers AC-460. | Evidence row anchor; inspector Evidence panel visible. | `missing` |
+| `FE-VFIX-18` | History rollback/destructive confirmation | `FE-P9` | History panel shows rollback preview or destructive confirmation bound to the selected row and invalidated when row context changes. Covers AC-457 and AC-458. | Timeline selected row anchor; inspector History panel visible. | `missing` |
+| `FE-VFIX-19` | Handoff acknowledgement inspector | `FE-P10` | Handoff inspector shows acknowledgement state, open task/decision/risk refs, and read-only blocked state when not authorized. Covers AC-458 and AC-459. | Handoff selected row anchor. | `missing` |
+| `FE-VFIX-20` | Status Review blocked-work inspector | `FE-P10` | Status Review inspector shows blocked tasks, pending evidence, open decisions, active risks, and next-report state. Covers AC-458 and AC-459. | Status Review selected row anchor. | `missing` |
+| `FE-VFIX-21` | Timeline create-related workflow inspector | `FE-P9`, `FE-P10` | Timeline selected row with Workflow panel showing create-related actions for Task Request, Decision, Evidence, Communications Log, Handoff, Status Review, and Lesson; ordinary Timeline grid remains visible and editable when inspector is closed. | Timeline row anchor; grid and inspector scroll normalized independently. | `missing` |
 
 ### Visual Support Acceptance
 
 | ID | Requirement |
 | --- | --- |
-| `VG-AC-001` | The matrix MUST contain exactly one row for each required `FE-VFIX-01` through `FE-VFIX-15` identifier and MUST NOT contain duplicate fixture IDs. |
+| `VG-AC-001` | The matrix MUST contain exactly one row for each required `FE-VFIX-01` through `FE-VFIX-21` identifier and MUST NOT contain duplicate fixture IDs. |
 | `VG-AC-002` | Every `current` fixture MUST declare deterministic seed data, viewport, browser zoom, fixture order, capture scope, dynamic masks or an explicit no-dynamic-regions declaration, artifact owner rows, a primary golden filename, and every supporting golden artifact owned by the fixture before golden refresh is accepted. |
 | `VG-AC-003` | Every workbook-grid fixture MUST declare scroll normalization using `GridVisualScrollState` or an equivalent named anchor before capture. |
 | `VG-AC-004` | Every golden refresh MUST cite an accepted refresh trigger, the affected authoritative `V-*` phase rows, any affected `FE-VFIX-*` fixture IDs and corresponding frontend phase-map rows when applicable, and whether dynamic masks, viewport state, or screenshot scope changed. |
-| `VG-AC-005` | A `missing` fixture MUST fail support validation unless the corresponding frontend phase-map row is `claim_status="blocked"` with a precise missing-fixture reason. |
+| `VG-AC-005` | A `missing` fixture MUST remain explicit in `tools/frontend_visual_fixture_registry.json` with a precise `blocked_reason`, and it MUST NOT be cited as closing visual evidence until a row-owned Playwright scenario and committed golden make the fixture `current`. |
 
 ### Current shell/status refresh citation map
 

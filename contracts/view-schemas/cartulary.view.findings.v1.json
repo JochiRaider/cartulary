@@ -106,123 +106,157 @@
       {
         "feature_group_key": "details.read",
         "panel_id": "details",
-        "label": "Details panel",
+        "label": "Details Read",
         "minimum_incident_role": null,
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read"
+          "kind": "panel_read",
+          "owner": "current_row_projection"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
         "feature_group_key": "relationships.read",
         "panel_id": "relationships",
-        "label": "Relationships panel",
+        "label": "Relationships Read",
         "minimum_incident_role": null,
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read"
+          "kind": "panel_read",
+          "owner": "current_row_projection"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
         "feature_group_key": "evidence.read",
         "panel_id": "evidence",
-        "label": "Evidence panel",
+        "label": "Evidence Read",
         "minimum_incident_role": null,
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read"
+          "kind": "panel_read",
+          "owner": "current_row_projection"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
         "feature_group_key": "history.read",
         "panel_id": "history",
-        "label": "History panel",
+        "label": "History Read",
         "minimum_incident_role": null,
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read"
+          "kind": "panel_read",
+          "owner": "record_history_route"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
-        "feature_group_key": "workflow.read",
-        "panel_id": "workflow",
-        "label": "Workflow panel",
-        "minimum_incident_role": null,
-        "mutates": false,
-        "requires_confirmation": false,
-        "route_binding": {
-          "kind": "panel_read"
-        },
-        "seed_bindings": [],
-        "disabled_when": [
-          "no_row_selected"
-        ]
-      },
-      {
-        "feature_group_key": "evidence.access",
-        "panel_id": "evidence",
-        "label": "Preview or download evidence",
-        "minimum_incident_role": "viewer",
-        "mutates": false,
-        "requires_confirmation": false,
-        "route_binding": {
-          "kind": "evidence_access"
-        },
-        "seed_bindings": [],
-        "disabled_when": [
-          "no_row_selected",
-          "authorization_lost",
-          "evidence_preview_unavailable"
-        ]
-      },
-      {
-        "feature_group_key": "relationships.patch",
-        "panel_id": "relationships",
-        "label": "Update relationships",
+        "feature_group_key": "record.delete",
+        "panel_id": "history",
+        "label": "Record Delete",
         "minimum_incident_role": "editor",
         "mutates": true,
-        "requires_confirmation": false,
+        "requires_confirmation": true,
         "route_binding": {
-          "kind": "record_patch"
+          "kind": "record_action",
+          "owner": "record_delete_route",
+          "action_key": "record.delete"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected",
           "incident_closed",
           "authorization_lost",
-          "row_version_changed"
-        ]
+          "row_version_changed",
+          "record_deleted",
+          "record_merged"
+        ],
+        "success_result_behavior": "clear_to_no_row_selected",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
       },
       {
-        "feature_group_key": "history.rollback",
+        "feature_group_key": "record.restore",
         "panel_id": "history",
-        "label": "Rollback or restore",
+        "label": "Record Restore",
         "minimum_incident_role": "reviewer",
         "mutates": true,
         "requires_confirmation": true,
         "route_binding": {
           "kind": "record_action",
-          "action_key": "rollback_or_restore"
+          "owner": "record_restore_route",
+          "action_key": "record.restore"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed",
+          "record_not_deleted",
+          "record_merged"
+        ],
+        "success_result_behavior": "retarget_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "history.rollback",
+        "panel_id": "history",
+        "label": "History Rollback",
+        "minimum_incident_role": "reviewer",
+        "mutates": true,
+        "requires_confirmation": true,
+        "route_binding": {
+          "kind": "record_action",
+          "owner": "record_rollback_route",
+          "action_key": "history.rollback"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed",
+          "rollback_target_unavailable"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "finding.support_refs.manage",
+        "panel_id": "relationships",
+        "label": "Finding Support Refs Manage",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "record_patch",
+          "owner": "record_patch_route",
+          "action_key": "finding.support_refs.manage"
         },
         "seed_bindings": [],
         "disabled_when": [
@@ -230,25 +264,155 @@
           "incident_closed",
           "authorization_lost",
           "row_version_changed"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
       },
       {
-        "feature_group_key": "workflow.create_related_task",
-        "panel_id": "workflow",
-        "label": "Create related task",
+        "feature_group_key": "finding.contradictory_refs.manage",
+        "panel_id": "relationships",
+        "label": "Finding Contradictory Refs Manage",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "view_row_create",
-          "target_view_schema_id": "cartulary.view.task_requests.v1"
+          "kind": "record_patch",
+          "owner": "record_patch_route",
+          "action_key": "finding.contradictory_refs.manage"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected",
           "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "finding.evidence_refs.manage",
+        "panel_id": "evidence",
+        "label": "Finding Evidence Refs Manage",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "record_patch",
+          "owner": "record_patch_route",
+          "action_key": "finding.evidence_refs.manage"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "finding.owner.manage",
+        "panel_id": "workflow",
+        "label": "Finding Owner Manage",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "record_patch",
+          "owner": "record_patch_route",
+          "action_key": "finding.owner.manage"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "finding.close_or_reopen",
+        "panel_id": "workflow",
+        "label": "Finding Close Or Reopen",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "record_patch",
+          "owner": "record_patch_route",
+          "action_key": "finding.close_or_reopen"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "create_related.task_request",
+        "panel_id": "workflow",
+        "label": "Create Related Task Request",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "view_row_create",
+          "owner": "view_row_create_route",
+          "target_view_schema_id": "cartulary.view.task_requests.v1",
+          "action_key": "create_related.task_request"
+        },
+        "seed_bindings": [
+          {
+            "target_field_key": "task.linked_record_ids",
+            "source": {
+              "kind": "selected_record_id"
+            }
+          }
+        ],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
           "authorization_lost"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "create_related.decision",
+        "panel_id": "workflow",
+        "label": "Create Related Decision",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "view_row_create",
+          "owner": "view_row_create_route",
+          "target_view_schema_id": "cartulary.view.decisions.v1",
+          "action_key": "create_related.decision"
+        },
+        "seed_bindings": [
+          {
+            "target_field_key": "decision.support_refs",
+            "source": {
+              "kind": "selected_record_id"
+            }
+          }
+        ],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
       }
     ]
   },

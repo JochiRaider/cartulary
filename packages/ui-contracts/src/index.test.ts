@@ -173,6 +173,10 @@ import {
   workbookIncidentIdentityTestId,
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
+  workbookInspectorFeatureActionTestId,
+  workbookInspectorFeatureGroupTestId,
+  workbookInspectorPanelIds,
+  workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
   workbookResponsiveBandTestId,
   workbookRowActionMenuButtonTestId,
@@ -560,6 +564,25 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(
       workbookInspectorCloseButtonTestId("cartulary.view.timeline.v2"),
     ).toBe("cartulary.view.timeline.v2-inspector-close");
+    expect(
+      workbookInspectorPanelTestId("cartulary.view.timeline.v2", "workflow"),
+    ).toBe("cartulary.view.timeline.v2-inspector-panel-workflow");
+    expect(
+      workbookInspectorFeatureGroupTestId(
+        "cartulary.view.timeline.v2",
+        "create_related.task_request",
+      ),
+    ).toBe(
+      "cartulary.view.timeline.v2-inspector-feature-create_related.task_request",
+    );
+    expect(
+      workbookInspectorFeatureActionTestId(
+        "cartulary.view.timeline.v2",
+        "history.rollback",
+      ),
+    ).toBe(
+      "cartulary.view.timeline.v2-inspector-feature-action-history.rollback",
+    );
     expect(workbookInlineDraftRowTestId("cartulary.view.timeline.v2")).toBe(
       "cartulary.view.timeline.v2-inline-draft-row",
     );
@@ -572,6 +595,25 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
     expect(
       workbookRowContextMenuTestId("cartulary.view.timeline.v2", "record-1"),
     ).toBe("cartulary.view.timeline.v2-row-context-menu-record-1");
+    expect(workbookInspectorPanelIds).toEqual([
+      "details",
+      "relationships",
+      "evidence",
+      "history",
+      "workflow",
+    ]);
+    expect(() =>
+      workbookInspectorPanelTestId(
+        "cartulary.view.timeline.v2",
+        "details-title" as never,
+      ),
+    ).toThrow("Invalid workbook inspector panel token: details-title");
+    expect(() =>
+      workbookInspectorFeatureGroupTestId(
+        "cartulary.view.timeline.v2",
+        "Create task",
+      ),
+    ).toThrow("Invalid feature_group_key selector token: Create task");
   });
 
   it("derives stable Phase 6 collaboration and status selectors", () => {

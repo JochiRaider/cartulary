@@ -105,110 +105,139 @@
       {
         "feature_group_key": "details.read",
         "panel_id": "details",
-        "label": "Details panel",
+        "label": "Details Read",
         "minimum_incident_role": null,
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read"
+          "kind": "panel_read",
+          "owner": "current_row_projection"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
         "feature_group_key": "relationships.read",
         "panel_id": "relationships",
-        "label": "Relationships panel",
+        "label": "Relationships Read",
         "minimum_incident_role": null,
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read"
+          "kind": "panel_read",
+          "owner": "current_row_projection"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
         "feature_group_key": "history.read",
         "panel_id": "history",
-        "label": "History panel",
+        "label": "History Read",
         "minimum_incident_role": null,
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read"
+          "kind": "panel_read",
+          "owner": "record_history_route"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
-        "feature_group_key": "workflow.read",
-        "panel_id": "workflow",
-        "label": "Workflow panel",
-        "minimum_incident_role": null,
-        "mutates": false,
-        "requires_confirmation": false,
-        "route_binding": {
-          "kind": "panel_read"
-        },
-        "seed_bindings": [],
-        "disabled_when": [
-          "no_row_selected"
-        ]
-      },
-      {
-        "feature_group_key": "relationships.patch",
-        "panel_id": "relationships",
-        "label": "Update relationships",
-        "minimum_incident_role": "editor",
-        "mutates": true,
-        "requires_confirmation": false,
-        "route_binding": {
-          "kind": "record_patch"
-        },
-        "seed_bindings": [],
-        "disabled_when": [
-          "no_row_selected",
-          "incident_closed",
-          "authorization_lost",
-          "row_version_changed"
-        ]
-      },
-      {
-        "feature_group_key": "workflow.acknowledge",
-        "panel_id": "workflow",
-        "label": "Acknowledge handoff",
-        "minimum_incident_role": "editor",
-        "mutates": true,
-        "requires_confirmation": false,
-        "route_binding": {
-          "kind": "record_patch",
-          "action_key": "acknowledge"
-        },
-        "seed_bindings": [],
-        "disabled_when": [
-          "no_row_selected",
-          "incident_closed",
-          "authorization_lost",
-          "row_version_changed"
-        ]
-      },
-      {
-        "feature_group_key": "history.rollback",
+        "feature_group_key": "record.delete",
         "panel_id": "history",
-        "label": "Rollback or restore",
+        "label": "Record Delete",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": true,
+        "route_binding": {
+          "kind": "record_action",
+          "owner": "record_delete_route",
+          "action_key": "record.delete"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed",
+          "record_deleted",
+          "record_merged"
+        ],
+        "success_result_behavior": "clear_to_no_row_selected",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "record.restore",
+        "panel_id": "history",
+        "label": "Record Restore",
         "minimum_incident_role": "reviewer",
         "mutates": true,
         "requires_confirmation": true,
         "route_binding": {
           "kind": "record_action",
-          "action_key": "rollback_or_restore"
+          "owner": "record_restore_route",
+          "action_key": "record.restore"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed",
+          "record_not_deleted",
+          "record_merged"
+        ],
+        "success_result_behavior": "retarget_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "history.rollback",
+        "panel_id": "history",
+        "label": "History Rollback",
+        "minimum_incident_role": "reviewer",
+        "mutates": true,
+        "requires_confirmation": true,
+        "route_binding": {
+          "kind": "record_action",
+          "owner": "record_rollback_route",
+          "action_key": "history.rollback"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed",
+          "rollback_target_unavailable"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "handoff.acknowledge",
+        "panel_id": "workflow",
+        "label": "Handoff Acknowledge",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "record_patch",
+          "owner": "record_patch_route",
+          "action_key": "handoff.acknowledge"
         },
         "seed_bindings": [],
         "disabled_when": [
@@ -216,25 +245,136 @@
           "incident_closed",
           "authorization_lost",
           "row_version_changed"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
       },
       {
-        "feature_group_key": "workflow.create_related_task",
+        "feature_group_key": "handoff.open_tasks.review",
         "panel_id": "workflow",
-        "label": "Create related task",
+        "label": "Handoff Open Tasks Review",
+        "minimum_incident_role": null,
+        "mutates": false,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "panel_read",
+          "owner": "current_row_projection"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
+      },
+      {
+        "feature_group_key": "handoff.open_decisions.review",
+        "panel_id": "workflow",
+        "label": "Handoff Open Decisions Review",
+        "minimum_incident_role": null,
+        "mutates": false,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "panel_read",
+          "owner": "current_row_projection"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
+      },
+      {
+        "feature_group_key": "handoff.risks.review",
+        "panel_id": "workflow",
+        "label": "Handoff Risks Review",
+        "minimum_incident_role": null,
+        "mutates": false,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "panel_read",
+          "owner": "current_row_projection"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_preserve_selection"
+      },
+      {
+        "feature_group_key": "handoff.next_checks.manage",
+        "panel_id": "workflow",
+        "label": "Handoff Next Checks Manage",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "record_patch",
+          "owner": "record_patch_route",
+          "action_key": "handoff.next_checks.manage"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "create_related.task_request",
+        "panel_id": "workflow",
+        "label": "Create Related Task Request",
         "minimum_incident_role": "editor",
         "mutates": true,
         "requires_confirmation": false,
         "route_binding": {
           "kind": "view_row_create",
-          "target_view_schema_id": "cartulary.view.task_requests.v1"
+          "owner": "view_row_create_route",
+          "target_view_schema_id": "cartulary.view.task_requests.v1",
+          "action_key": "create_related.task_request"
+        },
+        "seed_bindings": [
+          {
+            "target_field_key": "task.linked_record_ids",
+            "source": {
+              "kind": "selected_record_id"
+            }
+          }
+        ],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
+      },
+      {
+        "feature_group_key": "create_related.status_review",
+        "panel_id": "workflow",
+        "label": "Create Related Status Review",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "view_row_create",
+          "owner": "view_row_create_route",
+          "target_view_schema_id": "cartulary.view.status_review.v1",
+          "action_key": "create_related.status_review"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected",
           "incident_closed",
           "authorization_lost"
-        ]
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
       }
     ]
   },

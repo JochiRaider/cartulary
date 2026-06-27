@@ -790,7 +790,7 @@
       "owner_row_ids": [
         "FE-V-P9-01"
       ],
-      "playwright_scenario_title": "TODO: add Host or Identity merge inspector visual scenario",
+      "playwright_scenario_title": "Blocked: Host or Identity merge inspector visual scenario is not implemented",
       "golden_filename": "",
       "golden_artifacts": [],
       "seed_id": "fe-vfix-16-missing-seed",
@@ -809,22 +809,22 @@
       },
       "focus_state": {
         "kind": "fixture_specific",
-        "description": "TODO: define merge inspector focus state in a row-owned Playwright scenario."
+        "description": "Blocked until a row-owned Playwright scenario defines focus on the merge confirmation or invoking feature control."
       },
       "editor_state": {
         "kind": "fixture_specific",
-        "description": "TODO: define merge candidate and confirmation editor state in a row-owned Playwright scenario."
+        "description": "Blocked until a row-owned Playwright scenario defines merge candidate and confirmation state."
       },
       "inspector_state": {
         "kind": "fixture_specific",
-        "description": "TODO: capture selected-row merge plan and confirmation state."
+        "description": "Blocked until a row-owned Playwright scenario captures selected-row merge plan and confirmation state."
       },
       "dynamic_masks": [
         "incident identifiers",
         "generated record identifiers"
       ],
       "no_dynamic_regions": false,
-      "blocked_reason": "TODO: apps/web/e2e/workbook.visual.spec.ts needs a row-owned Host or Identity merge inspector scenario and golden.",
+      "blocked_reason": "Blocked on row-owned Playwright visual scenario and golden for Host or Identity merge inspector covering AC-454, AC-457, and AC-459.",
       "replacement_fixture_id": ""
     },
     {
@@ -837,7 +837,7 @@
       "owner_row_ids": [
         "FE-V-P9-01"
       ],
-      "playwright_scenario_title": "TODO: add Evidence blocked preview inspector visual scenario",
+      "playwright_scenario_title": "Blocked: Evidence blocked preview inspector visual scenario is not implemented",
       "golden_filename": "",
       "golden_artifacts": [],
       "seed_id": "fe-vfix-17-missing-seed",
@@ -856,15 +856,15 @@
       },
       "focus_state": {
         "kind": "fixture_specific",
-        "description": "TODO: define blocked evidence preview focus state in a row-owned Playwright scenario."
+        "description": "Blocked until a row-owned Playwright scenario defines focus for the blocked preview state."
       },
       "editor_state": {
         "kind": "fixture_specific",
-        "description": "TODO: define blocked evidence preview state without active editing."
+        "description": "Blocked until a row-owned Playwright scenario defines blocked preview state without active editing."
       },
       "inspector_state": {
         "kind": "fixture_specific",
-        "description": "TODO: capture evidence preview unavailable/blocked state."
+        "description": "Blocked until a row-owned Playwright scenario captures evidence_preview_unavailable or blocked preview state."
       },
       "dynamic_masks": [
         "incident identifiers",
@@ -872,7 +872,7 @@
         "clock-derived labels when visible"
       ],
       "no_dynamic_regions": false,
-      "blocked_reason": "TODO: apps/web/e2e/workbook.visual.spec.ts needs a row-owned Evidence blocked preview inspector scenario and golden.",
+      "blocked_reason": "Blocked on row-owned Playwright visual scenario and golden for Evidence blocked preview inspector covering AC-460.",
       "replacement_fixture_id": ""
     },
     {
@@ -885,7 +885,7 @@
       "owner_row_ids": [
         "FE-V-P9-01"
       ],
-      "playwright_scenario_title": "TODO: add History rollback destructive confirmation visual scenario",
+      "playwright_scenario_title": "Blocked: History rollback destructive confirmation visual scenario is not implemented",
       "golden_filename": "",
       "golden_artifacts": [],
       "seed_id": "fe-vfix-18-missing-seed",
@@ -904,15 +904,15 @@
       },
       "focus_state": {
         "kind": "fixture_specific",
-        "description": "TODO: define destructive confirmation focus state in a row-owned Playwright scenario."
+        "description": "Blocked until a row-owned Playwright scenario defines destructive confirmation focus state."
       },
       "editor_state": {
         "kind": "fixture_specific",
-        "description": "TODO: define rollback preview state without unrelated editors."
+        "description": "Blocked until a row-owned Playwright scenario defines rollback preview state without unrelated editors."
       },
       "inspector_state": {
         "kind": "fixture_specific",
-        "description": "TODO: capture rollback preview and destructive confirmation in History."
+        "description": "Blocked until a row-owned Playwright scenario captures rollback preview and destructive confirmation in History."
       },
       "dynamic_masks": [
         "incident identifiers",
@@ -920,7 +920,7 @@
         "clock-derived labels when visible"
       ],
       "no_dynamic_regions": false,
-      "blocked_reason": "TODO: apps/web/e2e/workbook.visual.spec.ts needs a row-owned History rollback/destructive confirmation scenario and golden.",
+      "blocked_reason": "Blocked on row-owned Playwright visual scenario and golden for rollback/destructive confirmation invalidation covering AC-457 and AC-458.",
       "replacement_fixture_id": ""
     },
     {
@@ -933,7 +933,7 @@
       "owner_row_ids": [
         "FE-V-P10-01"
       ],
-      "playwright_scenario_title": "TODO: add Handoff acknowledgement inspector visual scenario",
+      "playwright_scenario_title": "Blocked: Handoff acknowledgement inspector visual scenario is not implemented",
       "golden_filename": "",
       "golden_artifacts": [],
       "seed_id": "fe-vfix-19-missing-seed",
@@ -952,15 +952,15 @@
       },
       "focus_state": {
         "kind": "fixture_specific",
-        "description": "TODO: define handoff acknowledgement focus state in a row-owned Playwright scenario."
+        "description": "Blocked until a row-owned Playwright scenario defines focus for the acknowledgement action or resulting state."
       },
       "editor_state": {
         "kind": "fixture_specific",
-        "description": "TODO: define handoff acknowledgement form state."
+        "description": "Blocked until a row-owned Playwright scenario defines acknowledgement state without unrelated editors."
       },
       "inspector_state": {
         "kind": "fixture_specific",
-        "description": "TODO: capture Handoff workflow acknowledgement affordance."
+        "description": "Blocked until a row-owned Playwright scenario captures Handoff workflow acknowledgement affordance."
       },
       "dynamic_masks": [
         "incident identifiers",
@@ -968,7 +968,7 @@
         "clock-derived labels when visible"
       ],
       "no_dynamic_regions": false,
-      "blocked_reason": "TODO: apps/web/e2e/workbook.visual.spec.ts needs a row-owned Handoff acknowledgement inspector scenario and golden.",
+      "blocked_reason": "Blocked on row-owned Playwright visual scenario and golden for Handoff acknowledgement inspector covering AC-458 and AC-459.",
       "replacement_fixture_id": ""
     },
     {
@@ -981,7 +981,7 @@
       "owner_row_ids": [
         "FE-V-P10-01"
       ],
-      "playwright_scenario_title": "TODO: add Status Review blocked work inspector visual scenario",
+      "playwright_scenario_title": "Blocked: Status Review blocked-work inspector visual scenario is not implemented",
       "golden_filename": "",
       "golden_artifacts": [],
       "seed_id": "fe-vfix-20-missing-seed",
@@ -1000,15 +1000,15 @@
       },
       "focus_state": {
         "kind": "fixture_specific",
-        "description": "TODO: define status review blocked-work focus state in a row-owned Playwright scenario."
+        "description": "Blocked until a row-owned Playwright scenario defines focus for blocked-work review controls."
       },
       "editor_state": {
         "kind": "fixture_specific",
-        "description": "TODO: define blocked-work review state without unrelated editors."
+        "description": "Blocked until a row-owned Playwright scenario defines blocked-work review state without unrelated editors."
       },
       "inspector_state": {
         "kind": "fixture_specific",
-        "description": "TODO: capture Status Review blocked-work workflow state."
+        "description": "Blocked until a row-owned Playwright scenario captures Status Review blocked-work workflow state."
       },
       "dynamic_masks": [
         "incident identifiers",
@@ -1016,7 +1016,56 @@
         "clock-derived labels when visible"
       ],
       "no_dynamic_regions": false,
-      "blocked_reason": "TODO: apps/web/e2e/workbook.visual.spec.ts needs a row-owned Status Review blocked-work inspector scenario and golden.",
+      "blocked_reason": "Blocked on row-owned Playwright visual scenario and golden for Status Review blocked-work inspector covering AC-458 and AC-459.",
+      "replacement_fixture_id": ""
+    },
+    {
+      "fixture_id": "FE-VFIX-21",
+      "fixture_title": "Timeline create-related workflow inspector",
+      "status": "missing",
+      "owner_phase_ids": [
+        "FE-P9",
+        "FE-P10"
+      ],
+      "owner_row_ids": [
+        "FE-V-P9-01"
+      ],
+      "playwright_scenario_title": "Blocked: Timeline create-related workflow inspector visual scenario is not implemented",
+      "golden_filename": "",
+      "golden_artifacts": [],
+      "seed_id": "fe-vfix-21-missing-seed",
+      "viewport_css_px": "1440x900",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "compact",
+      "scroll_normalization": {
+        "kind": "not_applicable",
+        "reason": "selector-only missing inspector fixture; grid and inspector scroll anchors must be declared when a row-owned visual scenario exists"
+      },
+      "capture_scope": {
+        "kind": "selector",
+        "selector": "[data-testid='timeline-inspector']"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Blocked until a row-owned Playwright scenario defines focus for a create-related workflow action or same-shell create form."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Blocked until a row-owned Playwright scenario defines same-shell create-related form state while preserving ordinary Timeline grid editability when the inspector is closed."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Blocked until a row-owned Playwright scenario captures Workflow panel create-related actions for Task Request, Decision, Evidence, Communications Log, Handoff, Status Review, and Lesson."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "Blocked on row-owned Playwright visual scenario and golden for Timeline create-related workflow inspector covering same-shell coordination workflows.",
       "replacement_fixture_id": ""
     }
   ]

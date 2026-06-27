@@ -789,7 +789,8 @@ Design contract. The inspector MUST use the following default and bounds.
 | Maximum width | `{layout.inspectorMaxWidth}`. |
 | Resize | User resizes within min/max bounds. Omission of resize persistence is conformant. |
 | Pinning | Client-local only; MUST NOT persist in saved views. |
-| Section order | Details, Relationships, Evidence, History. |
+| Section order | Follow the active `inspector_config_v1.panels[]` order. When all current-profile panels are declared, the order is Details, Relationships, Evidence, History, Workflow. |
+| Workflow section | Contains only explicit feature-group actions declared by the active `view_schema_id`. It must not become a dashboard, ticket queue, release-control module, or detached workflow editor. |
 | Grid visibility | At base viewport, grid remains visible whenever inspector is open. |
 | Close affordance | Visible control with accessible name `Close inspector`. |
 | Pin affordance | Visible control with accessible name `Pin inspector` or `Unpin inspector`. |
@@ -797,6 +798,8 @@ Design contract. The inspector MUST use the following default and bounds.
 Design contract. Inspector height is the work-area height defined in §7.1, not the rendered grid-body height. Long inspector content MUST scroll inside the inspector panel without changing the inspector slot boundaries, grid height, or status-strip position.
 
 Design contract. If the inspector opens as an overlay in a narrower viewport band, the grid behind the overlay MUST be inert to pointer and keyboard until the overlay closes.
+
+Design contract. Inspector action groups MUST render from declared `feature_group_key` values and stable owner metadata. Visible labels, icons, route helper names, component names, CSS selectors, storage names, and grid-vendor coordinates MUST NOT determine available inspector behavior.
 
 ### 7.4 Responsive shell chrome selection
 
@@ -1397,7 +1400,7 @@ Design contract. Menu items that open nested UI MUST state that result in access
 
 ### 12.7 Inspector sections
 
-Design contract. Inspector sections MUST render in this order: Details, Relationships, Evidence, History.
+Design contract. Inspector sections MUST render in active `inspector_config_v1.panels[]` order. When all current-profile panels are declared, that order is Details, Relationships, Evidence, History, Workflow.
 
 Design contract. Empty sections MUST show a concise empty state and, when the current user has an available create or link action under owner behavior, an action entry point. If no action is available, the empty state MUST say why no action is available.
 
@@ -1423,7 +1426,7 @@ Design contract. The table below defines surface design posture only. It MUST NO
 
 | Surface | Required design posture | Primary state markers | Inspector emphasis | Empty-state posture |
 | --- | --- | --- | --- | --- |
-| Timeline | Fast rough capture, chronological scanning, progressive mention resolution. | Reviewed, conflicted, unresolved mentions, evidence count. | Details, Relationships, Evidence, History. | Permit rough creation when owner behavior permits creation. |
+| Timeline | Fast rough capture, chronological scanning, progressive mention resolution. | Reviewed, conflicted, unresolved mentions, evidence count. | Details, Relationships, Evidence, History, Workflow when declared. | Permit rough creation when owner behavior permits creation. |
 | Hosts | Scope and asset posture, links to events, evidence, assessments. | Criticality, containment, unresolved refs, linked evidence. | Relationships and History. | Explain no hosts discovered or captured. |
 | Identities | Account or persona scoping, reset/MFA state, links to events. | Privilege, MFA/reset, unresolved refs, linked evidence. | Relationships and History. | Explain no identities captured. |
 | Evidence | Evidence envelope state, upload and preview status, collector/source references. | Lifecycle, upload overlay, preview capability, custody flags. | Evidence and History. | Offer request or attach path only when owner behavior permits. |
@@ -1526,13 +1529,13 @@ Design contract. The visual fixture registry is closed to the rows below for thi
 | Fixture ID | Required state | Viewport | Zoom | Density | Theme | Scroll normalization | Dynamic masks | Crop rule | Pass condition |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `D-VFIX-001` | Default Timeline workbook shell with view-bar query controls after saved-view actions, compact view bar, compact Timeline grid, row gutter, header affordances, selected row, focused Summary cell, row-context inspector, status strip, Core 01 default Timeline fields, and no admin-card dominance above the active grid. | `1440x900 CSS px` | `{layout.zoomDefault}` | `compact` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | All shell regions visible in the first viewport, admin/control content absent unless explicitly opened, and token pairs pass §14.3. |
-| `D-VFIX-002` | Inspector open adjacent at base viewport. | `{layout.baseViewport}` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_001:timeline.activity_synopsis_text` | Actor names, timestamps, IDs. | `full_viewport` | Grid remains visible; inspector sections in required order. |
+| `D-VFIX-002` | Inspector open adjacent at base viewport. | `{layout.baseViewport}` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_001:timeline.activity_synopsis_text` | Actor names, timestamps, IDs. | `full_viewport` | Grid remains visible; inspector sections follow active config order including Workflow when declared. |
 | `D-VFIX-003` | Same-field conflict cell and resolver. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_conflict:timeline.activity_synopsis_text` | Actor names, timestamps, IDs. | `selector:[data-design-fixture='conflict']` | Conflict marker, local draft, saved value, and actions visible. |
 | `D-VFIX-004` | Unresolved, resolved, auto-resolved, and dismissed chips. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `row:rec_timeline_mentions` | Actor names, IDs. | `selector:[data-design-fixture='chips']` | Four chip states have distinct non-color cues. |
 | `D-VFIX-005` | Presence at header, row, and cell with overflow. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `row:rec_timeline_presence` | Actor names. | `full_viewport` | Presence ordering and `+N` labels follow §10.3. |
 | `D-VFIX-006` | Evidence states: available, blocked preview, pending upload, failed upload, quarantined. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `row:rec_evidence_matrix` | Filenames, hashes, timestamps. | `selector:[data-design-fixture='evidence']` | Evidence badges and actions follow §11. |
 | `D-VFIX-007` | Save-state strip for `Syncing`, `Saved`, and `Conflict`. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `status_strip` | Timestamps. | `selector:[data-design-fixture='status-strip']` | One primary save label visible and accessible. |
-| `D-VFIX-008` | Destructive actions in History and Relationships inspector. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_history:timeline.activity_synopsis_text` | Actor names, IDs. | `selector:[data-design-fixture='destructive-actions']` | Destructive actions have label text and destructive styling. |
+| `D-VFIX-008` | Destructive actions in History, Relationships, and Workflow inspector states. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `cell:rec_timeline_history:timeline.activity_synopsis_text` | Actor names, IDs. | `selector:[data-design-fixture='destructive-actions']` | Destructive actions have label text, destructive styling, and declared Workflow coverage when applicable. |
 | `D-VFIX-009` | Component state matrix sample. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | None. | `selector:[data-design-fixture='components']` | Required component states render and pass §14.3. |
 | `D-VFIX-010` | Narrow desktop shell. | `1024x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | Built-in tabs collapse to `Surfaces`; required controls remain reachable. |
 | `D-VFIX-011` | Compact desktop shell. | `768x640 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | Chips move to `Filters`; presence moves to status strip. |

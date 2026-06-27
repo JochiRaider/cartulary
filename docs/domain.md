@@ -90,6 +90,8 @@ For domain interpretation, the following statement is controlling:
 
 A proposed term, feature name, route helper, UI label, implementation module, guide section, or generated artifact that contradicts this thesis MUST be treated as ambiguous until mapped to the correct owner section.
 
+Inspector vocabulary follows the workbook thesis: analysts act on visible rows, cells, chips, previews, saved views, and inspector affordances, while behavior is keyed by stable owner identifiers. If a proposed inspector term implies hidden source state, workflow engine identity, saved-view persistence, or route-helper identity, it is ambiguous until remapped to Core 01/Core 03/Core 04.
+
 ## 4. Document relationship map
 
 The following map preserves the existing security, implementation-support, design-direction, and publication boundaries rather than creating a new document hierarchy.
@@ -246,6 +248,8 @@ Each distinction below is review-critical for vocabulary and documentation disci
 | `base_row_version` | Client version anchor for an attempted record write. | Conflict detection for record-scoped writes. | Current version after successful commit. | Core 03, Core 01 | `base` | `current-required` |
 | `field_key` | Stable view-field identity. | Write target, conflict key, sort/filter/group capability key. | Column label, SQL column, visible header, or translated label. | Core 01 | `base` | `current-required` |
 | `view_schema_id` | Stable public workbook-surface identity. | Built-in sheet, system view, or standardized optional surface identity. | Visible tab label, saved view ID, or projection name. | Core 01 | `base` | `current-required` |
+| `feature_group_key` | Inspector feature group. | Stable feature-group identity within one `view_schema_id`. | Visible label, route helper, React component, CSS selector, storage column, or grid-vendor identifier. | Core 01 §7.4 | `base` | `current-required` |
+| `route_binding.owner` | Inspector route owner token. | Closed token identifying the Core-owned route family or current-row data source used by a feature group. | Implementation function name, handler name, SQL table, component name, or route-helper name. | Core 01 §7.4 | `base` | `current-required` |
 | `sheet_ref` | Stable reference to a workbook surface or saved view. | Startup/default surface pointers and presence state. | Visible shell location. | Core 01, Core 03 | `base` | `current-required` |
 | `saved_view_id` | Saved-view configuration object. | Incident-bound saved view identity. | Required system view identity. | Core 03 | `base` | `current-required` |
 | `party_id` | Same-incident party record. | Stable coordination-party reference. | Email text, user ID, auth-provider subject, or incident membership. | Core 02 | `base` | `current-required` |
@@ -424,6 +428,9 @@ Declared scope: repository-wide terms whose misunderstanding would cause behavio
 | Record link | Typed relationship between two records. | JSON list, text mention, or visible chip alone. | `record_links.link_type` token family | §11 | Core 02 | `base` | `current-required` |
 | Tag | Lightweight incident-scoped label. | Owner, task, lifecycle state, or relationship. | `tag_id`, `record_tags` | §11 | Core 02 | `base` | `current-required` |
 | View schema | Contract for a built-in sheet, system view, or standardized optional workbook surface. | Physical table schema or saved view. | `view_schema_id` | §11 | Core 01 | `base` | `current-required` |
+| Inspector | Explicit row-context secondary surface derived from active `view_schema_id` inspector config. | Workflow engine, saved-view state, full-page editor, dashboard, ticketing module, or hidden source state. | `inspector_config_v1`, `feature_group_key`, `route_binding.owner` | §11 | Core 01/Core 03/Core 04 | `base` | `current-required` |
+| Feature group key | Stable key for one declared inspector feature group within one `view_schema_id`. | Visible label, route helper, React component, CSS selector, storage column, or grid-vendor identifier. | `feature_group_key` | §11 | Core 01 §7.4 | `base` | `current-required` |
+| Route binding owner | Closed token identifying the Core-owned route family or current-row data source used by a feature group. | Implementation function name, handler name, SQL table, component name, or route-helper name. | `route_binding.owner` | §11 | Core 01 §7.4 | `base` | `current-required` |
 | Workbook surface | Visible or addressable sheet-like working surface backed by a `view_schema_id` or distinct saved view over one schema. | Module, route family, projection table, or visible label. | `sheet_ref` | §11 | Core 01/Core 03 | `base` | `current-required` |
 | Built-in tab | Required primary sheet-like workbook surface in the base profile. | Every required surface or every visible shell tab. | Timeline, Hosts, Identities, Evidence, Notes | §11 | Core 03 | `base-required-surface` | `current-required` |
 | System view | Non-built-in contract-backed workbook surface with `surface_kind='system_view'`. | `scope='system'` saved view or requiredness by itself. | `surface_kind='system_view'`, `view_schema_id` | §11 | Core 01/Core 03 | `base` | `current-required` |

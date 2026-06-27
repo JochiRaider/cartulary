@@ -34,7 +34,7 @@ describe("workbookInspectorModel", () => {
     );
   });
 
-  it("FE-U-P9-02 Verify active view_schema_id selects inspector_config_v1, saved views inherit the same config from immutable view_schema_id, no-row state is no_row_selected, and stale confirmations/previews/merge plans/forms invalidate on row, row-version, authorization, or incident-lifecycle changes.", () => {
+  it("FE-U-P9-02 Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.", () => {
     const timeline = requireViewContract("cartulary.view.timeline.v2");
     const hosts = requireViewContract("cartulary.view.hosts.v1");
     const timelineConfig = selectInspectorConfig(timeline);
@@ -104,7 +104,19 @@ describe("workbookInspectorModel", () => {
       inspectorFeatureGroupsForPanel(config, "relationships").map(
         (group) => group.featureGroupKey,
       ),
-    ).toContain("relationships.merge");
+    ).toContain("entity.relationships.manage");
+    expect(
+      inspectorFeatureGroupsForPanel(config, "workflow").map(
+        (group) => group.featureGroupKey,
+      ),
+    ).toEqual([
+      "surface_pivot.timeline",
+      "surface_pivot.evidence",
+      "surface_pivot.assessments",
+      "create_related.note",
+      "create_related.task_request",
+      "create_related.decision",
+    ]);
   });
 
   it("FE-U-P9-02 clears stale row-bound state before retargeting to a new row", () => {
@@ -169,5 +181,51 @@ describe("workbookInspectorModel", () => {
       expect(next.mergePlanKey).toBeNull();
       expect(next.workflowFormKey).toBeNull();
     }
+  });
+
+  it("FE-U-P9-02 defaults closed and clears stale state on hard refresh and active surface switch", () => {
+    const timelineConfig = selectInspectorConfig(
+      requireViewContract("cartulary.view.timeline.v2"),
+    );
+    const hostsConfig = selectInspectorConfig(
+      requireViewContract("cartulary.view.hosts.v1"),
+    );
+    const staged = workbookInspectorReducer(
+      workbookInspectorReducer(initialWorkbookInspectorState(timelineConfig), {
+        type: "open",
+        panelId: "workflow",
+      }),
+      {
+        type: "select_row",
+        row: { recordId: "row-1", rowVersion: 1 },
+      },
+    );
+    const withPending = workbookInspectorReducer(staged, {
+      type: "stage_row_bound_state",
+      pendingConfirmationKey: "delete-1",
+      rollbackPreviewKey: "rollback-1",
+      mergePlanKey: "merge-1",
+      workflowFormKey: "workflow-1",
+    });
+    const refreshed = workbookInspectorReducer(withPending, {
+      type: "hard_refresh",
+    });
+
+    expect(refreshed.isOpen).toBe(false);
+    expect(refreshed.selectedRecordId).toBeNull();
+    expect(refreshed.pendingConfirmationKey).toBeNull();
+    expect(refreshed.rollbackPreviewKey).toBeNull();
+    expect(refreshed.mergePlanKey).toBeNull();
+    expect(refreshed.workflowFormKey).toBeNull();
+
+    const switched = workbookInspectorReducer(withPending, {
+      type: "active_surface_switch",
+      config: hostsConfig,
+    });
+
+    expect(switched.isOpen).toBe(false);
+    expect(switched.configViewSchemaId).toBe("cartulary.view.hosts.v1");
+    expect(switched.selectedRecordId).toBeNull();
+    expect(switched.activePanelId).toBe("details");
   });
 });

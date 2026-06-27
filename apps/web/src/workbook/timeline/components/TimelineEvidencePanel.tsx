@@ -1,6 +1,4 @@
 import {
-  timelineDraftEvidenceAttachSectionTestId,
-  timelineDraftEvidenceFileInputTestId,
   timelineEvidenceAttachSectionTestId,
   timelineEvidenceFileInputTestId,
   timelineInspectorSectionTestId,
@@ -26,10 +24,11 @@ export function TimelineEvidencePanel({
   row,
   onFilesSelected,
 }: TimelineEvidencePanelProps) {
-  const inputTestId =
-    row.recordId === null
-      ? timelineDraftEvidenceFileInputTestId()
-      : timelineEvidenceFileInputTestId(row.recordId);
+  const recordId = row.recordId;
+  if (recordId === null) {
+    return null;
+  }
+
   return (
     <section
       data-testid={timelineInspectorSectionTestId("evidence")}
@@ -49,23 +48,15 @@ export function TimelineEvidencePanel({
         }
       }}
     >
-      <div
-        data-testid={
-          row.recordId === null
-            ? timelineDraftEvidenceAttachSectionTestId()
-            : timelineEvidenceAttachSectionTestId(row.recordId)
-        }
-      >
+      <div data-testid={timelineEvidenceAttachSectionTestId(recordId)}>
         <h3 style={sectionTitleStyle}>Evidence</h3>
-        {row.recordId !== null ? (
-          <p style={bodyStyle}>
-            Attached evidence count: {countDisplay.displayCount}
-          </p>
-        ) : null}
+        <p style={bodyStyle}>
+          Attached evidence count: {countDisplay.displayCount}
+        </p>
         <label style={labelStyle}>
           Attach file
           <input
-            data-testid={inputTestId}
+            data-testid={timelineEvidenceFileInputTestId(recordId)}
             style={inputStyle}
             type="file"
             accept="image/*,.txt,.pdf,text/plain,application/pdf"

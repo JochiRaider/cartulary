@@ -1,4 +1,6 @@
 import {
+  genericCreateFieldTestId,
+  genericCreateSubmitTestId,
   gridScrollportSelector,
   gridShellTestId,
   relationshipChipTestId,
@@ -13,8 +15,13 @@ import {
   rowHistoryRollbackPreviewTestId,
   rowInspectButtonTestId,
   timelineCollectionInputTestId,
+  timelineDraftEvidenceAttachSectionTestId,
+  timelineDraftEvidenceFileInputTestId,
   timelineInspectorSectionTestId,
   timelineScalarEditorTestId,
+  workbookInspectorFeatureActionTestId,
+  workbookInspectorFeatureGroupTestId,
+  workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
@@ -35,6 +42,7 @@ import {
   installTimelineWorkbookTestGlobals,
   successEnvelope,
   type TimelineWorkbookFetchMock,
+  timelineMutationEnvelope,
   timelineRow,
   timelineRowsEnvelope,
   timelineViewSchemaId,
@@ -233,6 +241,26 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     expect(
       (await screen.findByTestId("timeline-inspector")).textContent,
     ).toContain("no_row_selected");
+    expect(
+      screen.queryByTestId(timelineInspectorSectionTestId("evidence")),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId(
+        timelineScalarEditorTestId({
+          fieldKey: "timeline.raw_activity_text",
+          recordId: "record-1",
+          surface: "inspector",
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      screen.getByTestId(timelineDraftEvidenceAttachSectionTestId()),
+    ).toBeTruthy();
+    const draftEvidenceInput = screen.getByTestId(
+      timelineDraftEvidenceFileInputTestId(),
+    );
+    expect(draftEvidenceInput).toBeInstanceOf(HTMLInputElement);
+    expect((draftEvidenceInput as HTMLInputElement).type).toBe("file");
   });
 
   it("renders Timeline collection cells compactly until inline edit activation", async () => {
@@ -443,6 +471,29 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     }
     expect(
       screen.getByTestId(
+        workbookInspectorPanelTestId(timelineViewSchemaId, "workflow"),
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(
+        workbookInspectorFeatureGroupTestId(
+          timelineViewSchemaId,
+          "create_related.task_request",
+        ),
+      ),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByTestId(
+          workbookInspectorFeatureActionTestId(
+            timelineViewSchemaId,
+            "timeline.mark_reviewed",
+          ),
+        )
+        .getAttribute("data-route-owner"),
+    ).toBe("record_mark_reviewed_route");
+    expect(
+      screen.getByTestId(
         relationshipItemsTestId("record-2", "timeline.host_refs"),
       ),
     ).toBeTruthy();
@@ -496,6 +547,202 @@ describe("FE-P9 inspector and row-local action coverage", () => {
           rowCellTestId("record-3", "timeline.activity_synopsis_text"),
         ),
       );
+    });
+  });
+
+  it("creates a related Task Request from the Timeline inspector using emitted seed bindings", async () => {
+    const taskRequestsViewSchemaId = "cartulary.view.task_requests.v1";
+    fetchMock
+      .mockResolvedValueOnce(
+        timelineRowsEnvelope([
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 5,
+            summary: "Create task source",
+            captureState: "rough",
+          }),
+        ]),
+      )
+      .mockResolvedValueOnce(
+        successEnvelope({
+          view_schema_id: taskRequestsViewSchemaId,
+          change_set_id: "task-change-set",
+          row: {
+            record_id: "task-1",
+            row_version: 1,
+            cells: {},
+          },
+        }),
+      );
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+    fireEvent.contextMenu(
+      screen.getByTestId(
+        rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+      ),
+      { clientX: 32, clientY: 48 },
+    );
+    fireEvent.click(screen.getByTestId(rowInspectButtonTestId("record-1")));
+    fireEvent.click(
+      screen.getByTestId(
+        workbookInspectorFeatureActionTestId(
+          timelineViewSchemaId,
+          "create_related.task_request",
+        ),
+      ),
+    );
+
+    fireEvent.change(
+      screen.getByTestId(genericCreateFieldTestId("task.title")),
+      {
+        target: { value: "Follow up on source row" },
+      },
+    );
+    fireEvent.change(
+      screen.getByTestId(genericCreateFieldTestId("task.task_kind")),
+      {
+        target: { value: "follow_up" },
+      },
+    );
+    fireEvent.click(
+      screen.getByTestId(genericCreateSubmitTestId(taskRequestsViewSchemaId)),
+    );
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).endsWith(
+            `/api/v1/incidents/incident-1/views/${taskRequestsViewSchemaId}/rows`,
+          ),
+        ),
+      ).toBe(true);
+    });
+    const createCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
+      String(url).endsWith(
+        `/api/v1/incidents/incident-1/views/${taskRequestsViewSchemaId}/rows`,
+      ),
+    );
+    expect(extractTimelineJSONBody(fetchMock, createCallIndex)).toMatchObject({
+      "task.title": "Follow up on source row",
+      "task.task_kind": "follow_up",
+      "task.linked_record_ids": {
+        kind: "collection_actions_v1",
+        actions: [{ op: "add_record_ref", linked_record_id: "record-1" }],
+      },
+    });
+    expect(screen.getByTestId("timeline-inspector").textContent).toContain(
+      "Created related cartulary.view.task_requests.v1 row task-1.",
+    );
+  });
+
+  it("creates related Evidence from the Timeline inspector and links it back through the Timeline patch route", async () => {
+    const evidenceViewSchemaId = "cartulary.view.evidence.v1";
+    fetchMock
+      .mockResolvedValueOnce(
+        timelineRowsEnvelope([
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 5,
+            summary: "Create evidence source",
+            captureState: "rough",
+          }),
+        ]),
+      )
+      .mockResolvedValueOnce(
+        successEnvelope({
+          view_schema_id: evidenceViewSchemaId,
+          change_set_id: "evidence-change-set",
+          row: {
+            record_id: "evidence-1",
+            row_version: 1,
+            cells: {},
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        timelineMutationEnvelope(
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 6,
+            summary: "Create evidence source",
+            captureState: "rough",
+            evidenceCount: 1,
+            hasEvidence: true,
+          }),
+          "timeline-link-change-set",
+        ),
+      )
+      .mockResolvedValueOnce(
+        timelineRowsEnvelope([
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 6,
+            summary: "Create evidence source",
+            captureState: "rough",
+            evidenceCount: 1,
+            hasEvidence: true,
+          }),
+        ]),
+      );
+
+    const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
+    await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+    fireEvent.contextMenu(
+      screen.getByTestId(
+        rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+      ),
+      { clientX: 32, clientY: 48 },
+    );
+    fireEvent.click(screen.getByTestId(rowInspectButtonTestId("record-1")));
+    fireEvent.click(
+      screen.getByTestId(
+        workbookInspectorFeatureActionTestId(
+          timelineViewSchemaId,
+          "create_related.evidence",
+        ),
+      ),
+    );
+    fireEvent.change(
+      screen.getByTestId(genericCreateFieldTestId("evidence.title")),
+      {
+        target: { value: "Source row evidence" },
+      },
+    );
+    fireEvent.click(
+      screen.getByTestId(genericCreateSubmitTestId(evidenceViewSchemaId)),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("timeline-inspector").textContent).toContain(
+        "Created and linked evidence evidence-1.",
+      );
+    });
+    const createCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
+      String(url).endsWith(
+        `/api/v1/incidents/incident-1/views/${evidenceViewSchemaId}/rows`,
+      ),
+    );
+    expect(extractTimelineJSONBody(fetchMock, createCallIndex)).toMatchObject({
+      "evidence.title": "Source row evidence",
+    });
+    const patchCallIndex = fetchMock.mock.calls.findIndex(
+      ([url, init]) =>
+        String(url).endsWith("/api/v1/records/record-1") &&
+        init?.method === "PATCH",
+    );
+    expect(extractTimelineJSONBody(fetchMock, patchCallIndex)).toMatchObject({
+      view_schema_id: timelineViewSchemaId,
+      base_row_version: 5,
+      changes: [
+        {
+          field_key: "timeline.attached_evidence_ids",
+          action_payload: {
+            kind: "collection_actions_v1",
+            actions: [{ op: "add_record_ref", linked_record_id: "evidence-1" }],
+          },
+        },
+      ],
     });
   });
 

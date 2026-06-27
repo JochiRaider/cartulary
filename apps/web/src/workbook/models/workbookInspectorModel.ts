@@ -44,7 +44,12 @@ export type WorkbookInspectorAction =
         | "incident_closed"
         | "authorization_lost"
         | "record_deleted"
-        | "record_merged";
+        | "record_merged"
+        | "hard_refresh";
+    }
+  | {
+      readonly type: "active_surface_switch";
+      readonly config: InspectorConfig;
     }
   | {
       readonly type: "stage_row_bound_state";
@@ -121,6 +126,16 @@ export function workbookInspectorReducer(
     case "record_deleted":
     case "record_merged":
       return clearRowBoundInspectorState(state);
+    case "hard_refresh":
+      return {
+        ...clearRowBoundInspectorState(state),
+        activePanelId: state.activePanelId,
+        isOpen: false,
+        selectedRecordId: null,
+        selectedRowVersion: null,
+      };
+    case "active_surface_switch":
+      return initialWorkbookInspectorState(action.config);
     case "stage_row_bound_state":
       return {
         ...state,
