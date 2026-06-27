@@ -16,6 +16,28 @@ const [root] = process.argv.slice(2);
 const nodeBin = process.env.NODE_BIN || process.execPath;
 const script = path.join(root, "scripts/run-phase-slice.mjs");
 const { runNormalizedSchedule } = await import(pathToFileURL(path.join(root, "scripts/lib/scheduler-runner.mjs")).href);
+const targetPlanModule = await import(pathToFileURL(path.join(root, "scripts/lib/target-plan.mjs")).href);
+
+function scenarioShardSuffix(scenarioID) {
+  return scenarioID.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function expectedScenarioShardNames({ phase, executionFamily, target, phasePrefix = "" }) {
+  const row = targetPlanModule.collectTargetPlanRows(root).find(
+    (candidate) =>
+      candidate.manifest_phase === phase &&
+      candidate.target === target &&
+      candidate.execution_family === executionFamily,
+  );
+  assert.ok(row, `${phase} ${executionFamily} target-plan row must exist`);
+  assert.ok(
+    Object.keys(row.scenario_symbols ?? {}).length > 0,
+    `${phase} ${executionFamily} target-plan row must declare scenario_symbols`,
+  );
+  return Object.keys(row.scenario_symbols)
+    .map((scenarioID) => `${phasePrefix}${executionFamily}-${scenarioShardSuffix(scenarioID)}`)
+    .sort((left, right) => left.localeCompare(right));
+}
 
 function run(args, env = {}, options = {}) {
   const result = spawnSync(nodeBin, [script, ...args], {
@@ -171,22 +193,22 @@ for (const target of ["frontend-unit", "browser-e2e-webserver-backed"]) {
 }
 
 const phase10 = plan("phase10", "phase");
+const phase10OperatorExecutionFamily = "backend-process-phase10-operator-inspection";
 const phase10OperatorShards = phase10.work_units
   .filter(
     (unit) =>
       unit.target === "backend-process" &&
-      unit.id?.startsWith("backend-process:phase10-backend-process-phase10-operator-inspection-scn-"),
+      unit.id?.startsWith(`backend-process:phase10-${phase10OperatorExecutionFamily}-scn-`),
   )
   .sort((left, right) => left.id.localeCompare(right.id));
 assert.deepEqual(
   phase10OperatorShards.map((unit) => unit.id.replace(/^backend-process:/, "")),
-  [
-    "phase10-backend-process-phase10-operator-inspection-scn-001",
-    "phase10-backend-process-phase10-operator-inspection-scn-002",
-    "phase10-backend-process-phase10-operator-inspection-scn-003",
-    "phase10-backend-process-phase10-operator-inspection-scn-004-mismatch",
-    "phase10-backend-process-phase10-operator-inspection-scn-004-pass",
-  ],
+  expectedScenarioShardNames({
+    phase: "phase10",
+    target: "backend-process",
+    executionFamily: phase10OperatorExecutionFamily,
+    phasePrefix: "phase10-",
+  }),
   "phase10 slice must expose E-10-01 operator evidence as stable scenario shards",
 );
 for (const unit of phase10OperatorShards) {

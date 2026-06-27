@@ -13,6 +13,8 @@ unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS
 
 # shellcheck source=scripts/lib/task-surface-check-common.sh
 source "$ROOT_DIR/scripts/lib/task-surface-check-common.sh"
+# shellcheck source=scripts/lib/harness-scratch.sh
+source "$ROOT_DIR/scripts/lib/harness-scratch.sh"
 
 cleanup() {
   local path
@@ -1120,7 +1122,7 @@ generated_make="$(cat "${task_surface_generated_make_file}")"
 assert_contains "${generated_make}" "backend-integration: export CARTULARY_TEST_TARGET ?= backend-integration" "backend-integration recipe exists"
 assert_contains "${generated_make}" "CARTULARY_HARNESS_IDENTITY_PREPARED=1 GO_TEST_PACKAGE_PARALLELISM" "backend-integration child runner reuses prepared public identity"
 
-stale_embed_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-stale-embed.XXXXXX")"
+stale_embed_dir="$(cartulary_harness_mktemp_dir "run-make-sequence-fast-stale-embed.XXXXXX")"
 cleanup_paths+=("${stale_embed_dir}")
 mkdir -p "${stale_embed_dir}/web-dist/assets" "${stale_embed_dir}/embed/dist" "${stale_embed_dir}/frontend-embed" "${stale_embed_dir}/gomod" "${stale_embed_dir}/gocache"
 printf '<div id="root"></div>\n' >"${stale_embed_dir}/web-dist/index.html"
@@ -1131,6 +1133,29 @@ fake_go="${stale_embed_dir}/fake-go"
 cat >"${fake_go}" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+
+if [[ "${1:-}" == "run" && "${2:-}" == "./tools/embedwebassets" ]]; then
+  output=""
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --output)
+        output="$2"
+        shift 2
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+  if [[ -z "${output}" ]]; then
+    echo "fake embedwebassets requires --output" >&2
+    exit 2
+  fi
+  mkdir -p "$(dirname "${output}")"
+  printf 'fake embedded web archive\n' >"${output}"
+  exit 0
+fi
+
 output=""
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -1144,12 +1169,14 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 if [[ -n "${output}" ]]; then
+  mkdir -p "$(dirname "${output}")"
   printf 'fake server\n' >"${output}"
 fi
 EOF
 chmod +x "${fake_go}"
 CARTULARY_TEST_RESULTS_DIR="${stale_embed_dir}/results" \
 CARTULARY_TEST_RUN_ID="stale-embed" \
+CARTULARY_BUILD_CACHE_DIR="${stale_embed_dir}/cache/build" \
   make --no-print-directory build-server \
     GO="${fake_go}" \
     GO_CACHE_DIR="${stale_embed_dir}/gocache" \
@@ -1157,11 +1184,14 @@ CARTULARY_TEST_RUN_ID="stale-embed" \
     SERVER_BIN="${stale_embed_dir}/server" \
     WEB_DIST_INDEX="${stale_embed_dir}/web-dist/index.html" \
     EMBEDDED_WEB_ASSET_DIR="${stale_embed_dir}/embed/dist" \
-    EMBEDDED_WEB_ASSET_INDEX="${stale_embed_dir}/embed/dist/index.html" \
+    EMBEDDED_WEB_ASSET_ARCHIVE="${stale_embed_dir}/embed/dist/web-assets.zip" \
     EMBEDDED_WEB_ASSET_STAMP="${stale_embed_dir}/frontend-embed/web-assets.stamp" \
+    EMBEDDED_WEB_ASSET_READY_STAMP="${stale_embed_dir}/frontend-embed/web-assets.ready" \
   >/dev/null
-assert_file_present "${stale_embed_dir}/embed/dist/index.html" "stale embedded web index is restored"
-assert_file_present "${stale_embed_dir}/embed/dist/assets/app.js" "stale embedded web asset is restored"
+assert_file_present "${stale_embed_dir}/embed/dist/web-assets.zip" "stale embedded web archive is rebuilt"
+assert_file_present "${stale_embed_dir}/frontend-embed/web-assets.stamp" "stale embedded web stamp is refreshed"
+assert_file_present "${stale_embed_dir}/frontend-embed/web-assets.ready" "stale embedded web ready stamp is refreshed"
+assert_file_absent "${stale_embed_dir}/embed/dist/index.html" "stale embedded web fixture must not restore legacy loose index"
 assert_contains "$(cat "${stale_embed_dir}/server")" "fake server" "stale embedded web refresh rebuilds server"
 
 for target in run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full; do

@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 HELPER="$ROOT_DIR/scripts/run-frontend-unit.sh"
 cleanup_paths=()
+# shellcheck source=scripts/lib/harness-scratch.sh
+source "$ROOT_DIR/scripts/lib/harness-scratch.sh"
 
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE
 
@@ -75,7 +77,7 @@ process.stdout.write(String(value));
 ' "$file" "$path"
 }
 
-tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/run-frontend-unit-smoke.XXXXXX")"
+tmp_dir="$(cartulary_harness_mktemp_dir "run-frontend-unit-smoke.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 runtime_dir="$tmp_dir/runtime"
 mkdir -p "$runtime_dir/bin"
@@ -136,12 +138,23 @@ for (const manifestPath of phaseFiles) {
   }
 }
 
-const statusFor = (index, fallback = "passed") => {
-  if ((mode === "authoritative-failure" || mode === "stack-failure") && index === 0) {
+let authoritativeFailureEmitted = false;
+function authoritativeStatus() {
+  if ((mode === "authoritative-failure" || mode === "stack-failure") && !authoritativeFailureEmitted) {
+    authoritativeFailureEmitted = true;
     return "failed";
   }
-  return fallback;
-};
+  return "passed";
+}
+
+let manifestSupportFailureEmitted = false;
+function manifestSupportStatus() {
+  if (mode === "manifest-support-failure" && !manifestSupportFailureEmitted) {
+    manifestSupportFailureEmitted = true;
+    return "failed";
+  }
+  return "passed";
+}
 
 const assertion = (title, status) => ({
   ancestorTitles: ["frontend-unit smoke"],
@@ -168,7 +181,7 @@ for (const [index, row] of authoritative.entries()) {
   const entries = byFile.get(absolute) ?? [];
   const titles = Array.isArray(row.titles) ? row.titles : [row.title];
   for (const title of titles.filter(Boolean)) {
-    entries.push(assertion(title, statusFor(index)));
+    entries.push(assertion(title, authoritativeStatus()));
   }
   byFile.set(absolute, entries);
 }
@@ -178,14 +191,7 @@ for (const [index, row] of manifestSupport.entries()) {
   const entries = byFile.get(absolute) ?? [];
   const titles = Array.isArray(row.titles) ? row.titles : [row.title];
   for (const title of titles.filter(Boolean)) {
-    entries.push(
-      assertion(
-        title,
-        mode === "manifest-support-failure" && index === 0
-          ? "failed"
-          : "passed",
-      ),
-    );
+    entries.push(assertion(title, manifestSupportStatus()));
   }
   byFile.set(absolute, entries);
 }

@@ -36,6 +36,27 @@ const {
   topologySummary,
 } = topologyModule;
 
+function scenarioShardSuffix(scenarioID) {
+  return scenarioID.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function expectedScenarioShardNames({ phase = "", executionFamily, target }) {
+  const row = targetPlanModule.collectTargetPlanRows(root).find(
+    (candidate) =>
+      candidate.manifest_phase === phase &&
+      candidate.target === target &&
+      candidate.execution_family === executionFamily,
+  );
+  assert.ok(row, `${phase} ${executionFamily} target-plan row must exist`);
+  assert.ok(
+    Object.keys(row.scenario_symbols ?? {}).length > 0,
+    `${phase} ${executionFamily} target-plan row must declare scenario_symbols`,
+  );
+  return Object.keys(row.scenario_symbols)
+    .map((scenarioID) => `${executionFamily}-${scenarioShardSuffix(scenarioID)}`)
+    .sort((left, right) => left.localeCompare(right));
+}
+
 const topology = loadExecutionTopology();
 const summary = topologySummary(topology);
 assert.equal(summary.schema_id, "cartulary.execution_topology.v3");
@@ -605,19 +626,18 @@ assert.deepEqual(
   ["service_session:check-service-backed"],
   "backend service-backed shards must depend only on the ready service session",
 );
-const expectedPhase10OperatorShards = [
-  "backend-process-phase10-operator-inspection-scn-001",
-  "backend-process-phase10-operator-inspection-scn-002",
-  "backend-process-phase10-operator-inspection-scn-003",
-  "backend-process-phase10-operator-inspection-scn-004-mismatch",
-  "backend-process-phase10-operator-inspection-scn-004-pass",
-];
+const phase10OperatorExecutionFamily = "backend-process-phase10-operator-inspection";
+const expectedPhase10OperatorShards = expectedScenarioShardNames({
+  phase: "phase10",
+  target: "backend-process",
+  executionFamily: phase10OperatorExecutionFamily,
+});
 const phase10OperatorUnits = expandedCheckSchedule.work_units
   .filter(
     (unit) =>
       unit.kind === "go_shard" &&
       unit.target === "backend-process" &&
-      unit.shard?.startsWith("backend-process-phase10-operator-inspection-scn-"),
+      unit.shard?.startsWith(`${phase10OperatorExecutionFamily}-scn-`),
   )
   .sort((left, right) => left.shard.localeCompare(right.shard));
 assert.deepEqual(

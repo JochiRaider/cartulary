@@ -7,6 +7,8 @@ MAKE_HELPER="${MAKE:-make}"
 PLAN_SCRIPT="$ROOT_DIR/scripts/print-target-plan.mjs"
 SHARD_PLAN_SCRIPT="$ROOT_DIR/scripts/print-go-shard-plan.mjs"
 cleanup_paths=()
+# shellcheck source=scripts/lib/harness-scratch.sh
+source "$ROOT_DIR/scripts/lib/harness-scratch.sh"
 
 cleanup() {
   local path
@@ -83,7 +85,7 @@ write_go_source_symbol() {
   } >"$root/$file"
 }
 
-tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/target-plan-smoke.XXXXXX")"
+tmp_dir="$(cartulary_harness_mktemp_dir "target-plan-smoke.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 
 json_a="$tmp_dir/target-plan-a.json"
@@ -94,21 +96,20 @@ json_b="$tmp_dir/target-plan-b.json"
 "$NODE_HELPER" -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' "$json_a"
 cmp -s "$json_a" "$json_b" || fail "target-plan JSON must be deterministic across invocations"
 
-if ! "$NODE_HELPER" - "$json_a" <<'EOF'
+if ! "$NODE_HELPER" - "$json_a" "$ROOT_DIR" <<'EOF'
 const fs = require("node:fs");
-const rows = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const path = require("node:path");
+const [jsonPath, root] = process.argv.slice(2);
+const rows = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+const phase10 = JSON.parse(fs.readFileSync(path.join(root, "tools/phase10_test_map.json"), "utf8"));
+const expectedScenarioSymbols = phase10.e2e.find((entry) => entry.id === "E-10-01")?.scenario_symbols ?? {};
+const sortObject = (value) =>
+  Object.fromEntries(Object.entries(value ?? {}).sort(([left], [right]) => left.localeCompare(right)));
 const phase10Operator = rows.find((row) => row.manifest_phase === "phase10" && row.id === "E-10-01");
-const expectedScenarioSymbols = {
-  "SCN-001": "TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata",
-  "SCN-002": "TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup",
-  "SCN-003": "TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner",
-  "SCN-004-PASS": "TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassEvidence",
-  "SCN-004-MISMATCH": "TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsMismatchEvidence",
-};
 if (
   !phase10Operator ||
   phase10Operator.primary_evidence_owner !== "E-10-01" ||
-  JSON.stringify(phase10Operator.scenario_symbols) !== JSON.stringify(expectedScenarioSymbols)
+  JSON.stringify(sortObject(phase10Operator.scenario_symbols)) !== JSON.stringify(sortObject(expectedScenarioSymbols))
 ) {
   process.exit(1);
 }
@@ -139,7 +140,7 @@ if (!transactionRows.every((row) => Number.isInteger(row.fixture_budget?.postgre
 }
 EOF
 then
-  fail "target-plan JSON must expose postgres fixture policies"
+  fail "target-plan JSON must expose scenario symbols and postgres fixture policies"
 fi
 
 shard_json_a="$tmp_dir/go-shard-plan-a.json"
@@ -214,20 +215,27 @@ fi
 
 backend_process_shard_json="$tmp_dir/go-shard-plan-backend-process.json"
 "$NODE_HELPER" "$SHARD_PLAN_SCRIPT" --json --target backend-process >"$backend_process_shard_json"
-if ! "$NODE_HELPER" - "$backend_process_shard_json" <<'EOF'
+if ! "$NODE_HELPER" - "$backend_process_shard_json" "$ROOT_DIR" <<'EOF'
 const fs = require("node:fs");
-const plan = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const path = require("node:path");
+const [jsonPath, root] = process.argv.slice(2);
+const plan = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+const phase10 = JSON.parse(fs.readFileSync(path.join(root, "tools/phase10_test_map.json"), "utf8"));
+const executionFamily = "backend-process-phase10-operator-inspection";
+const expectedScenarioSymbols = phase10.e2e.find((entry) => entry.id === "E-10-01")?.scenario_symbols ?? {};
+const scenarioShardSuffix = (scenarioID) =>
+  scenarioID.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 const phase10OperatorShards = plan.shards
-  .filter((shard) => shard.aggregate_name === "backend-process-phase10-operator-inspection")
+  .filter((shard) => shard.aggregate_name === executionFamily)
   .sort((left, right) => left.name.localeCompare(right.name));
-const expected = [
-  ["backend-process-phase10-operator-inspection-scn-001", "SCN-001", "^TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata$"],
-  ["backend-process-phase10-operator-inspection-scn-002", "SCN-002", "^TestPhase10_E_10_01_DeploymentLocalOperatorCaptureBackupSet$"],
-  ["backend-process-phase10-operator-inspection-scn-003", "SCN-003", "^TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup$"],
-  ["backend-process-phase10-operator-inspection-scn-004", "SCN-004", "^TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner$"],
-  ["backend-process-phase10-operator-inspection-scn-004-mismatch", "SCN-004-MISMATCH", "^TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsMismatchEvidence$"],
-  ["backend-process-phase10-operator-inspection-scn-004-pass", "SCN-004-PASS", "^TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassEvidence$"],
-];
+const expected = Object.entries(expectedScenarioSymbols)
+  .map(([scenarioID, symbol]) => [
+    `${executionFamily}-${scenarioShardSuffix(scenarioID)}`,
+    scenarioID,
+    `^${escapeRegex(symbol)}$`,
+  ])
+  .sort(([left], [right]) => left.localeCompare(right));
 if (phase10OperatorShards.length !== expected.length) {
   process.exit(1);
 }
