@@ -16,7 +16,7 @@ import {
   uniqueTxn,
 } from "./helpers";
 import {
-  collectionActionsPayload,
+  aliasCollectionActionsPayload,
   collectionItems,
   editGenericCell,
   findRow,
@@ -128,7 +128,7 @@ test(exactScenarioTitle, async ({ page }) => {
     client_txn_id: uniqueTxn("feip501-host"),
     "host.display_name": "FE-I-P5 Gateway",
     "host.hostname": "feip501-gateway.example.test",
-    "host.aliases": collectionActionsPayload(["FEIP501 Gateway"]),
+    "host.aliases": aliasCollectionActionsPayload(["FEIP501 Gateway"]),
   })) as ViewRow;
   const identity = (await createViewRow(
     page,
@@ -140,7 +140,7 @@ test(exactScenarioTitle, async ({ page }) => {
       "identity.upn": "feip501.analyst@example.test",
       "identity.email": "feip501.analyst@example.test",
       "identity.sam_account_name": "feip501",
-      "identity.aliases": collectionActionsPayload(["FEIP501 Analyst"]),
+      "identity.aliases": aliasCollectionActionsPayload(["FEIP501 Analyst"]),
     },
   )) as ViewRow;
   const note = (await createViewRow(page, incidentId, notesViewSchemaId, {

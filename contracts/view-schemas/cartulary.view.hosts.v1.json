@@ -70,7 +70,21 @@
     "host.containment_status"
   ],
   "inline_create": {
-    "permits_zero_field_create": false
+    "permits_zero_field_create": false,
+    "minimum_create_field_sets": [
+      [
+        "host.display_name"
+      ],
+      [
+        "host.hostname"
+      ],
+      [
+        "host.fqdn"
+      ],
+      [
+        "host.aad_device_id"
+      ]
+    ]
   },
   "inspector_config": {
     "inspector_config_schema_id": "cartulary.inspector_config.v1",
@@ -454,16 +468,17 @@
       ],
       "groupable": false,
       "read_kind": "text",
-      "write_kind": "read_only",
-      "conflict_resolution_class": null,
-      "entity_binding_mode": null,
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": "entity_origin",
       "string_contract_id": null,
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
-      "clearable": false,
+      "clearable": true,
       "enum_values": null,
-      "writable": false,
-      "read_model": "location"
+      "writable": true,
+      "read_model": "location",
+      "write_target": "hosts.location"
     },
     {
       "field_key": "host.os_platform",
@@ -477,16 +492,17 @@
       ],
       "groupable": false,
       "read_kind": "text",
-      "write_kind": "read_only",
-      "conflict_resolution_class": null,
-      "entity_binding_mode": null,
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": "entity_origin",
       "string_contract_id": null,
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
-      "clearable": false,
+      "clearable": true,
       "enum_values": null,
-      "writable": false,
-      "read_model": "os_platform"
+      "writable": true,
+      "read_model": "os_platform",
+      "write_target": "hosts.os_platform"
     },
     {
       "field_key": "host.business_owner",
@@ -500,16 +516,17 @@
       ],
       "groupable": false,
       "read_kind": "text",
-      "write_kind": "read_only",
-      "conflict_resolution_class": null,
-      "entity_binding_mode": null,
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": "entity_origin",
       "string_contract_id": null,
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
-      "clearable": false,
+      "clearable": true,
       "enum_values": null,
-      "writable": false,
-      "read_model": "business_owner"
+      "writable": true,
+      "read_model": "business_owner",
+      "write_target": "hosts.business_owner"
     },
     {
       "field_key": "host.criticality",
@@ -523,16 +540,17 @@
       ],
       "groupable": true,
       "read_kind": "text",
-      "write_kind": "read_only",
-      "conflict_resolution_class": null,
-      "entity_binding_mode": null,
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": "entity_origin",
       "string_contract_id": null,
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
-      "clearable": false,
+      "clearable": true,
       "enum_values": null,
-      "writable": false,
-      "read_model": "criticality"
+      "writable": true,
+      "read_model": "criticality",
+      "write_target": "hosts.criticality"
     },
     {
       "field_key": "host.containment_status",
@@ -546,16 +564,17 @@
       ],
       "groupable": true,
       "read_kind": "text",
-      "write_kind": "read_only",
-      "conflict_resolution_class": null,
-      "entity_binding_mode": null,
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": "entity_origin",
       "string_contract_id": null,
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
-      "clearable": false,
+      "clearable": true,
       "enum_values": null,
-      "writable": false,
-      "read_model": "containment_status"
+      "writable": true,
+      "read_model": "containment_status",
+      "write_target": "hosts.containment_status"
     },
     {
       "field_key": "host.edited_at",

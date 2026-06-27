@@ -4659,7 +4659,7 @@ Verified by: AC-119, AC-124, AC-125, AC-184, AC-191, AC-192, AC-193, AC-194, AC-
 - `default_sort`: `host.display_name asc`, `record_id asc`
 - `sort_fields`: `host.display_name`, `host.hostname`, `host.host_state`, `host.linked_event_count`, `host.evidence_count`, `host.location`, `host.os_platform`, `host.business_owner`, `host.criticality`, `host.containment_status`, `host.edited_at`
 - `filter_fields`: `host.host_state`, `host.business_owner`, `host.criticality`, `host.location`, `host.os_platform`, `host.containment_status`
-- inline create: direct row creation or paste on the Hosts sheet MUST create or upsert a `host` record using `entity_binding_mode=entity_origin`
+- inline create: direct row creation or paste on the Hosts sheet MUST create or upsert a `host` record using `entity_binding_mode=entity_origin`. A Host create MUST include at least one non-empty direct seed among `host.display_name`, `host.hostname`, `host.fqdn`, or `host.aad_device_id` after create-time normalization. `host.aliases` and server-filled defaults MUST NOT satisfy the minimum create signal by themselves.
 - create-or-upsert reuse on the Hosts sheet MUST apply the exact-match precedence in Core 02 §8.2. Suggestion-only candidates allowed by Core 02 §8.3 MUST NOT silently auto-merge or auto-resolve a host.
 - writable fields:
   - `host.display_name`: read the canonical host display field; write target the canonical host display field on the underlying `host` record; `entity_binding_mode=entity_origin`; `string_contract_id=display_name_line_v1`; `conflict_resolution_class=atomic_replace`
@@ -4721,7 +4721,7 @@ Verified by: AC-097, AC-118, AC-124, AC-125, AC-231
 - `default_sort`: `identity.display_name asc`, `record_id asc`
 - `sort_fields`: `identity.display_name`, `identity.upn`, `identity.email`, `identity.sam_account_name`, `identity.identity_state`, `identity.linked_event_count`, `identity.evidence_count`, `identity.privilege_level`, `identity.mfa_state`, `identity.reset_status`, `identity.edited_at`
 - `filter_fields`: `identity.identity_state`, `identity.privilege_level`, `identity.mfa_state`, `identity.reset_status`
-- inline create: direct row creation or paste on the Identities sheet MUST create or upsert an `identity` record using `entity_binding_mode=entity_origin`
+- inline create: direct row creation or paste on the Identities sheet MUST create or upsert an `identity` record using `entity_binding_mode=entity_origin`. An Identity create MUST include at least one non-empty direct seed among `identity.display_name`, `identity.aad_object_id`, `identity.sid`, `identity.upn`, `identity.email`, or `identity.sam_account_name` after create-time normalization. `identity.aliases` and server-filled defaults MUST NOT satisfy the minimum create signal by themselves.
 - create-or-upsert reuse on the Identities sheet MUST apply the exact-match precedence in Core 02 §8.2. Suggestion-only candidates allowed by Core 02 §8.3 MUST NOT silently auto-merge or auto-resolve an identity.
 - writable fields:
   - `identity.display_name`: read the canonical identity display field; write target the canonical identity display field on the underlying `identity` record; `entity_binding_mode=entity_origin`; `string_contract_id=display_name_line_v1`; `conflict_resolution_class=atomic_replace`

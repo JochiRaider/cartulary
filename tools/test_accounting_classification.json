@@ -483,6 +483,13 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+      "title": "uses contract create minima and canonical alias actions for entity sheets",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/workbook/models/workbookQuery.test.ts",
       "coverage": "unowned_regression",
       "reason": "Workbook query helpers are intentional product regression coverage."

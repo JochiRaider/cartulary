@@ -401,7 +401,7 @@ func TestPhase4_EntityOriginUpsert_I_4_02(t *testing.T) {
 				"host.aliases": map[string]any{
 					"kind": "collection_actions_v1",
 					"actions": []map[string]any{
-						{"op": "add_token", "raw_text": "VPN Gateway"},
+						{"op": "add_alias", "alias_text": "VPN Gateway"},
 					},
 				},
 			},
@@ -495,6 +495,24 @@ SELECT
 			t.Fatalf("expected alias-only create to remain suggestion-only, got %#v", aliasOnlyData)
 		}
 
+		aliasPayloadOnly := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.Phase4HostsViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id": "txn-phase4-i-4-02-host-alias-payload-only",
+				"host.aliases": map[string]any{
+					"kind": "collection_actions_v1",
+					"actions": []map[string]any{
+						{"op": "add_alias", "alias_text": "VPN Gateway Only"},
+					},
+				},
+			},
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		phase4test.RequireErrorBody(t, aliasPayloadOnly, http.StatusBadRequest, "invalid_mutation_payload")
+
 		phase4test.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4CanonicalHostRecordID, "Conflict Host A", "COLLISION-01", "", "")
 		phase4test.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4DuplicateHostRecordID, "Conflict Host B", "COLLISION-01", "", "")
 		conflictResp := phase4test.DoJSON(
@@ -545,7 +563,7 @@ SELECT
 				"identity.aliases": map[string]any{
 					"kind": "collection_actions_v1",
 					"actions": []map[string]any{
-						{"op": "add_token", "raw_text": "Case Owner"},
+						{"op": "add_alias", "alias_text": "Case Owner"},
 					},
 				},
 			},
@@ -645,6 +663,24 @@ SELECT COUNT(*)
 			t.Fatalf("expected alias-only identity create to remain suggestion-only, got %#v", aliasOnlyData)
 		}
 
+		aliasPayloadOnly := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.Phase4IdentitiesViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id": "txn-phase4-i-4-02-identity-alias-payload-only",
+				"identity.aliases": map[string]any{
+					"kind": "collection_actions_v1",
+					"actions": []map[string]any{
+						{"op": "add_alias", "alias_text": "Case Owner Only"},
+					},
+				},
+			},
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		phase4test.RequireErrorBody(t, aliasPayloadOnly, http.StatusBadRequest, "invalid_mutation_payload")
+
 		phase4test.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4CanonicalIdentityID, "Conflict Identity A", "collision@example.test", "collision@example.test", "COLLISION-A")
 		phase4test.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4DuplicateIdentityID, "Conflict Identity B", "collision@example.test", "collision@example.test", "COLLISION-B")
 		conflictResp := phase4test.DoJSON(
@@ -690,7 +726,7 @@ SELECT COUNT(*)
 			"host.aliases": map[string]any{
 				"kind": "collection_actions_v1",
 				"actions": []map[string]any{
-					{"op": "add_token", "raw_text": "Gateway Query Alias"},
+					{"op": "add_alias", "alias_text": "Gateway Query Alias"},
 				},
 			},
 		}
@@ -724,7 +760,7 @@ SELECT COUNT(*)
 			"identity.aliases": map[string]any{
 				"kind": "collection_actions_v1",
 				"actions": []map[string]any{
-					{"op": "add_token", "raw_text": "Query Owner"},
+					{"op": "add_alias", "alias_text": "Query Owner"},
 				},
 			},
 		}

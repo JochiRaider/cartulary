@@ -24,6 +24,7 @@ import {
   uniqueTxn,
 } from "./helpers";
 import {
+  aliasCollectionActionsPayload,
   clickTimelineRowAction,
   collectionActionsPayload,
   collectionItems,
@@ -551,7 +552,7 @@ test("E-7-05 rolls back a merge change set from row history", async ({
     "host.display_name": "E-7-05 loser",
     "host.hostname": "e705-loser",
     "host.fqdn": "e705-loser.example.test",
-    "host.aliases": collectionActionsPayload(["E-7-05 loser alias"]),
+    "host.aliases": aliasCollectionActionsPayload(["E-7-05 loser alias"]),
   })) as ViewRow;
   const timeline = (await createViewRow(
     page,

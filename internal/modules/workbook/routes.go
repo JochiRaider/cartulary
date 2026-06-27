@@ -465,6 +465,10 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 		s.handleTimelineCreate(w, r, principal, incidentID, timing)
 		return
 	}
+	if viewSchemaID == entities.HostsViewSchemaID || viewSchemaID == entities.IdentitiesViewSchemaID {
+		s.handleEntityCreate(w, r, principal, incidentID, viewSchemaID)
+		return
+	}
 	request, apiErr := DecodeCreateRequest(viewSchemaID, r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -475,6 +479,64 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 	telemetryResult, telemetryErrorCode := workbookMutationErrorTelemetry(err, request.ClientTxnID)
 	finishTelemetry(telemetryResult, telemetryErrorCode)
 	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
+}
+
+func (s *Service) handleEntityCreate(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, incidentID uuid.UUID, viewSchemaID string) {
+	request, apiErr := entities.DecodeCreateRequest(viewSchemaID, r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+
+	var (
+		result entities.MutationResult
+		err    error
+	)
+	requestHash := entities.CreateRequestHash(viewSchemaID, request)
+	switch viewSchemaID {
+	case entities.HostsViewSchemaID:
+		result, err = s.store.entityStore.CreateHostRow(r.Context(), principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+	case entities.IdentitiesViewSchemaID:
+		result, err = s.store.entityStore.CreateIdentityRow(r.Context(), principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+	default:
+		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unsupported_view_schema"))
+		return
+	}
+
+	var entityConflict *entities.ExactMatchConflictError
+	switch {
+	case errors.Is(err, authn.ErrClientTxnConflict):
+		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, entities.ErrInvalidCreateRequest):
+		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))
+		return
+	case errors.As(err, &entityConflict):
+		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+
+	row, _ := result.Payload["row"].(map[string]any)
+	if !result.Replayed {
+		s.publishRecordChange(MutationResult{
+			Payload:          result.Payload,
+			IncidentID:       incidentID,
+			RecordID:         result.RecordID,
+			ChangeSetID:      result.ChangeSetID,
+			ClientTxnID:      request.ClientTxnID,
+			RowVersion:       result.RowVersion,
+			ViewSchemaID:     viewSchemaID,
+			ChangedFieldKeys: changedFieldKeys(nil, row),
+		}, principal.User.ID)
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
 func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request) {

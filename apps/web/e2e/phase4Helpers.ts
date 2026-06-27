@@ -205,6 +205,16 @@ export function collectionActionsPayload(rawTexts: string[]) {
   };
 }
 
+export function aliasCollectionActionsPayload(aliasTexts: string[]) {
+  return {
+    kind: "collection_actions_v1",
+    actions: aliasTexts.map((aliasText) => ({
+      op: "add_alias",
+      alias_text: aliasText,
+    })),
+  };
+}
+
 export function resolvedRefPayload(rawText: string, resolvedRecordId: string) {
   return {
     kind: "collection_actions_v1",
@@ -266,7 +276,7 @@ export async function seedHostMentionStateFixture(
     client_txn_id: uniqueTxn(`${options.txnPrefix}-auto-target`),
     "host.display_name": `${options.displayPrefix} Auto Target`,
     "host.hostname": `${options.hostnamePrefix}-auto-target.example.test`,
-    "host.aliases": collectionActionsPayload([
+    "host.aliases": aliasCollectionActionsPayload([
       `${options.rawTextPrefix} Auto Alias`,
     ]),
   });

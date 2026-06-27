@@ -27,7 +27,7 @@ type PatchRequest struct {
 
 type PatchChange struct {
 	FieldKey string
-	Value    string
+	Value    *string
 }
 
 type PatchMutationResult struct {
@@ -130,23 +130,51 @@ func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserR
 	for _, change := range request.Changes {
 		switch change.FieldKey {
 		case "host.display_name":
-			if next.DisplayName != change.Value {
-				next.DisplayName = change.Value
+			if change.Value == nil {
+				return PatchMutationResult{}, ErrNoEffectivePatchChange
+			}
+			if next.DisplayName != *change.Value {
+				next.DisplayName = *change.Value
 				changedFields = append(changedFields, change.FieldKey)
 			}
 		case "host.hostname":
-			if stringPointerValue(next.Hostname) != change.Value {
-				next.Hostname = cloneStringPointer(&change.Value)
+			if !stringPointersEqual(next.Hostname, change.Value) {
+				next.Hostname = cloneStringPointer(change.Value)
 				changedFields = append(changedFields, change.FieldKey)
 			}
 		case "host.aad_device_id":
-			if stringPointerValue(next.AADDeviceID) != change.Value {
-				next.AADDeviceID = cloneStringPointer(&change.Value)
+			if !stringPointersEqual(next.AADDeviceID, change.Value) {
+				next.AADDeviceID = cloneStringPointer(change.Value)
 				changedFields = append(changedFields, change.FieldKey)
 			}
 		case "host.fqdn":
-			if stringPointerValue(next.FQDN) != change.Value {
-				next.FQDN = cloneStringPointer(&change.Value)
+			if !stringPointersEqual(next.FQDN, change.Value) {
+				next.FQDN = cloneStringPointer(change.Value)
+				changedFields = append(changedFields, change.FieldKey)
+			}
+		case "host.location":
+			if !stringPointersEqual(next.Location, change.Value) {
+				next.Location = cloneStringPointer(change.Value)
+				changedFields = append(changedFields, change.FieldKey)
+			}
+		case "host.os_platform":
+			if !stringPointersEqual(next.OSPlatform, change.Value) {
+				next.OSPlatform = cloneStringPointer(change.Value)
+				changedFields = append(changedFields, change.FieldKey)
+			}
+		case "host.business_owner":
+			if !stringPointersEqual(next.BusinessOwner, change.Value) {
+				next.BusinessOwner = cloneStringPointer(change.Value)
+				changedFields = append(changedFields, change.FieldKey)
+			}
+		case "host.criticality":
+			if !stringPointersEqual(next.Criticality, change.Value) {
+				next.Criticality = cloneStringPointer(change.Value)
+				changedFields = append(changedFields, change.FieldKey)
+			}
+		case "host.containment_status":
+			if !stringPointersEqual(next.ContainmentStatus, change.Value) {
+				next.ContainmentStatus = cloneStringPointer(change.Value)
 				changedFields = append(changedFields, change.FieldKey)
 			}
 		default:
@@ -193,33 +221,51 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 	for _, change := range request.Changes {
 		switch change.FieldKey {
 		case "identity.display_name":
-			if next.DisplayName != change.Value {
-				next.DisplayName = change.Value
+			if change.Value == nil {
+				return PatchMutationResult{}, ErrNoEffectivePatchChange
+			}
+			if next.DisplayName != *change.Value {
+				next.DisplayName = *change.Value
 				changedFields = append(changedFields, change.FieldKey)
 			}
 		case "identity.aad_object_id":
-			if stringPointerValue(next.AADObjectID) != change.Value {
-				next.AADObjectID = cloneStringPointer(&change.Value)
+			if !stringPointersEqual(next.AADObjectID, change.Value) {
+				next.AADObjectID = cloneStringPointer(change.Value)
 				changedFields = append(changedFields, change.FieldKey)
 			}
 		case "identity.sid":
-			if stringPointerValue(next.SID) != change.Value {
-				next.SID = cloneStringPointer(&change.Value)
+			if !stringPointersEqual(next.SID, change.Value) {
+				next.SID = cloneStringPointer(change.Value)
 				changedFields = append(changedFields, change.FieldKey)
 			}
 		case "identity.upn":
-			if stringPointerValue(next.UPN) != change.Value {
-				next.UPN = cloneStringPointer(&change.Value)
+			if !stringPointersEqual(next.UPN, change.Value) {
+				next.UPN = cloneStringPointer(change.Value)
 				changedFields = append(changedFields, change.FieldKey)
 			}
 		case "identity.email":
-			if stringPointerValue(next.Email) != change.Value {
-				next.Email = cloneStringPointer(&change.Value)
+			if !stringPointersEqual(next.Email, change.Value) {
+				next.Email = cloneStringPointer(change.Value)
 				changedFields = append(changedFields, change.FieldKey)
 			}
 		case "identity.sam_account_name":
-			if stringPointerValue(next.SamAccountName) != change.Value {
-				next.SamAccountName = cloneStringPointer(&change.Value)
+			if !stringPointersEqual(next.SamAccountName, change.Value) {
+				next.SamAccountName = cloneStringPointer(change.Value)
+				changedFields = append(changedFields, change.FieldKey)
+			}
+		case "identity.privilege_level":
+			if !stringPointersEqual(next.PrivilegeLevel, change.Value) {
+				next.PrivilegeLevel = cloneStringPointer(change.Value)
+				changedFields = append(changedFields, change.FieldKey)
+			}
+		case "identity.mfa_state":
+			if !stringPointersEqual(next.MFAState, change.Value) {
+				next.MFAState = cloneStringPointer(change.Value)
+				changedFields = append(changedFields, change.FieldKey)
+			}
+		case "identity.reset_status":
+			if !stringPointersEqual(next.ResetStatus, change.Value) {
+				next.ResetStatus = cloneStringPointer(change.Value)
 				changedFields = append(changedFields, change.FieldKey)
 			}
 		default:
@@ -344,9 +390,9 @@ func entityRecordTypeMatchesView(recordType string, viewSchemaID string) bool {
 	}
 }
 
-func stringPointerValue(value *string) string {
-	if value == nil {
-		return ""
+func stringPointersEqual(left *string, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
 	}
-	return *value
+	return *left == *right
 }

@@ -896,6 +896,11 @@ INSERT INTO hosts (
     aad_device_id,
     fqdn,
     hostname,
+    location,
+    os_platform,
+    business_owner,
+    criticality,
+    containment_status,
     host_state,
     entity_origin,
     seed_entity_mention_id,
@@ -905,9 +910,9 @@ INSERT INTO hosts (
     created_by_user_id,
     updated_by_user_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11, $12, $12)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16, $17, $17)
 RETURNING record_id
-`, record.RecordID, record.IncidentID, record.DisplayName, record.AADDeviceID, record.FQDN, record.Hostname, record.HostState, record.EntityOrigin, record.SeedMentionID, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
+`, record.RecordID, record.IncidentID, record.DisplayName, record.AADDeviceID, record.FQDN, record.Hostname, record.Location, record.OSPlatform, record.BusinessOwner, record.Criticality, record.ContainmentStatus, record.HostState, record.EntityOrigin, record.SeedMentionID, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
 }
 
 func updateHostTx(ctx context.Context, tx pgx.Tx, record HostRecord) error {
@@ -917,13 +922,18 @@ UPDATE hosts
        aad_device_id = $3,
        fqdn = $4,
        hostname = $5,
-       host_state = $6,
-       merged_into_record_id = $7,
-       row_version = $8,
-       updated_at = $9,
-       updated_by_user_id = $10
+       location = $6,
+       os_platform = $7,
+       business_owner = $8,
+       criticality = $9,
+       containment_status = $10,
+       host_state = $11,
+       merged_into_record_id = $12,
+       row_version = $13,
+       updated_at = $14,
+       updated_by_user_id = $15
  WHERE record_id = $1
-`, record.RecordID, record.DisplayName, record.AADDeviceID, record.FQDN, record.Hostname, record.HostState, record.MergedIntoRecordID, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
+`, record.RecordID, record.DisplayName, record.AADDeviceID, record.FQDN, record.Hostname, record.Location, record.OSPlatform, record.BusinessOwner, record.Criticality, record.ContainmentStatus, record.HostState, record.MergedIntoRecordID, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
 	if err != nil {
 		return fmt.Errorf("update host: %w", err)
 	}
@@ -968,12 +978,12 @@ VALUES (
            AND l.deleted_at IS NULL
     ),
     0,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    $7
+    $7,
+    $8,
+    $9,
+    $10,
+    $11,
+    $12
 )
 ON CONFLICT (record_id) DO UPDATE
 SET incident_id = EXCLUDED.incident_id,
@@ -982,8 +992,13 @@ SET incident_id = EXCLUDED.incident_id,
     hostname = EXCLUDED.hostname,
     host_state = EXCLUDED.host_state,
     linked_event_count = EXCLUDED.linked_event_count,
+    location = EXCLUDED.location,
+    os_platform = EXCLUDED.os_platform,
+    business_owner = EXCLUDED.business_owner,
+    criticality = EXCLUDED.criticality,
+    containment_status = EXCLUDED.containment_status,
     edited_at = EXCLUDED.edited_at
-`, record.RecordID, record.IncidentID, record.RowVersion, record.DisplayName, record.Hostname, record.HostState, record.UpdatedAt.UTC())
+`, record.RecordID, record.IncidentID, record.RowVersion, record.DisplayName, record.Hostname, record.HostState, record.Location, record.OSPlatform, record.BusinessOwner, record.Criticality, record.ContainmentStatus, record.UpdatedAt.UTC())
 	if err != nil {
 		return fmt.Errorf("upsert host projection: %w", err)
 	}
@@ -1001,6 +1016,9 @@ INSERT INTO identities (
     upn,
     email,
     sam_account_name,
+    privilege_level,
+    mfa_state,
+    reset_status,
     identity_state,
     entity_origin,
     seed_entity_mention_id,
@@ -1010,9 +1028,9 @@ INSERT INTO identities (
     created_by_user_id,
     updated_by_user_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13, $14, $14)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16, $17, $17)
 RETURNING record_id
-`, record.RecordID, record.IncidentID, record.DisplayName, record.AADObjectID, record.SID, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.EntityOrigin, record.SeedMentionID, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
+`, record.RecordID, record.IncidentID, record.DisplayName, record.AADObjectID, record.SID, record.UPN, record.Email, record.SamAccountName, record.PrivilegeLevel, record.MFAState, record.ResetStatus, record.IdentityState, record.EntityOrigin, record.SeedMentionID, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
 }
 
 func updateIdentityTx(ctx context.Context, tx pgx.Tx, record IdentityRecord) error {
@@ -1024,13 +1042,16 @@ UPDATE identities
        upn = $5,
        email = $6,
        sam_account_name = $7,
-       identity_state = $8,
-       merged_into_record_id = $9,
-       row_version = $10,
-       updated_at = $11,
-       updated_by_user_id = $12
+       privilege_level = $8,
+       mfa_state = $9,
+       reset_status = $10,
+       identity_state = $11,
+       merged_into_record_id = $12,
+       row_version = $13,
+       updated_at = $14,
+       updated_by_user_id = $15
  WHERE record_id = $1
-`, record.RecordID, record.DisplayName, record.AADObjectID, record.SID, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.MergedIntoRecordID, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
+`, record.RecordID, record.DisplayName, record.AADObjectID, record.SID, record.UPN, record.Email, record.SamAccountName, record.PrivilegeLevel, record.MFAState, record.ResetStatus, record.IdentityState, record.MergedIntoRecordID, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
 	if err != nil {
 		return fmt.Errorf("update identity: %w", err)
 	}
@@ -1077,10 +1098,10 @@ VALUES (
            AND l.deleted_at IS NULL
     ),
     0,
-    NULL,
-    NULL,
-    NULL,
-    $9
+    $9,
+    $10,
+    $11,
+    $12
 )
 ON CONFLICT (record_id) DO UPDATE
 SET incident_id = EXCLUDED.incident_id,
@@ -1091,8 +1112,11 @@ SET incident_id = EXCLUDED.incident_id,
     sam_account_name = EXCLUDED.sam_account_name,
     identity_state = EXCLUDED.identity_state,
     linked_event_count = EXCLUDED.linked_event_count,
+    privilege_level = EXCLUDED.privilege_level,
+    mfa_state = EXCLUDED.mfa_state,
+    reset_status = EXCLUDED.reset_status,
     edited_at = EXCLUDED.edited_at
-`, record.RecordID, record.IncidentID, record.RowVersion, record.DisplayName, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.UpdatedAt.UTC())
+`, record.RecordID, record.IncidentID, record.RowVersion, record.DisplayName, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.PrivilegeLevel, record.MFAState, record.ResetStatus, record.UpdatedAt.UTC())
 	if err != nil {
 		return fmt.Errorf("upsert identity projection: %w", err)
 	}

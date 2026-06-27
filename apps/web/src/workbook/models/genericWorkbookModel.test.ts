@@ -28,6 +28,8 @@ import {
   evidenceViewSchemaId,
   findingsViewSchemaId,
   forensicKeywordsViewSchemaId,
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
   notesViewSchemaId,
 } from "./workbookSurfaceRegistry";
 
@@ -96,6 +98,92 @@ describe("genericWorkbookModel", () => {
       action_payload: {
         kind: "collection_actions_v1",
         actions: [{ op: "add_record_ref", linked_record_id: "record-1" }],
+      },
+    });
+  });
+
+  it("uses contract create minima and canonical alias actions for entity sheets", () => {
+    const hosts = requireViewContract(hostsViewSchemaId);
+    const identities = requireViewContract(identitiesViewSchemaId);
+
+    expect(
+      workbookCreateMinimumSatisfied(hosts, {
+        "host.aliases": "VPN Gateway",
+      }),
+    ).toBe(false);
+    expect(
+      buildGenericCreatePayload(
+        hosts,
+        {
+          "host.aliases": "VPN Gateway",
+        },
+        "txn-host-alias-only",
+      ),
+    ).toBeNull();
+    expect(
+      buildGenericCreatePayload(
+        hosts,
+        {
+          "host.location": "Datacenter A",
+        },
+        "txn-host-operational-only",
+      ),
+    ).toBeNull();
+    expect(
+      buildGenericCreatePayload(
+        hosts,
+        {
+          "host.hostname": " GATEWAY-01 ",
+          "host.aliases": " VPN Gateway ",
+        },
+        "txn-host-create",
+      ),
+    ).toMatchObject({
+      client_txn_id: "txn-host-create",
+      "host.hostname": "GATEWAY-01",
+      "host.aliases": {
+        kind: "collection_actions_v1",
+        actions: [{ op: "add_alias", alias_text: "VPN Gateway" }],
+      },
+    });
+    expect(
+      buildGenericPatchChange(
+        requireField(hosts, "host.aliases"),
+        "entity_alias:host-1",
+        "remove",
+      ),
+    ).toEqual({
+      field_key: "host.aliases",
+      action_payload: {
+        kind: "collection_actions_v1",
+        actions: [{ op: "remove_alias", item_ref: "entity_alias:host-1" }],
+      },
+    });
+
+    expect(
+      buildGenericCreatePayload(
+        identities,
+        {
+          "identity.mfa_state": "enabled",
+        },
+        "txn-identity-operational-only",
+      ),
+    ).toBeNull();
+    expect(
+      buildGenericCreatePayload(
+        identities,
+        {
+          "identity.email": " alex.analyst@example.test ",
+          "identity.aliases": " Analyst Alex ",
+        },
+        "txn-identity-create",
+      ),
+    ).toMatchObject({
+      client_txn_id: "txn-identity-create",
+      "identity.email": "alex.analyst@example.test",
+      "identity.aliases": {
+        kind: "collection_actions_v1",
+        actions: [{ op: "add_alias", alias_text: "Analyst Alex" }],
       },
     });
   });

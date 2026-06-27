@@ -498,12 +498,24 @@ func entityPatchRequestFromWorkbook(request PatchRequest) (entities.PatchRequest
 		if !isEntityDirectPatchField(request.ViewSchemaID, change.FieldKey) {
 			return entities.PatchRequest{}, mutationValidationError("field_key", "unsupported_field_key")
 		}
-		if change.Collection != nil || change.Value == nil || change.Value.Kind != "text" || change.Value.Text == nil {
+		if change.Collection != nil || change.Value == nil {
+			return entities.PatchRequest{}, mutationValidationError(change.FieldKey, "invalid_value")
+		}
+		var value *string
+		switch change.Value.Kind {
+		case "text":
+			if change.Value.Text == nil {
+				return entities.PatchRequest{}, mutationValidationError(change.FieldKey, "invalid_value")
+			}
+			value = change.Value.Text
+		case "null":
+			value = nil
+		default:
 			return entities.PatchRequest{}, mutationValidationError(change.FieldKey, "invalid_value")
 		}
 		changes = append(changes, entities.PatchChange{
 			FieldKey: change.FieldKey,
-			Value:    *change.Value.Text,
+			Value:    value,
 		})
 	}
 	return entities.PatchRequest{
@@ -518,14 +530,16 @@ func isEntityDirectPatchField(viewSchemaID string, fieldKey string) bool {
 	switch viewSchemaID {
 	case entities.HostsViewSchemaID:
 		switch fieldKey {
-		case "host.display_name", "host.hostname", "host.aad_device_id", "host.fqdn":
+		case "host.display_name", "host.hostname", "host.aad_device_id", "host.fqdn",
+			"host.location", "host.os_platform", "host.business_owner", "host.criticality", "host.containment_status":
 			return true
 		default:
 			return false
 		}
 	case entities.IdentitiesViewSchemaID:
 		switch fieldKey {
-		case "identity.display_name", "identity.aad_object_id", "identity.sid", "identity.upn", "identity.email", "identity.sam_account_name":
+		case "identity.display_name", "identity.aad_object_id", "identity.sid", "identity.upn", "identity.email", "identity.sam_account_name",
+			"identity.privilege_level", "identity.mfa_state", "identity.reset_status":
 			return true
 		default:
 			return false

@@ -39,7 +39,8 @@ type SortEntry struct {
 }
 
 type inlineCreate struct {
-	PermitsZeroFieldCreate bool `json:"permits_zero_field_create"`
+	MinimumCreateFieldSets [][]string `json:"minimum_create_field_sets"`
+	PermitsZeroFieldCreate bool       `json:"permits_zero_field_create"`
 }
 
 type SyntheticFilterPredicate struct {
@@ -134,6 +135,7 @@ type registryIndexEntry struct {
 
 type Schema struct {
 	ViewSchemaID           string
+	MinimumCreateFieldSets [][]string
 	PermitsZeroFieldCreate bool
 	BaseProjection         string
 	canonicalSourceFilter  *CanonicalSourceFilter
@@ -178,6 +180,7 @@ type ViewSchemaResource struct {
 	FilterFields              []string                   `json:"filter_fields"`
 	SyntheticFilterPredicates []SyntheticFilterPredicate `json:"synthetic_filter_predicates"`
 	GroupingFields            []string                   `json:"grouping_fields"`
+	InlineCreate              inlineCreate               `json:"inline_create"`
 	InspectorConfig           InspectorConfig            `json:"inspector_config"`
 	Fields                    []ViewFieldEntry           `json:"fields"`
 }
@@ -311,6 +314,7 @@ func loadRegistry() {
 
 			schemas[document.ViewSchemaID] = Schema{
 				ViewSchemaID:           document.ViewSchemaID,
+				MinimumCreateFieldSets: cloneStringMatrix(document.InlineCreate.MinimumCreateFieldSets),
 				PermitsZeroFieldCreate: document.InlineCreate.PermitsZeroFieldCreate,
 				BaseProjection:         document.BaseProjection,
 				canonicalSourceFilter:  cloneCanonicalSourceFilter(document.CanonicalSourceFilter),
@@ -369,8 +373,12 @@ func buildPublicResource(document schemaDocument) ViewSchemaResource {
 		FilterFields:              cloneStrings(document.FilterFields),
 		SyntheticFilterPredicates: cloneSyntheticFilterPredicates(document.SyntheticFilterPredicates),
 		GroupingFields:            cloneStrings(document.GroupingFields),
-		InspectorConfig:           cloneInspectorConfig(document.InspectorConfig),
-		Fields:                    fields,
+		InlineCreate: inlineCreate{
+			MinimumCreateFieldSets: cloneStringMatrix(document.InlineCreate.MinimumCreateFieldSets),
+			PermitsZeroFieldCreate: document.InlineCreate.PermitsZeroFieldCreate,
+		},
+		InspectorConfig: cloneInspectorConfig(document.InspectorConfig),
+		Fields:          fields,
 	}
 }
 
@@ -383,6 +391,7 @@ func cloneResource(resource ViewSchemaResource) ViewSchemaResource {
 	resource.FilterFields = cloneStrings(resource.FilterFields)
 	resource.SyntheticFilterPredicates = cloneSyntheticFilterPredicates(resource.SyntheticFilterPredicates)
 	resource.GroupingFields = cloneStrings(resource.GroupingFields)
+	resource.InlineCreate.MinimumCreateFieldSets = cloneStringMatrix(resource.InlineCreate.MinimumCreateFieldSets)
 	resource.InspectorConfig = cloneInspectorConfig(resource.InspectorConfig)
 	resource.Fields = cloneViewFieldEntries(resource.Fields)
 	return resource
@@ -478,6 +487,17 @@ func cloneStrings(values []string) []string {
 	}
 	cloned := make([]string, len(values))
 	copy(cloned, values)
+	return cloned
+}
+
+func cloneStringMatrix(values [][]string) [][]string {
+	if values == nil {
+		return [][]string{}
+	}
+	cloned := make([][]string, len(values))
+	for index, value := range values {
+		cloned[index] = cloneStrings(value)
+	}
 	return cloned
 }
 

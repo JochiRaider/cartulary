@@ -339,11 +339,16 @@ func validateViewSchemaShape(value any, relativePath string) error {
 	if err != nil {
 		return err
 	}
-	if err := requireAllowedKeys(inlineCreate, stringSet("permits_zero_field_create"), relativePath+".inline_create"); err != nil {
+	if err := requireAllowedKeys(inlineCreate, stringSet("permits_zero_field_create", "minimum_create_field_sets"), relativePath+".inline_create"); err != nil {
 		return err
 	}
 	if _, err := requiredBool(inlineCreate, "permits_zero_field_create", relativePath+".inline_create"); err != nil {
 		return err
+	}
+	if _, ok := inlineCreate["minimum_create_field_sets"]; ok {
+		if _, err := stringMatrix(inlineCreate["minimum_create_field_sets"], relativePath+".inline_create.minimum_create_field_sets"); err != nil {
+			return err
+		}
 	}
 	if err := validateInspectorConfig(object["inspector_config"], viewSchemaID, relativePath+".inspector_config"); err != nil {
 		return err
@@ -367,6 +372,22 @@ func validateViewSchemaShape(value any, relativePath string) error {
 			return fmt.Errorf("%s duplicate field_key %s", relativePath, fieldKey)
 		}
 		fieldKeys[fieldKey] = struct{}{}
+	}
+	if rawSets, ok := inlineCreate["minimum_create_field_sets"]; ok {
+		fieldSets, err := stringMatrix(rawSets, relativePath+".inline_create.minimum_create_field_sets")
+		if err != nil {
+			return err
+		}
+		for setIndex, fieldSet := range fieldSets {
+			if len(fieldSet) == 0 {
+				return fmt.Errorf("%s.inline_create.minimum_create_field_sets[%d] must not be empty", relativePath, setIndex+1)
+			}
+			for itemIndex, fieldKey := range fieldSet {
+				if _, ok := fieldKeys[fieldKey]; !ok {
+					return fmt.Errorf("%s.inline_create.minimum_create_field_sets[%d][%d] references unknown field_key %s", relativePath, setIndex+1, itemIndex+1, fieldKey)
+				}
+			}
+		}
 	}
 	technicalFields, err := stringArray(object["technical_fields"], relativePath+".technical_fields", false)
 	if err != nil {
@@ -1058,6 +1079,22 @@ func stringArray(value any, label string, requireNonEmpty bool) ([]string, error
 		}
 		seen[text] = struct{}{}
 		values = append(values, text)
+	}
+	return values, nil
+}
+
+func stringMatrix(value any, label string) ([][]string, error) {
+	items, ok := value.([]any)
+	if !ok {
+		return nil, fmt.Errorf("%s must be an array", label)
+	}
+	values := make([][]string, 0, len(items))
+	for index, item := range items {
+		nested, err := stringArray(item, fmt.Sprintf("%s[%d]", label, index+1), true)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, nested)
 	}
 	return values, nil
 }

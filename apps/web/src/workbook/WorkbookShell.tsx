@@ -762,6 +762,12 @@ function EntityWorkbookSurface({
   const [editRecordId, setEditRecordId] = useState("");
   const [editFieldKey, setEditFieldKey] = useState("");
   const [editValue, setEditValue] = useState("");
+  const [createDraft, setCreateDraft] = useState<Record<string, string>>(() =>
+    initialGenericCreateDraft(
+      entityType === "host" ? hostsContract : identitiesContract,
+      null,
+    ),
+  );
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [mutationState, setMutationState] = useState<SaveState>("Saved");
   const { loadTimelinePreview, timelinePreviewRows } = useEntityTimelinePreview(
@@ -785,6 +791,11 @@ function EntityWorkbookSurface({
     "relationships",
   );
   const surface: WorkbookSurface = contract.viewSchemaId;
+  const draftRowRecordId = `${surface}:draft-row`;
+  const writableFields = useMemo(
+    () => contract.fields.filter((field) => field.writeKind !== "read_only"),
+    [contract],
+  );
   const editableEntityFields = useMemo(
     () => contract.fields.filter((field) => field.writeKind === "direct_value"),
     [contract],
@@ -813,12 +824,53 @@ function EntityWorkbookSurface({
       }),
     [contract, surface],
   );
-  const entityGridRows = buildWorkbookGridRows({
-    getRecordId: (row: EntityRow) => row.recordId,
+  const draftEntityRawRow = useMemo<EntityApiRow>(
+    () => ({
+      record_id: draftRowRecordId,
+      row_version: 0,
+      cells: Object.fromEntries(
+        contract.fields.map((field) => [
+          field.fieldKey,
+          { value: createDraft[field.fieldKey] ?? "" },
+        ]),
+      ),
+    }),
+    [contract.fields, createDraft, draftRowRecordId],
+  );
+  const draftEntityRow = useMemo<EntityRow>(
+    () => entityRowFromApi(draftEntityRawRow, entityType),
+    [draftEntityRawRow, entityType],
+  );
+  const entityGridRows = useMemo<readonly GridRow<EntityRow>[]>(() => {
+    const savedRows = buildWorkbookGridRows({
+      getRecordId: (row: EntityRow) => row.recordId,
+      rows,
+      selectedRecordId: selectedEntity?.recordId ?? null,
+      surface,
+    });
+    if (writableFields.length === 0) {
+      return savedRows;
+    }
+    return [
+      ...savedRows,
+      {
+        key: draftRowRecordId,
+        recordId: null,
+        data: draftEntityRow,
+        gutterContent: "+",
+        gutterLabel: "Draft row",
+        testId: workbookInlineDraftRowTestId(surface),
+        variant: "draft",
+      },
+    ];
+  }, [
+    draftEntityRow,
+    draftRowRecordId,
     rows,
-    selectedRecordId: selectedEntity?.recordId ?? null,
+    selectedEntity?.recordId,
     surface,
-  });
+    writableFields.length,
+  ]);
   const entityFocus = useWorkbookGridFocus({
     columns: entityAnchorColumns,
     getGroupLabel: (row, fieldKey) => entityGroupLabel(row, fieldKey),
@@ -904,41 +956,81 @@ function EntityWorkbookSurface({
   const entityColumns: readonly GridColumn<EntityRow>[] =
     entityAnchorColumns.map((column) => ({
       ...column,
-      renderCell: (row) => (
-        <FocusableWorkbookCell
-          fieldKey={column.fieldKey}
-          focus={entityFocus}
-          onPaste={handleEntityPaste}
-          recordId={row.recordId}
-        >
-          {entityCellContent(entityType, row, column.fieldKey)}
-        </FocusableWorkbookCell>
-      ),
+      renderCell: (row) => {
+        if (row.recordId === draftRowRecordId) {
+          const writableField =
+            writableFields.find(
+              (candidate) => candidate.fieldKey === column.fieldKey,
+            ) ?? null;
+          if (writableField === null) {
+            return <span style={draftCellPlaceholderStyle}>-</span>;
+          }
+          return (
+            <GenericMutationControl
+              collectionMode="add"
+              field={writableField}
+              referenceOptions={entityReferenceOptions}
+              surface="grid"
+              testId={genericCreateFieldTestId(writableField.fieldKey)}
+              value={createDraft[writableField.fieldKey] ?? ""}
+              onChange={(value) => {
+                setCreateDraft((current) => ({
+                  ...current,
+                  [writableField.fieldKey]: value,
+                }));
+              }}
+            />
+          );
+        }
+        return (
+          <FocusableWorkbookCell
+            fieldKey={column.fieldKey}
+            focus={entityFocus}
+            onPaste={handleEntityPaste}
+            recordId={row.recordId}
+          >
+            {entityCellContent(entityType, row, column.fieldKey)}
+          </FocusableWorkbookCell>
+        );
+      },
     }));
   const entityActionsColumn: GridActionsColumn<EntityRow> = {
     headerTestId: gridActionsHeaderTestId(surface),
     label: "",
-    width: 44,
-    minWidth: 44,
-    renderCell: ({ data: row }) => (
-      <span
-        data-testid={workbookRowActionMenuButtonTestId(surface, row.recordId)}
-      >
+    width: 76,
+    minWidth: 76,
+    renderCell: ({ data: row }) =>
+      row.recordId === draftRowRecordId ? (
         <button
-          data-testid={entityInspectButtonTestId(entityType, row.recordId)}
-          aria-label={`Inspect ${row.label}`}
-          style={rowMenuButtonStyle}
+          data-testid={genericCreateSubmitTestId(contract.viewSchemaId)}
+          disabled={mutationState === "Syncing"}
+          style={secondaryActionButtonStyle}
           type="button"
           onClick={() => {
-            setSelectedRecordId(row.recordId);
-            setMergeMessage(null);
-            setIsInspectorOpen(true);
+            void submitEntityCreate();
           }}
         >
-          <MoreHorizontal aria-hidden="true" size={16} />
+          Commit
         </button>
-      </span>
-    ),
+      ) : (
+        <span
+          data-testid={workbookRowActionMenuButtonTestId(surface, row.recordId)}
+        >
+          <button
+            data-testid={entityInspectButtonTestId(entityType, row.recordId)}
+            aria-label={`Inspect ${row.label}`}
+            style={rowMenuButtonStyle}
+            type="button"
+            onClick={() => {
+              setSelectedRecordId(row.recordId);
+              setMergeMessage(null);
+              setIsInspectorOpen(true);
+            }}
+          >
+            <MoreHorizontal aria-hidden="true" size={16} />
+          </button>
+        </span>
+      ),
   };
   const { row: selectedEditRow, field: selectedEditField } =
     selectWorkbookEditTarget({
@@ -959,7 +1051,8 @@ function EntityWorkbookSurface({
     setEditRecordId("");
     setEditFieldKey("");
     setEditValue("");
-  }, [inspectorResetKey]);
+    setCreateDraft(initialGenericCreateDraft(contract, null));
+  }, [contract, inspectorResetKey]);
 
   useEffect(() => {
     if (selectedEntityPlanInvalidationKey === "") {
@@ -1022,6 +1115,37 @@ function EntityWorkbookSurface({
     }
     await onRefreshEntities();
     setSelectedRecordId(selectedEditRow.recordId);
+    setMutationState("Saved");
+  }
+
+  async function submitEntityCreate() {
+    const payload = buildGenericCreatePayload(
+      contract,
+      createDraft,
+      `entity-create-${contract.viewSchemaId}-${Date.now()}`,
+    );
+    if (payload === null) {
+      setMutationError(genericCreateMinimumMessage(contract.viewSchemaId));
+      return;
+    }
+    setMutationState("Syncing");
+    setMutationError(null);
+    const result = await fetchJSON<ViewMutationEnvelope>(
+      apiPath(
+        apiBase,
+        `/api/v1/incidents/${incidentId}/views/${contract.viewSchemaId}/rows`,
+      ),
+      { method: "POST", body: JSON.stringify(payload) },
+    );
+    if (!result.ok) {
+      setMutationState("Conflict");
+      setMutationError(parseMutationError(result.payload));
+      return;
+    }
+    const envelope = readEnvelope<ViewMutationEnvelope>(result.payload);
+    setCreateDraft(initialGenericCreateDraft(contract, null));
+    await onRefreshEntities();
+    setSelectedRecordId(envelope.data.row.record_id);
     setMutationState("Saved");
   }
 
@@ -1362,7 +1486,23 @@ function EntityWorkbookSurface({
       }
       viewBar={
         <WorkbookSheetToolbar
+          addRowDisabled={writableFields.length === 0}
           leading={savedViewSelector}
+          onAddRow={() => {
+            const firstWritableField = writableFields[0];
+            if (!firstWritableField) {
+              return;
+            }
+            window.setTimeout(() => {
+              document
+                .querySelector<HTMLElement>(
+                  dataTestIdSelector(
+                    genericCreateFieldTestId(firstWritableField.fieldKey),
+                  ),
+                )
+                ?.focus({ preventScroll: true });
+            }, 0);
+          }}
           onInspectorToggle={() => {
             setIsInspectorOpen(true);
           }}

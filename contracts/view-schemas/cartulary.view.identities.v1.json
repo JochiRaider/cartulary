@@ -69,7 +69,27 @@
     "identity.reset_status"
   ],
   "inline_create": {
-    "permits_zero_field_create": false
+    "permits_zero_field_create": false,
+    "minimum_create_field_sets": [
+      [
+        "identity.display_name"
+      ],
+      [
+        "identity.aad_object_id"
+      ],
+      [
+        "identity.sid"
+      ],
+      [
+        "identity.upn"
+      ],
+      [
+        "identity.email"
+      ],
+      [
+        "identity.sam_account_name"
+      ]
+    ]
   },
   "inspector_config": {
     "inspector_config_schema_id": "cartulary.inspector_config.v1",
@@ -495,16 +515,17 @@
       ],
       "groupable": true,
       "read_kind": "text",
-      "write_kind": "read_only",
-      "conflict_resolution_class": null,
-      "entity_binding_mode": null,
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": "entity_origin",
       "string_contract_id": null,
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
-      "clearable": false,
+      "clearable": true,
       "enum_values": null,
-      "writable": false,
-      "read_model": "privilege_level"
+      "writable": true,
+      "read_model": "privilege_level",
+      "write_target": "identities.privilege_level"
     },
     {
       "field_key": "identity.mfa_state",
@@ -518,16 +539,17 @@
       ],
       "groupable": true,
       "read_kind": "text",
-      "write_kind": "read_only",
-      "conflict_resolution_class": null,
-      "entity_binding_mode": null,
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": "entity_origin",
       "string_contract_id": null,
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
-      "clearable": false,
+      "clearable": true,
       "enum_values": null,
-      "writable": false,
-      "read_model": "mfa_state"
+      "writable": true,
+      "read_model": "mfa_state",
+      "write_target": "identities.mfa_state"
     },
     {
       "field_key": "identity.reset_status",
@@ -541,16 +563,17 @@
       ],
       "groupable": true,
       "read_kind": "text",
-      "write_kind": "read_only",
-      "conflict_resolution_class": null,
-      "entity_binding_mode": null,
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": "entity_origin",
       "string_contract_id": null,
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
-      "clearable": false,
+      "clearable": true,
       "enum_values": null,
-      "writable": false,
-      "read_model": "reset_status"
+      "writable": true,
+      "read_model": "reset_status",
+      "write_target": "identities.reset_status"
     },
     {
       "field_key": "identity.edited_at",

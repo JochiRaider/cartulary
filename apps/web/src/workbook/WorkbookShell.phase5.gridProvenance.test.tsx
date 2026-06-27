@@ -1,5 +1,7 @@
 import {
   entityInspectorTestId,
+  genericCreateFieldTestId,
+  genericCreateSubmitTestId,
   genericEditFieldSelectTestId,
   genericEditRecordSelectTestId,
   genericEditSubmitTestId,
@@ -7,6 +9,8 @@ import {
   gridShellTestId,
   rowCellTestId,
   surfaceTabTestId,
+  workbookAddRowButtonTestId,
+  workbookInlineDraftRowTestId,
   workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -65,6 +69,11 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
   let fetchMock: ReturnType<typeof vi.fn>;
   let rowsByView: Record<string, WorkbookViewApiRow[]>;
   let patchRequests: Array<{ body: unknown; recordId: string }>;
+  let createRequests: Array<{
+    body: Record<string, unknown>;
+    viewSchemaId: string;
+  }>;
+  let createdRecordCounts: Record<string, number>;
 
   function requireFirstViewRow(viewSchemaId: string): WorkbookViewApiRow {
     const row = rowsByView[viewSchemaId]?.[0];
@@ -77,6 +86,8 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
     patchRequests = [];
+    createRequests = [];
+    createdRecordCounts = {};
     rowsByView = {
       [hostsViewSchemaId]: [
         fullWorkbookViewRow(hostsContract, "host-1", 3, {
@@ -278,6 +289,45 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
           rowsByView,
         );
       }
+      const createMatch = url.match(
+        /\/api\/v1\/incidents\/incident-1\/views\/([^/]+)\/rows$/,
+      );
+      if (method === "POST" && createMatch) {
+        const viewSchemaId = decodeURIComponent(createMatch[1] ?? "");
+        const body = JSON.parse(String(init?.body ?? "{}")) as Record<
+          string,
+          unknown
+        >;
+        createRequests.push({ body, viewSchemaId });
+        const contract =
+          viewSchemaId === hostsViewSchemaId
+            ? hostsContract
+            : viewSchemaId === identitiesViewSchemaId
+              ? identitiesContract
+              : null;
+        if (contract) {
+          createdRecordCounts[viewSchemaId] =
+            (createdRecordCounts[viewSchemaId] ?? 0) + 1;
+          const recordPrefix =
+            viewSchemaId === hostsViewSchemaId ? "host" : "identity";
+          const recordId = `${recordPrefix}-created-${createdRecordCounts[viewSchemaId]}`;
+          const valueOverrides = Object.fromEntries(
+            Object.entries(body).filter(([key]) => key !== "client_txn_id"),
+          );
+          const row = fullWorkbookViewRow(
+            contract,
+            recordId,
+            1,
+            valueOverrides,
+          );
+          rowsByView[viewSchemaId] = [...(rowsByView[viewSchemaId] ?? []), row];
+          return successEnvelope({
+            view_schema_id: viewSchemaId,
+            change_set_id: `change-${recordId}`,
+            row,
+          });
+        }
+      }
       const patchMatch = url.match(/\/api\/v1\/records\/([^/?]+)$/);
       if (method === "PATCH" && patchMatch) {
         const recordId = patchMatch[1] ?? "";
@@ -411,6 +461,43 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
       },
     });
 
+    const hostAddRowButton = screen.getByTestId(
+      workbookAddRowButtonTestId(hostsViewSchemaId),
+    );
+    fireEvent.click(hostAddRowButton);
+    expect(
+      await screen.findByTestId(
+        workbookInlineDraftRowTestId(hostsViewSchemaId),
+      ),
+    ).toBeInstanceOf(HTMLElement);
+    const hostCreateField = screen.getByTestId(
+      genericCreateFieldTestId("host.display_name"),
+    );
+    await waitFor(() => {
+      expect(document.activeElement).toBe(hostCreateField);
+    });
+    fireEvent.change(hostCreateField, {
+      target: { value: "Created Host" },
+    });
+    fireEvent.click(
+      screen.getByTestId(genericCreateSubmitTestId(hostsViewSchemaId)),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(rowCellTestId("host-created-1", "host.display_name"))
+          .textContent,
+      ).toBe("Created Host");
+    });
+    expect(createRequests[0]).toMatchObject({
+      viewSchemaId: hostsViewSchemaId,
+      body: {
+        client_txn_id: expect.stringMatching(
+          /^entity-create-cartulary\.view\.hosts\.v1-\d+$/u,
+        ),
+        "host.display_name": "Created Host",
+      },
+    });
+
     fireEvent.click(
       screen.getByTestId(surfaceTabTestId(identitiesViewSchemaId)),
     );
@@ -463,6 +550,44 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
             value: "Alex Analyst Edited",
           },
         ],
+      },
+    });
+
+    const identityAddRowButton = screen.getByTestId(
+      workbookAddRowButtonTestId(identitiesViewSchemaId),
+    );
+    fireEvent.click(identityAddRowButton);
+    expect(
+      await screen.findByTestId(
+        workbookInlineDraftRowTestId(identitiesViewSchemaId),
+      ),
+    ).toBeInstanceOf(HTMLElement);
+    const identityCreateField = screen.getByTestId(
+      genericCreateFieldTestId("identity.display_name"),
+    );
+    await waitFor(() => {
+      expect(document.activeElement).toBe(identityCreateField);
+    });
+    fireEvent.change(identityCreateField, {
+      target: { value: "Created Identity" },
+    });
+    fireEvent.click(
+      screen.getByTestId(genericCreateSubmitTestId(identitiesViewSchemaId)),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(
+          rowCellTestId("identity-created-1", "identity.display_name"),
+        ).textContent,
+      ).toBe("Created Identity");
+    });
+    expect(createRequests[1]).toMatchObject({
+      viewSchemaId: identitiesViewSchemaId,
+      body: {
+        client_txn_id: expect.stringMatching(
+          /^entity-create-cartulary\.view\.identities\.v1-\d+$/u,
+        ),
+        "identity.display_name": "Created Identity",
       },
     });
 

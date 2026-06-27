@@ -23,6 +23,7 @@ import {
 } from "./helpers";
 import {
   addRelationshipTokenViaUI,
+  aliasCollectionActionsPayload,
   collectionActionsPayload,
   collectionItems,
   findRow,
@@ -57,7 +58,7 @@ test(exactScenarioTitle, async ({ page }) => {
     client_txn_id: uniqueTxn("feep501-auto-target"),
     "host.display_name": "FE-E-P5 Auto Target",
     "host.hostname": "feep501-auto-target.example.test",
-    "host.aliases": collectionActionsPayload(["FEEP501 Auto Alias"]),
+    "host.aliases": aliasCollectionActionsPayload(["FEEP501 Auto Alias"]),
   })) as ViewRow;
   const correctionTarget = (await createViewRow(
     page,

@@ -766,6 +766,11 @@ SELECT
     h.aad_device_id,
     h.fqdn,
     h.hostname,
+    h.location,
+    h.os_platform,
+    h.business_owner,
+    h.criticality,
+    h.containment_status,
     h.host_state,
     h.merged_into_record_id,
     h.entity_origin,
@@ -800,6 +805,9 @@ SELECT
     i.upn,
     i.email::text,
     i.sam_account_name,
+    i.privilege_level,
+    i.mfa_state,
+    i.reset_status,
     i.identity_state,
     i.merged_into_record_id,
     i.entity_origin,
@@ -1793,7 +1801,7 @@ func aliasActionsFromRecords(records []mergeAliasRecord) []CollectionAction {
 	actions := make([]CollectionAction, 0, len(records))
 	for _, record := range records {
 		actions = append(actions, CollectionAction{
-			Op:             "add_token",
+			Op:             "add_alias",
 			RawText:        record.RawText,
 			NormalizedText: record.NormalizedText,
 		})

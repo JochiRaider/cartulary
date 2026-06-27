@@ -7504,6 +7504,12 @@
                   "$ref": "#/components/schemas/CollectionAddTokenAction"
                 },
                 {
+                  "$ref": "#/components/schemas/CollectionAddAliasAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRemoveAliasAction"
+                },
+                {
                   "$ref": "#/components/schemas/CollectionAddTagAction"
                 },
                 {
@@ -7550,6 +7556,40 @@
         "required": [
           "op",
           "raw_text"
+        ]
+      },
+      "CollectionAddAliasAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_alias"
+          },
+          "alias_text": {
+            "type": "string",
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "op",
+          "alias_text"
+        ]
+      },
+      "CollectionRemoveAliasAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "remove_alias"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^entity_alias:"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
         ]
       },
       "CollectionAddTagAction": {

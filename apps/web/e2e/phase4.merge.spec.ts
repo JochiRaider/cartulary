@@ -7,6 +7,7 @@ import {
   uniqueTxn,
 } from "./helpers";
 import {
+  aliasCollectionActionsPayload,
   collectionActionsPayload,
   collectionItems,
   exerciseEntityMerge,
@@ -31,13 +32,13 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
     client_txn_id: uniqueTxn("e403-survivor"),
     "host.display_name": "WS-023",
     "host.hostname": "ws-023.corp.example.test",
-    "host.aliases": collectionActionsPayload(["Workstation 23"]),
+    "host.aliases": aliasCollectionActionsPayload(["Workstation 23"]),
   })) as ViewRow;
   const loser = (await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e403-loser"),
     "host.display_name": "WS-023 duplicate",
     "host.hostname": "ws-023-dup.corp.example.test",
-    "host.aliases": collectionActionsPayload(["Workstation 23"]),
+    "host.aliases": aliasCollectionActionsPayload(["Workstation 23"]),
   })) as ViewRow;
   const identitySurvivor = (await createViewRow(
     page,
@@ -47,7 +48,7 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
       client_txn_id: uniqueTxn("e403-identity-survivor"),
       "identity.display_name": "Alex Analyst",
       "identity.email": "alex.analyst@example.test",
-      "identity.aliases": collectionActionsPayload(["Case Owner"]),
+      "identity.aliases": aliasCollectionActionsPayload(["Case Owner"]),
     },
   )) as ViewRow;
   const identityLoser = (await createViewRow(
@@ -58,7 +59,7 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
       client_txn_id: uniqueTxn("e403-identity-loser"),
       "identity.display_name": "Alex Analyst duplicate",
       "identity.email": "alex.duplicate@example.test",
-      "identity.aliases": collectionActionsPayload(["Case Owner"]),
+      "identity.aliases": aliasCollectionActionsPayload(["Case Owner"]),
     },
   )) as ViewRow;
   const dependentRow = (await createViewRow(

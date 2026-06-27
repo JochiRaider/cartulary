@@ -22,7 +22,7 @@ import {
 } from "./helpers";
 import {
   addRelationshipTokenViaUI,
-  collectionActionsPayload,
+  aliasCollectionActionsPayload,
   collectionItems,
   createTimelineFillers,
   ensureTimelineGridTargetVisible,
@@ -50,19 +50,19 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     client_txn_id: uniqueTxn("e404-auto"),
     "host.display_name": "Gateway node",
     "host.hostname": "gateway-node.example.test",
-    "host.aliases": collectionActionsPayload(["VPN Gateway"]),
+    "host.aliases": aliasCollectionActionsPayload(["VPN Gateway"]),
   })) as ViewRow;
   await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e404-competing-a"),
     "host.display_name": "WS-023 A",
     "host.hostname": "ws-023-a.example.test",
-    "host.aliases": collectionActionsPayload(["WS-023"]),
+    "host.aliases": aliasCollectionActionsPayload(["WS-023"]),
   });
   await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e404-competing-b"),
     "host.display_name": "WS-023 B",
     "host.hostname": "ws-023-b.example.test",
-    "host.aliases": collectionActionsPayload(["WS-023"]),
+    "host.aliases": aliasCollectionActionsPayload(["WS-023"]),
   });
 
   await createTimelineFillers(page, incidentId, "E-4-04 filler", 32);

@@ -128,6 +128,7 @@ export type ViewContract = {
   readonly fieldMap: Readonly<Record<string, ViewFieldContract>>;
   readonly groupingFields: readonly string[];
   readonly inspectorConfig: InspectorConfig;
+  readonly minimumCreateFieldSets: readonly (readonly string[])[];
   readonly permitsZeroFieldCreate: boolean;
   readonly requiredReferencePackKeys: readonly string[];
   readonly sortableFieldMap: Readonly<Record<string, true>>;
@@ -243,6 +244,7 @@ type RawViewContract = {
   readonly filter_fields?: readonly string[];
   readonly grouping_fields?: readonly string[];
   readonly inline_create?: {
+    readonly minimum_create_field_sets?: readonly (readonly string[])[];
     readonly permits_zero_field_create?: boolean;
   };
   readonly inspector_config?: RawInspectorConfig;
@@ -306,6 +308,24 @@ function stableKeyList(
   }
   const keys = stableKeySet(value, source, label);
   return Object.freeze([...keys]);
+}
+
+function stableKeyMatrix(
+  value: unknown,
+  source: string,
+  label: string,
+): readonly (readonly string[])[] {
+  if (value === undefined) {
+    return Object.freeze([]);
+  }
+  if (!Array.isArray(value)) {
+    viewContractInvariant(source, `${label} must be an array`);
+  }
+  return Object.freeze(
+    value.map((item, index) =>
+      stableKeyList(item, source, `${label}[${index + 1}]`),
+    ),
+  );
 }
 
 function unionKeySet(
@@ -381,6 +401,27 @@ function validateHeaderSortReferences(
         `${label} references non-sortable field_key ${fieldKey}`,
       );
     }
+  }
+}
+
+function validateMinimumCreateFieldSets(
+  values: readonly (readonly string[])[],
+  allowedKeys: ReadonlySet<string>,
+  source: string,
+) {
+  for (const [index, fieldSet] of values.entries()) {
+    if (fieldSet.length === 0) {
+      viewContractInvariant(
+        source,
+        `inline_create.minimum_create_field_sets[${index + 1}] must not be empty`,
+      );
+    }
+    validateFieldKeyReferences(
+      fieldSet,
+      allowedKeys,
+      source,
+      `inline_create.minimum_create_field_sets[${index + 1}]`,
+    );
   }
 }
 
@@ -1131,6 +1172,11 @@ export function parseViewContractJSON(
   ]);
   const groupingFields = Object.freeze([...(raw.grouping_fields ?? [])]);
   const technicalFields = Object.freeze([...(raw.technical_fields ?? [])]);
+  const minimumCreateFieldSets = stableKeyMatrix(
+    raw.inline_create?.minimum_create_field_sets,
+    source,
+    "inline_create.minimum_create_field_sets",
+  );
   const requiredReferencePackKeys = stableKeyList(
     raw.required_reference_pack_keys,
     source,
@@ -1182,6 +1228,11 @@ export function parseViewContractJSON(
     new Set(sortFields),
     source,
   );
+  validateMinimumCreateFieldSets(
+    minimumCreateFieldSets,
+    fieldMapKeySet,
+    source,
+  );
 
   return Object.freeze({
     viewSchemaId: raw.view_schema_id,
@@ -1196,6 +1247,7 @@ export function parseViewContractJSON(
     groupingFields,
     technicalFields,
     inspectorConfig,
+    minimumCreateFieldSets,
     permitsZeroFieldCreate:
       raw.inline_create?.permits_zero_field_create ?? false,
     requiredReferencePackKeys,

@@ -41,7 +41,7 @@ export function buildGenericCreatePayload(
   draft: Record<string, string>,
   clientTxnId: string,
 ): Record<string, unknown> | null {
-  if (!workbookCreateMinimumSatisfied(contract.viewSchemaId, draft)) {
+  if (!workbookCreateMinimumSatisfied(contract, draft)) {
     return null;
   }
   const payload: Record<string, unknown> = { client_txn_id: clientTxnId };
@@ -146,6 +146,14 @@ function buildGenericCollectionActions(
         ? { op: "remove_tag", item_ref: value }
         : { op: "add_tag", tag_name: value };
     }
+    if (
+      field.fieldKey === "host.aliases" ||
+      field.fieldKey === "identity.aliases"
+    ) {
+      return mode === "remove"
+        ? { op: "remove_alias", item_ref: value }
+        : { op: "add_alias", alias_text: value };
+    }
     if (isPartyRefCollection(field.fieldKey)) {
       return mode === "remove"
         ? { op: "remove_party_ref", item_ref: value }
@@ -171,11 +179,22 @@ export function splitDraftValues(rawValue: string): string[] {
 }
 
 export function workbookCreateMinimumSatisfied(
-  viewSchemaId: string,
+  contractOrViewSchemaId: ViewContract | string,
   draft: Record<string, string>,
 ): boolean {
   const has = (fieldKey: string) =>
     normalizeValue(draft[fieldKey] ?? "") !== "";
+  const contract =
+    typeof contractOrViewSchemaId === "string" ? null : contractOrViewSchemaId;
+  if (contract && contract.minimumCreateFieldSets.length > 0) {
+    return contract.minimumCreateFieldSets.some((fieldSet) =>
+      fieldSet.every((fieldKey) => has(fieldKey)),
+    );
+  }
+  const viewSchemaId =
+    typeof contractOrViewSchemaId === "string"
+      ? contractOrViewSchemaId
+      : contractOrViewSchemaId.viewSchemaId;
   switch (viewSchemaId) {
     case partiesViewSchemaId:
       return has("party.display_name") && has("party.party_kind");

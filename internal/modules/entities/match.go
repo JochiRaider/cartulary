@@ -55,6 +55,11 @@ type hostUpsertInput struct {
 	AADDeviceID            *string
 	FQDN                   *string
 	Hostname               *string
+	Location               *string
+	OSPlatform             *string
+	BusinessOwner          *string
+	Criticality            *string
+	ContainmentStatus      *string
 	AliasAdds              []CollectionAction
 	EntityOrigin           string
 	SeedMentionID          *uuid.UUID
@@ -68,6 +73,9 @@ type identityUpsertInput struct {
 	UPN                    *string
 	Email                  *string
 	SamAccountName         *string
+	PrivilegeLevel         *string
+	MFAState               *string
+	ResetStatus            *string
 	AliasAdds              []CollectionAction
 	EntityOrigin           string
 	SeedMentionID          *uuid.UUID
@@ -98,6 +106,11 @@ func hostInputFromCreateRequest(request CreateRequest) (hostUpsertInput, error) 
 		AADDeviceID:            optionalValue(request.Values, "host.aad_device_id"),
 		FQDN:                   optionalValue(request.Values, "host.fqdn"),
 		Hostname:               optionalValue(request.Values, "host.hostname"),
+		Location:               optionalValue(request.Values, "host.location"),
+		OSPlatform:             optionalValue(request.Values, "host.os_platform"),
+		BusinessOwner:          optionalValue(request.Values, "host.business_owner"),
+		Criticality:            optionalValue(request.Values, "host.criticality"),
+		ContainmentStatus:      optionalValue(request.Values, "host.containment_status"),
 		AliasAdds:              append([]CollectionAction(nil), request.AliasAdds["host.aliases"]...),
 		EntityOrigin:           entityOriginEntitySheet,
 		AllowDisplayNameUpdate: true,
@@ -125,6 +138,9 @@ func identityInputFromCreateRequest(request CreateRequest) (identityUpsertInput,
 		UPN:                    optionalValue(request.Values, "identity.upn"),
 		Email:                  optionalValue(request.Values, "identity.email"),
 		SamAccountName:         optionalValue(request.Values, "identity.sam_account_name"),
+		PrivilegeLevel:         optionalValue(request.Values, "identity.privilege_level"),
+		MFAState:               optionalValue(request.Values, "identity.mfa_state"),
+		ResetStatus:            optionalValue(request.Values, "identity.reset_status"),
 		AliasAdds:              append([]CollectionAction(nil), request.AliasAdds["identity.aliases"]...),
 		EntityOrigin:           entityOriginEntitySheet,
 		AllowDisplayNameUpdate: true,
@@ -242,6 +258,13 @@ func (s *Store) upsertHostWithInputTx(ctx context.Context, tx pgx.Tx, actor auth
 			AADDeviceID:   cloneStringPointer(input.AADDeviceID),
 			FQDN:          cloneStringPointer(input.FQDN),
 			Hostname:      cloneStringPointer(input.Hostname),
+			Location:      cloneStringPointer(input.Location),
+			OSPlatform:    cloneStringPointer(input.OSPlatform),
+			BusinessOwner: cloneStringPointer(input.BusinessOwner),
+			Criticality:   cloneStringPointer(input.Criticality),
+			ContainmentStatus: cloneStringPointer(
+				input.ContainmentStatus,
+			),
 			HostState:     "stub",
 			EntityOrigin:  input.EntityOrigin,
 			SeedMentionID: input.SeedMentionID,
@@ -306,6 +329,26 @@ func (s *Store) upsertHostWithInputTx(ctx context.Context, tx pgx.Tx, actor auth
 		next.Hostname = cloneStringPointer(input.Hostname)
 		fieldChanged = true
 	}
+	if current.Location == nil && input.Location != nil {
+		next.Location = cloneStringPointer(input.Location)
+		fieldChanged = true
+	}
+	if current.OSPlatform == nil && input.OSPlatform != nil {
+		next.OSPlatform = cloneStringPointer(input.OSPlatform)
+		fieldChanged = true
+	}
+	if current.BusinessOwner == nil && input.BusinessOwner != nil {
+		next.BusinessOwner = cloneStringPointer(input.BusinessOwner)
+		fieldChanged = true
+	}
+	if current.Criticality == nil && input.Criticality != nil {
+		next.Criticality = cloneStringPointer(input.Criticality)
+		fieldChanged = true
+	}
+	if current.ContainmentStatus == nil && input.ContainmentStatus != nil {
+		next.ContainmentStatus = cloneStringPointer(input.ContainmentStatus)
+		fieldChanged = true
+	}
 
 	identifierChanged, err := hasPendingIdentifierSeedsTx(ctx, tx, current.RecordID, "host", hostIdentifierSeeds(input))
 	if err != nil {
@@ -355,6 +398,9 @@ func (s *Store) upsertIdentityWithInputTx(ctx context.Context, tx pgx.Tx, actor 
 			UPN:            cloneStringPointer(input.UPN),
 			Email:          cloneStringPointer(input.Email),
 			SamAccountName: cloneStringPointer(input.SamAccountName),
+			PrivilegeLevel: cloneStringPointer(input.PrivilegeLevel),
+			MFAState:       cloneStringPointer(input.MFAState),
+			ResetStatus:    cloneStringPointer(input.ResetStatus),
 			IdentityState:  "stub",
 			EntityOrigin:   input.EntityOrigin,
 			SeedMentionID:  input.SeedMentionID,
@@ -425,6 +471,18 @@ func (s *Store) upsertIdentityWithInputTx(ctx context.Context, tx pgx.Tx, actor 
 	}
 	if current.SamAccountName == nil && input.SamAccountName != nil {
 		next.SamAccountName = cloneStringPointer(input.SamAccountName)
+		fieldChanged = true
+	}
+	if current.PrivilegeLevel == nil && input.PrivilegeLevel != nil {
+		next.PrivilegeLevel = cloneStringPointer(input.PrivilegeLevel)
+		fieldChanged = true
+	}
+	if current.MFAState == nil && input.MFAState != nil {
+		next.MFAState = cloneStringPointer(input.MFAState)
+		fieldChanged = true
+	}
+	if current.ResetStatus == nil && input.ResetStatus != nil {
+		next.ResetStatus = cloneStringPointer(input.ResetStatus)
 		fieldChanged = true
 	}
 
@@ -595,6 +653,11 @@ SELECT
     h.aad_device_id,
     h.fqdn,
     h.hostname,
+    h.location,
+    h.os_platform,
+    h.business_owner,
+    h.criticality,
+    h.containment_status,
     h.host_state,
     h.merged_into_record_id,
     h.entity_origin,
@@ -641,6 +704,9 @@ SELECT
     i.upn,
     i.email::text,
     i.sam_account_name,
+    i.privilege_level,
+    i.mfa_state,
+    i.reset_status,
     i.identity_state,
     i.merged_into_record_id,
     i.entity_origin,
@@ -952,12 +1018,17 @@ func scanHostRecord(scanner interface {
 	Scan(dest ...any) error
 }) (HostRecord, error) {
 	var (
-		record         HostRecord
-		rawAADDeviceID pgtype.Text
-		rawFQDN        pgtype.Text
-		rawHostname    pgtype.Text
-		rawMergedInto  pgtype.UUID
-		rawSeedMention pgtype.UUID
+		record           HostRecord
+		rawAADDeviceID   pgtype.Text
+		rawFQDN          pgtype.Text
+		rawHostname      pgtype.Text
+		rawLocation      pgtype.Text
+		rawOSPlatform    pgtype.Text
+		rawBusinessOwner pgtype.Text
+		rawCriticality   pgtype.Text
+		rawContainment   pgtype.Text
+		rawMergedInto    pgtype.UUID
+		rawSeedMention   pgtype.UUID
 	)
 	if err := scanner.Scan(
 		&record.RecordID,
@@ -966,6 +1037,11 @@ func scanHostRecord(scanner interface {
 		&rawAADDeviceID,
 		&rawFQDN,
 		&rawHostname,
+		&rawLocation,
+		&rawOSPlatform,
+		&rawBusinessOwner,
+		&rawCriticality,
+		&rawContainment,
 		&record.HostState,
 		&rawMergedInto,
 		&record.EntityOrigin,
@@ -981,6 +1057,11 @@ func scanHostRecord(scanner interface {
 	record.AADDeviceID = textPointer(rawAADDeviceID)
 	record.FQDN = textPointer(rawFQDN)
 	record.Hostname = textPointer(rawHostname)
+	record.Location = textPointer(rawLocation)
+	record.OSPlatform = textPointer(rawOSPlatform)
+	record.BusinessOwner = textPointer(rawBusinessOwner)
+	record.Criticality = textPointer(rawCriticality)
+	record.ContainmentStatus = textPointer(rawContainment)
 	record.MergedIntoRecordID = uuidPointerFromPG(rawMergedInto)
 	record.SeedMentionID = uuidPointerFromPG(rawSeedMention)
 	return record, nil
@@ -996,6 +1077,9 @@ func scanIdentityRecord(scanner interface {
 		rawUPN            pgtype.Text
 		rawEmail          pgtype.Text
 		rawSamAccountName pgtype.Text
+		rawPrivilegeLevel pgtype.Text
+		rawMFAState       pgtype.Text
+		rawResetStatus    pgtype.Text
 		rawMergedInto     pgtype.UUID
 		rawSeedMention    pgtype.UUID
 	)
@@ -1008,6 +1092,9 @@ func scanIdentityRecord(scanner interface {
 		&rawUPN,
 		&rawEmail,
 		&rawSamAccountName,
+		&rawPrivilegeLevel,
+		&rawMFAState,
+		&rawResetStatus,
 		&record.IdentityState,
 		&rawMergedInto,
 		&record.EntityOrigin,
@@ -1025,6 +1112,9 @@ func scanIdentityRecord(scanner interface {
 	record.UPN = textPointer(rawUPN)
 	record.Email = textPointer(rawEmail)
 	record.SamAccountName = textPointer(rawSamAccountName)
+	record.PrivilegeLevel = textPointer(rawPrivilegeLevel)
+	record.MFAState = textPointer(rawMFAState)
+	record.ResetStatus = textPointer(rawResetStatus)
 	record.MergedIntoRecordID = uuidPointerFromPG(rawMergedInto)
 	record.SeedMentionID = uuidPointerFromPG(rawSeedMention)
 	return record, nil

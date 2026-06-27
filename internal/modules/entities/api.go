@@ -128,6 +128,7 @@ type CollectionAction struct {
 	Op             string
 	RawText        string
 	NormalizedText string
+	ItemRef        string
 }
 
 func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, *auth.APIError) {
@@ -179,6 +180,13 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 			continue
 		}
 
+		if string(value) == "null" {
+			if field.Clearable {
+				continue
+			}
+			return CreateRequest{}, invalidMutationPayload(fieldKey, "field_not_nullable")
+		}
+
 		var rawValue string
 		if err := json.Unmarshal(value, &rawValue); err != nil {
 			return CreateRequest{}, invalidMutationPayload(fieldKey, "invalid_value")
@@ -190,11 +198,31 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 		request.Values[fieldKey] = normalized
 	}
 
-	if len(request.Values) == 0 && len(request.AliasAdds) == 0 && !schema.PermitsZeroFieldCreate {
+	if len(schema.MinimumCreateFieldSets) > 0 {
+		if !createMinimumSatisfied(schema.MinimumCreateFieldSets, request.Values) {
+			return CreateRequest{}, invalidMutationPayload("payload", "at_least_one_value_required")
+		}
+	} else if len(request.Values) == 0 && len(request.AliasAdds) == 0 && !schema.PermitsZeroFieldCreate {
 		return CreateRequest{}, invalidMutationPayload("payload", "at_least_one_value_required")
 	}
 
 	return request, nil
+}
+
+func createMinimumSatisfied(fieldSets [][]string, values map[string]string) bool {
+	for _, fieldSet := range fieldSets {
+		setSatisfied := true
+		for _, fieldKey := range fieldSet {
+			if strings.TrimSpace(values[fieldKey]) == "" {
+				setSatisfied = false
+				break
+			}
+		}
+		if setSatisfied {
+			return true
+		}
+	}
+	return false
 }
 
 func CreateRequestHash(viewSchemaID string, request CreateRequest) []byte {
@@ -428,26 +456,31 @@ func decodeAliasActionPayload(fieldKey string, value json.RawMessage) ([]Collect
 
 	actions := make([]CollectionAction, 0, len(payload.Actions))
 	for _, rawAction := range payload.Actions {
-		if len(rawAction) != 2 {
-			return nil, false
-		}
 		var op string
-		if err := json.Unmarshal(rawAction["op"], &op); err != nil || op != "add_token" {
+		if err := json.Unmarshal(rawAction["op"], &op); err != nil {
 			return nil, false
 		}
-		var rawText string
-		if err := json.Unmarshal(rawAction["raw_text"], &rawText); err != nil {
+		switch op {
+		case "add_alias":
+			if len(rawAction) != 2 {
+				return nil, false
+			}
+			var rawText string
+			if err := json.Unmarshal(rawAction["alias_text"], &rawText); err != nil {
+				return nil, false
+			}
+			normalized, ok := fieldnorm.NormalizeLine(rawText)
+			if !ok {
+				return nil, false
+			}
+			actions = append(actions, CollectionAction{
+				Op:             op,
+				RawText:        rawText,
+				NormalizedText: normalized,
+			})
+		default:
 			return nil, false
 		}
-		normalized, ok := fieldnorm.NormalizeLine(rawText)
-		if !ok {
-			return nil, false
-		}
-		actions = append(actions, CollectionAction{
-			Op:             op,
-			RawText:        rawText,
-			NormalizedText: normalized,
-		})
 	}
 	return actions, true
 }

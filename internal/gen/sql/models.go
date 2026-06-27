@@ -460,6 +460,11 @@ type Host struct {
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 	CreatedByUserID     pgtype.UUID        `json:"created_by_user_id"`
 	UpdatedByUserID     pgtype.UUID        `json:"updated_by_user_id"`
+	Location            pgtype.Text        `json:"location"`
+	OsPlatform          pgtype.Text        `json:"os_platform"`
+	BusinessOwner       pgtype.Text        `json:"business_owner"`
+	Criticality         pgtype.Text        `json:"criticality"`
+	ContainmentStatus   pgtype.Text        `json:"containment_status"`
 }
 
 type HostGridProjection struct {
@@ -497,6 +502,9 @@ type Identity struct {
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 	CreatedByUserID     pgtype.UUID        `json:"created_by_user_id"`
 	UpdatedByUserID     pgtype.UUID        `json:"updated_by_user_id"`
+	PrivilegeLevel      pgtype.Text        `json:"privilege_level"`
+	MfaState            pgtype.Text        `json:"mfa_state"`
+	ResetStatus         pgtype.Text        `json:"reset_status"`
 }
 
 type IdentityGridProjection struct {

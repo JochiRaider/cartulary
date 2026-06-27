@@ -563,6 +563,29 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 	switch op {
 	case "add_token":
 		return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+	case "add_alias":
+		if !isEntityAliasCollection(fieldKey) || !objectHasOnlyFields(object, "op", "alias_text") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		rawText, ok := decodeStringActionField(object, "alias_text")
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		normalized, ok := fieldnorm.NormalizeLine(rawText)
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		action.RawText = rawText
+		action.NormalizedText = normalized
+	case "remove_alias":
+		if !isEntityAliasCollection(fieldKey) || !objectHasOnlyFields(object, "op", "item_ref") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		itemRef, ok := decodeStringActionField(object, "item_ref")
+		if !ok || !strings.HasPrefix(itemRef, "entity_alias:") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		action.ItemRef = itemRef
 	case "add_tag":
 		if !isTagCollection(fieldKey) || !objectHasOnlyFields(object, "op", "tag_name") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
@@ -896,6 +919,9 @@ func canonicalCollectionActionPayload(payload CollectionActionPayload) map[strin
 		if action.Op == "add_token" && action.NormalizedText != "" {
 			entry["raw_text"] = action.NormalizedText
 		}
+		if action.Op == "add_alias" && action.NormalizedText != "" {
+			entry["alias_text"] = action.NormalizedText
+		}
 		if action.Op == "add_risk_ref" && action.NormalizedText != "" {
 			entry["risk_ref_text"] = action.NormalizedText
 		}
@@ -910,6 +936,10 @@ func hashRequestPayload(payload any) []byte {
 	hash := make([]byte, len(sum))
 	copy(hash, sum[:])
 	return hash
+}
+
+func isEntityAliasCollection(fieldKey string) bool {
+	return fieldKey == "host.aliases" || fieldKey == "identity.aliases"
 }
 
 func isWorkbookMutationSurface(viewSchemaID string) bool {

@@ -112,10 +112,27 @@ function expectInvariantFailure(raw: unknown, pattern: RegExp) {
 }
 
 describe("view-contracts", () => {
-  it("parses sortable, filterable, and zero-field create metadata", () => {
+  it("parses sortable, filterable, and inline-create metadata", () => {
     const timeline = requireViewContract("cartulary.view.timeline.v2");
+    const hosts = requireViewContract("cartulary.view.hosts.v1");
+    const identities = requireViewContract("cartulary.view.identities.v1");
 
     expect(timeline.permitsZeroFieldCreate).toBe(true);
+    expect(timeline.minimumCreateFieldSets).toEqual([]);
+    expect(hosts.minimumCreateFieldSets).toEqual([
+      ["host.display_name"],
+      ["host.hostname"],
+      ["host.fqdn"],
+      ["host.aad_device_id"],
+    ]);
+    expect(identities.minimumCreateFieldSets).toEqual([
+      ["identity.display_name"],
+      ["identity.aad_object_id"],
+      ["identity.sid"],
+      ["identity.upn"],
+      ["identity.email"],
+      ["identity.sam_account_name"],
+    ]);
     expect(timeline.sortFields).toContain("timeline.activity_sort_ts");
     expect(timeline.sortNullOrder).toBe("last");
     expect(timeline.filterFields).toContain("timeline.capture_state");

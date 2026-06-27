@@ -221,7 +221,7 @@ func entityCreateRequestFromRowPlan(clientTxnID string, rowPlan tabularingest.Ro
 				continue
 			}
 			request.AliasAdds[cell.FieldKey] = append(request.AliasAdds[cell.FieldKey], CollectionAction{
-				Op:             "add_token",
+				Op:             "add_alias",
 				RawText:        cell.RawValue,
 				NormalizedText: normalized,
 			})

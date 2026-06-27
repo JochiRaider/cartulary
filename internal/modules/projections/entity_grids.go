@@ -85,11 +85,11 @@ SELECT
            AND ev.lifecycle_state IN ('available', 'released')
            AND b.upload_state = 'available'
     ),
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    h.location,
+    h.os_platform,
+    h.business_owner,
+    h.criticality,
+    h.containment_status,
     r.updated_at
   FROM hosts h
   JOIN records r
@@ -182,9 +182,9 @@ SELECT
            AND ev.lifecycle_state IN ('available', 'released')
            AND b.upload_state = 'available'
     ),
-    NULL,
-    NULL,
-    NULL,
+    i.privilege_level,
+    i.mfa_state,
+    i.reset_status,
     r.updated_at
   FROM identities i
   JOIN records r
