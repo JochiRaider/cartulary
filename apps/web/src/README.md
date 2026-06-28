@@ -223,7 +223,9 @@ app.
 Timeline-specific implementation lives under `workbook/timeline/`. This folder
 owns Timeline presentation, Timeline hooks, Timeline models, and Timeline
 services. Generic workbook behavior belongs one level up unless it is truly
-Timeline-specific.
+Timeline-specific. `TimelineWorkbook.tsx` is the Timeline composition root;
+feature-specific coordination should live in the focused components, hooks,
+models, or services below.
 
 #### `workbook/timeline/components/`
 
@@ -231,32 +233,49 @@ Timeline-specific.
 | --- | --- |
 | `workbook/timeline/components/TimelineCellEditors.tsx` | Timeline scalar editors, draft-row create button, and relationship chip presentation. |
 | `workbook/timeline/components/TimelineConflictResolver.tsx` | Same-field conflict resolver presentation. |
+| `workbook/timeline/components/TimelineEvidencePanel.test.tsx` | Tests for Timeline evidence panel behavior. |
 | `workbook/timeline/components/TimelineEvidencePanel.tsx` | Timeline inspector evidence panel and evidence actions UI. |
 | `workbook/timeline/components/TimelineGridSurface.tsx` | Timeline grid surface wrapper around the grid adapter boundary. |
 | `workbook/timeline/components/TimelineHistoryPanel.tsx` | Timeline row history, rollback, delete, restore, and history action presentation. |
 | `workbook/timeline/components/TimelineMentionsPanel.tsx` | Timeline mention-resolution inspector panel. |
 | `workbook/timeline/components/TimelinePresenceMarkers.tsx` | Timeline row/cell presence marker presentation. |
 | `workbook/timeline/components/TimelineRowActions.tsx` | Timeline row action/context-menu presentation. |
-| `workbook/timeline/components/TimelineWorkbook.tsx` | Timeline hot-path controller for rows, pending saves, collaboration, grid continuity, inspector routing, create/edit, conflict, evidence, history, and related-row workflows. |
-| `workbook/timeline/components/TimelineWorkbookGrid.tsx` | Timeline grid renderer and row/cell composition. |
-| `workbook/timeline/components/TimelineWorkbookInspector.tsx` | Timeline inspector shell, panel tabs, selected-row state presentation, and inspector messages. |
-| `workbook/timeline/components/TimelineWorkbookNotices.tsx` | Timeline notices, pending queue messages, and save-state presentation. |
-| `workbook/timeline/components/TimelineEvidencePanel.test.tsx` | Tests for Timeline evidence panel behavior. |
+| `workbook/timeline/components/TimelineWorkbook.tsx` | Timeline composition root. Wires runtime state, focused controllers, grid, inspector, notices, and shell callbacks while leaving feature-specific logic in local hooks/components. |
+| `workbook/timeline/components/TimelineWorkbookGrid.tsx` | Timeline grid renderer, grouped row table wrapper, hidden contract metadata cells, and grid test-ID placement. |
+| `workbook/timeline/components/TimelineWorkbookInspector.tsx` | Timeline inspector shell, panel tabs, disabled-state presentation, selected-row state, and inspector messages. |
+| `workbook/timeline/components/TimelineWorkbookInspectorSections.tsx` | Timeline inspector section factories for field editors, relationships, evidence attach, related-row creation, and row history. |
+| `workbook/timeline/components/TimelineWorkbookNotices.tsx` | Timeline notice overlay for auto-resolution notices, pending queue messages, and queued-edit counts. |
+| `workbook/timeline/components/TimelineWorkbookRenderers.tsx` | Timeline grid and inspector editor renderer factory, column materialization, relationship controls, and cell presence wiring. |
+| `workbook/timeline/components/TimelineWorkbookStyles.ts` | Timeline-specific style constants shared by Timeline workbook components. |
 
 #### `workbook/timeline/hooks/`
 
 | File | Responsibility |
 | --- | --- |
+| `workbook/timeline/hooks/useTimelineClipboardPasteController.ts` | Coordinates Timeline clipboard paste dispatch, payload construction, conflict registration, scalar fallback, and post-paste focus/viewport restoration. |
 | `workbook/timeline/hooks/useTimelineCommittedRows.ts` | Derives committed Timeline row collections from row/runtime state. |
+| `workbook/timeline/hooks/useTimelineConflictResolverCoordinator.ts` | Coordinates same-field conflict resolver state, choices, reloads, and conflict resolution actions. |
 | `workbook/timeline/hooks/useTimelineConflicts.ts` | Coordinates Timeline same-field conflict state. |
+| `workbook/timeline/hooks/useTimelineCreateRelatedWorkflow.ts` | Coordinates Timeline inspector related-row create workflow state, draft values, and payload submission. |
 | `workbook/timeline/hooks/useTimelineEvidenceActions.ts` | Coordinates Timeline evidence attach/preview/download action state. |
-| `workbook/timeline/hooks/useTimelineGridInteractions.ts` | Coordinates Timeline grid refs, focus anchors, viewport continuity, keyboard helpers, and interaction commands. |
+| `workbook/timeline/hooks/useTimelineEvidenceAttach.ts` | Coordinates Timeline evidence file attachment, validation feedback, and reload/save-state handoff. |
+| `workbook/timeline/hooks/useTimelineGridAnchorController.ts` | Resolves Timeline grid anchors, paste targets, selected cells, and focus anchors across committed and draft rows. |
+| `workbook/timeline/hooks/useTimelineGridInteractions.ts` | Coordinates Timeline grid refs, keyboard helpers, and grid interaction commands. |
+| `workbook/timeline/hooks/useTimelineHistoryActions.ts` | Coordinates Timeline history rollback, delete, restore, preview, and confirmation actions. |
 | `workbook/timeline/hooks/useTimelineHistoryState.ts` | Coordinates Timeline history panel and row-history state. |
 | `workbook/timeline/hooks/useTimelineInspectorSelection.ts` | Coordinates selected Timeline row and inspector selection state. |
+| `workbook/timeline/hooks/useTimelineLiveUpdateController.ts` | Applies Timeline live-update effects to row state, pending replay, conflicts, session state, and mention notices. |
 | `workbook/timeline/hooks/useTimelineLiveUpdates.ts` | Coordinates Timeline WebSocket/live-update side effects and presence/session callbacks. |
+| `workbook/timeline/hooks/useTimelineMentionActions.ts` | Coordinates Timeline mention resolution, undo/review actions, and related inspector selection updates. |
 | `workbook/timeline/hooks/useTimelineMentions.ts` | Coordinates Timeline mention-resolution state and actions. |
+| `workbook/timeline/hooks/useTimelineMutationCommands.ts` | Coordinates Timeline scalar and relationship mutation commands, pending-save admission, and save lifecycle callbacks. |
+| `workbook/timeline/hooks/useTimelinePendingReplayController.ts` | Coordinates pending-save replay admission, HTTP replay dispatch, socket transaction tracking, and reload scheduling. |
 | `workbook/timeline/hooks/useTimelinePendingSaves.ts` | Coordinates Timeline pending-save queue runtime and replay admission. |
+| `workbook/timeline/hooks/useTimelinePresenceProjection.ts` | Projects active-sheet presence records, suppresses the current socket connection, resolves row/cell presence, and dispatches edit-mode presence. |
 | `workbook/timeline/hooks/useTimelineRows.ts` | Coordinates Timeline row state, draft rows, and row reconciliation. |
+| `workbook/timeline/hooks/useTimelineRowsLoader.ts` | Coordinates Timeline row loading, query aborts, runtime status, and row reconciliation callbacks. |
+| `workbook/timeline/hooks/useTimelineSaveStatePresentation.ts` | Coordinates Timeline save-state labels, pending queue snapshot publication, refresh blocking, replay scheduling, and beforeunload warning state. |
+| `workbook/timeline/hooks/useTimelineViewportContinuityController.ts` | Coordinates Timeline scroll snapshots, focus restoration, continuity tokens, and entity-refresh barriers. |
 | `workbook/timeline/hooks/useTimelineWorkbookRuntime.ts` | Coordinates Timeline query/runtime state derived from workbook shell inputs. |
 
 #### `workbook/timeline/models/`
@@ -264,6 +283,7 @@ Timeline-specific.
 | File | Responsibility |
 | --- | --- |
 | `workbook/timeline/models/timelineConflictModel.ts` | Same-field conflict parsing and model helpers. |
+| `workbook/timeline/models/timelineHistoryModel.ts` | Timeline row-history normalization, pending-action labels, and history operation helpers. |
 | `workbook/timeline/models/timelineRowsModel.ts` | Timeline row collection helpers and row-state utilities. |
 | `workbook/timeline/models/timelineViewportContinuityModel.ts` | Timeline viewport continuity and entity-refresh barrier helpers. |
 | `workbook/timeline/models/workbookMentionChips.ts` | Mention chip state, relationship-field keys, and mention display helpers. |
