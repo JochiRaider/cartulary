@@ -78,11 +78,15 @@
         "FE-U-P7-01 applies row update and invalidate lifecycle decisions without visible-index state",
         "FE-U-P7-01 requests reset and stale-row requery for reset-required and stale record changes",
         "FE-U-P7-01 pauses replay and suppresses reconnect after authorization close or session revocation",
-        "FE-U-P7-01 ignores duplicate stream sequences and refreshes on sequence gaps"
+        "FE-U-P7-01 ignores duplicate stream sequences and refreshes on sequence gaps",
+        "FE-U-P7-01 builds default timeline presence payloads for WebSocket session establishment",
+        "FE-U-P7-01 includes field_key only for editing presence payloads",
+        "FE-U-P7-01 builds presence_update messages without changing event names",
+        "FE-U-P7-01 builds hello and resume session messages from socket resume state"
       ],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Verify WebSocket reducer handles row update, reset, invalidate, stale-row requery request, authorization close, and session revocation states.",
+        "statement": "Verify WebSocket collaboration message helpers and reducer coverage for session establishment, presence update, row update, reset, invalidate, stale-row requery request, authorization close, and session revocation states.",
         "claim_publication_intent": "none",
         "closure_scope": "scenario"
       },

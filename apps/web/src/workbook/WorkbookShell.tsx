@@ -94,6 +94,8 @@ import {
 } from "./components/WorkbookSurfaceFrame";
 import { useAssessmentSupportRows } from "./hooks/useAssessmentSupportRows";
 import { useEntityTimelinePreview } from "./hooks/useEntityTimelinePreview";
+import { useWorkbookIncidentIdentity } from "./hooks/useWorkbookIncidentIdentity";
+import { useWorkbookResponsiveLayout } from "./hooks/useWorkbookResponsiveLayout";
 import { useWorkbookShellRuntime } from "./hooks/useWorkbookShellRuntime";
 import {
   assessmentColumnWidth,
@@ -126,6 +128,7 @@ import {
   type AccountDensityMode,
   resolveEffectiveWorkbookDensity,
 } from "./models/workbookDensity";
+import type { WorkbookIncidentIdentity } from "./models/workbookIncidentIdentity";
 import {
   inspectorNoRowState,
   inspectorPanelIsDeclared,
@@ -137,12 +140,6 @@ import {
   type WorkbookQueryState,
 } from "./models/workbookQuery";
 import { emptyGenericReferenceOptions } from "./models/workbookReferenceOptions";
-import {
-  selectWorkbookBlockMode,
-  selectWorkbookChromeMode,
-  type WorkbookBlockMode,
-  type WorkbookChromeMode,
-} from "./models/workbookResponsiveLayout";
 import {
   assessmentsViewSchemaId,
   hostsViewSchemaId,
@@ -177,6 +174,7 @@ import {
 import { pendingReplayCapacity } from "./utils/workbookPendingQueue";
 import { displayInitials } from "./utils/workbookPresence";
 
+export type { WorkbookIncidentIdentity } from "./models/workbookIncidentIdentity";
 export type {
   RecordHistoryItem,
   RecordHistoryRollbackAction,
@@ -263,20 +261,6 @@ export type WorkbookAccountModel = {
   readonly user_id: string;
 };
 
-export type WorkbookIncidentIdentity = {
-  readonly closed_at?: string | null;
-  readonly current_phase: string | null;
-  readonly description: string | null;
-  readonly incident_id: string;
-  readonly incident_key: string;
-  readonly incident_version: number;
-  readonly primary_external_case_ref: string | null;
-  readonly severity: string | null;
-  readonly status?: "active" | "closed";
-  readonly title: string;
-  readonly tlp: string | null;
-};
-
 type WorkbookShellProps = {
   incidentId: string;
   apiBase?: string | undefined;
@@ -292,100 +276,6 @@ type WorkbookShellProps = {
     | undefined;
   onIncidentAccessLost?: (() => void) | undefined;
 };
-
-type IncidentIdentityEnvelope = {
-  data: WorkbookIncidentIdentity;
-};
-
-type WorkbookResponsiveLayout = {
-  readonly blockMode: WorkbookBlockMode;
-  readonly chromeMode: WorkbookChromeMode;
-};
-
-function currentViewportSize(): {
-  readonly height: number;
-  readonly width: number;
-} {
-  const viewport = window.visualViewport;
-  if (!viewport) {
-    return { height: 720, width: 1280 };
-  }
-  return {
-    height: viewport.height,
-    width: viewport.width,
-  };
-}
-
-function selectWorkbookResponsiveLayout(
-  widthCssPx: number,
-  heightCssPx: number,
-): WorkbookResponsiveLayout {
-  return {
-    blockMode: selectWorkbookBlockMode(heightCssPx),
-    chromeMode: selectWorkbookChromeMode(widthCssPx),
-  };
-}
-
-function useWorkbookResponsiveLayout(): WorkbookResponsiveLayout {
-  const [layout, setLayout] = useState<WorkbookResponsiveLayout>(() => {
-    const viewport = currentViewportSize();
-    return selectWorkbookResponsiveLayout(viewport.width, viewport.height);
-  });
-
-  useEffect(() => {
-    const updateLayout = () => {
-      const viewport = currentViewportSize();
-      setLayout(
-        selectWorkbookResponsiveLayout(viewport.width, viewport.height),
-      );
-    };
-    window.addEventListener("resize", updateLayout);
-    window.visualViewport?.addEventListener("resize", updateLayout);
-    return () => {
-      window.removeEventListener("resize", updateLayout);
-      window.visualViewport?.removeEventListener("resize", updateLayout);
-    };
-  }, []);
-
-  return layout;
-}
-
-function normalizeIncidentIdentity(
-  incidentId: string,
-  value: unknown,
-): WorkbookIncidentIdentity | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-  const record = value as Record<string, unknown>;
-  const incidentID =
-    typeof record.incident_id === "string" ? record.incident_id : incidentId;
-  if (
-    typeof record.incident_key !== "string" ||
-    typeof record.title !== "string"
-  ) {
-    return null;
-  }
-  return {
-    closed_at: typeof record.closed_at === "string" ? record.closed_at : null,
-    current_phase:
-      typeof record.current_phase === "string" ? record.current_phase : null,
-    description:
-      typeof record.description === "string" ? record.description : null,
-    incident_id: incidentID,
-    incident_key: record.incident_key,
-    incident_version:
-      typeof record.incident_version === "number" ? record.incident_version : 0,
-    primary_external_case_ref:
-      typeof record.primary_external_case_ref === "string"
-        ? record.primary_external_case_ref
-        : null,
-    severity: typeof record.severity === "string" ? record.severity : null,
-    status: record.status === "closed" ? "closed" : "active",
-    title: record.title,
-    tlp: typeof record.tlp === "string" ? record.tlp : null,
-  };
-}
 
 type TimelineMutationEnvelope = {
   data: {
@@ -1921,13 +1811,14 @@ export function WorkbookShell({
   );
   const [currentIncidentRole, setCurrentIncidentRole] =
     useState<IncidentRole | null>(null);
-  const [incidentIdentity, setIncidentIdentity] =
-    useState<WorkbookIncidentIdentity | null>(
-      () => initialIncidentIdentity ?? null,
-    );
-  const [incidentIdentityError, setIncidentIdentityError] = useState<
-    string | null
-  >(null);
+  const { incidentIdentity, incidentIdentityError } =
+    useWorkbookIncidentIdentity({
+      apiBase,
+      incidentId,
+      initialIncidentIdentity,
+      onIncidentAccessLost,
+      onIncidentSnapshot,
+    });
   const [controlsDrawerSection, setControlsDrawerSection] =
     useState<IncidentControlsSection | null>(null);
   const [lastControlsSection, setLastControlsSection] =
@@ -1952,52 +1843,6 @@ export function WorkbookShell({
       setCurrentUserId(account.user_id);
     }
   }, [account?.user_id]);
-
-  useEffect(() => {
-    if (initialIncidentIdentity?.incident_id === incidentId) {
-      setIncidentIdentity(initialIncidentIdentity);
-      setIncidentIdentityError(null);
-      onIncidentSnapshot?.(initialIncidentIdentity);
-      return;
-    }
-    let cancelled = false;
-    const loadIncidentIdentity = async () => {
-      setIncidentIdentityError(null);
-      const result = await fetchJSON<IncidentIdentityEnvelope>(
-        apiPath(apiBase, `/api/v1/incidents/${incidentId}`),
-      );
-      if (cancelled) {
-        return;
-      }
-      if (!result.ok) {
-        const message = handleWorkbookLoadFailure(
-          parseErrorMessage(result.payload),
-          "Incident identity load failed.",
-          onIncidentAccessLost,
-        );
-        setIncidentIdentityError(message);
-        return;
-      }
-      const envelope = readEnvelope<IncidentIdentityEnvelope>(result.payload);
-      const normalized = normalizeIncidentIdentity(incidentId, envelope.data);
-      if (normalized === null) {
-        setIncidentIdentityError("Incident identity load failed.");
-        return;
-      }
-      setIncidentIdentity(normalized);
-      onIncidentSnapshot?.(normalized);
-    };
-    void loadIncidentIdentity();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    apiBase,
-    incidentId,
-    initialIncidentIdentity,
-    onIncidentAccessLost,
-    onIncidentSnapshot,
-  ]);
 
   const entityIndex = useMemo(() => {
     const index: Record<string, EntityRow> = {};

@@ -21,6 +21,7 @@ import {
   saveStateTestId,
   surfaceTabTestId,
   timelineInspectorSectionTestId,
+  timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
   timelineScalarEditorTestId,
   workbookInspectorToggleTestId,
@@ -508,18 +509,18 @@ test("FE-E-P9-02 Verify default-closed inspector state, no-row state, surface sw
   await expect(
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
-  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
   await page
     .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
     .click();
-  await expect(page.getByTestId("timeline-inspector")).toContainText(
+  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
     "no_row_selected",
   );
   await page.keyboard.press("Escape");
-  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
 
   await openTimelineInspector(page, timelineSeed.record_id);
-  await expect(page.getByTestId("timeline-inspector")).toBeVisible();
+  await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
   const sameSurfaceSelector = page.getByTestId(
     savedViewSelectorTestId(timelineViewSchemaId),
   );
@@ -532,7 +533,7 @@ test("FE-E-P9-02 Verify default-closed inspector state, no-row state, surface sw
     ),
   ).toHaveAttribute("data-view-schema-id", timelineViewSchemaId);
   await sameSurfaceSelector.selectOption(timelineSavedView.saved_view_id);
-  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
   await openTimelineInspector(page, timelineSeed.record_id);
   await expect(
     page.getByTestId(timelineInspectorSectionTestId("relationships")),
@@ -541,11 +542,11 @@ test("FE-E-P9-02 Verify default-closed inspector state, no-row state, surface sw
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
-  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
 
   await openTimelineInspector(page, timelineSeed.record_id);
   await page.getByTestId(surfaceTabTestId(hostsViewSchemaId)).click();
-  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
   await expect(
     page.getByTestId(gridShellTestId(hostsViewSchemaId)),
   ).toBeVisible();
@@ -557,7 +558,7 @@ test("FE-E-P9-02 Verify default-closed inspector state, no-row state, surface sw
   );
   await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).click();
   await expect(page.getByTestId("host-inspector")).toHaveCount(0);
-  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
 
   const draftSummary = page.getByTestId(
     draftCellTestId("timeline.activity_synopsis_text"),
@@ -569,7 +570,7 @@ test("FE-E-P9-02 Verify default-closed inspector state, no-row state, surface sw
     surface: timelineViewSchemaId,
     timeoutMs: 5_000,
   });
-  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
 
   const createdSummary = page.getByTestId(
     rowCellTestId(created.recordId, "timeline.activity_synopsis_text"),
@@ -577,7 +578,7 @@ test("FE-E-P9-02 Verify default-closed inspector state, no-row state, surface sw
   await createdSummary.fill("FE-E-P9-02 hot path edited");
   await createdSummary.press("Tab");
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
 
   await createdSummary.focus();
   const pasteResponse = page.waitForResponse(
@@ -605,7 +606,7 @@ test("FE-E-P9-02 Verify default-closed inspector state, no-row state, surface sw
   });
   await expect((await pasteResponse).ok()).toBeTruthy();
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
   const timelineRows = await queryViewRows(
     page,
     incidentId,

@@ -40,6 +40,7 @@ import {
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   timelineInspectorMessageTestId,
+  timelineInspectorTestId,
   workbookAddRowButtonTestId,
   workbookFilterPopoverTriggerTestId,
   workbookInspectorToggleTestId,
@@ -180,7 +181,7 @@ async function openTimelineInspectorFromContext(recordId: string) {
     { clientX: 32, clientY: 48 },
   );
   fireEvent.click(await screen.findByTestId(rowInspectButtonTestId(recordId)));
-  await screen.findByTestId("timeline-inspector");
+  await screen.findByTestId(timelineInspectorTestId());
 }
 
 type TestSavedViewResource = {

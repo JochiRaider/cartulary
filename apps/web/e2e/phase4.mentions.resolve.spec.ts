@@ -6,6 +6,7 @@ import {
   mentionResolveTargetSelectTestId,
   relationshipItemsTestId,
   rowCellTestId,
+  timelineInspectorTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Response } from "@playwright/test";
@@ -129,10 +130,12 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
   await page
     .getByTestId(mentionItemTestId(String(hostMention.item_ref)))
     .click();
-  await expect(page.getByTestId("timeline-inspector")).toContainText(
+  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
     "Raw token",
   );
-  await expect(page.getByTestId("timeline-inspector")).toContainText("WS-023?");
+  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
+    "WS-023?",
+  );
 
   const resolveScroll = await scrollGridToBottom(page, timelineViewSchemaId);
   await expectNoPendingQueueAuthPause(page, "before resolving host mention");
@@ -158,7 +161,7 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
   await page
     .getByTestId(mentionItemTestId(String(identityMention.item_ref)))
     .click();
-  await expect(page.getByTestId("timeline-inspector")).toContainText(
+  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
     "vpn.user@example.test",
   );
 

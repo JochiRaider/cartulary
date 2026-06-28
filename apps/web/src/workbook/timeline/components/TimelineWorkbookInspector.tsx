@@ -1,5 +1,6 @@
 import {
   timelineInspectorMessageTestId,
+  timelineInspectorTestId,
   workbookInspectorCloseButtonTestId,
 } from "@cartulary/ui-contracts";
 import type {
@@ -146,7 +147,7 @@ export function TimelineWorkbookInspector({
   return (
     <aside
       aria-label="Timeline inspector"
-      data-testid="timeline-inspector"
+      data-testid={timelineInspectorTestId()}
       style={inspectorShellStyle}
     >
       <div style={inspectorHeaderStyle}>

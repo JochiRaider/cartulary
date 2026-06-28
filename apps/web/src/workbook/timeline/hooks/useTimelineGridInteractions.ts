@@ -1,5 +1,6 @@
 import type { GridColumn, GridRow } from "@cartulary/grid-adapter";
-import { useState } from "react";
+import type { WorkbookSurface } from "@cartulary/ui-contracts";
+import { useCallback, useState } from "react";
 import type { WorkbookFocusAnchor } from "../../utils/workbookGridFocus";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 
@@ -42,10 +43,40 @@ export function useTimelineGridInteractions<TViewportContinuityRequest>({
   const [viewportContinuityRequest, setViewportContinuityRequest] =
     useState<TViewportContinuityRequest | null>(null);
 
+  const updateWorkbookFocusAnchor = useCallback(
+    (anchor: WorkbookFocusAnchor | null) => {
+      workbookFocusAnchorRef.current = anchor;
+      setWorkbookFocusAnchor(anchor);
+    },
+    [workbookFocusAnchorRef],
+  );
+
+  const updateTimelineFocusAnchor = useCallback(
+    (recordId: string | null, fieldKey: string, surface: WorkbookSurface) => {
+      if (
+        recordId === null ||
+        recordId.trim() === "" ||
+        !timelineAnchorColumnsRef.current.some(
+          (column) => column.fieldKey === fieldKey,
+        )
+      ) {
+        updateWorkbookFocusAnchor(null);
+        return;
+      }
+      updateWorkbookFocusAnchor({
+        fieldKey,
+        recordId,
+        surface,
+      });
+    },
+    [timelineAnchorColumnsRef, updateWorkbookFocusAnchor],
+  );
+
   return {
     commands: {
       setViewportContinuityRequest,
-      setWorkbookFocusAnchor,
+      updateTimelineFocusAnchor,
+      updateWorkbookFocusAnchor,
     },
     refs: {
       gridShellRef,

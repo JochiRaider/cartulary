@@ -63,6 +63,7 @@ import {
   systemViewSwitcherTriggerTestId,
   timelineEvidenceFileInputTestId,
   timelineInspectorSectionTestId,
+  timelineInspectorTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
@@ -173,7 +174,6 @@ const expectedFeP11VisualFixtureIds = Array.from(
   { length: 20 },
   (_, index) => `FE-VFIX-${String(index + 1).padStart(2, "0")}`,
 );
-const timelineInspectorTestId = "timeline-inspector";
 
 function findRepoRoot(): string {
   let candidate = process.cwd();
@@ -353,7 +353,7 @@ async function readTimelineGridFirstLayout(page: Page) {
     },
     {
       gridSelector: gridShellSelector(timelineViewSchemaId),
-      inspectorSelector: dataTestIdSelector(timelineInspectorTestId),
+      inspectorSelector: dataTestIdSelector(timelineInspectorTestId()),
       scrollportSelector: `${gridShellSelector(
         timelineViewSchemaId,
       )} ${gridScrollportSelector()}`,
@@ -793,7 +793,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
     await page
       .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
       .click();
-    await expect(page.getByTestId("timeline-inspector")).toBeVisible();
+    await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
     const wideDrawerOpenLayout = await readTimelineGridFirstLayout(page);
     expect(wideDrawerOpenLayout.grid).toEqual(wideLayout.grid);
     expect(wideDrawerOpenLayout.innerGrid).toEqual(wideLayout.innerGrid);
@@ -811,7 +811,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
     await page
       .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
       .click();
-    await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
     await page.setViewportSize(fixtureViewport);
     await expect
       .poll(async () => {
@@ -825,14 +825,14 @@ test.describe("FE-P2 workbook visual readiness", () => {
     expect(closedLayout.innerGrid.right).toBeGreaterThanOrEqual(
       closedLayout.grid.right - 2,
     );
-    await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
     await expect(
       page.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
     ).toBeVisible();
     await page
       .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
       .click();
-    await expect(page.getByTestId("timeline-inspector")).toBeVisible();
+    await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
     const drawerOpenLayout = await readTimelineGridFirstLayout(page);
     expect(drawerOpenLayout.grid).toEqual(closedLayout.grid);
     expect(drawerOpenLayout.innerGrid).toEqual(closedLayout.innerGrid);
@@ -854,7 +854,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
         workbookInspectorCloseButtonTestId(timelineViewSchemaId),
       ),
     ).toBeVisible();
-    await expect(page.getByTestId("timeline-inspector")).toContainText(
+    await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
       rowSummariesById.get(selectedRow.record_id) ?? "Selected timeline row",
     );
     for (const section of [
@@ -880,7 +880,7 @@ test.describe("FE-P2 workbook visual readiness", () => {
     await page
       .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
       .click();
-    await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
 
     const timelineScrollportSelector = `${dataTestIdSelector(
       gridShellTestId(timelineViewSchemaId),
@@ -4962,7 +4962,7 @@ async function readWorkbookGridAnchorState(
     },
     {
       anchor,
-      inspectorSelector: dataTestIdSelector(timelineInspectorTestId),
+      inspectorSelector: dataTestIdSelector(timelineInspectorTestId()),
       scrollportSelector: gridScrollportSelector(),
       selectors: buildWorkbookGridAnchorSelectors(surface, anchor),
       shellSelector: gridShellSelector(surface),
@@ -5178,7 +5178,7 @@ async function readWorkbookGridDiagnostics(page: Page, surface: string) {
       };
     },
     {
-      inspectorSelector: dataTestIdSelector(timelineInspectorTestId),
+      inspectorSelector: dataTestIdSelector(timelineInspectorTestId()),
       scrollportSelector: gridScrollportSelector(),
       shellSelector: gridShellSelector(surface),
       surface,

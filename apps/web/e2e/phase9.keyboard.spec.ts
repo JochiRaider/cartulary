@@ -20,6 +20,7 @@ import {
   saveStateTestId,
   surfaceTabTestId,
   systemViewSwitcherTriggerTestId,
+  timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
   workbookFilterPopoverTriggerTestId,
   workbookInspectorCloseButtonTestId,
@@ -193,7 +194,7 @@ async function readWorkbookDocumentLayout(page: Page) {
       };
     },
     {
-      inspectorSelector: dataTestIdSelector("timeline-inspector"),
+      inspectorSelector: dataTestIdSelector(timelineInspectorTestId()),
       scrollportSelector: gridScrollportSelector(),
       shellSelector: dataTestIdSelector(gridShellTestId(timelineViewSchemaId)),
     },
@@ -385,7 +386,7 @@ test("Phase 9 E-9-01 keyboard shortcuts keep workbook grid anchors without modul
   ).toBeFocused();
 
   await openTimelineInspector(page, alpha.record_id as string);
-  await expect(page.getByTestId("timeline-inspector")).toContainText(
+  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
     "Phase9Host?",
   );
   expect(page.url()).toBe(initialURL);
@@ -470,7 +471,7 @@ test("FE-B-P9-LAYOUT-01 keeps the incident workbook inside the browser viewport 
   await page
     .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
     .click();
-  await expect(page.getByTestId("timeline-inspector")).toBeVisible();
+  await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 10_000));
   const inspectorLayout = await readWorkbookDocumentLayout(page);
   expectWorkbookDocumentBounded(inspectorLayout, "inspector open");
@@ -586,7 +587,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   await expect(alphaSummary).toBeFocused();
   await alphaSummary.press("Escape");
   await expect(inspectorDetails).toHaveCount(0);
-  await expect(page.getByTestId("timeline-inspector")).toContainText(
+  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
     "no_row_selected",
   );
   await expect(alphaSummary).toBeFocused();
@@ -596,7 +597,7 @@ test("FE-B-P10-02 Verify full keyboard/clipboard contract: copy, paste, fill-dow
   await page
     .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
     .click();
-  await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
 
   const pasteRequest = page.waitForRequest(
     (request) =>

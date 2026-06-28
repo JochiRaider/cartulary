@@ -26,6 +26,7 @@ import {
   systemViewSwitcherMenuTestId,
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
+  timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
   workbookAddRowButtonTestId,
   workbookFilterPopoverTriggerTestId,
@@ -1341,7 +1342,7 @@ test("FE-E-P9-03 Verify Timeline inspector Workflow create-related actions stay 
       },
     ],
   });
-  await expect(page.getByTestId("timeline-inspector")).toContainText(
+  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
     `Created and linked evidence ${evidence.record_id}.`,
   );
 
@@ -2842,7 +2843,7 @@ async function expectTimelineWorkflowShell(page: Page) {
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
-  await expect(page.getByTestId("timeline-inspector")).toBeVisible();
+  await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
   await expect(
     page.getByTestId(
       workbookInspectorPanelTestId(timelineViewSchemaId, "workflow"),

@@ -130,8 +130,6 @@ import {
 import {
   isPresenceRecord,
   presenceMatchesSheet,
-  type WorkbookPresenceInput,
-  type WorkbookPresenceMode,
 } from "../../utils/workbookPresence";
 import { visuallyHiddenStyle } from "../../utils/workbookStyles";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
@@ -234,8 +232,15 @@ import {
   type WorkbookVersionedRecord,
 } from "../models/workbookTimelineModel";
 import {
+  dispatchTimelinePendingReplayMutation,
+  type TimelineMutationEnvelope,
+  type TimelineMutationFetchResult,
+} from "../services/timelineMutationRequests";
+import {
   buildMentionActionPayload,
   buildMentionPatchPayload,
+  buildWorkbookPresenceUpdateMessage,
+  buildWorkbookSocketSessionMessage,
   isRecordChangedMessage,
   type MentionResolutionAction,
   type RecordChangedPayload,
@@ -368,14 +373,6 @@ type WorkbookQueryEnvelope = {
     incident_id: string;
     view_schema_id: string;
     rows: unknown[];
-  };
-};
-
-type TimelineMutationEnvelope = {
-  data: {
-    view_schema_id: string;
-    change_set_id?: string;
-    row: unknown;
   };
 };
 
@@ -960,30 +957,6 @@ function websocketPath(base: string | undefined, path: string): string {
   return target.toString();
 }
 
-function workbookPresence(
-  presence: {
-    fieldKey: string | null;
-    mode: WorkbookPresenceMode;
-    recordId: string | null;
-  } = { fieldKey: null, mode: "viewing", recordId: null },
-  sheetRef: WorkbookSheetRef = {
-    kind: "view_schema",
-    id: timelineViewSchemaId,
-  },
-): WorkbookPresenceInput {
-  const input: WorkbookPresenceInput = {
-    sheet_ref: { ...sheetRef },
-    mode: presence.mode,
-  };
-  if (presence.recordId !== null) {
-    input.record_id = presence.recordId;
-  }
-  if (presence.mode === "editing" && presence.fieldKey !== null) {
-    input.field_key = presence.fieldKey;
-  }
-  return input;
-}
-
 function pruneDismissedMentions(
   dismissedMentionsByRow: Record<string, DismissedMention[]>,
   row: WorkbookRow,
@@ -1167,8 +1140,11 @@ export function TimelineWorkbook({
     });
   const { viewportContinuityRequest, workbookFocusAnchor } =
     timelineGridInteractions.snapshot;
-  const { setViewportContinuityRequest, setWorkbookFocusAnchor } =
-    timelineGridInteractions.commands;
+  const {
+    setViewportContinuityRequest,
+    updateTimelineFocusAnchor,
+    updateWorkbookFocusAnchor,
+  } = timelineGridInteractions.commands;
 
   useLayoutEffect(() => {
     const gridShell = gridShellRef.current;
@@ -1387,46 +1363,21 @@ export function TimelineWorkbook({
         return;
       }
       target.send(
-        JSON.stringify({
-          type: "presence_update",
-          payload: {
-            presence: workbookPresence(
-              currentPresenceRef.current,
-              activeSheetRuntimeRef.current,
-            ),
-          },
-        }),
+        JSON.stringify(
+          buildWorkbookPresenceUpdateMessage(
+            currentPresenceRef.current,
+            activeSheetRuntimeRef.current,
+          ),
+        ),
       );
     }, 150);
   }, [currentPresence]);
 
-  const updateWorkbookFocusAnchor = useCallback(
-    (anchor: WorkbookFocusAnchor | null) => {
-      workbookFocusAnchorRef.current = anchor;
-      setWorkbookFocusAnchor(anchor);
-    },
-    [setWorkbookFocusAnchor],
-  );
-
-  const updateTimelineFocusAnchor = useCallback(
+  const updateTimelineSurfaceFocusAnchor = useCallback(
     (recordId: string | null, fieldKey: string) => {
-      if (
-        recordId === null ||
-        recordId.trim() === "" ||
-        !timelineAnchorColumnsRef.current.some(
-          (column) => column.fieldKey === fieldKey,
-        )
-      ) {
-        updateWorkbookFocusAnchor(null);
-        return;
-      }
-      updateWorkbookFocusAnchor({
-        fieldKey,
-        recordId,
-        surface: timelineViewSchemaId,
-      });
+      updateTimelineFocusAnchor(recordId, fieldKey, timelineViewSchemaId);
     },
-    [updateWorkbookFocusAnchor],
+    [updateTimelineFocusAnchor],
   );
 
   const publishPendingQueueState = useCallback(() => {
@@ -3102,40 +3053,13 @@ export function TimelineWorkbook({
     publishPendingQueueState();
     trackPendingSocketTxn(dispatchedUnit.clientTxnId);
 
-    let result: Awaited<
-      ReturnType<typeof fetchJSON<TimelineMutationEnvelope>>
-    > | null = null;
+    let result: TimelineMutationFetchResult | null = null;
     try {
-      recordWorkbookTiming("pending_fetch_start", {
-        clientTxnId: unit.clientTxnId,
-        kind: unit.kind,
-        rowKey: unit.rowKey,
+      result = await dispatchTimelinePendingReplayMutation({
+        payload: dispatchPayload,
+        recordTiming: recordWorkbookTiming,
+        unit: dispatchedUnit,
       });
-      result = await fetchJSON<TimelineMutationEnvelope>(
-        dispatchedUnit.path,
-        {
-          method: dispatchedUnit.method,
-          body: JSON.stringify(dispatchPayload),
-        },
-        {
-          onJSONParsed: () => {
-            recordWorkbookTiming("pending_fetch_json_parsed", {
-              clientTxnId: unit.clientTxnId,
-              kind: unit.kind,
-              rowKey: unit.rowKey,
-            });
-          },
-          onResponse: (response) => {
-            recordWorkbookTiming("pending_fetch_response", {
-              clientTxnId: unit.clientTxnId,
-              kind: unit.kind,
-              rowKey: unit.rowKey,
-              serverTiming: response.headers.get("server-timing") ?? "",
-              status: response.status,
-            });
-          },
-        },
-      );
     } catch {
       resolvePendingSocketTxn(dispatchedUnit.clientTxnId);
       pending.model.settleDispatched({
@@ -3309,35 +3233,16 @@ export function TimelineWorkbook({
     socketReconnectAfterAuthRef.current = scheduleReconnect;
 
     const sendSessionEstablishment = (target: WebSocket) => {
-      const resumeToken = socketResumeTokenRef.current;
-      if (resumeToken) {
-        target.send(
-          JSON.stringify({
-            type: "resume",
-            payload: {
-              client_instance_id: clientInstanceId,
-              resume_token: resumeToken,
-              last_seen_stream_seq: socketLastSeenStreamSeqRef.current,
-              presence: workbookPresence(
-                currentPresenceRef.current,
-                activeSheetRuntimeRef.current,
-              ),
-            },
-          }),
-        );
-        return;
-      }
       target.send(
-        JSON.stringify({
-          type: "hello",
-          payload: {
-            client_instance_id: clientInstanceId,
-            presence: workbookPresence(
-              currentPresenceRef.current,
-              activeSheetRuntimeRef.current,
-            ),
-          },
-        }),
+        JSON.stringify(
+          buildWorkbookSocketSessionMessage({
+            clientInstanceId,
+            lastSeenStreamSeq: socketLastSeenStreamSeqRef.current,
+            presence: currentPresenceRef.current,
+            resumeToken: socketResumeTokenRef.current,
+            sheetRef: activeSheetRuntimeRef.current,
+          }),
+        ),
       );
     };
 
@@ -4674,10 +4579,10 @@ export function TimelineWorkbook({
         fieldKey,
         recordId: row.recordId,
       };
-      updateTimelineFocusAnchor(anchor.recordId, anchor.fieldKey);
+      updateTimelineSurfaceFocusAnchor(anchor.recordId, anchor.fieldKey);
       return anchor;
     },
-    [updateTimelineFocusAnchor, updateWorkbookFocusAnchor],
+    [updateTimelineSurfaceFocusAnchor, updateWorkbookFocusAnchor],
   );
 
   const resolveTimelinePasteTargetResolution = useCallback(
@@ -4735,10 +4640,14 @@ export function TimelineWorkbook({
         return null;
       }
 
-      updateTimelineFocusAnchor(anchor.recordId, anchor.fieldKey);
+      updateTimelineSurfaceFocusAnchor(anchor.recordId, anchor.fieldKey);
       return { anchor, targetResolution };
     },
-    [queryState.groupBy, updateTimelineFocusAnchor, updateWorkbookFocusAnchor],
+    [
+      queryState.groupBy,
+      updateTimelineSurfaceFocusAnchor,
+      updateWorkbookFocusAnchor,
+    ],
   );
 
   const navigateTimelineFocusAnchor = useCallback(
@@ -4757,7 +4666,10 @@ export function TimelineWorkbook({
         updateWorkbookFocusAnchor(null);
         return;
       }
-      updateTimelineFocusAnchor(nextAnchor.recordId, nextAnchor.fieldKey);
+      updateTimelineSurfaceFocusAnchor(
+        nextAnchor.recordId,
+        nextAnchor.fieldKey,
+      );
       const restoredNow = restoreTimelineFocusAnchor(nextAnchor);
       window.setTimeout(() => {
         if (restoredNow) {
@@ -4769,7 +4681,7 @@ export function TimelineWorkbook({
     [
       queryState.groupBy,
       restoreTimelineFocusAnchor,
-      updateTimelineFocusAnchor,
+      updateTimelineSurfaceFocusAnchor,
       updateWorkbookFocusAnchor,
     ],
   );
@@ -5204,12 +5116,9 @@ export function TimelineWorkbook({
         return;
       }
       target.send(
-        JSON.stringify({
-          type: "presence_update",
-          payload: {
-            presence: workbookPresence(presence, activeSheetRef),
-          },
-        }),
+        JSON.stringify(
+          buildWorkbookPresenceUpdateMessage(presence, activeSheetRef),
+        ),
       );
     },
     [activeSheetRef],
@@ -5660,7 +5569,7 @@ export function TimelineWorkbook({
             field={binding.key}
             multiline={binding.multiline}
             onEditModeChange={handleEditModePresence}
-            onFocusAnchor={updateTimelineFocusAnchor}
+            onFocusAnchor={updateTimelineSurfaceFocusAnchor}
             registerInput={registerInput}
             presenceFieldKey={binding.fieldKey}
             rowKey={row.key}
@@ -5707,8 +5616,8 @@ export function TimelineWorkbook({
       registerInput,
       setScalarEditorDraftValue,
       timelineBindingLabel,
-      updateTimelineFocusAnchor,
       setActiveConflictKey,
+      updateTimelineSurfaceFocusAnchor,
     ],
   );
 
@@ -5936,7 +5845,7 @@ export function TimelineWorkbook({
             }}
             onFocus={() => {
               setActiveCollectionInputKey(collectionFocusKey);
-              updateTimelineFocusAnchor(row.recordId, binding.fieldKey);
+              updateTimelineSurfaceFocusAnchor(row.recordId, binding.fieldKey);
               if (row.recordId) {
                 handleSelectRow(row.recordId);
               }
@@ -5968,7 +5877,7 @@ export function TimelineWorkbook({
       registerInput,
       timelineBindingLabel,
       queueCollectionSave,
-      updateTimelineFocusAnchor,
+      updateTimelineSurfaceFocusAnchor,
     ],
   );
 

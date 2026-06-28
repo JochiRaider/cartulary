@@ -40,6 +40,8 @@ const sharedBuilderOwnedSelectorPatterns = [
   /^saved-view-/u,
   /^reference-pack-(?:admin-panel|file|import|job-status|reload|cancel|refresh-all|refresh-selected|row|error)(?:-|$)/u,
   /^save-state$/u,
+  /^timeline-inspector$/u,
+  /^timeline-inspector-message$/u,
   /^workbook-(?:current-user|loading)$/u,
 ] as const;
 
@@ -69,7 +71,7 @@ const appLocalSelectorOwnership = [
   {
     owner: "apps/web timeline workbook surface",
     pattern:
-      /^(?:timeline-(?:blur-surface|refresh-error|inspector|inspector-message|evidence-file-(?:draft|timeline-1))|controlled-input$|entity-load-error$)/u,
+      /^(?:timeline-(?:blur-surface|refresh-error|evidence-file-(?:draft|timeline-1))|controlled-input$|entity-load-error$)/u,
     reason:
       "Timeline shell selectors are app-local workbook anchors pending later FE phase selector promotion.",
     scope: "apps/web WorkbookShell and timeline workbook support tests",

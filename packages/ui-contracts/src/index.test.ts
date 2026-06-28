@@ -160,6 +160,7 @@ import {
   timelineInspectorMessageTestId,
   timelineInspectorSections,
   timelineInspectorSectionTestId,
+  timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
   timelinePreviewRowTestId,
   timelineRowMarkReviewedButtonTestId,
@@ -1039,6 +1040,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "timeline-inspector-section-history",
     );
     expect(timelineInspectorMessageTestId()).toBe("timeline-inspector-message");
+    expect(timelineInspectorTestId()).toBe("timeline-inspector");
     expect(timelineInspectorSectionTestId("operational-text")).toBe(
       timelineInspectorSectionTestId("operational-text"),
     );

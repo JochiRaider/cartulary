@@ -18,6 +18,7 @@ import {
   timelineDraftEvidenceAttachSectionTestId,
   timelineDraftEvidenceFileInputTestId,
   timelineInspectorSectionTestId,
+  timelineInspectorTestId,
   timelineScalarEditorTestId,
   workbookInspectorFeatureActionTestId,
   workbookInspectorFeatureGroupTestId,
@@ -112,7 +113,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     const { container } = render(<TimelineWorkbook incidentId="incident-1" />);
     await waitForVisibleGridRowRecordIds(container, ["record-1"]);
 
-    expect(screen.queryByTestId("timeline-inspector")).toBeNull();
+    expect(screen.queryByTestId(timelineInspectorTestId())).toBeNull();
     const primaryGridSlot = screen.getByTestId(
       workbookShellSlotTestId("primary-grid"),
     );
@@ -163,9 +164,9 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("timeline-inspector")).toBeTruthy();
+      expect(screen.getByTestId(timelineInspectorTestId())).toBeTruthy();
     });
-    const inspectorSlot = screen.getByTestId("timeline-inspector")
+    const inspectorSlot = screen.getByTestId(timelineInspectorTestId())
       .parentElement as HTMLElement;
     expect(inspectorSlot.style.position).toBe("absolute");
     expect(["0", "0px"]).toContain(
@@ -210,7 +211,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     fireEvent.click(
       screen.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
     );
-    expect(await screen.findByTestId("timeline-inspector")).toBeTruthy();
+    expect(await screen.findByTestId(timelineInspectorTestId())).toBeTruthy();
 
     rerender(
       <TimelineWorkbook
@@ -220,7 +221,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.queryByTestId("timeline-inspector")).toBeNull();
+      expect(screen.queryByTestId(timelineInspectorTestId())).toBeNull();
     });
     expect(
       screen.getByTestId(
@@ -239,7 +240,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     );
 
     expect(
-      (await screen.findByTestId("timeline-inspector")).textContent,
+      (await screen.findByTestId(timelineInspectorTestId())).textContent,
     ).toContain("no_row_selected");
     expect(
       screen.queryByTestId(timelineInspectorSectionTestId("evidence")),
@@ -445,7 +446,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     );
     fireEvent.click(screen.getByTestId(rowInspectButtonTestId("record-2")));
 
-    expect(screen.getByTestId("timeline-inspector").textContent).toContain(
+    expect(screen.getByTestId(timelineInspectorTestId()).textContent).toContain(
       "Phase 9 selected row",
     );
     expect(
@@ -508,7 +509,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
       "record-2",
       "record-1",
     ]);
-    expect(screen.getByTestId("timeline-inspector").textContent).toContain(
+    expect(screen.getByTestId(timelineInspectorTestId()).textContent).toContain(
       "Phase 9 selected row",
     );
     await waitFor(() => {
@@ -540,7 +541,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     await waitForVisibleGridRowRecordIds(container, ["record-3", "record-1"]);
     await waitFor(() => {
       expect(
-        screen.getByTestId("timeline-inspector").textContent,
+        screen.getByTestId(timelineInspectorTestId()).textContent,
       ).not.toContain("Phase 9 selected row");
       expect(document.activeElement).toBe(
         screen.getByTestId(
@@ -631,7 +632,7 @@ describe("FE-P9 inspector and row-local action coverage", () => {
         actions: [{ op: "add_record_ref", linked_record_id: "record-1" }],
       },
     });
-    expect(screen.getByTestId("timeline-inspector").textContent).toContain(
+    expect(screen.getByTestId(timelineInspectorTestId()).textContent).toContain(
       "Created related cartulary.view.task_requests.v1 row task-1.",
     );
   });
@@ -714,9 +715,9 @@ describe("FE-P9 inspector and row-local action coverage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("timeline-inspector").textContent).toContain(
-        "Created and linked evidence evidence-1.",
-      );
+      expect(
+        screen.getByTestId(timelineInspectorTestId()).textContent,
+      ).toContain("Created and linked evidence evidence-1.");
     });
     const createCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
       String(url).endsWith(

@@ -19,6 +19,7 @@ import {
   saveStateTestId,
   timelineCollectionInputTestId,
   timelineInspectorSectionTestId,
+  timelineInspectorTestId,
   timelineRowReplacementInputTestId,
   timelineRowVersionTestId,
   workbookInlineDraftRowTestId,
@@ -843,9 +844,9 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     });
     refreshGate.resolve();
     await waitFor(() => {
-      expect(screen.getByTestId("timeline-inspector").textContent).toContain(
-        "VPN User",
-      );
+      expect(
+        screen.getByTestId(timelineInspectorTestId()).textContent,
+      ).toContain("VPN User");
     });
     await waitForPostRenderFrame();
     await expectTimelineFocusAndScroll("record-1", preservedScroll, {
@@ -1443,7 +1444,7 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     fireEvent.click(overflowButton);
 
     await waitFor(() => {
-      expect(screen.getByTestId("timeline-inspector")).toBeTruthy();
+      expect(screen.getByTestId(timelineInspectorTestId())).toBeTruthy();
       expect(
         screen.getByTestId(timelineInspectorSectionTestId("relationships"))
           .textContent,

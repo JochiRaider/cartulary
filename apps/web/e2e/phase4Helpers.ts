@@ -21,6 +21,7 @@ import {
   rowInspectorFieldTestId,
   saveStateTestId,
   timelineCollectionInputTestId,
+  timelineInspectorTestId,
   timelinePreviewRowTestId,
   timelineRowVersionTestId,
   workbookInspectorCloseButtonTestId,
@@ -706,11 +707,11 @@ export async function openTimelineInspector(page: Page, recordId: string) {
   );
   if ((await closeInspector.count()) > 0) {
     await closeInspector.click();
-    await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
   }
   const inspectButtonTestId = rowInspectButtonTestId(recordId);
   await clickTimelineRowAction(page, recordId, inspectButtonTestId);
-  await expect(page.getByTestId("timeline-inspector")).toBeVisible();
+  await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
 }
 
 export async function openTimelineRowActions(page: Page, recordId: string) {

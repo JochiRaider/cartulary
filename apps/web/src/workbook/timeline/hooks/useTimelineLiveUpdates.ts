@@ -1,8 +1,6 @@
 import { useCallback, useState } from "react";
-import type {
-  PresenceRecord,
-  WorkbookPresenceMode,
-} from "../../utils/workbookPresence";
+import type { PresenceRecord } from "../../utils/workbookPresence";
+import type { TimelinePresenceDraft } from "../services/workbookCollaborationMessages";
 import {
   type createWorkbookSocketLifecycleState,
   reduceWorkbookSocketLifecycle,
@@ -10,11 +8,7 @@ import {
   type WorkbookSocketLifecycleEffect,
 } from "../services/workbookSocketLifecycle";
 
-export type TimelinePresenceDraft = {
-  fieldKey: string | null;
-  mode: WorkbookPresenceMode;
-  recordId: string | null;
-};
+export type { TimelinePresenceDraft } from "../services/workbookCollaborationMessages";
 
 type TimelineMutableRef<T> = {
   current: T;

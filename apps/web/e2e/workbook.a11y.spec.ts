@@ -75,6 +75,7 @@ import {
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   timelineInspectorSectionTestId,
+  timelineInspectorTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineScalarEditorTestId,
   workbookFilterPopoverTriggerTestId,
@@ -1276,7 +1277,7 @@ test.describe("FE-P2 accessibility readiness", () => {
     await expectVisibleFocus(summaryCell);
     await openTimelineInspector(page, timelineRow.record_id);
 
-    const inspector = page.getByTestId("timeline-inspector");
+    const inspector = page.getByTestId(timelineInspectorTestId());
     await expect(inspector).toBeVisible();
     await expect(inspector).toHaveAttribute("aria-label", "Timeline inspector");
     await expect(
@@ -2308,7 +2309,7 @@ test.describe("FE-P9 accessibility readiness", () => {
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-    await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
 
     const toggle = page.getByTestId(
       workbookInspectorToggleTestId(timelineViewSchemaId),
@@ -2316,11 +2317,11 @@ test.describe("FE-P9 accessibility readiness", () => {
     await toggle.focus();
     await expectVisibleFocus(toggle);
     await toggle.press("Enter");
-    await expect(page.getByTestId("timeline-inspector")).toContainText(
+    await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
       "no_row_selected",
     );
     await page.keyboard.press("Escape");
-    await expect(page.getByTestId("timeline-inspector")).toHaveCount(0);
+    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
     await expectVisibleFocus(toggle);
 
     const summaryCell = page.getByTestId(

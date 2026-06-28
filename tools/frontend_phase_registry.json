@@ -226,9 +226,9 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "9d08b117a528c24be705ffecb4da5e63c574576d5b5f0c7b7930182b094d5516",
-      "manifest_digest": "07b3c38c91c94ae481ec46b2f3ce969892027d772973d195bfc7b0d8e30e0ae2",
-      "ledger_digest": "6e6c1b8762dbd28a92cec5e1b95cb9e5de40ce39c9d9b92149f1b994f264aeea"
+      "evidence_freshness_digest": "158e131364ee8cc61dcf98231db4b166530a1751957e2c656b733f9e4a252104",
+      "manifest_digest": "f6f793b77dfbf408e10badf450c6c7c911560ae8b2285ae59aa9ce23096d9122",
+      "ledger_digest": "4dc3d0002618cb65043c7557cc2c5f1d3f9cf1e32469842527fd60b42df5768f"
     },
     {
       "phase_id": "FE-P8",

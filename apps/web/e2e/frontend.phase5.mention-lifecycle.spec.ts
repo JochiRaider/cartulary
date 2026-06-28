@@ -9,6 +9,7 @@ import {
   mentionRestoreUnresolvedButtonTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
+  timelineInspectorTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Response, Route } from "@playwright/test";
@@ -112,7 +113,7 @@ test(exactScenarioTitle, async ({ page }) => {
   await page
     .getByTestId(mentionItemTestId(String(manualMention.item_ref)))
     .click();
-  await expect(page.getByTestId("timeline-inspector")).toContainText(
+  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
     manualRawText,
   );
 
@@ -145,7 +146,7 @@ test(exactScenarioTitle, async ({ page }) => {
   await page
     .getByTestId(mentionItemTestId(String(manualMention.item_ref)))
     .click();
-  await expect(page.getByTestId("timeline-inspector")).toContainText(
+  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
     manualRawText,
   );
   const manualResolvedRow = await refreshedTimelineRow(
@@ -256,7 +257,7 @@ test(exactScenarioTitle, async ({ page }) => {
       autoResolutionReviewButtonTestId(String(autoCorrectionItem.item_ref)),
     )
     .click();
-  await expect(page.getByTestId("timeline-inspector")).toContainText(
+  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
     autoRawText,
   );
   await expect(autoCorrectionNotice).toBeVisible();
@@ -300,7 +301,7 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   await expect(autoCorrectionChip).toContainText("Manual");
   await expect(autoCorrectionChip).not.toContainText("Auto");
-  await expect(page.getByTestId("timeline-inspector")).toContainText(
+  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
     autoRawText,
   );
   await expect(autoCorrectionNotice).toHaveCount(0);
