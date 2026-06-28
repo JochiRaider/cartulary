@@ -10,12 +10,12 @@ import {
 import {
   act,
   fireEvent,
-  render,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { renderTimelineWorkbook } from "../testing/timelineWorkbookRenderTestSupport";
 import {
   cleanupTimelineWorkbookTestGlobals,
   deferred,
@@ -27,7 +27,6 @@ import {
   timelineViewSchemaId,
   visibleGridRows,
 } from "../testing/timelineWorkbookTestSupport";
-import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import {
   buildCreatePayload,
   createDraftRow,
@@ -80,7 +79,7 @@ describe("Phase 3 Timeline workbook payload coverage", () => {
     );
     fetchMock.mockReturnValueOnce(pendingCreate.promise);
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    renderTimelineWorkbook();
 
     expect((await screen.findByTestId(saveStateTestId())).textContent).toBe(
       "Saved",

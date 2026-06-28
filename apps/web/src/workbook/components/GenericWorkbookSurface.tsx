@@ -32,9 +32,7 @@ import type { ViewContract } from "@cartulary/view-contracts";
 import { X } from "lucide-react";
 import {
   type CSSProperties,
-  type Dispatch,
   type ReactNode,
-  type SetStateAction,
   useCallback,
   useEffect,
   useMemo,
@@ -48,6 +46,10 @@ import {
   issueEvidenceAccessHandle,
 } from "../../services/workbookEvidence";
 import { useGenericReferenceOptions } from "../hooks/useGenericReferenceOptions";
+import {
+  useGenericSurfaceMutationController,
+  type GenericViewMutationEnvelope as ViewMutationEnvelope,
+} from "../hooks/useGenericSurfaceMutationController";
 import { buildEvidenceLifecycleViewModel } from "../models/evidenceLifecycleViewModel";
 import {
   buildGenericCreatePayload,
@@ -62,8 +64,9 @@ import {
   genericCreateMinimumMessage,
   genericRowLabel,
   initialGenericCreateDraft,
-  parseMutationError,
+  normalizeGenericTextValue,
   partyLinkPairsForContract,
+  selectWorkbookEditTarget,
 } from "../models/genericWorkbookModel";
 import {
   workbookContractColumns,
@@ -93,29 +96,13 @@ import {
   WorkbookInspectorPanelSection,
 } from "./WorkbookInspectorFeatureGroups";
 import { WorkbookSheetToolbar } from "./WorkbookSheetToolbar";
-import {
-  type WorkbookStatusSaveState,
-  WorkbookSurfaceStatusStrip,
-} from "./WorkbookStatusStrip";
+import { WorkbookSurfaceStatusStrip } from "./WorkbookStatusStrip";
 import {
   WorkbookSurfaceFrame,
   workbookSurfaceGridShellStyle,
   workbookSurfaceInspectorPanelStyle,
   workbookSurfaceOverlayPanelStyle,
 } from "./WorkbookSurfaceFrame";
-
-type GenericMutationErrorSetter = Dispatch<SetStateAction<string | null>>;
-type GenericMutationStateSetter = Dispatch<
-  SetStateAction<WorkbookStatusSaveState>
->;
-
-type ViewMutationEnvelope = {
-  data: {
-    view_schema_id: string;
-    change_set_id: string;
-    row: EntityApiRow;
-  };
-};
 
 type DecisionSupersedeEnvelope = {
   data: {
@@ -151,99 +138,6 @@ export type GenericWorkbookSurfaceProps = {
   readonly queryState: WorkbookQueryState;
   readonly rows: EntityApiRow[];
 };
-
-function selectGenericEditTarget<
-  Row,
-  Field extends { readonly fieldKey: string },
->({
-  fieldKey,
-  fields,
-  getRecordId,
-  recordId,
-  rows,
-}: {
-  readonly fieldKey: string;
-  readonly fields: readonly Field[];
-  readonly getRecordId: (row: Row) => string;
-  readonly recordId: string;
-  readonly rows: readonly Row[];
-}): { readonly field: Field | null; readonly row: Row | null } {
-  return {
-    row: rows.find((row) => getRecordId(row) === recordId) ?? null,
-    field:
-      fields.find((field) => field.fieldKey === fieldKey) ?? fields[0] ?? null,
-  };
-}
-
-function normalizeValue(value: string): string {
-  return value.trim();
-}
-
-async function submitGenericRecordPatch({
-  apiBase,
-  baseRowVersion,
-  changes,
-  clientTxnId,
-  recordId,
-  viewSchemaId,
-}: {
-  readonly apiBase: string | undefined;
-  readonly baseRowVersion: number;
-  readonly changes: readonly Record<string, unknown>[];
-  readonly clientTxnId: string;
-  readonly recordId: string;
-  readonly viewSchemaId: string;
-}) {
-  return fetchJSON<ViewMutationEnvelope>(
-    apiPath(apiBase, `/api/v1/records/${recordId}`),
-    {
-      method: "PATCH",
-      body: JSON.stringify({
-        view_schema_id: viewSchemaId,
-        base_row_version: baseRowVersion,
-        client_txn_id: clientTxnId,
-        changes,
-      }),
-    },
-  );
-}
-
-async function submitGenericPatchMutation({
-  apiBase,
-  baseRowVersion,
-  changes,
-  clientTxnId,
-  recordId,
-  setMutationError,
-  setMutationState,
-  viewSchemaId,
-}: {
-  readonly apiBase: string | undefined;
-  readonly baseRowVersion: number;
-  readonly changes: readonly Record<string, unknown>[];
-  readonly clientTxnId: string;
-  readonly recordId: string;
-  readonly setMutationError: GenericMutationErrorSetter;
-  readonly setMutationState: GenericMutationStateSetter;
-  readonly viewSchemaId: string;
-}) {
-  setMutationState("Syncing");
-  setMutationError(null);
-  const result = await submitGenericRecordPatch({
-    apiBase,
-    baseRowVersion,
-    changes,
-    clientTxnId,
-    recordId,
-    viewSchemaId,
-  });
-  if (!result.ok) {
-    setMutationState("Conflict");
-    setMutationError(parseMutationError(result.payload));
-    return null;
-  }
-  return result.payload;
-}
 
 export function GenericWorkbookSurface({
   apiBase,
@@ -289,9 +183,22 @@ export function GenericWorkbookSurface({
   const [partyLinkExistingPartyId, setPartyLinkExistingPartyId] = useState("");
   const { referenceLoadError, referenceOptions, refreshReferenceOptions } =
     useGenericReferenceOptions({ apiBase, incidentId });
-  const [mutationError, setMutationError] = useState<string | null>(null);
-  const [mutationState, setMutationState] =
-    useState<WorkbookStatusSaveState>("Saved");
+  const {
+    beginMutation,
+    clearMutationError,
+    completeGenericMutation,
+    markMutationConflict,
+    markMutationSaved,
+    mutationError,
+    mutationState,
+    rejectMutationPayload,
+    setValidationError,
+    submitPatchMutation,
+  } = useGenericSurfaceMutationController({
+    apiBase,
+    onRefresh,
+    refreshReferenceOptions,
+  });
   const [evidenceMessageByRecordID, setEvidenceMessageByRecordID] = useState<
     Record<string, string>
   >({});
@@ -333,8 +240,8 @@ export function GenericWorkbookSurface({
     setDecisionSupersedeReplacementId("");
     setDecisionSupersedeReason("");
     setEvidencePreview(null);
-    setMutationError(null);
-  }, [inspectorResetKey]);
+    clearMutationError();
+  }, [clearMutationError, inspectorResetKey]);
 
   useEffect(() => {
     setCreateDraft((current) => {
@@ -411,7 +318,7 @@ export function GenericWorkbookSurface({
         return;
       }
       setEvidenceMessage(row.record_id, "Uploading evidence.");
-      setMutationState("Syncing");
+      beginMutation();
       try {
         await createAndAttachEvidenceBlob({
           apiBase,
@@ -423,36 +330,25 @@ export function GenericWorkbookSurface({
           incidentId,
         });
         setEvidenceMessage(row.record_id, "Evidence attached.");
-        setMutationState("Saved");
+        markMutationSaved();
         await onRefresh();
       } catch (error) {
         setEvidenceMessage(
           row.record_id,
           error instanceof Error ? error.message : "Evidence attach failed.",
         );
-        setMutationState("Conflict");
+        markMutationConflict();
       }
     },
-    [apiBase, incidentId, onRefresh, setEvidenceMessage],
-  );
-
-  const completeGenericMutation = useCallback(
-    async <TEnvelope,>(payload: unknown) => {
-      const envelope = readEnvelope<TEnvelope>(payload);
-      try {
-        await onRefresh();
-        await refreshReferenceOptions();
-      } catch (error) {
-        setMutationState("Conflict");
-        setMutationError(
-          error instanceof Error ? error.message : "Workbook refresh failed.",
-        );
-        return envelope;
-      }
-      setMutationState("Saved");
-      return envelope;
-    },
-    [onRefresh, refreshReferenceOptions],
+    [
+      apiBase,
+      beginMutation,
+      incidentId,
+      markMutationConflict,
+      markMutationSaved,
+      onRefresh,
+      setEvidenceMessage,
+    ],
   );
 
   const submitCreate = useCallback(async () => {
@@ -462,11 +358,10 @@ export function GenericWorkbookSurface({
       `generic-create-${contract.viewSchemaId}-${Date.now()}`,
     );
     if (payload === null) {
-      setMutationError(genericCreateMinimumMessage(contract.viewSchemaId));
+      setValidationError(genericCreateMinimumMessage(contract.viewSchemaId));
       return;
     }
-    setMutationState("Syncing");
-    setMutationError(null);
+    beginMutation();
     const createPath =
       isNotesSurface && linkedNoteSourceRecordId !== ""
         ? `/api/v1/records/${linkedNoteSourceRecordId}/linked-notes`
@@ -476,8 +371,7 @@ export function GenericWorkbookSurface({
       { method: "POST", body: JSON.stringify(payload) },
     );
     if (!result.ok) {
-      setMutationState("Conflict");
-      setMutationError(parseMutationError(result.payload));
+      rejectMutationPayload(result.payload);
       return;
     }
     setCreateDraft(initialGenericCreateDraft(contract, currentUserId));
@@ -485,6 +379,7 @@ export function GenericWorkbookSurface({
     await completeGenericMutation<ViewMutationEnvelope>(result.payload);
   }, [
     apiBase,
+    beginMutation,
     completeGenericMutation,
     contract,
     createDraft,
@@ -492,6 +387,8 @@ export function GenericWorkbookSurface({
     incidentId,
     isNotesSurface,
     linkedNoteSourceRecordId,
+    rejectMutationPayload,
+    setValidationError,
   ]);
 
   const anchorColumns = useMemo<readonly GridColumn<EntityApiRow>[]>(
@@ -713,7 +610,7 @@ export function GenericWorkbookSurface({
     writableFields.length,
   ]);
   const { row: selectedEditRow, field: selectedEditField } =
-    selectGenericEditTarget({
+    selectWorkbookEditTarget({
       fieldKey: editFieldKey,
       fields: writableFields,
       getRecordId: (row: EntityApiRow) => row.record_id,
@@ -762,7 +659,7 @@ export function GenericWorkbookSurface({
 
   const submitEdit = async () => {
     if (selectedEditRow === null || selectedEditField === null) {
-      setMutationError("invalid_mutation_payload");
+      setValidationError("invalid_mutation_payload");
       return;
     }
     const change = buildGenericPatchChange(
@@ -771,19 +668,16 @@ export function GenericWorkbookSurface({
       editCollectionMode,
     );
     if (change === null) {
-      setMutationError(
+      setValidationError(
         "Provide a value, or leave clearable fields empty to clear them.",
       );
       return;
     }
-    const payload = await submitGenericPatchMutation({
-      apiBase,
+    const payload = await submitPatchMutation({
       baseRowVersion: selectedEditRow.row_version,
       changes: [change],
       clientTxnId: `generic-patch-${contract.viewSchemaId}-${Date.now()}`,
       recordId: selectedEditRow.record_id,
-      setMutationError,
-      setMutationState,
       viewSchemaId: contract.viewSchemaId,
     });
     if (payload === null) {
@@ -798,17 +692,14 @@ export function GenericWorkbookSurface({
     txnPrefix: string,
   ) => {
     if (selectedEditRow === null) {
-      setMutationError("Select a row before changing a party link.");
+      setValidationError("Select a row before changing a party link.");
       return false;
     }
-    const payload = await submitGenericPatchMutation({
-      apiBase,
+    const payload = await submitPatchMutation({
       baseRowVersion: selectedEditRow.row_version,
       changes,
       clientTxnId: `${txnPrefix}-${contract.viewSchemaId}-${Date.now()}`,
       recordId: selectedEditRow.record_id,
-      setMutationError,
-      setMutationState,
       viewSchemaId: contract.viewSchemaId,
     });
     if (payload === null) {
@@ -820,20 +711,19 @@ export function GenericWorkbookSurface({
 
   const createPartyFromText = async () => {
     if (selectedEditRow === null || selectedPartyLinkPair === null) {
-      setMutationError("Select a row and party field first.");
+      setValidationError("Select a row and party field first.");
       return;
     }
-    const rawText = normalizeValue(
+    const rawText = normalizeGenericTextValue(
       String(
         selectedEditRow.cells[selectedPartyLinkPair.textFieldKey]?.value ?? "",
       ),
     );
     if (rawText === "") {
-      setMutationError("Party text is empty.");
+      setValidationError("Party text is empty.");
       return;
     }
-    setMutationState("Syncing");
-    setMutationError(null);
+    beginMutation();
     const createPayload: Record<string, unknown> = {
       client_txn_id: `party-from-text-${contract.viewSchemaId}-${Date.now()}`,
       "party.display_name": rawText,
@@ -851,8 +741,7 @@ export function GenericWorkbookSurface({
       { method: "POST", body: JSON.stringify(createPayload) },
     );
     if (!createResult.ok) {
-      setMutationState("Conflict");
-      setMutationError(parseMutationError(createResult.payload));
+      rejectMutationPayload(createResult.payload);
       return;
     }
     const partyID = readEnvelope<ViewMutationEnvelope>(createResult.payload)
@@ -865,7 +754,7 @@ export function GenericWorkbookSurface({
 
   const linkExistingParty = async () => {
     if (selectedPartyLinkPair === null || partyLinkExistingPartyId === "") {
-      setMutationError("Select an existing party.");
+      setValidationError("Select an existing party.");
       return;
     }
     await submitPartyLinkPatch(
@@ -881,7 +770,7 @@ export function GenericWorkbookSurface({
 
   const clearPartyLink = async () => {
     if (selectedPartyLinkPair === null) {
-      setMutationError("Select a party field first.");
+      setValidationError("Select a party field first.");
       return;
     }
     await submitPartyLinkPatch(
@@ -892,7 +781,7 @@ export function GenericWorkbookSurface({
 
   const clearPartyText = async () => {
     if (selectedPartyLinkPair === null) {
-      setMutationError("Select a party field first.");
+      setValidationError("Select a party field first.");
       return;
     }
     await submitPartyLinkPatch(
@@ -903,7 +792,7 @@ export function GenericWorkbookSurface({
 
   const clearPartyBoth = async () => {
     if (selectedPartyLinkPair === null) {
-      setMutationError("Select a party field first.");
+      setValidationError("Select a party field first.");
       return;
     }
     await submitPartyLinkPatch(
@@ -918,22 +807,21 @@ export function GenericWorkbookSurface({
   const submitTaskLifecyclePatch = async () => {
     const target = rows.find((row) => row.record_id === taskLifecycleRecordId);
     if (!target) {
-      setMutationError("Select a task row.");
+      setValidationError("Select a task row.");
       return;
     }
     const changes: Array<Record<string, unknown>> = [
       { field_key: "task.status", value: taskLifecycleStatus },
     ];
     if (taskLifecycleStatus === "blocked") {
-      const reason = normalizeValue(taskLifecycleBlockedReason);
+      const reason = normalizeGenericTextValue(taskLifecycleBlockedReason);
       if (reason === "") {
-        setMutationError("Blocked tasks need a reason.");
+        setValidationError("Blocked tasks need a reason.");
         return;
       }
       changes.push({ field_key: "task.blocked_reason", value: reason });
     }
-    setMutationState("Syncing");
-    setMutationError(null);
+    beginMutation();
     const result = await fetchJSON<ViewMutationEnvelope>(
       apiPath(apiBase, `/api/v1/records/${target.record_id}`),
       {
@@ -947,8 +835,7 @@ export function GenericWorkbookSurface({
       },
     );
     if (!result.ok) {
-      setMutationState("Conflict");
-      setMutationError(parseMutationError(result.payload));
+      rejectMutationPayload(result.payload);
       return;
     }
     if (taskLifecycleStatus !== "blocked") {
@@ -962,20 +849,19 @@ export function GenericWorkbookSurface({
       (row) => row.record_id === decisionSupersedeTargetId,
     );
     if (!target || decisionSupersedeReplacementId === "") {
-      setMutationError("Select target and superseding decisions.");
+      setValidationError("Select target and superseding decisions.");
       return;
     }
     if (target.record_id === decisionSupersedeReplacementId) {
-      setMutationError("Select a different superseding decision.");
+      setValidationError("Select a different superseding decision.");
       return;
     }
-    const reason = normalizeValue(decisionSupersedeReason);
+    const reason = normalizeGenericTextValue(decisionSupersedeReason);
     if (reason === "") {
-      setMutationError("Reason is required.");
+      setValidationError("Reason is required.");
       return;
     }
-    setMutationState("Syncing");
-    setMutationError(null);
+    beginMutation();
     const result = await fetchJSON<DecisionSupersedeEnvelope>(
       apiPath(apiBase, `/api/v1/records/${target.record_id}/supersede`),
       {
@@ -989,8 +875,7 @@ export function GenericWorkbookSurface({
       },
     );
     if (!result.ok) {
-      setMutationState("Conflict");
-      setMutationError(parseMutationError(result.payload));
+      rejectMutationPayload(result.payload);
       return;
     }
     setDecisionSupersedeReason("");

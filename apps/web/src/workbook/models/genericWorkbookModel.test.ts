@@ -18,8 +18,10 @@ import {
   genericRowLabel,
   initialGenericCreateDraft,
   isMultilineGenericField,
+  normalizeGenericTextValue,
   parseMutationError,
   partyLinkPairsForContract,
+  selectWorkbookEditTarget,
   workbookCreateMinimumSatisfied,
 } from "./genericWorkbookModel";
 import { workbookGridRows } from "./workbookContractRows";
@@ -58,6 +60,7 @@ describe("genericWorkbookModel", () => {
       workbookGridRows({
         getRecordId: (row) => row.record_id,
         rows,
+        selectedRecordId: "party-2",
         surface: partiesViewSchemaId,
       }),
     ).toEqual([
@@ -65,19 +68,37 @@ describe("genericWorkbookModel", () => {
         key: "party-1",
         recordId: "party-1",
         data: rows[0],
+        selected: false,
         testId: "grid-row-cartulary.view.parties.v1-party-1",
       },
       {
         key: "party-2",
         recordId: "party-2",
         data: rows[1],
+        selected: true,
         testId: "grid-row-cartulary.view.parties.v1-party-2",
       },
     ]);
 
     expect(
+      selectWorkbookEditTarget({
+        fieldKey: "evidence.title",
+        fields: evidence.fields,
+        getRecordId: (row) => row.record_id,
+        recordId: "party-2",
+        rows,
+      }),
+    ).toEqual({
+      row: rows[1],
+      field: evidence.fieldMap["evidence.title"],
+    });
+
+    expect(
       buildGenericCreatePayload(evidence, {}, "txn-evidence-missing"),
     ).toBeNull();
+    expect(normalizeGenericTextValue(" Endpoint package ")).toBe(
+      "Endpoint package",
+    );
     expect(
       buildGenericCreatePayload(
         evidence,

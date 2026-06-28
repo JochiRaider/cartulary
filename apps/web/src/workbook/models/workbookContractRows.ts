@@ -65,10 +65,12 @@ export function normalizeWorkbookViewRows(
 export function workbookGridRows<Row>({
   getRecordId,
   rows,
+  selectedRecordId,
   surface,
 }: {
   readonly getRecordId: (row: Row) => string;
   readonly rows: readonly Row[];
+  readonly selectedRecordId?: string | null | undefined;
   readonly surface: WorkbookSurface;
 }): readonly GridRow<Row>[] {
   return rows.map((row) => {
@@ -77,6 +79,9 @@ export function workbookGridRows<Row>({
       key: recordId,
       recordId,
       data: row,
+      ...(selectedRecordId === null || selectedRecordId === undefined
+        ? {}
+        : { selected: recordId === selectedRecordId }),
       testId: gridRowTestId(surface, recordId),
     };
   });

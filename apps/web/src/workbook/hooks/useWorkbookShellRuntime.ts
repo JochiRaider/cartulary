@@ -53,11 +53,14 @@ import {
   workbookStartupQueryFromURLParams,
 } from "../models/workbookStartup";
 import {
+  workbookContractForViewSchemaId,
+  workbookQuerySurfaceSlot,
+} from "../models/workbookSurfaceQueryRuntime";
+import {
   assessmentsViewSchemaId,
   hostsViewSchemaId,
   identitiesViewSchemaId,
   knownWorkbookViewSchemaId,
-  listWorkbookSurfaceRegistryEntries,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
 
@@ -89,17 +92,6 @@ const timelineContract = requireViewContract(timelineViewSchemaId);
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
 const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
-const allWorkbookContracts = listWorkbookSurfaceRegistryEntries().map(
-  (entry) => entry.contract,
-);
-
-function workbookContractForViewSchemaId(viewSchemaId: string): ViewContract {
-  return (
-    allWorkbookContracts.find(
-      (contract) => contract.viewSchemaId === viewSchemaId,
-    ) ?? timelineContract
-  );
-}
 
 export function useWorkbookShellRuntime({
   apiBase,
@@ -210,19 +202,18 @@ export function useWorkbookShellRuntime({
 
   const currentQueryStateForSurface = useCallback(
     (viewSchemaId: string): WorkbookQueryState => {
-      if (viewSchemaId === timelineViewSchemaId) {
-        return timelineQueryState;
+      switch (workbookQuerySurfaceSlot(viewSchemaId)) {
+        case "timeline":
+          return timelineQueryState;
+        case "hosts":
+          return hostQueryState;
+        case "identities":
+          return identityQueryState;
+        case "assessments":
+          return assessmentQueryState;
+        case "generic":
+          return genericQueryState;
       }
-      if (viewSchemaId === hostsViewSchemaId) {
-        return hostQueryState;
-      }
-      if (viewSchemaId === identitiesViewSchemaId) {
-        return identityQueryState;
-      }
-      if (viewSchemaId === assessmentsViewSchemaId) {
-        return assessmentQueryState;
-      }
-      return genericQueryState;
     },
     [
       assessmentQueryState,
@@ -236,28 +227,27 @@ export function useWorkbookShellRuntime({
   const applyQueryStateForSurface = useCallback(
     (viewSchemaId: string, queryState: WorkbookQueryState) => {
       const contract = workbookContractForViewSchemaId(viewSchemaId);
-      if (viewSchemaId === timelineViewSchemaId) {
-        setTimelineQueryState(queryState);
-        setTimelineFilterDraft(defaultFilterDraft(timelineContract));
-        return;
+      switch (workbookQuerySurfaceSlot(viewSchemaId)) {
+        case "timeline":
+          setTimelineQueryState(queryState);
+          setTimelineFilterDraft(defaultFilterDraft(timelineContract));
+          return;
+        case "hosts":
+          setHostQueryState(queryState);
+          setHostFilterDraft(defaultFilterDraft(hostsContract));
+          return;
+        case "identities":
+          setIdentityQueryState(queryState);
+          setIdentityFilterDraft(defaultFilterDraft(identitiesContract));
+          return;
+        case "assessments":
+          setAssessmentQueryState(queryState);
+          setAssessmentFilterDraft(defaultFilterDraft(assessmentsContract));
+          return;
+        case "generic":
+          setGenericQueryState(queryState);
+          setGenericFilterDraft(defaultFilterDraft(contract));
       }
-      if (viewSchemaId === hostsViewSchemaId) {
-        setHostQueryState(queryState);
-        setHostFilterDraft(defaultFilterDraft(hostsContract));
-        return;
-      }
-      if (viewSchemaId === identitiesViewSchemaId) {
-        setIdentityQueryState(queryState);
-        setIdentityFilterDraft(defaultFilterDraft(identitiesContract));
-        return;
-      }
-      if (viewSchemaId === assessmentsViewSchemaId) {
-        setAssessmentQueryState(queryState);
-        setAssessmentFilterDraft(defaultFilterDraft(assessmentsContract));
-        return;
-      }
-      setGenericQueryState(queryState);
-      setGenericFilterDraft(defaultFilterDraft(contract));
     },
     [],
   );
@@ -518,28 +508,27 @@ export function useWorkbookShellRuntime({
   }, []);
 
   const clearActiveQueryControls = useCallback(() => {
-    if (surface === timelineViewSchemaId) {
-      setTimelineQueryState(emptyWorkbookQueryState());
-      setTimelineFilterDraft(defaultFilterDraft(timelineContract));
-      return;
+    switch (workbookQuerySurfaceSlot(surface)) {
+      case "timeline":
+        setTimelineQueryState(emptyWorkbookQueryState());
+        setTimelineFilterDraft(defaultFilterDraft(timelineContract));
+        return;
+      case "hosts":
+        setHostQueryState(emptyWorkbookQueryState());
+        setHostFilterDraft(defaultFilterDraft(hostsContract));
+        return;
+      case "identities":
+        setIdentityQueryState(emptyWorkbookQueryState());
+        setIdentityFilterDraft(defaultFilterDraft(identitiesContract));
+        return;
+      case "assessments":
+        setAssessmentQueryState(emptyWorkbookQueryState());
+        setAssessmentFilterDraft(defaultFilterDraft(assessmentsContract));
+        return;
+      case "generic":
+        setGenericQueryState(emptyWorkbookQueryState());
+        setGenericFilterDraft(defaultFilterDraft(activeContract));
     }
-    if (surface === hostsViewSchemaId) {
-      setHostQueryState(emptyWorkbookQueryState());
-      setHostFilterDraft(defaultFilterDraft(hostsContract));
-      return;
-    }
-    if (surface === identitiesViewSchemaId) {
-      setIdentityQueryState(emptyWorkbookQueryState());
-      setIdentityFilterDraft(defaultFilterDraft(identitiesContract));
-      return;
-    }
-    if (surface === assessmentsViewSchemaId) {
-      setAssessmentQueryState(emptyWorkbookQueryState());
-      setAssessmentFilterDraft(defaultFilterDraft(assessmentsContract));
-      return;
-    }
-    setGenericQueryState(emptyWorkbookQueryState());
-    setGenericFilterDraft(defaultFilterDraft(activeContract));
   }, [activeContract, surface]);
 
   useEffect(() => {

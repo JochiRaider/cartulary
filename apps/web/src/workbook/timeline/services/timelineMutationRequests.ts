@@ -21,6 +21,106 @@ export type TimelineWorkbookTimingRecorder = (
   fields?: Record<string, unknown>,
 ) => void;
 
+export type TimelineRecordActionName = "mark-reviewed" | "supersede";
+export type TimelineDeleteRestoreOperation = "delete" | "restore";
+export type TimelineConflictResolutionKind =
+  | "keep_saved"
+  | "use_unsaved"
+  | "merged_value";
+
+export function buildTimelineRecordActionPayload({
+  action,
+  baseRowVersion,
+  clientTxnId,
+  replacementRecordId,
+}: {
+  readonly action: TimelineRecordActionName;
+  readonly baseRowVersion: number;
+  readonly clientTxnId: string;
+  readonly replacementRecordId?: string | null | undefined;
+}): Record<string, unknown> {
+  if (action === "mark-reviewed") {
+    return {
+      base_row_version: baseRowVersion,
+      client_txn_id: clientTxnId,
+      reason: "Reviewed from workbook",
+    };
+  }
+  return {
+    base_row_version: baseRowVersion,
+    client_txn_id: clientTxnId,
+    reason: "Superseded from workbook",
+    replacement_record_id: replacementRecordId ?? "",
+  };
+}
+
+export function buildTimelineDeleteRestorePayload({
+  baseRowVersion,
+  clientTxnId,
+  operation,
+}: {
+  readonly baseRowVersion: number;
+  readonly clientTxnId: string;
+  readonly operation: TimelineDeleteRestoreOperation;
+}): Record<string, unknown> {
+  return {
+    base_row_version: baseRowVersion,
+    client_txn_id: clientTxnId,
+    reason:
+      operation === "delete"
+        ? "Deleted from workbook history"
+        : "Restored from workbook history",
+  };
+}
+
+export function buildTimelineRollbackPayload({
+  baseRowVersion,
+  clientTxnId,
+  target,
+}: {
+  readonly baseRowVersion: number;
+  readonly clientTxnId: string;
+  readonly target: unknown;
+}): Record<string, unknown> {
+  return {
+    base_row_version: baseRowVersion,
+    client_txn_id: clientTxnId,
+    reason: "Rollback from workbook history",
+    target,
+  };
+}
+
+export function buildTimelineConflictResolutionPayload({
+  clientTxnId,
+  conflictResolutionClass,
+  conflictToken,
+  localValue,
+  mergedDraft,
+  resolutionKind,
+}: {
+  readonly clientTxnId: string;
+  readonly conflictResolutionClass: string;
+  readonly conflictToken: string;
+  readonly localValue: unknown;
+  readonly mergedDraft: unknown;
+  readonly resolutionKind: TimelineConflictResolutionKind;
+}): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    conflict_token: conflictToken,
+    resolution_kind: resolutionKind,
+    client_txn_id: clientTxnId,
+  };
+  if (resolutionKind === "use_unsaved") {
+    body.resolved_value = localValue;
+  } else if (resolutionKind === "merged_value") {
+    body.resolved_value =
+      conflictResolutionClass === "collection_review"
+        ? localValue
+        : mergedDraft;
+  }
+  return body;
+}
+
 export async function dispatchTimelinePendingReplayMutation({
   payload,
   recordTiming,

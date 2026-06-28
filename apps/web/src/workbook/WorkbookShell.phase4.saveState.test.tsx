@@ -5,14 +5,9 @@ import {
   timelineMutationSubstrateReadyTestId,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { renderTimelineWorkbook } from "../testing/timelineWorkbookRenderTestSupport";
 import {
   cleanupTimelineWorkbookTestGlobals,
   findWorkbookCell,
@@ -23,7 +18,6 @@ import {
   timelineRow,
   timelineViewSchemaId,
 } from "../testing/timelineWorkbookTestSupport";
-import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 
 vi.mock(
   "@cartulary/grid-adapter",
@@ -69,7 +63,7 @@ describe("FE-U-P4-02 WorkbookShell save-state status strip", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    renderTimelineWorkbook();
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,

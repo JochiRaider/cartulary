@@ -4,8 +4,9 @@ import {
   saveStateTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { renderTimelineWorkbook } from "../testing/timelineWorkbookRenderTestSupport";
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
@@ -20,7 +21,6 @@ import {
   timelineRow,
   timelineViewSchemaId,
 } from "../testing/timelineWorkbookTestSupport";
-import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import {
   buildCreatePayload,
   createDraftRow,
@@ -92,7 +92,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
   }
 
   async function renderSingleTimelineRow() {
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    renderTimelineWorkbook();
     expect((await screen.findByTestId(saveStateTestId())).textContent).toBe(
       "Saved",
     );
@@ -310,7 +310,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    renderTimelineWorkbook();
 
     const conflictInput = (await screen.findByTestId(
       rowCellTestId("record-1", "timeline.activity_synopsis_text"),
@@ -359,7 +359,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    renderTimelineWorkbook();
 
     await screen.findByTestId(saveStateTestId());
     const summaryInput = (await screen.findByTestId(
@@ -414,7 +414,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    renderTimelineWorkbook();
 
     await screen.findByTestId(saveStateTestId());
     const summaryInput = (await screen.findByTestId(
@@ -457,7 +457,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
     );
     fetchMock.mockReturnValueOnce(pendingPatch.promise);
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    renderTimelineWorkbook();
 
     await screen.findByTestId(saveStateTestId());
 
@@ -538,7 +538,7 @@ describe("Phase 3 Timeline workbook autosave coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbook incidentId="incident-1" />);
+    renderTimelineWorkbook();
 
     await screen.findByTestId(saveStateTestId());
 

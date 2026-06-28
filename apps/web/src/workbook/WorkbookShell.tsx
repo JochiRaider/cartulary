@@ -22,7 +22,6 @@ import {
   genericEditValueTestId,
   gridActionsHeaderTestId,
   gridGroupRowTestId,
-  gridRowTestId,
   gridShellTestId,
   gridSortHeaderTestId,
   type IncidentControlsSection,
@@ -102,6 +101,7 @@ import {
 import { useAssessmentSupportRows } from "./hooks/useAssessmentSupportRows";
 import { useEntityTimelinePreview } from "./hooks/useEntityTimelinePreview";
 import { useWorkbookIncidentIdentity } from "./hooks/useWorkbookIncidentIdentity";
+import { useWorkbookPendingGridFocus } from "./hooks/useWorkbookPendingGridFocus";
 import { useWorkbookResponsiveLayout } from "./hooks/useWorkbookResponsiveLayout";
 import { useWorkbookShellRuntime } from "./hooks/useWorkbookShellRuntime";
 import {
@@ -126,10 +126,12 @@ import {
   genericRowLabel,
   initialGenericCreateDraft,
   parseMutationError,
+  selectWorkbookEditTarget,
 } from "./models/genericWorkbookModel";
 import {
   normalizeWorkbookViewRows,
   workbookContractColumns,
+  workbookGridRows,
 } from "./models/workbookContractRows";
 import {
   type AccountDensityMode,
@@ -315,54 +317,6 @@ type MergeEnvelope = {
     };
   };
 };
-
-function buildWorkbookGridRows<Row>({
-  getRecordId,
-  rows,
-  selectedRecordId,
-  surface,
-}: {
-  readonly getRecordId: (row: Row) => string;
-  readonly rows: readonly Row[];
-  readonly selectedRecordId?: string | null | undefined;
-  readonly surface: WorkbookSurface;
-}): readonly GridRow<Row>[] {
-  return rows.map((row) => {
-    const recordId = getRecordId(row);
-    return {
-      key: recordId,
-      recordId,
-      data: row,
-      ...(selectedRecordId === null || selectedRecordId === undefined
-        ? {}
-        : { selected: recordId === selectedRecordId }),
-      testId: gridRowTestId(surface, recordId),
-    };
-  });
-}
-
-function selectWorkbookEditTarget<
-  Row,
-  Field extends { readonly fieldKey: string },
->({
-  fieldKey,
-  fields,
-  getRecordId,
-  recordId,
-  rows,
-}: {
-  readonly fieldKey: string;
-  readonly fields: readonly Field[];
-  readonly getRecordId: (row: Row) => string;
-  readonly recordId: string;
-  readonly rows: readonly Row[];
-}): { readonly field: Field | null; readonly row: Row | null } {
-  return {
-    row: rows.find((row) => getRecordId(row) === recordId) ?? null,
-    field:
-      fields.find((field) => field.fieldKey === fieldKey) ?? fields[0] ?? null,
-  };
-}
 
 function entityCellContent(
   entityType: EntityRow["entityType"],
@@ -592,7 +546,7 @@ function EntityWorkbookSurface({
     [draftEntityRawRow, entityType],
   );
   const entityGridRows = useMemo<readonly GridRow<EntityRow>[]>(() => {
-    const savedRows = buildWorkbookGridRows({
+    const savedRows = workbookGridRows({
       getRecordId: (row: EntityRow) => row.recordId,
       rows,
       selectedRecordId: selectedEntity?.recordId ?? null,
@@ -1343,14 +1297,11 @@ function AssessmentWorkbookSurface({
       field.fieldKey,
     ),
   }));
-  const gridRows: readonly GridRow<EntityApiRow>[] = assessmentRows.map(
-    (row) => ({
-      key: row.record_id,
-      recordId: row.record_id,
-      data: row,
-      testId: gridRowTestId(assessmentsViewSchemaId, row.record_id),
-    }),
-  );
+  const gridRows: readonly GridRow<EntityApiRow>[] = workbookGridRows({
+    getRecordId: (row) => row.record_id,
+    rows: assessmentRows,
+    surface: assessmentsViewSchemaId,
+  });
   const assessmentFocus = useWorkbookGridFocus({
     columns: anchorColumns,
     getGroupLabel: (row, fieldKey) =>
@@ -2081,48 +2032,11 @@ export function WorkbookShell({
     void loadAssessmentSurface();
   }, [loadAssessmentSurface, sheetReloadToken]);
 
-  useEffect(() => {
-    if (
-      pendingGridFocusSurface === null ||
-      pendingGridFocusSurface !== surface
-    ) {
-      return;
-    }
-
-    let cancelled = false;
-    let timer: number | null = null;
-    let attempt = 0;
-    const focusFirstTarget = () => {
-      if (cancelled) {
-        return;
-      }
-      const gridShell = document.querySelector<HTMLElement>(
-        dataTestIdSelector(gridShellTestId(pendingGridFocusSurface)),
-      );
-      const focusTarget = gridShell?.querySelector<HTMLElement>(
-        '[role="row"][data-grid-record-id] [role="gridcell"] [data-testid][tabindex="0"], [role="row"][data-grid-record-id] [role="gridcell"] button:not([disabled]), [role="row"][data-grid-record-id] [role="gridcell"] input:not([disabled]), [role="row"][data-grid-record-id] [role="gridcell"] select:not([disabled]), [role="row"][data-grid-record-id] [role="gridcell"] textarea:not([disabled]), [role="row"][data-grid-record-id] [role="gridcell"] a[href]',
-      );
-      if (focusTarget) {
-        focusTarget.focus({ preventScroll: true });
-        setPendingGridFocusSurface((current) =>
-          current === pendingGridFocusSurface ? null : current,
-        );
-        return;
-      }
-      attempt += 1;
-      if (attempt < 30) {
-        timer = window.setTimeout(focusFirstTarget, 50);
-      }
-    };
-
-    timer = window.setTimeout(focusFirstTarget, 0);
-    return () => {
-      cancelled = true;
-      if (timer !== null) {
-        window.clearTimeout(timer);
-      }
-    };
-  }, [pendingGridFocusSurface, setPendingGridFocusSurface, surface]);
+  useWorkbookPendingGridFocus({
+    pendingGridFocusSurface,
+    setPendingGridFocusSurface,
+    surface,
+  });
 
   const deferControlsFocus = useCallback(
     (resolveTarget: () => HTMLElement | null) => {

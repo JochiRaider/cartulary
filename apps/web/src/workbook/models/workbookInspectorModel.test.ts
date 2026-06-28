@@ -1,5 +1,7 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
+import { selectTimelineInspectorHistorySubject } from "../timeline/models/timelineHistoryModel";
+import type { WorkbookRow } from "../timeline/models/workbookTimelineModel";
 import {
   initialWorkbookInspectorState,
   inspectorFeatureGroupsForPanel,
@@ -8,6 +10,33 @@ import {
   selectInspectorConfig,
   workbookInspectorReducer,
 } from "./workbookInspectorModel";
+
+function timelineRow(
+  recordId: string | null,
+  rowVersion: number | null,
+): WorkbookRow {
+  return {
+    key: recordId ?? "draft",
+    recordId,
+    rowVersion,
+    viewSchemaId: "cartulary.view.timeline.v2",
+    captureState: "rough",
+    values: {},
+    committedValues: {},
+    collectionValues: {
+      hostRefs: [],
+      identityRefs: [],
+      tags: [],
+    },
+    collectionDrafts: {
+      hostRefs: "",
+      identityRefs: "",
+      tags: "",
+    },
+    pendingSignature: null,
+    rawRow: null,
+  } as unknown as WorkbookRow;
+}
 
 describe("workbookInspectorModel", () => {
   it("FE-U-P9-02 selects config from immutable view_schema_id and starts closed", () => {
@@ -91,6 +120,50 @@ describe("workbookInspectorModel", () => {
       expect(next.mergePlanKey).toBeNull();
       expect(next.workflowFormKey).toBeNull();
     }
+
+    expect(
+      selectTimelineInspectorHistorySubject({
+        draftRow: null,
+        rowHistory: {
+          recordId: "row-deleted",
+          data: {
+            deleted: true,
+            record_id: "row-deleted",
+            row_version: 7,
+          },
+        },
+        selectedRow: null,
+      }),
+    ).toEqual({
+      kind: "deleted",
+      recordId: "row-deleted",
+      rowVersion: 7,
+    });
+    expect(
+      selectTimelineInspectorHistorySubject({
+        draftRow: timelineRow(null, 0),
+        rowHistory: { recordId: null, data: null },
+        selectedRow: null,
+      }),
+    ).toEqual({ kind: "draft" });
+    expect(
+      selectTimelineInspectorHistorySubject({
+        draftRow: null,
+        rowHistory: {
+          recordId: "row-deleted",
+          data: {
+            deleted: true,
+            record_id: "row-deleted",
+            row_version: 7,
+          },
+        },
+        selectedRow: timelineRow("row-live", 8),
+      }),
+    ).toEqual({
+      kind: "live",
+      recordId: "row-live",
+      rowVersion: 8,
+    });
   });
 
   it("FE-U-P9-02 filters panels and feature groups by declared semantic config", () => {

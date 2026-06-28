@@ -20,7 +20,6 @@ import {
   genericCreateSubmitTestId,
   gridGroupRowTestId,
   gridRowGutterTestId,
-  gridRowTestId,
   gridScrollportSelector,
   gridSortHeaderTestId,
   mentionItemTestId,
@@ -33,7 +32,6 @@ import {
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
   type WorkbookSurface,
-  workbookInlineDraftRowTestId,
 } from "@cartulary/ui-contracts";
 import {
   type InspectorFeatureGroup,
@@ -164,6 +162,7 @@ import {
 import { useTimelineRows } from "../hooks/useTimelineRows";
 import { useTimelineWorkbookRuntime } from "../hooks/useTimelineWorkbookRuntime";
 import { parseSameFieldConflict } from "../models/timelineConflictModel";
+import { buildTimelineGridRows } from "../models/timelineRowsModel";
 import {
   beginTimelineEntityRefreshBarrier,
   settleTimelineViewportContinuityBarrier,
@@ -232,6 +231,10 @@ import {
   type WorkbookVersionedRecord,
 } from "../models/workbookTimelineModel";
 import {
+  buildTimelineConflictResolutionPayload,
+  buildTimelineDeleteRestorePayload,
+  buildTimelineRecordActionPayload,
+  buildTimelineRollbackPayload,
   dispatchTimelinePendingReplayMutation,
   type TimelineMutationEnvelope,
   type TimelineMutationFetchResult,
@@ -3837,19 +3840,12 @@ export function TimelineWorkbook({
               finishSave("Conflict");
               return;
             }
-            const body =
-              action === "mark-reviewed"
-                ? {
-                    base_row_version: idleRecord.rowVersion,
-                    client_txn_id: clientTxnId,
-                    reason: "Reviewed from workbook",
-                  }
-                : {
-                    base_row_version: idleRecord.rowVersion,
-                    client_txn_id: clientTxnId,
-                    reason: "Superseded from workbook",
-                    replacement_record_id: replacementRecordId,
-                  };
+            const body = buildTimelineRecordActionPayload({
+              action,
+              baseRowVersion: idleRecord.rowVersion,
+              clientTxnId,
+              replacementRecordId,
+            });
             trackPendingSocketTxn(clientTxnId);
             const result = await fetchJSON<TimelineActionEnvelope>(
               apiPath(apiBase, `/api/v1/records/${recordId}/${action}`),
@@ -4149,14 +4145,13 @@ export function TimelineWorkbook({
             apiPath(apiBase, path),
             {
               method: operation === "delete" ? "DELETE" : "POST",
-              body: JSON.stringify({
-                base_row_version: baseRowVersion,
-                client_txn_id: clientTxnId,
-                reason:
-                  operation === "delete"
-                    ? "Deleted from workbook history"
-                    : "Restored from workbook history",
-              }),
+              body: JSON.stringify(
+                buildTimelineDeleteRestorePayload({
+                  baseRowVersion,
+                  clientTxnId,
+                  operation,
+                }),
+              ),
             },
           );
         },
@@ -4216,12 +4211,13 @@ export function TimelineWorkbook({
             apiPath(apiBase, `/api/v1/records/${recordId}/rollback`),
             {
               method: "POST",
-              body: JSON.stringify({
-                base_row_version: baseRowVersion,
-                client_txn_id: clientTxnId,
-                reason: "Rollback from workbook history",
-                target,
-              }),
+              body: JSON.stringify(
+                buildTimelineRollbackPayload({
+                  baseRowVersion,
+                  clientTxnId,
+                  target,
+                }),
+              ),
             },
           ),
         onSuccess: async (payload, viewportContinuityToken) => {
@@ -6005,44 +6001,25 @@ export function TimelineWorkbook({
 
   const timelineGridRows = useMemo<readonly GridRow<WorkbookRow>[]>(
     () =>
-      rows.map((row, index) => {
-        const rowPresence = presenceForRow(row.recordId);
-        const ordinal = row.recordId === null ? "+" : String(index + 1);
-        return {
-          key: row.key,
-          recordId: row.recordId,
-          data: row,
-          gutterContent:
-            row.recordId === null ? (
-              <DraftRowCreateButton
-                row={row}
-                onCreate={handleCreateBlankDraftRow}
-                onFilesSelected={handleTimelineEvidenceFiles}
-              />
-            ) : (
-              <TimelineRowGutterContent
-                ordinal={ordinal}
-                presences={rowPresence}
-                recordId={row.recordId}
-              />
-            ),
-          gutterLabel: ordinal,
-          gutterTestId:
-            row.recordId === null
-              ? undefined
-              : gridRowGutterTestId(timelineViewSchemaId, row.recordId),
-          onSelect: () => {
-            if (row.recordId) {
-              handleSelectRow(row.recordId);
-            }
-          },
-          selected: row.recordId !== null && row.recordId === selectedRowId,
-          testId:
-            row.recordId === null
-              ? workbookInlineDraftRowTestId(timelineViewSchemaId)
-              : gridRowTestId(timelineViewSchemaId, row.recordId),
-          variant: row.recordId === null ? "draft" : "default",
-        };
+      buildTimelineGridRows({
+        onSelectRow: handleSelectRow,
+        presenceForRow,
+        renderDraftGutterContent: (row) => (
+          <DraftRowCreateButton
+            row={row}
+            onCreate={handleCreateBlankDraftRow}
+            onFilesSelected={handleTimelineEvidenceFiles}
+          />
+        ),
+        renderSavedGutterContent: ({ ordinal, presences, recordId }) => (
+          <TimelineRowGutterContent
+            ordinal={ordinal}
+            presences={presences}
+            recordId={recordId}
+          />
+        ),
+        rows,
+        selectedRowId,
       }),
     [
       handleCreateBlankDraftRow,
@@ -6507,19 +6484,14 @@ export function TimelineWorkbook({
       conflict: LocalConflictState,
       resolutionKind: TimelineConflictResolution,
     ) => {
-      const body: Record<string, unknown> = {
-        conflict_token: conflict.conflict.conflict_token,
-        resolution_kind: resolutionKind,
-        client_txn_id: nextClientTxnId(),
-      };
-      if (resolutionKind === "use_unsaved") {
-        body.resolved_value = conflict.localValue;
-      } else if (resolutionKind === "merged_value") {
-        body.resolved_value =
-          conflict.conflict.conflict_resolution_class === "collection_review"
-            ? conflict.localValue
-            : conflict.mergedDraft;
-      }
+      const body = buildTimelineConflictResolutionPayload({
+        clientTxnId: nextClientTxnId(),
+        conflictResolutionClass: conflict.conflict.conflict_resolution_class,
+        conflictToken: conflict.conflict.conflict_token,
+        localValue: conflict.localValue,
+        mergedDraft: conflict.mergedDraft,
+        resolutionKind,
+      });
       setSaveState("Syncing");
       setSaveStateSecondaryMessage("Workbook edits are syncing.");
       pendingSavesRefsRef.current.saveQueueRef.current =

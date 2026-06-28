@@ -11,6 +11,10 @@ import {
   toggleSortField,
   updateGroupBy,
 } from "./workbookQuery";
+import {
+  workbookContractForViewSchemaId,
+  workbookQuerySurfaceSlot,
+} from "./workbookSurfaceQueryRuntime";
 
 describe("workbookQuery", () => {
   it("builds tag and boolean filters from the client-local draft state", () => {
@@ -86,5 +90,16 @@ describe("workbookQuery", () => {
     );
     expect(filterInputMode("timeline.date_entered_sort_day")).toBe("date");
     expect(filterInputMode("timeline.tags")).toBe("tagset");
+    expect(workbookQuerySurfaceSlot("cartulary.view.timeline.v2")).toBe(
+      "timeline",
+    );
+    expect(workbookQuerySurfaceSlot("cartulary.view.hosts.v1")).toBe("hosts");
+    expect(workbookQuerySurfaceSlot("cartulary.view.assessments.v1")).toBe(
+      "assessments",
+    );
+    expect(workbookQuerySurfaceSlot("cartulary.view.notes.v1")).toBe("generic");
+    expect(
+      workbookContractForViewSchemaId("cartulary.view.notes.v1").viewSchemaId,
+    ).toBe("cartulary.view.notes.v1");
   });
 });
