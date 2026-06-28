@@ -1271,6 +1271,37 @@ export function entityInspectorTestId(entityType: EntityType): string {
   return `${requireEntityType(entityType)}-inspector`;
 }
 
+export function entityReusableIdentifiersSectionTestId(
+  entityType: EntityType,
+  recordId: string,
+): string {
+  return recordTestId(
+    `${requireEntityType(entityType)}-reusable-identifiers`,
+    recordId,
+  );
+}
+
+export function entityReusableIdentifierItemTestId(
+  entityType: EntityType,
+  recordId: string,
+  itemRef: string,
+): string {
+  return tokenScopedTestId(
+    entityReusableIdentifiersSectionTestId(entityType, recordId),
+    requireItemRef(itemRef),
+  );
+}
+
+export function entityMergePreconditionDetailsTestId(
+  entityType: EntityType,
+  recordId: string,
+): string {
+  return recordTestId(
+    `${requireEntityType(entityType)}-merge-precondition-details`,
+    recordId,
+  );
+}
+
 export function assessmentCreatePanelTestId(): string {
   return "assessment-create-panel";
 }

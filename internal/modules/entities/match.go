@@ -296,19 +296,15 @@ func (s *Store) upsertHostWithInputTx(ctx context.Context, tx pgx.Tx, actor auth
 		if _, err := syncEntityAliasesTx(ctx, tx, incidentID, record.RecordID, "host", input.AliasAdds, actor.ID, now); err != nil {
 			return HostRecord{}, nil, "", 0, err
 		}
-		aliases, err := loadEntityAliasesTx(ctx, tx, record.RecordID, "host")
-		if err != nil {
+		if err := hydrateHostRecordTx(ctx, tx, &record); err != nil {
 			return HostRecord{}, nil, "", 0, err
 		}
-		record.SuggestionOnlyAliases = aliases
 		return record, nil, "create", httpStatusCreated, nil
 	}
 
-	beforeAliases, err := loadEntityAliasesTx(ctx, tx, current.RecordID, "host")
-	if err != nil {
+	if err := hydrateHostRecordTx(ctx, tx, &current); err != nil {
 		return HostRecord{}, nil, "", 0, err
 	}
-	current.SuggestionOnlyAliases = beforeAliases
 	beforeRow := BuildHostRow(current)
 
 	next := current
@@ -376,11 +372,9 @@ func (s *Store) upsertHostWithInputTx(ctx context.Context, tx pgx.Tx, actor auth
 	if _, err := syncEntityAliasesTx(ctx, tx, incidentID, current.RecordID, "host", input.AliasAdds, actor.ID, now); err != nil {
 		return HostRecord{}, nil, "", 0, err
 	}
-	aliases, err := loadEntityAliasesTx(ctx, tx, current.RecordID, "host")
-	if err != nil {
+	if err := hydrateHostRecordTx(ctx, tx, &next); err != nil {
 		return HostRecord{}, nil, "", 0, err
 	}
-	next.SuggestionOnlyAliases = aliases
 	return next, beforeRow, "patch", httpStatusOK, nil
 }
 
@@ -432,19 +426,15 @@ func (s *Store) upsertIdentityWithInputTx(ctx context.Context, tx pgx.Tx, actor 
 		if _, err := syncEntityAliasesTx(ctx, tx, incidentID, record.RecordID, "identity", input.AliasAdds, actor.ID, now); err != nil {
 			return IdentityRecord{}, nil, "", 0, err
 		}
-		aliases, err := loadEntityAliasesTx(ctx, tx, record.RecordID, "identity")
-		if err != nil {
+		if err := hydrateIdentityRecordTx(ctx, tx, &record); err != nil {
 			return IdentityRecord{}, nil, "", 0, err
 		}
-		record.SuggestionOnlyAliases = aliases
 		return record, nil, "create", httpStatusCreated, nil
 	}
 
-	beforeAliases, err := loadEntityAliasesTx(ctx, tx, current.RecordID, "identity")
-	if err != nil {
+	if err := hydrateIdentityRecordTx(ctx, tx, &current); err != nil {
 		return IdentityRecord{}, nil, "", 0, err
 	}
-	current.SuggestionOnlyAliases = beforeAliases
 	beforeRow := BuildIdentityRow(current)
 
 	next := current
@@ -512,11 +502,9 @@ func (s *Store) upsertIdentityWithInputTx(ctx context.Context, tx pgx.Tx, actor 
 	if _, err := syncEntityAliasesTx(ctx, tx, incidentID, current.RecordID, "identity", input.AliasAdds, actor.ID, now); err != nil {
 		return IdentityRecord{}, nil, "", 0, err
 	}
-	aliases, err := loadEntityAliasesTx(ctx, tx, current.RecordID, "identity")
-	if err != nil {
+	if err := hydrateIdentityRecordTx(ctx, tx, &next); err != nil {
 		return IdentityRecord{}, nil, "", 0, err
 	}
-	next.SuggestionOnlyAliases = aliases
 	return next, beforeRow, "patch", httpStatusOK, nil
 }
 

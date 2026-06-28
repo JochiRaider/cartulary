@@ -52,6 +52,7 @@ type HostRecord struct {
 	EntityOrigin          string
 	SeedMentionID         *uuid.UUID
 	SuggestionOnlyAliases []string
+	ReusableIdentifiers   []ReusableIdentifier
 	RowVersion            int64
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
@@ -78,6 +79,7 @@ type IdentityRecord struct {
 	EntityOrigin          string
 	SeedMentionID         *uuid.UUID
 	SuggestionOnlyAliases []string
+	ReusableIdentifiers   []ReusableIdentifier
 	RowVersion            int64
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
@@ -104,6 +106,13 @@ type IndicatorRecord struct {
 	UpdatedByUser   uuid.UUID
 	DeletedAt       *time.Time
 	DeletedByUserID *uuid.UUID
+}
+
+type ReusableIdentifier struct {
+	EntityPreservedIdentifierID uuid.UUID
+	IdentifierClass             string
+	RawValue                    string
+	NormalizedValue             string
 }
 
 type IndicatorProjectionRecord struct {
@@ -264,11 +273,14 @@ func BuildHostRow(record HostRecord) map[string]any {
 		"record_id":   record.RecordID.String(),
 		"row_version": record.RowVersion,
 		"cells": map[string]any{
-			"host.display_name":       map[string]any{"value": record.DisplayName},
-			"host.aad_device_id":      map[string]any{"value": derefString(record.AADDeviceID)},
-			"host.fqdn":               map[string]any{"value": derefString(record.FQDN)},
-			"host.hostname":           map[string]any{"value": derefString(record.Hostname)},
-			"host.aliases":            map[string]any{"value": collectionValue(false, aliasCollectionItems(record.SuggestionOnlyAliases))},
+			"host.display_name":  map[string]any{"value": record.DisplayName},
+			"host.aad_device_id": map[string]any{"value": derefString(record.AADDeviceID)},
+			"host.fqdn":          map[string]any{"value": derefString(record.FQDN)},
+			"host.hostname":      map[string]any{"value": derefString(record.Hostname)},
+			"host.aliases":       map[string]any{"value": collectionValue(false, aliasCollectionItems(record.SuggestionOnlyAliases))},
+			"host.reusable_identifiers": map[string]any{
+				"value": collectionValue(false, hostReusableIdentifierCollectionItems(record)),
+			},
 			"host.host_state":         map[string]any{"value": record.HostState},
 			"host.linked_event_count": map[string]any{"value": record.LinkedEventCount},
 			"host.evidence_count":     map[string]any{"value": record.EvidenceCount},
@@ -293,13 +305,16 @@ func BuildIdentityRow(record IdentityRecord) map[string]any {
 		"record_id":   record.RecordID.String(),
 		"row_version": record.RowVersion,
 		"cells": map[string]any{
-			"identity.display_name":       map[string]any{"value": record.DisplayName},
-			"identity.aad_object_id":      map[string]any{"value": derefString(record.AADObjectID)},
-			"identity.sid":                map[string]any{"value": derefString(record.SID)},
-			"identity.upn":                map[string]any{"value": derefString(record.UPN)},
-			"identity.email":              map[string]any{"value": derefString(record.Email)},
-			"identity.sam_account_name":   map[string]any{"value": derefString(record.SamAccountName)},
-			"identity.aliases":            map[string]any{"value": collectionValue(false, aliasCollectionItems(record.SuggestionOnlyAliases))},
+			"identity.display_name":     map[string]any{"value": record.DisplayName},
+			"identity.aad_object_id":    map[string]any{"value": derefString(record.AADObjectID)},
+			"identity.sid":              map[string]any{"value": derefString(record.SID)},
+			"identity.upn":              map[string]any{"value": derefString(record.UPN)},
+			"identity.email":            map[string]any{"value": derefString(record.Email)},
+			"identity.sam_account_name": map[string]any{"value": derefString(record.SamAccountName)},
+			"identity.aliases":          map[string]any{"value": collectionValue(false, aliasCollectionItems(record.SuggestionOnlyAliases))},
+			"identity.reusable_identifiers": map[string]any{
+				"value": collectionValue(false, identityReusableIdentifierCollectionItems(record)),
+			},
 			"identity.identity_state":     map[string]any{"value": record.IdentityState},
 			"identity.linked_event_count": map[string]any{"value": record.LinkedEventCount},
 			"identity.evidence_count":     map[string]any{"value": record.EvidenceCount},
@@ -533,4 +548,74 @@ func aliasCollectionItems(values []string) []map[string]any {
 		})
 	}
 	return items
+}
+
+func hostReusableIdentifierCollectionItems(record HostRecord) []map[string]any {
+	return reusableIdentifierCollectionItems(record.ReusableIdentifiers, func(identifierClass string) string {
+		return hostCanonicalNormalized(record, identifierClass)
+	})
+}
+
+func identityReusableIdentifierCollectionItems(record IdentityRecord) []map[string]any {
+	return reusableIdentifierCollectionItems(record.ReusableIdentifiers, func(identifierClass string) string {
+		return identityCanonicalNormalized(record, identifierClass)
+	})
+}
+
+func reusableIdentifierCollectionItems(values []ReusableIdentifier, canonicalNormalized func(string) string) []map[string]any {
+	if len(values) == 0 {
+		return nil
+	}
+	orderedValues := append([]ReusableIdentifier(nil), values...)
+	slices.SortFunc(orderedValues, func(left ReusableIdentifier, right ReusableIdentifier) int {
+		if cmp := strings.Compare(left.IdentifierClass, right.IdentifierClass); cmp != 0 {
+			return cmp
+		}
+		if cmp := strings.Compare(left.NormalizedValue, right.NormalizedValue); cmp != 0 {
+			return cmp
+		}
+		if cmp := strings.Compare(left.RawValue, right.RawValue); cmp != 0 {
+			return cmp
+		}
+		return strings.Compare(left.EntityPreservedIdentifierID.String(), right.EntityPreservedIdentifierID.String())
+	})
+
+	items := make([]map[string]any, 0, len(orderedValues))
+	for _, value := range orderedValues {
+		if canonicalNormalized(value.IdentifierClass) == value.NormalizedValue {
+			continue
+		}
+		items = append(items, map[string]any{
+			"item_ref":         "entity_preserved_identifier:" + value.EntityPreservedIdentifierID.String(),
+			"item_kind":        "reusable_identifier",
+			"identifier_class": value.IdentifierClass,
+			"raw_value":        value.RawValue,
+			"normalized_value": value.NormalizedValue,
+			"display_text":     reusableIdentifierDisplayText(value.IdentifierClass, value.RawValue),
+		})
+	}
+	return items
+}
+
+func reusableIdentifierDisplayText(identifierClass string, rawValue string) string {
+	label := identifierClass
+	switch identifierClass {
+	case "aad_device_id":
+		label = "AAD Device ID"
+	case "fqdn":
+		label = "FQDN"
+	case "hostname":
+		label = "Hostname"
+	case "aad_object_id":
+		label = "AAD Object ID"
+	case "sid":
+		label = "SID"
+	case "upn":
+		label = "UPN"
+	case "email":
+		label = "Email"
+	case "sam_account_name":
+		label = "SAM Account Name"
+	}
+	return label + ": " + rawValue
 }

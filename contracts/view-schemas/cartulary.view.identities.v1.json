@@ -29,7 +29,8 @@
     "record_id",
     "row_version",
     "identity.aad_object_id",
-    "identity.sid"
+    "identity.sid",
+    "identity.reusable_identifiers"
   ],
   "default_sort": [
     {
@@ -645,6 +646,26 @@
       "writable": true,
       "read_model": "aliases",
       "write_action": "identity suggestion-only alias collection actions"
+    },
+    {
+      "field_key": "identity.reusable_identifiers",
+      "label": "Reusable Identifiers",
+      "default_hidden": true,
+      "sortable": false,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "collection",
+      "write_kind": "read_only",
+      "conflict_resolution_class": null,
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": false,
+      "read_model": "active secondary exact_match_reuse preserved identifiers"
     },
     {
       "field_key": "identity.identity_state",

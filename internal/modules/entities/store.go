@@ -57,16 +57,15 @@ func (s *Store) QueryHostRows(ctx context.Context, incidentID uuid.UUID, query v
 	if err != nil {
 		return nil, err
 	}
+	hydration, err := loadEntityRowHydrationByRecord(ctx, s.pool, incidentID, "host")
+	if err != nil {
+		return nil, err
+	}
 	rows, err := s.pool.Query(ctx, sqlText, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query host rows: %w", err)
 	}
 	defer rows.Close()
-
-	aliasesByRecord, err := loadEntityAliasesByRecord(ctx, s.pool, incidentID, "host")
-	if err != nil {
-		return nil, err
-	}
 
 	result := make([]map[string]any, 0)
 	for rows.Next() {
@@ -74,7 +73,7 @@ func (s *Store) QueryHostRows(ctx context.Context, incidentID uuid.UUID, query v
 		if err != nil {
 			return nil, err
 		}
-		record.SuggestionOnlyAliases = aliasesByRecord[record.RecordID]
+		applyHostRowHydration(&record, hydration)
 		result = append(result, BuildHostRow(record))
 	}
 	if err := rows.Err(); err != nil {
@@ -92,16 +91,15 @@ func (s *Store) QueryIdentityRows(ctx context.Context, incidentID uuid.UUID, que
 	if err != nil {
 		return nil, err
 	}
+	hydration, err := loadEntityRowHydrationByRecord(ctx, s.pool, incidentID, "identity")
+	if err != nil {
+		return nil, err
+	}
 	rows, err := s.pool.Query(ctx, sqlText, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query identity rows: %w", err)
 	}
 	defer rows.Close()
-
-	aliasesByRecord, err := loadEntityAliasesByRecord(ctx, s.pool, incidentID, "identity")
-	if err != nil {
-		return nil, err
-	}
 
 	result := make([]map[string]any, 0)
 	for rows.Next() {
@@ -109,7 +107,7 @@ func (s *Store) QueryIdentityRows(ctx context.Context, incidentID uuid.UUID, que
 		if err != nil {
 			return nil, err
 		}
-		record.SuggestionOnlyAliases = aliasesByRecord[record.RecordID]
+		applyIdentityRowHydration(&record, hydration)
 		result = append(result, BuildIdentityRow(record))
 	}
 	if err := rows.Err(); err != nil {
@@ -1168,6 +1166,64 @@ type entityAliasQueryer interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }
 
+type entityRowHydration struct {
+	AliasesByRecord             map[uuid.UUID][]string
+	ReusableIdentifiersByRecord map[uuid.UUID][]ReusableIdentifier
+}
+
+func loadEntityRowHydrationByRecord(ctx context.Context, querier entityAliasQueryer, incidentID uuid.UUID, entityType string) (entityRowHydration, error) {
+	aliasesByRecord, err := loadEntityAliasesByRecord(ctx, querier, incidentID, entityType)
+	if err != nil {
+		return entityRowHydration{}, err
+	}
+	reusableIdentifiersByRecord, err := loadEntityReusableIdentifiersByRecord(ctx, querier, incidentID, entityType)
+	if err != nil {
+		return entityRowHydration{}, err
+	}
+	return entityRowHydration{
+		AliasesByRecord:             aliasesByRecord,
+		ReusableIdentifiersByRecord: reusableIdentifiersByRecord,
+	}, nil
+}
+
+func applyHostRowHydration(record *HostRecord, hydration entityRowHydration) {
+	record.SuggestionOnlyAliases = hydration.AliasesByRecord[record.RecordID]
+	record.ReusableIdentifiers = hydration.ReusableIdentifiersByRecord[record.RecordID]
+}
+
+func applyIdentityRowHydration(record *IdentityRecord, hydration entityRowHydration) {
+	record.SuggestionOnlyAliases = hydration.AliasesByRecord[record.RecordID]
+	record.ReusableIdentifiers = hydration.ReusableIdentifiersByRecord[record.RecordID]
+}
+
+func hydrateHostRecordTx(ctx context.Context, tx pgx.Tx, record *HostRecord) error {
+	aliases, err := loadEntityAliasesTx(ctx, tx, record.RecordID, "host")
+	if err != nil {
+		return err
+	}
+	reusableIdentifiers, err := loadEntityReusableIdentifiersTx(ctx, tx, record.RecordID, "host")
+	if err != nil {
+		return err
+	}
+	record.SuggestionOnlyAliases = aliases
+	record.ReusableIdentifiers = reusableIdentifiers
+	return nil
+}
+
+func hydrateIdentityRecordTx(ctx context.Context, tx pgx.Tx, record *IdentityRecord) error {
+	aliases, err := loadEntityAliasesTx(ctx, tx, record.RecordID, "identity")
+	if err != nil {
+		return err
+	}
+	reusableIdentifiers, err := loadEntityReusableIdentifiersTx(ctx, tx, record.RecordID, "identity")
+	if err != nil {
+		return err
+	}
+	record.SuggestionOnlyAliases = aliases
+	record.ReusableIdentifiers = reusableIdentifiers
+	return nil
+}
+
 func loadEntityAliasesByRecord(ctx context.Context, querier entityAliasQueryer, incidentID uuid.UUID, entityType string) (map[uuid.UUID][]string, error) {
 	rows, err := querier.Query(ctx, `
 SELECT record_id, raw_text
@@ -1202,6 +1258,76 @@ SELECT record_id, raw_text
 		aliasesByRecord[recordID] = aliases
 	}
 	return aliasesByRecord, nil
+}
+
+func loadEntityReusableIdentifiersByRecord(ctx context.Context, querier entityAliasQueryer, incidentID uuid.UUID, entityType string) (map[uuid.UUID][]ReusableIdentifier, error) {
+	rows, err := querier.Query(ctx, `
+SELECT
+    record_id,
+    entity_preserved_identifier_id,
+    identifier_type,
+    raw_value,
+    normalized_value
+  FROM entity_preserved_identifiers
+ WHERE incident_id = $1
+   AND entity_type = $2
+   AND classification = 'exact_match_reuse'
+   AND deleted_at IS NULL
+ ORDER BY record_id ASC, identifier_type ASC, normalized_value ASC, created_at ASC, entity_preserved_identifier_id ASC
+`, incidentID, entityType)
+	if err != nil {
+		return nil, fmt.Errorf("query entity reusable identifiers by record: %w", err)
+	}
+	defer rows.Close()
+
+	identifiersByRecord := make(map[uuid.UUID][]ReusableIdentifier)
+	for rows.Next() {
+		var (
+			recordID uuid.UUID
+			item     ReusableIdentifier
+		)
+		if err := rows.Scan(&recordID, &item.EntityPreservedIdentifierID, &item.IdentifierClass, &item.RawValue, &item.NormalizedValue); err != nil {
+			return nil, fmt.Errorf("scan entity reusable identifier by record: %w", err)
+		}
+		identifiersByRecord[recordID] = append(identifiersByRecord[recordID], item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate entity reusable identifiers by record: %w", err)
+	}
+	return identifiersByRecord, nil
+}
+
+func loadEntityReusableIdentifiersTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) ([]ReusableIdentifier, error) {
+	rows, err := tx.Query(ctx, `
+SELECT
+    entity_preserved_identifier_id,
+    identifier_type,
+    raw_value,
+    normalized_value
+  FROM entity_preserved_identifiers
+ WHERE record_id = $1
+   AND entity_type = $2
+   AND classification = 'exact_match_reuse'
+   AND deleted_at IS NULL
+ ORDER BY identifier_type ASC, normalized_value ASC, created_at ASC, entity_preserved_identifier_id ASC
+`, recordID, entityType)
+	if err != nil {
+		return nil, fmt.Errorf("load entity reusable identifiers: %w", err)
+	}
+	defer rows.Close()
+
+	identifiers := make([]ReusableIdentifier, 0)
+	for rows.Next() {
+		var item ReusableIdentifier
+		if err := rows.Scan(&item.EntityPreservedIdentifierID, &item.IdentifierClass, &item.RawValue, &item.NormalizedValue); err != nil {
+			return nil, fmt.Errorf("scan entity reusable identifier: %w", err)
+		}
+		identifiers = append(identifiers, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate entity reusable identifiers: %w", err)
+	}
+	return identifiers, nil
 }
 
 func scanIndicatorProjectionRecord(scanner interface {

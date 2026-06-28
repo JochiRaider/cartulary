@@ -687,6 +687,94 @@ SELECT identity_state, merged_into_record_id::text, row_version
 			t.Fatalf("expected identity exact-match reuse to carry forward to survivor, got %#v", reuse)
 		}
 	})
+
+	t.Run("host merge exposes carried secondary reusable identifiers", func(t *testing.T) {
+		harness := phase4storetest.StartStore(t, "phase4-u-4-06-host-reusable-row")
+		store := NewStore(harness.DB)
+		actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u406-host-reusable@example.test", "U406 Host Reusable", "U406HostReusablePhase4Pass1!", false, false, true)
+		incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-06-host-reusable-incident", "IR-U406-HR", "Phase 4 U-4-06 host reusable rows")
+		survivorID := uuid.New()
+		loserID := uuid.New()
+
+		phase4storetest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, survivorID, "WS-023", "WS-023", "ws-023.current.example.test", "")
+		phase4storetest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, loserID, "Legacy WS-023", "LEGACY-WS-023", "legacy-ws-023.example.test", "")
+
+		if _, err := store.MergeEntity(context.Background(), actor, survivorID, MergeRequest{
+			LoserRecordID:          loserID,
+			SurvivorBaseRowVersion: 1,
+			LoserBaseRowVersion:    1,
+			ClientTxnID:            "txn-phase4-u-4-06-host-reusable-merge",
+		}, []byte("txn-phase4-u-4-06-host-reusable-merge"), "req-host-reusable-merge", golden.Phase4BaseTime); err != nil {
+			t.Fatalf("merge host reusable identifiers: %v", err)
+		}
+
+		rows, err := store.QueryHostRows(context.Background(), incident.ID, mustDefaultQueryMeta(t, HostsViewSchemaID))
+		if err != nil {
+			t.Fatalf("query host rows after reusable merge: %v", err)
+		}
+		survivorRow := requireEntityRow(t, rows, survivorID)
+		requireReusableIdentifierItem(t, survivorRow, "host.reusable_identifiers", "fqdn", "legacy-ws-023.example.test")
+		requireNoReusableIdentifierItem(t, survivorRow, "host.reusable_identifiers", "fqdn", "ws-023.current.example.test")
+
+		reuse, err := store.CreateHostRow(context.Background(), actor, incident.ID, CreateRequest{
+			ClientTxnID: "txn-phase4-u-4-06-host-reusable-create",
+			Values: map[string]string{
+				"host.fqdn": "legacy-ws-023.example.test",
+			},
+		}, []byte("txn-phase4-u-4-06-host-reusable-create"), "req-host-reusable-create", golden.Phase4BaseTime.Add(time.Minute))
+		if err != nil {
+			t.Fatalf("post-merge host reusable exact match: %v", err)
+		}
+		if reuse.RecordID != survivorID {
+			t.Fatalf("expected reusable identifier to match survivor, got %#v", reuse)
+		}
+		reuseRow := reuse.Payload["row"].(map[string]any)
+		requireReusableIdentifierItem(t, reuseRow, "host.reusable_identifiers", "fqdn", "legacy-ws-023.example.test")
+	})
+
+	t.Run("identity merge exposes carried secondary reusable identifiers", func(t *testing.T) {
+		harness := phase4storetest.StartStore(t, "phase4-u-4-06-identity-reusable-row")
+		store := NewStore(harness.DB)
+		actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u406-identity-reusable@example.test", "U406 Identity Reusable", "U406IdentityReusablePhase4Pass1!", false, false, true)
+		incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-06-identity-reusable-incident", "IR-U406-IR", "Phase 4 U-4-06 identity reusable rows")
+		survivorID := uuid.New()
+		loserID := uuid.New()
+
+		phase4storetest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, survivorID, "Alex Survivor", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
+		phase4storetest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, loserID, "Alex Analyst Legacy", "alex.legacy@example.test", "alex.legacy@example.test", "ALEXLEGACY")
+
+		if _, err := store.MergeEntity(context.Background(), actor, survivorID, MergeRequest{
+			LoserRecordID:          loserID,
+			SurvivorBaseRowVersion: 1,
+			LoserBaseRowVersion:    1,
+			ClientTxnID:            "txn-phase4-u-4-06-identity-reusable-merge",
+		}, []byte("txn-phase4-u-4-06-identity-reusable-merge"), "req-identity-reusable-merge", golden.Phase4BaseTime); err != nil {
+			t.Fatalf("merge identity reusable identifiers: %v", err)
+		}
+
+		rows, err := store.QueryIdentityRows(context.Background(), incident.ID, mustDefaultQueryMeta(t, IdentitiesViewSchemaID))
+		if err != nil {
+			t.Fatalf("query identity rows after reusable merge: %v", err)
+		}
+		survivorRow := requireEntityRow(t, rows, survivorID)
+		requireReusableIdentifierItem(t, survivorRow, "identity.reusable_identifiers", "email", "alex.legacy@example.test")
+		requireNoReusableIdentifierItem(t, survivorRow, "identity.reusable_identifiers", "email", "alex.survivor@example.test")
+
+		reuse, err := store.CreateIdentityRow(context.Background(), actor, incident.ID, CreateRequest{
+			ClientTxnID: "txn-phase4-u-4-06-identity-reusable-create",
+			Values: map[string]string{
+				"identity.email": "alex.legacy@example.test",
+			},
+		}, []byte("txn-phase4-u-4-06-identity-reusable-create"), "req-identity-reusable-create", golden.Phase4BaseTime.Add(time.Minute))
+		if err != nil {
+			t.Fatalf("post-merge identity reusable exact match: %v", err)
+		}
+		if reuse.RecordID != survivorID {
+			t.Fatalf("expected reusable identifier to match survivor, got %#v", reuse)
+		}
+		reuseRow := reuse.Payload["row"].(map[string]any)
+		requireReusableIdentifierItem(t, reuseRow, "identity.reusable_identifiers", "email", "alex.legacy@example.test")
+	})
 }
 
 // U-4-07 / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
@@ -882,4 +970,74 @@ func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
 
 func pgxTxOptions() pgx.TxOptions {
 	return pgx.TxOptions{}
+}
+
+func requireEntityRow(t testing.TB, rows []map[string]any, recordID uuid.UUID) map[string]any {
+	t.Helper()
+	for _, row := range rows {
+		if row["record_id"] == recordID.String() {
+			return row
+		}
+	}
+	t.Fatalf("expected row record_id=%s in %#v", recordID, rows)
+	return nil
+}
+
+func collectionItemsFromEntityRow(t testing.TB, row map[string]any, fieldKey string) []map[string]any {
+	t.Helper()
+	cells := row["cells"].(map[string]any)
+	cell := cells[fieldKey].(map[string]any)
+	value := cell["value"].(map[string]any)
+	switch rawItems := value["items"].(type) {
+	case []map[string]any:
+		items := make([]map[string]any, 0, len(rawItems))
+		items = append(items, rawItems...)
+		return items
+	case []any:
+		items := make([]map[string]any, 0, len(rawItems))
+		for _, rawItem := range rawItems {
+			items = append(items, rawItem.(map[string]any))
+		}
+		return items
+	default:
+		t.Fatalf("unexpected collection item payload for %s: %#v", fieldKey, value["items"])
+	}
+	return nil
+}
+
+func requireReusableIdentifierItem(t testing.TB, row map[string]any, fieldKey string, identifierClass string, rawValue string) map[string]any {
+	t.Helper()
+	normalized, ok := fieldnorm.NormalizeIdentifier(identifierClass, rawValue)
+	if !ok {
+		t.Fatalf("test raw value %q does not normalize for %s", rawValue, identifierClass)
+	}
+	for _, item := range collectionItemsFromEntityRow(t, row, fieldKey) {
+		if item["identifier_class"] == identifierClass && item["normalized_value"] == normalized {
+			if item["item_kind"] != "reusable_identifier" {
+				t.Fatalf("expected reusable identifier item kind, got %#v", item)
+			}
+			if item["raw_value"] != rawValue {
+				t.Fatalf("expected raw_value=%q, got %#v", rawValue, item)
+			}
+			if item["item_ref"] == "" {
+				t.Fatalf("expected reusable identifier item_ref, got %#v", item)
+			}
+			return item
+		}
+	}
+	t.Fatalf("expected reusable identifier class=%s normalized=%s in %s, got %#v", identifierClass, normalized, fieldKey, collectionItemsFromEntityRow(t, row, fieldKey))
+	return nil
+}
+
+func requireNoReusableIdentifierItem(t testing.TB, row map[string]any, fieldKey string, identifierClass string, rawValue string) {
+	t.Helper()
+	normalized, ok := fieldnorm.NormalizeIdentifier(identifierClass, rawValue)
+	if !ok {
+		t.Fatalf("test raw value %q does not normalize for %s", rawValue, identifierClass)
+	}
+	for _, item := range collectionItemsFromEntityRow(t, row, fieldKey) {
+		if item["identifier_class"] == identifierClass && item["normalized_value"] == normalized {
+			t.Fatalf("did not expect reusable identifier class=%s normalized=%s in %s, got %#v", identifierClass, normalized, fieldKey, item)
+		}
+	}
 }

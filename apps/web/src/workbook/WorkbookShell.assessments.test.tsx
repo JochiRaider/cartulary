@@ -530,6 +530,9 @@ function hostRow(options: { displayName?: string; recordId?: string } = {}) {
       "host.hostname": { value: `${recordId}.example.test` },
       "host.aad_device_id": { value: null },
       "host.fqdn": { value: `${recordId}.example.test` },
+      "host.reusable_identifiers": {
+        value: { kind: "collection_value_v1", ordered: false, items: [] },
+      },
       "host.aliases": {
         value: { kind: "collection_value_v1", ordered: false, items: [] },
       },

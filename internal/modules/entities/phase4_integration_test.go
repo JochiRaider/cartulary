@@ -1216,6 +1216,50 @@ SELECT COUNT(*)
 		_ = link
 	})
 
+	t.Run("host merge collision uses owner precondition detail shape", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-i-4-03-collision-detail")
+		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
+		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-i-4-03-collision-detail-incident",
+			"incident_key":  "IR-I403-COLLISION",
+			"title":         "Entity merge collision",
+		})
+		incidentID := mustUUID(t, incident["incident_id"].(string))
+		blockingRecordID := uuid.New()
+
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4CanonicalHostRecordID, "Survivor Host", "SURVIVOR-HOST", "survivor-host.corp.example.test", "")
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4DuplicateHostRecordID, "Loser Host", "LOSER-HOST", "blocked-host.corp.example.test", "")
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, blockingRecordID, "Blocking Host", "BLOCKING-HOST", "blocked-host.corp.example.test", "")
+
+		mergeResp := doEntitiesJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/records/"+golden.Phase4CanonicalHostRecordID.String()+"/merge",
+			map[string]any{
+				"loser_record_id":           golden.Phase4DuplicateHostRecordID.String(),
+				"survivor_base_row_version": 1,
+				"loser_base_row_version":    1,
+				"client_txn_id":             "txn-phase4-i-4-03-collision-detail-merge",
+			},
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		errBody := httptestx.RequireErrorEnvelope(t, mergeResp, http.StatusConflict, "merge_precondition_failed")
+		details := errBody["error"].(map[string]any)["details"].(map[string]any)
+		if details["reason_code"] != "carry_forward_identifier_collision" {
+			t.Fatalf("unexpected merge collision reason_code: %#v", details)
+		}
+		if details["identifier_class"] != "fqdn" || details["normalized_value"] != "blocked-host.corp.example.test" {
+			t.Fatalf("unexpected merge collision identifier details: %#v", details)
+		}
+		if details["blocking_record_id"] != blockingRecordID.String() {
+			t.Fatalf("expected blocking_record_id=%s, got %#v", blockingRecordID, details)
+		}
+		if _, exists := details["conflicting_record_id"]; exists {
+			t.Fatalf("merge collision details must not expose non-owner conflicting_record_id: %#v", details)
+		}
+	})
+
 	t.Run("merge authorization re-derives current incident role", func(t *testing.T) {
 		harness := phase4test.StartServer(t, "phase4-i-4-03-authz")
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)

@@ -2143,6 +2143,8 @@ For `layout_json`:
 - unknown top-level members and unknown nested members are invalid,
 - `layout_json` MUST NOT store selection, scroll position, focused cell, transient popover state, open inspector state, preview state, presence, or other per-session or per-device client state,
 - `layout_json` MUST NOT be the authority for `saved_view_id`, `incident_id`, `view_schema_id`, `scope`, ownership, authorization, or startup/default surface selection.
+
+When an owner-contract revision adds a non-technical field to an existing `view_schema_id`, saved-view layout normalization MAY evolve an existing persisted or submitted `layout_json` only when every missing added key is default-hidden, read-only, and non-writable in the active schema. In that case the server MUST append the missing key to `column_order`, MUST include it in `hidden_field_keys`, and MUST preserve the canonical `hidden_field_keys` ascending order in the normalized result. Missing visible fields, missing writable fields, unknown fields, duplicate fields, technical fields, and unsorted caller-supplied `hidden_field_keys` remain invalid under this requirement; additive hidden-field evolution MUST NOT weaken the layout identity checks for other schema changes.
 Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
 
@@ -4760,7 +4762,7 @@ Verified by: AC-119, AC-124, AC-125, AC-184, AC-191, AC-192, AC-193, AC-194, AC-
 - source record types: `host`
 - base projection: `host_grid_projection`
 - `default_visible_fields`: `host.display_name`, `host.hostname`, `host.aliases`, `host.host_state`, `host.linked_event_count`, `host.evidence_count`, `host.location`, `host.os_platform`, `host.business_owner`, `host.criticality`, `host.containment_status`, `host.edited_at`
-- `default_hidden_fields`: `record_id`, `row_version`
+- `default_hidden_fields`: `record_id`, `row_version`, `host.aad_device_id`, `host.fqdn`, `host.reusable_identifiers`
 - `default_sort`: `host.display_name asc`, `record_id asc`
 - `sort_fields`: `host.display_name`, `host.hostname`, `host.host_state`, `host.linked_event_count`, `host.evidence_count`, `host.location`, `host.os_platform`, `host.business_owner`, `host.criticality`, `host.containment_status`, `host.edited_at`
 - `filter_fields`: `host.host_state`, `host.business_owner`, `host.criticality`, `host.location`, `host.os_platform`, `host.containment_status`
@@ -4775,7 +4777,7 @@ Verified by: AC-119, AC-124, AC-125, AC-184, AC-191, AC-192, AC-193, AC-194, AC-
   - `host.business_owner`: read `business_owner`; write target the `business_owner` field on the underlying `host` record; `conflict_resolution_class=atomic_replace`
   - `host.criticality`: read `criticality`; write target the `criticality` field on the underlying `host` record; `conflict_resolution_class=atomic_replace`
   - `host.containment_status`: read `containment_status`; write target the `containment_status` field on the underlying `host` record; `conflict_resolution_class=atomic_replace`
-- read-only computed fields: `host.host_state`, `host.linked_event_count`, `host.evidence_count`, `host.edited_at`. `host.host_state` MUST be a projection-backed state that uses the exact tokens `stub` and `canonical`.
+- read-only computed fields: `host.host_state`, `host.linked_event_count`, `host.evidence_count`, `host.edited_at`, `host.reusable_identifiers`. `host.host_state` MUST be a projection-backed state that uses the exact tokens `stub` and `canonical`.
 Profiles: base
 Verified by: AC-097, AC-118, AC-124, AC-125, AC-231
 
@@ -4812,6 +4814,21 @@ Verified by: AC-097, AC-118, AC-124, AC-125, AC-231
 - Alias rename in the base profile MUST be expressed as `remove_alias` plus `add_alias`. The public API surface MUST NOT require in-place alias-row update semantics.
 - `alias_text` in `add_alias` MUST use `string_contract_id=alias_text_v1`.
 - Duplicate alias adds for the same canonical record and normalized `alias_text` under `alias_text_v1` MUST coalesce to one surviving alias row.
+
+`host.reusable_identifiers` MUST expose active secondary `exact_match_reuse` preserved identifiers for the selected host as a default-hidden read-only collection. It MUST use `collection_value_v1` with `ordered=false`. Each `items[]` entry MUST use this shape:
+
+```json
+{
+  "item_ref": "entity_preserved_identifier:<entity_preserved_identifier_id>",
+  "item_kind": "reusable_identifier",
+  "identifier_class": "fqdn",
+  "raw_value": "workstation23.example.test",
+  "normalized_value": "workstation23.example.test",
+  "display_text": "FQDN: workstation23.example.test"
+}
+```
+
+The collection MUST include only active `exact_match_reuse` identifiers for the host whose `normalized_value` is not equal to the host's current canonical value for the same `identifier_class`. It MUST NOT include `suggestion_only` aliases or `provenance_only` historical values. It is not writable through collection actions, is not sortable, filterable, or groupable, and MUST remain visually and semantically distinct from `host.aliases`.
 Profiles: base
 Verified by: AC-097, AC-118, AC-124, AC-125, AC-231
 
@@ -4822,7 +4839,7 @@ Verified by: AC-097, AC-118, AC-124, AC-125, AC-231
 - source record types: `identity`
 - base projection: `identity_grid_projection`
 - `default_visible_fields`: `identity.display_name`, `identity.upn`, `identity.email`, `identity.sam_account_name`, `identity.aliases`, `identity.identity_state`, `identity.linked_event_count`, `identity.evidence_count`, `identity.privilege_level`, `identity.mfa_state`, `identity.reset_status`, `identity.edited_at`
-- `default_hidden_fields`: `record_id`, `row_version`
+- `default_hidden_fields`: `record_id`, `row_version`, `identity.aad_object_id`, `identity.sid`, `identity.reusable_identifiers`
 - `default_sort`: `identity.display_name asc`, `record_id asc`
 - `sort_fields`: `identity.display_name`, `identity.upn`, `identity.email`, `identity.sam_account_name`, `identity.identity_state`, `identity.linked_event_count`, `identity.evidence_count`, `identity.privilege_level`, `identity.mfa_state`, `identity.reset_status`, `identity.edited_at`
 - `filter_fields`: `identity.identity_state`, `identity.privilege_level`, `identity.mfa_state`, `identity.reset_status`
@@ -4837,12 +4854,27 @@ Verified by: AC-097, AC-118, AC-124, AC-125, AC-231
   - `identity.privilege_level`: read `privilege_level`; write target the `privilege_level` field on the underlying `identity` record; `conflict_resolution_class=atomic_replace`
   - `identity.mfa_state`: read `mfa_state`; write target the `mfa_state` field on the underlying `identity` record; `conflict_resolution_class=atomic_replace`
   - `identity.reset_status`: read `reset_status`; write target the `reset_status` field on the underlying `identity` record; `conflict_resolution_class=atomic_replace`
-- read-only computed fields: `identity.identity_state`, `identity.linked_event_count`, `identity.evidence_count`, `identity.edited_at`. `identity.identity_state` MUST be a projection-backed state that uses the exact tokens `stub` and `canonical`.
+- read-only computed fields: `identity.identity_state`, `identity.linked_event_count`, `identity.evidence_count`, `identity.edited_at`, `identity.reusable_identifiers`. `identity.identity_state` MUST be a projection-backed state that uses the exact tokens `stub` and `canonical`.
 Profiles: base
 Verified by: AC-098, AC-118, AC-124, AC-125, AC-231
 
 **REQ-01-327**
 `identity.aliases` MUST use the same `collection_value_v1` item shape, `collection_actions_v1` action vocabulary, and `suggestion_only`-only semantics as `host.aliases`, except the active `field_key` is `identity.aliases`.
+
+`identity.reusable_identifiers` MUST expose active secondary `exact_match_reuse` preserved identifiers for the selected identity as a default-hidden read-only collection. It MUST use `collection_value_v1` with `ordered=false`. Each `items[]` entry MUST use this shape:
+
+```json
+{
+  "item_ref": "entity_preserved_identifier:<entity_preserved_identifier_id>",
+  "item_kind": "reusable_identifier",
+  "identifier_class": "upn",
+  "raw_value": "alice@example.test",
+  "normalized_value": "alice@example.test",
+  "display_text": "UPN: alice@example.test"
+}
+```
+
+The collection MUST include only active `exact_match_reuse` identifiers for the identity whose `normalized_value` is not equal to the identity's current canonical value for the same `identifier_class`. It MUST NOT include `suggestion_only` aliases or `provenance_only` historical values. It is not writable through collection actions, is not sortable, filterable, or groupable, and MUST remain visually and semantically distinct from `identity.aliases`.
 Profiles: base
 Verified by: AC-098, AC-118, AC-124, AC-125, AC-231
 

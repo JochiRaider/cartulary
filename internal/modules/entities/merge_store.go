@@ -1331,12 +1331,12 @@ func (s *Store) applyCarryPlanTx(ctx context.Context, tx pgx.Tx, incidentID uuid
 			if found {
 				classSummary.BlockedConflict++
 				return mergeCarryPlan{}, &MergePreconditionError{
-					ReasonCode: "exact_match_conflict",
+					ReasonCode: "carry_forward_identifier_collision",
 					Details: map[string]any{
-						"record_type":           entityType,
-						"identifier_class":      identifierClass,
-						"normalized_value":      candidate.NormalizedValue,
-						"conflicting_record_id": conflictingRecordID.String(),
+						"record_type":        entityType,
+						"identifier_class":   identifierClass,
+						"normalized_value":   candidate.NormalizedValue,
+						"blocking_record_id": conflictingRecordID.String(),
 					},
 				}
 			}

@@ -15,13 +15,25 @@ export type EntityRow = {
   identifiers: Array<{
     key: string;
     label: string;
+    identifierClass: string;
     value: string;
   }>;
+  reusableIdentifiers: ReusableIdentifier[];
 };
 
 export type MergePlanLine = {
   label: string;
   outcome: string;
+};
+
+export type ReusableIdentifier = {
+  itemRef: string;
+  itemKind: "reusable_identifier" | string;
+  identifierClass: string;
+  label: string;
+  rawValue: string;
+  normalizedValue: string;
+  displayText: string;
 };
 
 export type EntityMergePlan = {
@@ -34,20 +46,41 @@ export type EntityMergePlan = {
 
 const mergeIdentifierFields: Record<
   EntityRow["entityType"],
-  Array<{ key: string; label: string }>
+  Array<{ key: string; label: string; identifierClass: string }>
 > = {
   host: [
-    { key: "host.aad_device_id", label: "AAD Device ID" },
-    { key: "host.fqdn", label: "FQDN" },
-    { key: "host.hostname", label: "Hostname" },
+    {
+      key: "host.aad_device_id",
+      label: "AAD Device ID",
+      identifierClass: "aad_device_id",
+    },
+    { key: "host.fqdn", label: "FQDN", identifierClass: "fqdn" },
+    {
+      key: "host.hostname",
+      label: "Hostname",
+      identifierClass: "hostname",
+    },
   ],
   identity: [
-    { key: "identity.aad_object_id", label: "AAD Object ID" },
-    { key: "identity.sid", label: "SID" },
-    { key: "identity.upn", label: "UPN" },
-    { key: "identity.email", label: "Email" },
-    { key: "identity.sam_account_name", label: "SAM Account Name" },
+    {
+      key: "identity.aad_object_id",
+      label: "AAD Object ID",
+      identifierClass: "aad_object_id",
+    },
+    { key: "identity.sid", label: "SID", identifierClass: "sid" },
+    { key: "identity.upn", label: "UPN", identifierClass: "upn" },
+    { key: "identity.email", label: "Email", identifierClass: "email" },
+    {
+      key: "identity.sam_account_name",
+      label: "SAM Account Name",
+      identifierClass: "sam_account_name",
+    },
   ],
+};
+
+const reusableIdentifierFields: Record<EntityRow["entityType"], string> = {
+  host: "host.reusable_identifiers",
+  identity: "identity.reusable_identifiers",
 };
 
 export function entityContractColumnWidth(field: ViewFieldContract): number {
@@ -132,6 +165,7 @@ export function entityRowFromApi(
       return {
         key: field.key,
         label: field.label,
+        identifierClass: field.identifierClass,
         value,
       };
     })
@@ -141,6 +175,7 @@ export function entityRowFromApi(
       ): value is {
         key: string;
         label: string;
+        identifierClass: string;
         value: string;
       } => value !== null,
     );
@@ -191,6 +226,7 @@ export function entityRowFromApi(
     linkedEventCount: readNumberCell(row, linkedEventField),
     rawRow: row,
     identifiers,
+    reusableIdentifiers: readReusableIdentifiers(row, entityType),
   };
 }
 
@@ -198,10 +234,95 @@ function compareValue(value: string) {
   return value.trim().toLowerCase();
 }
 
+function readReusableIdentifiers(
+  row: EntityApiRow,
+  entityType: EntityRow["entityType"],
+): ReusableIdentifier[] {
+  const raw = row.cells[reusableIdentifierFields[entityType]]?.value;
+  if (
+    !raw ||
+    typeof raw !== "object" ||
+    Array.isArray(raw) ||
+    !("items" in raw) ||
+    !Array.isArray(raw.items)
+  ) {
+    return [];
+  }
+  return raw.items
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+      const object = item as Record<string, unknown>;
+      const itemRef = readNonEmptyString(object.item_ref);
+      const identifierClass = readNonEmptyString(object.identifier_class);
+      const rawValue = readNonEmptyString(object.raw_value);
+      if (itemRef === "" || identifierClass === "" || rawValue === "") {
+        return null;
+      }
+      const displayText =
+        readNonEmptyString(object.display_text) ||
+        readNonEmptyString(object.normalized_value) ||
+        rawValue;
+      const normalizedValue =
+        readNonEmptyString(object.normalized_value) || compareValue(rawValue);
+      return {
+        itemRef,
+        itemKind: readNonEmptyString(object.item_kind) || "reusable_identifier",
+        identifierClass,
+        label: identifierClassLabel(entityType, identifierClass),
+        rawValue,
+        normalizedValue,
+        displayText,
+      };
+    })
+    .filter((value): value is ReusableIdentifier => value !== null);
+}
+
+function readNonEmptyString(value: unknown): string {
+  return typeof value === "string" && value.trim() !== "" ? value : "";
+}
+
+function identifierClassLabel(
+  entityType: EntityRow["entityType"],
+  identifierClass: string,
+): string {
+  return (
+    mergeIdentifierFields[entityType].find(
+      (field) => field.identifierClass === identifierClass,
+    )?.label ?? identifierClass.replaceAll("_", " ")
+  );
+}
+
+function identifierSignature(identifierClass: string, value: string): string {
+  return `${identifierClass}:${compareValue(value)}`;
+}
+
+function reusableIdentifierSignature(identifier: ReusableIdentifier): string {
+  return identifierSignature(
+    identifier.identifierClass,
+    identifier.normalizedValue || identifier.rawValue,
+  );
+}
+
+function entityIdentifierSignatures(row: EntityRow): Set<string> {
+  const signatures = new Set<string>();
+  for (const identifier of row.identifiers) {
+    signatures.add(
+      identifierSignature(identifier.identifierClass, identifier.value),
+    );
+  }
+  for (const identifier of row.reusableIdentifiers) {
+    signatures.add(reusableIdentifierSignature(identifier));
+  }
+  return signatures;
+}
+
 export function buildMergePlan(
   survivor: EntityRow,
   loser: EntityRow,
 ): EntityMergePlan {
+  const survivorIdentifierSignatures = entityIdentifierSignatures(survivor);
   const identifierLines: MergePlanLine[] = mergeIdentifierFields[
     survivor.entityType
   ].flatMap((field) => {
@@ -217,10 +338,14 @@ export function buildMergePlan(
     if (survivorValue === "" && loserValue !== "") {
       return [{ label: field.label, outcome: `Promote ${loserValue}` }];
     }
+    const loserSignature = identifierSignature(
+      field.identifierClass,
+      loserValue,
+    );
     if (
       survivorValue !== "" &&
       loserValue !== "" &&
-      compareValue(survivorValue) === compareValue(loserValue)
+      survivorIdentifierSignatures.has(loserSignature)
     ) {
       return [{ label: field.label, outcome: `Duplicate no-op ${loserValue}` }];
     }
@@ -228,12 +353,25 @@ export function buildMergePlan(
       return [
         {
           label: field.label,
-          outcome: `Conflict survivor=${survivorValue} loser=${loserValue}`,
+          outcome: `Carry as reusable ${loserValue}`,
         },
       ];
     }
-    return [{ label: field.label, outcome: `Survivor keeps ${survivorValue}` }];
+    return [];
   });
+  const loserReusableIdentifierLines = loser.reusableIdentifiers.map(
+    (identifier) => {
+      const outcome = survivorIdentifierSignatures.has(
+        reusableIdentifierSignature(identifier),
+      )
+        ? `Duplicate no-op ${identifier.displayText}`
+        : `Carry as reusable ${identifier.displayText}`;
+      return {
+        label: identifier.label,
+        outcome,
+      };
+    },
+  );
 
   const survivorAliases = new Set(survivor.aliasTexts.map(compareValue));
   const aliasesToCopy = loser.aliasTexts.filter(
@@ -244,10 +382,11 @@ export function buildMergePlan(
   );
 
   return {
-    identifierLines,
+    identifierLines: [...identifierLines, ...loserReusableIdentifierLines],
     aliasesToCopy,
     duplicateAliases,
-    provenanceOnlySummary: "Not exposed on this surface.",
+    provenanceOnlySummary:
+      "Merge lineage and source provenance are retained server-side; no editable cell value is copied for them.",
     dependencySummary:
       survivor.linkedEventCount > 0 || loser.linkedEventCount > 0
         ? `Linked events visible on surface: survivor=${survivor.linkedEventCount}, loser=${loser.linkedEventCount}.`

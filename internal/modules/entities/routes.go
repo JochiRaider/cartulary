@@ -440,11 +440,11 @@ func (s *Service) publishMergeChanges(result MergeResult, actorUserID uuid.UUID)
 	}
 
 	viewSchemaID := IdentitiesViewSchemaID
-	survivorKeys := []string{"identity.identity_state", "identity.edited_at", "identity.aliases", "identity.aad_object_id", "identity.sid", "identity.upn", "identity.email", "identity.sam_account_name"}
+	survivorKeys := []string{"identity.identity_state", "identity.edited_at", "identity.aliases", "identity.reusable_identifiers", "identity.aad_object_id", "identity.sid", "identity.upn", "identity.email", "identity.sam_account_name"}
 	loserKeys := []string{"identity.identity_state", "identity.edited_at"}
 	if result.RecordType == "host" {
 		viewSchemaID = HostsViewSchemaID
-		survivorKeys = []string{"host.host_state", "host.edited_at", "host.aliases", "host.aad_device_id", "host.fqdn", "host.hostname"}
+		survivorKeys = []string{"host.host_state", "host.edited_at", "host.aliases", "host.reusable_identifiers", "host.aad_device_id", "host.fqdn", "host.hostname"}
 		loserKeys = []string{"host.host_state", "host.edited_at"}
 	}
 	slices.Sort(survivorKeys)

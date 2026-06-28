@@ -118,11 +118,9 @@ func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserR
 	if err != nil {
 		return PatchMutationResult{}, err
 	}
-	aliases, err := loadEntityAliasesTx(ctx, tx, recordID, "host")
-	if err != nil {
+	if err := hydrateHostRecordTx(ctx, tx, &beforeRecord); err != nil {
 		return PatchMutationResult{}, err
 	}
-	beforeRecord.SuggestionOnlyAliases = aliases
 	beforeRow := BuildHostRow(beforeRecord)
 
 	next := beforeRecord
@@ -198,7 +196,9 @@ func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserR
 	if err := upsertHostProjectionTx(ctx, tx, next); err != nil {
 		return PatchMutationResult{}, err
 	}
-	next.SuggestionOnlyAliases = aliases
+	if err := hydrateHostRecordTx(ctx, tx, &next); err != nil {
+		return PatchMutationResult{}, err
+	}
 	afterRow := BuildHostRow(next)
 
 	return s.finishEntityPatchTx(ctx, tx, actor, meta.IncidentID, recordID, "host", request, idempotencyKey, requestHash, requestID, now, beforeRow, afterRow, rowVersion, changedFields)
@@ -209,11 +209,9 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 	if err != nil {
 		return PatchMutationResult{}, err
 	}
-	aliases, err := loadEntityAliasesTx(ctx, tx, recordID, "identity")
-	if err != nil {
+	if err := hydrateIdentityRecordTx(ctx, tx, &beforeRecord); err != nil {
 		return PatchMutationResult{}, err
 	}
-	beforeRecord.SuggestionOnlyAliases = aliases
 	beforeRow := BuildIdentityRow(beforeRecord)
 
 	next := beforeRecord
@@ -289,7 +287,9 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 	if err := upsertIdentityProjectionTx(ctx, tx, next); err != nil {
 		return PatchMutationResult{}, err
 	}
-	next.SuggestionOnlyAliases = aliases
+	if err := hydrateIdentityRecordTx(ctx, tx, &next); err != nil {
+		return PatchMutationResult{}, err
+	}
 	afterRow := BuildIdentityRow(next)
 
 	return s.finishEntityPatchTx(ctx, tx, actor, meta.IncidentID, recordID, "identity", request, idempotencyKey, requestHash, requestID, now, beforeRow, afterRow, rowVersion, changedFields)

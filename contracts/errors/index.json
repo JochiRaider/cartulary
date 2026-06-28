@@ -1428,6 +1428,39 @@
       ]
     },
     {
+      "error_code": "merge_precondition_failed",
+      "reason_codes": [
+        {
+          "code": "same_record",
+          "summary": "The supplied survivor and loser identify the same record."
+        },
+        {
+          "code": "different_incident",
+          "summary": "The two records do not belong to the same incident."
+        },
+        {
+          "code": "record_type_mismatch",
+          "summary": "The two records do not have the same record_type."
+        },
+        {
+          "code": "unsupported_record_type",
+          "summary": "The requested record_type is not mergeable through the base-profile public route."
+        },
+        {
+          "code": "survivor_not_mergeable",
+          "summary": "The nominated survivor is deleted, already merged away, or otherwise not eligible to survive the merge."
+        },
+        {
+          "code": "loser_not_mergeable",
+          "summary": "The nominated loser is deleted, already merged away, or otherwise not eligible to lose the merge."
+        },
+        {
+          "code": "carry_forward_identifier_collision",
+          "summary": "A loser-side exact_match_reuse value could not be preserved on the survivor because it would create an active exact match with a third same-incident record."
+        }
+      ]
+    },
+    {
       "error_code": "invalid_rollback_request",
       "reason_codes": [
         {

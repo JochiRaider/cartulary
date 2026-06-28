@@ -328,6 +328,66 @@ func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
 	}
 }
 
+func TestPhase8_SavedViewCreateEvolvesAdditiveHiddenFields_U_8_02(t *testing.T) {
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServer(t, "phase8-savedviews-layout-evolution-u-8-02")
+	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase8-layout-evolution-incident",
+		"incident_key":  "IR-U802-LAYOUT-EVOLUTION",
+		"title":         "Phase 8 saved-view layout evolution",
+	})
+	incidentID := incident["incident_id"].(string)
+
+	testCases := []struct {
+		name         string
+		viewSchemaID string
+		fieldKey     string
+	}{
+		{
+			name:         "Legacy host layout",
+			viewSchemaID: "cartulary.view.hosts.v1",
+			fieldKey:     "host.reusable_identifiers",
+		},
+		{
+			name:         "Legacy identity layout",
+			viewSchemaID: "cartulary.view.identities.v1",
+			fieldKey:     "identity.reusable_identifiers",
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			legacyLayout := savedViewLayoutForSchemaWith(t, testCase.viewSchemaID, func(layout map[string]any) {
+				layout["column_order"] = removeLayoutField(t, layout["column_order"], testCase.fieldKey)
+				layout["hidden_field_keys"] = removeLayoutField(t, layout["hidden_field_keys"], testCase.fieldKey)
+			})
+
+			created := createSavedViewHTTP(
+				t,
+				harness.Server.HTTP.URL,
+				incidentID,
+				adminLogin.SessionCookie,
+				adminLogin.CSRFCookie,
+				map[string]any{
+					"view_schema_id": testCase.viewSchemaID,
+					"display_name":   testCase.name,
+					"query_json":     map[string]any{},
+					"layout_json":    legacyLayout,
+				},
+			)
+
+			createdLayout := created["layout_json"].(map[string]any)
+			if order := stringSliceFromAny(createdLayout["column_order"]); !contains(order, testCase.fieldKey) {
+				t.Fatalf("normalized column_order must include %q, got %v", testCase.fieldKey, order)
+			}
+			if hidden := stringSliceFromAny(createdLayout["hidden_field_keys"]); !contains(hidden, testCase.fieldKey) {
+				t.Fatalf("normalized hidden_field_keys must include %q, got %v", testCase.fieldKey, hidden)
+			}
+			requireStoredSavedViewMatchesResource(t, harness.DB, created)
+		})
+	}
+}
+
 func TestPhase8_SavedViewSystemFixtureRouteUnavailableByDefault_U_8_02(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	fixtureBody := map[string]any{
@@ -1049,7 +1109,12 @@ func requireSavedViewErrorDetails(t testing.TB, envelope map[string]any, field s
 
 func savedViewLayoutWith(t testing.TB, mutate func(map[string]any)) map[string]any {
 	t.Helper()
-	raw, layoutErr := viewschema.DefaultLayout(timeline.TimelineViewSchemaID)
+	return savedViewLayoutForSchemaWith(t, timeline.TimelineViewSchemaID, mutate)
+}
+
+func savedViewLayoutForSchemaWith(t testing.TB, viewSchemaID string, mutate func(map[string]any)) map[string]any {
+	t.Helper()
+	raw, layoutErr := viewschema.DefaultLayout(viewSchemaID)
 	if layoutErr != nil {
 		t.Fatalf("build default layout: %+v", layoutErr)
 	}
@@ -1059,6 +1124,21 @@ func savedViewLayoutWith(t testing.TB, mutate func(map[string]any)) map[string]a
 	}
 	mutate(layout)
 	return layout
+}
+
+func removeLayoutField(t testing.TB, value any, remove string) []any {
+	t.Helper()
+	values := stringSliceFromAny(value)
+	result := make([]any, 0, len(values))
+	for _, item := range values {
+		if item != remove {
+			result = append(result, item)
+		}
+	}
+	if len(result) == len(values) {
+		t.Fatalf("layout field %q was not present in %v", remove, values)
+	}
+	return result
 }
 
 func schemaAt(t testing.TB, schemas map[string]any, name string) map[string]any {

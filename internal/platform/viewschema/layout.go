@@ -89,10 +89,6 @@ func NormalizeLayout(raw json.RawMessage, viewSchemaID string) (json.RawMessage,
 		return nil, layoutErr
 	}
 
-	allowedOrder := layoutFieldKeys(resource)
-	if !sameStringSet(columnOrder, allowedOrder) {
-		return nil, &LayoutError{Field: "layout_json.column_order", ReasonCode: "invalid_column_order"}
-	}
 	if hasDuplicate(columnOrder) {
 		return nil, &LayoutError{Field: "layout_json.column_order", ReasonCode: "duplicate_field_key"}
 	}
@@ -101,6 +97,15 @@ func NormalizeLayout(raw json.RawMessage, viewSchemaID string) (json.RawMessage,
 	}
 	if !slices.IsSorted(hiddenFieldKeys) {
 		return nil, &LayoutError{Field: "layout_json.hidden_field_keys", ReasonCode: "invalid_field_order"}
+	}
+	var evolveErr *LayoutError
+	columnOrder, hiddenFieldKeys, evolveErr = normalizeAdditiveHiddenFields(resource, columnOrder, hiddenFieldKeys)
+	if evolveErr != nil {
+		return nil, evolveErr
+	}
+	allowedOrder := layoutFieldKeys(resource)
+	if !sameStringSet(columnOrder, allowedOrder) {
+		return nil, &LayoutError{Field: "layout_json.column_order", ReasonCode: "invalid_column_order"}
 	}
 	orderSet := stringSet(columnOrder)
 	for _, fieldKey := range hiddenFieldKeys {
@@ -169,6 +174,48 @@ func layoutFieldKeys(resource ViewSchemaResource) []string {
 		keys = append(keys, field.FieldKey)
 	}
 	return keys
+}
+
+func normalizeAdditiveHiddenFields(resource ViewSchemaResource, columnOrder []string, hiddenFieldKeys []string) ([]string, []string, *LayoutError) {
+	allowedOrder := layoutFieldKeys(resource)
+	allowedSet := stringSet(allowedOrder)
+	orderSet := stringSet(columnOrder)
+	for _, fieldKey := range columnOrder {
+		if _, ok := allowedSet[fieldKey]; !ok {
+			return nil, nil, &LayoutError{Field: "layout_json.column_order", ReasonCode: "invalid_column_order"}
+		}
+	}
+
+	fieldsByKey := make(map[string]ViewFieldEntry, len(resource.Fields))
+	for _, field := range resource.Fields {
+		if field.FieldKey == "record_id" || field.FieldKey == "row_version" {
+			continue
+		}
+		fieldsByKey[field.FieldKey] = field
+	}
+
+	hiddenSet := stringSet(hiddenFieldKeys)
+	addedHidden := false
+	for _, fieldKey := range allowedOrder {
+		if _, ok := orderSet[fieldKey]; ok {
+			continue
+		}
+		field, ok := fieldsByKey[fieldKey]
+		if !ok || !field.DefaultHidden || field.WriteKind != "read_only" {
+			return nil, nil, &LayoutError{Field: "layout_json.column_order", ReasonCode: "invalid_column_order"}
+		}
+		columnOrder = append(columnOrder, fieldKey)
+		orderSet[fieldKey] = struct{}{}
+		if _, ok := hiddenSet[fieldKey]; !ok {
+			hiddenFieldKeys = append(hiddenFieldKeys, fieldKey)
+			hiddenSet[fieldKey] = struct{}{}
+			addedHidden = true
+		}
+	}
+	if addedHidden {
+		slices.Sort(hiddenFieldKeys)
+	}
+	return columnOrder, hiddenFieldKeys, nil
 }
 
 func requiredString(raw map[string]json.RawMessage, key string) (string, *LayoutError) {

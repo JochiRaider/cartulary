@@ -489,6 +489,13 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/workbook/models/entityWorkbookModel.test.ts",
+      "title": "promotes loser identifiers only when the survivor canonical field is empty",
+      "coverage": "unowned_regression",
+      "reason": "Workbook model and utility behavior remains intentional product regression coverage until promoted to an owner row."
+    },
+    {
+      "target": "frontend-unit",
       "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
       "title": "builds generic creates with omitted fields, trims, explicit clears, and minimum checks",
       "coverage": "unowned_regression",

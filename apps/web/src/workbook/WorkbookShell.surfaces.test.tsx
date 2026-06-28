@@ -3,6 +3,9 @@ import {
   dataTestIdSelector,
   entityInspectButtonTestId,
   entityInspectorTestId,
+  entityMergePreconditionDetailsTestId,
+  entityReusableIdentifierItemTestId,
+  entityReusableIdentifiersSectionTestId,
   evidenceAccessMessageTestId,
   evidenceAttachFileInputTestId,
   evidenceDownloadButtonTestId,
@@ -1910,9 +1913,17 @@ describe("WorkbookShell surface selection", () => {
       hostRow({
         aliases: ["survivor-alias", "shared-alias"],
         displayName: "Survivor host",
+        fqdn: "survivor.example.test",
         hostname: "SURVIVOR.example.test",
         linkedEventCount: 2,
         recordId: "host-survivor",
+        reusableIdentifiers: [
+          {
+            identifierClass: "fqdn",
+            itemRef: "entity_preserved_identifier:survivor-legacy-fqdn",
+            rawValue: "legacy-survivor.example.test",
+          },
+        ],
         rowVersion: 7,
       }),
       hostRow({
@@ -1922,6 +1933,13 @@ describe("WorkbookShell surface selection", () => {
         hostname: "survivor.example.test",
         linkedEventCount: 1,
         recordId: "host-loser",
+        reusableIdentifiers: [
+          {
+            identifierClass: "hostname",
+            itemRef: "entity_preserved_identifier:loser-legacy-hostname",
+            rawValue: "old-loser-host",
+          },
+        ],
         rowVersion: 3,
       }),
       hostRow({
@@ -1948,6 +1966,20 @@ describe("WorkbookShell surface selection", () => {
     );
     await screen.findByTestId(entityInspectorTestId("host"));
     expect(
+      screen.getByTestId(
+        entityReusableIdentifiersSectionTestId("host", "host-survivor"),
+      ).textContent,
+    ).toContain("Reusable identifiers");
+    expect(
+      screen.getByTestId(
+        entityReusableIdentifierItemTestId(
+          "host",
+          "host-survivor",
+          "entity_preserved_identifier:survivor-legacy-fqdn",
+        ),
+      ).textContent,
+    ).toBe("FQDN: legacy-survivor.example.test");
+    expect(
       (
         await screen.findByTestId(
           timelinePreviewRowTestId("timeline-dependent"),
@@ -1962,13 +1994,21 @@ describe("WorkbookShell surface selection", () => {
     expect(mergePlan.textContent).toContain(
       "Survivor Survivor host absorbs loser Loser host",
     );
-    expect(mergePlan.textContent).toContain("FQDN: Promote loser.example.test");
+    expect(mergePlan.textContent).toContain(
+      "FQDN: Carry as reusable loser.example.test",
+    );
     expect(mergePlan.textContent).toContain(
       "Hostname: Duplicate no-op survivor.example.test",
+    );
+    expect(mergePlan.textContent).toContain(
+      "Hostname: Carry as reusable old-loser-host",
     );
     expect(mergePlan.textContent).toContain("Aliases to copy: loser-alias");
     expect(mergePlan.textContent).toContain(
       "Alias duplicate no-op: Shared-Alias",
+    );
+    expect(mergePlan.textContent).toContain(
+      "Provenance-only values: Merge lineage and source provenance are retained server-side; no editable cell value is copied for them.",
     );
     expect(mergePlan.textContent).toContain(
       "Linked events visible on surface: survivor=2, loser=1.",
@@ -2027,6 +2067,13 @@ describe("WorkbookShell surface selection", () => {
       identityRow({
         displayName: "Survivor identity",
         recordId: "identity-survivor",
+        reusableIdentifiers: [
+          {
+            identifierClass: "email",
+            itemRef: "entity_preserved_identifier:survivor-legacy-email",
+            rawValue: "legacy@example.test",
+          },
+        ],
         rowVersion: 11,
         upn: "survivor@example.test",
       }),
@@ -2065,6 +2112,17 @@ describe("WorkbookShell surface selection", () => {
         entityInspectButtonTestId("identity", "identity-survivor"),
       ),
     );
+    expect(
+      (
+        await screen.findByTestId(
+          entityReusableIdentifierItemTestId(
+            "identity",
+            "identity-survivor",
+            "entity_preserved_identifier:survivor-legacy-email",
+          ),
+        )
+      ).textContent,
+    ).toBe("Email: legacy@example.test");
     fireEvent.change(await screen.findByTestId("merge-loser-record"), {
       target: { value: "identity-loser" },
     });
@@ -2075,6 +2133,16 @@ describe("WorkbookShell surface selection", () => {
         "merge_precondition_failed: carry_forward_identifier_collision",
       );
     });
+    expect(
+      screen.getByTestId(
+        entityMergePreconditionDetailsTestId("identity", "identity-survivor"),
+      ).textContent,
+    ).toContain("Blocking record: identity-blocker");
+    expect(
+      screen.getByTestId(
+        entityMergePreconditionDetailsTestId("identity", "identity-survivor"),
+      ).textContent,
+    ).toContain("Normalized value: collision@example.test");
     expect(currentRecordIds(identitiesViewSchemaId)).toEqual([
       "identity-survivor",
       "identity-loser",
@@ -2949,6 +3017,7 @@ function hostRow({
   hostname,
   linkedEventCount = 0,
   recordId,
+  reusableIdentifiers = [],
   rowVersion,
 }: {
   aliases?: string[];
@@ -2957,6 +3026,13 @@ function hostRow({
   hostname: string;
   linkedEventCount?: number;
   recordId: string;
+  reusableIdentifiers?: Array<{
+    identifierClass: string;
+    itemRef: string;
+    rawValue: string;
+    normalizedValue?: string;
+    displayText?: string;
+  }>;
   rowVersion: number;
 }): TestViewRow {
   return {
@@ -2967,6 +3043,19 @@ function hostRow({
       "host.hostname": { value: hostname },
       "host.aad_device_id": { value: "" },
       "host.fqdn": { value: fqdn ?? "" },
+      "host.reusable_identifiers": {
+        value: collectionValue(
+          reusableIdentifiers.map((identifier) => ({
+            item_ref: identifier.itemRef,
+            item_kind: "reusable_identifier",
+            identifier_class: identifier.identifierClass,
+            raw_value: identifier.rawValue,
+            normalized_value:
+              identifier.normalizedValue ?? identifier.rawValue.toLowerCase(),
+            display_text: identifier.displayText ?? identifier.rawValue,
+          })),
+        ),
+      },
       "host.aliases": {
         value: collectionValue(
           aliases.map((alias) => ({
@@ -2995,6 +3084,7 @@ function identityRow({
   displayName,
   email = "",
   recordId,
+  reusableIdentifiers = [],
   rowVersion,
   upn,
 }: {
@@ -3002,6 +3092,13 @@ function identityRow({
   displayName: string;
   email?: string;
   recordId: string;
+  reusableIdentifiers?: Array<{
+    identifierClass: string;
+    itemRef: string;
+    rawValue: string;
+    normalizedValue?: string;
+    displayText?: string;
+  }>;
   rowVersion: number;
   upn: string;
 }): TestViewRow {
@@ -3015,6 +3112,19 @@ function identityRow({
       "identity.upn": { value: upn },
       "identity.email": { value: email },
       "identity.sam_account_name": { value: "" },
+      "identity.reusable_identifiers": {
+        value: collectionValue(
+          reusableIdentifiers.map((identifier) => ({
+            item_ref: identifier.itemRef,
+            item_kind: "reusable_identifier",
+            identifier_class: identifier.identifierClass,
+            raw_value: identifier.rawValue,
+            normalized_value:
+              identifier.normalizedValue ?? identifier.rawValue.toLowerCase(),
+            display_text: identifier.displayText ?? identifier.rawValue,
+          })),
+        ),
+      },
       "identity.aliases": {
         value: collectionValue(
           aliases.map((alias) => ({
