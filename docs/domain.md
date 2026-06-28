@@ -126,6 +126,23 @@ The following map preserves the existing security, implementation-support, desig
 | Appendices and research reports | Rationale terms and historical context. | No current-profile behavior. | A term from an appendix or research report becomes domain vocabulary only when this document or a core owner admits it. |
 | Guides | Implementation-support terms and planning labels. | Package boundaries, harness mechanics, visual fixture maintenance, frontend phase evidence. | Guide terms MUST NOT become domain concepts by repetition in code or tests. |
 
+### 4.2 Strategic DDD source posture
+
+`docs/domain.md` uses Strategic Domain-Driven Design terminology only inside this document's authority boundary.
+
+| Source family | Status in this document | Permitted use |
+| --- | --- | --- |
+| Evans DDD Reference and Evans original DDD text | Definition baseline | Define the meanings of ubiquitous language, bounded context, context map, and original strategic relationship vocabulary. |
+| Fowler bounded-context explanation | Practitioner clarification | Clarify bounded-context interpretation where it does not conflict with Evans or Cartulary owner sections. |
+| DDD Crew context-mapping and bounded-context artifacts | Practitioner pattern and documentation reference | Inform relationship-type naming, team-contact awareness, and bounded-context documentation structure. |
+| Context Mapper and related strategic-DDD tooling literature | Tooling and validation reference | Inform machine-readable context-map and bounded-context validation shapes. |
+| Academic DDD research | Evidence only | Identify boundary-maintenance risks, tooling value, and empirical limits. Academic sources MUST NOT override Cartulary owner sections or this document's closed vocabulary. |
+| Cartulary owner sections | Behavioral authority | Govern product behavior, conformance, route shape, record type membership, security behavior, and exact token membership. |
+
+When Strategic DDD terminology and Cartulary owner sections appear to conflict, the owner section governs product behavior and `docs/domain.md` MUST either repair the terminology or mark the row `TODO: owner decision required`.
+
+A future revision MAY add source rows to this table. Omission behavior: omitted Strategic DDD sources are not authority for this document unless a later accepted revision adds them here.
+
 ## 5. Resolved terminology decisions
 
 The following decisions resolve overloaded or easily-confused language for current-profile repository use. These decisions do not change owner-section behavior.
@@ -321,26 +338,46 @@ Bounded contexts describe domain responsibility and language boundaries. They MU
 
 Declared scope: all repository-wide domain contexts required to classify current-profile vocabulary in this document. Completion rule: every glossary row in §11 maps to one bounded context or to an external/future-only boundary row.
 
-| Bounded context | Owns domain language for | Must not own | Language home | Behavior owner disposition | Tie-break rule | Applicability |
-| --- | --- | --- | --- | --- | --- | --- |
-| Incident Workspace | Incident, incident key, incident metadata, membership, startup workbook surface, incident-scoped preferences. | Password/MFA semantics, deployment-wide users, object storage. | §11 glossary rows for Incident and Incident membership. | Use Core 00 §5.1 owner matrix by contract family. | When behavior crosses incident, membership, and workbook startup, inspect Core 01/Core 03/Core 04 owner rows before local prose. | `base` |
-| Workbook Interaction | Built-in tabs, system views, saved views, grid action, paste, sort, filter, group, inspector, presence, save/conflict state. | Authoritative storage schema or physical projection topology. | §9 and §11 workbook-surface rows. | Core 03 for interaction behavior; Core 01 for view-schema/public interface behavior. | Stable identifiers and public contracts resolve through Core 01; interaction semantics resolve through Core 03. | `base` |
-| Capture and Timeline | Timeline events, rough capture, capture state, timeline grouping, timeline source text, unresolved tokens. | Canonical host/identity lifecycle except through mention and resolution workflows. | §13.1 through §13.3. | Core 02 for record semantics; Core 03 for interaction behavior. | Source-model disputes resolve through Core 02; interaction disputes resolve through Core 03. | `base` |
-| Entities and Observations | Hosts, identities, aliases, entity mentions, indicators, indicator observations, assessments, exact-match reuse, explicit merge. | Parties, deployment users, generalized contact management. | §12.2 and §13.2 through §13.4. | Core 02 primary; Core 03 for workbook interaction. | Model semantics resolve through Core 02. | `base` |
-| Evidence | Evidence records, object blobs, upload slot, attach flow, preview/download handle, custody and availability lifecycle. | Long-form report release state or raw telemetry storage. | §11 Evidence record and Object blob rows; §13.5. | Core 02 for evidence/blob model; Core 01 for object/blob routes and handles; Core 04 for access security. | Security/access disputes resolve through Core 04; source-model disputes resolve through Core 02. | `base` |
-| Coordination | Parties, task requests, decisions, communications logs, handoffs, status reviews, lessons, owner fields, follow-through references. | Generalized workflow engine or mandatory timeline approval path. | §13.6 through §13.8. | Core 02 for coordination records; Core 03 for workbook surfaces; Core 04 for authorization/release boundaries. | Routine coordination resolves through Core 02/Core 03; release gates resolve through Core 04. | `base` |
-| Links and Tags | Typed record relationships, record tags, relationship cells, collection-review fields. | Raw binary evidence storage or user account binding. | §12.2. | Core 02 for relationship semantics; Core 01 for public field/write contracts. | Relationship semantics resolve through Core 02. | `base` |
-| Revisions and Audit | Change sets, mutation entries, record revisions, row history, rollback, merge history. | Live presence transport or deployment-local credential secrets. | §11 history rows; §13.10. | Core 02 for history substrate; Core 01 for public routes; Core 04 for administrative audit. | Incident record history resolves through Core 02; deployment-local admin audit resolves through Core 04. | `base` |
-| Projections and Search | Workbook projections, view-query contract, filter/sort/group behavior, cursor semantics. | Authoritative source decisions or persisted incident facts except where owner sections define source state. | §11 Projection row; §14 defaults. | Core 01 primary; Core 03 for interaction behavior. | Public query and cursor semantics resolve through Core 01. | `base` |
-| Reference Data | Reference packs, type registries, activation, attestation, optional overlays. | Incident record lifecycle or live capture eligibility. | §11 Reference pack row; §16 anti-corruption rows. | Core 01/Core 02/Core 04 by pack family. | Trust and activation disputes resolve through Core 04; data-model disputes through Core 02. | `extension-profile` |
-| Reporting and Snapshots | Immutable snapshots, export models, release records, redaction profiles, rendered outputs. | Live workbook write path or incident-member visibility. | §11 Snapshot and Release rows; §13.13. | Core 01 for snapshots/reporting; Core 04 for release gates and redaction. | Release/authorization disputes resolve through Core 04. | `extension-profile` |
-| Authentication and Administration | Local users, current account profile, account preferences, sessions, MFA, deployment admin, credential lifecycle, enterprise-auth bindings, incident roles. | Incident-scoped party identity, incident-scoped workbook preferences, or workbook row mutation. | §11 User, Current account profile, Account preference, Incident membership, Deployment admin rows. | Core 04 primary; Core 01 for public auth/admin routes. | Security and authorization disputes resolve through Core 04. | `base` |
-| Imports and Tabular Ingest | Import sessions, import units, source adapters, locator kinds, mapping fingerprints, warning codes, provenance. | Runtime workbook semantics outside the stable tabular-ingest contract. | §11 Import rows; §13.12. | Core 01 primary; Core 03 for paste and workbook interaction. | Import object semantics resolve through Core 01. | `extension-profile` |
-| Backup and Restore | Backup sets, restore verification, runtime roots, operator-facing recovery. | Workbook-surface route families or incident-scoped workflow. | §16 external boundary rows. | Core 01/Core 04 by backup or restore contract family. | Deployment/security disputes resolve through Core 04. | `base` |
+A bounded context in this document MUST have exactly one `context_kind`.
+
+| `context_kind` | Meaning | Use when |
+| --- | --- | --- |
+| `domain_context` | Primary Cartulary problem-domain language boundary. | The context defines incident-response, investigation, evidence, entity, or coordination concepts. |
+| `interaction_context` | Product-interaction language boundary. | The context defines workbook, surface, grid, saved-view, or inspector interaction vocabulary. |
+| `supporting_context` | Supporting capability with domain-facing terms. | The context supports domain work but is not itself the primary problem-domain language. |
+| `generic_context` | Conventional security, administration, backup, deployment, or platform language with Cartulary-specific constraints. | The context mostly uses industry-standard terms and this document only prevents leakage into domain language. |
+| `external_boundary` | External model admitted only through anti-corruption mapping. | The context is not a Cartulary source model and must be translated through §16. |
+
+| Bounded context | Context kind | Owns domain language for | Must not own | Language home | Behavior owner disposition | Tie-break rule | Applicability |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Incident Workspace | `domain_context` | Incident, incident key, incident metadata, membership, startup workbook surface, incident-scoped preferences. | Password/MFA semantics, deployment-wide users, object storage. | §11 glossary rows for Incident and Incident membership. | Use Core 00 §5.1 owner matrix by contract family. | When behavior crosses incident, membership, and workbook startup, inspect Core 01/Core 03/Core 04 owner rows before local prose. | `base` |
+| Workbook Interaction | `interaction_context` | Built-in tabs, system views, saved views, grid action, paste, sort, filter, group, inspector, presence, save/conflict state. | Authoritative storage schema or physical projection topology. | §9 and §11 workbook-surface rows. | Core 03 for interaction behavior; Core 01 for view-schema/public interface behavior. | Stable identifiers and public contracts resolve through Core 01; interaction semantics resolve through Core 03. | `base` |
+| Capture and Timeline | `domain_context` | Timeline events, rough capture, capture state, timeline grouping, timeline source text, unresolved tokens. | Canonical host/identity lifecycle except through mention and resolution workflows. | §13.1 through §13.3. | Core 02 for record semantics; Core 03 for interaction behavior. | Source-model disputes resolve through Core 02; interaction disputes resolve through Core 03. | `base` |
+| Entities and Observations | `domain_context` | Hosts, identities, aliases, entity mentions, indicators, indicator observations, assessments, exact-match reuse, explicit merge. | Parties, deployment users, generalized contact management. | §12.2 and §13.2 through §13.4. | Core 02 primary; Core 03 for workbook interaction. | Model semantics resolve through Core 02. | `base` |
+| Evidence | `domain_context` | Evidence records, object blobs, upload slot, attach flow, preview/download handle, custody and availability lifecycle. | Long-form report release state or raw telemetry storage. | §11 Evidence record and Object blob rows; §13.5. | Core 02 for evidence/blob model; Core 01 for object/blob routes and handles; Core 04 for access security. | Security/access disputes resolve through Core 04; source-model disputes resolve through Core 02. | `base` |
+| Coordination | `domain_context` | Parties, task requests, decisions, communications logs, handoffs, status reviews, lessons, owner fields, follow-through references. | Generalized workflow engine or mandatory timeline approval path. | §13.6 through §13.8. | Core 02 for coordination records; Core 03 for workbook surfaces; Core 04 for authorization/release boundaries. | Routine coordination resolves through Core 02/Core 03; release gates resolve through Core 04. | `base` |
+| Links and Tags | `domain_context` | Typed record relationships, record tags, relationship cells, collection-review fields. | Raw binary evidence storage or user account binding. | §12.2. | Core 02 for relationship semantics; Core 01 for public field/write contracts. | Relationship semantics resolve through Core 02. | `base` |
+| Revisions and Audit | `supporting_context` | Change sets, mutation entries, record revisions, row history, rollback, merge history. | Live presence transport or deployment-local credential secrets. | §11 history rows; §13.10. | Core 02 for history substrate; Core 01 for public routes; Core 04 for administrative audit. | Incident record history resolves through Core 02; deployment-local admin audit resolves through Core 04. | `base` |
+| Projections and Search | `supporting_context` | Workbook projections, view-query contract, filter/sort/group behavior, cursor semantics. | Authoritative source decisions or persisted incident facts except where owner sections define source state. | §11 Projection row; §14 defaults. | Core 01 primary; Core 03 for interaction behavior. | Public query and cursor semantics resolve through Core 01. | `base` |
+| Reference Data | `supporting_context` | Reference packs, type registries, activation, attestation, optional overlays. | Incident record lifecycle or live capture eligibility. | §11 Reference pack row; §16 anti-corruption rows. | Core 01/Core 02/Core 04 by pack family. | Trust and activation disputes resolve through Core 04; data-model disputes through Core 02. | `extension-profile` |
+| Reporting and Snapshots | `supporting_context` | Immutable snapshots, export models, release records, redaction profiles, rendered outputs. | Live workbook write path or incident-member visibility. | §11 Snapshot and Release rows; §13.13. | Core 01 for snapshots/reporting; Core 04 for release gates and redaction. | Release/authorization disputes resolve through Core 04. | `extension-profile` |
+| Authentication and Administration | `generic_context` | Local users, current account profile, account preferences, sessions, MFA, deployment admin, credential lifecycle, enterprise-auth bindings, incident roles. | Incident-scoped party identity, incident-scoped workbook preferences, or workbook row mutation. | §11 User, Current account profile, Account preference, Incident membership, Deployment admin rows. | Core 04 primary; Core 01 for public auth/admin routes. | Security and authorization disputes resolve through Core 04. | `base` |
+| Imports and Tabular Ingest | `supporting_context` | Import sessions, import units, source adapters, locator kinds, mapping fingerprints, warning codes, provenance. | Runtime workbook semantics outside the stable tabular-ingest contract. | §11 Import rows; §13.12. | Core 01 primary; Core 03 for paste and workbook interaction. | Import object semantics resolve through Core 01. | `extension-profile` |
+| Backup and Restore | `generic_context` | Backup sets, restore verification, runtime roots, operator-facing recovery. | Workbook-surface route families or incident-scoped workflow. | §16 external boundary rows. | Core 01/Core 04 by backup or restore contract family. | Deployment/security disputes resolve through Core 04. | `base` |
 
 ### 10.1 Strategic subdomain classification
 
 Declared scope: every bounded context in §10. Completion rule: every bounded context has exactly one subdomain class and one modeling-latitude rule.
+
+A bounded context MAY be classified as `core` only when changing its language or model would materially change Cartulary's product identity, incident-response workflow fit, or correctness posture. A context that is necessary but replaceable, conventional, or mainly infrastructural MUST be classified as `supporting` or `generic`.
+
+Every `core` row MUST satisfy this pressure test:
+
+| Test question | Required answer for `core` |
+| --- | --- |
+| Product identity | The context names a concept that makes Cartulary recognizably Cartulary rather than a generic case, ticket, spreadsheet, or CRUD product. |
+| Domain correctness | Misclassifying or weakening the context would cause incident-response, evidence, coordination, timeline, or entity-model drift. |
+| Replacement risk | The context cannot be replaced by a conventional library, admin subsystem, import adapter, or storage mechanism without preserving Cartulary-specific vocabulary. |
 
 | Bounded context | Subdomain class | Reason | Modeling latitude | Forbidden leakage |
 | --- | --- | --- | --- | --- |
@@ -359,37 +396,66 @@ Declared scope: every bounded context in §10. Completion rule: every bounded co
 | Imports and Tabular Ingest | `supporting` | Bridges spreadsheets and structured workbook state. | Keep XLSX/CSV semantics inside import boundaries. | Worksheet/table semantics cannot leak into runtime workbook identity. |
 | Backup and Restore | `generic` | Deployment-local recovery concern with domain safety boundaries. | Use conventional backup/restore terminology behind Core 04 boundaries. | Backup jobs cannot become incident-scoped workbook workflow. |
 
+Review note: `Links and Tags` remains `core` in this revision because typed recoverable relationship semantics are treated as product-identity language. A later revision that demotes it MUST update §10.1, §11.1, and §19 in the same change set.
+
 ### 10.2 Strategic context map
 
 Declared scope: current cross-context relationships that affect repository vocabulary, owner navigation, or anti-corruption boundaries. Completion rule: every bounded context in §10 appears in at least one relationship row or has an explicit `separate_ways` disposition.
 
-| Upstream context | Downstream context | Relationship type | Published language | Translation owner | Allowed dependency | Forbidden dependency |
-| --- | --- | --- | --- | --- | --- | --- |
-| Incident Workspace | Workbook Interaction | `published_language` | `incident_id`, `sheet_ref`, incident preferences. | Core 01/Core 03 | Workbook startup and surface selection may depend on incident workspace identity. | Workbook UI MUST NOT redefine incident or membership semantics. |
-| Workbook Interaction | Capture and Timeline | `customer_supplier` | `view_schema_id`, `field_key`, row mutation vocabulary. | Core 03/Core 01 | Timeline capture uses workbook interaction contracts. | Timeline source model MUST NOT be derived from visible columns alone. |
-| Capture and Timeline | Entities and Observations | `published_language` | `entity_mention`, `mention_origin`, host/identity refs. | Core 02 | Timeline observations can resolve to canonical host/identity records through owner-defined actions. | Mentions MUST NOT auto-create entities outside owner-defined actions. |
-| Entities and Observations | Workbook Interaction | `published_language` | host, identity, indicator, assessment projections. | Core 02/Core 03 | Workbook views may expose entity and observation state. | Grid labels MUST NOT redefine entity identity or dedupe. |
-| Evidence | Workbook Interaction | `published_language` | evidence record, object blob, preview/download affordance. | Core 01/Core 02/Core 04 | Workbook surfaces may show evidence state and handles. | Object-store keys MUST NOT enter workbook identity. |
-| Coordination | Workbook Interaction | `published_language` | party, task_request, decision, comm_log, handoff, status_review, lesson. | Core 02/Core 03 | Coordination surfaces remain workbook-native. | Coordination MUST NOT become a separate workflow engine outside workbook grammar. |
-| Links and Tags | Workbook Interaction | `shared_kernel` | record link, tag, collection item families. | Core 02/Core 01 | Workbook fields and inspector actions may emit typed relationship mutations. | Relationship semantics MUST NOT be inferred from visible chips or text. |
-| Revisions and Audit | Workbook Interaction | `published_language` | change_set, mutation entry, record revision, rollback. | Core 02/Core 03 | Workbook history UI may expose row-history and rollback vocabulary. | Live presence and save state MUST NOT become history authority. |
-| Projections and Search | Workbook Interaction | `published_language` | projection row, sort/filter/group/cursor vocabulary. | Core 01/Core 03 | Workbook query consumes derived projections. | Projection state MUST NOT become source state. |
-| Reference Data | Entities and Observations | `anti_corruption_layer` | reference pack, type registry, enrichment metadata. | Core 01/Core 02/Core 04 | Reference data may enrich incident records through owner-defined fields. | Pack terminology MUST NOT block capture or become incident source identity. |
-| Reporting and Snapshots | Incident Workspace | `published_language` | snapshot, release, recipient partition. | Core 01/Core 04 | Snapshot/reporting may derive immutable outputs from incident state. | Release redaction MUST NOT hide live workspace content. |
-| Authentication and Administration | Incident Workspace | `published_language` | user, session, incident role, deployment admin. | Core 04/Core 01 | Incident routes use current membership and role checks. | Auth provider identity MUST NOT become party or incident identity. |
-| Imports and Tabular Ingest | Workbook Interaction | `anti_corruption_layer` | import_session, import_unit, locator kind, mapping fingerprint. | Core 01/Core 03 | Import may compile source columns into stable field-key mappings. | Worksheet/table semantics MUST NOT become runtime workbook semantics. |
-| Backup and Restore | Incident Workspace | `separate_ways` | deployment-local recovery vocabulary. | Core 01/Core 04 | Recovery may preserve or restore authoritative incident state under owner rules. | Backup/restore MUST NOT appear as workbook route families or incident workflow. |
+| Upstream context | Downstream context | Relationship type | Published language | Translation owner | Allowed dependency | Forbidden dependency | Change obligation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Incident Workspace | Workbook Interaction | `published_language` | `incident_id`, `sheet_ref`, incident preferences. | Core 01/Core 03 | Workbook startup and surface selection may depend on incident workspace identity. | Workbook UI MUST NOT redefine incident or membership semantics. | Any change to incident identity, membership, preference, or `sheet_ref` vocabulary MUST update the downstream workbook startup/surface-selection language or mark a breaking corpus change. |
+| Workbook Interaction | Capture and Timeline | `customer_supplier` | `view_schema_id`, `field_key`, row mutation vocabulary. | Core 03/Core 01 | Timeline capture uses workbook interaction contracts. | Timeline source model MUST NOT be derived from visible columns alone. | Any change to `view_schema_id`, `field_key`, row mutation vocabulary, or paste semantics MUST update Timeline vocabulary before capture-language text changes. |
+| Capture and Timeline | Entities and Observations | `published_language` | `entity_mention`, `mention_origin`, host/identity refs. | Core 02 | Timeline observations can resolve to canonical host/identity records through owner-defined actions. | Mentions MUST NOT auto-create entities outside owner-defined actions. | Any change to mention or resolution vocabulary MUST update entity/observation terminology and anti-auto-create guardrails in the same change set. |
+| Entities and Observations | Workbook Interaction | `published_language` | host, identity, indicator, assessment projections. | Core 02/Core 03 | Workbook views may expose entity and observation state. | Grid labels MUST NOT redefine entity identity or dedupe. | Any change to host, identity, indicator, assessment, or dedupe language MUST update workbook-facing labels and glossary mappings without changing stable identifiers by label. |
+| Evidence | Workbook Interaction | `published_language` | evidence record, object blob, preview/download affordance. | Core 01/Core 02/Core 04 | Workbook surfaces may show evidence state and handles. | Object-store keys MUST NOT enter workbook identity. | Any change to evidence/blob/access-handle vocabulary MUST update workbook evidence affordance terminology and §16 object-storage anti-corruption rows. |
+| Coordination | Workbook Interaction | `published_language` | party, task_request, decision, comm_log, handoff, status_review, lesson. | Core 02/Core 03 | Coordination surfaces remain workbook-native. | Coordination MUST NOT become a separate workflow engine outside workbook grammar. | Any change to party, task, decision, or coordination-artifact vocabulary MUST update workbook-surface terminology and §11.1 mapping in the same change set. |
+| Links and Tags | Workbook Interaction | `shared_kernel` | record link, tag, collection item families. | Core 02/Core 01 | Workbook fields and inspector actions may emit typed relationship mutations. | Relationship semantics MUST NOT be inferred from visible chips or text. | Any change to shared relationship/tag vocabulary MUST update both relationship semantics and workbook/inspector terminology together. |
+| Revisions and Audit | Workbook Interaction | `published_language` | change_set, mutation entry, record revision, rollback. | Core 02/Core 03 | Workbook history UI may expose row-history and rollback vocabulary. | Live presence and save state MUST NOT become history authority. | Any change to history, rollback, change-set, or revision vocabulary MUST update workbook history terminology without converting live presence/save state into audit state. |
+| Projections and Search | Workbook Interaction | `published_language` | projection row, sort/filter/group/cursor vocabulary. | Core 01/Core 03 | Workbook query consumes derived projections. | Projection state MUST NOT become source state. | Any change to projection/query/cursor vocabulary MUST update workbook query language and must not promote projection state to source state. |
+| Reference Data | Entities and Observations | `anti_corruption_layer` | reference pack, type registry, enrichment metadata. | Core 01/Core 02/Core 04 | Reference data may enrich incident records through owner-defined fields. | Pack terminology MUST NOT block capture or become incident source identity. | Any change in external pack vocabulary MUST update the translation row before incident-domain terms may use it. |
+| Reporting and Snapshots | Incident Workspace | `published_language` | snapshot, release, recipient partition. | Core 01/Core 04 | Snapshot/reporting may derive immutable outputs from incident state. | Release redaction MUST NOT hide live workspace content. | Any change to snapshot, release, redaction, or recipient vocabulary MUST preserve the live-workspace/export boundary or identify a breaking corpus change. |
+| Authentication and Administration | Incident Workspace | `published_language` | user, session, incident role, deployment admin. | Core 04/Core 01 | Incident routes use current membership and role checks. | Auth provider identity MUST NOT become party or incident identity. | Any change to user/session/role/deployment-admin vocabulary MUST update party/user/identity distinctions and Core 04 owner references. |
+| Imports and Tabular Ingest | Workbook Interaction | `anti_corruption_layer` | import_session, import_unit, locator kind, mapping fingerprint. | Core 01/Core 03 | Import may compile source columns into stable field-key mappings. | Worksheet/table semantics MUST NOT become runtime workbook semantics. | Any change to import-source locator language MUST update spreadsheet anti-corruption rows and must not redefine runtime workbook surface identity. |
+| Backup and Restore | Incident Workspace | `separate_ways` | deployment-local recovery vocabulary. | Core 01/Core 04 | Recovery may preserve or restore authoritative incident state under owner rules. | Backup/restore MUST NOT appear as workbook route families or incident workflow. | Any proposed dependency from workbook or coordination vocabulary to recovery vocabulary MUST be rejected unless an owner section creates an explicit operational effect. |
 
 ### 10.3 Context relationship type vocabulary
 
-| Relationship type | Meaning in this document |
-| --- | --- |
-| `published_language` | Upstream context exposes stable concepts that downstream context may use without importing upstream implementation internals. |
-| `anti_corruption_layer` | Downstream context may consume external or adjacent concepts only through a named translation boundary. |
-| `customer_supplier` | Downstream context depends on upstream concepts and upstream changes MUST preserve downstream vocabulary compatibility or identify a breaking corpus change. |
-| `shared_kernel` | Contexts share a narrow owner-defined model. Changes require owner-section coordination. |
-| `separate_ways` | Contexts MUST remain conceptually separate except for explicit owner-defined operational effects. |
-| `external_adapter` | External system vocabulary enters only through §16 translation rows. |
+Declared scope: relationship-type tokens that may appear in §10.2 or be recognized during domain review. Completion rule: every relationship type is classified exactly once, and only rows with `status='current-used'` may appear in §10.2.
+
+| Relationship type | Status | Meaning in this document | Omission or use behavior |
+| --- | --- | --- | --- |
+| `published_language` | `current-used` | Upstream context exposes stable concepts that downstream context may use without importing upstream implementation internals. | Valid in §10.2 only with named published language and translation owner. |
+| `anti_corruption_layer` | `current-used` | Downstream context may consume external or adjacent concepts only through a named translation boundary. | Valid in §10.2 only when §16 or an owner-defined integration boundary maps the external language. |
+| `customer_supplier` | `current-used` | Downstream context depends on upstream concepts and upstream changes MUST preserve downstream vocabulary compatibility or identify a breaking corpus change. | Valid in §10.2 only with a change obligation. |
+| `shared_kernel` | `current-used` | Contexts share a narrow owner-defined model. Changes require owner-section coordination. | Valid in §10.2 only when the shared model is explicitly named. |
+| `separate_ways` | `current-used` | Contexts MUST remain conceptually separate except for explicit owner-defined operational effects. | Valid in §10.2 as an explicit no-integration disposition. |
+| `external_adapter` | `current-used` | External system vocabulary enters only through §16 translation rows. | Valid only for external-system rows or future integration-owner text. |
+| `partnership` | `recognized-unused` | Two contexts mutually evolve a model or language. | MUST NOT appear in §10.2 unless this table is revised to `current-used` and the row names mutual change obligations. |
+| `conformist` | `recognized-unused` | Downstream adopts an upstream model without translation. | MUST NOT be implied by consuming an external API or reference pack. Use `anti_corruption_layer` unless an owner section explicitly adopts conformist behavior. |
+| `open_host_service` | `recognized-unused` | Upstream exposes a stable service protocol for downstream consumers. | MUST NOT appear in §10.2 in this revision. Use Core-owned public route or interface terminology instead. |
+| `big_ball_of_mud` | `recognized-diagnostic-only` | Boundary failure label for uncontrolled model mixing. | MUST NOT be a target relationship. MAY appear only in review findings or rationale that identify a defect. |
+
+### 10.4 Context stewardship and review triggers
+
+Context stewardship is documentation and review responsibility only. It MUST NOT create runtime authorization, team ownership, deployable ownership, package ownership, incident membership, or module ownership.
+
+| Bounded context | Vocabulary steward | Change-review trigger |
+| --- | --- | --- |
+| Incident Workspace | Owner sections named by the row in §10. | Any change to incident, membership, preference, startup, or workspace-boundary language. |
+| Workbook Interaction | Core 01/Core 03 owner sections. | Any change to workbook surface, `view_schema_id`, `sheet_ref`, saved-view, grid, inspector, or interaction-state language. |
+| Capture and Timeline | Core 02/Core 03 owner sections. | Any change to rough capture, timeline event, source-text, mention-origin, or timeline grouping language. |
+| Entities and Observations | Core 02 owner sections. | Any change to host, identity, indicator, observation, assessment, mention, dedupe, auto-resolution, or merge language. |
+| Evidence | Core 01/Core 02/Core 04 owner sections. | Any change to evidence record, object blob, upload, custody, preview, download, availability, or access-language boundaries. |
+| Coordination | Core 02/Core 03/Core 04 owner sections. | Any change to party, task request, decision, communications log, handoff, status review, lesson, owner, or follow-through vocabulary. |
+| Links and Tags | Core 01/Core 02 owner sections. | Any change to typed relationship, tag, record-link, or collection-review vocabulary. |
+| Revisions and Audit | Core 01/Core 02/Core 04 owner sections. | Any change to change set, mutation entry, record revision, rollback, merge history, or administrative audit language. |
+| Projections and Search | Core 01/Core 03 owner sections. | Any change to projection, query, sort, filter, grouping, search, cursor, or row-refresh language. |
+| Reference Data | Core 01/Core 02/Core 04 owner sections. | Any change to reference-pack, type-registry, activation, attestation, optional overlay, or enrichment vocabulary. |
+| Reporting and Snapshots | Core 01/Core 04 owner sections. | Any change to snapshot, export model, release, redaction profile, rendered output, or recipient-partition vocabulary. |
+| Authentication and Administration | Core 01/Core 04 owner sections. | Any change to user, session, credential, account profile, account preference, deployment admin, or enterprise-auth language. |
+| Imports and Tabular Ingest | Core 01/Core 03 owner sections. | Any change to import session, import unit, locator kind, mapping fingerprint, warning code, or tabular-ingest vocabulary. |
+| Backup and Restore | Core 01/Core 04 owner sections. | Any change to backup set, restore, verification, recovery, runtime root, or operator-facing recovery language. |
 
 ## 11. Core domain glossary
 
@@ -447,6 +513,63 @@ Declared scope: repository-wide terms whose misunderstanding would cause behavio
 | Snapshot | Immutable incident export-model anchor when the Snapshot and Reporting Extension Profile is implemented. | Live workbook state or saved view. | `snapshot_id`, `snapshot_at` | §11 | Core 01 | `extension-profile` | `current-extension-when-claimed` |
 | Release | Artifact-scoped rendered-output approval and publication record. | General row approval workflow. | `release_id`, release-state token family | §11 | Core 04/Core 01 | `extension-profile` | `current-extension-when-claimed` |
 | Recipient partition | Export-only disclosure boundary selected through release-time `recipient_partition_refs[]`. | Live workbook authorization or row visibility. | `disclosure_partition_refs[]`, `recipient_partition_refs[]` | §11 | Core 01/Core 02/Core 04 | `extension-profile` | `current-extension-when-claimed` |
+
+### 11.1 Term-to-bounded-context map
+
+Declared scope: every term row in §11. Completion rule: each §11 term appears exactly once in this table and maps to one bounded context from §10 or to an explicit external/future-only boundary. This table does not change behavior ownership; behavior remains owned by the `Behavior owner` column in §11.
+
+| Term | Bounded context | Context role |
+| --- | --- | --- |
+| Incident | Incident Workspace | Primary language. |
+| Record envelope | Incident Workspace | Shared incident-record foundation. |
+| Timeline event | Capture and Timeline | Primary language. |
+| Host | Entities and Observations | Primary language. |
+| Identity | Entities and Observations | Primary language. |
+| Party | Coordination | Primary language. |
+| User | Authentication and Administration | Primary language. |
+| Current account profile | Authentication and Administration | Primary language. |
+| Account preference | Authentication and Administration | Primary language. |
+| Incident membership | Authentication and Administration | Primary authorization-language boundary. |
+| Deployment admin | Authentication and Administration | Primary administration-language boundary. |
+| Artifact | Coordination | Primary artifact-backed coordination and analyst-material language. |
+| Note | Workbook Interaction | Workbook-surface language over artifact-backed source state. |
+| Task request | Coordination | Primary language. |
+| Decision | Coordination | Primary language. |
+| Communications Log | Coordination | Primary language. |
+| Handoff | Coordination | Primary language. |
+| Status Review | Coordination | Primary language. |
+| Lesson | Coordination | Primary language. |
+| Finding | Coordination | Standardized optional artifact-backed language. |
+| Entity mention | Entities and Observations | Primary language. |
+| Stub entity | Entities and Observations | Primary language. |
+| Indicator | Entities and Observations | Primary language. |
+| Indicator observation | Entities and Observations | Primary language. |
+| Indicator lifecycle interval | Entities and Observations | Primary language. |
+| Compromise assessment | Entities and Observations | Primary language. |
+| Evidence record | Evidence | Primary language. |
+| Object blob | Evidence | Primary language. |
+| Record link | Links and Tags | Primary language. |
+| Tag | Links and Tags | Primary language. |
+| View schema | Workbook Interaction | Stable workbook contract language. |
+| Inspector | Workbook Interaction | Row-context interaction language. |
+| Feature group key | Workbook Interaction | Stable inspector contract language. |
+| Route binding owner | Workbook Interaction | Stable inspector route-binding vocabulary. |
+| Workbook surface | Workbook Interaction | Primary interaction language. |
+| Built-in tab | Workbook Interaction | Primary interaction language. |
+| System view | Workbook Interaction | Primary interaction language. |
+| Required system view | Workbook Interaction | Primary interaction language. |
+| Saved view | Workbook Interaction | Primary interaction language. |
+| Projection | Projections and Search | Primary supporting language. |
+| Change set | Revisions and Audit | Primary language. |
+| Mutation entry | Revisions and Audit | Primary language. |
+| Record revision | Revisions and Audit | Primary language. |
+| Rollback | Revisions and Audit | Primary language. |
+| Reference pack | Reference Data | Extension-profile language. |
+| Import session | Imports and Tabular Ingest | Extension-profile language. |
+| Import unit | Imports and Tabular Ingest | Extension-profile language. |
+| Snapshot | Reporting and Snapshots | Extension-profile language. |
+| Release | Reporting and Snapshots | Extension-profile language. |
+| Recipient partition | Reporting and Snapshots | Extension-profile language. |
 
 ## 12. Entity and relationship model
 
@@ -685,6 +808,7 @@ External systems are upstream or adjacent models. They MUST NOT own Cartulary do
 | Backup and restore systems | Deployment-local operator-facing recovery. | Do not expose backup/restore as workbook route families in the current profile. |
 | Spreadsheet files | Import or clipboard source material. | Do not treat workbook file objects as runtime workbook surfaces. |
 | Threat-intelligence APIs | Optional enrichment or pivot sources. | Do not promote provider reputation, verdict, or object IDs into canonical incident state without owner-defined fields. |
+| Coding agent or AI assistant | Implementation-support actor that may propose text, code, mappings, summaries, or terminology. It does not own Cartulary domain language. | Do not treat agent-generated names, inferred entities, summaries, or suggested mappings as Cartulary vocabulary unless accepted through owner-backed review. |
 
 ### 16.1 External anti-corruption map
 
@@ -702,6 +826,7 @@ Declared scope: every external or adjacent concern in §16. Completion rule: eac
 | Backup/restore system | Backup job ID, snapshot path, restore target. | Deployment-local operator-facing state. | Backup set, restore verification, runtime root binding. | Core 01/Core 04 | Backup/restore object MUST NOT become incident-scoped workbook route or coordination artifact. |
 | Spreadsheet file | Worksheet name, table name, named range, used range. | `import_unit.locator_kind`, source locator, provenance. | Import session, import unit, mapping fingerprint. | Core 01 | Worksheet/table identity MUST NOT become `view_schema_id`, `sheet_ref`, or runtime surface identity. |
 | Threat-intelligence API | Provider verdict, reputation, lookup ID, enrichment field. | Optional enrichment metadata or reference-pack content. | Indicator, indicator observation, finding support, or reference pack only through owner-defined mapping. | Core 02/Core 01/Core 04 | Provider verdict MUST NOT overwrite canonical assessment or indicator lifecycle without owner-defined field semantics. |
+| Coding agent or AI assistant | Suggested term, inferred entity, generated summary, generated mapping, code-derived vocabulary cluster. | Draft text, review note, implementation-support artifact, or TODO marker. | Canonical domain term only after §6.1 classification, §11 glossary mapping, §11.1 bounded-context mapping, and owner-backed review. | `docs/domain.md` plus applicable Core owner section | Agent output MUST NOT become domain vocabulary, record type, surface identity, field identity, or owner behavior by repetition in generated code, tests, comments, or prompts. |
 
 ## 17. Coding-agent rules
 
@@ -711,13 +836,15 @@ A coding agent working on Cartulary domain-facing code, tests, specs, comments, 
 
 1. Identify the bounded context in §10.
 2. Identify the domain terms in §11.
-3. Identify the owner sections before asserting behavior.
-4. Use stable identifiers from §8 instead of visible labels.
-5. Apply the term-classification decision tree in §6.1.
-6. Apply the alias registry in §6.2.
-7. Treat implementation modules as mappings, not definitions.
-8. Treat external vocabulary through §16 anti-corruption mappings.
-9. When a behavior is unclear, use `TODO: owner decision required` or `TODO: owner lookup required` rather than inventing behavior.
+3. Identify each term's bounded context in §11.1.
+4. Identify the owner sections before asserting behavior.
+5. Use stable identifiers from §8 instead of visible labels.
+6. Apply the term-classification decision tree in §6.1.
+7. Apply the alias registry in §6.2.
+8. Treat implementation modules as mappings, not definitions.
+9. Treat external vocabulary through §16 anti-corruption mappings.
+10. Treat Strategic DDD source posture through §4.2 when using DDD terms such as bounded context, ubiquitous language, context map, published language, or anti-corruption layer.
+11. When a behavior is unclear, use `TODO: owner decision required` or `TODO: owner lookup required` rather than inventing behavior.
 
 ### 17.2 Prohibited shortcuts
 
@@ -740,7 +867,8 @@ A coding agent MUST NOT:
 15. Use findings or hypotheses as first-class `record_type`s in the current profile.
 16. Treat import worksheet/range/table identity as runtime workbook identity.
 17. Treat external provider identifiers as Cartulary stable identifiers without an anti-corruption mapping.
-18. Copy exact token membership into `docs/domain.md` unless the copy is generated or validated as required by §18.2.
+18. Treat coding-agent, AI-assistant, static-analysis, or generated-code vocabulary as Cartulary domain language without §6.1 classification, §11 glossary coverage, §11.1 bounded-context mapping, and owner-backed review.
+19. Copy exact token membership into `docs/domain.md` unless the copy is generated or validated as required by §18.2.
 
 ### 17.3 Review checklist for generated or agent-authored text
 
@@ -754,6 +882,7 @@ A reviewer MUST reject generated text that:
 - describes a future or extension capability as Base Profile behavior;
 - uses display names where stable identifiers are required;
 - describes external-system concepts without a §16 anti-corruption mapping;
+- promotes coding-agent or AI-assistant output to domain vocabulary without §6.1 classification, §11 glossary coverage, §11.1 bounded-context mapping, and owner-backed review;
 - treats document-readiness acceptance criteria as product conformance or publication evidence.
 
 ## 18. Maintenance rules
@@ -794,6 +923,10 @@ Declared scope: every owner-owned exact fact copied or summarized by this docume
 | Token quick registry in §15 | Core 02/Core 03/Core 04 owner sections | Owner pointer only | Token family name, owner, domain use. | Exact tokens MUST NOT appear unless generated mirror validation exists. | Remove manual exact token list. |
 | External anti-corruption map in §16.1 | Core owners plus external-system boundary rows | Manual summary | External term, allowed preservation, canonical target, forbidden promotion. | Reviewer verifies canonical target exists or is marked future/external. | Add `TODO: owner decision required` or remove row. |
 | Future-only table in §20 | Core 00 unsupported future areas and roadmap owner decisions | Manual summary | Current handling and allowed locations only. | Reviewer verifies no future-only row is described as current behavior. | Reject current-profile wording. |
+| Strategic DDD source posture in §4.2 | External DDD source posture plus this document | Manual summary | Source-family role and authority posture only. | Reviewer verifies the source family supports the stated DDD concept and that no external source overrides Cartulary owner sections. | Remove source claim or reclassify as rationale. |
+| Context-kind and subdomain classification in §10 and §10.1 | This document | Domain-owned classification | Context kind, subdomain class, modeling latitude, and pressure-test language. | Reviewer verifies every §10 row has one `context_kind` and every §10.1 row satisfies the closed subdomain table. | Add `TODO: owner decision required` only when owner evidence is insufficient; otherwise reject the update. |
+| Term-to-bounded-context map in §11.1 | This document plus §11 glossary | Domain-owned validation mirror | One row per §11 term; context name; context role. | Validation verifies exact one-to-one coverage between §11 term names and §11.1 term names. | Emit no domain update until missing, duplicate, or orphan mappings are resolved. |
+| Context relationship type status in §10.3 | This document plus Strategic DDD source posture | Domain-owned vocabulary | Relationship type, status, meaning, omission or use behavior. | Validation verifies every §10.2 relationship type is declared `current-used` in §10.3. | Reject unclassified or recognized-unused relationship use. |
 | Acceptance criteria in §19 | This document | Domain-owned | Document-readiness pass/fail criteria. | Criteria MUST trace to sections and not duplicate Core 04 product ACs. | Rewrite subjective or duplicated criteria. |
 
 ### 18.3 Drift-control rules
@@ -805,6 +938,14 @@ Declared scope: every owner-owned exact fact copied or summarized by this docume
 5. Deprecated or migrated terms MUST name the canonical replacement and the owner section that permits migration handling.
 6. A reviewer MUST treat near-duplicate terms as drift risk unless the distinction is explicit.
 7. A table that declares itself exhaustive MUST state its declared scope and completion rule.
+8. Every §11 glossary term MUST appear exactly once in §11.1.
+9. Every §11.1 bounded-context value MUST match one §10 bounded-context name unless the row explicitly uses an external or future-only boundary.
+10. Every §10 bounded-context row MUST have exactly one `context_kind`.
+11. A §10.2 relationship type MUST appear in §10.3 with `status='current-used'`.
+12. A relationship type with `status='recognized-unused'` or `status='recognized-diagnostic-only'` MUST NOT appear in §10.2.
+13. Every §10.2 row MUST state a change obligation.
+14. Every `core` row in §10.1 MUST satisfy the core-domain pressure test.
+15. Coding-agent or AI-assistant vocabulary MUST enter only through §16 and §16.1 until accepted as canonical vocabulary by §6.1, §11, §11.1, and the applicable owner section.
 
 ### 18.4 Repository checks
 
@@ -817,8 +958,34 @@ A repository validation suite for `docs/domain.md` MUST fail the domain-document
 - an external-system row lacks an anti-corruption mapping;
 - a future-only row lacks current handling;
 - an acceptance criterion lacks trace, pass condition, or failure condition.
+- a §10 bounded-context row lacks `context_kind` or uses a value outside the closed `context_kind` table;
+- a §10.1 row with `Subdomain class='core'` lacks pressure-test support in its reason or modeling-latitude text;
+- a §10.2 relationship row lacks `Change obligation`;
+- a §10.2 relationship type is absent from §10.3 or is not `status='current-used'`;
+- a §10.3 relationship type with `status='recognized-unused'` or `status='recognized-diagnostic-only'` appears in §10.2;
+- a §11 glossary term is absent from §11.1;
+- a §11.1 term does not exactly match one §11 glossary term;
+- a §11.1 bounded context does not exactly match one §10 bounded context and is not explicitly marked external or future-only;
+- coding-agent or AI-assistant vocabulary appears as a domain source without a §16.1 anti-corruption row and owner-backed glossary mapping;
+- a domain-language manifest or lint artifact, when present, disagrees with §10, §10.2, §10.3, §11, §11.1, or §16.1.
 
 Omission behavior: if the repository does not yet contain such a validation suite, reviewers MUST perform the same checks manually before accepting a behavior-affecting domain update.
+
+### 18.5 Domain-language manifest validation shape
+
+A repository validation suite MAY materialize a domain-language manifest for automated checks. Omission behavior: if no manifest exists, §18.4 manual review remains required and sufficient for this document.
+
+When present, the manifest MUST be derived from `docs/domain.md` and MUST NOT become an independent source of domain truth.
+
+| Manifest family | Required content |
+| --- | --- |
+| `bounded_contexts[]` | §10 bounded-context names, `context_kind`, applicability, §10.1 subdomain class, and stewardship trigger reference. |
+| `context_relationships[]` | §10.2 upstream, downstream, relationship type, published language, translation owner, and change obligation. |
+| `relationship_types[]` | §10.3 relationship type, status, meaning, and omission or use behavior. |
+| `glossary_terms[]` | §11 term, canonical identifiers or tokens, behavior owner, applicability, current-profile status, and §11.1 bounded context. |
+| `external_mappings[]` | §16.1 external system or model, external term or identifier, allowed preservation form, canonical Cartulary target, translation owner, and forbidden promotion. |
+
+A generated manifest mismatch MUST be treated as evidence of documentation drift, not as authority to reinterpret `docs/domain.md`.
 
 ## 19. Acceptance criteria
 
@@ -829,6 +996,7 @@ The document is useful and complete enough for practical repository use only whe
 | DOMAIN-AC-AUTH-001 | The document states its authority boundary. | §1, §1.1 | It says `docs/domain.md` governs vocabulary, classification, owner navigation, and review discipline only. | Any text states or implies this document owns runtime behavior not owned by Core 00 through Core 04. |
 | DOMAIN-AC-AUTH-002 | Core 05 is publication-only. | §1, §4, §4.1 | Core 05 is described as claim-bearing publication authority only. | Core 05 is described as Base Profile runtime behavior. |
 | DOMAIN-AC-DELEGATION-001 | Adjacent-spec boundaries are explicit. | §4.1 | Every adjacent artifact family in §4 appears with retained concept, delegated behavior, and boundary rule. | An adjacent spec is named without a delegation boundary. |
+| DOMAIN-AC-DDD-SOURCE-001 | Strategic DDD source posture is explicit. | §4.2 | The document identifies which DDD source families define DDD terms, which inform tooling/practice, which are evidence only, and that Cartulary owner sections govern behavior. | DDD terms are used without a source posture or an external DDD source is allowed to override owner sections. |
 | DOMAIN-AC-TERMS-001 | Resolved terminology decisions cover high-risk distinctions. | §5, §7 | The table includes artifact/Notes, party/user, identity/party, system view/saved view, projection/source state, mention/entity, indicator observation/indicator, evidence/blob, coordination/workflow, import unit, reference pack, and snapshot/report. | Any named high-risk distinction is missing or contradicted. |
 | DOMAIN-AC-CLASSIFY-001 | Candidate term classification is deterministic. | §6.1 | Each row in the decision tree has one terminal classification and omission behavior. | A candidate term matches no row or produces conflicting required locations. |
 | DOMAIN-AC-ALIAS-001 | Known aliases have canonical handling. | §6.2, §17.2 | Every prohibited shortcut in §17.2 appears in §6.2 or is covered by a more specific canonical row. | A prohibited shortcut lacks canonical term, allowed context, or forbidden context. |
@@ -838,14 +1006,22 @@ The document is useful and complete enough for practical repository use only whe
 | DOMAIN-AC-CONTEXT-001 | Bounded contexts have owner and tie-break closure. | §10 | Every bounded context has language home, behavior-owner disposition, tie-break rule, and applicability. | Any bounded-context row leaves owner resolution to reader judgment. |
 | DOMAIN-AC-SUBDOMAIN-001 | Strategic DDD subdomain classes are explicit. | §10.1 | Every bounded context has exactly one subdomain class and modeling-latitude rule. | Any context lacks a subdomain class or allows concept leakage. |
 | DOMAIN-AC-CONTEXTMAP-001 | Context relationships are explicit. | §10.2, §10.3 | Every bounded context appears in at least one context-map row or a `separate_ways` disposition. | Any bounded context has no relationship disposition. |
+| DOMAIN-AC-CONTEXT-KIND-001 | Bounded-context kind is closed and explicit. | §10 | Every bounded-context row has exactly one `context_kind` from the closed table. | A bounded context lacks `context_kind`, uses an undeclared value, or mixes domain, interaction, supporting, generic, and external meanings without classification. |
+| DOMAIN-AC-CORE-PRESSURE-001 | Core subdomain classification is justified. | §10.1 | Every `core` row satisfies the product-identity, domain-correctness, and replacement-risk pressure test. | A context is classified as `core` only because it is necessary for implementation or because a package/module exists. |
+| DOMAIN-AC-CONTEXTMAP-CHANGE-001 | Context-map rows define change obligations. | §10.2 | Every context-map row has one explicit change obligation tied to its relationship type. | A relationship row permits upstream vocabulary change without naming the downstream update or breaking-change handling. |
+| DOMAIN-AC-RELTYPE-001 | Context relationship type status is closed. | §10.3 | Every relationship type is classified exactly once, and every §10.2 relationship type has `status='current-used'`. | A recognized-unused or diagnostic-only relationship appears in §10.2, or a §10.2 relationship type is undeclared. |
+| DOMAIN-AC-CONTEXT-STEWARDSHIP-001 | Context stewardship is non-runtime and review-only. | §10.4 | Every bounded context has a vocabulary steward and change-review trigger, and §10.4 says stewardship does not create runtime authorization, team ownership, deployable ownership, package ownership, or module ownership. | Stewardship text implies runtime access control, team ownership, deployable ownership, or module ownership. |
+| DOMAIN-AC-TERM-CONTEXT-001 | Glossary terms map to bounded contexts. | §11, §11.1 | Every §11 glossary term appears exactly once in §11.1 and maps to one §10 bounded context or explicit external/future-only boundary. | A glossary term is unmapped, duplicated, mapped to a non-existent context, or mapped only through `Language owner=§11`. |
 | DOMAIN-AC-GLOSSARY-001 | Glossary rows are closed. | §11 | Every glossary row has definition, Not-this boundary, canonical identifiers or tokens, language owner, behavior owner, applicability, and current-profile status. | Any glossary row lacks one required column or contains unresolved multi-owner text without `TODO: owner decision required`. |
 | DOMAIN-AC-RELATIONSHIP-001 | Entity and relationship invariants are explicit. | §12 | First-class record types and relationship families are named without promoting administrative, child, or external objects to records. | Administrative users, object blobs, import units, or risk refs are called first-class incident records. |
 | DOMAIN-AC-WORKFLOW-001 | Workflow vocabulary is closed to domain orientation. | §13 | The section covers rough capture, mention resolution, auto-resolution, indicator capture, evidence, tasks, decisions, coordination artifacts, saved views, conflicts/history/rollback, grouping/filtering/sorting/search, imports, and snapshots/releases. | A workflow term defines route shape, field registry, security behavior, or token membership as domain-owned behavior. |
 | DOMAIN-AC-DEFAULT-001 | Defaults and omitted cases are scoped. | §14, §14.1 | Every bounded context has a default/omitted-case disposition. | A bounded context is absent from §14.1. |
 | DOMAIN-AC-TOKEN-001 | Token membership uses define-once discipline. | §15, §18.2 | §15 is pointer-only or exact-token mirrors are generated/validated. | A manually maintained exact token list appears without generated validation. |
 | DOMAIN-AC-EXTERNAL-001 | External anti-corruption boundaries are explicit. | §16, §16.1 | Every external concern has canonical target, allowed preservation form, translation owner, and forbidden promotion. | External vocabulary enters the model without a mapped target or forbidden-promotion rule. |
+| DOMAIN-AC-AI-BOUNDARY-001 | Coding-agent and AI-assistant vocabulary is anti-corrupted. | §16, §16.1, §17 | Coding-agent or AI-assistant output is treated as implementation-support input unless owner-backed review accepts it through §6.1, §11, and §11.1. | Agent-generated terms, inferred entities, summaries, or mappings become domain vocabulary by repetition in generated code, tests, comments, prompts, or documentation. |
 | DOMAIN-AC-AGENT-001 | Coding-agent rules prohibit known drift patterns. | §17 | Required orientation, prohibited shortcuts, and review checklist are present. | A prohibited shortcut is allowed without an owner-backed exception. |
 | DOMAIN-AC-MAINT-001 | Copied owner facts are controlled. | §18.2 | Every copied owner fact family has copy class, allowed detail, validation, and failure handling. | An exact copied fact exists without a copy-policy row. |
+| DOMAIN-AC-MANIFEST-001 | Domain-language validation artifacts are subordinate. | §18.5 | Any domain-language manifest is derived from `docs/domain.md`, includes the declared strategic DDD sections, and is not treated as independent authority. If absent, §18.4 manual review remains required. | A generated manifest redefines domain vocabulary, omits the required strategic DDD sections, or is used to bypass manual review when no validator exists. |
 | DOMAIN-AC-FUTURE-001 | Future-only concepts have current handling. | §20 | Every future-only topic has current status, current handling, allowed locations now, and required next step. | A future-only topic is implemented or documented as current behavior without rejection. |
 | DOMAIN-AC-ECONOMY-001 | Spec economy is preserved. | Whole document, §18 | The document does not duplicate full route contracts, field registries, or product acceptance criteria owned elsewhere. | The document contains an owner-owned route table, exhaustive field registry, or Core 04 product AC copy as domain authority. |
 | DOMAIN-AC-TWO-AGENT-001 | Two independent agents would make the same boundary decisions. | §5 through §20 | For the aliases `case`, `worksheet`, `IOC`, `artifact`, `approval`, `owner`, `contact`, `ticket`, `report`, `release`, and `system view`, the document maps each to one canonical term, owner disposition, applicability class, and current handling. | Any listed alias yields incompatible current-profile interpretations. |
