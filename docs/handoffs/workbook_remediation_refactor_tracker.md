@@ -1,0 +1,317 @@
+# Workbook Remediation Refactor Tracker
+
+This tracker is the standalone planning and handoff artifact for workbook
+remediation refactoring. It converts the historical remediation analysis from
+`docs/handoffs/apps_web_src_workbook_refactor_tracker.md` section 16 into a
+self-contained execution plan. The historical tracker is prior analysis only;
+current repository state and owner documents govern this effort.
+
+This slice is documentation and process remediation only. It does not authorize
+runtime implementation, generated output edits, migrations, contracts, package
+manifest changes, public routes, WebSocket behavior, storage behavior, browser
+golden updates, or package export changes.
+
+## 1. Authority and source map
+
+### Authority order
+
+| Source | Role for this effort |
+| --- | --- |
+| `docs/spec/00_document_set_status_and_precedence.md` | Current-profile document status, authority order, owner-section precedence, Base Profile boundary, Core 05 publication separation. |
+| `docs/spec/01_architecture_storage_and_view_contracts.md` | Public route, storage, view-row, view-query, saved-view, WebSocket, workbook-surface, generated-contract, and modular-monolith owner rules. |
+| `docs/spec/02_domain_model_schema_and_history.md` | Record model, source/projection separation, revision-history, recovery, and domain-state boundaries. |
+| `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` | Workbook shell, grid interaction, saved-view startup, pending queue, collaboration, inspector, conflict, history, restore, and workflow behavior. |
+| `docs/spec/04_security_deployment_and_conformance.md` | Authorization, security, deployment, trust-boundary, and conformance verification owner rules. |
+| `docs/spec/05_claim_publication_and_benchmark_reproducibility.md` | Only claim-bearing timed, benchmark, fixture-sensitive, or publication evidence. It is not Base Profile implementation conformance. |
+| `docs/domain.md` | Vocabulary and concept-boundary reference for workbook surfaces, view schemas, records, parties, artifacts, object blobs, saved views, system views, and entity mentions. |
+| `docs/design.md` | Frontend design-direction constraints, token definitions, density, shell/grid/inspector layout, visual readiness, and accessibility presentation. It is not product-conformance evidence by itself. |
+| `docs/testing-harness-nlspec.md` | Make-owned command invocation, target selection, scheduling, fixture lifecycle, retained artifact rules, generated-artifact gates, visual/a11y evidence class, and cleanup mechanics. |
+| `docs/handoffs/cartulary_modular_refactor_planning_framework.md` | Refactor workflow template and guardrails. Current code still overrides prior planning statements. |
+| `docs/handoffs/apps_web_src_workbook_refactor_tracker.md` | Historical workbook analysis and completed slice notes. It is not proof of current repository state. |
+
+If owner docs conflict, mark the affected slice `BLOCKED: owner contradiction`,
+quote the conflicting owner sections, and stop before implementation. If live
+repo state contradicts historical analysis, record the contradiction and adapt
+the plan to live repo state.
+
+### Current source inputs inspected
+
+Live state was refreshed before creating this file:
+
+| Input | Current observation |
+| --- | --- |
+| Branch and dirty tree | `git status --short --branch` returned `## main...origin/main`; no dirty files before this tracker was created. |
+| Commit | `970c87dd29ee3481db55a911c8d84d7dd8651281`. |
+| Target artifact | `docs/handoffs/workbook_remediation_refactor_tracker.md` was absent before this slice. |
+| Workbook controller size | `apps/web/src/workbook/WorkbookShell.tsx` has 3226 lines. |
+| Timeline hot-path controller size | `apps/web/src/workbook/timeline/components/TimelineWorkbook.tsx` has 7184 lines. |
+| Generated policy | `tools/generated_artifact_policy.json` was inspected. |
+| Import boundaries | `tools/frontend_import_boundaries.json` was inspected. |
+| Task surface | `tools/task_surface.generated.mk` was inspected for Make-owned targets. |
+| Frontend phase maps | `tools/frontend_phase_maps/fe_p0_test_map.json` through `fe_p11_test_map.json` exist. |
+| Frontend ledgers | `docs/testing/frontend_phase_coverage_ledgers/fe_p0_coverage_ledger.md` through `fe_p11_coverage_ledger.md` exist. |
+| E2E coverage inputs | `apps/web/e2e/*.spec.ts`, `*.test.ts`, helpers, visual snapshots, and a11y maps were inventoried by path. |
+| Backend owners | `internal/modules/*/routes.go`, stores, contracts, queries, and migrations were scanned for workbook-relevant ownership. |
+
+No owner contradiction was found during this planning slice.
+
+### Generated roots and no-edit rules
+
+Do not hand-edit these generated roots or generated files:
+
+| Path | Owner input or generator class | Rule |
+| --- | --- | --- |
+| `internal/gen/**` | Go generated contracts and SQLC outputs | Refresh through Make-owned generation only. |
+| `packages/protocol-ts/src/generated/**` | Generated TypeScript protocol contracts | Access through `@cartulary/protocol-ts`; do not import internals from app code. |
+| `packages/ui-contracts/src/generated/**` | Generated design-token artifacts | Access through `@cartulary/ui-contracts`; do not import internals from app code. |
+| `tools/task_surface.generated.mk` | Generated task-surface Make include | Update owner manifests/generators, then run Make-owned generator or drift target. |
+| Generated phase ledgers and schedules | Phase manifests and frontend phase maps | Update owner inputs; do not hand-edit generated outputs. |
+| `go.sum`, `pnpm-lock.yaml`, tool-managed installs | Dependency tooling | Do not hand-edit. |
+
+Smallest safe response to stale generated artifacts: record the stale output,
+name the owner input and Make target, run a drift target, and stop before
+manual generated edits.
+
+### Backend route and store owner map
+
+| Behavior surface | Route owner | Store or logic owner | Notes |
+| --- | --- | --- | --- |
+| Workbook row query, generic create, patch, clipboard paste, bulk mutations, linked notes, conflict resolution | `internal/modules/workbook/routes.go` | `internal/modules/workbook/store.go`, `mutation_store.go`, `clipboard_paste_api.go`, `bulk_mutation_api.go`, plus `internal/platform/viewquery` | Owns public workbook row envelopes for generic workbook surfaces. |
+| Timeline create, patch, clipboard paste substrate, review, supersede, time conversion profile | `internal/modules/workbook/routes.go` and `internal/modules/timeline/routes.go` | `internal/modules/timeline/store.go`, `clipboard_paste_store.go`, `state.go`, `auto_resolution.go` | Timeline remains the highest-risk hot path. |
+| Collaboration WebSocket | `internal/modules/collaboration/routes.go` | `internal/modules/collaboration/*`, `internal/platform/ws/*` | Owns `GET /ws/v1/incidents/{incident_id}` lifecycle and session/presence stream behavior. |
+| Saved views | `internal/modules/savedviews/routes.go` | `internal/modules/savedviews/store.go`, `scope.go`; query input `db/queries/savedviews_phase8.sql` | Owns incident saved-view list/create/update/delete behavior. |
+| Evidence blobs, attach, preview, download handles | `internal/modules/evidence/routes.go` | `internal/modules/evidence/store.go`, `upload_token.go`, `blobref/*`; object-store platform boundary | Owns object blob lifecycle, attach-blob, preview/download handles, and handle redemption. |
+| History, delete, restore, rollback | `internal/modules/revisions/routes.go` | `internal/modules/revisions/store.go`, `delete_restore_store.go`, `rollback_store.go` | Owns row history, restore, and rollback semantics. |
+| View-schema discovery and inspector configuration payloads | `internal/modules/viewschemas/routes.go` | `internal/platform/viewschema/*`, `contracts/view-schemas/*` | Owns public view-schema discovery route shape. |
+| Entity, identity, host, indicator create/patch, mentions, merge | `internal/modules/entities/routes.go` | `internal/modules/entities/*` | Related owner for generic surfaces and mention/merge workflows. |
+| Assessments create | `internal/modules/assessments/routes.go` | `internal/modules/assessments/store.go` | Related owner for assessment workbook surface. |
+| Incident startup and preferences | `internal/modules/incidents/routes.go`, `startup.go` | `internal/modules/incidents/store.go`, `db/queries/incidents_phase2.sql` | Owns incident directory, startup fallback, and workbook preference inputs. |
+
+### Contract, migration, query, and generated-surface owners
+
+| Surface | Authored owner inputs | Generated or derived surfaces |
+| --- | --- | --- |
+| OpenAPI | `contracts/openapi/cartulary.openapi.yaml` | Protocol facades and contract tests; update owner spec first for behavior changes. |
+| WebSocket schema | `contracts/ws/index.schema.json` | Collaboration stream types and tests. |
+| View schemas | `contracts/view-schemas/index.json`, `contracts/view-schemas/cartulary.view.*.json` | `packages/protocol-ts`, `packages/view-contracts`, `packages/ui-contracts` facade behavior. |
+| Database migrations | `db/migrations/*.sql` | Database state and migration drift checks. |
+| SQL queries | `db/queries/*.sql` | `internal/gen/sql/*.go` through SQLC generation. |
+| Frontend package boundaries | `tools/frontend_import_boundaries.json` | `make frontend-import-boundary-check` enforcement. |
+| Task surface and scheduler topology | `tools/task_surface_manifest.json`, `tools/execution_topology_manifest.json`, generated Make include | Make-owned target inventory and accounting. |
+
+Behavior changes must be spec-first: owner spec, derived contract/migration or
+generator input, drift/generation check, implementation, tests, handoff.
+
+## 2. Current-state inventory
+
+### Workbook frontend modules and controllers
+
+| Area | Current files | State |
+| --- | --- | --- |
+| Shell coordinator | `apps/web/src/workbook/WorkbookShell.tsx` | Large shell coordinator still owns broad orchestration for surfaces, startup, saved views, queries, entity/assessment panels, incident controls, and some selectors. |
+| Shell runtime seam | `apps/web/src/workbook/hooks/useWorkbookShellRuntime.ts` | Present; completed prior remediation remains in live repo. |
+| Shell components | `components/ActiveSurfaceSavedViewSelector.tsx`, `SystemViewSwitcher.tsx`, `WorkbookGridControls.tsx`, `WorkbookSheetToolbar.tsx`, `WorkbookShellSlots.tsx`, `WorkbookStatusStrip.tsx`, `WorkbookSurfaceFrame.tsx` | App-owned presentation facades; preserve selectors, labels, layout, and package facades. |
+| Generic surface facade | `components/GenericWorkbookSurface.tsx`, `GenericMutationControl.tsx` | Present; completed prior remediation remains in live repo. |
+| Workbook models | `models/workbookQuery.ts`, `workbookSavedViews.ts`, `workbookSavedViewRuntime.ts`, `workbookStartup.ts`, `workbookSurfaceRegistry.ts`, `workbookContractRows.ts`, plus entity/assessment/generic models | App-owned state and behavior models; shared contract parsing stays behind `@cartulary/view-contracts` unless duplication or generated leakage proves otherwise. |
+
+### Timeline hot-path modules
+
+| Area | Current files | State |
+| --- | --- | --- |
+| Timeline controller | `apps/web/src/workbook/timeline/components/TimelineWorkbook.tsx` | Large hot-path controller still owns many render, mutation, collaboration, inspector, row, and continuity responsibilities. |
+| Timeline grid components | `TimelineGridSurface.tsx`, `TimelineWorkbookGrid.tsx`, `TimelineCellEditors.tsx`, `TimelineRowActions.tsx` | Must keep grid vendor details behind `@cartulary/grid-adapter`. |
+| Timeline inspector components | `TimelineWorkbookInspector.tsx`, `TimelineHistoryPanel.tsx`, `TimelineEvidencePanel.tsx`, `TimelineMentionsPanel.tsx`, `TimelineConflictResolver.tsx`, `TimelineWorkbookNotices.tsx`, `TimelinePresenceMarkers.tsx` | Preserve inspector default-closed behavior, focus, labels, and route semantics. |
+| Timeline hooks | `useTimelinePendingSaves.ts`, `useTimelineInspectorSelection.ts`, `useTimelineHistoryState.ts`, `useTimelineLiveUpdates.ts`, `useTimelineGridInteractions.ts`, `useTimelineRows.ts`, `useTimelineCommittedRows.ts`, `useTimelineConflicts.ts`, `useTimelineEvidenceActions.ts`, `useTimelineMentions.ts`, `useTimelineWorkbookRuntime.ts` | Several completed seams remain present; live-update, grid-continuity, and mutation-submission seams remain active candidates. |
+| Timeline models and services | `timelineConflictModel.ts`, `timelineRowsModel.ts`, `timelineViewportContinuityModel.ts`, `workbookTimelineModel.ts`, `workbookMentionChips.ts`, `workbookCollaborationMessages.ts`, `workbookSocketLifecycle.ts` | `workbookCollaborationMessages.ts` confirms phase-shaped workbook helper was renamed in production. |
+| Timeline utilities | `utils/workbookPendingQueue.ts`, `workbookContinuity.ts`, `workbookGridFocus.tsx`, `workbookKeyboard.ts`, `workbookClipboard.ts`, `workbookPresence.ts`, `workbookValueFormat.ts`, `workbookStyles.ts` | Preserve current behavior; do not introduce direct vendor or generated-internal imports. |
+
+### Shared packages and allowed facades
+
+| Package | Current responsibility | Boundary rule |
+| --- | --- | --- |
+| `@cartulary/grid-adapter` | Direct `react-data-grid` integration, vendor CSS singleton, grid types, focus/selection primitives, test support. | Only `packages/grid-adapter` imports `react-data-grid`; app code must use the package facade. |
+| `@cartulary/protocol-ts` | Protocol and generated contract facade. | Generated internals under `packages/protocol-ts/src/generated/**` are read-only and facade-only. |
+| `@cartulary/ui-contracts` | Runtime-safe selectors, test-id builders, generated design-token facade. | Promote only shared runtime/test/browser selectors; private component-only IDs can remain local. |
+| `@cartulary/view-contracts` | TypeScript adapters around generated view-schema contracts, row normalization, inspector configuration parsing. | Own generated-contract adaptation; do not move app workflow state into this package. |
+| `@cartulary/test-utils` | Browser/helper choreography for tests. | Runtime app code must not import test helper surfaces. |
+
+Current scan found direct `react-data-grid` text outside `packages/grid-adapter`
+only in workbook tests asserting `gridAdapterVendor` is `"react-data-grid"`.
+
+### Relevant tests and browser behavior families
+
+| Behavior family | Unit or integration characterization | Browser/e2e families |
+| --- | --- | --- |
+| Shell/startup | `WorkbookShell.surfaces.test.tsx`, `workbookStartup.test.ts`, `workbookSavedViewRuntime.test.ts`, `workbookSurfaceRegistry.test.ts` | `frontend.phase4.public-route.spec.ts`, `phase8.workbook.spec.ts`, `browser-e2e-webserver-backed` when startup browser flow changes. |
+| Grid/create | `WorkbookShell.phase3.grid.test.tsx`, `WorkbookShell.phase3.payload.test.tsx`, `workbookTimelineModel.test.ts`, `timelineViewportContinuityModel.test.ts` | `phase3.spec.ts`, `phase9.keyboard.spec.ts`, `phase9.sentinel.spec.ts`, stateful browser target when persistence, focus, paste, or scroll changes. |
+| Generic/mentions | `genericWorkbookModel.test.ts`, `entityWorkbookModel.test.ts`, `WorkbookShell.surfaces.test.tsx`, `WorkbookShell.phase5.mentionChips.test.ts` | `phase4.workbook.generic.spec.ts`, `phase4.mentions.lifecycle.spec.ts`, `phase4.mentions.resolve.spec.ts`, webserver-backed when route flow changes. |
+| Evidence | `evidenceLifecycleViewModel.test.ts`, `TimelineEvidencePanel.test.tsx`, `WorkbookShell.phase5.test.tsx` | `phase5.evidence.spec.ts`, `phase6.evidence-integration.spec.ts`, webserver-backed when evidence handle flow changes. |
+| Collaboration/session | `workbookSocketLifecycle.test.ts`, `workbookPendingQueue.test.ts`, `WorkbookShell.phase6.test.tsx` | `phase6.collaboration.spec.ts`, `phase6.session-recovery.spec.ts`, stateful when socket/session or persistence interaction changes. |
+| History/restore | `workbookInspectorModel.test.ts`, `WorkbookShell.phase7.test.tsx`, `WorkbookShell.phase9.inspector.test.tsx` | `phase7.history.spec.ts`, `phase10.restore.spec.ts`, stateful when route flow or continuity changes. |
+| Saved views/query | `workbookQuery.test.ts`, `workbookSavedViews.test.ts`, `workbookSavedViewRuntime.test.ts`, `WorkbookShell.phase8.query.test.tsx` | `phase8.workbook.spec.ts`, `phase8.workbook.support.spec.ts`, webserver-backed when saved-view browser flow changes. |
+| Inspector/keyboard | `workbookKeyboard.test.ts`, `workbookContinuity.test.ts`, `WorkbookShell.phase9.sentinel.test.tsx`, `WorkbookShell.phase9.inspector.test.tsx` | `phase9.keyboard.spec.ts`, `phase9.inspector-actions.spec.ts`, a11y targets when focus, keyboard, label, or accessible-name behavior changes. |
+| Visual readiness | Component/model tests plus visual fixtures as support | `workbook.visual.spec.ts`, `browser-e2e-visual`; design/readiness evidence only unless Core 05 publication criteria are active. |
+| Accessibility readiness | Keyboard/focus unit tests plus a11y rows as support | `workbook.a11y.spec.ts`, `workbook.a11y-preflight.spec.ts`; readiness evidence only unless Core 05 publication criteria are active. |
+
+### Existing completed remediation still present
+
+| Prior remediation | Live evidence |
+| --- | --- |
+| Shell runtime seam | `apps/web/src/workbook/hooks/useWorkbookShellRuntime.ts` exists and is imported by shell code. |
+| Status strip split | `apps/web/src/workbook/components/WorkbookStatusStrip.tsx` exists and owns status strip composition. |
+| Generic surface facade | `apps/web/src/workbook/components/GenericWorkbookSurface.tsx` exists. |
+| Timeline pending-save seam | `apps/web/src/workbook/timeline/hooks/useTimelinePendingSaves.ts` exists. |
+| Inspector/history state seams | `useTimelineInspectorSelection.ts` and `useTimelineHistoryState.ts` exist. |
+| Shared selector helper | `timelineInspectorMessageTestId()` exists in `packages/ui-contracts/src/index.ts`. |
+| Behavior-named collaboration helper | `apps/web/src/workbook/timeline/services/workbookCollaborationMessages.ts` exists; no workbook `workbookShellPhase4.ts` production helper was found. |
+
+## 3. Remediation gap matrix
+
+| Gap | Remediation | Area | Rationale | Long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Backend route/store evidence | Require every slice to name route owner, store owner, auth role, storage/projection owner, and backend validation target before behavior changes. | Documentation, implementation, tests | Frontend refactors can accidentally encode stale route or store assumptions. | Keeps workbook UI aligned with backend owner truth as modules evolve. | Process-only unless the slice changes behavior; behavior changes may require backend tests or migrations. | Route, auth, or storage semantics drift silently. | Contract-impact checklist completed; affected backend/service-backed Make target named and run when required. |
+| Generated protocol internals | Keep generated internals read-only and facade-only; app code uses `@cartulary/protocol-ts`, `@cartulary/ui-contracts`, and `@cartulary/view-contracts`. | Package boundary, documentation, tests | Generated outputs are unstable and downstream of owner inputs. | Regeneration and contract evolution remain safe. | Illegal imports migrate to facades if found. | Hand edits or direct imports create drift and brittle upgrades. | `make generated-artifact-policy-check`; `make frontend-import-boundary-check`; no generated-root diffs. |
+| E2E coverage and behavior-target mapping | Select browser evidence by behavior family instead of filename or historical phase alone. | Harness, tests, documentation | Workbook browser coverage is distributed across phase, frontend, visual, a11y, and support specs. | Narrower and more reliable validation for each slice. | No product migration; future UI-impacting slices may run broader browser targets. | Browser-impacting changes may be under-validated. | Slice handoff names behavior family and mapped Make target; browser triggers are explicit. |
+| Frontend phase maps and retained artifacts | Treat phase maps, ledgers, and retained artifacts as harness accounting. Runtime names stay behavior-based. Retained evidence must name exact current run roots. | Harness, documentation, tests | Phase identity is evidence metadata, not architecture. | Prevents stale-evidence claims and production phase coupling. | No runtime compatibility impact. | Runtime modules mirror phase history; handoffs overclaim stale artifacts. | Phase/harness changes run `make phase-map-check`, `make phase-ledger-drift`, or relevant harness target; handoff names exact roots. |
+| Contracts/db/backend source evidence | Enforce spec-first behavior changes: owner spec, derived contract or migration input, drift/generation, implementation, validation, handoff. | Specification, contracts, implementation, tests | Workbook behavior is downstream of specs, contracts, migrations, and queries. | Public behavior, storage, and generated surfaces remain coherent. | Behavior changes may require migrations, contract updates, generated refresh, and backend/frontend updates. | Implementation-first changes diverge from public contracts or storage. | Owner spec diff precedes behavior implementation; drift/generation and affected tests pass. |
+| `WorkbookShell.tsx` controller size/cohesion | Continue splitting only around durable behavior seams; shell should coordinate surfaces rather than own mutation/state workflows. | Implementation, tests | The shell still owns broad startup, surface, query, saved-view, entity, assessment, and incident-control responsibilities. | Smaller, reviewable modules and easier surface additions. | Internal TypeScript movement only unless owner specs authorize behavior change. | Shell remains fragile and hard to extend. | `make frontend-unit`, `make frontend-typecheck`, `make frontend-import-boundary-check`; browser target only when route/startup/browser flow changes. |
+| `TimelineWorkbook.tsx` hot-path controller size/cohesion | Split by high-value behavior seams: collaboration/live updates, grid continuity, mutation submission, and remaining inspector/panel routing. | Implementation, tests | Timeline is the highest-risk workbook path and still has a large controller. | Clearer ownership of pending, socket, grid, mutation, conflict, and inspector behavior. | Internal refactor unless selectors, routes, wire behavior, focus, or layout change. | Hot-path behavior remains hard to reason about and unsafe to extend. | Existing unit characterization plus mapped browser targets when persistence, route flow, focus/scroll, or browser behavior changes. |
+| Phase-shaped runtime naming | Prohibit new phase-shaped production modules. Keep phase names only in tests, maps, ledgers, and harness accounting. | Implementation, documentation, tests | Runtime architecture should describe behavior, not historical implementation phases. | Prevents future phase coupling. | Import-only migration if phase-shaped runtime names reappear. | New production code may copy bad phase-shaped boundaries. | Source scan has no workbook phase-shaped production helper; future cleanup runs frontend gates and import-boundary check. |
+| Literal production `data-testid` values | Classify selectors as shared contract selectors or private local IDs. Promote only cross-boundary shared selectors to `@cartulary/ui-contracts`; leave private IDs local. | Implementation, tests, package boundary | Centralizing every literal bloats the selector API; shared selectors need one stable owner. | Stable test/browser contracts with minimal public selector surface. | Selector strings remain stable unless an owner spec authorizes change. | Runtime/tests drift, or selector package becomes noisy and brittle. | Affected tests pass; package tests cover promoted selectors; import-boundary check passes. |
+| View-contract access and package seam rules | Keep app workflow state in app models. Move only repeated generated-contract adaptation, parsing, or normalization into `@cartulary/view-contracts` when duplication or generated leakage is proven. | Implementation, package boundary, tests | Shared packages should own stable contract adaptation, not application workflows. | Cohesive package APIs and lower coupling to generated internals. | Future package API additions may require app import updates. | App duplicates parsing or shared package scope expands without discipline. | Duplication/leak trigger is recorded; package and app tests pass after any move. |
+| Visual/a11y evidence overclaim risk | Keep visual and accessibility as design/readiness/support evidence unless Core 05 claim-publication criteria are explicitly active. | Specification, documentation, tests, harness | Readiness evidence and product conformance have different owners and failure semantics. | Honest evidence accounting and safer release claims. | No runtime migration. | Handoffs overclaim readiness rows as Base Profile proof. | Handoff labels evidence class; visual/a11y targets run only for layout, focus, keyboard, accessible-name, or readiness changes. |
+
+## 4. Required contract-impact checklist
+
+Every future workbook slice must copy and complete this checklist before
+implementation. If all entries are `none`, the slice may remain frontend-only
+and behavior-preserving.
+
+| Field | Required value |
+| --- | --- |
+| Behavior family | One or more families from section 5. |
+| Public route impact | Exact route, method, and owner module, or `none`. |
+| WebSocket impact | Exact event family and owner, or `none`. |
+| Storage/projection impact | Store, SQL query, migration, view-schema, or projection owner, or `none`. |
+| Authorization/security impact | Core 04 owner section or backend auth primitive, or `none`. |
+| Generated-surface impact | Owner input, generator, generated roots, and drift target, or `none`. |
+| Backend validation | Make target required, or `not required: frontend-only behavior-preserving move`. |
+| Browser validation | Make target from section 5, or `not required` with reason. |
+| Visual/a11y classification | `not touched`, `readiness evidence`, or `Core 05 publication boundary active`. |
+| Rollback scope | Smallest revertible file set and expected behavior after rollback. |
+
+## 5. Behavior-to-validation evidence map
+
+Use this map instead of choosing browser evidence by filename. When a slice
+changes multiple families, run the union of required targets.
+
+| Behavior family | Typical owned behavior | Default validation | Browser/readiness validation trigger |
+| --- | --- | --- | --- |
+| Shell/startup | Workbook route entry, incident identity, initial surface, saved-view startup, account density defaults. | `make frontend-unit`, `make frontend-typecheck`, `make frontend-import-boundary-check`. | `make browser-e2e-webserver-backed` when public startup, route sequencing, or saved-view browser flow changes. |
+| Grid/create | Timeline grid rows, draft row, create, paste, row identity, focus anchors, viewport continuity. | Default frontend gates. | `make browser-e2e-stateful` when persistence, focus/scroll, paste, or browser-only grid behavior changes. |
+| Generic/mentions | Generic workbook surfaces, entity/indicator create, mention resolution, relationship chips, party links. | Default frontend gates. | `make browser-e2e-webserver-backed` when generic route flow or mention browser flow changes. |
+| Evidence | Evidence attach, object blob upload, preview/download handle invocation, blocked access messages. | Default frontend gates. | `make browser-e2e-webserver-backed` when evidence handle or route flow changes. |
+| Collaboration/session | Presence, WebSocket lifecycle, auth pause/recover, live row updates, resume/reset handling. | Default frontend gates. | `make browser-e2e-stateful` when socket/session or persistence interaction changes. |
+| History/restore | Inspector history, row delete, restore, rollback, deleted-row subjects, rollback preview. | Default frontend gates. | `make browser-e2e-stateful` when row-history, restore, rollback, or browser continuity changes. |
+| Saved views/query | Saved-view selection, query JSON, layout JSON, sort, filters, grouping, home/default pointers. | Default frontend gates. | `make browser-e2e-webserver-backed` when saved-view/query browser flow changes. |
+| Inspector/keyboard | Default-closed inspector, row action routing, keyboard shortcuts, focus movement, overlay semantics. | Default frontend gates. | `make browser-e2e-a11y` or `make browser-e2e-a11y-preflight` when focus, keyboard, labels, or accessible names change. |
+| Restore/native surfaces | Native surface read/write affordances, restore/import continuity, incident bundle or recovery entry into workbook. | Default frontend gates plus backend/service target if storage changes. | `make browser-e2e-stateful` when restore or native-surface browser flow changes. |
+| Visual readiness | Layout, density, shell/grid/inspector visual state, visual fixture coverage. | Default frontend gates. | `make browser-e2e-visual`; do not refresh goldens without explicit authorization. |
+
+Visual and accessibility targets remain design/readiness/support evidence unless
+Core 05 claim-publication criteria are explicitly active.
+
+## 6. Implementation slice plan
+
+All slices must be independently revertible. Do not start dependent slices until
+their prerequisites are validated or explicitly blocked.
+
+| Slice | Status | Depends on | Remediation type | Likely files | Unchanged behavior | Characterization evidence | Validation targets | Rollback notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `R-00` standalone tracker | DONE | none | Documentation/process | `docs/handoffs/workbook_remediation_refactor_tracker.md` | Runtime, contracts, generated files, routes, WebSocket, storage, selectors, visual goldens, and package exports unchanged. | Existing source inspection and this tracker. | `make generated-artifact-policy-check`, `make json-shape-check`, `make generate-drift`, `make frontend-import-boundary-check`, `make lint-markdown`, `make agent-finalize`. | Delete this tracker. |
+| `D-01` authority and contract-source cleanup | TODO | `R-00` validated | Documentation/process | Owner docs only if a contradiction or missing current owner is proven; otherwise this tracker. | No runtime or generated behavior. | Owner-doc diff or `BLOCKED` evidence. | `make generated-artifact-policy-check`, `make json-shape-check`, `make generate-drift`, `make lint-markdown`, plus owner-specific drift checks. | Revert docs-only changes. |
+| `D-02` evidence and harness map cleanup | TODO | `R-00`; `D-01` if owner cleanup is needed | Documentation/harness process | `tools/frontend_phase_maps/*`, phase ledgers, task-surface owner manifests only if evidence-map drift is found. | Phase names remain harness-only; production names remain behavior-based. | Phase map and ledger evidence; no retained roots without exact run paths. | `make phase-map-check`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make generated-artifact-policy-check`, `make json-shape-check`. | Revert owner input changes; regenerate only through Make if generated outputs are expected. |
+| `I-01` `WorkbookShell.tsx` coordination continuation | TODO | `R-00`; any required `D-*` slice validated | Runtime implementation | `WorkbookShell.tsx`, shell hooks/components/models under `apps/web/src/workbook`. | Public routes, request bodies, saved-view IDs, query JSON, layout JSON, selector strings, density behavior, surface registry. | `WorkbookShell.surfaces.test.tsx`, `workbookStartup.test.ts`, `workbookSavedViewRuntime.test.ts`, `WorkbookShell.phase8.query.test.tsx`. | `make frontend-unit`, `make frontend-typecheck`, `make frontend-import-boundary-check`; mapped browser target only if startup/browser flow changes. | Revert new shell seam files and restore previous shell wiring. |
+| `I-02` timeline collaboration/live-update seam | TODO | `I-01` validated or declared unrelated; contract checklist complete | Runtime implementation | `TimelineWorkbook.tsx`, `useTimelineLiveUpdates.ts`, `workbookSocketLifecycle.ts`, `workbookCollaborationMessages.ts`, pending/conflict hooks if touched. | WebSocket URL, message families, resume/reset handling, self-origin filtering, conflict interaction, save-state behavior. | `workbookSocketLifecycle.test.ts`, `WorkbookShell.phase6.test.tsx`, `workbookPendingQueue.test.ts`. | `make frontend-unit`, `make frontend-typecheck`, `make frontend-import-boundary-check`; `make browser-e2e-stateful` if socket/session browser behavior changes. | Restore local live-update wiring in `TimelineWorkbook.tsx`. |
+| `I-03` timeline grid continuity seam | TODO | `I-02` validated or declared unrelated; contract checklist complete | Runtime implementation | `TimelineWorkbook.tsx`, `useTimelineGridInteractions.ts`, `workbookContinuity.ts`, `workbookGridFocus.tsx`, `timelineViewportContinuityModel.ts`. | Selector strings, row/field anchoring, scroll preservation, keyboard behavior, grid-adapter facade. | `timelineViewportContinuityModel.test.ts`, `workbookContinuity.test.ts`, `workbookKeyboard.test.ts`, `WorkbookShell.phase9.sentinel.test.tsx`. | Default frontend gates; `make browser-e2e-a11y` or `make browser-e2e-a11y-preflight` when keyboard/focus semantics change. | Revert extracted continuity helpers and restore previous refs. |
+| `I-04` timeline mutation submission seam | TODO | `I-02`; `I-03` if continuity is touched; contract checklist complete | Runtime implementation | `TimelineWorkbook.tsx`, `useTimelinePendingSaves.ts`, `workbookPendingQueue.ts`, `workbookTimelineModel.ts`, mutation service helpers if introduced. | HTTP methods, request envelopes, `client_txn_id`, `base_row_version`, conflict anchors, retry/halt behavior. | `workbookPendingQueue.test.ts`, `workbookTimelineModel.test.ts`, `WorkbookShell.phase3.payload.test.tsx`, `WorkbookShell.phase4.saveState.test.tsx`, `WorkbookShell.phase6.test.tsx`. | Default frontend gates; backend or service-backed target if route semantics change. | Revert mutation service extraction and restore previous dispatch path. |
+| `I-05` selector facade continuation | TODO | `R-00`; contract checklist complete | Runtime/package implementation | `packages/ui-contracts/src/index.ts`, affected workbook components/tests only. | Exact selector strings and browser helper behavior. | Affected runtime tests plus `packages/ui-contracts` tests. | `make frontend-unit`, `make frontend-typecheck`, `make frontend-import-boundary-check`; browser/visual/a11y only if helper choreography, focus, layout, or labels change. | Remove added selector API and restore local literals. |
+| `I-06` view-contract adapter cleanup | TODO | Duplication or generated leak proven; contract checklist complete | Runtime/package implementation | `packages/view-contracts/src/index.ts`, app models consuming repeated generated-contract adaptation. | App workflow state remains in app; generated internals stay facade-only. | `packages/view-contracts` tests, app model tests using affected contracts. | `make frontend-unit`, `make frontend-typecheck`, `make frontend-import-boundary-check`, `make generated-artifact-policy-check`. | Revert package API addition and restore app-local adaptation. |
+| `V-01` final validation and handoff | TODO | Last completed or blocked implementation slice | Validation/handoff | This tracker and affected slice handoff notes. | No unrecorded generated edits, no phase-shaped production dependency, no stale retained evidence claim. | Exact command roots and final `git status`. | `make agent-finalize`; broaden only if slice risk requires it. | Revert handoff-only updates if needed; implementation rollbacks come from each slice row. |
+
+## 7. Workstreams and sequencing
+
+| Workstream | Dependencies | Sequencing | Risks | Exit criteria |
+| --- | --- | --- | --- | --- |
+| Evidence and authority baseline | Current repository state and owner docs | Refresh branch, commit, dirty tree, owner docs, generated policy, import boundaries, backend owners, contracts, migrations, E2E map before each slice. | Relying on stale tracker claims or retained roots. | Every active gap has owner, evidence class, and validation target. |
+| Spec/contract cleanup | Evidence baseline | Behavior changes start in owner specs, then contracts or migrations, then generation/drift, then implementation. | Implementing around missing or contradictory owner text. | Owner diff and drift/generation pass, or slice is `BLOCKED`. |
+| Frontend structural remediation | Evidence baseline and contract checklist | One behavior seam per slice: shell coordination, collaboration, grid continuity, mutation submission, selectors, or view-contract adapter. | Large hot-path movement without characterization. | Slice is small, reviewable, independently revertible, and validated before the next slice. |
+| Evidence/harness remediation | Evidence map and harness owner docs | Keep phase maps as accounting; add or adjust mappings only through owner inputs. | Overclaiming visual/a11y readiness or stale artifacts. | Handoff names exact run roots and skipped checks with reasons. |
+| Validation/final handoff | Completed or blocked slice | Run `make agent-finalize`; record changed files, commands, roots, failures, skipped retained-run maintenance, generated status, rollback, and safe restart. | Leaving the next agent without restart context. | No generated-file policy violation, no out-of-scope diffs, and every slice is `DONE`, `TODO`, `DEFERRED`, or `BLOCKED` with reason. |
+
+## 8. Validation plan
+
+All repository commands must run from the repository root through public Make
+targets. Direct `go`, `pnpm`, Vitest, Playwright, Biome, and raw script commands
+are developer conveniences only unless a Make-owned wrapper invokes them.
+
+| Target | When to run | Evidence class |
+| --- | --- | --- |
+| `make generated-artifact-policy-check` | Always for this tracker and any slice touching generated policy, package boundaries, generated roots, or generated-adjacent docs. | Harness/generated policy support. |
+| `make json-shape-check` | Always for this tracker and any slice touching JSON manifests, contracts, maps, or schema-shaped inputs. | Harness/schema support. |
+| `make generate-drift` | This tracker and any spec/contract/migration/query/generated-input slice; required before implementation when generated surfaces could drift. | Generated drift support. |
+| `make frontend-unit` | Runtime TypeScript behavior or package implementation slices. Skipped for docs-only `R-00`. | Product or implementation support according to mapped rows. |
+| `make frontend-typecheck` | Runtime TypeScript behavior or package implementation slices. Skipped for docs-only `R-00`. | Implementation correctness. |
+| `make frontend-import-boundary-check` | Always for this tracker and all frontend/package slices. | Package-boundary support. |
+| `make browser-e2e-webserver-backed` | Shell/startup, generic/mentions, evidence, or saved-view browser flow changes. | Browser product/support according to mapped rows. |
+| `make browser-e2e-stateful` | Persistence, collaboration/session, grid/create, history/restore, restore/native surface, or full-state browser behavior changes. | Browser product/support according to mapped rows. |
+| `make browser-e2e-measurement` | Only when timing/measurement evidence is intentionally in scope. | Measurement support; not default local proof. |
+| `make browser-e2e-visual` | Visual/layout/density/readiness changes only. Do not update goldens without explicit authorization. | Design/readiness/support unless Core 05 publication applies. |
+| `make browser-e2e-a11y` | Focus, keyboard, label, accessible-name, or accessibility readiness changes. | Accessibility readiness/support unless Core 05 publication applies. |
+| `make browser-e2e-a11y-preflight` | Explicit preflight row or blocked future-row smoke when mapped. | Accessibility readiness/support. |
+| `make lint-markdown` | Docs-only tracker updates and final handoff edits. | Documentation lint support. |
+| `make agent-finalize` | End of every slice before final handoff. If using retained successful run evidence, pass `RESULTS_DIR`; otherwise record that retained-run maintenance was skipped because `RESULTS_DIR` was unset. | Harness/finalization support. |
+
+For `R-00`, required targets are:
+
+```bash
+make generated-artifact-policy-check
+make json-shape-check
+make generate-drift
+make frontend-import-boundary-check
+make lint-markdown
+make agent-finalize
+```
+
+Skip `make frontend-unit`, `make frontend-typecheck`, and browser targets for
+`R-00` because this slice changes only this handoff artifact. If this slice
+expands beyond docs/process, reclassify it and run the runtime targets before
+handoff.
+
+## 9. Handoff
+
+### Current handoff record
+
+| Field | Value |
+| --- | --- |
+| Date/time | Pre-edit refresh at 2026-06-27T20:49:27-04:00; validation handoff updated at 2026-06-27T20:53:57-04:00. |
+| Branch/commit | `main` at `970c87dd29ee3481db55a911c8d84d7dd8651281`. |
+| Pre-edit dirty tree | Clean: `git status --short --branch` returned only `## main...origin/main`. |
+| Post-edit dirty tree | Only this untracked tracker: `?? docs/handoffs/workbook_remediation_refactor_tracker.md`. |
+| Target module or seam | Workbook remediation planning and tracking handoff, docs/process slice `R-00`. |
+| Current slice | `R-00` standalone tracker creation and validation. |
+| Completed slices | `R-00`. |
+| Files changed | `docs/handoffs/workbook_remediation_refactor_tracker.md`. |
+| Decisions made | Create standalone handoff; no runtime implementation; no generated edits; preserve package facades; keep phase identity out of production runtime names; behavior changes must be spec-first; visual/a11y evidence remains readiness/support unless Core 05 applies. |
+| Commands run | Pre-edit: `git status --short --branch`; `git rev-parse HEAD`; target existence check; `wc -l apps/web/src/workbook/WorkbookShell.tsx apps/web/src/workbook/timeline/components/TimelineWorkbook.tsx`; `date -Iseconds`. Validation: `make generated-artifact-policy-check`; `make json-shape-check`; `make generate-drift`; `make frontend-import-boundary-check`; `make lint-markdown`; `make agent-finalize`; final post-record `make lint-markdown`. Post-validation inspection: latest lint artifact lookup; `git status --short --branch`; `wc -l docs/handoffs/workbook_remediation_refactor_tracker.md`; targeted content checks. |
+| Passing validation | `make generated-artifact-policy-check` PASS at `.cartulary/test-results/20260628T005243Z-p1548866`; `make json-shape-check` PASS at `.cartulary/test-results/20260628T005247Z-p1549046`; `make generate-drift` PASS at `.cartulary/test-results/20260628T005252Z-p1549391`; `make frontend-import-boundary-check` PASS at `.cartulary/test-results/20260628T005300Z-p1550416`; `make lint-markdown` PASS at `.cartulary/test-results/20260628T005308Z-p1550802`; `make agent-finalize` PASS at `.cartulary/test-results/20260628T005318Z-p1551205`; final post-record `make lint-markdown` PASS at `.cartulary/test-results/20260628T005447Z-p1551999`. |
+| Failing validation | None. |
+| Skipped checks | `make frontend-unit`, `make frontend-typecheck`, and browser targets skipped for `R-00` because this is docs/process only unless validation expands scope. |
+| Blockers | None known. |
+| Rollback notes | Delete `docs/handoffs/workbook_remediation_refactor_tracker.md`; no runtime, generated, package, migration, or contract state changed. |
+| Next recommended slice | Start `D-01` only if a future behavior slice identifies owner-doc cleanup. Otherwise begin `I-01` with a completed contract-impact checklist. |
+| Safe restart command | See below. |
+
+```bash
+cd /home/jochi/code/cartulary && git status --short --branch && sed -n '1,260p' AGENTS.md && sed -n '1,260p' docs/handoffs/workbook_remediation_refactor_tracker.md
+```
