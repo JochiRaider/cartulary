@@ -22,7 +22,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, vi } from "vitest";
-import type { RecordChangedPayload } from "../workbook/timeline/services/workbookShellPhase4";
+import type { RecordChangedPayload } from "../workbook/timeline/services/workbookCollaborationMessages";
 import { requireJSONBodyAt } from "./fetchMockTestSupport";
 
 export const timelineViewSchemaId = "cartulary.view.timeline.v2";

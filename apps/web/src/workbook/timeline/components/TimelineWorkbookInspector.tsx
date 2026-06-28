@@ -1,4 +1,7 @@
-import { workbookInspectorCloseButtonTestId } from "@cartulary/ui-contracts";
+import {
+  timelineInspectorMessageTestId,
+  workbookInspectorCloseButtonTestId,
+} from "@cartulary/ui-contracts";
 import type {
   InspectorConfig,
   InspectorFeatureGroup,
@@ -13,7 +16,7 @@ import { inspectorNoRowState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { InspectorMention } from "../models/workbookMentionChips";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
-import type { MentionResolutionAction } from "../services/workbookShellPhase4";
+import type { MentionResolutionAction } from "../services/workbookCollaborationMessages";
 import {
   type MentionEntityOption,
   TimelineMentionsPanel,
@@ -204,7 +207,7 @@ function inspectorTitle(
 
 function InspectorMessage({ message }: { readonly message: string | null }) {
   return message ? (
-    <p data-testid="timeline-inspector-message" style={bodyStyle}>
+    <p data-testid={timelineInspectorMessageTestId()} style={bodyStyle}>
       {message}
     </p>
   ) : null;

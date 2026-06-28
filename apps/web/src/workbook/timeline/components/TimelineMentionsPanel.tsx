@@ -9,7 +9,7 @@ import {
 } from "@cartulary/ui-contracts";
 import type { CSSProperties, ReactNode } from "react";
 import type { InspectorMention } from "../models/workbookMentionChips";
-import type { MentionResolutionAction } from "../services/workbookShellPhase4";
+import type { MentionResolutionAction } from "../services/workbookCollaborationMessages";
 import { RelationshipChip, relationshipItemLabel } from "./TimelineCellEditors";
 
 export type MentionEntityOption = {

@@ -92,3 +92,50 @@ export function WorkbookStatusStrip({
     </>
   );
 }
+
+export function WorkbookSurfaceStatusStrip({
+  mutationError = null,
+  mutationState,
+  workbookFocusAnchor,
+}: {
+  readonly mutationError?: string | null | undefined;
+  readonly mutationState: WorkbookStatusSaveState;
+  readonly workbookFocusAnchor: WorkbookFocusAnchor | null;
+}) {
+  return (
+    <>
+      <span style={statusStripItemStyle}>
+        <span aria-hidden="true" style={statusIconStyle(mutationState)} />
+        <strong
+          aria-live="polite"
+          aria-label="Save state"
+          data-density-role="narrow-metadata"
+          data-testid={saveStateTestId()}
+          role="status"
+        >
+          {mutationState}
+        </strong>
+      </span>
+      {mutationError ? (
+        <span
+          aria-live="polite"
+          data-testid="generic-mutation-error"
+          role="status"
+          style={surfaceStatusStripErrorStyle}
+        >
+          {mutationError}
+        </span>
+      ) : null}
+      <WorkbookFocusAnchorStatus anchor={workbookFocusAnchor} />
+    </>
+  );
+}
+
+const surfaceStatusStripErrorStyle = {
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+  color: "var(--ct-colors-semantic-conflict)",
+  fontWeight: 700,
+};

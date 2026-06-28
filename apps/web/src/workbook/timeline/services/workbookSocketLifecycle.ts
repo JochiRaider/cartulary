@@ -1,4 +1,4 @@
-import type { RecordChangedPayload } from "./workbookShellPhase4";
+import type { RecordChangedPayload } from "./workbookCollaborationMessages";
 
 export type WorkbookSocketLifecycleState = {
   readonly appliedStreamSeqs: ReadonlySet<number>;

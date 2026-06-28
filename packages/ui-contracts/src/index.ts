@@ -751,6 +751,10 @@ export function timelineInspectorSectionTestId(
   );
 }
 
+export function timelineInspectorMessageTestId(): StableTestId {
+  return stableTestId("timeline-inspector-message");
+}
+
 export function landingIncidentCardTestId(incidentId: string): StableTestId {
   return stableEncodedTestId("landing-incident", incidentId, "incident_id");
 }

@@ -16,6 +16,7 @@ export function useTimelineInspectorSelection({
   readonly rows: readonly WorkbookRow[];
   readonly selectedMentionRef: string | null;
 }) {
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const selectedRow = useMemo(
     () =>
@@ -44,19 +45,26 @@ export function useTimelineInspectorSelection({
     currentIncidentRole === "editor" ||
     currentIncidentRole === "reviewer" ||
     currentIncidentRole === "admin";
+  const selectedRowWorkflowKey =
+    selectedRow?.recordId && selectedRow.rowVersion !== null
+      ? `${selectedRow.recordId}:${selectedRow.rowVersion}`
+      : (selectedRow?.recordId ?? "");
 
   return {
     commands: {
+      setIsInspectorOpen,
       setSelectedRowId,
     },
     snapshot: {
       canManageMentions,
       draftRow,
       dismissedForSelectedRow,
+      isInspectorOpen,
       inspectorMentions,
       selectedMention,
       selectedRow,
       selectedRowId,
+      selectedRowWorkflowKey,
     },
   };
 }

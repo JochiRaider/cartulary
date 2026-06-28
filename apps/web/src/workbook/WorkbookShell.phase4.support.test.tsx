@@ -52,7 +52,7 @@ import {
 import {
   buildMentionActionPayload,
   buildMentionPatchPayload,
-} from "./timeline/services/workbookShellPhase4";
+} from "./timeline/services/workbookCollaborationMessages";
 import { TimelineWorkbook } from "./WorkbookShell";
 
 // Support-only mocked component coverage for Phase 4 workbook helpers.

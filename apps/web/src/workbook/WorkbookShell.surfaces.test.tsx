@@ -39,6 +39,7 @@ import {
   systemViewSwitcherGroupTestId,
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
+  timelineInspectorMessageTestId,
   workbookAddRowButtonTestId,
   workbookFilterPopoverTriggerTestId,
   workbookInspectorToggleTestId,
@@ -2101,9 +2102,9 @@ describe("WorkbookShell surface selection", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("timeline-inspector-message").textContent).toBe(
-        "upload_failed_500",
-      );
+      expect(
+        screen.getByTestId(timelineInspectorMessageTestId()).textContent,
+      ).toBe("upload_failed_500");
     });
     expect(
       fetchMock.mock.calls.some(([input, init]) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RecordChangedPayload } from "./workbookShellPhase4";
+import type { RecordChangedPayload } from "./workbookCollaborationMessages";
 import {
   createWorkbookSocketLifecycleState,
   reduceWorkbookSocketLifecycle,

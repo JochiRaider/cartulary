@@ -9,24 +9,13 @@ import {
   reconcileRecordRows,
   resolveGridPasteTargets,
 } from "@cartulary/grid-adapter";
-import type {
-  EvidenceHandleEnvelope,
-  EvidenceHandleIssueRequest,
-} from "@cartulary/protocol-ts";
 import {
   assessmentCreatePanelTestId,
   dataTestIdSelector,
   entityInspectButtonTestId,
   entityInspectorTestId,
-  evidenceAccessMessageTestId,
-  evidenceAttachFileInputTestId,
-  evidenceDownloadButtonTestId,
-  evidencePreviewButtonTestId,
-  evidencePreviewFrameTestId,
-  evidencePreviewPanelTestId,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
-  genericEditActionSelectTestId,
   genericEditFieldSelectTestId,
   genericEditRecordSelectTestId,
   genericEditSubmitTestId,
@@ -39,7 +28,6 @@ import {
   type IncidentControlsSection,
   incidentControlsCloseButtonTestId,
   incidentControlsPanelTestId,
-  saveStateTestId,
   surfaceTabTestId,
   timelinePreviewRowTestId,
   type WorkbookSurface,
@@ -56,7 +44,6 @@ import {
 import {
   requireViewContract,
   resolveHeaderSortFieldKey,
-  type ViewContract,
   visibleFields,
 } from "@cartulary/view-contracts";
 import { MoreHorizontal, X } from "lucide-react";
@@ -84,14 +71,9 @@ import {
   parseErrorMessage,
   readEnvelope,
 } from "../services/workbookApi";
-import {
-  createAndAttachEvidenceBlob,
-  evidenceAccessMessageLiveRegion,
-  evidencePublicErrorMessage,
-  resolvePublicEvidenceHandleHref,
-} from "../services/workbookEvidence";
 import { ActiveSurfaceSavedViewSelector } from "./components/ActiveSurfaceSavedViewSelector";
 import { GenericMutationControl } from "./components/GenericMutationControl";
+import { GenericWorkbookSurface } from "./components/GenericWorkbookSurface";
 import { SystemViewSwitcher } from "./components/SystemViewSwitcher";
 import { WorkbookGridControls } from "./components/WorkbookGridControls";
 import {
@@ -103,6 +85,7 @@ import {
   WorkbookShellSlotRegion,
   workbookShellId,
 } from "./components/WorkbookShellSlots";
+import { WorkbookSurfaceStatusStrip } from "./components/WorkbookStatusStrip";
 import {
   WorkbookSurfaceFrame,
   workbookSurfaceGridShellStyle,
@@ -111,7 +94,6 @@ import {
 } from "./components/WorkbookSurfaceFrame";
 import { useAssessmentSupportRows } from "./hooks/useAssessmentSupportRows";
 import { useEntityTimelinePreview } from "./hooks/useEntityTimelinePreview";
-import { useGenericReferenceOptions } from "./hooks/useGenericReferenceOptions";
 import { useWorkbookShellRuntime } from "./hooks/useWorkbookShellRuntime";
 import {
   assessmentColumnWidth,
@@ -126,23 +108,15 @@ import {
   entityGroupLabel,
   entityRowFromApi,
 } from "./models/entityWorkbookModel";
-import { buildEvidenceLifecycleViewModel } from "./models/evidenceLifecycleViewModel";
 import {
   buildGenericCreatePayload,
   buildGenericPatchChange,
   enumValuesFor,
-  extractEmailFromPartyText,
-  type GenericCollectionMode,
   genericCellLabel,
-  genericCellLabelForField,
-  genericCollectionItems,
-  genericCollectionSupportsRemove,
-  genericContractColumnWidth,
   genericCreateMinimumMessage,
   genericRowLabel,
   initialGenericCreateDraft,
   parseMutationError,
-  partyLinkPairsForContract,
 } from "./models/genericWorkbookModel";
 import {
   normalizeWorkbookViewRows,
@@ -158,16 +132,8 @@ import {
   selectInspectorConfig,
 } from "./models/workbookInspectorModel";
 import {
-  applyFilterDraft,
   buildQueryRequest,
-  buildSavedViewLayoutJson,
-  buildSavedViewQueryJson,
-  defaultFilterDraft,
-  emptyWorkbookQueryState,
-  type FilterDraft,
-  removeFilterField,
   toggleSortField,
-  updateGroupBy,
   type WorkbookQueryState,
 } from "./models/workbookQuery";
 import { emptyGenericReferenceOptions } from "./models/workbookReferenceOptions";
@@ -178,33 +144,11 @@ import {
   type WorkbookChromeMode,
 } from "./models/workbookResponsiveLayout";
 import {
-  savedViewConfigurationIsModified,
-  savedViewQueryStateForRuntime,
-} from "./models/workbookSavedViewRuntime";
-import {
-  normalizeSavedViewResource,
-  type SavedViewEnvelope,
-  type SavedViewListEnvelope,
-  type SavedViewResource,
-  savedViewLayoutJsonForPersistence,
-  savedViewQueryJsonForPersistence,
-} from "./models/workbookSavedViews";
-import {
-  normalizeWorkbookStartupSelection,
-  workbookStartupQueryFromURLParams,
-} from "./models/workbookStartup";
-import {
   assessmentsViewSchemaId,
-  decisionsViewSchemaId,
-  evidenceViewSchemaId,
   hostsViewSchemaId,
   identitiesViewSchemaId,
-  knownWorkbookViewSchemaId,
-  listWorkbookSurfaceRegistryEntries,
   notesViewSchemaId,
-  partiesViewSchemaId,
   requiredBuiltInWorkbookSurfaceIds,
-  taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./models/workbookSurfaceRegistry";
 import { RelationshipChip } from "./timeline/components/TimelineCellEditors";
@@ -229,12 +173,9 @@ import { clipboardGridDimensions } from "./utils/workbookClipboard";
 import {
   FocusableWorkbookCell,
   useWorkbookGridFocus,
-  WorkbookFocusAnchorStatus,
 } from "./utils/workbookGridFocus";
 import { pendingReplayCapacity } from "./utils/workbookPendingQueue";
 import { displayInitials } from "./utils/workbookPresence";
-import { statusIconStyle, statusStripItemStyle } from "./utils/workbookStyles";
-import { stringifyGridValue } from "./utils/workbookValueFormat";
 
 export type {
   RecordHistoryItem,
@@ -255,13 +196,9 @@ export {
   TimelineWorkbook,
 };
 
-const timelineContract = requireViewContract(timelineViewSchemaId);
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
 const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
-const allWorkbookContracts = listWorkbookSurfaceRegistryEntries().map(
-  (entry) => entry.contract,
-);
 const incidentControlsMenuItems = [
   {
     section: "summary",
@@ -298,10 +235,8 @@ function requireIncidentControlsMenuItem(section: IncidentControlsSection) {
 }
 
 type SaveState = "Syncing" | "Saved" | "Conflict";
-type FilterDraftSetter = Dispatch<SetStateAction<FilterDraft>>;
 type MutationErrorSetter = Dispatch<SetStateAction<string | null>>;
 type MutationStateSetter = Dispatch<SetStateAction<SaveState>>;
-type WorkbookQueryStateSetter = Dispatch<SetStateAction<WorkbookQueryState>>;
 export type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
 
 export type WorkbookIncidentControlsMenuItem = {
@@ -357,14 +292,6 @@ type WorkbookShellProps = {
     | undefined;
   onIncidentAccessLost?: (() => void) | undefined;
 };
-
-function workbookContractForViewSchemaId(viewSchemaId: string): ViewContract {
-  return (
-    allWorkbookContracts.find(
-      (contract) => contract.viewSchemaId === viewSchemaId,
-    ) ?? timelineContract
-  );
-}
 
 type IncidentIdentityEnvelope = {
   data: WorkbookIncidentIdentity;
@@ -468,19 +395,6 @@ type TimelineMutationEnvelope = {
   };
 };
 
-type DecisionSupersedeEnvelope = {
-  data: {
-    view_schema_id: string;
-    change_set_id: string;
-    target_record_id: string;
-    superseding_record_id: string;
-    target_row_version: number;
-    superseding_row_version: number;
-    target_status: string;
-    reason: string;
-  };
-};
-
 type SessionEnvelope = {
   data: {
     user_id: string;
@@ -545,17 +459,6 @@ type MergeEnvelope = {
   };
 };
 
-type EvidencePreviewState = {
-  href: string;
-  recordId: string;
-  title: string;
-  previewKind: string | null;
-};
-
-type WorkbookStartupEnvelope = {
-  data?: unknown;
-};
-
 function buildWorkbookGridRows<Row>({
   getRecordId,
   rows,
@@ -602,27 +505,6 @@ function selectWorkbookEditTarget<
     field:
       fields.find((field) => field.fieldKey === fieldKey) ?? fields[0] ?? null,
   };
-}
-
-function clearAppliedFilterDraft(current: FilterDraft): FilterDraft {
-  return {
-    ...current,
-    booleanValue: "",
-    value: "",
-  };
-}
-
-function applyFilterDraftToQuery(
-  setQueryState: WorkbookQueryStateSetter,
-  setFilterDraft: FilterDraftSetter,
-  draft: FilterDraft,
-): void {
-  setQueryState((current) => applyFilterDraft(current, draft));
-  setFilterDraft(clearAppliedFilterDraft);
-}
-
-function normalizeValue(value: string): string {
-  return value.trim();
 }
 
 function entityCellContent(
@@ -1495,13 +1377,11 @@ function EntityWorkbookSurface({
         </GridViewport>
       }
       statusStrip={
-        <>
-          <SurfaceSaveStateStatusStrip
-            mutationError={mutationError}
-            mutationState={mutationState}
-          />
-          <WorkbookFocusAnchorStatus anchor={entityFocus.anchor} />
-        </>
+        <WorkbookSurfaceStatusStrip
+          mutationError={mutationError}
+          mutationState={mutationState}
+          workbookFocusAnchor={entityFocus.anchor}
+        />
       }
       viewBar={
         <WorkbookSheetToolbar
@@ -1939,10 +1819,10 @@ function AssessmentWorkbookSurface({
         </GridViewport>
       }
       statusStrip={
-        <>
-          <SurfaceSaveStateStatusStrip mutationState="Saved" />
-          <WorkbookFocusAnchorStatus anchor={assessmentFocus.anchor} />
-        </>
+        <WorkbookSurfaceStatusStrip
+          mutationState="Saved"
+          workbookFocusAnchor={assessmentFocus.anchor}
+        />
       }
       viewBar={
         <WorkbookSheetToolbar
@@ -1972,1330 +1852,6 @@ function AssessmentWorkbookSurface({
   );
 }
 
-function GenericWorkbookSurface({
-  apiBase,
-  contract,
-  currentUserId,
-  density,
-  inspectorResetKey,
-  savedViewSelector,
-  incidentId,
-  loadError,
-  onRefresh,
-  onToggleSort,
-  queryState,
-  rows,
-}: {
-  apiBase?: string | undefined;
-  contract: ViewContract;
-  currentUserId: string | null;
-  density: GridDensity;
-  inspectorResetKey: string;
-  savedViewSelector?: ReactNode | undefined;
-  incidentId: string;
-  loadError: string | null;
-  onRefresh: () => Promise<void> | void;
-  onToggleSort: (fieldKey: string) => void;
-  queryState: WorkbookQueryState;
-  rows: EntityApiRow[];
-}) {
-  const surface = contract.viewSchemaId as WorkbookSurface;
-  const inspectorConfig = selectInspectorConfig(contract);
-  const showDetailsPanel = inspectorPanelIsDeclared(inspectorConfig, "details");
-  const showRelationshipsPanel = inspectorPanelIsDeclared(
-    inspectorConfig,
-    "relationships",
-  );
-  const showWorkflowPanel = inspectorPanelIsDeclared(
-    inspectorConfig,
-    "workflow",
-  );
-  const draftRowRecordId = `${surface}:draft-row`;
-  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
-  const writableFields = useMemo(
-    () => contract.fields.filter((field) => field.writeKind !== "read_only"),
-    [contract],
-  );
-  const [createDraft, setCreateDraft] = useState<Record<string, string>>(() =>
-    initialGenericCreateDraft(contract, currentUserId),
-  );
-  const [editRecordId, setEditRecordId] = useState("");
-  const [editFieldKey, setEditFieldKey] = useState("");
-  const [editValue, setEditValue] = useState("");
-  const [linkedNoteSourceRecordId, setLinkedNoteSourceRecordId] = useState("");
-  const [editCollectionMode, setEditCollectionMode] =
-    useState<GenericCollectionMode>("add");
-  const [partyLinkPairKey, setPartyLinkPairKey] = useState("");
-  const [partyLinkExistingPartyId, setPartyLinkExistingPartyId] = useState("");
-  const { referenceLoadError, referenceOptions, refreshReferenceOptions } =
-    useGenericReferenceOptions({ apiBase, incidentId });
-  const [mutationError, setMutationError] = useState<string | null>(null);
-  const [mutationState, setMutationState] = useState<SaveState>("Saved");
-  const [evidenceMessageByRecordID, setEvidenceMessageByRecordID] = useState<
-    Record<string, string>
-  >({});
-  const [evidencePreview, setEvidencePreview] =
-    useState<EvidencePreviewState | null>(null);
-  const isEvidenceSurface = contract.viewSchemaId === evidenceViewSchemaId;
-  const isNotesSurface = contract.viewSchemaId === notesViewSchemaId;
-  const isTaskRequestSurface =
-    contract.viewSchemaId === taskRequestsViewSchemaId;
-  const isDecisionSurface = contract.viewSchemaId === decisionsViewSchemaId;
-  const [taskLifecycleRecordId, setTaskLifecycleRecordId] = useState("");
-  const [taskLifecycleStatus, setTaskLifecycleStatus] = useState("blocked");
-  const [taskLifecycleBlockedReason, setTaskLifecycleBlockedReason] =
-    useState("");
-  const [decisionSupersedeTargetId, setDecisionSupersedeTargetId] =
-    useState("");
-  const [decisionSupersedeReplacementId, setDecisionSupersedeReplacementId] =
-    useState("");
-  const [decisionSupersedeReason, setDecisionSupersedeReason] = useState("");
-  const partyLinkPairs = useMemo(
-    () => partyLinkPairsForContract(contract),
-    [contract],
-  );
-
-  useEffect(() => {
-    if (inspectorResetKey === "") {
-      return;
-    }
-    setIsInspectorOpen(false);
-    setEditRecordId("");
-    setEditFieldKey("");
-    setEditValue("");
-    setLinkedNoteSourceRecordId("");
-    setEditCollectionMode("add");
-    setPartyLinkExistingPartyId("");
-    setTaskLifecycleRecordId("");
-    setTaskLifecycleBlockedReason("");
-    setDecisionSupersedeTargetId("");
-    setDecisionSupersedeReplacementId("");
-    setDecisionSupersedeReason("");
-    setEvidencePreview(null);
-    setMutationError(null);
-  }, [inspectorResetKey]);
-
-  useEffect(() => {
-    setCreateDraft((current) => {
-      const defaults = initialGenericCreateDraft(contract, currentUserId);
-      return { ...defaults, ...current };
-    });
-  }, [contract, currentUserId]);
-
-  useEffect(() => {
-    setPartyLinkPairKey((current) => {
-      if (partyLinkPairs.some((pair) => pair.key === current)) {
-        return current;
-      }
-      return partyLinkPairs[0]?.key ?? "";
-    });
-  }, [partyLinkPairs]);
-
-  const setEvidenceMessage = useCallback(
-    (recordId: string, message: string | null) => {
-      setEvidenceMessageByRecordID((current) => {
-        const next = { ...current };
-        if (message === null) {
-          delete next[recordId];
-        } else {
-          next[recordId] = message;
-        }
-        return next;
-      });
-    },
-    [],
-  );
-
-  const issueEvidenceHandle = useCallback(
-    async (row: EntityApiRow, kind: "preview" | "download") => {
-      setEvidenceMessage(row.record_id, null);
-      const handleRequest = {} satisfies EvidenceHandleIssueRequest;
-      const result = await fetchJSON<EvidenceHandleEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/evidence-records/${row.record_id}/${kind}-handle`,
-        ),
-        { method: "POST", body: JSON.stringify(handleRequest) },
-      );
-      if (!result.ok) {
-        setEvidenceMessage(
-          row.record_id,
-          evidencePublicErrorMessage(result.payload, "Evidence access failed."),
-        );
-        return;
-      }
-      const envelope = readEnvelope<EvidenceHandleEnvelope>(result.payload);
-      const href = resolvePublicEvidenceHandleHref(envelope.data.href);
-      if (href === null) {
-        setEvidenceMessage(row.record_id, "Evidence handle is unavailable.");
-        return;
-      }
-      if (kind === "preview") {
-        setEvidencePreview({
-          href,
-          recordId: row.record_id,
-          title:
-            stringifyGridValue(row.cells["evidence.title"]?.value).trim() ||
-            row.record_id,
-          previewKind: envelope.data.preview_kind ?? null,
-        });
-        setEvidenceMessage(row.record_id, "Preview loaded inline.");
-        return;
-      }
-
-      const anchor = document.createElement("a");
-      anchor.href = href;
-      anchor.download = envelope.data.filename || "evidence";
-      anchor.rel = "noopener";
-      document.body.append(anchor);
-      anchor.click();
-      anchor.remove();
-      setEvidenceMessage(row.record_id, "Download handle issued.");
-    },
-    [apiBase, setEvidenceMessage],
-  );
-
-  const attachEvidenceFile = useCallback(
-    async (row: EntityApiRow, file: File) => {
-      if (file.size <= 0) {
-        setEvidenceMessage(row.record_id, "Evidence attach failed.");
-        return;
-      }
-      setEvidenceMessage(row.record_id, "Uploading evidence.");
-      setMutationState("Syncing");
-      try {
-        await createAndAttachEvidenceBlob({
-          apiBase,
-          attachClientTxnId: () => `evidence-attach-${Date.now()}`,
-          baseRowVersion: row.row_version,
-          createClientTxnId: () => `evidence-blob-${Date.now()}`,
-          evidenceRecordId: row.record_id,
-          file,
-          incidentId,
-        });
-        setEvidenceMessage(row.record_id, "Evidence attached.");
-        setMutationState("Saved");
-        await onRefresh();
-      } catch (error) {
-        setEvidenceMessage(
-          row.record_id,
-          error instanceof Error ? error.message : "Evidence attach failed.",
-        );
-        setMutationState("Conflict");
-      }
-    },
-    [apiBase, incidentId, onRefresh, setEvidenceMessage],
-  );
-
-  const completeGenericMutation = useCallback(
-    async <TEnvelope,>(payload: unknown) => {
-      const envelope = readEnvelope<TEnvelope>(payload);
-      try {
-        await onRefresh();
-        await refreshReferenceOptions();
-      } catch (error) {
-        setMutationState("Conflict");
-        setMutationError(
-          error instanceof Error ? error.message : "Workbook refresh failed.",
-        );
-        return envelope;
-      }
-      setMutationState("Saved");
-      return envelope;
-    },
-    [onRefresh, refreshReferenceOptions],
-  );
-
-  const submitCreate = useCallback(async () => {
-    const payload = buildGenericCreatePayload(
-      contract,
-      createDraft,
-      `generic-create-${contract.viewSchemaId}-${Date.now()}`,
-    );
-    if (payload === null) {
-      setMutationError(genericCreateMinimumMessage(contract.viewSchemaId));
-      return;
-    }
-    setMutationState("Syncing");
-    setMutationError(null);
-    const createPath =
-      isNotesSurface && linkedNoteSourceRecordId !== ""
-        ? `/api/v1/records/${linkedNoteSourceRecordId}/linked-notes`
-        : `/api/v1/incidents/${incidentId}/views/${contract.viewSchemaId}/rows`;
-    const result = await fetchJSON<ViewMutationEnvelope>(
-      apiPath(apiBase, createPath),
-      { method: "POST", body: JSON.stringify(payload) },
-    );
-    if (!result.ok) {
-      setMutationState("Conflict");
-      setMutationError(parseMutationError(result.payload));
-      return;
-    }
-    setCreateDraft(initialGenericCreateDraft(contract, currentUserId));
-    setLinkedNoteSourceRecordId("");
-    await completeGenericMutation<ViewMutationEnvelope>(result.payload);
-  }, [
-    apiBase,
-    completeGenericMutation,
-    contract,
-    createDraft,
-    currentUserId,
-    incidentId,
-    isNotesSurface,
-    linkedNoteSourceRecordId,
-  ]);
-
-  const anchorColumns = useMemo<readonly GridColumn<EntityApiRow>[]>(
-    () =>
-      workbookContractColumns<EntityApiRow>({
-        contract,
-        surface,
-        widthForField: genericContractColumnWidth,
-      }),
-    [contract, surface],
-  );
-  const draftInspectorFields = useMemo(() => {
-    const gridFieldKeys = new Set(
-      anchorColumns.map((column) => column.fieldKey),
-    );
-    return writableFields.filter((field) => !gridFieldKeys.has(field.fieldKey));
-  }, [anchorColumns, writableFields]);
-  const draftApiRow = useMemo<EntityApiRow>(
-    () => ({
-      record_id: draftRowRecordId,
-      row_version: 0,
-      cells: Object.fromEntries(
-        contract.fields.map((field) => [
-          field.fieldKey,
-          { value: createDraft[field.fieldKey] ?? "" },
-        ]),
-      ),
-    }),
-    [contract.fields, createDraft, draftRowRecordId],
-  );
-  const gridRows = useMemo<readonly GridRow<EntityApiRow>[]>(() => {
-    const savedRows = buildWorkbookGridRows({
-      getRecordId: (row: EntityApiRow) => row.record_id,
-      rows,
-      surface,
-    });
-    if (writableFields.length === 0) {
-      return savedRows;
-    }
-    return [
-      ...savedRows,
-      {
-        key: draftRowRecordId,
-        recordId: null,
-        data: draftApiRow,
-        gutterContent: "+",
-        gutterLabel: "Draft row",
-        testId: workbookInlineDraftRowTestId(surface),
-        variant: "draft",
-      },
-    ];
-  }, [draftApiRow, draftRowRecordId, rows, surface, writableFields.length]);
-  const genericFocus = useWorkbookGridFocus({
-    columns: anchorColumns,
-    getGroupLabel: (row, fieldKey) =>
-      genericCellLabelForField(surface, fieldKey, row.cells[fieldKey]?.value),
-    groupBy: queryState.groupBy,
-    rows: gridRows,
-    surface,
-  });
-  const columns: readonly GridColumn<EntityApiRow>[] = anchorColumns.map(
-    (field) => ({
-      ...field,
-      renderCell: (row) => {
-        if (row.record_id === draftRowRecordId) {
-          const writableField =
-            writableFields.find(
-              (candidate) => candidate.fieldKey === field.fieldKey,
-            ) ?? null;
-          if (writableField === null) {
-            return <span style={draftCellPlaceholderStyle}>-</span>;
-          }
-          return (
-            <GenericMutationControl
-              collectionMode="add"
-              field={writableField}
-              referenceOptions={referenceOptions}
-              surface="grid"
-              testId={genericCreateFieldTestId(writableField.fieldKey)}
-              value={createDraft[writableField.fieldKey] ?? ""}
-              onChange={(value) => {
-                setCreateDraft((current) => ({
-                  ...current,
-                  [writableField.fieldKey]: value,
-                }));
-              }}
-            />
-          );
-        }
-        return (
-          <FocusableWorkbookCell
-            fieldKey={field.fieldKey}
-            focus={genericFocus}
-            recordId={row.record_id}
-          >
-            {genericCellLabelForField(
-              surface,
-              field.fieldKey,
-              row.cells[field.fieldKey]?.value,
-            )}
-          </FocusableWorkbookCell>
-        );
-      },
-    }),
-  );
-  const rowActionsColumn = useMemo<
-    GridActionsColumn<EntityApiRow> | undefined
-  >(() => {
-    if (!isEvidenceSurface && writableFields.length === 0) {
-      return undefined;
-    }
-    return {
-      headerTestId: gridActionsHeaderTestId(surface),
-      label: "",
-      width: isEvidenceSurface ? 208 : 76,
-      renderCell: ({ data: row }) => {
-        if (row.record_id === draftRowRecordId) {
-          return (
-            <button
-              data-testid={
-                isInspectorOpen
-                  ? undefined
-                  : genericCreateSubmitTestId(contract.viewSchemaId)
-              }
-              disabled={mutationState === "Syncing"}
-              style={secondaryActionButtonStyle}
-              type="button"
-              onClick={() => {
-                void submitCreate();
-              }}
-            >
-              Commit
-            </button>
-          );
-        }
-        if (!isEvidenceSurface) {
-          return null;
-        }
-        const evidenceAccess = buildEvidenceLifecycleViewModel({
-          evidenceLifecycleState: row.cells["evidence.lifecycle_state"]?.value,
-          objectBlobUploadState: row.cells["evidence.upload_state"]?.value,
-        });
-        const message =
-          evidenceMessageByRecordID[row.record_id] ?? evidenceAccess.message;
-        const messageLiveRegion =
-          message === null
-            ? null
-            : evidenceAccessMessageLiveRegion(message, evidenceAccess);
-        return (
-          <div
-            data-evidence-state-key={evidenceAccess.stateKey}
-            style={actionStackStyle}
-          >
-            <div style={inlineButtonRowStyle}>
-              <button
-                data-testid={evidencePreviewButtonTestId(row.record_id)}
-                disabled={!evidenceAccess.canPreview}
-                style={actionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void issueEvidenceHandle(row, "preview");
-                }}
-              >
-                Preview
-              </button>
-              <button
-                data-testid={evidenceDownloadButtonTestId(row.record_id)}
-                disabled={!evidenceAccess.canDownload}
-                style={actionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void issueEvidenceHandle(row, "download");
-                }}
-              >
-                Download
-              </button>
-            </div>
-            <label style={labelStyle}>
-              Attach file
-              <input
-                data-testid={evidenceAttachFileInputTestId(row.record_id)}
-                style={inputStyle}
-                type="file"
-                accept="image/*,.txt,.pdf,text/plain,application/pdf"
-                onChange={(event) => {
-                  const [file] = Array.from(event.currentTarget.files ?? []);
-                  event.currentTarget.value = "";
-                  if (file) {
-                    void attachEvidenceFile(row, file);
-                  }
-                }}
-              />
-            </label>
-            {message ? (
-              <span
-                aria-live={messageLiveRegion?.ariaLive}
-                data-testid={evidenceAccessMessageTestId(row.record_id)}
-                role={messageLiveRegion?.role}
-                style={evidenceAccessMessageStyle}
-              >
-                {message}
-              </span>
-            ) : null}
-          </div>
-        );
-      },
-    };
-  }, [
-    attachEvidenceFile,
-    contract.viewSchemaId,
-    draftRowRecordId,
-    evidenceMessageByRecordID,
-    isEvidenceSurface,
-    isInspectorOpen,
-    issueEvidenceHandle,
-    mutationState,
-    surface,
-    submitCreate,
-    writableFields.length,
-  ]);
-  const { row: selectedEditRow, field: selectedEditField } =
-    selectWorkbookEditTarget({
-      fieldKey: editFieldKey,
-      fields: writableFields,
-      getRecordId: (row: EntityApiRow) => row.record_id,
-      recordId: editRecordId,
-      rows,
-    });
-  const selectedPartyLinkPair =
-    partyLinkPairs.find((pair) => pair.key === partyLinkPairKey) ??
-    partyLinkPairs[0] ??
-    null;
-  const selectedEditCollectionItems =
-    selectedEditRow !== null && selectedEditField !== null
-      ? genericCollectionItems(selectedEditRow, selectedEditField.fieldKey)
-      : [];
-  const genericInspectorDisabledTokens = useMemo(
-    () =>
-      new Set<InspectorDisabledToken>(
-        selectedEditRow === null ? ["no_row_selected"] : [],
-      ),
-    [selectedEditRow],
-  );
-
-  useEffect(() => {
-    if (selectedEditField?.writeKind !== "action_payload") {
-      setEditCollectionMode("add");
-    } else if (
-      !genericCollectionSupportsRemove(selectedEditField.fieldKey) &&
-      editCollectionMode === "remove"
-    ) {
-      setEditCollectionMode("add");
-    }
-  }, [editCollectionMode, selectedEditField]);
-
-  useEffect(() => {
-    if (selectedEditRow === null || selectedEditField === null) {
-      setEditValue("");
-      return;
-    }
-    if (selectedEditField.writeKind === "action_payload") {
-      setEditValue("");
-      return;
-    }
-    const value = selectedEditRow.cells[selectedEditField.fieldKey]?.value;
-    setEditValue(value === null || value === undefined ? "" : String(value));
-  }, [selectedEditField, selectedEditRow]);
-
-  const submitEdit = async () => {
-    if (selectedEditRow === null || selectedEditField === null) {
-      setMutationError("invalid_mutation_payload");
-      return;
-    }
-    const change = buildGenericPatchChange(
-      selectedEditField,
-      editValue,
-      editCollectionMode,
-    );
-    if (change === null) {
-      setMutationError(
-        "Provide a value, or leave clearable fields empty to clear them.",
-      );
-      return;
-    }
-    const payload = await submitWorkbookPatchMutation({
-      apiBase,
-      baseRowVersion: selectedEditRow.row_version,
-      changes: [change],
-      clientTxnId: `generic-patch-${contract.viewSchemaId}-${Date.now()}`,
-      recordId: selectedEditRow.record_id,
-      setMutationError,
-      setMutationState,
-      viewSchemaId: contract.viewSchemaId,
-    });
-    if (payload === null) {
-      return;
-    }
-    setEditValue("");
-    await completeGenericMutation<ViewMutationEnvelope>(payload);
-  };
-
-  const submitPartyLinkPatch = async (
-    changes: Array<Record<string, unknown>>,
-    txnPrefix: string,
-  ) => {
-    if (selectedEditRow === null) {
-      setMutationError("Select a row before changing a party link.");
-      return false;
-    }
-    const payload = await submitWorkbookPatchMutation({
-      apiBase,
-      baseRowVersion: selectedEditRow.row_version,
-      changes,
-      clientTxnId: `${txnPrefix}-${contract.viewSchemaId}-${Date.now()}`,
-      recordId: selectedEditRow.record_id,
-      setMutationError,
-      setMutationState,
-      viewSchemaId: contract.viewSchemaId,
-    });
-    if (payload === null) {
-      return false;
-    }
-    await completeGenericMutation<ViewMutationEnvelope>(payload);
-    return true;
-  };
-
-  const createPartyFromText = async () => {
-    if (selectedEditRow === null || selectedPartyLinkPair === null) {
-      setMutationError("Select a row and party field first.");
-      return;
-    }
-    const rawText = normalizeValue(
-      String(
-        selectedEditRow.cells[selectedPartyLinkPair.textFieldKey]?.value ?? "",
-      ),
-    );
-    if (rawText === "") {
-      setMutationError("Party text is empty.");
-      return;
-    }
-    setMutationState("Syncing");
-    setMutationError(null);
-    const createPayload: Record<string, unknown> = {
-      client_txn_id: `party-from-text-${contract.viewSchemaId}-${Date.now()}`,
-      "party.display_name": rawText,
-      "party.party_kind": "person",
-    };
-    const email = extractEmailFromPartyText(rawText);
-    if (email !== null) {
-      createPayload["party.primary_email"] = email;
-    }
-    const createResult = await fetchJSON<ViewMutationEnvelope>(
-      apiPath(
-        apiBase,
-        `/api/v1/incidents/${incidentId}/views/${partiesViewSchemaId}/rows`,
-      ),
-      { method: "POST", body: JSON.stringify(createPayload) },
-    );
-    if (!createResult.ok) {
-      setMutationState("Conflict");
-      setMutationError(parseMutationError(createResult.payload));
-      return;
-    }
-    const partyID = readEnvelope<ViewMutationEnvelope>(createResult.payload)
-      .data.row.record_id;
-    await submitPartyLinkPatch(
-      [{ field_key: selectedPartyLinkPair.refFieldKey, value: partyID }],
-      "party-link-created",
-    );
-  };
-
-  const linkExistingParty = async () => {
-    if (selectedPartyLinkPair === null || partyLinkExistingPartyId === "") {
-      setMutationError("Select an existing party.");
-      return;
-    }
-    await submitPartyLinkPatch(
-      [
-        {
-          field_key: selectedPartyLinkPair.refFieldKey,
-          value: partyLinkExistingPartyId,
-        },
-      ],
-      "party-link-existing",
-    );
-  };
-
-  const clearPartyLink = async () => {
-    if (selectedPartyLinkPair === null) {
-      setMutationError("Select a party field first.");
-      return;
-    }
-    await submitPartyLinkPatch(
-      [{ field_key: selectedPartyLinkPair.refFieldKey, value: null }],
-      "party-clear-link",
-    );
-  };
-
-  const clearPartyText = async () => {
-    if (selectedPartyLinkPair === null) {
-      setMutationError("Select a party field first.");
-      return;
-    }
-    await submitPartyLinkPatch(
-      [{ field_key: selectedPartyLinkPair.textFieldKey, value: null }],
-      "party-clear-text",
-    );
-  };
-
-  const clearPartyBoth = async () => {
-    if (selectedPartyLinkPair === null) {
-      setMutationError("Select a party field first.");
-      return;
-    }
-    await submitPartyLinkPatch(
-      [
-        { field_key: selectedPartyLinkPair.textFieldKey, value: null },
-        { field_key: selectedPartyLinkPair.refFieldKey, value: null },
-      ],
-      "party-clear-both",
-    );
-  };
-
-  const submitTaskLifecyclePatch = async () => {
-    const target = rows.find((row) => row.record_id === taskLifecycleRecordId);
-    if (!target) {
-      setMutationError("Select a task row.");
-      return;
-    }
-    const changes: Array<Record<string, unknown>> = [
-      { field_key: "task.status", value: taskLifecycleStatus },
-    ];
-    if (taskLifecycleStatus === "blocked") {
-      const reason = normalizeValue(taskLifecycleBlockedReason);
-      if (reason === "") {
-        setMutationError("Blocked tasks need a reason.");
-        return;
-      }
-      changes.push({ field_key: "task.blocked_reason", value: reason });
-    }
-    setMutationState("Syncing");
-    setMutationError(null);
-    const result = await fetchJSON<ViewMutationEnvelope>(
-      apiPath(apiBase, `/api/v1/records/${target.record_id}`),
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          view_schema_id: taskRequestsViewSchemaId,
-          base_row_version: target.row_version,
-          client_txn_id: `task-lifecycle-${Date.now()}`,
-          changes,
-        }),
-      },
-    );
-    if (!result.ok) {
-      setMutationState("Conflict");
-      setMutationError(parseMutationError(result.payload));
-      return;
-    }
-    if (taskLifecycleStatus !== "blocked") {
-      setTaskLifecycleBlockedReason("");
-    }
-    await completeGenericMutation<ViewMutationEnvelope>(result.payload);
-  };
-
-  const submitDecisionSupersede = async () => {
-    const target = rows.find(
-      (row) => row.record_id === decisionSupersedeTargetId,
-    );
-    if (!target || decisionSupersedeReplacementId === "") {
-      setMutationError("Select target and superseding decisions.");
-      return;
-    }
-    if (target.record_id === decisionSupersedeReplacementId) {
-      setMutationError("Select a different superseding decision.");
-      return;
-    }
-    const reason = normalizeValue(decisionSupersedeReason);
-    if (reason === "") {
-      setMutationError("Reason is required.");
-      return;
-    }
-    setMutationState("Syncing");
-    setMutationError(null);
-    const result = await fetchJSON<DecisionSupersedeEnvelope>(
-      apiPath(apiBase, `/api/v1/records/${target.record_id}/supersede`),
-      {
-        method: "POST",
-        body: JSON.stringify({
-          base_row_version: target.row_version,
-          client_txn_id: `decision-supersede-${Date.now()}`,
-          replacement_record_id: decisionSupersedeReplacementId,
-          reason,
-        }),
-      },
-    );
-    if (!result.ok) {
-      setMutationState("Conflict");
-      setMutationError(parseMutationError(result.payload));
-      return;
-    }
-    setDecisionSupersedeReason("");
-    await completeGenericMutation<DecisionSupersedeEnvelope>(result.payload);
-  };
-
-  const focusDraftRow = useCallback(() => {
-    const firstWritableField = writableFields[0];
-    if (!firstWritableField) {
-      return;
-    }
-    window.setTimeout(() => {
-      document
-        .querySelector<HTMLElement>(
-          dataTestIdSelector(
-            genericCreateFieldTestId(firstWritableField.fieldKey),
-          ),
-        )
-        ?.focus({ preventScroll: true });
-    }, 0);
-  }, [writableFields]);
-
-  return (
-    <WorkbookSurfaceFrame
-      inspector={
-        isInspectorOpen && writableFields.length > 0 ? (
-          <section style={genericMutationPanelStyle}>
-            <div style={inspectorTitleRowStyle}>
-              <div>
-                <p style={eyebrowStyle}>Inspector</p>
-                <h2 style={inspectorTitleStyle}>Workbook actions</h2>
-              </div>
-              <button
-                aria-label="Close inspector"
-                data-testid={workbookInspectorCloseButtonTestId(surface)}
-                style={inspectorCloseButtonStyle}
-                type="button"
-                onClick={() => {
-                  setIsInspectorOpen(false);
-                }}
-              >
-                <X aria-hidden="true" size={16} />
-              </button>
-            </div>
-            {inspectorConfig.panels.map((panel) => (
-              <WorkbookInspectorPanelSection
-                config={inspectorConfig}
-                disabledTokens={genericInspectorDisabledTokens}
-                key={panel.panelId}
-                panelId={panel.panelId}
-              />
-            ))}
-            {isNotesSurface ? (
-              <label
-                htmlFor="generic-create-note-source-record"
-                style={labelStyle}
-              >
-                Linked source for draft row
-                <select
-                  data-testid="generic-create-note-source-record"
-                  id="generic-create-note-source-record"
-                  style={selectStyle}
-                  value={linkedNoteSourceRecordId}
-                  onChange={(event) => {
-                    setLinkedNoteSourceRecordId(event.target.value);
-                  }}
-                >
-                  <option value="">None</option>
-                  {referenceOptions.noteSourceRecords.map((option) => (
-                    <option key={option.recordId} value={option.recordId}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-
-            {showWorkflowPanel && draftInspectorFields.length > 0 ? (
-              <div style={genericDraftInspectorFieldsStyle}>
-                {draftInspectorFields.map((field) => {
-                  const controlId = `generic-create-inspector-${field.fieldKey}`;
-                  return (
-                    <label
-                      htmlFor={controlId}
-                      key={field.fieldKey}
-                      style={labelStyle}
-                    >
-                      {field.label}
-                      <GenericMutationControl
-                        collectionMode="add"
-                        field={field}
-                        id={controlId}
-                        referenceOptions={referenceOptions}
-                        testId={genericCreateFieldTestId(field.fieldKey)}
-                        value={createDraft[field.fieldKey] ?? ""}
-                        onChange={(value) => {
-                          setCreateDraft((current) => ({
-                            ...current,
-                            [field.fieldKey]: value,
-                          }));
-                        }}
-                      />
-                    </label>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            {showWorkflowPanel ? (
-              <button
-                data-testid={genericCreateSubmitTestId(contract.viewSchemaId)}
-                disabled={mutationState === "Syncing"}
-                style={secondaryActionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void submitCreate();
-                }}
-              >
-                Commit draft row
-              </button>
-            ) : null}
-
-            {showDetailsPanel &&
-            rows.length > 0 &&
-            selectedEditField !== null ? (
-              <div style={genericEditRowStyle}>
-                <select
-                  data-testid={genericEditRecordSelectTestId(
-                    contract.viewSchemaId,
-                  )}
-                  style={selectStyle}
-                  value={editRecordId}
-                  onChange={(event) => {
-                    setEditRecordId(event.target.value);
-                  }}
-                >
-                  <option value="">Row</option>
-                  {rows.map((row) => (
-                    <option key={row.record_id} value={row.record_id}>
-                      {genericRowLabel(contract, row)}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  data-testid={genericEditFieldSelectTestId(
-                    contract.viewSchemaId,
-                  )}
-                  style={selectStyle}
-                  value={editFieldKey}
-                  onChange={(event) => {
-                    setEditFieldKey(event.target.value);
-                  }}
-                >
-                  <option value="">Field</option>
-                  {writableFields.map((field) => (
-                    <option key={field.fieldKey} value={field.fieldKey}>
-                      {field.label}
-                    </option>
-                  ))}
-                </select>
-                {selectedEditField.writeKind === "action_payload" &&
-                genericCollectionSupportsRemove(selectedEditField.fieldKey) ? (
-                  <select
-                    aria-label="Collection edit action"
-                    data-testid={genericEditActionSelectTestId(
-                      contract.viewSchemaId,
-                    )}
-                    style={selectStyle}
-                    value={editCollectionMode}
-                    onChange={(event) => {
-                      setEditCollectionMode(
-                        event.target.value === "remove" ? "remove" : "add",
-                      );
-                      setEditValue("");
-                    }}
-                  >
-                    <option value="add">Add</option>
-                    <option value="remove">Remove</option>
-                  </select>
-                ) : null}
-                <GenericMutationControl
-                  collectionItems={selectedEditCollectionItems}
-                  collectionMode={editCollectionMode}
-                  field={selectedEditField}
-                  referenceOptions={referenceOptions}
-                  testId={genericEditValueTestId(contract.viewSchemaId)}
-                  value={editValue}
-                  onChange={setEditValue}
-                />
-                <button
-                  data-testid={genericEditSubmitTestId(contract.viewSchemaId)}
-                  disabled={mutationState === "Syncing"}
-                  style={actionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void submitEdit();
-                  }}
-                >
-                  Update
-                </button>
-              </div>
-            ) : null}
-
-            {showRelationshipsPanel &&
-            partyLinkPairs.length > 0 &&
-            selectedEditRow !== null ? (
-              <div style={genericEditRowStyle}>
-                <select
-                  aria-label="Party link field"
-                  data-testid="party-link-pair"
-                  style={selectStyle}
-                  value={selectedPartyLinkPair?.key ?? ""}
-                  onChange={(event) => {
-                    setPartyLinkPairKey(event.target.value);
-                  }}
-                >
-                  {partyLinkPairs.map((pair) => (
-                    <option key={pair.key} value={pair.key}>
-                      {pair.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  aria-label="Existing party"
-                  data-testid="party-link-existing-party"
-                  style={selectStyle}
-                  value={partyLinkExistingPartyId}
-                  onChange={(event) => {
-                    setPartyLinkExistingPartyId(event.target.value);
-                  }}
-                >
-                  <option value="">Party</option>
-                  {referenceOptions.parties.map((option) => (
-                    <option key={option.recordId} value={option.recordId}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  data-testid="party-link-create-from-text"
-                  disabled={mutationState === "Syncing"}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void createPartyFromText();
-                  }}
-                >
-                  Create party from text
-                </button>
-                <button
-                  data-testid="party-link-link-existing"
-                  disabled={mutationState === "Syncing"}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void linkExistingParty();
-                  }}
-                >
-                  Link existing party
-                </button>
-                <button
-                  data-testid="party-link-clear-link"
-                  disabled={mutationState === "Syncing"}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void clearPartyLink();
-                  }}
-                >
-                  Clear party link
-                </button>
-                <button
-                  data-testid="party-link-clear-text"
-                  disabled={mutationState === "Syncing"}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void clearPartyText();
-                  }}
-                >
-                  Clear party text
-                </button>
-                <button
-                  data-testid="party-link-clear-both"
-                  disabled={mutationState === "Syncing"}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void clearPartyBoth();
-                  }}
-                >
-                  Clear both
-                </button>
-              </div>
-            ) : null}
-
-            {showWorkflowPanel && isTaskRequestSurface && rows.length > 0 ? (
-              <div style={genericEditRowStyle}>
-                <select
-                  aria-label="Task lifecycle row"
-                  data-testid="task-lifecycle-target"
-                  style={selectStyle}
-                  value={taskLifecycleRecordId}
-                  onChange={(event) => {
-                    setTaskLifecycleRecordId(event.target.value);
-                  }}
-                >
-                  <option value="">Task</option>
-                  {rows.map((row) => (
-                    <option key={row.record_id} value={row.record_id}>
-                      {genericRowLabel(contract, row)}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  aria-label="Task lifecycle status"
-                  data-testid="task-lifecycle-status"
-                  style={selectStyle}
-                  value={taskLifecycleStatus}
-                  onChange={(event) => {
-                    setTaskLifecycleStatus(event.target.value);
-                  }}
-                >
-                  <option value="open">open</option>
-                  <option value="in_progress">in_progress</option>
-                  <option value="blocked">blocked</option>
-                  <option value="done">done</option>
-                  <option value="canceled">canceled</option>
-                </select>
-                <input
-                  aria-label="Blocked reason"
-                  data-testid="task-lifecycle-blocked-reason"
-                  disabled={taskLifecycleStatus !== "blocked"}
-                  style={inputStyle}
-                  type="text"
-                  value={taskLifecycleBlockedReason}
-                  onChange={(event) => {
-                    setTaskLifecycleBlockedReason(event.target.value);
-                  }}
-                />
-                <button
-                  data-testid="task-lifecycle-submit"
-                  disabled={mutationState === "Syncing"}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void submitTaskLifecyclePatch();
-                  }}
-                >
-                  Apply task status
-                </button>
-              </div>
-            ) : null}
-
-            {showWorkflowPanel && isDecisionSurface && rows.length > 1 ? (
-              <div style={genericEditRowStyle}>
-                <select
-                  aria-label="Superseded decision"
-                  data-testid="decision-supersede-target"
-                  style={selectStyle}
-                  value={decisionSupersedeTargetId}
-                  onChange={(event) => {
-                    setDecisionSupersedeTargetId(event.target.value);
-                  }}
-                >
-                  <option value="">Target</option>
-                  {rows.map((row) => (
-                    <option key={row.record_id} value={row.record_id}>
-                      {genericRowLabel(contract, row)}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  aria-label="Superseding decision"
-                  data-testid="decision-supersede-replacement"
-                  style={selectStyle}
-                  value={decisionSupersedeReplacementId}
-                  onChange={(event) => {
-                    setDecisionSupersedeReplacementId(event.target.value);
-                  }}
-                >
-                  <option value="">Superseding</option>
-                  {referenceOptions.decisions.map((option) => (
-                    <option key={option.recordId} value={option.recordId}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  aria-label="Decision supersession reason"
-                  data-testid="decision-supersede-reason"
-                  style={inputStyle}
-                  type="text"
-                  value={decisionSupersedeReason}
-                  onChange={(event) => {
-                    setDecisionSupersedeReason(event.target.value);
-                  }}
-                />
-                <button
-                  data-testid="decision-supersede-submit"
-                  disabled={mutationState === "Syncing"}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void submitDecisionSupersede();
-                  }}
-                >
-                  Supersede decision
-                </button>
-              </div>
-            ) : null}
-
-            {referenceLoadError ? (
-              <p data-testid="generic-reference-load-error" style={bodyStyle}>
-                {referenceLoadError}
-              </p>
-            ) : null}
-
-            {mutationError ? (
-              <p style={genericErrorTextStyle}>{mutationError}</p>
-            ) : null}
-          </section>
-        ) : undefined
-      }
-      primaryGrid={
-        <GridViewport
-          blockSizing="fill"
-          style={gridShellStyle}
-          testId={gridShellTestId(surface)}
-        >
-          <GridTable
-            actionsColumn={rowActionsColumn}
-            columns={columns}
-            density={density}
-            getGroupLabel={(row, fieldKey) =>
-              genericCellLabel(row.cells[fieldKey]?.value)
-            }
-            getGroupRowTestId={(fieldKey, value) =>
-              gridGroupRowTestId(surface, fieldKey, value)
-            }
-            groupBy={queryState.groupBy}
-            onToggleSort={onToggleSort}
-            rows={gridRows}
-            sort={queryState.sort}
-          />
-        </GridViewport>
-      }
-      statusStrip={
-        <>
-          <SurfaceSaveStateStatusStrip
-            mutationError={mutationError}
-            mutationState={mutationState}
-          />
-          <WorkbookFocusAnchorStatus anchor={genericFocus.anchor} />
-        </>
-      }
-      viewBar={
-        <WorkbookSheetToolbar
-          addRowDisabled={writableFields.length === 0}
-          leading={savedViewSelector}
-          onAddRow={focusDraftRow}
-          onInspectorToggle={() => {
-            setIsInspectorOpen(true);
-          }}
-          surface={surface}
-        />
-      }
-      viewSchemaId={surface}
-      workAreaOverlays={
-        <>
-          {loadError ? (
-            <p
-              data-testid="generic-surface-load-error"
-              style={surfaceNoticeOverlayStyle}
-            >
-              {loadError}
-            </p>
-          ) : null}
-          {isEvidenceSurface && evidencePreview ? (
-            <section
-              data-testid={evidencePreviewPanelTestId()}
-              style={evidencePreviewPanelStyle}
-            >
-              <div style={evidencePreviewHeaderStyle}>
-                <div>
-                  <p style={eyebrowStyle}>Preview</p>
-                  <h2 style={sectionTitleStyle}>{evidencePreview.title}</h2>
-                </div>
-                <button
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    setEvidencePreview(null);
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-              <iframe
-                data-testid={evidencePreviewFrameTestId(
-                  evidencePreview.recordId,
-                )}
-                src={evidencePreview.href}
-                style={evidencePreviewFrameStyle}
-                title={`Evidence preview ${evidencePreview.title}`}
-              />
-              {evidencePreview.previewKind ? (
-                <p style={evidenceAccessMessageStyle}>
-                  {evidencePreview.previewKind}
-                </p>
-              ) : null}
-            </section>
-          ) : null}
-        </>
-      }
-    />
-  );
-}
-
-function SurfaceSaveStateStatusStrip({
-  mutationError = null,
-  mutationState,
-}: {
-  readonly mutationError?: string | null | undefined;
-  readonly mutationState: SaveState;
-}) {
-  return (
-    <>
-      <span style={statusStripItemStyle}>
-        <span aria-hidden="true" style={statusIconStyle(mutationState)} />
-        <strong
-          aria-live="polite"
-          aria-label="Save state"
-          data-density-role="narrow-metadata"
-          data-testid={saveStateTestId()}
-          role="status"
-        >
-          {mutationState}
-        </strong>
-      </span>
-      {mutationError ? (
-        <span
-          aria-live="polite"
-          data-testid="generic-mutation-error"
-          role="status"
-          style={statusStripErrorStyle}
-        >
-          {mutationError}
-        </span>
-      ) : null}
-    </>
-  );
-}
-
 export function WorkbookShell({
   incidentId,
   apiBase,
@@ -3307,39 +1863,49 @@ export function WorkbookShell({
   onIncidentSnapshot,
   onIncidentAccessLost,
 }: WorkbookShellProps) {
-  const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const responsiveLayout = useWorkbookResponsiveLayout();
   const responsiveBand = responsiveLayout.chromeMode;
-  const initialViewSchemaID = useMemo(() => {
-    const explicit = params.get("view_schema_id");
-    return explicit
-      ? knownWorkbookViewSchemaId(explicit)
-      : timelineViewSchemaId;
-  }, [params]);
   const surfaceSelectionVersionRef = useRef(0);
   const workbookRuntime = useWorkbookShellRuntime({
-    initialViewSchemaId: initialViewSchemaID,
+    apiBase,
+    incidentId,
+    onIncidentAccessLost,
     surfaceSelectionVersionRef,
   });
   const {
+    activeContract,
+    activeQueryControls,
+    activeSavedViewModified,
+    assessmentQueryState,
+    genericQueryState,
+    hostQueryState,
+    identityQueryState,
     pendingGridFocusSurface,
     savedViews,
     sheetReloadToken,
     startupSheetRef,
     surface,
+    timelineQueryState,
   } = workbookRuntime.snapshot;
   const effectiveDensity = useMemo(
     () => resolveEffectiveWorkbookDensity(surface, accountDensityMode),
     [accountDensityMode, surface],
   );
   const {
-    applyStartupIdentity,
-    deleteSavedViewIdentity,
-    replaceSavedViews,
-    selectSavedViewIdentity,
+    createSavedView,
+    deleteSavedView,
+    duplicateSavedView,
+    selectSavedView,
     selectWorkbookSurface,
+    setAssessmentQueryState,
+    setGenericQueryState,
+    setHostQueryState,
+    setIdentityQueryState,
     setPendingGridFocusSurface,
-    upsertSavedView,
+    setTimelineQueryState,
+    setWorkbookDefaultSheetRef,
+    setWorkbookHomeSheetRef,
+    updateSavedView,
   } = workbookRuntime.commands;
   const [hostRows, setHostRows] = useState<EntityRow[]>([]);
   const [identityRows, setIdentityRows] = useState<EntityRow[]>([]);
@@ -3368,39 +1934,7 @@ export function WorkbookShell({
     useState<IncidentControlsSection>("summary");
   const controlsReturnFocusTargetRef = useRef<HTMLElement | null>(null);
   const controlsDrawerCloseRef = useRef<HTMLButtonElement | null>(null);
-  const [timelineQueryState, setTimelineQueryState] =
-    useState<WorkbookQueryState>(() => emptyWorkbookQueryState());
-  const [timelineFilterDraft, setTimelineFilterDraft] = useState<FilterDraft>(
-    () => defaultFilterDraft(timelineContract),
-  );
-  const [hostQueryState, setHostQueryState] = useState<WorkbookQueryState>(() =>
-    emptyWorkbookQueryState(),
-  );
-  const [identityQueryState, setIdentityQueryState] =
-    useState<WorkbookQueryState>(() => emptyWorkbookQueryState());
-  const [hostFilterDraft, setHostFilterDraft] = useState<FilterDraft>(() =>
-    defaultFilterDraft(hostsContract),
-  );
-  const [identityFilterDraft, setIdentityFilterDraft] = useState<FilterDraft>(
-    () => defaultFilterDraft(identitiesContract),
-  );
-  const [assessmentQueryState, setAssessmentQueryState] =
-    useState<WorkbookQueryState>(() => emptyWorkbookQueryState());
-  const [assessmentFilterDraft, setAssessmentFilterDraft] =
-    useState<FilterDraft>(() => defaultFilterDraft(assessmentsContract));
-  const activeContract = useMemo(
-    () =>
-      allWorkbookContracts.find(
-        (contract) => contract.viewSchemaId === surface,
-      ) ?? timelineContract,
-    [surface],
-  );
   const [surfacesMenuOpen, setSurfacesMenuOpen] = useState(false);
-  const [genericQueryState, setGenericQueryState] =
-    useState<WorkbookQueryState>(() => emptyWorkbookQueryState());
-  const [genericFilterDraft, setGenericFilterDraft] = useState<FilterDraft>(
-    () => defaultFilterDraft(activeContract),
-  );
   const entityQueryRuntimeRef = useRef<LatestQueryRuntime>({
     controller: null,
     sequence: 0,
@@ -3413,71 +1947,6 @@ export function WorkbookShell({
     controller: null,
     sequence: 0,
   });
-  const currentQueryStateForSurface = useCallback(
-    (viewSchemaId: string): WorkbookQueryState => {
-      if (viewSchemaId === timelineViewSchemaId) {
-        return timelineQueryState;
-      }
-      if (viewSchemaId === hostsViewSchemaId) {
-        return hostQueryState;
-      }
-      if (viewSchemaId === identitiesViewSchemaId) {
-        return identityQueryState;
-      }
-      if (viewSchemaId === assessmentsViewSchemaId) {
-        return assessmentQueryState;
-      }
-      return genericQueryState;
-    },
-    [
-      assessmentQueryState,
-      genericQueryState,
-      hostQueryState,
-      identityQueryState,
-      timelineQueryState,
-    ],
-  );
-  const applyQueryStateForSurface = useCallback(
-    (viewSchemaId: string, queryState: WorkbookQueryState) => {
-      const contract = workbookContractForViewSchemaId(viewSchemaId);
-      if (viewSchemaId === timelineViewSchemaId) {
-        setTimelineQueryState(queryState);
-        setTimelineFilterDraft(defaultFilterDraft(timelineContract));
-        return;
-      }
-      if (viewSchemaId === hostsViewSchemaId) {
-        setHostQueryState(queryState);
-        setHostFilterDraft(defaultFilterDraft(hostsContract));
-        return;
-      }
-      if (viewSchemaId === identitiesViewSchemaId) {
-        setIdentityQueryState(queryState);
-        setIdentityFilterDraft(defaultFilterDraft(identitiesContract));
-        return;
-      }
-      if (viewSchemaId === assessmentsViewSchemaId) {
-        setAssessmentQueryState(queryState);
-        setAssessmentFilterDraft(defaultFilterDraft(assessmentsContract));
-        return;
-      }
-      setGenericQueryState(queryState);
-      setGenericFilterDraft(defaultFilterDraft(contract));
-    },
-    [],
-  );
-  const selectSavedView = useCallback(
-    (savedView: SavedViewResource) => {
-      const nextSurface = knownWorkbookViewSchemaId(savedView.view_schema_id);
-      const contract = workbookContractForViewSchemaId(nextSurface);
-      applyQueryStateForSurface(
-        nextSurface,
-        savedViewQueryStateForRuntime(contract, savedView),
-      );
-      selectSavedViewIdentity(savedView);
-    },
-    [applyQueryStateForSurface, selectSavedViewIdentity],
-  );
-
   useEffect(() => {
     if (account?.user_id) {
       setCurrentUserId(account.user_id);
@@ -3529,179 +1998,6 @@ export function WorkbookShell({
     onIncidentAccessLost,
     onIncidentSnapshot,
   ]);
-
-  const createSavedView = useCallback(
-    async (input: {
-      readonly displayName: string;
-      readonly scope: "private" | "shared";
-    }) => {
-      const contract = activeContract;
-      const queryState = currentQueryStateForSurface(contract.viewSchemaId);
-      const result = await fetchJSON<SavedViewEnvelope>(
-        apiPath(apiBase, `/api/v1/incidents/${incidentId}/saved-views`),
-        {
-          method: "POST",
-          body: JSON.stringify({
-            view_schema_id: contract.viewSchemaId,
-            display_name: input.displayName,
-            scope: input.scope,
-            query_json: buildSavedViewQueryJson(contract, queryState),
-            layout_json: buildSavedViewLayoutJson(contract),
-          }),
-        },
-      );
-      if (!result.ok) {
-        throw new Error(parseErrorMessage(result.payload));
-      }
-      const savedView = normalizeSavedViewResource(
-        readEnvelope<SavedViewEnvelope>(result.payload).data,
-      );
-      if (savedView === null) {
-        throw new Error("Saved-view create returned an invalid resource.");
-      }
-      upsertSavedView(savedView);
-      selectSavedView(savedView);
-      return savedView;
-    },
-    [
-      activeContract,
-      apiBase,
-      currentQueryStateForSurface,
-      incidentId,
-      selectSavedView,
-      upsertSavedView,
-    ],
-  );
-
-  const duplicateSavedView = useCallback(
-    async (source: SavedViewResource) => {
-      const contract = workbookContractForViewSchemaId(source.view_schema_id);
-      const result = await fetchJSON<SavedViewEnvelope>(
-        apiPath(apiBase, `/api/v1/incidents/${incidentId}/saved-views`),
-        {
-          method: "POST",
-          body: JSON.stringify({
-            view_schema_id: source.view_schema_id,
-            display_name: `${source.display_name} Copy`,
-            scope: "private",
-            query_json: savedViewQueryJsonForPersistence(
-              contract,
-              source.query_json,
-            ),
-            layout_json: savedViewLayoutJsonForPersistence(
-              contract,
-              source.layout_json,
-            ),
-          }),
-        },
-      );
-      if (!result.ok) {
-        throw new Error(parseErrorMessage(result.payload));
-      }
-      const savedView = normalizeSavedViewResource(
-        readEnvelope<SavedViewEnvelope>(result.payload).data,
-      );
-      if (savedView === null) {
-        throw new Error("Saved-view duplicate returned an invalid resource.");
-      }
-      upsertSavedView(savedView);
-      selectSavedView(savedView);
-      return savedView;
-    },
-    [apiBase, incidentId, selectSavedView, upsertSavedView],
-  );
-
-  const updateSavedView = useCallback(
-    async (
-      savedView: SavedViewResource,
-      input: {
-        readonly displayName: string;
-        readonly scope: "private" | "shared";
-      },
-    ) => {
-      const contract = workbookContractForViewSchemaId(
-        savedView.view_schema_id,
-      );
-      const queryState = currentQueryStateForSurface(savedView.view_schema_id);
-      const result = await fetchJSON<SavedViewEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/saved-views/${savedView.saved_view_id}`,
-        ),
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            base_saved_view_version: savedView.saved_view_version,
-            display_name: input.displayName,
-            scope: input.scope,
-            query_json: buildSavedViewQueryJson(contract, queryState),
-            layout_json: buildSavedViewLayoutJson(contract),
-          }),
-        },
-      );
-      if (!result.ok) {
-        throw new Error(parseErrorMessage(result.payload));
-      }
-      const updated = normalizeSavedViewResource(
-        readEnvelope<SavedViewEnvelope>(result.payload).data,
-      );
-      if (updated === null) {
-        throw new Error("Saved-view update returned an invalid resource.");
-      }
-      upsertSavedView(updated);
-      return updated;
-    },
-    [apiBase, currentQueryStateForSurface, incidentId, upsertSavedView],
-  );
-
-  const deleteSavedView = useCallback(
-    async (savedView: SavedViewResource) => {
-      const result = await fetchJSON<Record<string, unknown>>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/saved-views/${savedView.saved_view_id}`,
-        ),
-        { method: "DELETE" },
-      );
-      if (!result.ok) {
-        throw new Error(parseErrorMessage(result.payload));
-      }
-      deleteSavedViewIdentity(savedView, startupSheetRef);
-    },
-    [apiBase, deleteSavedViewIdentity, incidentId, startupSheetRef],
-  );
-
-  const setWorkbookHomeSheetRef = useCallback(async () => {
-    const result = await fetchJSON<Record<string, unknown>>(
-      apiPath(
-        apiBase,
-        `/api/v1/incidents/${incidentId}/workbook-preferences/me`,
-      ),
-      {
-        method: "PUT",
-        body: JSON.stringify({ home_sheet_ref: startupSheetRef }),
-      },
-    );
-    if (!result.ok) {
-      throw new Error(parseErrorMessage(result.payload));
-    }
-  }, [apiBase, incidentId, startupSheetRef]);
-
-  const setWorkbookDefaultSheetRef = useCallback(async () => {
-    const result = await fetchJSON<Record<string, unknown>>(
-      apiPath(
-        apiBase,
-        `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
-      ),
-      {
-        method: "PUT",
-        body: JSON.stringify({ default_sheet_ref: startupSheetRef }),
-      },
-    );
-    if (!result.ok) {
-      throw new Error(parseErrorMessage(result.payload));
-    }
-  }, [apiBase, incidentId, startupSheetRef]);
 
   const entityIndex = useMemo(() => {
     const index: Record<string, EntityRow> = {};
@@ -3813,63 +2109,6 @@ export function WorkbookShell({
     onIncidentAccessLost,
     queryEntityView,
   ]);
-
-  const applyTimelineFilter = useCallback((draft: FilterDraft) => {
-    applyFilterDraftToQuery(
-      setTimelineQueryState,
-      setTimelineFilterDraft,
-      draft,
-    );
-  }, []);
-
-  const applyHostFilter = useCallback((draft: FilterDraft) => {
-    applyFilterDraftToQuery(setHostQueryState, setHostFilterDraft, draft);
-  }, []);
-
-  const applyIdentityFilter = useCallback((draft: FilterDraft) => {
-    applyFilterDraftToQuery(
-      setIdentityQueryState,
-      setIdentityFilterDraft,
-      draft,
-    );
-  }, []);
-
-  const applyAssessmentFilter = useCallback((draft: FilterDraft) => {
-    applyFilterDraftToQuery(
-      setAssessmentQueryState,
-      setAssessmentFilterDraft,
-      draft,
-    );
-  }, []);
-
-  const applyGenericFilter = useCallback((draft: FilterDraft) => {
-    applyFilterDraftToQuery(setGenericQueryState, setGenericFilterDraft, draft);
-  }, []);
-
-  const clearActiveQueryControls = useCallback(() => {
-    if (surface === timelineViewSchemaId) {
-      setTimelineQueryState(emptyWorkbookQueryState());
-      setTimelineFilterDraft(defaultFilterDraft(timelineContract));
-      return;
-    }
-    if (surface === hostsViewSchemaId) {
-      setHostQueryState(emptyWorkbookQueryState());
-      setHostFilterDraft(defaultFilterDraft(hostsContract));
-      return;
-    }
-    if (surface === identitiesViewSchemaId) {
-      setIdentityQueryState(emptyWorkbookQueryState());
-      setIdentityFilterDraft(defaultFilterDraft(identitiesContract));
-      return;
-    }
-    if (surface === assessmentsViewSchemaId) {
-      setAssessmentQueryState(emptyWorkbookQueryState());
-      setAssessmentFilterDraft(defaultFilterDraft(assessmentsContract));
-      return;
-    }
-    setGenericQueryState(emptyWorkbookQueryState());
-    setGenericFilterDraft(defaultFilterDraft(activeContract));
-  }, [activeContract, surface]);
 
   const isSpecializedSurface =
     surface === timelineViewSchemaId ||
@@ -4001,118 +2240,6 @@ export function WorkbookShell({
   );
 
   useEffect(() => {
-    let cancelled = false;
-    const startupQuery = workbookStartupQueryFromURLParams(params);
-    const selectionVersionAtRequest = surfaceSelectionVersionRef.current;
-    const loadStartup = async () => {
-      const result = await fetchJSON<WorkbookStartupEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/workbook-startup${startupQuery}`,
-        ),
-      );
-      if (cancelled || !result.ok) {
-        return;
-      }
-      const envelope = readEnvelope<WorkbookStartupEnvelope>(result.payload);
-      const startup = normalizeWorkbookStartupSelection(envelope.data);
-      if (!startup) {
-        return;
-      }
-      if (selectionVersionAtRequest !== surfaceSelectionVersionRef.current) {
-        return;
-      }
-      const nextSurface = knownWorkbookViewSchemaId(
-        startup.selectedViewSchemaId,
-      );
-      const startupSavedView = normalizeSavedViewResource(
-        startup.selectedSavedView,
-      );
-      if (
-        startup.selectedSheetRef.kind === "saved_view" &&
-        startupSavedView !== null &&
-        startupSavedView.saved_view_id === startup.selectedSheetRef.id
-      ) {
-        const contract = workbookContractForViewSchemaId(nextSurface);
-        upsertSavedView(startupSavedView);
-        applyQueryStateForSurface(
-          nextSurface,
-          savedViewQueryStateForRuntime(contract, startupSavedView),
-        );
-      }
-      applyStartupIdentity({
-        sheetRef: startup.selectedSheetRef,
-        viewSchemaId: nextSurface,
-      });
-    };
-    void loadStartup();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    apiBase,
-    applyQueryStateForSurface,
-    applyStartupIdentity,
-    incidentId,
-    params,
-    upsertSavedView,
-  ]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const nextSavedViews: SavedViewResource[] = [];
-    const loadSavedViews = async () => {
-      let cursorToken: string | null = null;
-      do {
-        const query = new URLSearchParams({ limit: "100" });
-        if (cursorToken !== null) {
-          query.set("cursor_token", cursorToken);
-        }
-        const result = await fetchJSON<SavedViewListEnvelope>(
-          apiPath(
-            apiBase,
-            `/api/v1/incidents/${incidentId}/saved-views?${query.toString()}`,
-          ),
-        );
-        if (cancelled) {
-          return;
-        }
-        if (!result.ok) {
-          handleWorkbookLoadFailure(
-            parseErrorMessage(result.payload),
-            "Saved views load failed.",
-            onIncidentAccessLost,
-          );
-          replaceSavedViews([]);
-          return;
-        }
-
-        const envelope = readEnvelope<SavedViewListEnvelope>(result.payload);
-        for (const savedView of envelope.data.saved_views) {
-          const normalized = normalizeSavedViewResource(savedView);
-          if (normalized !== null) {
-            nextSavedViews.push(normalized);
-          }
-        }
-        const paging = envelope.meta?.paging;
-        cursorToken =
-          paging?.has_more === true && paging.next_cursor
-            ? paging.next_cursor
-            : null;
-      } while (cursorToken !== null);
-
-      if (!cancelled) {
-        replaceSavedViews(nextSavedViews);
-      }
-    };
-
-    void loadSavedViews();
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBase, incidentId, onIncidentAccessLost, replaceSavedViews]);
-
-  useEffect(() => {
     void Promise.all([loadEntities(), loadSessionRole()]);
   }, [loadEntities, loadSessionRole]);
 
@@ -4127,11 +2254,9 @@ export function WorkbookShell({
     if (startupSheetRef.kind === "saved_view") {
       return;
     }
-    setGenericQueryState(emptyWorkbookQueryState());
-    setGenericFilterDraft(defaultFilterDraft(activeContract));
     setGenericRows([]);
     setGenericLoadError(null);
-  }, [activeContract, startupSheetRef.kind]);
+  }, [startupSheetRef.kind]);
 
   useEffect(() => {
     void sheetReloadToken;
@@ -4142,22 +2267,6 @@ export function WorkbookShell({
     void sheetReloadToken;
     void loadAssessmentSurface();
   }, [loadAssessmentSurface, sheetReloadToken]);
-
-  useEffect(() => {
-    const next = new URLSearchParams(window.location.search);
-    next.set("incident_id", incidentId);
-    if (startupSheetRef.kind === "saved_view") {
-      next.delete("view_schema_id");
-      next.set("sheet_ref_kind", startupSheetRef.kind);
-      next.set("sheet_ref_id", startupSheetRef.id);
-    } else {
-      next.set("view_schema_id", surface);
-      next.delete("sheet_ref_kind");
-      next.delete("sheet_ref_id");
-    }
-    next.delete("surface");
-    window.history.replaceState({}, "", `/?${next.toString()}`);
-  }, [incidentId, startupSheetRef, surface]);
 
   useEffect(() => {
     if (
@@ -4202,131 +2311,6 @@ export function WorkbookShell({
     };
   }, [pendingGridFocusSurface, setPendingGridFocusSurface, surface]);
 
-  const activeQueryControls =
-    surface === timelineViewSchemaId
-      ? {
-          contract: timelineContract,
-          filterDraft: timelineFilterDraft,
-          onApplyFilter: applyTimelineFilter,
-          onClearAll: clearActiveQueryControls,
-          onFilterDraftChange: setTimelineFilterDraft,
-          onGroupByChange: (groupBy: string | null) => {
-            setTimelineQueryState((current) =>
-              updateGroupBy(timelineContract, current, groupBy),
-            );
-          },
-          onRemoveFilter: (fieldKey: string) => {
-            setTimelineQueryState((current) =>
-              removeFilterField(current, fieldKey),
-            );
-          },
-          onToggleSort: (fieldKey: string) => {
-            setTimelineQueryState((current) =>
-              toggleSortField(timelineContract, current, fieldKey),
-            );
-          },
-          queryState: timelineQueryState,
-          surface: timelineViewSchemaId as WorkbookSurface,
-        }
-      : surface === hostsViewSchemaId
-        ? {
-            contract: hostsContract,
-            filterDraft: hostFilterDraft,
-            onApplyFilter: applyHostFilter,
-            onClearAll: clearActiveQueryControls,
-            onFilterDraftChange: setHostFilterDraft,
-            onGroupByChange: (groupBy: string | null) => {
-              setHostQueryState((current) =>
-                updateGroupBy(hostsContract, current, groupBy),
-              );
-            },
-            onRemoveFilter: (fieldKey: string) => {
-              setHostQueryState((current) =>
-                removeFilterField(current, fieldKey),
-              );
-            },
-            onToggleSort: (fieldKey: string) => {
-              setHostQueryState((current) =>
-                toggleSortField(hostsContract, current, fieldKey),
-              );
-            },
-            queryState: hostQueryState,
-            surface: hostsViewSchemaId as WorkbookSurface,
-          }
-        : surface === identitiesViewSchemaId
-          ? {
-              contract: identitiesContract,
-              filterDraft: identityFilterDraft,
-              onApplyFilter: applyIdentityFilter,
-              onClearAll: clearActiveQueryControls,
-              onFilterDraftChange: setIdentityFilterDraft,
-              onGroupByChange: (groupBy: string | null) => {
-                setIdentityQueryState((current) =>
-                  updateGroupBy(identitiesContract, current, groupBy),
-                );
-              },
-              onRemoveFilter: (fieldKey: string) => {
-                setIdentityQueryState((current) =>
-                  removeFilterField(current, fieldKey),
-                );
-              },
-              onToggleSort: (fieldKey: string) => {
-                setIdentityQueryState((current) =>
-                  toggleSortField(identitiesContract, current, fieldKey),
-                );
-              },
-              queryState: identityQueryState,
-              surface: identitiesViewSchemaId as WorkbookSurface,
-            }
-          : surface === assessmentsViewSchemaId
-            ? {
-                contract: assessmentsContract,
-                filterDraft: assessmentFilterDraft,
-                onApplyFilter: applyAssessmentFilter,
-                onClearAll: clearActiveQueryControls,
-                onFilterDraftChange: setAssessmentFilterDraft,
-                onGroupByChange: (groupBy: string | null) => {
-                  setAssessmentQueryState((current) =>
-                    updateGroupBy(assessmentsContract, current, groupBy),
-                  );
-                },
-                onRemoveFilter: (fieldKey: string) => {
-                  setAssessmentQueryState((current) =>
-                    removeFilterField(current, fieldKey),
-                  );
-                },
-                onToggleSort: (fieldKey: string) => {
-                  setAssessmentQueryState((current) =>
-                    toggleSortField(assessmentsContract, current, fieldKey),
-                  );
-                },
-                queryState: assessmentQueryState,
-                surface: assessmentsViewSchemaId as WorkbookSurface,
-              }
-            : {
-                contract: activeContract,
-                filterDraft: genericFilterDraft,
-                onApplyFilter: applyGenericFilter,
-                onClearAll: clearActiveQueryControls,
-                onFilterDraftChange: setGenericFilterDraft,
-                onGroupByChange: (groupBy: string | null) => {
-                  setGenericQueryState((current) =>
-                    updateGroupBy(activeContract, current, groupBy),
-                  );
-                },
-                onRemoveFilter: (fieldKey: string) => {
-                  setGenericQueryState((current) =>
-                    removeFilterField(current, fieldKey),
-                  );
-                },
-                onToggleSort: (fieldKey: string) => {
-                  setGenericQueryState((current) =>
-                    toggleSortField(activeContract, current, fieldKey),
-                  );
-                },
-                queryState: genericQueryState,
-                surface: surface as WorkbookSurface,
-              };
   const deferControlsFocus = useCallback(
     (resolveTarget: () => HTMLElement | null) => {
       window.setTimeout(() => {
@@ -4369,20 +2353,6 @@ export function WorkbookShell({
     controlsDrawerSection === null
       ? requireIncidentControlsMenuItem(lastControlsSection)
       : requireIncidentControlsMenuItem(controlsDrawerSection);
-  const activeSavedView =
-    startupSheetRef.kind === "saved_view"
-      ? (savedViews.find(
-          (savedView) => savedView.saved_view_id === startupSheetRef.id,
-        ) ?? null)
-      : null;
-  const activeSavedViewModified = savedViewConfigurationIsModified({
-    contract: activeContract,
-    currentQueryState: currentQueryStateForSurface(activeContract.viewSchemaId),
-    savedView:
-      activeSavedView?.view_schema_id === activeContract.viewSchemaId
-        ? activeSavedView
-        : null,
-  });
   const activeSurfaceIsBuiltIn = requiredBuiltInWorkbookSurfaceIds.some(
     (viewSchemaId) => viewSchemaId === surface,
   );
@@ -4901,33 +2871,6 @@ const gridShellStyle = {
   ...workbookSurfaceGridShellStyle,
 } satisfies CSSProperties;
 
-const actionStackStyle = {
-  display: "grid",
-  gap: "0.5rem",
-};
-
-const genericMutationPanelStyle = {
-  ...workbookSurfaceInspectorPanelStyle,
-  display: "grid",
-  alignContent: "start",
-  gap: "0.75rem",
-  background: "var(--ct-colors-surface-2)",
-};
-
-const genericEditRowStyle = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr)",
-  gap: "0.6rem",
-  alignItems: "stretch",
-};
-
-const genericDraftInspectorFieldsStyle = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
-  gap: "0.75rem",
-  alignItems: "end",
-};
-
 const inputStyle = {
   boxSizing: "border-box" as const,
   display: "block",
@@ -4976,54 +2919,6 @@ const rowMenuButtonStyle = {
 
 const draftCellPlaceholderStyle = {
   color: "var(--ct-colors-ink-subtle)",
-};
-
-const genericErrorTextStyle = {
-  margin: 0,
-  color: "var(--ct-colors-semantic-conflict)",
-  fontWeight: 700,
-};
-
-const statusStripErrorStyle = {
-  minWidth: 0,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap" as const,
-  color: "var(--ct-colors-semantic-conflict)",
-  fontWeight: 700,
-};
-
-const evidenceAccessMessageStyle = {
-  margin: 0,
-  fontSize: "0.85rem",
-  color: "var(--ct-colors-ink-muted)",
-};
-
-const evidencePreviewPanelStyle = {
-  ...workbookSurfaceOverlayPanelStyle,
-  display: "grid",
-  gap: "0.75rem",
-  padding: "1rem",
-  borderRadius: "var(--ct-rounded-lg)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-1)",
-  boxShadow: "var(--ct-elevation-popover)",
-};
-
-const evidencePreviewHeaderStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "1rem",
-  alignItems: "start",
-};
-
-const evidencePreviewFrameStyle = {
-  width: "100%",
-  blockSize: "min(28rem, 34vh)",
-  minHeight: "12rem",
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-md)",
-  background: "var(--ct-colors-surface-2)",
 };
 
 const labelStyle = {
@@ -5117,12 +3012,6 @@ const tagChipStyle = {
   border: "var(--ct-component-chip-border)",
   background: "var(--ct-component-chip-backgroundColor)",
   color: "var(--ct-component-chip-textColor)",
-};
-
-const inlineButtonRowStyle = {
-  display: "flex",
-  gap: "0.5rem",
-  flexWrap: "wrap" as const,
 };
 
 const noticeTitleStyle = {
