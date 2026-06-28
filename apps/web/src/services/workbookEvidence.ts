@@ -234,6 +234,16 @@ export function evidencePublicErrorMessage(
   return statusText ?? fallback;
 }
 
+export function evidenceAttachPublicErrorMessage(
+  error: unknown,
+  fallback = "Evidence attach failed.",
+): string {
+  if (error instanceof Error) {
+    return safeEvidencePublicText(error.message) ?? fallback;
+  }
+  return safeEvidencePublicText(error) ?? fallback;
+}
+
 export async function issueEvidenceAccessHandle({
   apiBase,
   evidenceRecordId,

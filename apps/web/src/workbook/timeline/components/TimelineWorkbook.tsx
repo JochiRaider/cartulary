@@ -1,14 +1,9 @@
 import {
-  buildGridPresentationRows,
   type GridCellAnchor,
   type GridColumn,
   type GridDensity,
-  type GridNavigationIntent,
-  type GridPasteTargetResolution,
   type GridRow,
-  navigateGridCellAnchor,
   reconcileRecordRows,
-  resolveGridPasteTargets,
 } from "@cartulary/grid-adapter";
 import {
   conflictMarkerTestId,
@@ -29,12 +24,10 @@ import {
   timelineCollectionInputTestId,
   timelineInspectorSectionTestId,
   timelineMutationSubstrateReadyTestId,
-  timelineRowVersionTestId,
   timelineScalarEditorTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 import {
-  type InspectorFeatureGroup,
   requireViewContract,
   resolveHeaderSortFieldKey,
   type ViewContract,
@@ -57,15 +50,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { apiPath } from "../../../services/browserApi";
-import {
-  fetchJSON,
-  parseErrorMessage,
-  readEnvelope,
-} from "../../../services/workbookApi";
-import {
-  createAndAttachEvidenceBlob,
-  evidencePublicErrorMessage,
-} from "../../../services/workbookEvidence";
+import { fetchJSON, readEnvelope } from "../../../services/workbookApi";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
 import { WorkbookGridControls } from "../../components/WorkbookGridControls";
 import { WorkbookSheetToolbar } from "../../components/WorkbookSheetToolbar";
@@ -76,11 +61,6 @@ import {
   workbookSurfaceOverlayPanelStyle,
 } from "../../components/WorkbookSurfaceFrame";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
-import {
-  buildGenericCreatePayload,
-  genericCreateMinimumMessage,
-  initialGenericCreateDraft,
-} from "../../models/genericWorkbookModel";
 import { selectInspectorConfig } from "../../models/workbookInspectorModel";
 import {
   buildQueryRequest,
@@ -103,7 +83,6 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
-import { clipboardGridDimensions } from "../../utils/workbookClipboard";
 import {
   captureViewportAnchor,
   computeRestoredViewportScroll,
@@ -120,42 +99,45 @@ import {
   buildStableMutationSignature,
   deriveWorkbookSaveState,
   type PendingReplayUnitInput,
-  parsePendingReplayPublicError,
-  pendingReplayCapacity,
   sameFieldConflictQueueKey,
   type WorkbookSaveStateConflictAnchor,
 } from "../../utils/workbookPendingQueue";
-import {
-  isPresenceRecord,
-  presenceMatchesSheet,
-} from "../../utils/workbookPresence";
+import { presenceMatchesSheet } from "../../utils/workbookPresence";
 import { visuallyHiddenStyle } from "../../utils/workbookStyles";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
 import { useTimelineCommittedRows } from "../hooks/useTimelineCommittedRows";
 import { useTimelineConflicts } from "../hooks/useTimelineConflicts";
+import { useTimelineCreateRelatedWorkflow } from "../hooks/useTimelineCreateRelatedWorkflow";
 import { useTimelineEvidenceActions } from "../hooks/useTimelineEvidenceActions";
+import { useTimelineEvidenceAttach } from "../hooks/useTimelineEvidenceAttach";
+import { useTimelineGridAnchorController } from "../hooks/useTimelineGridAnchorController";
 import {
   type TimelineGridInteractionRefs,
   useTimelineGridInteractions,
 } from "../hooks/useTimelineGridInteractions";
+import { useTimelineHistoryActions } from "../hooks/useTimelineHistoryActions";
 import { useTimelineHistoryState } from "../hooks/useTimelineHistoryState";
 import { useTimelineInspectorSelection } from "../hooks/useTimelineInspectorSelection";
+import { useTimelineLiveUpdateController } from "../hooks/useTimelineLiveUpdateController";
 import {
   type TimelineLiveUpdateRefs,
   type TimelinePresenceDraft,
   useTimelineLiveUpdates,
 } from "../hooks/useTimelineLiveUpdates";
+import { useTimelineMentionActions } from "../hooks/useTimelineMentionActions";
 import { useTimelineMentions } from "../hooks/useTimelineMentions";
+import {
+  type PendingReplayRuntimeMeta,
+  useTimelinePendingReplayController,
+} from "../hooks/useTimelinePendingReplayController";
 import {
   beginTimelinePendingRefreshBlock,
   createTimelinePendingQueueRuntime,
   ensureTimelineTabClientInstanceId,
   finishTimelinePendingRefreshBlock,
   refreshBlocksTimelinePendingRecord,
-  refreshBlocksTimelinePendingUnit,
   type TimelinePendingQueueRuntime,
   type TimelinePendingRefreshBlockScope,
-  type TimelinePendingReplayAdmissionRequest,
   timelinePendingQueueSnapshot,
   useTimelinePendingSaves,
 } from "../hooks/useTimelinePendingSaves";
@@ -164,44 +146,33 @@ import { useTimelineWorkbookRuntime } from "../hooks/useTimelineWorkbookRuntime"
 import { parseSameFieldConflict } from "../models/timelineConflictModel";
 import { buildTimelineGridRows } from "../models/timelineRowsModel";
 import {
-  beginTimelineEntityRefreshBarrier,
   settleTimelineViewportContinuityBarrier,
   type TimelineEntityCatalogInput,
   type TimelineEntityRefreshSettleState,
   type TimelineViewportContinuityBarrier,
-  timelineEntityRefreshExpectationForMention,
   timelineViewportContinuityBarrierSatisfied,
-  withTimelineEntityRefreshExpectation,
 } from "../models/timelineViewportContinuityModel";
 import {
   type AutoResolutionNotice,
   buildAutoResolutionNotices,
   type CollectionItem,
   type DismissedMention,
-  type InspectorMention,
 } from "../models/workbookMentionChips";
 import {
   applyViewRowPatch,
-  buildAssessmentCreatePayload,
-  buildAttachedEvidenceCreatePayload,
-  buildAttachedEvidencePatchPayload,
   buildCollectionPatchIntent,
   buildCreatePayload,
   buildExpandedTimelineColumnWidths,
   buildScalarPatchIntent,
   type CollectionDraftKey,
   type CollectionFieldKey,
-  clipboardTextLooksTabular,
-  confidenceScoreFromBand,
   createDraftRow,
   createDraftRowForKey,
   decideWorkbookRecordFreshness,
   type EntityApiRow,
-  ensureDraftRow,
   type FocusFieldKey,
   inputFocusKey,
   type LocalConflictState,
-  materializePendingReplayPayload,
   normalizeTimelineFullRow,
   normalizeTimelinePatchCells,
   type RowValues,
@@ -216,8 +187,6 @@ import {
   type TimelineScalarEditorSurface,
   timelineCollectionBindings,
   timelineColumnWidth,
-  timelineFieldBinding,
-  timelineFocusFieldForFieldKey,
   timelineGroupLabel,
   timelineInspectorBindings,
   timelineRelationshipLabel,
@@ -226,29 +195,14 @@ import {
   timelineScalarEditorSurfaces,
   timelineVisibleBindings,
   validateTimelineViewSchemaId,
-  type WorkbookRecordFreshnessDecision,
   type WorkbookRow,
-  type WorkbookVersionedRecord,
 } from "../models/workbookTimelineModel";
 import {
   buildTimelineConflictResolutionPayload,
-  buildTimelineDeleteRestorePayload,
   buildTimelineRecordActionPayload,
-  buildTimelineRollbackPayload,
-  dispatchTimelinePendingReplayMutation,
   type TimelineMutationEnvelope,
-  type TimelineMutationFetchResult,
 } from "../services/timelineMutationRequests";
-import {
-  buildMentionActionPayload,
-  buildMentionPatchPayload,
-  buildWorkbookPresenceUpdateMessage,
-  buildWorkbookSocketSessionMessage,
-  isRecordChangedMessage,
-  type MentionResolutionAction,
-  type RecordChangedPayload,
-  shouldIgnoreSelfOriginatedRecordChange,
-} from "../services/workbookCollaborationMessages";
+import type { RecordChangedPayload } from "../services/workbookCollaborationMessages";
 import {
   createWorkbookSocketLifecycleState,
   type WorkbookSocketLifecycleAction,
@@ -265,13 +219,7 @@ import {
 import { TimelineConflictResolver } from "./TimelineConflictResolver";
 import { TimelineEvidencePanel } from "./TimelineEvidencePanel";
 import { TimelineGridSurface } from "./TimelineGridSurface";
-import {
-  type RecordHistoryData,
-  type RecordHistoryItem,
-  type RecordHistoryRollbackAction,
-  type RowHistoryPendingAction,
-  TimelineHistoryPanel,
-} from "./TimelineHistoryPanel";
+import { TimelineHistoryPanel } from "./TimelineHistoryPanel";
 import {
   TimelineCellPresenceMarker,
   TimelineRowGutterContent,
@@ -285,18 +233,6 @@ import {
   TimelineWorkbookNotices,
   timelinePendingQueueMessage,
 } from "./TimelineWorkbookNotices";
-
-export type { WorkbookRecordFreshnessDecision, WorkbookVersionedRecord };
-export {
-  buildAssessmentCreatePayload,
-  buildCreatePayload,
-  clipboardTextLooksTabular,
-  confidenceScoreFromBand,
-  createDraftRow,
-  decideWorkbookRecordFreshness,
-  ensureDraftRow,
-  pendingReplayCapacity,
-};
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const timelineInspectorConfig = selectInspectorConfig(timelineContract);
@@ -322,15 +258,6 @@ export type SaveState = "Syncing" | "Saved" | "Conflict";
 type FilterDraftSetter = Dispatch<SetStateAction<FilterDraft>>;
 type WorkbookQueryStateSetter = Dispatch<SetStateAction<WorkbookQueryState>>;
 export type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
-
-type TimelineCreateRelatedWorkflowState = {
-  readonly featureGroup: InspectorFeatureGroup;
-  readonly targetContract: ViewContract;
-  readonly sourceRowKey: string;
-  readonly draft: Record<string, string>;
-  readonly message: string | null;
-  readonly isSubmitting: boolean;
-};
 
 function rowStillHasAutoResolvedNotice(
   row: WorkbookRow,
@@ -379,28 +306,6 @@ type WorkbookQueryEnvelope = {
   };
 };
 
-type MentionActionEnvelope = {
-  data: {
-    incident_id: string;
-    entity_mention: {
-      entity_mention_id: string;
-      source_record_id: string;
-      source_field_key: string;
-      entity_type: "host" | "identity" | string;
-      raw_text: string;
-      resolution_status: "unresolved" | "resolved" | "dismissed" | string;
-      resolved_record_id: string | null;
-      row_version: number;
-      resolution_method: string | null;
-    };
-    source_record: {
-      record_id: string;
-      row_version: number;
-    };
-    change_set_id: string;
-  };
-};
-
 type TimelineClipboardPasteEnvelope = {
   data: {
     view_schema_id: string;
@@ -409,25 +314,6 @@ type TimelineClipboardPasteEnvelope = {
     conflicts?: SameFieldConflictPayload[];
   };
 };
-
-type TimelinePasteTargetResolution = {
-  anchor: GridCellAnchor | null;
-  targetResolution: GridPasteTargetResolution;
-};
-
-type PendingReplayRuntimeMeta = {
-  focusField: FocusFieldKey;
-  focusKey: string;
-  surface: TimelineScalarEditorSurface;
-  rowSnapshot: WorkbookRow;
-  continueOnFreshDraft: boolean;
-  detectAutoResolution: boolean;
-  promoteToCommittedRowInspect: boolean;
-  viewportContinuityToken: number;
-};
-
-type PendingReplayAdmissionRequest =
-  TimelinePendingReplayAdmissionRequest<PendingReplayRuntimeMeta>;
 
 type PendingQueueRuntime =
   TimelinePendingQueueRuntime<PendingReplayRuntimeMeta>;
@@ -460,155 +346,6 @@ type TimelineActionEnvelope = {
     change_set_id: string;
     reason: string | null;
     replacement_record_id: string | null;
-  };
-};
-
-type RecordHistoryEnvelope = {
-  data: RecordHistoryData;
-};
-
-type RecordDeleteRestoreEnvelope = {
-  data: {
-    record_id: string;
-    incident_id: string;
-    row_version: number;
-    deleted: boolean;
-    deleted_at: string | null;
-    deleted_by_user_id: string | null;
-    change_set_id: string;
-  };
-};
-
-type RecordRollbackEnvelope = {
-  data: {
-    incident_id: string;
-    record_id: string;
-    row_version: number;
-    target: Record<string, unknown>;
-    target_change_set_id: string;
-    rollback_change_set_id: string;
-    affected_record_ids: string[];
-  };
-};
-
-const rowHistoryRollbackActionOrder = [
-  "history_entry",
-  "change_set",
-  "row_restore",
-] as const satisfies readonly RecordHistoryRollbackAction[];
-
-export function buildRecordRollbackTargetFromHistoryAction(
-  item: RecordHistoryItem,
-  action: RecordHistoryRollbackAction,
-): Record<string, unknown> | null {
-  if (!item.available_rollback_actions.includes(action)) {
-    return null;
-  }
-  if (action === "history_entry") {
-    return typeof item.history_entry_ref === "string" &&
-      item.history_entry_ref.trim() !== ""
-      ? { kind: "history_entry", history_entry_ref: item.history_entry_ref }
-      : null;
-  }
-  if (action === "change_set") {
-    return typeof item.change_set_id === "string" &&
-      item.change_set_id.trim() !== ""
-      ? { kind: "change_set", change_set_id: item.change_set_id }
-      : null;
-  }
-  return isPositiveInteger(item.revision_no)
-    ? { kind: "row_restore", restore_to_revision_no: item.revision_no }
-    : null;
-}
-
-function normalizeRecordHistoryData(
-  data: RecordHistoryData,
-): RecordHistoryData {
-  if (!Array.isArray(data.items)) {
-    throw new Error("row history items must be an array");
-  }
-  const seenItemRefs = new Set<string>();
-  for (const item of data.items) {
-    if (!isNonEmptyString(item.history_item_ref)) {
-      throw new Error("row history item is missing history_item_ref");
-    }
-    if (seenItemRefs.has(item.history_item_ref)) {
-      throw new Error("row history item has duplicate history_item_ref");
-    }
-    seenItemRefs.add(item.history_item_ref);
-    if (!isNonEmptyString(item.change_set_id)) {
-      throw new Error("row history item is missing change_set_id");
-    }
-    if (
-      item.history_entry_ref !== undefined &&
-      !isNonEmptyString(item.history_entry_ref)
-    ) {
-      throw new Error("row history item has invalid history_entry_ref");
-    }
-    if (
-      item.revision_no !== undefined &&
-      !isPositiveInteger(item.revision_no)
-    ) {
-      throw new Error("row history item has invalid revision_no");
-    }
-    validateRowHistoryActions(item);
-  }
-  return data;
-}
-
-function validateRowHistoryActions(item: RecordHistoryItem) {
-  if (!Array.isArray(item.available_rollback_actions)) {
-    throw new Error("row history actions must be an array");
-  }
-  let previousIndex = -1;
-  for (const action of item.available_rollback_actions as unknown[]) {
-    if (!isRowHistoryRollbackAction(action)) {
-      throw new Error("row history action token is invalid");
-    }
-    const actionIndex = rowHistoryRollbackActionOrder.indexOf(action);
-    if (actionIndex <= previousIndex) {
-      throw new Error("row history actions are not canonical");
-    }
-    previousIndex = actionIndex;
-    if (buildRecordRollbackTargetFromHistoryAction(item, action) === null) {
-      throw new Error("row history action is missing its selector");
-    }
-  }
-}
-
-function isRowHistoryRollbackAction(
-  value: unknown,
-): value is RecordHistoryRollbackAction {
-  return (
-    value === "history_entry" ||
-    value === "change_set" ||
-    value === "row_restore"
-  );
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim() !== "";
-}
-
-function isPositiveInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value > 0;
-}
-
-type SessionEnvelope = {
-  data: {
-    user_id: string;
-    memberships: Array<{
-      incident_id: string;
-      role: IncidentRole;
-    }>;
-  };
-};
-
-type ViewMutationEnvelope = {
-  data: {
-    view_schema_id: string;
-    change_set_id: string;
-    row: EntityApiRow;
   };
 };
 
@@ -647,16 +384,6 @@ type ViewportContinuityRequest = {
   barrier: TimelineViewportContinuityBarrier;
 };
 
-function isCollectionDraftKey(
-  focusField: FocusFieldKey,
-): focusField is CollectionDraftKey {
-  return (
-    focusField === "hostRefs" ||
-    focusField === "identityRefs" ||
-    focusField === "tags"
-  );
-}
-
 type LoadRowsOptions = {
   showLoading: boolean;
   freshnessRetryDepth?: number;
@@ -665,62 +392,6 @@ type LoadRowsOptions = {
 
 function normalizeValue(value: string): string {
   return value.trim();
-}
-
-function recordIdFromMutationEnvelope(
-  envelope: TimelineMutationEnvelope,
-): string | null {
-  const row = envelope.data.row;
-  if (row && typeof row === "object" && "record_id" in row) {
-    const recordId = (row as { record_id?: unknown }).record_id;
-    return typeof recordId === "string" && recordId.trim() !== ""
-      ? recordId
-      : null;
-  }
-  return null;
-}
-
-function applyTimelineCreateRelatedSeedBindings(
-  draft: Record<string, string>,
-  featureGroup: InspectorFeatureGroup,
-  selectedRow: WorkbookRow,
-): Record<string, string> {
-  const next = { ...draft };
-  for (const binding of featureGroup.seedBindings) {
-    const value = timelineCreateRelatedSeedValue(binding.source, selectedRow);
-    if (value !== null) {
-      next[binding.targetFieldKey] = value;
-    }
-  }
-  return next;
-}
-
-function timelineCreateRelatedSeedValue(
-  source: InspectorFeatureGroup["seedBindings"][number]["source"],
-  selectedRow: WorkbookRow,
-): string | null {
-  switch (source.kind) {
-    case "selected_record_id":
-      return selectedRow.recordId;
-    case "selected_field_value": {
-      if (source.sourceFieldKey === undefined) {
-        return null;
-      }
-      if (selectedRow.rawRow === null) {
-        return null;
-      }
-      const value = selectedRow.rawRow.cells[source.sourceFieldKey]?.value;
-      const text = stringifyGridValue(value).trim();
-      return text === "" ? null : text;
-    }
-    case "literal":
-      if (source.value === null || source.value === undefined) {
-        return null;
-      }
-      return typeof source.value === "string"
-        ? source.value
-        : JSON.stringify(source.value);
-  }
 }
 
 function recordWorkbookTiming(
@@ -763,10 +434,6 @@ function resolveGridScrollElement(
     );
   }
   return scrollport;
-}
-
-function socketIsOpen(socket: WebSocket) {
-  return socket.readyState === WebSocket.OPEN;
 }
 
 function ensureDraftRowWithFreshIndex(
@@ -885,79 +552,6 @@ function reconcileCommittedRowsWithLocalDrafts({
       nextDraftIndex,
     ).rows,
   };
-}
-
-function timelineClipboardShouldDispatchTabular(
-  fieldKey: string,
-  clipboardText: string,
-) {
-  if (clipboardTextLooksTabular(clipboardText)) {
-    return true;
-  }
-  return (
-    fieldKey === "timeline.activity_utc_text" &&
-    clipboardGridDimensions(clipboardText).columnCount > 1
-  );
-}
-
-function timelinePasteColumnsFromStart(
-  columns: readonly GridColumn<WorkbookRow>[],
-  startFieldKey: string,
-  pastedColumnCount: number,
-) {
-  const startColumnIndex = columns.findIndex(
-    (column) => column.fieldKey === startFieldKey,
-  );
-  if (startColumnIndex < 0) {
-    return null;
-  }
-  const targetColumns = columns
-    .slice(startColumnIndex, startColumnIndex + pastedColumnCount)
-    .map((column) => column.fieldKey);
-  return targetColumns.length < 1 ? null : targetColumns;
-}
-
-function resolveDraftTimelinePasteTargets({
-  columns,
-  pastedColumnCount,
-  pastedRowCount,
-  startFieldKey,
-}: {
-  readonly columns: readonly GridColumn<WorkbookRow>[];
-  readonly pastedColumnCount: number;
-  readonly pastedRowCount: number;
-  readonly startFieldKey: string;
-}): GridPasteTargetResolution | null {
-  const targetColumns = timelinePasteColumnsFromStart(
-    columns,
-    startFieldKey,
-    pastedColumnCount,
-  );
-  if (targetColumns === null || pastedRowCount < 1) {
-    return null;
-  }
-  return {
-    columns: targetColumns,
-    rowTargets: Array.from({ length: pastedRowCount }, (_, createIndex) => ({
-      createIndex,
-      kind: "create" as const,
-    })),
-  };
-}
-
-function websocketPath(base: string | undefined, path: string): string {
-  const trimmedBase = (base ?? "").trim();
-  if (trimmedBase === "") {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${protocol}//${window.location.host}${path}`;
-  }
-
-  const target = new URL(trimmedBase);
-  target.protocol = target.protocol === "https:" ? "wss:" : "ws:";
-  target.pathname = path;
-  target.search = "";
-  target.hash = "";
-  return target.toString();
 }
 
 function pruneDismissedMentions(
@@ -1125,8 +719,6 @@ export function TimelineWorkbook({
   const timelineAnchorRowsRef = useRef<readonly GridRow<WorkbookRow>[]>([]);
   const gridShellRef = useRef<HTMLDivElement | null>(null);
   const [timelineGridShellWidth, setTimelineGridShellWidth] = useState(0);
-  const [createRelatedWorkflow, setCreateRelatedWorkflow] =
-    useState<TimelineCreateRelatedWorkflowState | null>(null);
   const viewportContinuityTokenRef = useRef(1);
   const timelineGridInteractionRefs: TimelineGridInteractionRefs = {
     gridShellRef,
@@ -1343,39 +935,6 @@ export function TimelineWorkbook({
   const activeSheetRuntimeRef = useRef(activeSheetRef);
   activeSheetRuntimeRef.current = activeSheetRef;
 
-  useEffect(() => {
-    currentPresenceRef.current = currentPresence;
-    if (
-      activeSocketRef.current === null ||
-      !socketEstablishedRef.current ||
-      !socketIsOpen(activeSocketRef.current)
-    ) {
-      return;
-    }
-    if (presenceUpdateTimerRef.current !== null) {
-      window.clearTimeout(presenceUpdateTimerRef.current);
-    }
-    presenceUpdateTimerRef.current = window.setTimeout(() => {
-      presenceUpdateTimerRef.current = null;
-      const target = activeSocketRef.current;
-      if (
-        target === null ||
-        !socketEstablishedRef.current ||
-        !socketIsOpen(target)
-      ) {
-        return;
-      }
-      target.send(
-        JSON.stringify(
-          buildWorkbookPresenceUpdateMessage(
-            currentPresenceRef.current,
-            activeSheetRuntimeRef.current,
-          ),
-        ),
-      );
-    }, 150);
-  }, [currentPresence]);
-
   const updateTimelineSurfaceFocusAnchor = useCallback(
     (recordId: string | null, fieldKey: string) => {
       updateTimelineFocusAnchor(recordId, fieldKey, timelineViewSchemaId);
@@ -1448,10 +1007,6 @@ export function TimelineWorkbook({
   const queryBody = useMemo(
     () => JSON.stringify(buildQueryRequest(timelineContract, queryState)),
     [queryState],
-  );
-  const changeSocketURL = useMemo(
-    () => websocketPath(apiBase, `/ws/v1/incidents/${incidentId}`),
-    [apiBase, incidentId],
   );
   const nextDraftIndex = useCallback(() => {
     const value = draftCounterRef.current;
@@ -1735,53 +1290,20 @@ export function TimelineWorkbook({
     return rowInputRefs.current.get(focusKey) ?? null;
   }, []);
 
-  const resolveTimelineAnchorElement = useCallback(
-    (anchor: GridCellAnchor) => {
-      const focusField = timelineFocusFieldForFieldKey(anchor.fieldKey);
-      if (focusField !== null) {
-        const inputElement = resolveInputElement(
-          inputFocusKey(anchor.recordId, focusField, "grid"),
-        );
-        if (inputElement !== null) {
-          return inputElement;
-        }
-      }
-      const binding = timelineFieldBinding(anchor.fieldKey);
-      if (binding.kind === "collection") {
-        const collectionInput = document.querySelector<HTMLInputElement>(
-          dataTestIdSelector(
-            timelineCollectionInputTestId(anchor.recordId, anchor.fieldKey),
-          ),
-        );
-        if (collectionInput !== null) {
-          return collectionInput;
-        }
-      }
-      const testId =
-        anchor.fieldKey === "timeline.capture_state"
-          ? gridRowGutterTestId(timelineViewSchemaId, anchor.recordId)
-          : anchor.fieldKey === "row_version"
-            ? timelineRowVersionTestId(anchor.recordId)
-            : rowCellTestId(anchor.recordId, anchor.fieldKey);
-      return document.querySelector<HTMLElement>(dataTestIdSelector(testId));
-    },
-    [resolveInputElement],
-  );
-
-  const restoreTimelineFocusAnchor = useCallback(
-    (anchor: GridCellAnchor) => {
-      const element = resolveTimelineAnchorElement(anchor);
-      if (element === null) {
-        return false;
-      }
-      if (!element.hasAttribute("tabindex")) {
-        element.tabIndex = -1;
-      }
-      element.focus({ preventScroll: true });
-      return document.activeElement === element;
-    },
-    [resolveTimelineAnchorElement],
-  );
+  const {
+    currentTimelineAnchorFor,
+    navigateTimelineFocusAnchor,
+    resolveTimelinePasteTargetResolution,
+    restoreTimelineFocusAnchor,
+  } = useTimelineGridAnchorController({
+    groupBy: queryState.groupBy,
+    resolveInputElement,
+    rowsRef,
+    timelineAnchorColumnsRef,
+    timelineAnchorRowsRef,
+    updateTimelineSurfaceFocusAnchor,
+    updateWorkbookFocusAnchor,
+  });
 
   const resolveViewportContinuityElement = useCallback(
     (target: ViewportContinuityTarget) => {
@@ -2311,6 +1833,24 @@ export function TimelineWorkbook({
 
   loadRowsRef.current = loadRows;
 
+  const {
+    beginWorkflow: beginCreateRelatedWorkflow,
+    cancelWorkflow: cancelCreateRelatedWorkflow,
+    submitWorkflow: submitCreateRelatedWorkflow,
+    updateWorkflowDraft: updateCreateRelatedWorkflowDraft,
+    workflow: createRelatedWorkflow,
+  } = useTimelineCreateRelatedWorkflow({
+    apiBase,
+    applyRowMutation,
+    currentUserId,
+    incidentId,
+    loadRows: loadRowsRef.current,
+    selectedRow,
+    selectedRowWorkflowKey,
+    setInspectorMessage,
+    targetContracts: createRelatedTargetContracts,
+  });
+
   const applyRecordChangedPatch = useCallback(
     (payload: RecordChangedPayload) => {
       if (isStaleTimelineRowVersion(payload.record_id, payload.row_version)) {
@@ -2557,14 +2097,6 @@ export function TimelineWorkbook({
   ]);
 
   useEffect(() => {
-    setCreateRelatedWorkflow((current) =>
-      current === null || current.sourceRowKey === selectedRowWorkflowKey
-        ? current
-        : null,
-    );
-  }, [selectedRowWorkflowKey]);
-
-  useEffect(() => {
     if (inspectorMentions.length < 1) {
       if (selectedMentionRef !== null) {
         setSelectedMentionRef(null);
@@ -2805,699 +2337,49 @@ export function TimelineWorkbook({
     [],
   );
 
-  const clearPendingSignatureForUnit = useCallback(
-    (unit: {
-      readonly rowKey: string;
-      readonly mutationSignature?: string;
-    }) => {
-      if (unit.mutationSignature === undefined) {
-        return;
-      }
-      if (
-        pendingSavesRefsRef.current.pendingSignaturesRef.current.get(
-          unit.rowKey,
-        ) === unit.mutationSignature
-      ) {
-        pendingSavesRefsRef.current.pendingSignaturesRef.current.delete(
-          unit.rowKey,
-        );
-      }
-      const nextRows = rowsRef.current.map((row) =>
-        row.key === unit.rowKey &&
-        row.pendingSignature === unit.mutationSignature
-          ? { ...row, pendingSignature: null }
-          : row,
-      );
-      rowsRef.current = nextRows;
-      setRows(nextRows);
-    },
-    [setRows],
-  );
-
-  const schedulePendingReplayAfter = useCallback((delayMs: number) => {
-    const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
-    if (pending.replayScheduled) {
-      return;
-    }
-    pending.replayScheduled = true;
-    pendingSavesRefsRef.current.pendingReplayTimerRef.current =
-      window.setTimeout(() => {
-        pendingSavesRefsRef.current.pendingReplayTimerRef.current = null;
-        void replayPendingQueueRef.current();
-      }, delayMs);
-  }, []);
-  const schedulePendingReplay = useCallback(() => {
-    schedulePendingReplayAfter(0);
-  }, [schedulePendingReplayAfter]);
-  pendingSavesRefsRef.current.schedulePendingReplayRef.current =
-    schedulePendingReplay;
-
-  const schedulePendingReplayRetry = useCallback(() => {
-    schedulePendingReplayAfter(1000);
-  }, [schedulePendingReplayAfter]);
-
-  const scheduleAuthRecoveryProbe = useCallback(() => {
-    if (
-      pendingSavesRefsRef.current.pendingReplayAuthRetryRef.current !== null
-    ) {
-      return;
-    }
-    pendingSavesRefsRef.current.pendingReplayAuthRetryRef.current =
-      window.setTimeout(async () => {
-        pendingSavesRefsRef.current.pendingReplayAuthRetryRef.current = null;
-        if (
-          !pendingSavesRefsRef.current.pendingQueueRef.current.model.snapshot()
-            .authPaused
-        ) {
-          return;
-        }
-        try {
-          const result = await fetchJSON<SessionEnvelope>(
-            apiPath(apiBase, "/api/v1/auth/session"),
-          );
-          if (!result.ok) {
-            scheduleAuthRecoveryProbe();
-            return;
-          }
-          dispatchSocketLifecycle({ type: "auth_recovered" });
-          pendingSavesRefsRef.current.pendingQueueRef.current.model.resumeAfterAuthRecovery();
-          publishPendingQueueState();
-          schedulePendingReplay();
-          socketReconnectAfterAuthRef.current?.();
-        } catch {
-          scheduleAuthRecoveryProbe();
-        }
-      }, 1000);
-  }, [
-    apiBase,
-    dispatchSocketLifecycle,
-    publishPendingQueueState,
+  const {
+    enqueuePendingReplayUnit,
+    scheduleAuthRecoveryProbeRef,
     schedulePendingReplay,
-  ]);
-  const scheduleAuthRecoveryProbeRef = useRef(scheduleAuthRecoveryProbe);
-  scheduleAuthRecoveryProbeRef.current = scheduleAuthRecoveryProbe;
-
-  const replayPendingQueueRef = useRef<() => Promise<void>>(async () => {
-    return undefined;
+  } = useTimelinePendingReplayController({
+    apiBase,
+    applyRowMutation,
+    clearSubmittedScalarEditorDraftValuesForRow,
+    clearViewportContinuity,
+    conflictQueueRef,
+    dispatchSocketLifecycle,
+    handleMutationConflict,
+    latestCommittedTimelineRow,
+    pendingSavesRefsRef,
+    publishPendingQueueState,
+    recordWorkbookTiming,
+    resolvePendingSocketTxn,
+    rowsRef,
+    scheduleSocketReconnectAfterAuthRef: socketReconnectAfterAuthRef,
+    setRefreshError,
+    setRows,
+    trackPendingSocketTxn,
   });
 
-  const requestPendingReplay = useCallback(
-    (reason: string) => {
-      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
-      const snapshot = pending.model.snapshot();
-      const candidate = pending.model.peekNextQueued();
-      const readyForImmediateDrain =
-        !snapshot.authPaused &&
-        snapshot.halted === null &&
-        snapshot.sameFieldConflicts.length === 0 &&
-        candidate !== null &&
-        !refreshBlocksTimelinePendingUnit(pending, candidate.unit) &&
-        Object.keys(conflictQueueRef.current).length === 0 &&
-        snapshot.inFlightCount === 0 &&
-        snapshot.queuedCount > 0;
-      if (!readyForImmediateDrain) {
-        schedulePendingReplay();
-        return;
-      }
-      if (pendingSavesRefsRef.current.pendingReplayTimerRef.current !== null) {
-        window.clearTimeout(
-          pendingSavesRefsRef.current.pendingReplayTimerRef.current,
-        );
-        pendingSavesRefsRef.current.pendingReplayTimerRef.current = null;
-      }
-      pending.replayScheduled = false;
-      recordWorkbookTiming("pending_replay_drain_immediate", { reason });
-      void replayPendingQueueRef.current();
-    },
-    [schedulePendingReplay],
-  );
-
-  const enqueuePendingReplayUnit = useCallback(
-    (unit: PendingReplayAdmissionRequest) => {
-      const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
-      const {
-        focusField,
-        focusKey,
-        surface,
-        rowSnapshot,
-        continueOnFreshDraft,
-        detectAutoResolution,
-        promoteToCommittedRowInspect,
-        viewportContinuityToken,
-        ...input
-      } = unit;
-      const meta: PendingReplayRuntimeMeta = {
-        focusField,
-        focusKey,
-        surface,
-        rowSnapshot,
-        continueOnFreshDraft,
-        detectAutoResolution,
-        promoteToCommittedRowInspect,
-        viewportContinuityToken,
-      };
-      const admission = pending.model.admit(input);
-      if (admission.status === "duplicate") {
-        clearViewportContinuity(unit.viewportContinuityToken);
-        publishPendingQueueState();
-        return;
-      }
-      if (admission.status === "refused") {
-        clearPendingSignatureForUnit(unit);
-        clearViewportContinuity(unit.viewportContinuityToken);
-        publishPendingQueueState();
-        return;
-      }
-
-      pending.metaByUnitId.set(admission.unit.id, meta);
-      pendingSavesRefsRef.current.pendingSignaturesRef.current.set(
-        admission.unit.rowKey,
-        admission.unit.mutationSignature,
-      );
-      recordWorkbookTiming("pending_unit_admitted", {
-        clientTxnId: admission.unit.clientTxnId,
-        kind: admission.unit.kind,
-        rowKey: admission.unit.rowKey,
-      });
-      publishPendingQueueState();
-      requestPendingReplay(
-        admission.status === "coalesced" ? "coalesced_unit" : "admitted_unit",
-      );
-    },
-    [
-      clearPendingSignatureForUnit,
-      clearViewportContinuity,
-      publishPendingQueueState,
-      requestPendingReplay,
-    ],
-  );
-
-  replayPendingQueueRef.current = async () => {
-    const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
-    pending.replayScheduled = false;
-    const snapshot = pending.model.snapshot();
-    if (
-      snapshot.authPaused ||
-      snapshot.halted !== null ||
-      snapshot.sameFieldConflicts.length > 0 ||
-      Object.keys(conflictQueueRef.current).length > 0
-    ) {
-      publishPendingQueueState();
-      return;
-    }
-    const candidate = pending.model.peekNextQueued();
-    if (candidate === null) {
-      publishPendingQueueState();
-      return;
-    }
-    const unit = candidate.unit;
-    if (refreshBlocksTimelinePendingUnit(pending, unit)) {
-      publishPendingQueueState();
-      return;
-    }
-    const meta = pending.metaByUnitId.get(unit.id);
-    if (meta === undefined) {
-      const dispatch = pending.model.markDispatched(unit.id);
-      if (dispatch !== null) {
-        const settlement = pending.model.settleDispatched({
-          ok: false,
-          status: 0,
-          error: {
-            code: "pending_runtime_metadata_missing",
-            message: "Queued edit metadata is missing.",
-          },
-        });
-        if (settlement.outcome === "halted") {
-          setRefreshError(settlement.halt.message);
-        }
-      }
-      publishPendingQueueState();
-      return;
-    }
-
-    const currentRow =
-      unit.recordId === null
-        ? rowsRef.current.find((row) => row.key === unit.rowKey)
-        : (latestCommittedTimelineRow(unit.recordId) ??
-          rowsRef.current.find((row) => row.recordId === unit.recordId));
-    const dispatchPayload = materializePendingReplayPayload(unit, currentRow);
-    if (dispatchPayload === null) {
-      publishPendingQueueState();
-      schedulePendingReplayRetry();
-      return;
-    }
-
-    const dispatch = pending.model.markDispatched(unit.id);
-    if (dispatch === null) {
-      publishPendingQueueState();
-      return;
-    }
-    const dispatchedUnit = dispatch.unit;
-    publishPendingQueueState();
-    trackPendingSocketTxn(dispatchedUnit.clientTxnId);
-
-    let result: TimelineMutationFetchResult | null = null;
-    try {
-      result = await dispatchTimelinePendingReplayMutation({
-        payload: dispatchPayload,
-        recordTiming: recordWorkbookTiming,
-        unit: dispatchedUnit,
-      });
-    } catch {
-      resolvePendingSocketTxn(dispatchedUnit.clientTxnId);
-      pending.model.settleDispatched({
-        ok: false,
-        status: 0,
-        error: {
-          code: "transport_failure",
-          message: "Transport failure",
-          retryable: true,
-        },
-      });
-      publishPendingQueueState();
-      schedulePendingReplayRetry();
-      return;
-    }
-
-    if (!result.ok) {
-      resolvePendingSocketTxn(dispatchedUnit.clientTxnId);
-      const publicError = parsePendingReplayPublicError(result.payload);
-      const settlement = pending.model.settleDispatched({
-        ok: false,
-        status: result.status,
-        error: publicError,
-      });
-      if (settlement.outcome === "auth_paused") {
-        setRefreshError(
-          "Authentication required before queued edits can replay.",
-        );
-        publishPendingQueueState();
-        scheduleAuthRecoveryProbe();
-        return;
-      }
-
-      if (settlement.outcome === "same_field_conflict") {
-        if (
-          handleMutationConflict(
-            result.payload,
-            settlement.unit.rowKey,
-            meta.focusField,
-            meta.surface,
-          )
-        ) {
-          pending.metaByUnitId.delete(settlement.unit.id);
-          clearPendingSignatureForUnit(settlement.unit);
-          publishPendingQueueState();
-          return;
-        }
-        setRefreshError(
-          publicError.message ?? parseErrorMessage(result.payload),
-        );
-        publishPendingQueueState();
-        return;
-      }
-
-      if (settlement.outcome === "retryable_failure") {
-        publishPendingQueueState();
-        schedulePendingReplayRetry();
-        return;
-      }
-
-      if (settlement.outcome === "halted") {
-        setRefreshError(settlement.halt.message);
-      } else {
-        setRefreshError(parseErrorMessage(result.payload));
-      }
-      publishPendingQueueState();
-      return;
-    }
-
-    recordWorkbookTiming("pending_result_apply_start", {
-      clientTxnId: dispatchedUnit.clientTxnId,
-      kind: dispatchedUnit.kind,
-      rowKey: dispatchedUnit.rowKey,
-    });
-    let envelope: TimelineMutationEnvelope;
-    let appliedRow: { record_id: string; row_version: number };
-    try {
-      envelope = readEnvelope<TimelineMutationEnvelope>(result.payload);
-      const responseRow = normalizeTimelineFullRow(
-        envelope.data.row,
-        "pending mutation response row",
-      );
-      appliedRow = {
-        record_id: responseRow.record_id,
-        row_version: responseRow.row_version,
-      };
-      clearSubmittedScalarEditorDraftValuesForRow(
-        dispatchedUnit.rowKey,
-        meta.rowSnapshot.values,
-      );
-      applyRowMutation(dispatchedUnit.rowKey, envelope, {
-        clearActiveCollectionFocusKey:
-          meta.surface === "grid" && isCollectionDraftKey(meta.focusField)
-            ? meta.focusKey
-            : undefined,
-        continueOnFreshDraft:
-          meta.continueOnFreshDraft && meta.rowSnapshot.recordId === null,
-        detectAutoResolution: meta.detectAutoResolution,
-        promoteToCommittedRowInspect: meta.promoteToCommittedRowInspect,
-        viewportContinuityToken: meta.viewportContinuityToken,
-      });
-    } catch (error) {
-      recordWorkbookTiming("pending_result_apply_error", {
-        clientTxnId: dispatchedUnit.clientTxnId,
-        kind: dispatchedUnit.kind,
-        message: error instanceof Error ? error.message : String(error),
-        rowKey: dispatchedUnit.rowKey,
-      });
-      const settlement = pending.model.settleDispatched({
-        ok: false,
-        status: 0,
-        error: {
-          code: "client_apply_error",
-          message: error instanceof Error ? error.message : String(error),
-        },
-      });
-      if (settlement.outcome === "halted") {
-        setRefreshError(settlement.halt.message);
-      }
-      publishPendingQueueState();
-      return;
-    }
-    recordWorkbookTiming("pending_result_apply_end", {
-      clientTxnId: dispatchedUnit.clientTxnId,
-      kind: dispatchedUnit.kind,
-      recordId: appliedRow.record_id,
-      rowKey: dispatchedUnit.rowKey,
-      rowVersion: appliedRow.row_version,
-    });
-    const successResult = {
-      ok: true,
-      row: appliedRow,
-      ...(envelope.data.change_set_id === undefined
-        ? {}
-        : { change_set_id: envelope.data.change_set_id }),
-    } as const;
-    const settlement = pending.model.settleDispatched(successResult);
-    if (settlement.outcome === "success") {
-      pending.metaByUnitId.delete(settlement.unit.id);
-      clearPendingSignatureForUnit(settlement.unit);
-    }
-    publishPendingQueueState();
-    requestPendingReplay("unit_completed");
-  };
-
-  useEffect(() => {
-    if (incidentId.trim() === "") {
-      return;
-    }
-
-    let closed = false;
-    let socket: WebSocket | null = null;
-    let reconnectTimer: number | null = null;
-    const clientInstanceId = ensureTimelineTabClientInstanceId(
-      pendingSavesRefsRef.current.socketClientInstanceIdRef,
-    );
-
-    const scheduleReconnect = () => {
-      if (
-        closed ||
-        reconnectTimer !== null ||
-        socketLifecycleRef.current.reconnectSuppressed
-      ) {
-        return;
-      }
-      reconnectTimer = window.setTimeout(() => {
-        reconnectTimer = null;
-        connect();
-      }, 1000);
-    };
-    socketReconnectAfterAuthRef.current = scheduleReconnect;
-
-    const sendSessionEstablishment = (target: WebSocket) => {
-      target.send(
-        JSON.stringify(
-          buildWorkbookSocketSessionMessage({
-            clientInstanceId,
-            lastSeenStreamSeq: socketLastSeenStreamSeqRef.current,
-            presence: currentPresenceRef.current,
-            resumeToken: socketResumeTokenRef.current,
-            sheetRef: activeSheetRuntimeRef.current,
-          }),
-        ),
-      );
-    };
-
-    const requestSocketLifecycleRefresh = (
-      options: Omit<LoadRowsOptions, "showLoading"> = {},
-      refreshScope: TimelinePendingRefreshBlockScope = { kind: "all" },
-    ) => {
-      beginRefreshInFlightRef.current(refreshScope);
-      void loadRowsRef
-        .current({ showLoading: false, ...options })
-        .finally(() => {
-          finishRefreshInFlightRef.current(refreshScope);
-        });
-    };
-
-    const applySocketLifecycleEffects = (
-      effects: readonly WorkbookSocketLifecycleEffect[],
-      target: WebSocket,
-    ) => {
-      for (const effect of effects) {
-        switch (effect.kind) {
-          case "pause_for_auth_recovery":
-            pendingSavesRefsRef.current.pendingQueueRef.current.model.pauseForAuthRecovery();
-            setRefreshError(
-              "Authentication required before queued edits can replay.",
-            );
-            publishPendingQueueStateRef.current();
-            break;
-          case "schedule_auth_recovery_probe":
-            scheduleAuthRecoveryProbeRef.current();
-            break;
-          case "close_socket":
-            target.close();
-            break;
-          case "request_refresh":
-            if (
-              effect.reason === "reset_required" ||
-              effect.reason === "sequence_gap"
-            ) {
-              requestSocketLifecycleRefresh();
-            }
-            break;
-          case "resume_pending_replay":
-            pendingSavesRefsRef.current.pendingQueueRef.current.model.resumeAfterAuthRecovery();
-            publishPendingQueueStateRef.current();
-            pendingSavesRefsRef.current.schedulePendingReplayRef.current();
-            break;
-          case "apply_record_change":
-          case "ignore_duplicate_sequence":
-          case "suppress_reconnect":
-            break;
-        }
-      }
-    };
-
-    const applyPresenceSnapshot = (payload: Record<string, unknown>) => {
-      const presences = Array.isArray(payload.presences)
-        ? payload.presences
-        : [];
-      setPresenceRecords(
-        presences.filter(isPresenceRecord).map((presence) => ({
-          ...presence,
-          sheet_ref: { ...presence.sheet_ref },
-        })),
-      );
-    };
-
-    const applyPresenceDelta = (payload: Record<string, unknown>) => {
-      const deltaKind = payload.delta_kind;
-      const presence = payload.presence;
-      if (!presence || typeof presence !== "object") {
-        return;
-      }
-      const candidate = presence as Record<string, unknown>;
-      const connectionID = candidate.connection_id;
-      if (typeof connectionID !== "string") {
-        return;
-      }
-      setPresenceRecords((current) => {
-        if (deltaKind === "remove") {
-          return current.filter(
-            (record) => record.connection_id !== connectionID,
-          );
-        }
-        if (deltaKind !== "upsert" || !isPresenceRecord(candidate)) {
-          return current;
-        }
-        const nextRecord = {
-          ...candidate,
-          sheet_ref: { ...candidate.sheet_ref },
-        };
-        const withoutExisting = current.filter(
-          (record) => record.connection_id !== nextRecord.connection_id,
-        );
-        return [...withoutExisting, nextRecord];
-      });
-    };
-
-    const handleMessage = (target: WebSocket, raw: unknown) => {
-      if (!raw || typeof raw !== "object") {
-        return;
-      }
-      const message = raw as {
-        type?: string;
-        stream_seq?: number;
-        payload?: Record<string, unknown>;
-      };
-      if (message.type === "ping") {
-        target.send(JSON.stringify({ type: "pong", payload: {} }));
-        return;
-      }
-      if (message.type === "hello_ack" || message.type === "resume_ack") {
-        const effects = dispatchSocketLifecycleRef.current({
-          type: "session_ack",
-          messageType: message.type,
-          ...(message.payload === undefined
-            ? {}
-            : { payload: message.payload }),
-        });
-        applySocketLifecycleEffects(effects, target);
-        return;
-      }
-      if (message.type === "presence_snapshot") {
-        applyPresenceSnapshot(message.payload ?? {});
-        return;
-      }
-      if (message.type === "presence_delta") {
-        applyPresenceDelta(message.payload ?? {});
-        return;
-      }
-      if (message.type === "session_revoked") {
-        const effects = dispatchSocketLifecycleRef.current({
-          type: "session_revoked",
-        });
-        applySocketLifecycleEffects(effects, target);
-        return;
-      }
-      if (
-        shouldIgnoreSelfOriginatedRecordChange(
-          raw,
-          resolvePendingSocketTxnRef.current,
-        )
-      ) {
-        return;
-      }
-      if (!isRecordChangedMessage(raw)) {
-        return;
-      }
-      const recordChangedPayload = message.payload as RecordChangedPayload;
-      const streamEffects = dispatchSocketLifecycleRef.current({
-        type: "record_changed_received",
-        message: {
-          ...(typeof message.stream_seq === "number"
-            ? { stream_seq: message.stream_seq }
-            : {}),
-          payload: recordChangedPayload,
-        },
-      });
-      for (const effect of streamEffects) {
-        if (effect.kind === "ignore_duplicate_sequence") {
-          return;
-        }
-        if (
-          effect.kind === "request_refresh" &&
-          effect.reason === "sequence_gap"
-        ) {
-          applySocketLifecycleEffects([effect], target);
-          return;
-        }
-      }
-      const viewportContinuityToken = beginViewportContinuityRef.current({
-        kind: "scroll-only",
-      });
-      const applied = applyRecordChangedPatchRef.current(recordChangedPayload);
-      const followupEffects = dispatchSocketLifecycleRef.current({
-        type: "record_change_result",
-        applied,
-      });
-      if (applied) {
-        advanceViewportContinuityRef.current(viewportContinuityToken);
-        return;
-      }
-      if (
-        followupEffects.some(
-          (effect) =>
-            effect.kind === "request_refresh" &&
-            effect.reason === "record_change_requery",
-        )
-      ) {
-        requestSocketLifecycleRefresh(
-          {
-            viewportContinuityToken,
-          },
-          { kind: "record", recordId: recordChangedPayload.record_id },
-        );
-      }
-    };
-
-    const connect = () => {
-      if (closed) {
-        return;
-      }
-      socket = new WebSocket(changeSocketURL);
-      activeSocketRef.current = socket;
-      dispatchSocketLifecycleRef.current({ type: "socket_connecting" });
-      socket.onopen = () => {
-        if (socket) {
-          sendSessionEstablishment(socket);
-        }
-      };
-      socket.onmessage = (event) => {
-        if (!socket) {
-          return;
-        }
-        handleMessage(socket, JSON.parse(event.data) as unknown);
-      };
-      socket.onclose = (event) => {
-        if (
-          event.code === 1008 &&
-          (event.reason === "session_revoked" ||
-            event.reason === "authorization_denied")
-        ) {
-          const effects = dispatchSocketLifecycleRef
-            .current({
-              type: "authorization_closed",
-            })
-            .filter((effect) => effect.kind !== "close_socket");
-          applySocketLifecycleEffects(effects, socket as WebSocket);
-        }
-        scheduleReconnect();
-      };
-      socket.onerror = () => {
-        socket?.close();
-      };
-    };
-
-    connect();
-    return () => {
-      closed = true;
-      if (reconnectTimer !== null) {
-        window.clearTimeout(reconnectTimer);
-      }
-      if (presenceUpdateTimerRef.current !== null) {
-        window.clearTimeout(presenceUpdateTimerRef.current);
-        presenceUpdateTimerRef.current = null;
-      }
-      activeSocketRef.current = null;
-      socketReconnectAfterAuthRef.current = null;
-      dispatchSocketLifecycleRef.current({ type: "socket_connecting" });
-      socket?.close();
-    };
-  }, [changeSocketURL, incidentId, setRefreshError, setPresenceRecords]);
+  const { sendPresenceUpdate } = useTimelineLiveUpdateController({
+    activeSheetRuntimeRef,
+    advanceViewportContinuityRef,
+    apiBase,
+    applyRecordChangedPatchRef,
+    beginRefreshInFlightRef,
+    beginViewportContinuityRef,
+    currentPresence,
+    finishRefreshInFlightRef,
+    incidentId,
+    liveUpdateRefs: timelineLiveUpdateRefs,
+    loadRowsRef,
+    pendingSavesRefsRef,
+    publishPendingQueueStateRef,
+    resolvePendingSocketTxnRef,
+    scheduleAuthRecoveryProbeRef,
+    setPresenceRecords,
+    setRefreshError,
+  });
 
   const enqueueAutosaveReplayForPendingMutation = useCallback(
     ({
@@ -3887,126 +2769,45 @@ export function TimelineWorkbook({
     ],
   );
 
-  const fetchRecordHistory = useCallback(
-    async (
-      recordId: string,
-      options: {
-        readonly retainedData?: RecordHistoryData | null;
-        readonly setLoading?: boolean;
-      } = {},
-    ): Promise<RecordHistoryData | null> => {
-      const requestSeq = beginRowHistoryRequest();
-      if (options.setLoading === true) {
-        setRowHistoryPendingAction(null);
-        setRowHistory({
-          recordId,
-          status: "loading",
-          data:
-            options.retainedData?.record_id === recordId
-              ? options.retainedData
-              : null,
-          message: null,
-        });
-      }
-      const result = await fetchJSON<RecordHistoryEnvelope>(
-        apiPath(apiBase, `/api/v1/records/${recordId}/history`),
-      );
-      if (!rowHistoryRequestIsCurrent(requestSeq)) {
-        return null;
-      }
-      if (!result.ok) {
-        setRowHistoryPendingAction(null);
-        setRowHistory({
-          recordId,
-          status: "error",
-          data: null,
-          message: parseErrorMessage(result.payload),
-        });
-        return null;
-      }
-      let historyData: RecordHistoryData;
-      try {
-        const envelope = readEnvelope<RecordHistoryEnvelope>(result.payload);
-        historyData = normalizeRecordHistoryData(envelope.data);
-        if (historyData.record_id !== recordId) {
-          throw new Error("row history response record mismatch");
-        }
-      } catch {
-        if (!rowHistoryRequestIsCurrent(requestSeq)) {
-          return null;
-        }
-        setRowHistoryPendingAction(null);
-        setRowHistory({
-          recordId,
-          status: "error",
-          data: null,
-          message: "Invalid row history response.",
-        });
-        return null;
-      }
-      if (!rowHistoryRequestIsCurrent(requestSeq)) {
-        return null;
-      }
-      acceptTimelineRecordVersion(recordId, historyData.row_version);
-      setRowHistoryPendingAction(null);
-      setRowHistory({
-        recordId,
-        status: "ready",
-        data: historyData,
-        message: null,
-      });
-      return historyData;
-    },
-    [
-      acceptTimelineRecordVersion,
-      apiBase,
-      beginRowHistoryRequest,
-      rowHistoryRequestIsCurrent,
-      setRowHistory,
-      setRowHistoryPendingAction,
-    ],
-  );
+  const enqueueTimelineSaveWork = useCallback((work: () => Promise<void>) => {
+    pendingSavesRefsRef.current.saveQueueRef.current =
+      pendingSavesRefsRef.current.saveQueueRef.current
+        .catch(() => undefined)
+        .then(work);
+  }, []);
 
-  const openRowHistory = useCallback(
-    (recordId: string) => {
-      setSelectedRowId(recordId);
-      setIsInspectorOpen(true);
-      void fetchRecordHistory(recordId, {
-        retainedData: rowHistory.recordId === recordId ? rowHistory.data : null,
-        setLoading: true,
-      });
-    },
-    [
-      fetchRecordHistory,
-      rowHistory.data,
-      rowHistory.recordId,
-      setIsInspectorOpen,
-      setSelectedRowId,
-    ],
-  );
-
-  useEffect(() => {
-    if (
-      activeHistoryLiveRecordId === null ||
-      rowHistory.status === "idle" ||
-      rowHistory.recordId === activeHistoryLiveRecordId
-    ) {
-      return;
-    }
-    void fetchRecordHistory(activeHistoryLiveRecordId, {
-      retainedData:
-        rowHistory.recordId === activeHistoryLiveRecordId
-          ? rowHistory.data
-          : null,
-      setLoading: true,
-    });
-  }, [
+  const {
+    confirmRowHistoryPendingAction,
+    openRowHistory,
+    previewRowHistoryDeleteRestore,
+    previewRowHistoryRollback,
+  } = useTimelineHistoryActions({
+    acceptTimelineRecordVersion,
     activeHistoryLiveRecordId,
-    fetchRecordHistory,
-    rowHistory.data,
-    rowHistory.recordId,
-    rowHistory.status,
-  ]);
+    apiBase,
+    beginRowHistoryRequest,
+    beginSave,
+    beginViewportContinuity,
+    clearViewportContinuity,
+    currentHistoryRecordId,
+    currentHistoryRecordIdMatches,
+    currentHistoryRowVersion,
+    enqueueSaveWork: enqueueTimelineSaveWork,
+    finishSave,
+    loadRows: loadRowsRef.current,
+    nextClientTxnId,
+    resolvePendingSocketTxn,
+    rowHistory,
+    rowHistoryPendingAction,
+    rowHistoryRequestIsCurrent,
+    selectedRowRecordId: selectedRow?.recordId ?? null,
+    setIsInspectorOpen,
+    setRowHistory,
+    setRowHistoryPendingAction,
+    setSelectedRowId,
+    trackPendingSocketTxn,
+    waitForCommittedRecordIdle,
+  });
 
   useEffect(() => {
     if (inspectorResetKey === undefined) {
@@ -4017,9 +2818,10 @@ export function TimelineWorkbook({
     setSelectedMentionRef(null);
     setSelectedResolveTargetId("");
     setInspectorMessage(null);
-    setCreateRelatedWorkflow(null);
+    cancelCreateRelatedWorkflow();
     clearRowHistory();
   }, [
+    cancelCreateRelatedWorkflow,
     clearRowHistory,
     inspectorResetKey,
     setIsInspectorOpen,
@@ -4029,658 +2831,45 @@ export function TimelineWorkbook({
     setSelectedRowId,
   ]);
 
-  const submitRowHistoryMutation = useCallback(
-    ({
-      idleOptions,
-      missingVersionMessage,
-      onSuccess,
-      recordId,
-      request,
-      viewportContinuityTarget,
-    }: {
-      idleOptions?: {
-        readonly fallbackRowVersion?: number | null | undefined;
-        readonly refreshIfMissing?: boolean;
-      };
-      missingVersionMessage: string;
-      onSuccess: (
-        payload: unknown,
-        viewportContinuityToken: number,
-      ) => Promise<void>;
-      recordId: string;
-      request: (
-        baseRowVersion: number,
-        clientTxnId: string,
-      ) => Promise<{ ok: boolean; payload: unknown }>;
-      viewportContinuityTarget: ViewportContinuityTarget;
-    }) => {
-      const clientTxnId = nextClientTxnId();
-      const viewportContinuityToken = beginViewportContinuity(
-        viewportContinuityTarget,
-      );
-      beginSave();
-      setRowHistoryPendingAction(null);
-      setRowHistory((current) =>
-        current.recordId === recordId ? { ...current, message: null } : current,
-      );
-      pendingSavesRefsRef.current.saveQueueRef.current =
-        pendingSavesRefsRef.current.saveQueueRef.current
-          .catch(() => undefined)
-          .then(async () => {
-            const idleRecord = await waitForCommittedRecordIdle(
-              recordId,
-              idleOptions,
-            );
-            if (idleRecord === null) {
-              clearViewportContinuity(viewportContinuityToken);
-              setRowHistory((current) =>
-                current.recordId === recordId
-                  ? {
-                      ...current,
-                      message: missingVersionMessage,
-                    }
-                  : current,
-              );
-              finishSave("Conflict");
-              return;
-            }
-            trackPendingSocketTxn(clientTxnId);
-            const result = await request(idleRecord.rowVersion, clientTxnId);
-            if (!result.ok) {
-              resolvePendingSocketTxn(clientTxnId);
-              clearViewportContinuity(viewportContinuityToken);
-              setRowHistory((current) =>
-                current.recordId === recordId
-                  ? {
-                      ...current,
-                      message: parseErrorMessage(result.payload),
-                    }
-                  : current,
-              );
-              finishSave("Conflict");
-              return;
-            }
-            await onSuccess(result.payload, viewportContinuityToken);
-            finishSave("Saved");
-          });
-    },
-    [
-      beginSave,
-      beginViewportContinuity,
-      clearViewportContinuity,
-      finishSave,
-      nextClientTxnId,
-      resolvePendingSocketTxn,
-      setRowHistory,
-      setRowHistoryPendingAction,
-      trackPendingSocketTxn,
-      waitForCommittedRecordIdle,
-    ],
-  );
+  const { submitMentionAction } = useTimelineMentionActions({
+    advanceViewportContinuity,
+    apiBase,
+    applyRowMutation,
+    beginSave,
+    beginViewportContinuity,
+    clearViewportContinuity,
+    enqueueSaveWork: enqueueTimelineSaveWork,
+    entityCatalogInput,
+    finishSave,
+    loadRows: loadRowsRef.current,
+    nextClientTxnId,
+    onRefreshEntities,
+    resolvePendingSocketTxn,
+    resolveViewportContinuityElement,
+    rowsRef,
+    setDismissedMentionsByRow,
+    setInspectorMessage,
+    settleViewportContinuityBarrier,
+    trackPendingSocketTxn,
+    waitForCommittedRecordIdle,
+  });
 
-  const submitRowHistoryDeleteRestore = useCallback(
-    (operation: "delete" | "restore") => {
-      const recordId = currentHistoryRecordId;
-      if (recordId === null || recordId === undefined) {
-        return;
-      }
-      const viewportContinuityTarget: ViewportContinuityTarget =
-        selectedRow?.recordId === recordId
-          ? { kind: "row-inspect", recordId }
-          : { kind: "scroll-only" };
-      submitRowHistoryMutation({
-        idleOptions: {
-          fallbackRowVersion: currentHistoryRowVersion,
-          refreshIfMissing: operation !== "restore",
-        },
-        missingVersionMessage: "Missing row version for destructive action.",
-        recordId,
-        viewportContinuityTarget,
-        request: (baseRowVersion, clientTxnId) => {
-          const path =
-            operation === "delete"
-              ? `/api/v1/records/${recordId}`
-              : `/api/v1/records/${recordId}/restore`;
-          return fetchJSON<RecordDeleteRestoreEnvelope>(
-            apiPath(apiBase, path),
-            {
-              method: operation === "delete" ? "DELETE" : "POST",
-              body: JSON.stringify(
-                buildTimelineDeleteRestorePayload({
-                  baseRowVersion,
-                  clientTxnId,
-                  operation,
-                }),
-              ),
-            },
-          );
-        },
-        onSuccess: async (payload, viewportContinuityToken) => {
-          const envelope = readEnvelope<RecordDeleteRestoreEnvelope>(payload);
-          acceptTimelineRecordVersion(recordId, envelope.data.row_version);
-          if (currentHistoryRecordIdMatches(recordId)) {
-            await fetchRecordHistory(recordId);
-          }
-          if (operation === "restore") {
-            setSelectedRowId(recordId);
-          }
-          await loadRowsRef.current({
-            showLoading: false,
-            viewportContinuityToken,
-          });
-        },
-      });
-    },
-    [
-      apiBase,
-      acceptTimelineRecordVersion,
-      currentHistoryRecordId,
-      currentHistoryRecordIdMatches,
-      currentHistoryRowVersion,
-      fetchRecordHistory,
-      selectedRow?.recordId,
-      setSelectedRowId,
-      submitRowHistoryMutation,
-    ],
-  );
-
-  const submitRowHistoryRollbackTarget = useCallback(
-    (
-      pending: Extract<RowHistoryPendingAction, { readonly kind: "rollback" }>,
-    ) => {
-      const { recordId, target } = pending;
-      if (recordId.trim() === "") {
-        return;
-      }
-      const viewportContinuityTarget: ViewportContinuityTarget =
-        selectedRow?.recordId === recordId
-          ? { kind: "row-inspect", recordId }
-          : { kind: "scroll-only" };
-      submitRowHistoryMutation({
-        idleOptions: {
-          fallbackRowVersion:
-            currentHistoryRecordId === recordId
-              ? currentHistoryRowVersion
-              : pending.rowVersion,
-        },
-        missingVersionMessage: "Missing row version for rollback.",
-        recordId,
-        viewportContinuityTarget,
-        request: (baseRowVersion, clientTxnId) =>
-          fetchJSON<RecordRollbackEnvelope>(
-            apiPath(apiBase, `/api/v1/records/${recordId}/rollback`),
-            {
-              method: "POST",
-              body: JSON.stringify(
-                buildTimelineRollbackPayload({
-                  baseRowVersion,
-                  clientTxnId,
-                  target,
-                }),
-              ),
-            },
-          ),
-        onSuccess: async (payload, viewportContinuityToken) => {
-          const envelope = readEnvelope<RecordRollbackEnvelope>(payload);
-          acceptTimelineRecordVersion(recordId, envelope.data.row_version);
-          if (currentHistoryRecordIdMatches(recordId)) {
-            await fetchRecordHistory(recordId);
-          }
-          await loadRowsRef.current({
-            showLoading: false,
-            viewportContinuityToken,
-          });
-        },
-      });
-    },
-    [
-      apiBase,
-      acceptTimelineRecordVersion,
-      currentHistoryRecordId,
-      currentHistoryRecordIdMatches,
-      currentHistoryRowVersion,
-      fetchRecordHistory,
-      selectedRow?.recordId,
-      submitRowHistoryMutation,
-    ],
-  );
-
-  const previewRowHistoryDeleteRestore = useCallback(
-    (operation: "delete" | "restore") => {
-      const recordId = currentHistoryRecordId;
-      if (recordId === null || recordId === undefined) {
-        return;
-      }
-      setRowHistoryPendingAction({
-        kind: "destructive",
-        operation,
-        recordId,
-        rowVersion: currentHistoryRowVersion,
-      });
-      setRowHistory((current) =>
-        current.recordId === recordId ? { ...current, message: null } : current,
-      );
-    },
-    [
-      currentHistoryRecordId,
-      currentHistoryRowVersion,
-      setRowHistory,
-      setRowHistoryPendingAction,
-    ],
-  );
-
-  const previewRowHistoryRollback = useCallback(
-    (item: RecordHistoryItem, action: RecordHistoryRollbackAction) => {
-      const recordId = currentHistoryRecordId;
-      if (recordId === null || recordId === undefined) {
-        return;
-      }
-      const target = buildRecordRollbackTargetFromHistoryAction(item, action);
-      if (target === null) {
-        return;
-      }
-      setRowHistoryPendingAction({
-        kind: "rollback",
-        action,
-        historyItemRef: item.history_item_ref,
-        recordId,
-        rowVersion: currentHistoryRowVersion,
-        target,
-      });
-      setRowHistory((current) =>
-        current.recordId === recordId ? { ...current, message: null } : current,
-      );
-    },
-    [
-      currentHistoryRecordId,
-      currentHistoryRowVersion,
-      setRowHistory,
-      setRowHistoryPendingAction,
-    ],
-  );
-
-  const confirmRowHistoryPendingAction = useCallback(() => {
-    const pending = rowHistoryPendingAction;
-    if (pending === null) {
-      return;
-    }
-    if (pending.kind === "destructive") {
-      submitRowHistoryDeleteRestore(pending.operation);
-      return;
-    }
-    submitRowHistoryRollbackTarget(pending);
-  }, [
-    rowHistoryPendingAction,
-    submitRowHistoryDeleteRestore,
-    submitRowHistoryRollbackTarget,
-  ]);
-
-  function submitMentionAction(
-    mention: InspectorMention,
-    action: MentionResolutionAction,
-    resolvedRecordId?: string,
-  ) {
-    const snapshot = rowsRef.current.find(
-      (candidate) => candidate.recordId === mention.rowRecordId,
-    );
-    if (!snapshot || snapshot.recordId === null) {
-      return;
-    }
-
-    const recordId = snapshot.recordId;
-    const clientTxnId = nextClientTxnId();
-    const requiresEntityRefresh =
-      action === "resolve_item" && resolvedRecordId === undefined;
-    const entityRefreshBarrier = requiresEntityRefresh
-      ? beginTimelineEntityRefreshBarrier(entityCatalogInput)
-      : null;
-    const viewportContinuityToken = beginViewportContinuity(
-      {
-        kind: "row-inspect",
-        recordId,
-      },
-      {
-        barrier: entityRefreshBarrier,
-      },
-    );
-    beginSave();
-    setInspectorMessage(null);
-    pendingSavesRefsRef.current.saveQueueRef.current =
-      pendingSavesRefsRef.current.saveQueueRef.current
-        .catch(() => undefined)
-        .then(async () => {
-          const idleRecord = await waitForCommittedRecordIdle(recordId);
-          if (idleRecord === null || idleRecord.row === null) {
-            clearViewportContinuity(viewportContinuityToken);
-            finishSave("Conflict");
-            return;
-          }
-          const currentRow = idleRecord.row;
-          if (requiresEntityRefresh) {
-            const payload = buildMentionPatchPayload(
-              currentRow,
-              mention,
-              action,
-              clientTxnId,
-              resolvedRecordId,
-            );
-            if (payload === null) {
-              clearViewportContinuity(viewportContinuityToken);
-              finishSave("Conflict");
-              return;
-            }
-            trackPendingSocketTxn(clientTxnId);
-            const result = await fetchJSON<TimelineMutationEnvelope>(
-              apiPath(apiBase, `/api/v1/records/${recordId}`),
-              {
-                method: "PATCH",
-                body: JSON.stringify(payload),
-              },
-            );
-            if (!result.ok) {
-              resolvePendingSocketTxn(clientTxnId);
-              clearViewportContinuity(viewportContinuityToken);
-              setInspectorMessage(parseErrorMessage(result.payload));
-              finishSave("Conflict");
-              return;
-            }
-
-            const envelope = readEnvelope<TimelineMutationEnvelope>(
-              result.payload,
-            );
-            const committed = applyRowMutation(currentRow.key, envelope, {
-              detectAutoResolution: false,
-              viewportContinuityToken,
-            });
-            const expectedEntity = timelineEntityRefreshExpectationForMention(
-              committed,
-              mention.itemRef,
-            );
-            if (expectedEntity !== null) {
-              advanceViewportContinuity(viewportContinuityToken, {
-                barrier: withTimelineEntityRefreshExpectation(
-                  entityRefreshBarrier,
-                  expectedEntity,
-                ),
-              });
-            }
-            finishSave("Saved");
-            let refreshState: TimelineEntityRefreshSettleState = "complete";
-            try {
-              if (onRefreshEntities === undefined) {
-                refreshState = "terminal";
-              } else {
-                await onRefreshEntities();
-              }
-            } catch (error) {
-              refreshState = "terminal";
-              throw error;
-            } finally {
-              settleViewportContinuityBarrier(
-                viewportContinuityToken,
-                refreshState,
-              );
-            }
-            return;
-          }
-
-          const activeItem = [
-            ...currentRow.collectionValues.hostRefs,
-            ...currentRow.collectionValues.identityRefs,
-          ].find((item) => item.itemRef === mention.itemRef);
-          const currentMention =
-            activeItem === undefined
-              ? mention
-              : {
-                  ...mention,
-                  entityType: activeItem.entityType,
-                  rawText: activeItem.rawText,
-                  resolvedRecordId: activeItem.resolvedRecordId,
-                  mentionRowVersion: activeItem.mentionRowVersion,
-                  resolutionMethod: activeItem.resolutionMethod,
-                  autoResolved: activeItem.autoResolved,
-                  displayText: activeItem.displayText,
-                  provenance: activeItem.provenance,
-                  confidence: activeItem.confidence,
-                  matchedAliasText: activeItem.matchedAliasText,
-                  anchor: {
-                    ...mention.anchor,
-                    targetEntityRecordId: activeItem.resolvedRecordId,
-                  },
-                };
-          const mentionID =
-            currentMention.anchor.entityMentionId ??
-            (currentMention.itemRef.startsWith("entity_mention:")
-              ? currentMention.itemRef.slice("entity_mention:".length) || null
-              : null);
-          if (mentionID === null) {
-            clearViewportContinuity(viewportContinuityToken);
-            setInspectorMessage("Missing entity mention identifier.");
-            finishSave("Conflict");
-            return;
-          }
-          const payload = buildMentionActionPayload(
-            currentMention,
-            action,
-            clientTxnId,
-            resolvedRecordId,
-          );
-          if (payload === null) {
-            clearViewportContinuity(viewportContinuityToken);
-            setInspectorMessage("Missing mention row version.");
-            finishSave("Conflict");
-            return;
-          }
-          trackPendingSocketTxn(clientTxnId);
-          const result = await fetchJSON<MentionActionEnvelope>(
-            apiPath(apiBase, `/api/v1/entity-mentions/${mentionID}/resolve`),
-            {
-              method: "POST",
-              body: JSON.stringify(payload),
-            },
-          );
-          if (!result.ok) {
-            resolvePendingSocketTxn(clientTxnId);
-            clearViewportContinuity(viewportContinuityToken);
-            setInspectorMessage(parseErrorMessage(result.payload));
-            finishSave("Conflict");
-            return;
-          }
-
-          const envelope = readEnvelope<MentionActionEnvelope>(result.payload);
-          const entityMention = envelope.data.entity_mention;
-          if (action === "dismiss_item") {
-            setDismissedMentionsByRow((current) => {
-              const rowMentions = current[recordId] ?? [];
-              return {
-                ...current,
-                [recordId]: [
-                  ...rowMentions.filter(
-                    (item) => item.itemRef !== currentMention.itemRef,
-                  ),
-                  {
-                    rowRecordId: recordId,
-                    fieldKey:
-                      entityMention.source_field_key ===
-                      "timeline.identity_refs"
-                        ? "timeline.identity_refs"
-                        : currentMention.fieldKey,
-                    entityType:
-                      entityMention.entity_type === "identity"
-                        ? "identity"
-                        : currentMention.entityType,
-                    itemRef: currentMention.itemRef,
-                    rawText: entityMention.raw_text || currentMention.rawText,
-                    resolvedRecordId: currentMention.resolvedRecordId,
-                    mentionRowVersion: entityMention.row_version,
-                    resolutionMethod:
-                      entityMention.resolution_method ??
-                      currentMention.resolutionMethod,
-                    autoResolved: currentMention.autoResolved,
-                    displayText: currentMention.displayText,
-                    priorTargetEntityRecordId:
-                      currentMention.anchor.targetEntityRecordId ??
-                      currentMention.priorTargetEntityRecordId ??
-                      currentMention.resolvedRecordId,
-                    provenance: currentMention.provenance,
-                    confidence: currentMention.confidence,
-                    matchedAliasText: currentMention.matchedAliasText,
-                  },
-                ],
-              };
-            });
-          }
-          if (action === "revert_to_unresolved") {
-            setDismissedMentionsByRow((current) => {
-              const rowMentions = (current[recordId] ?? []).filter(
-                (item) => item.itemRef !== currentMention.itemRef,
-              );
-              if (rowMentions.length < 1) {
-                const next = { ...current };
-                delete next[recordId];
-                return next;
-              }
-              return {
-                ...current,
-                [recordId]: rowMentions,
-              };
-            });
-          }
-
-          await loadRowsRef.current({
-            showLoading: false,
-            viewportContinuityToken,
-          });
-          const restoreMentionActionFocus = () => {
-            resolveViewportContinuityElement({
-              kind: "row-inspect",
-              recordId,
-            })?.focus({ preventScroll: true });
-          };
-          restoreMentionActionFocus();
-          window.requestAnimationFrame(restoreMentionActionFocus);
-          window.setTimeout(restoreMentionActionFocus, 0);
-          finishSave("Saved");
-        });
-  }
-
-  const currentTimelineAnchorFor = useCallback(
-    (rowKey: string, fieldKey: string): GridCellAnchor | null => {
-      const row = rowsRef.current.find((candidate) => candidate.key === rowKey);
-      if (row?.recordId === null || row?.recordId === undefined) {
-        updateWorkbookFocusAnchor(null);
-        return null;
-      }
-      const anchor = {
-        fieldKey,
-        recordId: row.recordId,
-      };
-      updateTimelineSurfaceFocusAnchor(anchor.recordId, anchor.fieldKey);
-      return anchor;
-    },
-    [updateTimelineSurfaceFocusAnchor, updateWorkbookFocusAnchor],
-  );
-
-  const resolveTimelinePasteTargetResolution = useCallback(
-    (
-      rowKey: string,
-      fieldKey: string,
-      clipboardText: string,
-    ): TimelinePasteTargetResolution | null => {
-      if (!timelineClipboardShouldDispatchTabular(fieldKey, clipboardText)) {
-        return null;
-      }
-
-      const dimensions = clipboardGridDimensions(clipboardText);
-      const row = rowsRef.current.find((candidate) => candidate.key === rowKey);
-      const isDraftTarget =
-        row?.recordId === null ||
-        (row === undefined && rowKey.startsWith("draft-"));
-
-      if (isDraftTarget) {
-        updateWorkbookFocusAnchor(null);
-        const targetResolution = resolveDraftTimelinePasteTargets({
-          columns: timelineAnchorColumnsRef.current,
-          pastedColumnCount: dimensions.columnCount,
-          pastedRowCount: dimensions.rowCount,
-          startFieldKey: fieldKey,
-        });
-        return targetResolution === null
-          ? null
-          : { anchor: null, targetResolution };
-      }
-
-      const recordId = row?.recordId;
-      if (recordId === undefined || recordId === null) {
-        return null;
-      }
-
-      const anchor = {
-        fieldKey,
-        recordId,
-      };
-      const presentationRows = buildGridPresentationRows({
-        getGroupLabel: (candidate, groupFieldKey) =>
-          timelineGroupLabel(candidate, groupFieldKey),
-        groupBy: queryState.groupBy,
-        rows: timelineAnchorRowsRef.current,
-      });
-      const targetResolution = resolveGridPasteTargets({
-        columns: timelineAnchorColumnsRef.current,
-        current: anchor,
-        pastedColumnCount: dimensions.columnCount,
-        pastedRowCount: dimensions.rowCount,
-        presentationRows,
-      });
-      if (targetResolution === null) {
-        return null;
-      }
-
-      updateTimelineSurfaceFocusAnchor(anchor.recordId, anchor.fieldKey);
-      return { anchor, targetResolution };
-    },
-    [
-      queryState.groupBy,
-      updateTimelineSurfaceFocusAnchor,
-      updateWorkbookFocusAnchor,
-    ],
-  );
-
-  const navigateTimelineFocusAnchor = useCallback(
-    (current: GridCellAnchor, intent: GridNavigationIntent) => {
-      const nextAnchor = navigateGridCellAnchor({
-        columns: timelineAnchorColumnsRef.current,
-        current,
-        intent,
-        presentationRows: buildGridPresentationRows({
-          getGroupLabel: (row, fieldKey) => timelineGroupLabel(row, fieldKey),
-          groupBy: queryState.groupBy,
-          rows: timelineAnchorRowsRef.current,
-        }),
-      });
-      if (nextAnchor === null) {
-        updateWorkbookFocusAnchor(null);
-        return;
-      }
-      updateTimelineSurfaceFocusAnchor(
-        nextAnchor.recordId,
-        nextAnchor.fieldKey,
-      );
-      const restoredNow = restoreTimelineFocusAnchor(nextAnchor);
-      window.setTimeout(() => {
-        if (restoredNow) {
-          return;
-        }
-        restoreTimelineFocusAnchor(nextAnchor);
-      }, 0);
-    },
-    [
-      queryState.groupBy,
-      restoreTimelineFocusAnchor,
-      updateTimelineSurfaceFocusAnchor,
-      updateWorkbookFocusAnchor,
-    ],
-  );
+  const { handleTimelineEvidenceFiles } = useTimelineEvidenceAttach({
+    apiBase,
+    applyRowMutation,
+    beginSave,
+    beginViewportContinuity,
+    clearViewportContinuity,
+    enqueueSaveWork: enqueueTimelineSaveWork,
+    finishSave,
+    incidentId,
+    nextClientTxnId,
+    resolvePendingSocketTxn,
+    rowsRef,
+    setInspectorMessage,
+    trackPendingSocketTxn,
+    waitForCommittedRecordIdle,
+  });
 
   const handleBlur = useCallback(
     (
@@ -5101,25 +3290,6 @@ export function TimelineWorkbook({
     ],
   );
 
-  const sendPresenceUpdate = useCallback(
-    (presence: typeof currentPresence) => {
-      const target = activeSocketRef.current;
-      if (
-        target === null ||
-        !socketEstablishedRef.current ||
-        !socketIsOpen(target)
-      ) {
-        return;
-      }
-      target.send(
-        JSON.stringify(
-          buildWorkbookPresenceUpdateMessage(presence, activeSheetRef),
-        ),
-      );
-    },
-    [activeSheetRef],
-  );
-
   const handleSelectRow = useCallback(
     (recordId: string) => {
       setSelectedRowId(recordId);
@@ -5347,165 +3517,6 @@ export function TimelineWorkbook({
       });
     },
     [queueScalarSave],
-  );
-
-  const createAndAttachEvidenceFile = useCallback(
-    async (file: File): Promise<string> => {
-      const title = normalizeValue(file.name) || "Workbook attachment";
-      const createEvidence = await fetchJSON<ViewMutationEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/views/${evidenceViewSchemaId}/rows`,
-        ),
-        {
-          method: "POST",
-          body: JSON.stringify({
-            client_txn_id: nextClientTxnId(),
-            "evidence.title": title,
-            "evidence.collector_party_text": "Workbook upload",
-          }),
-        },
-      );
-      if (!createEvidence.ok) {
-        throw new Error(evidencePublicErrorMessage(createEvidence.payload));
-      }
-      const evidenceEnvelope = readEnvelope<ViewMutationEnvelope>(
-        createEvidence.payload,
-      );
-      const evidenceRecord = evidenceEnvelope.data.row;
-
-      await createAndAttachEvidenceBlob({
-        apiBase,
-        attachClientTxnId: nextClientTxnId,
-        baseRowVersion: evidenceRecord.row_version,
-        createClientTxnId: nextClientTxnId,
-        evidenceRecordId: evidenceRecord.record_id,
-        file,
-        incidentId,
-      });
-      return evidenceRecord.record_id;
-    },
-    [apiBase, incidentId, nextClientTxnId],
-  );
-
-  const attachEvidenceFileToTimeline = useCallback(
-    (target: WorkbookRow, file: File) => {
-      const snapshot =
-        rowsRef.current.find((candidate) => candidate.key === target.key) ??
-        target;
-      const viewportContinuityToken = beginViewportContinuity(
-        snapshot.recordId === null
-          ? { kind: "scroll-only" }
-          : { kind: "row-inspect", recordId: snapshot.recordId },
-      );
-      beginSave();
-      setInspectorMessage("Uploading evidence.");
-
-      pendingSavesRefsRef.current.saveQueueRef.current =
-        pendingSavesRefsRef.current.saveQueueRef.current
-          .catch(() => undefined)
-          .then(async () => {
-            try {
-              const effectiveSnapshot =
-                snapshot.recordId === null
-                  ? snapshot
-                  : (await waitForCommittedRecordIdle(snapshot.recordId))?.row;
-              if (
-                effectiveSnapshot === null ||
-                effectiveSnapshot === undefined
-              ) {
-                throw new Error("invalid_timeline_row");
-              }
-              const evidenceRecordId = await createAndAttachEvidenceFile(file);
-              const clientTxnId = nextClientTxnId();
-              const payload =
-                effectiveSnapshot.recordId === null
-                  ? buildAttachedEvidenceCreatePayload(
-                      evidenceRecordId,
-                      clientTxnId,
-                    )
-                  : buildAttachedEvidencePatchPayload(
-                      effectiveSnapshot,
-                      evidenceRecordId,
-                      clientTxnId,
-                    );
-              if (payload === null) {
-                throw new Error("invalid_timeline_row");
-              }
-
-              trackPendingSocketTxn(clientTxnId);
-              const targetPath =
-                effectiveSnapshot.recordId === null
-                  ? apiPath(
-                      apiBase,
-                      `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
-                    )
-                  : apiPath(
-                      apiBase,
-                      `/api/v1/records/${effectiveSnapshot.recordId}`,
-                    );
-              const result = await fetchJSON<TimelineMutationEnvelope>(
-                targetPath,
-                {
-                  method:
-                    effectiveSnapshot.recordId === null ? "POST" : "PATCH",
-                  body: JSON.stringify(payload),
-                },
-              );
-              if (!result.ok) {
-                resolvePendingSocketTxn(clientTxnId);
-                throw new Error(parseErrorMessage(result.payload));
-              }
-
-              const envelope = readEnvelope<TimelineMutationEnvelope>(
-                result.payload,
-              );
-              applyRowMutation(effectiveSnapshot.key, envelope, {
-                continueOnFreshDraft: effectiveSnapshot.recordId === null,
-                promoteToCommittedRowInspect:
-                  effectiveSnapshot.recordId === null,
-                detectAutoResolution: false,
-                viewportContinuityToken,
-              });
-              setInspectorMessage("Evidence attached.");
-              finishSave("Saved");
-            } catch (error) {
-              clearViewportContinuity(viewportContinuityToken);
-              setInspectorMessage(
-                error instanceof Error
-                  ? error.message
-                  : "Evidence attach failed.",
-              );
-              finishSave("Conflict");
-            }
-          });
-    },
-    [
-      apiBase,
-      applyRowMutation,
-      beginSave,
-      beginViewportContinuity,
-      clearViewportContinuity,
-      createAndAttachEvidenceFile,
-      finishSave,
-      incidentId,
-      nextClientTxnId,
-      resolvePendingSocketTxn,
-      trackPendingSocketTxn,
-      waitForCommittedRecordIdle,
-      setInspectorMessage,
-    ],
-  );
-
-  const handleTimelineEvidenceFiles = useCallback(
-    (target: WorkbookRow, files: FileList | File[]) => {
-      const [file] = Array.from(files);
-      if (!file) {
-        return;
-      }
-      attachEvidenceFileToTimeline(target, file);
-    },
-    [attachEvidenceFileToTimeline],
   );
 
   const timelineBindingLabel = useCallback((fieldKey: string) => {
@@ -6101,155 +4112,6 @@ export function TimelineWorkbook({
     );
   }
 
-  const beginCreateRelatedWorkflow = useCallback(
-    (featureGroup: InspectorFeatureGroup) => {
-      if (
-        featureGroup.routeBinding.kind !== "view_row_create" ||
-        featureGroup.routeBinding.owner !== "view_row_create_route"
-      ) {
-        setInspectorMessage("Inspector action is unavailable.");
-        return;
-      }
-      const targetViewSchemaId = featureGroup.routeBinding.targetViewSchemaId;
-      const targetContract =
-        targetViewSchemaId === undefined
-          ? undefined
-          : createRelatedTargetContracts.get(targetViewSchemaId);
-      if (targetContract === undefined) {
-        setInspectorMessage("Inspector action is unavailable.");
-        return;
-      }
-      if (
-        selectedRow?.recordId === null ||
-        selectedRow?.recordId === undefined
-      ) {
-        setInspectorMessage("Select a row before creating a related record.");
-        return;
-      }
-      const seededDraft = applyTimelineCreateRelatedSeedBindings(
-        initialGenericCreateDraft(targetContract, currentUserId),
-        featureGroup,
-        selectedRow,
-      );
-      setCreateRelatedWorkflow({
-        featureGroup,
-        targetContract,
-        sourceRowKey: selectedRowWorkflowKey,
-        draft: seededDraft,
-        isSubmitting: false,
-        message: null,
-      });
-      setInspectorMessage(null);
-    },
-    [currentUserId, selectedRow, selectedRowWorkflowKey, setInspectorMessage],
-  );
-
-  const submitCreateRelatedWorkflow = useCallback(async () => {
-    const workflow = createRelatedWorkflow;
-    const sourceRow = selectedRow;
-    if (
-      workflow === null ||
-      sourceRow === null ||
-      sourceRow.recordId === null
-    ) {
-      return;
-    }
-    const payload = buildGenericCreatePayload(
-      workflow.targetContract,
-      workflow.draft,
-      `timeline-create-related-${workflow.featureGroup.featureGroupKey}-${Date.now()}`,
-    );
-    if (payload === null) {
-      setCreateRelatedWorkflow({
-        ...workflow,
-        message: genericCreateMinimumMessage(
-          workflow.targetContract.viewSchemaId,
-        ),
-      });
-      return;
-    }
-    setCreateRelatedWorkflow({
-      ...workflow,
-      isSubmitting: true,
-      message: null,
-    });
-    const createResult = await fetchJSON<TimelineMutationEnvelope>(
-      apiPath(
-        apiBase,
-        `/api/v1/incidents/${incidentId}/views/${workflow.targetContract.viewSchemaId}/rows`,
-      ),
-      { method: "POST", body: JSON.stringify(payload) },
-    );
-    if (!createResult.ok) {
-      setCreateRelatedWorkflow({
-        ...workflow,
-        isSubmitting: false,
-        message: parseErrorMessage(createResult.payload),
-      });
-      return;
-    }
-    const createEnvelope = readEnvelope<TimelineMutationEnvelope>(
-      createResult.payload,
-    );
-    const createdRecordId = recordIdFromMutationEnvelope(createEnvelope);
-    if (createdRecordId === null) {
-      setCreateRelatedWorkflow({
-        ...workflow,
-        isSubmitting: false,
-        message: "Created row response did not include a record id.",
-      });
-      return;
-    }
-
-    if (workflow.targetContract.viewSchemaId === evidenceViewSchemaId) {
-      const patchPayload = buildAttachedEvidencePatchPayload(
-        sourceRow,
-        createdRecordId,
-        `timeline-link-created-evidence-${Date.now()}`,
-      );
-      if (patchPayload === null) {
-        setCreateRelatedWorkflow({
-          ...workflow,
-          isSubmitting: false,
-          message: "Created evidence, but the selected row version is stale.",
-        });
-        return;
-      }
-      const patchResult = await fetchJSON<TimelineMutationEnvelope>(
-        apiPath(apiBase, `/api/v1/records/${sourceRow.recordId}`),
-        { method: "PATCH", body: JSON.stringify(patchPayload) },
-      );
-      if (!patchResult.ok) {
-        setCreateRelatedWorkflow({
-          ...workflow,
-          isSubmitting: false,
-          message: `Created evidence, but Timeline link failed: ${parseErrorMessage(patchResult.payload)}`,
-        });
-        return;
-      }
-      const patchEnvelope = readEnvelope<TimelineMutationEnvelope>(
-        patchResult.payload,
-      );
-      applyRowMutation(sourceRow.key, patchEnvelope);
-      await loadRowsRef.current({ showLoading: false });
-      setCreateRelatedWorkflow(null);
-      setInspectorMessage(`Created and linked evidence ${createdRecordId}.`);
-      return;
-    }
-
-    setCreateRelatedWorkflow(null);
-    setInspectorMessage(
-      `Created related ${workflow.targetContract.viewSchemaId} row ${createdRecordId}.`,
-    );
-  }, [
-    apiBase,
-    applyRowMutation,
-    createRelatedWorkflow,
-    incidentId,
-    selectedRow,
-    setInspectorMessage,
-  ]);
-
   function renderCreateRelatedWorkflowSection() {
     if (createRelatedWorkflow === null) {
       return (
@@ -6278,18 +4140,10 @@ export function TimelineWorkbook({
                 testId={genericCreateFieldTestId(field.fieldKey)}
                 value={workflow.draft[field.fieldKey] ?? ""}
                 onChange={(value) => {
-                  setCreateRelatedWorkflow((current) =>
-                    current?.featureGroup.featureGroupKey ===
-                    workflow.featureGroup.featureGroupKey
-                      ? {
-                          ...current,
-                          draft: {
-                            ...current.draft,
-                            [field.fieldKey]: value,
-                          },
-                          message: null,
-                        }
-                      : current,
+                  updateCreateRelatedWorkflowDraft(
+                    workflow.featureGroup.featureGroupKey,
+                    field.fieldKey,
+                    value,
                   );
                 }}
               />
@@ -6315,7 +4169,7 @@ export function TimelineWorkbook({
             style={actionButtonStyle}
             type="button"
             onClick={() => {
-              setCreateRelatedWorkflow(null);
+              cancelCreateRelatedWorkflow();
             }}
           >
             Cancel
@@ -6625,7 +4479,7 @@ export function TimelineWorkbook({
             onClose={() => {
               setIsInspectorOpen(false);
               clearRowHistory();
-              setCreateRelatedWorkflow(null);
+              cancelCreateRelatedWorkflow();
             }}
             onFeatureAction={beginCreateRelatedWorkflow}
             onResolveTargetChange={handleResolveTargetChange}

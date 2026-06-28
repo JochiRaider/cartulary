@@ -4,6 +4,7 @@ import { csrfHeaderName } from "./browserApi";
 import {
   createAndAttachEvidenceBlob,
   evidenceAccessMessageLiveRegion,
+  evidenceAttachPublicErrorMessage,
   evidencePublicErrorMessage,
   resolvePublicEvidenceHandleHref,
 } from "./workbookEvidence";
@@ -41,6 +42,18 @@ describe("workbookEvidence", () => {
         },
       }),
     ).toBe("evidence_access_unavailable: unsupported_preview");
+
+    expect(
+      evidenceAttachPublicErrorMessage(
+        new Error(
+          "upload_failed_500: https://minio.internal/cartulary-evidence-bucket/object_blob_storage_key_v1",
+        ),
+      ),
+    ).toBe("Evidence attach failed.");
+
+    expect(
+      evidenceAttachPublicErrorMessage(new Error("upload_failed_503")),
+    ).toBe("upload_failed_503");
   });
 
   it("accepts only public evidence handle routes", () => {
