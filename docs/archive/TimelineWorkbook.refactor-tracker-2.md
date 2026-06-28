@@ -4,15 +4,15 @@
 
 | Field | Value |
 | --- | --- |
-| Session timestamp | 2026-06-28 12:48:49 EDT |
-| Branch / commit | `main` / `217dfeb5fe18edae75bfef9329c99590c7f064dd` |
-| Dirty tree state | Pre-artifact scan was clean. This artifact is the only planned dirty file. |
+| Session timestamp | 2026-06-28 13:00:07 EDT |
+| Branch / commit | `main` / `57f6ccae139393b6d87a1fafd5e470dd97876762` |
+| Dirty tree state | Pre-implementation scan was clean. WS-0 updates this tracker first; later workstreams may add authored frontend files only. |
 | Target file | `apps/web/src/workbook/timeline/components/TimelineWorkbook.tsx` |
 | Target module / package / seam | Frontend Timeline workbook surface inside `/apps/web`; controller and UI composition seam for the Timeline workbook hot path. |
-| Planning mode | Planning-only refactor tracker and handoff planner. No production code, generated files, contracts, routes, selectors, view schemas, or runtime behavior changes. |
+| Execution mode | Implementation run using this tracker as the controlling workstream artifact. Public routes, generated files, contracts, selectors, view schemas, and data migrations remain frozen unless a spec-first blocker is discovered. |
 | Framework path used | `docs/handoffs/cartulary_modular_refactor_planning_framework.md` |
 | Framework path rejected | `temp/current.md` exists, but its title is `Detailed patch plan: inspector workflow closure`; it is not the reusable modular refactor framework for this target. |
-| Source limits and unseen files | Manual inventory count is 73 direct files or path-listed artifacts. TODO: recompute mechanically before implementation if exact accounting is required. Target was scanned by imports, exports, symbol locations, selected responsibility ranges, and adjacent test surfaces; it was not fully audited line by line. TODO: inspect backend route implementations before any route-sensitive refactor. TODO: fully read Core 04 and the harness NLSpec before using them as detailed evidence. |
+| Source limits and unseen files | Mechanical broad inventory across targeted Timeline/frontend contract/backend owner roots counted 218 files. Target is 4,919 lines. Target review remains slice-local by responsibility ranges. Backend route/security owner audit was completed for route-sensitive workstream planning; no public route or authorization change is planned. |
 
 ## 2. Current-state repository scan
 
@@ -171,6 +171,17 @@
 | Collaboration/presence/live updates | Core 03; `workbookCollaborationMessages.ts`; `workbookSocketLifecycle.ts`; phase6 tests | WebSocket lifecycle, presence drafts, sparse patches, invalidation/reload | Preserve session messages, self-origin suppression, sequence gaps, and pending replay interaction. |
 | Generated contract usage | Generated artifact policy; view/ui contract packages | Imports selector builders and view contract helpers | Do not hand-edit generated roots; update owner inputs before generated outputs in future work. |
 | Harness/test accounting | `docs/testing-harness-nlspec.md`; Make target discovery | Phase-slice and frontend unit targets establish characterization evidence | Use Make targets; distinguish product failures from harness/config/infra failures. |
+| Route/security ownership | Core 01 route families, Core 03 interaction algorithms, Core 04 authorization model, backend route modules | Timeline query/create/patch/paste/conflict/action/evidence/mention/history code calls route-owned behavior | Frontend slices may reorganize call sites but must not change route paths, request envelopes, role assumptions, or server-derived authorization behavior. |
+
+### Route and security owner map
+
+| Surface | Owner docs and implementation owners | Required handling for this refactor |
+| --- | --- | --- |
+| Workbook query/create/patch/paste/conflict routes | Core 01 §3.3.3 through §3.3.6, Core 03 §3 and §15; `internal/modules/workbook/routes.go`, `internal/modules/timeline/*` | Preserve route paths, envelopes, `client_txn_id`, `base_row_version`, `field_key`, conflict, and idempotency semantics. |
+| Timeline lifecycle actions | Core 03 §6 and §15; `internal/modules/workbook/routes.go`, `internal/modules/timeline/*` | Preserve reviewer/admin role expectations, row-version sequencing, and row-refresh behavior. |
+| Evidence and mention actions | Core 01 evidence and mention route families, Core 03 §12 and §16; `internal/modules/evidence/*`, `internal/modules/entities/*`, `internal/modules/timeline/*` | Preserve source-preserving visible text, row-bound actions, and same-incident target validation assumptions. |
+| History/delete/restore/rollback | Core 01 record route families, Core 03 inspector workflow, Core 04 acceptance criteria; `internal/modules/revisions/*` | Preserve inspector invalidation, selected-row retargeting, and server-authoritative route failure handling. |
+| Authorization and incident roles | Core 04 §2; backend `requireIncidentRole` gates in workbook/entities/evidence/revisions modules | Inspector visibility remains presentation only; every route invocation must continue to rely on server authorization. |
 
 ## 5. Refactor tracker
 
@@ -179,12 +190,12 @@
 | T-001 | Define Timeline target module and scope | scope | DONE | none | `/apps/web` Timeline workbook surface | Session header and target declaration | Exactly one primary file and one seam are explicit. |
 | T-002 | Inspect current repo state | discovery | DONE | T-001 | `/apps/web` | Current-state scan, imports, callers, tests, contracts | Relevant files, imports, tests, generated paths, and commands are listed with source limits. |
 | T-003 | Map owner contracts | contracts | DONE | T-002 | Core 01/03/04, domain, harness, design | Owner-contract map | Public behavior and owner docs are mapped for drift-prone surfaces. |
-| T-004 | Freeze characterization evidence | tests | TODO | T-003 | Future implementer | Characterization test plan | Existing coverage is confirmed immediately before an implementation slice; missing evidence has TODO rows. |
+| T-004 | Freeze characterization evidence | tests | DONE | T-003 | Current implementer | Characterization test plan plus per-slice pre/post validation gate | Existing coverage is mapped; each implementation workstream must record pre/post Make targets before the next workstream starts. |
 | T-005 | Plan boundary guardrails | architecture | DONE | T-003 | `/apps/web`, `grid-adapter`, generated policy | Boundary guardrails section | Import/generated/selector/phase/design guardrails are explicit. |
-| T-006 | Plan behavior-preserving moves | implementation | TODO | T-004,T-005 | Future implementer | Candidate slice table | One small slice is selected with prerequisites, validation, rollback, and stop condition. |
-| T-007 | Plan validation loop | validation | TODO | T-006 | Future implementer | Validation plan | Cheapest sufficient validation commands are named and run after edits. |
+| T-006 | Plan behavior-preserving moves | implementation | DONE | T-004,T-005 | Current implementer | Candidate slice table | `TW-RS-01` through `TW-RS-06` are selected in dependency order with validation and stop conditions. |
+| T-007 | Plan validation loop | validation | DONE | T-006 | Current implementer | Validation plan and per-workstream checklist | Cheapest sufficient validation commands are named; each slice records command results before proceeding. |
 | T-008 | Update docs/contracts if required | docs | DEFERRED | T-003 | Owner docs and contract inputs | No change currently planned | Remains deferred unless a future slice requires owner-doc or contract input changes before codegen. |
-| T-009 | Execute or hand off | handoff | IN_PROGRESS | T-006,T-007,T-008 | Current planning artifact, then next actor | Session handoff section | Next actor can continue without rediscovery and update this tracker after each checkpoint. |
+| T-009 | Execute or hand off | handoff | DONE | T-006,T-007,T-008 | Current planning artifact, then next actor | Session handoff section | All planned workstreams completed with final validation and handoff evidence. |
 
 Status values: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`, `DROPPED`.
 
@@ -195,16 +206,16 @@ Status values: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`, `DROPPED`.
 | WF-00 | Session/source bootstrap | root | DONE | none | WF-01 | Branch, commit, dirty state, framework path, and target existence recorded. |
 | WF-01 | Current-state repository scan | chain | DONE | WF-00 | WF-02, WF-03 | Imports, exports, callers, adjacent files, tests, generated policy, and validation commands scanned. |
 | WF-02 | Module/package ownership inventory | chain | DONE | WF-01 | WF-04, WF-08 | `/apps/web` owns Timeline workbook controller; `/packages/grid-adapter`, view-contracts, and ui-contracts boundaries recorded. |
-| WF-03 | Public contract freeze | chain | IN_PROGRESS | WF-01 | WF-04, WF-05, WF-06 | Drift-prone contracts mapped; TODO: rerun targeted characterization before edits. |
-| WF-04 | Refactor slice selection | chain | TODO | WF-02, WF-03 | WF-05, WF-09 | Select exactly one `TW-RS-*` slice per implementation pass. |
-| WF-05 | Characterization test plan | chain | TODO | WF-03, WF-04 | WF-09, WF-10 | Confirm existing tests or add TODO characterization before code movement. |
+| WF-03 | Public contract freeze | chain | DONE | WF-01 | WF-04, WF-05, WF-06 | Drift-prone contracts, backend route owners, and Core 04 authorization boundaries are mapped for the planned frontend-only refactor. |
+| WF-04 | Refactor slice selection | chain | DONE | WF-02, WF-03 | WF-05, WF-09 | Selected `TW-RS-01` through `TW-RS-06` in order, one implementation pass per workstream. |
+| WF-05 | Characterization test plan | chain | DONE | WF-03, WF-04 | WF-09, WF-10 | Existing tests are mapped by behavior; each workstream must run and record its selected Make targets. |
 | WF-06 | Boundary guardrail plan | parallel | DONE | WF-03 | WF-08, WF-10 | Grid vendor, generated, selector, phase, and design evidence guardrails documented. |
-| WF-08 | Frontend package seam plan | chain | TODO | WF-02, WF-06 | WF-09 | Keep app code on package facades and avoid grid vendor semantics. |
-| WF-09 | Execution checkpoint plan | chain | TODO | WF-04, WF-05, WF-08 | WF-10, WF-12 | Future slices must checkpoint after risky moves and update this tracker. |
-| WF-10 | Validation and harness accounting plan | chain | TODO | WF-05, WF-06, WF-09 | WF-13 | Run cheapest narrow Make validations first; broaden by risk. |
+| WF-08 | Frontend package seam plan | chain | DONE | WF-02, WF-06 | WF-09 | App code remains on package facades; no direct grid vendor or generated-root edits are planned. |
+| WF-09 | Execution checkpoint plan | chain | DONE | WF-04, WF-05, WF-08 | WF-10, WF-12 | Tracker was updated after each completed workstream and before starting the next. |
+| WF-10 | Validation and harness accounting plan | chain | DONE | WF-05, WF-06, WF-09 | WF-13 | Use public Make targets; record command, result, and failure classification in the workstream log. |
 | WF-11 | Documentation/generated-artifact plan | parallel | DONE | WF-03 | WF-12 | This artifact is the only planned doc change; generated files are excluded. |
-| WF-12 | Cleanup and anti-drift plan | chain | TODO | WF-09, WF-11 | WF-13 | Remove dead helpers only after green checks; no unrelated refactors. |
-| WF-13 | Handoff and next-slice bootstrap | chain | IN_PROGRESS | WF-10, WF-12 | none | Initial handoff filled; future sessions append completed slice evidence and next action. |
+| WF-12 | Cleanup and anti-drift plan | chain | DONE | WF-09, WF-11 | WF-13 | Dead helper/import cleanup and formatting/lint checks completed; no unrelated refactors. |
+| WF-13 | Handoff and next-slice bootstrap | chain | DONE | WF-10, WF-12 | none | Final handoff record added with validation and skipped-check rationale. |
 
 ## 7. Candidate refactor slices
 
@@ -261,17 +272,46 @@ Status values: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`, `DROPPED`.
 
 ## 11. Workstream notes
 
+## 11A. Per-workstream contract-impact checklist
+
+Every implementation workstream must fill this checklist in the workstream log before the next workstream starts.
+
+| Checklist item | Required answer |
+| --- | --- |
+| Slice ID and behavior family | Name one `TW-RS-*` slice and the behavior family touched. |
+| Owner contracts touched | Name Core/doc sections, route families, selectors, generated inputs, or state `none`. |
+| Public compatibility | Confirm no route, envelope, selector, view-schema, generated artifact, or migration change; otherwise stop for spec-first remediation. |
+| Backend validation needed | Name backend/service-backed targets when route/security behavior changes; otherwise state why frontend-only validation is sufficient. |
+| Characterization before edit | Record Make targets run before edit, or record why retained evidence is not used. |
+| Implementation summary | Describe the structural move and files changed. |
+| Validation after edit | Record Make targets, results, and artifacts/run roots when available. |
+| Failure classification | Classify failures as product, harness/config/infra, or unrelated pre-existing with evidence. |
+| Tracker update | Confirm this tracker was updated before moving to the next workstream. |
+
+## 11B. Workstream execution log
+
+| Workstream | Status | Contract impact | Characterization before edit | Implementation and validation record | Next action |
+| --- | --- | --- | --- | --- | --- |
+| WS-0 Evidence and tracker cleanup | DONE | Documentation/test-process only; route/security owner map added. No public route, generated artifact, selector, view schema, or runtime change. | Discovery commands only; implementation characterization starts with WS-1. | Tracker baseline refreshed to `main` / `57f6ccae139393b6d87a1fafd5e470dd97876762`; broad targeted inventory counted 218 files; backend/security owner scan completed for planned route-sensitive slices; `make generated-artifact-policy-check` passed with run root `.cartulary/test-results/20260628T170139Z-p2598571`; `make lint-markdown` passed. | Start WS-1 `TW-RS-01` render builder extraction. |
+| WS-1 `TW-RS-01` render builder extraction | DONE | Frontend-only internal refactor. No route, envelope, selector, view-schema, generated artifact, authorization, or migration change. Backend validation not needed because route behavior was untouched. | `make frontend-typecheck` passed; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T170207Z-p2599234`; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T170207Z-p2599263`. | Added `TimelineWorkbookRenderers.tsx` for scalar editor, collection editor, grid-column, and inspector editor render builders. `TimelineWorkbook.tsx` keeps state, callbacks, pending-save refs, route calls, and mutation sequencing. Post-edit `make frontend-typecheck` passed after fixing local type drift; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T171008Z-p2604497`; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T171008Z-p2604528`. `TimelineWorkbook.tsx` is now 4,279 lines; renderer module is 888 lines. | Start WS-2 `TW-RS-02` autosave and pending command coordination. |
+| WS-2 `TW-RS-02` autosave and pending commands | DONE | Frontend-only internal refactor of existing command orchestration. Route paths, request envelopes, `client_txn_id`, `base_row_version`, coalescing, conflict admission, save-state labels, and server authorization behavior are unchanged. Backend validation not needed because route contracts were preserved. | `make frontend-typecheck` passed; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T171107Z-p2606809`; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T171107Z-p2606846`. | Added `useTimelineMutationCommands.ts` for `queueScalarSave`, `queueCollectionSave`, and `queueAction`. The hook receives existing refs/callbacks and keeps pending replay, payload builders, row-version sequencing, and route paths unchanged. Post-edit `make frontend-typecheck` passed after type-boundary fixes; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T171633Z-p2611711`; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T171633Z-p2611736`. `TimelineWorkbook.tsx` is now 3,894 lines; mutation-command hook is 534 lines. | Start WS-3 `TW-RS-03` query/load freshness coordination. |
+| WS-3 `TW-RS-03` query/load freshness coordination | DONE | Frontend-only internal refactor of existing Timeline query/load orchestration. Query route path/body, saved-view query state, latest-result rejection, stale high-water retry, local draft preservation, dismissed mention pruning, and server authorization behavior are unchanged. Backend validation not needed because no route, envelope, generated contract, selector, or authorization assumption changed. | `make frontend-typecheck` passed; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T171728Z-p2614057`; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T171728Z-p2614076`. | Added `useTimelineRowsLoader.ts` for query path/body construction, result parsing, stale-result retry, local draft reconciliation, load/error state updates, viewport continuity advancement, and post-load save-state publication. Moved the original committed-row reconciliation semantics into the hook, including `reconcileRecordRows`, local pending signatures, collection drafts, scalar drafts, and draft-row materialization. Post-edit `make frontend-typecheck` first failed with run root `.cartulary/test-results/20260628T172328Z-p2618563` due hook boundary type mismatches; classified product/code and fixed by narrowing the viewport-continuity callback contract and accepting `undefined` row-version lookups. Rerun `make frontend-typecheck` passed; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T172400Z-p2619532`; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T172400Z-p2619538`. `TimelineWorkbook.tsx` is now 3,644 lines; row-loader hook is 458 lines. | Start WS-4 `TW-RS-04` selection, context menu, and inspector lifecycle. |
+| WS-4 `TW-RS-04` selection, context menu, and inspector lifecycle | DONE | Frontend-only internal refactor of selected-row derivation, context-menu state, mention selection, inspector reset, selected-row disappearance, and inspector Escape handling. Stable selectors, row IDs, focus anchors, default-closed inspector behavior, route paths, envelopes, generated artifacts, view schema, and server authorization behavior are unchanged. Backend validation not needed because no route or security behavior changed. | `make frontend-typecheck` passed; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T172509Z-p2621910`; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T172509Z-p2621926`. | Expanded `useTimelineInspectorSelection.ts` to own row context menu state, active context row derivation, row selection/presence update commands, mention selection focus, selected-row disappearance retargeting, mention defaulting, reset-key cleanup, and inspector Escape cleanup. `TimelineWorkbook.tsx` now consumes hook snapshots/commands and keeps history/evidence/route actions in their existing hooks. Post-edit `make frontend-typecheck` passed; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T173253Z-p2627740`; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T173253Z-p2627762`. `TimelineWorkbook.tsx` is now 3,376 lines; inspector selection hook is 547 lines. | Start WS-5 `TW-RS-05` conflict resolver coordination. |
+| WS-5 `TW-RS-05` conflict resolver coordination | DONE | Frontend-only internal refactor of conflict admission, active resolver derivation, paste conflict navigation, resolver focus, submit/clear flow, and pending replay unblock scheduling. Conflict route path, conflict-resolution payload, same-field conflict queue keys, row-version updates, scalar draft cleanup, and save-state labels are unchanged. Backend validation not needed because route/envelope/security semantics were preserved. | `make frontend-typecheck` passed; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T173355Z-p2630152`; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T173355Z-p2630186`. | Added `useTimelineConflictResolverCoordinator.ts` for `registerSameFieldConflict`, `handleMutationConflict`, active conflict snapshots, resolver Escape/focus effects, `clearLocalConflict`, `submitConflictResolution`, and merged-draft updates. `TimelineWorkbook.tsx` keeps the conflict state store and paste route flow but delegates resolver coordination. A scheduler ref breaks the previous pending-replay cycle without changing event-time behavior. Post-edit `make frontend-typecheck` first failed with run root `.cartulary/test-results/20260628T173759Z-p2633996` because the resolver still needed `activePasteConflictIndex`; classified product/code and fixed by returning that snapshot from the hook. Rerun `make frontend-typecheck` passed; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T173837Z-p2635011`; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T173837Z-p2635015`. `TimelineWorkbook.tsx` is now 3,098 lines; conflict coordinator hook is 437 lines. | Start WS-6 `TW-RS-06` styles and constants. |
+| WS-6 `TW-RS-06` styles and constants | DONE | Frontend-only exact movement of Timeline workbook local style constants and row gutter width. CSS values, design tokens, layout, density, focus modality, route behavior, selectors, view schema, generated artifacts, and migrations are unchanged. Backend validation, visual, and a11y browser gates not needed because no geometry or accessibility behavior was intentionally changed. | `make frontend-typecheck` passed; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T173941Z-p2637400`; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T173941Z-p2637527`. | Added `TimelineWorkbookStyles.ts` and moved the used local style objects plus `timelineRowGutterWidth` into it. Post-edit `make frontend-typecheck` first failed with run root `.cartulary/test-results/20260628T174112Z-p2640311` because two workflow button styles were still referenced; classified product/code and fixed by exporting/importing those unchanged. Rerun `make frontend-typecheck` passed; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T174159Z-p2641356`; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T174159Z-p2641396`. `TimelineWorkbook.tsx` is now 3,004 lines; style module is 111 lines. | Start WS-7 validation and handoff completion. |
+| WS-7 validation and handoff completion | DONE | Validation/documentation only after implementation slices. No public route, envelope, selector, view-schema, generated artifact, migration, design-token, or authorization change. | Retained per-slice evidence plus final post-format frontend checks. | Cleanup scan found no remaining component-owned conflict/style helpers. `make generated-artifact-policy-check` passed with run root `.cartulary/test-results/20260628T174351Z-p2644001`; `make lint-markdown` passed; `make lint-biome` first failed with run root `.cartulary/test-results/20260628T174351Z-p2644419` for formatting/import organization and was fixed with `make format` passing at `.cartulary/test-results/20260628T174410Z-p2645055`; rerun `make lint-biome` passed. Post-format `make frontend-typecheck` passed; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T174433Z-p2647088`; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T174433Z-p2647118`. `make agent-finalize` passed with run root `.cartulary/test-results/20260628T174455Z-p2649565`; retained-run maintenance was skipped because `RESULTS_DIR` was unset. Broader `make test-fast` passed with run root `.cartulary/test-results/20260628T174507Z-p2650675` and 953 tests. Focus/a11y sanity `make browser-e2e-a11y-preflight` passed with run root `.cartulary/test-results/20260628T174654Z-p2680970` and 2 tests. Skipped `make check`, full browser visual, stateful, and service-specific browser suites because route/schema/generated contracts and layout geometry were unchanged, while `test-fast` and a11y preflight covered the refactor blast radius. Final `TimelineWorkbook.tsx` is 3,001 lines. | Effort complete; ready for review. |
+
 ### Scope and evidence notes
 
 - Scope is exactly one primary file: `apps/web/src/workbook/timeline/components/TimelineWorkbook.tsx`.
 - Adjacent files are in scope only for imports, props, hooks, route/query/mutation contracts, grid-adapter usage, view-schema/field-key contracts, inspector behavior, tests, generated contracts, selectors, or validation commands.
-- TODO: full target line-by-line review before implementation.
-- TODO: backend route implementation scan before any route-sensitive extraction.
+- Full target review is performed slice-by-slice before each code move.
+- Backend route implementation scan for planned route-sensitive frontend extraction is complete enough to identify owners; deeper backend inspection is required only if a slice changes route behavior.
 
 ### Contracts and docs notes
 
 - Core 01 and Core 03 own most Timeline workbook behavior mapped here.
-- Core 04 is relevant to authorization/security boundaries around incident role and route access; detailed section evidence remains TODO.
+- Core 04 is relevant to authorization/security boundaries around incident role and route access; Core 04 §2 confirms inspector visibility is not authorization and routes re-derive current membership/role.
 - `docs/domain.md` supplies vocabulary and identity boundaries.
 - `docs/design.md` supplies design direction and token/layout constraints only; it is not Base Profile conformance evidence.
 - `docs/testing-harness-nlspec.md` owns command invocation, scheduling, artifacts, cleanup, and gates.
@@ -297,9 +337,9 @@ Status values: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`, `DROPPED`.
 ### Risks and blockers notes
 
 - High risk: `TimelineWorkbook.tsx` currently couples rendering with query/load, pending save, conflict, live update, inspector, history, evidence, mention, and focus behavior.
-- Blocker for implementation: characterization commands have not been run in this session.
-- Blocker for route-sensitive slices: backend route implementation and full Core 04 evidence are not inspected.
-- Blocker for exact inventory accounting: manual file count must be recomputed mechanically if strict count becomes acceptance-critical.
+- Implementation gate: each slice must run and record its selected characterization and validation commands before the following slice starts.
+- Route-sensitive frontend slices may proceed only while preserving route paths, request envelopes, and server-derived authorization behavior.
+- Exact broad inventory accounting was recomputed mechanically for targeted roots as 218 files.
 
 ## 12. Session handoff template
 
@@ -317,6 +357,26 @@ Status values: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`, `DROPPED`.
 | Validation run | Discovery commands only: `make explain-target ...` and `make task-guide ...`. TODO validation commands remain in section 10. |
 | Blockers | No implementation characterization run; no backend route audit; full Core 04 and harness NLSpec not read line by line; exact manual inventory count should be recomputed if required. |
 | Next recommended workflow | WF-03 Public Contract Freeze, then WF-04 Refactor Slice Selection. Start with TW-RS-01 as the lowest-risk first implementation slice. |
+
+### Final handoff record
+
+| Field | Value |
+| --- | --- |
+| Date / actor | 2026-06-28 / Codex |
+| Branch / commit | `main` / `57f6ccae139393b6d87a1fafd5e470dd97876762` |
+| Slice ID | WS-0 through WS-7 complete. |
+| Files changed | `TimelineWorkbook.tsx`; `TimelineWorkbookRenderers.tsx`; `TimelineWorkbookStyles.ts`; `useTimelineMutationCommands.ts`; `useTimelineRowsLoader.ts`; `useTimelineInspectorSelection.ts`; `useTimelineConflictResolverCoordinator.ts`; this tracker. |
+| Behavior intentionally unchanged | Public `TimelineWorkbook` props, `cartulary.view.timeline.v2`, selectors/test IDs, route paths, request/response envelopes, row identity, row-version semantics, pending queue behavior, conflict payloads, saved-view query semantics, inspector default-closed behavior, and server authorization assumptions. |
+| Contract surfaces touched | Frontend internal ownership only; Core 01/03/04 route/security contracts, `docs/domain.md`, generated artifacts, view-schema inputs, and migrations unchanged. |
+| Characterization run before edit | Each WS-1 through WS-6 recorded `make frontend-typecheck`, `make frontend-unit`, and `make frontend-import-boundary-check` before edits. |
+| Implementation summary | Extracted render builders, mutation commands, row query loading, inspector/context lifecycle, conflict resolver coordination, and styles/constants into Timeline-local modules while keeping public contracts frozen. |
+| Validation commands and results | Final post-format `make frontend-typecheck` passed; `make frontend-unit` passed at `.cartulary/test-results/20260628T174433Z-p2647088`; `make frontend-import-boundary-check` passed at `.cartulary/test-results/20260628T174433Z-p2647118`; `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260628T174351Z-p2644001`; `make lint-markdown` passed; `make lint-biome` passed after `make format`; `make agent-finalize` passed at `.cartulary/test-results/20260628T174455Z-p2649565`; `make test-fast` passed at `.cartulary/test-results/20260628T174507Z-p2650675`; `make browser-e2e-a11y-preflight` passed at `.cartulary/test-results/20260628T174654Z-p2680970`. |
+| Artifacts / run roots | See WS-0 through WS-7 execution log for per-slice run roots and failure classifications. |
+| Product failures | Only local type/format diagnostics during extraction; all were fixed and rerun green. |
+| Harness/config/infra failures | None unresolved. |
+| Blockers or deferred evidence | `make check`, full browser visual, stateful, and service-specific browser suites skipped because no route/schema/generated contract or geometry change was made; `test-fast` plus browser a11y preflight were selected as sufficient broader gates. Retained-run maintenance skipped because `RESULTS_DIR` was unset for `make agent-finalize`. |
+| Rollback notes | Revert the new Timeline-local modules and restore the corresponding inline blocks in `TimelineWorkbook.tsx`; no generated files, migrations, contracts, or lockfiles are involved. |
+| Next recommended workflow | Review the extracted seams and keep future feature work in the new owner modules rather than re-expanding `TimelineWorkbook.tsx`. |
 
 ### Reusable future handoff blank
 
