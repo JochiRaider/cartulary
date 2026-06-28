@@ -15,6 +15,18 @@ they are not runtime architecture boundaries.
 Generated artifacts and generated harness outputs remain owned by their source
 manifests and must not be hand-edited.
 
+## Coverage Scope
+
+This README is the exhaustive file-responsibility map for authored files under
+`apps/web/src`. Every source, support, and colocated test file in this tree
+should appear exactly once in one table below. Directory headings define the
+local implementation-ownership boundary; table rows define the file-level
+responsibility inside that boundary.
+
+When adding, removing, or moving a file, update the matching directory section
+in the same change. Test-file rows should name the behavior or contract they
+pin, not the mechanics of the test harness.
+
 ## Root Files
 
 | File | Responsibility |
