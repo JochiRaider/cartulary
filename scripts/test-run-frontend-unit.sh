@@ -337,9 +337,48 @@ run_case() {
   printf '%s\n' "$results_dir/$name/frontend-unit/target-summary.json"
 }
 
+run_phase_case() {
+  local name="$1"
+  local mode="$2"
+  local phase="$3"
+  local expected_status="$4"
+  local results_dir="$tmp_dir/results-$name"
+  local stdout_log="$tmp_dir/$name.stdout.log"
+  local stderr_log="$tmp_dir/$name.stderr.log"
+
+  set +e
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_TARGET=frontend-unit \
+  CARTULARY_TEST_RESULTS_DIR="$results_dir" \
+  CARTULARY_TEST_RUN_ID="$name" \
+  CARTULARY_PHASE_SLICE_PHASE="$phase" \
+  NODE_RUNTIME_DIR="$runtime_dir" \
+  NODE_BIN="$runtime_dir/bin/node" \
+  PNPM="$fake_pnpm" \
+  FAKE_FRONTEND_UNIT_MODE="$mode" \
+    "$HELPER" >"$stdout_log" 2>"$stderr_log"
+  local status=$?
+  set -e
+
+  if [[ "$expected_status" == "pass" && "$status" -ne 0 ]]; then
+    cat "$stderr_log" >&2
+    fail "$name: expected pass, got status $status"
+  fi
+  if [[ "$expected_status" == "fail" && "$status" -eq 0 ]]; then
+    fail "$name: expected fail"
+  fi
+
+  printf '%s\n' "$results_dir/$name/frontend-unit/target-summary.json"
+}
+
 success_summary="$(run_case success success pass)"
 success_exit_mismatch_summary="$(run_case success-exit-mismatch success-exit-mismatch pass)"
 assert_equals "$(json_field "$success_exit_mismatch_summary" "status")" "pass" "success exit mismatch target status"
+phase_success_exit_mismatch_summary="$(run_phase_case phase-success-exit-mismatch success-exit-mismatch phase1 pass)"
+assert_equals "$(json_field "$phase_success_exit_mismatch_summary" "status")" "pass" "phase success exit mismatch target status"
+phase_success_exit_mismatch_phase_summary="${phase_success_exit_mismatch_summary%/target-summary.json}/frontend-unit-phase1-authoritative/phase-summary.json"
+assert_equals "$(json_field "$phase_success_exit_mismatch_phase_summary" "status")" "pass" "phase success exit mismatch phase status"
+assert_equals "$(json_field "$phase_success_exit_mismatch_phase_summary" "counts.failed")" "0" "phase success exit mismatch failed count"
 frontend_counts="$("${NODE:-node}" - "$ROOT_DIR" <<'EOF'
 const fs = require("node:fs");
 const path = require("node:path");

@@ -22,72 +22,33 @@ import {
   useState,
 } from "react";
 
+import { type APIError, extractError } from "../services/browserApi";
 import {
-  type APIError,
-  clientTxnID,
-  csrfCookieName,
-  csrfHeaderName,
-  extractError,
-  fetchJSON,
-  readCookie,
-} from "../services/browserApi";
-import type { SessionData } from "./phase1Client";
+  cancelReferencePackJob,
+  importReferencePackBundle,
+  listReferencePacks,
+  loadReferencePackJob,
+  type ReferencePackAction,
+  refreshReferencePacks,
+  runReferencePackAction,
+} from "./referencePackAdminClient";
+import {
+  type DeploymentAdminSession,
+  defaultReferencePackPaging,
+  type ReferencePackJobEnvelope,
+  type ReferencePackJobResource,
+  type ReferencePackListEnvelope,
+  type ReferencePackQuery,
+  type ReferencePackVersion,
+  terminalReferencePackJobStates,
+} from "./referencePackAdminModel";
 
-type ReferencePackVersion = {
-  pack_key: string;
-  pack_version: string;
-  pack_kind: string;
-  pack_version_state: string;
-  active: boolean;
-  source_identifier: string | null;
-  manifest_sha256: string;
-  payload_sha256: string;
-  pack_contract_version: string;
-  verification_method: string;
-  verification_result: string;
-  signer_key_id: string | null;
-  previous_active_version: string | null;
-  imported_by_user_id: string | null;
-  imported_at: string;
-  activated_by_user_id: string | null;
-  activated_at: string | null;
-};
-
-export type ReferencePackJobResource = {
-  job_id: string;
-  status: string;
-  cancelable: boolean;
-  progress: {
-    completed: number;
-    total: number | null;
-  };
-  result_summary: { code: string } | null;
-  error_summary: { code: string; details?: Record<string, unknown> } | null;
-};
-
-type ReferencePackListEnvelope = {
-  data: {
-    pack_versions: ReferencePackVersion[];
-  };
-  meta?: {
-    paging?: ReferencePackPaging;
-  };
-};
-
-type ReferencePackPaging = {
-  limit?: number;
-  has_more: boolean;
-  next_cursor: string | null;
-};
-
-type JobEnvelope = {
-  data: ReferencePackJobResource;
-};
+export type { ReferencePackJobResource } from "./referencePackAdminModel";
 
 type ReferencePackAdminPanelProps = {
   activeJob?: ReferencePackJobResource | null;
   onJobChange?: (job: ReferencePackJobResource | null) => void;
-  session: SessionData;
+  session: DeploymentAdminSession;
 };
 
 export type ReferencePackAdminPanelHandle = {
@@ -96,13 +57,6 @@ export type ReferencePackAdminPanelHandle = {
   refreshAll: () => Promise<void>;
   refreshPacks: () => Promise<void>;
   refreshSelected: () => Promise<void>;
-};
-
-const terminalJobStates = new Set(["succeeded", "failed", "canceled"]);
-const defaultPackPaging: ReferencePackPaging = {
-  limit: 100,
-  has_more: false,
-  next_cursor: null,
 };
 
 export const ReferencePackAdminPanel = forwardRef<
@@ -120,12 +74,12 @@ export const ReferencePackAdminPanel = forwardRef<
   const [packVersionStateFilter, setPackVersionStateFilter] = useState("");
   const [verificationResultFilter, setVerificationResultFilter] = useState("");
   const [activeFilter, setActiveFilter] = useState("");
-  const [packPaging, setPackPaging] = useState(defaultPackPaging);
+  const [packPaging, setPackPaging] = useState(defaultReferencePackPaging);
   const [status, setStatus] = useState("Idle");
   const pollTimer = useRef<number | null>(null);
   const requestSeqRef = useRef(0);
   const initialLoadRef = useRef(false);
-  const acceptedPackQueryRef = useRef({
+  const acceptedPackQueryRef = useRef<ReferencePackQuery>({
     active: "",
     packVersionState: "",
     search: "",
@@ -141,7 +95,6 @@ export const ReferencePackAdminPanel = forwardRef<
     async (options?: { append?: boolean; cursorToken?: string | null }) => {
       const sequence = requestSeqRef.current + 1;
       requestSeqRef.current = sequence;
-      const params = new URLSearchParams({ limit: "100" });
       const cursorToken = options?.cursorToken?.trim() ?? "";
       const query =
         options?.append === true
@@ -152,30 +105,12 @@ export const ReferencePackAdminPanel = forwardRef<
               search: packSearch.trim(),
               verificationResult: verificationResultFilter,
             };
-      if (cursorToken !== "") {
-        params.set("cursor_token", cursorToken);
-      }
-      if (query.search !== "") {
-        params.set("search", query.search);
-      }
-      if (query.packVersionState !== "") {
-        params.set("pack_version_state", query.packVersionState);
-      }
-      if (query.verificationResult !== "") {
-        params.set("verification_result", query.verificationResult);
-      }
-      if (query.active !== "") {
-        params.set("active", query.active);
-      }
-
       setStatus(
         options?.append === true
           ? "Loading more reference packs"
           : "Searching reference packs",
       );
-      const result = await fetchJSON<ReferencePackListEnvelope>(
-        `/api/v1/reference-packs?${params.toString()}`,
-      );
+      const result = await listReferencePacks({ cursorToken, query });
       if (requestSeqRef.current !== sequence) {
         return;
       }
@@ -193,7 +128,7 @@ export const ReferencePackAdminPanel = forwardRef<
       setPacks((current) =>
         options?.append === true ? [...current, ...nextPacks] : nextPacks,
       );
-      setPackPaging(envelope.meta?.paging ?? defaultPackPaging);
+      setPackPaging(envelope.meta?.paging ?? defaultReferencePackPaging);
       setStatus("Reference packs loaded");
     },
     [
@@ -214,15 +149,15 @@ export const ReferencePackAdminPanel = forwardRef<
 
   const loadJob = useCallback(
     async (jobID: string) => {
-      const result = await fetchJSON<JobEnvelope>(`/api/v1/jobs/${jobID}`);
+      const result = await loadReferencePackJob(jobID);
       if (!result.ok) {
         setError(extractError(result.payload));
         return;
       }
-      const nextJob = (result.payload as JobEnvelope).data;
+      const nextJob = (result.payload as ReferencePackJobEnvelope).data;
       updateJob(nextJob);
       setStatus(`Job ${nextJob.status}`);
-      if (terminalJobStates.has(nextJob.status)) {
+      if (terminalReferencePackJobStates.has(nextJob.status)) {
         await loadPacks();
       }
     },
@@ -230,7 +165,7 @@ export const ReferencePackAdminPanel = forwardRef<
   );
 
   useEffect(() => {
-    if (job === null || terminalJobStates.has(job.status)) {
+    if (job === null || terminalReferencePackJobStates.has(job.status)) {
       return;
     }
     pollTimer.current = window.setTimeout(() => {
@@ -282,39 +217,13 @@ export const ReferencePackAdminPanel = forwardRef<
       setStatus("Select a bundle first");
       return;
     }
-    const form = new FormData();
-    form.append(
-      "metadata",
-      new Blob(
-        [
-          JSON.stringify({
-            client_txn_id: clientTxnID("reference-pack-import"),
-          }),
-        ],
-        { type: "application/json" },
-      ),
-    );
-    form.append("file", file);
-    const headers = new Headers();
-    const csrfToken = readCookie(csrfCookieName);
-    if (csrfToken !== null && csrfToken !== "") {
-      headers.set(csrfHeaderName, csrfToken);
-    }
-    const response = await fetch("/api/v1/reference-packs/import", {
-      method: "POST",
-      credentials: "include",
-      headers,
-      body: form,
-    });
-    const payload = (await response.json()) as
-      | JobEnvelope
-      | { error: APIError };
-    if (!response.ok) {
-      setError(extractError(payload));
+    const result = await importReferencePackBundle(file);
+    if (!result.ok) {
+      setError(extractError(result.payload));
       setStatus("Import failed to start");
       return;
     }
-    const nextJob = (payload as JobEnvelope).data;
+    const nextJob = (result.payload as ReferencePackJobEnvelope).data;
     setError(null);
     updateJob(nextJob);
     setStatus("Import queued");
@@ -325,17 +234,9 @@ export const ReferencePackAdminPanel = forwardRef<
 
   async function runPackAction(
     pack: ReferencePackVersion,
-    action: "activate" | "disable" | "reverify",
+    action: ReferencePackAction,
   ) {
-    const result = await fetchJSON<JobEnvelope | { data: unknown }>(
-      `/api/v1/reference-packs/${encodeURIComponent(pack.pack_key)}/${encodeURIComponent(pack.pack_version)}/${action}`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          client_txn_id: clientTxnID(`reference-pack-${action}`),
-        }),
-      },
-    );
+    const result = await runReferencePackAction(pack, action);
     if (!result.ok) {
       setError(extractError(result.payload));
       setStatus(`${action} failed`);
@@ -343,7 +244,7 @@ export const ReferencePackAdminPanel = forwardRef<
     }
     setError(null);
     if (action === "reverify") {
-      const nextJob = (result.payload as JobEnvelope).data;
+      const nextJob = (result.payload as ReferencePackJobEnvelope).data;
       updateJob(nextJob);
       setStatus("Reverify queued");
       void loadJob(nextJob.job_id);
@@ -359,25 +260,13 @@ export const ReferencePackAdminPanel = forwardRef<
       return;
     }
     const packKeys = all ? [] : Array.from(selectedKeys).sort();
-    const body: Record<string, unknown> = {
-      client_txn_id: clientTxnID("reference-pack-refresh"),
-    };
-    if (!all) {
-      body.pack_keys = packKeys;
-    }
-    const result = await fetchJSON<JobEnvelope>(
-      "/api/v1/reference-packs/refresh",
-      {
-        method: "POST",
-        body: JSON.stringify(body),
-      },
-    );
+    const result = await refreshReferencePacks({ all, packKeys });
     if (!result.ok) {
       setError(extractError(result.payload));
       setStatus("Refresh failed to start");
       return;
     }
-    const nextJob = (result.payload as JobEnvelope).data;
+    const nextJob = (result.payload as ReferencePackJobEnvelope).data;
     setError(null);
     updateJob(nextJob);
     setStatus("Refresh queued");
@@ -388,21 +277,13 @@ export const ReferencePackAdminPanel = forwardRef<
     if (job === null) {
       return;
     }
-    const result = await fetchJSON<JobEnvelope>(
-      `/api/v1/jobs/${job.job_id}/cancel`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          client_txn_id: clientTxnID("reference-pack-cancel"),
-        }),
-      },
-    );
+    const result = await cancelReferencePackJob(job.job_id);
     if (!result.ok) {
       setError(extractError(result.payload));
       setStatus("Cancel rejected");
       return;
     }
-    const nextJob = (result.payload as JobEnvelope).data;
+    const nextJob = (result.payload as ReferencePackJobEnvelope).data;
     setError(null);
     updateJob(nextJob);
     setStatus("Cancel requested");
@@ -528,7 +409,7 @@ export const ReferencePackAdminPanel = forwardRef<
           </span>
         ) : null}
         {job !== null &&
-        !terminalJobStates.has(job.status) &&
+        !terminalReferencePackJobStates.has(job.status) &&
         job.cancelable ? (
           <button
             data-testid={referencePackCancelButtonTestId()}

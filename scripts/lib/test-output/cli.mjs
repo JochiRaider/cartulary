@@ -3093,12 +3093,26 @@ function combineSummarySections(target, sections, status = "pass") {
       section,
       section?.target ?? target,
     );
+    const viewFailures = [...(view.failures ?? [])];
+    if (view.status && view.status !== "pass" && viewFailures.length === 0) {
+      viewFailures.push({
+        failure_class: "harness",
+        failure_reason: "child_target_failure",
+        kind: "failure",
+        source: "target-summary",
+        target,
+        child_target: view.target ?? section?.target ?? "",
+        label: view.target ?? section?.target ?? "",
+        message: "child target reported failure status without failure details",
+        artifact: view.artifacts?.dir ?? "",
+      });
+    }
     addCounts(aggregate, view.counts);
     addDurationFields(aggregate, view);
     mergeAccountingModes(accountingModes, view.accounting_modes);
     timingFailures.push(...(view.timing_failures ?? []));
     teardownFailures.push(...(view.teardown_failures ?? []));
-    failures.push(...(view.failures ?? []));
+    failures.push(...viewFailures);
     if (startTime === "" || (view.start_time && view.start_time < startTime)) {
       startTime = view.start_time ?? "";
     }
@@ -6014,6 +6028,8 @@ function finalizeManifestAwareRunnerPhase(
   let status = selectedSlicePassed ? "pass" : "fail";
   let manifestSummary = null;
   let manifestMismatch = null;
+  let phaseCounts = summary.counts;
+  let phaseDossiers = summary.dossiers;
   const emptySelectionAllowed =
     runner === "vitest" &&
     optionalEnv("CARTULARY_VITEST_ALLOW_EMPTY_SELECTION") === "1" &&
@@ -6068,13 +6084,38 @@ function finalizeManifestAwareRunnerPhase(
     }
   }
 
+  if (status === "fail" && !manifestMismatch && phaseDossiers.length === 0) {
+    phaseCounts = {
+      ...createCounts(),
+      ...(phaseCounts ?? {}),
+      failed: (phaseCounts?.failed ?? 0) + 1,
+      non_test: (phaseCounts?.non_test ?? 0) + 1,
+      non_test_failed: (phaseCounts?.non_test_failed ?? 0) + 1,
+    };
+    phaseDossiers = [
+      {
+        failure_class: "harness",
+        failure_reason: "tool_diagnostic_failure",
+        coverage: "non_test",
+        phase: inferPhaseFromText(context.label),
+        id: "",
+        runner,
+        package_or_file: `(${runner} runner)`,
+        symbol_or_title: "(runner status)",
+        message: `${runner} runner exited with status ${context.exitStatus} without selected test failures`,
+        reproduce: context.command,
+        raw: renderRawList(Object.values(artifacts ?? {})),
+      },
+    ];
+  }
+
   writePhaseArtifacts(context, {
     status,
     phase: inferPhaseFromText(context.label),
-    counts: summary.counts,
+    counts: phaseCounts,
     owners: summary.owners,
     inventory: summary.inventory,
-    dossiers: summary.dossiers,
+    dossiers: phaseDossiers,
     ...extraWritePhaseDetails,
     manifestSummary,
     manifestMismatch,
@@ -6096,7 +6137,7 @@ function finalizeManifestAwareRunnerPhase(
     return 1;
   }
   if (showPhaseDetailOutput(context)) {
-    for (const dossier of summary.dossiers) {
+    for (const dossier of phaseDossiers) {
       printBlock(`failure: ${context.label}`, failureDetailFields(dossier));
     }
   }

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { csrfHeaderName } from "../services/browserApi";
-import { readHeader } from "../testing/fetchMockTestSupport";
+import { csrfHeaderName } from "../../services/browserApi";
+import { readHeader } from "../../testing/fetchMockTestSupport";
 import {
   adminResetPassword,
   adminResetTotp,
@@ -20,9 +20,9 @@ import {
   patchLocalUser,
   retireEnterpriseAuthBinding,
   rotateEnterpriseAuthBinding,
-} from "./phase1Client";
+} from "./appShellClient";
 
-describe("Phase 1 API route boundaries", () => {
+describe("App-shell API route boundaries", () => {
   let cookieValue = "";
   let fetchMock: ReturnType<typeof vi.fn>;
 

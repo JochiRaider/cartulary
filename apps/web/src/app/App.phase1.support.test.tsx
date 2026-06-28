@@ -30,9 +30,12 @@ import {
   installLandingShellFetch,
   sessionResource,
 } from "../testing/appShellTestSupport";
+import {
+  AccountSecurityPanel,
+  DeploymentUsersPanel,
+} from "./AccountAdministrationPanels";
 import { AppRoot } from "./AppRoot";
-import { Phase1AccountPanel, Phase1AdminPanel } from "./Phase1Surface";
-import type { UserResource } from "./phase1Client";
+import type { UserResource } from "./api/appShellClient";
 
 describe("Phase 1 ordinary shell support", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -183,7 +186,7 @@ describe("Phase 1 ordinary shell support", () => {
     });
 
     render(
-      <Phase1AdminPanel
+      <DeploymentUsersPanel
         autoLoadUsers
         onRefreshShell={() => undefined}
         session={sessionResource({ is_deployment_admin: true })}
@@ -234,11 +237,14 @@ describe("Phase 1 ordinary shell support", () => {
 
     render(
       <>
-        <Phase1AccountPanel
+        <AccountSecurityPanel
           credentialStateError={null}
           onRefreshShell={() => undefined}
         />
-        <Phase1AdminPanel onRefreshShell={() => undefined} session={session} />
+        <DeploymentUsersPanel
+          onRefreshShell={() => undefined}
+          session={session}
+        />
       </>,
     );
 
@@ -352,7 +358,7 @@ describe("Phase 1 ordinary shell support", () => {
     });
 
     render(
-      <Phase1AdminPanel
+      <DeploymentUsersPanel
         autoLoadUsers
         enterpriseAuthClaimed
         onRefreshShell={() => undefined}

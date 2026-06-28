@@ -24,7 +24,7 @@ import {
 import {
   isWorkbookSheetRef,
   type WorkbookSheetRef,
-} from "../workbook/models/workbookStartup";
+} from "../shared/workbookSheetRef";
 
 type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
 type MembershipRole = Exclude<IncidentRole, "">;

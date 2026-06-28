@@ -4,7 +4,7 @@ import type {
   EnterpriseAuthProvider,
   ExtensionProfileResource,
   SessionData,
-} from "../app/phase1Client";
+} from "../app/api/appShellClient";
 import { jsonResponse } from "./fetchMockTestSupport";
 
 type FetchMock = {

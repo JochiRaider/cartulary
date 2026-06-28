@@ -15,7 +15,7 @@ import {
   listEnterpriseAuthProviders,
   loadSession,
   loginLocal,
-} from "./phase1Client";
+} from "./api/appShellClient";
 
 type AuthSurfaceBootstrapState =
   | "loading"
@@ -25,7 +25,7 @@ type AuthSurfaceBootstrapState =
 
 type AuthChallengeState = "mfa_required" | "mfa_setup_required";
 
-type Phase1AuthSurfaceProps = {
+export type AuthGatewayProps = {
   bootstrapState: AuthSurfaceBootstrapState;
   message: string;
   onAuthenticated: () => Promise<void> | void;
@@ -437,7 +437,7 @@ export function AuthGateway({
   onAuthenticated,
   publicError = null,
   readingProfile = "default",
-}: Phase1AuthSurfaceProps) {
+}: AuthGatewayProps) {
   const [state, dispatch] = useReducer(authReducer, initialAuthState);
   const usernameRef = useRef<HTMLInputElement | null>(null);
   const passwordRef = useRef<HTMLInputElement | null>(null);
@@ -1526,5 +1526,3 @@ const authGatewayStyleText = `
   }
 }
 `;
-
-export type { Phase1AuthSurfaceProps };

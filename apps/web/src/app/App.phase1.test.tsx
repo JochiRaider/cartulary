@@ -42,7 +42,7 @@ import {
   requireJSONRequest,
 } from "../testing/fetchMockTestSupport";
 import { AppRoot } from "./AppRoot";
-import { setEnterpriseAuthNavigateForTesting } from "./Phase1Surface";
+import { setEnterpriseAuthNavigateForTesting } from "./AuthGateway";
 
 describe("Phase 1 ordinary app shell", () => {
   let fetchMock: ReturnType<typeof vi.fn>;

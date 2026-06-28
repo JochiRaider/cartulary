@@ -1506,6 +1506,50 @@ assert_equals "$(json_field "$missing_child_summary" "children.missing.0")" "mis
 assert_equals "$(json_field "$missing_child_summary" "own.counts.non_test_failed")" "1" "missing child wrapper failure count"
 assert_equals "$(json_field "$missing_child_summary" "failure_class")" "artifact" "missing child failure class"
 
+status_only_child_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-status-only-child.XXXXXX")"
+cleanup_paths+=("$status_only_child_results")
+status_only_child_run="$status_only_child_results/status-only-child"
+mkdir -p "$status_only_child_run/status-only-child" "$status_only_child_run/parent-with-status-only-child"
+cat >"$status_only_child_run/status-only-child/target-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.test_target_summary.v4",
+  "target": "status-only-child",
+  "kind": "leaf",
+  "status": "fail",
+  "start_time": "2026-01-01T00:00:00Z",
+  "end_time": "2026-01-01T00:00:01Z",
+  "executed_duration_ms": 1000,
+  "logical_duration_ms": 1000,
+  "reused_duration_ms": 0,
+  "derived_duration_ms": 0,
+  "wall_duration_ms": 1000,
+  "critical_path_wall_duration_ms": 1000,
+  "teardown_duration_ms": 0,
+  "accounting_modes": { "actual": 1, "reused": 0, "derived": 0 },
+  "counts": { "phases": 1, "tests": 1, "failed": 0, "authoritative": 1, "support": 0, "unmapped": 0, "non_test": 0, "authoritative_failed": 0, "support_failed": 0, "unmapped_failed": 0, "non_test_failed": 0, "packages": 1 },
+  "failure_class": null,
+  "failure_reason": null,
+  "failure_classes": { "product": 0, "security": 0, "config": 0, "infra": 0, "harness": 0, "artifact": 0, "timing": 0, "interrupted": 0, "unknown": 0 },
+  "failure_reasons": { "usage_error": 0, "configuration_error": 0, "preflight_error": 0, "service_start_error": 0, "service_readiness_timeout": 0, "fixture_error": 0, "resource_conflict": 0, "test_assertion_failure": 0, "security_finding": 0, "child_target_failure": 0, "tool_diagnostic_failure": 0, "scheduler_accounting_error": 0, "frontend_row_accounting": 0, "test_accounting_unmapped": 0, "artifact_error": 0, "cleanup_error": 0, "duration_baseline_drift": 0, "timeout_failure": 0, "cancelled_or_interrupted": 0, "unknown_failure": 0 },
+  "failures": [],
+  "failure_headline": "",
+  "artifacts": { "dir": ".cartulary/test-results/status-only-child/status-only-child" }
+}
+JSON
+status_only_child_output="$(
+  CARTULARY_OUTPUT_MODE=verbose \
+  CARTULARY_TEST_RESULTS_DIR="$status_only_child_results" \
+  CARTULARY_TEST_RUN_ID="status-only-child" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-status-only-child fail --children status-only-child \
+    2>&1
+)"
+assert_contains "$status_only_child_output" "[FAIL] parent-with-status-only-child" "status-only child parent output"
+status_only_child_summary="$status_only_child_run/parent-with-status-only-child/target-summary.json"
+assert_equals "$(json_field "$status_only_child_summary" "status")" "fail" "status-only child status"
+assert_equals "$(json_field "$status_only_child_summary" "failure_class")" "harness" "status-only child failure class"
+assert_equals "$(json_field "$status_only_child_summary" "failure_reason")" "child_target_failure" "status-only child failure reason"
+assert_equals "$(json_field "$status_only_child_summary" "children.failures.0.child_target")" "status-only-child" "status-only child failure target"
+
 skipped_child_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-skipped-child.XXXXXX")"
 cleanup_paths+=("$skipped_child_results")
 skipped_child_run="$skipped_child_results/skipped-child"

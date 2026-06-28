@@ -1,12 +1,14 @@
 import {
+  isWorkbookSheetRef,
+  type WorkbookSheetRef,
+} from "../../shared/workbookSheetRef";
+import {
   isStandardizedWorkbookViewSchemaId,
   timelineViewSchemaId,
 } from "./workbookSurfaceRegistry";
 
-export type WorkbookSheetRef = {
-  readonly id: string;
-  readonly kind: "saved_view" | "view_schema";
-};
+export type { WorkbookSheetRef };
+export { isWorkbookSheetRef };
 
 export type WorkbookStartupClearedSheetRef = {
   readonly id: string;
@@ -54,18 +56,6 @@ const startupSources = new Set<string>([
   "timeline",
 ]);
 const pointerSources = new Set<string>(["default", "home"]);
-
-export function isWorkbookSheetRef(value: unknown): value is WorkbookSheetRef {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const record = value as Record<string, unknown>;
-  return (
-    (record.kind === "view_schema" || record.kind === "saved_view") &&
-    typeof record.id === "string" &&
-    record.id.trim() !== ""
-  );
-}
 
 function isClearedSheetRef(
   value: unknown,

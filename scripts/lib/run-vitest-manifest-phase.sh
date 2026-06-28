@@ -47,6 +47,33 @@ run_report="${phase_dir}/runner.json"
 stdout_log="${phase_dir}/stdout.log"
 stderr_log="${phase_dir}/stderr.log"
 
+vitest_report_succeeded() {
+  local report_file="$1"
+  "$node_bin" - "$report_file" <<'NODE'
+const fs = require("node:fs");
+
+const [reportFile] = process.argv.slice(2);
+let report;
+try {
+  report = JSON.parse(fs.readFileSync(reportFile, "utf8"));
+} catch {
+  process.exit(1);
+}
+
+const numeric = (value) =>
+  typeof value === "number" && Number.isFinite(value) ? value : 0;
+
+if (
+  report?.success === true &&
+  numeric(report.numFailedTests) === 0 &&
+  numeric(report.numFailedTestSuites) === 0
+) {
+  process.exit(0);
+}
+process.exit(1);
+NODE
+}
+
 if [[ "$output_mode" != "quiet" && "${RUN_PHASE_SHOW_BANNER:-1}" == "1" ]]; then
   echo "== ${phase_label} =="
 fi
@@ -63,6 +90,10 @@ set +e
 run_vitest_command_with_watchdog "$phase_label" "$phase_dir" "$stdout_log" "$stderr_log" "$output_mode" "${run_command[@]}"
 run_status=$?
 set -e
+
+if [[ -f "$run_report" && "$run_status" -ne 0 && ! -f "${CARTULARY_VITEST_WATCHDOG_LOG:-}" ]] && vitest_report_succeeded "$run_report"; then
+  run_status=0
+fi
 
 phase_capture_finish PHASE
 start_time="${PHASE_START_TIME}"

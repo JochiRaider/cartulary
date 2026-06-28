@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 
-import { type APIError, extractError } from "../services/browserApi";
+import { type APIError, extractError } from "../../services/browserApi";
 import {
   adminResetPassword,
   adminResetTotp,
@@ -24,7 +24,7 @@ import {
   patchLocalUser,
   type SessionData,
   type UserResource,
-} from "./phase1Client";
+} from "../api/appShellClient";
 
 type ProbeResult = {
   status: number;

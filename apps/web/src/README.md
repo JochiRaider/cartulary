@@ -32,25 +32,38 @@ entrypoints, and app-shell tests. It should not own workbook internals.
 | --- | --- |
 | `app/App.tsx` | Top-level application composition and route/surface selection for the web app. |
 | `app/AppRoot.tsx` | Root React wrapper that connects app-level providers and the rendered `App`. |
+| `app/AccountAdministrationPanels.tsx` | Account-security and deployment-user administration panels. |
+| `app/AccountSettingsPanels.tsx` | Account profile and appearance settings panels. |
+| `app/api/appShellClient.ts` | App-shell client helpers for auth, account, deployment administration, and extension profile requests. |
 | `app/AuthGateway.tsx` | Authentication-state gate around app content and login/account readiness. |
-| `app/DebugHarnessShell.tsx` | Shared shell for development/debug harness pages. |
+| `app/debug/DebugHarnessShell.tsx` | Shared shell for development/debug harness pages. |
+| `app/DeploymentAuditPanel.tsx` | Deployment administrative audit panel and audit-event formatting. |
+| `app/IncidentImportPanel.tsx` | Incident bundle import panel and import-job polling controls. |
 | `app/IncidentAdminPanel.tsx` | Incident administration panel UI for incident metadata, preferences, membership, and audit affordances. |
-| `app/LandingAdminSurface.tsx` | Landing-page administration surface for deployment/admin workflows. |
-| `app/Phase1Harness.tsx` | Phase 1 debug harness entrypoint for auth, account, and route readiness scenarios. |
-| `app/Phase1Surface.tsx` | Phase 1 support surface used by the debug harness and tests. |
-| `app/Phase2Harness.tsx` | Phase 2 debug harness entrypoint for incident setup and preference scenarios. |
+| `app/IncidentLanding.tsx` | Incident directory landing panel, search/filter controls, and create-incident dialog. |
+| `app/LandingAdminDisplay.tsx` | Shared display helpers for landing/admin panels. |
+| `app/LandingAdminLayout.tsx` | Landing and deployment-administration shell layout plus the account/application menu. |
+| `app/LandingAdminSurface.tsx` | Compatibility re-export for landing/admin modules; new runtime imports should prefer the cohesive modules directly. |
+| `app/debug/Phase1Harness.tsx` | Phase 1 debug harness entrypoint for auth, account, and route readiness scenarios. |
+| `app/debug/Phase2Harness.tsx` | Phase 2 debug harness entrypoint for incident setup and preference scenarios. |
+| `app/referencePackAdminClient.ts` | Reference-pack administration HTTP client helpers. |
+| `app/referencePackAdminModel.ts` | Reference-pack administration resource, query, paging, and session-shape types. |
 | `app/ReferencePackAdminPanel.tsx` | Reference-pack administration panel UI for import, reload, cancellation, and job-status controls. |
-| `app/phase1Client.ts` | App-level Phase 1 client helpers and route-boundary request helpers. |
+| `app/landingAdminStyles.ts` | Shared style constants for landing/admin panels. |
+| `app/landingAdminTypes.ts` | Shared landing/admin TypeScript model types. |
+| `app/routeState.ts` | Pure app-route parsing and history URL construction helpers. |
+| `app/useAppRouteRuntime.ts` | React hook for route state, popstate handling, and history writes. |
 | `app/App.landing.test.tsx` | Landing-surface tests for app startup and landing interactions. |
 | `app/App.phase1.support.test.tsx` | Support tests for Phase 1 app harness behavior. |
 | `app/App.phase1.test.tsx` | Phase 1 app behavior tests for auth/account/route readiness. |
 | `app/App.test.tsx` | General app-shell behavior tests. |
 | `app/IncidentAdminPanel.test.tsx` | Incident administration panel tests. |
 | `app/ReferencePackAdminPanel.test.tsx` | Reference-pack administration panel tests. |
+| `app/api/appShellClient.routeBoundary.test.ts` | Route-boundary tests for app-shell client helpers. |
 | `app/fontBundle.test.ts` | Font bundle availability and packaging boundary tests. |
 | `app/fontRoles.test.tsx` | Font-role presentation tests for app and workbook surfaces. |
 | `app/otelBoundary.test.ts` | OpenTelemetry import and runtime-boundary tests. |
-| `app/phase1Client.routeBoundary.test.ts` | Route-boundary tests for `phase1Client.ts`. |
+| `app/routeState.test.ts` | Route-state parsing and history write tests. |
 
 ## `services/`
 
@@ -75,6 +88,8 @@ specific.
 | File | Responsibility |
 | --- | --- |
 | `shared/publicError.ts` | Shared public-error normalization helpers. |
+| `shared/workbookSheetRef.ts` | Shared workbook sheet-reference contract and runtime guard. |
+| `shared/workbookShellContracts.ts` | Shared app/workbook shell contracts for account identity, application menu handoff, and incident-controls renderer props. |
 
 ## `testing/`
 

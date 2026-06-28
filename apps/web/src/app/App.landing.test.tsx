@@ -14,6 +14,8 @@ import {
   phase1AuthTestId,
   phase1LandingTestId,
   phase1RouteTestId,
+  referencePackAdminPanelTestId,
+  referencePackRowTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -38,7 +40,25 @@ vi.mock("../workbook/WorkbookShell", async () => {
       accountDensityMode?: string | null;
       accountApplicationMenu?: (props: {
         currentIncidentRole: string;
-        incidentControls?: undefined;
+        incidentControls?: {
+          activeSection: "summary";
+          items: readonly [
+            {
+              readonly description: "Incident summary and workbook defaults";
+              readonly label: "Summary and preferences";
+              readonly section: "summary";
+            },
+            {
+              readonly description: "Incident access and roles";
+              readonly label: "Memberships";
+              readonly section: "memberships";
+            },
+          ];
+          onSelectSection: (
+            section: "summary" | "memberships",
+            returnFocusTarget?: HTMLElement | null,
+          ) => void;
+        };
       }) => ReactNode;
       incidentId: string;
       onIncidentAccessLost?: () => void;
@@ -86,7 +106,32 @@ vi.mock("../workbook/WorkbookShell", async () => {
           <p data-testid="mock-workbook-role">{currentRole}</p>
           {accountApplicationMenu?.({
             currentIncidentRole: currentRole,
-            incidentControls: undefined,
+            incidentControls: {
+              activeSection: "summary",
+              items: [
+                {
+                  section: "summary",
+                  label: "Summary and preferences",
+                  description: "Incident summary and workbook defaults",
+                },
+                {
+                  section: "memberships",
+                  label: "Memberships",
+                  description: "Incident access and roles",
+                },
+              ],
+              onSelectSection: (section, returnFocusTarget) => {
+                const target =
+                  returnFocusTarget instanceof HTMLElement
+                    ? returnFocusTarget.tagName
+                    : "none";
+                window.dispatchEvent(
+                  new CustomEvent("mock-workbook-incident-controls", {
+                    detail: { section, target },
+                  }),
+                );
+              },
+            },
           })}
           <button
             data-testid="mock-access-lost"
@@ -107,11 +152,11 @@ vi.mock("../workbook/WorkbookShell", async () => {
   };
 });
 
-vi.mock("./Phase1Harness", () => ({
+vi.mock("./debug/Phase1Harness", () => ({
   Phase1Harness: () => <section data-testid="mock-phase1-harness" />,
 }));
 
-vi.mock("./Phase2Harness", () => ({
+vi.mock("./debug/Phase2Harness", () => ({
   Phase2Harness: () => <section data-testid="mock-phase2-harness" />,
 }));
 
@@ -130,7 +175,7 @@ import {
   jsonResponse,
 } from "../testing/fetchMockTestSupport";
 import { AppRoot } from "./AppRoot";
-import { AccountApplicationMenu } from "./LandingAdminSurface";
+import { AccountApplicationMenu } from "./LandingAdminLayout";
 
 describe("Incident landing", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -494,6 +539,236 @@ describe("Incident landing", () => {
       "incident-imported",
     );
     expect(window.location.search).toBe("?incident_id=incident-imported");
+  });
+
+  it("loads administrative audit directly from the deployment administration panel", async () => {
+    window.history.replaceState({}, "", "/deployment-administration");
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Deployment Admin",
+        is_deployment_admin: true,
+      }),
+      extraRoutes: [
+        {
+          method: "GET",
+          url: "/api/v1/users?limit=100",
+          handler: () =>
+            jsonResponse({
+              data: { users: [] },
+              meta: {
+                paging: {
+                  limit: 100,
+                  has_more: false,
+                  next_cursor: null,
+                },
+              },
+            }),
+        },
+        {
+          method: "GET",
+          url: "/api/v1/administrative-audit-events?limit=100",
+          handler: () =>
+            jsonResponse({
+              data: {
+                audit_events: [
+                  {
+                    audit_event_id: "audit-1",
+                    scope_kind: "deployment",
+                    scope_id: null,
+                    occurred_at: "2026-05-24T00:00:00Z",
+                    actor_kind: "user",
+                    actor_user_id: "user-1",
+                    source: "ui",
+                    action_code: "user_created",
+                    target_kind: "user",
+                    target_id: "user-2",
+                    reason_code: null,
+                    changes: [
+                      {
+                        field_path: "display_name",
+                        value_state: "visible",
+                        before: null,
+                        after: "Target User",
+                      },
+                    ],
+                  },
+                ],
+              },
+              meta: {
+                paging: {
+                  limit: 100,
+                  has_more: false,
+                  next_cursor: null,
+                },
+              },
+            }),
+        },
+      ],
+    });
+
+    renderApp();
+
+    fireEvent.click(
+      await screen.findByTestId(
+        landingAdminMenuItemTestId("administrative-audit"),
+      ),
+    );
+
+    expect(await screen.findByText("User created")).toBeTruthy();
+    expect(screen.getByText("User user-2")).toBeTruthy();
+    expect(
+      findFetchCalls(
+        fetchMock,
+        "/api/v1/administrative-audit-events?limit=100",
+        "GET",
+      ),
+    ).toHaveLength(1);
+    expect(
+      findFetchCallsByPath(fetchMock, "/api/v1/incidents", "GET"),
+    ).toHaveLength(0);
+  });
+
+  it("gates reference-pack deployment administration on the claimed extension profile", async () => {
+    window.history.replaceState({}, "", "/deployment-administration");
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Deployment Admin",
+        is_deployment_admin: true,
+      }),
+      extensions: {
+        extensions: [
+          {
+            profile_id: "reference_pack",
+            claimed: true,
+            route_families: ["/api/v1/reference-packs"],
+          },
+        ],
+      },
+      extraRoutes: [
+        {
+          method: "GET",
+          url: "/api/v1/users?limit=100",
+          handler: () =>
+            jsonResponse({
+              data: { users: [] },
+              meta: {
+                paging: {
+                  limit: 100,
+                  has_more: false,
+                  next_cursor: null,
+                },
+              },
+            }),
+        },
+        {
+          method: "GET",
+          url: "/api/v1/reference-packs?limit=100",
+          handler: () =>
+            jsonResponse({
+              data: {
+                pack_versions: [
+                  {
+                    pack_key: "type_registry.host",
+                    pack_version: "1",
+                    pack_kind: "type_registry",
+                    pack_version_state: "verified_available",
+                    active: true,
+                    verification_result: "passed",
+                  },
+                ],
+              },
+              meta: {
+                paging: {
+                  limit: 100,
+                  has_more: false,
+                  next_cursor: null,
+                },
+              },
+            }),
+        },
+      ],
+    });
+
+    renderApp();
+
+    fireEvent.click(
+      await screen.findByTestId(landingAdminMenuItemTestId("reference-packs")),
+    );
+
+    expect(
+      await screen.findByTestId(referencePackAdminPanelTestId()),
+    ).toBeTruthy();
+    expect(
+      await screen.findByTestId(
+        referencePackRowTestId("type_registry.host", "1"),
+      ),
+    ).toBeTruthy();
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/reference-packs?limit=100", "GET"),
+    ).toHaveLength(1);
+  });
+
+  it.each([
+    {
+      caseName: "the profile is missing",
+      extensions: { extensions: [] },
+    },
+    {
+      caseName: "the profile is unclaimed",
+      extensions: {
+        extensions: [
+          {
+            profile_id: "reference_pack",
+            claimed: false,
+            route_families: ["/api/v1/reference-packs"],
+          },
+        ],
+      },
+    },
+  ])("keeps reference-pack deployment administration hidden when $caseName", async ({
+    extensions,
+  }) => {
+    window.history.replaceState({}, "", "/deployment-administration");
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Deployment Admin",
+        is_deployment_admin: true,
+      }),
+      extensions,
+      extraRoutes: [
+        {
+          method: "GET",
+          url: "/api/v1/users?limit=100",
+          handler: () =>
+            jsonResponse({
+              data: { users: [] },
+              meta: {
+                paging: {
+                  limit: 100,
+                  has_more: false,
+                  next_cursor: null,
+                },
+              },
+            }),
+        },
+      ],
+    });
+
+    renderApp();
+
+    expect(
+      await screen.findByTestId(landingAdminMenuItemTestId("deployment-users")),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId(landingAdminMenuItemTestId("reference-packs")),
+    ).toBe(null);
+    expect(
+      screen.queryByTestId(landingAdminPanelTestId("reference-packs")),
+    ).toBe(null);
+    expect(screen.queryByTestId(referencePackAdminPanelTestId())).toBe(null);
+    expect(
+      findFetchCallsByPath(fetchMock, "/api/v1/reference-packs", "GET"),
+    ).toHaveLength(0);
   });
 
   it("returns non-admin direct deployment administration navigation to the incident directory", async () => {
@@ -1215,6 +1490,92 @@ describe("Incident landing", () => {
     await expectStableFetchCount(fetchMock, 8);
   });
 
+  it("preserves incident route and manual directory route state across popstate navigation", async () => {
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Operator",
+        memberships: [
+          {
+            incident_id: "incident-1",
+            role: "admin",
+          },
+          {
+            incident_id: "incident-2",
+            role: "viewer",
+          },
+        ],
+      }),
+      incidents: [
+        incidentResource("incident-1", "IR-501", "First Incident"),
+        incidentResource("incident-2", "IR-502", "Second Incident"),
+      ],
+    });
+
+    renderApp();
+
+    await screen.findByTestId(landingIncidentCardTestId("incident-1"));
+    fireEvent.click(
+      screen.getByTestId(landingIncidentOpenButtonTestId("incident-2")),
+    );
+    expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
+    expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
+      "incident-2",
+    );
+
+    window.history.replaceState({}, "", "/?incident_id=incident-1");
+    fireEvent.popState(window);
+    await waitFor(() => {
+      expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
+        "incident-1",
+      );
+    });
+
+    window.history.replaceState({ cartularyIncidentDirectory: true }, "", "/");
+    fireEvent.popState(window);
+    expect(
+      await screen.findByTestId(phase1LandingTestId("incident-list")),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("mock-workbook")).toBe(null);
+    expect(
+      screen.getByTestId(landingIncidentOpenButtonTestId("incident-1")),
+    ).toBeTruthy();
+  });
+
+  it("passes workbook incident controls through the app account menu handoff", async () => {
+    window.history.replaceState({}, "", "/?incident_id=incident-1");
+    const controlsEvents: Array<{ section: string; target: string }> = [];
+    window.addEventListener("mock-workbook-incident-controls", (event) => {
+      controlsEvents.push(
+        (event as CustomEvent<{ section: string; target: string }>).detail,
+      );
+    });
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Operator",
+        memberships: [{ incident_id: "incident-1", role: "admin" }],
+      }),
+      incidents: [incidentResource("incident-1", "IR-503", "Incident")],
+    });
+
+    renderApp();
+
+    expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
+    fireEvent.click(
+      screen.getByLabelText("Account and application navigation"),
+    );
+    fireEvent.click(screen.getByTestId(incidentControlsTriggerTestId()));
+    fireEvent.click(
+      screen.getByTestId(incidentControlsMenuItemTestId("memberships")),
+    );
+
+    expect(controlsEvents).toEqual([
+      {
+        section: "memberships",
+        target: "BUTTON",
+      },
+    ]);
+  });
+
   it("returns to the landing screen when workbook access is lost", async () => {
     window.history.replaceState({}, "", "/?incident_id=incident-5");
     let accessLost = false;
@@ -1330,6 +1691,22 @@ describe("Incident landing", () => {
       screen.getByTestId(phase1LandingTestId("current-user")).textContent,
     ).toBe("Operator");
     await expectStableFetchCount(fetchMock, 7);
+  });
+
+  it("loads the debug harness directly without ordinary shell bootstrap requests", async () => {
+    window.history.replaceState({}, "", "/?debug=harness");
+    installLandingShellFetch(fetchMock, {
+      session: sessionResource({
+        display_name: "Operator",
+      }),
+    });
+
+    renderApp();
+
+    expect(await screen.findByText("Debug harness shell")).toBeTruthy();
+    expect(screen.getByTestId("mock-phase1-harness")).toBeTruthy();
+    expect(screen.getByTestId("mock-phase2-harness")).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

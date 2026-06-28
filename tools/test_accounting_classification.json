@@ -45,6 +45,34 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "loads administrative audit directly from the deployment administration panel",
+      "coverage": "unowned_regression",
+      "reason": "Deployment administrative-audit panel routing remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "gates reference-pack deployment administration on the claimed extension profile",
+      "coverage": "unowned_regression",
+      "reason": "Reference-pack extension panel gating remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "keeps reference-pack deployment administration hidden when 'the profile is missing'",
+      "coverage": "unowned_regression",
+      "reason": "Reference-pack extension panel negative claim gating remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "keeps reference-pack deployment administration hidden when 'the profile is unclaimed'",
+      "coverage": "unowned_regression",
+      "reason": "Reference-pack extension panel negative claim gating remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
       "title": "loads more incidents against the accepted search and status scope",
       "coverage": "unowned_regression",
       "reason": "Residual landing-shell and deployment-admin navigation behavior remains product regression coverage outside phase rows."
@@ -101,6 +129,20 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "preserves incident route and manual directory route state across popstate navigation",
+      "coverage": "unowned_regression",
+      "reason": "Route-history and manual incident-directory behavior remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "passes workbook incident controls through the app account menu handoff",
+      "coverage": "unowned_regression",
+      "reason": "App-to-workbook incident-controls handoff remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
       "title": "renders workbook role, incidents, and expandable controls inside the account menu",
       "coverage": "unowned_regression",
       "reason": "Residual landing-shell and deployment-admin navigation behavior remains product regression coverage outside phase rows."
@@ -139,6 +181,19 @@
       "title": "shows the zero-incident landing state",
       "coverage": "unowned_regression",
       "reason": "Residual landing-shell assertions not claimed by authoritative phase rows remain product regression coverage."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/App.landing.test.tsx",
+      "title": "loads the debug harness directly without ordinary shell bootstrap requests",
+      "coverage": "unowned_regression",
+      "reason": "Explicit debug-harness route isolation remains support regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/routeState.test.ts",
+      "coverage": "unowned_regression",
+      "reason": "App route-state parsing and history write behavior remains product regression coverage outside phase rows."
     },
     {
       "target": "frontend-unit",

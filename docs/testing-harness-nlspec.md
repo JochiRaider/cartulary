@@ -441,6 +441,17 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 Vitest is an executable runner, not an evidence tier. Frontend-unit phase selection MUST select every phase-manifest row whose `runner` is `vitest`, whose `coverage` and `execution_dependency` match the selected slice, and whose phase matches the selected manifest. Selection, derived summaries, manifest-aware classification, and residual exclusion MUST NOT narrow Vitest rows to the manifest `unit` section. A Vitest row in `integration`, `e2e`, or a later evidence section remains selected by the same frontend-unit contract when its execution dependency is `frontend_unit`.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 
+Selected `frontend-unit` phase and target summaries MUST derive pass/fail
+status from selected Vitest scenarios, manifest verification, row accounting,
+and artifact validation. When Vitest emits a runner JSON report with
+`success=true`, `numFailedTests=0`, and `numFailedTestSuites=0`, and selected
+manifest/accounting validation finds no failures, the selected `frontend-unit`
+summary MUST pass even when the raw runner process status is nonzero or the
+runner report also contains unselected scenarios. A selected `frontend-unit`
+summary MAY fail only when retained evidence identifies a selected test failure,
+missing runner report, watchdog timeout, manifest mismatch, frontend row
+accounting failure, test-accounting failure, or artifact validation failure.
+
 **TH-HARNESS-REQ-106**
 Playwright authoritative phase-manifest rows MAY declare either `title` or `titles[]`. When `titles[]` is used, each listed title is an authoritative executable scenario for the same row ID. Playwright selection, grep generation, list verification, run verification, manifest-aware accounting, browser shard planning, and ledger rendering MUST flatten those titles as independently required scenarios while retaining the row ID as the ownership unit.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016

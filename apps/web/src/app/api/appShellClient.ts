@@ -3,7 +3,11 @@ import type {
   AccountProfileResource,
   DensityMode,
 } from "@cartulary/protocol-ts";
-import { type APIResult, clientTxnID, fetchJSON } from "../services/browserApi";
+import {
+  type APIResult,
+  clientTxnID,
+  fetchJSON,
+} from "../../services/browserApi";
 
 export type SessionMembership = {
   incident_id: string;

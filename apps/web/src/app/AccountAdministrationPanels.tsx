@@ -41,39 +41,33 @@ import {
   type SessionData,
   type UserListEnvelope,
   type UserResource,
-} from "./phase1Client";
-
-export type { Phase1AuthSurfaceProps } from "./AuthGateway";
-export {
-  AuthGateway as Phase1AuthSurface,
-  setEnterpriseAuthNavigateForTesting,
-} from "./AuthGateway";
+} from "./api/appShellClient";
 
 type RefreshOptions = {
   anonymousMessage?: string;
 };
 
-type Phase1AccountPanelProps = {
+type AccountSecurityPanelProps = {
   credentialStateError: APIError | null;
   onRefreshShell: (options?: RefreshOptions) => Promise<void> | void;
 };
 
-type Phase1AdminPanelProps = {
+type DeploymentUsersPanelProps = {
   autoLoadUsers?: boolean | undefined;
   enterpriseAuthClaimed?: boolean | undefined;
   onCommandStateChange?:
-    | ((state: Phase1AdminPanelCommandState) => void)
+    | ((state: DeploymentUsersPanelCommandState) => void)
     | undefined;
   onRefreshShell: (options?: RefreshOptions) => Promise<void> | void;
   session: SessionData;
 };
 
-export type Phase1AccountPanelHandle = {
+export type AccountSecurityPanelHandle = {
   refreshAccount: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
-export type Phase1AdminPanelHandle = {
+export type DeploymentUsersPanelHandle = {
   createUser: () => Promise<void>;
   loadTargetUser: () => Promise<void>;
   refreshUsers: () => Promise<void>;
@@ -83,7 +77,7 @@ export type Phase1AdminPanelHandle = {
   saveTargetUser: () => Promise<void>;
 };
 
-export type Phase1AdminPanelCommandState = {
+export type DeploymentUsersPanelCommandState = {
   canLoadTargetUser: boolean;
   canSubmitTargetAction: boolean;
   canSubmitVersionedTargetAction: boolean;
@@ -108,10 +102,10 @@ function isEnterpriseAuthBinding(
   return binding.provider_type !== "local";
 }
 
-export const Phase1AccountPanel = forwardRef<
-  Phase1AccountPanelHandle,
-  Phase1AccountPanelProps
->(function Phase1AccountPanel({ credentialStateError, onRefreshShell }, ref) {
+export const AccountSecurityPanel = forwardRef<
+  AccountSecurityPanelHandle,
+  AccountSecurityPanelProps
+>(function AccountSecurityPanel({ credentialStateError, onRefreshShell }, ref) {
   const [statusText, setStatusText] = useState("Account security is current.");
   const [error, setError] = useState<APIError | null>(null);
 
@@ -437,10 +431,10 @@ function mergeUserResources(
   return nextUsers.reduce(upsertUserResource, users);
 }
 
-export const Phase1AdminPanel = forwardRef<
-  Phase1AdminPanelHandle,
-  Phase1AdminPanelProps
->(function Phase1AdminPanel(
+export const DeploymentUsersPanel = forwardRef<
+  DeploymentUsersPanelHandle,
+  DeploymentUsersPanelProps
+>(function DeploymentUsersPanel(
   {
     autoLoadUsers = false,
     enterpriseAuthClaimed = false,

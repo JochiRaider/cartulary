@@ -9,9 +9,49 @@
 | Dirty tree | Clean before creating this planning artifact |
 | Date/time | `2026-06-27 22:27:40 EDT` |
 | Agent/session | Codex implementation session |
-| Mode | Planning and handoff only |
+| Mode | Remediation implementation |
 | Framework | `docs/handoffs/cartulary_modular_refactor_planning_framework.md` |
-| Source limits | Live repo is source of truth; no validation passed; only this planning artifact was created |
+| Source limits | Live repo is source of truth; Core 00 through Core 04 remain product behavior authority; remediation targets implementation/test/documentation gaps unless a spec contradiction is discovered |
+
+## 1A. Active Remediation Execution Plan
+
+This tracker is the controlling artifact for the `apps/web/src/app` remediation. Each implementation workstream MUST update this tracker after completion and before the next workstream starts.
+
+| Workstream | Status | Required update before next workstream | Exit evidence |
+|---|---|---|---|
+| W0 Tracker and spec baseline | DONE | Active plan and spec baseline recorded | Tracker updated; no product-spec changes planned |
+| W1 Characterization freeze | DONE | Added route/admin/debug/ref-pack/handoff characterization and residual accounting | `make frontend-unit` pass at `.cartulary/test-results/20260628T024139Z-p1697786` |
+| W2 Neutral client and auth/admin modules | DONE | Neutral client/module names recorded; runtime phase imports removed | `make frontend-unit` pass at `.cartulary/test-results/20260628T024547Z-p1700935`; `make frontend-typecheck` pass; `make frontend-import-boundary-check` pass at `.cartulary/test-results/20260628T024607Z-p1702666`; runtime scan found no `phase1Client`/`Phase1Surface` imports |
+| W3 App route runtime and landing/admin split | DONE | Route helper/surface split and README changes recorded | `make frontend-unit` pass at `.cartulary/test-results/20260628T025553Z-p1706809`; `make frontend-typecheck` pass; `make frontend-import-boundary-check` pass at `.cartulary/test-results/20260628T025614Z-p1708589` |
+| W4 Workbook handoff boundary | DONE | App/workbook import boundary state recorded | `make frontend-unit` pass at `.cartulary/test-results/20260628T030042Z-p1713123`; `make frontend-typecheck` pass; `make frontend-import-boundary-check` pass at `.cartulary/test-results/20260628T030108Z-p1714920`; workbook-to-app scan empty |
+| W5 Reference-pack and debug isolation | DONE | Ref-pack helper split and debug-only structure recorded | `make frontend-unit` pass at `.cartulary/test-results/20260628T030608Z-p1718036`; `make frontend-typecheck` pass; `make frontend-import-boundary-check` pass at `.cartulary/test-results/20260628T030608Z-p1718059` |
+| W6 Final validation and handoff | DONE | Validation commands, results, skips, and residual risks recorded | Focused frontend validation passed; Phase 2 slice passed; Phase 1/11 slices have residual harness `frontend-unit` status mismatch with runner success; `agent-finalize` passed at `.cartulary/test-results/20260628T031554Z-p1800220` |
+
+Specification baseline: no Core 00 through Core 04 edits are planned for this effort. The identified gaps are implementation structure, test characterization, selector-policy, and handoff/documentation gaps. If implementation uncovers behavior that contradicts the normative core, stop the affected workstream, record the contradiction here, and resolve the specification issue before continuing.
+
+## 1B. Follow-Up App-Shell And Harness Status Remediation
+
+This follow-up closes the remaining WF-05 characterization gap and the
+`frontend-unit` status mismatch recorded during W6. `docs/testing-harness-nlspec.md`
+owns the harness-status behavior; Core 00 through Core 04 remain unchanged.
+
+| Workstream | Status | Required update before next workstream | Exit evidence |
+|---|---|---|---|
+| WS0 Baseline and reproduction | DONE | Root cause signature and discovery commands recorded | `make task-guide ROLE=feature-dev PHASE=phase1`; `make task-guide ROLE=feature-dev PHASE=phase11`; `make explain-target TARGET=frontend-unit DETAIL=rows` |
+| WS1 App-shell negative reference-pack gate | DONE | Negative claim-gate characterization and accounting status recorded | Initial `make frontend-unit` failed at `.cartulary/test-results/20260628T034601Z-p1872941` with two unmapped residual tests; after classifications, `make frontend-unit` passed at `.cartulary/test-results/20260628T034652Z-p1875032` |
+| WS2 Harness contract cleanup | DONE | NLSpec summary consistency clarification recorded | `make lint-markdown` passed; initial `make json-shape-check` failed at `.cartulary/test-results/20260628T034723Z-p1877940` because generated phase schedule inputs were stale after harness source changes; `make phase-schedules` passed at `.cartulary/test-results/20260628T034737Z-p1878676`; `make json-shape-check` passed at `.cartulary/test-results/20260628T034747Z-p1878898` |
+| WS3 Frontend-unit summary fix | DONE | Frontend-unit status derivation and harness fixture evidence recorded | `make frontend-unit` passed at `.cartulary/test-results/20260628T034652Z-p1875032`; `make check-harness-smoke` passed; `make harness-contract` passed |
+| WS4 Phase-slice rollup fix | DONE | Aggregate failure normalization evidence recorded | `make check-harness-smoke` passed; `make harness-contract` passed; `make phase-slice PHASE=phase1` passed at `.cartulary/test-results/20260628T034805Z-p1879765`; `make phase-slice PHASE=phase11` passed at `.cartulary/test-results/20260628T034848Z-p1894636` |
+| WS5 Final validation and handoff | DONE | Final validation roots, skips, residual risks, and restart notes recorded | `make frontend-unit` passed after final formatting at `.cartulary/test-results/20260628T035218Z-p1924998`; `make frontend-typecheck` passed; `make frontend-import-boundary-check` passed at `.cartulary/test-results/20260628T035005Z-p1918994`; `make lint-biome` initially failed at `.cartulary/test-results/20260628T035005Z-p1919004`, `make format` passed at `.cartulary/test-results/20260628T035039Z-p1920549`, and rerun `make lint-biome` passed; `make lint-shell` passed; `make phase-slice PHASE=phase1` passed at `.cartulary/test-results/20260628T034805Z-p1879765`; `make phase-slice PHASE=phase11` passed at `.cartulary/test-results/20260628T034848Z-p1894636`; `make phase-slice PHASE=phase2` passed at `.cartulary/test-results/20260628T034920Z-p1907052`; `make check-harness-smoke` passed; `make harness-contract` passed; `make agent-finalize` passed at `.cartulary/test-results/20260628T035126Z-p1922680` with `RESULTS_DIR=-`; retained full-run maintenance skipped because no successful full warm-check root was supplied |
+
+WS0 retained-run signature: `.cartulary/test-results/20260628T031317Z-p1759859`
+and `.cartulary/test-results/20260628T031451Z-p1786393` show successful
+Vitest runner artifacts with `numFailedTests=0`, while the selected
+`frontend-unit` phase and target summaries report `status=fail` with no
+`failure_class`, no `failure_reason`, and no failure records. The parent
+`phase-slice` target summary then reports `status=fail`,
+`failure_class=harness`, and `failure_reason=unknown_failure` while its totals
+still contain zero failed tests and no concrete failures.
 
 ## 2. Scope And Non-Scope
 
@@ -162,7 +202,7 @@
 | 10 | `make test-fast`, then `make check` | broad implementation support | End-of-slice or release-risk expansion |
 | 11 | `make agent-finalize` | handoff hygiene | Before broad final verification; pass `RESULTS_DIR` only if retained run exists |
 
-No command above is claimed passing in this session.
+Command evidence in this session is recorded per workstream below. Retained full warm-check maintenance was skipped because no successful full-run `RESULTS_DIR` was available.
 
 ## 12. Handoff Sections By Workstream
 
@@ -174,6 +214,12 @@ No command above is claimed passing in this session.
 | Landing/admin surfaces | 2026-06-27 | `LandingAdminSurface`, ref-pack/admin panels | Mixed but covered | app tests | Split after characterization |
 | Debug harnesses | 2026-06-27 | `DebugHarnessShell`, phase harnesses | Support-only debug route | file scan | Keep out of product architecture |
 | Tests and harness | 2026-06-27 | app tests | Existing unit coverage, gaps noted | test inventory | Run Make targets only after edits |
+| W1 characterization freeze | 2026-06-28 | `App.landing.test.tsx`, `tools/test_accounting_classification.json` | Added focused route-history, admin-audit, reference-pack extension gate, app/workbook handoff, and direct debug-harness smoke coverage | Initial `make frontend-unit` failed at `.cartulary/test-results/20260628T024043Z-p1695789` with `test_accounting_unmapped`; after residual classifications, `make frontend-unit` passed at `.cartulary/test-results/20260628T024139Z-p1697786` | Begin W2 neutral client and auth/admin module split |
+| W2 neutral client and auth/admin modules | 2026-06-28 | `api/appShellClient.ts`, `AccountAdministrationPanels.tsx`, `AuthGateway.tsx`, app tests/support | Moved app-shell client to neutral API module, renamed account/admin panels to purpose-based runtime exports, removed `Phase1Surface` and `phase1Client` runtime imports | `make frontend-unit` passed at `.cartulary/test-results/20260628T024547Z-p1700935`; `make frontend-typecheck` passed; `make frontend-import-boundary-check` passed at `.cartulary/test-results/20260628T024607Z-p1702666`; `rg "phase1Client|Phase1Surface" apps/web/src/app apps/web/src/testing apps/web/src/workbook apps/web/src/shared --glob '!*.test.*'` returned no matches | Begin W3 route/runtime helper extraction, landing/admin split, and README update |
+| W3 route runtime and landing/admin split | 2026-06-28 | `routeState.ts`, `useAppRouteRuntime.ts`, `LandingAdminLayout.tsx`, `IncidentLanding.tsx`, `AccountSettingsPanels.tsx`, `DeploymentAuditPanel.tsx`, `IncidentImportPanel.tsx`, `LandingAdminDisplay.tsx`, `landingAdminTypes.ts`, `landingAdminStyles.ts`, `apps/web/src/README.md` | Extracted route parsing/history writes and popstate hook from `App`; split the mixed landing/admin surface into cohesive modules with `LandingAdminSurface.tsx` retained as a thin compatibility re-export; updated README file map | `make frontend-unit` passed at `.cartulary/test-results/20260628T025553Z-p1706809`; `make frontend-typecheck` passed; `make frontend-import-boundary-check` passed at `.cartulary/test-results/20260628T025614Z-p1708589` | Begin W4 app/workbook handoff boundary and shared sheet-ref cleanup |
+| W4 workbook handoff boundary | 2026-06-28 | `shared/workbookShellContracts.ts`, `shared/workbookSheetRef.ts`, `WorkbookShell.tsx`, `IncidentAdminPanel.tsx`, `App.tsx`, `WorkbookShell.surfaces.test.tsx`, `apps/web/src/README.md` | Moved shell handoff and sheet-ref contracts to `shared`; changed workbook incident controls to a render prop supplied by `App`; removed workbook runtime import of `IncidentAdminPanel`; updated workbook test fixture renderer | Initial `make frontend-unit` failed at `.cartulary/test-results/20260628T025936Z-p1710992` because workbook tests still expected built-in app panel content; after fixture update, `make frontend-unit` passed at `.cartulary/test-results/20260628T030042Z-p1713123`; `make frontend-typecheck` passed; `make frontend-import-boundary-check` passed at `.cartulary/test-results/20260628T030108Z-p1714920`; `rg "from \"../app|IncidentAdminPanel" apps/web/src/workbook` returned no matches | Begin W5 reference-pack helper split and debug isolation |
+| W5 reference-pack and debug isolation | 2026-06-28 | `ReferencePackAdminPanel.tsx`, `referencePackAdminClient.ts`, `referencePackAdminModel.ts`, `app/debug/*`, `App.tsx`, `App.landing.test.tsx`, `apps/web/src/README.md` | Split reference-pack resource/query/job types and HTTP operations from the panel; narrowed panel session dependency to deployment-admin shape; moved debug harnesses under `app/debug`; replaced Phase 2 local fetch helper with shared browser API helper; preserved explicit `?debug=harness` lazy route | `make frontend-unit` passed at `.cartulary/test-results/20260628T030608Z-p1718036`; `make frontend-typecheck` passed; `make frontend-import-boundary-check` passed at `.cartulary/test-results/20260628T030608Z-p1718059`; stale debug-path and duplicated fetch-helper scans were clean | Begin W6 final task-guide, validation ladder, `agent-finalize`, and final handoff update |
+| W6 final validation and handoff | 2026-06-28 | app shell, split landing/admin modules, shared app/workbook contracts, debug/reference-pack modules, tracker | Ran final validation ladder and recorded residual risk. Also updated `apps/web/e2e/phase1.support.spec.ts` to request the incident directory explicitly when asserting landing selectors in a single-incident fixture. | `make task-guide ROLE=feature-dev PHASE=phase1`, `phase2`, and `phase11` passed; `make frontend-unit` passed at `.cartulary/test-results/20260628T031140Z-p1742557`; `make frontend-typecheck` passed; `make frontend-import-boundary-check` passed at `.cartulary/test-results/20260628T031541Z-p1799473`; `make lint-biome` passed after `make format` and manual hook/button fixes; `make lint-markdown` passed; `make phase-slice PHASE=phase2` passed at `.cartulary/test-results/20260628T031408Z-p1774481`; `make phase-slice PHASE=phase1` first failed product browser support at `.cartulary/test-results/20260628T030941Z-p1726200`, fixed by explicit directory navigation, then repeated harness `frontend-unit` status mismatch at `.cartulary/test-results/20260628T031200Z-p1744661` and `.cartulary/test-results/20260628T031317Z-p1759859` even though Vitest runner JSON reported success and all browser/backend child targets passed; `make phase-slice PHASE=phase11` showed the same harness mismatch at `.cartulary/test-results/20260628T031451Z-p1786393` with backend/browser child targets passing and Vitest runner JSON success; `make agent-finalize` passed at `.cartulary/test-results/20260628T031554Z-p1800220` with `RESULTS_DIR=-` | Handoff complete; residual risk is the phase-slice frontend-unit harness status mismatch under base phase slices, not a known product assertion failure |
 | Boundary risks | 2026-06-27 | app/workbook coupling | Bidirectional dependency exists | import scan | Plan dedicated high-risk slice |
 | Generated artifacts | 2026-06-27 | generated roots | No target generated files | policy scan | Do not hand-edit generated roots |
 | Open blockers | 2026-06-27 | none | No owner contradictions | source map | TODO: validation not run |

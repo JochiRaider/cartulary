@@ -59,7 +59,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { IncidentAdminPanel } from "../app/IncidentAdminPanel";
 import { apiPath } from "../services/browserApi";
 import {
   abortLatestQuery,
@@ -71,6 +70,14 @@ import {
   parseErrorMessage,
   readEnvelope,
 } from "../services/workbookApi";
+import type {
+  WorkbookAccountApplicationMenuProps,
+  WorkbookAccountModel,
+  WorkbookIncidentControlsMenuItem,
+  WorkbookIncidentControlsRendererProps,
+  WorkbookIncidentRole,
+  WorkbookIncidentSnapshot,
+} from "../shared/workbookShellContracts";
 import { ActiveSurfaceSavedViewSelector } from "./components/ActiveSurfaceSavedViewSelector";
 import { GenericMutationControl } from "./components/GenericMutationControl";
 import { GenericWorkbookSurface } from "./components/GenericWorkbookSurface";
@@ -180,7 +187,16 @@ export type {
   RecordHistoryRollbackAction,
 } from "./timeline/components/TimelineHistoryPanel";
 export type { TimelineWorkbookProps } from "./timeline/components/TimelineWorkbook";
-export type { WorkbookRecordFreshnessDecision, WorkbookVersionedRecord };
+export type {
+  WorkbookAccountApplicationMenuProps,
+  WorkbookAccountModel,
+  WorkbookIncidentControlsMenuItem,
+  WorkbookIncidentControlsRendererProps,
+  WorkbookIncidentRole,
+  WorkbookIncidentSnapshot,
+  WorkbookRecordFreshnessDecision,
+  WorkbookVersionedRecord,
+};
 export {
   buildAssessmentCreatePayload,
   buildCreatePayload,
@@ -235,31 +251,7 @@ function requireIncidentControlsMenuItem(section: IncidentControlsSection) {
 type SaveState = "Syncing" | "Saved" | "Conflict";
 type MutationErrorSetter = Dispatch<SetStateAction<string | null>>;
 type MutationStateSetter = Dispatch<SetStateAction<SaveState>>;
-export type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
-
-export type WorkbookIncidentControlsMenuItem = {
-  readonly description: string;
-  readonly label: string;
-  readonly section: IncidentControlsSection;
-};
-
-export type WorkbookAccountApplicationMenuProps = {
-  readonly currentIncidentRole: IncidentRole | null;
-  readonly incidentControls: {
-    readonly activeSection: IncidentControlsSection;
-    readonly items: readonly WorkbookIncidentControlsMenuItem[];
-    readonly onSelectSection: (
-      section: IncidentControlsSection,
-      returnFocusTarget?: HTMLElement | null,
-    ) => void;
-  };
-};
-
-export type WorkbookAccountModel = {
-  readonly display_name: string;
-  readonly is_deployment_admin: boolean;
-  readonly user_id: string;
-};
+type IncidentRole = WorkbookIncidentRole;
 
 type WorkbookShellProps = {
   incidentId: string;
@@ -272,9 +264,12 @@ type WorkbookShellProps = {
   currentUserLabel?: string | undefined;
   initialIncidentIdentity?: WorkbookIncidentIdentity | undefined;
   onIncidentSnapshot?:
-    | ((incident: WorkbookIncidentIdentity) => void)
+    | ((incident: WorkbookIncidentSnapshot) => void)
     | undefined;
   onIncidentAccessLost?: (() => void) | undefined;
+  renderIncidentControls?:
+    | ((props: WorkbookIncidentControlsRendererProps) => ReactNode)
+    | undefined;
 };
 
 type TimelineMutationEnvelope = {
@@ -1752,6 +1747,7 @@ export function WorkbookShell({
   initialIncidentIdentity,
   onIncidentSnapshot,
   onIncidentAccessLost,
+  renderIncidentControls,
 }: WorkbookShellProps) {
   const responsiveLayout = useWorkbookResponsiveLayout();
   const responsiveBand = responsiveLayout.chromeMode;
@@ -2239,6 +2235,18 @@ export function WorkbookShell({
       onSelectSection: openControlsDrawer,
     },
   });
+  const incidentControlsDrawer =
+    controlsDrawerSection === null
+      ? null
+      : (renderIncidentControls?.({
+          activeSection: controlsDrawerSection,
+          apiBase,
+          currentIncidentRole,
+          incidentId,
+          onIncidentAccessLost,
+          onIncidentSnapshot,
+          onSessionRoleChange: loadSessionRole,
+        }) ?? null);
   const inspectorResetKey = `${surface}:${startupSheetRef.kind}:${startupSheetRef.id}:${sheetReloadToken}`;
 
   return (
@@ -2541,17 +2549,7 @@ export function WorkbookShell({
                 <X aria-hidden="true" size={16} />
               </button>
             </header>
-            <div style={supportRegionBodyStyle}>
-              <IncidentAdminPanel
-                activeSection={controlsDrawerSection}
-                apiBase={apiBase}
-                currentIncidentRole={currentIncidentRole}
-                incidentId={incidentId}
-                onIncidentAccessLost={onIncidentAccessLost}
-                onIncidentSnapshot={onIncidentSnapshot}
-                onSessionRoleChange={loadSessionRole}
-              />
-            </div>
+            <div style={supportRegionBodyStyle}>{incidentControlsDrawer}</div>
           </section>
         ) : null}
       </div>

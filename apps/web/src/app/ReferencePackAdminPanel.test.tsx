@@ -16,7 +16,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { deferred, jsonResponse } from "../testing/fetchMockTestSupport";
-import type { SessionData } from "./phase1Client";
+import type { SessionData } from "./api/appShellClient";
 import { ReferencePackAdminPanel } from "./ReferencePackAdminPanel";
 
 describe("ReferencePackAdminPanel", () => {

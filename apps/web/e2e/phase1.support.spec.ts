@@ -15,7 +15,7 @@ test("FE-S-P1-01 Verify bootstrap route selectors and error-state selectors use 
   page,
 }) => {
   const phase1 = new Phase1Page(page);
-  await page.goto("/");
+  await phase1.gotoIncidentDirectory();
 
   await expect(page.getByTestId(phase1RouteTestId("app-shell"))).toBeVisible();
   await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();

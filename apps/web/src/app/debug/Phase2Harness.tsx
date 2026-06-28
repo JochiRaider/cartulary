@@ -9,12 +9,7 @@ import {
   phase2SelectIncidentButtonTestId,
 } from "@cartulary/ui-contracts";
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
-import {
-  apiPath,
-  csrfCookieName,
-  csrfHeaderName,
-  readCookie,
-} from "../services/browserApi";
+import { type APIError, apiPath, fetchJSON } from "../../services/browserApi";
 
 type SessionMembership = {
   incident_id: string;
@@ -59,50 +54,10 @@ type ExtensionProfile = {
   route_families: string[];
 };
 
-type APIError = {
-  code: string;
-  details?: Record<string, unknown>;
-  message?: string;
-  request_id?: string;
-  status?: number;
-};
-
 type ProbeResult = {
   status: number;
   body: unknown;
 };
-
-async function fetchJSON<T>(
-  input: RequestInfo | URL,
-  init?: RequestInit,
-): Promise<{
-  ok: boolean;
-  status: number;
-  payload: T | { error?: APIError };
-}> {
-  const method = (init?.method ?? "GET").toUpperCase();
-  const headers: Record<string, string> = {
-    ...(init?.headers as Record<string, string> | undefined),
-  };
-  if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
-    headers["Content-Type"] = "application/json";
-    const csrfToken = readCookie(csrfCookieName);
-    if (csrfToken !== null && csrfToken !== "") {
-      headers[csrfHeaderName] = csrfToken;
-    }
-  }
-
-  const response = await fetch(input, {
-    credentials: "include",
-    ...init,
-    headers,
-  });
-  const contentType = response.headers.get("Content-Type") ?? "";
-  const payload = contentType.includes("application/json")
-    ? ((await response.json()) as T | { error?: APIError })
-    : ((await response.text()) as unknown as T | { error?: APIError });
-  return { ok: response.ok, status: response.status, payload };
-}
 
 function extractError(payload: unknown): APIError | null {
   if (!payload || typeof payload !== "object") {

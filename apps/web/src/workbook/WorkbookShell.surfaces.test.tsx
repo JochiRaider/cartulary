@@ -84,6 +84,7 @@ import {
 } from "./models/workbookSurfaceRegistry";
 import {
   type WorkbookAccountApplicationMenuProps,
+  type WorkbookIncidentControlsRendererProps,
   WorkbookShell,
 } from "./WorkbookShell";
 
@@ -171,6 +172,42 @@ function TestAccountApplicationMenu({
       ) : null}
     </div>
   );
+}
+
+function TestIncidentControls({
+  activeSection,
+}: WorkbookIncidentControlsRendererProps) {
+  if (activeSection === "summary") {
+    return (
+      <>
+        <div data-testid="incident-summary-key">IR-1</div>
+        <div data-testid="incident-pref-default-sheet-ref">
+          View schema: Timeline (cartulary.view.timeline.v2)
+        </div>
+        <div data-testid="incident-pref-home-sheet-ref">
+          Saved view: {savedViewId}
+        </div>
+      </>
+    );
+  }
+  if (activeSection === "incident-fields") {
+    return (
+      <button data-testid="incident-patch-button" type="button">
+        Patch
+      </button>
+    );
+  }
+  if (activeSection === "memberships") {
+    return (
+      <button
+        data-testid={incidentMembershipCreateButtonTestId()}
+        type="button"
+      >
+        Create membership
+      </button>
+    );
+  }
+  return null;
 }
 
 async function openTimelineInspectorFromContext(recordId: string) {
@@ -606,6 +643,7 @@ describe("WorkbookShell surface selection", () => {
           <TestAccountApplicationMenu {...props} />
         )}
         incidentId="incident-1"
+        renderIncidentControls={(props) => <TestIncidentControls {...props} />}
       />,
     );
 
