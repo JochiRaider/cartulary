@@ -107,3 +107,4 @@ operator
 .cartulary/web-e2e-port-leases/*
 temp/fallow-health-complexity.json
 temp/fallow-report.json
+temp/fallow-dead-code.json
