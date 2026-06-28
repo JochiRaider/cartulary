@@ -353,12 +353,12 @@ Reason: the target owns hot-path workbook behavior across create/edit/paste, row
 | T-001 | Define target module and scope | scope | DONE | none | `/apps/web` Timeline workbook surface | This artifact names `TimelineWorkbook.tsx` and excludes production behavior changes. | One module/seam and exclusions are explicit. |
 | T-002 | Inspect current repo state | discovery | DONE | T-001 | Planning session | Current-state scan, imports, tests, contracts, generated policy, and Make target guidance in this file. | Relevant files, imports, tests, generated paths, and commands are listed with source limits. |
 | T-003 | Map owner contracts | contracts | DONE | T-002 | Core 00-04, Timeline contract, harness NLSpec | Owner-contract map in section 4. | Public behavior and owner docs are mapped. |
-| T-004 | Freeze characterization evidence | tests | IN_PROGRESS | T-003 | Future implementation session | Existing tests listed; per-slice exact test assertions still need confirmation. | Existing and missing characterization tests are known for the selected slice. |
+| T-004 | Freeze characterization evidence | tests | DONE | T-003 | Implementation session | Existing tests listed; per-slice assertions were validated through the slice gates in section 14. | Existing and missing characterization tests are known for each completed slice. |
 | T-005 | Plan boundary guardrails | architecture | DONE | T-003 | `/apps/web`, `/packages/grid-adapter`, generated policy owners | Boundary guardrails in section 9. | Import, generated, selector, phase, and evidence guardrails are defined. |
 | T-006 | Plan behavior-preserving moves | implementation | DONE | T-004,T-005 | Future implementation session | Candidate slices in section 7. | Smallest safe move sequence is defined. |
 | T-007 | Plan validation loop | validation | DONE | T-006 | Harness NLSpec and Make target owners | Validation plan in section 10. | Cheapest sufficient validation targets are named. |
 | T-008 | Update docs/contracts if required | docs | DONE | T-003 | Future implementation session | This planner is the only planned doc artifact; no owner docs or generated contracts are planned for the refactor. | No generated file or owner contract edit is required for behavior-preserving slices. |
-| T-009 | Execute or hand off | handoff | IN_PROGRESS | T-006,T-007,T-008 | Future implementation session | Handoff template and initial record in section 12. | Next actor can continue without rediscovery after choosing a slice and direct-inspecting touched files. |
+| T-009 | Execute or hand off | handoff | DONE | T-006,T-007,T-008 | Implementation session | Final implementation log in section 14. | The refactor slices, validation, and handoff are complete. |
 
 Status values: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`, `DROPPED`.
 
@@ -368,17 +368,17 @@ Status values: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`, `DROPPED`.
 | --- | --- | --- | --- | --- | --- | --- |
 | WF-00 | Session/source bootstrap | root | none | WF-01 | DONE | Evidence: branch, commit, target, framework, source limits recorded. Exit: session header complete. |
 | WF-01 | Current-state repository scan | chain | WF-00 | WF-02, WF-03 | DONE | Evidence: file inventory, imports, tests, generated paths, validation commands. Exit: relevant unseen files are marked. |
-| WF-02 | Module/package ownership inventory | chain | WF-01 | WF-04, WF-05 | IN_PROGRESS | Evidence: `/apps/web` owns surface orchestration; `/packages/grid-adapter` owns vendor grid integration. Exit: directly inspect any file selected for a slice. |
+| WF-02 | Module/package ownership inventory | chain | WF-01 | WF-04, WF-05 | DONE | Evidence: `/apps/web` owns surface orchestration; `/packages/grid-adapter` owns vendor grid integration. Exit: touched slice files were directly inspected. |
 | WF-03 | Public contract freeze | chain | WF-01 | WF-04, WF-05 | DONE | Evidence: owner-contract map. Exit: drift-prone route, row identity, view schema, inspector, collaboration, generated, and harness surfaces are frozen. |
-| WF-04 | Refactor slice selection | chain | WF-02, WF-03 | WF-05, WF-06 | TODO | Dependency: WF-02/WF-03. Evidence needed: choose exactly one `TW-SL-*` slice. Exit: one small reviewable slice selected. |
-| WF-05 | Characterization test plan | chain | WF-03, WF-04 | WF-09 | TODO | Dependency: selected slice. Evidence needed: map existing tests to the exact observed behavior. Exit: missing tests are explicit TODOs. |
-| WF-06 | Boundary guardrail plan | chain | WF-02, WF-04 | WF-09 | TODO | Dependency: selected slice. Evidence needed: import and generated boundaries checked for touched files. Exit: guardrails are encoded in validation. |
-| WF-08 | Frontend package seam plan | parallel | WF-04, WF-05, WF-06 | WF-09 | TODO | Dependency: selected frontend slice. Evidence needed: confirm whether extraction stays under Timeline hooks/components or a shared workbook utility. Exit: public API and package boundary are explicit. |
-| WF-09 | Execution checkpoint plan | chain | WF-05 plus WF-08 | WF-10 | TODO | Dependency: characterization and guardrails. Evidence needed: checkpoint sequence with validation after risky move. Exit: implementation can proceed without decision-making. |
-| WF-10 | Validation and harness accounting plan | chain | WF-09 | WF-11 | TODO | Dependency: checkpoint plan. Evidence needed: Make targets selected and failure classes documented. Exit: validation results classify product vs harness/config/infra. |
-| WF-11 | Documentation/generated-artifact plan | parallel | WF-03, WF-09 | WF-12 | TODO | Dependency: contract freeze. Evidence needed: confirm no generated files or owner docs are touched. Exit: generated-artifact policy remains satisfied. |
-| WF-12 | Cleanup and anti-drift plan | chain | WF-10, WF-11 | WF-13 | TODO | Dependency: validation and doc plan. Evidence needed: no phase-shaped runtime structure, no unused helpers, no broad refactor leftovers. Exit: cleanup complete after validation. |
-| WF-13 | Handoff and next-slice bootstrap | chain | WF-12 | none | TODO | Dependency: validated implementation slice. Evidence needed: updated handoff record. Exit: next agent can resume without rediscovery. |
+| WF-04 | Refactor slice selection | chain | WF-02, WF-03 | WF-05, WF-06 | DONE | Dependency: WF-02/WF-03. Evidence: `TW-SL-01` through `TW-SL-06` were selected and completed sequentially. Exit: each slice stayed reviewable and tracker-scoped. |
+| WF-05 | Characterization test plan | chain | WF-03, WF-04 | WF-09 | DONE | Dependency: selected slice. Evidence: section 14 maps each slice to validation evidence. Exit: no additional missing characterization tests were required. |
+| WF-06 | Boundary guardrail plan | chain | WF-02, WF-04 | WF-09 | DONE | Dependency: selected slice. Evidence: import boundary and generated-file guardrails stayed satisfied. Exit: guardrails are encoded in final validation. |
+| WF-08 | Frontend package seam plan | parallel | WF-04, WF-05, WF-06 | WF-09 | DONE | Dependency: selected frontend slice. Evidence: extractions stayed under Timeline hooks/components. Exit: no public API or package boundary changed. |
+| WF-09 | Execution checkpoint plan | chain | WF-05 plus WF-08 | WF-10 | DONE | Dependency: characterization and guardrails. Evidence: each slice was validated before the next started. Exit: implementation completed. |
+| WF-10 | Validation and harness accounting plan | chain | WF-09 | WF-11 | DONE | Dependency: checkpoint plan. Evidence: section 14 records Make target results and classified skipped broader gates. Exit: validation results are recorded. |
+| WF-11 | Documentation/generated-artifact plan | parallel | WF-03, WF-09 | WF-12 | DONE | Dependency: contract freeze. Evidence: no generated files or owner specs were touched. Exit: generated-artifact policy remains satisfied. |
+| WF-12 | Cleanup and anti-drift plan | chain | WF-10, WF-11 | WF-13 | DONE | Dependency: validation and doc plan. Evidence: `TW-SL-06` cleanup and final validation completed. Exit: no phase-shaped runtime structure or broad refactor leftovers were introduced. |
+| WF-13 | Handoff and next-slice bootstrap | chain | WF-12 | none | DONE | Dependency: validated implementation slice. Evidence: final section 14 handoff. Exit: next actor can resume from the final record. |
 
 ## 7. Candidate Refactor Slices
 
@@ -547,3 +547,98 @@ Baseline command sequence for every implementation slice:
 | RF-AC-008 | No generated file hand-edit is planned. | PASS | Sections 2, 9, and 11 list generated roots and prohibit manual edits. |
 | RF-AC-009 | No phase-shaped runtime dependency is introduced. | PASS | Sections 4, 9, and 11 state phase maps are harness accounting only. |
 | RF-AC-010 | Handoff is sufficient for restart. | PASS | Section 12 provides filled and blank handoff records plus next workflow. |
+
+## 14. Implementation Execution Log
+
+### TW-SL-01 Save State And Pending Presentation
+
+| Field | Value |
+| --- | --- |
+| Status | DONE |
+| Date | 2026-06-28 |
+| Direct inspection before edit | `TimelineWorkbook.tsx`, `useTimelinePendingSaves.ts`, `workbookPendingQueue.ts`, `TimelineWorkbookNotices.tsx`, `WorkbookStatusStrip.tsx` |
+| Contract reread | Core 03 save-state and pending-queue owner rows via tracker owner map; Core 04 session/auth failure rows via tracker owner map. No spec contradiction found before edit. |
+| Characterization evidence selected | `WorkbookShell.phase4.saveState.test.tsx`, `WorkbookShell.phase3.autosave.test.tsx`, `WorkbookShell.phase4.actionSequencing.test.tsx`, `workbookPendingQueue.test.ts` through `make frontend-unit`. |
+| Boundary guardrails | Internal hook only; no generated roots, public props, routes, selectors, view-schema IDs, field keys, auth behavior, or phase maps are touched. |
+| Implementation summary | Added `useTimelineSaveStatePresentation.ts`; moved save-state derivation, pending snapshot publication, refresh-block begin/finish refs, `beginSave`/`finishSave`, and beforeunload protection out of `TimelineWorkbook.tsx`. |
+| Validation | Initial run failed because the extracted local-conflict mapping used a nonexistent `payload`; fixed to preserve the existing `entry.anchor` mapping. Final `make frontend-typecheck` passed with run root `.cartulary/test-results/20260628T185352Z-p2780911/frontend-typecheck`; final `make frontend-unit` passed with run root `.cartulary/test-results/20260628T185352Z-p2780987/frontend-unit`. |
+| Generated files touched | None. |
+| Next slice | `TW-SL-02` viewport and focus continuity. |
+
+### TW-SL-02 Viewport And Focus Continuity
+
+| Field | Value |
+| --- | --- |
+| Status | DONE |
+| Date | 2026-06-28 |
+| Direct inspection before edit | `TimelineWorkbook.tsx`, `useTimelineGridAnchorController.ts`, `useTimelineGridInteractions.ts`, `timelineViewportContinuityModel.ts`, `workbookContinuity.ts`, `workbookKeyboard.ts` |
+| Contract reread | Core 03 grid-first focus and keyboard behavior via tracker owner map; grid-adapter boundary policy via tracker guardrails. No spec contradiction found before edit. |
+| Characterization evidence selected | `timelineViewportContinuityModel.test.ts`, `workbookContinuity.test.ts`, `workbookKeyboard.test.ts`, `GridAdapter.phase9.anchor.test.ts`, `WorkbookShell.phase9.sentinel.test.tsx` through `make frontend-unit`; `make frontend-import-boundary-check` for vendor boundary. |
+| Boundary guardrails | New code must stay inside `/apps/web` Timeline hooks and import only `@cartulary/grid-adapter`, not `react-data-grid`; no selector/test-id changes. |
+| Implementation summary | Added `useTimelineViewportContinuityController.ts`; moved input resolution, scroll snapshots, focus/viewport restoration, continuity token transitions, barrier settling, and restoration effect out of `TimelineWorkbook.tsx`. |
+| Validation | Initial run failed because the extracted scrollport helper filtered/fell back instead of preserving the prior exact-scrollport requirement; fixed to match existing behavior. Final `make frontend-typecheck` passed with run root `.cartulary/test-results/20260628T190016Z-p2787476/frontend-typecheck`; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T190016Z-p2787498/frontend-import-boundary-check`; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T190016Z-p2787735/frontend-unit`. |
+| Generated files touched | None. |
+| Next slice | `TW-SL-03` clipboard paste dispatch. |
+
+### TW-SL-03 Clipboard Paste Dispatch
+
+| Field | Value |
+| --- | --- |
+| Status | DONE |
+| Date | 2026-06-28 |
+| Direct inspection before edit | `TimelineWorkbook.tsx`, `useTimelineGridAnchorController.ts`, `workbookClipboard.ts`, `timelineMutationRequests.ts`, `workbookTimelineModel.ts` |
+| Contract reread | Core 01 paste identity and route envelope via tracker owner map; Core 03 grid paste/focus behavior via tracker owner map. No spec contradiction found before edit. |
+| Characterization evidence selected | `workbookClipboard.test.ts`, `GridAdapter.phase9.anchor.test.ts`, `WorkbookShell.phase3.payload.test.tsx`, `WorkbookShell.phase9.sentinel.test.tsx` through `make frontend-unit`; `make frontend-import-boundary-check` for grid boundary. |
+| Boundary guardrails | Preserve `/api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste`, `view_schema_id`, `client_txn_id`, `start_field_key`, `columns`, target identities, conflict registration, scalar fallback paste, and focus restore. |
+| Implementation summary | Added `useTimelineClipboardPasteController.ts`; moved tabular paste route dispatch, target payload construction, conflict registration, scalar fallback paste scheduling, and post-paste focus/refresh handling out of `TimelineWorkbook.tsx`. |
+| Validation | `make frontend-typecheck` passed with run root `.cartulary/test-results/20260628T190434Z-p2791237/frontend-typecheck`; `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T190434Z-p2791259/frontend-import-boundary-check`; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T190434Z-p2791524/frontend-unit`. Browser webserver-backed validation was not run because route dispatch semantics and payload shape were moved without modification and narrow evidence passed. |
+| Generated files touched | None. |
+| Next slice | `TW-SL-04` inspector render/action seam. |
+
+### TW-SL-04 Inspector Render And Action Seam
+
+| Field | Value |
+| --- | --- |
+| Status | DONE |
+| Date | 2026-06-28 |
+| Direct inspection before edit | `TimelineWorkbook.tsx`, `TimelineWorkbookInspector.tsx`, `TimelineEvidencePanel.tsx`, `TimelineHistoryPanel.tsx`, `TimelineRowActions.tsx`, `workbookInspectorModel.ts`, `contracts/view-schemas/cartulary.view.timeline.v2.json` |
+| Contract reread | Core 03 inspector lifecycle/feature-group behavior and Core 04 inspector authorization boundary via tracker owner map. No spec contradiction found before edit. |
+| Characterization evidence selected | `WorkbookShell.phase9.inspector.test.tsx`, `TimelineEvidencePanel.test.tsx`, `WorkbookShell.phase7.test.tsx`, `WorkbookShell.phase4.support.test.tsx` through `make frontend-unit`. |
+| Boundary guardrails | Preserve default-closed/no-row behavior in `TimelineWorkbookInspector.tsx`, feature-group keys, selectors, and current layout. Extraction must not imply authorization from control visibility. |
+| Implementation summary | Added `TimelineWorkbookInspectorSections.tsx`; moved operational-text editors, relationship editors, evidence attach section, create-related workflow section, and row-history section factories out of `TimelineWorkbook.tsx`. `TimelineWorkbookInspector.tsx` layout and selectors are unchanged. |
+| Validation | `make frontend-typecheck` passed with run root `.cartulary/test-results/20260628T190745Z-p2794547/frontend-typecheck`; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T190756Z-p2794935/frontend-unit`. A11y preflight was not run because the rendered inspector structure/focus order was not intentionally changed. |
+| Generated files touched | None. |
+| Next slice | `TW-SL-05` presence and live updates. |
+
+### TW-SL-05 Presence And Live Updates
+
+| Field | Value |
+| --- | --- |
+| Status | DONE |
+| Date | 2026-06-28 |
+| Direct inspection before edit | `TimelineWorkbook.tsx`, `useTimelineLiveUpdates.ts`, `useTimelineLiveUpdateController.ts`, `workbookCollaborationMessages.ts`, `workbookSocketLifecycle.ts`, `contracts/ws/index.schema.json`, `workbookPresence.ts` |
+| Contract reread | Core 01 WebSocket route/message ownership, Core 03 presence/live-update interaction behavior, and Core 04 session/origin/membership/revocation rules via tracker owner map. No spec contradiction found before edit. |
+| Characterization evidence selected | `workbookCollaborationMessages.test.ts`, `workbookSocketLifecycle.test.ts`, `WorkbookShell.phase6.test.tsx` through `make frontend-unit`. |
+| Boundary guardrails | Leave socket wire shape, resume semantics, authorization/session behavior, stale row-version handling, and live update reducer behavior unchanged. Extract only active-sheet filtering, self-connection suppression, row/cell presence lookup, and edit-mode presence draft dispatch. |
+| Implementation summary | Added `useTimelinePresenceProjection.ts`; moved active-sheet presence filtering, self-connection suppression, row/cell presence lookups, and edit-mode presence draft/send logic out of `TimelineWorkbook.tsx`. Socket protocol and lifecycle hooks were unchanged. |
+| Validation | `make frontend-typecheck` passed with run root `.cartulary/test-results/20260628T191106Z-p2797891/frontend-typecheck`; `make frontend-unit` passed with run root `.cartulary/test-results/20260628T191106Z-p2797956/frontend-unit`. Stateful browser validation was not run because WebSocket wire/session behavior was not changed. |
+| Generated files touched | None. |
+| Next slice | `TW-SL-06` assembler cleanup and final validation. |
+
+### TW-SL-06 Assembler Cleanup And Final Validation
+
+| Field | Value |
+| --- | --- |
+| Status | DONE |
+| Date | 2026-06-28 |
+| Direct inspection before edit | `TimelineWorkbook.tsx`; all helpers created by `TW-SL-01` through `TW-SL-05`; tracker handoff sections. |
+| Contract reread | Prior slice owner maps remain controlling. No public props, routes, selectors, view-schema IDs, field keys, generated files, auth behavior, or phase accounting are in scope for cleanup. |
+| Characterization evidence selected | Per-slice evidence plus `make frontend-import-boundary-check`, `make frontend-typecheck`, `make frontend-unit`, `make lint-markdown`, and `make agent-finalize`. |
+| Boundary guardrails | Remove stale imports/local glue only; do not cross package boundaries or introduce phase-shaped runtime structure. |
+| Implementation summary | Ran assembler cleanup after all five extractions; kept `TimelineWorkbook.tsx` as the composition root while moving focused logic into Timeline-local hooks/components. Target file is now 2160 lines, down from 3001 at planning inspection. Ran targeted Biome formatting on the six touched frontend files after `lint-biome` reported import/format diagnostics. |
+| Validation | Final `make frontend-typecheck` passed with run root `.cartulary/test-results/20260628T191353Z-p2804144/frontend-typecheck`; final `make frontend-unit` passed with run root `.cartulary/test-results/20260628T191353Z-p2804146/frontend-unit`; final `make frontend-import-boundary-check` passed with run root `.cartulary/test-results/20260628T191353Z-p2804188/frontend-import-boundary-check`; final `make lint-markdown` passed with run root `.cartulary/test-results/20260628T191702Z-p2809699/lint-markdown`; final `make lint-biome` passed with run root `.cartulary/test-results/20260628T191354Z-p2804612/lint-biome`; `make agent-finalize` passed with run root `.cartulary/test-results/20260628T191531Z-p2808708/agent-finalize`. |
+| Product failures | None remaining. Earlier slice-local failures were fixed before advancing: `TW-SL-01` conflict-anchor mapping and `TW-SL-02` scrollport exactness. |
+| Harness/config/infra failures | None remaining. Initial `lint-biome` diagnostics were style/import organization diagnostics and were resolved with targeted formatting. |
+| Generated files touched | None. `make agent-finalize` reported `generated=unchanged files=0`; retained-run maintenance was skipped because `RESULTS_DIR` was unset. |
+| Skipped broader checks | `browser-e2e-webserver-backed`, `browser-e2e-stateful`, and `browser-e2e-a11y-preflight` were not run because no route semantics, socket/session behavior, or rendered focus/layout structure intentionally changed beyond code movement covered by unit/type/import-boundary gates. |
+| Final handoff | Refactor implementation complete. No owner spec, generated artifact, public API, route, selector, view-schema ID, field key, auth behavior, or phase accounting changes were made. |
