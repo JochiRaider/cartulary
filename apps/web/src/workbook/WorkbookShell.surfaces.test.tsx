@@ -1,6 +1,8 @@
 import {
   currentIncidentRoleTestId,
   dataTestIdSelector,
+  entityInspectButtonTestId,
+  entityInspectorTestId,
   evidenceAccessMessageTestId,
   evidenceAttachFileInputTestId,
   evidenceDownloadButtonTestId,
@@ -41,6 +43,7 @@ import {
   systemViewSwitcherTriggerTestId,
   timelineInspectorMessageTestId,
   timelineInspectorTestId,
+  timelinePreviewRowTestId,
   workbookAddRowButtonTestId,
   workbookFilterPopoverTriggerTestId,
   workbookInspectorToggleTestId,
@@ -55,6 +58,7 @@ import {
 } from "@cartulary/view-contracts";
 import {
   cleanup,
+  createEvent,
   fireEvent,
   render,
   screen,
@@ -72,8 +76,11 @@ import {
   buildGenericPatchChange,
 } from "./models/genericWorkbookModel";
 import {
+  assessmentsViewSchemaId,
   commLogViewSchemaId,
   evidenceViewSchemaId,
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
   indicatorsViewSchemaId,
   optionalStandardizedWorkbookSurfaceIds,
   partiesViewSchemaId,
@@ -137,6 +144,7 @@ function TestAccountApplicationMenu({
             }
             aria-expanded={controlsOpen}
             aria-haspopup="menu"
+            data-active-section={incidentControls.activeSection}
             data-testid={incidentControlsTriggerTestId()}
             role="menuitem"
             type="button"
@@ -302,6 +310,12 @@ describe("WorkbookShell surface selection", () => {
         init: RequestInit | undefined,
       ) => Promise<Response> | Response | null)
     | null;
+  let mergeResponseOverride:
+    | ((
+        survivorRecordId: string,
+        init: RequestInit | undefined,
+      ) => Promise<Response> | Response | null)
+    | null;
   let attachErrorByRecordID: Record<string, Response>;
   let handleErrorByRecordID: Record<string, Response>;
   let handleHrefByRecordID: Record<
@@ -327,6 +341,7 @@ describe("WorkbookShell surface selection", () => {
     queryResponseOverride = null;
     startupResponseOverride = null;
     recordPatchResponseOverride = null;
+    mergeResponseOverride = null;
     attachErrorByRecordID = {};
     handleErrorByRecordID = {};
     handleHrefByRecordID = {};
@@ -579,6 +594,81 @@ describe("WorkbookShell surface selection", () => {
           }
         }
       }
+      const entityPasteMatch = url.match(
+        /\/api\/v1\/incidents\/incident-1\/views\/([^/]+)\/clipboard-paste$/,
+      );
+      if (method === "POST" && entityPasteMatch) {
+        const viewSchemaId = decodeURIComponent(entityPasteMatch[1] ?? "");
+        if (
+          viewSchemaId === hostsViewSchemaId ||
+          viewSchemaId === identitiesViewSchemaId
+        ) {
+          const body = JSON.parse(String(init?.body ?? "{}")) as {
+            clipboard_text?: unknown;
+          };
+          const nextRows = applyEntityClipboardPaste(
+            viewSchemaId,
+            genericRowsByView[viewSchemaId] ?? [],
+            typeof body.clipboard_text === "string" ? body.clipboard_text : "",
+          );
+          genericRowsByView[viewSchemaId] = nextRows.allRows;
+          return successEnvelope({
+            view_schema_id: viewSchemaId,
+            change_set_id: "change-entity-paste",
+            rows: nextRows.changedRows,
+            conflicts: [],
+          });
+        }
+      }
+      const mergeMatch = url.match(/\/api\/v1\/records\/([^/]+)\/merge$/);
+      if (method === "POST" && mergeMatch) {
+        const survivorRecordId = decodeURIComponent(mergeMatch[1] ?? "");
+        const override = mergeResponseOverride?.(survivorRecordId, init);
+        if (override) {
+          return override;
+        }
+        const body = JSON.parse(String(init?.body ?? "{}")) as {
+          loser_record_id?: unknown;
+        };
+        const loserRecordId =
+          typeof body.loser_record_id === "string" ? body.loser_record_id : "";
+        const viewSchemaId =
+          [hostsViewSchemaId, identitiesViewSchemaId].find((candidate) =>
+            (genericRowsByView[candidate] ?? []).some(
+              (row) => row.record_id === survivorRecordId,
+            ),
+          ) ?? hostsViewSchemaId;
+        const rows = genericRowsByView[viewSchemaId] ?? [];
+        const survivor = rows.find((row) => row.record_id === survivorRecordId);
+        genericRowsByView[viewSchemaId] = rows
+          .filter((row) => row.record_id !== loserRecordId)
+          .map((row) =>
+            row.record_id === survivorRecordId
+              ? { ...row, row_version: row.row_version + 1 }
+              : row,
+          );
+        return successEnvelope({
+          incident_id: "incident-1",
+          record_type: viewSchemaId === hostsViewSchemaId ? "host" : "identity",
+          survivor_record_id: survivorRecordId,
+          loser_record_id: loserRecordId,
+          survivor_row_version: (survivor?.row_version ?? 1) + 1,
+          loser_row_version: 2,
+          change_set_id: "change-entity-merge",
+          merged_into_record_id: survivorRecordId,
+          merge_summary: {
+            record_type:
+              viewSchemaId === hostsViewSchemaId ? "host" : "identity",
+            repointed_mention_resolution_count: 1,
+            repointed_link_count: 0,
+            deduped_link_count: 0,
+            repointed_tag_count: 0,
+            deduped_tag_count: 0,
+            repointed_assessment_count: 0,
+            exact_match_classes: [],
+          },
+        });
+      }
       if (method === "PATCH" && url.endsWith("/api/v1/records/timeline-1")) {
         const row = timelineRow("timeline-1", 2, "Selected row", 1);
         timelineRows = [row];
@@ -660,6 +750,7 @@ describe("WorkbookShell surface selection", () => {
     expect(screen.getByTestId(phase1LandingTestId("return"))).toBeTruthy();
     const trigger = screen.getByTestId(incidentControlsTriggerTestId());
     expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+    expect(trigger.getAttribute("data-active-section")).toBe("summary");
     fireEvent.click(trigger);
     const menu = await screen.findByTestId(incidentControlsMenuTestId());
     expect(menu.getAttribute("role")).toBe("menu");
@@ -677,6 +768,11 @@ describe("WorkbookShell surface selection", () => {
     expect(panel.getAttribute("role")).toBe("dialog");
     expect(panel.textContent).toContain("Summary and preferences");
     expect(screen.queryByTestId(incidentControlsMenuTestId())).toBeNull();
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByTestId(incidentControlsCloseButtonTestId()),
+      );
+    });
     expect(
       (await screen.findByTestId("incident-summary-key")).textContent,
     ).toBe("IR-1");
@@ -696,6 +792,11 @@ describe("WorkbookShell surface selection", () => {
     });
 
     fireEvent.click(accountTrigger);
+    expect(
+      screen
+        .getByTestId(incidentControlsTriggerTestId())
+        .getAttribute("data-active-section"),
+    ).toBe("summary");
     fireEvent.click(screen.getByTestId(incidentControlsTriggerTestId()));
     fireEvent.click(
       await screen.findByTestId(
@@ -708,8 +809,16 @@ describe("WorkbookShell surface selection", () => {
     await waitFor(() => {
       expect(screen.queryByTestId(incidentControlsPanelTestId())).toBeNull();
     });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(accountTrigger);
+    });
 
     fireEvent.click(accountTrigger);
+    expect(
+      screen
+        .getByTestId(incidentControlsTriggerTestId())
+        .getAttribute("data-active-section"),
+    ).toBe("incident-fields");
     fireEvent.click(screen.getByTestId(incidentControlsTriggerTestId()));
     fireEvent.click(
       await screen.findByTestId(incidentControlsMenuItemTestId("memberships")),
@@ -1629,6 +1738,349 @@ describe("WorkbookShell surface selection", () => {
     expect(currentRecordIds(evidenceViewSchemaId)).toEqual(["evidence-newer"]);
   });
 
+  it("keeps generic surface access loss routed through the shell access-lost callback", async () => {
+    const onIncidentAccessLost = vi.fn();
+    startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: evidenceViewSchemaId },
+      selected_view_schema_id: evidenceViewSchemaId,
+      selected_saved_view: null,
+      source: "explicit",
+    };
+    queryResponseOverride = (viewSchemaId) =>
+      viewSchemaId === evidenceViewSchemaId
+        ? errorEnvelope("authorization_denied", 403)
+        : null;
+
+    render(
+      <WorkbookShell
+        incidentId="incident-1"
+        onIncidentAccessLost={onIncidentAccessLost}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onIncidentAccessLost).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      (await screen.findByTestId("generic-surface-load-error")).textContent,
+    ).toContain("authorization_denied");
+  });
+
+  it("keeps entity surface access loss routed through the shell access-lost callback", async () => {
+    const onIncidentAccessLost = vi.fn();
+    startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: hostsViewSchemaId },
+      selected_view_schema_id: hostsViewSchemaId,
+      selected_saved_view: null,
+      source: "explicit",
+    };
+    queryResponseOverride = (viewSchemaId) =>
+      viewSchemaId === hostsViewSchemaId
+        ? errorEnvelope("authorization_denied", 403)
+        : null;
+
+    render(
+      <WorkbookShell
+        incidentId="incident-1"
+        onIncidentAccessLost={onIncidentAccessLost}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onIncidentAccessLost).toHaveBeenCalledTimes(1);
+    });
+    expect((await screen.findByTestId("entity-load-error")).textContent).toBe(
+      "authorization_denied",
+    );
+  });
+
+  it("keeps assessment surface access loss routed through the shell access-lost callback", async () => {
+    const onIncidentAccessLost = vi.fn();
+    startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: assessmentsViewSchemaId },
+      selected_view_schema_id: assessmentsViewSchemaId,
+      selected_saved_view: null,
+      source: "explicit",
+    };
+    queryResponseOverride = (viewSchemaId) =>
+      viewSchemaId === assessmentsViewSchemaId
+        ? errorEnvelope("authorization_denied", 403)
+        : null;
+
+    render(
+      <WorkbookShell
+        incidentId="incident-1"
+        onIncidentAccessLost={onIncidentAccessLost}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onIncidentAccessLost).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      (await screen.findByTestId("assessment-surface-load-error")).textContent,
+    ).toBe("authorization_denied");
+  });
+
+  it("dispatches entity-origin paste through create targets while preserving exact-match reuse results", async () => {
+    startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: hostsViewSchemaId },
+      selected_view_schema_id: hostsViewSchemaId,
+      selected_saved_view: null,
+      source: "explicit",
+    };
+    genericRowsByView[hostsViewSchemaId] = [
+      hostRow({
+        displayName: "Reusable host",
+        hostname: "reuse.example.test",
+        recordId: "host-existing",
+        rowVersion: 4,
+      }),
+    ];
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    const displayNameCell = await screen.findByTestId(
+      rowCellTestId("host-existing", "host.display_name"),
+    );
+    const pasteEvent = createEvent.paste(displayNameCell, {
+      clipboardData: {
+        getData: () =>
+          [
+            "Pasted host reuse\treuse.example.test",
+            "Pasted host create\tcreate.example.test",
+          ].join("\n"),
+      },
+    });
+    fireEvent(displayNameCell, pasteEvent);
+    expect(pasteEvent.defaultPrevented).toBe(true);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([input, init]) =>
+            String(input).endsWith(
+              `/api/v1/incidents/incident-1/views/${hostsViewSchemaId}/clipboard-paste`,
+            ) &&
+            ((init as RequestInit | undefined)?.method ?? "GET") === "POST",
+        ),
+      ).toBe(true);
+    });
+    const pasteCall = fetchMock.mock.calls.find(([input]) =>
+      String(input).endsWith(
+        `/api/v1/incidents/incident-1/views/${hostsViewSchemaId}/clipboard-paste`,
+      ),
+    );
+    expect(pasteCall).toBeDefined();
+    const pasteBody = JSON.parse(
+      String((pasteCall?.[1] as RequestInit | undefined)?.body ?? "{}"),
+    );
+    expect(pasteBody).toMatchObject({
+      view_schema_id: hostsViewSchemaId,
+      clipboard_text:
+        "Pasted host reuse\treuse.example.test\nPasted host create\tcreate.example.test",
+      format: "tsv",
+      start_field_key: "host.display_name",
+      columns: ["host.display_name", "host.hostname"],
+      targets: [{ kind: "create" }, { kind: "create" }],
+    });
+    expect(window.location.href).not.toContain("/imports");
+    await expectRecordIds(hostsViewSchemaId, [
+      "host-existing",
+      "host-pasted-1",
+    ]);
+    expect(
+      screen.getByTestId(rowCellTestId("host-existing", "host.display_name"))
+        .textContent,
+    ).toContain("Pasted host reuse");
+    expect(
+      screen.getByTestId(rowCellTestId("host-pasted-1", "host.display_name"))
+        .textContent,
+    ).toContain("Pasted host create");
+  });
+
+  it("keeps entity merge review, confirmation, and dependent Timeline preview bound to stable record ids", async () => {
+    startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: hostsViewSchemaId },
+      selected_view_schema_id: hostsViewSchemaId,
+      selected_saved_view: null,
+      source: "explicit",
+    };
+    genericRowsByView[hostsViewSchemaId] = [
+      hostRow({
+        aliases: ["survivor-alias", "shared-alias"],
+        displayName: "Survivor host",
+        hostname: "SURVIVOR.example.test",
+        linkedEventCount: 2,
+        recordId: "host-survivor",
+        rowVersion: 7,
+      }),
+      hostRow({
+        aliases: ["Shared-Alias", "loser-alias"],
+        displayName: "Loser host",
+        fqdn: "loser.example.test",
+        hostname: "survivor.example.test",
+        linkedEventCount: 1,
+        recordId: "host-loser",
+        rowVersion: 3,
+      }),
+      hostRow({
+        displayName: "Unrelated host",
+        hostname: "unrelated.example.test",
+        recordId: "host-unrelated",
+        rowVersion: 1,
+      }),
+    ];
+    timelineRows = [
+      timelineRow("timeline-dependent", 5, "Dependent row", 0, {
+        hostRefs: [
+          timelineEntityRef("host-survivor", "Survivor host", "host-ref-1"),
+        ],
+      }),
+    ];
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    fireEvent.click(
+      await screen.findByTestId(
+        entityInspectButtonTestId("host", "host-survivor"),
+      ),
+    );
+    await screen.findByTestId(entityInspectorTestId("host"));
+    expect(
+      (
+        await screen.findByTestId(
+          timelinePreviewRowTestId("timeline-dependent"),
+        )
+      ).textContent,
+    ).toContain("Dependent row");
+
+    fireEvent.change(screen.getByTestId("merge-loser-record"), {
+      target: { value: "host-loser" },
+    });
+    const mergePlan = await screen.findByTestId("merge-plan");
+    expect(mergePlan.textContent).toContain(
+      "Survivor Survivor host absorbs loser Loser host",
+    );
+    expect(mergePlan.textContent).toContain("FQDN: Promote loser.example.test");
+    expect(mergePlan.textContent).toContain(
+      "Hostname: Duplicate no-op survivor.example.test",
+    );
+    expect(mergePlan.textContent).toContain("Aliases to copy: loser-alias");
+    expect(mergePlan.textContent).toContain(
+      "Alias duplicate no-op: Shared-Alias",
+    );
+    expect(mergePlan.textContent).toContain(
+      "Linked events visible on surface: survivor=2, loser=1.",
+    );
+
+    fireEvent.click(screen.getByTestId("merge-confirm"));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/v1/records/host-survivor/merge"),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    const mergeCall = fetchMock.mock.calls.find(([input]) =>
+      String(input).endsWith("/api/v1/records/host-survivor/merge"),
+    );
+    expect(
+      JSON.parse(String((mergeCall?.[1] as RequestInit | undefined)?.body)),
+    ).toMatchObject({
+      loser_record_id: "host-loser",
+      survivor_base_row_version: 7,
+      loser_base_row_version: 3,
+      reason: "Merge duplicate entity",
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("merge-message").textContent).toContain(
+        "Merged Loser host into Survivor host (host).",
+      );
+    });
+    await expectRecordIds(hostsViewSchemaId, [
+      "host-survivor",
+      "host-unrelated",
+    ]);
+    expect(
+      screen.queryByTestId(rowCellTestId("host-loser", "host.display_name")),
+    ).toBeNull();
+
+    fireEvent.click(
+      screen.getByTestId(entityInspectButtonTestId("host", "host-unrelated")),
+    );
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId(timelinePreviewRowTestId("timeline-dependent")),
+      ).toBeNull();
+    });
+  });
+
+  it("surfaces entity merge precondition failures without submitting a second plan", async () => {
+    startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: identitiesViewSchemaId },
+      selected_view_schema_id: identitiesViewSchemaId,
+      selected_saved_view: null,
+      source: "explicit",
+    };
+    genericRowsByView[identitiesViewSchemaId] = [
+      identityRow({
+        displayName: "Survivor identity",
+        recordId: "identity-survivor",
+        rowVersion: 11,
+        upn: "survivor@example.test",
+      }),
+      identityRow({
+        displayName: "Loser identity",
+        email: "collision@example.test",
+        recordId: "identity-loser",
+        rowVersion: 2,
+        upn: "loser@example.test",
+      }),
+    ];
+    mergeResponseOverride = () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            status: 409,
+            code: "merge_precondition_failed",
+            message: "merge_precondition_failed",
+            request_id: "req-merge-precondition",
+            retryable: false,
+            details: {
+              reason_code: "carry_forward_identifier_collision",
+              identifier_class: "email",
+              normalized_value: "collision@example.test",
+              blocking_record_id: "identity-blocker",
+            },
+          },
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      );
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    fireEvent.click(
+      await screen.findByTestId(
+        entityInspectButtonTestId("identity", "identity-survivor"),
+      ),
+    );
+    fireEvent.change(await screen.findByTestId("merge-loser-record"), {
+      target: { value: "identity-loser" },
+    });
+    fireEvent.click(await screen.findByTestId("merge-confirm"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("merge-message").textContent).toBe(
+        "merge_precondition_failed: carry_forward_identifier_collision",
+      );
+    });
+    expect(currentRecordIds(identitiesViewSchemaId)).toEqual([
+      "identity-survivor",
+      "identity-loser",
+    ]);
+  });
+
   it("keeps party-link mutations syncing until workbook and references refresh", async () => {
     const linkedTask = taskRequestRow(
       "task-1",
@@ -2161,6 +2613,10 @@ function timelineRow(
   rowVersion: number,
   summary: string,
   evidenceCount: number,
+  relationships: {
+    hostRefs?: Array<Record<string, unknown>>;
+    identityRefs?: Array<Record<string, unknown>>;
+  } = {},
 ) {
   return {
     record_id: recordId,
@@ -2177,14 +2633,20 @@ function timelineRow(
       "timeline.raw_activity_text": { value: "" },
       "timeline.data_source_text": { value: "" },
       "timeline.host_refs": {
-        value: { kind: "collection_value_v1", ordered: true, items: [] },
+        value: {
+          ...collectionValue(relationships.hostRefs ?? []),
+          ordered: true,
+        },
       },
       "timeline.identity_refs": {
-        value: { kind: "collection_value_v1", ordered: true, items: [] },
+        value: {
+          ...collectionValue(relationships.identityRefs ?? []),
+          ordered: true,
+        },
       },
       "timeline.evidence_count": { value: evidenceCount },
       "timeline.tags": {
-        value: { kind: "collection_value_v1", ordered: false, items: [] },
+        value: collectionValue([]),
       },
       "timeline.edited_at": { value: "2026-04-24T10:00:00.000Z" },
       "timeline.recorded_at": { value: "2026-04-24T10:00:00.000Z" },
@@ -2195,7 +2657,7 @@ function timelineRow(
       "timeline.activity_time_pair_state": { value: "disabled" },
       "timeline.has_evidence": { value: evidenceCount > 0 },
       "timeline.attached_evidence_ids": {
-        value: { kind: "collection_value_v1", ordered: false, items: [] },
+        value: collectionValue([]),
       },
       "timeline.has_unresolved_mentions": { value: false },
     },
@@ -2446,6 +2908,191 @@ function currentRecordIds(surface: Parameters<typeof gridShellTestId>[0]) {
 async function flushMicrotasks() {
   await Promise.resolve();
   await Promise.resolve();
+}
+
+type TestViewRow = {
+  record_id: string;
+  row_version: number;
+  cells: Record<string, { value: unknown }>;
+};
+
+function collectionValue(items: Array<Record<string, unknown>>) {
+  return {
+    kind: "collection_value_v1",
+    ordered: false,
+    items,
+  };
+}
+
+function timelineEntityRef(
+  recordId: string,
+  displayText: string,
+  itemRef: string,
+) {
+  return {
+    item_ref: itemRef,
+    item_kind: "resolved_ref",
+    entity_type: "host",
+    display_text: displayText,
+    raw_text: displayText,
+    resolved_record_id: recordId,
+    mention_row_version: 1,
+    resolution_method: "manual",
+    auto_resolved: false,
+  };
+}
+
+function hostRow({
+  aliases = [],
+  displayName,
+  fqdn = null,
+  hostname,
+  linkedEventCount = 0,
+  recordId,
+  rowVersion,
+}: {
+  aliases?: string[];
+  displayName: string;
+  fqdn?: string | null;
+  hostname: string;
+  linkedEventCount?: number;
+  recordId: string;
+  rowVersion: number;
+}): TestViewRow {
+  return {
+    record_id: recordId,
+    row_version: rowVersion,
+    cells: {
+      "host.display_name": { value: displayName },
+      "host.hostname": { value: hostname },
+      "host.aad_device_id": { value: "" },
+      "host.fqdn": { value: fqdn ?? "" },
+      "host.aliases": {
+        value: collectionValue(
+          aliases.map((alias) => ({
+            item_ref: `alias:${alias}`,
+            item_kind: "alias",
+            raw_text: alias,
+            display_text: alias,
+          })),
+        ),
+      },
+      "host.host_state": { value: "canonical" },
+      "host.linked_event_count": { value: linkedEventCount },
+      "host.evidence_count": { value: 0 },
+      "host.location": { value: "" },
+      "host.os_platform": { value: "" },
+      "host.business_owner": { value: "" },
+      "host.criticality": { value: "" },
+      "host.containment_status": { value: "" },
+      "host.edited_at": { value: "2026-04-24T15:00:00.000Z" },
+    },
+  };
+}
+
+function identityRow({
+  aliases = [],
+  displayName,
+  email = "",
+  recordId,
+  rowVersion,
+  upn,
+}: {
+  aliases?: string[];
+  displayName: string;
+  email?: string;
+  recordId: string;
+  rowVersion: number;
+  upn: string;
+}): TestViewRow {
+  return {
+    record_id: recordId,
+    row_version: rowVersion,
+    cells: {
+      "identity.display_name": { value: displayName },
+      "identity.aad_object_id": { value: "" },
+      "identity.sid": { value: "" },
+      "identity.upn": { value: upn },
+      "identity.email": { value: email },
+      "identity.sam_account_name": { value: "" },
+      "identity.aliases": {
+        value: collectionValue(
+          aliases.map((alias) => ({
+            item_ref: `alias:${alias}`,
+            item_kind: "alias",
+            raw_text: alias,
+            display_text: alias,
+          })),
+        ),
+      },
+      "identity.identity_state": { value: "canonical" },
+      "identity.linked_event_count": { value: 0 },
+      "identity.evidence_count": { value: 0 },
+      "identity.privilege_level": { value: "" },
+      "identity.mfa_state": { value: "" },
+      "identity.reset_status": { value: "" },
+      "identity.edited_at": { value: "2026-04-24T15:00:00.000Z" },
+    },
+  };
+}
+
+function applyEntityClipboardPaste(
+  viewSchemaId: string,
+  currentRows: TestViewRow[],
+  clipboardText: string,
+): { allRows: TestViewRow[]; changedRows: TestViewRow[] } {
+  const entityType = viewSchemaId === hostsViewSchemaId ? "host" : "identity";
+  const displayField =
+    entityType === "host" ? "host.display_name" : "identity.display_name";
+  const primaryField = entityType === "host" ? "host.hostname" : "identity.upn";
+  const changedRows: TestViewRow[] = [];
+  const nextRows = [...currentRows];
+
+  for (const [index, line] of clipboardText.split(/\r?\n/u).entries()) {
+    if (line.trim() === "") {
+      continue;
+    }
+    const [displayName = "", primaryValue = ""] = line.split("\t");
+    const existingIndex = nextRows.findIndex(
+      (row) => row.cells[primaryField]?.value === primaryValue,
+    );
+    if (existingIndex >= 0) {
+      const current = nextRows[existingIndex];
+      if (current === undefined) {
+        continue;
+      }
+      const updated = {
+        ...current,
+        row_version: current.row_version + 1,
+        cells: {
+          ...current.cells,
+          [displayField]: { value: displayName },
+        },
+      };
+      nextRows[existingIndex] = updated;
+      changedRows.push(updated);
+      continue;
+    }
+
+    const created =
+      entityType === "host"
+        ? hostRow({
+            displayName,
+            hostname: primaryValue,
+            recordId: `host-pasted-${index}`,
+            rowVersion: 1,
+          })
+        : identityRow({
+            displayName,
+            recordId: `identity-pasted-${index}`,
+            rowVersion: 1,
+            upn: primaryValue,
+          });
+    nextRows.push(created);
+    changedRows.push(created);
+  }
+
+  return { allRows: nextRows, changedRows };
 }
 
 describe("generic workbook mutation payloads", () => {

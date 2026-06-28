@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { apiPath } from "../../services/browserApi";
 import { fetchJSON, readEnvelope } from "../../services/workbookApi";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
@@ -28,9 +28,18 @@ export function useEntityTimelinePreview({
   const [timelinePreviewRows, setTimelinePreviewRows] = useState<WorkbookRow[]>(
     [],
   );
+  const previewSequenceRef = useRef(0);
+
+  const clearTimelinePreview = useCallback(() => {
+    previewSequenceRef.current += 1;
+    setTimelinePreviewRows([]);
+  }, []);
 
   const loadTimelinePreview = useCallback(
     async (recordId: string) => {
+      const sequence = previewSequenceRef.current + 1;
+      previewSequenceRef.current = sequence;
+      setTimelinePreviewRows([]);
       const result = await fetchJSON<WorkbookQueryEnvelope>(
         apiPath(
           apiBase,
@@ -42,7 +51,9 @@ export function useEntityTimelinePreview({
         },
       );
       if (!result.ok) {
-        setTimelinePreviewRows([]);
+        if (previewSequenceRef.current === sequence) {
+          setTimelinePreviewRows([]);
+        }
         return;
       }
       const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
@@ -52,7 +63,9 @@ export function useEntityTimelinePreview({
           "timeline preview query response",
         );
       } catch {
-        setTimelinePreviewRows([]);
+        if (previewSequenceRef.current === sequence) {
+          setTimelinePreviewRows([]);
+        }
         return;
       }
       const draftKey = entityType === "host" ? "hostRefs" : "identityRefs";
@@ -73,15 +86,20 @@ export function useEntityTimelinePreview({
             ),
           );
       } catch {
-        setTimelinePreviewRows([]);
+        if (previewSequenceRef.current === sequence) {
+          setTimelinePreviewRows([]);
+        }
         return;
       }
-      setTimelinePreviewRows(previewRows);
+      if (previewSequenceRef.current === sequence) {
+        setTimelinePreviewRows(previewRows);
+      }
     },
     [apiBase, entityType, incidentId],
   );
 
   return {
+    clearTimelinePreview,
     loadTimelinePreview,
     timelinePreviewRows,
   };

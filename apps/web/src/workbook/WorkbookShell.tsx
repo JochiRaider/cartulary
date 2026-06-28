@@ -467,13 +467,12 @@ function EntityWorkbookSurface({
   );
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [mutationState, setMutationState] = useState<SaveState>("Saved");
-  const { loadTimelinePreview, timelinePreviewRows } = useEntityTimelinePreview(
-    {
+  const { clearTimelinePreview, loadTimelinePreview, timelinePreviewRows } =
+    useEntityTimelinePreview({
       apiBase,
       entityType,
       incidentId,
-    },
-  );
+    });
 
   const selectedEntity =
     rows.find((row) => row.recordId === selectedRecordId) ?? null;
@@ -767,10 +766,24 @@ function EntityWorkbookSurface({
 
   useEffect(() => {
     if (selectedEntityRecordKey === "") {
+      clearTimelinePreview();
       return;
     }
     setMergeMessage(null);
-  }, [selectedEntityRecordKey]);
+  }, [clearTimelinePreview, selectedEntityRecordKey]);
+
+  useEffect(() => {
+    if (!isInspectorOpen || selectedEntityRecordKey === "") {
+      clearTimelinePreview();
+      return;
+    }
+    void loadTimelinePreview(selectedEntityRecordKey);
+  }, [
+    clearTimelinePreview,
+    isInspectorOpen,
+    loadTimelinePreview,
+    selectedEntityRecordKey,
+  ]);
 
   useEffect(() => {
     if (
