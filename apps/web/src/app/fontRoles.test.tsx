@@ -12,7 +12,7 @@ import {
   timelineRow,
   timelineViewSchemaId,
 } from "../testing/timelineWorkbookTestSupport";
-import { TimelineWorkbook } from "../workbook/WorkbookShell";
+import { TimelineWorkbook } from "../workbook/timeline/components/TimelineWorkbook";
 import { App } from "./App";
 
 describe("vendored font role activation", () => {

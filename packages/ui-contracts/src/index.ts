@@ -235,6 +235,7 @@ export const incidentControlsSections = [
 export type Phase1RouteSelector =
   | "app-shell"
   | "debug-harness-loading"
+  | "debug-harness-shell"
   | "workbook-current-user"
   | "workbook-loading";
 
@@ -420,6 +421,7 @@ const landingAdminPanelTokenSet = Object.freeze(
 const phase1RouteTestIds = Object.freeze({
   "app-shell": "app-shell",
   "debug-harness-loading": "debug-harness-loading",
+  "debug-harness-shell": "debug-harness-shell",
   "workbook-current-user": "workbook-current-user",
   "workbook-loading": "workbook-loading",
 } satisfies Record<Phase1RouteSelector, string>);

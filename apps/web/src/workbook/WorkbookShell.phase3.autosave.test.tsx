@@ -20,12 +20,12 @@ import {
   timelineRow,
   timelineViewSchemaId,
 } from "../testing/timelineWorkbookTestSupport";
+import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import {
   buildCreatePayload,
   createDraftRow,
   ensureDraftRow,
-  TimelineWorkbook,
-} from "./WorkbookShell";
+} from "./timeline/models/workbookTimelineModel";
 
 vi.mock(
   "@cartulary/grid-adapter",

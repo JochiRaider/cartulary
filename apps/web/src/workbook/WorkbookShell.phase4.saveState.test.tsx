@@ -23,7 +23,7 @@ import {
   timelineRow,
   timelineViewSchemaId,
 } from "../testing/timelineWorkbookTestSupport";
-import { TimelineWorkbook } from "./WorkbookShell";
+import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 
 vi.mock(
   "@cartulary/grid-adapter",

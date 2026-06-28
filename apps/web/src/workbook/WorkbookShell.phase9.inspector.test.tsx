@@ -34,7 +34,6 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import {
   cleanupTimelineWorkbookTestGlobals,
   errorEnvelope,
@@ -49,7 +48,8 @@ import {
   timelineViewSchemaId,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
-import { type RecordHistoryItem, TimelineWorkbook } from "./WorkbookShell";
+import type { RecordHistoryItem } from "./timeline/components/TimelineHistoryPanel";
+import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 
 vi.mock(
   "@cartulary/grid-adapter",

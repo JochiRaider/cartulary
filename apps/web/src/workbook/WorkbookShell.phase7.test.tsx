@@ -39,11 +39,11 @@ import {
   visibleGridRowRecordIds,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
+import type { RecordHistoryItem } from "./timeline/components/TimelineHistoryPanel";
 import {
   buildRecordRollbackTargetFromHistoryAction,
-  type RecordHistoryItem,
   TimelineWorkbook,
-} from "./WorkbookShell";
+} from "./timeline/components/TimelineWorkbook";
 
 vi.mock(
   "@cartulary/grid-adapter",

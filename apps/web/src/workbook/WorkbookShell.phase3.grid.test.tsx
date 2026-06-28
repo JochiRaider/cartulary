@@ -42,10 +42,8 @@ import {
   waitForTimelineWorkbookReady,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
-import {
-  decideWorkbookRecordFreshness,
-  TimelineWorkbook,
-} from "./WorkbookShell";
+import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
+import { decideWorkbookRecordFreshness } from "./timeline/models/workbookTimelineModel";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 

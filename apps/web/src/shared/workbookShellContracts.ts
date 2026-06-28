@@ -7,6 +7,8 @@ export type WorkbookIncidentRole =
   | "admin"
   | "";
 
+export type WorkbookDensityMode = "compact" | "default" | "comfortable";
+
 export type WorkbookIncidentSnapshot = {
   readonly closed_at?: string | null;
   readonly current_phase: string | null;

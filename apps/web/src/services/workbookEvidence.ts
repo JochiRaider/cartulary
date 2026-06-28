@@ -2,6 +2,8 @@ import type {
   ErrorEnvelope,
   EvidenceAttachBlobEnvelope,
   EvidenceAttachBlobRequest,
+  EvidenceHandleEnvelope,
+  EvidenceHandleIssueRequest,
   ObjectBlobCreateEnvelope,
   ObjectBlobCreateRequest,
   ObjectBlobUploadTarget,
@@ -10,6 +12,20 @@ import { publicErrorStatusText } from "../shared/publicError";
 import type { EvidenceLifecycleViewModel } from "../workbook/models/evidenceLifecycleViewModel";
 import { apiPath } from "./browserApi";
 import { fetchJSON, readEnvelope } from "./workbookApi";
+
+export type EvidenceHandleKind = "preview" | "download";
+
+export type IssuedEvidenceHandle =
+  | {
+      readonly ok: true;
+      readonly filename: string;
+      readonly href: string;
+      readonly previewKind: string | null;
+    }
+  | {
+      readonly ok: false;
+      readonly message: string;
+    };
 
 async function uploadObjectBlobTarget(
   apiBase: string | undefined,
@@ -216,6 +232,48 @@ export function evidencePublicErrorMessage(
     publicErrorStatusText({ status: error.status }, error.status),
   );
   return statusText ?? fallback;
+}
+
+export async function issueEvidenceAccessHandle({
+  apiBase,
+  evidenceRecordId,
+  kind,
+}: {
+  readonly apiBase: string | undefined;
+  readonly evidenceRecordId: string;
+  readonly kind: EvidenceHandleKind;
+}): Promise<IssuedEvidenceHandle> {
+  const handleRequest = {} satisfies EvidenceHandleIssueRequest;
+  const result = await fetchJSON<EvidenceHandleEnvelope>(
+    apiPath(
+      apiBase,
+      `/api/v1/evidence-records/${evidenceRecordId}/${kind}-handle`,
+    ),
+    { method: "POST", body: JSON.stringify(handleRequest) },
+  );
+  if (!result.ok) {
+    return {
+      ok: false,
+      message: evidencePublicErrorMessage(
+        result.payload,
+        "Evidence access failed.",
+      ),
+    };
+  }
+  const envelope = readEnvelope<EvidenceHandleEnvelope>(result.payload);
+  const href = resolvePublicEvidenceHandleHref(envelope.data.href);
+  if (href === null) {
+    return {
+      ok: false,
+      message: "Evidence handle is unavailable.",
+    };
+  }
+  return {
+    ok: true,
+    filename: envelope.data.filename,
+    href,
+    previewKind: envelope.data.preview_kind ?? null,
+  };
 }
 
 export function evidenceAccessMessageLiveRegion(

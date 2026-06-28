@@ -156,37 +156,23 @@ import {
   timelineViewSchemaId,
 } from "./models/workbookSurfaceRegistry";
 import { RelationshipChip } from "./timeline/components/TimelineCellEditors";
-import {
-  buildRecordRollbackTargetFromHistoryAction,
-  TimelineWorkbook,
-} from "./timeline/components/TimelineWorkbook";
+import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import {
   type AssessmentCreateDraft,
   buildAssessmentCreatePayload,
-  buildCreatePayload,
-  clipboardTextLooksTabular,
-  confidenceScoreFromBand,
-  createDraftRow,
-  decideWorkbookRecordFreshness,
   type EntityApiRow,
-  ensureDraftRow,
-  type WorkbookRecordFreshnessDecision,
-  type WorkbookVersionedRecord,
 } from "./timeline/models/workbookTimelineModel";
-import { clipboardGridDimensions } from "./utils/workbookClipboard";
+import {
+  clipboardGridDimensions,
+  clipboardTextLooksTabular,
+} from "./utils/workbookClipboard";
 import {
   FocusableWorkbookCell,
   useWorkbookGridFocus,
 } from "./utils/workbookGridFocus";
-import { pendingReplayCapacity } from "./utils/workbookPendingQueue";
 import { displayInitials } from "./utils/workbookPresence";
 
 export type { WorkbookIncidentIdentity } from "./models/workbookIncidentIdentity";
-export type {
-  RecordHistoryItem,
-  RecordHistoryRollbackAction,
-} from "./timeline/components/TimelineHistoryPanel";
-export type { TimelineWorkbookProps } from "./timeline/components/TimelineWorkbook";
 export type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
@@ -194,20 +180,6 @@ export type {
   WorkbookIncidentControlsRendererProps,
   WorkbookIncidentRole,
   WorkbookIncidentSnapshot,
-  WorkbookRecordFreshnessDecision,
-  WorkbookVersionedRecord,
-};
-export {
-  buildAssessmentCreatePayload,
-  buildCreatePayload,
-  buildRecordRollbackTargetFromHistoryAction,
-  clipboardTextLooksTabular,
-  confidenceScoreFromBand,
-  createDraftRow,
-  decideWorkbookRecordFreshness,
-  ensureDraftRow,
-  pendingReplayCapacity,
-  TimelineWorkbook,
 };
 
 const hostsContract = requireViewContract(hostsViewSchemaId);

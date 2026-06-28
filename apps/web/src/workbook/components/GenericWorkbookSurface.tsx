@@ -6,10 +6,6 @@ import {
   GridTable,
   GridViewport,
 } from "@cartulary/grid-adapter";
-import type {
-  EvidenceHandleEnvelope,
-  EvidenceHandleIssueRequest,
-} from "@cartulary/protocol-ts";
 import {
   dataTestIdSelector,
   evidenceAccessMessageTestId,
@@ -27,7 +23,6 @@ import {
   genericEditValueTestId,
   gridActionsHeaderTestId,
   gridGroupRowTestId,
-  gridRowTestId,
   gridShellTestId,
   type WorkbookSurface,
   workbookInlineDraftRowTestId,
@@ -50,8 +45,7 @@ import { fetchJSON, readEnvelope } from "../../services/workbookApi";
 import {
   createAndAttachEvidenceBlob,
   evidenceAccessMessageLiveRegion,
-  evidencePublicErrorMessage,
-  resolvePublicEvidenceHandleHref,
+  issueEvidenceAccessHandle,
 } from "../../services/workbookEvidence";
 import { useGenericReferenceOptions } from "../hooks/useGenericReferenceOptions";
 import { buildEvidenceLifecycleViewModel } from "../models/evidenceLifecycleViewModel";
@@ -71,7 +65,10 @@ import {
   parseMutationError,
   partyLinkPairsForContract,
 } from "../models/genericWorkbookModel";
-import { workbookContractColumns } from "../models/workbookContractRows";
+import {
+  workbookContractColumns,
+  workbookGridRows,
+} from "../models/workbookContractRows";
 import {
   inspectorPanelIsDeclared,
   selectInspectorConfig,
@@ -154,26 +151,6 @@ export type GenericWorkbookSurfaceProps = {
   readonly queryState: WorkbookQueryState;
   readonly rows: EntityApiRow[];
 };
-
-function buildGenericSurfaceGridRows<Row>({
-  getRecordId,
-  rows,
-  surface,
-}: {
-  readonly getRecordId: (row: Row) => string;
-  readonly rows: readonly Row[];
-  readonly surface: WorkbookSurface;
-}): readonly GridRow<Row>[] {
-  return rows.map((row) => {
-    const recordId = getRecordId(row);
-    return {
-      key: recordId,
-      recordId,
-      data: row,
-      testId: gridRowTestId(surface, recordId),
-    };
-  });
-}
 
 function selectGenericEditTarget<
   Row,
@@ -393,43 +370,31 @@ export function GenericWorkbookSurface({
   const issueEvidenceHandle = useCallback(
     async (row: EntityApiRow, kind: "preview" | "download") => {
       setEvidenceMessage(row.record_id, null);
-      const handleRequest = {} satisfies EvidenceHandleIssueRequest;
-      const result = await fetchJSON<EvidenceHandleEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/evidence-records/${row.record_id}/${kind}-handle`,
-        ),
-        { method: "POST", body: JSON.stringify(handleRequest) },
-      );
-      if (!result.ok) {
-        setEvidenceMessage(
-          row.record_id,
-          evidencePublicErrorMessage(result.payload, "Evidence access failed."),
-        );
-        return;
-      }
-      const envelope = readEnvelope<EvidenceHandleEnvelope>(result.payload);
-      const href = resolvePublicEvidenceHandleHref(envelope.data.href);
-      if (href === null) {
-        setEvidenceMessage(row.record_id, "Evidence handle is unavailable.");
+      const handle = await issueEvidenceAccessHandle({
+        apiBase,
+        evidenceRecordId: row.record_id,
+        kind,
+      });
+      if (!handle.ok) {
+        setEvidenceMessage(row.record_id, handle.message);
         return;
       }
       if (kind === "preview") {
         setEvidencePreview({
-          href,
+          href: handle.href,
           recordId: row.record_id,
           title:
             stringifyGridValue(row.cells["evidence.title"]?.value).trim() ||
             row.record_id,
-          previewKind: envelope.data.preview_kind ?? null,
+          previewKind: handle.previewKind,
         });
         setEvidenceMessage(row.record_id, "Preview loaded inline.");
         return;
       }
 
       const anchor = document.createElement("a");
-      anchor.href = href;
-      anchor.download = envelope.data.filename || "evidence";
+      anchor.href = handle.href;
+      anchor.download = handle.filename || "evidence";
       anchor.rel = "noopener";
       document.body.append(anchor);
       anchor.click();
@@ -558,7 +523,7 @@ export function GenericWorkbookSurface({
     [contract.fields, createDraft, draftRowRecordId],
   );
   const gridRows = useMemo<readonly GridRow<EntityApiRow>[]>(() => {
-    const savedRows = buildGenericSurfaceGridRows({
+    const savedRows = workbookGridRows({
       getRecordId: (row: EntityApiRow) => row.record_id,
       rows,
       surface,

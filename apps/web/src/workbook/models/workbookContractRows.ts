@@ -1,5 +1,6 @@
-import type { GridColumn } from "@cartulary/grid-adapter";
+import type { GridColumn, GridRow } from "@cartulary/grid-adapter";
 import {
+  gridRowTestId,
   gridSortHeaderTestId,
   type WorkbookSurface,
 } from "@cartulary/ui-contracts";
@@ -59,6 +60,26 @@ export function normalizeWorkbookViewRows(
       normalizeViewRowV1(contract, row, `${source} rows[${index}]`),
     ),
   );
+}
+
+export function workbookGridRows<Row>({
+  getRecordId,
+  rows,
+  surface,
+}: {
+  readonly getRecordId: (row: Row) => string;
+  readonly rows: readonly Row[];
+  readonly surface: WorkbookSurface;
+}): readonly GridRow<Row>[] {
+  return rows.map((row) => {
+    const recordId = getRecordId(row);
+    return {
+      key: recordId,
+      recordId,
+      data: row,
+      testId: gridRowTestId(surface, recordId),
+    };
+  });
 }
 
 export function workbookContractColumns<Row>({

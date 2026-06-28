@@ -32,6 +32,9 @@ importers:
       '@cartulary/grid-adapter':
         specifier: workspace:*
         version: link:../../packages/grid-adapter
+      '@cartulary/protocol-ts':
+        specifier: workspace:*
+        version: link:../../packages/protocol-ts
       '@cartulary/ui-contracts':
         specifier: workspace:*
         version: link:../../packages/ui-contracts
@@ -48,9 +51,6 @@ importers:
         specifier: 19.2.5
         version: 19.2.5(react@19.2.5)
     devDependencies:
-      '@cartulary/protocol-ts':
-        specifier: workspace:*
-        version: link:../../packages/protocol-ts
       '@cartulary/test-utils':
         specifier: workspace:*
         version: link:../../packages/test-utils

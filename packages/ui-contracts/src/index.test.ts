@@ -1175,6 +1175,7 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       ["workbook-current-user", "workbook-current-user"],
       ["workbook-loading", "workbook-loading"],
       ["debug-harness-loading", "debug-harness-loading"],
+      ["debug-harness-shell", "debug-harness-shell"],
     ]);
 
     expectSelectorCases(phase1AccountTestId, [

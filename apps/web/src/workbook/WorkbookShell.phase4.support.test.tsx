@@ -45,6 +45,7 @@ import {
   timelineRowsEnvelope,
   timelineViewSchemaId,
 } from "../testing/timelineWorkbookTestSupport";
+import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import {
   buildAutoResolutionNotices,
   buildInspectorMentions,
@@ -54,7 +55,6 @@ import {
   buildMentionActionPayload,
   buildMentionPatchPayload,
 } from "./timeline/services/workbookCollaborationMessages";
-import { TimelineWorkbook } from "./WorkbookShell";
 
 // Support-only mocked component coverage for Phase 4 workbook helpers.
 // This file is not authoritative Phase 4 evidence.

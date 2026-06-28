@@ -23,9 +23,9 @@ Source authority order used:
 7. Live repository code and tests for current implementation state.
 8. Local modular refactor planning framework as planning structure only.
 
-Framework source posture: `temp/current.md` exists, but it is an inspector-specific patch plan rather than the generic modular refactor framework. The generic framework was located at `docs/handoffs/cartulary_modular_refactor_planning_framework.md` and used as structure, not evidence of current state.
+Framework source posture: workbook refactor planning must use `docs/handoffs/cartulary_modular_refactor_planning_framework.md` as the durable framework source unless a temporary file explicitly declares itself to be the generic modular refactor framework. `temp/current.md` was observed as an inspector-specific patch plan during the planning scan, so it is not a generic workbook refactor framework and must not be treated as authoritative for future workbook planning.
 
-Source limits: no tests were run. Import, inventory, package, generated-policy, and Make-target claims below are based on static repo inspection and Make target explanation commands.
+Planning-scan source limits: at initial tracker creation, no tests were run. Import, inventory, package, generated-policy, and Make-target claims were based on static repo inspection and Make target explanation commands. Remediation validation on 2026-06-28 is recorded in the handoff log and blocker table below.
 
 This artifact does not authorize behavior changes. Existing workbook behavior, test intent, route shapes, request payloads, UI selectors, saved-view/query semantics, shell layout, pending-save behavior, collaboration behavior, inspector behavior, and phase-accounting expectations remain stable unless a later implementation task explicitly authorizes change.
 
@@ -172,6 +172,8 @@ This artifact does not authorize behavior changes. Existing workbook behavior, t
 
 Runtime code may use public package facades such as `@cartulary/grid-adapter`, `@cartulary/protocol-ts`, `@cartulary/ui-contracts`, and `@cartulary/view-contracts`. Generated roots remain downstream artifacts and must not be hand-edited.
 
+Web-only workbook refactors do not require backend coordination unless they change route semantics, request/response envelopes, view schemas, authorization behavior, persistence behavior, or generated contracts. Changes in those areas require coordination with `internal/modules/workbook` and the owning specs/contracts before implementation.
+
 ## 4. Public behavior and contracts at risk
 
 | Contract surface | Files involved | Existing test evidence | Risk if refactored poorly | Characterization needed | Status |
@@ -199,13 +201,13 @@ Runtime code may use public package facades such as `@cartulary/grid-adapter`, `
 | WB-IMP-01 | `apps/web/src/workbook/**` runtime files | Direct generated-internal imports | intentional | Static scan found no direct runtime imports from generated paths. | Keep using package facades; rerun `make frontend-import-boundary-check` after implementation. | no |
 | WB-IMP-02 | `apps/web/src/workbook/**` runtime files | Direct `react-data-grid` imports | intentional | Static scan found no direct runtime vendor imports. | Preserve vendor isolation in `@cartulary/grid-adapter`. | no |
 | WB-IMP-03 | Multiple runtime files | `@cartulary/grid-adapter` facade imports | defer | Facade imports are allowed, but grid mechanics remain spread across shell/timeline/generic surfaces. | Narrow grid row/focus/interaction seams without importing vendor APIs. | no |
-| WB-IMP-04 | `GenericWorkbookSurface.tsx`, `workbookDensity.ts` | Runtime imports from `@cartulary/protocol-ts`; `apps/web/package.json` lists it under `devDependencies` | unknown | Runtime dependency posture may be inconsistent with actual usage. | Verify intended package dependency owner before moving exports or dependency declarations. | no |
+| WB-IMP-04 | `GenericWorkbookSurface.tsx`, `workbookDensity.ts` | Runtime workbook imports from `@cartulary/protocol-ts`; `apps/web/package.json` listed it under `devDependencies` at planning time | should-fix | Runtime dependency posture and UI/model protocol coupling were inconsistent with the intended adapter boundary. | Remediated on 2026-06-28 by moving workbook protocol use behind service/shared seams and declaring `@cartulary/protocol-ts` as an app runtime dependency. Keep future protocol imports inside approved app API/service adapter layers. | no |
 | WB-IMP-05 | Multiple runtime files | `@cartulary/ui-contracts` and `@cartulary/view-contracts` facade imports | intentional | Facade usage is intended; risk is behavior drift if adapters move. | Keep imports on public package names and preserve selector/view contracts. | no |
 | WB-IMP-06 | `WorkbookShell.tsx` and runtime files | Runtime imports from test helpers | intentional | Static scan found no runtime imports from `apps/web/src/testing`, Testing Library, or Vitest. | Preserve runtime/test-support separation. | no |
 | WB-IMP-07 | Shell tests | Tests import runtime internals from `./WorkbookShell` and package test-support | defer | Moving exports can break characterization tests even when behavior is stable. | Add explicit test entrypoint plan before changing shell exports. | no |
 | WB-IMP-08 | Root workbook and timeline files | Cross-workbook subfolder imports | should-fix | Timeline/root coupling makes safe extraction harder. | Introduce behavior-preserving seams around timeline runtime, shell runtime, and shared models. | no |
 | WB-IMP-09 | `TimelineWorkbook.tsx`, `WorkbookShell.tsx`, `GenericWorkbookSurface.tsx` | Large responsibility concentration | should-fix | High regression risk from broad edits. | Use small slices around pure models/hooks before component moves. | no |
-| WB-IMP-10 | `WorkbookShell.tsx`, `GenericWorkbookSurface.tsx`, `workbookContractRows.ts` | Grid-row/model builder logic spread across files | should-fix | Inconsistent provenance or grid row behavior. | Consolidate through existing model/facade boundaries after characterization. | no |
+| WB-IMP-10 | `WorkbookShell.tsx`, `GenericWorkbookSurface.tsx`, `workbookContractRows.ts` | Grid-row/model builder logic spread across files | should-fix | Inconsistent provenance or grid row behavior. | Partially remediated on 2026-06-28 by moving generic saved-row grid materialization into `workbookContractRows.ts`; continue consolidating remaining grid row/focus/provenance logic through model/facade boundaries. | no |
 | WB-IMP-11 | `useWorkbookShellRuntime.ts`, `TimelineWorkbook.tsx`, `workbookQuery.ts` | Saved-view/query request and normalization logic split across shell and timeline | should-fix | Query JSON or active-surface behavior can drift. | Plan query seam around `workbookQuery.ts` while preserving phase8 evidence. | no |
 | WB-IMP-12 | `TimelineWorkbook.tsx`, `useTimelinePendingSaves.ts`, `workbookPendingQueue.ts` | Pending/autosave setup split between model, hook, and component | should-fix | Duplicate queue orchestration can cause pending-save regressions. | Move only clearly modelable orchestration into hook/model seams. | no |
 | WB-IMP-13 | `TimelineWorkbook.tsx`, inspector/history/focus utilities and hooks | Inspector/history/focus behavior concentrated in timeline component | should-fix | UX regressions in row-local action, history preview, focus continuity. | Extract after phase7 and phase9 characterization is green. | no |
@@ -216,12 +218,12 @@ Runtime code may use public package facades such as `@cartulary/grid-adapter`, `
 
 | ID | Workstream | Status | Dependencies | Files / surfaces | Validation | Handoff notes |
 | -- | ---------- | ------ | ------------ | ---------------- | ---------- | ------------- |
-| WB-WS-01 | Scope and authority verification. | done | None | Core/docs/framework/domain/harness policy | Static source inspection only | `temp/current.md` discrepancy recorded. |
+| WB-WS-01 | Scope and authority verification. | done | None | Core/docs/framework/domain/harness policy | Static source inspection only | Durable framework source recorded; `temp/current.md` is not a generic framework unless it declares itself one. |
 | WB-WS-02 | Inventory and import-boundary scan. | done | WB-WS-01 | `apps/web/src/workbook/**` | Static `rg`/file scan only | No direct runtime generated/vendor imports found. |
 | WB-WS-03 | WorkbookShell responsibility decomposition analysis. | TODO | WB-WS-02 | `WorkbookShell.tsx`, shell components/hooks | Targeted tests before edits | Start with non-React model/hook seams. |
-| WB-WS-04 | Grid facade usage and vendor-boundary cleanup planning. | TODO | WB-WS-02 | Grid-related components/utils/models | `make frontend-import-boundary-check`; grid tests | Keep vendor mechanics in `@cartulary/grid-adapter`. |
-| WB-WS-05 | Protocol/UI/view-contract facade usage planning. | TODO | WB-WS-02 | Protocol/UI/view facade imports | Import-boundary check; typecheck | Verify `@cartulary/protocol-ts` dependency posture. |
-| WB-WS-06 | Test characterization and fixture ownership planning. | TODO | WB-WS-02 | `WorkbookShell.*.test.*`, model tests, testing helpers | Narrow `make frontend-unit VITEST_FLAGS=...` | Preserve phase filenames unless later authorized. |
+| WB-WS-04 | Grid facade usage and vendor-boundary cleanup planning. | in_progress | WB-WS-02 | Grid-related components/utils/models | `make frontend-import-boundary-check`; grid tests | Generic saved-row grid materialization now lives in `workbookContractRows.ts`; keep vendor mechanics in `@cartulary/grid-adapter`. |
+| WB-WS-05 | Protocol/UI/view-contract facade usage planning. | done | WB-WS-02 | Protocol/UI/view facade imports | Import-boundary check; typecheck | `@cartulary/protocol-ts` dependency posture remediated; app protocol facade use is limited to API/service adapter layers. |
+| WB-WS-06 | Test characterization and fixture ownership planning. | in_progress | WB-WS-02 | `WorkbookShell.*.test.*`, model tests, testing helpers | Narrow `make frontend-unit VITEST_FLAGS=...`; full `make frontend-unit` | Shell-export cleanup landed; repeated test setup consolidation remains future work. |
 | WB-WS-07 | Autosave, pending, save-state, and action-sequencing seam planning. | TODO | WB-WS-03, WB-WS-06 | Pending queue, timeline runtime, save-state components | Phase3/4 tests and pending queue tests | Highest payload/order risk. |
 | WB-WS-08 | Inspector, history, sentinel, focus, and continuity seam planning. | TODO | WB-WS-03, WB-WS-06 | Timeline inspector/history/focus utilities | Phase7/9 tests and model tests | Preserve default-closed and focus behavior. |
 | WB-WS-09 | Saved-view/query and multi-surface seam planning. | TODO | WB-WS-03, WB-WS-06 | Runtime/query/surface registry | Phase8/surfaces/model tests | Preserve `view_schema_id` and query JSON. |
@@ -240,7 +242,7 @@ Dependency graph:
 | Workflow ID | Goal | Depends on | Enables | Inputs | Output | Validation | Stop condition |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | WF-WB-00 | Session setup and handoff initialization. | None | WF-WB-01 | User request, AGENTS instructions, repo root | Planning session posture and no-mutation guard | Confirm repo root and planning-only status | Framework/source posture recorded. |
-| WF-WB-01 | Resolve actual `workbook/` path and owner docs. | WF-WB-00 | WF-WB-02, WF-WB-03 | `temp/current.md`, framework, domain, core, harness docs | Resolved target path and authority order | Static doc/path inspection | Target path and source limits recorded. |
+| WF-WB-01 | Resolve actual `workbook/` path and owner docs. | WF-WB-00 | WF-WB-02, WF-WB-03 | Durable framework, domain, core, harness docs | Resolved target path and authority order | Static doc/path inspection | Target path and source limits recorded. |
 | WF-WB-02 | Verify file inventory and subfolder structure. | WF-WB-01 | WF-WB-04, WF-WB-05 | `rg --files`, `find` under target | Complete target inventory | All supplied files represented; extra files classified | Inventory table has every supplied and discovered target file. |
 | WF-WB-03 | Scan imports and generated-internal usage. | WF-WB-01 | WF-WB-04, WF-WB-06 | Import-boundary policy, package manifests, source imports | Import/dependency finding table | `rg` for facade/vendor/generated/test-helper terms | Direct runtime generated/vendor findings recorded. |
 | WF-WB-04 | Map `WorkbookShell.tsx` responsibilities and extraction seams. | WF-WB-02, WF-WB-03 | WF-WB-06, WF-WB-07 | Shell, runtime hook, components, timeline coordinator | Responsibility and seam map | Static inspection plus existing test map | Shell seams can be sliced without deciding behavior changes. |
@@ -256,7 +258,7 @@ Dependency graph:
 | -------- | ---- | ---------- | -------------------- | ----------- | ------------------ | -------------- | ---- | ----- |
 | WB-SL-01 | Shell export and characterization guardrail | WF-WB-05 | `WorkbookShell.tsx`, shell tests only if authorized | Test-entrypoint planning | yes | Relevant existing shell tests | medium | First decide which exports are supported test seams before moving code. |
 | WB-SL-02 | Grid-row/focus seam tightening | WB-SL-01 | `workbookContractRows.ts`, `workbookGridFocus.tsx`, grid surface components | Facade-boundary cleanup | yes | Phase3 grid, phase5 grid provenance, phase9 sentinel, anchor test | high | Do not import `react-data-grid`; keep facade imports only. |
-| WB-SL-03 | Protocol/UI/view facade audit and dependency posture | WF-WB-03 | `apps/web/package.json` only if owner approves; runtime imports if needed | Boundary/dependency cleanup | yes, unless dependency declaration changes need owner approval | Typecheck, import-boundary check | medium | Verify `@cartulary/protocol-ts` runtime dependency status before editing package metadata. |
+| WB-SL-03 | Protocol/UI/view facade audit and dependency posture | WF-WB-03 | `apps/web/package.json`, frontend import-boundary policy, protocol adapter imports | Boundary/dependency cleanup | yes | Typecheck, import-boundary check | medium | Keep direct protocol imports in app API/service adapter layers rather than workbook UI/models. |
 | WB-SL-04 | Pending/autosave runtime seam | WB-SL-01 | `TimelineWorkbook.tsx`, `useTimelinePendingSaves.ts`, `workbookPendingQueue.ts` | Responsibility extraction | yes | Phase3 autosave, phase4 action sequencing, phase4 save state, pending queue tests | high | Preserve replay order, conflict parsing, save-state labels. |
 | WB-SL-05 | Timeline payload service seam | WB-SL-04 | `workbookTimelineModel.ts`, `timelineMutationRequests.ts`, `TimelineWorkbook.tsx` | Payload/helper extraction | yes | Phase3 payload, phase4 action sequencing, model tests | high | Payload shapes and route calls must remain byte-for-byte compatible where asserted. |
 | WB-SL-06 | Inspector/history/focus seam | WB-SL-01 | `TimelineWorkbook.tsx`, inspector/history hooks, focus/continuity utilities | Responsibility extraction | yes | Phase7, phase9 inspector, phase9 sentinel, inspector/continuity model tests | high | Preserve default-closed inspector and row-local action behavior. |
@@ -318,18 +320,21 @@ Dependency graph:
 | Time | Session | State | Imports inspected | Boundary findings | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-06-28 00:38:21 EDT | planning artifact write on `main@52f2ce2` | Static import scan complete. | `@cartulary/grid-adapter`, `react-data-grid`, grid test-support, grid utilities/components | No direct runtime `react-data-grid` import found under target; test-only vendor assertion exists in phase3 grid test. | None for planning. | Preserve vendor boundary; use `make frontend-import-boundary-check` after grid slices. |
+| 2026-06-28 01:15:28 EDT | remediation implementation | Generic grid-row seam partially extracted and validated. | `GenericWorkbookSurface.tsx`, `workbookContractRows.ts`, `genericWorkbookModel.test.ts` | Generic saved rows are materialized through a model helper that consumes grid facade types; no app runtime vendor import was introduced. | None. | Continue with focused grid focus/provenance slices rather than broad grid rewrites. |
 
 ### Handoff: protocol/UI/view contracts
 
 | Time | Session | State | Imports inspected | Generated-internal findings | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- |
-| 2026-06-28 00:38:21 EDT | planning artifact write on `main@52f2ce2` | Static facade scan complete. | `@cartulary/protocol-ts`, `@cartulary/ui-contracts`, `@cartulary/view-contracts`, generated path segments | No direct runtime generated-internal import found under target. `@cartulary/protocol-ts` is runtime-imported while listed as an app devDependency. | `TODO:` verify dependency posture owner before package metadata edits. | Keep imports on public facades and confirm dependency declaration before implementation. |
+| 2026-06-28 00:38:21 EDT | planning artifact write on `main@52f2ce2` | Static facade scan complete. | `@cartulary/protocol-ts`, `@cartulary/ui-contracts`, `@cartulary/view-contracts`, generated path segments | No direct runtime generated-internal import found under target. `@cartulary/protocol-ts` was runtime-imported while listed as an app devDependency. | None for planning. | Keep generated internals behind package facades and keep app protocol facade use inside approved adapter layers. |
+| 2026-06-28 01:06:29 EDT | remediation implementation | Package and protocol layer cleanup validated. | `@cartulary/protocol-ts`, workbook runtime imports, app API/service adapters, import-boundary policy | No direct workbook runtime protocol imports remain; runtime protocol facade imports are confined to `apps/web/src/app/api/**` and `apps/web/src/services/**` plus package facades. | None. | Preserve the adapter-layer rule and rerun `make frontend-import-boundary-check` after any protocol import changes. |
 
 ### Handoff: tests and characterization
 
 | Time | Session | State | Tests inspected | Coverage notes | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-06-28 00:38:21 EDT | planning artifact write on `main@52f2ce2` | Test inventory mapped; tests not run. | All supplied `WorkbookShell.*.test.*`; model/service/utility tests under target; `apps/web/src/testing/*` helpers | Phase tests cover grid, autosave, payload, action sequencing, save state, timeline query, evidence, collaboration, history, query, inspector, sentinel, surfaces. | None for planning; green status unknown because tests were not run. | For each slice, run the exact targeted `make frontend-unit VITEST_FLAGS=...` tests first and after. |
+| 2026-06-28 01:15:28 EDT | remediation implementation | Shell export cleanup, protocol-boundary changes, and generic grid-row seam validated. | Changed `WorkbookShell.*.test.*` imports, app shell tests, generic model test, full frontend unit suite | Full `make frontend-unit` passed at `.cartulary/test-results/20260628T051528Z-p2027821`. A first narrow model run failed accounting because a new standalone test title was unmapped; the assertion was folded into an existing mapped scenario and the narrow rerun passed at `.cartulary/test-results/20260628T051333Z-p2023919`. Earlier partial grouped shell runs passed tests but failed phase artifact completeness, so full-suite evidence is canonical for this implementation. | None. | Continue preserving phase filenames; consolidate repeated setup only after runtime seams stabilize. |
 
 ### Handoff: inspector/history/sentinel/focus
 
@@ -347,14 +352,14 @@ Dependency graph:
 
 | Question ID | Question | Why it matters | Owner needed | Current evidence | Status |
 | --- | --- | --- | --- | --- | --- |
-| WB-Q-01 | Should future workbook sessions prefer `docs/handoffs/cartulary_modular_refactor_planning_framework.md` when `temp/current.md` exists but is not the generic framework? | Prevents accidental use of an inspector-specific patch plan as general framework. | Planning/session owner | `temp/current.md` exists but is titled as an inspector workflow closure plan. | TODO |
-| WB-Q-02 | Should `@cartulary/protocol-ts` be a runtime dependency of `apps/web` if runtime workbook files keep importing it? | Package metadata may not match runtime import usage. | Frontend/package owner | `apps/web/package.json` lists it under `devDependencies`; runtime files import the facade. | TODO |
-| WB-Q-03 | Which exports from `WorkbookShell.tsx` are intentional public test seams? | Moving exports can break characterization tests even if UI behavior is unchanged. | Frontend/workbook owner | Shell tests import runtime entries and helpers from `./WorkbookShell`. | TODO |
-| WB-Q-04 | Should any future workbook-wide refactor coordinate with backend `internal/modules/workbook` ownership, or remain web-only unless explicitly scoped? | Repo-wide scan found a backend workbook module in addition to the web workbook target. | Frontend/backend module owners | `internal/modules/workbook` exists and contains Go workbook APIs, routes, stores, and tests. | TODO |
+| WB-Q-01 | Should future workbook sessions prefer `docs/handoffs/cartulary_modular_refactor_planning_framework.md` when `temp/current.md` exists but is not the generic framework? | Prevents accidental use of an inspector-specific patch plan as general framework. | Planning/session owner | Durable framework rule recorded in this tracker. | resolved |
+| WB-Q-02 | Should `@cartulary/protocol-ts` be a runtime dependency of `apps/web` if runtime app code keeps importing it? | Package metadata must match runtime import usage. | Frontend/package owner | Runtime app API/service adapters import the facade. | resolved |
+| WB-Q-03 | Which exports from `WorkbookShell.tsx` are intentional public test seams? | Moving exports can break characterization tests even if UI behavior is unchanged. | Frontend/workbook owner | Static scan now shows workbook tests import only shell component/contracts from `./WorkbookShell`; non-shell internals come from owner modules. | resolved |
+| WB-Q-04 | Should any future workbook-wide refactor coordinate with backend `internal/modules/workbook` ownership, or remain web-only unless explicitly scoped? | Repo-wide scan found a backend workbook module in addition to the web workbook target. | Frontend/backend module owners | Boundary rule now says web-only cleanup stays web-scoped unless route semantics, envelopes, view schemas, authorization, persistence, or generated contracts change. | resolved |
 
 | Blocker ID | Blocker | Affected workflow | Evidence | Required resolution | Status |
 | --- | --- | --- | --- | --- | --- |
-| WB-B-01 | No implementation validation has been run. | WF-WB-08 and later implementation | Only static inspection and Make explanation/task-guide commands were run. | Run targeted validation for the chosen slice before and after code edits. | TODO |
+| WB-B-01 | No implementation validation has been run. | WF-WB-08 and later implementation | Remediation validation ran on 2026-06-28: `make frontend-typecheck` passed at `.cartulary/test-results/20260628T051516Z-p2027062`; `make frontend-import-boundary-check` passed at `.cartulary/test-results/20260628T051516Z-p2027085`; `make frontend-unit` passed at `.cartulary/test-results/20260628T051528Z-p2027821`; `make frontend-unit VITEST_FLAGS='apps/web/src/workbook/models/genericWorkbookModel.test.ts'` passed at `.cartulary/test-results/20260628T051333Z-p2023919`; `make lint-biome` passed at `.cartulary/test-results/20260628T051509Z-p2026647`; `make json-shape-check` passed at `.cartulary/test-results/20260628T050617Z-p2014561`; `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260628T050622Z-p2014921`; `make lint-markdown` passed at `.cartulary/test-results/20260628T050956Z-p2021003`; `make agent-finalize` passed at `.cartulary/test-results/20260628T050840Z-p2018683`. | Keep recording pre/post run roots for later runtime-seam slices. | resolved |
 | WB-B-02 | No owner contradiction found during planning scan. | None | Core/harness/domain/framework/live-code posture was compatible for this planning task. | Not applicable unless a later source conflict appears. | not_applicable |
 
 ## 12. Binary acceptance criteria
@@ -372,14 +377,14 @@ The planning artifact status:
 - Every unresolved authority or repo-state uncertainty is listed as a question or blocker: satisfied.
 - The handoff log is sufficient for a later implementation agent to start without redoing the planning scan: satisfied for target-local planning.
 
-Artifact path: `temp/workbook_refactor_tracker.md`.
+Artifact path: `docs/handoffs/workbook_refactor_tracker.md`.
 
 Highest-risk findings:
 
 - `TimelineWorkbook.tsx` and `WorkbookShell.tsx` concentrate high-risk shell, timeline, mutation, inspector, focus, and query behavior.
 - No direct runtime `react-data-grid` or generated-internal imports were found under `apps/web/src/workbook`, but grid mechanics still need to stay behind `@cartulary/grid-adapter`.
 - Phase tests are important characterization assets and should not be reorganized merely because of phase-number filenames.
-- Runtime imports from `@cartulary/protocol-ts` exist while `apps/web` lists that package as a dev dependency; dependency posture needs owner verification.
+- Runtime imports from `@cartulary/protocol-ts` should remain confined to app API/service adapter layers with package dependency metadata matching that runtime use.
 - Root workbook and timeline subfolders are heavily coupled, so future work should use small behavior-preserving seams rather than broad moves.
 
-Readiness: this plan is ready as an implementation handoff planner. It is not a green-light validation report because tests were not run.
+Readiness: this tracker is an implementation handoff planner with the 2026-06-28 remediation validation recorded above. It does not by itself authorize later behavior changes or broad runtime seam extraction without slice-specific validation.

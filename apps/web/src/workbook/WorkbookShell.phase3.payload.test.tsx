@@ -27,11 +27,11 @@ import {
   timelineViewSchemaId,
   visibleGridRows,
 } from "../testing/timelineWorkbookTestSupport";
+import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 import {
   buildCreatePayload,
   createDraftRow,
-  TimelineWorkbook,
-} from "./WorkbookShell";
+} from "./timeline/models/workbookTimelineModel";
 
 vi.mock(
   "@cartulary/grid-adapter",

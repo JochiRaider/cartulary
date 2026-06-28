@@ -1,8 +1,8 @@
 import type { GridDensity } from "@cartulary/grid-adapter";
-import type { DensityMode } from "@cartulary/protocol-ts";
+import type { WorkbookDensityMode } from "../../shared/workbookShellContracts";
 import { timelineViewSchemaId } from "./workbookSurfaceRegistry";
 
-export type AccountDensityMode = DensityMode | null;
+export type AccountDensityMode = WorkbookDensityMode | null;
 
 export function resolveEffectiveWorkbookDensity(
   viewSchemaId: string,

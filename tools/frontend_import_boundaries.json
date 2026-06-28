@@ -79,6 +79,36 @@
       ]
     },
     {
+      "id": "frontend-protocol-facade-layer-boundary",
+      "level": "error",
+      "message": "Import @cartulary/protocol-ts only from frontend protocol adapter layers.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/**"
+        ],
+        "exclude": [
+          "apps/web/src/*.test.ts",
+          "apps/web/src/*.test.tsx",
+          "apps/web/src/**/*.test.ts",
+          "apps/web/src/**/*.test.tsx",
+          "apps/web/src/**/*TestSupport.ts",
+          "apps/web/src/**/*TestSupport.tsx",
+          "apps/web/src/testing/**"
+        ]
+      },
+      "allowed_importers": [
+        "apps/web/src/app/api/**",
+        "apps/web/src/services/**"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "package",
+          "name": "@cartulary/protocol-ts",
+          "include_subpaths": true
+        }
+      ]
+    },
+    {
       "id": "frontend-generated-design-token-boundary",
       "level": "error",
       "message": "Import generated design token artifacts only through the @cartulary/ui-contracts facade.",

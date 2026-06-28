@@ -15,7 +15,7 @@ import {
   timelineViewSchemaId,
   visibleGridRows,
 } from "../testing/timelineWorkbookTestSupport";
-import { TimelineWorkbook } from "./WorkbookShell";
+import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
 
 describe("Phase 5 workbook evidence coverage", () => {
   let fetchMock: ReturnType<typeof vi.fn>;

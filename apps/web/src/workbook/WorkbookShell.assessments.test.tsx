@@ -25,8 +25,8 @@ import {
 import {
   buildAssessmentCreatePayload,
   confidenceScoreFromBand,
-  WorkbookShell,
-} from "./WorkbookShell";
+} from "./timeline/models/workbookTimelineModel";
+import { WorkbookShell } from "./WorkbookShell";
 
 const assessmentsViewSchemaId = "cartulary.view.assessments.v1";
 const hostsViewSchemaId = "cartulary.view.hosts.v1";

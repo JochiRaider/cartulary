@@ -22,6 +22,7 @@ import {
   partyLinkPairsForContract,
   workbookCreateMinimumSatisfied,
 } from "./genericWorkbookModel";
+import { workbookGridRows } from "./workbookContractRows";
 import {
   commLogViewSchemaId,
   decisionsViewSchemaId,
@@ -31,6 +32,7 @@ import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
   notesViewSchemaId,
+  partiesViewSchemaId,
 } from "./workbookSurfaceRegistry";
 
 function requireField(
@@ -47,6 +49,32 @@ function requireField(
 describe("genericWorkbookModel", () => {
   it("builds generic creates with omitted fields, trims, explicit clears, and minimum checks", () => {
     const evidence = requireViewContract(evidenceViewSchemaId);
+    const rows = [
+      { record_id: "party-1", cells: {} },
+      { record_id: "party-2", cells: {} },
+    ];
+
+    expect(
+      workbookGridRows({
+        getRecordId: (row) => row.record_id,
+        rows,
+        surface: partiesViewSchemaId,
+      }),
+    ).toEqual([
+      {
+        key: "party-1",
+        recordId: "party-1",
+        data: rows[0],
+        testId: "grid-row-cartulary.view.parties.v1-party-1",
+      },
+      {
+        key: "party-2",
+        recordId: "party-2",
+        data: rows[1],
+        testId: "grid-row-cartulary.view.parties.v1-party-2",
+      },
+    ]);
+
     expect(
       buildGenericCreatePayload(evidence, {}, "txn-evidence-missing"),
     ).toBeNull();

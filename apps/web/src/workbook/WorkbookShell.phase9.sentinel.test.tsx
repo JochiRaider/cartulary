@@ -35,7 +35,8 @@ import {
   waitForTimelineWorkbookReady,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
-import { clipboardTextLooksTabular, TimelineWorkbook } from "./WorkbookShell";
+import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
+import { clipboardTextLooksTabular } from "./utils/workbookClipboard";
 
 type PasteHarnessRow = {
   readonly label: string;

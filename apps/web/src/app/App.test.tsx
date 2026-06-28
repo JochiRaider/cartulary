@@ -19,7 +19,7 @@ import {
   timelineRow,
   timelineViewSchemaId,
 } from "../testing/timelineWorkbookTestSupport";
-import { TimelineWorkbook } from "../workbook/WorkbookShell";
+import { TimelineWorkbook } from "../workbook/timeline/components/TimelineWorkbook";
 
 describe("Phase 3 Timeline workbook", () => {
   let fetchMock: ReturnType<typeof vi.fn>;

@@ -29,7 +29,8 @@ import {
   waitForTimelineConflictResolutionCalls,
   waitForTimelineRecordPatchCalls,
 } from "../testing/timelineWorkbookTestSupport";
-import { pendingReplayCapacity, TimelineWorkbook } from "./WorkbookShell";
+import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
+import { pendingReplayCapacity } from "./utils/workbookPendingQueue";
 
 vi.mock(
   "@cartulary/grid-adapter",

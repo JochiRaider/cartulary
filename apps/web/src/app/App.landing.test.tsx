@@ -1676,6 +1676,9 @@ describe("Incident landing", () => {
     fireEvent.popState(window);
 
     expect(await screen.findByText("Debug harness shell")).toBeTruthy();
+    expect(
+      await screen.findByTestId(phase1RouteTestId("debug-harness-shell")),
+    ).toBeTruthy();
     await waitFor(() => {
       expect(abortedSignals).toHaveLength(1);
     });
@@ -1704,9 +1707,12 @@ describe("Incident landing", () => {
     renderApp();
 
     expect(await screen.findByText("Debug harness shell")).toBeTruthy();
+    expect(
+      await screen.findByTestId(phase1RouteTestId("debug-harness-shell")),
+    ).toBeTruthy();
     expect(screen.getByTestId("mock-phase1-harness")).toBeTruthy();
     expect(screen.getByTestId("mock-phase2-harness")).toBeTruthy();
-    expect(fetchMock).not.toHaveBeenCalled();
+    await expectStableFetchCount(fetchMock, 0);
   });
 });
 
