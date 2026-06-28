@@ -50,6 +50,8 @@ These are logical module boundaries. They MUST be independently testable, but th
 Profiles: base
 Verified by: AC-027, AC-028, AC-029, AC-046, AC-063, AC-064, AC-065, AC-066, AC-067, AC-231
 
+For repository-level implementation and schema ownership, the logical concerns in REQ-01-004 may be refined into narrower internal owner labels when the refinement improves cohesion without creating a separate deployable. Current refinements include `assessments` for compromise-assessment source-state behavior, `savedviews` for saved-view persistence and route behavior, `incidentbundles` for Incident Portability Extension Profile export/import state, `jobapi` for public job routes, `platform_jobs` for the shared background-job storage and lifecycle substrate, and `auth` for current-account preferences. These labels refine the boundaries above; they do not authorize cross-module storage writes outside the owning concern and they do not make any extension-profile schema part of the base profile unless this Core explicitly says so.
+
 **REQ-01-006**
 File-based structured import beyond clipboard paste MUST be implemented as a dedicated internal `imports` module within the modular monolith.
 Profiles: base, import

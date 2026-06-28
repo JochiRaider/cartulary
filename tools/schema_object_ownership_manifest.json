@@ -1,0 +1,249 @@
+{
+  "schema_id": "cartulary.schema_object_ownership_manifest.v1",
+  "migration_root": "db/migrations",
+  "synthetic_objects": [
+    {
+      "kind": "bookkeeping",
+      "name": "goose_db_version",
+      "source": "goose runtime",
+      "owner": "harness_support",
+      "profiles": ["harness"],
+      "downstream_surfaces": ["migration runner", "restore preflight", "test fixture identity"],
+      "notes": "Created and maintained by goose, not authored migration SQL."
+    }
+  ],
+  "allowed_owners": [
+    "assessments",
+    "auth",
+    "collaboration",
+    "deployment_admin",
+    "entities",
+    "evidence",
+    "harness_support",
+    "imports",
+    "incidentbundles",
+    "incidents",
+    "indicators",
+    "jobapi",
+    "links",
+    "platform_jobs",
+    "projections",
+    "recovery",
+    "reference_data",
+    "reporting",
+    "revisions",
+    "savedviews",
+    "timeline",
+    "viewschemas",
+    "workbook"
+  ],
+  "allowed_profiles": [
+    "base",
+    "enterprise_authentication",
+    "harness",
+    "import",
+    "incident_portability",
+    "reference_pack",
+    "snapshot_reporting"
+  ],
+  "entries": [
+    {
+      "id": "goose-bookkeeping",
+      "owner": "harness_support",
+      "profiles": ["harness"],
+      "object_patterns": [
+        { "kind": "bookkeeping", "name_pattern": "^goose_db_version$" }
+      ],
+      "downstream_surfaces": ["migration runner", "restore preflight", "test fixture identity"],
+      "notes": "Runtime migration bookkeeping is external to authored migration SQL."
+    },
+    {
+      "id": "deployment-admin-and-recovery",
+      "owner": "deployment_admin",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(pgcrypto|citext|deployment_bootstrap_state|deployment_admin_audit_events|backup_sets|restore_verification_runs)$" },
+        { "kind": "any", "name_pattern": "^(idx_deployment_|idx_backup_|idx_restore_|backup_|restore_|deployment_bootstrap_state_|deployment_admin_audit_events_).*$" }
+      ],
+      "downstream_surfaces": ["bootstrap", "deployment audit", "backup", "restore verification"],
+      "notes": "Deployment-local administrative and recovery schema."
+    },
+    {
+      "id": "auth-and-current-account",
+      "owner": "auth",
+      "profiles": ["base", "enterprise_authentication"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(users|user_sessions|bootstrap_tokens|pending_totp_enrollments|route_idempotency|account_preferences)$" },
+        { "kind": "any", "name_pattern": "^(enterprise_auth_providers|enterprise_auth_transactions|enterprise_auth_bindings)$" },
+        { "kind": "any", "name_pattern": "^(idx_users|idx_user_sessions|idx_bootstrap_tokens|idx_pending_totp|idx_route_idempotency|idx_account_preferences|idx_enterprise_auth).*$" },
+        { "kind": "any", "name_pattern": "^(users_|user_sessions_|bootstrap_tokens_|pending_totp_enrollments_|route_idempotency_|account_preferences_|enterprise_auth_).*$" }
+      ],
+      "downstream_surfaces": ["auth routes", "sessions", "current account", "enterprise authentication"],
+      "notes": "Includes current-account preferences because they are deployment-local user account state."
+    },
+    {
+      "id": "incident-core",
+      "owner": "incidents",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(incidents|incident_memberships|incident_workbook_preferences|user_workbook_preferences)$" },
+        { "kind": "any", "name_pattern": "^(idx_incidents|idx_incident_memberships|idx_incident_workbook|idx_user_workbook|incidents_|incident_memberships_|incident_workbook_preferences_|user_workbook_preferences_).*$" }
+      ],
+      "downstream_surfaces": ["incident routes", "membership authorization", "workbook startup preferences"],
+      "notes": "Incident metadata, memberships, and incident-scoped workbook preference anchors."
+    },
+    {
+      "id": "timeline-source",
+      "owner": "timeline",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(timeline_events|timeline_time_conversion_profiles)$" },
+        { "kind": "any", "name_pattern": "^(idx_timeline_events|idx_timeline_time_conversion_profiles|timeline_events_|timeline_time_conversion_profiles_).*$" }
+      ],
+      "downstream_surfaces": ["timeline routes", "timeline workbook surface", "timeline projections"],
+      "notes": "Source-state timeline rows and time-conversion profile schema."
+    },
+    {
+      "id": "record-revisions",
+      "owner": "revisions",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(records|change_sets|change_set_mutations|record_revisions|record_history_entry_refs)$" },
+        { "kind": "any", "name_pattern": "^(idx_records|idx_change_sets|idx_change_set_mutations|idx_record_revisions|idx_record_history|records_|change_sets_|change_set_mutations_|record_revisions_|record_history_entry_refs_).*$" }
+      ],
+      "downstream_surfaces": ["record history", "rollback", "workbook mutation audit"],
+      "notes": "Record envelope, revision, and history reference substrate."
+    },
+    {
+      "id": "links-and-coordination",
+      "owner": "links",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(record_links|record_tags|handoff_risk_refs|parties|task_requests|decisions|artifacts)$" },
+        { "kind": "any", "name_pattern": "^(artifact_findings|artifact_investigative_queries|artifact_forensic_keywords|cartulary_confidence_band)$" },
+        { "kind": "any", "name_pattern": "^(idx_record_links|idx_record_tags|idx_handoff|idx_parties|idx_task_requests|idx_decisions|idx_artifacts|idx_artifact_findings|idx_artifact_investigative_queries|idx_artifact_forensic_keywords).*$" },
+        { "kind": "any", "name_pattern": "^(record_links_|record_tags_|handoff_risk_refs_|parties_|task_requests_|decisions_|artifacts_|artifact_findings_|artifact_investigative_queries_|artifact_forensic_keywords_).*$" }
+      ],
+      "downstream_surfaces": ["relationship inspector", "coordination surfaces", "optional artifact surfaces"],
+      "notes": "Relationship vocabulary, tags, parties, tasks, decisions, artifacts, and optional artifact-analysis surfaces."
+    },
+    {
+      "id": "entity-source",
+      "owner": "entities",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(entity_mentions|hosts|identities|entity_preserved_identifiers|entity_aliases)$" },
+        { "kind": "any", "name_pattern": "^(idx_entity_mentions|idx_hosts|idx_identities|idx_entity_preserved_identifiers|idx_entity_aliases|entity_mentions_|hosts_|identities_|entity_preserved_identifiers_|entity_aliases_).*$" }
+      ],
+      "downstream_surfaces": ["entity stores", "host and identity workbook surfaces", "timeline resolution"],
+      "notes": "Host, identity, mention, preserved identifier, and alias source state."
+    },
+    {
+      "id": "indicator-source",
+      "owner": "indicators",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(indicators|indicator_state_intervals|indicator_observations)$" },
+        { "kind": "any", "name_pattern": "^(idx_indicators|idx_indicator_state_intervals|idx_indicator_observations|indicators_|indicator_state_intervals_|indicator_observations_).*$" }
+      ],
+      "downstream_surfaces": ["indicator stores", "indicator workbook surface", "observation resolution"],
+      "notes": "Indicator and observation source state."
+    },
+    {
+      "id": "assessment-source",
+      "owner": "assessments",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(compromise_assessments|assessments)$" },
+        { "kind": "any", "name_pattern": "^(idx_compromise_assessments|idx_assessments|compromise_assessments_|assessments_).*$" }
+      ],
+      "downstream_surfaces": ["assessment routes", "assessment workbook surface", "assessment projection"],
+      "notes": "Assessment source-state ownership; projection read models remain under projections."
+    },
+    {
+      "id": "evidence-source-and-handles",
+      "owner": "evidence",
+      "profiles": ["base", "incident_portability"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(evidence|object_blobs|evidence_access_handles|evidence_custody_events)$" },
+        { "kind": "any", "name_pattern": "^(idx_evidence|idx_object_blobs|idx_evidence_access_handles|idx_evidence_custody_events|evidence_|object_blobs_|evidence_access_handles_|evidence_custody_events_).*$" }
+      ],
+      "downstream_surfaces": ["evidence routes", "object storage", "evidence handles", "incident bundle custody"],
+      "notes": "Evidence metadata, blob references, access handles, and custody events."
+    },
+    {
+      "id": "workbook-projections",
+      "owner": "projections",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(timeline_grid_projection|host_grid_projection|identity_grid_projection|indicator_grid_projection|assessment_grid_projection|task_request_grid_projection|decision_grid_projection|artifact_grid_projection)$" },
+        { "kind": "any", "name_pattern": "^(idx_.*_grid_projection|.*_grid_projection_).*$" }
+      ],
+      "downstream_surfaces": ["workbook query stores", "view schemas", "projection rebuilds"],
+      "notes": "Read-model tables and views used by workbook surfaces."
+    },
+    {
+      "id": "savedviews",
+      "owner": "savedviews",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(saved_views|idx_saved_views|saved_views_).*$" }
+      ],
+      "downstream_surfaces": ["saved-view routes", "workbook startup", "query layout persistence"],
+      "notes": "Saved view persistence and reusable identifier layout schema."
+    },
+    {
+      "id": "imports",
+      "owner": "imports",
+      "profiles": ["import"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(import_sessions|import_units|idx_import_sessions|idx_import_units|import_sessions_|import_units_).*$" }
+      ],
+      "downstream_surfaces": ["file import routes", "import jobs", "mapping provenance"],
+      "notes": "Structured import session and unit persistence."
+    },
+    {
+      "id": "platform-jobs",
+      "owner": "platform_jobs",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(jobs|idx_jobs|jobs_).*$" }
+      ],
+      "downstream_surfaces": ["jobapi routes", "background worker shell", "extension job payloads"],
+      "notes": "Shared background-job storage substrate; public route ownership is jobapi."
+    },
+    {
+      "id": "reporting",
+      "owner": "reporting",
+      "profiles": ["snapshot_reporting"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(reporting_snapshots|reporting_releases|reporting_release_approvals|reporting_job_payloads)$" },
+        { "kind": "any", "name_pattern": "^(idx_reporting_|reporting_snapshots_|reporting_releases_|reporting_release_approvals_|reporting_job_payloads_).*$" }
+      ],
+      "downstream_surfaces": ["snapshot reporting routes", "reporting jobs", "release approvals"],
+      "notes": "Snapshot-reporting extension schema."
+    },
+    {
+      "id": "reference-data",
+      "owner": "reference_data",
+      "profiles": ["reference_pack"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(reference_packs|reference_pack_activation_state|reference_pack_attestations|reference_pack_job_payloads)$" },
+        { "kind": "any", "name_pattern": "^(idx_reference_|reference_packs_|reference_pack_activation_state_|reference_pack_attestations_|reference_pack_job_payloads_).*$" }
+      ],
+      "downstream_surfaces": ["reference pack routes", "reference pack jobs", "workbook optional packs"],
+      "notes": "Reference-pack extension schema."
+    },
+    {
+      "id": "incident-bundles",
+      "owner": "incidentbundles",
+      "profiles": ["incident_portability"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(incident_bundle_exports|incident_bundle_manifest_files|incident_bundle_job_payloads|incident_bundle_imported_actors|incident_bundle_imported_attributions)$" },
+        { "kind": "any", "name_pattern": "^(idx_incident_bundle_|incident_bundle_).*$" }
+      ],
+      "downstream_surfaces": ["incident bundle export", "incident bundle import", "portability jobs"],
+      "notes": "Incident Portability Extension Profile schema."
+    }
+  ]
+}

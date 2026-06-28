@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:e5010772e1b7b9f34ad5a90bb2e4d88fc3b7bcc02cbabb10abde3c16fa1cba9a",
+  "input_digest": "sha256:7f5801973a4dc721e000c2bde556ac298635a065104e28e90b0d4ee2832e9180",
   "inputs": [
     {
       "path": "scripts/lib/agent-finalize-action-cache.mjs",
@@ -263,6 +263,11 @@
       "path": "scripts/lib/scheduler/summary-timing-drift.mjs",
       "role": "renderer_source",
       "hash": "sha256:04457fe7f4e46ff2fa67cea2ac3001aa81d37e8cf7fd945175ded55573368eed"
+    },
+    {
+      "path": "scripts/lib/schema-object-ownership.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:a2eb52e766be4382ed760ca54f613a098aa620fa6507f382c50177f3acc9b6df"
     },
     {
       "path": "scripts/lib/service-backed-schedule-manifest.mjs",

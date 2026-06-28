@@ -46,6 +46,10 @@ import {
 } from "./lib/phase-registry.mjs";
 import { validateSchedulerManifestShape } from "./lib/scheduler-manifest.mjs";
 import {
+  validateSchemaObjectOwnership,
+  validateSchemaObjectOwnershipManifestShape,
+} from "./lib/schema-object-ownership.mjs";
+import {
   loadSchedulerResourceRegistry,
   validateSchedulerResourceRegistryShape as validateSchedulerResourceRegistryManifestShape,
 } from "./lib/scheduler-resources.mjs";
@@ -1236,6 +1240,9 @@ function validateKind(kind, file) {
     case "test-accounting-classification":
       validateTestAccountingClassificationShape(file);
       return;
+    case "schema-object-ownership":
+      validateSchemaObjectOwnershipManifestShape(file);
+      return;
     default:
       throw new Error(`unknown json shape kind ${kind}`);
   }
@@ -1301,6 +1308,7 @@ function validateAll(root) {
   validateTestAccountingClassificationShape(
     repoFile(root, "tools/test_accounting_classification.json"),
   );
+  validateSchemaObjectOwnership(root);
 }
 
 function main() {
