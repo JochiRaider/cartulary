@@ -41,7 +41,7 @@ type Store struct {
 	authStore       *authn.Store
 	recordStore     *records.Store
 	revisionStore   *revisions.Store
-	timelineStore   *timeline.Store
+	timelineStore   *timeline.Facade
 	entityStore     *entities.Store
 	projectionStore *projections.Store
 }
@@ -52,7 +52,7 @@ func NewStore(pool postgres.DB) *Store {
 		authStore:       authn.NewStore(pool),
 		recordStore:     records.NewStore(),
 		revisionStore:   revisions.NewStore(),
-		timelineStore:   timeline.NewStore(pool),
+		timelineStore:   timeline.NewFacade(pool),
 		entityStore:     entities.NewStore(pool),
 		projectionStore: projections.NewStore(pool),
 	}
@@ -61,7 +61,7 @@ func NewStore(pool postgres.DB) *Store {
 func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta) ([]map[string]any, error) {
 	switch viewSchemaID {
 	case timeline.TimelineViewSchemaID:
-		return s.timelineStore.QueryRows(ctx, incidentID, query)
+		return s.timelineStore.QueryTimelineRows(ctx, incidentID, query)
 	case entities.HostsViewSchemaID:
 		return s.entityStore.QueryHostRows(ctx, incidentID, query)
 	case entities.IdentitiesViewSchemaID:

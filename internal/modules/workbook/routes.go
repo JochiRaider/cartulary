@@ -852,7 +852,7 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.timelineStore.ResolveConflict(r.Context(), principal.User, recordID, claims, request, timeline.TimelineConflictResolveRequestHash(claims, request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.store.timelineStore.ResolveTimelineConflict(r.Context(), principal.User, recordID, claims, request, timeline.TimelineConflictResolveRequestHash(claims, request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	var (
 		entityConflict        *entities.ExactMatchConflictError
 		mentionTransitionErr  *entities.MentionTransitionError
@@ -940,7 +940,7 @@ func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, p
 	requestHash := timeline.TimelineCreateRequestHash(request)
 	timing.mark("hash")
 	storeCtx := timeline.WithCreateTimingRecorder(r.Context(), timing)
-	result, err := s.store.timelineStore.CreateRow(storeCtx, principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.store.timelineStore.CreateTimelineRow(storeCtx, principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
 	timing.mark("store_create")
 	var mutationErr *MutationValidationError
 	switch {
@@ -995,7 +995,7 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.timelineStore.PatchRow(r.Context(), principal.User, recordID, request, timeline.TimelinePatchRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.store.timelineStore.PatchTimelineRow(r.Context(), principal.User, recordID, request, timeline.TimelinePatchRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	var (
 		entityConflict        *entities.ExactMatchConflictError
 		mentionTransitionErr  *entities.MentionTransitionError

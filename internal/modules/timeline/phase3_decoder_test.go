@@ -3,6 +3,7 @@ package timeline
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -403,5 +404,102 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 		requireErrorDetail(t, apiErr.Details, "field_key", "timeline.host_refs")
 		requireErrorDetail(t, apiErr.Details, "requested_count", maxCollectionActions+1)
 		requireErrorDetail(t, apiErr.Details, "max_count", maxCollectionActions)
+	})
+}
+
+func TestPhase3_TimelineVisibleTextContract_U_3_12(t *testing.T) {
+	t.Run("create preserves nullable empty and source-like text", func(t *testing.T) {
+		sourceLike := `=HYPERLINK("https://example.test","click") <script>alert(1)</script> **bold** [link](https://example.test)`
+		exactWhitespace := " \tTabbed\nLine\rCarriage "
+		maxLength := strings.Repeat("a", 32768)
+		payload, err := json.Marshal(map[string]any{
+			"client_txn_id":                   "txn-u-3-12-create-visible-text",
+			"timeline.activity_synopsis_text": "",
+			"timeline.raw_activity_text":      exactWhitespace,
+			"timeline.data_source_text":       sourceLike,
+			"timeline.analyst_text":           nil,
+			"timeline.device_object_text":     maxLength,
+		})
+		if err != nil {
+			t.Fatalf("marshal visible-text create payload: %v", err)
+		}
+
+		request, apiErr := DecodeTimelineCreateRequest(bytes.NewReader(payload))
+		if apiErr != nil {
+			t.Fatalf("expected visible-text create payload to decode, got %#v", apiErr)
+		}
+		if request.ActivitySynopsisText == nil || *request.ActivitySynopsisText != "" {
+			t.Fatalf("expected empty string to remain distinct from null, got %#v", request.ActivitySynopsisText)
+		}
+		if request.RawActivityText == nil || *request.RawActivityText != exactWhitespace {
+			t.Fatalf("expected exact whitespace preservation, got %#v", request.RawActivityText)
+		}
+		if request.DataSourceText == nil || *request.DataSourceText != sourceLike {
+			t.Fatalf("expected source-like text preservation, got %#v", request.DataSourceText)
+		}
+		if request.AnalystText != nil {
+			t.Fatalf("expected explicit null to remain nil, got %#v", request.AnalystText)
+		}
+		if request.DeviceObjectText == nil || *request.DeviceObjectText != maxLength {
+			t.Fatalf("expected max-length visible text to decode, got %#v", request.DeviceObjectText)
+		}
+	})
+
+	t.Run("patch preserves source-like text", func(t *testing.T) {
+		sourceLike := `=HYPERLINK("https://example.test","click") <b>host</b> _markdown_`
+		payload, err := json.Marshal(map[string]any{
+			"view_schema_id":   TimelineViewSchemaID,
+			"base_row_version": 1,
+			"client_txn_id":    "txn-u-3-12-patch-visible-text",
+			"changes": []map[string]any{
+				{"field_key": "timeline.raw_activity_text", "value": sourceLike},
+			},
+		})
+		if err != nil {
+			t.Fatalf("marshal visible-text patch payload: %v", err)
+		}
+
+		request, apiErr := DecodeTimelinePatchRequest(bytes.NewReader(payload))
+		if apiErr != nil {
+			t.Fatalf("expected visible-text patch payload to decode, got %#v", apiErr)
+		}
+		if len(request.CanonicalChange) != 1 || request.CanonicalChange[0].TextValue == nil || *request.CanonicalChange[0].TextValue != sourceLike {
+			t.Fatalf("expected source-like patch text preservation, got %#v", request.CanonicalChange)
+		}
+	})
+
+	t.Run("invalid controls and oversized values fail closed", func(t *testing.T) {
+		cases := []struct {
+			name  string
+			value string
+		}{
+			{name: "nul", value: "bad\x00value"},
+			{name: "control", value: "bad\x01value"},
+			{name: "c1 control", value: "bad\u0085value"},
+			{name: "too long", value: strings.Repeat("a", 32769)},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				payload, err := json.Marshal(map[string]any{
+					"client_txn_id":                   "txn-u-3-12-invalid-" + tc.name,
+					"timeline.activity_synopsis_text": tc.value,
+				})
+				if err != nil {
+					t.Fatalf("marshal invalid visible-text payload: %v", err)
+				}
+
+				_, apiErr := DecodeTimelineCreateRequest(bytes.NewReader(payload))
+				if apiErr == nil {
+					t.Fatal("expected invalid visible text to fail closed")
+				}
+				requireClosedVocabularyRejected(
+					t,
+					apiErr.Code,
+					apiErr.Details,
+					"timeline.activity_synopsis_text",
+					"invalid_value",
+				)
+			})
+		}
 	})
 }

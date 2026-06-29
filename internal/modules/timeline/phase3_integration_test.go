@@ -1730,6 +1730,151 @@ func TestPhase3_CanonicalIncidentWebSocket_I_3_05(t *testing.T) {
 	})
 }
 
+func TestPhase3_TimelineTimeConversionProfile_I_3_08(t *testing.T) {
+	runtime := phase3test.StartRuntime(t)
+	server, db := startPhase3Server(t, runtime, "phase3-i-3-08-time-conversion")
+	defer db.Close()
+
+	adminLogin, adminID := provisionBootstrapAdmin(t, server)
+	incident := createIncident(t, server, adminLogin, map[string]any{
+		"client_txn_id": "txn-i-3-08-incident",
+		"incident_key":  "IR-I308",
+		"title":         "Timeline time conversion",
+	})
+	incidentID := incident["incident_id"].(string)
+	profileURL := server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/timeline-time-conversion-profile"
+
+	defaultResp := doPhase3JSON(
+		t,
+		http.MethodGet,
+		profileURL,
+		nil,
+		withCookies(adminLogin.sessionCookie),
+	)
+	defaultProfile := httptestx.RequireSuccessEnvelope(t, defaultResp, http.StatusOK)["data"].(map[string]any)
+	if defaultProfile["incident_id"] != incidentID ||
+		defaultProfile["enabled"] != false ||
+		defaultProfile["local_offset_minutes"] != nil ||
+		defaultProfile["local_label"] != nil ||
+		defaultProfile["profile_version"] != float64(1) ||
+		defaultProfile["updated_at"] == "" ||
+		defaultProfile["updated_by_user_id"] != nil {
+		t.Fatalf("unexpected default time conversion profile: %#v", defaultProfile)
+	}
+
+	editorID := seedLocalUserFlags(t, db, "phase3-i-3-08-editor@example.test", "Phase 3 Time Editor", "Phase3TimeEditor1!", false, false, true)
+	createMembership(t, server, incidentID, editorID, "phase3-i-3-08-editor@example.test", "editor", adminLogin)
+	editorSession, editorCSRF := loginLocalUser(t, server, "phase3-i-3-08-editor@example.test", "Phase3TimeEditor1!")
+	editorPut := doPhase3JSON(
+		t,
+		http.MethodPut,
+		profileURL,
+		map[string]any{
+			"base_profile_version": 1,
+			"enabled":              true,
+			"local_offset_minutes": -300,
+			"local_label":          "UTC-05",
+		},
+		withCookies(editorSession, editorCSRF),
+		withHeader(authn.CSRFHeaderName, editorCSRF.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, editorPut, http.StatusForbidden, "authorization_denied")
+
+	disabledPut := doPhase3JSON(
+		t,
+		http.MethodPut,
+		profileURL,
+		map[string]any{
+			"base_profile_version": 1,
+			"enabled":              false,
+			"local_offset_minutes": nil,
+			"local_label":          nil,
+		},
+		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+	)
+	disabledProfile := httptestx.RequireSuccessEnvelope(t, disabledPut, http.StatusOK)["data"].(map[string]any)
+	if disabledProfile["enabled"] != false ||
+		disabledProfile["local_offset_minutes"] != nil ||
+		disabledProfile["local_label"] != nil ||
+		disabledProfile["profile_version"] != float64(2) ||
+		disabledProfile["updated_by_user_id"] != adminID {
+		t.Fatalf("unexpected disabled time conversion profile: %#v", disabledProfile)
+	}
+
+	enabledPut := doPhase3JSON(
+		t,
+		http.MethodPut,
+		profileURL,
+		map[string]any{
+			"base_profile_version": 2,
+			"enabled":              true,
+			"local_offset_minutes": -300,
+			"local_label":          "UTC-05",
+		},
+		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+	)
+	enabledProfile := httptestx.RequireSuccessEnvelope(t, enabledPut, http.StatusOK)["data"].(map[string]any)
+	if enabledProfile["enabled"] != true ||
+		enabledProfile["local_offset_minutes"] != float64(-300) ||
+		enabledProfile["local_label"] != "UTC-05" ||
+		enabledProfile["profile_version"] != float64(3) {
+		t.Fatalf("unexpected enabled time conversion profile: %#v", enabledProfile)
+	}
+
+	stalePut := doPhase3JSON(
+		t,
+		http.MethodPut,
+		profileURL,
+		map[string]any{
+			"base_profile_version": 2,
+			"enabled":              true,
+			"local_offset_minutes": 60,
+			"local_label":          "UTC+01",
+		},
+		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+	)
+	staleBody := httptestx.RequireErrorEnvelope(t, stalePut, http.StatusConflict, "row_version_conflict")
+	httptestx.RequireErrorDetail(t, staleBody, "base_row_version", float64(2))
+	httptestx.RequireErrorDetail(t, staleBody, "current_row_version", float64(3))
+
+	generatedFromLocal := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
+		"client_txn_id":                "txn-i-3-08-local-create",
+		"timeline.activity_local_text": "2026-06-28T12:34:56-05:00",
+	})
+	generatedCells := generatedFromLocal["row"].(map[string]any)["cells"].(map[string]any)
+	if generatedCells["timeline.activity_local_text"].(map[string]any)["value"] != "2026-06-28T12:34:56-05:00" ||
+		generatedCells["timeline.activity_utc_text"].(map[string]any)["value"] != "2026-06-28T17:34:56Z" ||
+		generatedCells["timeline.activity_time_pair_state"].(map[string]any)["value"] != "paired_generated" {
+		t.Fatalf("expected local-only create to generate UTC with fixed offset, got %#v", generatedCells)
+	}
+
+	preservedMismatch := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
+		"client_txn_id":                "txn-i-3-08-preserve-paired-create",
+		"timeline.activity_local_text": "2026-06-28T12:34:56-05:00",
+		"timeline.activity_utc_text":   "2026-06-28T18:34:56Z",
+	})
+	preservedCells := preservedMismatch["row"].(map[string]any)["cells"].(map[string]any)
+	if preservedCells["timeline.activity_local_text"].(map[string]any)["value"] != "2026-06-28T12:34:56-05:00" ||
+		preservedCells["timeline.activity_utc_text"].(map[string]any)["value"] != "2026-06-28T18:34:56Z" ||
+		preservedCells["timeline.activity_time_pair_state"].(map[string]any)["value"] != "paired_mismatch" {
+		t.Fatalf("expected paired user values to be preserved as mismatch, got %#v", preservedCells)
+	}
+
+	conversionUnavailable := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
+		"client_txn_id":                "txn-i-3-08-unparseable-local-create",
+		"timeline.activity_local_text": "not-a-local-time",
+	})
+	unavailableCells := conversionUnavailable["row"].(map[string]any)["cells"].(map[string]any)
+	if unavailableCells["timeline.activity_local_text"].(map[string]any)["value"] != "not-a-local-time" ||
+		unavailableCells["timeline.activity_utc_text"].(map[string]any)["value"] != nil ||
+		unavailableCells["timeline.activity_time_pair_state"].(map[string]any)["value"] != "conversion_unavailable" {
+		t.Fatalf("expected unparseable local time to be preserved without generated UTC, got %#v", unavailableCells)
+	}
+}
+
 func timelinePresence() platformws.PresenceInput {
 	return platformws.PresenceInput{
 		SheetRef: map[string]string{

@@ -20,7 +20,7 @@ import (
 )
 
 type Service struct {
-	store         *Store
+	facade        *Facade
 	entityStore   *entities.Store
 	incidentStore *incidents.Store
 	authStore     *authn.Store
@@ -72,7 +72,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &Service{
-		store:         NewStore(deps.PostgresHandle()),
+		facade:        NewFacade(deps.PostgresHandle()),
 		entityStore:   entities.NewStore(deps.PostgresHandle()),
 		incidentStore: incidents.NewStore(deps.PostgresHandle()),
 		authStore:     authn.NewStore(deps.PostgresHandle()),
@@ -102,7 +102,7 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.store.MarkReviewed(r.Context(), principal.User, recordID, request, TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, request.Reason, nil), httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.facade.MarkReviewed(r.Context(), principal.User, recordID, request, TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, request.Reason, nil), httpapi.RequestIDFromContext(r.Context()), s.now())
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
@@ -145,7 +145,7 @@ func (s *Service) handleGetTimeConversionProfile(w http.ResponseWriter, r *http.
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	profile, err := s.store.GetTimeConversionProfile(r.Context(), incidentID, s.now())
+	profile, err := s.facade.GetTimeConversionProfile(r.Context(), incidentID, s.now())
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -176,7 +176,7 @@ func (s *Service) handlePutTimeConversionProfile(w http.ResponseWriter, r *http.
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	profile, err := s.store.PutTimeConversionProfile(r.Context(), principal.User, incidentID, request, s.now())
+	profile, err := s.facade.PutTimeConversionProfile(r.Context(), principal.User, incidentID, request, s.now())
 	switch {
 	case errors.Is(err, ErrRowVersionConflict):
 		var conflict *RowVersionConflictError
@@ -228,7 +228,7 @@ func (s *Service) handleRecordSubstrateSnapshot(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	snapshot, err := s.store.SnapshotRecordSubstrate(r.Context(), recordID)
+	snapshot, err := s.facade.SnapshotRecordSubstrate(r.Context(), recordID)
 	switch {
 	case errors.Is(err, ErrRecordNotFound):
 		writeAPIError(w, r, incidentNotFoundError())
@@ -355,7 +355,7 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 }
 
 func (s *Service) requireTimelineRole(ctx context.Context, recordID uuid.UUID, userID uuid.UUID, roles ...string) (uuid.UUID, *auth.APIError) {
-	incidentID, err := s.store.GetRecordIncident(ctx, recordID)
+	incidentID, err := s.facade.RecordIncident(ctx, recordID)
 	if errors.Is(err, ErrRecordNotFound) {
 		return uuid.UUID{}, incidentNotFoundError()
 	}

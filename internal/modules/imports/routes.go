@@ -31,7 +31,7 @@ type Service struct {
 	incidentStore *incidents.Store
 	authStore     *authn.Store
 	jobManager    *jobs.Manager
-	timelineStore *timeline.Store
+	timelineStore *timeline.Facade
 	workbookStore *workbook.Store
 	hub           *platformws.Hub
 	keys          authn.MasterKeys
@@ -75,7 +75,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		incidentStore: incidents.NewStore(deps.PostgresHandle()),
 		authStore:     authn.NewStore(deps.PostgresHandle()),
 		jobManager:    deps.Jobs,
-		timelineStore: timeline.NewStore(deps.PostgresHandle()),
+		timelineStore: timeline.NewFacade(deps.PostgresHandle()),
 		workbookStore: workbook.NewStore(deps.PostgresHandle()),
 		hub:           deps.WSHub,
 		keys:          keys,
@@ -577,7 +577,7 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 			if apiErr != nil {
 				return fmt.Errorf("decode imported timeline row: %s", apiErr.Code)
 			}
-			if _, err := s.timelineStore.CreateImportedRow(ctx, actor, start.IncidentID, request, timeline.TimelineCreateRequestHash(request), "req-import-"+start.ClientTxnID, s.now()); err != nil {
+			if _, err := s.timelineStore.CreateImportedTimelineRow(ctx, actor, start.IncidentID, request, timeline.TimelineCreateRequestHash(request), "req-import-"+start.ClientTxnID, s.now()); err != nil {
 				return err
 			}
 		default:
