@@ -102,7 +102,13 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.facade.MarkReviewed(r.Context(), principal.User, recordID, request, TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, request.Reason, nil), httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.facade.MarkReviewedRow(r.Context(), MarkReviewedCommand{
+		Actor:     principal.User,
+		RecordID:  recordID,
+		Request:   request,
+		RequestID: httpapi.RequestIDFromContext(r.Context()),
+		Now:       s.now(),
+	})
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))

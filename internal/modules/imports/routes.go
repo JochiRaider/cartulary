@@ -586,7 +586,13 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 				return fmt.Errorf("decode imported timeline row: %s", apiErr.Code)
 			}
 			request.RawCaptureColumns = importRawCaptureColumns(start, unit, sourceRow, rowRef)
-			if _, err := s.timelineStore.CreateImportedTimelineRow(ctx, actor, start.IncidentID, request, timeline.TimelineCreateRequestHash(request), "req-import-"+start.ClientTxnID, s.now()); err != nil {
+			if _, err := s.timelineStore.CreateImportedRow(ctx, timeline.CreateRowCommand{
+				Actor:      actor,
+				IncidentID: start.IncidentID,
+				Request:    request,
+				RequestID:  "req-import-" + start.ClientTxnID,
+				Now:        s.now(),
+			}); err != nil {
 				return err
 			}
 		default:

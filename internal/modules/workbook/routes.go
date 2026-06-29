@@ -79,15 +79,14 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	timelineRequest := timelineBulkClipboardRequest(request)
-	result, err := s.store.timelineStore.ClipboardPaste(
-		r.Context(),
-		principal.User,
-		incidentID,
-		timelineRequest,
-		BulkMutationRequestHash(request),
-		httpapi.RequestIDFromContext(r.Context()),
-		s.now(),
-	)
+	result, err := s.store.timelineStore.ApplyClipboardPaste(r.Context(), timeline.ClipboardPasteCommand{
+		Actor:       principal.User,
+		IncidentID:  incidentID,
+		Request:     timelineRequest,
+		RequestHash: BulkMutationRequestHash(request),
+		RequestID:   httpapi.RequestIDFromContext(r.Context()),
+		Now:         s.now(),
+	})
 	var (
 		entityConflict        *entities.ExactMatchConflictError
 		mentionTransitionErr  *entities.MentionTransitionError
@@ -188,7 +187,13 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, invalidMutationPayload("clipboard_text", "invalid_value"))
 		return
 	}
-	result, err := s.store.timelineStore.ClipboardPaste(r.Context(), principal.User, incidentID, request, timeline.TimelineClipboardPasteRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.store.timelineStore.ApplyClipboardPaste(r.Context(), timeline.ClipboardPasteCommand{
+		Actor:      principal.User,
+		IncidentID: incidentID,
+		Request:    request,
+		RequestID:  httpapi.RequestIDFromContext(r.Context()),
+		Now:        s.now(),
+	})
 	var (
 		entityConflict        *entities.ExactMatchConflictError
 		mentionTransitionErr  *entities.MentionTransitionError
@@ -658,11 +663,11 @@ func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	requestHash := timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID)
 	switch target.RecordType {
 	case "timeline_event":
-		s.handleTimelineSupersede(w, r, &principal, recordID, request, requestHash)
+		s.handleTimelineSupersede(w, r, &principal, recordID, request)
 	case "decision":
+		requestHash := timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID)
 		s.handleDecisionSupersede(w, r, &principal, recordID, request, requestHash)
 	default:
 		writeAPIError(w, r, &auth.APIError{
@@ -677,8 +682,14 @@ func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Service) handleTimelineSupersede(w http.ResponseWriter, r *http.Request, principal *auth.SessionPrincipal, recordID uuid.UUID, request timeline.SupersedeRequest, requestHash []byte) {
-	result, err := s.store.timelineStore.Supersede(r.Context(), principal.User, recordID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+func (s *Service) handleTimelineSupersede(w http.ResponseWriter, r *http.Request, principal *auth.SessionPrincipal, recordID uuid.UUID, request timeline.SupersedeRequest) {
+	result, err := s.store.timelineStore.SupersedeRow(r.Context(), timeline.SupersedeCommand{
+		Actor:     principal.User,
+		RecordID:  recordID,
+		Request:   request,
+		RequestID: httpapi.RequestIDFromContext(r.Context()),
+		Now:       s.now(),
+	})
 	var (
 		rowConflict   *timeline.RowVersionConflictError
 		transitionErr *timeline.IllegalTransitionError
@@ -868,7 +879,14 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.timelineStore.ResolveTimelineConflict(r.Context(), principal.User, recordID, claims, request, timeline.TimelineConflictResolveRequestHash(claims, request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.store.timelineStore.ResolveConflict(r.Context(), timeline.ConflictResolveCommand{
+		Actor:     principal.User,
+		RecordID:  recordID,
+		Claims:    claims,
+		Request:   request,
+		RequestID: httpapi.RequestIDFromContext(r.Context()),
+		Now:       s.now(),
+	})
 	var (
 		entityConflict        *entities.ExactMatchConflictError
 		mentionTransitionErr  *entities.MentionTransitionError
@@ -955,10 +973,15 @@ func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 	timing.mark("decode")
-	requestHash := timeline.TimelineCreateRequestHash(request)
 	timing.mark("hash")
 	storeCtx := timeline.WithCreateTimingRecorder(r.Context(), timing)
-	result, err := s.store.timelineStore.CreateTimelineRow(storeCtx, principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.store.timelineStore.CreateRow(storeCtx, timeline.CreateRowCommand{
+		Actor:      principal.User,
+		IncidentID: incidentID,
+		Request:    request,
+		RequestID:  httpapi.RequestIDFromContext(r.Context()),
+		Now:        s.now(),
+	})
 	timing.mark("store_create")
 	var mutationErr *MutationValidationError
 	switch {
@@ -1016,7 +1039,13 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.timelineStore.PatchTimelineRow(r.Context(), principal.User, recordID, request, timeline.TimelinePatchRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.store.timelineStore.PatchRow(r.Context(), timeline.PatchRowCommand{
+		Actor:     principal.User,
+		RecordID:  recordID,
+		Request:   request,
+		RequestID: httpapi.RequestIDFromContext(r.Context()),
+		Now:       s.now(),
+	})
 	var (
 		entityConflict        *entities.ExactMatchConflictError
 		mentionTransitionErr  *entities.MentionTransitionError

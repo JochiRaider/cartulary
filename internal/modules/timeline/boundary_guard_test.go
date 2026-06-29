@@ -84,6 +84,37 @@ func TestTimelineProductionImportBoundaries(t *testing.T) {
 	}
 }
 
+func TestTimelineProductionFacadeCallersUseCommandBoundary(t *testing.T) {
+	disallowed := map[string][]string{
+		"routes.go": {
+			".MarkReviewed(",
+		},
+		filepath.Join("..", "workbook", "routes.go"): {
+			".CreateTimelineRow(",
+			".PatchTimelineRow(",
+			".ResolveTimelineConflict(",
+			".ClipboardPaste(",
+			".Supersede(",
+		},
+		filepath.Join("..", "imports", "routes.go"): {
+			".CreateImportedTimelineRow(",
+		},
+	}
+
+	for path, snippets := range disallowed {
+		body, err := os.ReadFile(filepath.Clean(path))
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		content := string(body)
+		for _, snippet := range snippets {
+			if strings.Contains(content, snippet) {
+				t.Fatalf("%s still uses legacy Timeline facade call %s; use command boundary methods instead", path, snippet)
+			}
+		}
+	}
+}
+
 func productionImports(t testing.TB, fileName string) []string {
 	t.Helper()
 	parsed, err := parser.ParseFile(token.NewFileSet(), filepath.Clean(fileName), nil, parser.ImportsOnly)
